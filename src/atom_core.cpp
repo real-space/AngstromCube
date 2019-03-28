@@ -2,6 +2,7 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cmath> // sqrt, pow, exp, fabs, sqrt
+#include <fstream> // ifstream
 
 #include "atom_core.hxx"
 
@@ -17,14 +18,15 @@
 // #define FULL_DEBUG
 // #define DEBUG
 
-#ifdef  DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif
-
 #ifdef FULL_DEBUG
+    #define DEBUG
     #define full_debug(print) print 
 #else
     #define full_debug(print)
+#endif
+
+#ifdef  DEBUG
+    #include "debug_output.hxx" // dump_to_file
 #endif
 
 #ifdef DEBUG
@@ -122,12 +124,13 @@ namespace atom_core {
   
   
   int scf_atom(radial_grid_t const &g, float const Z, int const echo) {
-      printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
+      debug(printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__));
       
       int constexpr MAXCYCLES = 200; 
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
       
+      int imax = -1;
       assert(Z <= 120);
       orbital_t orb[20]; {
           int iZ = 0, i = 0; // init shell index i
@@ -142,8 +145,11 @@ namespace atom_core {
                   orb[i].E = -.5*(Z/enn)*(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
                             (.783517 + 2.5791E-5*(Z/enn)*(Z/enn)) * // fit for the correct 1s energy
                             exp(-.01*(enn - 1)*Z); // guess energy
-                  if (orb[i].occ > 0 && echo > 4) {
-                      printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
+                  if (orb[i].occ > 0) {
+                      if (echo > 4) {
+                          printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
+                      } // echo
+                      imax = max(i, imax);
                   } // occupied
                   iZ += max_occ; // iZ jumps between atomic numbers of atoms with full shells
                   ++i; // next shell
@@ -152,14 +158,6 @@ namespace atom_core {
       } // orb
       double previous_eigenvalues[20];
 
-      enum next_Task {
-          Task_Solve,
-          Task_ChkRho,
-          Task_GenPot,
-          Task_MixPot,
-          Task_Energy
-      } next_task = Task_Solve;
-      
       auto const r2rho = new double[g.n];
       auto const rho4pi = new double[g.n];
       auto const r2rho4pi = new double[g.n];
@@ -177,23 +175,54 @@ namespace atom_core {
       double eigenvalue_sum = 0;
       double previous_energy = 0;
 
+      enum { Task_Solve, Task_ChkRho, Task_GenPot, Task_MixPot, Task_Energy } next_task = Task_Solve;
+
       int icyc = 0;
       { // start scope
           bool loading_failed = true;
           // ToDo: try to load rV_old from a file
-          
+          char const path[] = "pot/"; // ToDo: should be an external argument
+          char filename[99]; sprintf(filename, "%s/rV.%03d", path, (int)Z);
+          {
+              if (echo > 3) printf("# %s  Z=%g  try to read from file %s\n",  __func__, Z, filename);
+              std::ifstream infile(filename);
+              double r_min = 9e9, r_max = - 9e9;
+              int ir = 1;
+              double r, rV, r_prev=0, rV_prev=-Z;
+              while (infile >> r >> rV) {
+                  if (r >= 0) { 
+                      r_min = min(r, r_min);
+                      r_max = max(r, r_max);
+                      if (r <= g.rmax) {
+                          full_debug(printf("# %s  r=%g rV=%g\n",  __func__, r, rV));
+                          while ((g.r[ir] < r) && (ir < g.n - 2)) {
+                            // interpolate
+                            rV_old[ir] = rV_prev + (rV - rV_prev)*(g.r[ir] - r_prev)/max(r - r_prev, 1e-24);
+                            ++ir;
+                          } // while
+                      } // r <= rmax
+                  } // r >= 0
+                  r_prev = r; rV_prev = rV;
+              } // input
+              loading_failed = (r_max < r_min);
+          }
+          for(int ir = 1; ir < g.n; ++ir) {
+              rV_old[ir] = max(rV_old[ir], rV_old[ir - 1]);
+          } // monotoneous
+          full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old, g.r));
+  
           if (loading_failed) {
               // use guess density if loading failed
               auto const q = initial_density(r2rho4pi, g, Z);
-              if (echo > 1) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
-              next_task = Task_ChkRho; // different entry point into the loop, do not start with the solver
+              if (echo > 2) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
+              next_task = Task_ChkRho; // different entry point into the loop, skip the 1st solver call
           } // loading_failed
       } // start scope
-      
+
       double res = 9e9; // residual
       bool run = true;
       while (run) {
-          run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
+//           run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
 
           switch (next_task) {
               ///////////////////////////////////////////////////////
@@ -204,13 +233,13 @@ namespace atom_core {
                       r2rho4pi[ir] = 0; // init accumulator density
                   } // ir
                   eigenvalue_sum = 0; // init energy accumulator
-                  
-                  for(int i = 0; i < 20; ++i) {
+
+                  for(int i = 0; i <= imax; ++i) {
                       if (orb[i].occ > 0) {
                           int constexpr sra = 1;
                           previous_eigenvalues[i] = orb[i].E; // copy
                           radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho);
-                          if (echo > (run?6:1)) {
+                          if (echo > 6) {
                               printf("# %s  Z=%g  %d%c E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV);
                           } // echo
                           // add orbital density
@@ -272,11 +301,15 @@ namespace atom_core {
                   auto const which = E_est; // monitor the change on some energy contribution which depends on the density only
                   res = fabs(energies[which] - previous_energy); 
                   previous_energy = energies[which]; // store for the next iteration
-                  if (echo > 2) {
-                      printf("# %s  Z=%g  icyc=%d  residual=%.1e  E_tot=%.9f %s\n", 
-                              __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+                  if (echo > 3) {
+                      int const display_every = 1 << max(0, 2*(6 - echo)); // echo=4:every 16th, 5:every 4th, 6:every cycle
+                      if (0 == (icyc & (display_every - 1))) {
+                          printf("# %s  Z=%g  icyc=%d  residual=%.1e  E_tot=%.9f %s\n", 
+                                  __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+                      } // display?
                   } // echo
-                  
+                  run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
+
                   next_task = Task_MixPot;
               } break; // Task_Energy
               ///////////////////////////////////////////////////////
@@ -285,7 +318,7 @@ namespace atom_core {
                 
                   if (run) {
                       for(int ir = 0; ir < g.n; ++ir) {
-                        rV_old[ir] = (1 - mix) * rV_old[ir] + mix * rV_new[ir];
+                          rV_old[ir] = (1 - mix) * rV_old[ir] + mix * rV_new[ir];
                       } // ir
                   } else {
                       mix = 0; // do not mix in the last iteration
@@ -301,12 +334,19 @@ namespace atom_core {
 
       } // while run
       
-      if (echo > 1) {
+      if (echo > 0) {
           if (res > THRESHOLD) {
-              printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n", __func__, Z, MAXCYCLES, res);
+              printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n", 
+                        __func__, Z, icyc, res);
           } else {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n", 
-                        __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+                      __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+              if (echo > 1) {
+                  for(int i = 0; i <= imax; ++i) {
+                      printf("# %s  Z=%g  %d%c  f=%g  E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].occ, orb[i].E*eV, _eV);
+                  } // i
+                  printf("\n");
+              }
           } // converged?
       } // echo
       return (res > THRESHOLD);
@@ -335,15 +375,16 @@ namespace atom_core {
   } // test_initial_density
 
   status_t test_core_solver(radial_grid_t const &g, float const Z) {
-    printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
-    return scf_atom(g, Z, 2);
+    int const echo = 7;
+    printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
+    return scf_atom(g, Z, echo);
   } // test_core_solver
 
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*create_exponential_radial_grid(512));
 //     for(int Z = 1; Z < 120; ++Z)
-    for(int Z = 3; Z < 4; ++Z)
+    for(int Z = 13; Z <= 13; ++Z)
         status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9.)+.5), Z);
     return status;
   } // all_tests

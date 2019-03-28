@@ -9,3 +9,6 @@ aa3
 
 ### input files and output logging files
 *.dat
+
+### start potentials for accelerating atomic scf calculations
+pot
