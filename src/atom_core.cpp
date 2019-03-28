@@ -99,23 +99,25 @@ namespace atom_core {
   } // dot_product
 
     
-  int initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0) {
+  double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0) {
     auto const alpha = 0.3058*pow(Z, 1./3.);
     auto const beta = sqrt(108./C_PI)*max(0, Z - 2)*alpha;
     if (4 + 3.2*charged < 0) return 1; // error
     auto const gamma = sqrt(4 + 3.2*charged);
     auto g2 = gamma*gamma*gamma;
     if (Z < 2) g2 *= 0.5*Z;
+    double q = 0;
     for(auto ir = 0; ir < g.n; ++ir) {
-      auto const r = g.r[ir];
-      auto const x = alpha*r;
-      auto const exa = (x < 50)? exp(-3*x) : 0;
-      auto const xb = gamma*r;
-      auto const exb = (xb < 150)? exp(-xb) : 0;
-      r2rho[ir] = beta*sqrt(x)*exa + g2*exb*r*r;
-//    printf("%g %g\n", r, r2rho[ir]);
+        auto const r = g.r[ir];
+        auto const x = alpha*r;
+        auto const exa = (x < 50)? exp(-3*x) : 0;
+        auto const xb = gamma*r;
+        auto const exb = (xb < 150)? exp(-xb) : 0;
+        r2rho[ir] = beta*sqrt(x)*exa + g2*exb*r*r;
+//      printf("%g %g\n", r, r2rho[ir]);
+        q += r2rho[ir] * g.dr[ir]; // integrate total charge
     } // ir
-    return 0; // success
+    return q; // charge
   } // initial_density
   
   
@@ -159,7 +161,11 @@ namespace atom_core {
           Task_ChkRho,
           Task_MixPot,
           Task_Energy
-      } task = Task_Start;
+      } next_task = Task_Start;
+      
+      auto const r2rho = new double[g.n];
+      auto const rho4pi = new double[g.n];
+      auto const r2rho4pi = new double[g.n];
       
       auto rV_new = new double[g.n];
       auto rV_old = new double[g.n];
@@ -167,11 +173,8 @@ namespace atom_core {
           rV_old[ir] = -Z; // Hydrogen-like potential
           rV_new[ir] = -Z; // Hydrogen-like potential
       } // ir
-      double mix = 0;
-      double const alpha = 0.33;
-      auto const r2rho = new double[g.n];
-      auto const rho4pi = new double[g.n];
-      auto const r2rho4pi = new double[g.n];
+      double mix = 0; // current mixing coefficient for the potential 
+      double const alpha = 0.33; // limit case potential mixing coefficient
       
       double energies[NumEnergyContributions];
       double eigenvalue_sum = 0;
@@ -184,18 +187,31 @@ namespace atom_core {
       while (run) {
           run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
 
-          switch (task) {
+          switch (next_task) {
               ///////////////////////////////////////////////////////
               case Task_Start: { // this task could be moved before the loop
                   if (echo > 9) printf("# Task_Start\n");
-                  task = Task_Load;
+                  
+                  next_task = Task_Load;
+
               } break; // Task_Start
               ///////////////////////////////////////////////////////
               case Task_Load: { // this task could be moved before the loop
                   if (echo > 9) printf("# Task_Load\n");
+
                   bool file_found = false;
-                  task = file_found ? Task_Solve : Task_Guess; // use guess density if loading failed
+                  
+                  next_task = file_found ? Task_Solve : Task_Guess; // use guess density if loading failed
               } break; // Task_Load
+              ///////////////////////////////////////////////////////
+              case Task_Guess: { // this task could be moved before the loop
+                  if (echo > 9) printf("# Task_Guess_Rho\n");
+                  
+                  auto const q = initial_density(r2rho4pi, g, Z);
+                  if (echo > 1) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
+                  
+                  next_task = Task_ChkRho;
+              } break; // Task_Guess
               ///////////////////////////////////////////////////////
               case Task_Solve: {
                   full_debug(printf("# Task_Solve\n"));
@@ -228,29 +244,25 @@ namespace atom_core {
                           // add orbital energy
                           eigenvalue_sum += orb[i].occ * orb[i].E;
                       } // occupied
-                  } // i
+                  } // i, orbitals
 
-                  task = Task_ChkRho;
+                  next_task = Task_ChkRho;
               } break; // Task_Solve
               ///////////////////////////////////////////////////////
               case Task_ChkRho: {
                   full_debug(printf("# Task_Check_Rho\n"));
+                  
                   for(int ir = 0; ir < g.n; ++ir) {
                       rho4pi[ir] = r2rho4pi[ir]*g.rinv[ir]*g.rinv[ir];
                   } // ir
                   double const q = dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
                   double const qq = dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
                   if (fabs(q - Z) > .1 && echo > 0) {
-                      printf("# %s  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, icyc, q, qq);
+                      printf("# %s  Z=%g  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, Z, icyc, q, qq);
                   } // not charge neutral
-                  task = Task_GenPot;
+                  
+                  next_task = Task_GenPot;
               } break; // Task_ChkRho
-              ///////////////////////////////////////////////////////
-              case Task_Guess: { // this task could be moved before the loop
-                  debug(printf("# Task_Guess_Rho\n"));
-                  initial_density(r2rho4pi, g, Z);
-                  task = Task_ChkRho;
-              } break; // Task_Guess
               ///////////////////////////////////////////////////////
               case Task_GenPot: {
                   full_debug(printf("# Task_Generate_Pot\n"));
@@ -259,7 +271,7 @@ namespace atom_core {
                   rad_pot(rV_new, g, rho4pi, Z, energies);
                   debug({ char fn[99]; sprintf(fn, "rV_new-icyc%d.dat", icyc); dump_to_file(fn, g.n, rV_new, g.r); });
 
-                  task = Task_Energy;
+                  next_task = Task_Energy;
               } break; // Task_GenPot
               ///////////////////////////////////////////////////////
               case Task_Energy: {
@@ -280,7 +292,8 @@ namespace atom_core {
                       printf("# %s  Z=%g  icyc=%d  residual=%.1e  E_tot=%.9f %s\n", 
                               __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
                   } // echo
-                  task = Task_MixPot;
+                  
+                  next_task = Task_MixPot;
               } break; // Task_Energy
               ///////////////////////////////////////////////////////
               case Task_MixPot: {
@@ -297,13 +310,22 @@ namespace atom_core {
 
                   mix = alpha * icyc/(icyc + .5*Z + 5.); // set the mixing coefficient for the next iteration
                 
-                  task = Task_Solve;
+                  next_task = Task_Solve;
               } break; // Task_MixPot
               ///////////////////////////////////////////////////////
-          } // task
+          } // next_task
 
       } // while run
-      return (res < THRESHOLD);
+      
+      if (echo > 1) {
+          if (res > THRESHOLD) {
+              printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n", __func__, Z, MAXCYCLES, res);
+          } else {
+              printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n", 
+                        __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+          } // converged?
+      } // echo
+      return (res > THRESHOLD);
   } // scf_atom
   
   
@@ -330,14 +352,15 @@ namespace atom_core {
 
   status_t test_core_solver(radial_grid_t const &g, float const Z) {
     printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
-    return scf_atom(g, Z, 3); // echo value 3
+    return scf_atom(g, Z, 2);
   } // test_core_solver
-  
+
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*create_exponential_radial_grid(512));
-    float const Z = 113;
-    status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9)+.5), Z);
+//     for(int Z = 1; Z < 120; ++Z)
+    for(int Z = 3; Z < 4; ++Z)
+        status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9.)+.5), Z);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
