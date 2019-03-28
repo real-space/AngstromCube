@@ -152,16 +152,13 @@ namespace atom_core {
       } // orb
       double previous_eigenvalues[20];
 
-      enum next_Task { 
-          Task_Start,
-          Task_Load,
-          Task_Guess,
-          Task_GenPot,
+      enum next_Task {
           Task_Solve,
           Task_ChkRho,
+          Task_GenPot,
           Task_MixPot,
           Task_Energy
-      } next_task = Task_Start;
+      } next_task = Task_Solve;
       
       auto const r2rho = new double[g.n];
       auto const rho4pi = new double[g.n];
@@ -180,38 +177,25 @@ namespace atom_core {
       double eigenvalue_sum = 0;
       double previous_energy = 0;
 
-      bool run = true;
       int icyc = 0;
-      double res = 9e9; // residual
+      { // start scope
+          bool loading_failed = true;
+          // ToDo: try to load rV_old from a file
+          
+          if (loading_failed) {
+              // use guess density if loading failed
+              auto const q = initial_density(r2rho4pi, g, Z);
+              if (echo > 1) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
+              next_task = Task_ChkRho; // different entry point into the loop, do not start with the solver
+          } // loading_failed
+      } // start scope
       
+      double res = 9e9; // residual
+      bool run = true;
       while (run) {
           run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
 
           switch (next_task) {
-              ///////////////////////////////////////////////////////
-              case Task_Start: { // this task could be moved before the loop
-                  if (echo > 9) printf("# Task_Start\n");
-                  
-                  next_task = Task_Load;
-
-              } break; // Task_Start
-              ///////////////////////////////////////////////////////
-              case Task_Load: { // this task could be moved before the loop
-                  if (echo > 9) printf("# Task_Load\n");
-
-                  bool file_found = false;
-                  
-                  next_task = file_found ? Task_Solve : Task_Guess; // use guess density if loading failed
-              } break; // Task_Load
-              ///////////////////////////////////////////////////////
-              case Task_Guess: { // this task could be moved before the loop
-                  if (echo > 9) printf("# Task_Guess_Rho\n");
-                  
-                  auto const q = initial_density(r2rho4pi, g, Z);
-                  if (echo > 1) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
-                  
-                  next_task = Task_ChkRho;
-              } break; // Task_Guess
               ///////////////////////////////////////////////////////
               case Task_Solve: {
                   full_debug(printf("# Task_Solve\n"));
