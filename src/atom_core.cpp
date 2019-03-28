@@ -3,6 +3,8 @@
 #include <cassert> // assert
 #include <cmath> // sqrt, pow, exp, fabs, sqrt
 
+#include "atom_core.hxx"
+
 #include "min_and_max.h" // min, max
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // create_exponential_radial_grid
@@ -117,10 +119,10 @@ namespace atom_core {
   } // initial_density
   
   
-  int scf_atom(radial_grid_t const &g, float const Z) {
+  int scf_atom(radial_grid_t const &g, float const Z, int const echo) {
       printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
       
-      int constexpr MAXCYCLES = 99; 
+      int constexpr MAXCYCLES = 200; 
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
       
@@ -138,14 +140,15 @@ namespace atom_core {
                   orb[i].E = -.5*(Z/enn)*(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
                             (.783517 + 2.5791E-5*(Z/enn)*(Z/enn)) * // fit for the correct 1s energy
                             exp(-.01*(enn - 1)*Z); // guess energy
-                  if (orb[i].occ > 0) {
-                      debug(printf("# %s  i=%d %d%c f= %g E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV));
-                  }
-                  iZ += max_occ;
+                  if (orb[i].occ > 0 && echo > 4) {
+                      printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
+                  } // occupied
+                  iZ += max_occ; // iZ jumps between atomic numbers of atoms with full shells
                   ++i; // next shell
               } // ell
           } // m
       } // orb
+      double previous_eigenvalues[20];
 
       enum next_Task { 
           Task_Start,
@@ -172,23 +175,24 @@ namespace atom_core {
       
       double energies[NumEnergyContributions];
       double eigenvalue_sum = 0;
-      
+      double previous_energy = 0;
+
       bool run = true;
       int icyc = 0;
       double res = 9e9; // residual
       
       while (run) {
-          run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc <= MAXCYCLES);
+          run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
 
           switch (task) {
               ///////////////////////////////////////////////////////
               case Task_Start: { // this task could be moved before the loop
-                  full_debug(printf("# Task_Start\n"));
+                  if (echo > 9) printf("# Task_Start\n");
                   task = Task_Load;
               } break; // Task_Start
               ///////////////////////////////////////////////////////
               case Task_Load: { // this task could be moved before the loop
-                  full_debug(printf("# Task_Load\n"));
+                  if (echo > 9) printf("# Task_Load\n");
                   bool file_found = false;
                   task = file_found ? Task_Solve : Task_Guess; // use guess density if loading failed
               } break; // Task_Load
@@ -204,8 +208,11 @@ namespace atom_core {
                   for(int i = 0; i < 20; ++i) {
                       if (orb[i].occ > 0) {
                           int constexpr sra = 1;
-                          radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, 0x0, r2rho);
-                          debug(printf("# %s  %d%c E=%15.6f %s\n",  __func__, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV));
+                          previous_eigenvalues[i] = orb[i].E; // copy
+                          radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho);
+                          if (echo > (run?6:1)) {
+                              printf("# %s  Z=%g  %d%c E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV);
+                          } // echo
                           // add orbital density
                           double const q = dot_product(g.n, r2rho, g.dr);
                           assert(q > 0);
@@ -213,7 +220,11 @@ namespace atom_core {
                           for(int ir = 0; ir < g.n; ++ir) {
                               r2rho4pi[ir] += f*r2rho[ir]; // DAXPY
                           } // ir
-                          full_debug(printf("# %s  %d%c f= %g q= %g\n",  __func__, orb[i].enn, ellchar(orb[i].ell), orb[i].occ, q));
+                          if (echo > 9) {
+                              printf("# %s  %d%c f= %g q= %g dE= %g %s\n",  
+                                     __func__, orb[i].enn, ellchar(orb[i].ell), orb[i].occ, q, 
+                                     (orb[i].E - previous_eigenvalues[i])*eV,_eV);
+                          } // echo
                           // add orbital energy
                           eigenvalue_sum += orb[i].occ * orb[i].E;
                       } // occupied
@@ -229,7 +240,7 @@ namespace atom_core {
                   } // ir
                   double const q = dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
                   double const qq = dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
-                  if (fabs(q - Z) > .1) {
+                  if (fabs(q - Z) > .1 && echo > 0) {
                       printf("# %s  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, icyc, q, qq);
                   } // not charge neutral
                   task = Task_GenPot;
@@ -244,7 +255,7 @@ namespace atom_core {
               case Task_GenPot: {
                   full_debug(printf("# Task_Generate_Pot\n"));
                   
-//                for(int ir = 0; ir < g.n; ++ir) { rV_new[ir] = -Z; } // Hydrogen-like potential
+//                for(int ir = 0; ir < g.n; ++ir) { rV_new[ir] = -Z; } // create a Hydrogen-like potential
                   rad_pot(rV_new, g, rho4pi, Z, energies);
                   debug({ char fn[99]; sprintf(fn, "rV_new-icyc%d.dat", icyc); dump_to_file(fn, g.n, rV_new, g.r); });
 
@@ -253,7 +264,7 @@ namespace atom_core {
               ///////////////////////////////////////////////////////
               case Task_Energy: {
                   full_debug(printf("# Task_Total_Energy\n"));
-                  
+
                   energies[E_eig] = eigenvalue_sum;
                   energies[E_kin] = energies[E_eig] - energies[E_Htr]*2
                                   - energies[E_Cou] - energies[E_vxc];
@@ -262,8 +273,13 @@ namespace atom_core {
                                   + energies[E_exc] - energies[E_vxc];
 
                   ++icyc;
-                  res *= 0.875;
-                  printf("# %s:%d  %s  residual=%g icyc=%d  total energy = %g %s\n", __FILE__, __LINE__, __func__, res, icyc, energies[E_tot]*eV, _eV);
+                  auto const which = E_est; // monitor the change on some energy contribution which depends on the density only
+                  res = fabs(energies[which] - previous_energy); 
+                  previous_energy = energies[which]; // store for the next iteration
+                  if (echo > 2) {
+                      printf("# %s  Z=%g  icyc=%d  residual=%.1e  E_tot=%.9f %s\n", 
+                              __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+                  } // echo
                   task = Task_MixPot;
               } break; // Task_Energy
               ///////////////////////////////////////////////////////
@@ -287,7 +303,7 @@ namespace atom_core {
           } // task
 
       } // while run
-      return 1;
+      return (res < THRESHOLD);
   } // scf_atom
   
   
@@ -314,13 +330,13 @@ namespace atom_core {
 
   status_t test_core_solver(radial_grid_t const &g, float const Z) {
     printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
-    return scf_atom(g, Z);
+    return scf_atom(g, Z, 3); // echo value 3
   } // test_core_solver
   
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*create_exponential_radial_grid(512));
-    float const Z = 26;
+    float const Z = 113;
     status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9)+.5), Z);
     return status;
   } // all_tests

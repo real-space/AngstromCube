@@ -6,7 +6,7 @@ typedef int status_t;
 
 namespace atom_core {
 
-  int scf_atom(radial_grid_t const &g, float const Z);
+  int scf_atom(radial_grid_t const &g, float const Z, int const echo=1);
   
   status_t all_tests();
 
