@@ -1,0 +1,11 @@
+### executable
+aa3
+
+### objects
+*.o
+
+### dependency files
+*.d
+
+### input files and output logging files
+*.dat

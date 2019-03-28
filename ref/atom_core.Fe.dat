@@ -1,0 +1,38 @@
+## Iron atom with PZ81 functional with radial_integrator.mod
+AE Fe cycle #4  Etot =    -1261.07496211606008 Ha residual  8.97E-12 Ha
+AE Fe Kohn-Sham states
+AE Fe c/v nl       KS-energy Ha
+AE Fe ----------------------------
+AE Fe state   occup      Energy level
+AE Fe cor 1s  f=  2.000  E=     -254.225777 Ha
+AE Fe cor 2s  f=  2.000  E=      -29.564539 Ha
+AE Fe cor 2p  f=  6.000  E=      -25.551493 Ha
+AE Fe cor 3s  f=  2.000  E=       -3.359701 Ha
+AE Fe cor 3p  f=  6.000  E=       -2.186609 Ha
+AE Fe val 3d  f=  6.000  E=       -0.294245 Ha
+AE Fe val 4s  f=  2.000  E=       -0.197805 Ha
+
+## Iron atom with PZ81 functional with radial_spherical_integrator.mod
+AE Fe cycle #4  Etot =    -1270.02490062680954 Ha residual  3.33E-12 Ha
+AE Fe Kohn-Sham states
+AE Fe c/v nl       KS-energy Ha
+AE Fe ----------------------------
+AE Fe state   occup      Energy level
+AE Fe cor 1s  f=  2.000  E=     -256.577356 Ha
+AE Fe cor 2s  f=  2.000  E=      -30.048890 Ha
+AE Fe cor 2p  f=  6.000  E=      -25.649979 Ha
+AE Fe cor 3s  f=  2.000  E=       -3.434722 Ha
+AE Fe cor 3p  f=  6.000  E=       -2.201629 Ha
+AE Fe val 3d  f=  6.000  E=       -0.284428 Ha
+AE Fe val 4s  f=  2.000  E=       -0.201254 Ha
+
+# radial grid has 1479 grid points
+# atom_core.cpp:271  scf_atom  residual=14290.5 icyc=100  total energy = -1270.02 Ha
+# Task_Mix_Potentials with 0.000 %
+# scf_atom  1s E=    -256.577390 Ha
+# scf_atom  2s E=     -30.048922 Ha
+# scf_atom  2p E=     -25.650012 Ha
+# scf_atom  3s E=      -3.434755 Ha
+# scf_atom  3p E=      -2.201662 Ha
+# scf_atom  3d E=      -0.284460 Ha
+# scf_atom  4s E=      -0.201282 Ha
