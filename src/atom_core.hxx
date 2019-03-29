@@ -6,7 +6,10 @@ typedef int status_t;
 
 namespace atom_core {
 
-  int scf_atom(radial_grid_t const &g, float const Z, int const echo=1);
+  status_t scf_atom(
+      radial_grid_t const &g, // radial grid descriptor
+      float const Z, // atomic number
+      int const echo); // log output level
   
   status_t all_tests();
 

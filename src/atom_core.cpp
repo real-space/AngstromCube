@@ -123,9 +123,11 @@ namespace atom_core {
   } // initial_density
   
   
-  int scf_atom(radial_grid_t const &g, float const Z, int const echo) {
+  status_t scf_atom(radial_grid_t const &g, // radial grid descriptor
+               float const Z, // atomic number
+               int const echo) { // log output level
       debug(printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__));
-      
+
       int constexpr MAXCYCLES = 200; 
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
