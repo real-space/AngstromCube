@@ -25,9 +25,9 @@
     #define full_debug(print)
 #endif
 
-#ifdef  DEBUG
+// #ifdef  DEBUG
     #include "debug_output.hxx" // dump_to_file
-#endif
+// #endif
 
 #ifdef DEBUG
     #define debug(print) print 
@@ -128,6 +128,7 @@ namespace atom_core {
                int const echo) { // log output level
       debug(printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__));
 
+      int constexpr sra = 1; // scalar-relativistic
       int constexpr MAXCYCLES = 200; 
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
@@ -135,7 +136,8 @@ namespace atom_core {
       int imax = -1;
       assert(Z <= 120);
       orbital_t orb[20]; {
-          int iZ = 0, i = 0; // init shell index i
+          int iZ = 0; // integer atomic number needed for occupations
+          int i = 0; // init shell index i
           for(int m = 0; m < 8; ++m) {
               int enn = (m + 1)/2;
               for(int ell = m/2; ell >= 0; --ell) {
@@ -238,9 +240,12 @@ namespace atom_core {
 
                   for(int i = 0; i <= imax; ++i) {
                       if (orb[i].occ > 0) {
-                          int constexpr sra = 1;
                           previous_eigenvalues[i] = orb[i].E; // copy
-                          radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho);
+                          auto const stat = radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho);
+                          if (0 != stat) {
+                              printf("# %s  Z=%g  failed solving for %d%c\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell));
+                              return stat;
+                          } // failed
                           if (echo > 6) {
                               printf("# %s  Z=%g  %d%c E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV);
                           } // echo
@@ -345,12 +350,31 @@ namespace atom_core {
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
               if (echo > 1) {
                   for(int i = 0; i <= imax; ++i) {
-                      printf("# %s  Z=%g  %d%c  f=%g  E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].occ, orb[i].E*eV, _eV);
+                      printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
                   } // i
                   printf("\n");
               }
           } // converged?
       } // echo
+      
+      // dump_to_file("rV_converged.dat", g.n, rV_old, g.r);
+      // ToDo: export the converged potential rV_old and the position of energies
+#if 0      
+      for(int i = 0; i < 20; ++i) {
+          if (orb[i].occ <= 0) {
+              // solve for the unoccupied states
+              auto const stat = radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E);
+              if (0 == stat) {
+                  if (echo > 2)
+                      printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
+              } else { // worked
+                  if (echo > 0)
+                      printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g  status=%d\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ, stat);
+              }
+          } // unoccupied
+      } // i
+#endif     
+     
       return (res > THRESHOLD);
   } // scf_atom
   
@@ -377,7 +401,7 @@ namespace atom_core {
   } // test_initial_density
 
   status_t test_core_solver(radial_grid_t const &g, float const Z) {
-    int const echo = 7;
+    int const echo = 3;
     printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
     return scf_atom(g, Z, echo);
   } // test_core_solver
@@ -386,7 +410,7 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*create_exponential_radial_grid(512));
 //     for(int Z = 1; Z < 120; ++Z)
-    for(int Z = 13; Z <= 13; ++Z)
+    for(int Z = 16; Z <= 16; ++Z)
         status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9.)+.5), Z);
     return status;
   } // all_tests

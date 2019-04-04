@@ -49,7 +49,7 @@ namespace radial_eigensolver {
       if (ell >= enn) exit(__LINE__); // "rINT shooting_method: ELL must be < ENN"
 #endif
 
-      auto const max_dE = 1.25e-4 * 0.5*(pow2(-rV[0]/enn) + .1); // for jumps, if the number of nodes is wrong, -rV[0]==Z
+      double max_dE = 1.25e-4 * 0.5*(pow2(-rV[0]/enn) + .1); // for jumps, if the number of nodes is wrong, -rV[0]==Z
       int const nno = enn - 1 - ell; // number of nodes requested
 
       int nn = 0;
@@ -60,6 +60,7 @@ namespace radial_eigensolver {
       while ((nno != nn) && iit < MaxIter_node_count) { // while number of nodes incorrect
           ++iit;
           E += (nno - nn) * max_dE;
+          max_dE *= 1.125; // growing exponentially
           kink = shoot(sra, g, rV, ell, E, nn);
 #ifdef  FULL_DEBUG
           printf("# %s: find-correct-node for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nn);
@@ -67,31 +68,31 @@ namespace radial_eigensolver {
       } // while
 
 #ifdef DEBUG
-      printf("# %s: needed %d iterations to find the correct number of nodes for n=%d l=%d E= %.9f %s\n", __func__, iit, enn, ell, E*eV, _eV);
+      printf("\n# %s: needed %d iterations to find the correct number of nodes for n=%d l=%d E= %.9f %s\n", __func__, iit, enn, ell, E*eV, _eV);
 #endif
 
       
-      double ene[2], knk[2], mdE[2] = {max_dE, max_dE};
+      double ene[2], knk[2], mdE[2] = {.01, .01};
       int nnn[2];
 #ifdef  DEBUG
       int itn[2] = {0, 0};
 #endif
       for(auto ib = 0; ib < 2; ++ib) {
-          ene[ib] = E + (2*ib - 1) * max_dE; // initialize with an energy which produces the correct number of nodes
-          knk[ib] = shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
+          ene[ib] = E; // initialize with an energy which produces the correct number of nodes ...
+          knk[ib] = kink; // ... and the corresponding kink value from the node-count search
           int constexpr MaxIter_kink_sign = 999;
           iit = 0;
           while (((2*ib - 1)*knk[ib] > 0.) && (iit < MaxIter_kink_sign)) { // while sign of kink is incorrect
               ++iit;
               ene[ib] += (2*ib - 1) * mdE[ib];
-              mdE[ib] *= 1.1; // growing exponentially
+              mdE[ib] *= 1.125; // growing exponentially
               knk[ib] = shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
 #ifdef  FULL_DEBUG
               printf("# %s: get-correct-kink-sign for (%s) n=%d l=%d E=%g %s, kink= %g, %d nodes\n", __func__, (ib)? "upper" : "lower", enn, ell, ene[ib]*eV, _eV, knk[ib], nnn[ib]);
 #endif
 #ifdef  FULL_DEBUG
               if (nno != nnn[ib])
-                  printf("# %s: warning for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nnn[ib]);
+                  printf("# %s: Warning for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nnn[ib]);
 #endif
           } // while
 #ifdef  DEBUG
@@ -142,7 +143,7 @@ namespace radial_eigensolver {
       kink = shoot(sra, g, rV, ell, E, nn, rf, r2rho);
 
       if (converged) {
-          return 0; // success
+          return nn - nno; // success if the number of nodes is correct
       } else if (iit >= maxiter) {
           return maxiter;
       } else if (nn != nno) {
@@ -160,7 +161,7 @@ namespace radial_eigensolver {
   status_t test_hydrogen_like_potential(
     radial_grid_t const g, // radial grid descriptor
     float const Z) { // number of protons in the nucleus
-      
+
     status_t status = 0;
     auto const ellchar = "spdfghijkl";
     auto rV = std::vector<double>(g.n, -Z); // fill all potential values with r*V(r) == -Z

@@ -7,7 +7,7 @@
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV, Ang, _Ang
 #include "min_and_max.h" // max
-#include "element_symbols.h" // element_symbols
+#include "chemical_symbol.h" // element_symbols
 
 // #define FULL_DEBUG
 // #define DEBUG

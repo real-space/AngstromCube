@@ -22,10 +22,10 @@ allclean: clean
 CU     = nvcc
 ### -G
 CC     = gcc
-CPP    = g++
+CXX    = g++
 ##MPI
 # CC  = mpicc
-# CPP = mpic++
+# CXX = mpic++
 
 SRC ?= ./src
 INC = -I/usr/local/cuda/include
@@ -73,41 +73,41 @@ CCFLAGS  = -std=gnu99 ${FLAGS}
 # P100
 CUFLAGS  = -std=c++11  ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
-CPPFLAGS = -std=c++11 ${FLAGS}
+CXXFLAGS = -std=c++11 ${FLAGS}
 
 LDFLAGS += -lm
 
 DEP=$(OBJ:%.o=%.d)
 
 ${EXECUTABLE}: ${OBJ}
-	${CPP} ${CPPFLAGS} $^ ${LDFLAGS}  -o $@
+	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
 
 %.o:${SRC}/%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
 %.o:${SRC}/%.cu %.d
 	${CU} ${CUFLAGS} ${INC} -c $<
-%.o:${SRC}/%.cpp %.d
-	${CPP} ${CPPFLAGS} ${INC} -c $<
+%.o:${SRC}/%.cxx %.d
+	${CXX} ${CXXFLAGS} ${INC} -c $<
 
 %.o:%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
 %.o:%.cu %.d
 	${CU} ${CUFLAGS} ${INC} -c $<
-%.o:%.cpp %.d
-	${CPP} ${CPPFLAGS} ${INC} -c $<
+%.o:%.cxx %.d
+	${CXX} ${CXXFLAGS} ${INC} -c $<
 
 %.d:${SRC}/%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
 %.d:${SRC}/%.cu
 	${CC} -x c++ ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:${SRC}/%.cpp
-	${CPP} ${CPPFLAGS} ${INC} -MM $^ -MF $@
+%.d:${SRC}/%.cxx
+	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 
 %.d:%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
 %.d:%.cu
 	${CC} -x c++ ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:%.cpp
-	${CPP} ${CPPFLAGS} ${INC} -MM $^ -MF $@
+%.d:%.cxx
+	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 
 -include ${DEP}
