@@ -31,14 +31,14 @@
 namespace overlap {
   // computes the overlap between Gaussian-localized 3D-factorizable polynomials
 
-  double constexpr C_PI = 3.14159265358979323846; // pi
+//   double constexpr C_PI = 3.14159265358979323846; // pi
   double constexpr sqrtpi = 1.77245385091;
-  
   
   template<typename real_t>
   int multiply(real_t pxp[], int const n, // result
                real_t const p0[], int const n0,
                real_t const p1[], int const n1) {
+    // multiplication of two polynomials
     for(int d = 0; d < n; ++d) {
         pxp[d] = 0; // clear
     } // d
@@ -60,14 +60,17 @@ namespace overlap {
   template<typename real_t>
   real_t integrate(real_t const p[], int const m, double const sigma=1) {
       real_t value = 0;
-      real_t kern = sqrtpi * sigma;
+      //            / infty
+      // kern_{n} = |   exp(-x^2/sigma^2) x^n dx
+      //            /-infty
+      real_t kern = sqrtpi * sigma; // init recursive computation
       for(int d = 0; 2*d < m; ++d) {
           value += p[2*d] * kern;
-          kern *= (d + 0.5) * sigma*sigma;
+          kern *= (d + 0.5) * (sigma*sigma);
       } // d
       return value;
   } // integrate
-  
+
   
   template<typename real_t>
   void prepare_centered_Hermite_polynomials(real_t H[], int const ncut,
@@ -100,6 +103,62 @@ namespace overlap {
   } // prepare
   
   template<typename real_t>
+  void shift_polynomial_centers(real_t c_shifted[], // result: shifted polynomial
+                                real_t const c[], // assume p(x) = sum_k=0...nmax-1 c[k] * x^k
+                                int const nmax,
+                                real_t const x_shift) {
+    
+      real_t c_old[nmax];
+      for(int k = 0; k < nmax; ++k) {
+          c_old[k] = c[k]; // get a work copy
+      } // k
+
+      double kfactorial = 1; // init kfactorial with 0! == 1
+      for(int k = 0; k < nmax; ++k) { // loop MUST run forward from 0
+
+          // evaluate the value of d^k p(x) / d x^k at x=x_shift
+          real_t val = 0;
+          {   real_t xsp = 1; // x_shift^p
+              for(int p = 0; p < nmax - k; ++p) { // we only need to run up to nmax-k as the degree of the input poly is decreased with every k
+                  val += xsp * c_old[p];
+                  xsp *= x_shift; // update x_shift^p for the next p-iteration
+              } // p
+          } // ToDo: Horner-scheme could be used
+
+          c_shifted[k] = val / kfactorial;
+
+          // now derive the original polynomial, in-place, for the next k-iteration
+          for(int p = 1; p < nmax - k; ++p) { // loop MUST run forward from 1
+              c_old[p - 1] = p * c_old[p]; // d/dx x^p = p*x^{p-1}
+          } // p
+          c_old[nmax - k - 1] = 0;
+
+          kfactorial *= (k + 1); // update kfactorial for the next k-iteration
+      } // k
+
+  } // shift_polynomial_centers
+  
+  
+    template<typename real_t>
+    real_t overlap_of_two_Hermite_Gauss_functions(
+        real_t const H0[], int const n0, double const s0,
+        real_t const H1[], int const n1, double const s1, 
+        double const distance) {
+        auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
+        auto const sigma = 1/sqrt(.5*(k0 + k1));
+        auto const sh0 = -distance*k0/(k0 + k1);
+        real_t H0s[n0];
+        shift_polynomial_centers(H0s, H0, n0, sh0);
+        auto const sh1 =  distance*k1/(k0 + k1);
+        real_t H1s[n1];
+        shift_polynomial_centers(H1s, H1, n1, sh1);
+        int const m = n0 + n1;
+        real_t h0xh1[m];
+        multiply(h0xh1, m, H0s, n0, H1s, n1);
+        return integrate(h0xh1, m, sigma) * exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
+    } // overlap_of_two_Hermite_Gauss_functions
+  
+  template<typename real_t>
   void plot_poly(real_t const poly[], int const m, char const *name) {
       printf("Poly %s : ", name);
       for(int d = 0; d < m; ++d) {
@@ -123,7 +182,7 @@ namespace overlap {
     int ndev = 0; double mdev = 0;
     for(int n = 0; n < ncut; ++n) {
         if (echo > 3) plot_poly(&H[ncut*n], 1+n, "H");
-        if (echo > 1) printf("%s   %d   ortho", __func__, n);
+        if (echo > 1) printf("# %s   %d   ortho", __func__, n);
         for(int m = 0; m < ncut; ++m) {
             multiply(hh, 2*ncut, &H[ncut*n], 1+n, &H[ncut*m], 1+m);
             if (echo > 3) plot_poly(hh, 2*n - 1, "H^2");
@@ -134,13 +193,37 @@ namespace overlap {
         } // m
         if (echo > 1) printf("\n");
     } // n
-    if (echo) printf("%s: up to %d the largest deviation from Kroecker is %.1e \n", __func__, ncut - 1, mdev);
+    if (echo) printf("# %s: up to %d the largest deviation from Kroecker is %.1e \n", __func__, ncut - 1, mdev);
     return ndev;
+  } // test
+
+  status_t test_Hermite_Gauss_overlap(int const echo=4) {
+    // show the overlap of the lowest 1D Hermite-Gauss functions as a function of distance
+    int constexpr ncut = 4;
+    double const sigma0 = 1.4567, sigma1 = sigma0 + .876; // any two positive real numbers
+//     double const sigma0 = 1, sigma1 = sigma0;
+    double H0[ncut*ncut], H1[ncut*ncut];
+    prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
+    prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
+    for(auto dist = 0.0; dist < 11; dist += .1) {
+        if (echo > 1) printf("# %s  distance=%.3f    ", __func__, dist);
+        for(int n = 0; n < ncut; ++n) {
+            for(int m = 0; m < ncut; ++m) {
+                double const ovl = overlap_of_two_Hermite_Gauss_functions(
+                  &H0[ncut*n], 1+n, sigma0,
+                  &H1[ncut*m], 1+m, sigma1, dist);
+                if (echo > 1) printf(" %.6f", ovl);
+            } // m
+        } // n
+        if (echo > 1) printf("\n");
+    } // dist
+    return 0;
   } // test
   
   status_t all_tests() {
     auto status = 0;
     status += test_Hermite_polynomials();
+    status += test_Hermite_Gauss_overlap();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
