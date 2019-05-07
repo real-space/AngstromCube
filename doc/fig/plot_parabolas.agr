@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Fri May  3 14:12:21 2019"
+@timestamp def "Tue May  7 15:06:44 2019"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -167,7 +167,18 @@
 @    xaxis  ticklabel font 0
 @    xaxis  ticklabel color 1
 @    xaxis  tick place both
-@    xaxis  tick spec type none
+@    xaxis  tick spec type both
+@    xaxis  tick spec 5
+@    xaxis  tick major 0, -2
+@    xaxis  ticklabel 0, "-2"
+@    xaxis  tick major 1, -1
+@    xaxis  ticklabel 1, "-\qR\Q\sret\N"
+@    xaxis  tick major 2, 0
+@    xaxis  ticklabel 2, "0"
+@    xaxis  tick major 3, 1
+@    xaxis  ticklabel 3, "\qR\Q\sret\N"
+@    xaxis  tick major 4, 2
+@    xaxis  ticklabel 4, "2"
 @    yaxis  on
 @    yaxis  type zero false
 @    yaxis  offset 0.000000 , 0.000000
@@ -207,7 +218,7 @@
 @    yaxis  ticklabel angle 0
 @    yaxis  ticklabel skip 0
 @    yaxis  ticklabel stagger 0
-@    yaxis  ticklabel place both
+@    yaxis  ticklabel place normal
 @    yaxis  ticklabel offset auto
 @    yaxis  ticklabel offset 0.000000 , 0.010000
 @    yaxis  ticklabel start type auto
@@ -223,12 +234,71 @@
 @    yaxis  tick major 0, 0
 @    yaxis  ticklabel 0, "0"
 @    yaxis  tick major 1, 1
-@    yaxis  ticklabel 1, "1"
+@    yaxis  ticklabel 1, "\qE\Q\scut\N"
 @    yaxis  tick minor 2, 2
 @    yaxis  tick major 3, 4
-@    yaxis  ticklabel 3, "4"
+@    yaxis  ticklabel 3, "4\qE\Q\scut\N"
 @    altxaxis  off
-@    altyaxis  off
+@    altyaxis  on
+@    altyaxis  type zero false
+@    altyaxis  offset 0.000000 , 0.000000
+@    altyaxis  bar on
+@    altyaxis  bar color 1
+@    altyaxis  bar linestyle 1
+@    altyaxis  bar linewidth 1.0
+@    altyaxis  label ""
+@    altyaxis  label layout para
+@    altyaxis  label place auto
+@    altyaxis  label char size 1.500000
+@    altyaxis  label font 4
+@    altyaxis  label color 1
+@    altyaxis  label place normal
+@    altyaxis  tick on
+@    altyaxis  tick major 1
+@    altyaxis  tick minor ticks 0
+@    altyaxis  tick default 6
+@    altyaxis  tick place rounded true
+@    altyaxis  tick in
+@    altyaxis  tick major size 1.000000
+@    altyaxis  tick major color 1
+@    altyaxis  tick major linewidth 1.0
+@    altyaxis  tick major linestyle 1
+@    altyaxis  tick major grid off
+@    altyaxis  tick minor color 1
+@    altyaxis  tick minor linewidth 1.0
+@    altyaxis  tick minor linestyle 1
+@    altyaxis  tick minor grid off
+@    altyaxis  tick minor size 0.500000
+@    altyaxis  ticklabel on
+@    altyaxis  ticklabel format general
+@    altyaxis  ticklabel prec 5
+@    altyaxis  ticklabel formula ""
+@    altyaxis  ticklabel append ""
+@    altyaxis  ticklabel prepend ""
+@    altyaxis  ticklabel angle 0
+@    altyaxis  ticklabel skip 0
+@    altyaxis  ticklabel stagger 0
+@    altyaxis  ticklabel place opposite
+@    altyaxis  ticklabel offset auto
+@    altyaxis  ticklabel offset 0.000000 , 0.010000
+@    altyaxis  ticklabel start type auto
+@    altyaxis  ticklabel start 0.000000
+@    altyaxis  ticklabel stop type auto
+@    altyaxis  ticklabel stop 0.000000
+@    altyaxis  ticklabel char size 1.500000
+@    altyaxis  ticklabel font 0
+@    altyaxis  ticklabel color 1
+@    altyaxis  tick place both
+@    altyaxis  tick spec type both
+@    altyaxis  tick spec 4
+@    altyaxis  tick major 0, 0
+@    altyaxis  ticklabel 0, " "
+@    altyaxis  tick major 1, 1
+@    altyaxis  ticklabel 1, "\R{blue}\qB\s\f{Symbol}s\f{}\N\Q"
+@    altyaxis  tick major 2, 2
+@    altyaxis  ticklabel 2, "\R{violet}|\qB\Q\s\f{Symbol}s\f{}\N|\S2\N"
+@    altyaxis  tick major 3, 4
+@    altyaxis  ticklabel 3, " \R{red}\qB\Q\s\f{Symbol}r\f{}\N"
 @    legend on
 @    legend loctype view
 @    legend 0.85, 0.8
