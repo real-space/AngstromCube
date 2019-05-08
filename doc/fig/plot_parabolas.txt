@@ -1,9 +1,8 @@
-\caption{
 Schematic picture to illuminate the relation between the SHO basis configuration 
 used to describe densities and potentials 
 compared to the SHO basis for wave functions:
 If wave functions are expanded into a Hermite-Gauss basis with spread $\sigma$
-up to $n\um{max}$ (here, the $n\um{max} = 5$ functions is shown in blue)
+up to $n\um{max}$ (here, the $n\um{max} = 5$ function is shown in blue)
 the square of such a wave function leads to the function shown in purple:
 A Gaussian with spread $\sigma^{[\varrho]}$ times a polynomial with max.~degree $n\um{max}^{[\varrho]}$.
 This function can be exactly expanded by a Hermite-Gauss basis if
@@ -12,7 +11,7 @@ and
 $n\um{max}^{[\varrho]} = 2n\um{max}$.
 The highest Hermite-Gauss function for $n\um{max}^{[\varrho]} = 10$ is shown in red.
 The associated parabolas are shown in bold black and bold green.
-In the limit of large $n\um{max}$, the classical return radius
-of both SHO bases coincides (dots).
+In the limit of large $n\um{max}$, the classical return radius $R\um{ret}$
+of both SHO bases coincides (grey dashed vertical lines).
 The associated cut-off energy is $4$ times higher for the density basis.
-}
+

@@ -1,0 +1,312 @@
+\documentclass[oribibl]{llncs}
+
+\usepackage{units}
+\usepackage{psfrag} %% psfrac does not work with pdflatex
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{subfigure}
+\usepackage{todonotes} %% add [disable] to disable
+\usepackage{transparent}
+\usepackage{pgfplots}
+
+\usepackage{acronym} %% for abbreviations
+\acrodef{dft}[DFT]{density functional theory}
+\acrodef{sho}[SHO]{spherical harmonic oscillator}
+\acrodef{ho}[HO]{harmonic oscillator}
+\acrodef{planewave}[PW]{plane wave}
+\acrodef{gridpoint}[GP]{grid point}
+\acrodef{paw}[PAW]{Projector Augmented Wave}
+
+
+\setlength{\tabcolsep}{6pt}
+
+\newcommand{\um}[1]{_{\mathrm{#1}}}
+\newcommand{\ttt}[1]{\texttt{#1}}
+\newcommand{\lmax}{\ell_{\mathrm{max}}}
+\newcommand{\ellm}{L}
+\newcommand{\nrn}{n_{\mathrm{r}}}
+\newcommand{\ket}[1]{\left| #1 \right\rangle}
+\newcommand{\bra}[1]{\left\langle #1 \right|}
+\newcommand{\braket}[2]{\left\langle \left. #1 \right| #2 \right\rangle}
+\newcommand{\braketop}[3]{\left\langle \left. #1 \right| #2 \left| #3 \right. \right\rangle}
+
+\begin{document}
+\pagestyle{plain}
+
+\title       {Spherical Harmonic Oscillator Basis}
+\titlerunning{Spherical Harmonic Oscillator Basis}
+
+\author{%
+  Paul F.~Baumeister\inst{1} % \and %
+}
+
+\institute{%
+  J\"{u}lich Supercomputing Centre, Forschungszentrum J\"{u}lich, 52425 J\"{u}lich, Germany
+%   \and Institute for Advanced Simulation, Forschungszentrum J\"{u}lich, 52425 J\"{u}lich, Germany
+}
+
+\maketitle
+
+% ==============================================================================
+\begin{abstract}
+\todo[inline]{write abstract}
+\end{abstract}
+% ==============================================================================
+
+
+
+% ==============================================================================
+\section{Introduction} \label{sec:intro}
+% ==============================================================================
+%
+Real-space grid based methods for \ac{dft}
+have proven to yield good parallelizability and the same level of
+accuracy as \ac{planewave} basis sets.
+The latter aspect is in particular true for results converged
+in terms of the number of \acp{planewave} compared to those converged
+w.r.t.~the grid spacing.
+However, real-space grid methods cannot be operated at very coarse
+grid spacings due to unphysical interferences between the position
+of atoms relative to the position of grid points.
+This leads to relatively high cost prefactors (for time and space)
+of the real-space methods compared to \ac{planewave} basis sets
+when we want to do a fast but less accurate calcuation.
+Furthermore, the iterative solver schemes applied in real-space
+grid formalism often deteriorate in terms of their convergence
+velocity when the number of grid points increases.
+This is due to the limited width of the stencil compared to the 
+global scale of the non-local solutions.
+Therefore, convergence acceleration is crutial here.
+In many situations, switching to a \ac{planewave} representation
+is a viable option for an efficient preconditioner as
+\acp{planewave} contain the full non-locality.
+Then again, \acp{planewave} destroy the parallelizability
+to some extend.
+The approach investigated in this project is a small basis of atom-centered
+localized orbitals.
+This basis is not meant to produce as accurate results as \acp{gridpoint} or \acp{planewave}
+or to feature a advantageous convergence w.r.t.~costs
+but to be simple and cheap in its construction (low number of control parameters)
+and to produce approximately right physics already at small basis sets.
+If in addition we can define an efficient transformation between
+representations in
+the small localized basis set and grid-based representations
+this basis can be used to accelerate
+the congerence of a real-space grid-based method.
+
+% ==============================================================================
+\section{Spherical Harmonic Oscillator} \label{sec:sho}
+% ==============================================================================
+%
+The quantum-mechanical \ac{ho} has the Hamiltonian
+\begin{equation}
+  \hat H^{[1D]}_{\sigma} = -\frac{\partial_x^2}{2} + \frac{x^2}{2 \sigma^4} \text{.}
+  \label{eqn:HO-Hamiltonian}
+\end{equation}
+Hartree atomic units are used throughout this document.
+Here, $\sigma$ is a lengthscale parameter that also fixes the scale of the eigenenergies
+\begin{equation}
+  E^{[1D]}_{n}(\sigma) = \sigma^{-2} \left( n + \frac 12 \right) \text{.}
+  \label{eqn:HO-eigenenergy}
+\end{equation}
+The \ac{ho} eigenfunctions are
+\begin{equation}
+  \psi^{[1D]}_{n}(x) = H_n(x/\sigma) \cdot \exp\left( -\frac{x^2}{2 \sigma^2} \right) 
+  \label{eqn:HO-eigenfunction}
+\end{equation}
+with the Hermite polynomials $H_n$.
+\todo[inline]{add normalization constants}
+
+The eigenfunctions of the quantum-mechanical 
+three-dimensional isotropic harmonic oscillator 
+- in the following we will refer to it as \ac{sho} -
+can be written as Cartesian product of three
+\ac{ho} eigenfunctions
+\begin{equation}
+  \hat H^{[3D]}_{\sigma} = -\frac{\vec \nabla^2}{2} + \frac{\vec r^2}{2 \sigma^{4}} 
+  \label{eqn:SHO-Hamiltonian}
+\end{equation}
+has the solutions
+\begin{equation}
+  \psi^{[3D]}_{n_x n_y n_z}(x,y,z) = \psi^{[1D]}_{n_x}(x/\sigma) 
+                               \cdot \psi^{[1D]}_{n_y}(y/\sigma) 
+                               \cdot \psi^{[1D]}_{n_z}(z/\sigma) 
+  \label{eqn:SHO-eigenfunction}
+\end{equation}
+and the eigenenergies
+\begin{equation}
+  E^{[3D]}_{n_x n_y n_z}(\sigma) = \sigma^{-2} \left( n_x + n_y + n_z + \frac 32 \right) 
+  \label{eqn:SHO-eigenenergy}
+\end{equation}
+
+Furthermore, the \ac{sho} can be solved in spherical coordinates 
+exploiting its spherical symmetry.
+This leads to the quantum numbers $\nrn, \ell$ and $m$
+and the eigenstates
+\begin{equation}
+  \psi_{\nrn \ell m}(r,\vartheta,\varphi) = R_{\nrn \ell}(r/\sigma) 
+                               \cdot Y_{\ell m}(\vartheta,\varphi)
+  \label{eqn:SHO-eigenfunction-radial}
+\end{equation}
+with the radial function
+\begin{equation}
+  R_{\nrn \ell}(r) = r^\ell \cdot L^{(\ell + \frac 12)}_{\nrn}(r^2) \cdot \exp(-\frac{r^2}2)
+  \label{eqn:SHO-radial-eigenfunction}
+\end{equation}
+where $L_n^{(\alpha)}$ stands for the associated Laguerre polynomials.
+\todo[inline]{add normalization constants}
+
+In the code, spherical harmonics $Y_{\ell m}$ usually appear in their representation
+$X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $m$ and -$m$.
+\todo[inline]{cite Homeier}
+
+\subsection{SHO as a basis}
+An infinite set of all \ac{sho} eigenfunctions forms a basis of the 3D function space.
+Limiting the set by cut-off energy $E\um{cut} = \sigma^{-2} (\nu\um{max} + \frac 32)$
+creates a finite basis.
+If we create a union of finite bases centered at each atom $a$ in a \ac{dft} calculation 
+we only need to choose a $\sigma$ and $\nu\um{max}$ for each atomic species.
+\begin{equation}
+  \chi_{a n_x n_y n_z}(x,y,z) = \psi^{[1D]}_{n_x}((x - x_a)/\sigma_a) 
+                          \cdot \psi^{[1D]}_{n_y}((y - y_a)/\sigma_a) 
+                          \cdot \psi^{[1D]}_{n_z}((z - z_a)/\sigma_a)
+  \label{eqn:localized-basis}
+\end{equation}
+
+Then the evaluation of matrix elements works as follows:
+
+\subsubsection{Overlap matrix elements}
+Basis functions $\chi$ centered at the same atom $a$ are orthogonal by construction
+so we only need to take care of their normalization.
+For any pair of atoms $(a,a')$, we can compute the overlap element
+\begin{equation}
+  \braket{ \chi_{a n_x n_y n_z} }{ \chi_{a' n'_x n'_y n'_z} } = \prod_{i=1}^D
+  \int\mathrm d x_i \  \psi^{[1D]}_{n_{x_i}}((x_i - x_{ia})/\sigma_a)
+                    \  \psi^{[1D]}_{n'_{x_i}}((x_i - x_{ia'})/\sigma_{a'})
+  \label{eqn:overlap-factorized}
+\end{equation}
+In each of the integrals we can exploit that the product 
+of two Gaussians with spread $\sigma_a$ and $\sigma_{a'}$ 
+centered at $x_a$ and $x_{a'}$, respectively, 
+is again a Gaussian with spread $\sigma_p = \left(\sigma_a^{-2} + \sigma_{a'}^{-2}\right)^{-\frac12}$
+centered at $\sigma_p^2 \left( \sigma_a^{-2} x_a + \sigma_{a'}^{-2} x_{a'} \right)$.
+The polynomial expressions can be shifted to the new center and multiplied there.
+See fig.~\ref{fig:overlap_1D} for an impression of the 1D overlap values 
+as a function of distance the centers.
+Finally, the integration reduces the the evaluation of the kernel
+\begin{equation}
+  I_k = \int\limits_{-\infty}^{\infty} \mathrm d x \  \exp(-x^2) \  x^{2k}
+  \label{eqn:gauss-integral-kernel}
+\end{equation}
+which can be evaluated recursively by $I_{k+1} = (k + \frac12)\,I_k$ starting at $I_0 = \sqrt{pi}$.
+Mind that no approximations are required here.
+%
+\begin{figure}
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/overlap_1D} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:overlap_1D}
+  \caption{
+	The overlap integral values of two 1D \ac{ho} eigenfunctions (both with spread $\sigma$)
+	as a function of distance between their centers.
+	Only an upper triangle of the combinations $(n,n')$ up to $n\um{max}=3$ is shown.
+  }
+\end{figure}
+%
+%
+
+
+\subsubsection{Hamiltonian matrix elements}
+The \ac{dft} Hamiltonian consists of a kinetic energy operator,
+a local effective potential 
+and, if the basis is incapable of
+capturing the rapid oscillations close to the nuclei,
+a non-local contribution according to the \ac{paw} method.
+A similar \ac{paw} contribution would then also appear in the overlap operator.
+The kinetic energy consists of a Laplacian so we can boild it down to the evaluation
+of $\braketop{ \psi^{[1D]}_{an} }{ \partial^2_x }{ \psi^{[1D]}_{a'n'} }$.
+This works just as outlined for the overlap elements
+except for the derivative operator modifying the polynomials.
+
+The non-linearity of the exchange-correlation potential in \ac{dft} usually
+leads to a representation of the local potential $V(x,y,z)$ on a real-space grid.
+We will assume a Cartesian uniform grid here.
+Then, viable options would be
+\begin{itemize}
+%
+\item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically.
+%
+\item for each pair $(a,a')$ which is not too distant
+compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
+at the common center and do the product and integral there.
+%
+\item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{sho} basis. 
+Then, we can insert a completeness relation:
+\begin{equation}
+ \braketop{ \chi_{a\vec n} }{ \hat V }{ \chi_{a'\vec n'} } = \sum_{\vec n''}
+ \braketop{ \chi_{a\vec n} }{ \hat V }{ \chi_{a\vec n''} } \braket{ \chi_{a\vec n''} }{ \chi_{a'\vec n'} }
+\end{equation}
+such that all Gaussian are centered at the position of atom $a$ for the expectation value
+and the second integral is the same as for the overlap operator.
+Mind that we inserted a complete basis $\chi_{a\vec n''}$. 
+This means that the convergence w.r.t.~the cut-off for $\vec n''$ needs to be checked carefully.
+Due to different convergence rates, the potential matrix $\hat V$ might not be symmetric
+requiring symmetrization according to $\hat V\um{sym} = \frac 12 \left( \hat V + \hat V^\dagger \right)$.
+%
+\end{itemize}
+In the following, we will persue the latter approach.
+
+Finally, non-local potentials are usually expressed as dyadic operators
+$\ket{\tilde p^a_i} D^a_{ij} \bra{\tilde p_j}$ with localized projector functions $\tilde p_i(\vec r)$
+centered at the atomic positions.
+We can expand the projectors in a suitable \ac{sho} basis and use the same method
+as for overlap elements~\cite{BaumeisterTsukamotoPASC19}.
+
+\subsubsection{Expansion of the Potential}
+If the local \ac{sho} basis with $\sigma$ and $\nu\um{max}$
+is suitable to describe wave functions, 
+a suitable \ac{sho} basis for the expansion of $V(\vec r)$ has
+spread $\sigma_a/\sqrt{2}$ and $2\nu\um{max}$.
+This is due to the representation of densities and potentials
+arising from those densities, c.f.~fig.~\ref{fig:plot_parabolas}
+%
+\begin{figure}
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/plot_parabolas} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:plot_parabolas}
+  \caption{
+Schematic picture to illuminate the relation between the SHO basis configuration 
+used to describe densities and potentials 
+compared to the SHO basis for wave functions:
+If wave functions are expanded into a Hermite-Gauss basis with spread $\sigma$
+up to $n\um{max}$ (here, the $n\um{max} = 5$ function is shown in blue)
+the square of such a wave function leads to the function shown in purple:
+A Gaussian with spread $\sigma^{[\varrho]}$ times a polynomial with max.~degree $n\um{max}^{[\varrho]}$.
+This function can be exactly expanded by a Hermite-Gauss basis if
+$\sqrt{2}\,\sigma^{[\varrho]} = \sigma$
+and
+$n\um{max}^{[\varrho]} = 2n\um{max}$.
+The highest Hermite-Gauss function for $n\um{max}^{[\varrho]} = 10$ is shown in red.
+The associated parabolas are shown in bold black and bold green.
+In the limit of large $n\um{max}$, the classical return radius $R\um{ret}$
+of both SHO bases coincides (grey dashed vertical lines).
+The associated cut-off energy is $4$ times higher for the density basis.
+  }
+\end{figure}
+%
+%
+
+
+% ==============================================================================
+\bibliographystyle{splncs03} \bibliography{literature}
+% ==============================================================================
+
+
+\end{document}

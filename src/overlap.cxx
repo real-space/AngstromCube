@@ -29,7 +29,7 @@
 
 
 namespace overlap {
-  // computes the overlap between Gaussian-localized 3D-factorizable polynomials
+  // computes the overlap between Gaussian-localized 1D polynomials
 
 //   double constexpr C_PI = 3.14159265358979323846; // pi
   double constexpr sqrtpi = 1.77245385091;
@@ -76,9 +76,9 @@ namespace overlap {
   void prepare_centered_Hermite_polynomials(real_t H[], int const ncut,
                     double const siginv=1, double const normalize=1) {
       
-      int const S = ncut; // stride
+      int const S = ncut; // access stride
       for(int i = 0; i < S*S; ++i) H[i] = 0; // clear
-      
+
       H[S*0 + 0] = 1; // H_0 is the Gaussian envelope function exp(-.5*(x/sigma)^2) which is implicit here
       for(int n = 1; n < ncut; ++n) {
           for(int d = 0; d < n; ++d) {
@@ -101,7 +101,7 @@ namespace overlap {
       } // normalize
 
   } // prepare
-  
+
   template<typename real_t>
   void shift_polynomial_centers(real_t c_shifted[], // result: shifted polynomial
                                 real_t const c[], // assume p(x) = sum_k=0...nmax-1 c[k] * x^k
@@ -139,25 +139,25 @@ namespace overlap {
   } // shift_polynomial_centers
   
   
-    template<typename real_t>
-    real_t overlap_of_two_Hermite_Gauss_functions(
-        real_t const H0[], int const n0, double const s0,
-        real_t const H1[], int const n1, double const s1, 
-        double const distance) {
-        auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
-        auto const sigma = 1/sqrt(.5*(k0 + k1));
-        auto const sh0 = -distance*k0/(k0 + k1);
-        real_t H0s[n0];
-        shift_polynomial_centers(H0s, H0, n0, sh0);
-        auto const sh1 =  distance*k1/(k0 + k1);
-        real_t H1s[n1];
-        shift_polynomial_centers(H1s, H1, n1, sh1);
-        int const m = n0 + n1;
-        real_t h0xh1[m];
-        multiply(h0xh1, m, H0s, n0, H1s, n1);
-        return integrate(h0xh1, m, sigma) * exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
-    } // overlap_of_two_Hermite_Gauss_functions
-  
+  template<typename real_t>
+  real_t overlap_of_two_Hermite_Gauss_functions(
+      real_t const H0[], int const n0, double const s0,
+      real_t const H1[], int const n1, double const s1, 
+      double const distance) {
+      auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
+      auto const sigma = 1/sqrt(.5*(k0 + k1));
+      auto const sh0 = -distance*k0/(k0 + k1);
+      real_t H0s[n0]; // H0 shifted by sh0
+      shift_polynomial_centers(H0s, H0, n0, sh0);
+      auto const sh1 =  distance*k1/(k0 + k1);
+      real_t H1s[n1]; // H1 shifted by sh1
+      shift_polynomial_centers(H1s, H1, n1, sh1);
+      int const m = n0 + n1;
+      real_t h0xh1[m]; // product of H0s and H1s
+      multiply(h0xh1, m, H0s, n0, H1s, n1);
+      return integrate(h0xh1, m, sigma) * exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
+  } // overlap_of_two_Hermite_Gauss_functions
+
   template<typename real_t>
   void plot_poly(real_t const poly[], int const m, char const *name) {
       printf("Poly %s : ", name);
