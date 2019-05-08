@@ -102,6 +102,28 @@ namespace overlap {
 
   } // prepare
 
+  
+  template<typename real_t>
+  void derive_Hermite_Gauss_polynomials(real_t dH[], real_t const H[], int const ncut,
+                    double const siginv=1) {
+      // the Gaussian envelope function exp(-.5*(x/sigma)^2) is implicit here
+      // but needs to be considered when deriving:
+      // 
+      // d/dx ( p(x)*exp(-x^2/2) ) = (d/dx p(x) - x*p(x)/sigma^2) * exp(-.5*(x/sigma)^2)
+    
+      // derive the polynomial first
+      dH[ncut - 1] = 0;
+      for(int d = 1; d < ncut; ++d) {
+          dH[d - 1] = d*H[d];
+      } // d
+      
+      // now add the terms coming from the inner derivative of exp(-.5*(x/sigma)^2)
+      for(int d = 0; d < ncut - 1; ++d) {
+          dH[d + 1] -= H[d]*siginv*siginv; // times (x/sigma^2)
+      } // d
+
+  } // derive
+  
   template<typename real_t>
   void shift_polynomial_centers(real_t c_shifted[], // result: shifted polynomial
                                 real_t const c[], // assume p(x) = sum_k=0...nmax-1 c[k] * x^k
@@ -146,12 +168,15 @@ namespace overlap {
       double const distance) {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
       auto const sigma = 1/sqrt(.5*(k0 + k1));
+
       auto const sh0 = -distance*k0/(k0 + k1);
       real_t H0s[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
+
       auto const sh1 =  distance*k1/(k0 + k1);
       real_t H1s[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
+
       int const m = n0 + n1;
       real_t h0xh1[m]; // product of H0s and H1s
       multiply(h0xh1, m, H0s, n0, H1s, n1);
@@ -174,7 +199,7 @@ namespace overlap {
 
   status_t test_Hermite_polynomials(int const echo=1) {
     // see if the first ncut Hermite polynomials are orthogonal and normalized
-    int constexpr ncut = 16;
+    int constexpr ncut = 8;
     double const sigma = 1.4567; // any positive real number
     double H[ncut*ncut];
     prepare_centered_Hermite_polynomials(H, ncut, 1./sigma);
@@ -197,7 +222,7 @@ namespace overlap {
     return ndev;
   } // test
 
-  status_t test_Hermite_Gauss_overlap(int const echo=4) {
+  status_t test_Hermite_Gauss_overlap(int const echo=1) {
     // show the overlap of the lowest 1D Hermite-Gauss functions as a function of distance
     int constexpr ncut = 4;
     double const sigma0 = 1.4567, sigma1 = sigma0 + .876; // any two positive real numbers
@@ -219,11 +244,53 @@ namespace overlap {
     } // dist
     return 0;
   } // test
-  
+
+  status_t test_kinetic_overlap(int const echo=3) {
+    // show the kinetic energy of the lowest 1D Hermite-Gauss functions as a function of distance
+    // test if the derivation operator can be cast to any side
+    int constexpr ncut = 6;
+    int constexpr mcut = ncut - 2;
+    double const sigma0 = 1, sigma1 = sigma0 + .01; // fails for different sigmas
+    double H0[ncut*ncut], H1[ncut*ncut];
+    prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
+    prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
+
+    double dH0[ncut*mcut], dH1[ncut*mcut], d2H0[ncut*mcut], d2H1[ncut*mcut];
+    for(int n = 0; n < mcut; ++n) {
+        // first derivatives
+        derive_Hermite_Gauss_polynomials(&dH0[ncut*n], &H0[ncut*n], ncut, 1/sigma0);
+        derive_Hermite_Gauss_polynomials(&dH1[ncut*n], &H1[ncut*n], ncut, 1/sigma1);
+        // second derivatives
+        derive_Hermite_Gauss_polynomials(&d2H0[ncut*n], &dH0[ncut*n], ncut, 1/sigma0);
+        derive_Hermite_Gauss_polynomials(&d2H1[ncut*n], &dH1[ncut*n], ncut, 1/sigma1);
+    } // n
+    double maxdev1 = 0, maxdev2 = 0;
+    for(auto dist = 0.0; dist < 11; dist += .01) {
+        if (echo > 1) printf("# %s  distance=%.3f    ", __func__, dist);
+        for(int n = 0; n < mcut; ++n) {
+            for(int m = 0; m < mcut; ++m) {
+                auto const d2d0 = overlap_of_two_Hermite_Gauss_functions(&d2H0[ncut*n], ncut, sigma0, &H1[ncut*m], ncut, sigma1, dist);
+                auto const d0d2 = overlap_of_two_Hermite_Gauss_functions(&H0[ncut*n], ncut, sigma0, &d2H1[ncut*m], ncut, sigma1, dist);
+                auto const d1d1 = overlap_of_two_Hermite_Gauss_functions(&dH0[ncut*n], ncut, sigma0, &dH1[ncut*m], ncut, sigma1, dist);
+                if (echo > 1) printf("  %.9f %.9f %.9f", d2d0, d0d2, -d1d1); // show 3 values
+//              if (echo > 1) printf("  %.1e %.1e %.1e", d2d0 + d1d1, d0d2 + d1d1, d2d0 - d0d2); // show deviations
+//              if (echo > 1) printf(" %.9f", -d1d1); // show 1 value
+                maxdev2 = std::max(maxdev2, std::abs(d2d0 - d0d2));
+                maxdev1 = std::max(maxdev1, std::abs(d2d0 + d1d1));
+                maxdev1 = std::max(maxdev1, std::abs(d0d2 + d1d1));
+            } // m
+        } // n
+        if (echo > 1) printf("\n");
+    } // dist
+    if (echo > 0) printf("# %s deviations %g and %g\n", __func__, maxdev1, maxdev2);
+    return (maxdev1 > 2e-14) + (maxdev2 > 2e-14);
+  } // test
+
   status_t all_tests() {
     auto status = 0;
     status += test_Hermite_polynomials();
     status += test_Hermite_Gauss_overlap();
+    status += test_kinetic_overlap();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
