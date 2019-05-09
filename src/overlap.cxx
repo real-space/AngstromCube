@@ -65,7 +65,7 @@ namespace overlap {
       //            /-infty
       real_t kern = sqrtpi * sigma; // init recursive computation
       for(int d = 0; 2*d < m; ++d) {
-          value += p[2*d] * kern;
+          value += p[2*d] * kern; // access only the even terms of p[]
           kern *= (d + 0.5) * (sigma*sigma);
       } // d
       return value;
@@ -248,9 +248,11 @@ namespace overlap {
   status_t test_kinetic_overlap(int const echo=3) {
     // show the kinetic energy of the lowest 1D Hermite-Gauss functions as a function of distance
     // test if the derivation operator can be cast to any side
+    // --> yes if sigma1 == sigma0, otherwise it breaks
+    // --> we should use the first derivative applied to left and right for the kinetic energy
     int constexpr ncut = 6;
     int constexpr mcut = ncut - 2;
-    double const sigma0 = 1, sigma1 = sigma0 + .01; // fails for different sigmas
+    double const sigma0 = 1, sigma1 = sigma0 + .1; // fails for different sigmas
     double H0[ncut*ncut], H1[ncut*ncut];
     prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
     prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
@@ -264,7 +266,7 @@ namespace overlap {
         derive_Hermite_Gauss_polynomials(&d2H0[ncut*n], &dH0[ncut*n], ncut, 1/sigma0);
         derive_Hermite_Gauss_polynomials(&d2H1[ncut*n], &dH1[ncut*n], ncut, 1/sigma1);
     } // n
-    double maxdev1 = 0, maxdev2 = 0;
+    double maxdev1 = 0, maxdev2 = 0, maxdev3 = 0;
     for(auto dist = 0.0; dist < 11; dist += .01) {
         if (echo > 1) printf("# %s  distance=%.3f    ", __func__, dist);
         for(int n = 0; n < mcut; ++n) {
@@ -272,9 +274,14 @@ namespace overlap {
                 auto const d2d0 = overlap_of_two_Hermite_Gauss_functions(&d2H0[ncut*n], ncut, sigma0, &H1[ncut*m], ncut, sigma1, dist);
                 auto const d0d2 = overlap_of_two_Hermite_Gauss_functions(&H0[ncut*n], ncut, sigma0, &d2H1[ncut*m], ncut, sigma1, dist);
                 auto const d1d1 = overlap_of_two_Hermite_Gauss_functions(&dH0[ncut*n], ncut, sigma0, &dH1[ncut*m], ncut, sigma1, dist);
-                if (echo > 1) printf("  %.9f %.9f %.9f", d2d0, d0d2, -d1d1); // show 3 values
+//                 auto const ovl  = overlap_of_two_Hermite_Gauss_functions(&H0[ncut*n], ncut, sigma0, &H1[ncut*m], ncut, sigma1, dist);
+//                 if (echo > 1) printf(" %.9f", ovl); // show overlap
+//              if (echo > 1) printf("  %.9f %.9f %.9f", d2d0, d0d2, -d1d1); // show 3 values
 //              if (echo > 1) printf("  %.1e %.1e %.1e", d2d0 + d1d1, d0d2 + d1d1, d2d0 - d0d2); // show deviations
-//              if (echo > 1) printf(" %.9f", -d1d1); // show 1 value
+                if (echo > 1) printf(" %.9f", -d1d1); // show 1 value
+                auto const d2avg = .5*d2d0 + .5*d0d2;
+//              if (echo > 1) printf("  %.9f %.9f", d2avg, -d1d1); // show 2 values
+                maxdev3 = std::max(maxdev3, std::abs(d2avg + d1d1)); // one order better than dev1 and dev2
                 maxdev2 = std::max(maxdev2, std::abs(d2d0 - d0d2));
                 maxdev1 = std::max(maxdev1, std::abs(d2d0 + d1d1));
                 maxdev1 = std::max(maxdev1, std::abs(d0d2 + d1d1));
@@ -282,15 +289,42 @@ namespace overlap {
         } // n
         if (echo > 1) printf("\n");
     } // dist
-    if (echo > 0) printf("# %s deviations %g and %g\n", __func__, maxdev1, maxdev2);
-    return (maxdev1 > 2e-14) + (maxdev2 > 2e-14);
+    if (echo > 0) printf("# %s deviations %g, %g and %g\n", __func__, maxdev1, maxdev2, maxdev3);
+    return (maxdev3 > 2e-14);
   } // test
 
+  status_t test_density_tensor(int const echo=0) {
+    // this structure can be used to describe the density generation
+    int constexpr ncut = 8;
+    double constexpr sqrt2 = sqrt(2.);
+    double H[ncut*ncut], Hp[2*ncut*2*ncut];
+    prepare_centered_Hermite_polynomials(H, ncut); // unit spread sigma=1
+    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sqrt2); // spread sigma_p = sigma/sqrt(2)
+    double HHp[3*ncut], HHpH[4*ncut];
+    for(int p = 0; p < 2*ncut - 1; ++p) {
+        if (echo > 1) printf("\n# p = %d\n", p);
+        for(int n = 0; n < ncut; ++n) {
+            multiply(HHp, 3*ncut, &H[ncut*n], ncut, &Hp[2*ncut*p], 2*ncut);
+            for(int m = 0; m < ncut; ++m) {
+                if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                    multiply(HHpH, 4*ncut, &H[ncut*m], ncut, HHp, 3*ncut);
+                    auto const P_pnm = integrate(HHpH, 4*ncut, 0.5);
+//                  if (echo > 1) printf(" %d%d%d %.9f\n", p,n,m, P_pnm); // show tensor values as list
+                    if (echo > 1) printf(" %.9f", P_pnm); // show tensor values
+                } // even?
+            } // m
+            if (echo > 1) printf("\n");
+        } // n
+    } // p
+    return 0;
+  } // test
+  
   status_t all_tests() {
     auto status = 0;
     status += test_Hermite_polynomials();
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
+    status += test_density_tensor();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
