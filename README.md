@@ -1,9 +1,11 @@
 **AAcube**
 
     AAcube is an all-electron DFT application under construction.
-    It is based on a real-space grid based representation,
-    Green functions. near-sightedness,
-    PAW, in particular revPAW \cite{Paul F. Baumeister, Shigeru Tsukamoto, proceedings of PASC19}
+    It is based on a real-space grid based representation, Green functions, near-sightedness and
+    PAW, in particular revPAW
+    (see Paul F. Baumeister, Shigeru Tsukamoto, proceedings of PASC19)
+    
+![AAcube logo](https://gitlab.version.fz-juelich.de/pbaum/aa3/blob/devel/doc/fig/aa3_logo_bold.png)
 
 **Name**
     The name refers to a cube with edge length 1 Angstrom
