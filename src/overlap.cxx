@@ -2,6 +2,10 @@
 #include <cstdlib> // abs
 #include <cmath> // sqrt
 #include <algorithm> // max
+#include <complex> // std::complex<real_t>
+#include <complex>
+#include <cmath>
+ 
 
 #include "overlap.hxx"
 
@@ -245,7 +249,7 @@ namespace overlap {
     return 0;
   } // test
 
-  status_t test_kinetic_overlap(int const echo=3) {
+  status_t test_kinetic_overlap(int const echo=1) {
     // show the kinetic energy of the lowest 1D Hermite-Gauss functions as a function of distance
     // test if the derivation operator can be cast to any side
     // --> yes if sigma1 == sigma0, otherwise it breaks
@@ -318,6 +322,159 @@ namespace overlap {
     } // p
     return 0;
   } // test
+
+  
+  typedef std::complex<double> complex_t;
+  extern "C" {
+      void zhegv_(int const*, char const*, char const*, int const*, 
+                  complex_t*, int const*, complex_t*, int const*, double*, complex_t*, int const*, double*, int*);
+  } // LAPACK
+  
+  
+  status_t test_fcc(int const echo=3, float const a0=3.1415) {
+    
+    int constexpr ncut = 6;
+    double const sigma = 2, sigma0 = sigma, sigma1 = sigma;
+    
+    // real space cell structure is fcc
+    //   --> cell matrix = {{-1,1,1}, {1,-1,1}, {1,1,-1}} * a0/2;
+    std::vector<int> periodic_images();
+    double const dmax = 9*sigma;
+
+    double H0[ncut*ncut], H1[ncut*ncut];
+    prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
+    prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
+
+    double dH0[ncut*ncut], dH1[ncut*ncut];
+    for(int n = 0; n < ncut; ++n) {
+        // construct first derivatives
+        derive_Hermite_Gauss_polynomials(&dH0[ncut*n], &H0[ncut*n], ncut, 1/sigma0);
+        derive_Hermite_Gauss_polynomials(&dH1[ncut*n], &H1[ncut*n], ncut, 1/sigma1);
+    } // n
+    
+    int const n3D = (ncut*(ncut + 1)*(ncut + 2))/6;
+    
+    int const imax = std::ceil(dmax/a0);
+    auto mat = new double[8*imax*imax*imax][2][n3D*n3D];
+    auto vpi = new int[8*imax*imax*imax][3]; // periodic image shift vectors
+    int npi = 0;
+    for(int i3 = -imax; i3 <= imax; ++i3) {
+        for(int i2 = -imax; i2 <= imax; ++i2) {
+            for(int i1 = -imax; i1 <= imax; ++i1) {
+//              auto const i123 = i1 + i2 + i3;
+//              double const pos[] = {a0*0.5*(i123 - 2*i1), a0*0.5*(i123 - 2*i2), a0*0.5*(i123 - 2*i3)}; // fcc
+                double const pos[] = {a0*i1, a0*i2, a0*i3}; // sc
+                double const d2 = pos[0]*pos[0] + pos[1]*pos[1] + pos[2]*pos[2]; 
+                if (d2 < dmax*dmax) {
+                    if (echo > 1) printf("%f %f %f  %f\n", pos[0], pos[1], pos[2], d2);
+                    int in = 0;
+                    for(int n0 = 0; n0 < ncut; ++n0) {
+                    for(int n1 = 0; n1 < ncut - n0; ++n1) {
+                    for(int n2 = 0; n2 < ncut - n0 - n1; ++n2) {
+                        int const nv[] = {n0, n1, n2};
+                        int im = 0;
+                        for(int m0 = 0; m0 < ncut; ++m0) {
+                        for(int m1 = 0; m1 < ncut - m0; ++m1) {
+                        for(int m2 = 0; m2 < ncut - m0 - m1; ++m2) {
+                            int const mv[] = {m0, m1, m2};
+                            double ovl[] = {0, 0, 0};
+                            double lap[] = {0, 0, 0};
+                            for(int dir = 0; dir < 3; ++dir) {
+                                ovl[dir] = overlap_of_two_Hermite_Gauss_functions(
+                                               &H0[nv[dir]*ncut], ncut, sigma0, 
+                                               &H1[mv[dir]*ncut], ncut, sigma1, pos[dir]);
+                                lap[dir] = overlap_of_two_Hermite_Gauss_functions(
+                                              &dH0[nv[dir]*ncut], ncut, sigma0,
+                                              &dH1[mv[dir]*ncut], ncut, sigma1, pos[dir]);
+                            } // dir
+                            double const o3D = ovl[0]*ovl[1]*ovl[2];
+                            double const l3D = lap[0]*ovl[1]*ovl[2] + ovl[0]*lap[1]*ovl[2] + ovl[0]*ovl[1]*lap[2];
+                            mat[npi][0][in*n3D + im] = o3D;
+                            mat[npi][1][in*n3D + im] = l3D;
+                            ++im;
+                        } // m
+                        } // m
+                        } // m
+                        ++in;
+                    } // n
+                    } // n
+                    } // n
+                    vpi[npi][0] = i1; vpi[npi][1] = i2; vpi[npi][2] = i3;
+                    ++npi; // count periodic images
+                } // d2 inside sphere
+            } // i1
+        } // i2
+    } // i3
+    int const num_periodic_images = npi;
+    
+    int const lwork = n3D*n3D;
+    complex_t ovl_mat[n3D*n3D], lap_mat[n3D*n3D], work[lwork];
+    double rwork[lwork], eigvals[n3D];
+    auto const jobz = 'n', uplo = 'u';
+
+    int const nedges = 4;
+    double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.5,.5,.5}};
+    int path_progress = 0;
+    for(int edge = 0; edge < nedges; ++edge) {
+        int const e0 = ( edge      % nedges);
+        int const e1 = ((edge + 1) % nedges);
+        int const sampling = 10;
+        double const frac = 1./sampling;
+        double kvec[3];
+        printf("# k-point %.6f %.6f %.6f\n", kpath[e0][0], kpath[e0][1], kpath[e0][2]);
+        for(int step = 0; step < sampling; ++step) {
+            for(int dir = 0; dir < 3; ++dir) {
+                kvec[dir] = kpath[e0][dir] + (step*frac)*(kpath[e1][dir] - kpath[e0][dir]);
+            } // dir
+            // clear matrixes
+            for(int in = 0; in < n3D; ++in) {
+                for(int im = 0; im < n3D; ++im) {
+                    ovl_mat[in*n3D + im] = 0;
+                    lap_mat[in*n3D + im] = 0;
+                } // im
+            } // in
+            
+            for(int ipi = 0; ipi < num_periodic_images; ++ipi) {
+                double arg = 0;
+                for(int dir = 0; dir < 3; ++dir) {
+                    arg += kvec[dir]*vpi[ipi][dir];
+                } // dir
+                complex_t const bloch_factor = std::polar(1.0, arg);
+                // add to matrixes
+                for(int in = 0; in < n3D; ++in) {
+                    for(int im = 0; im < n3D; ++im) {
+                        ovl_mat[in*n3D + im] += bloch_factor*mat[ipi][0][in*n3D + im];
+                        lap_mat[in*n3D + im] += bloch_factor*mat[ipi][1][in*n3D + im];
+                    } // im
+                } // in
+            } // ipi
+            
+            // LAPACK call (Fortran77 interface);
+            int info = 0, itype = 1;
+            zhegv_(&itype, &jobz, &uplo, &n3D,
+                   lap_mat, &n3D, ovl_mat, &n3D, eigvals, 
+                   work, &lwork, rwork, &info);
+
+            if (0 == info) {
+                if(echo > 0) {
+                    printf("%d ", path_progress);
+                    for(int i3D = 0; i3D < n3D; ++i3D) {
+                        printf("%g ", eigvals[i3D]);
+                    } // i3D
+                    printf("\n");
+                } // echo
+            } else {
+                printf("# %d failed, info = %d\n", path_progress, info);
+            } // info
+
+            ++path_progress;
+        } // step
+        printf("# k-point %.6f %.6f %.6f\n", kpath[e1][0], kpath[e1][1], kpath[e1][2]);
+
+    } // edge
+
+    return 0;
+  } // test_fcc
   
   status_t all_tests() {
     auto status = 0;
@@ -325,6 +482,7 @@ namespace overlap {
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
     status += test_density_tensor();
+    status += test_fcc();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

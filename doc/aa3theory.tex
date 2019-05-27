@@ -234,7 +234,7 @@ Finally, the integration reduces the the evaluation of the kernel
   I_k = \int\limits_{-\infty}^{\infty} \mathrm d x \  \exp(-x^2) \  x^{2k}
   \label{eqn:gauss-integral-kernel}
 \end{equation}
-which can be evaluated recursively by $I_{k+1} = (k + \frac12)\,I_k$ starting at $I_0 = \sqrt{pi}$.
+which can be evaluated recursively by $I_{k+1} = (k + \frac12)\,I_k$ starting at $I_0 = \sqrt{\pi}$.
 Mind that no approximations are required here.
 %
 \begin{figure}
@@ -261,10 +261,14 @@ and, if the basis is incapable of
 capturing the rapid oscillations close to the nuclei,
 a non-local contribution according to the \ac{paw} method.
 A similar \ac{paw} contribution would then also appear in the overlap operator.
-The kinetic energy consists of a Laplacian so we can boild it down to the evaluation
+The kinetic energy consists of a Laplacian so we can boil it down to the evaluation
 of $\braketop{ \psi^{[1D]}_{an} }{ \partial^2_x }{ \psi^{[1D]}_{a'n'} }$.
 This works just as outlined for the overlap elements
 except for the derivative operator modifying the polynomials.
+Mind that in order to produce symmetric matrix elements,
+a first derivative should be applied to the left and a first derivative to the right.
+It is easy to show that applying the second derivative to the left in general differs from
+the matrix element that we obtain if we apply the second derivative to the right.
 
 The non-linearity of the exchange-correlation potential in \ac{dft} usually
 leads to a representation of the local potential $V(x,y,z)$ on a real-space grid.
@@ -300,13 +304,13 @@ centered at the atomic positions.
 We can expand the projectors in a suitable \ac{sho} basis and use the same method
 as for overlap elements~\cite{BaumeisterTsukamotoPASC19}.
 
-\subsubsection{Expansion of the Potential}
+\subsubsection{Expansion of the Density}
 If the local \ac{sho} basis with $\sigma$ and $\nu\um{max}$
 is suitable to describe wave functions, 
-a suitable \ac{sho} basis for the expansion of $V(\vec r)$ has
+a suitable \ac{sho} basis for the expansion of the density $\varrho(\vec r)$ has
 spread $\sigma_a/\sqrt{2}$ and $2\nu\um{max}$.
-This is due to the representation of densities and potentials
-arising from those densities, c.f.~fig.~\ref{fig:plot_parabolas}.
+This is due to the representation of densities
+arising from basis functions local to an atom, c.f.~fig.~\ref{fig:plot_parabolas}.
 %
 \begin{figure}
   \begin{minipage}[c]{.990\textwidth}
@@ -317,7 +321,7 @@ arising from those densities, c.f.~fig.~\ref{fig:plot_parabolas}.
   \label{fig:plot_parabolas}
   \caption{
 Schematic picture to illuminate the relation between the SHO basis configuration 
-used to describe densities and potentials 
+used to describe densities (and maybe potentials)
 compared to the SHO basis for wave functions:
 If wave functions are expanded into a Hermite-Gauss basis with spread $\sigma$
 up to $n\um{max}$ (here, the $n\um{max} = 5$ function is shown in blue)
@@ -337,7 +341,7 @@ The associated cut-off energy is $4$ times higher for the density basis.
 %
 %
 
-So for the evaluation of the potential matrix elements,
+So for the evaluation of the density,
 we have to prepare this tensor of coefficients:
 \begin{equation}
 	P_{nn'n''} = \int \mathrm d x \ H_{n}(x) \exp(-x^2/2) \cdot H_{n''}(x\sqrt{2}) \exp(-x^2) \cdot H_{n'}(x) \exp(-x^2/2)
@@ -346,7 +350,7 @@ where the indices $n$ and $n'$ are associated with the SHO basis for wavefunctio
 and $n''$ runs up to $n\um{max}^{[\varrho]}$. 
 Obviously, all $P_{nn'n''}$ are zero if $n + n' + n''$ is odd.
 
-\todo[inline]{Would it be better to expand $V$ in polynomials without Gaussian decay?}
+\todo[inline]{What is the best $\sigma$ to expand $V$?}
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}

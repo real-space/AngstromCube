@@ -75,7 +75,7 @@ CUFLAGS  = -std=c++11  ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CXXFLAGS = -std=c++11 ${FLAGS}
 
-LDFLAGS += -lm
+LDFLAGS += -lm -llapack
 
 DEP=$(OBJ:%.o=%.d)
 
