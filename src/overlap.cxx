@@ -343,7 +343,7 @@ namespace overlap {
   status_t test_fcc(int const echo=5, float const a0=8) {
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 6, ncut = nmax + 2;
+    int constexpr nmax = 9, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
@@ -382,8 +382,9 @@ namespace overlap {
 
     printf("# shortest bond is %g Bohr\n", shortest_bond);
 
+    bool const overlap_eigvals = true;
     // choose the return radius as a fraction of shortest_bond length
-    double const sigma = 0.7071*shortest_bond/std::sqrt(2.*nmax + 3.), 
+    double const sigma = .75*shortest_bond/std::sqrt(2.*nmax + 3.), 
                  sigma0 = sigma, sigma1 = sigma;
     printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
 
@@ -394,12 +395,18 @@ namespace overlap {
     double const dmax = 12*sigma; // 12 sigma is converged for fcc
     printf("# account for periodic images up to %.3f Bohr\n", dmax);
 
-    double H0[ncut*ncut], H1[ncut*ncut];
-    prepare_centered_Hermite_polynomials(H0, ncut, 1./sigma0);
-    prepare_centered_Hermite_polynomials(H1, ncut, 1./sigma1);
+    double H0[ncut*ncut], H1[ncut*ncut], normalize=0; // do not normalize
+    prepare_centered_Hermite_polynomials(H0, ncut, 1./sigma0, normalize);
+    prepare_centered_Hermite_polynomials(H1, ncut, 1./sigma1, normalize);
 
     double dH0[ncut*ncut], dH1[ncut*ncut];
     for(int n = 0; n < ncut; ++n) {
+        // show the Hermite polynomial coefficients for H0
+        printf("# H[%x]: ", n);
+        for(int m = 0; m <= n; ++m) {
+            printf("%8.4f", H0[n*ncut + m]);
+        }   printf("\n");
+        
         // construct first derivatives
         derive_Hermite_Gauss_polynomials(&dH0[n*ncut], &H0[n*ncut], ncut, 1./sigma0);
         derive_Hermite_Gauss_polynomials(&dH1[n*ncut], &H1[n*ncut], ncut, 1./sigma1);
@@ -407,7 +414,17 @@ namespace overlap {
 
     int const n3D = ((nmax + 1)*(nmax + 2)*(nmax + 3))/6;
     printf("# %d SHO functions up to numax=%d\n", n3D, nmax);
-
+    {   printf("# list %d SHO functions: ", n3D);
+        for(int n0 = 0; n0 <= nmax; ++n0) {
+            for(int n1 = 0; n1 <= nmax - n0; ++n1) {
+                for(int n2 = 0; n2 <= nmax - n0 - n1; ++n2) {
+                    printf("%x%x%x ", n0,n1,n2);
+                } // 2n2
+            } // n1
+        } // n0
+        printf("\n");
+    } // scope
+    
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 8*imax[2]*imax[1]*imax[0];
     auto mat = new double[max_npi][2][n3D*n3D];
@@ -432,6 +449,8 @@ namespace overlap {
                             int const mv[] = {m0, m1, m2};
                             double ovl[] = {0, 0, 0};
                             double lap[] = {0, 0, 0};
+                            // ToDo: overlap_of_two_Hermite_Gauss_functions 
+                            //       is called many more times than necessary
                             for(int dir = 0; dir < 3; ++dir) {
                                 ovl[dir] = overlap_of_two_Hermite_Gauss_functions(
                                                &H0[nv[dir]*ncut], ncut, sigma0,
@@ -445,13 +464,9 @@ namespace overlap {
                             mat[npi][0][in*n3D + im] = o3D;
                             mat[npi][1][in*n3D + im] = l3D;
                             ++im;
-                        } // m
-                        } // m
-                        } // m
+                        }}} // m
                         ++in;
-                    } // n
-                    } // n
-                    } // n
+                    }}} // n
                     vpi[npi][0] = i1; vpi[npi][1] = i2; vpi[npi][2] = i3;
                     ++npi; // count periodic images
                 } // pos inside sphere
@@ -463,12 +478,11 @@ namespace overlap {
 
     double smallest_eigval = 9e99, largest_eigval = - 9e99;
     vec3 kv_smallest = -9;
-    bool const overlap_eigvals = false;
 
     int const lwork = n3D*n3D;
     complex_t ovl_mat[n3D*n3D], lap_mat[n3D*n3D], work[lwork];
     double rwork[lwork], eigvals[n3D];
-    auto const jobz = 'n', uplo = 'u';
+    auto const jobz = 'n', uplo = 'u', jobv = 'v';
     
     int diagonalization_failed = 0;
     int const nedges = 4;
@@ -530,8 +544,18 @@ namespace overlap {
             int info = 0, itype = 1;
             if (overlap_eigvals) {
                 // get the eigenvalues of the overlap operator only
-                zheev_(&jobz, &uplo, &n3D, ovl_mat, &n3D, 
+                zheev_(&jobv, &uplo, &n3D, ovl_mat, &n3D, 
                        eigvals, work, &lwork, rwork, &info);
+#if 0
+                // DEBUG
+                if (0 == info && eigvals[0] < .00315) {
+                   printf("# lowest eigenvector "); 
+                   for(int i3D = 0; i3D < n3D; ++i3D) {
+                      auto const c = ovl_mat[0*n3D + i3D];
+                      printf("(%.9f,%.9f) ", c.real(), c.imag());
+                   }  printf("\n");
+                } // DEBUG
+#endif
             } else {
                 // solve generalized eigenvalue problem lap_mat*X == diag*ovl_mat*X
                 zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat, &n3D, ovl_mat, &n3D, 
