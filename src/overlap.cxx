@@ -343,7 +343,7 @@ namespace overlap {
   status_t test_fcc(int const echo=5, float const a0=8) {
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 9, ncut = nmax + 2;
+    int constexpr nmax = 6, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
@@ -382,7 +382,7 @@ namespace overlap {
 
     printf("# shortest bond is %g Bohr\n", shortest_bond);
 
-    bool const overlap_eigvals = true;
+    bool const overlap_eigvals = false;
     // choose the return radius as a fraction of shortest_bond length
     double const sigma = .75*shortest_bond/std::sqrt(2.*nmax + 3.), 
                  sigma0 = sigma, sigma1 = sigma;
@@ -451,6 +451,8 @@ namespace overlap {
                             double lap[] = {0, 0, 0};
                             // ToDo: overlap_of_two_Hermite_Gauss_functions 
                             //       is called many more times than necessary
+                            //       and the max. length of non-zero polynomial coefficients 
+                            //       can be shorter than ncut in many cases
                             for(int dir = 0; dir < 3; ++dir) {
                                 ovl[dir] = overlap_of_two_Hermite_Gauss_functions(
                                                &H0[nv[dir]*ncut], ncut, sigma0,
@@ -527,9 +529,9 @@ namespace overlap {
                 } // in
             } // ipi
 
-            
+#if 0            
             // check if matrices are hermitian
-            auto const threshold = 1e-9;
+            auto const threshold = 1e-5;
             for(auto m = ovl_mat; m == ovl_mat || m == lap_mat; m += (lap_mat - ovl_mat)) {
                 for(int in = 0; in < n3D; ++in) {
                     for(int im = 0; im < in; ++im) {
@@ -539,6 +541,7 @@ namespace overlap {
                     assert(std::abs(m[in*n3D + in].imag()) < threshold);
                 } // in
             } // m
+#endif
             
             // LAPACK call (Fortran77 interface);
             int info = 0, itype = 1;

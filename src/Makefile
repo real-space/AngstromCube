@@ -22,7 +22,7 @@ allclean: clean
 CU     = nvcc
 ### -G
 CC     = gcc
-CXX    = g++
+CXX    = g++ ### icpc -mkl
 ##MPI
 # CC  = mpicc
 # CXX = mpic++
@@ -75,7 +75,8 @@ CUFLAGS  = -std=c++11  ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CXXFLAGS = -std=c++11 ${FLAGS}
 
-LDFLAGS += -lm -llapack
+# LDFLAGS += -lm -llapack 
+LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
 
 DEP=$(OBJ:%.o=%.d)
 
