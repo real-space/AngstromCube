@@ -301,11 +301,14 @@ namespace overlap {
 
   status_t test_density_tensor(int const echo=0) {
     // this structure can be used to describe the density generation
+    // for the density we assume that it is sufficient to
+    // represent the density in a SHO basis 
+    // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
     int constexpr ncut = 8;
     double constexpr sqrt2 = sqrt(2.);
     double H[ncut*ncut], Hp[2*ncut*2*ncut];
-    prepare_centered_Hermite_polynomials(H, ncut); // unit spread sigma=1
-    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sqrt2); // spread sigma_p = sigma/sqrt(2)
+    prepare_centered_Hermite_polynomials(H, ncut); // unit spread sigma=1, L2-normalized
+    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sqrt2); // spread sigma_p = sigma/sqrt(2), L2-normalized
     double HHp[3*ncut], HHpH[4*ncut];
     for(int p = 0; p < 2*ncut - 1; ++p) {
         if (echo > 1) printf("\n# p = %d\n", p);

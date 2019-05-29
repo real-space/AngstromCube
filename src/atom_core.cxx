@@ -9,7 +9,6 @@
 #include "min_and_max.h" // min, max
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // create_exponential_radial_grid
-// #include "inline_math.hxx" // sgn, pow2
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV
 #include "radial_potential.hxx" // Hartree_potential, lda_PZ81_kernel
@@ -135,7 +134,8 @@ namespace atom_core {
       
       int imax = -1;
       assert(Z <= 120);
-      orbital_t orb[20]; {
+      orbital_t orb[20]; 
+      {   // prepare orbitals
           int iZ = 0; // integer atomic number needed for occupations
           int i = 0; // init shell index i
           for(int m = 0; m < 8; ++m) {
@@ -410,7 +410,7 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*create_exponential_radial_grid(512));
 //     for(int Z = 1; Z < 120; ++Z)
-    for(int Z = 16; Z <= 16; ++Z)
+    for(int Z = 29; Z <= 29; ++Z)
         status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9.)+.5), Z);
     return status;
   } // all_tests
