@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cassert>
  
+#include "vec.hxx" // vector_math from exafmm
 
 #include "overlap.hxx"
 
@@ -339,19 +340,53 @@ namespace overlap {
   template<typename real_t> 
   real_t pow2(real_t const base) { return base*base; }  
   
-  status_t test_fcc(int const echo=2, float const a0=8) {
-    
+  status_t test_fcc(int const echo=5, float const a0=8) {
+    typedef vector_math::vec<3,double> vec3;
+    typedef vector_math::vec<3,int>    vec3i;
     int constexpr nmax = 6, ncut = nmax + 2;
-
     
-    double const shortest_bond = a0*.7071; // fcc
+    vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
+    {
+        double const recip = (2*C_PI)/a0;
+        for(int dir = 0; dir < 3; ++dir) {
+            if (0) { // simple-cubic
+                cv[dir] = 0; cv[dir][dir] = a0;
+                bv[dir] = 0; bv[dir][dir] = recip; // sc
+            } else {
+                int8_t const cell_bcc[3][3] = { {0,1,1},  {1,0,1},  {1,1,0}}; // bcc
+                int8_t const cell_fcc[3][3] = {{-1,1,1}, {1,-1,1}, {1,1,-1}}; // fcc
+                if (0) { // body-centered-cubic
+                    cv[dir] = cell_bcc[dir];
+                    bv[dir] = cell_fcc[dir];
+                } else { // face-centered-cubic
+                    cv[dir] = cell_fcc[dir];
+                    bv[dir] = cell_bcc[dir];
+                }
+                cv[dir] *= (a0*.5);
+                bv[dir] *= (recip);
+            }
+        } // dir
+    }
+
+    double shortest_bond2 = 9e99;
+    for(int i3 = -1; i3 <= 1; ++i3) {
+        for(int i2 = -1; i2 <= 1; ++i2) {
+            for(int i1 = -1; i1 <= 1; ++i1) {
+                vec3 const pos = cv[0]*i1 + cv[1]*i2 + cv[2]*i3; // assume one atom per unit cell
+                double const d2 = norm(pos);
+                if (d2 > 0) shortest_bond2 = std::min(shortest_bond2, d2);
+            } // i1
+        } // i2
+    } // i3
+    double const shortest_bond = std::sqrt(shortest_bond2);
+
     printf("# shortest bond is %g Bohr\n", shortest_bond);
 
-    // choose the return radius as shortest_bond length
-    double const sigma = shortest_bond/std::sqrt(2.*nmax + 3.), 
+    // choose the return radius as a fraction of shortest_bond length
+    double const sigma = 0.7071*shortest_bond/std::sqrt(2.*nmax + 3.), 
                  sigma0 = sigma, sigma1 = sigma;
     printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
-    
+
     // return radius of the classical harmonic oscillator
     double const return_radius = sigma*std::sqrt(2.*nmax + 3.);
     printf("# classical return radius at %g Bohr\n", return_radius);
@@ -366,28 +401,25 @@ namespace overlap {
     double dH0[ncut*ncut], dH1[ncut*ncut];
     for(int n = 0; n < ncut; ++n) {
         // construct first derivatives
-        derive_Hermite_Gauss_polynomials(&dH0[ncut*n], &H0[ncut*n], ncut, 1./sigma0);
-        derive_Hermite_Gauss_polynomials(&dH1[ncut*n], &H1[ncut*n], ncut, 1./sigma1);
+        derive_Hermite_Gauss_polynomials(&dH0[n*ncut], &H0[n*ncut], ncut, 1./sigma0);
+        derive_Hermite_Gauss_polynomials(&dH1[n*ncut], &H1[n*ncut], ncut, 1./sigma1);
     } // n
 
     int const n3D = ((nmax + 1)*(nmax + 2)*(nmax + 3))/6;
     printf("# %d SHO functions up to numax=%d\n", n3D, nmax);
 
-    int const imax = std::ceil(dmax/a0);
-    auto mat = new double[8*imax*imax*imax][2][n3D*n3D];
-    auto vpi = new    int[8*imax*imax*imax][3]; // periodic image shift vectors
+    vec3i const imax = std::ceil(dmax/a0);
+    int const max_npi = 8*imax[2]*imax[1]*imax[0];
+    auto mat = new double[max_npi][2][n3D*n3D];
+    auto vpi = new    int[max_npi][3]; // periodic image shift vectors
     int npi = 0;
-    for(int i3 = -imax; i3 <= imax; ++i3) {
-        for(int i2 = -imax; i2 <= imax; ++i2) {
-            for(int i1 = -imax; i1 <= imax; ++i1) {
-                
-                double const pos[] = {a0*.5*(i2+i3-i1), a0*.5*(i3+i1-i2), a0*.5*(i1+i2-i3)}; // fcc
-//              double const pos[] = {a0*.5*(i2+i3), a0*.5*(i3+i1), a0*.5*(i1+i2)} : // bcc
-//              double const pos[] = {a0*i1, a0*i2, a0*i3} ); // sc
-                
-                double const d2 = pow2(pos[0]) + pow2(pos[1]) + pow2(pos[2]); 
-                if (d2 < dmax*dmax) {
-                    if (echo > 9) printf("%f %f %f  %f\n", pos[0], pos[1], pos[2], d2);
+    for(int i3 = -imax[2]; i3 <= imax[2]; ++i3) {
+        for(int i2 = -imax[1]; i2 <= imax[1]; ++i2) {
+            for(int i1 = -imax[0]; i1 <= imax[0]; ++i1) {
+                vec3 const pos = cv[0]*i1 + cv[1]*i2 + cv[2]*i3;
+
+                if (norm(pos) < dmax*dmax) {
+                    if (echo > 9) printf("%f %f %f\n", pos[0],pos[1],pos[2]);
                     int in = 0;
                     for(int n0 = 0; n0 <= nmax; ++n0) {
                     for(int n1 = 0; n1 <= nmax - n0; ++n1) {
@@ -422,20 +454,21 @@ namespace overlap {
                     } // n
                     vpi[npi][0] = i1; vpi[npi][1] = i2; vpi[npi][2] = i3;
                     ++npi; // count periodic images
-                } // d2 inside sphere
+                } // pos inside sphere
             } // i1
         } // i2
     } // i3
     int const num_periodic_images = npi;
 
+
+    double smallest_eigval = 9e99, largest_eigval = - 9e99;
+    vec3 kv_smallest = -9;
+    bool const overlap_eigvals = false;
+
     int const lwork = n3D*n3D;
     complex_t ovl_mat[n3D*n3D], lap_mat[n3D*n3D], work[lwork];
     double rwork[lwork], eigvals[n3D];
     auto const jobz = 'n', uplo = 'u';
-
-    double smallest_eigval = 9e99, largest_eigval = - 9e99;
-    
-    bool const eigvalues_of_the_overlap_operator = true;
     
     int diagonalization_failed = 0;
     int const nedges = 4;
@@ -443,27 +476,20 @@ namespace overlap {
     double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.5,.5,.5}};
     float path_progress = 0;
     for(int edge = 0; edge < nedges; ++edge) {
-        int const e0 = ( edge      % nedges);
-        int const e1 = ((edge + 1) % nedges);
-        double edge_length2 = 0;
-        for(int dir = 0; dir < 3; ++dir) {
-            edge_length2 += pow2(kpath[e1][dir] - kpath[e0][dir]);
-        } // dir
-        double const edge_length = std::sqrt(edge_length2);
+        int const e0 = edge % nedges, e1 = (edge + 1) % nedges;
+        vec3 const v0 = kpath[e0], v1 = kpath[e1];
+        vec3 const true_kdiff = bv[0]*(v1[0] - v0[0]) + bv[1]*(v1[1] - v0[1]) + bv[2]*(v1[2] - v0[2]);
+        double const edge_length = std::sqrt(norm(true_kdiff));
 
         int const sampling = std::ceil(edge_length/sampling_density);
         double const frac = 1./sampling;
-        double kvec[3];
-        if (echo > 1) printf("# k-point %.6f %.6f %.6f\n", kpath[e0][0], kpath[e0][1], kpath[e0][2]);
-        for(int step = 0; step < sampling + (edge == nedges + 1); ++step) {
+        if (echo > 1) printf("# k-point %.6f %.6f %.6f\n", v0[0],v0[1],v0[2]);
+        for(int step = 0; step < sampling + (edge == (nedges - 1)); ++step) {
             float const path_progress_edge = path_progress + (step*frac)*edge_length;
 
-            double k2 = 0;
-            for(int dir = 0; dir < 3; ++dir) {
-                kvec[dir] = kpath[e0][dir] + (step*frac)*(kpath[e1][dir] - kpath[e0][dir]);
-                k2 += pow2(kvec[dir]);
-            } // dir
-            double const free_electron = k2; // in Rydberg atomic units
+            vec3 const kvec = v0 + (v1 - v0)*(step*frac);
+            vec3 const true_kv = bv[0]*kvec[0] + bv[1]*kvec[1] + bv[2]*kvec[2];
+            double const free_electron = norm(true_kv); // in Rydberg atomic units
 
             // clear matrixes
             for(int in = 0; in < n3D; ++in) {
@@ -474,11 +500,8 @@ namespace overlap {
             } // in
             
             for(int ipi = 0; ipi < num_periodic_images; ++ipi) {
-                double arg = 0;
-                for(int dir = 0; dir < 3; ++dir) {
-                    arg += C_PI * kvec[dir]*vpi[ipi][dir];
-                } // dir
-                complex_t const bloch_factor = std::polar(1.0, arg);
+                vec3 ipos = vpi[ipi];
+                complex_t const bloch_factor = std::polar(1.0, 2*C_PI * dot(kvec, ipos));
                 if (echo > 9) printf("# periodic image%4d%4d%4d  Bloch-phase = %f + i %f\n", 
                     vpi[ipi][0], vpi[ipi][1], vpi[ipi][2], bloch_factor.real(), bloch_factor.imag());
                 // add to matrixes
@@ -505,7 +528,7 @@ namespace overlap {
             
             // LAPACK call (Fortran77 interface);
             int info = 0, itype = 1;
-            if (eigvalues_of_the_overlap_operator) {
+            if (overlap_eigvals) {
                 // get the eigenvalues of the overlap operator only
                 zheev_(&jobz, &uplo, &n3D, ovl_mat, &n3D, 
                        eigvals, work, &lwork, rwork, &info);
@@ -516,6 +539,9 @@ namespace overlap {
             }
 
             for(int i3D = 0; i3D < n3D; ++i3D) {
+                if (eigvals[i3D] < smallest_eigval) { 
+                    kv_smallest = kvec;
+                } // store where the smallest eigenvalue was found
                 smallest_eigval = std::min(smallest_eigval, eigvals[i3D]);
                 largest_eigval  = std::max(largest_eigval,  eigvals[i3D]);
             } // i3D
@@ -523,7 +549,7 @@ namespace overlap {
             if (0 == info) {
                 if(echo > 2) {
                     printf("%.6f ", path_progress_edge);
-                    if (!eigvalues_of_the_overlap_operator) printf("%g ", free_electron);
+                    if (!overlap_eigvals) printf("%g ", free_electron);
                     for(int i3D = 0; i3D < n3D; ++i3D) {
                         printf("%g ", eigvals[i3D]);
                     } // i3D
@@ -535,7 +561,7 @@ namespace overlap {
             } // info
 
         } // step
-        if (echo > 2) printf("# k-point %.6f %.6f %.6f\n", kpath[e1][0], kpath[e1][1], kpath[e1][2]);
+        if (echo > 2) printf("# k-point %.6f %.6f %.6f\n", v1[0],v1[1],v1[2]);
         path_progress += edge_length;
     } // edge
 
@@ -543,11 +569,12 @@ namespace overlap {
         if (echo > 0) printf("# Warning: %d diagonalizations failed!\n", diagonalization_failed);
     } else {
         if (echo > 1) printf("\n# smallest and largest eigenvalue%s are %g and %g\n", 
-            eigvalues_of_the_overlap_operator?" of the overlap operator":"", smallest_eigval, largest_eigval);
+            overlap_eigvals?" of the overlap operator":"", smallest_eigval, largest_eigval);
+        if (echo > 1) printf("# smallest eigenvalue at kvec  %.6f %.6f %.6f\n", kv_smallest[0],kv_smallest[1],kv_smallest[2]);
     }
     return diagonalization_failed;
   } // test_fcc
-  
+
   status_t all_tests() {
     auto status = 0;
     status += test_Hermite_polynomials();
