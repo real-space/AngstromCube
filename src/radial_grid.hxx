@@ -9,6 +9,8 @@ namespace radial_grid {
       float const r=9.45, // [optional] largest radius
       float const a=.015); // [optional] anisotropy parameter
 
+  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min=.001);
+
   void destroy_radial_grid(radial_grid_t* g); // radial grid descriptor
 
   int all_tests();

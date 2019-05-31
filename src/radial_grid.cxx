@@ -38,12 +38,34 @@ namespace radial_grid {
       g->rdr[ir] = r*dr;
       g->r2dr[ir] = r*r*dr;
       g->rinv[ir] = (ir)? 1./r : 0;
+//       printf("%g %g\n", r, dr); // DEBUG
     } // ir
 
     g->n = N;
     g->rmax = g->r[g->n - 1];
     return g;
   } // create_exponential_radial_grid
+
+  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min)
+  {
+      // find a suitable grid point to start from
+      int ir = 0; while (tru.r[ir] < r_min) ++ir;
+      printf("# start pseudo grid from r[%d]=%g\n", ir, tru.r[ir]);
+      int const ir_offset = ir;
+
+      auto g = new radial_grid_t;
+      // offset pointers
+      g->r      = tru.r    + ir_offset;
+      g->dr     = tru.rdr  + ir_offset;
+      g->rdr    = tru.rdr  + ir_offset;
+      g->r2dr   = tru.r2dr + ir_offset;
+      g->rinv   = tru.rinv + ir_offset;
+
+      g->n = tru.n - ir; // reduced number of grid points
+      g->rmax = tru.rmax;
+      return g;
+  } // create_pseudo_radial_grid
+  
   
   void destroy_radial_grid(radial_grid_t* g) {
     delete [] g->r;
@@ -53,7 +75,19 @@ namespace radial_grid {
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
-  status_t all_tests() { printf("\nWarning: %s no unit test implemented!\n\n", __FILE__); return -1; }
+
+  int test(int echo=9) {
+    printf("\n# %s: \n", __func__);
+    auto g = create_exponential_radial_grid(1 << 11);
+    destroy_radial_grid(g);
+    return 0;
+  } // test
+
+  status_t all_tests() {
+    auto status = 0;
+    status += test();
+    return status;
+  } // all_tests
 #endif // NO_UNIT_TESTS
   
 } // namespace radial_grid

@@ -5,7 +5,7 @@ extern "C" {
 #endif
 
 typedef struct {
-    int   n = 0; // numer of points
+    int   n = 0; // number of points
     float rmax = 0.; // max radius
     double*     r; // r[0:n)
     double*    dr; // dr[0:n)
