@@ -60,7 +60,7 @@ namespace atom_core {
       E_est,     // electrostatic: E_Htr + E_Cou
       NumEnergyContributions };
 
-  void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z=0, double *energies=nullptr) {
+  void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z, double *energies) {
       double Eexc = 0, Evxc = 0, EHtr = 0;
       double const ECou = -Z*radial_potential::Hartree_potential(rV, g, rho4pi); // set rV to the Hartree potential
       double const fpi = .25/C_PI;
@@ -100,7 +100,7 @@ namespace atom_core {
   } // dot_product
 
     
-  double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0) {
+  double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
     auto const alpha = 0.3058*pow(Z, 1./3.);
     auto const beta = sqrt(108./C_PI)*max(0, Z - 2)*alpha;
     if (4 + 3.2*charged < 0) return 1; // error
@@ -131,7 +131,7 @@ namespace atom_core {
       int constexpr MAXCYCLES = 200; 
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
-      
+
       int imax = -1;
       assert(Z <= 120);
       orbital_t orb[20]; 
