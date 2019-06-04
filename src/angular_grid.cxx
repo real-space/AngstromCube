@@ -16,7 +16,7 @@ namespace angular_grid {
 // ! cvw    icode=4:   (a,a,b) etc, b=sqrt(1-2a^2)                (24 points)
 // ! cvw    icode=5:   (a,b,0) etc, b=sqrt(1-a^2), a input        (24 points)
 // ! cvw    icode=6:   (a,b,c) etc, c=sqrt(1-a^2-b^2), a&b input  (48 points)
-  
+
   template<typename real_t>
   int gen_oh0(int ncode[], double const w8, real_t xyzw[][4]) {
       ++ncode[0];
@@ -251,6 +251,7 @@ namespace angular_grid {
     int const n_corrected = Lebedev_grid_size(ellmax, echo);
     switch (n_corrected) {
            case   0:
+      // do nothing, in particular do not access xyzw as it will have zero size
     break; case   1:
       m += gen_oh0(nc, 1., xyzw + m);
     break; case   6:
@@ -1577,6 +1578,18 @@ namespace angular_grid {
         return -1;
     } // switch n
 
+    if (echo > 6 && m > 0) {
+        int8_t const npoints[8] = {1, 6, 12, 8, 24, 24, 48, 0};
+        printf("# %s The Lebedev-Laikov grid for ellmax= %d has %d = ", __func__, ellmax, n_corrected);
+        int n_check = 0;
+        for(int icode = 0; icode < 7; ++icode) {
+            if (nc[icode] > 0) printf("%d*%d + ", nc[icode], npoints[icode]);
+            n_check += nc[icode] * npoints[icode];
+        } // icode
+        printf("0 points\n");
+        assert(n_corrected == n_check);
+    } // report
+    
     assert (n_corrected == m);
     return m;
   } // create_Lebedev_grid
@@ -1678,7 +1691,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test_generation(int echo=9) {
+  int test_generation(int echo=1) {
       if (echo > 1) printf("\n# %s: \n", __func__);
       int const max_size = Lebedev_grid_size(ellmax_implemented);
       auto xyzw = new double[max_size][4];
@@ -1687,7 +1700,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
           if (echo > 3) printf("\n# %s: try to generate Lebedev-Laikov grid with for ellmax= %d\n", __func__, ell);
           auto const m = create_Lebedev_grid(ell, xyzw, echo);
           if (echo > 2) printf("\n# %s: generated Lebedev-Laikov grid with for ellmax= %d using %d points\n", __func__, ell, m);
-          stat += (m < 0);
+          if (ell >= 0 && ell <= ellmax_implemented) stat += (m < 0); // count the number of failures in the relevant range
           if (m > 1) {
               // sanity checks on weights and coordinates of the points on the unit sphere
               double w8sum = 0, max_norm2_dev = 0;
@@ -1752,7 +1765,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
 
   status_t all_tests() {
     auto status = 0;
-    status += test_generation(5);
+    status += test_generation(9);
 //     status += test_orthogonality();
     return status;
   } // all_tests
