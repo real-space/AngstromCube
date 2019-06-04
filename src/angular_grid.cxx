@@ -5,10 +5,20 @@
 
 #include "angular_grid.hxx"
 
+#ifdef  NO_UNIT_TESTS
+#else
+  #include "spherical_harmonics.hxx" // Ylm
+#endif
+
 namespace angular_grid {
 
+// #define LARGE_GRIDS
+#ifdef  LARGE_GRIDS
   int constexpr ellmax_implemented = 65; // highest Lebedev-Laikov grid implemented
-
+#else
+  int constexpr ellmax_implemented = 20; // highest Lebedev-Laikov grid implemented
+#endif
+  
 // ! cvw    icode=0:   (0,0,0) only                               ( 1 point)
 // ! cvw    icode=1:   (0,0,1) etc                                ( 6 points)
 // ! cvw    icode=2:   (0,a,a) etc, a=1/sqrt(2)                   (12 points)
@@ -406,6 +416,7 @@ namespace angular_grid {
       m += gen_oh6(nc, .1713904507106709E-2, xyzw + m, .3791035407695563, .1720795225656878);
       m += gen_oh6(nc, .1555213603396808E-2, xyzw + m, .2778673190586244, .0821302158193251);
       m += gen_oh6(nc, .1802239128008525E-2, xyzw + m, .5033564271075117, .0899920584207488);
+#ifdef  LARGE_GRIDS
     break; case 770:
       m += gen_oh1(nc, .2192942088181184E-3, xyzw + m);
       m += gen_oh2(nc, .1436433617319080E-2, xyzw + m);
@@ -1573,8 +1584,13 @@ namespace angular_grid {
       m += gen_oh6(nc, .1899434637795751E-3, xyzw + m, .6455390026356783, .0582380915261720);
       m += gen_oh6(nc, .1904520856831751E-3, xyzw + m, .6747258588365477, .0874038489988472);
       m += gen_oh6(nc, .1905534498734563E-3, xyzw + m, .6772135750395347, .0291994613580811);
+#endif
     break; default:
         if(echo > 0) printf("# %s A Lebedev-Laikov grid with %d points for ellmax= %d is not available!\n", __func__, n_corrected, ellmax); 
+#ifdef  LARGE_GRIDS
+#else       
+        if(echo > 0 && n_corrected >= 770) printf("# %s Please activate -D LARGE_GRIDS in %s\n", __func__, __FILE__); 
+#endif
         return -1;
     } // switch n
 
@@ -1719,54 +1735,60 @@ cTeXit '. ', '' ! full stop and an extra empty line
       return stat;
   } // test
     
-  int test_orthogonality(int echo=9) {
-    printf("\n# %s: \n", __func__);
-#if 0
-  status_t function test()
-  use spherical_harmonics, only: Xellmax_rl, pi
-    integer, parameter :: MAX_ellmax=6
-    iounit_t, parameter :: u=0
-    real, allocatable :: wxyz(:,:), Xlm(:,:), XX(:,:) ! XX(1:(ellmax+1)**2,1:(ellmax+1)**2)
-    integer :: ellmax, ilm1, ilm2, ip, ilm(2,0:1), idiag
-    real :: maxdev(0:1), dev
-    do ellmax = MAX_ellmax, 0, -1
-      if(u>0) write(u,'( /,A,I0)') 'ell=',ellmax
-      test = create_Lebedev_grid(ellmax, wxyz)
-!       ! export Lebedev grid to files
-!       write(200+ellmax, '(i0,a)') ubound(wxyz, 2), " angular grid points in the Lebedev grid"
-!       write(200+ellmax, '(4f16.9)') wxyz
-      if(test /= 0) return
-      allocate(Xlm(1:(ellmax+1)**2,ubound(wxyz,2)), XX(1:(ellmax+1)**2,1:(ellmax+1)**2), stat=test)
-      if(test /= 0) return
-      do ip = 1, ubound(wxyz, 2)
-        Xlm(:,ip) = Xellmax_rl(ellmax, wxyz(1:3,ip))
-      enddo ! ip
-      maxdev = 0. ; ilm = 0
-      do ilm2 = 1, (ellmax+1)**2
-        do ilm1 = 1, (ellmax+1)**2
-          XX(ilm1,ilm2) = sum(Xlm(ilm1,:) * Xlm(ilm2,:) * wxyz(0,:))*4*pi
-          idiag = 0 ; if(ilm2 == ilm1) idiag = 1
-          dev = abs(XX(ilm1,ilm2)-idiag)
-          if(dev > maxdev(idiag)) then ; ilm(:,idiag) = [ilm1,ilm2] ; maxdev(idiag) = dev ; endif
-        enddo ! ilm1 
-        if(u>0) write(u,'(I3,99F10.6)') ilm2, XX(:,ilm2)
-      enddo ! ilm2
-      if(ilm(1,1)>0) write(*,'(A,2(A,I0),2(ES9.1,A))') here,' ellmax=',ellmax, ' max dev on diagonal ilm=',ilm(1,1),maxdev(1),' eps=',epsilon(1.)
-      if(ilm(1,0)>0) write(*,'(A,3(A,I0),ES9.1)')      here,' ellmax=',ellmax, ' max dev on off-diagonal ilm1=',ilm(1,0),' ilm2=',ilm(2,0),maxdev(0)
-      deallocate(XX, wxyz, Xlm, stat=test)
-    enddo ! ellmax
-    test = floor(maxval(maxdev)/epsilon(1.)) ! return success if deviations are below epsilon
-  endfunction ! test
-#else
-    printf("\n# %s: Requires Spherical Harmonics! \n", __func__);
-    return -1;
-#endif
+  int test_orthogonality(int echo=9, int lmax=20) { // terribly slow
+      printf("\n# %s: \n", __func__);
+      int const ellmax = std::min(lmax, ellmax_implemented);
+      int const max_size = Lebedev_grid_size(ellmax);
+      int const M = (1 + ellmax)*(1 + ellmax);
+      auto yy = new std::complex<double>[M];
+      auto unity = new std::complex<double>[M*M];
+      auto xyzw = new double[max_size][4];
+      double const pi = 3.14159265358979323846;
+      status_t stat = 0;
+      double dev_all = 0;
+      for(int ell = ellmax; ell > 0; --ell) {
+          int const m = (1 + ell)*(1 + ell);
+          if (echo > 3) printf("\n# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %d\n", __func__, ell);
+          auto const np = create_Lebedev_grid(ell, xyzw, echo);
+          for(int ij = 0; ij < M*M; ++ij) unity[ij] = 0; // clear
+          for(int ip = 0; ip < np; ++ip) {
+              auto const w8 = xyzw[ip][3] * 4*pi;
+//            if (echo > 3) printf("# %s: envoke Ylm for %d  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
+              spherical_harmonics::Ylm(yy, ell, xyzw[ip]);
+              for(int i = 0; i < m; ++i) {
+                  auto const yi = std::conj(yy[i])*w8;
+                  for(int j = 0; j < m; ++j) {
+                      unity[i*M + j] += yi * yy[j];
+                  } // j
+              } // i
+          } // ip
+          
+          double dev = 0;
+          for(int i = 0; i < m; ++i) {
+              for(int j = 0; j < m; ++j) {
+                  auto const Re = unity[i*M + j].real(), Im = unity[i*M + j].imag();
+                  if (echo > 8) printf("%g %g  ", Re, Im);
+                  dev = std::max(dev, std::abs(Re - (i == j))); // subtract 1 on the diagonal
+                  dev = std::max(dev, std::abs(Im));
+              } // j
+              if (echo > 7) printf("\n");
+          } // i
+          if (echo > 2) printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %d is %g\n", __func__, ell, dev);
+          dev_all = std::max(dev_all, dev);
+          stat += (dev > 2.7e-14);
+
+      } // ell
+      if (echo > 0) printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %d is %g\n", __func__, ellmax, dev_all);
+      delete[] xyzw;
+      delete[] yy;
+      if (echo > 1) printf("\n# %s: %d grid generations failed!\n", __func__, stat);
+      return stat;
   } // test
 
   status_t all_tests() {
     auto status = 0;
-    status += test_generation(9);
-//     status += test_orthogonality();
+    status += test_generation(1);
+    status += test_orthogonality(1);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
