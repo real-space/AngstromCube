@@ -7,7 +7,7 @@ EXECUTABLE = aa3
 all: ${EXECUTABLE}
 
 OBJ = radial_grid.o radial_integrator.o radial_eigensolver.o element_configuration.o \
-	radial_potential.o atom_core.o overlap.o single_atom.o main.o
+	radial_potential.o atom_core.o overlap.o single_atom.o angular_grid.o main.o
 ifdef ENABLEGPU
 	OBJ += GPUdrivers.o
 endif

@@ -203,7 +203,7 @@ using namespace atom_core;
         delete[] core_state;
         delete[] valence_state;
     };
-    
+
     void update_core_states(float const mixing, int echo=0) {
         int const nr = rg[TRU]->n;
         auto r2rho = new double[nr];

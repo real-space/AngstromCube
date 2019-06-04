@@ -7,6 +7,7 @@
 #include "radial_eigensolver.hxx" // all_tests
 #include "radial_integrator.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
+#include "angular_grid.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
@@ -28,6 +29,7 @@
           module_test("radial_eigensolver.",       radial_eigensolver::all_tests);
           module_test("radial_integrator.",         radial_integrator::all_tests);
           module_test("radial_potential.",           radial_potential::all_tests);
+          module_test("angular_grid.",                   angular_grid::all_tests);
           module_test("radial_grid.",                     radial_grid::all_tests);
           module_test("single_atom.",                     single_atom::all_tests);
           module_test("atom_core.",                         atom_core::all_tests);
