@@ -1,6 +1,7 @@
 #include <cstdio> // printf
 #include <cstdlib> // abs
 #include <cmath> // sqrt
+#include <cassert> // assert
 #include <algorithm> // max
 
 #include "single_atom.hxx"
@@ -66,10 +67,9 @@ using namespace atom_core;
       int32_t id; // global atom identifyer
       float Z; // number of nucleons in the core
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid, SMT may point to TRU
-      ell_QN_t ellmax_density; // limit ell for the full_potential
+      ell_QN_t ellmax; // limit ell for full_potential and full_density
       double r_cut; // classical augmentation radius for potential and core density
       float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
-      ell_QN_t ellmax_potential; // limit ell for the full_potential
       ell_QN_t numax; // limit of the SHO projector quantum numbers
       uint8_t nn[1+ELLMAX]; // number of projectors and partial waves used in each ell-channel
       ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
@@ -84,8 +84,8 @@ using namespace atom_core;
       core_level_t* core_state;
       valence_level_t* valence_state;
       double* core_density[TRU_AND_SMT]; // spherical core density
-      double* full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax_density)^2 radial functions
-      double* full_potential[TRU_AND_SMT]; // (1+ellmax_potential)^2 radial functions
+      double* full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
+      double* full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
       double* potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor
       double* bar_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
@@ -102,10 +102,9 @@ using namespace atom_core;
         int const nrt = align<2>(rg[TRU]->n),
                   nrs = align<2>(rg[SMT]->n);
         if (echo > 0) printf("# padded radial grid numbers are %d and %d\n", nrt, nrs);
-        ellmax_density = 0;
-        ellmax_potential = 0;
-        ellmax_compensator = 0;
         numax = 3; // up to f-projectors
+        ellmax = 0; // should be 2*numax;
+        ellmax_compensator = 0;
         r_cut = 2.0; // Bohr
         sigma = 0.5; // Bohr
         r_match = 9*sigma;
@@ -169,19 +168,17 @@ using namespace atom_core;
             } // ell
         } // valence states
         
-
-        int const nlm_rho = (ellmax_density + 1)*(ellmax_density + 1);
-        int const nlm_pot = (ellmax_potential + 1)*(ellmax_potential + 1);
+        int const nlm = (1 + ellmax)*(1 + ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ts += (SMT - TRU)) {
             int const nr = (TRU == ts)? nrt : nrs;
             core_density[ts]   = new double[nr]; // get memory
             potential[ts]      = new double[nr]; // get memory
-            full_density[ts]   = new double[nlm_rho*nr]; // get memory
-            full_potential[ts] = new double[nlm_pot*nr]; // get memory
+            full_density[ts]   = new double[nlm*nr]; // get memory
+            full_potential[ts] = new double[nlm*nr]; // get memory
         } // true and smooth
         bar_potential = new double[nrs]; // get memory
 
-        int const nSHO = ((1 + numax)*(2 + numax)*(3 + numax))/6;
+        int const nSHO = ((1 + numax)*(2 + numax)*(3 + numax))/6; // this should be in sho_tools
         matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
         hamiltonian = new double[nSHO*matrix_stride]; // get memory
         overlap     = new double[nSHO*matrix_stride]; // get memory
@@ -191,7 +188,7 @@ using namespace atom_core;
         for(int scf = 0; scf < 133; ++scf) {
             rad_pot(potential[TRU], *rg[TRU], core_density[TRU], Z);
             update_states(9);
-            printf("\n"); 
+            printf("\n");
         } // self-consistency iterations
 
     };
@@ -203,7 +200,66 @@ using namespace atom_core;
         delete[] core_state;
         delete[] valence_state;
     };
+    
+    void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const stride) {
+        int const nSHO = ((1 + numax)*(2 + numax)*(3 + numax))/6; // this should be in sho_tools
+        assert(stride >= nSHO);
+//         int const nlm = (1 + ellmax)*(1 + ellmax);
+//         int const nvs = nvalencestates;
+        // ToDo:
+        //   transform the density_matrix[iSHO*stride + jSHO]
+        //   into a radial_density_matrix[inlm*stride + jnlm] 
+        //   using the unitary transform from left and right
+        //   Then, contract with the Gauntt tensor over m_1 and m_2
+        //   rho_tensor[(lm*nvs + ivs)*nvs + jvs] = 
+        //     G_{lm l_1m_1 l_2m_2} * density_matrix[in_1l_1m_1*stride + jn_2l_2m_2]
+    } // get
+    
+    void update_full_density(double const rho_tensor[]) { // density tensor rho_{lm ivs jvs}
+        int const nlm = (1 + ellmax)*(1 + ellmax);
+        int const nvs = nvalencestates;
+        for(int ts = TRU; ts < TRU_AND_SMT; ts += (SMT - TRU)) {
+            int const nr = rg[ts]->n, mr = align<2>(nr);
+            // full_density[ts][nlm*mr]; // memory layout
+            for(int lm = 0; lm < nlm; ++lm) {
+                if (0 == lm) {
+                    for(int ir = 0; ir < mr; ++ir) {
+                        full_density[ts][lm*mr + ir] = core_density[ts][ir]; // needs scaling with Y00 here?
+                    } // ir
+                } else {
+                    for(int ir = 0; ir < mr; ++ir) {
+                        full_density[ts][lm*mr + ir] = 0; // init clear
+                    } // ir
+                }
+                for(int ivs = 0; ivs < nvs; ++ivs) {
+                    auto const wave_i = valence_state[ivs].wave[ts];
+                    for(int jvs = 0; jvs < nvs; ++jvs) {
+                        auto const wave_j = valence_state[jvs].wave[ts];
+                        double const rho_ij = rho_tensor[(lm*nvs + ivs)*nvs + jvs];
+                        for(int ir = 0; ir < nr; ++ir) {
+                            full_density[ts][lm*mr + ir] += rho_ij * wave_i[ir] * wave_j[ir];
+                        } // ir
+                    } // jvs
+                } // ivs
+            } // lm
+        } // true and smooth
+    } // update
 
+    void update_full_potential(double const q_lm[]) {
+//      int const nlm = (1 + ellmax)*(1 + ellmax);
+        for(int ts = TRU; ts < TRU_AND_SMT; ts += (SMT - TRU)) {
+//          int const nr = rg[ts]->n, mr = align<2>(nr);
+            // full_potential[ts][nlm*mr]; // memory layout
+            // transform the lm-index into real-space 
+            // using an angular grid quadrature, e.g. Lebendev-Laikov grids
+            // envoke the exchange-correlation potential there
+            // transform back to lm-index
+            // add zero potential for SMT==ts and 0==lm
+            // add electrostatic boundary elements q_lm*r^\ell
+        } // true and smooth
+    } // update 
+    
+    
     void update_core_states(float const mixing, int echo=0) {
         int const nr = rg[TRU]->n;
         auto r2rho = new double[nr];
