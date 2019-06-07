@@ -1788,7 +1788,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
   status_t all_tests() {
     auto status = 0;
     status += test_generation(1);
-    status += test_orthogonality(1);
+    status += test_orthogonality(4);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

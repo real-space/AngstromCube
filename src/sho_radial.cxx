@@ -4,8 +4,8 @@
 #include <algorithm> // max
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
+#include "inline_tools.hxx" // align<T,nbits>
 #include "sho_radial.hxx"
-
 
 namespace sho_radial {
   
@@ -98,21 +98,21 @@ namespace sho_radial {
       norm *= dr; // can be takes out of the loop because it is constant
       return norm;
   } // numerical_norm
-  
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test(int echo=9) {
+  int test(int echo=1) {
       int const numax = 9;
       int const n = nSHO_radial(numax);
       if (echo > 1) printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
       
-      double c[n][numax/2 + 1]; // polynomial coefficients
-      
+      double c[n][align<2>(numax/2 + 1)]; // polynomial coefficients
+
       ell_QN_t ell_list[n];
       enn_QN_t nrn_list[n];
-//       double   fac_list[n];
+      double   fac_list[n];
       
       int i = 0;
 //       for(int ene = 0; ene <= numax; ++ene) { //  E_SHO = ene + 3/2
@@ -127,9 +127,9 @@ namespace sho_radial {
               radial_eigenstates(c[i], nrn, ell);
               double const fac = radial_normalization(c[i], nrn, ell);
               assert(fac == radial_normalization<double>(nrn, ell)); // check that the other interface produces the same value
-//               fac_list[i] = fac;
+              fac_list[i] = fac;
               if (echo > 2) printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
-              radial_eigenstates(c[i], nrn, ell, fac); // overwrite the coefficent series with the normalized onces
+              radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficent series with the normalized onces
               
               ++i; // count the number of states
           } // nrn
@@ -159,7 +159,7 @@ namespace sho_radial {
       } // i
       if (echo > 0) printf("# normalization of radial SHO eigenfunctions differs by %g from unity\n", dev[1]); // summary
       if (echo > 0) printf("# orthogonality of radial SHO eigenfunctions differs by %g from zero\n",  dev[0]); // summary
-      return 0;
+      return (dev[0] + dev[1] > 5e-11);
   } // test
 
   status_t all_tests() {

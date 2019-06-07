@@ -9,6 +9,7 @@
 #include "radial_grid.hxx" // create_exponential_radial_grid, destroy_radial_grid
 #include "radial_eigensolver.hxx" // shooting_method
 #include "radial_integrator.hxx" // integrate_outwards
+#include "inline_tools.hxx" // align<nbits>
 #include "atom_core.hxx" // dot_product, initial_density
 using namespace atom_core;
 
@@ -56,8 +57,6 @@ using namespace atom_core;
 
   typedef struct energy_level<1+CORE>       core_level_t;
   typedef struct energy_level<1+VALENCE> valence_level_t;
-
-  template<int bits> inline size_t align(size_t const n) { return (((n - 1) >> bits) + 1) << bits; }
   
   class LiveAtom {
   public:

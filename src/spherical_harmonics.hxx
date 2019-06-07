@@ -84,8 +84,8 @@ namespace spherical_harmonics {
          sph = 0;
       }
 
-      real_t p[(1 + ellmax)*(1 + ellmax)], c[1 + ellmax], s[1 + ellmax];
-      int const S = 1 + ellmax; // stride
+      int const S = (1 + ellmax); // stride
+      real_t p[(1 + ellmax)*S];
 
 // !---> generate associated legendre functions for m.ge.0
       real_t fac = 1;
@@ -102,6 +102,7 @@ namespace spherical_harmonics {
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
+      real_t c[1 + ellmax], s[1 + ellmax];
 // !--->    determine sin and cos of phi
       s[0] = 0; s[1] = sph;
       c[0] = 1; c[1] = cph;
