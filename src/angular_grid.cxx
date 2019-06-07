@@ -8,6 +8,7 @@
 #ifdef  NO_UNIT_TESTS
 #else
   #include "spherical_harmonics.hxx" // Ylm
+  #include "solid_harmonics.hxx" // rlXlm
 #endif
 
 namespace angular_grid {
@@ -1740,8 +1741,10 @@ cTeXit '. ', '' ! full stop and an extra empty line
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);
       int const M = (1 + ellmax)*(1 + ellmax);
-      auto yy = new std::complex<double>[M];
-      auto unity = new std::complex<double>[M*M];
+//       typedef std::complex<double> Ylm_t;
+      typedef double Ylm_t;
+      auto yy = new Ylm_t[M];
+      auto unity = new Ylm_t[M*M];
       auto xyzw = new double[max_size][4];
       double const pi = 3.14159265358979323846;
       status_t stat = 0;
@@ -1754,7 +1757,8 @@ cTeXit '. ', '' ! full stop and an extra empty line
           for(int ip = 0; ip < np; ++ip) {
               auto const w8 = xyzw[ip][3] * 4*pi;
 //            if (echo > 3) printf("# %s: envoke Ylm for %d  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
-              spherical_harmonics::Ylm(yy, ell, xyzw[ip]);
+//               spherical_harmonics::Ylm(yy, ell, xyzw[ip]);
+              solid_harmonics::rlXlm(yy, ell, xyzw[ip]);
               for(int i = 0; i < m; ++i) {
                   auto const yi = std::conj(yy[i])*w8;
                   for(int j = 0; j < m; ++j) {
@@ -1766,10 +1770,13 @@ cTeXit '. ', '' ! full stop and an extra empty line
           double dev = 0;
           for(int i = 0; i < m; ++i) {
               for(int j = 0; j < m; ++j) {
-                  auto const Re = unity[i*M + j].real(), Im = unity[i*M + j].imag();
-                  if (echo > 8) printf("%g %g  ", Re, Im);
+//                   auto const Re = unity[i*M + j].real(), Im = unity[i*M + j].imag();
+//                   if (echo > 8) printf("%g %g  ", Re, Im);
+//                   dev = std::max(dev, std::abs(Im));
+                  auto const Re = unity[i*M + j];
+//                   if (echo > 8) printf("%g ", Re);
+                  if (echo > 8) printf("%16.9f ", Re);
                   dev = std::max(dev, std::abs(Re - (i == j))); // subtract 1 on the diagonal
-                  dev = std::max(dev, std::abs(Im));
               } // j
               if (echo > 7) printf("\n");
           } // i
