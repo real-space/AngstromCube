@@ -91,14 +91,14 @@ namespace spherical_harmonics {
       real_t fac = 1;
 // !---> loop over m values
       for(int m = 0; m < ellmax; ++m) {
-         fac *= (1 - 2*m);
-         p[m     + S*m] = fac;
-         p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
+          fac *= (1 - 2*m);
+          p[m     + S*m] = fac;
+          p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
 // !--->    recurse upward in l
-         for(int l = m + 2; l <= ellmax; ++l) {
-            p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*p[l - 2 + S*m])/((real_t)(l - m));
-         } // l
-         fac *= sth;
+          for(int l = m + 2; l <= ellmax; ++l) {
+              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*p[l - 2 + S*m])/((real_t)(l - m));
+          } // l
+          fac *= sth;
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
