@@ -10,10 +10,10 @@
 #include "angular_grid.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
+#include "sho_unitary.hxx" // all_tests
 #include "sho_radial.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
 #include "overlap.hxx" // all_tests
-
 
   int run_unit_tests(char const *module) 
   {
@@ -33,6 +33,7 @@
           module_test("angular_grid.",                   angular_grid::all_tests);
           module_test("radial_grid.",                     radial_grid::all_tests);
           module_test("single_atom.",                     single_atom::all_tests);
+          module_test("sho_unitary.",                     sho_unitary::all_tests);
           module_test("sho_radial.",                       sho_radial::all_tests);
           module_test("atom_core.",                         atom_core::all_tests);
           module_test("overlap.",                             overlap::all_tests);

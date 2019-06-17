@@ -210,7 +210,7 @@ using namespace atom_core;
         //   transform the density_matrix[iSHO*stride + jSHO]
         //   into a radial_density_matrix[inlm*stride + jnlm] 
         //   using the unitary transform from left and right
-        //   Then, contract with the Gauntt tensor over m_1 and m_2
+        //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[(lm*nvs + ivs)*nvs + jvs] = 
         //     G_{lm l_1m_1 l_2m_2} * density_matrix[in_1l_1m_1*stride + jn_2l_2m_2]
     } // get
