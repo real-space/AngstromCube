@@ -8,6 +8,7 @@
 
 #include "radial_grid.hxx" // create_exponential_radial_grid, destroy_radial_grid
 #include "radial_eigensolver.hxx" // shooting_method
+#include "angular_grid.hxx" // transform, Lebedev_grid_size
 #include "radial_integrator.hxx" // integrate_outwards
 #include "inline_tools.hxx" // align<nbits>
 #include "atom_core.hxx" // dot_product, initial_density
@@ -244,19 +245,24 @@ using namespace atom_core;
         } // true and smooth
     } // update
 
-    void update_full_potential(double const q_lm[]) {
+    void update_full_potential() { // double const q_lm[]) {
 //      int const nlm = (1 + ellmax)*(1 + ellmax);
+        int const npt = angular_grid::Lebedev_grid_size(ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ts += (SMT - TRU)) {
-//          int const nr = rg[ts]->n, mr = align<2>(nr);
+            int const nr = rg[ts]->n, mr = align<2>(nr);
             // full_potential[ts][nlm*mr]; // memory layout
+            auto on_grid = new double[npt*mr];
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebendev-Laikov grids
-            // envoke the exchange-correlation potential there
+            angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
+            // envoke the exchange-correlation potential (acts in place)
+//          printf("# envoke the exchange-correlation on angular grid\n");
             // transform back to lm-index
+            angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
             // add zero potential for SMT==ts and 0==lm
             // add electrostatic boundary elements q_lm*r^\ell
         } // true and smooth
-    } // update 
+    } // update
     
     
     void update_core_states(float const mixing, int echo=0) {
@@ -300,6 +306,8 @@ using namespace atom_core;
     void update_states(int echo=0) {
         update_core_states(.5, echo);
 //      update_valence_states(echo);
+//         update_full_density();
+        update_full_potential();
     } // update
 
   }; // LiveAtom

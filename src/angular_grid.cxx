@@ -2,14 +2,20 @@
 #include <cassert> // assert
 #include <cmath> // std::sqrt, std::abs
 #include <algorithm> // std::max
+#include <vector> // std::vector
 
 #include "angular_grid.hxx"
+#include "angular_grid.h" // angular_grid_t
+#include "inline_tools.hxx" // align<>
+#include "solid_harmonics.hxx" // Xlm
+//   #include "spherical_harmonics.hxx" // Ylm
 
-#ifdef  NO_UNIT_TESTS
-#else
-  #include "spherical_harmonics.hxx" // Ylm
-  #include "solid_harmonics.hxx" // rlXlm
-#endif
+extern "C" {
+   // BLAS interface to matrix matrix multiplication
+  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*, 
+              const double*, const int*, const double*, const int*, const double*, double*, const int*);
+} // extern "C"
+
 
 namespace angular_grid {
 
@@ -19,6 +25,66 @@ namespace angular_grid {
 #else
   int constexpr ellmax_implemented = 20; // highest Lebedev-Laikov grid implemented
 #endif
+
+
+  template<> // template specialization
+  void transform<double>(double *out, double const *in, int const M, // nrad is the stride for in[] and out[]
+                         int const ellmax, bool const back, int echo) {
+      auto const g = get_grid(ellmax, echo);
+      auto constexpr c = 'n'; double const w8 = 1, zero = 0;
+      double *b; int ldb = 0, N = 0, K = 0;
+      if (0 == back) {
+          N = (1 + ellmax)*(1 + ellmax); K = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride;
+      } else {
+          K = (1 + ellmax)*(1 + ellmax); N = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride;
+      } // back?
+      dgemm_(&c, &c, &M, &N, &K, &w8, in, &M, b, &ldb, &zero, out, &M); // matrix-matrix multiplication with BLAS
+  } // transform
+
+
+  angular_grid_t* get_grid(int const ellmax, int const echo) {
+    
+      static angular_grid_t grids[1 + ellmax_implemented];
+      
+      if (ellmax < 0 || ellmax > ellmax_implemented) {
+          printf("# %s: ellmax= %d is out of range [0, %d]\n", __func__, ellmax, ellmax_implemented);
+          return nullptr;
+      } // in range
+      auto g = &grids[ellmax];
+      if (g->npoints < 1 || g->ellmax != ellmax) {
+          // init this instance
+          g->ellmax = ellmax;
+          g->npoints = Lebedev_grid_size(ellmax);
+          int const nlm = (1 + ellmax)*(1 + ellmax);
+          g->Xlm2grid_stride = align<2>(nlm); 
+          g->grid2Xlm_stride = align<2>(g->npoints);
+          // allocations
+          g->xyzw     = new double[g->npoints][4];
+          g->Xlm2grid = new double[g->npoints*g->Xlm2grid_stride];
+          g->grid2Xlm = new double[nlm       *g->grid2Xlm_stride];
+          
+          auto const ist = create_Lebedev_grid(ellmax, g->xyzw);
+          if (echo > 0 && ist) printf("# %s: angular grid for ellmax= %d failed with status %d\n", __func__, ellmax, ist);
+          
+          // clear the matrix memories
+          for(int ij = 0; ij < g->npoints*g->Xlm2grid_stride; ++ij) g->Xlm2grid[ij] = 0;
+          for(int ij = 0; ij < nlm       *g->grid2Xlm_stride; ++ij) g->grid2Xlm[ij] = 0;
+          
+          // create the real-valued spherical harmonics
+          for(int ipt = 0; ipt < g->npoints; ++ipt) {
+              auto const w8 = g->xyzw[ipt][3];
+              double xlm[nlm];
+              solid_harmonics::Xlm(xlm, ellmax, g->xyzw[ipt]);
+              for(int ilm = 0; ilm < nlm; ++ilm) {
+                  g->Xlm2grid[ipt*g->Xlm2grid_stride + ilm] = xlm[ilm];
+                  g->grid2Xlm[ilm*g->grid2Xlm_stride + ipt] = xlm[ilm]*w8;
+              } // ilm
+          } // ipt
+          if (echo > 0) printf("# %s: angular grid for ellmax= %d is requested 1st: %d points\n", __func__, ellmax, g->npoints);
+      } // grid was not set
+      return g;
+
+  } // get_grid
   
 // ! cvw    icode=0:   (0,0,0) only                               ( 1 point)
 // ! cvw    icode=1:   (0,0,1) etc                                ( 6 points)
@@ -1741,7 +1807,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);
       int const M = (1 + ellmax)*(1 + ellmax);
-//       typedef std::complex<double> Ylm_t;
+//       typedef std::complex<double> Ylm_t; // complex
       typedef double Ylm_t;
       auto yy = new Ylm_t[M];
       auto unity = new Ylm_t[M*M];
@@ -1757,10 +1823,11 @@ cTeXit '. ', '' ! full stop and an extra empty line
           for(int ip = 0; ip < np; ++ip) {
               auto const w8 = xyzw[ip][3] * 4*pi;
 //            if (echo > 3) printf("# %s: envoke Ylm for %d  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
-//               spherical_harmonics::Ylm(yy, ell, xyzw[ip]);
-              solid_harmonics::rlXlm(yy, ell, xyzw[ip]);
+//               spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
+              solid_harmonics::Xlm(yy, ell, xyzw[ip]);
               for(int i = 0; i < m; ++i) {
-                  auto const yi = std::conj(yy[i])*w8;
+//                auto const yi = std::conj(yy[i])*w8; // complex
+                  auto const yi = yy[i]*w8;
                   for(int j = 0; j < m; ++j) {
                       unity[i*M + j] += yi * yy[j];
                   } // j

@@ -1,3 +1,5 @@
+#pragma once
+
 typedef int status_t;
 
 namespace single_atom {
