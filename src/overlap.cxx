@@ -346,7 +346,7 @@ namespace overlap {
   status_t test_fcc(int const echo=5, float const a0=8) {
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 6, ncut = nmax + 2;
+    int constexpr nmax = 2, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {

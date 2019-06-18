@@ -11,6 +11,7 @@
 #include "angular_grid.hxx" // transform, Lebedev_grid_size
 #include "radial_integrator.hxx" // integrate_outwards
 #include "inline_tools.hxx" // align<nbits>
+#include "sho_tools.hxx" // lnm_index
 #include "atom_core.hxx" // dot_product, initial_density
 using namespace atom_core;
 
@@ -54,6 +55,7 @@ using namespace atom_core;
       ell_QN_t ell; // angular momentum quantum_number
       emm_QN_t emm; // usually emm == emm_Degenerate
       spin_QN_t spin; // usually spin == spin_Degenerate
+      enn_QN_t nrn[Pseudo]; // number of radial nodes
   };
 
   typedef struct energy_level<1+CORE>       core_level_t;
@@ -129,6 +131,7 @@ using namespace atom_core;
                         core_state[ics].energy = -.5*(Z/enn)*(Z/enn); // hydrogen like energy levels
                         // warning: this memory is not freed
                         core_state[ics].wave[TRU] = new double[nrt]; // get memory for the (true) radial function
+                        core_state[ics].nrn[TRU] = enn - ell; // number of radial nodes
                         core_state[ics].enn = enn;
                         core_state[ics].ell = ell;
                         core_state[ics].emm = emm_Degenerate;
@@ -158,6 +161,8 @@ using namespace atom_core;
                     // warning: this memory is not freed
                     valence_state[ivs].wave[TRU] = new double[nrt]; // get memory for the true radial function
                     valence_state[ivs].wave[SMT] = new double[nrs]; // get memory for the smooth radial function
+                    valence_state[ivs].nrn[TRU] = enn - ell; // number of radial nodes
+                    valence_state[ivs].nrn[SMT] = nrn;
                     valence_state[ivs].occupation = 0;
                     valence_state[ivs].enn = enn;
                     valence_state[ivs].ell = ell;
@@ -178,7 +183,7 @@ using namespace atom_core;
         } // true and smooth
         bar_potential = new double[nrs]; // get memory
 
-        int const nSHO = ((1 + numax)*(2 + numax)*(3 + numax))/6; // this should be in sho_tools
+        int const nSHO = sho_tools::nSHO(numax);
         matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
         hamiltonian = new double[nSHO*matrix_stride]; // get memory
         overlap     = new double[nSHO*matrix_stride]; // get memory
@@ -201,18 +206,66 @@ using namespace atom_core;
         delete[] valence_state;
     };
     
-    void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const stride) {
-        int const nSHO = ((1 + numax)*(2 + numax)*(3 + numax))/6; // this should be in sho_tools
+    void get_rho_tensor(double rho_tensor[], double const density_matrix[]) {
+        int const nSHO = sho_tools::nSHO(numax);
+        int const stride = nSHO;
         assert(stride >= nSHO);
-//         int const nlm = (1 + ellmax)*(1 + ellmax);
-//         int const nvs = nvalencestates;
+        
+        static bool Gaunt_init = false;
+        static std::vector<gaunt_entry_t> gaunt;
+        if (!Gaunt_init) Gaunt_init = (0 == angular_grid::create_numerical_Gaunt<6>(&gaunt));
+        
+        sho_tools::all_tests();
+        
+        int const nlm = (1 + ellmax)*(1 + ellmax);
+        int const mlm = (1 + numax)*(1 + numax);
+        int const nvs = nvalencestates;
         // ToDo:
         //   transform the density_matrix[iSHO*stride + jSHO]
         //   into a radial_density_matrix[inlm*stride + jnlm] 
         //   using the unitary transform from left and right
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[(lm*nvs + ivs)*nvs + jvs] = 
-        //     G_{lm l_1m_1 l_2m_2} * density_matrix[in_1l_1m_1*stride + jn_2l_2m_2]
+        //     G_{lm l_1m_1 l_2m_2} * density_matrix[il_1m_1n_1*stride + jl_2m_2n_2]
+        
+        int16_t ivs_list[nSHO], lm_begin[mlm], lm_end[mlm];
+        {   for(int lm = 0; lm < nlm; ++lm) lm_begin[lm] = -1;
+            int isho = 0;
+            for(int16_t ell = 0; ell <= numax; ++ell) {
+                int ivs_enn[nn[ell]];
+                for(int16_t nrn = 0; nrn < nn[ell]; ++nrn) {
+                    for(int ivs = 0; ivs < nvs; ++ivs) {
+                        if (valence_state[ivs].nrn[SMT] == nrn 
+                         && valence_state[ivs].ell == ell) ivs_enn[nrn] = ivs; // search
+                    } // ivs
+                } // nrn
+                for(int16_t emm = -ell; emm <= ell; ++emm) {
+                    for(int16_t nrn = 0; nrn < nn[ell]; ++nrn) {
+                        ivs_list[isho] = ivs_enn[nrn]; // valence state index
+                        int const lm = ell*ell + ell + emm; //solid_harmonics::lm_index(ell, emm);
+                        if (lm_begin[lm] < 0) lm_begin[lm] = isho; // store the first index of this lm
+                                                lm_end[lm] = isho + 1; // store the last index of this lm
+                        ++isho;
+                    } // nrn
+                } // emm
+            } // ell
+            assert(nSHO == isho);
+        } // scope
+        
+        for(int lmij = 0; lmij < nlm*nvs*nvs; ++lmij) rho_tensor[lmij] = 0; // clear
+        for(auto gnt : gaunt) {
+            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto const G = gnt.G;
+            if (lm < nlm && lm1 < mlm && lm2 < mlm) {
+                for(int isho = lm_begin[lm1]; isho < lm_end[lm1]; ++isho) {
+                    int const ivs = ivs_list[isho];
+                    for(int jsho = lm_begin[lm2]; jsho < lm_end[lm2]; ++jsho) {
+                        int const jvs = ivs_list[jsho];
+                        rho_tensor[(lm*nvs + ivs)*nvs + jvs] += G * density_matrix[isho*stride + jsho];
+                    } // jsho
+                } // isho
+            } // limits
+        } // gnt
+        
     } // get
     
     void update_full_density(double const rho_tensor[]) { // density tensor rho_{lm ivs jvs}
@@ -306,6 +359,8 @@ using namespace atom_core;
     void update_states(int echo=0) {
         update_core_states(.5, echo);
 //      update_valence_states(echo);
+        double density_matrix[1<<12], rho_tensor[1<<11];
+        get_rho_tensor(rho_tensor, density_matrix);
 //         update_full_density();
         update_full_potential();
     } // update

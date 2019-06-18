@@ -8,6 +8,7 @@
 #include "angular_grid.h" // angular_grid_t
 #include "inline_tools.hxx" // align<>
 #include "solid_harmonics.hxx" // Xlm
+#include "gaunt_entry.h" // gaunt_entry_t
 //   #include "spherical_harmonics.hxx" // Ylm
 
 extern "C" {
@@ -1770,6 +1771,45 @@ cTeXit '. ', '' ! full stop and an extra empty line
 ! cvw
 #endif
   
+  template<int lmax>
+  status_t create_numerical_Gaunt(std::vector<gaunt_entry_t>* gaunt, int const echo) {
+      int const npt = Lebedev_grid_size(2*lmax);
+      int const M0 = (1 + 2*lmax)*(1 + 2*lmax), M = (1 + lmax)*(1 + lmax);
+      auto yy   = new double[npt][M0];
+      auto xyzw = new double[npt][4];
+      create_Lebedev_grid(2*lmax, xyzw, echo);
+      double const pi = 3.14159265358979323846;
+      for(int ipt = 0; ipt < npt; ++ipt) {
+          solid_harmonics::Xlm(yy[ipt], 2*lmax, xyzw[ipt]);
+      } // ipt
+      int const n_expected = (M*M*M0) >> 5;
+      if (gaunt) gaunt->reserve(n_expected);
+      int n = 0, nnz = 0;
+      for(int lm0 = 0; lm0 < M0; ++lm0) {
+          for(int16_t lm1 = 0; lm1 < M; ++lm1) {
+              for(int16_t lm2 = 0; lm2 < M; ++lm2) {
+                  double Gaunt = 0;
+                  for(int ipt = 0; ipt < npt; ++ipt) {
+                      double const w8 = xyzw[ipt][3];
+                      Gaunt += yy[ipt][lm0] * yy[ipt][lm1] * yy[ipt][lm2] * w8;
+                  } // ipt
+                  Gaunt *= 4*pi;
+                  if (std::abs(Gaunt) > 1e-14) {
+                      if (echo > 1) printf("%d %d %d %.9f\n", lm0, lm1, lm2, Gaunt);
+                      if (gaunt) gaunt->push_back({Gaunt, lm0, lm1, lm2});
+                      ++nnz;
+                  } // non-zero
+                  ++n;
+              } // lm2
+          } // lm1
+      } // lm0
+      if (echo > 0) printf("\n# %s: %d of %d real-Gaunt tensor elements are nonzero (%.3f %%), expected %d\n", 
+                                __func__, nnz, n, nnz/(.01*n), n_expected);
+      return 0;
+  } // create_numerical_Gaunt
+  
+  template status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t>* gaunt, int const echo); // explicit template instanciation
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
@@ -1859,10 +1899,16 @@ cTeXit '. ', '' ! full stop and an extra empty line
       return stat;
   } // test
 
+  status_t test_numerical_Gaunt(int const echo=1) { return create_numerical_Gaunt<3>(nullptr, echo); }
+
   status_t all_tests() {
     auto status = 0;
     status += test_generation(1);
     status += test_orthogonality(4);
+    status += test_numerical_Gaunt();
+    
+    status += solid_harmonics::test();
+    solid_harmonics::cleanup<double>(); // free internal memory
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

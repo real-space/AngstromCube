@@ -10,7 +10,6 @@ namespace solid_harmonics {
                           real_t const cph, real_t const sph,
                           real_t const r2=1,
                           bool const cos_trick=true) {
-    if (ellmax < 0) return;
 // !************************************************************
 // !     generate the spherical harmonics for the vector v
 // !     using a stable upward recursion in l.  (see notes
@@ -61,11 +60,12 @@ namespace solid_harmonics {
       } else if (ellmax < 0 && nullptr != xnorm) {
           delete[] xnorm; // cleanup
       }
+      if (ellmax < 0) return;
 
-      int const S = (1 + ellmax); // stride for p, the array of associated legendre functions
-      real_t p[(1 + ellmax)*S];
+      int const S = (1 + ellmax); // stride for p, the array of associated Legendre functions
+      real_t p[S*S]; // associated Legendre functions
 
-// !---> generate associated legendre functions for m >= 0
+// !---> generate associated Legendre functions for m >= 0
       real_t fac = 1;
 // !---> loop over m values
       for(int m = 0; m < ellmax; ++m) {
@@ -80,24 +80,24 @@ namespace solid_harmonics {
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
-      real_t c[1 + ellmax], s[1 + ellmax];
+      real_t cs[S], sn[S];
 // !--->    determine cos(m*phi) and sin(m*phi)
-      c[0] = 1; s[0] = 0;
+      cs[0] = 1; sn[0] = 0;
       if (cos_trick) {
         if (ellmax > 0) {
-              c[1] = cph; s[1] = sph; 
+              cs[1] = cph; sn[1] = sph; 
               auto const cph2 = 2*cph;
               for(int m = 2; m <= ellmax; ++m) {
                   // this two-step recursion formula is more accurate but does not work for r^l*X_lm
-                  s[m] = cph2*s[m - 1] - s[m - 2];
-                  c[m] = cph2*c[m - 1] - c[m - 2];
+                  sn[m] = cph2*sn[m - 1] - sn[m - 2];
+                  cs[m] = cph2*cs[m - 1] - cs[m - 2];
               } // m
           } // ellmax > 0
       } else {
           for(int m = 1; m <= ellmax; ++m) {
-              // addition theorem for sin and cosine
-              s[m] = cph*s[m - 1] + c[m - 1]*sph;
-              c[m] = cph*c[m - 1] - s[m - 1]*sph;
+              // addition theorem for sine and cosine
+              sn[m] = cph*sn[m - 1] + cs[m - 1]*sph;
+              cs[m] = cph*cs[m - 1] - sn[m - 1]*sph;
           } // m
       } // cos_trick
 
@@ -106,8 +106,8 @@ namespace solid_harmonics {
           for(int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;
               real_t const Plm = p[l + S*m];
-              xlm[lm0 + m] = Plm*xnorm[lm0 + m]*s[m]; // imag part
-              xlm[lm0 - m] = Plm*xnorm[lm0 + m]*c[m]; // real part
+              xlm[lm0 + m] = Plm*xnorm[lm0 + m]*sn[m]; // imag part
+              xlm[lm0 - m] = Plm*xnorm[lm0 + m]*cs[m]; // real part
           } // l
       } // m
 
@@ -150,5 +150,24 @@ namespace solid_harmonics {
       real_t const x = v[0], y = v[1], z = v[2], r2 = x*x + y*y + z*z;
       Xlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
   } // rlXlm
+  
+  template<typename real_t>
+  void cleanup() { real_t z = 0; Xlm_implementation(&z, -1, z, z, z, z); } // free internal memory
+  
+  inline int find_ell(int const lm) { int lp1 = 0; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
+  inline int find_emm(int const lm, int const ell) { return lm - (ell*ell + ell); }
+  inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
+  inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
+
+  inline int test(int const echo=0) { // test interal consistency of find_-functions
+      for(int lm = -3; lm < 64; ++lm) {
+          int const ell = find_ell(lm), emm = find_emm(lm, ell);
+          if (echo > 0) printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
+          assert(lm_index(ell, emm) == lm);
+      } // lm
+      return 0;
+  } // test
+  
+  
   
 } // namespace solid_harmonics
