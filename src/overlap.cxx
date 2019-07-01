@@ -344,6 +344,7 @@ namespace overlap {
   real_t pow2(real_t const base) { return base*base; }  
   
   status_t test_fcc(int const echo=5, float const a0=8) {
+    if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
     int constexpr nmax = 2, ncut = nmax + 2;
@@ -396,7 +397,6 @@ namespace overlap {
     printf("# classical return radius at %g Bohr\n", return_radius);
     
     double const dmax = 12*sigma; // 12 sigma is converged for fcc
-    printf("# account for periodic images up to %.3f Bohr\n", dmax);
 
     double H0[ncut*ncut], H1[ncut*ncut], normalize=0; // do not normalize
     prepare_centered_Hermite_polynomials(H0, ncut, 1./sigma0, normalize);
@@ -429,7 +429,8 @@ namespace overlap {
     } // scope
     
     vec3i const imax = std::ceil(dmax/a0);
-    int const max_npi = 8*imax[2]*imax[1]*imax[0];
+    int const max_npi = 16*imax[2]*imax[1]*imax[0];
+    printf("# assume at most %d periodic images up to %.3f Bohr\n", max_npi, dmax);
     auto mat = new double[max_npi][2][n3D*n3D];
     auto vpi = new    int[max_npi][3]; // periodic image shift vectors
     int npi = 0;
@@ -466,6 +467,8 @@ namespace overlap {
                             } // dir
                             double const o3D = ovl[0]*ovl[1]*ovl[2];
                             double const l3D = lap[0]*ovl[1]*ovl[2] + ovl[0]*lap[1]*ovl[2] + ovl[0]*ovl[1]*lap[2];
+                            assert(n3D >= in);
+                            assert(n3D >= im);
                             mat[npi][0][in*n3D + im] = o3D;
                             mat[npi][1][in*n3D + im] = l3D;
                             ++im;
@@ -473,13 +476,18 @@ namespace overlap {
                         ++in;
                     }}} // n
                     vpi[npi][0] = i1; vpi[npi][1] = i2; vpi[npi][2] = i3;
+                    
                     ++npi; // count periodic images
+                    assert(max_npi >= npi);
                 } // pos inside sphere
             } // i1
         } // i2
     } // i3
     int const num_periodic_images = npi;
+    printf("# account for %d periodic images up to %.3f Bohr\n", npi, dmax);
 
+    
+    
 
     double smallest_eigval = 9e99, largest_eigval = - 9e99;
     vec3 kv_smallest = -9;
@@ -490,9 +498,9 @@ namespace overlap {
     auto const jobz = 'n', uplo = 'u', jobv = 'v';
     
     int diagonalization_failed = 0;
-    int const nedges = 4;
+    int const nedges = 6;
     float const sampling_density = .03125/8;
-    double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.5,.5,.5}};
+    double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
     float path_progress = 0;
     for(int edge = 0; edge < nedges; ++edge) {
         int const e0 = edge % nedges, e1 = (edge + 1) % nedges;
@@ -579,10 +587,16 @@ namespace overlap {
             if (0 == info) {
                 if(echo > 2) {
                     printf("%.6f ", path_progress_edge);
-                    if (!overlap_eigvals) printf("%g ", free_electron);
                     for(int i3D = 0; i3D < n3D; ++i3D) {
                         printf("%g ", eigvals[i3D]);
                     } // i3D
+                    if (!overlap_eigvals) {
+                        if (0) printf("%g ", free_electron);
+                        for(int ipi = 0; ipi < num_periodic_images; ++ipi) {
+                            vec3 const true_kv = bv[0]*(kvec[0] + vpi[ipi][0]) + bv[1]*(kvec[1] + vpi[ipi][1]) + bv[2]*(kvec[2] + vpi[ipi][2]);
+                            printf("%g ", norm(true_kv)); // plot periodic images of energy parabolas in Rydberg atomic units
+                        } // ipi
+                    } // not overlap_eigvals
                     printf("\n");
                 } // echo
             } else {

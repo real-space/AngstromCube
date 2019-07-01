@@ -4,6 +4,10 @@
 
 namespace solid_harmonics {
 
+  double constexpr pi = 3.14159265358979323846;
+  double constexpr Y00inv = 3.544907701811032, // == sqrt(4*pi)
+                   Y00 = 1./Y00inv;
+  
   template<typename real_t>
   void Xlm_implementation(real_t xlm[], int const ellmax, 
                           real_t const cth, real_t const sth,
@@ -40,7 +44,7 @@ namespace solid_harmonics {
 // !     normalization constants for ylm (internal subroutine has access
 // !     to ellmax and xnorm from above)
 // !********************************************************************
-          {   double const fpi = 4.0*3.14159265358979323846; // 4*pi
+          {   double const fpi = 4.0*pi;
               for(int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
@@ -153,7 +157,7 @@ namespace solid_harmonics {
   
   template<typename real_t>
   void cleanup() { real_t z = 0; Xlm_implementation(&z, -1, z, z, z, z); } // free internal memory
-  
+
   inline int find_ell(int const lm) { int lp1 = 0; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
   inline int find_emm(int const lm, int const ell) { return lm - (ell*ell + ell); }
   inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
@@ -167,7 +171,6 @@ namespace solid_harmonics {
       } // lm
       return 0;
   } // test
-  
   
   
 } // namespace solid_harmonics
