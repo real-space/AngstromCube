@@ -117,6 +117,7 @@ using namespace atom_core;
         ellmax_compensator = 0;
         r_cut = 2.0; // Bohr
         sigma = 0.5; // Bohr
+        sigma_compensator = 1.0; // Bohr
         r_match = 9*sigma;
         if (echo > 0) printf("# numbers of projectors ");
         for(int ell = 0; ell <= ELLMAX; ++ell) {
@@ -192,6 +193,7 @@ using namespace atom_core;
             full_density[ts]   = new double[nlm*nr]; // get memory
             full_potential[ts] = new double[nlm*nr]; // get memory
         } // true and smooth
+        aug_density     = new double[nlm*nrs]; // get memory
         int const nlm_cmp = (1 + ellmax_compensator)*(1 + ellmax_compensator);
         rho_compensator = new double[nlm_cmp]; // get memory
         charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
@@ -370,9 +372,10 @@ using namespace atom_core;
     
     
     template<int ADD0_or_PROJECT1>
-    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[]) {
+    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[], int echo=0) {
         int const nr = rg->n, mr = align<2>(nr);
         auto const sig2inv = -0.5/(sigma_compensator*sigma_compensator);
+        if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
         double rl[nr], rlgauss[nr];
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
             double norm = 0;
@@ -386,7 +389,9 @@ using namespace atom_core;
                     rlgauss[ir] *= r; // construct r^ell*gaussian
                 }
                 norm += rlgauss[ir] * rl[ir] * rg->r2dr[ir];
+                if (echo > 6) printf("# ell=%d norm=%g ir=%d rlgauss=%g rl=%g r2dr=%g\n", ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
             } // ir
+            if (echo > 1) printf("# ell=%d norm=%g nr=%d\n", ell, norm, nr);
             assert(norm > 0);
             auto const scal = 1./norm;
             for(int emm = -ell; emm <= ell; ++emm) {
