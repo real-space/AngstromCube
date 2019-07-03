@@ -109,7 +109,7 @@
 @    title font 0
 @    title size 1.500000
 @    title color 1
-@    subtitle ""
+@    subtitle "\f{Symbol}n\f{}\smax\N = 4, \f{Symbol}s\f{} = 1.809 Bohr"
 @    subtitle font 0
 @    subtitle size 1.000000
 @    subtitle color 1
