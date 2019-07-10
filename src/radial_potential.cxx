@@ -1,8 +1,6 @@
 #include <vector> // std::vector
 #include <cstdio> // printf
-// #include <cstdlib> // abs
-#include <cmath> // sqrt, pow, log
-#include <math.h> // C_PI
+// #include <math.h> // C_PI
 #include <cassert> // assert
 
 #include "radial_potential.hxx"
@@ -11,7 +9,6 @@
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV, Ang, _Ang
-#include "inline_math.hxx" // pow2
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -42,53 +39,6 @@ namespace radial_potential {
 
     return Coulomb; // the integral 4 \pi rho(r) * r dr is needed for the Coulomb energy
   } // Hartree_potential
-
-  
-  double lda_PZ81_kernel(double const rho, double &Vup, 
-                       double const mag, double *Vdn) { // optional
-    
-    double constexpr C_PI = 3.14159265358979323846; // pi
-    double constexpr THIRD  = 1./3., TINYDEN = 1e-20;
-    double const tpt5 = .6108870577108572; // (2.25/(C_PI*C_PI))**THIRD
-
-    if (nullptr == Vdn) { //  LDA
-
-      if (rho < TINYDEN) {
-        Vup = 0;
-        return 0;
-      } else { // negligible
-        double Exc;
-        auto const rs = pow(3.0/(4.0*C_PI*rho), THIRD);
-        if (rs > 1.) {
-          auto const srs = sqrt(rs);
-          Exc = -0.1423/(1. + 1.0529*srs + 0.3334*rs);
-          Vup = Exc - rs/3.0*(0.1423*(0.3334 + 0.52645/srs)/pow2(1. + 1.0529*srs + 0.3334*rs));
-        } else {
-          auto const lrs = log(rs);
-          Exc = -0.048 + 0.0311*lrs - 0.0116*rs + 0.002*rs*lrs;
-          Vup = Exc - rs/3.0*(0.0311/rs - 0.0096 + 0.002*lrs);
-        } //
-        Exc = Exc - 0.75*tpt5/rs;
-        Vup = Vup - 0.75*tpt5/rs - rs/3.0*(0.75*tpt5/(rs*rs));
-        return Exc;
-      } // negligible
-
-    } else { // spin resolved
-
-      if (rho < TINYDEN) {
-        *Vdn = 0;
-         Vup = 0;
-        return 0;
-      } else { // negligible
-        double Exc = 0;
-         Vup = 0;
-        *Vdn = 0;
-        return Exc;
-      } // negligible
-    } // Magnetization
-
-  } // lda_PZ81_kernel
-  
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -110,18 +60,9 @@ namespace radial_potential {
     return 0;
   } // test_radial_potential
 
-  status_t test_radial_PZ81_potential() {
-    for(double rho = .625e-20; rho < 1e9; rho *= 2) {
-        double V; double const E = lda_PZ81_kernel(rho, V);
-        printf("%g %g %g\n", rho, E, V);
-    } // rho
-    return 0;
-  } // test_radial_PZ81_potential
-
   status_t all_tests() {
     auto status = 0;
-//  status += test_radial_potential(*create_exponential_radial_grid(512));
-    status += test_radial_PZ81_potential();
+    status += test_radial_potential(*radial_grid::create_exponential_radial_grid(512));
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

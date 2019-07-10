@@ -11,7 +11,8 @@
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV
-#include "radial_potential.hxx" // Hartree_potential, lda_PZ81_kernel
+#include "radial_potential.hxx" // Hartree_potential
+#include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "radial_eigensolver.hxx" // shooting_method
 
 // #define FULL_DEBUG
@@ -67,7 +68,7 @@ namespace atom_core {
       for(int ir = 0; ir < g.n; ++ir) {
           EHtr += rho4pi[ir]*rV[ir]*g.rdr[ir];
           double Vxc;
-          double const Exc = radial_potential::lda_PZ81_kernel(fpi*rho4pi[ir], Vxc);
+          double const Exc = exchange_correlation::lda_PZ81_kernel(fpi*rho4pi[ir], Vxc);
           rV[ir] += g.r[ir]*Vxc; // add the exchange correlation potential
           Eexc += Exc*rho4pi[ir]*g.r2dr[ir]; // exchange correlation energy
           Evxc += Vxc*rho4pi[ir]*g.r2dr[ir]; // double counting correction
