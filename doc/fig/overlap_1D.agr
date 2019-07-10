@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Mon May  6 17:51:52 2019"
+@timestamp def "Wed Jul 10 15:58:45 2019"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -227,9 +227,9 @@
 @    legend box color 1
 @    legend box pattern 1
 @    legend box linewidth 2.0
-@    legend box linestyle 1
+@    legend box linestyle 0
 @    legend box fill color 0
-@    legend box fill pattern 1
+@    legend box fill pattern 0
 @    legend font 0
 @    legend char size 1.500000
 @    legend color 1

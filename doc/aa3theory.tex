@@ -14,6 +14,7 @@
 \usepackage{acronym} %% for abbreviations
 \acrodef{dft}[DFT]{density functional theory}
 \acrodef{sho}[SHO]{spherical harmonic oscillator}
+\acrodef{dos}[DoS]{density of states}
 \acrodef{ho}[HO]{harmonic oscillator}
 \acrodef{planewave}[PW]{plane wave}
 \acrodef{gridpoint}[GP]{grid point}
@@ -49,6 +50,11 @@
 
 \maketitle
 
+\begin{figure*}
+	\centering
+	\includegraphics[width=3cm]{fig/aa3_logo_bold_no_helper_lines} %%
+\end{figure*}
+
 % ==============================================================================
 \begin{abstract}
 \todo[inline]{write abstract}
@@ -56,7 +62,7 @@
 % ==============================================================================
 
 
-
+\newpage
 % ==============================================================================
 \section{Introduction} \label{sec:intro}
 % ==============================================================================
@@ -247,7 +253,7 @@ Mind that no approximations are required here.
   \caption{
 	The overlap integral values of two 1D \ac{ho} eigenfunctions (both with spread $\sigma$)
 	as a function of distance between their centers.
-	Only an upper triangle of the combinations $(n,n')$ up to $n\um{max}=3$ is shown.
+	Only an upper triangle of combinations $(n,n')$ up to $n\um{max} = 3$ is shown.
   }
 \end{figure}
 %
@@ -351,6 +357,104 @@ and $n''$ runs up to $n\um{max}^{[\varrho]}$.
 Obviously, all $P_{nn'n''}$ are zero if $n + n' + n''$ is odd.
 
 \todo[inline]{What is the best $\sigma$ to expand $V$?}
+
+
+\section{Benchmark: Free Electron Gas}
+The dispersion relation of the free electron gas is know to be
+\begin{equation}
+	E(\vec k)= \frac {\vec k^2} 2
+\end{equation}
+a simple parabola with its curvature related to the mass of the electron.
+In a perodic setup, we have to consider also the periodic image parabolas
+\begin{equation}
+	E_n(\vec k) = \frac {(\vec k - \vec G_n)^2} 2
+\end{equation}
+As a test of the quality of \ac{sho} functions as a basis
+we diagonalize the Laplacian operator that represents the
+Hamiltonian.
+We analyzed the three highly symmetric, cubic lattice structures with a single basis atom,
+SC, BCC and FCC, funding that the overlap matrix can become singular at certain points of
+the reciprocal space, see fig.~\ref{fig:overlap_lowest_eig}.
+%
+\begin{figure}
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/20190529_fcc_overlap_lowest_eig} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:overlap_lowest_eig}
+  \caption{
+	Lowest eigenvalue of the overlap operator as a function of a given path in the Brioullin zone for FCC.
+  }
+\end{figure}
+%
+%
+In order to stabilize the method, the used spread $\sigma$ depends on the nearest neighbor distance $d\um{NN}$
+and the basis size.
+\begin{equation}
+	\sigma\um{stable} = \frac34 \frac{ d\um{NN} }{ \sqrt{2 \nu\um{max} + 3} }
+\end{equation}
+Remember that $\sigma \sqrt{2 \nu\um{max} + 3}$ is the classical return radius.
+The factor $0.75$ is chosen manually and seems to produce stable results.
+%
+\begin{figure}
+  %% how to generate this plot:
+  %%  set DoS = false in overlap.cxx test_fcc
+  %% 	run -t overlap. and set Ref = true   and nmax high for the analytical reference
+  %% 	run -t overlap. and set Ref = false  and nmax = 8
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/20190710_overlap_fcc8} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:overlap_fcc8}
+  \caption{
+	Bandstructure of the free electron gas. The analytical solution is shown in red
+	whereas the black lines show the \ac{sho} basis result for $\nu\um{max} = 8$ and $\sigma = 1.2$ Bohr 
+	while the FCC lattice constant is $8$ Bohr.
+  }
+\end{figure}
+%
+%
+Since we know that eigenstates of the free electron Hamiltonian are plane waves,
+this gives an estimate of how good a \ac{sho} basis is capable of describing
+smooth quantities in full space. 
+In fig.~\ref{fig:overlap_fcc8} we can see that the black lines are on top of the 
+analytical solutions for lower energies and above that in the upper half.
+In order to study the deviations better,
+we have a look at the integrated \ac{dos}.
+For this we diagonalize the free electron Hamiltonian for each $\vec k$-point
+in the irriducible wedge of the Brillouin zone
+and compare again with the integrated \ac{dos} derived from the analytical solution $E_n(\vec k)$
+with the same sampling.
+Fig.~\ref{fig:overlap_DoS_free_electron_fcc} shows the result for $\nu\um{max} \in [0, 9]$,
+each using its distinct $\sigma\um{stable}$.
+The plot helps to quantify the deviations. For eaxmple with $\nu\um{max} = 9$, the \ac{sho}
+basis describes the free electron gas well up to about $5$ Rydberg, 
+but features solutions up to $20.8$ Rydberg where the highest analytical solution
+within $220$ states is only $13.7$ Rydberg,
+c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
+%
+\begin{figure}
+  %% how to generate this plot:
+  %%  set DoS = true in overlap.cxx test_fcc
+  %% 	run -t overlap. and set Ref = true   and nmax high for the analytical reference
+  %% 	run -t overlap. and set Ref = false  and scan through nmax from 0..9
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/overlap_DoS_free_electron_fcc} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:overlap_DoS_free_electron_fcc}
+  \caption{
+	Bandstructure of the free electron gas. The analytical solution is shown in red
+	whereas the black lines show the \ac{sho} basis result for $\nu\um{max} = 8$ and $\sigma = 1.2$ Bohr 
+	while the FCC lattice constant is $8$ Bohr.
+  }
+\end{figure}
+%
+%
+
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}

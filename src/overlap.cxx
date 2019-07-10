@@ -348,7 +348,7 @@ namespace overlap {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 16, ncut = nmax + 2;
+    int constexpr nmax = 8, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
@@ -430,8 +430,8 @@ namespace overlap {
     } // scope
     
     
-    bool const DoS = true;
-    bool const Ref = true; // compute the analytically known spectrum of the free electron gas as reference
+    bool const DoS = false; // true: density of states, false: bandstructure
+    bool const Ref = false; // compute the analytically known spectrum of the free electron gas as reference
 
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
