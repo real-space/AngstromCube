@@ -47,7 +47,7 @@ using namespace atom_core;
 //   int constexpr NUMVALENCESTATES=(ELLMAX*(ELLMAX + 4) + 4)/4;
 
   
-  template<int Pseudo>
+  template<int Pseudo> // Pseudo=1: core states, Pseudo=2: valence states
   struct energy_level {
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves
       double energy; // energy level in Hartree atomic units
@@ -228,13 +228,12 @@ using namespace atom_core;
         auto r2rho = new double[nr];
         auto new_r2core_density = std::vector<double>(nr, 0.0);
         for(int ics = 0; ics < ncorestates; ++ics) {
+            auto &cs = core_state[ics];
             int constexpr SRA = 1;
-            radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], core_state[ics].enn, core_state[ics].ell, 
-                            core_state[ics].energy, core_state[ics].wave[TRU], r2rho);
-            if (echo > 0) printf("# core    %2d%c%6.1f E=%16.6f %s\n", core_state[ics].enn, ellchar[core_state[ics].ell], 
-                            core_state[ics].occupation, core_state[ics].energy*eV,_eV);
+            radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho);
+            if (echo > 0) printf("# core    %2d%c%6.1f E=%16.6f %s\n", cs.enn, ellchar[cs.ell], cs.occupation, cs.energy*eV,_eV);
             auto const norm = dot_product(nr, r2rho, rg[TRU]->dr);
-            auto const scal = (norm > 0)? core_state[ics].occupation/norm : 0;
+            auto const scal = (norm > 0)? cs.occupation/norm : 0;
             for(int ir = 0; ir < nr; ++ir) {
                 new_r2core_density[ir] += scal*r2rho[ir];
             } // ir
@@ -243,21 +242,22 @@ using namespace atom_core;
         for(int ir = 0; ir < nr; ++ir) {
             auto const new_rho = new_r2core_density[ir]*(rg[TRU]->rinv[ir]*rg[TRU]->rinv[ir]); // *r^{-2}
             core_density_change += std::abs(new_rho - core_density[TRU][ir])*rg[TRU]->r2dr[ir];
-            core_nuclear_energy +=      -Z*(new_rho - core_density[TRU][ir])*rg[TRU]->rdr[ir];
+            core_nuclear_energy +=         (new_rho - core_density[TRU][ir])*rg[TRU]->rdr[ir];
             core_density[TRU][ir] = mixing*new_rho + (1. - mixing)*core_density[TRU][ir];
         } // ir
+        core_nuclear_energy *= -Z;
         if (echo > 0) printf("# core density change %g e, energy change %g %s\n", core_density_change, core_nuclear_energy*eV,_eV);
     } // update
 
     void update_valence_states(int echo=0) {
-        auto small_component = new double[rg[TRU]->n];
+//      auto small_component = new double[rg[TRU]->n];
         for(int iln = 0; iln < nvalencestates; ++iln) {
+            auto &vs = valence_state[iln];
             int constexpr SRA = 1;
-            valence_state[iln].energy = -.25; // random number
-            radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], valence_state[iln].ell, valence_state[iln].energy, 
-                                    valence_state[iln].wave[TRU], small_component);
-            if (echo > 0) printf("# valence %2d%c%6.1f E=%16.6f %s\n", valence_state[iln].enn, ellchar[valence_state[iln].ell], 
-                            valence_state[iln].occupation, valence_state[iln].energy*eV,_eV);
+            vs.energy = -.25; // random number
+//          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], vs.ell, vs.energy, vs.wave[TRU], small_component);
+            radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, vs.ell, vs.energy, vs.wave[TRU]);
+            if (echo > 0) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
         } // iln
     } // update
 
@@ -689,7 +689,7 @@ namespace single_atom {
 
   int test(int echo=9) {
     if (echo > 0) printf("\n%s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-    for(int Z = 4; Z <= 4; ++Z) {
+    for(int Z = 29; Z <= 29; ++Z) {
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z);
     }

@@ -347,7 +347,7 @@ namespace overlap {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 2, ncut = nmax + 2;
+    int constexpr nmax = 6, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
@@ -389,6 +389,7 @@ namespace overlap {
     bool const overlap_eigvals = false;
     // choose the return radius as a fraction of shortest_bond length
     double const sigma = .75*shortest_bond/std::sqrt(2.*nmax + 3.), 
+//     double const sigma = 1.566698904,
                  sigma0 = sigma, sigma1 = sigma;
     printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
 
