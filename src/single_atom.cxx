@@ -46,7 +46,7 @@ using namespace atom_core;
 //   int constexpr NUMCORESTATES=20; // 20 are ok, 32 are enough if spin-orbit-interaction is on
 //   int constexpr NUMVALENCESTATES=(ELLMAX*(ELLMAX + 4) + 4)/4;
 
-  
+  // ToDo: write a class with constructors and destructors to handle the memory for *wave
   template<int Pseudo> // Pseudo=1: core states, Pseudo=2: valence states
   struct energy_level {
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves

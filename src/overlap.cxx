@@ -4,6 +4,7 @@
 #include <algorithm> // max
 #include <complex> // std::complex<real_t>
 #include <complex>
+#include <utility> // std::pair<,>, make_pair
 #include <cmath>
 #include <cassert>
  
@@ -347,7 +348,7 @@ namespace overlap {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 6, ncut = nmax + 2;
+    int constexpr nmax = 16, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
@@ -389,7 +390,6 @@ namespace overlap {
     bool const overlap_eigvals = false;
     // choose the return radius as a fraction of shortest_bond length
     double const sigma = .75*shortest_bond/std::sqrt(2.*nmax + 3.), 
-//     double const sigma = 1.566698904,
                  sigma0 = sigma, sigma1 = sigma;
     printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
 
@@ -429,6 +429,10 @@ namespace overlap {
         printf("\n");
     } // scope
     
+    
+    bool const DoS = true;
+    bool const Ref = true; // compute the analytically known spectrum of the free electron gas as reference
+
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
     printf("# assume at most %d periodic images up to %.3f Bohr\n", max_npi, dmax);
@@ -440,7 +444,7 @@ namespace overlap {
             for(int i1 = -imax[0]; i1 <= imax[0]; ++i1) {
                 vec3 const pos = cv[0]*i1 + cv[1]*i2 + cv[2]*i3;
 
-                if (norm(pos) < dmax*dmax) {
+                if (!Ref && norm(pos) < dmax*dmax) {
                     if (echo > 9) printf("%f %f %f\n", pos[0],pos[1],pos[2]);
                     int in = 0;
                     for(int n0 = 0; n0 <= nmax; ++n0) {
@@ -498,27 +502,85 @@ namespace overlap {
     double rwork[lwork], eigvals[n3D];
     auto const jobz = 'n', uplo = 'u', jobv = 'v';
     
+    std::vector<std::pair<vec3,double>> kps;
     int diagonalization_failed = 0;
-    int const nedges = 6;
-    float const sampling_density = .03125/8;
-    double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
-    float path_progress = 0;
-    for(int edge = 0; edge < nedges; ++edge) {
-        int const e0 = edge % nedges, e1 = (edge + 1) % nedges;
-        vec3 const v0 = kpath[e0], v1 = kpath[e1];
-        vec3 const true_kdiff = bv[0]*(v1[0] - v0[0]) + bv[1]*(v1[1] - v0[1]) + bv[2]*(v1[2] - v0[2]);
-        double const edge_length = std::sqrt(norm(true_kdiff));
 
-        int const sampling = std::ceil(edge_length/sampling_density);
-        double const frac = 1./sampling;
-        if (echo > 1) printf("# k-point %.6f %.6f %.6f\n", v0[0],v0[1],v0[2]);
-        for(int step = 0; step < sampling + (edge == (nedges - 1)); ++step) {
-            float const path_progress_edge = path_progress + (step*frac)*edge_length;
+    int const num_bins = 1 << 19;
+    float const inv_bin_width = 13605.7; // 10 mili-electron-Volt
+    double const bin_width = 1./inv_bin_width;
+    float const energy_offset = bin_width*((int)(-.25*inv_bin_width));
+    int ibin_out_of_range = 0;
+    double const Gauss_alpha = 1e-3;
+    double const Gauss_norm = std::sqrt(Gauss_alpha/C_PI);
+    int const Gauss_bins = std::ceil(4/Gauss_alpha); // goes to 1e-7
+    std::vector<double> dos;
 
-            vec3 const kvec = v0 + (v1 - v0)*(step*frac);
-            vec3 const true_kv = bv[0]*kvec[0] + bv[1]*kvec[1] + bv[2]*kvec[2];
-            double const free_electron = norm(true_kv); // in Rydberg atomic units
+    if (DoS) { 
+        dos.assign(num_bins, 0); // allocate and clear
+        // create a k-point set with weights
+        int const nkp_sampling = 16; // use a 2N x 2N x 2N k-point set
+        double const inv_kp_sampling = 0.5/nkp_sampling;
+        double w8sum = 0;
+        double const weight = 1;
+        vec3 kvec;
+        for(int iz = 0; iz < nkp_sampling; ++iz) {           kvec[2] = inv_kp_sampling*(iz + 0.5);
+            for(int iy = 0; iy <= iz; ++iy) {                kvec[1] = inv_kp_sampling*(iy + 0.5);
+                for(int ix = 0; ix <= iy; ++ix) {            kvec[0] = inv_kp_sampling*(ix + 0.5);
+                    kps.push_back(std::make_pair(kvec, weight));
+                    w8sum += weight;
+                    if (echo > 9) printf("# new k-point %g %g %g weight %g\n", kvec[0], kvec[1], kvec[2], weight);
+                } // ix
+            } // iy
+        } // iz
+        if (echo > 1) printf("# %ld k-points in the irriducible Brillouin zone, weight sum = %g\n", kps.size(), w8sum);
+    } else {
+        int const nedges = 6;
+        float const sampling_density = .03125/8;
+        double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
+        float path_progress = 0;
+        for(int edge = 0; edge < nedges; ++edge) {
+            int const e0 = edge % nedges, e1 = (edge + 1) % nedges;
+            vec3 const v0 = kpath[e0], v1 = kpath[e1];
+            vec3 const true_kdiff = bv[0]*(v1[0] - v0[0]) + bv[1]*(v1[1] - v0[1]) + bv[2]*(v1[2] - v0[2]);
+            double const edge_length = std::sqrt(norm(true_kdiff));
 
+            int const sampling = std::ceil(edge_length/sampling_density);
+            double const frac = 1./sampling;
+            if (echo > 1) printf("# k-point %.6f %.6f %.6f\n", v0[0],v0[1],v0[2]);
+            for(int step = 0; step < sampling + (edge == (nedges - 1)); ++step) {
+                float const path_progress_edge = path_progress + (step*frac)*edge_length;
+                vec3 const kvec = v0 + (v1 - v0)*(step*frac);
+                kps.push_back(std::make_pair(kvec, path_progress_edge));
+            } // step
+            if (echo > 2) printf("# k-point %.6f %.6f %.6f\n", v1[0],v1[1],v1[2]);
+            path_progress += edge_length;
+        } // edge
+    } // DoS
+
+    float progress_percent = .02; // show first at 2%
+    for(uint ik = 0; ik < kps.size(); ++ik) {
+        auto & kvec = kps[ik].first;
+        vec3 const true_kv = bv[0]*kvec[0] + bv[1]*kvec[1] + bv[2]*kvec[2];
+
+        int info = 0;
+        if (Ref) {
+            int const imx = 9;
+            std::vector<double> free_E; free_E.reserve(9*imx*imx*imx);
+            for(int iz = -imx; iz <= imx; ++iz) {
+                for(int iy = -imx; iy <= imx; ++iy) {
+                    for(int ix = -imx; ix <= imx; ++ix) {
+                        auto const true_kv = bv[0]*(kvec[0] + ix) + bv[1]*(kvec[1] + iy) + bv[2]*(kvec[2] + iz);
+                        free_E.push_back(norm(true_kv)); // energy parabolas in Rydberg atomic units
+                    } // ix
+                } // iy
+            } // iz
+            std::sort(free_E.begin(), free_E.end()); // sort in-place, ascending
+            for(int i3D = 0; i3D < n3D; ++i3D) {
+                eigvals[i3D] = free_E[i3D]; // copy lowest eigenvals
+            } // i3D
+
+        } else { // Ref
+          
             // clear matrixes
             for(int in = 0; in < n3D; ++in) {
                 for(int im = 0; im < n3D; ++im) {
@@ -554,10 +616,10 @@ namespace overlap {
                 } // in
             } // m
 #endif
-            
             // LAPACK call (Fortran77 interface);
-            int info = 0, itype = 1;
+            int itype = 1;
             if (overlap_eigvals) {
+              
                 // get the eigenvalues of the overlap operator only
                 zheev_(&jobv, &uplo, &n3D, ovl_mat, &n3D, 
                        eigvals, work, &lwork, rwork, &info);
@@ -571,44 +633,83 @@ namespace overlap {
                    }  printf("\n");
                 } // DEBUG
 #endif
-            } else {
+            } else { // overlap_eigvals
+              
                 // solve generalized eigenvalue problem lap_mat*X == diag*ovl_mat*X
                 zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat, &n3D, ovl_mat, &n3D, 
                        eigvals, work, &lwork, rwork, &info);
-            }
+                
+            } // overlap_eigvals
+        } // Ref
 
-            for(int i3D = 0; i3D < n3D; ++i3D) {
-                if (eigvals[i3D] < smallest_eigval) { 
-                    kv_smallest = kvec;
-                } // store where the smallest eigenvalue was found
-                smallest_eigval = std::min(smallest_eigval, eigvals[i3D]);
-                largest_eigval  = std::max(largest_eigval,  eigvals[i3D]);
-            } // i3D
-            
-            if (0 == info) {
-                if(echo > 2) {
-                    printf("%.6f ", path_progress_edge);
-                    for(int i3D = 0; i3D < n3D; ++i3D) {
-                        printf("%g ", eigvals[i3D]);
-                    } // i3D
-                    if (!overlap_eigvals) {
-                        if (0) printf("%g ", free_electron);
-                        for(int ipi = 0; ipi < num_periodic_images; ++ipi) {
-                            vec3 const true_kv = bv[0]*(kvec[0] + vpi[ipi][0]) + bv[1]*(kvec[1] + vpi[ipi][1]) + bv[2]*(kvec[2] + vpi[ipi][2]);
-                            printf("%g ", norm(true_kv)); // plot periodic images of energy parabolas in Rydberg atomic units
-                        } // ipi
-                    } // not overlap_eigvals
-                    printf("\n");
-                } // echo
-            } else {
-                ++diagonalization_failed;
-                if (echo > 2) printf("# %.6f diagonalization failed, info = %d\n", path_progress_edge, info);
-            } // info
+        for(int i3D = 0; i3D < n3D; ++i3D) {
+            if (eigvals[i3D] < smallest_eigval) { 
+                kv_smallest = kvec;
+            } // store where the smallest eigenvalue was found
+            smallest_eigval = std::min(smallest_eigval, eigvals[i3D]);
+            largest_eigval  = std::max(largest_eigval,  eigvals[i3D]);
+        } // i3D
 
-        } // step
-        if (echo > 2) printf("# k-point %.6f %.6f %.6f\n", v1[0],v1[1],v1[2]);
-        path_progress += edge_length;
-    } // edge
+        auto const kp_id = kps[ik].second;
+        if (0 == info) {
+            if (DoS) {
+                double const w8 = kp_id;
+                // accumulate the density of states
+                for(int i3D = 0; i3D < n3D; ++i3D) {
+                    double const E = eigvals[i3D];
+                    double fbin = (E - energy_offset)*inv_bin_width;
+                    int const ibin = std::floor(fbin);
+                    if (ibin < num_bins && ibin >= 0) {
+                        if (1 == 1) { // linear interpolation
+                            fbin -= ibin;
+                            double const w1 = fbin*w8, w0 = (1 - fbin)*w8;
+                            dos[ibin + 0] += w0;
+                            dos[ibin + 1] += w1;
+                        } else {
+                            for(int ib = ibin - Gauss_bins; ib <= ibin + Gauss_bins + 1; ++ib) {
+                                if (ib > 0 && ib < num_bins)
+                                dos[ib] += Gauss_norm*w8*exp(-Gauss_alpha*(ib - fbin)*(ib - fbin));
+                            } // ib
+                        }
+                    } else { // ibin in range
+                        ++ibin_out_of_range;
+                    } // ibin in range
+                } // i3D
+
+            } else if(echo > 2) {
+                // show the bandstructure
+                printf("%.6f ", kp_id); // abscissa
+                for(int i3D = 0; i3D < n3D; ++i3D) {
+                    printf("%g ", eigvals[i3D]);
+                } // i3D
+                printf("\n");
+            } // echo
+        } else {
+            ++diagonalization_failed;
+            if (echo > 2) printf("# %.6f diagonalization failed, info = %d\n", kp_id, info);
+        } // info
+
+        if (progress_percent*kps.size() < ik) {
+            if (echo > 3) printf("# progress = %.1f %%\n", ik/(.01*kps.size()));
+            progress_percent = 0.1*std::ceil(ik/(.1*kps.size()));
+        } // show percentage
+    } // ik
+
+    if (DoS) {
+        if (echo > 2) {
+            double dos_sum = 0;
+            for(int ibin = 0; ibin < num_bins; ++ibin) {
+                double const Ebin = ibin*bin_width + energy_offset;
+                if (dos[ibin] > 0) {
+                    printf("%.6f %g %g\n", Ebin, dos_sum*bin_width, dos[ibin]);
+                }
+                dos_sum += dos[ibin];
+            } // ibin
+            dos_sum *= bin_width;
+            if (echo > 1) printf("# Integrated density of states is %g\n", dos_sum);
+        } // echo
+        if (ibin_out_of_range > 0 && echo > 1) printf("# Warning: %d bin entries were out of range!\n", ibin_out_of_range);
+    } // DoS
 
     if (diagonalization_failed > 0) {
         if (echo > 0) printf("# Warning: %d diagonalizations failed!\n", diagonalization_failed);
