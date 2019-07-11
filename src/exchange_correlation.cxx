@@ -1,10 +1,10 @@
 #include <cstdio> // printf
 #include <cmath> // sqrt, pow, log
-#include <math.h> // C_PI
 #include <cassert> // assert
 
 #include "exchange_correlation.hxx"
 
+#include "constants.hxx" // pi
 #include "output_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2
 
@@ -14,13 +14,13 @@
 namespace exchange_correlation {
   
   // ToDo: use libxc in the long run
-  template<typename real_t> 
+  template<typename real_t>
   real_t lda_PZ81_kernel(real_t const rho, real_t &Vup, 
                          real_t const mag, real_t *Vdn) { // optional
 
-    real_t constexpr C_PI = 3.14159265358979323846; // pi
     real_t constexpr THIRD  = 1./3., TINYDEN = 1e-20;
-    real_t const tpt5 = .6108870577108572; // (2.25/(C_PI*C_PI))**THIRD
+    real_t constexpr pi = constants::pi;
+    real_t const tpt5 = .6108870577108572; // (2.25/(pi*pi))**THIRD
 
     if (nullptr == Vdn) { //  LDA
 
@@ -29,7 +29,7 @@ namespace exchange_correlation {
         return 0;
       } else { // negligible
         real_t Exc;
-        auto const rs = pow(3.0/(4.0*C_PI*rho), THIRD);
+        auto const rs = pow(3.0/(4.0*pi*rho), THIRD);
         if (rs > 1.) {
           auto const srs = sqrt(rs);
           Exc = -0.1423/(1. + 1.0529*srs + 0.3334*rs);

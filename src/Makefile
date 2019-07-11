@@ -6,7 +6,7 @@ ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
 EXECUTABLE = aa3
 all: ${EXECUTABLE}
 
-OBJ = radial_grid.o radial_integrator.o radial_eigensolver.o element_configuration.o exchange_correlation.o \
+OBJ = radial_grid.o radial_integrator.o radial_eigensolver.o element_configuration.o exchange_correlation.o real_space_grid.o \
 	radial_potential.o atom_core.o overlap.o single_atom.o angular_grid.o sho_unitary.o sho_radial.o main.o
 ifdef ENABLEGPU
 	OBJ += GPUdrivers.o
