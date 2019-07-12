@@ -243,8 +243,8 @@ namespace overlap {
         for(int n = 0; n < ncut; ++n) {
             for(int m = 0; m < ncut; ++m) {
                 double const ovl = overlap_of_two_Hermite_Gauss_functions(
-                  &H0[ncut*n], 1+n, sigma0,
-                  &H1[ncut*m], 1+m, sigma1, dist);
+                                          &H0[ncut*n], 1+n, sigma0,
+                                          &H1[ncut*m], 1+m, sigma1, dist);
                 if (echo > 1) printf(" %.6f", ovl);
             } // m
         } // n
@@ -253,14 +253,14 @@ namespace overlap {
     return 0;
   } // test_Hermite_Gauss_overlap
 
-  status_t test_kinetic_overlap(int const echo=1) {
+  status_t test_kinetic_overlap(int const echo=2) {
     // show the kinetic energy of the lowest 1D Hermite-Gauss functions as a function of distance
     // test if the derivation operator can be cast to any side
     // --> yes if sigma1 == sigma0, otherwise it breaks
     // --> we should use the first derivative applied to left and right for the kinetic energy
     int constexpr ncut = 6;
     int constexpr mcut = ncut - 2;
-    double const sigma0 = 1, sigma1 = sigma0 + .1; // fails for different sigmas
+    double const sigma0 = 1, sigma1 = sigma0 + 1e-8; // fails for different sigmas
     double H0[ncut*ncut], H1[ncut*ncut];
     prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
     prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
@@ -276,7 +276,7 @@ namespace overlap {
     } // n
     double maxdev1 = 0, maxdev2 = 0, maxdev3 = 0;
     for(auto dist = 0.0; dist < 11; dist += .01) {
-        if (echo > 1) printf("# %s  distance=%.3f    ", __func__, dist);
+        if (echo > 4) printf("# %s  distance=%.3f    ", __func__, dist);
         for(int n = 0; n < mcut; ++n) {
             for(int m = 0; m < mcut; ++m) {
                 auto const d2d0 = overlap_of_two_Hermite_Gauss_functions(&d2H0[ncut*n], ncut, sigma0, &H1[ncut*m], ncut, sigma1, dist);
@@ -286,18 +286,18 @@ namespace overlap {
 //                 if (echo > 1) printf(" %.9f", ovl); // show overlap
 //              if (echo > 1) printf("  %.9f %.9f %.9f", d2d0, d0d2, -d1d1); // show 3 values
 //              if (echo > 1) printf("  %.1e %.1e %.1e", d2d0 + d1d1, d0d2 + d1d1, d2d0 - d0d2); // show deviations
-                if (echo > 1) printf(" %.9f", -d1d1); // show 1 value
+                if (echo > 6) printf(" %.9f", -d1d1); // show 1 value
                 auto const d2avg = .5*d2d0 + .5*d0d2;
-//              if (echo > 1) printf("  %.9f %.9f", d2avg, -d1d1); // show 2 values
+                if (echo > 8) printf("  %.9f %.9f", d2avg, -d1d1); // show 2 values
                 maxdev3 = std::max(maxdev3, std::abs(d2avg + d1d1)); // one order better than dev1 and dev2
                 maxdev2 = std::max(maxdev2, std::abs(d2d0 - d0d2));
                 maxdev1 = std::max(maxdev1, std::abs(d2d0 + d1d1));
                 maxdev1 = std::max(maxdev1, std::abs(d0d2 + d1d1));
             } // m
         } // n
-        if (echo > 1) printf("\n");
+        if (echo > 4) printf("\n");
     } // dist
-    if (echo > 0) printf("# %s deviations %g, %g and %g\n", __func__, maxdev1, maxdev2, maxdev3);
+    if (echo > 0) printf("\n# %s deviations %g, %g and %g\n", __func__, maxdev1, maxdev2, maxdev3);
     return (maxdev3 > 2e-14);
   } // test_kinetic_overlap
 
