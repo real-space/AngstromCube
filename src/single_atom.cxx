@@ -164,10 +164,11 @@ using namespace atom_core;
         nvalencestates = (numax*(numax + 4) + 4)/4;
         valence_state = new valence_level_t[nvalencestates];
         {   int iln = 0;
+            if (echo > 0) printf("# valence "); // no new line, list follows
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                     int const enn = nrn + enn_core_max[ell] + 1;
-                    if (echo > 0) printf("# valence %2d%c\n", enn, ellchar[ell]);
+                    if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     valence_state[iln].energy = -.5*(Z/enn)*(Z/enn); // hydrogen like energy levels
                     // warning: this memory is not freed
                     valence_state[iln].wave[TRU] = new double[nrt]; // get memory for the true radial function
@@ -182,6 +183,7 @@ using namespace atom_core;
                     ++iln;
                 } // nrn
             } // ell
+            if (echo > 0) printf("  (%d states)\n", iln);
         } // valence states
         
         int const nln = nvalencestates;
@@ -207,10 +209,9 @@ using namespace atom_core;
 
 //      for(int ir = 0; ir < nrt; ++ir) { potential[TRU][ir] = -Z; } // unscreened hydrogen-type potential
         initial_density(core_density[TRU], *rg[TRU], Z, 0.0);
-        for(int scf = 0; scf < 133; ++scf) {
+        for(int scf = 0; scf < 33; ++scf) {
             rad_pot(potential[TRU], *rg[TRU], core_density[TRU], Z);
-            update(9);
-            printf("\n");
+            update((32 == scf)*9); // echo on in the last iteration
         } // self-consistency iterations
 
     };
@@ -231,7 +232,7 @@ using namespace atom_core;
             auto &cs = core_state[ics];
             int constexpr SRA = 1;
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho);
-            if (echo > 0) printf("# core    %2d%c%6.1f E=%16.6f %s\n", cs.enn, ellchar[cs.ell], cs.occupation, cs.energy*eV,_eV);
+            if (echo > 1) printf("# core    %2d%c%6.1f E=%16.6f %s\n", cs.enn, ellchar[cs.ell], cs.occupation, cs.energy*eV,_eV);
             auto const norm = dot_product(nr, r2rho, rg[TRU]->dr);
             auto const scal = (norm > 0)? cs.occupation/norm : 0;
             for(int ir = 0; ir < nr; ++ir) {
@@ -257,7 +258,7 @@ using namespace atom_core;
             vs.energy = -.25; // random number
 //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], vs.ell, vs.energy, vs.wave[TRU], small_component);
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, vs.ell, vs.energy, vs.wave[TRU]);
-            if (echo > 0) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
+            if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
         } // iln
     } // update
 
@@ -649,14 +650,14 @@ using namespace atom_core;
     } // update
     
     void update(int echo=0) {
-        update_core_states(.5, echo);
+        update_core_states(.45, echo + 1); // .45 works well for Cu (Z=29)
         update_valence_states(echo);
         update_charge_deficit(echo);
         double density_matrix[1<<19], rho_tensor[1<<14], qlm[1<<17];
         get_rho_tensor(rho_tensor, density_matrix);
         update_full_density(rho_tensor);
         update_full_potential(qlm);
-        update_matrix_elements();
+        update_matrix_elements(echo);
     } // update
 
   }; // class LiveAtom

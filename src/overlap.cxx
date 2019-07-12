@@ -728,7 +728,7 @@ namespace overlap {
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
     status += test_density_tensor();
-    // status += test_fcc();
+    // status += test_fcc(); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
