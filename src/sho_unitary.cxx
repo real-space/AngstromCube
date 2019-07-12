@@ -1,14 +1,52 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cmath> // sqrt, pow, exp
-#include <algorithm> // max
+#include <algorithm> // max, fill
 
 #include "inline_tools.hxx" // align
+#include "sho_tools.hxx" // n2HO
 #include "sho_unitary.hxx"
 
 namespace sho_unitary {
   
-  void generate_unitary_transform(int const numax, int echo=9) {
+  template<typename real_t> // typically real_t=double
+  class Unitary_SHO_Transform {
+
+      private:
+          real_t **u; // block diagonal matrix entries
+          int ellmax; // largest ell
+          
+      public:
+        
+          Unitary_SHO_Transform(int const lmax=7) {
+              ellmax = lmax;
+              u = new real_t*[1 + ellmax]; // allocate pointers to blocks
+              for(int ell = 0; ell <= ellmax; ++ell) {
+                  int const nb = sho_tools::n2HO(ell); // dimension of block
+                  u[ell] = new real_t[nb*nb]; // allocate square blocks
+                  // ToDo: fill with more than pseudo-values
+                  std::fill(u[ell], nb*nb + u[ell], 0); // clear
+                  for(int ib = 0; ib < nb; ++ib) {
+                      u[ell][ib*nb + ib] = 1; // diagonal
+                  }
+              } // ell
+              printf("# Warning: Unitary_SHO_Transform was initialized as unit operator!\n");
+          } // constructor
+
+          ~Unitary_SHO_Transform() {
+              for(int ell = 0; ell <= ellmax; ++ell) {
+                  delete [] u[ell];
+              } // ell
+              delete [] u;
+          } // destructor
+          
+          real_t inline get_entry(int const iCart, int const iRad) { return 0; }
+
+  }; // class Unitary_SHO_Transform
+  
+#if 0  
+  
+  status_t generate_unitary_transform(int const numax, int echo=9) {
 //       int const mx = align<2>(1 + numax);
 
       int const lmax = numax;
@@ -93,19 +131,24 @@ namespace sho_unitary {
       
   } // generate_unitary_transform
   
+#endif
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test(int echo=9) {
-      generate_unitary_transform(9, echo);
-      return 0;
-  } // test
+  int test_generation(int echo=9) { return 0; } // return generate_unitary_transform(9, echo); }
 
+  template<typename real_t>
+  int test_loading(int const ellmax=7, int echo=9) {
+      Unitary_SHO_Transform<real_t> U(ellmax);
+      return 0;
+  } // test_loading
+  
   status_t all_tests() {
     auto status = 0;
-    status += test();
+    status += test_generation();
+    status += test_loading<double>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

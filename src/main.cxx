@@ -13,6 +13,7 @@
 #include "single_atom.hxx" // all_tests
 #include "sho_unitary.hxx" // all_tests
 #include "sho_radial.hxx" // all_tests
+#include "sho_tools.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
 #include "overlap.hxx" // all_tests
 
@@ -37,6 +38,7 @@
           module_test("single_atom.",                     single_atom::all_tests);
           module_test("sho_unitary.",                     sho_unitary::all_tests);
           module_test("sho_radial.",                       sho_radial::all_tests);
+          module_test("sho_tools.",                         sho_tools::all_tests);
           module_test("atom_core.",                         atom_core::all_tests);
           module_test("overlap.",                             overlap::all_tests);
 #undef    module_test
