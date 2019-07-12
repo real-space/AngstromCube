@@ -38,7 +38,7 @@ FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
 # FEAFLAGS += -D NO_UNIT_TESTS ## for production
 
 # normal mode
-# OPTFLAGS = -Ofast -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
+OPTFLAGS = -Ofast ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # OPTFLAGS = -O2 ###-Ofast -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 OPTFLAGS = -O0 -g
 
@@ -47,7 +47,6 @@ LDFLAGS =
 CUOPTFLAGS =
 #### production mode
 CUOPTFLAGS += -O3 --use_fast_math
-# CUOPTFLAGS += -D BENCH_ALL_VERSIONS
 #### debug mode
 # OPTFLAGS  = -O0 -g
 # CUOPTFLAGS += -g -O0 -G
@@ -78,7 +77,8 @@ CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,
 CXXFLAGS = -std=c++11 ${FLAGS}
 
 # LDFLAGS += -lm -llapack 
-LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+# LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
+LDFLAGS += -lm -lblas -llapack ### works on zam044
 
 DEP=$(OBJ:%.o=%.d)
 

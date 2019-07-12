@@ -3,16 +3,18 @@
 #include <cmath> // sqrt, pow, exp
 #include <algorithm> // max
 
+#include "sho_radial.hxx"
+
+#include "constants.hxx" // sqrtpi
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "inline_tools.hxx" // align<T,nbits>
-#include "sho_radial.hxx"
 
 namespace sho_radial {
   
   template<typename real_t>
   void radial_eigenstates(real_t poly[], // coefficients of a polynomial in r^2
                    int const nrn, // number of radial nodes
-                   int const ell, // angular momentum
+                   int const ell, // angular momentum quantum number
                    real_t const factor=1) { // if we know the normalization prefactor in advance, we can provide it here
 
     // recursion relation of coefficients:
@@ -29,8 +31,7 @@ namespace sho_radial {
   template<typename real_t>
   real_t exponential_integral_k(int const k) {
     // I_k = int\limit_0^\infty dr r^k exp(-r^2)
-    double constexpr sqrtpi = 1.77245385090551602729816748334115;
-    if (0 == k) return 0.5*sqrtpi;
+    if (0 == k) return 0.5*constants::sqrtpi;
     if (1 == k) return 0.5; // just for completeness, odd cases are not relevant in this module
     assert(k > 0);
     return 0.5*(k - 1)*exponential_integral_k<real_t>(k - 2); // recursive invokation here
@@ -126,7 +127,7 @@ namespace sho_radial {
               nrn_list[i] = nrn;
               radial_eigenstates(c[i], nrn, ell);
               double const fac = radial_normalization(c[i], nrn, ell);
-              assert(fac == radial_normalization<double>(nrn, ell)); // check that the other interface produces the same value
+              assert(std::abs(fac - radial_normalization<double>(nrn, ell)) < 1e-12); // check that the other interface produces the same value,with -O0 we can even check for ==
               fac_list[i] = fac;
               if (echo > 2) printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
               radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficent series with the normalized onces

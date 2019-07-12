@@ -4,13 +4,17 @@
 #include <algorithm> // max
 #include <complex> // std::complex<real_t>
 #include <complex>
-#include <utility> // std::pair<,>, make_pair
-#include <cmath>
-#include <cassert>
+#include <utility> // std::pair<T1,T2>, make_pair
+#include <vector> // std::vector<T>
+#include <array> // std::array<T,n>
+// #include <cmath>
+#include <cassert> // assert
  
-#include "vec.hxx" // vector_math from exafmm
-
 #include "overlap.hxx"
+
+#include "vec.hxx" // vector_math from exafmm
+#include "constants.hxx" // pi, sqrtpi
+
 
 // #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 // #include "output_units.h" // eV, _eV, Ang, _Ang
@@ -37,9 +41,6 @@
 
 namespace overlap {
   // computes the overlap between Gaussian-localized 1D polynomials
-
-  double constexpr C_PI = 3.14159265358979323846; // pi
-  double constexpr sqrtpi = 1.77245385091;
   
   template<typename real_t>
   int multiply(real_t pxp[], int const n, // result
@@ -70,7 +71,7 @@ namespace overlap {
       //            / infty
       // kern_{n} = |   exp(-x^2/sigma^2) x^n dx
       //            /-infty
-      real_t kern = sqrtpi * sigma; // init recursive computation
+      real_t kern = constants::sqrtpi * sigma; // init recursive computation
       for(int d = 0; 2*d < m; ++d) {
           value += p[2*d] * kern; // access only the even terms of p[]
           kern *= (d + 0.5) * (sigma*sigma);
@@ -99,7 +100,7 @@ namespace overlap {
       if (0 != normalize) {
           double nfactorial = 1;
           for(int n = 0; n < ncut; ++n) {
-              double nrmf = normalize*sqrt(siginv/(sqrtpi*nfactorial));
+              double nrmf = normalize*sqrt(siginv/(constants::sqrtpi*nfactorial));
               for(int d = 0; d <= n; ++d) {
                   H[S*n + d] *= nrmf;
               } // d
@@ -225,9 +226,9 @@ namespace overlap {
         } // m
         if (echo > 1) printf("\n");
     } // n
-    if (echo) printf("# %s: up to %d the largest deviation from Kroecker is %.1e \n", __func__, ncut - 1, mdev);
+    if (echo > 0) printf("# %s: up to %d the largest deviation from Kroecker is %.1e \n", __func__, ncut - 1, mdev);
     return ndev;
-  } // test
+  } // test_Hermite_polynomials
 
   status_t test_Hermite_Gauss_overlap(int const echo=1) {
     // show the overlap of the lowest 1D Hermite-Gauss functions as a function of distance
@@ -250,7 +251,7 @@ namespace overlap {
         if (echo > 1) printf("\n");
     } // dist
     return 0;
-  } // test
+  } // test_Hermite_Gauss_overlap
 
   status_t test_kinetic_overlap(int const echo=1) {
     // show the kinetic energy of the lowest 1D Hermite-Gauss functions as a function of distance
@@ -298,7 +299,7 @@ namespace overlap {
     } // dist
     if (echo > 0) printf("# %s deviations %g, %g and %g\n", __func__, maxdev1, maxdev2, maxdev3);
     return (maxdev3 > 2e-14);
-  } // test
+  } // test_kinetic_overlap
 
   status_t test_density_tensor(int const echo=0) {
     // this structure can be used to describe the density generation
@@ -306,7 +307,7 @@ namespace overlap {
     // represent the density in a SHO basis 
     // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
     int constexpr ncut = 8;
-    double constexpr sqrt2 = sqrt(2.);
+    double const sqrt2 = std::sqrt(2.);
     double H[ncut*ncut], Hp[2*ncut*2*ncut];
     prepare_centered_Hermite_polynomials(H, ncut); // unit spread sigma=1, L2-normalized
     prepare_centered_Hermite_polynomials(Hp, 2*ncut, sqrt2); // spread sigma_p = sigma/sqrt(2), L2-normalized
@@ -344,15 +345,15 @@ namespace overlap {
   template<typename real_t> 
   real_t pow2(real_t const base) { return base*base; }  
   
-  status_t test_fcc(int const echo=5, float const a0=8) {
+  status_t test_fcc(int const echo=3, float const a0=8) {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 8, ncut = nmax + 2;
+    int constexpr nmax = 4, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
-        double const recip = (2*C_PI)/a0;
+        double const recip = (2*constants::pi)/a0;
         for(int dir = 0; dir < 3; ++dir) {
             if (0) { // simple-cubic
                 cv[dir] = 0; cv[dir][dir] = a0;
@@ -502,7 +503,7 @@ namespace overlap {
     double rwork[lwork], eigvals[n3D];
     auto const jobz = 'n', uplo = 'u', jobv = 'v';
     
-    std::vector<std::pair<vec3,double>> kps;
+    std::vector<std::array<double,4>> kps;
     int diagonalization_failed = 0;
 
     int const num_bins = 1 << 19;
@@ -511,7 +512,7 @@ namespace overlap {
     float const energy_offset = bin_width*((int)(-.25*inv_bin_width));
     int ibin_out_of_range = 0;
     double const Gauss_alpha = 1e-3;
-    double const Gauss_norm = std::sqrt(Gauss_alpha/C_PI);
+    double const Gauss_norm = std::sqrt(Gauss_alpha/constants::pi);
     int const Gauss_bins = std::ceil(4/Gauss_alpha); // goes to 1e-7
     std::vector<double> dos;
 
@@ -526,7 +527,7 @@ namespace overlap {
         for(int iz = 0; iz < nkp_sampling; ++iz) {           kvec[2] = inv_kp_sampling*(iz + 0.5);
             for(int iy = 0; iy <= iz; ++iy) {                kvec[1] = inv_kp_sampling*(iy + 0.5);
                 for(int ix = 0; ix <= iy; ++ix) {            kvec[0] = inv_kp_sampling*(ix + 0.5);
-                    kps.push_back(std::make_pair(kvec, weight));
+                    kps.push_back({kvec[0], kvec[1], kvec[2], weight});
                     w8sum += weight;
                     if (echo > 9) printf("# new k-point %g %g %g weight %g\n", kvec[0], kvec[1], kvec[2], weight);
                 } // ix
@@ -550,7 +551,7 @@ namespace overlap {
             for(int step = 0; step < sampling + (edge == (nedges - 1)); ++step) {
                 float const path_progress_edge = path_progress + (step*frac)*edge_length;
                 vec3 const kvec = v0 + (v1 - v0)*(step*frac);
-                kps.push_back(std::make_pair(kvec, path_progress_edge));
+                kps.push_back({kvec[0], kvec[1], kvec[2], path_progress_edge});
             } // step
             if (echo > 2) printf("# k-point %.6f %.6f %.6f\n", v1[0],v1[1],v1[2]);
             path_progress += edge_length;
@@ -559,7 +560,7 @@ namespace overlap {
 
     float progress_percent = .02; // show first at 2%
     for(uint ik = 0; ik < kps.size(); ++ik) {
-        auto & kvec = kps[ik].first;
+        vec3 kvec = &(kps[ik][0]); // copy first 3 doubles at this pointer
         vec3 const true_kv = bv[0]*kvec[0] + bv[1]*kvec[1] + bv[2]*kvec[2];
 
         int info = 0;
@@ -591,7 +592,7 @@ namespace overlap {
             
             for(int ipi = 0; ipi < num_periodic_images; ++ipi) {
                 vec3 ipos = vpi[ipi];
-                complex_t const bloch_factor = std::polar(1.0, 2*C_PI * dot(kvec, ipos));
+                complex_t const bloch_factor = std::polar(1.0, 2*constants::pi * dot(kvec, ipos));
                 if (echo > 9) printf("# periodic image%4d%4d%4d  Bloch-phase = %f + i %f\n", 
                     vpi[ipi][0], vpi[ipi][1], vpi[ipi][2], bloch_factor.real(), bloch_factor.imag());
                 // add to matrixes
@@ -650,7 +651,7 @@ namespace overlap {
             largest_eigval  = std::max(largest_eigval,  eigvals[i3D]);
         } // i3D
 
-        auto const kp_id = kps[ik].second;
+        auto const kp_id = kps[ik][3]; // weight or path_progress_edge
         if (0 == info) {
             if (DoS) {
                 double const w8 = kp_id;
@@ -712,7 +713,7 @@ namespace overlap {
     } // DoS
 
     if (diagonalization_failed > 0) {
-        if (echo > 0) printf("# Warning: %d diagonalizations failed!\n", diagonalization_failed);
+        if (echo > 0) printf("# Warning: %d diagonalizations failed in %s!\n", diagonalization_failed, __func__);
     } else {
         if (echo > 1) printf("\n# smallest and largest eigenvalue%s are %g and %g\n", 
             overlap_eigvals?" of the overlap operator":"", smallest_eigval, largest_eigval);
@@ -727,7 +728,7 @@ namespace overlap {
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
     status += test_density_tensor();
-    status += test_fcc();
+    // status += test_fcc();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

@@ -1,7 +1,7 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <algorithm> // std::copy
-// #include <math.h> // C_PI
+#include <cmath> // std::floor
 
 #include "real_space_grid.hxx"
 

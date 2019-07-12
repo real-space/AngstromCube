@@ -150,11 +150,11 @@ int integrate_inwards( // return the number of nodes
     double const E, // energy (eigen-)value in Hartree
     double gg[], // large component*r
     double ff[], // small component*r
-    double const valder[2]=nullptr,
-    double *dg=nullptr, // derivative at end point
-    int *ir_stopped=nullptr, // index at which the inwards integration stopped
-    int const ir_start=-1, // start index, -1:(g.n - 1)
-    int const ir_stop=4) // latest stop index
+    double const valder[2], // defaults to nullptr
+    double *dg, // derivative at end point, defaults to nullptr
+    int *ir_stopped, // index at which the inwards integration stopped, defaults to nullptr
+    int const ir_start, // start index, -1:(g.n - 1), default is -1
+    int const ir_stop) // latest stop index, default is 4
 {
     int constexpr Step = -1;
     float const llp1 = ell*(ell + 1.f);
@@ -306,9 +306,9 @@ int integrate_outwards( // return the number of nodes
     double const E, // energy (eigen-)value in Hartree
     double gg[], // large component*r
     double ff[], // small component*r
-    int const ir_stop=-1, // latest stop index, -1:(g.n - 1)
-    double *dg=nullptr, // derivative at end point
-    double const *rp=nullptr) // inhomogeneitity*r, only outward
+    int const ir_stop, // latest stop index, -1:(g.n - 1), default is -1
+    double *dg, // derivative at end point, defaults to nullptr
+    double const *rp) // inhomogeneitity*r, only outward, defaults to nullptr
 {
     int constexpr Step = 1;
     float const llp1 = ell*(ell + 1.f);
@@ -341,7 +341,7 @@ int integrate_outwards( // return the number of nodes
             bF = 0.; // b(G) * m0 * ell / r(ir) ! ToDo: derive properly
         } else {
             power_series_by_Horner_scheme(bG, bF, ps, rpow, g.r[ir]);
-            rpow = rpow; bG = g.r[ir]; bF = 0; // sin, cos
+            bG = g.r[ir]; bF = 0; // sin, cos
         } // rp
 
         gg[ir] = bG; ff[ir] = bF;
