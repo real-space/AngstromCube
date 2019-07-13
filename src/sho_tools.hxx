@@ -26,6 +26,7 @@ namespace sho_tools {
   int ln_index(int const ell, int const nrn) 
       { return ln_index(numax, ell, nrn); }
 
+  // emm-resolved
   inline constexpr 
   int lnm_index(int const numax, int const ell, int const nrn, int const emm) {
       return (6*(ell + emm) +  // within each block of size (2*ell + 1)

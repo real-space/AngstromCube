@@ -14,29 +14,53 @@ namespace sho_unitary {
 
       private:
           real_t **u; // block diagonal matrix entries
-          int ellmax; // largest ell
+          int numax; // largest ell
           
       public:
         
           Unitary_SHO_Transform(int const lmax=7) {
-              ellmax = lmax;
-              u = new real_t*[1 + ellmax]; // allocate pointers to blocks
-              for(int ell = 0; ell <= ellmax; ++ell) {
-                  int const nb = sho_tools::n2HO(ell); // dimension of block
-                  u[ell] = new real_t[nb*nb]; // allocate square blocks
+              numax = lmax;
+              u = new real_t*[1 + numax]; // allocate pointers to blocks
+              auto starts = new int[2 + numax]; // global index range of each block [begin, end)
+              starts[0] = 0;
+              printf("# unitary transform in %d blocks, index ranges: ", 1 + numax); // no newline
+              for(int nu = 0; nu <= numax; ++nu) { // run serial forward
+                  int const nb = sho_tools::n2HO(nu); // dimension of block
+                  starts[nu + 1] = starts[nu] + nb; // end of this block
+                  printf("[%d,%d]%c", starts[nu], starts[nu + 1] - 1, (numax-nu)?' ':'\n'); // no newline unless last
+                  u[nu] = new real_t[nb*nb]; // allocate square blocks
                   // ToDo: fill with more than pseudo-values
-                  std::fill(u[ell], nb*nb + u[ell], 0); // clear
+                  std::fill(u[nu], u[nu] + nb*nb, 0); // clear
                   for(int ib = 0; ib < nb; ++ib) {
-                      u[ell][ib*nb + ib] = 1; // diagonal
-                  }
-              } // ell
+                      u[nu][ib*nb + ib] = 1; // diagonal
+                  } // ib
+                  //
+                  // Expected File format:
+                  //    Each line has these 8 entries:
+                  //      nx ny nz ell nrn emm nom den
+                  //    where
+                  //      nx, ny, nz      are the three Cartesian SHO indices, >= 0
+                  //      ell, emm        are the spherical harmonic indices
+                  //                      ell >= 0, -ell <= emm <= ell
+                  //      nrn             is the number or radial nodes, nrn >= 0
+                  //      nom den         encode the value of the matrix entry of u:
+                  //                      u = sgn(nom)*sqrt(abs(nom)/den)
+                  //                      den > 0, nom may be negative but since
+                  //                      only non-zero entries are given, nom != 0
+                  //
+                  //  if we want to squeeze it into a data-type, this would do
+                  //  struct { uint8_t nx, ny, nz, _spare, ell, nrn; int16_t emm; 
+                  //           int64_t nom; uint64_t den; };
+                  //  this would support the index ranges up to numax=255
+
+              } // nu
               printf("# Warning: Unitary_SHO_Transform was initialized as unit operator!\n");
           } // constructor
 
           ~Unitary_SHO_Transform() {
-              for(int ell = 0; ell <= ellmax; ++ell) {
-                  delete [] u[ell];
-              } // ell
+              for(int nu = 0; nu <= numax; ++nu) {
+                  delete [] u[nu];
+              } // nu
               delete [] u;
           } // destructor
           
