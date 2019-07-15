@@ -80,6 +80,16 @@ namespace sho_tools {
       return ((ell + 2*nrn)*(ell + 2*nrn + 1)*(ell + 2*nrn + 2) // energy shell offset (nu*(nu+1)*(nu+2))/6
               + 3*ell*(ell - 1) // previous ells (ell*(ell - 1))/2
               + 6*(emm + ell))/6; } // linear emm-contribution
+  
+  template<typename int_t>
+  inline constexpr int_t get_nu(int_t const nx, int_t const ny, int_t const nz) { return nx + ny + nz; }
+
+  template<typename int_t>
+  inline constexpr int_t get_nu(int_t const ell, int_t const nrn) { return ell + 2*nrn; }
+
+  template<typename int_t>
+  inline int get_nu(int_t const energy_ordered_index)
+      { int nu = -1; while (energy_ordered_index >= nSHO(nu)) { ++nu; } return nu; }
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -92,6 +102,7 @@ namespace sho_tools {
           int lnm = 0, ln = 0, lm = 0, lmn = 0;
           for(int ell = 0; ell <= numax; ++ell) {
               for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+                  assert(ell + 2*nrn == get_nu(ell, nrn)); // test get_nu
                   int const k = ln_index(numax, ell, nrn);
                   if ((echo > 7) && (k != ln)) printf("# ln_index<%d>(ell=%d, nrn=%d) == %d %d diff=%d\n", numax, ell, nrn, ln, k, k - ln);
                   assert(k == ln);
@@ -168,6 +179,8 @@ namespace sho_tools {
                              nu, nx, ny, nz, nzyx, k, k - nzyx, xyz,  nx + (nz*((2+nu)*2-(nz + 1)))/2 );
                   assert(k == nzyx);
                   nerrors += (k != nzyx);
+                  if (get_nu(nzyx) != nu) printf("# get_nu(%d) = %d but expected %d\n", nzyx, get_nu(nzyx), nu);
+                  assert(get_nu(nzyx) == nu);
                   ++nzyx;
                   ++xyz;
               } // ny
@@ -186,6 +199,7 @@ namespace sho_tools {
                   if (echo > 9) printf("# nlnm_index<nu=%d>(ell=%d, nrn=%d, emm=%d) == %d\n", nu, ell, nrn, emm, nlnm);
                   assert(k == nlnm);
                   nerrors += (k != nlnm);
+                  assert(nu == get_nu(nlnm));
                   ++nlnm;
               } // emm
           } // ell
