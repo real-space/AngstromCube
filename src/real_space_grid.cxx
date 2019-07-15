@@ -49,10 +49,11 @@ namespace real_space_grid {
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
                           int const ir2 = (int)(hcoeff*r2);
-                          if (ir2 < ncoeff - 1) {
+                          if (ir2 < ncoeff) {
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2][i0]*(1 - w8) + r2coeff[ir2 + 1][i0]*w8);
+                                  g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2][i0]*(1 - w8) 
+                                       + ((ir2 + 1 < ncoeff) ? r2coeff[ir2 + 1][i0] : 0)*w8);
                               } // i0
                               ++modified;
                           } else ++out_of_range;
@@ -98,16 +99,17 @@ namespace real_space_grid {
       float const rcut = 4;
       float const inv_hr2 = nr2/(rcut*rcut);
       double const hr2 = 1./inv_hr2;
+      if (echo > 4) printf("\n# values on the radial grid\n");
       for(int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
           double const r2 = ir2*hr2, r = std::sqrt(r2);
           r2c[ir2][0] = std::exp(-r2); // function evaluation here
-          if (echo > 2) printf("%g %g\n", r, r2c[ir2][0]); // plot function value vs r
+          if (echo > 4) printf("%g %g\n", r, r2c[ir2][0]); // plot function value vs r
           rad_integral += r2c[ir2][0] * r;
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
-      if (echo > 3) printf("\n# add_function()\n\n");
+      if (echo > 2) printf("\n# add_function()\n\n");
       add_function(g, r2c, nr2, inv_hr2, cnt, rcut);
-      if (echo > 2) printf("\n# non-zero values on the grid\n");
+      if (echo > 6) printf("\n# non-zero values on the Cartesian grid\n");
       double xyz_integral = 0;
       int ixyz = 0;
       for(        int iz = 0; iz < g.dim('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
@@ -115,7 +117,7 @@ namespace real_space_grid {
               for(int ix = 0; ix < g.dim('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
                   auto const val = g.values[ixyz];
                   if (0 != val) {
-                      if (echo > 3) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
+                      if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       xyz_integral += val;
                   } // non-zero
                   ++ixyz;
@@ -130,7 +132,7 @@ namespace real_space_grid {
   status_t all_tests() {
     auto status = 0;
     status += test_create_and_destroy();
-    status += test_add_function(9);
+    status += test_add_function(2);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
