@@ -1,12 +1,12 @@
 #include <cstdio> // printf
 #include <cstdlib> 
 #include <cmath>
+#include <algorithm> // max
 
 #include "element_configuration.hxx"
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV, Ang, _Ang
-#include "min_and_max.h" // max
 #include "chemical_symbol.h" // element_symbols
 
 // #define FULL_DEBUG
@@ -48,7 +48,7 @@ namespace element_configuration {
         int enn = (m + 1)/2;
         for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
           ++enn; // principal quantum number
-          for(int jj = 2*ell + spin; jj >= max(0, 2*ell - spin); jj -= 2) { // quantum number j = l + s, jj=2j
+          for(int jj = 2*ell + spin; jj >= std::max(0, 2*ell - spin); jj -= 2) { // quantum number j = l + s, jj=2j
             if(echo) 
                 printf("%4d%c%6.1f%4d%9d    %c", enn, ellchar[ell], jj*.5f, (2 - spin)*(jj + 1), ishell, (1==echo || spin)?'\n':' ');
             for(int mm = -jj; mm <= jj; mm += 2) { // angular momentum z-component emm, mm=2*emm

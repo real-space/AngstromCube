@@ -3,10 +3,10 @@
 #include <cassert> // assert
 #include <cmath> // sqrt, pow, exp, fabs, sqrt
 #include <fstream> // ifstream
+#include <algorithm> // min, max
 
 #include "atom_core.hxx"
 
-#include "min_and_max.h" // min, max
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
@@ -102,20 +102,20 @@ namespace atom_core {
 
     
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
-    auto const alpha = 0.3058*pow(Z, 1./3.);
-    auto const beta = sqrt(108./C_PI)*max(0, Z - 2)*alpha;
+    auto const alpha = 0.3058*std::pow(Z, 1./3.);
+    auto const beta = std::sqrt(108./C_PI)*std::max(0., Z - 2)*alpha;
     if (4 + 3.2*charged < 0) return 1; // error
-    auto const gamma = sqrt(4 + 3.2*charged);
+    auto const gamma = std::sqrt(4 + 3.2*charged);
     auto g2 = gamma*gamma*gamma;
     if (Z < 2) g2 *= 0.5*Z;
     double q = 0;
     for(auto ir = 0; ir < g.n; ++ir) {
         auto const r = g.r[ir];
         auto const x = alpha*r;
-        auto const exa = (x < 50)? exp(-3*x) : 0;
+        auto const exa = (x < 50)? std::exp(-3*x) : 0;
         auto const xb = gamma*r;
-        auto const exb = (xb < 150)? exp(-xb) : 0;
-        r2rho[ir] = beta*sqrt(x)*exa + g2*exb*r*r;
+        auto const exb = (xb < 150)? std::exp(-xb) : 0;
+        r2rho[ir] = beta*std::sqrt(x)*exa + g2*exb*r*r;
 //      printf("%g %g\n", r, r2rho[ir]);
         q += r2rho[ir] * g.dr[ir]; // integrate total charge
     } // ir
@@ -146,15 +146,15 @@ namespace atom_core {
                   int const max_occ = 2*(ell + 1 + ell); // spin degenerate
                   orb[i].enn = enn;
                   orb[i].ell = ell;
-                  orb[i].occ = min(max(0, Z - iZ), max_occ);
+                  orb[i].occ = std::min(std::max(0.f, Z - iZ), max_occ*1.f);
                   orb[i].E = -.5*(Z/enn)*(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
                             (.783517 + 2.5791E-5*(Z/enn)*(Z/enn)) * // fit for the correct 1s energy
-                            exp(-.01*(enn - 1)*Z); // guess energy
+                            std::exp(-.01*(enn - 1)*Z); // guess energy
                   if (orb[i].occ > 0) {
                       if (echo > 4) {
                           printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
                       } // echo
-                      imax = max(i, imax);
+                      imax = std::max(i, imax);
                   } // occupied
                   iZ += max_occ; // iZ jumps between atomic numbers of atoms with full shells
                   ++i; // next shell
@@ -196,13 +196,13 @@ namespace atom_core {
               double r, rV, r_prev=0, rV_prev=-Z;
               while (infile >> r >> rV) {
                   if (r >= 0) { 
-                      r_min = min(r, r_min);
-                      r_max = max(r, r_max);
+                      r_min = std::min(r, r_min);
+                      r_max = std::max(r, r_max);
                       if (r <= g.rmax) {
                           full_debug(printf("# %s  r=%g rV=%g\n",  __func__, r, rV));
                           while ((g.r[ir] < r) && (ir < g.n - 2)) {
                             // interpolate
-                            rV_old[ir] = rV_prev + (rV - rV_prev)*(g.r[ir] - r_prev)/max(r - r_prev, 1e-24);
+                            rV_old[ir] = rV_prev + (rV - rV_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
                             ++ir;
                           } // while
                       } // r <= rmax
@@ -212,7 +212,7 @@ namespace atom_core {
               loading_failed = (r_max < r_min);
           }
           for(int ir = 1; ir < g.n; ++ir) {
-              rV_old[ir] = max(rV_old[ir], rV_old[ir - 1]);
+              rV_old[ir] = std::max(rV_old[ir], rV_old[ir - 1]);
           } // monotoneous
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old, g.r));
   
@@ -278,7 +278,7 @@ namespace atom_core {
                   } // ir
                   double const q = dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
                   double const qq = dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
-                  if (fabs(q - Z) > .1 && echo > 0) {
+                  if (std::abs(q - Z) > .1 && echo > 0) {
                       printf("# %s  Z=%g  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, Z, icyc, q, qq);
                   } // not charge neutral
                   
@@ -307,10 +307,10 @@ namespace atom_core {
 
                   ++icyc;
                   auto const which = E_est; // monitor the change on some energy contribution which depends on the density only
-                  res = fabs(energies[which] - previous_energy); 
+                  res = std::abs(energies[which] - previous_energy); 
                   previous_energy = energies[which]; // store for the next iteration
                   if (echo > 3) {
-                      int const display_every = 1 << max(0, 2*(6 - echo)); // echo=4:every 16th, 5:every 4th, 6:every cycle
+                      int const display_every = 1 << std::max(0, 2*(6 - echo)); // echo=4:every 16th, 5:every 4th, 6:every cycle
                       if (0 == (icyc & (display_every - 1))) {
                           printf("# %s  Z=%g  icyc=%d  residual=%.1e  E_tot=%.9f %s\n", 
                                   __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
@@ -394,7 +394,7 @@ namespace atom_core {
         for(auto ir = 0; ir < g.n; ++ir) {
             q += g.r2dr[ir]*rho[ir];
         } // ir
-        diff = max(diff, fabs(zz - q));
+        diff = std::max(diff, std::abs(zz - q));
         if (echo > 0)  printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n", 
                                  __FILE__, __LINE__, zz, q, diff);
     } // zz
@@ -412,7 +412,7 @@ namespace atom_core {
 //  status += test_initial_density(*create_exponential_radial_grid(512));
 //     for(int Z = 1; Z < 120; ++Z)
     for(int Z = 4; Z <= 4; ++Z)
-        status += test_core_solver(*create_exponential_radial_grid(250*sqrt(Z + 9.)+.5), Z);
+        status += test_core_solver(*create_exponential_radial_grid(250*std::sqrt(Z + 9.)+.5), Z);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

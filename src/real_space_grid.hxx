@@ -57,11 +57,11 @@ namespace real_space_grid {
           return stat;
       } // set
       
-      inline int dim(char const xyz) { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
-      inline int dim(int const x0y1z2) { return dims[x0y1z2]; }
-      inline double dV(bool const Cartesian=true) { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
+      inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
+      inline int dim(int const x0y1z2) const { return dims[x0y1z2]; }
+      inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
 
-      inline size_t all() { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
+      inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
   };
   
   status_t all_tests();

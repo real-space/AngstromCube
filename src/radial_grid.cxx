@@ -2,11 +2,11 @@
 #include <stdlib.h> // abs
 #include <cmath> // fabs, exp
 #include <cstdio> // printf
+#include <algorithm> // min, max
 
 #include "radial_grid.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "min_and_max.h" // min, max
 
 typedef int status_t;
 
@@ -15,9 +15,9 @@ namespace radial_grid {
   radial_grid_t* create_exponential_radial_grid(int const npoints,
                    float const rmax, float const anisotropy) // optional args
   {
-    double const R = max(fabs(rmax), .945);
-    double const d = min(max(1e-4, anisotropy), 0.1);
-    int const N = max(abs(npoints), 32);
+    double const R = std::max(std::abs(rmax)*1., .945);
+    double const d = std::min(std::max(1e-4, anisotropy*1.), .1);
+    int const N = std::max(std::abs(npoints), 32);
 
     int const N_aligned = (((N - 1) >> 2) + 1) << 2; // padded to 4
 
@@ -28,9 +28,9 @@ namespace radial_grid {
     g->r2dr   = &g->r[3*N_aligned];
     g->rinv   = &g->r[4*N_aligned];
 
-    double const a = R / (exp(d*(N - 1)) - 1.); // prefactor
+    double const a = R / (std::exp(d*(N - 1)) - 1.); // prefactor
     for (auto ir = 0; ir < N_aligned; ++ir) {
-      double const edi = exp(d*ir);
+      double const edi = std::exp(d*ir);
       double const r = a*(edi - 1.);
       double const dr = a*d*edi * (ir < N);
       g->r[ir] = r;
@@ -76,7 +76,7 @@ namespace radial_grid {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test(int echo=9) {
+  int test(int const echo=9) {
     printf("\n# %s: \n", __func__);
     auto g = create_exponential_radial_grid(1 << 11);
     destroy_radial_grid(g);

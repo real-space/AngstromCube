@@ -144,16 +144,16 @@ namespace finite_difference {
       c[0] = -40799043101./(12985932960.*h2);
       
     break; case 0:
-      printf("Warning! Finite difference switched off!\n");
+      printf("# Warning! Finite difference switched off!\n");
       c[0] = 0.;
       return 0; // ok
     break; default:
-      printf("Warning! Cannot treat case of %d finite difference neighbors\n", nn);
+      printf("# Warning! Cannot treat case of %d finite difference neighbors\n", nn);
       return nn;
     } // switch min(nn, nnMaxImplemented)
     
     if (nn > nnMaxImplemented) {
-      printf("Warning! Max implemented 13 but requested %d finite difference neighbors\n", nn);
+      printf("# Warning! Max implemented 13 but requested %d finite difference neighbors\n", nn);
       for(int i = nnMaxImplemented + 1; i <= nn; ++i) c[i] = 0; // clear out the others.
     } // larger than implemented
     
@@ -169,16 +169,34 @@ namespace finite_difference {
       int nn[3]; // number of FD neighbors
       real_t c2nd[3][16]; // coefficients for the 2nd derivative
     public:
-      finite_difference_t(double const grid_spacing=1, int const boundary_condition=1, int const nneighbors=4) {
+
+      finite_difference_t(double const grid_spacing[3], 
+                          int const boundary_condition[3], 
+                          int const nneighbors[3]) {
+          init(grid_spacing, boundary_condition, nneighbors);
+      } // constructor
+
+      finite_difference_t(double const h=1, int const bc=1, int const nn=4) {
+          int const bcs[3] = {bc, bc, bc};
+          int const nns[3] = {nn, nn, nn};
+          double const hgs[3] = {h, h, h};
+          init(hgs, bcs, nns);
+      } // isotropic constructor
+
+      void init(double const grid_spacing[3], 
+                int const boundary_condition[3], 
+                int const nneighbors[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < 16; ++i) c2nd[d][i] = 0; // clear
-              nn[d] = nneighbors;
-              h[d] = grid_spacing;
-              bc[d][0] = bc[d][1] = d - 1;
+              nn[d] = nneighbors[d];
+              h[d] = grid_spacing[d];
+              bc[d][0] = bc[d][1] = boundary_condition[d]; // 1:periodic, 0:open, -1:mirror
               auto const stat = set_Laplacian_coefficients(c2nd[d], nn[d], h[d]);
               if (stat) printf("# Warning! construction of finite_difference_t failed for direction=%c\n", 'x'+d);
           } // spatial direction d
       } // constructor
+
+
   }; // class finite_difference_t
   
   

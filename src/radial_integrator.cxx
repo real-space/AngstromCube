@@ -2,10 +2,10 @@
 #include <cstdio> // printf
 #include <cstdlib> // abs
 #include <cmath> // sqrt, pow
+#include <algorithm> // min, max
 
 #include "radial_integrator.hxx"
 
-#include "min_and_max.h" // max
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "inline_math.hxx" // sgn, pow2
@@ -41,7 +41,7 @@ namespace radial_integrator {
   double relativistic_power_series(float const Z, ell_QN_t const ell, double const V0mE, double ps[][2]) {
     double constexpr c0 = 137.0359895; // speed of light
     auto const llp1 = ell*(ell + 1.);
-    auto const aa = -max(Z, 1.)/c0;
+    auto const aa = -std::max(Z, 1.f)/c0;
 
     // gf[G:F] = (sum_{i=0}^{10} ps[i][G:F] * r^(i+s))
     double const s = sqrt(llp1 + 1 - aa*aa);
@@ -178,7 +178,7 @@ int integrate_inwards( // return the number of nodes
             vd[1] = valder[1];
         } else {
             vd[0] = 1e-42;
-            vd[1] = -sqrt(max(1., 2*(rV[ir]/g.r[ir] - E))) * vd[0];
+            vd[1] = -std::sqrt(std::max(1., 2*(rV[ir]/g.r[ir] - E))) * vd[0];
         } // valder
         
         sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
@@ -365,7 +365,7 @@ int integrate_outwards( // return the number of nodes
       } // i3
     } // init scope
 
-    int const ir_max = (-1 == ir_stop)? (g.n - 1) : min(g.n - 1, abs(ir_stop));
+    int const ir_max = (-1 == ir_stop)? (g.n - 1) : std::min(g.n - 1, std::abs(ir_stop));
 
     // main loop
     for(ir = 4; ir <= ir_max; ++ir) {
