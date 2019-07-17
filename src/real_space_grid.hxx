@@ -7,7 +7,7 @@ typedef int status_t;
 
 namespace real_space_grid {
 
-  class Cartesian_grid_t {
+  class real_space_grid_t {
   public:
       double* values;
   private:
@@ -15,14 +15,14 @@ namespace real_space_grid {
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
       
-      Cartesian_grid_t(int const d123[3], int const d0=1, int const d4=1, double* const v=nullptr)
+      real_space_grid_t(int const d123[3], int const d0=1, int const d4=1, double* const v=nullptr)
        : h{1.,1.,1.}, inv_h{1.,1.,1.} {
-          dims[0] = d0;
-          dims[1] = d123[0]; 
-          dims[2] = d123[1]; 
-          dims[3] = d123[2];
-          dims[4] = d4;
-          dims[5] = 0;
+          dims[0] = d0; // inner
+          dims[1] = d123[0]; // x
+          dims[2] = d123[1]; // y
+          dims[3] = d123[2]; // z
+          dims[4] = d4; // outer
+          dims[5] = 0; // not used
           long const nnumbers = 1 * d4 * d123[2] * d123[1] * d123[0] * d0;
           if (nnumbers > 0) {
               if (nullptr == v) {
@@ -41,7 +41,7 @@ namespace real_space_grid {
           }
       } // constructor
 
-      ~Cartesian_grid_t() {
+      ~real_space_grid_t() {
           delete [] values;
           for(int i6 = 0; i6 < 6; ++i6) dims[i6] = 0;
       } // destructor

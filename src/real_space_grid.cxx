@@ -14,7 +14,7 @@
 namespace real_space_grid {
 
   template<int D0> // inner dimension
-  status_t add_function(Cartesian_grid_t &g, // grid values are modified
+  status_t add_function(real_space_grid_t &g, // grid values are modified
                         double const r2coeff[][D0], int const ncoeff, float const hcoeff,
                         double const center[3]=nullptr, float const rcut=-1, double const scale=1) {
   // Add a spherically symmetric regular function to the grid.
@@ -78,17 +78,17 @@ namespace real_space_grid {
 
   status_t test_create_and_destroy(int echo=9) {
       int const dims[] = {10, 20, 30};
-      auto gp = new Cartesian_grid_t(dims); // allocate and construct
-      gp->~Cartesian_grid_t(); // explicity call the destructor
+      auto gp = new real_space_grid_t(dims); // allocate and construct
+      gp->~real_space_grid_t(); // explicity call the destructor
       int const d1ms[] = {15, 20, 25};
-      Cartesian_grid_t g(d1ms); // construct, destruction automatic
+      real_space_grid_t g(d1ms); // construct, destruction automatic
       return 0;
   } // test_create_and_destroy
 
   status_t test_add_function(int echo=9) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
-      Cartesian_grid_t g(dims);
+      real_space_grid_t g(dims);
       std::fill(g.values, g.all() + g.values, 0.0);
       g.set_grid_spacing(0.333);
       double const cnt[] = {g.dim('x')*.42*g.h[0], 
