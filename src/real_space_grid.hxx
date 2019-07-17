@@ -7,43 +7,42 @@ typedef int status_t;
 
 namespace real_space_grid {
 
-  class real_space_grid_t {
+  template<typename real_t, int D0> // D0: inner dimension, vector length
+  class grid_t {
   public:
-      double* values;
+      real_t* values;
   private:
-      uint32_t dims[6]; // 0:inner dim, 1,2,3:real-space grid dimensions, 4:outer dim, 5:not used
+      uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
-      
-      real_space_grid_t(int const d123[3], int const d0=1, int const d4=1, double* const v=nullptr)
-       : h{1.,1.,1.}, inv_h{1.,1.,1.} {
-          dims[0] = d0; // inner
-          dims[1] = d123[0]; // x
-          dims[2] = d123[1]; // y
-          dims[3] = d123[2]; // z
-          dims[4] = d4; // outer
-          dims[5] = 0; // not used
-          long const nnumbers = 1 * d4 * d123[2] * d123[1] * d123[0] * d0;
+
+      grid_t(int const dim[3], int const dim_outer=1, real_t* const v=nullptr)
+       : h{1,1,1}, inv_h{1,1,1} {
+          dims[0] = std::max(1, dim[0]); // x
+          dims[1] = std::max(1, dim[1]); // y
+          dims[2] = std::max(1, dim[2]); // z
+          dims[3] = std::max(1, dim_outer);
+          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (nnumbers > 0) {
               if (nullptr == v) {
-                  printf("# allocate a grid with %d * %d x %d x %d * %d doubles = %.6f GByte\n", 
-                      dims[4], dims[3], dims[2], dims[1], dims[0], nnumbers*1e-9*sizeof(double));
-                  values = new double[nnumbers];
+                  printf("# allocate a grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte\n", 
+                      dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t));
+                  values = new real_t[nnumbers];
               } else {
-                  printf("# use %p as grid with %d * %d x %d x %d * %d doubles\n", 
-                      v, dims[4], dims[3], dims[2], dims[1], dims[0]);
+                  printf("# use %p as grid with %d * %d x %d x %d * %d real_%ld\n", 
+                      v, dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t));
                   values = v;
               }
           } else {
-              printf("# grid invalid: d0=%d d123={%d, %d, %d} d4=%d\n", 
-                  d0, d123[0], d123[1], d123[2], d4);
+              printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n", 
+                      D0, dims[0], dims[1], dims[2], dims[3]);
               values = nullptr;
           }
       } // constructor
 
-      ~real_space_grid_t() {
+      ~grid_t() {
           delete [] values;
-          for(int i6 = 0; i6 < 6; ++i6) dims[i6] = 0;
+          for(int i4 = 0; i4 < 4; ++i4) dims[i4] = 0;
       } // destructor
       
       status_t set_grid_spacing(float const hx, float const hy=-1, float const hz=-1) {
@@ -58,11 +57,11 @@ namespace real_space_grid {
           return stat;
       } // set
       
-      inline int dim(char const xyz) { return dims[(xyz | 32) - 119]; }
-      inline int dim(int const x0y1z2) { return dims[1 + x0y1z2]; }
-      inline double dV() { return h[0]*h[1]*h[2]; } // volume element
-      
-      inline size_t all() { return 1 * dims[4] * dims[3] * dims[2] * dims[1] * dims[0]; }
+      inline int dim(char const xyz) { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
+      inline int dim(int const x0y1z2) { return dims[x0y1z2]; }
+      inline double dV(bool const Cartesian=true) { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
+
+      inline size_t all() { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
   };
   
   status_t all_tests();

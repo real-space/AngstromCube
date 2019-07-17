@@ -13,8 +13,8 @@
 
 namespace real_space_grid {
 
-  template<int D0> // inner dimension
-  status_t add_function(real_space_grid_t &g, // grid values are modified
+  template<typename real_t, int D0> // inner dimension
+  status_t add_function(grid_t<real_t,D0> &g, // grid values are modified
                         double const r2coeff[][D0], int const ncoeff, float const hcoeff,
                         double const center[3]=nullptr, float const rcut=-1, double const scale=1) {
   // Add a spherically symmetric regular function to the grid.
@@ -51,9 +51,10 @@ namespace real_space_grid {
                           int const ir2 = (int)(hcoeff*r2);
                           if (ir2 < ncoeff) {
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
+                              int const ir2p1 = ir2 + 1;
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
                                   g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2][i0]*(1 - w8) 
-                                       + ((ir2 + 1 < ncoeff) ? r2coeff[ir2 + 1][i0] : 0)*w8);
+                                           + ((ir2p1 < ncoeff) ? r2coeff[ir2p1][i0] : 0)*w8);
                               } // i0
                               ++modified;
                           } else ++out_of_range;
@@ -72,23 +73,45 @@ namespace real_space_grid {
       return 0; // success
   } // add_function
   
+  
+  template<typename real_t, int D0> // inner dimension
+  status_t Fourier_transform(real_t *out, grid_t<real_t,D0> &in) {
+      assert(-1 == D0); // no FFT implemented, break here
+
+      for(int w = 0; w < in.dim('w'); ++w) { // outer dimension
+          for(int z = 0; z < in.dim('z'); ++z) {
+              for(int y = 0; y < in.dim('y'); ++y) {
+                  for(int x = 0; x < in.dim('x'); ++x) {
+                      int const wzyx = ((w*in.dim('z') + z)*in.dim('y') + y)*in.dim('x') + x;
+                      for(int d0 = 0; d0 < D0; ++d0) { // vectorize
+                          out[wzyx*D0 + d0] = in.values[wzyx*D0 + d0]; // plain copy
+                      } // d0
+                  } // x
+              } // y
+          } // z
+      } // w
+
+      return 0;
+  } // Fourier transform
+  
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int echo=9) {
       int const dims[] = {10, 20, 30};
-      auto gp = new real_space_grid_t(dims); // allocate and construct
-      gp->~real_space_grid_t(); // explicity call the destructor
+      auto gp = new grid_t<float,1>(dims); // allocate and construct
+      gp->~grid_t(); // explicity call the destructor
       int const d1ms[] = {15, 20, 25};
-      real_space_grid_t g(d1ms); // construct, destruction automatic
+      grid_t<double,4> g(d1ms); // construct, destruction automatic
       return 0;
   } // test_create_and_destroy
 
   status_t test_add_function(int echo=9) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
-      real_space_grid_t g(dims);
+      grid_t<double,1> g(dims);
       std::fill(g.values, g.all() + g.values, 0.0);
       g.set_grid_spacing(0.333);
       double const cnt[] = {g.dim('x')*.42*g.h[0], 
@@ -128,7 +151,7 @@ namespace real_space_grid {
                                   xyz_integral, rad_integral, diff, 100*diff/rad_integral);
       return std::abs(diff/rad_integral) > 4e-4;
   } // test_add_function
-  
+
   status_t all_tests() {
     auto status = 0;
     status += test_create_and_destroy();
