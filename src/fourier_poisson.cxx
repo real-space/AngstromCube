@@ -35,6 +35,7 @@ namespace fourier_poisson {
                  , int const ng[3] // grid numbers
                  , char const direction='f' // in the case of backward, the representations are swapped
                   ) {
+#ifndef HAS_no_MKL   
       MKL_LONG status;
       MKL_LONG const l[3] = {ng[2], ng[1], ng[0]};
       size_t const ngall = l[2]*l[1]*l[0];
@@ -54,6 +55,9 @@ namespace fourier_poisson {
       status = DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
       delete [] imag2;
       return status;
+#else
+      return -1; // error
+#endif      
   } // fft_MKL
   
   
