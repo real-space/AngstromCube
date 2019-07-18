@@ -9,6 +9,7 @@
 #include "finite_difference.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
+#include "fourier_poisson.hxx" // all_tests
 #include "angular_grid.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
@@ -35,6 +36,7 @@
           module_test("radial_integrator.",         radial_integrator::all_tests);
           module_test("radial_potential.",           radial_potential::all_tests);
           module_test("real_space_grid.",             real_space_grid::all_tests);
+          module_test("fourier_poisson.",             fourier_poisson::all_tests);
           module_test("angular_grid.",                   angular_grid::all_tests);
           module_test("radial_grid.",                     radial_grid::all_tests);
           module_test("single_atom.",                     single_atom::all_tests);

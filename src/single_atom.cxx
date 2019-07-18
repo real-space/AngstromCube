@@ -649,7 +649,7 @@ using namespace atom_core;
         
     } // update
     
-    void update(int echo=0) {
+    void update(int const echo=0) {
         update_core_states(.45, echo + 1); // .45 works well for Cu (Z=29)
         update_valence_states(echo);
         update_charge_deficit(echo);
@@ -657,7 +657,7 @@ using namespace atom_core;
         get_rho_tensor(rho_tensor, density_matrix);
         update_full_density(rho_tensor);
         update_full_potential(qlm);
-        update_matrix_elements(echo);
+        update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update
 
   }; // class LiveAtom

@@ -6,7 +6,7 @@ ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
 EXECUTABLE = aa3
 all: ${EXECUTABLE}
 
-OBJ = radial_grid.o radial_integrator.o radial_eigensolver.o element_configuration.o exchange_correlation.o real_space_grid.o \
+OBJ = radial_grid.o radial_integrator.o radial_eigensolver.o element_configuration.o exchange_correlation.o real_space_grid.o fourier_poisson.o \
 	radial_potential.o atom_core.o overlap.o single_atom.o angular_grid.o sho_unitary.o sho_radial.o finite_difference.o main.o
 ifdef ENABLEGPU
 	OBJ += GPUdrivers.o
@@ -23,7 +23,8 @@ allclean: clean
 CU     = nvcc
 ### -G
 CC     = gcc
-CXX    = g++ ### icpc -mkl
+# CXX    = icpc
+CXX    = g++
 ##MPI
 # CC  = mpicc
 # CXX = mpic++
@@ -42,7 +43,8 @@ OPTFLAGS = -Ofast ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector
 # OPTFLAGS = -O2 ###-Ofast -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # OPTFLAGS = -O0 -g
 
-LDFLAGS =
+# LDFLAGS = -mkl
+LDFLAGS = -lmkl_intel_thread
 
 CUOPTFLAGS =
 #### production mode
@@ -76,9 +78,9 @@ CUFLAGS  = -std=c++11  ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11  ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CXXFLAGS = -std=c++11 ${FLAGS}
 
-# LDFLAGS += -lm -llapack 
-# LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread
-LDFLAGS += -lm -lblas -llapack ### works on zam044
+# LDFLAGS += -lm -llapack
+LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread ### works with g++ on zam054 (JSC workstation)
+# LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
 
 DEP=$(OBJ:%.o=%.d)
 
