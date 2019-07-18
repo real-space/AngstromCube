@@ -411,7 +411,7 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*create_exponential_radial_grid(512));
 //     for(int Z = 1; Z < 120; ++Z)
-    for(int Z = 4; Z <= 4; ++Z)
+    for(int Z = 29; Z <= 29; ++Z)
         status += test_core_solver(*create_exponential_radial_grid(250*std::sqrt(Z + 9.)+.5), Z);
     return status;
   } // all_tests

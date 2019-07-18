@@ -1,0 +1,2762 @@
+# Grace project file
+#
+@version 50125
+@page size 792, 612
+@page scroll 5%
+@page inout 5%
+@link page off
+@map font 4 to "Times-Roman", "Times-Roman"
+@map font 1 to "Times-Italic", "Times-Italic"
+@map font 2 to "Times-Bold", "Times-Bold"
+@map font 3 to "Times-BoldItalic", "Times-BoldItalic"
+@map font 0 to "Helvetica", "Helvetica"
+@map font 5 to "Helvetica-Oblique", "Helvetica-Oblique"
+@map font 6 to "Helvetica-Bold", "Helvetica-Bold"
+@map font 7 to "Helvetica-BoldOblique", "Helvetica-BoldOblique"
+@map font 8 to "Courier", "Courier"
+@map font 9 to "Courier-Oblique", "Courier-Oblique"
+@map font 10 to "Courier-Bold", "Courier-Bold"
+@map font 11 to "Courier-BoldOblique", "Courier-BoldOblique"
+@map font 12 to "Symbol", "Symbol"
+@map font 13 to "ZapfDingbats", "ZapfDingbats"
+@map color 0 to (255, 255, 255), "white"
+@map color 1 to (0, 0, 0), "black"
+@map color 2 to (255, 0, 0), "red"
+@map color 3 to (0, 139, 0), "green"
+@map color 4 to (0, 0, 255), "blue"
+@map color 5 to (255, 255, 0), "yellow"
+@map color 6 to (188, 143, 143), "brown"
+@map color 7 to (220, 220, 220), "grey"
+@map color 8 to (148, 0, 211), "violet"
+@map color 9 to (0, 255, 255), "cyan"
+@map color 10 to (255, 0, 255), "magenta"
+@map color 11 to (255, 165, 0), "orange"
+@map color 12 to (114, 33, 188), "indigo"
+@map color 13 to (103, 7, 72), "maroon"
+@map color 14 to (64, 224, 208), "turquoise"
+@map color 15 to (0, 139, 0), "green4"
+@reference date 0
+@date wrap off
+@date wrap year 1950
+@default linewidth 2.0
+@default linestyle 1
+@default color 1
+@default pattern 1
+@default font 0
+@default char size 1.500000
+@default symbol size 1.000000
+@default sformat "%.8g"
+@background color 0
+@page background fill on
+@timestamp off
+@timestamp 0.03, 0.03
+@timestamp color 1
+@timestamp rot 0
+@timestamp font 0
+@timestamp char size 1.500000
+@timestamp def "Thu Jul 18 16:59:34 2019"
+@r0 off
+@link r0 to g0
+@r0 type above
+@r0 linestyle 1
+@r0 linewidth 2.0
+@r0 color 1
+@r0 line 0, 0, 0, 0
+@r1 off
+@link r1 to g0
+@r1 type above
+@r1 linestyle 1
+@r1 linewidth 2.0
+@r1 color 1
+@r1 line 0, 0, 0, 0
+@r2 off
+@link r2 to g0
+@r2 type above
+@r2 linestyle 1
+@r2 linewidth 2.0
+@r2 color 1
+@r2 line 0, 0, 0, 0
+@r3 off
+@link r3 to g0
+@r3 type above
+@r3 linestyle 1
+@r3 linewidth 2.0
+@r3 color 1
+@r3 line 0, 0, 0, 0
+@r4 off
+@link r4 to g0
+@r4 type above
+@r4 linestyle 1
+@r4 linewidth 2.0
+@r4 color 1
+@r4 line 0, 0, 0, 0
+@g0 on
+@g0 hidden false
+@g0 type XY
+@g0 stacked false
+@g0 bar hgap 0.000000
+@g0 fixedpoint off
+@g0 fixedpoint type 0
+@g0 fixedpoint xy 0.000000, 0.000000
+@g0 fixedpoint format general general
+@g0 fixedpoint prec 6, 6
+@with g0
+@    world -3, 1, 123, 300000
+@    stack world 0, 0, 0, 0
+@    znorm 1
+@    view 0.010695, 0.175134, 1.133690, 0.814171
+@    title "LDA Levels"
+@    title font 0
+@    title size 1.500000
+@    title color 1
+@    subtitle "of isolated atoms"
+@    subtitle font 0
+@    subtitle size 1.000000
+@    subtitle color 1
+@    xaxes scale Normal
+@    yaxes scale Logarithmic
+@    xaxes invert off
+@    yaxes invert on
+@    xaxis  on
+@    xaxis  type zero false
+@    xaxis  offset 0.000000 , 0.000000
+@    xaxis  bar on
+@    xaxis  bar color 1
+@    xaxis  bar linestyle 1
+@    xaxis  bar linewidth 2.0
+@    xaxis  label "Atomic Number \qZ\Q"
+@    xaxis  label layout para
+@    xaxis  label place auto
+@    xaxis  label char size 1.500000
+@    xaxis  label font 0
+@    xaxis  label color 1
+@    xaxis  label place normal
+@    xaxis  tick on
+@    xaxis  tick major 50
+@    xaxis  tick minor ticks 4
+@    xaxis  tick default 6
+@    xaxis  tick place rounded true
+@    xaxis  tick in
+@    xaxis  tick major size 1.000000
+@    xaxis  tick major color 1
+@    xaxis  tick major linewidth 2.0
+@    xaxis  tick major linestyle 1
+@    xaxis  tick major grid off
+@    xaxis  tick minor color 1
+@    xaxis  tick minor linewidth 2.0
+@    xaxis  tick minor linestyle 1
+@    xaxis  tick minor grid off
+@    xaxis  tick minor size 0.500000
+@    xaxis  ticklabel on
+@    xaxis  ticklabel format general
+@    xaxis  ticklabel prec 5
+@    xaxis  ticklabel formula ""
+@    xaxis  ticklabel append ""
+@    xaxis  ticklabel prepend ""
+@    xaxis  ticklabel angle 0
+@    xaxis  ticklabel skip 0
+@    xaxis  ticklabel stagger 0
+@    xaxis  ticklabel place normal
+@    xaxis  ticklabel offset auto
+@    xaxis  ticklabel offset 0.000000 , 0.010000
+@    xaxis  ticklabel start type auto
+@    xaxis  ticklabel start 0.000000
+@    xaxis  ticklabel stop type auto
+@    xaxis  ticklabel stop 0.000000
+@    xaxis  ticklabel char size 1.500000
+@    xaxis  ticklabel font 0
+@    xaxis  ticklabel color 1
+@    xaxis  tick place both
+@    xaxis  tick spec type none
+@    yaxis  on
+@    yaxis  type zero false
+@    yaxis  offset 0.000000 , 0.000000
+@    yaxis  bar on
+@    yaxis  bar color 1
+@    yaxis  bar linestyle 1
+@    yaxis  bar linewidth 2.0
+@    yaxis  label "Energy (eV)"
+@    yaxis  label layout para
+@    yaxis  label place auto
+@    yaxis  label char size 1.500000
+@    yaxis  label font 0
+@    yaxis  label color 1
+@    yaxis  label place opposite
+@    yaxis  tick on
+@    yaxis  tick major 10
+@    yaxis  tick minor ticks 9
+@    yaxis  tick default 6
+@    yaxis  tick place rounded true
+@    yaxis  tick in
+@    yaxis  tick major size 1.000000
+@    yaxis  tick major color 1
+@    yaxis  tick major linewidth 2.0
+@    yaxis  tick major linestyle 1
+@    yaxis  tick major grid off
+@    yaxis  tick minor color 1
+@    yaxis  tick minor linewidth 2.0
+@    yaxis  tick minor linestyle 1
+@    yaxis  tick minor grid off
+@    yaxis  tick minor size 0.500000
+@    yaxis  ticklabel on
+@    yaxis  ticklabel format general
+@    yaxis  ticklabel prec 5
+@    yaxis  ticklabel formula ""
+@    yaxis  ticklabel append ""
+@    yaxis  ticklabel prepend ""
+@    yaxis  ticklabel angle 0
+@    yaxis  ticklabel skip 0
+@    yaxis  ticklabel stagger 0
+@    yaxis  ticklabel place opposite
+@    yaxis  ticklabel offset auto
+@    yaxis  ticklabel offset 0.000000 , 0.010000
+@    yaxis  ticklabel start type auto
+@    yaxis  ticklabel start 0.000000
+@    yaxis  ticklabel stop type auto
+@    yaxis  ticklabel stop 0.000000
+@    yaxis  ticklabel char size 1.500000
+@    yaxis  ticklabel font 0
+@    yaxis  ticklabel color 1
+@    yaxis  tick place opposite
+@    yaxis  tick spec type both
+@    yaxis  tick spec 71
+@    yaxis  tick major 0, 0.1
+@    yaxis  ticklabel 0, "-.1"
+@    yaxis  tick minor 1, 0.2
+@    yaxis  tick minor 2, 0.3
+@    yaxis  tick minor 3, 0.4
+@    yaxis  tick minor 4, 0.5
+@    yaxis  tick minor 5, 0.6
+@    yaxis  tick minor 6, 0.7
+@    yaxis  tick minor 7, 0.8
+@    yaxis  tick minor 8, 0.9
+@    yaxis  tick minor 9, 1
+@    yaxis  tick major 10, 1
+@    yaxis  ticklabel 10, "-1"
+@    yaxis  tick minor 11, 2
+@    yaxis  tick minor 12, 3
+@    yaxis  tick minor 13, 4
+@    yaxis  tick minor 14, 5
+@    yaxis  tick minor 15, 6
+@    yaxis  tick minor 16, 7
+@    yaxis  tick minor 17, 8
+@    yaxis  tick minor 18, 9
+@    yaxis  tick minor 19, 10
+@    yaxis  tick major 20, 10
+@    yaxis  ticklabel 20, "-10"
+@    yaxis  tick minor 21, 20
+@    yaxis  tick minor 22, 30
+@    yaxis  tick minor 23, 40
+@    yaxis  tick minor 24, 50
+@    yaxis  tick minor 25, 60
+@    yaxis  tick minor 26, 70
+@    yaxis  tick minor 27, 80
+@    yaxis  tick minor 28, 90
+@    yaxis  tick minor 29, 100
+@    yaxis  tick major 30, 100
+@    yaxis  ticklabel 30, "-10\S2\N"
+@    yaxis  tick minor 31, 200
+@    yaxis  tick minor 32, 300
+@    yaxis  tick minor 33, 400
+@    yaxis  tick minor 34, 500
+@    yaxis  tick minor 35, 600
+@    yaxis  tick minor 36, 700
+@    yaxis  tick minor 37, 800
+@    yaxis  tick minor 38, 900
+@    yaxis  tick minor 39, 1000
+@    yaxis  tick major 40, 1000
+@    yaxis  ticklabel 40, "-10\S3\N"
+@    yaxis  tick minor 41, 2000
+@    yaxis  tick minor 42, 3000
+@    yaxis  tick minor 43, 4000
+@    yaxis  tick minor 44, 5000
+@    yaxis  tick minor 45, 6000
+@    yaxis  tick minor 46, 7000
+@    yaxis  tick minor 47, 8000
+@    yaxis  tick minor 48, 9000
+@    yaxis  tick minor 49, 10000
+@    yaxis  tick major 50, 10000
+@    yaxis  ticklabel 50, "-10\S4\N"
+@    yaxis  tick minor 51, 20000
+@    yaxis  tick minor 52, 30000
+@    yaxis  tick minor 53, 40000
+@    yaxis  tick minor 54, 50000
+@    yaxis  tick minor 55, 60000
+@    yaxis  tick minor 56, 70000
+@    yaxis  tick minor 57, 80000
+@    yaxis  tick minor 58, 90000
+@    yaxis  tick minor 59, 100000
+@    yaxis  tick major 60, 100000
+@    yaxis  ticklabel 60, "-10\S5\N"
+@    yaxis  tick minor 61, 200000
+@    yaxis  tick minor 62, 300000
+@    yaxis  tick minor 63, 400000
+@    yaxis  tick minor 64, 500000
+@    yaxis  tick minor 65, 600000
+@    yaxis  tick minor 66, 700000
+@    yaxis  tick minor 67, 800000
+@    yaxis  tick minor 68, 900000
+@    yaxis  tick minor 69, 1000000
+@    yaxis  tick major 70, 1000000
+@    yaxis  ticklabel 70, "-10\S6\N"
+@    altxaxis  off
+@    altyaxis  off
+@    legend on
+@    legend loctype view
+@    legend 0.05, 0.37
+@    legend box color 1
+@    legend box pattern 1
+@    legend box linewidth 2.0
+@    legend box linestyle 0
+@    legend box fill color 0
+@    legend box fill pattern 0
+@    legend font 0
+@    legend char size 1.500000
+@    legend color 1
+@    legend length 4
+@    legend vgap 1
+@    legend hgap 1
+@    legend invert false
+@    frame type 0
+@    frame linestyle 1
+@    frame linewidth 2.0
+@    frame color 1
+@    frame pattern 1
+@    frame background color 0
+@    frame background pattern 0
+@    s1 hidden false
+@    s1 type xy
+@    s1 symbol 0
+@    s1 symbol size 1.000000
+@    s1 symbol color 1
+@    s1 symbol pattern 1
+@    s1 symbol fill color 1
+@    s1 symbol fill pattern 1
+@    s1 symbol linewidth 2.0
+@    s1 symbol linestyle 1
+@    s1 symbol char 65
+@    s1 symbol char font 0
+@    s1 symbol skip 0
+@    s1 line type 1
+@    s1 line linestyle 1
+@    s1 line linewidth 2.0
+@    s1 line color 1
+@    s1 line pattern 1
+@    s1 baseline type 0
+@    s1 baseline off
+@    s1 dropline off
+@    s1 fill type 0
+@    s1 fill rule 0
+@    s1 fill color 1
+@    s1 fill pattern 1
+@    s1 avalue off
+@    s1 avalue type 2
+@    s1 avalue char size 1.500000
+@    s1 avalue font 0
+@    s1 avalue color 1
+@    s1 avalue rot 0
+@    s1 avalue format general
+@    s1 avalue prec 3
+@    s1 avalue prepend ""
+@    s1 avalue append ""
+@    s1 avalue offset 0.000000 , 0.000000
+@    s1 errorbar on
+@    s1 errorbar place both
+@    s1 errorbar color 1
+@    s1 errorbar pattern 1
+@    s1 errorbar size 1.000000
+@    s1 errorbar linewidth 2.0
+@    s1 errorbar linestyle 1
+@    s1 errorbar riser linewidth 2.0
+@    s1 errorbar riser linestyle 1
+@    s1 errorbar riser clip off
+@    s1 errorbar riser clip length 0.100000
+@    s1 comment "../ref/atom_core.all.dat"
+@    s1 legend  "\qs\Q"
+@    s4 hidden false
+@    s4 type xy
+@    s4 symbol 0
+@    s4 symbol size 1.000000
+@    s4 symbol color 1
+@    s4 symbol pattern 1
+@    s4 symbol fill color 1
+@    s4 symbol fill pattern 1
+@    s4 symbol linewidth 2.0
+@    s4 symbol linestyle 1
+@    s4 symbol char 65
+@    s4 symbol char font 0
+@    s4 symbol skip 0
+@    s4 line type 1
+@    s4 line linestyle 1
+@    s4 line linewidth 2.0
+@    s4 line color 1
+@    s4 line pattern 1
+@    s4 baseline type 0
+@    s4 baseline off
+@    s4 dropline off
+@    s4 fill type 0
+@    s4 fill rule 0
+@    s4 fill color 1
+@    s4 fill pattern 1
+@    s4 avalue off
+@    s4 avalue type 2
+@    s4 avalue char size 1.500000
+@    s4 avalue font 0
+@    s4 avalue color 1
+@    s4 avalue rot 0
+@    s4 avalue format general
+@    s4 avalue prec 3
+@    s4 avalue prepend ""
+@    s4 avalue append ""
+@    s4 avalue offset 0.000000 , 0.000000
+@    s4 errorbar on
+@    s4 errorbar place both
+@    s4 errorbar color 1
+@    s4 errorbar pattern 1
+@    s4 errorbar size 1.000000
+@    s4 errorbar linewidth 2.0
+@    s4 errorbar linestyle 1
+@    s4 errorbar riser linewidth 2.0
+@    s4 errorbar riser linestyle 1
+@    s4 errorbar riser clip off
+@    s4 errorbar riser clip length 0.100000
+@    s4 comment "../ref/atom_core.all.dat"
+@    s4 legend  ""
+@    s7 hidden false
+@    s7 type xy
+@    s7 symbol 0
+@    s7 symbol size 1.000000
+@    s7 symbol color 2
+@    s7 symbol pattern 1
+@    s7 symbol fill color 2
+@    s7 symbol fill pattern 1
+@    s7 symbol linewidth 2.0
+@    s7 symbol linestyle 1
+@    s7 symbol char 65
+@    s7 symbol char font 0
+@    s7 symbol skip 0
+@    s7 line type 1
+@    s7 line linestyle 1
+@    s7 line linewidth 2.0
+@    s7 line color 2
+@    s7 line pattern 1
+@    s7 baseline type 0
+@    s7 baseline off
+@    s7 dropline off
+@    s7 fill type 0
+@    s7 fill rule 0
+@    s7 fill color 1
+@    s7 fill pattern 1
+@    s7 avalue off
+@    s7 avalue type 2
+@    s7 avalue char size 1.500000
+@    s7 avalue font 0
+@    s7 avalue color 1
+@    s7 avalue rot 0
+@    s7 avalue format general
+@    s7 avalue prec 3
+@    s7 avalue prepend ""
+@    s7 avalue append ""
+@    s7 avalue offset 0.000000 , 0.000000
+@    s7 errorbar on
+@    s7 errorbar place both
+@    s7 errorbar color 2
+@    s7 errorbar pattern 1
+@    s7 errorbar size 1.000000
+@    s7 errorbar linewidth 2.0
+@    s7 errorbar linestyle 1
+@    s7 errorbar riser linewidth 2.0
+@    s7 errorbar riser linestyle 1
+@    s7 errorbar riser clip off
+@    s7 errorbar riser clip length 0.100000
+@    s7 comment "../ref/atom_core.all.dat"
+@    s7 legend  "\qp\Q"
+@    s10 hidden false
+@    s10 type xy
+@    s10 symbol 0
+@    s10 symbol size 1.000000
+@    s10 symbol color 1
+@    s10 symbol pattern 1
+@    s10 symbol fill color 1
+@    s10 symbol fill pattern 1
+@    s10 symbol linewidth 2.0
+@    s10 symbol linestyle 1
+@    s10 symbol char 65
+@    s10 symbol char font 0
+@    s10 symbol skip 0
+@    s10 line type 1
+@    s10 line linestyle 1
+@    s10 line linewidth 2.0
+@    s10 line color 1
+@    s10 line pattern 1
+@    s10 baseline type 0
+@    s10 baseline off
+@    s10 dropline off
+@    s10 fill type 0
+@    s10 fill rule 0
+@    s10 fill color 1
+@    s10 fill pattern 1
+@    s10 avalue off
+@    s10 avalue type 2
+@    s10 avalue char size 1.500000
+@    s10 avalue font 0
+@    s10 avalue color 1
+@    s10 avalue rot 0
+@    s10 avalue format general
+@    s10 avalue prec 3
+@    s10 avalue prepend ""
+@    s10 avalue append ""
+@    s10 avalue offset 0.000000 , 0.000000
+@    s10 errorbar on
+@    s10 errorbar place both
+@    s10 errorbar color 1
+@    s10 errorbar pattern 1
+@    s10 errorbar size 1.000000
+@    s10 errorbar linewidth 2.0
+@    s10 errorbar linestyle 1
+@    s10 errorbar riser linewidth 2.0
+@    s10 errorbar riser linestyle 1
+@    s10 errorbar riser clip off
+@    s10 errorbar riser clip length 0.100000
+@    s10 comment "../ref/atom_core.all.dat"
+@    s10 legend  ""
+@    s13 hidden false
+@    s13 type xy
+@    s13 symbol 0
+@    s13 symbol size 1.000000
+@    s13 symbol color 2
+@    s13 symbol pattern 1
+@    s13 symbol fill color 2
+@    s13 symbol fill pattern 1
+@    s13 symbol linewidth 2.0
+@    s13 symbol linestyle 1
+@    s13 symbol char 65
+@    s13 symbol char font 0
+@    s13 symbol skip 0
+@    s13 line type 1
+@    s13 line linestyle 1
+@    s13 line linewidth 2.0
+@    s13 line color 2
+@    s13 line pattern 1
+@    s13 baseline type 0
+@    s13 baseline off
+@    s13 dropline off
+@    s13 fill type 0
+@    s13 fill rule 0
+@    s13 fill color 1
+@    s13 fill pattern 1
+@    s13 avalue off
+@    s13 avalue type 2
+@    s13 avalue char size 1.500000
+@    s13 avalue font 0
+@    s13 avalue color 1
+@    s13 avalue rot 0
+@    s13 avalue format general
+@    s13 avalue prec 3
+@    s13 avalue prepend ""
+@    s13 avalue append ""
+@    s13 avalue offset 0.000000 , 0.000000
+@    s13 errorbar on
+@    s13 errorbar place both
+@    s13 errorbar color 2
+@    s13 errorbar pattern 1
+@    s13 errorbar size 1.000000
+@    s13 errorbar linewidth 2.0
+@    s13 errorbar linestyle 1
+@    s13 errorbar riser linewidth 2.0
+@    s13 errorbar riser linestyle 1
+@    s13 errorbar riser clip off
+@    s13 errorbar riser clip length 0.100000
+@    s13 comment "../ref/atom_core.all.dat"
+@    s13 legend  ""
+@    s16 hidden false
+@    s16 type xy
+@    s16 symbol 0
+@    s16 symbol size 1.000000
+@    s16 symbol color 1
+@    s16 symbol pattern 1
+@    s16 symbol fill color 1
+@    s16 symbol fill pattern 1
+@    s16 symbol linewidth 2.0
+@    s16 symbol linestyle 1
+@    s16 symbol char 65
+@    s16 symbol char font 0
+@    s16 symbol skip 0
+@    s16 line type 1
+@    s16 line linestyle 1
+@    s16 line linewidth 2.0
+@    s16 line color 1
+@    s16 line pattern 1
+@    s16 baseline type 0
+@    s16 baseline off
+@    s16 dropline off
+@    s16 fill type 0
+@    s16 fill rule 0
+@    s16 fill color 1
+@    s16 fill pattern 1
+@    s16 avalue off
+@    s16 avalue type 2
+@    s16 avalue char size 1.500000
+@    s16 avalue font 0
+@    s16 avalue color 1
+@    s16 avalue rot 0
+@    s16 avalue format general
+@    s16 avalue prec 3
+@    s16 avalue prepend ""
+@    s16 avalue append ""
+@    s16 avalue offset 0.000000 , 0.000000
+@    s16 errorbar on
+@    s16 errorbar place both
+@    s16 errorbar color 1
+@    s16 errorbar pattern 1
+@    s16 errorbar size 1.000000
+@    s16 errorbar linewidth 2.0
+@    s16 errorbar linestyle 1
+@    s16 errorbar riser linewidth 2.0
+@    s16 errorbar riser linestyle 1
+@    s16 errorbar riser clip off
+@    s16 errorbar riser clip length 0.100000
+@    s16 comment "../ref/atom_core.all.dat"
+@    s16 legend  ""
+@    s19 hidden false
+@    s19 type xy
+@    s19 symbol 0
+@    s19 symbol size 1.000000
+@    s19 symbol color 15
+@    s19 symbol pattern 1
+@    s19 symbol fill color 15
+@    s19 symbol fill pattern 1
+@    s19 symbol linewidth 2.0
+@    s19 symbol linestyle 1
+@    s19 symbol char 65
+@    s19 symbol char font 0
+@    s19 symbol skip 0
+@    s19 line type 1
+@    s19 line linestyle 1
+@    s19 line linewidth 2.0
+@    s19 line color 15
+@    s19 line pattern 1
+@    s19 baseline type 0
+@    s19 baseline off
+@    s19 dropline off
+@    s19 fill type 0
+@    s19 fill rule 0
+@    s19 fill color 1
+@    s19 fill pattern 1
+@    s19 avalue off
+@    s19 avalue type 2
+@    s19 avalue char size 1.500000
+@    s19 avalue font 0
+@    s19 avalue color 1
+@    s19 avalue rot 0
+@    s19 avalue format general
+@    s19 avalue prec 3
+@    s19 avalue prepend ""
+@    s19 avalue append ""
+@    s19 avalue offset 0.000000 , 0.000000
+@    s19 errorbar on
+@    s19 errorbar place both
+@    s19 errorbar color 15
+@    s19 errorbar pattern 1
+@    s19 errorbar size 1.000000
+@    s19 errorbar linewidth 2.0
+@    s19 errorbar linestyle 1
+@    s19 errorbar riser linewidth 2.0
+@    s19 errorbar riser linestyle 1
+@    s19 errorbar riser clip off
+@    s19 errorbar riser clip length 0.100000
+@    s19 comment "../ref/atom_core.all.dat"
+@    s19 legend  "\qd\Q"
+@    s22 hidden false
+@    s22 type xy
+@    s22 symbol 0
+@    s22 symbol size 1.000000
+@    s22 symbol color 2
+@    s22 symbol pattern 1
+@    s22 symbol fill color 2
+@    s22 symbol fill pattern 1
+@    s22 symbol linewidth 2.0
+@    s22 symbol linestyle 1
+@    s22 symbol char 65
+@    s22 symbol char font 0
+@    s22 symbol skip 0
+@    s22 line type 1
+@    s22 line linestyle 1
+@    s22 line linewidth 2.0
+@    s22 line color 2
+@    s22 line pattern 1
+@    s22 baseline type 0
+@    s22 baseline off
+@    s22 dropline off
+@    s22 fill type 0
+@    s22 fill rule 0
+@    s22 fill color 1
+@    s22 fill pattern 1
+@    s22 avalue off
+@    s22 avalue type 2
+@    s22 avalue char size 1.500000
+@    s22 avalue font 0
+@    s22 avalue color 1
+@    s22 avalue rot 0
+@    s22 avalue format general
+@    s22 avalue prec 3
+@    s22 avalue prepend ""
+@    s22 avalue append ""
+@    s22 avalue offset 0.000000 , 0.000000
+@    s22 errorbar on
+@    s22 errorbar place both
+@    s22 errorbar color 2
+@    s22 errorbar pattern 1
+@    s22 errorbar size 1.000000
+@    s22 errorbar linewidth 2.0
+@    s22 errorbar linestyle 1
+@    s22 errorbar riser linewidth 2.0
+@    s22 errorbar riser linestyle 1
+@    s22 errorbar riser clip off
+@    s22 errorbar riser clip length 0.100000
+@    s22 comment "../ref/atom_core.all.dat"
+@    s22 legend  ""
+@    s25 hidden false
+@    s25 type xy
+@    s25 symbol 0
+@    s25 symbol size 1.000000
+@    s25 symbol color 1
+@    s25 symbol pattern 1
+@    s25 symbol fill color 1
+@    s25 symbol fill pattern 1
+@    s25 symbol linewidth 2.0
+@    s25 symbol linestyle 1
+@    s25 symbol char 65
+@    s25 symbol char font 0
+@    s25 symbol skip 0
+@    s25 line type 1
+@    s25 line linestyle 1
+@    s25 line linewidth 2.0
+@    s25 line color 1
+@    s25 line pattern 1
+@    s25 baseline type 0
+@    s25 baseline off
+@    s25 dropline off
+@    s25 fill type 0
+@    s25 fill rule 0
+@    s25 fill color 1
+@    s25 fill pattern 1
+@    s25 avalue off
+@    s25 avalue type 2
+@    s25 avalue char size 1.500000
+@    s25 avalue font 0
+@    s25 avalue color 1
+@    s25 avalue rot 0
+@    s25 avalue format general
+@    s25 avalue prec 3
+@    s25 avalue prepend ""
+@    s25 avalue append ""
+@    s25 avalue offset 0.000000 , 0.000000
+@    s25 errorbar on
+@    s25 errorbar place both
+@    s25 errorbar color 1
+@    s25 errorbar pattern 1
+@    s25 errorbar size 1.000000
+@    s25 errorbar linewidth 2.0
+@    s25 errorbar linestyle 1
+@    s25 errorbar riser linewidth 2.0
+@    s25 errorbar riser linestyle 1
+@    s25 errorbar riser clip off
+@    s25 errorbar riser clip length 0.100000
+@    s25 comment "../ref/atom_core.all.dat"
+@    s25 legend  ""
+@    s28 hidden false
+@    s28 type xy
+@    s28 symbol 0
+@    s28 symbol size 1.000000
+@    s28 symbol color 15
+@    s28 symbol pattern 1
+@    s28 symbol fill color 15
+@    s28 symbol fill pattern 1
+@    s28 symbol linewidth 2.0
+@    s28 symbol linestyle 1
+@    s28 symbol char 65
+@    s28 symbol char font 0
+@    s28 symbol skip 0
+@    s28 line type 1
+@    s28 line linestyle 1
+@    s28 line linewidth 2.0
+@    s28 line color 15
+@    s28 line pattern 1
+@    s28 baseline type 0
+@    s28 baseline off
+@    s28 dropline off
+@    s28 fill type 0
+@    s28 fill rule 0
+@    s28 fill color 1
+@    s28 fill pattern 1
+@    s28 avalue off
+@    s28 avalue type 2
+@    s28 avalue char size 1.500000
+@    s28 avalue font 0
+@    s28 avalue color 1
+@    s28 avalue rot 0
+@    s28 avalue format general
+@    s28 avalue prec 3
+@    s28 avalue prepend ""
+@    s28 avalue append ""
+@    s28 avalue offset 0.000000 , 0.000000
+@    s28 errorbar on
+@    s28 errorbar place both
+@    s28 errorbar color 15
+@    s28 errorbar pattern 1
+@    s28 errorbar size 1.000000
+@    s28 errorbar linewidth 2.0
+@    s28 errorbar linestyle 1
+@    s28 errorbar riser linewidth 2.0
+@    s28 errorbar riser linestyle 1
+@    s28 errorbar riser clip off
+@    s28 errorbar riser clip length 0.100000
+@    s28 comment "../ref/atom_core.all.dat"
+@    s28 legend  ""
+@    s31 hidden false
+@    s31 type xy
+@    s31 symbol 0
+@    s31 symbol size 1.000000
+@    s31 symbol color 2
+@    s31 symbol pattern 1
+@    s31 symbol fill color 2
+@    s31 symbol fill pattern 1
+@    s31 symbol linewidth 2.0
+@    s31 symbol linestyle 1
+@    s31 symbol char 65
+@    s31 symbol char font 0
+@    s31 symbol skip 0
+@    s31 line type 1
+@    s31 line linestyle 1
+@    s31 line linewidth 2.0
+@    s31 line color 2
+@    s31 line pattern 1
+@    s31 baseline type 0
+@    s31 baseline off
+@    s31 dropline off
+@    s31 fill type 0
+@    s31 fill rule 0
+@    s31 fill color 1
+@    s31 fill pattern 1
+@    s31 avalue off
+@    s31 avalue type 2
+@    s31 avalue char size 1.500000
+@    s31 avalue font 0
+@    s31 avalue color 1
+@    s31 avalue rot 0
+@    s31 avalue format general
+@    s31 avalue prec 3
+@    s31 avalue prepend ""
+@    s31 avalue append ""
+@    s31 avalue offset 0.000000 , 0.000000
+@    s31 errorbar on
+@    s31 errorbar place both
+@    s31 errorbar color 2
+@    s31 errorbar pattern 1
+@    s31 errorbar size 1.000000
+@    s31 errorbar linewidth 2.0
+@    s31 errorbar linestyle 1
+@    s31 errorbar riser linewidth 2.0
+@    s31 errorbar riser linestyle 1
+@    s31 errorbar riser clip off
+@    s31 errorbar riser clip length 0.100000
+@    s31 comment "../ref/atom_core.all.dat"
+@    s31 legend  ""
+@    s34 hidden false
+@    s34 type xy
+@    s34 symbol 0
+@    s34 symbol size 1.000000
+@    s34 symbol color 1
+@    s34 symbol pattern 1
+@    s34 symbol fill color 1
+@    s34 symbol fill pattern 1
+@    s34 symbol linewidth 2.0
+@    s34 symbol linestyle 1
+@    s34 symbol char 65
+@    s34 symbol char font 0
+@    s34 symbol skip 0
+@    s34 line type 1
+@    s34 line linestyle 1
+@    s34 line linewidth 2.0
+@    s34 line color 1
+@    s34 line pattern 1
+@    s34 baseline type 0
+@    s34 baseline off
+@    s34 dropline off
+@    s34 fill type 0
+@    s34 fill rule 0
+@    s34 fill color 1
+@    s34 fill pattern 1
+@    s34 avalue off
+@    s34 avalue type 2
+@    s34 avalue char size 1.500000
+@    s34 avalue font 0
+@    s34 avalue color 1
+@    s34 avalue rot 0
+@    s34 avalue format general
+@    s34 avalue prec 3
+@    s34 avalue prepend ""
+@    s34 avalue append ""
+@    s34 avalue offset 0.000000 , 0.000000
+@    s34 errorbar on
+@    s34 errorbar place both
+@    s34 errorbar color 1
+@    s34 errorbar pattern 1
+@    s34 errorbar size 1.000000
+@    s34 errorbar linewidth 2.0
+@    s34 errorbar linestyle 1
+@    s34 errorbar riser linewidth 2.0
+@    s34 errorbar riser linestyle 1
+@    s34 errorbar riser clip off
+@    s34 errorbar riser clip length 0.100000
+@    s34 comment "../ref/atom_core.all.dat"
+@    s34 legend  ""
+@    s37 hidden false
+@    s37 type xy
+@    s37 symbol 0
+@    s37 symbol size 1.000000
+@    s37 symbol color 4
+@    s37 symbol pattern 1
+@    s37 symbol fill color 4
+@    s37 symbol fill pattern 1
+@    s37 symbol linewidth 2.0
+@    s37 symbol linestyle 1
+@    s37 symbol char 65
+@    s37 symbol char font 0
+@    s37 symbol skip 0
+@    s37 line type 1
+@    s37 line linestyle 1
+@    s37 line linewidth 2.0
+@    s37 line color 4
+@    s37 line pattern 1
+@    s37 baseline type 0
+@    s37 baseline off
+@    s37 dropline off
+@    s37 fill type 0
+@    s37 fill rule 0
+@    s37 fill color 1
+@    s37 fill pattern 1
+@    s37 avalue off
+@    s37 avalue type 2
+@    s37 avalue char size 1.500000
+@    s37 avalue font 0
+@    s37 avalue color 1
+@    s37 avalue rot 0
+@    s37 avalue format general
+@    s37 avalue prec 3
+@    s37 avalue prepend ""
+@    s37 avalue append ""
+@    s37 avalue offset 0.000000 , 0.000000
+@    s37 errorbar on
+@    s37 errorbar place both
+@    s37 errorbar color 4
+@    s37 errorbar pattern 1
+@    s37 errorbar size 1.000000
+@    s37 errorbar linewidth 2.0
+@    s37 errorbar linestyle 1
+@    s37 errorbar riser linewidth 2.0
+@    s37 errorbar riser linestyle 1
+@    s37 errorbar riser clip off
+@    s37 errorbar riser clip length 0.100000
+@    s37 comment "../ref/atom_core.all.dat"
+@    s37 legend  "\qf\Q"
+@    s40 hidden false
+@    s40 type xy
+@    s40 symbol 0
+@    s40 symbol size 1.000000
+@    s40 symbol color 15
+@    s40 symbol pattern 1
+@    s40 symbol fill color 15
+@    s40 symbol fill pattern 1
+@    s40 symbol linewidth 2.0
+@    s40 symbol linestyle 1
+@    s40 symbol char 65
+@    s40 symbol char font 0
+@    s40 symbol skip 0
+@    s40 line type 1
+@    s40 line linestyle 1
+@    s40 line linewidth 2.0
+@    s40 line color 15
+@    s40 line pattern 1
+@    s40 baseline type 0
+@    s40 baseline off
+@    s40 dropline off
+@    s40 fill type 0
+@    s40 fill rule 0
+@    s40 fill color 1
+@    s40 fill pattern 1
+@    s40 avalue off
+@    s40 avalue type 2
+@    s40 avalue char size 1.500000
+@    s40 avalue font 0
+@    s40 avalue color 1
+@    s40 avalue rot 0
+@    s40 avalue format general
+@    s40 avalue prec 3
+@    s40 avalue prepend ""
+@    s40 avalue append ""
+@    s40 avalue offset 0.000000 , 0.000000
+@    s40 errorbar on
+@    s40 errorbar place both
+@    s40 errorbar color 15
+@    s40 errorbar pattern 1
+@    s40 errorbar size 1.000000
+@    s40 errorbar linewidth 2.0
+@    s40 errorbar linestyle 1
+@    s40 errorbar riser linewidth 2.0
+@    s40 errorbar riser linestyle 1
+@    s40 errorbar riser clip off
+@    s40 errorbar riser clip length 0.100000
+@    s40 comment "../ref/atom_core.all.dat"
+@    s40 legend  ""
+@    s43 hidden false
+@    s43 type xy
+@    s43 symbol 0
+@    s43 symbol size 1.000000
+@    s43 symbol color 2
+@    s43 symbol pattern 1
+@    s43 symbol fill color 2
+@    s43 symbol fill pattern 1
+@    s43 symbol linewidth 2.0
+@    s43 symbol linestyle 1
+@    s43 symbol char 65
+@    s43 symbol char font 0
+@    s43 symbol skip 0
+@    s43 line type 1
+@    s43 line linestyle 1
+@    s43 line linewidth 2.0
+@    s43 line color 2
+@    s43 line pattern 1
+@    s43 baseline type 0
+@    s43 baseline off
+@    s43 dropline off
+@    s43 fill type 0
+@    s43 fill rule 0
+@    s43 fill color 1
+@    s43 fill pattern 1
+@    s43 avalue off
+@    s43 avalue type 2
+@    s43 avalue char size 1.500000
+@    s43 avalue font 0
+@    s43 avalue color 1
+@    s43 avalue rot 0
+@    s43 avalue format general
+@    s43 avalue prec 3
+@    s43 avalue prepend ""
+@    s43 avalue append ""
+@    s43 avalue offset 0.000000 , 0.000000
+@    s43 errorbar on
+@    s43 errorbar place both
+@    s43 errorbar color 2
+@    s43 errorbar pattern 1
+@    s43 errorbar size 1.000000
+@    s43 errorbar linewidth 2.0
+@    s43 errorbar linestyle 1
+@    s43 errorbar riser linewidth 2.0
+@    s43 errorbar riser linestyle 1
+@    s43 errorbar riser clip off
+@    s43 errorbar riser clip length 0.100000
+@    s43 comment "../ref/atom_core.all.dat"
+@    s43 legend  ""
+@    s46 hidden false
+@    s46 type xy
+@    s46 symbol 0
+@    s46 symbol size 1.000000
+@    s46 symbol color 1
+@    s46 symbol pattern 1
+@    s46 symbol fill color 1
+@    s46 symbol fill pattern 1
+@    s46 symbol linewidth 2.0
+@    s46 symbol linestyle 1
+@    s46 symbol char 65
+@    s46 symbol char font 0
+@    s46 symbol skip 0
+@    s46 line type 1
+@    s46 line linestyle 1
+@    s46 line linewidth 2.0
+@    s46 line color 1
+@    s46 line pattern 1
+@    s46 baseline type 0
+@    s46 baseline off
+@    s46 dropline off
+@    s46 fill type 0
+@    s46 fill rule 0
+@    s46 fill color 1
+@    s46 fill pattern 1
+@    s46 avalue off
+@    s46 avalue type 2
+@    s46 avalue char size 1.500000
+@    s46 avalue font 0
+@    s46 avalue color 1
+@    s46 avalue rot 0
+@    s46 avalue format general
+@    s46 avalue prec 3
+@    s46 avalue prepend ""
+@    s46 avalue append ""
+@    s46 avalue offset 0.000000 , 0.000000
+@    s46 errorbar on
+@    s46 errorbar place both
+@    s46 errorbar color 1
+@    s46 errorbar pattern 1
+@    s46 errorbar size 1.000000
+@    s46 errorbar linewidth 2.0
+@    s46 errorbar linestyle 1
+@    s46 errorbar riser linewidth 2.0
+@    s46 errorbar riser linestyle 1
+@    s46 errorbar riser clip off
+@    s46 errorbar riser clip length 0.100000
+@    s46 comment "../ref/atom_core.all.dat"
+@    s46 legend  ""
+@    s49 hidden false
+@    s49 type xy
+@    s49 symbol 0
+@    s49 symbol size 1.000000
+@    s49 symbol color 4
+@    s49 symbol pattern 1
+@    s49 symbol fill color 4
+@    s49 symbol fill pattern 1
+@    s49 symbol linewidth 2.0
+@    s49 symbol linestyle 1
+@    s49 symbol char 65
+@    s49 symbol char font 0
+@    s49 symbol skip 0
+@    s49 line type 1
+@    s49 line linestyle 1
+@    s49 line linewidth 2.0
+@    s49 line color 4
+@    s49 line pattern 1
+@    s49 baseline type 0
+@    s49 baseline off
+@    s49 dropline off
+@    s49 fill type 0
+@    s49 fill rule 0
+@    s49 fill color 1
+@    s49 fill pattern 1
+@    s49 avalue off
+@    s49 avalue type 2
+@    s49 avalue char size 1.500000
+@    s49 avalue font 0
+@    s49 avalue color 1
+@    s49 avalue rot 0
+@    s49 avalue format general
+@    s49 avalue prec 3
+@    s49 avalue prepend ""
+@    s49 avalue append ""
+@    s49 avalue offset 0.000000 , 0.000000
+@    s49 errorbar on
+@    s49 errorbar place both
+@    s49 errorbar color 4
+@    s49 errorbar pattern 1
+@    s49 errorbar size 1.000000
+@    s49 errorbar linewidth 2.0
+@    s49 errorbar linestyle 1
+@    s49 errorbar riser linewidth 2.0
+@    s49 errorbar riser linestyle 1
+@    s49 errorbar riser clip off
+@    s49 errorbar riser clip length 0.100000
+@    s49 comment "../ref/atom_core.all.dat"
+@    s49 legend  ""
+@    s52 hidden false
+@    s52 type xy
+@    s52 symbol 0
+@    s52 symbol size 1.000000
+@    s52 symbol color 15
+@    s52 symbol pattern 1
+@    s52 symbol fill color 15
+@    s52 symbol fill pattern 1
+@    s52 symbol linewidth 2.0
+@    s52 symbol linestyle 1
+@    s52 symbol char 65
+@    s52 symbol char font 0
+@    s52 symbol skip 0
+@    s52 line type 1
+@    s52 line linestyle 1
+@    s52 line linewidth 2.0
+@    s52 line color 15
+@    s52 line pattern 1
+@    s52 baseline type 0
+@    s52 baseline off
+@    s52 dropline off
+@    s52 fill type 0
+@    s52 fill rule 0
+@    s52 fill color 1
+@    s52 fill pattern 1
+@    s52 avalue off
+@    s52 avalue type 2
+@    s52 avalue char size 1.500000
+@    s52 avalue font 0
+@    s52 avalue color 1
+@    s52 avalue rot 0
+@    s52 avalue format general
+@    s52 avalue prec 3
+@    s52 avalue prepend ""
+@    s52 avalue append ""
+@    s52 avalue offset 0.000000 , 0.000000
+@    s52 errorbar on
+@    s52 errorbar place both
+@    s52 errorbar color 15
+@    s52 errorbar pattern 1
+@    s52 errorbar size 1.000000
+@    s52 errorbar linewidth 2.0
+@    s52 errorbar linestyle 1
+@    s52 errorbar riser linewidth 2.0
+@    s52 errorbar riser linestyle 1
+@    s52 errorbar riser clip off
+@    s52 errorbar riser clip length 0.100000
+@    s52 comment "../ref/atom_core.all.dat"
+@    s52 legend  ""
+@    s55 hidden false
+@    s55 type xy
+@    s55 symbol 0
+@    s55 symbol size 1.000000
+@    s55 symbol color 2
+@    s55 symbol pattern 1
+@    s55 symbol fill color 2
+@    s55 symbol fill pattern 1
+@    s55 symbol linewidth 2.0
+@    s55 symbol linestyle 1
+@    s55 symbol char 65
+@    s55 symbol char font 0
+@    s55 symbol skip 0
+@    s55 line type 1
+@    s55 line linestyle 1
+@    s55 line linewidth 2.0
+@    s55 line color 2
+@    s55 line pattern 1
+@    s55 baseline type 0
+@    s55 baseline off
+@    s55 dropline off
+@    s55 fill type 0
+@    s55 fill rule 0
+@    s55 fill color 1
+@    s55 fill pattern 1
+@    s55 avalue off
+@    s55 avalue type 2
+@    s55 avalue char size 1.500000
+@    s55 avalue font 0
+@    s55 avalue color 1
+@    s55 avalue rot 0
+@    s55 avalue format general
+@    s55 avalue prec 3
+@    s55 avalue prepend ""
+@    s55 avalue append ""
+@    s55 avalue offset 0.000000 , 0.000000
+@    s55 errorbar on
+@    s55 errorbar place both
+@    s55 errorbar color 2
+@    s55 errorbar pattern 1
+@    s55 errorbar size 1.000000
+@    s55 errorbar linewidth 2.0
+@    s55 errorbar linestyle 1
+@    s55 errorbar riser linewidth 2.0
+@    s55 errorbar riser linestyle 1
+@    s55 errorbar riser clip off
+@    s55 errorbar riser clip length 0.100000
+@    s55 comment "../ref/atom_core.all.dat"
+@    s55 legend  ""
+@    s58 hidden false
+@    s58 type xy
+@    s58 symbol 1
+@    s58 symbol size 0.080000
+@    s58 symbol color 1
+@    s58 symbol pattern 1
+@    s58 symbol fill color 1
+@    s58 symbol fill pattern 1
+@    s58 symbol linewidth 2.0
+@    s58 symbol linestyle 1
+@    s58 symbol char 65
+@    s58 symbol char font 0
+@    s58 symbol skip 0
+@    s58 line type 1
+@    s58 line linestyle 1
+@    s58 line linewidth 2.0
+@    s58 line color 1
+@    s58 line pattern 1
+@    s58 baseline type 0
+@    s58 baseline off
+@    s58 dropline off
+@    s58 fill type 0
+@    s58 fill rule 0
+@    s58 fill color 1
+@    s58 fill pattern 1
+@    s58 avalue off
+@    s58 avalue type 2
+@    s58 avalue char size 1.500000
+@    s58 avalue font 0
+@    s58 avalue color 1
+@    s58 avalue rot 0
+@    s58 avalue format general
+@    s58 avalue prec 3
+@    s58 avalue prepend ""
+@    s58 avalue append ""
+@    s58 avalue offset 0.000000 , 0.000000
+@    s58 errorbar on
+@    s58 errorbar place both
+@    s58 errorbar color 1
+@    s58 errorbar pattern 1
+@    s58 errorbar size 1.000000
+@    s58 errorbar linewidth 2.0
+@    s58 errorbar linestyle 1
+@    s58 errorbar riser linewidth 2.0
+@    s58 errorbar riser linestyle 1
+@    s58 errorbar riser clip off
+@    s58 errorbar riser clip length 0.100000
+@    s58 comment "../ref/atom_core.all.dat"
+@    s58 legend  ""
+@target G0.S1
+@type xy
+1 6.357062
+2 15.515602
+3 50.954458
+4 104.91738
+5 178.64217
+6 270.7994
+7 381.50914
+8 510.86497
+9 658.93557
+10 825.7754
+11 1027.9123
+12 1253.3329
+13 1504.1493
+14 1778.3363
+15 2075.9303
+16 2397.0356
+17 2741.7331
+18 3110.0926
+19 3510.946
+20 3937.4562
+21 4384.5306
+22 4855.3187
+23 5350.2346
+24 5869.4817
+25 6413.2083
+26 6981.5433
+27 7574.6082
+28 8192.522
+29 8835.4042
+30 9503.3758
+31 10205.996
+32 10935.583
+33 11692.149
+34 12475.788
+35 13286.607
+36 14124.721
+37 14996.913
+38 15897.653
+39 16824.462
+40 17778.597
+41 18760.539
+42 19770.573
+43 20808.924
+44 21875.799
+45 22971.393
+46 24095.902
+47 25249.522
+48 26432.452
+49 27652.01
+50 28902.07
+51 30182.807
+52 31494.441
+53 32837.188
+54 34211.266
+55 35621.966
+56 37065.098
+57 38532.624
+58 40030.824
+59 41560.624
+60 43122.437
+61 44716.597
+62 46343.411
+63 48003.175
+64 49696.182
+65 51422.727
+66 53183.103
+67 54977.611
+68 56806.55
+69 58670.228
+70 60568.954
+71 62510.007
+72 64487.534
+73 66501.788
+74 68553.062
+75 70641.658
+76 72767.889
+77 74932.075
+78 77134.548
+79 79375.648
+80 81655.726
+81 83980.922
+82 86346.274
+83 88752.122
+84 91198.852
+85 93686.852
+86 96216.512
+87 98792.578
+88 101411.56
+89 104069.78
+90 106769.19
+91 109511.47
+92 112297.29
+93 115127.2
+94 118001.69
+95 120921.24
+96 123886.34
+97 126897.47
+98 129955.13
+99 133059.79
+100 136211.96
+101 139412.15
+102 142660.85
+103 145964.85
+104 149318.67
+105 152722.92
+106 156178.17
+107 159684.97
+108 163243.86
+109 166855.38
+110 170520.09
+111 174238.55
+112 178011.31
+113 181843.73
+114 185731.88
+115 189676.33
+116 193677.67
+117 197736.52
+118 201853.49
+119 206032.85
+&
+@target G0.S4
+@type xy
+3 2.786019
+4 5.59886
+5 9.379827
+6 13.640454
+7 18.421021
+8 23.750976
+9 29.644164
+10 36.108563
+11 56.174866
+12 79.247197
+13 107.41983
+14 138.69796
+15 173.12043
+16 210.77186
+17 251.70297
+18 295.94597
+19 351.96702
+20 412.95307
+21 472.82264
+22 535.33876
+23 600.93503
+24 669.78724
+25 741.9979
+26 817.63966
+27 896.7705
+28 979.44052
+29 1065.6954
+30 1155.5782
+31 1259.2716
+32 1368.5357
+33 1483.2592
+34 1603.4188
+35 1729.0059
+36 1860.0227
+37 2003.0338
+38 2152.4277
+39 2305.3923
+40 2463.1815
+41 2626.1782
+42 2794.557
+43 2968.4266
+44 3147.8705
+45 3332.961
+46 3523.7651
+47 3720.3474
+48 3922.7715
+49 4138.4788
+50 4361.0186
+51 4590.4171
+52 4826.7405
+53 5070.0513
+54 5320.4096
+55 5582.8951
+56 5853.1778
+57 6122.3563
+58 6397.0488
+59 6678.0737
+60 6965.6909
+61 7260.0678
+62 7561.3385
+63 7869.6227
+64 8185.0319
+65 8507.6741
+66 8837.6549
+67 9175.0794
+68 9520.0526
+69 9872.68
+70 10233.068
+71 10608.754
+72 10993.313
+73 11386.76
+74 11789.163
+75 12200.592
+76 12621.13
+77 13050.864
+78 13489.888
+79 13938.304
+80 14396.217
+81 14869.634
+82 15353.266
+83 15847.196
+84 16351.553
+85 16866.462
+86 17392.046
+87 17932.752
+88 18484.826
+89 19044.113
+90 19612.369
+91 20191.028
+92 20780.493
+93 21381.013
+94 21992.793
+95 22616.018
+96 23250.868
+97 23897.517
+98 24556.139
+99 25226.906
+100 25909.992
+101 26605.572
+102 27313.822
+103 28041.455
+104 28782.412
+105 29536.971
+106 30305.343
+107 31087.714
+108 31884.263
+109 32695.171
+110 33520.618
+111 34360.788
+112 35215.869
+113 36090.884
+114 36981.473
+115 37887.801
+116 38810.076
+117 39748.506
+118 40703.295
+119 41678.264
+&
+@target G0.S7
+@type xy
+5 3.709579
+6 5.417034
+7 7.240517
+8 9.197208
+9 11.293075
+10 13.530094
+11 28.673569
+12 46.680163
+13 69.639604
+14 95.569666
+15 124.49978
+16 156.50432
+17 191.62328
+18 229.87763
+19 279.76686
+20 334.45863
+21 387.9488
+22 443.91852
+23 502.77832
+24 564.68474
+25 629.7219
+26 697.94407
+27 769.39058
+28 844.09237
+29 922.07532
+30 1003.3621
+31 1098.0389
+32 1197.8988
+33 1302.8127
+34 1412.7377
+35 1527.6435
+36 1647.5092
+37 1778.8915
+38 1916.1478
+39 2056.4575
+40 2201.0346
+41 2350.23
+42 2504.1863
+43 2662.9795
+44 2826.6595
+45 2995.2638
+46 3168.8238
+47 3347.3672
+48 3530.9197
+49 3726.8639
+50 3928.7243
+51 4136.4865
+52 4350.1751
+53 4569.8092
+54 4795.4046
+55 5032.0029
+56 5275.2238
+57 5516.2269
+58 5761.5003
+59 6011.8001
+60 6267.3301
+61 6528.2012
+62 6794.4906
+63 7066.2596
+64 7343.5606
+65 7626.4405
+66 7914.9433
+67 8209.1102
+68 8508.9816
+69 8814.5964
+70 9125.9933
+71 9450.5695
+72 9781.8823
+73 10119.878
+74 10464.552
+75 10815.902
+76 11173.933
+77 11538.655
+78 11910.084
+79 12288.24
+80 12673.145
+81 13070.716
+82 13475.582
+83 13887.739
+84 14307.225
+85 14734.075
+86 15168.319
+87 15614.31
+88 16068.2
+89 16525.756
+90 16988.623
+91 17458.129
+92 17934.572
+93 18418.093
+94 18908.79
+95 19406.738
+96 19912.007
+97 20424.656
+98 20944.746
+99 21472.333
+100 22007.473
+101 22550.22
+102 23100.628
+103 23665.265
+104 24237.966
+105 24818.883
+106 25408.1
+107 26005.674
+108 26611.654
+109 27226.085
+110 27849.015
+111 28480.493
+112 29120.566
+113 29774.118
+114 30436.652
+115 31108.186
+116 31788.788
+117 32478.519
+118 33177.437
+119 33889.216
+&
+@target G0.S10
+@type xy
+11 2.720255
+12 4.76607
+13 7.786229
+14 10.864794
+15 14.01399
+16 17.280375
+17 20.690421
+18 24.258844
+19 34.925775
+20 46.709036
+21 54.632929
+22 62.207609
+23 69.781167
+24 77.477216
+25 85.357845
+26 93.460652
+27 101.81133
+28 110.42907
+29 119.32919
+30 128.52459
+31 147.25086
+32 167.56293
+33 189.31253
+34 212.44878
+35 236.93812
+36 262.75819
+37 296.35966
+38 332.11069
+39 367.22483
+40 402.94613
+41 439.63022
+42 477.42203
+43 516.39897
+44 556.6114
+45 598.09675
+46 640.88565
+47 685.00473
+48 730.47826
+49 784.57757
+50 840.85433
+51 899.28602
+52 959.89037
+53 1022.6807
+54 1087.6672
+55 1159.8471
+56 1234.8444
+57 1302.7195
+58 1370.7992
+59 1439.9494
+60 1510.4075
+61 1582.3023
+62 1655.7215
+63 1730.7336
+64 1807.3953
+65 1885.7568
+66 1965.8637
+67 2047.7587
+68 2131.4823
+69 2217.0739
+70 2304.5717
+71 2402.1442
+72 2502.794
+73 2606.4235
+74 2713.0032
+75 2822.5146
+76 2934.9491
+77 3050.3062
+78 3168.5923
+79 3289.8199
+80 3414.0055
+81 3547.0185
+82 3683.4976
+83 3823.4337
+84 3966.8604
+85 4113.808
+86 4264.3043
+87 4422.6806
+88 4585.0899
+89 4747.0717
+90 4910.3591
+91 5076.3386
+92 5245.3243
+93 5417.4669
+94 5592.8677
+95 5771.6075
+96 5953.757
+97 6139.3811
+98 6328.5409
+99 6521.2958
+100 6717.7034
+101 6917.8207
+102 7121.7041
+103 7336.2513
+104 7555.0467
+105 7778.2353
+106 8005.8964
+107 8238.0849
+108 8474.8488
+109 8716.2348
+110 8962.2903
+111 9213.064
+112 9468.6062
+113 9733.7759
+114 10004.089
+115 10279.568
+116 10560.279
+117 10846.287
+118 11137.651
+119 11438.036
+&
+@target G0.S13
+@type xy
+13 2.733793
+14 4.149943
+15 5.596762
+16 7.109747
+17 8.703796
+18 10.385186
+19 18.59248
+20 27.870663
+21 33.495842
+22 38.741911
+23 43.923041
+24 49.146804
+25 54.465071
+26 59.907843
+27 65.494597
+28 71.239091
+29 77.151686
+30 83.240581
+31 98.574044
+32 115.33225
+33 133.37946
+34 152.67149
+35 173.17752
+36 194.87516
+37 224.21086
+38 255.55096
+39 286.10504
+40 317.11417
+41 348.9283
+42 381.68587
+43 415.45714
+44 450.28479
+45 486.19815
+46 523.21928
+47 561.36592
+48 600.65305
+49 648.34264
+50 697.97664
+51 749.52243
+52 802.98728
+53 858.37363
+54 915.68058
+55 979.89475
+56 1046.6277
+57 1105.9537
+58 1165.1681
+59 1225.1207
+60 1286.0347
+61 1348.0239
+62 1411.1617
+63 1475.5012
+64 1541.0842
+65 1607.9451
+66 1676.1136
+67 1745.6159
+68 1816.4761
+69 1888.7163
+70 1962.3574
+71 2045.5337
+72 2131.2414
+73 2219.3655
+74 2309.8579
+75 2402.6814
+76 2497.8077
+77 2595.2163
+78 2694.8935
+79 2796.8307
+80 2901.0232
+81 3013.3183
+82 3128.3327
+83 3246.0346
+84 3366.4344
+85 3489.5387
+86 3615.3512
+87 3748.1793
+88 3884.1507
+89 4018.783
+90 4153.7825
+91 4290.5079
+92 4429.2466
+93 4570.1216
+94 4713.2065
+95 4858.5541
+96 5006.2063
+97 5156.1989
+98 5308.5637
+99 5463.3299
+100 5620.5251
+101 5780.1753
+102 5942.3058
+103 6113.7788
+104 6288.1495
+105 6465.5308
+106 6645.9688
+107 6829.4853
+108 7016.0947
+109 7205.8094
+110 7398.6424
+111 7594.6073
+112 7793.7191
+113 8000.8004
+114 8211.331
+115 8425.2967
+116 8642.7276
+117 8863.6503
+118 9088.0868
+119 9319.6632
+&
+@target G0.S16
+@type xy
+19 2.224926
+20 3.791213
+21 4.249997
+22 4.567475
+23 4.829128
+24 5.061202
+25 5.275141
+26 5.476953
+27 5.670187
+28 5.857125
+29 6.039329
+30 6.217922
+31 9.118151
+32 11.917368
+33 14.68086
+34 17.463962
+35 20.295598
+36 23.191771
+37 31.662417
+38 40.714824
+39 47.824987
+40 54.366174
+41 60.693595
+42 66.94569
+43 73.191642
+44 79.472498
+45 85.81566
+46 92.241046
+47 98.764091
+48 105.39736
+49 118.87724
+50 133.01321
+51 147.77558
+52 163.17483
+53 179.21649
+54 195.9025
+55 218.16075
+56 241.61521
+57 256.92945
+58 271.23734
+59 285.3308
+60 299.4088
+61 313.56915
+62 327.8725
+63 342.36141
+64 357.06828
+65 372.01923
+66 387.23624
+67 402.73851
+68 418.5432
+69 434.66609
+70 451.12188
+71 475.80234
+72 501.74843
+73 528.83526
+74 557.00604
+75 586.21669
+76 616.43381
+77 647.63324
+78 679.79832
+79 712.91828
+80 746.98698
+81 787.81782
+82 830.02997
+83 873.58738
+84 918.49687
+85 964.76235
+86 1012.3852
+87 1065.6584
+88 1120.7092
+89 1173.0835
+90 1224.5136
+91 1276.3539
+92 1328.8899
+93 1382.244
+94 1436.4889
+95 1491.6769
+96 1547.8491
+97 1605.0409
+98 1663.2833
+99 1722.6052
+100 1783.0331
+101 1844.5925
+102 1907.3078
+103 1977.9932
+104 2050.2188
+105 2124.0961
+106 2199.6696
+107 2276.9595
+108 2355.9787
+109 2436.7384
+110 2519.25
+111 2603.5263
+112 2689.5808
+113 2782.2196
+114 2876.9261
+115 2973.6837
+116 3072.5207
+117 3173.4618
+118 3276.5272
+119 3385.3359
+&
+@target G0.S19
+@type xy
+21 3.367391
+22 4.425217
+23 5.353809
+24 6.202033
+25 6.993117
+26 7.74024
+27 8.451725
+28 9.133257
+29 9.788923
+30 10.421759
+31 19.346866
+32 29.536807
+33 40.898203
+34 53.403153
+35 67.026077
+36 81.744678
+37 103.99125
+38 128.14089
+39 151.38567
+40 174.97095
+41 199.24137
+42 224.32895
+43 250.2973
+44 277.18229
+45 305.00641
+46 333.78492
+47 363.52868
+48 394.24582
+49 433.22312
+50 473.98097
+51 516.48103
+52 560.72461
+53 606.70797
+54 654.4238
+55 708.8531
+56 765.60158
+57 814.82831
+58 863.74635
+59 913.18738
+60 963.36272
+61 1014.3761
+62 1066.2911
+63 1119.1514
+64 1172.9894
+65 1227.8301
+66 1283.694
+67 1340.598
+68 1398.5567
+69 1457.5828
+70 1517.6876
+71 1586.9224
+72 1658.3265
+73 1731.7798
+74 1807.2274
+75 1884.6241
+76 1963.9331
+77 2045.1251
+78 2128.1769
+79 2213.0703
+80 2299.7908
+81 2394.19
+82 2490.8666
+83 2589.7784
+84 2690.925
+85 2794.302
+86 2899.9021
+87 3012.0209
+88 3126.7754
+89 3239.6828
+90 3352.4311
+91 3466.3629
+92 3581.7516
+93 3698.7071
+94 3817.2894
+95 3937.5377
+96 4059.4806
+97 4183.14
+98 4308.5339
+99 4435.6777
+100 4564.5845
+101 4695.2661
+102 4827.7333
+103 4968.819
+104 5112.0747
+105 5257.5993
+106 5405.4244
+107 5555.5569
+108 5707.9957
+109 5862.738
+110 6019.781
+111 6179.1225
+112 6340.7612
+113 6509.5117
+114 6680.8323
+115 6854.692
+116 7031.104
+117 7210.0775
+118 7391.6173
+119 7579.331
+&
+@target G0.S22
+@type xy
+31 2.68524
+32 4.03164
+33 5.340459
+34 6.658736
+35 8.006724
+36 9.393932
+37 15.777278
+38 22.718421
+39 27.850856
+40 32.446955
+41 36.828506
+42 41.116732
+43 45.3698
+44 49.620717
+45 53.890471
+46 58.19357
+47 62.540677
+48 66.940013
+49 77.930582
+50 89.467791
+51 101.52778
+52 114.12362
+53 127.26131
+54 140.94191
+55 160.08366
+56 180.3102
+57 192.4632
+58 203.55414
+59 214.35101
+60 225.04201
+61 235.71714
+62 246.43051
+63 257.21879
+64 268.10888
+65 279.1216
+66 290.27382
+67 301.5796
+68 313.05106
+69 324.6989
+70 336.5327
+71 356.32196
+72 377.17196
+73 398.95746
+74 421.61876
+75 445.10784
+76 469.38676
+77 494.4264
+78 520.2047
+79 546.70514
+80 573.91552
+81 607.64056
+82 642.49214
+83 678.42684
+84 715.44398
+85 753.53978
+86 792.70776
+87 837.23165
+88 883.23056
+89 926.24612
+90 968.00446
+91 1009.8505
+92 1052.0608
+93 1094.7483
+94 1137.9769
+95 1181.789
+96 1226.2166
+97 1271.2851
+98 1317.0157
+99 1363.4271
+100 1410.5358
+101 1458.3569
+102 1506.9044
+103 1562.9737
+104 1620.1274
+105 1678.4658
+106 1738.0222
+107 1798.8052
+108 1860.816
+109 1924.0539
+110 1988.5187
+111 2054.2107
+112 2121.1315
+113 2194.0733
+114 2268.5071
+115 2344.4036
+116 2421.778
+117 2500.6422
+118 2581.0032
+119 2666.4663
+&
+@target G0.S25
+@type xy
+37 2.126651
+38 3.534023
+39 4.161343
+40 4.547212
+41 4.827547
+42 5.050847
+43 5.239033
+44 5.403706
+45 5.551712
+46 5.687413
+47 5.813754
+48 5.932809
+49 8.392761
+50 10.731845
+51 13.007137
+52 15.26787
+53 17.542584
+54 19.847773
+55 26.418967
+56 33.386857
+57 35.538298
+58 37.159098
+59 38.637056
+60 40.048242
+61 41.424429
+62 42.783058
+63 44.135222
+64 45.488691
+65 46.8493
+66 48.221692
+67 49.609687
+68 51.016602
+69 52.445382
+70 53.898729
+71 59.821016
+72 65.653298
+73 71.47982
+74 77.351827
+75 83.294057
+76 89.320669
+77 95.441451
+78 101.66421
+79 107.99578
+80 114.44241
+81 126.60171
+82 139.20229
+83 152.21277
+84 165.64366
+85 179.50127
+86 193.78818
+87 212.75949
+88 232.5478
+89 248.71551
+90 263.10283
+91 277.06552
+92 290.88368
+93 304.67289
+94 318.49846
+95 332.40415
+96 346.42254
+97 360.5795
+98 374.89654
+99 389.39219
+100 404.0828
+101 418.98313
+102 434.10667
+103 456.14547
+104 478.69138
+105 501.84434
+106 525.63654
+107 550.07585
+108 575.16289
+109 600.89684
+110 627.27729
+111 654.30487
+112 681.98136
+113 715.08057
+114 749.07565
+115 783.93634
+116 819.67725
+117 856.3098
+118 893.8409
+119 935.86724
+&
+@target G0.S28
+@type xy
+39 2.573689
+40 3.69934
+41 4.759075
+42 5.791208
+43 6.81199
+44 7.829332
+45 8.847459
+46 9.868807
+47 10.894841
+48 11.926468
+49 18.688648
+50 25.91921
+51 33.610792
+52 41.781958
+53 50.439578
+54 59.583491
+55 74.102927
+56 89.635037
+57 97.388416
+58 104.08569
+59 110.44585
+60 116.63849
+61 122.74217
+62 128.80272
+63 134.8503
+64 140.90637
+65 146.98704
+66 153.10494
+67 159.27028
+68 165.49157
+69 171.77606
+70 178.13009
+71 192.12829
+72 207.00289
+73 222.64031
+74 238.98696
+75 255.99849
+76 273.63914
+77 291.88079
+78 310.70153
+79 330.08429
+80 350.0157
+81 376.29863
+82 403.54102
+83 431.69699
+84 460.76321
+85 490.73308
+86 521.59711
+87 557.63432
+88 594.96086
+89 629.11397
+90 661.81965
+91 694.41924
+92 727.18509
+93 760.22611
+94 793.60152
+95 827.34945
+96 861.49709
+97 896.06517
+98 931.07021
+99 966.52582
+100 1002.4436
+101 1038.8334
+102 1075.7041
+103 1119.8455
+104 1164.8136
+105 1210.7032
+106 1257.5421
+107 1305.3332
+108 1354.0722
+109 1403.7526
+110 1454.3682
+111 1505.9136
+112 1558.3843
+113 1616.5675
+114 1675.927
+115 1736.4274
+116 1798.0774
+117 1860.8825
+118 1924.8432
+119 1993.5574
+&
+@target G0.S31
+@type xy
+49 2.643231
+50 3.8468
+51 4.990239
+52 6.117019
+53 7.248147
+54 8.394376
+55 13.318608
+56 18.618906
+57 19.871414
+58 20.688329
+59 21.386619
+60 22.024588
+61 22.625516
+62 23.201732
+63 23.760834
+64 24.307981
+65 24.846929
+66 25.380581
+67 25.911235
+68 26.440843
+69 26.971081
+70 27.503459
+71 31.682867
+72 35.639764
+73 39.494902
+74 43.313376
+75 47.126566
+76 50.951754
+77 54.799801
+78 58.67834
+79 62.59318
+80 66.549029
+81 75.950628
+82 85.666057
+83 95.670036
+84 105.97627
+85 116.59223
+86 127.52038
+87 143.00433
+88 159.17692
+89 171.64545
+90 182.25996
+91 192.36114
+92 202.22118
+93 211.94955
+94 221.60612
+95 231.22963
+96 240.84781
+97 250.48188
+98 260.14878
+99 269.86253
+100 279.63501
+101 289.47653
+102 299.39613
+103 315.98567
+104 332.89298
+105 350.21589
+106 367.98324
+107 386.1991
+108 404.86004
+109 423.96101
+110 443.49725
+111 463.46497
+112 483.86133
+113 509.45156
+114 535.70374
+115 562.58231
+116 590.09662
+117 618.2528
+118 647.05245
+119 680.085
+&
+@target G0.S34
+@type xy
+55 1.903873
+56 3.166349
+57 3.320869
+58 3.390974
+59 3.448128
+60 3.500633
+61 3.55081
+62 3.59961
+63 3.64753
+64 3.69488
+65 3.741881
+66 3.788709
+67 3.835515
+68 3.882431
+69 3.929587
+70 3.977107
+71 4.673676
+72 5.137374
+73 5.482275
+74 5.759694
+75 5.994382
+76 6.199839
+77 6.384206
+78 6.55277
+79 6.709172
+80 6.856037
+81 9.376642
+82 11.774681
+83 14.099706
+84 16.400185
+85 18.705147
+86 21.031722
+87 27.121216
+88 33.496715
+89 36.970457
+90 39.117004
+91 40.936304
+92 42.603588
+93 44.18082
+94 45.698486
+95 47.174804
+96 48.622056
+97 50.049203
+98 51.463139
+99 52.869378
+100 54.272462
+101 55.676232
+102 57.083964
+103 63.031968
+104 68.7497
+105 74.417822
+106 80.111546
+107 85.865898
+108 91.700018
+109 97.62608
+110 103.65287
+111 109.78742
+112 116.03576
+113 127.06207
+114 138.38786
+115 149.98407
+116 161.86646
+117 174.04716
+118 186.53326
+119 202.89462
+&
+@target G0.S37
+@type xy
+57 0.160539
+58 0.717549
+59 1.387535
+60 1.920543
+61 2.349265
+62 2.693031
+63 2.964842
+64 3.174159
+65 3.328249
+66 3.432931
+67 3.492984
+68 3.512474
+69 3.494917
+70 3.443424
+71 10.068542
+72 17.402733
+73 25.39313
+74 34.013154
+75 43.232517
+76 53.022874
+77 63.359747
+78 74.222547
+79 85.594077
+80 97.45992
+81 115.60899
+82 134.65517
+83 154.55199
+84 175.2952
+85 196.87701
+86 219.28651
+87 246.79967
+88 275.5317
+89 300.99659
+90 324.92572
+91 348.66264
+92 372.47791
+93 396.47792
+94 420.7192
+95 445.23708
+96 470.05591
+97 495.19357
+98 520.66377
+99 546.47729
+100 572.64285
+101 599.16762
+102 626.05756
+103 660.13529
+104 694.93021
+105 730.53396
+106 766.9714
+107 804.24289
+108 842.34123
+109 881.25741
+110 920.98255
+111 961.50854
+112 1002.8282
+113 1049.7248
+114 1097.6608
+115 1146.5981
+116 1196.543
+117 1247.498
+118 1299.4609
+119 1356.0271
+&
+@target G0.S40
+@type xy
+71 1.928668
+72 2.933569
+73 3.881347
+74 4.805533
+75 5.721396
+76 6.636556
+77 7.555129
+78 8.479538
+79 9.411252
+80 10.351233
+81 15.877623
+82 21.640007
+83 27.629786
+84 33.866869
+85 40.360337
+86 47.1121
+87 58.324916
+88 70.152155
+89 78.351885
+90 84.752385
+91 90.641712
+92 96.271899
+93 101.74009
+94 107.09722
+95 112.37492
+96 117.59501
+97 122.77358
+98 127.92305
+99 133.05331
+100 138.17248
+101 143.28735
+102 148.40367
+103 159.89888
+104 171.57024
+105 183.52235
+106 195.78714
+107 208.37012
+108 221.26843
+109 234.47699
+110 247.99053
+111 261.80436
+112 275.91448
+113 295.08094
+114 314.76882
+115 334.94046
+116 355.60309
+117 376.76077
+118 398.41288
+119 424.14403
+&
+@target G0.S43
+@type xy
+81 2.552188
+82 3.713899
+83 4.798446
+84 5.851431
+85 6.895036
+86 7.940846
+87 12.208381
+88 16.73033
+89 18.859345
+90 19.899496
+91 20.686131
+92 21.35625
+93 21.955271
+94 22.504261
+95 23.015227
+96 23.495959
+97 23.951957
+98 24.387328
+99 24.80526
+100 25.208295
+101 25.598526
+102 25.977647
+103 29.944899
+104 33.569749
+105 37.050774
+106 40.471035
+107 43.86962
+108 47.26767
+109 50.678044
+110 54.109372
+111 57.567916
+112 61.058518
+113 69.068893
+114 77.249682
+115 85.577106
+116 94.070086
+117 102.74221
+118 111.60092
+119 124.20429
+&
+@target G0.S46
+@type xy
+87 1.975475
+88 3.172645
+89 3.567714
+90 3.642027
+91 3.677413
+92 3.70595
+93 3.733945
+94 3.762718
+95 3.792412
+96 3.822903
+97 3.854032
+98 3.885663
+99 3.917694
+100 3.950046
+101 3.982666
+102 4.015514
+103 4.819951
+104 5.37441
+105 5.80514
+106 6.164959
+107 6.479467
+108 6.762771
+109 7.023464
+110 7.267184
+111 7.497863
+112 7.718378
+113 10.263111
+114 12.704911
+115 15.074638
+116 17.415916
+117 19.757116
+118 22.115634
+119 27.69201
+&
+@target G0.S49
+@type xy
+89 1.055005
+90 0.174329
+91 0.604181
+92 1.33475
+93 2.032363
+94 2.70249
+95 3.347702
+96 3.969518
+97 4.569005
+98 5.146991
+99 5.704153
+100 6.241062
+101 6.758218
+102 7.256028
+103 13.164013
+104 19.152104
+105 25.354735
+106 31.817196
+107 38.551751
+108 45.558907
+109 52.835018
+110 60.375098
+111 68.173994
+112 76.226769
+113 89.271994
+114 102.78385
+115 116.72436
+116 131.10029
+117 145.91498
+118 161.16698
+119 180.43559
+&
+@target G0.S52
+@type xy
+103 1.784509
+104 2.728662
+105 3.600918
+106 4.439777
+107 5.26298
+108 6.079623
+109 6.894769
+110 7.711472
+111 8.531652
+112 9.356607
+113 13.927146
+114 18.602462
+115 23.370688
+116 28.255027
+117 33.269871
+118 38.421909
+119 47.221316
+&
+@target G0.S55
+@type xy
+113 2.441958
+114 3.547167
+115 4.565655
+116 5.542674
+117 6.501025
+118 7.453048
+119 11.061334
+&
+@target G0.S58
+@type xy
+119 2.064245
+&

@@ -5,3 +5,4 @@ template <typename T> inline int sgn(T const val) {
 } // sgn
 
 template <typename T> inline T pow2(T const x) { return x*x; } // pow2
+template <typename T> inline T pow3(T const x) { return x*pow2(x); } // pow3

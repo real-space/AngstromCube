@@ -30,7 +30,7 @@ namespace radial_potential {
 
     double vH2 = 0;
     rV[0] = 0;
-    for(int ir = 1; ir < g.n; ++ir) {
+    for(int ir = 1; ir < g.n; ++ir) { // start from 1 since for some radial grids r[ir=0] == 0
         vH2 += rho4pi[ir]*g.r2dr[ir];
         vH1 -= rho4pi[ir]*g.rdr[ir];
         rV[ir] = vH2 + vH1*g.r[ir];

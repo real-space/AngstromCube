@@ -12,7 +12,7 @@
  
 #include "overlap.hxx"
 
-#include "vec.hxx" // vector_math from exafmm
+#include "vector_math.hxx" // vector_math from exafmm
 #include "constants.hxx" // pi, sqrtpi
 
 
