@@ -1,0 +1,2109 @@
+# run unit tests for module 'atom_core.'
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=1  guess rho with 0.999999 electrons
+# scf_atom  Z=1  converged in 69 iterations to res=7.3e-12, E_tot= -12.132843866 eV
+# scf_atom  Z=1  1s  E=      -6.357062 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=2  guess rho with 1.999998 electrons
+# scf_atom  Z=2  converged in 74 iterations to res=9.5e-12, E_tot= -77.124788093 eV
+# scf_atom  Z=2  1s  E=     -15.515602 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=3  guess rho with 2.999984 electrons
+# scf_atom  Z=3  converged in 68 iterations to res=2.6e-12, E_tot= -199.554170901 eV
+# scf_atom  Z=3  1s  E=     -50.954458 eV  f=2
+# scf_atom  Z=3  2s  E=      -2.786019 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=4  guess rho with 3.999990 electrons
+# scf_atom  Z=4  converged in 74 iterations to res=9.5e-12, E_tot= -393.158670211 eV
+# scf_atom  Z=4  1s  E=    -104.917385 eV  f=2
+# scf_atom  Z=4  2s  E=      -5.598860 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=5  guess rho with 4.999993 electrons
+# scf_atom  Z=5  converged in 70 iterations to res=2.7e-12, E_tot= -662.582357663 eV
+# scf_atom  Z=5  1s  E=    -178.642174 eV  f=2
+# scf_atom  Z=5  2s  E=      -9.379827 eV  f=2
+# scf_atom  Z=5  2p  E=      -3.709579 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=6  guess rho with 5.999995 electrons
+# scf_atom  Z=6  converged in 77 iterations to res=9.8e-12, E_tot= -1018.761361188 eV
+# scf_atom  Z=6  1s  E=    -270.799402 eV  f=2
+# scf_atom  Z=6  2s  E=     -13.640454 eV  f=2
+# scf_atom  Z=6  2p  E=      -5.417034 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=7  guess rho with 6.999997 electrons
+# scf_atom  Z=7  converged in 82 iterations to res=6.8e-12, E_tot= -1470.814915646 eV
+# scf_atom  Z=7  1s  E=    -381.509140 eV  f=2
+# scf_atom  Z=7  2s  E=     -18.421021 eV  f=2
+# scf_atom  Z=7  2p  E=      -7.240517 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=8  guess rho with 7.999997 electrons
+# scf_atom  Z=8  converged in 84 iterations to res=9.2e-12, E_tot= -2027.834369984 eV
+# scf_atom  Z=8  1s  E=    -510.864970 eV  f=2
+# scf_atom  Z=8  2s  E=     -23.750976 eV  f=2
+# scf_atom  Z=8  2p  E=      -9.197208 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=9  guess rho with 8.999997 electrons
+# scf_atom  Z=9  converged in 86 iterations to res=9.7e-12, E_tot= -2698.884527485 eV
+# scf_atom  Z=9  1s  E=    -658.935566 eV  f=2
+# scf_atom  Z=9  2s  E=     -29.644164 eV  f=2
+# scf_atom  Z=9  2p  E=     -11.293075 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=10  guess rho with 9.999998 electrons
+# scf_atom  Z=10  converged in 88 iterations to res=9.7e-12, E_tot= -3493.017594764 eV
+# scf_atom  Z=10  1s  E=    -825.775400 eV  f=2
+# scf_atom  Z=10  2s  E=     -36.108563 eV  f=2
+# scf_atom  Z=10  2p  E=     -13.530094 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=11  guess rho with 10.999998 electrons
+# scf_atom  Z=11  converged in 91 iterations to res=7.2e-12, E_tot= -4398.545286617 eV
+# scf_atom  Z=11  1s  E=   -1027.912300 eV  f=2
+# scf_atom  Z=11  2s  E=     -56.174866 eV  f=2
+# scf_atom  Z=11  2p  E=     -28.673569 eV  f=6
+# scf_atom  Z=11  3s  E=      -2.720255 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=12  guess rho with 11.999998 electrons
+# scf_atom  Z=12  converged in 90 iterations to res=7.4e-12, E_tot= -5427.126145198 eV
+# scf_atom  Z=12  1s  E=   -1253.332862 eV  f=2
+# scf_atom  Z=12  2s  E=     -79.247197 eV  f=2
+# scf_atom  Z=12  2p  E=     -46.680163 eV  f=6
+# scf_atom  Z=12  3s  E=      -4.766070 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=13  converged in 57 iterations to res=9.5e-12, E_tot= -6578.363026285 eV
+# scf_atom  Z=13  1s  E=   -1504.149293 eV  f=2
+# scf_atom  Z=13  2s  E=    -107.419834 eV  f=2
+# scf_atom  Z=13  2p  E=     -69.639604 eV  f=6
+# scf_atom  Z=13  3s  E=      -7.786229 eV  f=2
+# scf_atom  Z=13  3p  E=      -2.733793 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=14  guess rho with 13.999998 electrons
+# scf_atom  Z=14  converged in 92 iterations to res=7.6e-12, E_tot= -7858.740836610 eV
+# scf_atom  Z=14  1s  E=   -1778.336274 eV  f=2
+# scf_atom  Z=14  2s  E=    -138.697958 eV  f=2
+# scf_atom  Z=14  2p  E=     -95.569666 eV  f=6
+# scf_atom  Z=14  3s  E=     -10.864794 eV  f=2
+# scf_atom  Z=14  3p  E=      -4.149943 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=15  guess rho with 14.999998 electrons
+# scf_atom  Z=15  converged in 93 iterations to res=7.5e-12, E_tot= -9272.734458207 eV
+# scf_atom  Z=15  1s  E=   -2075.930269 eV  f=2
+# scf_atom  Z=15  2s  E=    -173.120430 eV  f=2
+# scf_atom  Z=15  2p  E=    -124.499778 eV  f=6
+# scf_atom  Z=15  3s  E=     -14.013990 eV  f=2
+# scf_atom  Z=15  3p  E=      -5.596762 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=16  guess rho with 15.999998 electrons
+# scf_atom  Z=16  converged in 95 iterations to res=6.7e-12, E_tot= -10824.832041208 eV
+# scf_atom  Z=16  1s  E=   -2397.035583 eV  f=2
+# scf_atom  Z=16  2s  E=    -210.771859 eV  f=2
+# scf_atom  Z=16  2p  E=    -156.504317 eV  f=6
+# scf_atom  Z=16  3s  E=     -17.280375 eV  f=2
+# scf_atom  Z=16  3p  E=      -7.109747 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=17  guess rho with 16.999998 electrons
+# scf_atom  Z=17  converged in 96 iterations to res=9.7e-12, E_tot= -12519.518525954 eV
+# scf_atom  Z=17  1s  E=   -2741.733142 eV  f=2
+# scf_atom  Z=17  2s  E=    -251.702966 eV  f=2
+# scf_atom  Z=17  2p  E=    -191.623276 eV  f=6
+# scf_atom  Z=17  3s  E=     -20.690421 eV  f=2
+# scf_atom  Z=17  3p  E=      -8.703796 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=18  guess rho with 17.999998 electrons
+# scf_atom  Z=18  converged in 97 iterations to res=7.0e-12, E_tot= -14361.288322095 eV
+# scf_atom  Z=18  1s  E=   -3110.092553 eV  f=2
+# scf_atom  Z=18  2s  E=    -295.945974 eV  f=2
+# scf_atom  Z=18  2p  E=    -229.877628 eV  f=6
+# scf_atom  Z=18  3s  E=     -24.258844 eV  f=2
+# scf_atom  Z=18  3p  E=     -10.385186 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=19  guess rho with 18.999998 electrons
+# scf_atom  Z=19  converged in 99 iterations to res=9.8e-12, E_tot= -16340.546887918 eV
+# scf_atom  Z=19  1s  E=   -3510.946045 eV  f=2
+# scf_atom  Z=19  2s  E=    -351.967024 eV  f=2
+# scf_atom  Z=19  2p  E=    -279.766858 eV  f=6
+# scf_atom  Z=19  3s  E=     -34.925775 eV  f=2
+# scf_atom  Z=19  3p  E=     -18.592480 eV  f=6
+# scf_atom  Z=19  4s  E=      -2.224926 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=20  guess rho with 19.999998 electrons
+# scf_atom  Z=20  converged in 99 iterations to res=4.5e-12, E_tot= -18466.374074051 eV
+# scf_atom  Z=20  1s  E=   -3937.456171 eV  f=2
+# scf_atom  Z=20  2s  E=    -412.953071 eV  f=2
+# scf_atom  Z=20  2p  E=    -334.458631 eV  f=6
+# scf_atom  Z=20  3s  E=     -46.709036 eV  f=2
+# scf_atom  Z=20  3p  E=     -27.870663 eV  f=6
+# scf_atom  Z=20  4s  E=      -3.791213 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=21  guess rho with 20.999998 electrons
+# scf_atom  Z=21  converged in 99 iterations to res=9.8e-12, E_tot= -20741.630190414 eV
+# scf_atom  Z=21  1s  E=   -4384.530564 eV  f=2
+# scf_atom  Z=21  2s  E=    -472.822644 eV  f=2
+# scf_atom  Z=21  2p  E=    -387.948802 eV  f=6
+# scf_atom  Z=21  3s  E=     -54.632929 eV  f=2
+# scf_atom  Z=21  3p  E=     -33.495842 eV  f=6
+# scf_atom  Z=21  4s  E=      -4.249997 eV  f=2
+# scf_atom  Z=21  3d  E=      -3.367391 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=22  guess rho with 21.999998 electrons
+# scf_atom  Z=22  converged in 100 iterations to res=9.1e-12, E_tot= -23173.972460688 eV
+# scf_atom  Z=22  1s  E=   -4855.318705 eV  f=2
+# scf_atom  Z=22  2s  E=    -535.338760 eV  f=2
+# scf_atom  Z=22  2p  E=    -443.918520 eV  f=6
+# scf_atom  Z=22  3s  E=     -62.207609 eV  f=2
+# scf_atom  Z=22  3p  E=     -38.741911 eV  f=6
+# scf_atom  Z=22  4s  E=      -4.567475 eV  f=2
+# scf_atom  Z=22  3d  E=      -4.425217 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=23  guess rho with 22.999998 electrons
+# scf_atom  Z=23  converged in 101 iterations to res=5.0e-12, E_tot= -25767.624215891 eV
+# scf_atom  Z=23  1s  E=   -5350.234601 eV  f=2
+# scf_atom  Z=23  2s  E=    -600.935030 eV  f=2
+# scf_atom  Z=23  2p  E=    -502.778325 eV  f=6
+# scf_atom  Z=23  3s  E=     -69.781167 eV  f=2
+# scf_atom  Z=23  3p  E=     -43.923041 eV  f=6
+# scf_atom  Z=23  4s  E=      -4.829128 eV  f=2
+# scf_atom  Z=23  3d  E=      -5.353809 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=24  guess rho with 23.999998 electrons
+# scf_atom  Z=24  converged in 102 iterations to res=8.6e-12, E_tot= -28526.725866360 eV
+# scf_atom  Z=24  1s  E=   -5869.481668 eV  f=2
+# scf_atom  Z=24  2s  E=    -669.787235 eV  f=2
+# scf_atom  Z=24  2p  E=    -564.684740 eV  f=6
+# scf_atom  Z=24  3s  E=     -77.477216 eV  f=2
+# scf_atom  Z=24  3p  E=     -49.146804 eV  f=6
+# scf_atom  Z=24  4s  E=      -5.061202 eV  f=2
+# scf_atom  Z=24  3d  E=      -6.202033 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=25  guess rho with 24.999998 electrons
+# scf_atom  Z=25  converged in 102 iterations to res=8.6e-12, E_tot= -31455.393162392 eV
+# scf_atom  Z=25  1s  E=   -6413.208295 eV  f=2
+# scf_atom  Z=25  2s  E=    -741.997901 eV  f=2
+# scf_atom  Z=25  2p  E=    -629.721895 eV  f=6
+# scf_atom  Z=25  3s  E=     -85.357845 eV  f=2
+# scf_atom  Z=25  3p  E=     -54.465071 eV  f=6
+# scf_atom  Z=25  4s  E=      -5.275141 eV  f=2
+# scf_atom  Z=25  3d  E=      -6.993117 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=26  guess rho with 25.999998 electrons
+# scf_atom  Z=26  converged in 104 iterations to res=7.7e-12, E_tot= -34557.736975221 eV
+# scf_atom  Z=26  1s  E=   -6981.543333 eV  f=2
+# scf_atom  Z=26  2s  E=    -817.639659 eV  f=2
+# scf_atom  Z=26  2p  E=    -697.944069 eV  f=6
+# scf_atom  Z=26  3s  E=     -93.460652 eV  f=2
+# scf_atom  Z=26  3p  E=     -59.907843 eV  f=6
+# scf_atom  Z=26  4s  E=      -5.476953 eV  f=2
+# scf_atom  Z=26  3d  E=      -7.740240 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=27  guess rho with 26.999998 electrons
+# scf_atom  Z=27  converged in 105 iterations to res=9.1e-12, E_tot= -37837.871781474 eV
+# scf_atom  Z=27  1s  E=   -7574.608177 eV  f=2
+# scf_atom  Z=27  2s  E=    -896.770496 eV  f=2
+# scf_atom  Z=27  2p  E=    -769.390582 eV  f=6
+# scf_atom  Z=27  3s  E=    -101.811330 eV  f=2
+# scf_atom  Z=27  3p  E=     -65.494597 eV  f=6
+# scf_atom  Z=27  4s  E=      -5.670187 eV  f=2
+# scf_atom  Z=27  3d  E=      -8.451725 eV  f=7
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=28  guess rho with 27.999998 electrons
+# scf_atom  Z=28  converged in 105 iterations to res=8.6e-12, E_tot= -41299.920997963 eV
+# scf_atom  Z=28  1s  E=   -8192.521973 eV  f=2
+# scf_atom  Z=28  2s  E=    -979.440524 eV  f=2
+# scf_atom  Z=28  2p  E=    -844.092375 eV  f=6
+# scf_atom  Z=28  3s  E=    -110.429066 eV  f=2
+# scf_atom  Z=28  3p  E=     -71.239091 eV  f=6
+# scf_atom  Z=28  4s  E=      -5.857125 eV  f=2
+# scf_atom  Z=28  3d  E=      -9.133257 eV  f=8
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=29  guess rho with 28.999998 electrons
+# scf_atom  Z=29  converged in 107 iterations to res=7.3e-12, E_tot= -44948.019549539 eV
+# scf_atom  Z=29  1s  E=   -8835.404162 eV  f=2
+# scf_atom  Z=29  2s  E=   -1065.695398 eV  f=2
+# scf_atom  Z=29  2p  E=    -922.075323 eV  f=6
+# scf_atom  Z=29  3s  E=    -119.329187 eV  f=2
+# scf_atom  Z=29  3p  E=     -77.151686 eV  f=6
+# scf_atom  Z=29  4s  E=      -6.039329 eV  f=2
+# scf_atom  Z=29  3d  E=      -9.788923 eV  f=9
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=30  guess rho with 29.999998 electrons
+# scf_atom  Z=30  converged in 108 iterations to res=1.8e-12, E_tot= -48786.315473022 eV
+# scf_atom  Z=30  1s  E=   -9503.375844 eV  f=2
+# scf_atom  Z=30  2s  E=   -1155.578231 eV  f=2
+# scf_atom  Z=30  2p  E=   -1003.362067 eV  f=6
+# scf_atom  Z=30  3s  E=    -128.524587 eV  f=2
+# scf_atom  Z=30  3p  E=     -83.240581 eV  f=6
+# scf_atom  Z=30  4s  E=      -6.217922 eV  f=2
+# scf_atom  Z=30  3d  E=     -10.421759 eV  f=10
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=31  guess rho with 30.999998 electrons
+# scf_atom  Z=31  converged in 108 iterations to res=9.1e-13, E_tot= -52805.777884678 eV
+# scf_atom  Z=31  1s  E=  -10205.996148 eV  f=2
+# scf_atom  Z=31  2s  E=   -1259.271617 eV  f=2
+# scf_atom  Z=31  2p  E=   -1098.038934 eV  f=6
+# scf_atom  Z=31  3s  E=    -147.250860 eV  f=2
+# scf_atom  Z=31  3p  E=     -98.574044 eV  f=6
+# scf_atom  Z=31  4s  E=      -9.118151 eV  f=2
+# scf_atom  Z=31  3d  E=     -19.346866 eV  f=10
+# scf_atom  Z=31  4p  E=      -2.685240 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=32  guess rho with 31.999998 electrons
+# scf_atom  Z=32  converged in 111 iterations to res=2.7e-12, E_tot= -57014.672360187 eV
+# scf_atom  Z=32  1s  E=  -10935.583175 eV  f=2
+# scf_atom  Z=32  2s  E=   -1368.535732 eV  f=2
+# scf_atom  Z=32  2p  E=   -1197.898804 eV  f=6
+# scf_atom  Z=32  3s  E=    -167.562929 eV  f=2
+# scf_atom  Z=32  3p  E=    -115.332249 eV  f=6
+# scf_atom  Z=32  4s  E=     -11.917368 eV  f=2
+# scf_atom  Z=32  3d  E=     -29.536807 eV  f=10
+# scf_atom  Z=32  4p  E=      -4.031640 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=33  guess rho with 32.999998 electrons
+# scf_atom  Z=33  converged in 110 iterations to res=8.2e-12, E_tot= -61415.655127662 eV
+# scf_atom  Z=33  1s  E=  -11692.148885 eV  f=2
+# scf_atom  Z=33  2s  E=   -1483.259226 eV  f=2
+# scf_atom  Z=33  2p  E=   -1302.812696 eV  f=6
+# scf_atom  Z=33  3s  E=    -189.312530 eV  f=2
+# scf_atom  Z=33  3p  E=    -133.379455 eV  f=6
+# scf_atom  Z=33  4s  E=     -14.680860 eV  f=2
+# scf_atom  Z=33  3d  E=     -40.898203 eV  f=10
+# scf_atom  Z=33  4p  E=      -5.340459 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=34  guess rho with 33.999998 electrons
+# scf_atom  Z=34  converged in 111 iterations to res=7.3e-12, E_tot= -66011.531120473 eV
+# scf_atom  Z=34  1s  E=  -12475.788300 eV  f=2
+# scf_atom  Z=34  2s  E=   -1603.418833 eV  f=2
+# scf_atom  Z=34  2p  E=   -1412.737655 eV  f=6
+# scf_atom  Z=34  3s  E=    -212.448776 eV  f=2
+# scf_atom  Z=34  3p  E=    -152.671488 eV  f=6
+# scf_atom  Z=34  4s  E=     -17.463962 eV  f=2
+# scf_atom  Z=34  3d  E=     -53.403153 eV  f=10
+# scf_atom  Z=34  4p  E=      -6.658736 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=35  guess rho with 34.999998 electrons
+# scf_atom  Z=35  converged in 114 iterations to res=4.5e-12, E_tot= -70805.182826667 eV
+# scf_atom  Z=35  1s  E=  -13286.607346 eV  f=2
+# scf_atom  Z=35  2s  E=   -1729.005920 eV  f=2
+# scf_atom  Z=35  2p  E=   -1527.643490 eV  f=6
+# scf_atom  Z=35  3s  E=    -236.938123 eV  f=2
+# scf_atom  Z=35  3p  E=    -173.177521 eV  f=6
+# scf_atom  Z=35  4s  E=     -20.295598 eV  f=2
+# scf_atom  Z=35  3d  E=     -67.026077 eV  f=10
+# scf_atom  Z=35  4p  E=      -8.006724 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=36  guess rho with 35.999998 electrons
+# scf_atom  Z=36  converged in 114 iterations to res=5.5e-12, E_tot= -75799.550080928 eV
+# scf_atom  Z=36  1s  E=  -14124.721020 eV  f=2
+# scf_atom  Z=36  2s  E=   -1860.022655 eV  f=2
+# scf_atom  Z=36  2p  E=   -1647.509211 eV  f=6
+# scf_atom  Z=36  3s  E=    -262.758191 eV  f=2
+# scf_atom  Z=36  3p  E=    -194.875163 eV  f=6
+# scf_atom  Z=36  4s  E=     -23.191771 eV  f=2
+# scf_atom  Z=36  3d  E=     -81.744678 eV  f=10
+# scf_atom  Z=36  4p  E=      -9.393932 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=37  guess rho with 36.999998 electrons
+# scf_atom  Z=37  converged in 115 iterations to res=8.2e-12, E_tot= -80985.591103452 eV
+# scf_atom  Z=37  1s  E=  -14996.913128 eV  f=2
+# scf_atom  Z=37  2s  E=   -2003.033790 eV  f=2
+# scf_atom  Z=37  2p  E=   -1778.891527 eV  f=6
+# scf_atom  Z=37  3s  E=    -296.359658 eV  f=2
+# scf_atom  Z=37  3p  E=    -224.210860 eV  f=6
+# scf_atom  Z=37  4s  E=     -31.662417 eV  f=2
+# scf_atom  Z=37  3d  E=    -103.991251 eV  f=10
+# scf_atom  Z=37  4p  E=     -15.777278 eV  f=6
+# scf_atom  Z=37  5s  E=      -2.126651 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=38  guess rho with 37.999998 electrons
+# scf_atom  Z=38  converged in 116 iterations to res=9.1e-12, E_tot= -86371.397826032 eV
+# scf_atom  Z=38  1s  E=  -15897.652742 eV  f=2
+# scf_atom  Z=38  2s  E=   -2152.427691 eV  f=2
+# scf_atom  Z=38  2p  E=   -1916.147814 eV  f=6
+# scf_atom  Z=38  3s  E=    -332.110695 eV  f=2
+# scf_atom  Z=38  3p  E=    -255.550963 eV  f=6
+# scf_atom  Z=38  4s  E=     -40.714824 eV  f=2
+# scf_atom  Z=38  3d  E=    -128.140889 eV  f=10
+# scf_atom  Z=38  4p  E=     -22.718421 eV  f=6
+# scf_atom  Z=38  5s  E=      -3.534023 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=39  guess rho with 38.999998 electrons
+# scf_atom  Z=39  converged in 117 iterations to res=7.3e-12, E_tot= -91957.670735036 eV
+# scf_atom  Z=39  1s  E=  -16824.461620 eV  f=2
+# scf_atom  Z=39  2s  E=   -2305.392287 eV  f=2
+# scf_atom  Z=39  2p  E=   -2056.457496 eV  f=6
+# scf_atom  Z=39  3s  E=    -367.224832 eV  f=2
+# scf_atom  Z=39  3p  E=    -286.105039 eV  f=6
+# scf_atom  Z=39  4s  E=     -47.824987 eV  f=2
+# scf_atom  Z=39  3d  E=    -151.385674 eV  f=10
+# scf_atom  Z=39  4p  E=     -27.850856 eV  f=6
+# scf_atom  Z=39  5s  E=      -4.161343 eV  f=2
+# scf_atom  Z=39  4d  E=      -2.573689 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=40  guess rho with 39.999998 electrons
+# scf_atom  Z=40  converged in 118 iterations to res=1.8e-12, E_tot= -97750.687889536 eV
+# scf_atom  Z=40  1s  E=  -17778.596669 eV  f=2
+# scf_atom  Z=40  2s  E=   -2463.181481 eV  f=2
+# scf_atom  Z=40  2p  E=   -2201.034580 eV  f=6
+# scf_atom  Z=40  3s  E=    -402.946135 eV  f=2
+# scf_atom  Z=40  3p  E=    -317.114168 eV  f=6
+# scf_atom  Z=40  4s  E=     -54.366174 eV  f=2
+# scf_atom  Z=40  3d  E=    -174.970954 eV  f=10
+# scf_atom  Z=40  4p  E=     -32.446955 eV  f=6
+# scf_atom  Z=40  5s  E=      -4.547212 eV  f=2
+# scf_atom  Z=40  4d  E=      -3.699340 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=41  guess rho with 40.999998 electrons
+# scf_atom  Z=41  converged in 118 iterations to res=6.4e-12, E_tot= -103753.677530640 eV
+# scf_atom  Z=41  1s  E=  -18760.538605 eV  f=2
+# scf_atom  Z=41  2s  E=   -2626.178202 eV  f=2
+# scf_atom  Z=41  2p  E=   -2350.230000 eV  f=6
+# scf_atom  Z=41  3s  E=    -439.630224 eV  f=2
+# scf_atom  Z=41  3p  E=    -348.928305 eV  f=6
+# scf_atom  Z=41  4s  E=     -60.693595 eV  f=2
+# scf_atom  Z=41  3d  E=    -199.241367 eV  f=10
+# scf_atom  Z=41  4p  E=     -36.828506 eV  f=6
+# scf_atom  Z=41  5s  E=      -4.827547 eV  f=2
+# scf_atom  Z=41  4d  E=      -4.759075 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=42  guess rho with 41.999998 electrons
+# scf_atom  Z=42  converged in 120 iterations to res=8.2e-12, E_tot= -109969.760360807 eV
+# scf_atom  Z=42  1s  E=  -19770.572547 eV  f=2
+# scf_atom  Z=42  2s  E=   -2794.556961 eV  f=2
+# scf_atom  Z=42  2p  E=   -2504.186266 eV  f=6
+# scf_atom  Z=42  3s  E=    -477.422026 eV  f=2
+# scf_atom  Z=42  3p  E=    -381.685866 eV  f=6
+# scf_atom  Z=42  4s  E=     -66.945690 eV  f=2
+# scf_atom  Z=42  3d  E=    -224.328951 eV  f=10
+# scf_atom  Z=42  4p  E=     -41.116732 eV  f=6
+# scf_atom  Z=42  5s  E=      -5.050847 eV  f=2
+# scf_atom  Z=42  4d  E=      -5.791208 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=43  guess rho with 42.999998 electrons
+# scf_atom  Z=43  converged in 118 iterations to res=9.1e-12, E_tot= -116402.022331974 eV
+# scf_atom  Z=43  1s  E=  -20808.924260 eV  f=2
+# scf_atom  Z=43  2s  E=   -2968.426578 eV  f=2
+# scf_atom  Z=43  2p  E=   -2662.979486 eV  f=6
+# scf_atom  Z=43  3s  E=    -516.398974 eV  f=2
+# scf_atom  Z=43  3p  E=    -415.457141 eV  f=6
+# scf_atom  Z=43  4s  E=     -73.191642 eV  f=2
+# scf_atom  Z=43  3d  E=    -250.297303 eV  f=10
+# scf_atom  Z=43  4p  E=     -45.369800 eV  f=6
+# scf_atom  Z=43  5s  E=      -5.239033 eV  f=2
+# scf_atom  Z=43  4d  E=      -6.811990 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=44  guess rho with 43.999998 electrons
+# scf_atom  Z=44  converged in 119 iterations to res=1.8e-12, E_tot= -123053.542037458 eV
+# scf_atom  Z=44  1s  E=  -21875.798525 eV  f=2
+# scf_atom  Z=44  2s  E=   -3147.870514 eV  f=2
+# scf_atom  Z=44  2p  E=   -2826.659478 eV  f=6
+# scf_atom  Z=44  3s  E=    -556.611396 eV  f=2
+# scf_atom  Z=44  3p  E=    -450.284789 eV  f=6
+# scf_atom  Z=44  4s  E=     -79.472498 eV  f=2
+# scf_atom  Z=44  3d  E=    -277.182286 eV  f=10
+# scf_atom  Z=44  4p  E=     -49.620717 eV  f=6
+# scf_atom  Z=44  5s  E=      -5.403706 eV  f=2
+# scf_atom  Z=44  4d  E=      -7.829332 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=45  guess rho with 44.999998 electrons
+# scf_atom  Z=45  converged in 121 iterations to res=7.3e-12, E_tot= -129927.401603289 eV
+# scf_atom  Z=45  1s  E=  -22971.392567 eV  f=2
+# scf_atom  Z=45  2s  E=   -3332.961029 eV  f=2
+# scf_atom  Z=45  2p  E=   -2995.263839 eV  f=6
+# scf_atom  Z=45  3s  E=    -598.096754 eV  f=2
+# scf_atom  Z=45  3p  E=    -486.198149 eV  f=6
+# scf_atom  Z=45  4s  E=     -85.815660 eV  f=2
+# scf_atom  Z=45  3d  E=    -305.006413 eV  f=10
+# scf_atom  Z=45  4p  E=     -53.890471 eV  f=6
+# scf_atom  Z=45  5s  E=      -5.551712 eV  f=2
+# scf_atom  Z=45  4d  E=      -8.847459 eV  f=7
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=46  guess rho with 45.999998 electrons
+# scf_atom  Z=46  converged in 120 iterations to res=5.5e-12, E_tot= -137026.693519516 eV
+# scf_atom  Z=46  1s  E=  -24095.901695 eV  f=2
+# scf_atom  Z=46  2s  E=   -3523.765126 eV  f=2
+# scf_atom  Z=46  2p  E=   -3168.823839 eV  f=6
+# scf_atom  Z=46  3s  E=    -640.885651 eV  f=2
+# scf_atom  Z=46  3p  E=    -523.219284 eV  f=6
+# scf_atom  Z=46  4s  E=     -92.241046 eV  f=2
+# scf_atom  Z=46  3d  E=    -333.784916 eV  f=10
+# scf_atom  Z=46  4p  E=     -58.193570 eV  f=6
+# scf_atom  Z=46  5s  E=      -5.687413 eV  f=2
+# scf_atom  Z=46  4d  E=      -9.868807 eV  f=8
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=47  guess rho with 46.999998 electrons
+# scf_atom  Z=47  converged in 124 iterations to res=3.6e-12, E_tot= -144354.524239623 eV
+# scf_atom  Z=47  1s  E=  -25249.522002 eV  f=2
+# scf_atom  Z=47  2s  E=   -3720.347388 eV  f=2
+# scf_atom  Z=47  2p  E=   -3347.367232 eV  f=6
+# scf_atom  Z=47  3s  E=    -685.004735 eV  f=2
+# scf_atom  Z=47  3p  E=    -561.365924 eV  f=6
+# scf_atom  Z=47  4s  E=     -98.764091 eV  f=2
+# scf_atom  Z=47  3d  E=    -363.528680 eV  f=10
+# scf_atom  Z=47  4p  E=     -62.540677 eV  f=6
+# scf_atom  Z=47  5s  E=      -5.813754 eV  f=2
+# scf_atom  Z=47  4d  E=     -10.894841 eV  f=9
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=48  guess rho with 47.999998 electrons
+# scf_atom  Z=48  converged in 125 iterations to res=3.6e-12, E_tot= -151914.016604951 eV
+# scf_atom  Z=48  1s  E=  -26432.451806 eV  f=2
+# scf_atom  Z=48  2s  E=   -3922.771498 eV  f=2
+# scf_atom  Z=48  2p  E=   -3530.919745 eV  f=6
+# scf_atom  Z=48  3s  E=    -730.478265 eV  f=2
+# scf_atom  Z=48  3p  E=    -600.653045 eV  f=6
+# scf_atom  Z=48  4s  E=    -105.397362 eV  f=2
+# scf_atom  Z=48  3d  E=    -394.245823 eV  f=10
+# scf_atom  Z=48  4p  E=     -66.940013 eV  f=6
+# scf_atom  Z=48  5s  E=      -5.932809 eV  f=2
+# scf_atom  Z=48  4d  E=     -11.926468 eV  f=10
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=49  guess rho with 48.999998 electrons
+# scf_atom  Z=49  converged in 122 iterations to res=7.3e-12, E_tot= -159694.440837656 eV
+# scf_atom  Z=49  1s  E=  -27652.010187 eV  f=2
+# scf_atom  Z=49  2s  E=   -4138.478759 eV  f=2
+# scf_atom  Z=49  2p  E=   -3726.863916 eV  f=6
+# scf_atom  Z=49  3s  E=    -784.577569 eV  f=2
+# scf_atom  Z=49  3p  E=    -648.342643 eV  f=6
+# scf_atom  Z=49  4s  E=    -118.877237 eV  f=2
+# scf_atom  Z=49  3d  E=    -433.223122 eV  f=10
+# scf_atom  Z=49  4p  E=     -77.930582 eV  f=6
+# scf_atom  Z=49  5s  E=      -8.392761 eV  f=2
+# scf_atom  Z=49  4d  E=     -18.688648 eV  f=10
+# scf_atom  Z=49  5p  E=      -2.643231 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=50  guess rho with 49.999998 electrons
+# scf_atom  Z=50  converged in 121 iterations to res=7.3e-12, E_tot= -167705.724871280 eV
+# scf_atom  Z=50  1s  E=  -28902.069736 eV  f=2
+# scf_atom  Z=50  2s  E=   -4361.018648 eV  f=2
+# scf_atom  Z=50  2p  E=   -3928.724349 eV  f=6
+# scf_atom  Z=50  3s  E=    -840.854335 eV  f=2
+# scf_atom  Z=50  3p  E=    -697.976644 eV  f=6
+# scf_atom  Z=50  4s  E=    -133.013212 eV  f=2
+# scf_atom  Z=50  3d  E=    -473.980973 eV  f=10
+# scf_atom  Z=50  4p  E=     -89.467791 eV  f=6
+# scf_atom  Z=50  5s  E=     -10.731845 eV  f=2
+# scf_atom  Z=50  4d  E=     -25.919210 eV  f=10
+# scf_atom  Z=50  5p  E=      -3.846800 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=51  guess rho with 50.999998 electrons
+# scf_atom  Z=51  converged in 124 iterations to res=0.0e+00, E_tot= -175950.216794421 eV
+# scf_atom  Z=51  1s  E=  -30182.807067 eV  f=2
+# scf_atom  Z=51  2s  E=   -4590.417099 eV  f=2
+# scf_atom  Z=51  2p  E=   -4136.486535 eV  f=6
+# scf_atom  Z=51  3s  E=    -899.286025 eV  f=2
+# scf_atom  Z=51  3p  E=    -749.522428 eV  f=6
+# scf_atom  Z=51  4s  E=    -147.775580 eV  f=2
+# scf_atom  Z=51  3d  E=    -516.481031 eV  f=10
+# scf_atom  Z=51  4p  E=    -101.527783 eV  f=6
+# scf_atom  Z=51  5s  E=     -13.007137 eV  f=2
+# scf_atom  Z=51  4d  E=     -33.610792 eV  f=10
+# scf_atom  Z=51  5p  E=      -4.990239 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=52  guess rho with 51.999998 electrons
+# scf_atom  Z=52  converged in 126 iterations to res=3.6e-12, E_tot= -184430.355647734 eV
+# scf_atom  Z=52  1s  E=  -31494.441088 eV  f=2
+# scf_atom  Z=52  2s  E=   -4826.740515 eV  f=2
+# scf_atom  Z=52  2p  E=   -4350.175093 eV  f=6
+# scf_atom  Z=52  3s  E=    -959.890374 eV  f=2
+# scf_atom  Z=52  3p  E=    -802.987278 eV  f=6
+# scf_atom  Z=52  4s  E=    -163.174834 eV  f=2
+# scf_atom  Z=52  3d  E=    -560.724611 eV  f=10
+# scf_atom  Z=52  4p  E=    -114.123625 eV  f=6
+# scf_atom  Z=52  5s  E=     -15.267870 eV  f=2
+# scf_atom  Z=52  4d  E=     -41.781958 eV  f=10
+# scf_atom  Z=52  5p  E=      -6.117019 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=53  guess rho with 52.999998 electrons
+# scf_atom  Z=53  converged in 125 iterations to res=5.5e-12, E_tot= -193148.628654442 eV
+# scf_atom  Z=53  1s  E=  -32837.188456 eV  f=2
+# scf_atom  Z=53  2s  E=   -5070.051303 eV  f=2
+# scf_atom  Z=53  2p  E=   -4569.809249 eV  f=6
+# scf_atom  Z=53  3s  E=   -1022.680657 eV  f=2
+# scf_atom  Z=53  3p  E=    -858.373633 eV  f=6
+# scf_atom  Z=53  4s  E=    -179.216490 eV  f=2
+# scf_atom  Z=53  3d  E=    -606.707969 eV  f=10
+# scf_atom  Z=53  4p  E=    -127.261311 eV  f=6
+# scf_atom  Z=53  5s  E=     -17.542584 eV  f=2
+# scf_atom  Z=53  4d  E=     -50.439578 eV  f=10
+# scf_atom  Z=53  5p  E=      -7.248147 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=54  guess rho with 53.999998 electrons
+# scf_atom  Z=54  converged in 126 iterations to res=3.6e-12, E_tot= -202107.563600288 eV
+# scf_atom  Z=54  1s  E=  -34211.265656 eV  f=2
+# scf_atom  Z=54  2s  E=   -5320.409574 eV  f=2
+# scf_atom  Z=54  2p  E=   -4795.404567 eV  f=6
+# scf_atom  Z=54  3s  E=   -1087.667182 eV  f=2
+# scf_atom  Z=54  3p  E=    -915.680580 eV  f=6
+# scf_atom  Z=54  4s  E=    -195.902504 eV  f=2
+# scf_atom  Z=54  3d  E=    -654.423801 eV  f=10
+# scf_atom  Z=54  4p  E=    -140.941914 eV  f=6
+# scf_atom  Z=54  5s  E=     -19.847773 eV  f=2
+# scf_atom  Z=54  4d  E=     -59.583491 eV  f=10
+# scf_atom  Z=54  5p  E=      -8.394376 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=55  guess rho with 54.999998 electrons
+# scf_atom  Z=55  converged in 126 iterations to res=7.3e-12, E_tot= -211299.445041358 eV
+# scf_atom  Z=55  1s  E=  -35621.965505 eV  f=2
+# scf_atom  Z=55  2s  E=   -5582.895084 eV  f=2
+# scf_atom  Z=55  2p  E=   -5032.002923 eV  f=6
+# scf_atom  Z=55  3s  E=   -1159.847136 eV  f=2
+# scf_atom  Z=55  3p  E=    -979.894747 eV  f=6
+# scf_atom  Z=55  4s  E=    -218.160754 eV  f=2
+# scf_atom  Z=55  3d  E=    -708.853102 eV  f=10
+# scf_atom  Z=55  4p  E=    -160.083659 eV  f=6
+# scf_atom  Z=55  5s  E=     -26.418967 eV  f=2
+# scf_atom  Z=55  4d  E=     -74.102927 eV  f=10
+# scf_atom  Z=55  5p  E=     -13.318608 eV  f=6
+# scf_atom  Z=55  6s  E=      -1.903873 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=56  guess rho with 55.999998 electrons
+# scf_atom  Z=56  converged in 129 iterations to res=3.6e-12, E_tot= -220732.020276402 eV
+# scf_atom  Z=56  1s  E=  -37065.097815 eV  f=2
+# scf_atom  Z=56  2s  E=   -5853.177829 eV  f=2
+# scf_atom  Z=56  2p  E=   -5275.223757 eV  f=6
+# scf_atom  Z=56  3s  E=   -1234.844377 eV  f=2
+# scf_atom  Z=56  3p  E=   -1046.627686 eV  f=6
+# scf_atom  Z=56  4s  E=    -241.615215 eV  f=2
+# scf_atom  Z=56  3d  E=    -765.601583 eV  f=10
+# scf_atom  Z=56  4p  E=    -180.310198 eV  f=6
+# scf_atom  Z=56  5s  E=     -33.386857 eV  f=2
+# scf_atom  Z=56  4d  E=     -89.635037 eV  f=10
+# scf_atom  Z=56  5p  E=     -18.618906 eV  f=6
+# scf_atom  Z=56  6s  E=      -3.166349 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=57  guess rho with 56.999998 electrons
+# scf_atom  Z=57  converged in 128 iterations to res=0.0e+00, E_tot= -230406.321497176 eV
+# scf_atom  Z=57  1s  E=  -38532.624316 eV  f=2
+# scf_atom  Z=57  2s  E=   -6122.356309 eV  f=2
+# scf_atom  Z=57  2p  E=   -5516.226883 eV  f=6
+# scf_atom  Z=57  3s  E=   -1302.719481 eV  f=2
+# scf_atom  Z=57  3p  E=   -1105.953693 eV  f=6
+# scf_atom  Z=57  4s  E=    -256.929449 eV  f=2
+# scf_atom  Z=57  3d  E=    -814.828310 eV  f=10
+# scf_atom  Z=57  4p  E=    -192.463196 eV  f=6
+# scf_atom  Z=57  5s  E=     -35.538298 eV  f=2
+# scf_atom  Z=57  4d  E=     -97.388416 eV  f=10
+# scf_atom  Z=57  5p  E=     -19.871414 eV  f=6
+# scf_atom  Z=57  6s  E=      -3.320869 eV  f=2
+# scf_atom  Z=57  4f  E=       0.160539 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=58  guess rho with 57.999998 electrons
+# scf_atom  Z=58  converged in 131 iterations to res=3.6e-12, E_tot= -240334.152637578 eV
+# scf_atom  Z=58  1s  E=  -40030.824254 eV  f=2
+# scf_atom  Z=58  2s  E=   -6397.048831 eV  f=2
+# scf_atom  Z=58  2p  E=   -5761.500286 eV  f=6
+# scf_atom  Z=58  3s  E=   -1370.799201 eV  f=2
+# scf_atom  Z=58  3p  E=   -1165.168079 eV  f=6
+# scf_atom  Z=58  4s  E=    -271.237339 eV  f=2
+# scf_atom  Z=58  3d  E=    -863.746352 eV  f=10
+# scf_atom  Z=58  4p  E=    -203.554136 eV  f=6
+# scf_atom  Z=58  5s  E=     -37.159098 eV  f=2
+# scf_atom  Z=58  4d  E=    -104.085691 eV  f=10
+# scf_atom  Z=58  5p  E=     -20.688329 eV  f=6
+# scf_atom  Z=58  6s  E=      -3.390974 eV  f=2
+# scf_atom  Z=58  4f  E=      -0.717549 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=59  guess rho with 58.999998 electrons
+# scf_atom  Z=59  converged in 130 iterations to res=7.3e-12, E_tot= -250518.918121503 eV
+# scf_atom  Z=59  1s  E=  -41560.623812 eV  f=2
+# scf_atom  Z=59  2s  E=   -6678.073689 eV  f=2
+# scf_atom  Z=59  2p  E=   -6011.800136 eV  f=6
+# scf_atom  Z=59  3s  E=   -1439.949374 eV  f=2
+# scf_atom  Z=59  3p  E=   -1225.120741 eV  f=6
+# scf_atom  Z=59  4s  E=    -285.330804 eV  f=2
+# scf_atom  Z=59  3d  E=    -913.187379 eV  f=10
+# scf_atom  Z=59  4p  E=    -214.351011 eV  f=6
+# scf_atom  Z=59  5s  E=     -38.637056 eV  f=2
+# scf_atom  Z=59  4d  E=    -110.445853 eV  f=10
+# scf_atom  Z=59  5p  E=     -21.386619 eV  f=6
+# scf_atom  Z=59  6s  E=      -3.448128 eV  f=2
+# scf_atom  Z=59  4f  E=      -1.387535 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=60  guess rho with 59.999998 electrons
+# scf_atom  Z=60  converged in 132 iterations to res=3.6e-12, E_tot= -260963.880166581 eV
+# scf_atom  Z=60  1s  E=  -43122.437187 eV  f=2
+# scf_atom  Z=60  2s  E=   -6965.690939 eV  f=2
+# scf_atom  Z=60  2p  E=   -6267.330140 eV  f=6
+# scf_atom  Z=60  3s  E=   -1510.407542 eV  f=2
+# scf_atom  Z=60  3p  E=   -1286.034671 eV  f=6
+# scf_atom  Z=60  4s  E=    -299.408799 eV  f=2
+# scf_atom  Z=60  3d  E=    -963.362723 eV  f=10
+# scf_atom  Z=60  4p  E=    -225.042007 eV  f=6
+# scf_atom  Z=60  5s  E=     -40.048242 eV  f=2
+# scf_atom  Z=60  4d  E=    -116.638491 eV  f=10
+# scf_atom  Z=60  5p  E=     -22.024588 eV  f=6
+# scf_atom  Z=60  6s  E=      -3.500633 eV  f=2
+# scf_atom  Z=60  4f  E=      -1.920543 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=61  guess rho with 60.999998 electrons
+# scf_atom  Z=61  converged in 131 iterations to res=3.6e-12, E_tot= -271672.265011686 eV
+# scf_atom  Z=61  1s  E=  -44716.597319 eV  f=2
+# scf_atom  Z=61  2s  E=   -7260.067770 eV  f=2
+# scf_atom  Z=61  2p  E=   -6528.201205 eV  f=6
+# scf_atom  Z=61  3s  E=   -1582.302262 eV  f=2
+# scf_atom  Z=61  3p  E=   -1348.023894 eV  f=6
+# scf_atom  Z=61  4s  E=    -313.569152 eV  f=2
+# scf_atom  Z=61  3d  E=   -1014.376127 eV  f=10
+# scf_atom  Z=61  4p  E=    -235.717142 eV  f=6
+# scf_atom  Z=61  5s  E=     -41.424429 eV  f=2
+# scf_atom  Z=61  4d  E=    -122.742175 eV  f=10
+# scf_atom  Z=61  5p  E=     -22.625516 eV  f=6
+# scf_atom  Z=61  6s  E=      -3.550810 eV  f=2
+# scf_atom  Z=61  4f  E=      -2.349265 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=62  guess rho with 61.999998 electrons
+# scf_atom  Z=62  converged in 134 iterations to res=0.0e+00, E_tot= -282647.291374162 eV
+# scf_atom  Z=62  1s  E=  -46343.410916 eV  f=2
+# scf_atom  Z=62  2s  E=   -7561.338545 eV  f=2
+# scf_atom  Z=62  2p  E=   -6794.490619 eV  f=6
+# scf_atom  Z=62  3s  E=   -1655.721542 eV  f=2
+# scf_atom  Z=62  3p  E=   -1411.161694 eV  f=6
+# scf_atom  Z=62  4s  E=    -327.872500 eV  f=2
+# scf_atom  Z=62  3d  E=   -1066.291136 eV  f=10
+# scf_atom  Z=62  4p  E=    -246.430507 eV  f=6
+# scf_atom  Z=62  5s  E=     -42.783058 eV  f=2
+# scf_atom  Z=62  4d  E=    -128.802723 eV  f=10
+# scf_atom  Z=62  5p  E=     -23.201732 eV  f=6
+# scf_atom  Z=62  6s  E=      -3.599610 eV  f=2
+# scf_atom  Z=62  4f  E=      -2.693031 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=63  guess rho with 62.999998 electrons
+# scf_atom  Z=63  converged in 133 iterations to res=7.3e-12, E_tot= -293892.182366703 eV
+# scf_atom  Z=63  1s  E=  -48003.174717 eV  f=2
+# scf_atom  Z=63  2s  E=   -7869.622668 eV  f=2
+# scf_atom  Z=63  2p  E=   -7066.259613 eV  f=6
+# scf_atom  Z=63  3s  E=   -1730.733553 eV  f=2
+# scf_atom  Z=63  3p  E=   -1475.501249 eV  f=6
+# scf_atom  Z=63  4s  E=    -342.361411 eV  f=2
+# scf_atom  Z=63  3d  E=   -1119.151449 eV  f=10
+# scf_atom  Z=63  4p  E=    -257.218788 eV  f=6
+# scf_atom  Z=63  5s  E=     -44.135222 eV  f=2
+# scf_atom  Z=63  4d  E=    -134.850302 eV  f=10
+# scf_atom  Z=63  5p  E=     -23.760834 eV  f=6
+# scf_atom  Z=63  6s  E=      -3.647530 eV  f=2
+# scf_atom  Z=63  4f  E=      -2.964842 eV  f=7
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=64  guess rho with 63.999998 electrons
+# scf_atom  Z=64  converged in 134 iterations to res=7.3e-12, E_tot= -305410.171943102 eV
+# scf_atom  Z=64  1s  E=  -49696.182163 eV  f=2
+# scf_atom  Z=64  2s  E=   -8185.031916 eV  f=2
+# scf_atom  Z=64  2p  E=   -7343.560566 eV  f=6
+# scf_atom  Z=64  3s  E=   -1807.395265 eV  f=2
+# scf_atom  Z=64  3p  E=   -1541.084235 eV  f=6
+# scf_atom  Z=64  4s  E=    -357.068281 eV  f=2
+# scf_atom  Z=64  3d  E=   -1172.989388 eV  f=10
+# scf_atom  Z=64  4p  E=    -268.108876 eV  f=6
+# scf_atom  Z=64  5s  E=     -45.488691 eV  f=2
+# scf_atom  Z=64  4d  E=    -140.906370 eV  f=10
+# scf_atom  Z=64  5p  E=     -24.307981 eV  f=6
+# scf_atom  Z=64  6s  E=      -3.694880 eV  f=2
+# scf_atom  Z=64  4f  E=      -3.174159 eV  f=8
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=65  guess rho with 64.999998 electrons
+# scf_atom  Z=65  converged in 134 iterations to res=7.3e-12, E_tot= -317204.508762232 eV
+# scf_atom  Z=65  1s  E=  -51422.726668 eV  f=2
+# scf_atom  Z=65  2s  E=   -8507.674064 eV  f=2
+# scf_atom  Z=65  2p  E=   -7626.440544 eV  f=6
+# scf_atom  Z=65  3s  E=   -1885.756766 eV  f=2
+# scf_atom  Z=65  3p  E=   -1607.945118 eV  f=6
+# scf_atom  Z=65  4s  E=    -372.019225 eV  f=2
+# scf_atom  Z=65  3d  E=   -1227.830112 eV  f=10
+# scf_atom  Z=65  4p  E=    -279.121603 eV  f=6
+# scf_atom  Z=65  5s  E=     -46.849300 eV  f=2
+# scf_atom  Z=65  4d  E=    -146.987042 eV  f=10
+# scf_atom  Z=65  5p  E=     -24.846929 eV  f=6
+# scf_atom  Z=65  6s  E=      -3.741881 eV  f=2
+# scf_atom  Z=65  4f  E=      -3.328249 eV  f=9
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=66  guess rho with 65.999998 electrons
+# scf_atom  Z=66  converged in 134 iterations to res=7.3e-12, E_tot= -329278.458910402 eV
+# scf_atom  Z=66  1s  E=  -53183.103464 eV  f=2
+# scf_atom  Z=66  2s  E=   -8837.654902 eV  f=2
+# scf_atom  Z=66  2p  E=   -7914.943264 eV  f=6
+# scf_atom  Z=66  3s  E=   -1965.863695 eV  f=2
+# scf_atom  Z=66  3p  E=   -1676.113574 eV  f=6
+# scf_atom  Z=66  4s  E=    -387.236245 eV  f=2
+# scf_atom  Z=66  3d  E=   -1283.693991 eV  f=10
+# scf_atom  Z=66  4p  E=    -290.273819 eV  f=6
+# scf_atom  Z=66  5s  E=     -48.221692 eV  f=2
+# scf_atom  Z=66  4d  E=    -153.104944 eV  f=10
+# scf_atom  Z=66  5p  E=     -25.380581 eV  f=6
+# scf_atom  Z=66  6s  E=      -3.788709 eV  f=2
+# scf_atom  Z=66  4f  E=      -3.432931 eV  f=10
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=67  guess rho with 66.999998 electrons
+# scf_atom  Z=67  converged in 134 iterations to res=7.3e-12, E_tot= -341635.307047879 eV
+# scf_atom  Z=67  1s  E=  -54977.610675 eV  f=2
+# scf_atom  Z=67  2s  E=   -9175.079413 eV  f=2
+# scf_atom  Z=67  2p  E=   -8209.110236 eV  f=6
+# scf_atom  Z=67  3s  E=   -2047.758679 eV  f=2
+# scf_atom  Z=67  3p  E=   -1745.615917 eV  f=6
+# scf_atom  Z=67  4s  E=    -402.738506 eV  f=2
+# scf_atom  Z=67  3d  E=   -1340.598000 eV  f=10
+# scf_atom  Z=67  4p  E=    -301.579599 eV  f=6
+# scf_atom  Z=67  5s  E=     -49.609687 eV  f=2
+# scf_atom  Z=67  4d  E=    -159.270283 eV  f=10
+# scf_atom  Z=67  5p  E=     -25.911235 eV  f=6
+# scf_atom  Z=67  6s  E=      -3.835515 eV  f=2
+# scf_atom  Z=67  4f  E=      -3.492984 eV  f=11
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=68  guess rho with 67.999998 electrons
+# scf_atom  Z=68  converged in 135 iterations to res=3.6e-12, E_tot= -354278.358674147 eV
+# scf_atom  Z=68  1s  E=  -56806.550083 eV  f=2
+# scf_atom  Z=68  2s  E=   -9520.052600 eV  f=2
+# scf_atom  Z=68  2p  E=   -8508.981558 eV  f=6
+# scf_atom  Z=68  3s  E=   -2131.482337 eV  f=2
+# scf_atom  Z=68  3p  E=   -1816.476089 eV  f=6
+# scf_atom  Z=68  4s  E=    -418.543201 eV  f=2
+# scf_atom  Z=68  3d  E=   -1398.556692 eV  f=10
+# scf_atom  Z=68  4p  E=    -313.051065 eV  f=6
+# scf_atom  Z=68  5s  E=     -51.016602 eV  f=2
+# scf_atom  Z=68  4d  E=    -165.491571 eV  f=10
+# scf_atom  Z=68  5p  E=     -26.440843 eV  f=6
+# scf_atom  Z=68  6s  E=      -3.882431 eV  f=2
+# scf_atom  Z=68  4f  E=      -3.512474 eV  f=12
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=69  guess rho with 68.999998 electrons
+# scf_atom  Z=69  converged in 135 iterations to res=7.3e-12, E_tot= -367210.940502175 eV
+# scf_atom  Z=69  1s  E=  -58670.227596 eV  f=2
+# scf_atom  Z=69  2s  E=   -9872.679985 eV  f=2
+# scf_atom  Z=69  2p  E=   -8814.596386 eV  f=6
+# scf_atom  Z=69  3s  E=   -2217.073900 eV  f=2
+# scf_atom  Z=69  3p  E=   -1888.716275 eV  f=6
+# scf_atom  Z=69  4s  E=    -434.666086 eV  f=2
+# scf_atom  Z=69  3d  E=   -1457.582789 eV  f=10
+# scf_atom  Z=69  4p  E=    -324.698897 eV  f=6
+# scf_atom  Z=69  5s  E=     -52.445382 eV  f=2
+# scf_atom  Z=69  4d  E=    -171.776064 eV  f=10
+# scf_atom  Z=69  5p  E=     -26.971081 eV  f=6
+# scf_atom  Z=69  6s  E=      -3.929587 eV  f=2
+# scf_atom  Z=69  4f  E=      -3.494917 eV  f=13
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=70  guess rho with 69.999998 electrons
+# scf_atom  Z=70  converged in 134 iterations to res=7.3e-12, E_tot= -380436.401567496 eV
+# scf_atom  Z=70  1s  E=  -60568.953624 eV  f=2
+# scf_atom  Z=70  2s  E=  -10233.067996 eV  f=2
+# scf_atom  Z=70  2p  E=   -9125.993301 eV  f=6
+# scf_atom  Z=70  3s  E=   -2304.571682 eV  f=2
+# scf_atom  Z=70  3p  E=   -1962.357369 eV  f=6
+# scf_atom  Z=70  4s  E=    -451.121880 eV  f=2
+# scf_atom  Z=70  3d  E=   -1517.687640 eV  f=10
+# scf_atom  Z=70  4p  E=    -336.532703 eV  f=6
+# scf_atom  Z=70  5s  E=     -53.898729 eV  f=2
+# scf_atom  Z=70  4d  E=    -178.130091 eV  f=10
+# scf_atom  Z=70  5p  E=     -27.503459 eV  f=6
+# scf_atom  Z=70  6s  E=      -3.977107 eV  f=2
+# scf_atom  Z=70  4f  E=      -3.443424 eV  f=14
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=71  guess rho with 70.999998 electrons
+# scf_atom  Z=71  converged in 137 iterations to res=7.3e-12, E_tot= -393952.733202763 eV
+# scf_atom  Z=71  1s  E=  -62510.006797 eV  f=2
+# scf_atom  Z=71  2s  E=  -10608.753892 eV  f=2
+# scf_atom  Z=71  2p  E=   -9450.569512 eV  f=6
+# scf_atom  Z=71  3s  E=   -2402.144247 eV  f=2
+# scf_atom  Z=71  3p  E=   -2045.533659 eV  f=6
+# scf_atom  Z=71  4s  E=    -475.802344 eV  f=2
+# scf_atom  Z=71  3d  E=   -1586.922424 eV  f=10
+# scf_atom  Z=71  4p  E=    -356.321961 eV  f=6
+# scf_atom  Z=71  5s  E=     -59.821016 eV  f=2
+# scf_atom  Z=71  4d  E=    -192.128295 eV  f=10
+# scf_atom  Z=71  5p  E=     -31.682867 eV  f=6
+# scf_atom  Z=71  6s  E=      -4.673676 eV  f=2
+# scf_atom  Z=71  4f  E=     -10.068542 eV  f=14
+# scf_atom  Z=71  5d  E=      -1.928668 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=72  guess rho with 71.999998 electrons
+# scf_atom  Z=72  converged in 139 iterations to res=0.0e+00, E_tot= -407762.687314589 eV
+# scf_atom  Z=72  1s  E=  -64487.534409 eV  f=2
+# scf_atom  Z=72  2s  E=  -10993.312987 eV  f=2
+# scf_atom  Z=72  2p  E=   -9781.882272 eV  f=6
+# scf_atom  Z=72  3s  E=   -2502.794046 eV  f=2
+# scf_atom  Z=72  3p  E=   -2131.241405 eV  f=6
+# scf_atom  Z=72  4s  E=    -501.748430 eV  f=2
+# scf_atom  Z=72  3d  E=   -1658.326455 eV  f=10
+# scf_atom  Z=72  4p  E=    -377.171956 eV  f=6
+# scf_atom  Z=72  5s  E=     -65.653298 eV  f=2
+# scf_atom  Z=72  4d  E=    -207.002892 eV  f=10
+# scf_atom  Z=72  5p  E=     -35.639764 eV  f=6
+# scf_atom  Z=72  6s  E=      -5.137374 eV  f=2
+# scf_atom  Z=72  4f  E=     -17.402733 eV  f=14
+# scf_atom  Z=72  5d  E=      -2.933569 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=73  guess rho with 72.999998 electrons
+# scf_atom  Z=73  converged in 140 iterations to res=0.0e+00, E_tot= -421868.909388684 eV
+# scf_atom  Z=73  1s  E=  -66501.787517 eV  f=2
+# scf_atom  Z=73  2s  E=  -11386.760329 eV  f=2
+# scf_atom  Z=73  2p  E=  -10119.878061 eV  f=6
+# scf_atom  Z=73  3s  E=   -2606.423547 eV  f=2
+# scf_atom  Z=73  3p  E=   -2219.365483 eV  f=6
+# scf_atom  Z=73  4s  E=    -528.835256 eV  f=2
+# scf_atom  Z=73  3d  E=   -1731.779769 eV  f=10
+# scf_atom  Z=73  4p  E=    -398.957460 eV  f=6
+# scf_atom  Z=73  5s  E=     -71.479820 eV  f=2
+# scf_atom  Z=73  4d  E=    -222.640314 eV  f=10
+# scf_atom  Z=73  5p  E=     -39.494902 eV  f=6
+# scf_atom  Z=73  6s  E=      -5.482275 eV  f=2
+# scf_atom  Z=73  4f  E=     -25.393130 eV  f=14
+# scf_atom  Z=73  5d  E=      -3.881347 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=74  guess rho with 73.999998 electrons
+# scf_atom  Z=74  converged in 136 iterations to res=7.3e-12, E_tot= -436274.156380216 eV
+# scf_atom  Z=74  1s  E=  -68553.061541 eV  f=2
+# scf_atom  Z=74  2s  E=  -11789.162540 eV  f=2
+# scf_atom  Z=74  2p  E=  -10464.551661 eV  f=6
+# scf_atom  Z=74  3s  E=   -2713.003179 eV  f=2
+# scf_atom  Z=74  3p  E=   -2309.857908 eV  f=6
+# scf_atom  Z=74  4s  E=    -557.006041 eV  f=2
+# scf_atom  Z=74  3d  E=   -1807.227393 eV  f=10
+# scf_atom  Z=74  4p  E=    -421.618760 eV  f=6
+# scf_atom  Z=74  5s  E=     -77.351827 eV  f=2
+# scf_atom  Z=74  4d  E=    -238.986959 eV  f=10
+# scf_atom  Z=74  5p  E=     -43.313376 eV  f=6
+# scf_atom  Z=74  6s  E=      -5.759694 eV  f=2
+# scf_atom  Z=74  4f  E=     -34.013154 eV  f=14
+# scf_atom  Z=74  5d  E=      -4.805533 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=75  guess rho with 74.999998 electrons
+# scf_atom  Z=75  converged in 136 iterations to res=0.0e+00, E_tot= -450981.263548015 eV
+# scf_atom  Z=75  1s  E=  -70641.658260 eV  f=2
+# scf_atom  Z=75  2s  E=  -12200.592389 eV  f=2
+# scf_atom  Z=75  2p  E=  -10815.901848 eV  f=6
+# scf_atom  Z=75  3s  E=   -2822.514648 eV  f=2
+# scf_atom  Z=75  3p  E=   -2402.681407 eV  f=6
+# scf_atom  Z=75  4s  E=    -586.216694 eV  f=2
+# scf_atom  Z=75  3d  E=   -1884.624125 eV  f=10
+# scf_atom  Z=75  4p  E=    -445.107838 eV  f=6
+# scf_atom  Z=75  5s  E=     -83.294057 eV  f=2
+# scf_atom  Z=75  4d  E=    -255.998490 eV  f=10
+# scf_atom  Z=75  5p  E=     -47.126566 eV  f=6
+# scf_atom  Z=75  6s  E=      -5.994382 eV  f=2
+# scf_atom  Z=75  4f  E=     -43.232517 eV  f=14
+# scf_atom  Z=75  5d  E=      -5.721396 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=76  guess rho with 75.999998 electrons
+# scf_atom  Z=76  converged in 138 iterations to res=0.0e+00, E_tot= -465993.131695176 eV
+# scf_atom  Z=76  1s  E=  -72767.888890 eV  f=2
+# scf_atom  Z=76  2s  E=  -12621.130121 eV  f=2
+# scf_atom  Z=76  2p  E=  -11173.932991 eV  f=6
+# scf_atom  Z=76  3s  E=   -2934.949118 eV  f=2
+# scf_atom  Z=76  3p  E=   -2497.807671 eV  f=6
+# scf_atom  Z=76  4s  E=    -616.433811 eV  f=2
+# scf_atom  Z=76  3d  E=   -1963.933143 eV  f=10
+# scf_atom  Z=76  4p  E=    -469.386764 eV  f=6
+# scf_atom  Z=76  5s  E=     -89.320669 eV  f=2
+# scf_atom  Z=76  4d  E=    -273.639135 eV  f=10
+# scf_atom  Z=76  5p  E=     -50.951754 eV  f=6
+# scf_atom  Z=76  6s  E=      -6.199839 eV  f=2
+# scf_atom  Z=76  4f  E=     -53.022874 eV  f=14
+# scf_atom  Z=76  5d  E=      -6.636556 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=77  guess rho with 76.999998 electrons
+# scf_atom  Z=77  converged in 140 iterations to res=7.3e-12, E_tot= -481312.717170783 eV
+# scf_atom  Z=77  1s  E=  -74932.074964 eV  f=2
+# scf_atom  Z=77  2s  E=  -13050.863663 eV  f=2
+# scf_atom  Z=77  2p  E=  -11538.655354 eV  f=6
+# scf_atom  Z=77  3s  E=   -3050.306163 eV  f=2
+# scf_atom  Z=77  3p  E=   -2595.216330 eV  f=6
+# scf_atom  Z=77  4s  E=    -647.633243 eV  f=2
+# scf_atom  Z=77  3d  E=   -2045.125126 eV  f=10
+# scf_atom  Z=77  4p  E=    -494.426403 eV  f=6
+# scf_atom  Z=77  5s  E=     -95.441451 eV  f=2
+# scf_atom  Z=77  4d  E=    -291.880786 eV  f=10
+# scf_atom  Z=77  5p  E=     -54.799801 eV  f=6
+# scf_atom  Z=77  6s  E=      -6.384206 eV  f=2
+# scf_atom  Z=77  4f  E=     -63.359747 eV  f=14
+# scf_atom  Z=77  5d  E=      -7.555129 eV  f=7
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=78  guess rho with 77.999998 electrons
+# scf_atom  Z=78  converged in 140 iterations to res=0.0e+00, E_tot= -496943.026725680 eV
+# scf_atom  Z=78  1s  E=  -77134.547929 eV  f=2
+# scf_atom  Z=78  2s  E=  -13489.887859 eV  f=2
+# scf_atom  Z=78  2p  E=  -11910.084378 eV  f=6
+# scf_atom  Z=78  3s  E=   -3168.592339 eV  f=2
+# scf_atom  Z=78  3p  E=   -2694.893535 eV  f=6
+# scf_atom  Z=78  4s  E=    -679.798320 eV  f=2
+# scf_atom  Z=78  3d  E=   -2128.176919 eV  f=10
+# scf_atom  Z=78  4p  E=    -520.204695 eV  f=6
+# scf_atom  Z=78  5s  E=    -101.664211 eV  f=2
+# scf_atom  Z=78  4d  E=    -310.701530 eV  f=10
+# scf_atom  Z=78  5p  E=     -58.678340 eV  f=6
+# scf_atom  Z=78  6s  E=      -6.552770 eV  f=2
+# scf_atom  Z=78  4f  E=     -74.222547 eV  f=14
+# scf_atom  Z=78  5d  E=      -8.479538 eV  f=8
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=79  guess rho with 78.999998 electrons
+# scf_atom  Z=79  converged in 145 iterations to res=7.3e-12, E_tot= -512887.111658636 eV
+# scf_atom  Z=79  1s  E=  -79375.648443 eV  f=2
+# scf_atom  Z=79  2s  E=  -13938.303550 eV  f=2
+# scf_atom  Z=79  2p  E=  -12288.239775 eV  f=6
+# scf_atom  Z=79  3s  E=   -3289.819868 eV  f=2
+# scf_atom  Z=79  3p  E=   -2796.830653 eV  f=6
+# scf_atom  Z=79  4s  E=    -712.918279 eV  f=2
+# scf_atom  Z=79  3d  E=   -2213.070268 eV  f=10
+# scf_atom  Z=79  4p  E=    -546.705139 eV  f=6
+# scf_atom  Z=79  5s  E=    -107.995776 eV  f=2
+# scf_atom  Z=79  4d  E=    -330.084294 eV  f=10
+# scf_atom  Z=79  5p  E=     -62.593180 eV  f=6
+# scf_atom  Z=79  6s  E=      -6.709172 eV  f=2
+# scf_atom  Z=79  4f  E=     -85.594077 eV  f=14
+# scf_atom  Z=79  5d  E=      -9.411252 eV  f=9
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=80  guess rho with 79.999998 electrons
+# scf_atom  Z=80  converged in 142 iterations to res=0.0e+00, E_tot= -529148.065755471 eV
+# scf_atom  Z=80  1s  E=  -81655.725721 eV  f=2
+# scf_atom  Z=80  2s  E=  -14396.216758 eV  f=2
+# scf_atom  Z=80  2p  E=  -12673.144724 eV  f=6
+# scf_atom  Z=80  3s  E=   -3414.005544 eV  f=2
+# scf_atom  Z=80  3p  E=   -2901.023170 eV  f=6
+# scf_atom  Z=80  4s  E=    -746.986977 eV  f=2
+# scf_atom  Z=80  3d  E=   -2299.790756 eV  f=10
+# scf_atom  Z=80  4p  E=    -573.915522 eV  f=6
+# scf_atom  Z=80  5s  E=    -114.442411 eV  f=2
+# scf_atom  Z=80  4d  E=    -350.015703 eV  f=10
+# scf_atom  Z=80  5p  E=     -66.549029 eV  f=6
+# scf_atom  Z=80  6s  E=      -6.856037 eV  f=2
+# scf_atom  Z=80  4f  E=     -97.459920 eV  f=14
+# scf_atom  Z=80  5d  E=     -10.351233 eV  f=10
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=81  guess rho with 80.999998 electrons
+# scf_atom  Z=81  converged in 148 iterations to res=7.3e-12, E_tot= -545717.299969792 eV
+# scf_atom  Z=81  1s  E=  -83980.921849 eV  f=2
+# scf_atom  Z=81  2s  E=  -14869.633748 eV  f=2
+# scf_atom  Z=81  2p  E=  -13070.715898 eV  f=6
+# scf_atom  Z=81  3s  E=   -3547.018515 eV  f=2
+# scf_atom  Z=81  3p  E=   -3013.318291 eV  f=6
+# scf_atom  Z=81  4s  E=    -787.817822 eV  f=2
+# scf_atom  Z=81  3d  E=   -2394.189978 eV  f=10
+# scf_atom  Z=81  4p  E=    -607.640563 eV  f=6
+# scf_atom  Z=81  5s  E=    -126.601707 eV  f=2
+# scf_atom  Z=81  4d  E=    -376.298632 eV  f=10
+# scf_atom  Z=81  5p  E=     -75.950628 eV  f=6
+# scf_atom  Z=81  6s  E=      -9.376642 eV  f=2
+# scf_atom  Z=81  4f  E=    -115.608992 eV  f=14
+# scf_atom  Z=81  5d  E=     -15.877623 eV  f=10
+# scf_atom  Z=81  6p  E=      -2.552188 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=82  guess rho with 81.999998 electrons
+# scf_atom  Z=82  converged in 142 iterations to res=7.3e-12, E_tot= -562604.089492381 eV
+# scf_atom  Z=82  1s  E=  -86346.274077 eV  f=2
+# scf_atom  Z=82  2s  E=  -15353.265512 eV  f=2
+# scf_atom  Z=82  2p  E=  -13475.581940 eV  f=6
+# scf_atom  Z=82  3s  E=   -3683.497570 eV  f=2
+# scf_atom  Z=82  3p  E=   -3128.332678 eV  f=6
+# scf_atom  Z=82  4s  E=    -830.029967 eV  f=2
+# scf_atom  Z=82  3d  E=   -2490.866607 eV  f=10
+# scf_atom  Z=82  4p  E=    -642.492136 eV  f=6
+# scf_atom  Z=82  5s  E=    -139.202288 eV  f=2
+# scf_atom  Z=82  4d  E=    -403.541019 eV  f=10
+# scf_atom  Z=82  5p  E=     -85.666057 eV  f=6
+# scf_atom  Z=82  6s  E=     -11.774681 eV  f=2
+# scf_atom  Z=82  4f  E=    -134.655167 eV  f=14
+# scf_atom  Z=82  5d  E=     -21.640007 eV  f=10
+# scf_atom  Z=82  6p  E=      -3.713899 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=83  guess rho with 82.999998 electrons
+# scf_atom  Z=83  converged in 140 iterations to res=0.0e+00, E_tot= -579811.099033335 eV
+# scf_atom  Z=83  1s  E=  -88752.121939 eV  f=2
+# scf_atom  Z=83  2s  E=  -15847.196099 eV  f=2
+# scf_atom  Z=83  2p  E=  -13887.739075 eV  f=6
+# scf_atom  Z=83  3s  E=   -3823.433732 eV  f=2
+# scf_atom  Z=83  3p  E=   -3246.034624 eV  f=6
+# scf_atom  Z=83  4s  E=    -873.587377 eV  f=2
+# scf_atom  Z=83  3d  E=   -2589.778440 eV  f=10
+# scf_atom  Z=83  4p  E=    -678.426840 eV  f=6
+# scf_atom  Z=83  5s  E=    -152.212770 eV  f=2
+# scf_atom  Z=83  4d  E=    -431.696992 eV  f=10
+# scf_atom  Z=83  5p  E=     -95.670036 eV  f=6
+# scf_atom  Z=83  6s  E=     -14.099706 eV  f=2
+# scf_atom  Z=83  4f  E=    -154.551987 eV  f=14
+# scf_atom  Z=83  5d  E=     -27.629786 eV  f=10
+# scf_atom  Z=83  6p  E=      -4.798446 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=84  guess rho with 83.999998 electrons
+# scf_atom  Z=84  converged in 144 iterations to res=0.0e+00, E_tot= -597341.103241306 eV
+# scf_atom  Z=84  1s  E=  -91198.851963 eV  f=2
+# scf_atom  Z=84  2s  E=  -16351.553007 eV  f=2
+# scf_atom  Z=84  2p  E=  -14307.225267 eV  f=6
+# scf_atom  Z=84  3s  E=   -3966.860432 eV  f=2
+# scf_atom  Z=84  3p  E=   -3366.434386 eV  f=6
+# scf_atom  Z=84  4s  E=    -918.496867 eV  f=2
+# scf_atom  Z=84  3d  E=   -2690.924993 eV  f=10
+# scf_atom  Z=84  4p  E=    -715.443979 eV  f=6
+# scf_atom  Z=84  5s  E=    -165.643663 eV  f=2
+# scf_atom  Z=84  4d  E=    -460.763214 eV  f=10
+# scf_atom  Z=84  5p  E=    -105.976268 eV  f=6
+# scf_atom  Z=84  6s  E=     -16.400185 eV  f=2
+# scf_atom  Z=84  4f  E=    -175.295202 eV  f=14
+# scf_atom  Z=84  5d  E=     -33.866869 eV  f=10
+# scf_atom  Z=84  6p  E=      -5.851431 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=85  guess rho with 84.999998 electrons
+# scf_atom  Z=85  converged in 147 iterations to res=7.3e-12, E_tot= -615196.938732400 eV
+# scf_atom  Z=85  1s  E=  -93686.852046 eV  f=2
+# scf_atom  Z=85  2s  E=  -16866.461759 eV  f=2
+# scf_atom  Z=85  2p  E=  -14734.074742 eV  f=6
+# scf_atom  Z=85  3s  E=   -4113.808020 eV  f=2
+# scf_atom  Z=85  3p  E=   -3489.538681 eV  f=6
+# scf_atom  Z=85  4s  E=    -964.762353 eV  f=2
+# scf_atom  Z=85  3d  E=   -2794.302028 eV  f=10
+# scf_atom  Z=85  4p  E=    -753.539779 eV  f=6
+# scf_atom  Z=85  5s  E=    -179.501270 eV  f=2
+# scf_atom  Z=85  4d  E=    -490.733083 eV  f=10
+# scf_atom  Z=85  5p  E=    -116.592233 eV  f=6
+# scf_atom  Z=85  6s  E=     -18.705147 eV  f=2
+# scf_atom  Z=85  4f  E=    -196.877014 eV  f=14
+# scf_atom  Z=85  5d  E=     -40.360337 eV  f=10
+# scf_atom  Z=85  6p  E=      -6.895036 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=86  guess rho with 85.999998 electrons
+# scf_atom  Z=86  converged in 146 iterations to res=7.3e-12, E_tot= -633381.492798541 eV
+# scf_atom  Z=86  1s  E=  -96216.512211 eV  f=2
+# scf_atom  Z=86  2s  E=  -17392.046487 eV  f=2
+# scf_atom  Z=86  2p  E=  -15168.318578 eV  f=6
+# scf_atom  Z=86  3s  E=   -4264.304274 eV  f=2
+# scf_atom  Z=86  3p  E=   -3615.351199 eV  f=6
+# scf_atom  Z=86  4s  E=   -1012.385233 eV  f=2
+# scf_atom  Z=86  3d  E=   -2899.902072 eV  f=10
+# scf_atom  Z=86  4p  E=    -792.707763 eV  f=6
+# scf_atom  Z=86  5s  E=    -193.788181 eV  f=2
+# scf_atom  Z=86  4d  E=    -521.597109 eV  f=10
+# scf_atom  Z=86  5p  E=    -127.520376 eV  f=6
+# scf_atom  Z=86  6s  E=     -21.031722 eV  f=2
+# scf_atom  Z=86  4f  E=    -219.286506 eV  f=14
+# scf_atom  Z=86  5d  E=     -47.112100 eV  f=10
+# scf_atom  Z=86  6p  E=      -7.940846 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=87  guess rho with 86.999998 electrons
+# scf_atom  Z=87  converged in 146 iterations to res=0.0e+00, E_tot= -651888.387613850 eV
+# scf_atom  Z=87  1s  E=  -98792.578410 eV  f=2
+# scf_atom  Z=87  2s  E=  -17932.751706 eV  f=2
+# scf_atom  Z=87  2p  E=  -15614.310347 eV  f=6
+# scf_atom  Z=87  3s  E=   -4422.680601 eV  f=2
+# scf_atom  Z=87  3p  E=   -3748.179309 eV  f=6
+# scf_atom  Z=87  4s  E=   -1065.658383 eV  f=2
+# scf_atom  Z=87  3d  E=   -3012.020947 eV  f=10
+# scf_atom  Z=87  4p  E=    -837.231655 eV  f=6
+# scf_atom  Z=87  5s  E=    -212.759492 eV  f=2
+# scf_atom  Z=87  4d  E=    -557.634320 eV  f=10
+# scf_atom  Z=87  5p  E=    -143.004330 eV  f=6
+# scf_atom  Z=87  6s  E=     -27.121216 eV  f=2
+# scf_atom  Z=87  4f  E=    -246.799668 eV  f=14
+# scf_atom  Z=87  5d  E=     -58.324916 eV  f=10
+# scf_atom  Z=87  6p  E=     -12.208381 eV  f=6
+# scf_atom  Z=87  7s  E=      -1.975475 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=88  guess rho with 87.999998 electrons
+# scf_atom  Z=88  converged in 143 iterations to res=7.3e-12, E_tot= -670725.627202675 eV
+# scf_atom  Z=88  1s  E= -101411.557723 eV  f=2
+# scf_atom  Z=88  2s  E=  -18484.825621 eV  f=2
+# scf_atom  Z=88  2p  E=  -16068.199831 eV  f=6
+# scf_atom  Z=88  3s  E=   -4585.089942 eV  f=2
+# scf_atom  Z=88  3p  E=   -3884.150664 eV  f=6
+# scf_atom  Z=88  4s  E=   -1120.709176 eV  f=2
+# scf_atom  Z=88  3d  E=   -3126.775377 eV  f=10
+# scf_atom  Z=88  4p  E=    -883.230562 eV  f=6
+# scf_atom  Z=88  5s  E=    -232.547798 eV  f=2
+# scf_atom  Z=88  4d  E=    -594.960862 eV  f=10
+# scf_atom  Z=88  5p  E=    -159.176923 eV  f=6
+# scf_atom  Z=88  6s  E=     -33.496715 eV  f=2
+# scf_atom  Z=88  4f  E=    -275.531704 eV  f=14
+# scf_atom  Z=88  5d  E=     -70.152155 eV  f=10
+# scf_atom  Z=88  6p  E=     -16.730330 eV  f=6
+# scf_atom  Z=88  7s  E=      -3.172645 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=89  guess rho with 88.999998 electrons
+# scf_atom  Z=89  converged in 151 iterations to res=0.0e+00, E_tot= -689891.905050147 eV
+# scf_atom  Z=89  1s  E= -104069.778074 eV  f=2
+# scf_atom  Z=89  2s  E=  -19044.113404 eV  f=2
+# scf_atom  Z=89  2p  E=  -16525.755783 eV  f=6
+# scf_atom  Z=89  3s  E=   -4747.071653 eV  f=2
+# scf_atom  Z=89  3p  E=   -4018.782983 eV  f=6
+# scf_atom  Z=89  4s  E=   -1173.083506 eV  f=2
+# scf_atom  Z=89  3d  E=   -3239.682830 eV  f=10
+# scf_atom  Z=89  4p  E=    -926.246124 eV  f=6
+# scf_atom  Z=89  5s  E=    -248.715509 eV  f=2
+# scf_atom  Z=89  4d  E=    -629.113968 eV  f=10
+# scf_atom  Z=89  5p  E=    -171.645454 eV  f=6
+# scf_atom  Z=89  6s  E=     -36.970457 eV  f=2
+# scf_atom  Z=89  4f  E=    -300.996592 eV  f=14
+# scf_atom  Z=89  5d  E=     -78.351885 eV  f=10
+# scf_atom  Z=89  6p  E=     -18.859345 eV  f=6
+# scf_atom  Z=89  7s  E=      -3.567714 eV  f=2
+# scf_atom  Z=89  5f  E=       1.055005 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=90  guess rho with 89.999998 electrons
+# scf_atom  Z=90  converged in 149 iterations to res=7.3e-12, E_tot= -709398.817934527 eV
+# scf_atom  Z=90  1s  E= -106769.191856 eV  f=2
+# scf_atom  Z=90  2s  E=  -19612.369155 eV  f=2
+# scf_atom  Z=90  2p  E=  -16988.623205 eV  f=6
+# scf_atom  Z=90  3s  E=   -4910.359135 eV  f=2
+# scf_atom  Z=90  3p  E=   -4153.782466 eV  f=6
+# scf_atom  Z=90  4s  E=   -1224.513596 eV  f=2
+# scf_atom  Z=90  3d  E=   -3352.431118 eV  f=10
+# scf_atom  Z=90  4p  E=    -968.004460 eV  f=6
+# scf_atom  Z=90  5s  E=    -263.102830 eV  f=2
+# scf_atom  Z=90  4d  E=    -661.819647 eV  f=10
+# scf_atom  Z=90  5p  E=    -182.259964 eV  f=6
+# scf_atom  Z=90  6s  E=     -39.117004 eV  f=2
+# scf_atom  Z=90  4f  E=    -324.925720 eV  f=14
+# scf_atom  Z=90  5d  E=     -84.752385 eV  f=10
+# scf_atom  Z=90  6p  E=     -19.899496 eV  f=6
+# scf_atom  Z=90  7s  E=      -3.642027 eV  f=2
+# scf_atom  Z=90  5f  E=       0.174329 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=91  guess rho with 90.999998 electrons
+# scf_atom  Z=91  converged in 154 iterations to res=0.0e+00, E_tot= -729250.444365051 eV
+# scf_atom  Z=91  1s  E= -109511.470441 eV  f=2
+# scf_atom  Z=91  2s  E=  -20191.027819 eV  f=2
+# scf_atom  Z=91  2p  E=  -17458.129115 eV  f=6
+# scf_atom  Z=91  3s  E=   -5076.338603 eV  f=2
+# scf_atom  Z=91  3p  E=   -4290.507936 eV  f=6
+# scf_atom  Z=91  4s  E=   -1276.353894 eV  f=2
+# scf_atom  Z=91  3d  E=   -3466.362929 eV  f=10
+# scf_atom  Z=91  4p  E=   -1009.850530 eV  f=6
+# scf_atom  Z=91  5s  E=    -277.065522 eV  f=2
+# scf_atom  Z=91  4d  E=    -694.419244 eV  f=10
+# scf_atom  Z=91  5p  E=    -192.361137 eV  f=6
+# scf_atom  Z=91  6s  E=     -40.936304 eV  f=2
+# scf_atom  Z=91  4f  E=    -348.662642 eV  f=14
+# scf_atom  Z=91  5d  E=     -90.641712 eV  f=10
+# scf_atom  Z=91  6p  E=     -20.686131 eV  f=6
+# scf_atom  Z=91  7s  E=      -3.677413 eV  f=2
+# scf_atom  Z=91  5f  E=      -0.604181 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=92  guess rho with 91.999998 electrons
+# scf_atom  Z=92  converged in 147 iterations to res=7.3e-12, E_tot= -749450.481542099 eV
+# scf_atom  Z=92  1s  E= -112297.294337 eV  f=2
+# scf_atom  Z=92  2s  E=  -20780.492889 eV  f=2
+# scf_atom  Z=92  2p  E=  -17934.571555 eV  f=6
+# scf_atom  Z=92  3s  E=   -5245.324316 eV  f=2
+# scf_atom  Z=92  3p  E=   -4429.246561 eV  f=6
+# scf_atom  Z=92  4s  E=   -1328.889920 eV  f=2
+# scf_atom  Z=92  3d  E=   -3581.751646 eV  f=10
+# scf_atom  Z=92  4p  E=   -1052.060768 eV  f=6
+# scf_atom  Z=92  5s  E=    -290.883682 eV  f=2
+# scf_atom  Z=92  4d  E=    -727.185094 eV  f=10
+# scf_atom  Z=92  5p  E=    -202.221184 eV  f=6
+# scf_atom  Z=92  6s  E=     -42.603588 eV  f=2
+# scf_atom  Z=92  4f  E=    -372.477906 eV  f=14
+# scf_atom  Z=92  5d  E=     -96.271899 eV  f=10
+# scf_atom  Z=92  6p  E=     -21.356250 eV  f=6
+# scf_atom  Z=92  7s  E=      -3.705950 eV  f=2
+# scf_atom  Z=92  5f  E=      -1.334750 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=93  guess rho with 92.999998 electrons
+# scf_atom  Z=93  converged in 145 iterations to res=0.0e+00, E_tot= -770002.538953263 eV
+# scf_atom  Z=93  1s  E= -115127.200197 eV  f=2
+# scf_atom  Z=93  2s  E=  -21381.013285 eV  f=2
+# scf_atom  Z=93  2p  E=  -18418.093040 eV  f=6
+# scf_atom  Z=93  3s  E=   -5417.466887 eV  f=2
+# scf_atom  Z=93  3p  E=   -4570.121565 eV  f=6
+# scf_atom  Z=93  4s  E=   -1382.243977 eV  f=2
+# scf_atom  Z=93  3d  E=   -3698.707064 eV  f=10
+# scf_atom  Z=93  4p  E=   -1094.748349 eV  f=6
+# scf_atom  Z=93  5s  E=    -304.672895 eV  f=2
+# scf_atom  Z=93  4d  E=    -760.226111 eV  f=10
+# scf_atom  Z=93  5p  E=    -211.949554 eV  f=6
+# scf_atom  Z=93  6s  E=     -44.180820 eV  f=2
+# scf_atom  Z=93  4f  E=    -396.477924 eV  f=14
+# scf_atom  Z=93  5d  E=    -101.740093 eV  f=10
+# scf_atom  Z=93  6p  E=     -21.955271 eV  f=6
+# scf_atom  Z=93  7s  E=      -3.733945 eV  f=2
+# scf_atom  Z=93  5f  E=      -2.032363 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=94  guess rho with 93.999998 electrons
+# scf_atom  Z=94  converged in 150 iterations to res=7.3e-12, E_tot= -790910.199209744 eV
+# scf_atom  Z=94  1s  E= -118001.686171 eV  f=2
+# scf_atom  Z=94  2s  E=  -21992.792986 eV  f=2
+# scf_atom  Z=94  2p  E=  -18908.789663 eV  f=6
+# scf_atom  Z=94  3s  E=   -5592.867667 eV  f=2
+# scf_atom  Z=94  3p  E=   -4713.206522 eV  f=6
+# scf_atom  Z=94  4s  E=   -1436.488940 eV  f=2
+# scf_atom  Z=94  3d  E=   -3817.289355 eV  f=10
+# scf_atom  Z=94  4p  E=   -1137.976892 eV  f=6
+# scf_atom  Z=94  5s  E=    -318.498457 eV  f=2
+# scf_atom  Z=94  4d  E=    -793.601520 eV  f=10
+# scf_atom  Z=94  5p  E=    -221.606121 eV  f=6
+# scf_atom  Z=94  6s  E=     -45.698486 eV  f=2
+# scf_atom  Z=94  4f  E=    -420.719204 eV  f=14
+# scf_atom  Z=94  5d  E=    -107.097218 eV  f=10
+# scf_atom  Z=94  6p  E=     -22.504261 eV  f=6
+# scf_atom  Z=94  7s  E=      -3.762718 eV  f=2
+# scf_atom  Z=94  5f  E=      -2.702490 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=95  guess rho with 94.999998 electrons
+# scf_atom  Z=95  converged in 150 iterations to res=7.3e-12, E_tot= -812177.041883245 eV
+# scf_atom  Z=95  1s  E= -120921.238170 eV  f=2
+# scf_atom  Z=95  2s  E=  -22616.018428 eV  f=2
+# scf_atom  Z=95  2p  E=  -19406.738363 eV  f=6
+# scf_atom  Z=95  3s  E=   -5771.607520 eV  f=2
+# scf_atom  Z=95  3p  E=   -4858.554102 eV  f=6
+# scf_atom  Z=95  4s  E=   -1491.676856 eV  f=2
+# scf_atom  Z=95  3d  E=   -3937.537725 eV  f=10
+# scf_atom  Z=95  4p  E=   -1181.789043 eV  f=6
+# scf_atom  Z=95  5s  E=    -332.404154 eV  f=2
+# scf_atom  Z=95  4d  E=    -827.349450 eV  f=10
+# scf_atom  Z=95  5p  E=    -231.229626 eV  f=6
+# scf_atom  Z=95  6s  E=     -47.174804 eV  f=2
+# scf_atom  Z=95  4f  E=    -445.237076 eV  f=14
+# scf_atom  Z=95  5d  E=    -112.374919 eV  f=10
+# scf_atom  Z=95  6p  E=     -23.015227 eV  f=6
+# scf_atom  Z=95  7s  E=      -3.792412 eV  f=2
+# scf_atom  Z=95  5f  E=      -3.347702 eV  f=7
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=96  guess rho with 95.999998 electrons
+# scf_atom  Z=96  converged in 155 iterations to res=0.0e+00, E_tot= -833806.654801302 eV
+# scf_atom  Z=96  1s  E= -123886.339105 eV  f=2
+# scf_atom  Z=96  2s  E=  -23250.868178 eV  f=2
+# scf_atom  Z=96  2p  E=  -19912.006532 eV  f=6
+# scf_atom  Z=96  3s  E=   -5953.757048 eV  f=2
+# scf_atom  Z=96  3p  E=   -5006.206286 eV  f=6
+# scf_atom  Z=96  4s  E=   -1547.849107 eV  f=2
+# scf_atom  Z=96  3d  E=   -4059.480579 eV  f=10
+# scf_atom  Z=96  4p  E=   -1226.216617 eV  f=6
+# scf_atom  Z=96  5s  E=    -346.422544 eV  f=2
+# scf_atom  Z=96  4d  E=    -861.497095 eV  f=10
+# scf_atom  Z=96  5p  E=    -240.847811 eV  f=6
+# scf_atom  Z=96  6s  E=     -48.622056 eV  f=2
+# scf_atom  Z=96  4f  E=    -470.055906 eV  f=14
+# scf_atom  Z=96  5d  E=    -117.595012 eV  f=10
+# scf_atom  Z=96  6p  E=     -23.495959 eV  f=6
+# scf_atom  Z=96  7s  E=      -3.822903 eV  f=2
+# scf_atom  Z=96  5f  E=      -3.969518 eV  f=8
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=97  guess rho with 96.999998 electrons
+# scf_atom  Z=97  converged in 149 iterations to res=0.0e+00, E_tot= -855802.640630340 eV
+# scf_atom  Z=97  1s  E= -126897.472927 eV  f=2
+# scf_atom  Z=97  2s  E=  -23897.517145 eV  f=2
+# scf_atom  Z=97  2p  E=  -20424.656206 eV  f=6
+# scf_atom  Z=97  3s  E=   -6139.381076 eV  f=2
+# scf_atom  Z=97  3p  E=   -5156.198852 eV  f=6
+# scf_atom  Z=97  4s  E=   -1605.040860 eV  f=2
+# scf_atom  Z=97  3d  E=   -4183.139985 eV  f=10
+# scf_atom  Z=97  4p  E=   -1271.285060 eV  f=6
+# scf_atom  Z=97  5s  E=    -360.579497 eV  f=2
+# scf_atom  Z=97  4d  E=    -896.065173 eV  f=10
+# scf_atom  Z=97  5p  E=    -250.481877 eV  f=6
+# scf_atom  Z=97  6s  E=     -50.049203 eV  f=2
+# scf_atom  Z=97  4f  E=    -495.193574 eV  f=14
+# scf_atom  Z=97  5d  E=    -122.773583 eV  f=10
+# scf_atom  Z=97  6p  E=     -23.951957 eV  f=6
+# scf_atom  Z=97  7s  E=      -3.854032 eV  f=2
+# scf_atom  Z=97  5f  E=      -4.569005 eV  f=9
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=98  guess rho with 97.999998 electrons
+# scf_atom  Z=98  converged in 156 iterations to res=0.0e+00, E_tot= -878168.621100269 eV
+# scf_atom  Z=98  1s  E= -129955.126680 eV  f=2
+# scf_atom  Z=98  2s  E=  -24556.138719 eV  f=2
+# scf_atom  Z=98  2p  E=  -20944.746185 eV  f=6
+# scf_atom  Z=98  3s  E=   -6328.540943 eV  f=2
+# scf_atom  Z=98  3p  E=   -5308.563653 eV  f=6
+# scf_atom  Z=98  4s  E=   -1663.283349 eV  f=2
+# scf_atom  Z=98  3d  E=   -4308.533945 eV  f=10
+# scf_atom  Z=98  4p  E=   -1317.015718 eV  f=6
+# scf_atom  Z=98  5s  E=    -374.896539 eV  f=2
+# scf_atom  Z=98  4d  E=    -931.070206 eV  f=10
+# scf_atom  Z=98  5p  E=    -260.148780 eV  f=6
+# scf_atom  Z=98  6s  E=     -51.463139 eV  f=2
+# scf_atom  Z=98  4f  E=    -520.663770 eV  f=14
+# scf_atom  Z=98  5d  E=    -127.923047 eV  f=10
+# scf_atom  Z=98  6p  E=     -24.387328 eV  f=6
+# scf_atom  Z=98  7s  E=      -3.885663 eV  f=2
+# scf_atom  Z=98  5f  E=      -5.146991 eV  f=10
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=99  guess rho with 98.999998 electrons
+# scf_atom  Z=99  converged in 149 iterations to res=0.0e+00, E_tot= -900908.239833770 eV
+# scf_atom  Z=99  1s  E= -133059.791679 eV  f=2
+# scf_atom  Z=99  2s  E=  -25226.905973 eV  f=2
+# scf_atom  Z=99  2p  E=  -21472.333237 eV  f=6
+# scf_atom  Z=99  3s  E=   -6521.295800 eV  f=2
+# scf_atom  Z=99  3p  E=   -5463.329928 eV  f=6
+# scf_atom  Z=99  4s  E=   -1722.605163 eV  f=2
+# scf_atom  Z=99  3d  E=   -4435.677689 eV  f=10
+# scf_atom  Z=99  4p  E=   -1363.427134 eV  f=6
+# scf_atom  Z=99  5s  E=    -389.392190 eV  f=2
+# scf_atom  Z=99  4d  E=    -966.525821 eV  f=10
+# scf_atom  Z=99  5p  E=    -269.862529 eV  f=6
+# scf_atom  Z=99  6s  E=     -52.869378 eV  f=2
+# scf_atom  Z=99  4f  E=    -546.477290 eV  f=14
+# scf_atom  Z=99  5d  E=    -133.053308 eV  f=10
+# scf_atom  Z=99  6p  E=     -24.805260 eV  f=6
+# scf_atom  Z=99  7s  E=      -3.917694 eV  f=2
+# scf_atom  Z=99  5f  E=      -5.704153 eV  f=11
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=100  guess rho with 99.999998 electrons
+# scf_atom  Z=100  converged in 151 iterations to res=0.0e+00, E_tot= -924025.164405060 eV
+# scf_atom  Z=100  1s  E= -136211.964242 eV  f=2
+# scf_atom  Z=100  2s  E=  -25909.992411 eV  f=2
+# scf_atom  Z=100  2p  E=  -22007.472839 eV  f=6
+# scf_atom  Z=100  3s  E=   -6717.703419 eV  f=2
+# scf_atom  Z=100  3p  E=   -5620.525100 eV  f=6
+# scf_atom  Z=100  4s  E=   -1783.033050 eV  f=2
+# scf_atom  Z=100  3d  E=   -4564.584470 eV  f=10
+# scf_atom  Z=100  4p  E=   -1410.535850 eV  f=6
+# scf_atom  Z=100  5s  E=    -404.082803 eV  f=2
+# scf_atom  Z=100  4d  E=   -1002.443553 eV  f=10
+# scf_atom  Z=100  5p  E=    -279.635010 eV  f=6
+# scf_atom  Z=100  6s  E=     -54.272462 eV  f=2
+# scf_atom  Z=100  4f  E=    -572.642849 eV  f=14
+# scf_atom  Z=100  5d  E=    -138.172481 eV  f=10
+# scf_atom  Z=100  6p  E=     -25.208295 eV  f=6
+# scf_atom  Z=100  7s  E=      -3.950046 eV  f=2
+# scf_atom  Z=100  5f  E=      -6.241062 eV  f=12
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=101  guess rho with 100.999998 electrons
+# scf_atom  Z=101  converged in 150 iterations to res=0.0e+00, E_tot= -947523.088040765 eV
+# scf_atom  Z=101  1s  E= -139412.146195 eV  f=2
+# scf_atom  Z=101  2s  E=  -26605.572461 eV  f=2
+# scf_atom  Z=101  2p  E=  -22550.219677 eV  f=6
+# scf_atom  Z=101  3s  E=   -6917.820729 eV  f=2
+# scf_atom  Z=101  3p  E=   -5780.175322 eV  f=6
+# scf_atom  Z=101  4s  E=   -1844.592453 eV  f=2
+# scf_atom  Z=101  3d  E=   -4695.266105 eV  f=10
+# scf_atom  Z=101  4p  E=   -1458.356947 eV  f=6
+# scf_atom  Z=101  5s  E=    -418.983131 eV  f=2
+# scf_atom  Z=101  4d  E=   -1038.833393 eV  f=10
+# scf_atom  Z=101  5p  E=    -289.476526 eV  f=6
+# scf_atom  Z=101  6s  E=     -55.676232 eV  f=2
+# scf_atom  Z=101  4f  E=    -599.167622 eV  f=14
+# scf_atom  Z=101  5d  E=    -143.287352 eV  f=10
+# scf_atom  Z=101  6p  E=     -25.598526 eV  f=6
+# scf_atom  Z=101  7s  E=      -3.982666 eV  f=2
+# scf_atom  Z=101  5f  E=      -6.758218 eV  f=13
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=102  guess rho with 101.999998 electrons
+# scf_atom  Z=102  converged in 150 iterations to res=0.0e+00, E_tot= -971405.730072750 eV
+# scf_atom  Z=102  1s  E= -142660.845165 eV  f=2
+# scf_atom  Z=102  2s  E=  -27313.821756 eV  f=2
+# scf_atom  Z=102  2p  E=  -23100.627926 eV  f=6
+# scf_atom  Z=102  3s  E=   -7121.704140 eV  f=2
+# scf_atom  Z=102  3p  E=   -5942.305792 eV  f=6
+# scf_atom  Z=102  4s  E=   -1907.307832 eV  f=2
+# scf_atom  Z=102  3d  E=   -4827.733286 eV  f=10
+# scf_atom  Z=102  4p  E=   -1506.904363 eV  f=6
+# scf_atom  Z=102  5s  E=    -434.106675 eV  f=2
+# scf_atom  Z=102  4d  E=   -1075.704102 eV  f=10
+# scf_atom  Z=102  5p  E=    -299.396135 eV  f=6
+# scf_atom  Z=102  6s  E=     -57.083964 eV  f=2
+# scf_atom  Z=102  4f  E=    -626.057562 eV  f=14
+# scf_atom  Z=102  5d  E=    -148.403675 eV  f=10
+# scf_atom  Z=102  6p  E=     -25.977647 eV  f=6
+# scf_atom  Z=102  7s  E=      -4.015514 eV  f=2
+# scf_atom  Z=102  5f  E=      -7.256028 eV  f=14
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=103  guess rho with 102.999998 electrons
+# scf_atom  Z=103  converged in 153 iterations to res=0.0e+00, E_tot= -995667.500118030 eV
+# scf_atom  Z=103  1s  E= -145964.852131 eV  f=2
+# scf_atom  Z=103  2s  E=  -28041.455415 eV  f=2
+# scf_atom  Z=103  2p  E=  -23665.265102 eV  f=6
+# scf_atom  Z=103  3s  E=   -7336.251342 eV  f=2
+# scf_atom  Z=103  3p  E=   -6113.778791 eV  f=6
+# scf_atom  Z=103  4s  E=   -1977.993211 eV  f=2
+# scf_atom  Z=103  3d  E=   -4968.818954 eV  f=10
+# scf_atom  Z=103  4p  E=   -1562.973678 eV  f=6
+# scf_atom  Z=103  5s  E=    -456.145468 eV  f=2
+# scf_atom  Z=103  4d  E=   -1119.845542 eV  f=10
+# scf_atom  Z=103  5p  E=    -315.985671 eV  f=6
+# scf_atom  Z=103  6s  E=     -63.031968 eV  f=2
+# scf_atom  Z=103  4f  E=    -660.135290 eV  f=14
+# scf_atom  Z=103  5d  E=    -159.898875 eV  f=10
+# scf_atom  Z=103  6p  E=     -29.944899 eV  f=6
+# scf_atom  Z=103  7s  E=      -4.819951 eV  f=2
+# scf_atom  Z=103  5f  E=     -13.164013 eV  f=14
+# scf_atom  Z=103  6d  E=      -1.784509 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=104  guess rho with 103.999998 electrons
+# scf_atom  Z=104  converged in 153 iterations to res=0.0e+00, E_tot= -1020315.821833707 eV
+# scf_atom  Z=104  1s  E= -149318.666457 eV  f=2
+# scf_atom  Z=104  2s  E=  -28782.412190 eV  f=2
+# scf_atom  Z=104  2p  E=  -24237.965634 eV  f=6
+# scf_atom  Z=104  3s  E=   -7555.046679 eV  f=2
+# scf_atom  Z=104  3p  E=   -6288.149508 eV  f=6
+# scf_atom  Z=104  4s  E=   -2050.218794 eV  f=2
+# scf_atom  Z=104  3d  E=   -5112.074713 eV  f=10
+# scf_atom  Z=104  4p  E=   -1620.127377 eV  f=6
+# scf_atom  Z=104  5s  E=    -478.691384 eV  f=2
+# scf_atom  Z=104  4d  E=   -1164.813601 eV  f=10
+# scf_atom  Z=104  5p  E=    -332.892983 eV  f=6
+# scf_atom  Z=104  6s  E=     -68.749700 eV  f=2
+# scf_atom  Z=104  4f  E=    -694.930206 eV  f=14
+# scf_atom  Z=104  5d  E=    -171.570243 eV  f=10
+# scf_atom  Z=104  6p  E=     -33.569749 eV  f=6
+# scf_atom  Z=104  7s  E=      -5.374410 eV  f=2
+# scf_atom  Z=104  5f  E=     -19.152104 eV  f=14
+# scf_atom  Z=104  6d  E=      -2.728662 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=105  guess rho with 104.999998 electrons
+# scf_atom  Z=105  converged in 160 iterations to res=0.0e+00, E_tot= -1045354.108415597 eV
+# scf_atom  Z=105  1s  E= -152722.918872 eV  f=2
+# scf_atom  Z=105  2s  E=  -29536.971280 eV  f=2
+# scf_atom  Z=105  2p  E=  -24818.883145 eV  f=6
+# scf_atom  Z=105  3s  E=   -7778.235339 eV  f=2
+# scf_atom  Z=105  3p  E=   -6465.530764 eV  f=6
+# scf_atom  Z=105  4s  E=   -2124.096056 eV  f=2
+# scf_atom  Z=105  3d  E=   -5257.599322 eV  f=10
+# scf_atom  Z=105  4p  E=   -1678.465809 eV  f=6
+# scf_atom  Z=105  5s  E=    -501.844337 eV  f=2
+# scf_atom  Z=105  4d  E=   -1210.703204 eV  f=10
+# scf_atom  Z=105  5p  E=    -350.215886 eV  f=6
+# scf_atom  Z=105  6s  E=     -74.417822 eV  f=2
+# scf_atom  Z=105  4f  E=    -730.533957 eV  f=14
+# scf_atom  Z=105  5d  E=    -183.522354 eV  f=10
+# scf_atom  Z=105  6p  E=     -37.050774 eV  f=6
+# scf_atom  Z=105  7s  E=      -5.805140 eV  f=2
+# scf_atom  Z=105  5f  E=     -25.354735 eV  f=14
+# scf_atom  Z=105  6d  E=      -3.600918 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=106  guess rho with 105.999998 electrons
+# scf_atom  Z=106  converged in 159 iterations to res=0.0e+00, E_tot= -1070785.799744834 eV
+# scf_atom  Z=106  1s  E= -156178.173556 eV  f=2
+# scf_atom  Z=106  2s  E=  -30305.343079 eV  f=2
+# scf_atom  Z=106  2p  E=  -25408.100462 eV  f=6
+# scf_atom  Z=106  3s  E=   -8005.896385 eV  f=2
+# scf_atom  Z=106  3p  E=   -6645.968776 eV  f=6
+# scf_atom  Z=106  4s  E=   -2199.669572 eV  f=2
+# scf_atom  Z=106  3d  E=   -5405.424418 eV  f=10
+# scf_atom  Z=106  4p  E=   -1738.022194 eV  f=6
+# scf_atom  Z=106  5s  E=    -525.636536 eV  f=2
+# scf_atom  Z=106  4d  E=   -1257.542053 eV  f=10
+# scf_atom  Z=106  5p  E=    -367.983242 eV  f=6
+# scf_atom  Z=106  6s  E=     -80.111546 eV  f=2
+# scf_atom  Z=106  4f  E=    -766.971396 eV  f=14
+# scf_atom  Z=106  5d  E=    -195.787136 eV  f=10
+# scf_atom  Z=106  6p  E=     -40.471035 eV  f=6
+# scf_atom  Z=106  7s  E=      -6.164959 eV  f=2
+# scf_atom  Z=106  5f  E=     -31.817196 eV  f=14
+# scf_atom  Z=106  6d  E=      -4.439777 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=107  guess rho with 106.999998 electrons
+# scf_atom  Z=107  converged in 156 iterations to res=0.0e+00, E_tot= -1096614.375532495 eV
+# scf_atom  Z=107  1s  E= -159684.974317 eV  f=2
+# scf_atom  Z=107  2s  E=  -31087.713799 eV  f=2
+# scf_atom  Z=107  2p  E=  -26005.674431 eV  f=6
+# scf_atom  Z=107  3s  E=   -8238.084882 eV  f=2
+# scf_atom  Z=107  3p  E=   -6829.485326 eV  f=6
+# scf_atom  Z=107  4s  E=   -2276.959536 eV  f=2
+# scf_atom  Z=107  3d  E=   -5555.556852 eV  f=10
+# scf_atom  Z=107  4p  E=   -1798.805211 eV  f=6
+# scf_atom  Z=107  5s  E=    -550.075849 eV  f=2
+# scf_atom  Z=107  4d  E=   -1305.333227 eV  f=10
+# scf_atom  Z=107  5p  E=    -386.199103 eV  f=6
+# scf_atom  Z=107  6s  E=     -85.865898 eV  f=2
+# scf_atom  Z=107  4f  E=    -804.242892 eV  f=14
+# scf_atom  Z=107  5d  E=    -208.370118 eV  f=10
+# scf_atom  Z=107  6p  E=     -43.869620 eV  f=6
+# scf_atom  Z=107  7s  E=      -6.479467 eV  f=2
+# scf_atom  Z=107  5f  E=     -38.551751 eV  f=14
+# scf_atom  Z=107  6d  E=      -5.262980 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=108  guess rho with 107.999998 electrons
+# scf_atom  Z=108  converged in 157 iterations to res=0.0e+00, E_tot= -1122843.359517946 eV
+# scf_atom  Z=108  1s  E= -163243.862779 eV  f=2
+# scf_atom  Z=108  2s  E=  -31884.263213 eV  f=2
+# scf_atom  Z=108  2p  E=  -26611.653742 eV  f=6
+# scf_atom  Z=108  3s  E=   -8474.848801 eV  f=2
+# scf_atom  Z=108  3p  E=   -7016.094684 eV  f=6
+# scf_atom  Z=108  4s  E=   -2355.978745 eV  f=2
+# scf_atom  Z=108  3d  E=   -5707.995679 eV  f=10
+# scf_atom  Z=108  4p  E=   -1860.815993 eV  f=6
+# scf_atom  Z=108  5s  E=    -575.162895 eV  f=2
+# scf_atom  Z=108  4d  E=   -1354.072183 eV  f=10
+# scf_atom  Z=108  5p  E=    -404.860040 eV  f=6
+# scf_atom  Z=108  6s  E=     -91.700018 eV  f=2
+# scf_atom  Z=108  4f  E=    -842.341235 eV  f=14
+# scf_atom  Z=108  5d  E=    -221.268435 eV  f=10
+# scf_atom  Z=108  6p  E=     -47.267670 eV  f=6
+# scf_atom  Z=108  7s  E=      -6.762771 eV  f=2
+# scf_atom  Z=108  5f  E=     -45.558907 eV  f=14
+# scf_atom  Z=108  6d  E=      -6.079623 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=109  guess rho with 108.999998 electrons
+# scf_atom  Z=109  converged in 162 iterations to res=0.0e+00, E_tot= -1149476.317917273 eV
+# scf_atom  Z=109  1s  E= -166855.384728 eV  f=2
+# scf_atom  Z=109  2s  E=  -32695.170796 eV  f=2
+# scf_atom  Z=109  2p  E=  -27226.085115 eV  f=6
+# scf_atom  Z=109  3s  E=   -8716.234826 eV  f=2
+# scf_atom  Z=109  3p  E=   -7205.809411 eV  f=6
+# scf_atom  Z=109  4s  E=   -2436.738394 eV  f=2
+# scf_atom  Z=109  3d  E=   -5862.738006 eV  f=10
+# scf_atom  Z=109  4p  E=   -1924.053942 eV  f=6
+# scf_atom  Z=109  5s  E=    -600.896843 eV  f=2
+# scf_atom  Z=109  4d  E=   -1403.752568 eV  f=10
+# scf_atom  Z=109  5p  E=    -423.961006 eV  f=6
+# scf_atom  Z=109  6s  E=     -97.626080 eV  f=2
+# scf_atom  Z=109  4f  E=    -881.257413 eV  f=14
+# scf_atom  Z=109  5d  E=    -234.476994 eV  f=10
+# scf_atom  Z=109  6p  E=     -50.678044 eV  f=6
+# scf_atom  Z=109  7s  E=      -7.023464 eV  f=2
+# scf_atom  Z=109  5f  E=     -52.835018 eV  f=14
+# scf_atom  Z=109  6d  E=      -6.894769 eV  f=7
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=110  guess rho with 109.999998 electrons
+# scf_atom  Z=110  converged in 157 iterations to res=0.0e+00, E_tot= -1176516.859729052 eV
+# scf_atom  Z=110  1s  E= -170520.092382 eV  f=2
+# scf_atom  Z=110  2s  E=  -33520.617876 eV  f=2
+# scf_atom  Z=110  2p  E=  -27849.015471 eV  f=6
+# scf_atom  Z=110  3s  E=   -8962.290327 eV  f=2
+# scf_atom  Z=110  3p  E=   -7398.642350 eV  f=6
+# scf_atom  Z=110  4s  E=   -2519.250047 eV  f=2
+# scf_atom  Z=110  3d  E=   -6019.780980 eV  f=10
+# scf_atom  Z=110  4p  E=   -1988.518680 eV  f=6
+# scf_atom  Z=110  5s  E=    -627.277288 eV  f=2
+# scf_atom  Z=110  4d  E=   -1454.368172 eV  f=10
+# scf_atom  Z=110  5p  E=    -443.497253 eV  f=6
+# scf_atom  Z=110  6s  E=    -103.652870 eV  f=2
+# scf_atom  Z=110  4f  E=    -920.982546 eV  f=14
+# scf_atom  Z=110  5d  E=    -247.990533 eV  f=10
+# scf_atom  Z=110  6p  E=     -54.109372 eV  f=6
+# scf_atom  Z=110  7s  E=      -7.267184 eV  f=2
+# scf_atom  Z=110  5f  E=     -60.375098 eV  f=14
+# scf_atom  Z=110  6d  E=      -7.711472 eV  f=8
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=111  guess rho with 110.999998 electrons
+# scf_atom  Z=111  converged in 156 iterations to res=0.0e+00, E_tot= -1203968.634015410 eV
+# scf_atom  Z=111  1s  E= -174238.545230 eV  f=2
+# scf_atom  Z=111  2s  E=  -34360.788386 eV  f=2
+# scf_atom  Z=111  2p  E=  -28480.492722 eV  f=6
+# scf_atom  Z=111  3s  E=   -9213.064033 eV  f=2
+# scf_atom  Z=111  3p  E=   -7594.607292 eV  f=6
+# scf_atom  Z=111  4s  E=   -2603.526282 eV  f=2
+# scf_atom  Z=111  3d  E=   -6179.122477 eV  f=10
+# scf_atom  Z=111  4p  E=   -2054.210713 eV  f=6
+# scf_atom  Z=111  5s  E=    -654.304875 eV  f=2
+# scf_atom  Z=111  4d  E=   -1505.913588 eV  f=10
+# scf_atom  Z=111  5p  E=    -463.464967 eV  f=6
+# scf_atom  Z=111  6s  E=    -109.787424 eV  f=2
+# scf_atom  Z=111  4f  E=    -961.508539 eV  f=14
+# scf_atom  Z=111  5d  E=    -261.804360 eV  f=10
+# scf_atom  Z=111  6p  E=     -57.567916 eV  f=6
+# scf_atom  Z=111  7s  E=      -7.497863 eV  f=2
+# scf_atom  Z=111  5f  E=     -68.173994 eV  f=14
+# scf_atom  Z=111  6d  E=      -8.531652 eV  f=9
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=112  guess rho with 111.999998 electrons
+# scf_atom  Z=112  converged in 166 iterations to res=0.0e+00, E_tot= -1231835.330295977 eV
+# scf_atom  Z=112  1s  E= -178011.310279 eV  f=2
+# scf_atom  Z=112  2s  E=  -35215.869055 eV  f=2
+# scf_atom  Z=112  2p  E=  -29120.565978 eV  f=6
+# scf_atom  Z=112  3s  E=   -9468.606151 eV  f=2
+# scf_atom  Z=112  3p  E=   -7793.719119 eV  f=6
+# scf_atom  Z=112  4s  E=   -2689.580805 eV  f=2
+# scf_atom  Z=112  3d  E=   -6340.761239 eV  f=10
+# scf_atom  Z=112  4p  E=   -2121.131545 eV  f=6
+# scf_atom  Z=112  5s  E=    -681.981355 eV  f=2
+# scf_atom  Z=112  4d  E=   -1558.384327 eV  f=10
+# scf_atom  Z=112  5p  E=    -483.861329 eV  f=6
+# scf_atom  Z=112  6s  E=    -116.035761 eV  f=2
+# scf_atom  Z=112  4f  E=   -1002.828188 eV  f=14
+# scf_atom  Z=112  5d  E=    -275.914481 eV  f=10
+# scf_atom  Z=112  6p  E=     -61.058518 eV  f=6
+# scf_atom  Z=112  7s  E=      -7.718378 eV  f=2
+# scf_atom  Z=112  5f  E=     -76.226769 eV  f=14
+# scf_atom  Z=112  6d  E=      -9.356607 eV  f=10
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=113  converged in 128 iterations to res=0.0e+00, E_tot= -1260110.404121568 eV
+# scf_atom  Z=113  1s  E= -181843.731172 eV  f=2
+# scf_atom  Z=113  2s  E=  -36090.883525 eV  f=2
+# scf_atom  Z=113  2p  E=  -29774.118372 eV  f=6
+# scf_atom  Z=113  3s  E=   -9733.775865 eV  f=2
+# scf_atom  Z=113  3p  E=   -8000.800384 eV  f=6
+# scf_atom  Z=113  4s  E=   -2782.219640 eV  f=2
+# scf_atom  Z=113  3d  E=   -6509.511676 eV  f=10
+# scf_atom  Z=113  4p  E=   -2194.073347 eV  f=6
+# scf_atom  Z=113  5s  E=    -715.080575 eV  f=2
+# scf_atom  Z=113  4d  E=   -1616.567506 eV  f=10
+# scf_atom  Z=113  5p  E=    -509.451562 eV  f=6
+# scf_atom  Z=113  6s  E=    -127.062070 eV  f=2
+# scf_atom  Z=113  4f  E=   -1049.724824 eV  f=14
+# scf_atom  Z=113  5d  E=    -295.080942 eV  f=10
+# scf_atom  Z=113  6p  E=     -69.068893 eV  f=6
+# scf_atom  Z=113  7s  E=     -10.263111 eV  f=2
+# scf_atom  Z=113  5f  E=     -89.271994 eV  f=14
+# scf_atom  Z=113  6d  E=     -13.927146 eV  f=10
+# scf_atom  Z=113  7p  E=      -2.441958 eV  f=1
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=114  guess rho with 113.999998 electrons
+# scf_atom  Z=114  converged in 164 iterations to res=0.0e+00, E_tot= -1288803.431676219 eV
+# scf_atom  Z=114  1s  E= -185731.883643 eV  f=2
+# scf_atom  Z=114  2s  E=  -36981.473264 eV  f=2
+# scf_atom  Z=114  2p  E=  -30436.651605 eV  f=6
+# scf_atom  Z=114  3s  E=  -10004.088891 eV  f=2
+# scf_atom  Z=114  3p  E=   -8211.331007 eV  f=6
+# scf_atom  Z=114  4s  E=   -2876.926073 eV  f=2
+# scf_atom  Z=114  3d  E=   -6680.832286 eV  f=10
+# scf_atom  Z=114  4p  E=   -2268.507085 eV  f=6
+# scf_atom  Z=114  5s  E=    -749.075648 eV  f=2
+# scf_atom  Z=114  4d  E=   -1675.927011 eV  f=10
+# scf_atom  Z=114  5p  E=    -535.703736 eV  f=6
+# scf_atom  Z=114  6s  E=    -138.387861 eV  f=2
+# scf_atom  Z=114  4f  E=   -1097.660829 eV  f=14
+# scf_atom  Z=114  5d  E=    -314.768817 eV  f=10
+# scf_atom  Z=114  6p  E=     -77.249682 eV  f=6
+# scf_atom  Z=114  7s  E=     -12.704911 eV  f=2
+# scf_atom  Z=114  5f  E=    -102.783849 eV  f=14
+# scf_atom  Z=114  6d  E=     -18.602462 eV  f=10
+# scf_atom  Z=114  7p  E=      -3.547167 eV  f=2
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=115  guess rho with 114.999998 electrons
+# scf_atom  Z=115  converged in 164 iterations to res=0.0e+00, E_tot= -1317917.854978599 eV
+# scf_atom  Z=115  1s  E= -189676.325659 eV  f=2
+# scf_atom  Z=115  2s  E=  -37887.801212 eV  f=2
+# scf_atom  Z=115  2p  E=  -31108.186390 eV  f=6
+# scf_atom  Z=115  3s  E=  -10279.567552 eV  f=2
+# scf_atom  Z=115  3p  E=   -8425.296726 eV  f=6
+# scf_atom  Z=115  4s  E=   -2973.683716 eV  f=2
+# scf_atom  Z=115  3d  E=   -6854.692031 eV  f=10
+# scf_atom  Z=115  4p  E=   -2344.403578 eV  f=6
+# scf_atom  Z=115  5s  E=    -783.936344 eV  f=2
+# scf_atom  Z=115  4d  E=   -1736.427368 eV  f=10
+# scf_atom  Z=115  5p  E=    -562.582315 eV  f=6
+# scf_atom  Z=115  6s  E=    -149.984067 eV  f=2
+# scf_atom  Z=115  4f  E=   -1146.598149 eV  f=14
+# scf_atom  Z=115  5d  E=    -334.940456 eV  f=10
+# scf_atom  Z=115  6p  E=     -85.577106 eV  f=6
+# scf_atom  Z=115  7s  E=     -15.074638 eV  f=2
+# scf_atom  Z=115  5f  E=    -116.724364 eV  f=14
+# scf_atom  Z=115  6d  E=     -23.370688 eV  f=10
+# scf_atom  Z=115  7p  E=      -4.565655 eV  f=3
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=116  guess rho with 115.999998 electrons
+# scf_atom  Z=116  converged in 160 iterations to res=0.0e+00, E_tot= -1347457.225138169 eV
+# scf_atom  Z=116  1s  E= -193677.666341 eV  f=2
+# scf_atom  Z=116  2s  E=  -38810.076400 eV  f=2
+# scf_atom  Z=116  2p  E=  -31788.788078 eV  f=6
+# scf_atom  Z=116  3s  E=  -10560.278854 eV  f=2
+# scf_atom  Z=116  3p  E=   -8642.727593 eV  f=6
+# scf_atom  Z=116  4s  E=   -3072.520669 eV  f=2
+# scf_atom  Z=116  3d  E=   -7031.103952 eV  f=10
+# scf_atom  Z=116  4p  E=   -2421.778021 eV  f=6
+# scf_atom  Z=116  5s  E=    -819.677247 eV  f=2
+# scf_atom  Z=116  4d  E=   -1798.077409 eV  f=10
+# scf_atom  Z=116  5p  E=    -590.096616 eV  f=6
+# scf_atom  Z=116  6s  E=    -161.866457 eV  f=2
+# scf_atom  Z=116  4f  E=   -1196.542970 eV  f=14
+# scf_atom  Z=116  5d  E=    -355.603094 eV  f=10
+# scf_atom  Z=116  6p  E=     -94.070086 eV  f=6
+# scf_atom  Z=116  7s  E=     -17.415916 eV  f=2
+# scf_atom  Z=116  5f  E=    -131.100289 eV  f=14
+# scf_atom  Z=116  6d  E=     -28.255027 eV  f=10
+# scf_atom  Z=116  7p  E=      -5.542674 eV  f=4
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=117  guess rho with 116.999998 electrons
+# scf_atom  Z=117  converged in 161 iterations to res=0.0e+00, E_tot= -1377425.151822573 eV
+# scf_atom  Z=117  1s  E= -197736.517896 eV  f=2
+# scf_atom  Z=117  2s  E=  -39748.506238 eV  f=2
+# scf_atom  Z=117  2p  E=  -32478.518926 eV  f=6
+# scf_atom  Z=117  3s  E=  -10846.286801 eV  f=2
+# scf_atom  Z=117  3p  E=   -8863.650281 eV  f=6
+# scf_atom  Z=117  4s  E=   -3173.461759 eV  f=2
+# scf_atom  Z=117  3d  E=   -7210.077509 eV  f=10
+# scf_atom  Z=117  4p  E=   -2500.642220 eV  f=6
+# scf_atom  Z=117  5s  E=    -856.309802 eV  f=2
+# scf_atom  Z=117  4d  E=   -1860.882498 eV  f=10
+# scf_atom  Z=117  5p  E=    -618.252802 eV  f=6
+# scf_atom  Z=117  6s  E=    -174.047161 eV  f=2
+# scf_atom  Z=117  4f  E=   -1247.497954 eV  f=14
+# scf_atom  Z=117  5d  E=    -376.760770 eV  f=10
+# scf_atom  Z=117  6p  E=    -102.742211 eV  f=6
+# scf_atom  Z=117  7s  E=     -19.757116 eV  f=2
+# scf_atom  Z=117  5f  E=    -145.914977 eV  f=14
+# scf_atom  Z=117  6d  E=     -33.269871 eV  f=10
+# scf_atom  Z=117  7p  E=      -6.501025 eV  f=5
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=118  guess rho with 117.999998 electrons
+# scf_atom  Z=118  converged in 159 iterations to res=0.0e+00, E_tot= -1407825.292583438 eV
+# scf_atom  Z=118  1s  E= -201853.494286 eV  f=2
+# scf_atom  Z=118  2s  E=  -40703.295136 eV  f=2
+# scf_atom  Z=118  2p  E=  -33177.436753 eV  f=6
+# scf_atom  Z=118  3s  E=  -11137.651058 eV  f=2
+# scf_atom  Z=118  3p  E=   -9088.086760 eV  f=6
+# scf_atom  Z=118  4s  E=   -3276.527172 eV  f=2
+# scf_atom  Z=118  3d  E=   -7391.617254 eV  f=10
+# scf_atom  Z=118  4p  E=   -2581.003238 eV  f=6
+# scf_atom  Z=118  5s  E=    -893.840902 eV  f=2
+# scf_atom  Z=118  4d  E=   -1924.843174 eV  f=10
+# scf_atom  Z=118  5p  E=    -647.052449 eV  f=6
+# scf_atom  Z=118  6s  E=    -186.533262 eV  f=2
+# scf_atom  Z=118  4f  E=   -1299.460891 eV  f=14
+# scf_atom  Z=118  5d  E=    -398.412878 eV  f=10
+# scf_atom  Z=118  6p  E=    -111.600915 eV  f=6
+# scf_atom  Z=118  7s  E=     -22.115634 eV  f=2
+# scf_atom  Z=118  5f  E=    -161.166978 eV  f=14
+# scf_atom  Z=118  6d  E=     -38.421909 eV  f=10
+# scf_atom  Z=118  7p  E=      -7.453048 eV  f=6
+
+
+# atom_core.cxx:406  test_core_solver(echo=3)
+
+# scf_atom  Z=119  guess rho with 118.999998 electrons
+# scf_atom  Z=119  converged in 165 iterations to res=0.0e+00, E_tot= -1438653.065532335 eV
+# scf_atom  Z=119  1s  E= -206032.852215 eV  f=2
+# scf_atom  Z=119  2s  E=  -41678.263502 eV  f=2
+# scf_atom  Z=119  2p  E=  -33889.215677 eV  f=6
+# scf_atom  Z=119  3s  E=  -11438.035780 eV  f=2
+# scf_atom  Z=119  3p  E=   -9319.663217 eV  f=6
+# scf_atom  Z=119  4s  E=   -3385.335865 eV  f=2
+# scf_atom  Z=119  3d  E=   -7579.331014 eV  f=10
+# scf_atom  Z=119  4p  E=   -2666.466251 eV  f=6
+# scf_atom  Z=119  5s  E=    -935.867238 eV  f=2
+# scf_atom  Z=119  4d  E=   -1993.557443 eV  f=10
+# scf_atom  Z=119  5p  E=    -680.085002 eV  f=6
+# scf_atom  Z=119  6s  E=    -202.894617 eV  f=2
+# scf_atom  Z=119  4f  E=   -1356.027079 eV  f=14
+# scf_atom  Z=119  5d  E=    -424.144035 eV  f=10
+# scf_atom  Z=119  6p  E=    -124.204287 eV  f=6
+# scf_atom  Z=119  7s  E=     -27.692010 eV  f=2
+# scf_atom  Z=119  5f  E=    -180.435588 eV  f=14
+# scf_atom  Z=119  6d  E=     -47.221316 eV  f=10
+# scf_atom  Z=119  7p  E=     -11.061334 eV  f=6
+# scf_atom  Z=119  8s  E=      -2.064245 eV  f=1
