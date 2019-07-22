@@ -15,17 +15,17 @@ namespace exchange_correlation {
   
   // ToDo: use libxc in the long run
   template<typename real_t>
-  real_t lda_PZ81_kernel(real_t const rho, real_t &Vup, 
-                         real_t const mag, real_t *Vdn) { // optional
+  real_t lda_PZ81_kernel(real_t const rho, real_t &Vdn, 
+                         real_t const mag, real_t *Vup) { // optional
 
     real_t constexpr THIRD  = 1./3., TINYDEN = 1e-20;
     real_t constexpr pi = constants::pi;
     real_t const tpt5 = .6108870577108572; // (2.25/(pi*pi))**THIRD
 
-    if (nullptr == Vdn) { //  LDA
+    if (nullptr == Vup) { //  LDA
 
       if (rho < TINYDEN) {
-        Vup = 0;
+        Vdn = 0;
         return 0;
       } else { // negligible
         real_t Exc;
@@ -33,27 +33,27 @@ namespace exchange_correlation {
         if (rs > 1.) {
           auto const srs = sqrt(rs);
           Exc = -0.1423/(1. + 1.0529*srs + 0.3334*rs);
-          Vup = Exc - rs/3.0*(0.1423*(0.3334 + 0.52645/srs)/pow2(1. + 1.0529*srs + 0.3334*rs));
+          Vdn = Exc - rs/3.0*(0.1423*(0.3334 + 0.52645/srs)/pow2(1. + 1.0529*srs + 0.3334*rs));
         } else {
           auto const lrs = log(rs);
           Exc = -0.048 + 0.0311*lrs - 0.0116*rs + 0.002*rs*lrs;
-          Vup = Exc - rs/3.0*(0.0311/rs - 0.0096 + 0.002*lrs);
+          Vdn = Exc - rs/3.0*(0.0311/rs - 0.0096 + 0.002*lrs);
         } //
         Exc = Exc - 0.75*tpt5/rs;
-        Vup = Vup - 0.75*tpt5/rs - rs/3.0*(0.75*tpt5/(rs*rs));
+        Vdn = Vdn - 0.75*tpt5/rs - rs/3.0*(0.75*tpt5/(rs*rs));
         return Exc;
       } // negligible
 
     } else { // spin resolved
 
       if (rho < TINYDEN) {
-        *Vdn = 0;
-         Vup = 0;
+        *Vup = 0;
+         Vdn = 0;
         return 0;
       } else { // negligible
         real_t Exc = 0;
-         Vup = 0;
-        *Vdn = 0;
+         Vdn = 0;
+        *Vup = 0;
         return Exc;
       } // negligible
     } // Magnetization
@@ -61,8 +61,8 @@ namespace exchange_correlation {
   } // lda_PZ81_kernel
   
   // explicit template instanciation for float and double
-  template double lda_PZ81_kernel<double>(double const rho, double &Vup, double const mag, double *Vdn);
-  template float  lda_PZ81_kernel<float> (float  const rho, float  &Vup, float  const mag, float  *Vdn);
+  template double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
+  template float  lda_PZ81_kernel<float> (float  const rho, float  &Vdn, float  const mag, float  *Vup);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

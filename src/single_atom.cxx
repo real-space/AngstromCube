@@ -10,8 +10,10 @@
 #include "radial_eigensolver.hxx" // shooting_method
 #include "angular_grid.hxx" // transform, Lebedev_grid_size
 #include "radial_integrator.hxx" // integrate_outwards
+#include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "inline_tools.hxx" // align<nbits>
 #include "sho_tools.hxx" // lnm_index
+#include "sho_unitary.hxx" // Unitary_SHO_Transform<real_t>
 #include "solid_harmonics.hxx" // lm_index, Y00, Y00inv
 #include "atom_core.hxx" // dot_product, initial_density
 using namespace atom_core;
@@ -37,6 +39,12 @@ using namespace atom_core;
 #else
     #define debug(print)
 #endif
+
+extern "C" {
+   // BLAS interface to matrix matrix multiplication
+  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*, 
+              const double*, const int*, const double*, const int*, const double*, double*, const int*);
+} // extern "C"
 
   int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
   int constexpr CORE=0, VALENCE=1;
@@ -83,6 +91,7 @@ using namespace atom_core;
       int8_t ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-oribit) core states are maximum
       int8_t nvalencestates; // for emm-Degenerate (numax*(numax + 4) + 4)/4 is a good choice;
       int8_t nspins; // 1 or 2 or 4
+      double* unitary_zyx_lmn; // unitary sho transformation matrix [Cartesian][Radial]
 
       // spin-resolved members of live_atom
       core_level_t* core_state;
@@ -207,11 +216,17 @@ using namespace atom_core;
         hamiltonian = new double[nSHO*matrix_stride]; // get memory
         overlap     = new double[nSHO*matrix_stride]; // get memory
 
+        unitary_zyx_lmn = new double[nSHO*nSHO];
+        {   auto const u = new sho_unitary::Unitary_SHO_Transform<double>(numax);
+            u->construct_dense_matrix(unitary_zyx_lmn); // ToDo: catch status
+        } // scope to fill unitary
+        
 //      for(int ir = 0; ir < nrt; ++ir) { potential[TRU][ir] = -Z; } // unscreened hydrogen-type potential
         initial_density(core_density[TRU], *rg[TRU], Z, 0.0);
-        for(int scf = 0; scf < 33; ++scf) {
+        int const maxit_scf = 33;
+        for(int scf = 0; scf < maxit_scf; ++scf) {
             rad_pot(potential[TRU], *rg[TRU], core_density[TRU], Z);
-            update((32 == scf)*9); // echo on in the last iteration
+            update((maxit_scf - 1 == scf)*9); // switch echo on in the last iteration
         } // self-consistency iterations
 
     };
@@ -329,6 +344,34 @@ using namespace atom_core;
         
     } // get_valence_mapping
     
+    
+    void transform_SHO(double out[], int const out_stride, 
+                  double const in[], int const in_stride, 
+                  bool const in_Cartesian, double const alpha=1) {
+
+//         void dgemm_(const char* tA, const char* tB, const int* M, const int* N, const int* K, const double* alpha, 
+//               const double* A, const int* sA, const double* B, const int* sB, const double* beta, double* C, const int* sC);
+//         performs C[n][m] := beta*C[n][m] + alpha*sum_k B[n][k] * A[k][m];
+
+        int const N = sho_tools::nSHO(numax);
+        auto const tmp = new double[N*N];
+        double const beta = 0;
+        char const nn = 'n', tn = in_Cartesian?'n':'t', nt = in_Cartesian?'t':'n';
+        if (in_Cartesian) {
+            // transform Cartesian input to Radial output
+//             tmp(=C)[n_C][m_R] = in(=B)[n_C][k_C] * unitary(=A)[k_C][m_R]    // step 1
+//             out(=C)[n_R][m_R] = unitary(=B^T)[n_R][k_C] * tmp(=A)[k_C][m_R] // step 2
+        } else {
+            // transform Radial input to Cartesian output
+//             tmp(=C)[n_R][m_C] = in(=B)[n_R][k_R] * unitary(=A^T)[k_R][m_C] // step 1
+//             out(=C)[n_C][m_C] = unitary(=B)[n_C][k_R] * tmp(=A)[k_R][m_C]  // step 2
+        }
+        dgemm_(&tn, &nn, &N, &N, &N, &alpha, unitary_zyx_lmn, &N, in, &in_stride, &beta, tmp, &N);
+        dgemm_(&nn, &nt, &N, &N, &N, &alpha, tmp, &N, unitary_zyx_lmn, &N, &beta, out, &out_stride);
+        
+        delete [] tmp;
+    } // transform_SHO
+    
     void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const echo=9) {
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
@@ -342,14 +385,16 @@ using namespace atom_core;
         int const nlm = (1 + lmax)*(1 + lmax);
         int const mlm = (1 + numax)*(1 + numax);
         int const nln = nvalencestates;
-        auto const radial_density_matrix = density_matrix; // flat copy, cheat, ToDo: transform from the Cartesian rep to radial using sho_unitary
         // ToDo:
-        //   transform the density_matrix[iSHO*stride + jSHO]
+        //   transform the density_matrix[izyx*stride + jzyx]
         //   into a radial_density_matrix[ilmn*stride + jlmn]
         //   using the unitary transform from left and right
+        auto const radial_density_matrix = new double[nSHO*stride];
+        transform_SHO(radial_density_matrix, stride, density_matrix, stride, true);
+        
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[(lm*nln + iln)*nln + jln] = 
-        //     G_{lm l_1m_1 l_2m_2} * density_matrix[il_1m_1n_1*stride + jl_2m_2n_2]
+        //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix[il_1m_1n_1*stride + jl_2m_2n_2]
 
         int const nlmn = nSHO;
         int16_t ln_index_list[nlmn], lmn_begin[mlm], lmn_end[mlm];
@@ -510,17 +555,26 @@ using namespace atom_core;
         for(int ts = TRU; ts < TRU_AND_SMT; ts += (SMT - TRU)) {
             int const nr = rg[ts]->n, mr = align<2>(nr);
             // full_potential[ts][nlm*mr]; // memory layout
-            auto on_grid = new double[npt*mr];
+            auto const on_grid = new double[npt*mr];
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebendev-Laikov grids
             angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
+            double Exc = 0;
+            for(int ip = 0; ip < npt*mr; ++ip) {
+                double const rho = on_grid[ip];
+                double const exc = exchange_correlation::lda_PZ81_kernel(rho, on_grid[ip]); // write Vxc into on_grid
+                Exc += rho*exc; // r^2 dr and angular grid weights missing here, ToDo:
+            } // ip
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
+
+            
+            
             
             { // scope add electrostatic boundary elements q_lm*r^\ell
-                double rl[nr];
+                double rl[mr];
                 for(int ir = 0; ir < nr; ++ir) {
                     rl[ir] = 1; // init as r^0
                 } // ir
@@ -538,6 +592,7 @@ using namespace atom_core;
             } // scope
             
         } // true and smooth
+        
         // add zero potential for SMT==ts and 0==lm
         auto const scale = solid_harmonics::Y00; // *Y00 or *Y00inv? needed?
         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -645,17 +700,49 @@ using namespace atom_core;
             hamiltonian[ij] = 0; // clear
             overlap[ij] = 0; // clear
         } // ij
-        // ToDo: transform _lmn quantities using sho_unitary
+        // Now transform _lmn quantities to Cartesian representations using sho_unitary
+        transform_SHO(hamiltonian, matrix_stride, hamiltonian_lmn, nlmn, false);
+        transform_SHO(    overlap, matrix_stride,     overlap_lmn, nlmn, false);
         
     } // update
     
+    void set_pure_density_matrix(double density_matrix[], double const occ_spdf[4]=nullptr, int const echo=9) {
+        double occ[8] = {0,0,0,0, 0,0,0,0}; if (occ_spdf) std::copy(occ_spdf, 4+occ_spdf, occ);
+        int const nSHO = sho_tools::nSHO(numax);
+        auto const radial_density_matrix = new double[nSHO*nSHO];
+        std::fill(radial_density_matrix, radial_density_matrix + nSHO*nSHO, 0); // clear
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int emm = -ell; emm <= ell; ++emm) {
+                for(int enn = 0; enn <= (numax - ell)/2; ++enn) {
+                    int const i = sho_tools::lmn_index(numax, ell, emm, enn);
+                    if (0 == enn) radial_density_matrix[i*nSHO + i] = occ[ell]/(2*ell + 1.);
+                } // enn
+            } // emm
+        } // ell
+        transform_SHO(density_matrix, nSHO, radial_density_matrix, nSHO, false);
+        if (echo > 7) {
+            printf("# radial density matrix\n");
+            for(int i = 0; i < nSHO; ++i) {
+                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", radial_density_matrix[i*nSHO + j]);
+                printf("\n");
+            } // i
+            printf("\n# Cartesian density matrix\n");
+            for(int i = 0; i < nSHO; ++i) {
+                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", density_matrix[i*nSHO + j]);
+                printf("\n");
+            } // i
+        } // echo
+    } // set_pure_density_matrix
+
     void update(int const echo=0) {
-        update_core_states(.45, echo + 1); // .45 works well for Cu (Z=29)
-        update_valence_states(echo);
-        update_charge_deficit(echo);
-        double density_matrix[1<<19], rho_tensor[1<<14], qlm[1<<17];
+        update_core_states(.45, echo + 1); // mixing with .45 works well for Cu (Z=29)
+        update_valence_states(echo); // create new partial waves for the valence description
+        update_charge_deficit(echo); // update quantities derived from the partial waves
+        double density_matrix[1<<19], rho_tensor[1<<14], qlm[220];
+        { double occ[] = {2,0,9,0}; set_pure_density_matrix(density_matrix, occ); }
         get_rho_tensor(rho_tensor, density_matrix);
         update_full_density(rho_tensor);
+        { std::fill(qlm, qlm + 220, 0); qlm[0] = 1; }
         update_full_potential(qlm);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update
