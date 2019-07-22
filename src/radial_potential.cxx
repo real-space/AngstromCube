@@ -35,54 +35,56 @@ namespace radial_potential {
           vH1 -= rho4pi[ir]*g.rdr[ir];
           rV[ir] = vH2 + vH1*g.r[ir];
       } // ir
-      // printf("# vH1 = %g after integration\n", vH1); // check that vH1 is small
 
       return Coulomb; // the integral 4 \pi rho(r) * r dr is needed for the Coulomb energy
   } // Hartree_potential _spherical
 
   
-  void Hartree_potential_ell(
+  void Hartree_potential(
             double vHt[], // Hartree-potential_lm(r)
             radial_grid_t const &g, // radial grid descriptor
             double const rho[],  // density_lm(r)
             int const stride, // stride between differen lm-compenents in rho and V
-            ell_QN_t const ellmax) {
+            ell_QN_t const ellmax,
+            double const qlm[], // defaults to nullptr
+            double const q0) { // defaults to zero
     
       auto const rl = new double[g.n];
       auto const rm = new double[g.n];
-      rl[0] = 0; rm[0] = 0;
-      for(int ir = 1; ir < g.n; ++ir) {
-         rl[ir] = 1; // r^{0}
-         rm[ir] = g.rinv[ir]; // r^{-1}
-      } // ir
 
       for(int ell = 0; ell <= ellmax; ++ell) { // run forward and serial
           double const f = (4*constants::pi)/(2.*ell + 1.);
 
+          if (0 == ell) {
+              rl[0] = 0; rm[0] = 0;
+              for(int ir = 1; ir < g.n; ++ir) {
+                  rl[ir] = 1; // r^{0}
+                  rm[ir] = g.rinv[ir]; // r^{-1}
+              } // ir
+          } else {
+              for(int ir = 1; ir < g.n; ++ir) {
+                  rl[ir] *= g.r[ir]; // prepare r^{\ell} for the next iteration
+                  rm[ir] *= g.rinv[ir]; // prepare r^{-1-\ell} for the next iteration
+              } // ir
+          } // 0 == ell
+
           for(int emm = -ell; emm <= ell; ++emm) {
               int const lm = solid_harmonics::lm_index(ell, emm);
 
-              double charge2 = 0;
+              double charge2 = ell ? 0 : q0;
               for(int ir = 0; ir < g.n; ++ir) {
                   charge2 += rho[lm*stride + ir]*rl[ir]*g.r2dr[ir];
                   vHt[lm*stride + ir]  = charge2*rm[ir];
               } // ir
 
-              double charge1 = 0;
+              double charge1 = qlm ? qlm[lm] : 0;
               for(int ir = g.n - 1; ir > 0; --ir) {
-                  charge1 += rho[lm*stride + ir]*rm[ir]*g.r2dr[ir];
                   vHt[lm*stride + ir] += charge1*rl[ir];
+                  charge1 += rho[lm*stride + ir]*rm[ir]*g.r2dr[ir];
                   vHt[lm*stride + ir] *= f;
               } // ir
 
           } // emm
-        
-          if (ell < ellmax) {
-              for(int ir = 1; ir < g.n; ++ir) {
-                rl[ir] *= g.r[ir]; // prepare r^{\ell} for the next iteration
-                rm[ir] *= g.rinv[ir]; // prepare r^{-1-\ell} for the next iteration
-              } // ir
-          } // not needed in the last iteration
           
       } // ell
 
@@ -99,7 +101,7 @@ namespace radial_potential {
     auto       rVH = std::vector<double>(g.n);
     auto       vHt = std::vector<double>(g.n);
     Hartree_potential(rVH.data(), g, rho.data());
-    Hartree_potential_ell(vHt.data(), g, rho.data(), 0, 0);
+    Hartree_potential(vHt.data(), g, rho.data(), 0, 0);
     double const R = g.rmax;
     auto const V0 = .50754*R*R; // small correction by 1.5%
     printf("# Rmax = %g V0 = %g \n", R, V0);

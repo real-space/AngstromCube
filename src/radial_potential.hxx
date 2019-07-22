@@ -12,6 +12,15 @@ namespace radial_potential {
       radial_grid_t const &g, // radial grid descriptor
       double const rho4pi[]);  // 4*pi*density(r)
 
+  void Hartree_potential(
+            double vHt[], // Hartree-potential_lm(r)
+            radial_grid_t const &g, // radial grid descriptor
+            double const rho[],  // density_lm(r)
+            int const stride, // stride between differen lm-compenents in rho and V
+            ell_QN_t const ellmax,
+            double const qlm[]=nullptr,
+            double const q0=0); // external boundary conditions
+
   status_t all_tests();
 
 } // namespace radial_potential

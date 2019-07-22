@@ -8,6 +8,7 @@
 
 #include "radial_grid.hxx" // create_exponential_radial_grid, destroy_radial_grid
 #include "radial_eigensolver.hxx" // shooting_method
+#include "radial_potential.hxx" // Hartree_potential
 #include "angular_grid.hxx" // transform, Lebedev_grid_size
 #include "radial_integrator.hxx" // integrate_outwards
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
@@ -431,7 +432,7 @@ extern "C" {
                     rl[ir] = 1; // start with r^0
                     rlgauss[ir] = std::exp(sig2inv*r*r);
                 } else {
-                    rl[ir] *= r; // construct r^ell
+                    rl[ir]      *= r; // construct r^ell
                     rlgauss[ir] *= r; // construct r^ell*gaussian
                 }
                 norm += rlgauss[ir] * rl[ir] * rg->r2dr[ir];
@@ -459,35 +460,8 @@ extern "C" {
   
     } // compensators
 
-    
-    void electrostatic(double pot[], int const lmax, radial_grid_t const *rg, double const rho[]) {
-        int const nr = rg->n, mr = align<2>(nr);
-        double rl[nr], rml1[nr], coeff[2*lmax + 1];
-        for(int ell = 0; ell <= lmax; ++ell) { // serial!
-            for(int ir = 0; ir < nr; ++ir) {
-                auto const r = rg->r[ir];
-                auto const ri = rg->rinv[ir];
-                if (0 == ell) {
-                    rl[ir] = 1; // start with r^0
-                    rml1[ir] = ri; // start with r^{-1}
-                } else {
-                    rl[ir] *= r; // construct r^ell
-                    rml1[ir] *= ri; // construct r^(-1-ell)
-                }
-            } // ir
-            for(int emm = -ell; emm <= ell; ++emm) {
-                int const lm = solid_harmonics::lm_index(ell, emm);
-                
-                for(int ir = 0; ir < nr; ++ir) {
-                    pot[lm*mr + ir] += coeff[lm] * rml1[ir];
-                } // ir
-            } // emm
-        } // ell
-  
-    } // compensators
-    
-    
-    void update_full_density(double const rho_tensor[]) { // density tensor rho_{lm iln jln}
+        
+    void update_full_density(double q_lm[], double const rho_tensor[]) { // density tensor rho_{lm iln jln}
         int const nlm = (1 + ellmax)*(1 + ellmax);
         int const nln = nvalencestates;
         
@@ -544,17 +518,23 @@ extern "C" {
                 aug_density[ij] = 0; // in case ellmax_compensator > ellmax
             } // ij
             add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], rho_compensator);
+            auto const vHt = new double[nlm*mr];
+            radial_potential::Hartree_potential(vHt, *rg[SMT], aug_density, mr, ellmax);
+            add_or_project_compensators<1>(q_lm, ellmax_compensator, rg[SMT], vHt);
         } // scope
 
     } // update
 
     
     void update_full_potential(double const q_lm[]) {
-//      int const nlm = (1 + ellmax)*(1 + ellmax);
+        int const nlm = (1 + ellmax)*(1 + ellmax);
         int const npt = angular_grid::Lebedev_grid_size(ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ts += (SMT - TRU)) {
             int const nr = rg[ts]->n, mr = align<2>(nr);
             // full_potential[ts][nlm*mr]; // memory layout
+
+
+
             auto const on_grid = new double[npt*mr];
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebendev-Laikov grids
@@ -570,26 +550,17 @@ extern "C" {
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
 
-            
-            
-            
-            { // scope add electrostatic boundary elements q_lm*r^\ell
-                double rl[mr];
-                for(int ir = 0; ir < nr; ++ir) {
-                    rl[ir] = 1; // init as r^0
-                } // ir
-                for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
-                    for(int emm = -ell; emm <= ell; ++emm) {
-                        int const lm = solid_harmonics::lm_index(ell, emm);
-                        for(int ir = 0; ir < nr; ++ir) {
-                            full_potential[ts][lm*mr + ir] += q_lm[lm] * rl[ir];
-                        } // ir
-                    } // emm
-                    for(int ir = 0; ir < nr; ++ir) {
-                        rl[ir] *= rg[ts]->r[ir]; // prepare r^(ell + 1) for the next iteration
-                    } // ir
-                } // ell
-            } // scope
+
+            // solve electrostatics inside the spheres
+            auto const vHt = new double[nlm*mr];
+            double const q_nucleus = (TRU == ts) ? -Z : 0; // number of protons in the nucleus
+            radial_potential::Hartree_potential(vHt, *rg[ts], full_density[ts], mr, ellmax, q_lm, q_nucleus);
+
+            for(int i = 0; i < nlm*mr; ++i) {
+                full_potential[ts][i] += vHt[i];
+            } // i
+
+            delete [] vHt;
             
         } // true and smooth
         
@@ -706,7 +677,7 @@ extern "C" {
         
     } // update
     
-    void set_pure_density_matrix(double density_matrix[], double const occ_spdf[4]=nullptr, int const echo=9) {
+    void set_pure_density_matrix(double density_matrix[], double const occ_spdf[4]=nullptr, int const echo=4) {
         double occ[8] = {0,0,0,0, 0,0,0,0}; if (occ_spdf) std::copy(occ_spdf, 4+occ_spdf, occ);
         int const nSHO = sho_tools::nSHO(numax);
         auto const radial_density_matrix = new double[nSHO*nSHO];
@@ -741,8 +712,8 @@ extern "C" {
         double density_matrix[1<<19], rho_tensor[1<<14], qlm[220];
         { double occ[] = {2,0,9,0}; set_pure_density_matrix(density_matrix, occ); }
         get_rho_tensor(rho_tensor, density_matrix);
-        update_full_density(rho_tensor);
         { std::fill(qlm, qlm + 220, 0); qlm[0] = 1; }
+        update_full_density(qlm, rho_tensor);
         update_full_potential(qlm);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update
