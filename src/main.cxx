@@ -60,6 +60,7 @@
               status += abs(stat);
           } // r
           printf("# total status = %d\n\n", status);
+          if (status > 0) printf("# Warning! At least one module test failed!\n");
       } // something has been tested
       return status;
   } // run_unit_tests
