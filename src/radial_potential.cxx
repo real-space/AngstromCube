@@ -79,7 +79,7 @@ namespace radial_potential {
 
               double charge1 = qlm ? qlm[lm] : 0;
               for(int ir = g.n - 1; ir > 0; --ir) {
-                  vHt[lm*stride + ir] += charge1*rl[ir];
+                  vHt[lm*stride + ir] += charge1*rl[ir]; // beware: it makes a difference if we put this line before the next
                   charge1 += rho[lm*stride + ir]*rm[ir]*g.r2dr[ir];
                   vHt[lm*stride + ir] *= f;
               } // ir

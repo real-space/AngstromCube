@@ -29,8 +29,6 @@
 
 namespace radial_eigensolver {
   // solves the radial eigenvalue problem of the spherical potential with the shooting method
-  using namespace radial_grid;
-  using namespace radial_integrator;
 
   status_t shooting_method(
       int const sra, // 1:scalar relativistic approximation, 0:Schroedinger equation
@@ -53,7 +51,7 @@ namespace radial_eigensolver {
       int const nno = enn - 1 - ell; // number of nodes requested
 
       int nn = 0;
-      double kink = shoot(sra, g, rV, ell, E, nn);
+      double kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
 
       int constexpr MaxIter_node_count = 999;
       int iit = 1;
@@ -61,7 +59,7 @@ namespace radial_eigensolver {
           ++iit;
           E += (nno - nn) * max_dE;
           max_dE *= 1.125; // growing exponentially
-          kink = shoot(sra, g, rV, ell, E, nn);
+          kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
 #ifdef  FULL_DEBUG
           printf("# %s: find-correct-node for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nn);
 #endif
@@ -86,7 +84,7 @@ namespace radial_eigensolver {
               ++iit;
               ene[ib] += (2*ib - 1) * mdE[ib];
               mdE[ib] *= 1.125; // growing exponentially
-              knk[ib] = shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
+              knk[ib] = radial_integrator::shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
 #ifdef  FULL_DEBUG
               printf("# %s: get-correct-kink-sign for (%s) n=%d l=%d E=%g %s, kink= %g, %d nodes\n", __func__, (ib)? "upper" : "lower", enn, ell, ene[ib]*eV, _eV, knk[ib], nnn[ib]);
 #endif
@@ -120,7 +118,7 @@ namespace radial_eigensolver {
 #ifdef  FULL_DEBUG
           printf("# %s: converge-energy for n=%d l=%d, try E= %.9f %s\n", __func__, enn, ell, E*eV, _eV);
 #endif
-          kink = shoot(sra, g, rV, ell, E, nn);
+          kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
 
           // bisection: reset either the left or the right boundary
           int const ib = (kink < 0)? 1 : 0;
@@ -140,7 +138,7 @@ namespace radial_eigensolver {
 #endif
 
       // call the shooting once more, potentially with export of rf and r2rho
-      kink = shoot(sra, g, rV, ell, E, nn, rf, r2rho);
+      kink = radial_integrator::shoot(sra, g, rV, ell, E, nn, rf, r2rho);
 
       if (converged) {
           return nn - nno; // success if the number of nodes is correct
@@ -187,7 +185,7 @@ namespace radial_eigensolver {
   
   status_t all_tests() {
     auto status = 0;
-    status += test_hydrogen_like_potential(*create_exponential_radial_grid(2610), 100);
+    status += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

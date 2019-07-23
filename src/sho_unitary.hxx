@@ -3,7 +3,7 @@
 typedef int status_t;
 
 #include <cmath> // std::abs
-#include "sho_tools.hxx" // sho_tools::
+#include "sho_tools.hxx" // sho_tools::, SHO_order_t
 
 namespace sho_unitary {
 
@@ -70,19 +70,20 @@ namespace sho_unitary {
           } // get_entry
           
           template<typename int_t>
-          status_t construct_index_table(int_t energy_ordered_index[], int const numax, int const order) {
+          status_t construct_index_table(int_t energy_ordered_index[], int const numax, 
+                                         sho_tools::SHO_order_t const order) {
               // construct a table of energy ordered indices
-              printf("# construct_index_table for order=%c%c%c\n", order >> 16, order >> 8, order);
+              printf("# construct_index_table for order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
               int ii = 0;
               switch (order) {
-                case ('z'*256+'y')*256+'x':
+                case sho_tools::order_zyx:
                   for(int z = 0; z <= numax; ++z) {
                       for(int y = 0; y <= numax - z; ++y) {
                           for(int x = 0; x < numax - z - y; ++x) {
                               energy_ordered_index[ii++] = sho_tools::nzyx_index(x, y, z);
                   }}} // x y z
                 break;
-                case ('l'*256+'m')*256+'n':
+                case sho_tools::order_lmn:
                   for(int l = 0; l <= numax; ++l) {
                       for(int m = -l; m <= l; ++m) {
                           for(int n = 0; n <= (numax - l)/2; ++n) {
@@ -90,7 +91,7 @@ namespace sho_unitary {
                   }}} // l m n
                 break;
                 default:
-                  printf("# no such case implemented: order=%c%c%c\n", order >> 16, order >> 8, order);
+                  printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
               } // switch order
               return (sho_tools::nSHO(numax) - ii); // success if 0
           } // construct_index_table
@@ -98,8 +99,8 @@ namespace sho_unitary {
           
           template<typename real_out_t>
           status_t construct_dense_matrix(real_out_t &matrix, int const matrix_stride=-1, 
-                                          int const row_order=('z'*256+'y')*256+'x',
-                                          int const col_order=('l'*256+'m')*256+'n') {
+                            sho_tools::SHO_order_t const row_order=sho_tools::order_zyx,
+                            sho_tools::SHO_order_t const col_order=sho_tools::order_lmn) {
               int const nSHO = sho_tools::nSHO(numax);
               int const stride = (matrix_stride > 0)? matrix_stride : nSHO;
               int16_t row_index[nSHO], col_index[nSHO];

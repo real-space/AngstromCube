@@ -3,7 +3,18 @@
 typedef int status_t;
 
 namespace sho_tools {
-  
+
+//   union _order_u { uint32_t i; char c[4]; };
+
+  typedef enum { // different index orderings
+      order_zyx     = 0x207a7978, // " zyx" Cartesian order best for triple loop, depends on numax
+      order_lmn     = 0x206c6d6e, // " lmn" Radial order best for Gaunt treatment, depends on numax
+      order_lnm     = 0x206c6e6d, // " lnm" Radial order best for radial basis functions, depends on numax
+      order_nlnm    = 0x6e6c6e6d, // "nlnm" energy-ordered Radial
+      order_nzyx    = 0x6e7a7978, // "nzyx" energy-ordered Cartesian
+      order_unknown = 0x3f3f3f3f  // "????" error flag
+  } SHO_order_t;
+ 
 
   // number of all 3D SHO states up to numax >= 0
   inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
@@ -94,6 +105,17 @@ namespace sho_tools {
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
+
+  inline status_t test_order_enum(int echo=4) {
+      status_t nerrors = 0;
+      SHO_order_t const ord[6] = {order_zyx, order_lmn, order_lnm, order_nlnm, order_nzyx, order_unknown};
+      for(int io = 0; io < 6; ++io) {
+          SHO_order_t const oi = ord[io];
+          if (echo > 3) printf("# %s: SHO_order_t %c%c%c%c = 0x%8x = %10u\n", __func__, oi>>24, oi>>16, oi>>8, oi, oi, oi);
+      } // io
+      if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
+      return nerrors;
+  } // test_order_enum
 
   inline status_t test_radial_indices(int echo=4) {
       status_t nerrors = 0;
@@ -212,6 +234,7 @@ namespace sho_tools {
 
   inline status_t all_tests() {
     auto status = 0;
+    status += test_order_enum();
     status += test_radial_indices();
     status += test_Cartesian_indices();
     status += test_energy_ordered_indices();

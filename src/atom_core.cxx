@@ -8,7 +8,7 @@
 #include "atom_core.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // create_exponential_radial_grid
+#include "radial_grid.hxx" // create_exponential_radial_grid, dot_product<real_t>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV
 #include "radial_potential.hxx" // Hartree_potential
@@ -39,7 +39,6 @@ typedef int status_t;
 
 
 namespace atom_core {
-  using namespace radial_grid;
 
   double constexpr C_PI = 3.14159265358979323846; // pi
   
@@ -84,21 +83,12 @@ namespace atom_core {
   } // rad_pot
   
   
-  
   char ellchar(ell_QN_t const ell) {
       char constexpr special_ellchars[] = "spd";
       if (ell < 0) return '?';
       if (ell < 3) return special_ellchars[ell];
       return 99 + ell; // "fghijk ..."
   } // ellchar
-
-  double dot_product(int const n, double const bra[], double const ket[]) {
-      double d = 0;
-      for(int i = 0; i < n; ++i) {
-          d += bra[i]*ket[i];
-      } // i
-      return d;
-  } // dot_product
 
     
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
@@ -251,7 +241,7 @@ namespace atom_core {
                               printf("# %s  Z=%g  %d%c E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV);
                           } // echo
                           // add orbital density
-                          double const q = dot_product(g.n, r2rho, g.dr);
+                          double const q = radial_grid::dot_product(g.n, r2rho, g.dr);
                           assert(q > 0);
                           double const f = orb[i].occ/q;
                           for(int ir = 0; ir < g.n; ++ir) {
@@ -276,8 +266,8 @@ namespace atom_core {
                   for(int ir = 0; ir < g.n; ++ir) {
                       rho4pi[ir] = r2rho4pi[ir]*g.rinv[ir]*g.rinv[ir];
                   } // ir
-                  double const q = dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
-                  double const qq = dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
+                  double const q  = radial_grid::dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
+                  double const qq = radial_grid::dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
                   if (std::abs(q - Z) > .1 && echo > 0) {
                       printf("# %s  Z=%g  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, Z, icyc, q, qq);
                   } // not charge neutral
@@ -409,10 +399,10 @@ namespace atom_core {
 
   status_t all_tests() {
     auto status = 0;
-//  status += test_initial_density(*create_exponential_radial_grid(512));
+//  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
     // for(int Z = 1; Z < 120; ++Z) {
     for(int Z = 29; Z <= 29; ++Z) {
-        status += test_core_solver(*create_exponential_radial_grid(250*std::sqrt(Z + 9.)+.5), Z);
+        status += test_core_solver(*radial_grid::create_exponential_radial_grid(250*std::sqrt(Z + 9.)+.5), Z);
     } // Z
     return status;
   } // all_tests

@@ -15,7 +15,7 @@ namespace atom_core {
 
   void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z=0, double *energies=nullptr);
   
-  double dot_product(int const n, double const bra[], double const ket[]);
+//   double dot_product(int const n, double const bra[], double const ket[]); // moved to radial_grid.hxx
   
   status_t all_tests();
 

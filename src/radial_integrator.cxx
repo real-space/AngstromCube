@@ -36,7 +36,6 @@ typedef int status_t;
 namespace radial_integrator {
   // integrates the radial SRA equation inwards and outwards,
   // accepts Z_effective(r) instead of a spherical potential V(r) or r*V(r)
-  using namespace radial_grid;
 
   double relativistic_power_series(float const Z, ell_QN_t const ell, double const V0mE, double ps[][2]) {
     double constexpr c0 = 137.0359895; // speed of light
@@ -570,9 +569,9 @@ int integrate_outwards( // return the number of nodes
 
   status_t all_tests() {
     auto status = 0;
-//  status += test_hydrogen_atom(*create_exponential_radial_grid(256), 1);
-//  status += test_hydrogen_wave_functions(*create_exponential_radial_grid(2610), 1);
-    status += test_Bessel_functions(*create_exponential_radial_grid(512));
+//  status += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), 1);
+//  status += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), 1);
+    status += test_Bessel_functions(*radial_grid::create_exponential_radial_grid(512));
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
