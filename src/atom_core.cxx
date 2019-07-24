@@ -121,22 +121,22 @@ namespace atom_core {
       char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
       if (echo > 3) printf("# %s  Z=%g  try to read from file %s\n",  __func__, Z, filename);
       std::ifstream infile(filename);
-      int ngr = 0, ngu = 0; // number of radial grif points read and used
-      if (nullptr != infile) {
+      int ngr = 0, ngu = 0; // number of radial grid points read and used
+      if (infile.is_open()) {
           double r_min = 9e9, r_max = - 9e9;
           int ir = 0;
-          double r, Ze, r_prev=0, Ze_prev=-Z;
+          double r, Ze, r_prev=0, Ze_prev = Z*factor;
           while (infile >> r >> Ze) {
               ++ngr;
               if (r >= 0) {
                   r_min = std::min(r, r_min);
                   r_max = std::max(r, r_max);
-                  if (r <= g.rmax) {
+                  if (r <= g.rmax + 1e-6) {
                       full_debug(printf("# %s  r=%g Zeff=%g\n",  __func__, r, Ze));
+                      Ze *= factor;
                       while ((g.r[ir] < r) && (ir < g.n)) {
                         // interpolate
                         Zeff[ir] = Ze_prev + (Ze - Ze_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
-                        Zeff[ir] *= factor;
                         ++ir;
                       } // while
                       ++ngu;
@@ -166,7 +166,7 @@ namespace atom_core {
       char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
       if (echo > 3) printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
       std::ofstream outfile(filename);
-      if (nullptr != outfile) {
+      if (outfile.is_open()) {
           outfile << std::setprecision(15);
           for(int ir = 0; ir < g.n; ++ir) {
               outfile << g.r[ir] << " " << Zeff[ir]*factor << "\n";
@@ -440,10 +440,10 @@ namespace atom_core {
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
-    for(int Z = 0; Z < 120; ++Z) {
+    // for(int Z = 0; Z < 120; ++Z) {
 //     for(int Z = 29; Z <= 29; ++Z) {
-//     for(int Z = 79; Z <= 79; ++Z) {
-        status += test_core_solver(*radial_grid::create_default_radial_grid(Z));
+    for(int Z = 79; Z <= 79; ++Z) {
+        status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
     } // Z
     return status;
   } // all_tests
