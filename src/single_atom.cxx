@@ -196,7 +196,7 @@ extern "C" {
                         core_state[ics].energy = -.5*pow2(Z/enn); // init with hydrogen like energy levels
                         // warning: this memory is not freed
                         core_state[ics].wave[TRU] = new double[nrt]; // get memory for the (true) radial function
-                        core_state[ics].nrn[TRU] = enn - ell; // number of radial nodes
+                        core_state[ics].nrn[TRU] = enn - ell - 1; // number of radial nodes
                         core_state[ics].enn = enn;
                         core_state[ics].ell = ell;
                         core_state[ics].emm = emm_Degenerate;
@@ -228,7 +228,7 @@ extern "C" {
                     // warning: this memory is not freed
                     valence_state[iln].wave[TRU] = new double[nrt]; // get memory for the true radial function
                     valence_state[iln].wave[SMT] = new double[nrs]; // get memory for the smooth radial function
-                    valence_state[iln].nrn[TRU] = enn - ell; // number of radial nodes
+                    valence_state[iln].nrn[TRU] = enn - ell - 1; // number of radial nodes
                     valence_state[iln].nrn[SMT] = nrn;
                     valence_state[iln].occupation = 0;
                     valence_state[iln].enn = enn;
@@ -282,10 +282,12 @@ extern "C" {
         if (1) { // manipulate:
             for(int ell = 0; ell < 3; ell += 2) { // s- and d-states
                 int const enn = std::max(ell + 1, enn_core_max[ell]); // take the highest-state out of the core
-                int ics = 0; while((core_state[ics].enn != enn) || (core_state[ics].ell != ell)) ++ics; 
-                printf("\n# Warning: manipulate: remove occupation of the %d%c-core state (#%d) and occupy %c-valence state instead!\n\n", 
-                    enn, ellchar[ell], ics, ellchar[ell]);
-                core_state[ics].occupation = 0;
+                int ics = 0; while((core_state[ics].enn != enn) || (core_state[ics].ell != ell)) ++ics;
+                int ivs = 0; while((valence_state[ivs].enn != enn) || (valence_state[ivs].ell != ell)) ++ivs; 
+                printf("\n# Warning: manipulate: remove occupation of the %d%c-core state (#%d) and occupy the"
+                  " %d%c-valence state (#%d) instead!\n\n", enn, ellchar[ell], ics, enn, ellchar[ell], ivs);
+                valence_state[ivs].occupation = core_state[ics].occupation; // transfer
+                core_state[ics].occupation = 0; // remove
             } // ell
         } // manipulation
         
@@ -301,8 +303,11 @@ extern "C" {
             ncore += core_state[ics].occupation;
         } // ics
         atom_core::initial_density(core_density[TRU], *rg[TRU], ncore, 0.0);
+        for(int ir = 0; ir < rg[TRU]->n; ++ir) {
+            core_density[TRU][ir] *= pow2(rg[TRU]->rinv[ir]); // initial_density produces r^2*rho
+        } // ir
         
-        int const maxit_scf = 133;
+        int const maxit_scf = 33;
         for(int scf = 0; scf < maxit_scf; ++scf) {
 //          atom_core::rad_pot(potential[TRU], *rg[TRU], core_density[TRU], Z); // construct the potential only from the core density
             update((maxit_scf - 999 <= scf)*9); // switch full echo on in the last iterations
@@ -350,7 +355,6 @@ extern "C" {
             auto &cs = core_state[ics]; // abbreviate
             int constexpr SRA = 1;
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho);
-            if (echo > 1) printf("# core    %2d%c%6.1f E=%16.6f %s\n", cs.enn, ellchar[cs.ell], cs.occupation, cs.energy*eV,_eV);
             auto const norm = radial_grid::dot_product(nr, r2rho, rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
@@ -369,8 +373,12 @@ extern "C" {
                 stats[4] += rho_wf*r_inv*dV; // Coulomb integral without Z
             } // ir
 //          if (echo > 1) printf("# core    %2d%c %g %g %g %g %g\n", cs.enn, ellchar[cs.ell], stats[0], stats[1], stats[2], stats[3], stats[4]);
-            if (echo > 1) printf("# core    %2d%c <r>=%g rms=%g %s <r^-1>=%g %s\n", 
-              cs.enn, ellchar[cs.ell], stats[2]/stats[1], std::sqrt(stats[3]/stats[1]), "Bohr", stats[4]/stats[1]*eV,_eV);
+            if (echo > 1) {
+                printf("# core    %2d%c%6.1f E=%16.6f %s", cs.enn, ellchar[cs.ell], cs.occupation, cs.energy*eV,_eV);
+                if (true) printf("  <r>=%g rms=%g %s <r^-1>=%g %s", stats[2]/stats[1], 
+                              std::sqrt(stats[3]/stats[1]), "Bohr", stats[4]/stats[1]*eV,_eV);
+                printf("\n");
+            } // echo
         } // ics
         
         // report integrals
@@ -999,10 +1007,18 @@ extern "C" {
         update_valence_states(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
         double density_matrix[1<<19], rho_tensor[1<<14], qlm[220];
-        { float occ[] = {2,0,9,0}; set_pure_density_matrix(density_matrix, occ); }
-//         { float occ[] = {0,0,9,0}; set_pure_density_matrix(density_matrix, occ); }
-//         { float occ[] = {2,0,0,0}; set_pure_density_matrix(density_matrix, occ); }
-//         { float occ[] = {0,0,0,0}; set_pure_density_matrix(density_matrix, occ); }
+        {   
+            float occ[] = {0,0,0,0};
+            for(int ivs = 0; ivs < nvalencestates; ++ivs) {
+                int const ell = valence_state[ivs].ell;
+                if ((0 == valence_state[ivs].nrn[SMT]) && (ell < 4)) {
+                    occ[ell] = valence_state[ivs].occupation;
+                    printf("# Set density matrix to be a pure %d%c-state with occupation %.3f\n", 
+                        valence_state[ivs].enn, ellchar[ell], occ[ell]);
+                }
+            } // ivs
+            set_pure_density_matrix(density_matrix, occ);
+        }
         get_rho_tensor(rho_tensor, density_matrix);
         { std::fill(qlm, qlm + 220, 0); qlm[0] = 1; }
         update_full_density(qlm, rho_tensor);
