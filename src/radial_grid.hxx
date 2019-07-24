@@ -1,13 +1,19 @@
 #pragma once
 
+#include <cmath> // std::sqrt
+
 #include "radial_grid.h" // radial_grid_t
 
 namespace radial_grid {
 
+  
   radial_grid_t* create_exponential_radial_grid( // returns a pointer to a new radial grid descriptor
       int const n, // number of grid points
       float const r=9.45, // [optional] largest radius
       float const a=.015); // [optional] anisotropy parameter
+  
+  inline radial_grid_t* create_default_radial_grid(float const Z_nucleons)
+    { return create_exponential_radial_grid(250*std::sqrt(Z_nucleus + 9.)+.5); }
 
   radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min=1e-3);
 

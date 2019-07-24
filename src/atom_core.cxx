@@ -2,13 +2,14 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cmath> // sqrt, pow, exp, fabs, sqrt
-#include <fstream> // ifstream
+#include <fstream> // ifstream, ofstream
 #include <algorithm> // min, max
+#include <iomanip> // setprecision
 
 #include "atom_core.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // create_exponential_radial_grid, dot_product<real_t>
+#include "radial_grid.hxx" // create_default_radial_grid, dot_product<real_t>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV
 #include "radial_potential.hxx" // Hartree_potential
@@ -112,6 +113,71 @@ namespace atom_core {
   } // initial_density
   
   
+  
+  status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, float const Z, 
+          char const name[], float const factor, int const echo) {
+      status_t stat = 0;
+      char const path[] = "pot/"; // ToDo: should be an external argument
+      char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
+      if (echo > 3) printf("# %s  Z=%g  try to read from file %s\n",  __func__, Z, filename);
+      std::ifstream infile(filename);
+      int ngr = 0, ngu = 0; // number of radial grif points read and used
+      if (nullptr != infile) {
+          double r_min = 9e9, r_max = - 9e9;
+          int ir = 0;
+          double r, Ze, r_prev=0, Ze_prev=-Z;
+          while (infile >> r >> Ze) {
+              ++ngr;
+              if (r >= 0) {
+                  r_min = std::min(r, r_min);
+                  r_max = std::max(r, r_max);
+                  if (r <= g.rmax) {
+                      full_debug(printf("# %s  r=%g Zeff=%g\n",  __func__, r, Ze));
+                      while ((g.r[ir] < r) && (ir < g.n)) {
+                        // interpolate
+                        Zeff[ir] = Ze_prev + (Ze - Ze_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
+                        Zeff[ir] *= factor;
+                        ++ir;
+                      } // while
+                      ++ngu;
+                  } // r <= rmax
+              } // r >= 0
+              r_prev = r; Ze_prev = Ze;
+              stat = (r_max < r_min);
+          } // while
+      } else {
+          if (echo > 1) printf("# %s  Z=%g  failed to open file %s\n",  __func__, Z, filename);
+          stat = -1;
+      }
+      
+//       for(int ir = 1; ir < g.n; ++ir) {
+//           Zeff[ir] = std::max(Zeff[ir], Zeff[ir - 1]);
+//       } // make monotoneously falling function
+
+      if (echo > 3) printf("# %s  Z=%g  used %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
+      return stat;
+  } // read_Zeff_from_file
+
+  status_t store_Zeff_to_file(double const Zeff[], radial_grid_t const &g, float const Z, 
+      char const name[]="Zeff", float const factor=1, int const echo=9)
+  {
+    
+      char const path[] = "pot/"; // ToDo: should be an external argument
+      char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
+      if (echo > 3) printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
+      std::ofstream outfile(filename);
+      if (nullptr != outfile) {
+          outfile << std::setprecision(15);
+          for(int ir = 0; ir < g.n; ++ir) {
+              outfile << g.r[ir] << " " << Zeff[ir]*factor << "\n";
+          } // write to file
+          return 0;
+      } else {
+          if (echo > 1) printf("# %s Z=%g failed to open file %s for writing\n",  __func__, Z, filename);
+      }
+      return -1;
+  } // store_Zeff_to_file
+  
   status_t scf_atom(radial_grid_t const &g, // radial grid descriptor
                float const Z, // atomic number
                int const echo) { // log output level
@@ -173,38 +239,9 @@ namespace atom_core {
 
       int icyc = 0;
       { // start scope
-          bool loading_failed = true;
-          // ToDo: try to load rV_old from a file
-          char const path[] = "pot/"; // ToDo: should be an external argument
-          char filename[99]; sprintf(filename, "%s/rV.%03d", path, (int)Z);
-          {
-              if (echo > 3) printf("# %s  Z=%g  try to read from file %s\n",  __func__, Z, filename);
-              std::ifstream infile(filename);
-              double r_min = 9e9, r_max = - 9e9;
-              int ir = 1;
-              double r, rV, r_prev=0, rV_prev=-Z;
-              while (infile >> r >> rV) {
-                  if (r >= 0) { 
-                      r_min = std::min(r, r_min);
-                      r_max = std::max(r, r_max);
-                      if (r <= g.rmax) {
-                          full_debug(printf("# %s  r=%g rV=%g\n",  __func__, r, rV));
-                          while ((g.r[ir] < r) && (ir < g.n - 2)) {
-                            // interpolate
-                            rV_old[ir] = rV_prev + (rV - rV_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
-                            ++ir;
-                          } // while
-                      } // r <= rmax
-                  } // r >= 0
-                  r_prev = r; rV_prev = rV;
-              } // input
-              loading_failed = (r_max < r_min);
-          }
-          for(int ir = 1; ir < g.n; ++ir) {
-              rV_old[ir] = std::max(rV_old[ir], rV_old[ir - 1]);
-          } // monotoneous
+          bool const loading_failed = (0 != read_Zeff_from_file(rV_old, g, Z, "Zeff", -1));
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old, g.r));
-  
+
           if (loading_failed) {
               // use guess density if loading failed
               auto const q = initial_density(r2rho4pi, g, Z);
@@ -338,6 +375,10 @@ namespace atom_core {
           } else {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n", 
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
+              
+//            store_Zeff_to_file(rV_old, g, Z, "rV", 1);
+              store_Zeff_to_file(rV_old, g, Z, "Zeff", -1);
+
               if (echo > 1) {
                   for(int i = 0; i <= imax; ++i) {
                       printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
@@ -399,10 +440,10 @@ namespace atom_core {
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
-    // for(int Z = 1; Z < 120; ++Z) {
+    for(int Z = 0; Z < 120; ++Z) {
 //     for(int Z = 29; Z <= 29; ++Z) {
-    for(int Z = 79; Z <= 79; ++Z) {
-        status += test_core_solver(*radial_grid::create_exponential_radial_grid(250*std::sqrt(Z + 9.)+.5), Z);
+//     for(int Z = 79; Z <= 79; ++Z) {
+        status += test_core_solver(*radial_grid::create_default_radial_grid(Z));
     } // Z
     return status;
   } // all_tests

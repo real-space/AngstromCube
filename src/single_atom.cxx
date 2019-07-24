@@ -6,7 +6,7 @@
 
 #include "single_atom.hxx"
 
-#include "radial_grid.hxx" // create_exponential_radial_grid, destroy_radial_grid, dot_product
+#include "radial_grid.hxx" // create_default_radial_grid, destroy_radial_grid, dot_product
 #include "radial_eigensolver.hxx" // shooting_method
 #include "radial_potential.hxx" // Hartree_potential
 #include "angular_grid.hxx" // transform, Lebedev_grid_size
@@ -161,7 +161,7 @@ extern "C" {
         id = -1; // unset
         Z = Z_nucleons; // convert to float
         if (echo > 0) printf("# LiveAtom with %.1f nucleons\n", Z);
-        rg[TRU] = radial_grid::create_exponential_radial_grid(250*std::sqrt(Z + 9.));
+        rg[TRU] = radial_grid::create_default_radial_grid(Z);
 //      rg[SMT] = rg[TRU]; // flat copy, alternatively, we could create a radial grid descriptor which has less points at the origin:
         rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU]);
         int const nrt = align<2>(rg[TRU]->n),
@@ -184,7 +184,22 @@ extern "C" {
         } // ell
         if (echo > 0) printf("\n");
 
-        int enn_core_max[10] = {0,1,2,3,4,5,6,7,8,9};
+        
+        auto const guess_rpotential = new double[nrt];
+//         auto const alpha_guess = (.55 - .001*Z)*std::sqrt(Z);
+//         for(int ir = 0; ir < nrt; ++ir) {
+//             double const rV = -Z*std::exp(-alpha_guess*rg[TRU]->r[ir]);
+//             guess_rpotential[ir] = rV;
+//         } // ir
+        atom_core::read_Zeff_from_file(guess_rpotential, *rg[TRU], Z, "Zeff", -1);
+        for(int ir = rg[TRU]->n - 3; ir < rg[TRU]->n; ++ir) {
+            guess_rpotential[ir] = guess_rpotential[rg[TRU]->n - 4];
+        }
+        for(int ir = 0; ir < rg[TRU]->n; ++ir) {
+            printf("%.15g %.15g\n", rg[TRU]->r[ir], -guess_rpotential[ir]);
+        } // ir
+
+        int num_core_ell[4] = {0,0,0,0};
         ncorestates = 20;
         core_state = new core_level_t[ncorestates];
         {   int ics = 0, jcs = -1; float ne = Z;
@@ -193,9 +208,13 @@ extern "C" {
                 for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
                     ++enn; // principal quantum number
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
-                        core_state[ics].energy = -.5*pow2(Z/enn); // init with hydrogen like energy levels
-                        // warning: this memory is not freed
+                        double E = -.5*pow2(Z/enn); // init with hydrogen like energy levels
+                        E -= 0.25; // little lower
                         core_state[ics].wave[TRU] = new double[nrt]; // get memory for the (true) radial function
+                        radial_eigensolver::shooting_method(1, *rg[TRU], guess_rpotential, enn, ell, E, core_state[ics].wave[TRU]);
+                        core_state[ics].energy = E;
+                        
+                        // warning: this memory is not freed
                         core_state[ics].nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         core_state[ics].enn = enn;
                         core_state[ics].ell = ell;
@@ -206,12 +225,12 @@ extern "C" {
                         float const occ = std::min(std::max(0.f, ne), max_occ);
                         core_state[ics].occupation = occ;
                         if (occ > 0) {
-                            if (max_occ == occ) {
-                                // this shell is fully occupied so it might be a core state
-                                enn_core_max[ell] = std::max(enn_core_max[ell], enn);
-                            } // max_occ == occ
+                            if (ell < 4) ++num_core_ell[ell];
+//                             if (max_occ == occ) {
+//                                 // this shell is fully occupied so it might be a core state
+//                             } // max_occ == occ
                             jcs = ics;
-                            if (echo > 0) printf("# core    %2d%c%6.1f\n", enn, ellchar[ell], occ);
+                            if (echo > 0) printf("# core    %2d%c%6.1f E = %g\n", enn, ellchar[ell], occ, E);
                         } // occupied
                         ne -= max_occ;
                         
@@ -222,9 +241,7 @@ extern "C" {
             ncorestates = jcs + 1; // correct the number of core states to those occupied
         } // core states
         
-//         ++enn_core_max[1]; // fix p-states
-//         ++enn_core_max[2]; // fix d-states
-//         ++enn_core_max[3]; // fix f-states
+        delete[] guess_rpotential;
         
         nvalencestates = (numax*(numax + 4) + 4)/4;
         valence_state = new valence_level_t[nvalencestates];
@@ -232,7 +249,7 @@ extern "C" {
             if (echo > 0) printf("# valence "); // no new line, list follows
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                    int const enn = std::max(ell + 1, nrn + enn_core_max[ell]);
+                    int const enn = ell + 1 + nrn; // std::max(ell + 1, 1 + nrn + (ell < 4)?num_core_ell[ell]:0);
                     if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     valence_state[iln].energy = -.5*pow2(Z/enn); // init with hydrogen like energy levels
                     // warning: this memory is not freed
@@ -271,7 +288,7 @@ extern "C" {
         int const nlm_cmp = pow2(1 + ellmax_compensator);
         rho_compensator = new double[nlm_cmp]; // get memory
         charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
-        zero_potential   = new double[nrs]; // get memory
+        zero_potential  = new double[nrs]; // get memory
         kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
         
         for(int ir = 0; ir < nrs; ++ir) zero_potential[ir] = 0; // clear
@@ -287,6 +304,10 @@ extern "C" {
             auto const stat = u->construct_dense_matrix(unitary_zyx_lmn, numax);
             assert(0 == stat);
         } // scope to fill unitary
+        
+        
+        return; // early return if we only want to test the occupation configuration
+ 
 
         int const mlm = pow2(1 + numax);
         ln_index_list.resize(nSHO);
@@ -296,7 +317,7 @@ extern "C" {
         
         if (0) { // manipulate:
             for(int ell = 0; ell < 3; ell += 2) { // s- and d-states
-                int const enn = std::max(ell + 1, enn_core_max[ell]); // take the highest-state out of the core
+                int const enn = 0; // std::max(ell + 1, enn_core_max[ell]); // take the highest-state out of the core
                 int ics = 0; while((core_state[ics].enn != enn) || (core_state[ics].ell != ell)) ++ics;
                 int ivs = 0; while((valence_state[ivs].enn != enn) || (valence_state[ivs].ell != ell)) ++ivs; 
                 printf("\n# Warning: manipulate: transfer occupation of the %d%c-core state(#%d) to the"
@@ -1111,8 +1132,8 @@ namespace single_atom {
 //     { int const Z = 1; // 29:hydrogen
 //     { int const Z = 2; // 29:helium
 //     { int const Z = 29; // 29:copper
-    { int const Z = 47; // 47:silver
-//     { int const Z = 79; // 79:gold
+//     { int const Z = 47; // 47:silver
+    { int const Z = 79; // 79:gold
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z);
     } // Z

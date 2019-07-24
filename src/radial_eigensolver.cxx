@@ -63,6 +63,7 @@ namespace radial_eigensolver {
 #ifdef  FULL_DEBUG
           printf("# %s: find-correct-node for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nn);
 #endif
+          if (E < -1e5) return -99; // something went wrong
       } // while
 
 #ifdef DEBUG
@@ -92,6 +93,7 @@ namespace radial_eigensolver {
               if (nno != nnn[ib])
                   printf("# %s: Warning for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nnn[ib]);
 #endif
+              if (ene[ib] < -1e5) return -98; // something went wrong
           } // while
 #ifdef  DEBUG
           itn[ib] = iit;
