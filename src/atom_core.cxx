@@ -154,7 +154,7 @@ namespace atom_core {
 //           Zeff[ir] = std::max(Zeff[ir], Zeff[ir - 1]);
 //       } // make monotoneously falling function
 
-      if (echo > 3) printf("# %s  Z=%g  used %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
+      if (echo > 3) printf("# %s  Z=%g  use %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
       return stat;
   } // read_Zeff_from_file
 
