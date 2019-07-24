@@ -1,10 +1,11 @@
 #pragma once
 
 #include <cmath> // std::sqrt
+#include "constants.hxx" // constants::pi
 
 namespace solid_harmonics {
 
-  double constexpr pi = 3.14159265358979323846;
+  double constexpr pi = constants::pi;
   double constexpr Y00inv = 3.544907701811032, // == sqrt(4*pi)
                    Y00 = 1./Y00inv;
 

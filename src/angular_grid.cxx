@@ -1779,7 +1779,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
       auto yy   = new double[npt][M0];
       auto xyzw = new double[npt][4];
       create_Lebedev_grid(2*lmax, xyzw, echo);
-      double const pi = 3.14159265358979323846;
+      double const pi = constants::pi;
       for(int ipt = 0; ipt < npt; ++ipt) {
           solid_harmonics::Xlm(yy[ipt], 2*lmax, xyzw[ipt]);
       } // ipt

@@ -191,8 +191,6 @@ extern "C" {
                 for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
                     ++enn; // principal quantum number
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
-                        float const max_occ = 2*(jj + 1);
-                        float const occ = std::min(std::max(0.f, ne), 2.f*(jj + 1));
                         core_state[ics].energy = -.5*pow2(Z/enn); // init with hydrogen like energy levels
                         // warning: this memory is not freed
                         core_state[ics].wave[TRU] = new double[nrt]; // get memory for the (true) radial function
@@ -201,14 +199,22 @@ extern "C" {
                         core_state[ics].ell = ell;
                         core_state[ics].emm = emm_Degenerate;
                         core_state[ics].spin = spin_Degenerate;
+                        
+                        float const max_occ = 2*(jj + 1);
+                        float const occ = std::min(std::max(0.f, ne), max_occ);
                         core_state[ics].occupation = occ;
-                        if (max_occ == occ) {
-                            // this shell is fully occupied so it might be a core state
-                            if (echo > 0) printf("# core    %2d%c%6.1f \n", enn, ellchar[ell], occ);
-                            enn_core_max[ell] = std::max(enn_core_max[ell], enn); 
-                        } // max_occ == occ
-                        if (occ > 0) jcs = ics;
+                        if (occ > 0) {
+                            if (max_occ == occ) {
+                                // this shell is fully occupied so it might be a core state
+                                enn_core_max[ell] = std::max(enn_core_max[ell], enn + 1);
+                            } else {
+                                enn_core_max[ell] = std::max(enn_core_max[ell], enn);
+                            } // max_occ == occ
+                            jcs = ics;
+                            if (echo > 0) printf("# core    %2d%c%6.1f\n", enn, ellchar[ell], occ);
+                        } // occupied
                         ne -= max_occ;
+                        
                         ++ics;
                     } // jj
                 } // ell
@@ -284,8 +290,8 @@ extern "C" {
                 int const enn = std::max(ell + 1, enn_core_max[ell]); // take the highest-state out of the core
                 int ics = 0; while((core_state[ics].enn != enn) || (core_state[ics].ell != ell)) ++ics;
                 int ivs = 0; while((valence_state[ivs].enn != enn) || (valence_state[ivs].ell != ell)) ++ivs; 
-                printf("\n# Warning: manipulate: remove occupation of the %d%c-core state (#%d) and occupy the"
-                  " %d%c-valence state (#%d) instead!\n\n", enn, ellchar[ell], ics, enn, ellchar[ell], ivs);
+                printf("\n# Warning: manipulate: transfer occupation of the %d%c-core state(#%d) to the"
+                  " %d%c-valence state(#%d)!\n\n", enn, ellchar[ell], ics, enn, ellchar[ell], ivs);
                 valence_state[ivs].occupation = core_state[ics].occupation; // transfer
                 core_state[ics].occupation = 0; // remove
             } // ell
@@ -294,9 +300,6 @@ extern "C" {
         // test setup: do a spherical calculation
 //      for(int ir = 0; ir < nrt; ++ir) { potential[TRU][ir] = -Z; } // unscreened hydrogen-type potential
         atom_core::initial_density(core_density[TRU], *rg[TRU], Z, 0.0);
-        for(int ir = 0; ir < rg[TRU]->n; ++ir) {
-            core_density[TRU][ir] *= pow2(rg[TRU]->rinv[ir]); // initial_density produces r^2*rho
-        } // ir
         atom_core::rad_pot(potential[TRU], *rg[TRU], core_density[TRU], Z); // construct the true spherical potential only from the core density
         double ncore = 0;
         for(int ics = 0; ics < ncorestates; ++ics) {
@@ -316,14 +319,14 @@ extern "C" {
         // now show the smooth and true potential
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
         if (true && (echo > 0)) {
-            printf("\n# spherical part of smooth and true potential: r*V(r), zero_potential(r)\n");
+            printf("\n# spherical parts: r*V_tru(r), r*V_smt(r), zero_potential(r):\n");
             for(int ir = 1; ir < rg[SMT]->n; ++ir) {
                 auto const r = rg[SMT]->r[ir];
                 printf("%g %g %g %g\n", r
-//                         , r*full_potential[SMT][0 + ir]*Y00
 //                         , r*full_potential[TRU][0 + ir + nr_diff]*Y00
-                        , potential[SMT][ir]
+//                         , r*full_potential[SMT][0 + ir]*Y00
                         , potential[TRU][ir + nr_diff]
+                        , potential[SMT][ir]
                         , zero_potential[ir]*Y00
 //                      , core_state[5].wave[TRU][ir + nr_diff] // 4s-core state
 //                      , valence_state[0].wave[TRU][ir + nr_diff] // 4s-valence state in Cu
@@ -342,6 +345,25 @@ extern "C" {
         delete[] valence_state;
     } // destructor
 
+    void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[], 
+            int const enn, int const ell, float const occ, double const energy, char const csv='c') {
+        if (echo < 1) return;
+        double stats[5] = {0,0,0,0,0};
+        for(int ir = 0; ir < rg->n; ++ir) {
+            double const rho_wf = pow2(wave[ir]);
+            double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv = rg->rinv[ir];
+            stats[0] += dV;
+            stats[1] += rho_wf*dV;
+            stats[2] += rho_wf*r*dV;
+            stats[3] += rho_wf*r*r*dV;
+            stats[4] += rho_wf*r_inv*dV; // Coulomb integral without Z
+        } // ir
+        //  printf("# core    %2d%c %g %g %g %g %g\n", cs.enn, ellchar[cs.ell], stats[0], stats[1], stats[2], stats[3], stats[4]);
+        printf("# %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s\n", 
+               ('c' == csv)?"core   ":"valence", enn, ellchar[ell], occ, energy*eV,_eV, stats[2]/stats[1], 
+               std::sqrt(std::max(0., stats[3]/stats[1])), "Bohr", stats[4]/stats[1]*eV,_eV);
+    } // show_state_analysis
+    
     void update_core_states(float const mixing, int echo=0) {
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
@@ -359,26 +381,12 @@ extern "C" {
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
             nelectrons += cs.occupation;
-            double stats[5] = {0,0,0,0,0};
             for(int ir = 0; ir < nr; ++ir) {
                 cs.wave[TRU][ir] *= rg[TRU]->rinv[ir]; // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
                 cs.wave[TRU][ir] *= norm_factor; // normalize the core level wave function to one
                 new_r2core_density[ir] += scal*r2rho[ir];
-                double const rho_wf = pow2(cs.wave[TRU][ir]);
-                double const dV = rg[TRU]->r2dr[ir], r = rg[TRU]->r[ir], r_inv = rg[TRU]->rinv[ir];
-                stats[0] += dV;
-                stats[1] += rho_wf*dV;
-                stats[2] += rho_wf*r*dV;
-                stats[3] += rho_wf*r*r*dV;
-                stats[4] += rho_wf*r_inv*dV; // Coulomb integral without Z
             } // ir
-//          if (echo > 1) printf("# core    %2d%c %g %g %g %g %g\n", cs.enn, ellchar[cs.ell], stats[0], stats[1], stats[2], stats[3], stats[4]);
-            if (echo > 1) {
-                printf("# core    %2d%c%6.1f E=%16.6f %s", cs.enn, ellchar[cs.ell], cs.occupation, cs.energy*eV,_eV);
-                if (true) printf("  <r>=%g rms=%g %s <r^-1>=%g %s", stats[2]/stats[1], 
-                              std::sqrt(stats[3]/stats[1]), "Bohr", stats[4]/stats[1]*eV,_eV);
-                printf("\n");
-            } // echo
+            show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy);
         } // ics
         
         // report integrals
@@ -448,6 +456,9 @@ extern "C" {
                 vs.wave[TRU][ir] *= rg[TRU]->rinv[ir]; // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
                 vs.wave[TRU][ir] *= norm_factor;
             } // ir
+//          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
+            show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, vs.ell, vs.occupation, vs.energy, 'v');
+            
             int const ell = vs.ell;
             int const nr_diff = rg[TRU]->n - rg[SMT]->n;
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -463,7 +474,6 @@ extern "C" {
             } // ir
             
             // ToDo: solve for partial waves at the same energy, match and establish dual orthgonality with SHO projectors
-            if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
         } // iln
     } // update
 
@@ -1056,7 +1066,8 @@ namespace single_atom {
 
   int test(int echo=9) {
     if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-    for(int Z = 29; Z <= 29; ++Z) { // 79:gold, 26:iron, 29:copper
+    for(int Z = 79; Z <= 79; ++Z) { // 79:gold, 26:iron, 29:copper
+//     for(int Z = 29; Z <= 29; ++Z) { // 79:gold, 26:iron, 29:copper
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z);
     } // Z

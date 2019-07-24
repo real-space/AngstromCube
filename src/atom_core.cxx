@@ -14,6 +14,7 @@
 #include "radial_potential.hxx" // Hartree_potential
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "radial_eigensolver.hxx" // shooting_method
+#include "constants.hxx" // constants::pi
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -39,8 +40,6 @@ typedef int status_t;
 
 
 namespace atom_core {
-
-  double constexpr C_PI = 3.14159265358979323846; // pi
   
   typedef struct {
       float occ; // occupation number
@@ -63,7 +62,7 @@ namespace atom_core {
   void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z, double *energies) {
       double Eexc = 0, Evxc = 0, EHtr = 0;
       double const ECou = -Z*radial_potential::Hartree_potential(rV, g, rho4pi); // set rV to the Hartree potential
-      double const fpi = .25/C_PI;
+      double const fpi = .25/constants::pi;
       for(int ir = 0; ir < g.n; ++ir) {
           EHtr += rho4pi[ir]*rV[ir]*g.rdr[ir];
           double Vxc;
@@ -93,7 +92,7 @@ namespace atom_core {
     
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
     auto const alpha = 0.3058*std::pow(Z, 1./3.);
-    auto const beta = std::sqrt(108./C_PI)*std::max(0., Z - 2)*alpha;
+    auto const beta = std::sqrt(108./constants::pi)*std::max(0., Z - 2)*alpha;
     if (4 + 3.2*charged < 0) return 1; // error
     auto const gamma = std::sqrt(4 + 3.2*charged);
     auto g2 = gamma*gamma*gamma;
@@ -401,7 +400,8 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
     // for(int Z = 1; Z < 120; ++Z) {
-    for(int Z = 29; Z <= 29; ++Z) {
+//     for(int Z = 29; Z <= 29; ++Z) {
+    for(int Z = 79; Z <= 79; ++Z) {
         status += test_core_solver(*radial_grid::create_exponential_radial_grid(250*std::sqrt(Z + 9.)+.5), Z);
     } // Z
     return status;

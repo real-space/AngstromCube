@@ -2,6 +2,7 @@
 
 #include <complex> // std::complex<>
 #include <cmath> // std::sqrt
+#include "constants.hxx" // constants::pi
 
 namespace spherical_harmonics {
 
@@ -41,7 +42,7 @@ namespace spherical_harmonics {
 // !     normalization constants for ylm (internal subroutine has access
 // !     to ellmax and ynorm from above)
 // !********************************************************************
-          {   double const fpi = 4.0*3.14159265358979323846; // 4*pi
+          {   double const fpi = 4*constants::pi; // 4*pi
               for(int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
