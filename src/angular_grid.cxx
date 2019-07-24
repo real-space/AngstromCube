@@ -8,8 +8,9 @@
 #include "angular_grid.h" // angular_grid_t
 #include "inline_tools.hxx" // align<>
 #include "solid_harmonics.hxx" // Xlm
-#include "gaunt_entry.h" // gaunt_entry_t
 //   #include "spherical_harmonics.hxx" // Ylm
+#include "gaunt_entry.h" // gaunt_entry_t
+#include "constants.hxx" // constants::pi
 
 extern "C" {
    // BLAS interface to matrix matrix multiplication
@@ -30,7 +31,7 @@ namespace angular_grid {
 
   template<> // template specialization
   void transform<double>(double *out, double const *in, int const M, // nrad is the stride for in[] and out[]
-                         int const ellmax, bool const back, int echo) {
+                         int const ellmax, bool const back, int const echo) {
       auto const g = get_grid(ellmax, echo);
       auto constexpr c = 'n'; double const w8 = 1, zero = 0;
       double *b; int ldb = 0, N = 0, K = 0;
@@ -73,7 +74,7 @@ namespace angular_grid {
           
           // create the real-valued spherical harmonics
           for(int ipt = 0; ipt < g->npoints; ++ipt) {
-              auto const w8 = g->xyzw[ipt][3];
+              auto const w8 = g->xyzw[ipt][3] * 4*constants::pi;
               double xlm[nlm];
               solid_harmonics::Xlm(xlm, ellmax, g->xyzw[ipt]);
               for(int ilm = 0; ilm < nlm; ++ilm) {
@@ -1852,7 +1853,6 @@ cTeXit '. ', '' ! full stop and an extra empty line
       auto yy = new Ylm_t[M];
       auto unity = new Ylm_t[M*M];
       auto xyzw = new double[max_size][4];
-      double const pi = 3.14159265358979323846;
       status_t stat = 0;
       double dev_all = 0;
       for(int ell = ellmax; ell > 0; --ell) {
@@ -1861,7 +1861,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
           auto const np = create_Lebedev_grid(ell, xyzw, echo);
           for(int ij = 0; ij < M*M; ++ij) unity[ij] = 0; // clear
           for(int ip = 0; ip < np; ++ip) {
-              auto const w8 = xyzw[ip][3] * 4*pi;
+              auto const w8 = xyzw[ip][3] * 4*constants::pi;
 //            if (echo > 3) printf("# %s: envoke Ylm for %d  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
 //               spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
               solid_harmonics::Xlm(yy, ell, xyzw[ip]);

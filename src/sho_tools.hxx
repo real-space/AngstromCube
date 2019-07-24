@@ -86,12 +86,13 @@ namespace sho_tools {
   // energy-ordered radial emm-degenerate index
   inline constexpr int nln_index (int const ell, int const nrn) {
       return ((ell + 2*nrn + 1)*(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
+      
   // energy-ordered radial 3D index
   inline constexpr int nlnm_index(int const ell, int const nrn, int const emm) {
       return ((ell + 2*nrn)*(ell + 2*nrn + 1)*(ell + 2*nrn + 2) // energy shell offset (nu*(nu+1)*(nu+2))/6
               + 3*ell*(ell - 1) // previous ells (ell*(ell - 1))/2
               + 6*(emm + ell))/6; } // linear emm-contribution
-  
+
   template<typename int_t>
   inline constexpr int_t get_nu(int_t const nx, int_t const ny, int_t const nz) { return nx + ny + nz; }
 

@@ -58,6 +58,7 @@ namespace sho_unitary {
               int const nu = sho_tools::get_nu(nzyx);
               if (nu != sho_tools::get_nu(nlnm)) return 0;
 //               if (nu > numax) return 0; // warn and return, ToDo: warning
+              if (nu > numax) printf("# Assumption nu <= numax failed: <numax=%d> nzyx=%d nlnm=%d nu=%d\n", numax, nzyx, nlnm, nu);
               assert(nu <= numax);
               assert(nu >= 0);
               int const nb = sho_tools::n2HO(nu); // dimension of block
@@ -70,43 +71,48 @@ namespace sho_unitary {
           } // get_entry
           
           template<typename int_t>
-          status_t construct_index_table(int_t energy_ordered_index[], int const numax, 
+          status_t construct_index_table(int_t energy_ordered_index[], int const nu_max, 
                                          sho_tools::SHO_order_t const order) {
               // construct a table of energy ordered indices
-              printf("# construct_index_table for order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
+              printf("# construct_index_table for <numax=%d> order=%c%c%c%c\n", nu_max, order>>24, order>>16, order>>8, order);
+              printf("# ");
               int ii = 0;
               switch (order) {
                 case sho_tools::order_zyx:
-                  for(int z = 0; z <= numax; ++z) {
-                      for(int y = 0; y <= numax - z; ++y) {
-                          for(int x = 0; x < numax - z - y; ++x) {
+                  for(int z = 0; z <= nu_max; ++z) {
+                      for(int y = 0; y <= nu_max - z; ++y) {
+                          for(int x = 0; x <= nu_max - z - y; ++x) {
                               energy_ordered_index[ii++] = sho_tools::nzyx_index(x, y, z);
+                              printf(" %d", energy_ordered_index[ii - 1]);
                   }}} // x y z
                 break;
                 case sho_tools::order_lmn:
-                  for(int l = 0; l <= numax; ++l) {
+                  for(int l = 0; l <= nu_max; ++l) {
                       for(int m = -l; m <= l; ++m) {
-                          for(int n = 0; n <= (numax - l)/2; ++n) {
-                              energy_ordered_index[ii++] = sho_tools::nlnm_index(l, m, n);
+                          for(int n = 0; n <= (nu_max - l)/2; ++n) {
+                              energy_ordered_index[ii++] = sho_tools::nlnm_index(l, n, m);
+                              printf(" %d", energy_ordered_index[ii - 1]);
                   }}} // l m n
                 break;
                 default:
                   printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
               } // switch order
-              return (sho_tools::nSHO(numax) - ii); // success if 0
+              printf("\n\n");
+              assert(sho_tools::nSHO(nu_max) == ii);
+              return (sho_tools::nSHO(nu_max) - ii); // success if 0
           } // construct_index_table
           
           
           template<typename real_out_t>
-          status_t construct_dense_matrix(real_out_t &matrix, int const matrix_stride=-1, 
+          status_t construct_dense_matrix(real_out_t matrix[], int const nu_max, int const matrix_stride=-1, 
                             sho_tools::SHO_order_t const row_order=sho_tools::order_zyx,
                             sho_tools::SHO_order_t const col_order=sho_tools::order_lmn) {
-              int const nSHO = sho_tools::nSHO(numax);
+              int const nSHO = sho_tools::nSHO(nu_max);
               int const stride = (matrix_stride > 0)? matrix_stride : nSHO;
               int16_t row_index[nSHO], col_index[nSHO];
               status_t stat = 0;
-              stat += construct_index_table(row_index, numax, row_order);
-              stat += construct_index_table(col_index, numax, col_order);
+              stat += construct_index_table(row_index, nu_max, row_order);
+              stat += construct_index_table(col_index, nu_max, col_order);
               for(int i = 0; i < nSHO; ++i) {
                   for(int j = 0; j < nSHO; ++j) {
                       matrix[i*stride + j] = get_entry(row_index[i], col_index[j]);
@@ -115,7 +121,7 @@ namespace sho_unitary {
                       matrix[i*stride + j] = 0; // fill stride-gaps
                   } // j col index
               } // i row index
-              return 0; // success
+              return stat; // success
           } // construct_dense_matrix
 
           double test_unitarity(int const echo=9) {
