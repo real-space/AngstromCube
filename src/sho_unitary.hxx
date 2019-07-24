@@ -109,7 +109,8 @@ namespace sho_unitary {
                             sho_tools::SHO_order_t const col_order=sho_tools::order_lmn) {
               int const nSHO = sho_tools::nSHO(nu_max);
               int const stride = (matrix_stride > 0)? matrix_stride : nSHO;
-              int16_t row_index[nSHO], col_index[nSHO];
+              auto const row_index = new int16_t[nSHO];
+              auto const col_index = new int16_t[nSHO];
               status_t stat = 0;
               stat += construct_index_table(row_index, nu_max, row_order);
               stat += construct_index_table(col_index, nu_max, col_order);
@@ -121,6 +122,8 @@ namespace sho_unitary {
                       matrix[i*stride + j] = 0; // fill stride-gaps
                   } // j col index
               } // i row index
+              delete[] col_index;
+              delete[] row_index;
               return stat; // success
           } // construct_dense_matrix
 

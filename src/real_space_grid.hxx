@@ -30,7 +30,7 @@ namespace real_space_grid {
                   values = new real_t[nnumbers];
               } else {
                   printf("# use %p as grid with %d * %d x %d x %d * %d real_%ld\n", 
-                      v, dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t));
+                      (void*)v, dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t));
                   values = v;
               }
           } else {

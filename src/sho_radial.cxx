@@ -40,7 +40,7 @@ namespace sho_radial {
   template<typename real_t>
   real_t radial_normalization(real_t const coeff[], int const nrn, int const ell) {
 
-    real_t prod[2*nrn + 1]; // coefficients of a polynomial in r^2
+    auto const prod = new real_t[2*nrn + 1]; // coefficients of a polynomial in r^2
     for(int p = 0; p < 2*nrn + 2; ++p) {
         prod[p] = 0;
     } // p
@@ -57,17 +57,17 @@ namespace sho_radial {
       norm += prod[p]*exp_int_k;
       exp_int_k *= (p + ell + 1.5); // prepare exp_int_k for the next iteration
     } // p
-
+    delete[] prod;
     return 1./std::sqrt(norm); // normalization prefactor
   } // radial_normalization
   
   template<typename real_t>
   real_t radial_normalization(int const nrn, int const ell) {
-
-    real_t coeff[nrn + 1]; // coefficients of a polynomial in r^2
+    auto const coeff = new real_t[nrn + 1]; // coefficients of a polynomial in r^2
     radial_eigenstates(coeff, nrn, ell); // get polynomial coefficients of the SHO eigenstates
-
-    return radial_normalization(coeff, nrn, ell);
+    auto const result = radial_normalization(coeff, nrn, ell);
+    delete[] coeff;
+    return result;
   } // radial_normalization
 
   template<typename real_t>
@@ -109,7 +109,7 @@ namespace sho_radial {
       int const n = nSHO_radial(numax);
       if (echo > 1) printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
       
-      double c[n][align<2>(numax/2 + 1)]; // polynomial coefficients
+      double c[n][8]; // polynomial coefficients
 
       ell_QN_t ell_list[n];
       enn_QN_t nrn_list[n];

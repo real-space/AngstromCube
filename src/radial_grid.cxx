@@ -27,6 +27,7 @@ namespace radial_grid {
     g->rdr    = &g->r[2*N_aligned];
     g->r2dr   = &g->r[3*N_aligned];
     g->rinv   = &g->r[4*N_aligned];
+    g->memory_owner = (nullptr != g->r);
 
     double const a = R / (std::exp(d*(N - 1)) - 1.); // prefactor
     for (auto ir = 0; ir < N_aligned; ++ir) {
@@ -50,7 +51,7 @@ namespace radial_grid {
   {
       // find a suitable grid point to start from
       int ir = 0; while (tru.r[ir] < r_min) ++ir;
-      printf("# start pseudo grid from r[%d]=%g\n", ir, tru.r[ir]);
+      printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
       int const ir_offset = ir;
 
       auto g = new radial_grid_t;
@@ -60,15 +61,16 @@ namespace radial_grid {
       g->rdr    = tru.rdr  + ir_offset;
       g->r2dr   = tru.r2dr + ir_offset;
       g->rinv   = tru.rinv + ir_offset;
+      g->memory_owner = false;
 
-      g->n = tru.n - ir; // reduced number of grid points
-      g->rmax = tru.rmax;
+      g->n = tru.n - ir_offset; // reduced number of grid points
+      g->rmax = tru.rmax; // both grids have the same tail
       return g;
   } // create_pseudo_radial_grid
   
   
   void destroy_radial_grid(radial_grid_t* g) {
-    delete [] g->r;
+    if (g->memory_owner) delete [] g->r;
     g->n = 0;
   } // destroy
 

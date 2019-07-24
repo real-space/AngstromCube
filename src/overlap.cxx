@@ -1,6 +1,6 @@
 #include <cstdio> // printf
 #include <cstdlib> // abs
-#include <cmath> // sqrt
+#include <cmath> // sqrt, exp
 #include <algorithm> // max
 #include <complex> // std::complex<real_t>
 #include <complex>
@@ -138,7 +138,7 @@ namespace overlap {
                                 int const nmax,
                                 real_t const x_shift) {
     
-      real_t c_old[nmax];
+      auto const c_old = new real_t[nmax];
       for(int k = 0; k < nmax; ++k) {
           c_old[k] = c[k]; // get a work copy
       } // k
@@ -165,7 +165,7 @@ namespace overlap {
 
           kfactorial *= (k + 1); // update kfactorial for the next k-iteration
       } // k
-
+      delete[] c_old;
   } // shift_polynomial_centers
   
   
@@ -178,17 +178,21 @@ namespace overlap {
       auto const sigma = 1/sqrt(.5*(k0 + k1));
 
       auto const sh0 = -distance*k0/(k0 + k1);
-      real_t H0s[n0]; // H0 shifted by sh0
+      auto const H0s = new real_t[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
 
       auto const sh1 =  distance*k1/(k0 + k1);
-      real_t H1s[n1]; // H1 shifted by sh1
+      auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 
       int const m = n0 + n1;
-      real_t h0xh1[m]; // product of H0s and H1s
+      auto const h0xh1 = new real_t[m]; // product of H0s and H1s
       multiply(h0xh1, m, H0s, n0, H1s, n1);
-      return integrate(h0xh1, m, sigma) * exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
+      delete[] H0s;
+      delete[] H1s;
+      auto const result = integrate(h0xh1, m, sigma) * std::exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
+      delete[] h0xh1;
+      return result;
   } // overlap_of_two_Hermite_Gauss_functions
 
   template<typename real_t>
@@ -669,7 +673,7 @@ namespace overlap {
                         } else {
                             for(int ib = ibin - Gauss_bins; ib <= ibin + Gauss_bins + 1; ++ib) {
                                 if (ib > 0 && ib < num_bins)
-                                dos[ib] += Gauss_norm*w8*exp(-Gauss_alpha*(ib - fbin)*(ib - fbin));
+                                dos[ib] += Gauss_norm*w8*std::exp(-Gauss_alpha*(ib - fbin)*(ib - fbin));
                             } // ib
                         }
                     } else { // ibin in range

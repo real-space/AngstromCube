@@ -68,7 +68,7 @@ namespace solid_harmonics {
       if (ellmax < 0) return;
 
       int const S = (1 + ellmax); // stride for p, the array of associated Legendre functions
-      real_t p[S*S]; // associated Legendre functions
+      auto const p = new real_t[S*S]; // associated Legendre functions
 
 // !---> generate associated Legendre functions for m >= 0
       real_t fac = 1;
@@ -85,7 +85,8 @@ namespace solid_harmonics {
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
-      real_t cs[S], sn[S];
+      auto const cs = new real_t[S];
+      auto const sn = new real_t[S];
 // !--->    determine cos(m*phi) and sin(m*phi)
       cs[0] = 1; sn[0] = 0;
       if (cos_trick) {
@@ -115,6 +116,9 @@ namespace solid_harmonics {
               xlm[lm0 - m] = Plm*xnorm[lm0 + m]*cs[m]; // real part
           } // l
       } // m
+      delete[] sn;
+      delete[] cs;
+      delete[] p;
 
   } // Xlm_implementation
   

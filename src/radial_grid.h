@@ -12,6 +12,7 @@ typedef struct {
     double*   rdr; // r*dr[0:n)
     double*  r2dr; // r^2*dr[0:n)
     double*  rinv;  // r^-1
+    bool memory_owner;
 } radial_grid_t;
 
 #ifdef __cplusplus

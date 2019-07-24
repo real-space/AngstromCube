@@ -72,16 +72,17 @@ namespace angular_grid {
           for(int ij = 0; ij < g->npoints*g->Xlm2grid_stride; ++ij) g->Xlm2grid[ij] = 0;
           for(int ij = 0; ij < nlm       *g->grid2Xlm_stride; ++ij) g->grid2Xlm[ij] = 0;
           
+          auto const xlm = new double[nlm];
           // create the real-valued spherical harmonics
           for(int ipt = 0; ipt < g->npoints; ++ipt) {
               auto const w8 = g->xyzw[ipt][3] * 4*constants::pi;
-              double xlm[nlm];
               solid_harmonics::Xlm(xlm, ellmax, g->xyzw[ipt]);
               for(int ilm = 0; ilm < nlm; ++ilm) {
                   g->Xlm2grid[ipt*g->Xlm2grid_stride + ilm] = xlm[ilm];
                   g->grid2Xlm[ilm*g->grid2Xlm_stride + ipt] = xlm[ilm]*w8;
               } // ilm
           } // ipt
+          delete[] xlm;
           if (echo > 0) printf("# %s: angular grid for ellmax= %d is requested 1st: %d points\n", __func__, ellmax, g->npoints);
       } // grid was not set
       return g;
