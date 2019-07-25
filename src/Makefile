@@ -81,8 +81,8 @@ CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,$
 CXXFLAGS = -std=c++11 ${FLAGS}
 
 # LDFLAGS += -lm -llapack
-LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread ### works with g++ on zam054 (JSC workstation)
-# LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
+# LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread ### works with g++ on zam054 (JSC workstation)
+LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
 
 DEP=$(OBJ:%.o=%.d)
 

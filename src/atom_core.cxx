@@ -145,23 +145,17 @@ namespace atom_core {
               r_prev = r; Ze_prev = Ze;
               stat = (r_max < r_min);
           } // while
+          if (echo > 3) printf("# %s  Z=%g  use %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
       } else {
           if (echo > 1) printf("# %s  Z=%g  failed to open file %s\n",  __func__, Z, filename);
-          stat = -1;
-      }
-      
-//       for(int ir = 1; ir < g.n; ++ir) {
-//           Zeff[ir] = std::max(Zeff[ir], Zeff[ir - 1]);
-//       } // make monotoneously falling function
-
-      if (echo > 3) printf("# %s  Z=%g  use %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
+          stat = -1; // failure
+      } // is_open     
       return stat;
   } // read_Zeff_from_file
 
   status_t store_Zeff_to_file(double const Zeff[], radial_grid_t const &g, float const Z, 
-      char const name[]="Zeff", float const factor=1, int const echo=9)
-  {
-    
+      char const name[]="Zeff", float const factor=1, int const echo=9) {
+
       char const path[] = "pot/"; // ToDo: should be an external argument
       char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
       if (echo > 3) printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
@@ -171,11 +165,11 @@ namespace atom_core {
           for(int ir = 0; ir < g.n; ++ir) {
               outfile << g.r[ir] << " " << Zeff[ir]*factor << "\n";
           } // write to file
-          return 0;
+          return 0; // success
       } else {
-          if (echo > 1) printf("# %s Z=%g failed to open file %s for writing\n",  __func__, Z, filename);
-      }
-      return -1;
+          if (echo > 1) printf("# %s  Z=%g  failed to open file %s for writing\n",  __func__, Z, filename);
+      } // is_open
+      return -1; // failure
   } // store_Zeff_to_file
   
   status_t scf_atom(radial_grid_t const &g, // radial grid descriptor
