@@ -9,6 +9,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "inline_math.hxx" // sgn, pow2
+#include "inline_tools.hxx" // align<>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV, Ang, _Ang
 
@@ -442,11 +443,11 @@ int integrate_outwards( // return the number of nodes
 #endif
       int ir_x = 0; // radial grid index of the extremum
       double dg_inw = 0;
-      int const N_aligned = (((g.n - 1) >> 2) + 1) << 2;
+      int const N_aligned = align<2>(g.n);
 
       auto const gf = new double[4*N_aligned];
-      auto const gg_inw = &gf[0*N_aligned];
-      auto const ff_inw = &gf[1*N_aligned];
+      auto const gg_inw =    &gf[0*N_aligned];
+      auto const ff_inw =    &gf[1*N_aligned];
 
       // integrate the Schrodinger equation or SRA equation inwards until
       // the first extremum (maximum/minimum) is reached
@@ -488,8 +489,6 @@ int integrate_outwards( // return the number of nodes
           } // ir
       } // r2rho
 
-      delete [] gf; // free the memory
-
       // a step in first derivative of the wave function corresponds to
       // an additional delta-function in the potential with the area:
       double const kink = (dg_out - dg_inw*s) / (gg_out[ir_x] + (0 == gg_out[ir_x]));
@@ -497,6 +496,9 @@ int integrate_outwards( // return the number of nodes
 #ifdef  DEBUG
       printf("# %s: kink of %g at r= %g %s for E= %.9f %s, %d nodes\n", __func__, kink, g.r[ir_x]*Ang, _Ang, E*eV, _eV, nnodes);
 #endif
+      
+      delete [] gf; // free the memory
+
       return kink;
     } // shoot_sra
 

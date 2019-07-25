@@ -74,7 +74,7 @@ namespace radial_eigensolver {
       // next we have to ensure that we find two start energies for which the kinks have different signs
       // and which both lead to the correct node count
       double ene[2], knk[2], mdE[2] = {.01, .01};
-      double const inc[2] = {1.25, 1.01};
+      double const inc[2] = {1.125, 1.01};
       int nnn[2];
 #ifdef  DEBUG
       int itn[2] = {0, 0};

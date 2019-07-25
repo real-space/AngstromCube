@@ -7,6 +7,7 @@
 #include "angular_grid.hxx"
 #include "angular_grid.h" // angular_grid_t
 #include "inline_tools.hxx" // align<>
+#include "inline_math.hxx" // pow2
 #include "solid_harmonics.hxx" // Xlm
 //   #include "spherical_harmonics.hxx" // Ylm
 #include "gaunt_entry.h" // gaunt_entry_t
@@ -30,17 +31,17 @@ namespace angular_grid {
 
 
   template<> // template specialization
-  void transform<double>(double *out, double const *in, int const M, // nrad is the stride for in[] and out[]
-                         int const ellmax, bool const back, int const echo) {
-      auto const g = get_grid(ellmax, echo);
-      auto constexpr c = 'n'; double const w8 = 1, zero = 0;
+  status_t transform<double>(double out[], double const in[], int const M, // nrad is the stride for in[] and out[]
+                 int const ellmax, bool const back, int const echo) {
+      auto const g = get_grid(ellmax, echo); if (nullptr == g) return -1;
+      auto const c = 'n'; double const w8 = 1, zero = 0;
       double *b; int ldb = 0, N = 0, K = 0;
-      if (0 == back) {
-          N = (1 + ellmax)*(1 + ellmax); K = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride;
-      } else {
-          K = (1 + ellmax)*(1 + ellmax); N = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride;
-      } // back?
+      if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
+      else      { K = pow2(1 + ellmax); N = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
+      if (echo > 3) printf("# call dgemm(%c,%c,%d,%d,%d,%g,%p,%d,%p,%d,%g,%p,%d)\n", 
+                        c,c,M,N,K,w8,(void*)in,M,(void*)b,ldb,zero,(void*)out,M);
       dgemm_(&c, &c, &M, &N, &K, &w8, in, &M, b, &ldb, &zero, out, &M); // matrix-matrix multiplication with BLAS
+      return 0;
   } // transform
 
 
@@ -48,23 +49,38 @@ namespace angular_grid {
     
       static angular_grid_t grids[1 + ellmax_implemented];
       
-      if (ellmax < 0 || ellmax > ellmax_implemented) {
-          printf("# %s: ellmax= %d is out of range [0, %d]\n", __func__, ellmax, ellmax_implemented);
+      if ((ellmax < 0) || (ellmax > ellmax_implemented)) {
+          if (echo > 0) printf("# %s: ellmax= %d is out of range [0, %d]\n", __func__, ellmax, ellmax_implemented);
           return nullptr;
       } // in range
+
+//       if (ellmax < 0) { // memory cleanup
+//           if (echo > 2) printf("# %s: memory cleanup!\n", __func__);
+//           for(int ell = 0; ell <= ellmax_implemented; ++ell) {
+//               auto g = &grids[ell];
+//               if ((g->npoints > 0) && (g->ellmax == ell)) {
+//                   if (echo > 4) printf("# %s: memory cleanup of ellmax=%d\n", __func__, ell);
+//                   delete[] g->xyzw;
+//                   delete[] g->Xlm2grid;
+//                   delete[] g->Xlm2grid;
+//               } // this grid was initialized
+//           } // 
+//           return 0; // success
+//       } // in range
+
       auto g = &grids[ellmax];
-      if (g->npoints < 1 || g->ellmax != ellmax) {
+      if ((g->npoints < 1) || (g->ellmax != ellmax)) {
           // init this instance
           g->ellmax = ellmax;
           g->npoints = Lebedev_grid_size(ellmax);
-          int const nlm = (1 + ellmax)*(1 + ellmax);
+          int const nlm = pow2(1 + ellmax);
           g->Xlm2grid_stride = align<2>(nlm); 
           g->grid2Xlm_stride = align<2>(g->npoints);
           // allocations
           g->xyzw     = new double[g->npoints][4];
           g->Xlm2grid = new double[g->npoints*g->Xlm2grid_stride];
           g->grid2Xlm = new double[nlm       *g->grid2Xlm_stride];
-          
+
           auto const ist = create_Lebedev_grid(ellmax, g->xyzw);
           if (echo > 0 && ist) printf("# %s: angular grid for ellmax= %d failed with status %d\n", __func__, ellmax, ist);
           
@@ -1807,6 +1823,8 @@ cTeXit '. ', '' ! full stop and an extra empty line
       } // lm0
       if (echo > 0) printf("\n# %s: %d of %d real-Gaunt tensor elements are nonzero (%.3f %%), expected %d\n", 
                                 __func__, nnz, n, nnz/(.01*n), n_expected);
+      delete[] xyzw;
+      delete[] yy;
       return 0;
   } // create_numerical_Gaunt
   

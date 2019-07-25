@@ -184,7 +184,7 @@ namespace atom_core {
       debug(printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__));
 
       int constexpr sra = 1; // scalar-relativistic
-      int constexpr MAXCYCLES = 200; 
+      int constexpr MAXCYCLES = 200;
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
 
@@ -440,10 +440,11 @@ namespace atom_core {
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
-    for(int Z = 0; Z < 120; ++Z) {
-//     { int const Z = 5;  // 5:boron
-//  { int const Z = 29; // 29:copper
-//  { int const Z = 79; // 79:gold
+//     for(int Z = 0; Z < 120; ++Z) { // test all atoms
+//  { int const Z = 5;  // 5:boron
+//     { int const Z = 29; // 29:copper
+    { int const Z = 70; // 70:ytterbium
+//     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
     } // Z

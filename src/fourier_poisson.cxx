@@ -53,7 +53,7 @@ namespace fourier_poisson {
           status = DftiComputeBackward(my_desc_handle, (void*)in, (void*)imag, (void*)out, (void*)imag2); // perform the forward FFT
       }
       status = DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
-      delete [] imag2;
+      delete[] imag2;
       return status;
 #else
       return -1; // error
@@ -104,7 +104,7 @@ namespace fourier_poisson {
       } // j2
       
       stat += fft_MKL(x, x_Im, x_Re, ng, 'b'); // transform solution x back into real-space
-
+      delete[] x_Re;
       return stat;
   } // fourier_solve
 
@@ -164,6 +164,9 @@ namespace fourier_poisson {
                   if (echo > 8) printf("%d %g %g %g\n", i, rs_back[i]*omega_inv, rs[i], d);
       }}} // zyx
       if (echo > 2) printf("# back-transformed cos-wave differs abs %.1e rms %.1e\n", deva/ngall, std::sqrt(dev2/ngall));
+      delete[] rs_back;
+      delete[] ft;
+      delete[] rs;
       return status_fft + status_inv;
   } // test_fft
 
@@ -210,6 +213,8 @@ namespace fourier_poisson {
           } // ir
           if (echo > 3) printf("\n# radial integrated charge %g, V_rad %g\n", q_rad, V_rad);
       } // i01
+      delete[] V;
+      delete[] rho;
       return stat;
   } // test_FFT_Poisson_solver
 
