@@ -10,7 +10,7 @@
 #include "inline_math.hxx" // sgn, pow2
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "output_units.h" // eV, _eV, Ang, _Ang
-#include "radial_integrator.hxx" // shoot, integrate_inwards, integrate_outwards
+#include "radial_integrator.hxx" // shoot
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -50,11 +50,12 @@ namespace radial_eigensolver {
       double max_dE = 1.25e-4 * 0.5*(pow2(-rV[0]/enn) + .1); // for jumps, if the number of nodes is wrong, -rV[0]==Z
       int const nno = enn - 1 - ell; // number of nodes requested
 
-      int nn = 0;
+      int nn = 0; // number of nodes
       double kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
 
+      // first make sure that we are on the right branch with the correct node count
       int constexpr MaxIter_node_count = 999;
-      int iit = 1;
+      int iit = 1; // start from 1 since we already envoked shoot once above
       while ((nno != nn) && iit < MaxIter_node_count) { // while number of nodes incorrect
           ++iit;
           E += (nno - nn) * max_dE;
@@ -70,28 +71,31 @@ namespace radial_eigensolver {
       printf("\n# %s: needed %d iterations to find the correct number of nodes for n=%d l=%d E= %.9f %s\n", __func__, iit, enn, ell, E*eV, _eV);
 #endif
 
-      
+      // next we have to ensure that we find two start energies for which the kinks have different signs
+      // and which both lead to the correct node count
       double ene[2], knk[2], mdE[2] = {.01, .01};
+      double const inc[2] = {1.25, 1.01};
       int nnn[2];
 #ifdef  DEBUG
       int itn[2] = {0, 0};
 #endif
-      for(auto ib = 0; ib < 2; ++ib) {
+      for(auto ib = 0; ib < 2; ++ib) { // ib in {0, 1} == {lower, upper}
+          auto const sgn_ib = (2*ib - 1); // sgn in {-1, +1}
           ene[ib] = E; // initialize with an energy which produces the correct number of nodes ...
           knk[ib] = kink; // ... and the corresponding kink value from the node-count search
           int constexpr MaxIter_kink_sign = 999;
           iit = 0;
-          while (((2*ib - 1)*knk[ib] > 0.) && (iit < MaxIter_kink_sign)) { // while sign of kink is incorrect
+          while ((sgn_ib*knk[ib] > 0) && (iit < MaxIter_kink_sign)) { // while sign of kink is incorrect
               ++iit;
-              ene[ib] += (2*ib - 1) * mdE[ib];
-              mdE[ib] *= 1.125; // growing exponentially
+              ene[ib] += sgn_ib * mdE[ib];
+              mdE[ib] *= inc[ib]; // growing exponentially for the next iteration
               knk[ib] = radial_integrator::shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
 #ifdef  FULL_DEBUG
-              printf("# %s: get-correct-kink-sign for (%s) n=%d l=%d E=%g %s, kink= %g, %d nodes\n", __func__, (ib)? "upper" : "lower", enn, ell, ene[ib]*eV, _eV, knk[ib], nnn[ib]);
+              printf("# %s: get-correct-kink-sign for (%s) n=%d l=%d E=%g %s, kink= %g, %d nodes\n", __func__, ib?"upper":"lower", enn, ell, ene[ib]*eV, _eV, knk[ib], nnn[ib]);
 #endif
-#ifdef  FULL_DEBUG
-              if (nno != nnn[ib])
-                  printf("# %s: Warning for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nnn[ib]);
+#ifdef  DEBUG
+              if (nno != nnn[ib]) printf("# %s: Warning for n=%d l=%d E= %.15f %s, %d nodes expected, %d nodes found\n", 
+                                            __func__, enn, ell, ene[ib]*eV, _eV, nno, nnn[ib]);
 #endif
               if (ene[ib] < -1e5) return -98; // something went wrong
           } // while

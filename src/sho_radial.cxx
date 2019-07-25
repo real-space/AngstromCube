@@ -41,7 +41,7 @@ namespace sho_radial {
   real_t radial_normalization(real_t const coeff[], int const nrn, int const ell) {
 
     auto const prod = new real_t[2*nrn + 1]; // coefficients of a polynomial in r^2
-    for(int p = 0; p < 2*nrn + 2; ++p) {
+    for(int p = 0; p < 2*nrn + 1; ++p) {
         prod[p] = 0;
     } // p
     for(int k = 0; k <= nrn; ++k) {

@@ -269,8 +269,8 @@ namespace atom_core {
                       if (orb[i].occ > 0) {
                           previous_eigenvalues[i] = orb[i].E; // copy
                           auto const stat = radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho);
-                          if (0 != stat) {
-                              printf("# %s  Z=%g  failed solving for %d%c\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell));
+                          if (stat) {
+                              printf("# %s  Z=%g  failed solving for %d%c, status = %d\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), stat);
                               return stat;
                           } // failed
                           if (echo > 6) {
@@ -440,9 +440,11 @@ namespace atom_core {
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
-    // for(int Z = 0; Z < 120; ++Z) {
-//     for(int Z = 29; Z <= 29; ++Z) {
-    for(int Z = 79; Z <= 79; ++Z) {
+    for(int Z = 0; Z < 120; ++Z) {
+//     { int const Z = 5;  // 5:boron
+//  { int const Z = 29; // 29:copper
+//  { int const Z = 79; // 79:gold
+//     { int const Z = 120; // very heavy non-existing element
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
     } // Z
     return status;
