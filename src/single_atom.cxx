@@ -225,7 +225,7 @@ extern "C" {
                 for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
                     ++enn; // principal quantum number
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
-                        double E = -.5*pow2(Z/enn); // init with hydrogen like energy levels
+                        double E = atom_core::guess_energy(Z, enn);
                         core_state[ics].wave[TRU] = new double[nrt]; // get memory for the true radial function
                         radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
                                  enn, ell, E, core_state[ics].wave[TRU], r2rho);
@@ -282,7 +282,7 @@ extern "C" {
                     
                     valence_state[iln].wave[SMT] = new double[nrs]; // get memory for the smooth radial function
                     valence_state[iln].wave[TRU] = new double[nrt]; // get memory for the true radial function
-                    double E = -.5*pow2(Z/enn); // init with hydrogen like energy levels
+                    double E = atom_core::guess_energy(Z, enn);
                     radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
                                           enn, ell, E, valence_state[iln].wave[TRU]);
                     valence_state[iln].energy = E;

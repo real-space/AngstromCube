@@ -173,6 +173,8 @@ namespace atom_core {
       return -1; // failure
   } // store_Zeff_to_file
   
+
+
   status_t scf_atom(radial_grid_t const &g, // radial grid descriptor
                float const Z, // atomic number
                int const echo) { // log output level
@@ -197,9 +199,7 @@ namespace atom_core {
                   orb[i].enn = enn;
                   orb[i].ell = ell;
                   orb[i].occ = std::min(std::max(0.f, Z - iZ), max_occ*1.f);
-                  orb[i].E = -.5*pow2(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
-                            (.783517 + 2.5791E-5*(Z/enn)*(Z/enn)) * // fit for the correct 1s energy
-                            std::exp(-.01*(enn - 1)*Z); // guess energy
+                  orb[i].E = guess_energy(Z, enn);
                   if (orb[i].occ > 0) {
                       if (echo > 4) {
                           printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);

@@ -20,6 +20,12 @@ namespace atom_core {
   
 //   double dot_product(int const n, double const bra[], double const ket[]); // moved to radial_grid.hxx
 
+  inline double guess_energy(double const Z, int const enn) {
+      return -.5*(Z/enn)*(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
+            (.783517 + 2.5791E-5*(Z/enn)*(Z/enn)) * // fit for the correct 1s energy
+            std::exp(-.01*(enn - 1)*Z); // guess energy
+  } // guess_energy
+
   inline int nl_index(int const enn, int const ell) { 
       assert(ell >= 0); assert(enn > ell); // atomic eigenstates
       return (enn*(enn - 1))/2 + ell;

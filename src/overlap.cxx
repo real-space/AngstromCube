@@ -537,17 +537,16 @@ namespace overlap {
                 if (!Ref && norm(pos) < dmax*dmax) {
                     if (echo > 9) printf("%f %f %f\n", pos[0],pos[1],pos[2]);
                     int in = 0;
-                    for(int n0 = 0; n0 <= nmax; ++n0) {
-                    for(int n1 = 0; n1 <= nmax - n0; ++n1) {
-                    for(int n2 = 0; n2 <= nmax - n0 - n1; ++n2) {
+                    for(int n2 = 0; n2 <= nmax; ++n2) {
+                    for(int n1 = 0; n1 <= nmax - n2; ++n1) {
+                    for(int n0 = 0; n0 <= nmax - n2 - n1; ++n0) {
                         int const nv[] = {n0, n1, n2};
                         int im = 0;
-                        for(int m0 = 0; m0 <= nmax; ++m0) {
-                        for(int m1 = 0; m1 <= nmax - m0; ++m1) {
-                        for(int m2 = 0; m2 <= nmax - m0 - m1; ++m2) {
+                        for(int m2 = 0; m2 <= nmax; ++m2) {
+                        for(int m1 = 0; m1 <= nmax - m2; ++m1) {
+                        for(int m0 = 0; m0 <= nmax - m2 - m1; ++m0) {
                             int const mv[] = {m0, m1, m2};
-                            double ovl[] = {0, 0, 0};
-                            double lap[] = {0, 0, 0};
+                            double ovl[3], lap[3];
                             // ToDo: overlap_of_two_Hermite_Gauss_functions 
                             //       is called many more times than necessary
                             //       and the max. length of non-zero polynomial coefficients 
@@ -561,7 +560,9 @@ namespace overlap {
                                               &dH1[mv[dir]*ncut], ncut, sigma1, pos[dir]);
                             } // dir
                             double const o3D = ovl[0]*ovl[1]*ovl[2];
-                            double const l3D = lap[0]*ovl[1]*ovl[2] + ovl[0]*lap[1]*ovl[2] + ovl[0]*ovl[1]*lap[2];
+                            double const l3D = lap[0]*ovl[1]*ovl[2]
+                                             + ovl[0]*lap[1]*ovl[2]
+                                             + ovl[0]*ovl[1]*lap[2];
                             assert(n3D >= in);
                             assert(n3D >= im);
                             mat[npi][0][in*n3D + im] = o3D;
@@ -571,7 +572,6 @@ namespace overlap {
                         ++in;
                     }}} // n
                     vpi[npi][0] = i1; vpi[npi][1] = i2; vpi[npi][2] = i3;
-                    
                     ++npi; // count periodic images
                     assert(max_npi >= npi);
                 } // pos inside sphere
@@ -581,8 +581,6 @@ namespace overlap {
     int const num_periodic_images = npi;
     printf("# account for %d periodic images up to %.3f Bohr\n", npi, dmax);
 
-    
-    
 
     double smallest_eigval = 9e99, largest_eigval = - 9e99;
     vec3 kv_smallest = -9;
@@ -625,7 +623,7 @@ namespace overlap {
         if (echo > 1) printf("# %ld k-points in the irriducible Brillouin zone, weight sum = %g\n", kps.size(), w8sum);
     } else {
         int const nedges = 6;
-        float const sampling_density = .03125/8;
+        float const sampling_density = 1.f/(1 << 8);
         double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
         float path_progress = 0;
         for(int edge = 0; edge < nedges; ++edge) {
@@ -817,7 +815,7 @@ namespace overlap {
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
     status += test_density_or_potential_tensor();
-    // status += test_fcc(); // expensive
+    status += test_fcc(); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
