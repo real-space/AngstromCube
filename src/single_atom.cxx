@@ -15,8 +15,8 @@
 #include "inline_tools.hxx" // align<nbits>
 #include "sho_unitary.hxx" // Unitary_SHO_Transform<real_t>
 #include "solid_harmonics.hxx" // lm_index, Y00, Y00inv
-#include "atom_core.hxx" // initial_density, rad_pot
-// #include "sho_tools.hxx" // lnm_index, SHO_order_t
+#include "atom_core.hxx" // initial_density, rad_pot, nl_index
+#include "sho_tools.hxx" // lnm_index, nSHO
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "output_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product
@@ -80,9 +80,6 @@ extern "C" {
 
   typedef struct energy_level<1+CORE>       core_level_t;
   typedef struct energy_level<1+VALENCE> valence_level_t;
-
-  
-  
   
   
   status_t pseudize_s_function(double sfun[], radial_grid_t const *rg, int const irc, int const nmax=4) {
@@ -205,22 +202,19 @@ extern "C" {
             full_potential[ts] = new double[nlm*nr]; // get memory
         } // true and smooth
 
-
-
-//         auto const alpha_guess = (.55 - .001*Z)*std::sqrt(Z);
-//         for(int ir = 0; ir < nrt; ++ir) {
-//             double const rV = -Z*std::exp(-alpha_guess*rg[TRU]->r[ir]);
-//             potential[TRU][ir] = rV;
-//         } // ir
         set(core_density[SMT], nrs, 0.0); // init
         set(core_density[TRU], nrt, 0.0); // init
         atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "Zeff", -1);
+
+//         // show the loaded Zeff(r)
 //         for(int ir = 0; ir < rg[TRU]->n; ++ir) {
 //             printf("%.15g %.15g\n", rg[TRU]->r[ir], -potential[TRU][ir]);
 //         } // ir
 
+        int8_t as_valence[99];
+        set(as_valence, 99, (int8_t)-1);
+        
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
-        auto as_valence = std::vector<bool>(32, false);
         auto const r2rho = new double[nrt];
         ncorestates = 20;
         core_state = new core_level_t[ncorestates];
@@ -235,8 +229,13 @@ extern "C" {
                         radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
                                  enn, ell, E, core_state[ics].wave[TRU], r2rho);
                         core_state[ics].energy = E;
-                        as_valence[ics] = (E > -1.0); // ToDo: make the limit (-1.0 Ha) between core and valence states dynamic
-
+                        
+                        int const inl = atom_core::nl_index(enn, ell);
+                        if (E > -1.0) { // ToDo: make the limit (-1.0 Ha) between core and valence states dynamic
+                            as_valence[inl] = ics; // mark as good for the valence band
+//                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
+                        } // move to the valence band
+                        
                         // warning: this memory is not freed
                         core_state[ics].nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         core_state[ics].enn = enn;
@@ -248,14 +247,14 @@ extern "C" {
                         float const occ = std::min(std::max(0.f, ne), max_occ);
                         core_state[ics].occupation = occ;
                         if (occ > 0) {
-                            if (!as_valence[ics]) {
+                            if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
                                 double const norm = occ/radial_grid::dot_product(rg[TRU]->n, r2rho, rg[TRU]->dr);
                                 add_product(core_density[TRU], rg[TRU]->n, r2rho, norm);
                             } // not as valence
                             jcs = ics;
                             if (echo > 0) printf("# %s %2d%c%6.1f E = %g\n", 
-                              as_valence[ics]?"valence":"core   ", enn, ellchar[ell], occ, E);
+                              (as_valence[inl] < 0)?"core   ":"valence", enn, ellchar[ell], occ, E);
                         } // occupied
                         ne -= max_occ;
                         
@@ -266,40 +265,47 @@ extern "C" {
             ncorestates = jcs + 1; // correct the number of core states to those occupied
         } // core states
         
-//         for(int ir = 0; ir < rg[TRU]->n; ++ir) {
-//             core_density[TRU][ir] *= pow2(rg[TRU]->rinv[ir]); // initial_density produces r^2*rho
-//         } // ir
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv);
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho
 
         printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n");
 
-
         nvalencestates = (numax*(numax + 4) + 4)/4;
         valence_state = new valence_level_t[nvalencestates];
         {   int iln = 0;
-//          if (echo > 0) printf("# valence "); // no new line, list follows
+//          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     
+                    valence_state[iln].wave[SMT] = new double[nrs]; // get memory for the smooth radial function
                     valence_state[iln].wave[TRU] = new double[nrt]; // get memory for the true radial function
                     double E = -.5*pow2(Z/enn); // init with hydrogen like energy levels
-                    E += .5; // dirty hack to make copper run
                     radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
                                           enn, ell, E, valence_state[iln].wave[TRU]);
                     valence_state[iln].energy = E;
                     
-                    valence_state[iln].wave[SMT] = new double[nrs]; // get memory for the smooth radial function
                     valence_state[iln].nrn[TRU] = enn - ell - 1; // true number of radial nodes
                     valence_state[iln].nrn[SMT] = nrn;
                     valence_state[iln].occupation = 0;
+                    {
+                        int const inl = atom_core::nl_index(enn, ell);
+                        int const ics = as_valence[inl];
+//                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
+                        if (ics >= 0) { // atomic eigenstate was marked as valence
+                            auto const occ = core_state[ics].occupation;
+                            valence_state[iln].occupation = occ;
+                            core_state[ics].occupation = 0;
+                            if (occ > 0) printf("# transfer %.1f electrons from %d%c-core state #%d"
+                                     " to valence state #%d\n", occ, enn, ellchar[ell], ics, iln);
+                        }
+                    }
                     valence_state[iln].enn = enn;
                     valence_state[iln].ell = ell;
                     valence_state[iln].emm = emm_Degenerate;
                     valence_state[iln].spin = spin_Degenerate;
-                    if (echo > 0) printf("# valence %2d%c%6.1f E = %g\n", enn, ellchar[ell], 0.f, E);
+                    if (echo > 0) printf("# valence %2d%c%6.1f E = %g\n", enn, ellchar[ell], valence_state[iln].occupation, E);
                     ++iln;
                 } // nrn
             } // ell
@@ -347,21 +353,6 @@ extern "C" {
         lmn_end.resize(mlm);
         get_valence_mapping(ln_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
-        if (1) { // manipulate:
-            for(int ics = 0; ics < ncorestates; ++ics) {
-                if (as_valence[ics]) {
-                    int const ell = core_state[ics].ell;
-                    int const enn = core_state[ics].enn;
-                    int ivs = 0; while((enn != valence_state[ivs].enn) || 
-                                       (ell != valence_state[ivs].ell)) ++ivs; 
-                    printf("\n# Warning: transfer occupation of the %d%c-core state(#%d) to the"
-                      " %d%c-valence state(#%d)!\n\n", enn, ellchar[ell], ics, enn, ellchar[ell], ivs);
-                    valence_state[ivs].occupation = core_state[ics].occupation; // transfer
-                    core_state[ics].occupation = 0; // remove
-                    valence_state[ivs].energy = core_state[ics].energy; // copy
-                } // as_valence[ics]
-            } // ics
-        } // manipulation
         
         int const maxit_scf = 33;
         for(int scf = 0; scf < maxit_scf; ++scf) {
@@ -1164,9 +1155,9 @@ namespace single_atom {
 //         if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
-//     { int const Z = 29; // 29:copper
+    { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
-    { int const Z = 79; // 79:gold
+//     { int const Z = 79; // 79:gold
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z);
     } // Z

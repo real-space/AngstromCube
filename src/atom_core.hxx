@@ -19,6 +19,11 @@ namespace atom_core {
   void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z=0, double *energies=nullptr);
   
 //   double dot_product(int const n, double const bra[], double const ket[]); // moved to radial_grid.hxx
+
+  inline int nl_index(int const enn, int const ell) { 
+      assert(ell >= 0); assert(enn > ell); // atomic eigenstates
+      return (enn*(enn - 1))/2 + ell;
+  } // nl_index
   
   status_t all_tests();
 

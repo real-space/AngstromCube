@@ -41,7 +41,7 @@ typedef int status_t;
 
 
 namespace atom_core {
-  
+
   typedef struct {
       float occ; // occupation number
       enn_QN_t enn; // principal quantum number
@@ -431,9 +431,23 @@ namespace atom_core {
     return scf_atom(g, Z, echo);
   } // test_core_solver
 
+  status_t test_nl_index(int const echo=2) {
+      int inl = 0;
+      for(int enn = 1; enn < 9; ++enn) {
+          for(int ell = 0; ell < enn; ++ell) {
+              int const nl = nl_index(enn, ell);
+              if ((inl - nl) || (echo > 8)) printf("# %s: %s n=%d l=%d nl_index %d %d\n", __FILE__, __func__, enn, ell, inl, nl);
+              assert(inl == nl);
+              ++inl;
+          } // ell
+      } // enn
+      return 0;
+  } // test_nl_index
+  
   status_t all_tests() {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
+    status += test_nl_index();
 //     for(int Z = 0; Z < 120; ++Z) { // test all atoms
 //  { int const Z = 5;  // 5:boron
 //     { int const Z = 29; // 29:copper
