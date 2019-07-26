@@ -10,16 +10,17 @@
 **Name**
     The name refers to a cube with edge length 1 Angstrom
     which is abbreviated \AA in LaTeX code.
-    This is because always 4x4x4 grid points are grouped
+    This is because always 4x4x4 real-space grid points are grouped
     for performance which corresponds to roughly one \AA^3
     
 **Principles**
-    The idea is to have a code that is highly parallel
-    can make use of GPUs
-    and does not require much more input than the atomic coordinates
+    The idea is to have a code that is 
+	- highly parallel
+    	- can make use of GPUs
+    	- does not require more input than the atomic coordinates
 
 **First tests**
-    We should start off by makeing a branch of juRS that works on Green functions
+    We should start off by making a branch of juRS that works on Green functions
 
 **Reuse existing code modules**
     In order not to re-program and validate everything, we
@@ -29,6 +30,7 @@
             generation of the potential on the grid and inside the spheres
             input/output of the grid potential
             reading of positions
+            revPAW implementation mod_all_electron.F90 
         ReSpawN
             Lebedev-Laikov grids angular_grid.mod
             revPAW implementation hermite_projectors.mod
@@ -36,18 +38,14 @@
             gpu_bench/ - finite differences on GPUs
             sho_transform/ - projection and addition on GPUs
             unitary_transform.dat (only the data)
-            unit_system.mod
-            energy_contour.mod (from KKRnano)
+            unit_system.mod (now called display_units)
+            energy_contour.mod (originally from KKRnano)
         miniKKR
             tfQMRgpu - linear solver on GPUs
         external:
             libxc?
 
-    The outer code shells will be kept in Fortran
-    whereas the GPU action is in C++/CUDA
-    we need some glue code in C in order to interface Fortran and C++
-    
-**Fortran-only version**
+**Reference version**
     In order to be able to test the code without GPUs,
     we need a module that replaces C, C++ parts
     and uses e.g. MKL to invert the Hamiltonian

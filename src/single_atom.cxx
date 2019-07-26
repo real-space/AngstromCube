@@ -56,14 +56,12 @@ extern "C" {
   } // solve_Ax_b
 
 
-  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
-  int constexpr CORE=0, VALENCE=1;
+  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2, TRU_ONLY=1;
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
   double const Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   
-//   int constexpr NUMCORESTATES=20; // 20 are ok, 32 are enough if spin-orbit-interaction is on
-//   int constexpr NUMVALENCESTATES=(ELLMAX*(ELLMAX + 4) + 4)/4;
+  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
 
   // ToDo: write a class with constructors and destructors to handle the memory for *wave
   template<int Pseudo> // Pseudo=1: core states, Pseudo=2: valence states
@@ -78,11 +76,13 @@ extern "C" {
       enn_QN_t nrn[Pseudo]; // number of radial nodes
   };
 
-  typedef struct energy_level<1+CORE>       core_level_t;
-  typedef struct energy_level<1+VALENCE> valence_level_t;
+  typedef struct energy_level<TRU_ONLY> core_level_t;
+  typedef struct energy_level<TRU_AND_SMT> valence_level_t;
+
   
-  
-  status_t pseudize_s_function(double sfun[], radial_grid_t const *rg, int const irc, int const nmax=4) {
+  status_t pseudize_s_function(double sfun[], radial_grid_t const *rg, int const irc, 
+              int const nmax=4) {
+      // match a radial function with an even-order polynomial inside r[irc]
       double Amat[4*4], x[4] = {0,0,0,0}; double* bvec = x;
       set(Amat, 4*4, 0.0);
       int const nm = std::min(std::max(1, nmax), 4);
@@ -177,6 +177,7 @@ extern "C" {
         if (echo > 0) printf("# radial grid numbers are %d and %d (padded to align)\n", nrt, nrs);
 
         numax = 3; // 3:up to f-projectors
+        if (echo > 0) printf("# projectors and partial waves are expanded up to numax = %d\n", numax);
         ellmax = 0; // should be 2*numax;
         if (echo > 0) printf("# radial density and potentials are expanded up to lmax = %d\n", ellmax);
         ellmax_compensator = 0;

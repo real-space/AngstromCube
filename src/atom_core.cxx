@@ -14,6 +14,7 @@
 #include "display_units.h" // eV, _eV
 #include "radial_potential.hxx" // Hartree_potential
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
+#include "inline_math.hxx" // pow2, set, scale, product, add_product
 #include "radial_eigensolver.hxx" // shooting_method
 #include "constants.hxx" // constants::pi
 
@@ -135,14 +136,14 @@ namespace atom_core {
                       full_debug(printf("# %s  r=%g Zeff=%g\n",  __func__, r, Ze));
                       Ze *= factor;
                       while ((g.r[ir] < r) && (ir < g.n)) {
-                        // interpolate
+                        // interpolate linearly
                         Zeff[ir] = Ze_prev + (Ze - Ze_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
                         ++ir;
                       } // while
                       ++ngu;
                   } // r <= rmax
               } // r >= 0
-              r_prev = r; Ze_prev = Ze;
+              r_prev = r; Ze_prev = Ze; // pass
               stat = (r_max < r_min);
           } // while
           if (echo > 3) printf("# %s  Z=%g  use %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
@@ -196,7 +197,7 @@ namespace atom_core {
                   orb[i].enn = enn;
                   orb[i].ell = ell;
                   orb[i].occ = std::min(std::max(0.f, Z - iZ), max_occ*1.f);
-                  orb[i].E = -.5*(Z/enn)*(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
+                  orb[i].E = -.5*pow2(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
                             (.783517 + 2.5791E-5*(Z/enn)*(Z/enn)) * // fit for the correct 1s energy
                             std::exp(-.01*(enn - 1)*Z); // guess energy
                   if (orb[i].occ > 0) {
@@ -218,10 +219,8 @@ namespace atom_core {
       
       auto rV_new = new double[g.n];
       auto rV_old = new double[g.n];
-      for(int ir = 0; ir < g.n; ++ir) {
-          rV_old[ir] = -Z; // Hydrogen-like potential
-          rV_new[ir] = -Z; // Hydrogen-like potential
-      } // ir
+      set(rV_old, g.n, -1.*Z); // Hydrogen-like potential
+      set(rV_new, g.n, -1.*Z); // Hydrogen-like potential
       double mix = 0; // current mixing coefficient for the potential 
       double const alpha = 0.33; // limit case potential mixing coefficient
       
@@ -254,9 +253,7 @@ namespace atom_core {
               case Task_Solve: {
                   full_debug(printf("# Task_Solve\n"));
                 
-                  for(int ir = 0; ir < g.n; ++ir) {
-                      r2rho4pi[ir] = 0; // init accumulator density
-                  } // ir
+                  set(r2rho4pi, g.n, 0.0); // init accumulator density
                   eigenvalue_sum = 0; // init energy accumulator
 
                   for(int i = 0; i <= imax; ++i) {
@@ -274,9 +271,7 @@ namespace atom_core {
                           double const q = radial_grid::dot_product(g.n, r2rho, g.dr);
                           assert(q > 0);
                           double const f = orb[i].occ/q;
-                          for(int ir = 0; ir < g.n; ++ir) {
-                              r2rho4pi[ir] += f*r2rho[ir]; // DAXPY
-                          } // ir
+                          add_product(r2rho4pi, g.n, r2rho, f);
                           if (echo > 9) {
                               printf("# %s  %d%c f= %g q= %g dE= %g %s\n",  
                                      __func__, orb[i].enn, ellchar(orb[i].ell), orb[i].occ, q, 
@@ -293,9 +288,8 @@ namespace atom_core {
               case Task_ChkRho: {
                   full_debug(printf("# Task_Check_Rho\n"));
                   
-                  for(int ir = 0; ir < g.n; ++ir) {
-                      rho4pi[ir] = r2rho4pi[ir]*g.rinv[ir]*g.rinv[ir];
-                  } // ir
+                  product(rho4pi, g.n, r2rho4pi, g.rinv, g.rinv);
+
                   double const q  = radial_grid::dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
                   double const qq = radial_grid::dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
                   if (std::abs(q - Z) > .1 && echo > 0) {
@@ -308,7 +302,6 @@ namespace atom_core {
               case Task_GenPot: {
                   full_debug(printf("# Task_Generate_Pot\n"));
                   
-//                for(int ir = 0; ir < g.n; ++ir) { rV_new[ir] = -Z; } // create a Hydrogen-like potential
                   rad_pot(rV_new, g, rho4pi, Z, energies);
                   debug({ char fn[99]; sprintf(fn, "rV_new-icyc%d.dat", icyc); dump_to_file(fn, g.n, rV_new, g.r); });
 
@@ -345,9 +338,8 @@ namespace atom_core {
                   debug(printf("# Task_Mix_Potentials with %.3f %%\n", run?100*mix:0.));
                 
                   if (run) {
-                      for(int ir = 0; ir < g.n; ++ir) {
-                          rV_old[ir] = (1 - mix) * rV_old[ir] + mix * rV_new[ir];
-                      } // ir
+                      scale(rV_old, g.n, 1. - mix);
+                      add_product(rV_old, g.n, rV_new, mix);
                   } else {
                       mix = 0; // do not mix in the last iteration
                       run = true; // run one more iteration to do this task: 'solve'
@@ -370,7 +362,6 @@ namespace atom_core {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n", 
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
               
-//            store_Zeff_to_file(rV_old, g, Z, "rV", 1);
               store_Zeff_to_file(rV_old, g, Z, "Zeff", -1);
 
               if (echo > 1) {
@@ -414,10 +405,7 @@ namespace atom_core {
     double diff = 0;
     for(float zz = 0; zz < 128; zz += 1) {
         initial_density(rho, g, zz);
-        double q = 0;
-        for(auto ir = 0; ir < g.n; ++ir) {
-            q += g.r2dr[ir]*rho[ir];
-        } // ir
+        double const q = radial_grid::dot_product(g.n, g.r2dr, rho);
         diff = std::max(diff, std::abs(zz - q));
         if (echo > 0)  printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n", 
                                  __FILE__, __LINE__, zz, q, diff);
@@ -450,8 +438,8 @@ namespace atom_core {
     status += test_nl_index();
 //     for(int Z = 0; Z < 120; ++Z) { // test all atoms
 //  { int const Z = 5;  // 5:boron
-//     { int const Z = 29; // 29:copper
-    { int const Z = 70; // 70:ytterbium
+    { int const Z = 29; // 29:copper
+    // { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);

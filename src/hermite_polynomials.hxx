@@ -96,7 +96,7 @@ namespace hermite_polynomials {
   inline status_t all_tests(int const echo=3) {
     if (echo > 0) printf("\n# %s: %s\n\n", __FILE__, __func__);
     auto status = 0;
-    status += test_hermite_polynomials<float>(echo, 3e-6);
+    status += test_hermite_polynomials<float>(echo, 3.5e-6);
     status += test_hermite_polynomials<double>(echo);
     return status;
   } // all_tests
