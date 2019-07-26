@@ -9,7 +9,7 @@
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "inline_math.hxx" // sgn, pow2
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
-#include "output_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "radial_integrator.hxx" // shoot
 
 // #define FULL_DEBUG

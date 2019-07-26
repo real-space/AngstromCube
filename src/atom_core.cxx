@@ -11,7 +11,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // create_default_radial_grid, dot_product<real_t>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
-#include "output_units.h" // eV, _eV
+#include "display_units.h" // eV, _eV
 #include "radial_potential.hxx" // Hartree_potential
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "radial_eigensolver.hxx" // shooting_method

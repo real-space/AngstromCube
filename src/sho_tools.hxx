@@ -88,7 +88,7 @@ namespace sho_tools {
   // energy-ordered radial emm-degenerate index
   inline constexpr int nln_index (int const ell, int const nrn) {
       return ((ell + 2*nrn + 1)*(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
-      
+
   // energy-ordered radial 3D index
   inline constexpr int nlnm_index(int const ell, int const nrn, int const emm) {
       return ((ell + 2*nrn)*(ell + 2*nrn + 1)*(ell + 2*nrn + 2) // energy shell offset (nu*(nu+1)*(nu+2))/6
@@ -105,6 +105,30 @@ namespace sho_tools {
   inline int get_nu(int_t const energy_ordered_index)
       { int nu = -1; while (energy_ordered_index >= nSHO(nu)) { ++nu; } return nu; }
 
+  template<typename int_t>
+  inline status_t zyx_translation_table(int_t table[], int const numax, bool const inverse=false) {
+      int const nsho = nSHO(numax);
+      int isho = 0;
+      for(int nz = 0; nz <= numax; ++nz) {
+          for(int ny = 0; ny <= numax - nz; ++ny) {
+              for(int nx = 0; nx <= numax - nz - ny; ++nx) {
+                  int const izyx = zyx_index(numax, nx, ny, nz);
+                  assert(izyx >= 0); assert(izyx < nsho);
+                  assert(izyx == isho);
+                  int const nzyx = nzyx_index(nx, ny, nz);
+                  assert(nzyx >= 0); assert(nzyx < nsho);
+                  if (inverse) {
+                      table[izyx] = nzyx;
+                  } else {
+                      table[nzyx] = izyx;
+                  }
+                  ++isho;
+              } // nx
+          } // ny
+      } // nz
+      return 0;
+  } // get_translation_table
+      
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS

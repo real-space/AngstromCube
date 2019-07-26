@@ -105,4 +105,4 @@ namespace inline_math {
   } // all_tests
 #endif // NO_UNIT_TESTS  
 
-}
+} // namespace inline_math

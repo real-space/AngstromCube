@@ -5,7 +5,7 @@
 #include "exchange_correlation.hxx"
 
 #include "constants.hxx" // pi
-#include "output_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2
 
 // #define FULL_DEBUG

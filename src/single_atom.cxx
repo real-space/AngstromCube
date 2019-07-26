@@ -18,7 +18,7 @@
 #include "atom_core.hxx" // initial_density, rad_pot, nl_index
 #include "sho_tools.hxx" // lnm_index, nSHO
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
-#include "output_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product
 
 // #define FULL_DEBUG

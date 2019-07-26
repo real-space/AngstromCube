@@ -6,7 +6,7 @@
 #include "element_configuration.hxx"
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
-#include "output_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "chemical_symbol.h" // element_symbols
 
 // #define FULL_DEBUG

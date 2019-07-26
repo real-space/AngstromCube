@@ -5,7 +5,7 @@
 
 #include "real_space_grid.hxx"
 
-#include "output_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "constants.hxx" // pi
 
 // #define FULL_DEBUG
@@ -72,8 +72,8 @@ namespace real_space_grid {
               __func__, modified, out_of_range); // show stats
       return 0; // success
   } // add_function
-  
-  
+
+#if 0
   template<typename real_t, int D0> // inner dimension
   status_t Fourier_transform(real_t *out, grid_t<real_t,D0> &in) {
       assert(-1 == D0); // no FFT implemented, break here
@@ -93,8 +93,8 @@ namespace real_space_grid {
 
       return 0;
   } // Fourier transform
-  
-  
+#endif
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
@@ -144,7 +144,9 @@ namespace real_space_grid {
                       xyz_integral += val;
                   } // non-zero
                   ++ixyz;
-      }}} // ix iy iz
+              } // ix
+          } // iy
+      } // iz
       xyz_integral *= g.dV(); // volume element
       auto const diff = xyz_integral - rad_integral;
       if (echo > 1) printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.2f %%)\n", 

@@ -41,8 +41,12 @@ namespace real_space_grid {
       } // constructor
 
       ~grid_t() {
-          delete [] values;
-          for(int i4 = 0; i4 < 4; ++i4) dims[i4] = 0;
+          if (nullptr != values) {
+              long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
+              printf("# release a grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte, values=%p\n",
+                  dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t), (void*)values);
+//               delete[] values; // leads to a segfault
+          } // free memory
       } // destructor
       
       status_t set_grid_spacing(float const hx, float const hy=-1, float const hz=-1) {
