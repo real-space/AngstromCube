@@ -13,6 +13,7 @@
 #include "angular_grid.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
+#include "inline_math.hxx" // all_tests
 #include "sho_unitary.hxx" // all_tests
 #include "sho_radial.hxx" // all_tests
 #include "sho_tools.hxx" // all_tests
@@ -40,6 +41,7 @@
           module_test("angular_grid.",                   angular_grid::all_tests);
           module_test("radial_grid.",                     radial_grid::all_tests);
           module_test("single_atom.",                     single_atom::all_tests);
+          module_test("inline_math.",                     inline_math::all_tests);
           module_test("sho_unitary.",                     sho_unitary::all_tests);
           module_test("sho_radial.",                       sho_radial::all_tests);
           module_test("sho_tools.",                         sho_tools::all_tests);

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdio> // printf
+
 typedef int status_t;
 
 namespace sho_tools {

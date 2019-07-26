@@ -19,7 +19,7 @@
 // #include "sho_tools.hxx" // lnm_index, SHO_order_t
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "output_units.h" // eV, _eV, Ang, _Ang
-#include "inline_math.hxx" // pow2, pow3
+#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -80,39 +80,10 @@ extern "C" {
 
   typedef struct energy_level<1+CORE>       core_level_t;
   typedef struct energy_level<1+VALENCE> valence_level_t;
+
   
-
-  void set(double y[], int const n, double const a) {
-      for(int i = 0; i < n; ++i) y[i] = a;
-  } // set
-
-  void set(double y[], int const n, double const a[], double const f=1) {
-      for(int i = 0; i < n; ++i) y[i] = a[i]*f;
-  } // set
   
-  void scale(double y[], int const n, double const a[], double const f=1) {
-      for(int i = 0; i < n; ++i) y[i] *= a[i]*f;
-  } // scale
-
-  void scale(double y[], int const n, double const f) {
-      for(int i = 0; i < n; ++i) y[i] *= f;
-  } // scale
-
-  void product(double y[], int const n, double const a[], double const b[], double const f=1) {
-      for(int i = 0; i < n; ++i) y[i] = a[i]*b[i]*f;
-  } // product
-
-  void product(double y[], int const n, double const a[], double const b[], double const c[], double const f=1) {
-      for(int i = 0; i < n; ++i) y[i] = a[i]*b[i]*c[i]*f;
-  } // product
   
-  void add_product(double y[], int const n, double const a[], double const f) { // no default value for f here, otherwise the name product is missleading!
-      for(int i = 0; i < n; ++i) y[i] += a[i]*f;
-  } // add_product == axpy-type
-
-  void add_product(double y[], int const n, double const a[], double const b[], double const f=1) {
-      for(int i = 0; i < n; ++i) y[i] += a[i]*b[i]*f;
-  } // add_product
   
   status_t pseudize_s_function(double sfun[], radial_grid_t const *rg, int const irc, int const nmax=4) {
       double Amat[4*4], x[4] = {0,0,0,0}; double* bvec = x;
@@ -131,7 +102,7 @@ extern "C" {
           bvec[i4] = sfun[ir];
       } // i4
       status_t info = solve_Ax_b(x, bvec, Amat, nm, 4);
-      for(int i4 = nm; i4 < 4; ++i4) x[i4] = 0; // clear the unused coefficients
+      set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
       // replace the inner part of the function by the even-order polynomial
       for(int ir = 0; ir < irc; ++ir) {
           double const rr = pow2(rg->r[ir]);
