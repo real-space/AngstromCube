@@ -204,14 +204,13 @@ namespace overlap {
       printf("\n");
   } // plot
   
-  template<typename real_t>
+  template<int ncut, typename real_t>
   status_t generate_density_tensor(real_t tensor[], int const echo=9, 
       float const sigma_over_sigmap_squared=2) {
     // this structure can be used to describe the density generation
     // for the density we assume that it is sufficient to
     // represent the density in a SHO basis 
     // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
-    int constexpr ncut = 8;
     if (echo > 1) printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
     double const sigma = 1; // typically == 1 
     double const sigma_inv = 1./sigma; // typically == 1
@@ -222,14 +221,15 @@ namespace overlap {
     double H[ncut*ncut], Hp[2*ncut*2*ncut];
     prepare_centered_Hermite_polynomials(H, ncut, sigma_inv); // unit spread sigma=1, L2-normalized
     prepare_centered_Hermite_polynomials(Hp, 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
-    double HHp[3*ncut], HHpH[4*ncut];
     for(int p = 0; p < 2*ncut - 1; ++p) {
         if (echo > 1) printf("\n# p = %d\n", p);
         for(int n = 0; n < ncut; ++n) {
+            double HHp[3*ncut];
             multiply(HHp, 3*ncut, &H[ncut*n], ncut, &Hp[2*ncut*p], 2*ncut);
             for(int m = 0; m < ncut; ++m) {
                 real_t tensor_value = 0;
                 if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                    double HHpH[4*ncut];
                     multiply(HHpH, 4*ncut, &H[ncut*m], ncut, HHp, 3*ncut);
                     auto const P_pnm = integrate(HHpH, 4*ncut, sqrt_alpha_inv);
 //                  if (echo > 1) printf(" %d%d%d %.9f\n", p,n,m, P_pnm); // show tensor values as list
@@ -241,19 +241,19 @@ namespace overlap {
             } // m
             if (echo > 1) printf("\n");
         } // n
+        if (echo > 1) printf("\n");
     } // p
     return 0;
   } // generate_density_tensor
 
 
-  template<typename real_t>
+  template<int ncut, typename real_t>
   status_t generate_density_or_potential_tensor(real_t tensor[], int const echo=9, 
-      float const sigma_over_sigmap_squared=2) {
+      float const sigma_over_sigmap_squared=2) { // 2:typical for density tensor
     // this structure can be used to describe the density generation
     // for the density we assume that it is sufficient to
     // represent the density in a SHO basis 
     // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
-    int constexpr ncut = 8;
     double const sigma = 1; // typically == 1 
     double const sigma_inv = 1./sigma; // typically == 1
     double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
@@ -263,17 +263,16 @@ namespace overlap {
     double H[ncut*ncut], Hp[2*ncut*2*ncut];
     prepare_centered_Hermite_polynomials(H, ncut, sigma_inv); // unit spread sigma=1, L2-normalized
     prepare_centered_Hermite_polynomials(Hp, 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
-    double HH[2*ncut], HHHp[4*ncut];
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
+            double HH[2*ncut];
             multiply(HH, 2*ncut, &H[ncut*n], ncut, &H[ncut*m], ncut);
             for(int p = 0; p < 2*ncut - 1; ++p) {
                 real_t tensor_value = 0;
                 if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                    double HHHp[4*ncut];
                     multiply(HHHp, 4*ncut, HH, 2*ncut, &Hp[2*ncut*p], 2*ncut);
                     auto const P_pnm = integrate(HHHp, 4*ncut, sqrt_alpha_inv);
-//                  if (echo > 1) printf(" %d%d%d %.9f\n", p,n,m, P_pnm); // show tensor values as list
-                    if (echo > 1) printf(" %.9f", P_pnm); // show tensor values
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
@@ -401,13 +400,26 @@ namespace overlap {
     return (maxdev3 > 2e-14);
   } // test_kinetic_overlap
 
-  status_t test_density_tensor(int const echo=9) {
-      return generate_density_tensor<double>(nullptr, echo);
-  } // test
-
-  status_t test_density_or_potential_tensor(int const echo=9) {
-      double t[1 << 13];
-      return generate_density_or_potential_tensor(t, echo);
+  status_t test_density_or_potential_tensor(int const echo=2) {
+      int constexpr ncut = 8, n = (2*ncut - 1)*ncut*ncut;
+      double t[n], tp[n], df_max = 0;
+      float ssp2_min = 1.f, ssp2_max = 3.f, ssp2_inc = 1.01f;
+      for(float ssp2 = ssp2_min; ssp2 < ssp2_max; ssp2 *= ssp2_inc) {
+          generate_density_tensor<ncut>(t, 0, ssp2); // reference implementation
+          generate_density_or_potential_tensor<ncut>(tp, 0, ssp2);
+          double df = 0;
+          for(int i = 0; i < n; ++i) {
+              auto const ab = std::abs(t[i] - tp[i]);
+              if ((ab > 1e-14) && (echo > 7)) printf("# %s deviations in element [%d] %g\n", __func__, i, ab);
+              df = std::max(df, ab);
+          } // i
+          if (echo > 3) printf("# %s (%g) deviations %g\n", __func__, ssp2, df);
+          df_max = std::max(df, df_max);
+      } // ssp2
+      if (echo > 0) printf("\n# %s (%.2f ... %.1f %% ... %.2f) largest deviation %g\n", 
+                    __func__, ssp2_min, (ssp2_inc - 1)*100, ssp2_max, df_max);
+      if (echo > 2) generate_density_or_potential_tensor<ncut>(tp, echo); // default ssp2=2
+      return (df_max > 4e-14); // return error of the deviations are too strong
   } // test
 
   
@@ -421,10 +433,7 @@ namespace overlap {
       void zheev_(char const*, char const*, int const*, complex_t*, 
                   int const*, double*, complex_t*, int const*, double*, int*);
   } // LAPACK
-  
-  template<typename real_t> 
-  real_t pow2(real_t const base) { return base*base; }  
-  
+ 
   status_t test_fcc(int const echo=3, float const a0=8) {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
@@ -807,7 +816,6 @@ namespace overlap {
     status += test_Hermite_polynomials();
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
-    status += test_density_tensor();
     status += test_density_or_potential_tensor();
     // status += test_fcc(); // expensive
     return status;

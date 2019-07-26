@@ -119,7 +119,7 @@ namespace atom_core {
       status_t stat = 0;
       char const path[] = "pot/"; // ToDo: should be an external argument
       char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
-      if (echo > 3) printf("# %s  Z=%g  try to read from file %s\n",  __func__, Z, filename);
+      if (echo > 3) printf("# %s  Z=%g  try to read file %s\n",  __func__, Z, filename);
       std::ifstream infile(filename);
       int ngr = 0, ngu = 0; // number of radial grid points read and used
       if (infile.is_open()) {
@@ -184,7 +184,7 @@ namespace atom_core {
 
       int imax = -1;
       assert(Z <= 120);
-      orbital_t orb[20]; 
+      orbital_t orb[20];
       {   // prepare orbitals
           int iZ = 0; // integer atomic number needed for occupations
           int i = 0; // init shell index i
