@@ -225,28 +225,28 @@ extern "C" {
                 for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
                     ++enn; // principal quantum number
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
+                        auto &cs = core_state[ics]; // abbreviate
+                        cs.wave[TRU] = new double[nrt]; // get memory for the true radial function
                         double E = atom_core::guess_energy(Z, enn);
-                        core_state[ics].wave[TRU] = new double[nrt]; // get memory for the true radial function
                         radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
-                                 enn, ell, E, core_state[ics].wave[TRU], r2rho);
-                        core_state[ics].energy = E;
+                                 enn, ell, E, cs.wave[TRU], r2rho);
+                        cs.energy = E;
                         
                         int const inl = atom_core::nl_index(enn, ell);
                         if (E > -1.0) { // ToDo: make the limit (-1.0 Ha) between core and valence states dynamic
                             as_valence[inl] = ics; // mark as good for the valence band
 //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                         } // move to the valence band
-                        
-                        // warning: this memory is not freed
-                        core_state[ics].nrn[TRU] = enn - ell - 1; // true number of radial nodes
-                        core_state[ics].enn = enn;
-                        core_state[ics].ell = ell;
-                        core_state[ics].emm = emm_Degenerate;
+
+                        cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
+                        cs.enn = enn;
+                        cs.ell = ell;
+                        cs.emm = emm_Degenerate;
                         float const max_occ = 2*(jj + 1);
-                        core_state[ics].spin = spin_Degenerate;
+                        cs.spin = spin_Degenerate;
 
                         float const occ = std::min(std::max(0.f, ne), max_occ);
-                        core_state[ics].occupation = occ;
+                        cs.occupation = occ;
                         if (occ > 0) {
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
@@ -271,42 +271,43 @@ extern "C" {
 
         printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n");
 
-        nvalencestates = (numax*(numax + 4) + 4)/4;
+        nvalencestates = (numax*(numax + 4) + 4)/4; // ToDo: new function in sho_tools::
         valence_state = new valence_level_t[nvalencestates];
         {   int iln = 0;
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                    auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     
-                    valence_state[iln].wave[SMT] = new double[nrs]; // get memory for the smooth radial function
-                    valence_state[iln].wave[TRU] = new double[nrt]; // get memory for the true radial function
+                    vs.wave[SMT] = new double[nrs]; // get memory for the smooth radial function
+                    vs.wave[TRU] = new double[nrt]; // get memory for the true radial function
                     double E = atom_core::guess_energy(Z, enn);
                     radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
-                                          enn, ell, E, valence_state[iln].wave[TRU]);
-                    valence_state[iln].energy = E;
+                                          enn, ell, E, vs.wave[TRU]);
+                    vs.energy = E;
                     
-                    valence_state[iln].nrn[TRU] = enn - ell - 1; // true number of radial nodes
-                    valence_state[iln].nrn[SMT] = nrn;
-                    valence_state[iln].occupation = 0;
+                    vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
+                    vs.nrn[SMT] = nrn;
+                    vs.occupation = 0;
                     {
                         int const inl = atom_core::nl_index(enn, ell);
                         int const ics = as_valence[inl];
 //                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                         if (ics >= 0) { // atomic eigenstate was marked as valence
                             auto const occ = core_state[ics].occupation;
-                            valence_state[iln].occupation = occ;
+                            vs.occupation = occ;
                             core_state[ics].occupation = 0;
                             if (occ > 0) printf("# transfer %.1f electrons from %d%c-core state #%d"
                                      " to valence state #%d\n", occ, enn, ellchar[ell], ics, iln);
                         }
                     }
-                    valence_state[iln].enn = enn;
-                    valence_state[iln].ell = ell;
-                    valence_state[iln].emm = emm_Degenerate;
-                    valence_state[iln].spin = spin_Degenerate;
-                    if (echo > 0) printf("# valence %2d%c%6.1f E = %g\n", enn, ellchar[ell], valence_state[iln].occupation, E);
+                    vs.enn = enn;
+                    vs.ell = ell;
+                    vs.emm = emm_Degenerate;
+                    vs.spin = spin_Degenerate;
+                    if (echo > 0) printf("# valence %2d%c%6.1f E = %g\n", enn, ellchar[ell], vs.occupation, E);
                     ++iln;
                 } // nrn
             } // ell
@@ -355,7 +356,7 @@ extern "C" {
         get_valence_mapping(ln_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
         
-        int const maxit_scf = 0;
+        int const maxit_scf = 2;
         for(int scf = 0; scf < maxit_scf; ++scf) {
             printf("\n\n# SCF-iteration %d\n\n", scf);
             update((scf >= maxit_scf - 3)*9); // switch full echo on in the last 3 iterations
@@ -717,7 +718,7 @@ extern "C" {
             auto const check_matrix = new double[nSHO*stride];
             transform_SHO(check_matrix, stride, radial_density_matrix, stride, false);
             double d = 0; for(int i = 0; i < nSHO*stride; ++i) d = std::max(d, std::abs(check_matrix[i] - density_matrix[i]));
-            printf("# %s found max deviation %g when backtransforming the density matrix\n\n", __func__, d);
+            printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", __func__, d);
             assert(d < 1e-9);
         } // debugging
 
@@ -883,7 +884,8 @@ extern "C" {
             // full_potential[ts][nlm*mr]; // memory layout
 
             auto const on_grid = new double[npt*mr];
-            set(on_grid, npt*mr, 0.0); // clear
+            // set(on_grid, npt*mr, 0.0); // clear
+
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
             angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
@@ -904,7 +906,7 @@ extern "C" {
             // solve electrostatics inside the spheres
             auto const vHt = new double[nlm*mr];
             double const q_nucleus = (TRU == ts) ? -Z*Y00 : 0; // Z = number of protons in the nucleus
-            auto const *const rho  = (TRU == ts) ? full_density[TRU] : aug_density;
+            auto const rho = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with inner (q_nucleus) and outer boundary conditions (q_lm)
             radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus); 
             add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
@@ -1059,7 +1061,7 @@ extern "C" {
         float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) std::copy(occ_spdf, 4+occ_spdf, occ);
         int const nSHO = sho_tools::nSHO(numax);
         auto const radial_density_matrix = new double[nSHO*nSHO];
-        std::fill(radial_density_matrix, radial_density_matrix + nSHO*nSHO, 0); // clear
+        set(radial_density_matrix, nSHO*nSHO, 0.0); // clear
         for(int ell = 0; ell <= numax; ++ell) {
             for(int emm = -ell; emm <= ell; ++emm) {
                 for(int enn = 0; enn <= (numax - ell)/2; ++enn) {
@@ -1087,7 +1089,7 @@ extern "C" {
 
     void update(int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
-        float const mixing = 0.25; // mixing with .45 works well for Cu (Z=29)
+        float const mixing = 0.05; // mixing with .45 works well for Cu (Z=29)
         update_core_states(mixing, echo + 1);
         update_valence_states(echo + 1); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
@@ -1152,8 +1154,8 @@ namespace single_atom {
   int test(int echo=9) {
     if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
-//     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
-//         if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
+    // for(int Z = 109; Z >= 0; --Z) { // all elements backwards
+        // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
     { int const Z = 29; // 29:copper
