@@ -19,11 +19,13 @@ OBJ = \
 	single_atom.o \
 	overlap.o \
 	angular_grid.o \
+	sho_tools.o \
 	sho_unitary.o \
 	sho_radial.o \
 	sho_projection.o \
 	finite_difference.o \
 	main.o
+
 ifdef ENABLEGPU
 	OBJ += GPUdrivers.o
 endif
@@ -49,7 +51,7 @@ SRC ?= ./src
 INC = -I/usr/local/cuda/include
 
 EXTFLAGS ?=
-EXTFLAGS += -D HAS_no_MKL
+# EXTFLAGS += -D HAS_no_MKL
 
 ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
@@ -97,8 +99,8 @@ CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,$
 CXXFLAGS = -std=c++11 ${FLAGS}
 
 # LDFLAGS += -lm -llapack
-# LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread ### works with g++ on zam054 (JSC workstation)
-LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
+LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread ### works with g++ on zam054 (JSC workstation)
+# LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
 
 DEP=$(OBJ:%.o=%.d)
 

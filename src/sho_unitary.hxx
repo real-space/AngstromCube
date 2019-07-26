@@ -70,39 +70,6 @@ namespace sho_unitary {
               return u[nu][(nzyx - ioff)*nb + (nlnm - ioff)];
           } // get_entry
           
-          template<typename int_t>
-          status_t construct_index_table(int_t energy_ordered_index[], int const nu_max, 
-                                         sho_tools::SHO_order_t const order) {
-              // construct a table of energy ordered indices
-              printf("# construct_index_table for <numax=%d> order=%c%c%c%c\n", nu_max, order>>24, order>>16, order>>8, order);
-              printf("# ");
-              int ii = 0;
-              switch (order) {
-                case sho_tools::order_zyx:
-                  for(int z = 0; z <= nu_max; ++z) {
-                      for(int y = 0; y <= nu_max - z; ++y) {
-                          for(int x = 0; x <= nu_max - z - y; ++x) {
-                              energy_ordered_index[ii++] = sho_tools::nzyx_index(x, y, z);
-                              printf(" %d", energy_ordered_index[ii - 1]);
-                  }}} // x y z
-                break;
-                case sho_tools::order_lmn:
-                  for(int l = 0; l <= nu_max; ++l) {
-                      for(int m = -l; m <= l; ++m) {
-                          for(int n = 0; n <= (nu_max - l)/2; ++n) {
-                              energy_ordered_index[ii++] = sho_tools::nlnm_index(l, n, m);
-                              printf(" %d", energy_ordered_index[ii - 1]);
-                  }}} // l m n
-                break;
-                default:
-                  printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
-              } // switch order
-              printf("\n\n");
-              assert(sho_tools::nSHO(nu_max) == ii);
-              return (sho_tools::nSHO(nu_max) - ii); // success if 0
-          } // construct_index_table
-          
-          
           template<typename real_out_t>
           status_t construct_dense_matrix(real_out_t matrix[], int const nu_max, int const matrix_stride=-1, 
                             sho_tools::SHO_order_t const row_order=sho_tools::order_zyx,
@@ -112,8 +79,8 @@ namespace sho_unitary {
               auto const row_index = new int16_t[nSHO];
               auto const col_index = new int16_t[nSHO];
               status_t stat = 0;
-              stat += construct_index_table(row_index, nu_max, row_order);
-              stat += construct_index_table(col_index, nu_max, col_order);
+              stat += sho_tools::construct_index_table(row_index, nu_max, row_order);
+              stat += sho_tools::construct_index_table(col_index, nu_max, col_order);
               for(int i = 0; i < nSHO; ++i) {
                   for(int j = 0; j < nSHO; ++j) {
                       matrix[i*stride + j] = get_entry(row_index[i], col_index[j]);

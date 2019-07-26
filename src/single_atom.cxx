@@ -354,7 +354,7 @@ extern "C" {
         get_valence_mapping(ln_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
         
-        int const maxit_scf = 33;
+        int const maxit_scf = 0;
         for(int scf = 0; scf < maxit_scf; ++scf) {
             printf("\n\n# SCF-iteration %d\n\n", scf);
             update((scf >= maxit_scf - 3)*9); // switch full echo on in the last 3 iterations

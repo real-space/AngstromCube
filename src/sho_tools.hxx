@@ -4,6 +4,8 @@
 
 typedef int status_t;
 
+#include "inline_math.hxx" // pow2
+
 namespace sho_tools {
 
 //   union _order_u { uint32_t i; char c[4]; };
@@ -13,10 +15,11 @@ namespace sho_tools {
       order_lmn     = 0x206c6d6e, // " lmn" Radial order best for Gaunt treatment, depends on numax
       order_lnm     = 0x206c6e6d, // " lnm" Radial order best for radial basis functions, depends on numax
       order_nlnm    = 0x6e6c6e6d, // "nlnm" energy-ordered Radial
+      order_ln      = 0x20206c6e, // "  ln" Radial emm-degenerate, depends on numax
+      order_nln     = 0x206e6c6e, // " nln" energy-ordered Radial emm-degenerate
       order_nzyx    = 0x6e7a7978, // "nzyx" energy-ordered Cartesian
       order_unknown = 0x3f3f3f3f  // "????" error flag
   } SHO_order_t;
- 
 
   // number of all 3D SHO states up to numax >= 0
   inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
@@ -64,7 +67,7 @@ namespace sho_tools {
 
   // Cartesian 3D index
   inline constexpr int zyx_index(int const numax, int const nx, int const ny, int const nz) { 
-      return (nz*nz*nz - 3*(2 + numax)*nz*nz + (3*(2 + numax)*(2 + numax) - 1)*nz // contribution for nx=0, ny=0
+      return (nz*nz*nz - 3*(2 + numax)*nz*nz + (3*pow2(2 + numax) - 1)*nz // contribution for nx=0, ny=0
               + ny*(2 + numax - nz)*6 - (ny*(1 + ny))*3  +  6*nx)/6;  // contribution from previous y and x
   } // zyx_index
   template<int numax, typename int_t>
@@ -86,8 +89,8 @@ namespace sho_tools {
   } // nzyx_index
 
   // energy-ordered radial emm-degenerate index
-  inline constexpr int nln_index (int const ell, int const nrn) {
-      return ((ell + 2*nrn + 1)*(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
+  inline constexpr int nln_index(int const ell, int const nrn) {
+      return (pow2(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
 
   // energy-ordered radial 3D index
   inline constexpr int nlnm_index(int const ell, int const nrn, int const emm) {
@@ -102,172 +105,82 @@ namespace sho_tools {
   inline constexpr int_t get_nu(int_t const ell, int_t const nrn) { return ell + 2*nrn; }
 
   template<typename int_t>
-  inline int get_nu(int_t const energy_ordered_index)
-      { int nu = -1; while (energy_ordered_index >= nSHO(nu)) { ++nu; } return nu; }
+  inline int get_nu(int_t const energy_ordered)
+      { int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
+
+//   template<typename int_t>
+//   inline status_t zyx_translation_table(int_t table[], int const numax, bool const inverse=false) {
+//       int const nsho = nSHO(numax);
+//       int isho = 0;
+//       for(int nz = 0; nz <= numax; ++nz) {
+//           for(int ny = 0; ny <= numax - nz; ++ny) {
+//               for(int nx = 0; nx <= numax - nz - ny; ++nx) {
+//                   int const izyx = zyx_index(numax, nx, ny, nz);
+//                   assert(izyx >= 0); assert(izyx < nsho);
+//                   assert(izyx == isho);
+//                   int const nzyx = nzyx_index(nx, ny, nz);
+//                   assert(nzyx >= 0); assert(nzyx < nsho);
+//                   if (inverse) {
+//                       table[izyx] = nzyx;
+//                   } else {
+//                       table[nzyx] = izyx;
+//                   }
+//                   ++isho;
+//               } // nx
+//           } // ny
+//       } // nz
+//       return 0;
+//   } // get_translation_table
 
   template<typename int_t>
-  inline status_t zyx_translation_table(int_t table[], int const numax, bool const inverse=false) {
-      int const nsho = nSHO(numax);
-      int isho = 0;
-      for(int nz = 0; nz <= numax; ++nz) {
-          for(int ny = 0; ny <= numax - nz; ++ny) {
-              for(int nx = 0; nx <= numax - nz - ny; ++nx) {
-                  int const izyx = zyx_index(numax, nx, ny, nz);
-                  assert(izyx >= 0); assert(izyx < nsho);
-                  assert(izyx == isho);
-                  int const nzyx = nzyx_index(nx, ny, nz);
-                  assert(nzyx >= 0); assert(nzyx < nsho);
-                  if (inverse) {
-                      table[izyx] = nzyx;
-                  } else {
-                      table[nzyx] = izyx;
-                  }
-                  ++isho;
-              } // nx
-          } // ny
-      } // nz
-      return 0;
-  } // get_translation_table
-      
-#ifdef  NO_UNIT_TESTS
-  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
-#else // NO_UNIT_TESTS
+  status_t inline construct_index_table(int_t energy_ordered[], int const numax, 
+                    SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
+      // construct a table of energy ordered indices
+      if (echo > 1) printf("# construct_index_table for <numax=%d> order=%c%c%c%c\n", numax, order>>24, order>>16, order>>8, order);
+      if (echo > 3) printf("# ");
+      int ii = 0;
+      switch (order) {
+        case order_zyx:
+          for(int z = 0; z <= numax; ++z) {
+              for(int y = 0; y <= numax - z; ++y) {
+                  for(int x = 0; x <= numax - z - y; ++x) {
+                      int const nzyx = nzyx_index(x, y, z);
+                      energy_ordered[ii] = nzyx;
+                      if (echo > 4) printf(" %d", nzyx);
+                      if (nullptr != inverse) inverse[nzyx] = ii;
+                      ++ii;
+          }}} // x y z
+          assert(nSHO(numax) == ii);
+        break;
+        case order_lmn:
+          for(int l = 0; l <= numax; ++l) {
+              for(int m = -l; m <= l; ++m) {
+                  for(int n = 0; n <= (numax - l)/2; ++n) {
+                      int const nlnm = nlnm_index(l, n, m);
+                      energy_ordered[ii] = nlnm;
+                      if (echo > 4) printf(" %d", nlnm);
+                      if (nullptr != inverse) inverse[nlnm] = ii;
+                      ++ii;
+          }}} // l m n
+          assert(nSHO(numax) == ii);
+        break;
+        case order_ln:
+          for(int l = 0; l <= numax; ++l) {
+              for(int n = 0; n <= (numax - l)/2; ++n) {
+                  int const nln = nln_index(l, n);
+                  energy_ordered[ii] = nln;
+                  if (echo > 3) printf(" %d", nln);
+                  if (nullptr != inverse) inverse[nln] = ii;
+                  ++ii;
+          }} // l n
+        break;
+        default:
+            if (echo > 0) printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
+      } // switch order
+      if (echo > 3) printf("\n\n");
+      return 0; // success if 0
+  } // construct_index_table
 
-  inline status_t test_order_enum(int echo=4) {
-      status_t nerrors = 0;
-      SHO_order_t const ord[6] = {order_zyx, order_lmn, order_lnm, order_nlnm, order_nzyx, order_unknown};
-      for(int io = 0; io < 6; ++io) {
-          SHO_order_t const oi = ord[io];
-          if (echo > 3) printf("# %s: SHO_order_t %c%c%c%c = 0x%8x = %10u\n", __func__, oi>>24, oi>>16, oi>>8, oi, oi, oi);
-      } // io
-      if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
-      return nerrors;
-  } // test_order_enum
-
-  inline status_t test_radial_indices(int echo=4) {
-      status_t nerrors = 0;
-      for(int numax = 0; numax <= 9; ++numax) {
-          if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax);
-          int lnm = 0, ln = 0, lm = 0, lmn = 0;
-          for(int ell = 0; ell <= numax; ++ell) {
-              for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
-                  assert(ell + 2*nrn == get_nu(ell, nrn)); // test get_nu
-                  int const k = ln_index(numax, ell, nrn);
-                  if ((echo > 7) && (k != ln)) printf("# ln_index<%d>(ell=%d, nrn=%d) == %d %d diff=%d\n", numax, ell, nrn, ln, k, k - ln);
-                  assert(k == ln);
-                  nerrors += (k != ln);
-                  ++ln;
-                  for(int emm = -ell; emm <= ell; ++emm) {
-                      int const k = lnm_index(numax, ell, nrn, emm);
-                      if (echo > 8) printf("# lnm_index<%d>(ell=%d, nrn=%d, emm=%d) == %d %d diff=%d\n", numax, ell, nrn, emm, lnm, k, k - lnm);
-                      assert(k == lnm);
-                      nerrors += (k != lnm);
-                      ++lnm;
-                  } // emm
-              } // nrn
-              for(int emm = -ell; emm <= ell; ++emm) {
-                  int const k = lm_index(ell, emm);
-                  if (echo > 7) printf("# lm_index(ell=%d, emm=%d) == %d %d diff=%d\n", ell, emm, lm, k, k - lm);
-                  assert(k == lm);
-                  nerrors += (k != lm);
-                  ++lm;
-                  for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
-                      int const k = lmn_index(numax, ell, emm, nrn);
-                      if (echo > 8) printf("# lmn_index<%d>(ell=%d, emm=%d, nrn=%d) == %d %d diff=%d\n", numax, ell, emm, nrn, lmn, k, k - lmn);
-                      assert(k == lmn);
-                      nerrors += (k != lmn);
-                      ++lmn;
-                  } // nrn
-              } // emm
-              assert((1 + ell)*(1 + ell) == lm); // checksum
-
-          } // ell
-          if (echo > 6) printf("\n# lmn_index<%d>\n", numax);
-      } // numax
-      if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
-      return nerrors;
-  } // test_radial_indices
-
-  inline status_t test_Cartesian_indices(int echo=3) {
-      status_t nerrors = 0;
-      for(int numax = 0; numax <= 9; ++numax) {
-          if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax);
-          int zyx = 0;
-          for(int nz = 0; nz <= numax; ++nz) {
-              for(int ny = 0; ny <= numax - nz; ++ny) {
-                  for(int nx = 0; nx <= numax - nz - ny; ++nx) {
-                      int const k = zyx_index(numax, nx, ny, nz);
-                      if (echo > 8) printf("# zyx_index<%d>(nx=%d, ny=%d, nz=%d) == %d %d diff=%d\n", numax, nx, ny, nz, zyx, k, k - zyx);
-                      assert(k == zyx);
-                      nerrors += (k != zyx);
-                      ++zyx;
-                  } // nx
-              } // ny
-          } // nz
-      } // numax
-      if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
-      return nerrors;
-  } // test_Cartesian_indices
-
-  inline status_t test_energy_ordered_indices(int echo=4) {
-      status_t nerrors = 0;
-      int const numax = 9;
-      if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax);
-      int nzyx = 0, nln = 0, nlnm = 0;
-      for(int nu = 0; nu <= numax; ++nu) { // shell index
-        
-          // Cartesian energy ordered index
-          if (echo > 7) printf("\n# nzyx_index<nu=%d>\n", nu);
-          int xyz = 0;
-          for(int nz = 0; nz <= nu; ++nz) { // z can also run backwards so we start from (0,0,nu) and proceed with (1,0,nu-1)
-              for(int nx = 0; nx <= nu - nz; ++nx) {
-                  int const ny = nu - nz - nx;
-                  int const k = nzyx_index(nx, ny, nz);
-                  if ((echo > 6) && (k != nzyx))
-                      printf("# nzyx_index<nu=%d>(nx=%d, ny=%d, nz=%d) == %d %d diff=%d  xyz=%d %d\n", 
-                             nu, nx, ny, nz, nzyx, k, k - nzyx, xyz,  nx + (nz*((2+nu)*2-(nz + 1)))/2 );
-                  assert(k == nzyx);
-                  nerrors += (k != nzyx);
-                  if (get_nu(nzyx) != nu) printf("# get_nu(%d) = %d but expected %d\n", nzyx, get_nu(nzyx), nu);
-                  assert(get_nu(nzyx) == nu);
-                  ++nzyx;
-                  ++xyz;
-              } // ny
-          } // nz
-          assert(nSHO(nu) == nzyx); // checksum
-          
-          // radial energy ordered indices
-          for(int ell = nu%2; ell <= nu; ell+=2) {
-              int const nrn = (nu - ell)/2;
-              int const k = nln_index(ell, nrn);
-              if (echo > 9) printf("# nln_index<nu=%d>(ell=%d, nrn=%d) == %d %d\n", nu, ell, nrn, nln, k);
-              assert(k == nln);
-              ++nln;
-              for(int emm = -ell; emm <= ell; ++emm) {
-                  int const k = nlnm_index(ell, nrn, emm);
-                  if (echo > 9) printf("# nlnm_index<nu=%d>(ell=%d, nrn=%d, emm=%d) == %d\n", nu, ell, nrn, emm, nlnm);
-                  assert(k == nlnm);
-                  nerrors += (k != nlnm);
-                  assert(nu == get_nu(nlnm));
-                  ++nlnm;
-              } // emm
-          } // ell
-          assert(nSHO(nu) == nlnm); // checksum
-          
-      } // nu
-      if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
-      return nerrors;
-  } // test_energy_ordered_indices
-
-  inline status_t all_tests() {
-    auto status = 0;
-    status += test_order_enum();
-    status += test_radial_indices();
-    status += test_Cartesian_indices();
-    status += test_energy_ordered_indices();
-    return status;
-  } // all_tests
-#endif // NO_UNIT_TESTS  
-  
+  status_t all_tests();
   
 } // namespace sho_tools
