@@ -17,8 +17,6 @@ namespace atom_core {
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0);
 
   void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z=0, double *energies=nullptr);
-  
-//   double dot_product(int const n, double const bra[], double const ket[]); // moved to radial_grid.hxx
 
   inline double guess_energy(double const Z, int const enn) {
       return -.5*(Z/enn)*(Z/enn) *  // Hydrogen-like energies in the Hartree unit system
