@@ -110,10 +110,8 @@ namespace sho_projection {
       } // 1
       
       if (echo > 0) {
-          int energy_ordered[nSHO];
-//           sho_tools::zyx_translation_table(energy_ordered, numax);
-          int loop_ordered[nSHO];
-//           sho_tools::zyx_translation_table(loop_ordered, numax, true);
+          auto const energy_ordered = new int[nSHO];
+          auto const loop_ordered = new int[nSHO];
           sho_tools::construct_index_table(energy_ordered, numax, sho_tools::order_zyx, loop_ordered);
 
           int const nu_show = std::min(echo, numax);
@@ -124,6 +122,8 @@ namespace sho_projection {
               printf("# nu=%d %16.9f\n", sho_tools::get_nu(nzyx), coeff[izyx]);
           } // nzyx
           printf("\n\n");
+          delete[] loop_ordered;
+          delete[] energy_ordered;
       } // 1
       
       for(int dir = 0; dir < 3; ++dir) {
