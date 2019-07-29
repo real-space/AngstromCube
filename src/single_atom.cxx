@@ -217,7 +217,7 @@ extern "C" {
 
         int8_t as_valence[99];
         set(as_valence, 99, (int8_t)-1);
-        bool const transfer2valence = true;
+        bool const transfer2valence = false;
         
         
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
@@ -240,7 +240,7 @@ extern "C" {
                         
                         int const inl = atom_core::nl_index(enn, ell);
                         if (E > -1.0) { // ToDo: make the limit (-1.0 Ha) between core and valence states dynamic
-                            if (transfer2valence) as_valence[inl] = ics; // mark as good for the valence band
+                            as_valence[inl] = ics; // mark as good for the valence band
 //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                         } // move to the valence band
 
@@ -251,17 +251,21 @@ extern "C" {
                         float const max_occ = 2*(jj + 1);
                         cs.spin = spin_Degenerate;
 
-                        float const occ = std::min(std::max(0.f, ne), max_occ);
+                        float occ = std::min(std::max(0.f, ne), max_occ);
                         cs.occupation = occ;
                         if (occ > 0) {
-                            if (as_valence[inl] < 0) {
-                                enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
-                                double const norm = occ/radial_grid::dot_product(rg[TRU]->n, r2rho, rg[TRU]->dr);
-                                add_product(core_density[TRU], rg[TRU]->n, r2rho, norm);
-                            } // not as valence
                             jcs = ics;
                             if (echo > 0) printf("# %s %2d%c%6.1f E = %g\n", (as_valence[inl] < 0)?
                                               "core   ":"valence", enn, ellchar[ell], occ, E);
+                        } // occupied
+                        if (as_valence[inl] < 0) {
+                            enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
+                        } else {
+                            if (transfer2valence) occ = 0;
+                        } // not as valence
+                        if (occ > 0) {
+                            double const norm = occ/radial_grid::dot_product(rg[TRU]->n, r2rho, rg[TRU]->dr);
+                            add_product(core_density[TRU], rg[TRU]->n, r2rho, norm);
                         } // occupied
                         ne -= max_occ;
                         
@@ -274,6 +278,7 @@ extern "C" {
         
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
+        printf("\n# initial core density has %g electrons\n", radial_grid::dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
 
         printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n");
 
@@ -302,12 +307,14 @@ extern "C" {
                         int const ics = as_valence[inl];
 //                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                         if (ics >= 0) { // atomic eigenstate was marked as valence
-                            auto const occ = core_state[ics].occupation;
-                            vs.occupation = occ;
-                            core_state[ics].occupation = 0;
-                            if (occ > 0) printf("# transfer %.1f electrons from %d%c-core state #%d"
-                                    " to valence state #%d\n", occ, enn, ellchar[ell], ics, iln);
-                        }
+                            if (transfer2valence) {
+                                auto const occ = core_state[ics].occupation;
+                                vs.occupation = occ;
+                                core_state[ics].occupation = 0;
+                                if (occ > 0) printf("# transfer %.1f electrons from %d%c-core state #%d"
+                                        " to valence state #%d\n", occ, enn, ellchar[ell], ics, iln);
+                            } // transfer2valence
+                        } // ics
                     }
                     vs.enn = enn;
                     vs.ell = ell;
@@ -376,15 +383,16 @@ extern "C" {
 
         // now show the smooth and true potential
         if (true && (echo > 0)) {
-            printf("\n# spherical parts: r*V_tru(r), r*V_smt(r), zero_potential(r):\n");
+            printf("\n# spherical parts: r^2*rho_tru(r), r^2*rho_smt(r), r*V_tru(r), r*V_smt(r), zero_potential(r):\n");
             for(int ir = 1; ir < rg[SMT]->n; ir += 4) {
                 auto const r = rg[SMT]->r[ir];
-                printf("%g %g %g %g %g %g\n", r
-                        , core_density[TRU][ir + nr_diff]*r*r
-                        , core_density[SMT][ir]*r*r
+                printf("%g %g %g\n", r
+                        // , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
+                        // , core_density[SMT][ir]*r*r*Y00*Y00
+                        , full_potential[TRU][ir + nr_diff]*Y00*r
                         , potential[TRU][ir + nr_diff]
-                        , potential[SMT][ir]
-                        , zero_potential[ir]*Y00
+                        // , potential[SMT][ir]
+                        // , zero_potential[ir]*Y00
                       );
             } // ir
             printf("\n\n");
@@ -433,7 +441,7 @@ extern "C" {
             stats[1] += rho_wf*dV;
             stats[2] += rho_wf*r*dV;
             stats[3] += rho_wf*r*r*dV;
-            stats[4] += rho_wf*r_inv*dV; // Coulomb integral without Z
+            stats[4] += rho_wf*r_inv*dV; // Coulomb integral without -Z
         } // ir
 
         double charge_outside = 0;
@@ -476,6 +484,7 @@ extern "C" {
         // report integrals
         auto const old_core_charge = radial_grid::dot_product(nr, rg[TRU]->r2dr, core_density[TRU]);
         auto const new_core_charge = radial_grid::dot_product(nr, rg[TRU]->dr, new_r2core_density);
+        if (echo > 0) printf("# expect a core density with %g electrons\n", nelectrons);
         if (echo > 0) printf("# previous core density has %g electrons\n", old_core_charge);
         if (echo > 0) printf("# new core density has %g electrons\n",      new_core_charge);
         auto mix_new = mixing, mix_old = 1 - mixing;
@@ -550,6 +559,7 @@ extern "C" {
             show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, vs.ell, vs.occupation, vs.energy, 'v');
 
             int const nr_diff = rg[TRU]->n - rg[SMT]->n;
+            // construct a simple pseudo wave
             set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
             auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], 3, vs.ell);
             if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
@@ -757,8 +767,9 @@ extern "C" {
 
         set(rho_tensor, nlm*nln*nln, 0.0); // clear
         for(auto gnt : gaunt) {
-            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto const G = gnt.G;
-            if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-13); // make sure that G_00ij = delta_ij*Y00
+            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
+            // if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-12); // make sure that G_00ij = delta_ij*Y00
+            if (0 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
             if ((lm < nlm) && (lm1 < mlm) && (lm2 < mlm)) {
                 for(int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {
                     int const iln = ln_index_list[ilmn];
@@ -834,7 +845,7 @@ extern "C" {
     } // add_or_project_compensators
 
         
-    void update_full_density(double q_lm[], double const rho_tensor[]) { // density tensor rho_{lm iln jln}
+    void update_full_density(double q_lm[], double const rho_tensor[], int const echo=2) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
         int const nln = nvalencestates;
         
@@ -844,6 +855,8 @@ extern "C" {
             for(int lm = 0; lm < nlm; ++lm) {
                 if (0 == lm) {
                     set(full_density[ts], nr, core_density[ts], Y00); // needs scaling with Y00 since core_density has a factor 4*pi
+                    if (echo > 0) printf("# %s: %s density has %g electrons after adding the core density\n",  __func__, 
+                     (TRU == ts)?"true":"smooth", radial_grid::dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
                 } else {
                     set(&(full_density[ts][lm*mr]), nr, 0.0); // clear
                 }
@@ -860,6 +873,9 @@ extern "C" {
                     } // jln
                 } // iln
             } // lm
+            if (echo > 0) printf("# %s: %s density has %g electrons after adding the valence density\n",  __func__, 
+             (TRU == ts)?"true":"smooth", radial_grid::dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
+
         } // true and smooth
 
         int const nlm_cmp = pow2(1 + ellmax_compensator);
@@ -941,9 +957,9 @@ extern "C" {
 //             printf("# difference on radial 2 angular 2 radial grid %g\n", diff);
 
             // solve electrostatics inside the spheres
-            auto const vHt = new double[nlm*mr];
+            auto   const vHt = new double[nlm*mr];
             double const q_nucleus = (TRU == ts) ? -Z*Y00 : 0; // Z = number of protons in the nucleus
-            auto const rho = (TRU == ts) ? full_density[TRU] : aug_density;
+            auto   const       rho = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with inner (q_nucleus) and outer boundary conditions (q_lm)
             radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus); 
             add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
@@ -994,6 +1010,13 @@ extern "C" {
             } // ir
         } // ts true and smooth
 
+        // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
+        auto const rho4pi = new double[rg[TRU]->n];
+        set(rho4pi, rg[TRU]->n, full_density[TRU], 1./Y00);
+        printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
+        atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi, Z);
+        delete[] rho4pi;
+        
     } // update_full_potential
 
     void update_matrix_elements(int const echo=9) {
@@ -1041,7 +1064,9 @@ extern "C" {
         set(hamiltonian_lmn, nlmn*nlmn, 0.0); // clear
         set(overlap_lmn,     nlmn*nlmn, 0.0); // clear
         for(auto gnt : gaunt) {
-            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto const G = gnt.G;
+            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
+            if (0 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
+
             if (lm1 < mlm && lm2 < mlm) {
                 if (lm < nlm) {
                     for(int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {

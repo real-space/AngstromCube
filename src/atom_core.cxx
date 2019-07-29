@@ -438,7 +438,8 @@ namespace atom_core {
     status += test_nl_index();
 //     for(int Z = 0; Z < 120; ++Z) { // test all atoms
 //  { int const Z = 5;  // 5:boron
-    { int const Z = 29; // 29:copper
+   { int const Z = 6;  // 6:carbon
+    // { int const Z = 29; // 29:copper
     // { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element

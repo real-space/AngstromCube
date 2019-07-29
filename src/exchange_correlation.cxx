@@ -29,18 +29,18 @@ namespace exchange_correlation {
         return 0;
       } else { // negligible
         real_t Exc = 0;
-        auto const rs = pow(3.0/(4.0*pi*rho), THIRD);
+        auto const rs = std::pow(3.0/(4.0*pi*rho), THIRD);
         if (rs > 1.) {
-          auto const srs = sqrt(rs);
+          auto const srs = std::sqrt(rs);
           Exc = -0.1423/(1. + 1.0529*srs + 0.3334*rs);
           Vdn = Exc - rs/3.0*(0.1423*(0.3334 + 0.52645/srs)/pow2(1. + 1.0529*srs + 0.3334*rs));
         } else {
-          auto const lrs = log(rs);
+          auto const lrs = std::log(rs);
           Exc = -0.048 + 0.0311*lrs - 0.0116*rs + 0.002*rs*lrs;
           Vdn = Exc - rs/3.0*(0.0311/rs - 0.0096 + 0.002*lrs);
         } //
         Exc -=  0.75*tpt5/rs;
-        Vdn -= (0.75*tpt5/rs - rs/3.0*(0.75*tpt5/(rs*rs)));
+        Vdn -= (0.75*tpt5/rs + rs/3.0*(0.75*tpt5/(rs*rs)));
         return Exc;
       } // negligible
 
