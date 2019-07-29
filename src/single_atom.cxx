@@ -356,7 +356,7 @@ extern "C" {
         get_valence_mapping(ln_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
         
-        int const maxit_scf = 3;
+        int const maxit_scf = 33;
         for(int scf = 0; scf < maxit_scf; ++scf) {
             printf("\n\n# SCF-iteration %d\n\n", scf);
             update((scf >= maxit_scf - 3)*9); // switch full echo on in the last 3 iterations
@@ -364,18 +364,14 @@ extern "C" {
 
         // now show the smooth and true potential
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
-        if (false && (echo > 0)) {
+        if (true && (echo > 0)) {
             printf("\n# spherical parts: r*V_tru(r), r*V_smt(r), zero_potential(r):\n");
             for(int ir = 1; ir < rg[SMT]->n; ++ir) {
                 auto const r = rg[SMT]->r[ir];
                 printf("%g %g %g %g\n", r
-//                         , r*full_potential[TRU][0 + ir + nr_diff]*Y00
-//                         , r*full_potential[SMT][0 + ir]*Y00
                         , potential[TRU][ir + nr_diff]
                         , potential[SMT][ir]
                         , zero_potential[ir]*Y00
-//                      , core_state[5].wave[TRU][ir + nr_diff] // 4s-core state
-//                      , valence_state[0].wave[TRU][ir + nr_diff] // 4s-valence state in Cu
                       );
             } // ir
             printf("\n\n");
@@ -407,9 +403,11 @@ extern "C" {
 
     status_t initialize_Gaunt() {
       if (gaunt_init) return 0; // success
-      return angular_grid::create_numerical_Gaunt<6>(&gaunt);
+      auto const stat = angular_grid::create_numerical_Gaunt<6>(&gaunt);
+      gaunt_init = (0 == stat);
+      return stat;
     } // initialize_Gaunt
-    
+
     void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[], 
             int const enn, int const ell, float const occ, double const energy, char const csv) {
         if (echo < 1) return;
@@ -749,19 +747,34 @@ extern "C" {
         set(rho_tensor, nlm*nln*nln, 0.0); // clear
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto const G = gnt.G;
-            if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-14); // make sure that G_00ij = delta_ij*Y00
+            if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-13); // make sure that G_00ij = delta_ij*Y00
             if ((lm < nlm) && (lm1 < mlm) && (lm2 < mlm)) {
                 for(int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {
                     int const iln = ln_index_list[ilmn];
                     for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
                         rho_tensor[(lm*nln + iln)*nln + jln] += G * radial_density_matrix[ilmn*stride + jlmn];
+
+//                         auto const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+//                         if (std::abs(rho_ij) > 1e-9)
+//                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij/Y00, lm, iln, jln);
                     } // jlmn
                 } // ilmn
             } // limits
         } // gnt
         delete[] radial_density_matrix;
 
+#ifdef FULL_DEBUG        
+        for(int lm = 0; lm < nlm; ++lm) {
+            for(int iln = 0; iln < nln; ++iln) {
+                for(int jln = 0; jln < nln; ++jln) {
+                    auto const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+                    if (std::abs(rho_ij) > 1e-9)
+                        printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij/Y00, lm, iln, jln);
+                } // jln
+            } // iln
+        } // lm
+#endif
     } // get
     
     
@@ -830,6 +843,8 @@ extern "C" {
                         auto const wave_j = valence_state[jln].wave[ts];
                         assert(nullptr != wave_j);
                         double const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+//                         if (std::abs(rho_ij) > 1e-9)
+//                             printf("# rho_ij = %g for lm=%d iln=%d jln=%d\n", rho_ij/Y00, lm, iln, jln);
                         add_product(&(full_density[ts][lm*mr]), nr, wave_i, wave_j, rho_ij);
                     } // jln
                 } // iln
