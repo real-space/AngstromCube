@@ -395,7 +395,7 @@ namespace atom_core {
   template<typename real_t>
   int RamerDouglasPeucker(char active[] // used as boolean, length on[end]
         , real_t const x_list[], real_t const y_list[], int const end
-        , int const begin=0, float const epsilon=1e-12) {
+        , int const begin=0, float const epsilon=1e-6) {
     // Find the point with the maximum distance
     double d2max = 0;
     int index = -1;
@@ -445,13 +445,13 @@ namespace atom_core {
     } // i
     
     // If max distance is greater than epsilon, recursively simplify
-    if (d2max > epsilon) {
+    if (d2max > epsilon*epsilon) {
         assert(index > p0); assert(index < pl);
 //      printf("#      DouglasPeucker case N, distance^2 = %g at point #%d\n", d2max, index);
         // Recursive call
 //      printf("# call DouglasPeucker on interval [%d, %d] and  [%d, %d] later \n", begin, index, index, end - 1);
-        int const n0 = RamerDouglasPeucker(active, x_list, y_list, index + 1, begin);
-        int const n1 = RamerDouglasPeucker(active, x_list, y_list, end, index);
+        int const n0 = RamerDouglasPeucker(active, x_list, y_list, index + 1, begin, epsilon);
+        int const n1 = RamerDouglasPeucker(active, x_list, y_list, end,       index, epsilon);
         return n0 + n1 - 1;
     } else {
         int n_off = 0;
@@ -473,7 +473,7 @@ namespace atom_core {
       
       auto const active = new char[g->n];
       set(active, g->n, (char)1); // init all entries as active
-      int const new_n = RamerDouglasPeucker(active, g->r, y, g->n);
+      int const new_n = ]]=(active, g->r, y, g->n);
       if (echo > 0) printf("# RamerDouglasPeucker reduced %d points to %d points\n", g->n, new_n);
       auto const new_y = new double[new_n];
       radial_grid_t new_g; new_g.n = new_n; new_g.r = new double[new_n]; // this radial grid is incomplete and only provides r[]
