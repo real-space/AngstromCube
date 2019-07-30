@@ -217,7 +217,7 @@ extern "C" {
 
         int8_t as_valence[99];
         set(as_valence, 99, (int8_t)-1);
-        bool const transfer2valence = false;
+        bool const transfer2valence = true;
         
         
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
@@ -383,16 +383,20 @@ extern "C" {
 
         // now show the smooth and true potential
         if (true && (echo > 0)) {
-            printf("\n# spherical parts: r^2*rho_tru(r), r^2*rho_smt(r), r*V_tru(r), r*V_smt(r), zero_potential(r):\n");
-            for(int ir = 1; ir < rg[SMT]->n; ir += 4) {
+            printf("\n# spherical parts: "
+            "r^2*rho_tru(r), r^2*rho_smt(r), "
+            "r*Zeff_tru(r), r*Zeff_smt(r)"
+            ", zero_potential(r):"
+            "\n");
+            for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
-                printf("%g %g %g\n", r
-                        // , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
-                        // , core_density[SMT][ir]*r*r*Y00*Y00
-                        , full_potential[TRU][ir + nr_diff]*Y00*r
-                        , potential[TRU][ir + nr_diff]
-                        // , potential[SMT][ir]
-                        // , zero_potential[ir]*Y00
+                printf("%g %g %g %g %g %g\n", r
+                        , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
+                        , core_density[SMT][ir]*r*r*Y00*Y00
+//                         , -full_potential[TRU][ir + nr_diff]*Y00*r
+                        , -potential[TRU][ir + nr_diff]
+                        , -potential[SMT][ir]
+                        , zero_potential[ir]*Y00
                       );
             } // ir
             printf("\n\n");
@@ -1010,12 +1014,12 @@ extern "C" {
             } // ir
         } // ts true and smooth
 
-        // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
-        auto const rho4pi = new double[rg[TRU]->n];
-        set(rho4pi, rg[TRU]->n, full_density[TRU], 1./Y00);
-        printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
-        atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi, Z);
-        delete[] rho4pi;
+//         // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
+//         auto const rho4pi = new double[rg[TRU]->n];
+//         set(rho4pi, rg[TRU]->n, full_density[TRU], 1./Y00);
+//         printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
+//         atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi, Z);
+//         delete[] rho4pi;
         
     } // update_full_potential
 

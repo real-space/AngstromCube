@@ -36,8 +36,8 @@ namespace angular_grid {
       auto const g = get_grid(ellmax, echo); if (nullptr == g) return -1;
       auto const c = 'n'; double const w8 = 1, zero = 0;
       double *b; int ldb = 0, N = 0, K = 0;
-      if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
-      else      { K = pow2(1 + ellmax); N = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
+      if (back) { K = pow2(1 + ellmax); N = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
+      else      { N = pow2(1 + ellmax); K = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
       if (echo > 3) printf("# call dgemm(%c,%c,%d,%d,%d,%g,%p,%d,%p,%d,%g,%p,%d)\n", 
                         c,c,M,N,K,w8,(void*)in,M,(void*)b,ldb,zero,(void*)out,M);
       dgemm_(&c, &c, &M, &N, &K, &w8, in, &M, b, &ldb, &zero, out, &M); // matrix-matrix multiplication with BLAS
