@@ -118,8 +118,7 @@ namespace atom_core {
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, float const Z, 
           char const name[], float const factor, int const echo) {
       status_t stat = 0;
-      char const path[] = "pot/"; // ToDo: should be an external argument
-      char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
+      char filename[99]; sprintf(filename, "%s.%03d", name, (int)std::ceil(Z));
       if (echo > 3) printf("# %s  Z=%g  try to read file %s\n",  __func__, Z, filename);
       std::ifstream infile(filename);
       int ngr = 0, ngu = 0; // number of radial grid points read and used
@@ -146,7 +145,8 @@ namespace atom_core {
               r_prev = r; Ze_prev = Ze; // pass
               stat = (r_max < r_min);
           } // while
-          if (echo > 3) printf("# %s  Z=%g  use %d of %d values from file %s\n",  __func__, Z, ngu, ngr, filename);
+          if (echo > 3) printf("# %s  Z=%g  use %d of %d values from file %s, interpolate to %d values\n",
+                                  __func__, Z, ngu, ngr, filename, ir);
       } else {
           if (echo > 1) printf("# %s  Z=%g  failed to open file %s\n",  __func__, Z, filename);
           stat = -1; // failure
@@ -155,10 +155,8 @@ namespace atom_core {
   } // read_Zeff_from_file
 
   status_t store_Zeff_to_file(double const Zeff[], radial_grid_t const &g, float const Z, 
-      char const name[]="Zeff", float const factor=1, int const echo=9) {
-
-      char const path[] = "pot/"; // ToDo: should be an external argument
-      char filename[99]; sprintf(filename, "%s/%s.%03d", path, name, (int)std::ceil(Z));
+      char const name[]="pot/Zeff", float const factor=1, int const echo=9) {
+      char filename[99]; sprintf(filename, "%s.%03d", name, (int)std::ceil(Z));
       if (echo > 3) printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
       std::ofstream outfile(filename);
       if (outfile.is_open()) {
@@ -232,7 +230,7 @@ namespace atom_core {
 
       int icyc = 0;
       { // start scope
-          bool const loading_failed = (0 != read_Zeff_from_file(rV_old, g, Z, "Zeff", -1));
+          bool const loading_failed = (0 != read_Zeff_from_file(rV_old, g, Z, "pot/Zeff", -1));
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old, g.r));
 
           if (loading_failed) {
@@ -362,7 +360,7 @@ namespace atom_core {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n", 
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
               
-              store_Zeff_to_file(rV_old, g, Z, "Zeff", -1);
+              store_Zeff_to_file(rV_old, g, Z, "pot/Zeff", -1);
 
               if (echo > 1) {
                   for(int i = 0; i <= imax; ++i) {
@@ -393,6 +391,110 @@ namespace atom_core {
      
       return (res > THRESHOLD);
   } // scf_atom
+
+  template<typename real_t>
+  int RamerDouglasPeucker(char active[] // used as boolean, length on[end]
+        , real_t const x_list[], real_t const y_list[], int const end
+        , int const begin=0, float const epsilon=1e-12) {
+    // Find the point with the maximum distance
+    double d2max = 0;
+    int index = -1;
+    // construct a straight line through the 1st and last point
+    int const p0 = begin, pl = end - 1;
+    assert(active[p0]); assert(active[pl]); // both points still have to be active
+    double const x0 = x_list[p0], y0 = y_list[p0];
+    double const x_dist = x_list[pl] - x0;
+    double const y_dist = y_list[pl] - y0;
+    double const det = x_dist*x_dist + y_dist*y_dist;
+    double const det_inv = 1./det;
+    
+    for(int i = p0 + 1; i < pl; ++i) { // loop over all points in between
+        if (active[i]) {
+            double const xi = x_list[i], yi = y_list[i];
+            /*
+            // solve
+            //    p0x + s0*x_dist == pix + si*y_dist == 0
+            //    p0y + s0*y_dist == piy - si*x_dist == 0
+            // for s, t:
+            //    / x_dist   -y_dist \   / s0 \     / pix - p0x \
+            //    |                  | * |    |  == |           |
+            //    \ y_dist    x_dist /   \ si /     \ piy - p0y /
+            //
+            // solution: adjoint matrix divided by determinant
+            //    / s0 \     / x_dist    y_dist \   / pix - p0x \     1
+            //    |    |  == |                  | * |           |  * ----
+            //    \ si /     \ -y_dist   x_dist /   \ piy - p0y /    det
+            */
+//             double const s0 = (x_dist*(xi - x0) + y_dist*(yi - y0))*det_inv;
+//             double const xf0 = x0 + s0*x_dist;
+//             double const yf0 = y0 + s0*y_dist;
+            
+            double const si = (x_dist*(yi - y0) - y_dist*(xi - x0))*det_inv;
+//             double const xf = xi + si*y_dist;
+//             double const yf = yi - si*x_dist;
+//             assert( pow2(xf - xf0) + pow2(yf - yf0) < 1e-12);
+          
+//             double const d2 = pow2(yf - yi) + pow2(xf - xi); // perpendicularDistance^2
+            double const d2 = si*si*det;
+    //         printf("# DouglasPeucker distance^2 = %g at point #%d\n", d2, i);
+            if (d2 > d2max) {
+                index = i;
+                d2max = d2;
+            } // find the maximum
+        } // active?
+    } // i
+    
+    // If max distance is greater than epsilon, recursively simplify
+    if (d2max > epsilon) {
+        assert(index > p0); assert(index < pl);
+//      printf("#      DouglasPeucker case N, distance^2 = %g at point #%d\n", d2max, index);
+        // Recursive call
+//      printf("# call DouglasPeucker on interval [%d, %d] and  [%d, %d] later \n", begin, index, index, end - 1);
+        int const n0 = RamerDouglasPeucker(active, x_list, y_list, index + 1, begin);
+        int const n1 = RamerDouglasPeucker(active, x_list, y_list, end, index);
+        return n0 + n1 - 1;
+    } else {
+        int n_off = 0;
+        for(int i = p0 + 1; i < pl; ++i) {
+            n_off += (0 != active[i]);
+            active[i] = 0; // switch off every point in between since the curve is sufficiently smooth there
+        } // i
+//      if (n_off > 0) printf("# DouglasPeucker eleminate %d points, largest distance^2 is %g\n", n_off, d2max);
+        return 2;
+    } // if
+
+  } // RamerDouglasPeucker
+  
+  status_t simplify_Zeff_file(int const iZ, int const echo=9) {
+      float const Z = iZ;
+      auto const g = radial_grid::create_default_radial_grid(Z);
+      auto const y = new double[g->n];
+      auto stat = read_Zeff_from_file(y, *g, Z, "full_pot/Zeff", 1., echo);
+      
+      auto const active = new char[g->n];
+      set(active, g->n, (char)1); // init all entries as active
+      int const new_n = RamerDouglasPeucker(active, g->r, y, g->n);
+      if (echo > 0) printf("# RamerDouglasPeucker reduced %d points to %d points\n", g->n, new_n);
+      auto const new_y = new double[new_n];
+      radial_grid_t new_g; new_g.n = new_n; new_g.r = new double[new_n]; // this radial grid is incomplete and only provides r[]
+      {
+          int i = 0;
+          for(int ir = 0; ir < g->n; ++ir) {
+              if (active[ir]) {
+                  new_g.r[i] = g->r[ir];
+                  new_y[i] = y[ir];
+                  ++i;
+              } // active
+          } // ir
+          assert(i == new_n); // after running RamerDouglasPeucker, there must be exactly new_n active entries left
+          delete[] active;
+          delete[] y;
+      }
+      stat += store_Zeff_to_file(new_y, new_g, Z, "pot/Zeff", 1., echo);
+      delete[] new_g.r;
+      delete[] new_y;
+      return stat;
+  } // simplify_Zeff_file
   
   
 #ifdef  NO_UNIT_TESTS
@@ -436,14 +538,23 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
     status += test_nl_index();
-    for(int Z = 119; Z > 0; --Z) { // test all atoms, backwards
+//     for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
+//         printf("\n\n# Z = %d\n\n", Z);
+//         status += simplify_Zeff_file(Z);
+    
+//     for(int Z = 119; Z > 0; --Z) { // test all atoms, backwards
+//     for(int Z = 0; Z < 120; ++Z) { // test all atoms, backwards
+//         printf("\n\n# Z = %d\n\n", Z);
+//         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
+//    { int const Z = 1;  // 1:hydrogen
 //  { int const Z = 5;  // 5:boron
 //    { int const Z = 6;  // 6:carbon
-//     { int const Z = 29; // 29:copper
+    { int const Z = 29; // 29:copper
     // { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
+//         status += simplify_Zeff_file(Z);
     } // Z
     return status;
   } // all_tests

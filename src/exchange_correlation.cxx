@@ -15,14 +15,14 @@ namespace exchange_correlation {
   
   // ToDo: use libxc in the long run
   template<typename real_t>
-  real_t lda_PZ81_kernel(real_t const rho, real_t &Vdn) {
-                     //, real_t const mag, real_t *Vup) { // optional
+  real_t lda_PZ81_kernel(real_t const rho, real_t &Vdn
+                       , real_t const mag, real_t *Vup) { // optional
 
     real_t constexpr THIRD  = 1./3., TINYDEN = 1e-20;
     real_t constexpr pi = constants::pi;
     real_t const tpt5 = .6108870577108572; // (2.25/(pi*pi))**THIRD
 
-//     if (nullptr == Vup) { // LDA, no magnetiziation
+    if (nullptr == Vup) { // LDA, no magnetiziation
 
       if (rho < TINYDEN) {
         Vdn = 0;
@@ -44,24 +44,26 @@ namespace exchange_correlation {
         return Exc;
       } // negligible
 
-//     } else { // LDA, no magnetiziation
-// 
-//       if (rho < TINYDEN) {
-//         *Vup = 0;
-//          Vdn = 0;
-//         return 0;
-//       } else { // negligible
-//         *Vup = 0;
-//          Vdn = 0;
-//         return 0;
-//       } // negligible
-//       
-//     } // LDA, no magnetiziation
+    } else { // LDA, no magnetiziation
+      
+      assert(0 == __LINE__); // will fail!
+
+      if (rho < TINYDEN) {
+        *Vup = 0;
+         Vdn = 0;
+        return 0;
+      } else { // negligible
+        *Vup = 0;
+         Vdn = 0;
+        return 0;
+      } // negligible
+      
+    } // LDA, no magnetiziation
 
   } // lda_PZ81_kernel
   
 //   // explicit template instanciation for float and double
-    template double lda_PZ81_kernel<double>(double const rho, double &Vdn); //, double const mag, double *Vup);
+    template double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
 //   template float  lda_PZ81_kernel<float> (float  const rho, float  &Vdn, float  const mag, float  *Vup);
 
 #ifdef  NO_UNIT_TESTS

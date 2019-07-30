@@ -81,7 +81,7 @@ extern "C" {
 
   
   status_t pseudize_function(double sfun[], radial_grid_t const *rg, int const irc, 
-              int const nmax=4, int const ell=0) {
+              int const nmax=4, int const ell=0, double *coeff=nullptr) {
       // match a radial function with an even-order polynomial inside r[irc]
       double Amat[4*4], x[4] = {0,0,0,0}; double* bvec = x;
       set(Amat, 4*4, 0.0);
@@ -108,6 +108,7 @@ extern "C" {
           double const rl = intpow(r, ell);
           sfun[ir] = rl*(x[0] + rr*(x[1] + rr*(x[2] + rr*x[3])));
       } // ir
+      if (nullptr != coeff) set(coeff, nm, x); // export coefficients
       return info;
   } // pseudize_function
   
@@ -155,6 +156,7 @@ extern "C" {
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
       std::vector<int16_t> ln_index_list;
+      std::vector<int16_t> lm_index_list;
       std::vector<int16_t> lmn_begin;
       std::vector<int16_t> lmn_end;
 
@@ -208,7 +210,7 @@ extern "C" {
 
         set(core_density[SMT], nrs, 0.0); // init
         set(core_density[TRU], nrt, 0.0); // init
-        atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "Zeff", -1);
+        atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "pot/Zeff", -1);
 
 //         // show the loaded Zeff(r)
 //         for(int ir = 0; ir < rg[TRU]->n; ++ir) {
@@ -364,9 +366,10 @@ extern "C" {
 
         int const mlm = pow2(1 + numax);
         ln_index_list.resize(nSHO);
+        lm_index_list.resize(nSHO);
         lmn_begin.resize(mlm);
         lmn_end.resize(mlm);
-        get_valence_mapping(ln_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
+        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
         
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
@@ -381,27 +384,45 @@ extern "C" {
             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
         } // self-consistency iterations
 
-        // now show the smooth and true potential
+        // show the smooth and true potential
         if (true && (echo > 0)) {
             printf("\n# spherical parts: "
-            "r^2*rho_tru(r), r^2*rho_smt(r), "
             "r*Zeff_tru(r), r*Zeff_smt(r)"
+            "r^2*rho_tru(r), r^2*rho_smt(r), "
             ", zero_potential(r):"
             "\n");
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
                 printf("%g %g %g %g %g %g\n", r
-                        , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
-                        , core_density[SMT][ir]*r*r*Y00*Y00
 //                         , -full_potential[TRU][ir + nr_diff]*Y00*r
                         , -potential[TRU][ir + nr_diff]
                         , -potential[SMT][ir]
+                        , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
+                        , core_density[SMT][ir]*r*r*Y00*Y00
                         , zero_potential[ir]*Y00
                       );
             } // ir
             printf("\n\n");
         } // echo
 
+        // show the smooth and true partial waves
+        if (false && (echo > 0)) {
+            printf("\n\n\n# valence partial waves:\n");
+            for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
+                auto const r = rg[SMT]->r[ir];
+                auto const f = r; // scale with r? scale with Y00?
+                printf("%g ", r);
+                for(int ics = 0; ics < ncorestates; ++ics) {
+                    printf("   %g", core_state[ics].wave[TRU][ir + nr_diff]*f);
+                } // ics
+                for(int iln = 0; iln < nvalencestates; ++iln) {
+                    printf("   %g %g", valence_state[iln].wave[TRU][ir + nr_diff]*f
+                                     , valence_state[iln].wave[SMT][ir]*f);
+                } // iln
+                printf("\n");
+            } // ir
+            printf("\n\n\n\n");
+        } // echo
         
     } // constructor
       
@@ -456,12 +477,12 @@ extern "C" {
         } // ir
 
         //  printf("# core    %2d%c %g %g %g %g %g\n", cs.enn, ellchar[cs.ell], stats[0], stats[1], stats[2], stats[3], stats[4]);
-        printf("# %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q(r>r_cut)=%.3g e\n", 
+        printf("# %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", 
                ('c' == csv)?"core   ":"valence", enn, ellchar[ell], occ, energy*eV,_eV, stats[2]/stats[1]*Ang, 
                std::sqrt(std::max(0., stats[3]/stats[1]))*Ang,_Ang, stats[4]/stats[1]*eV,_eV,
                charge_outside/stats[1]);
     } // show_state_analysis
-    
+
     void update_core_states(float const mixing, int echo=0) {
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
@@ -545,30 +566,73 @@ extern "C" {
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         auto r2rho = new double[nr];
-        for(int iln = 0; iln < nvalencestates; ++iln) {
+        int const nln = nvalencestates;
+        for(int iln = 0; iln < nln; ++iln) {
             auto &vs = valence_state[iln]; // abbreviate
             int constexpr SRA = 1;
             
             // solve for a true partial wave
 //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], vs.ell, vs.energy, vs.wave[TRU], small_component);
-            set(vs.wave[TRU], nr, 0.0);
+            set(vs.wave[TRU], nr, 0.0); // clear
 
             // solve for a valence eigenstate
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, vs.ell, vs.energy, vs.wave[TRU], r2rho);
             // normalize the partial waves
-            auto const norm_factor = 1./std::sqrt(radial_grid::dot_product(nr, r2rho, rg[TRU]->dr));
+            auto const norm_wf2 = radial_grid::dot_product(nr, r2rho, rg[TRU]->dr);
+            auto const norm_factor = 1./std::sqrt(norm_wf2);
             scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
+            
+            auto const tru_norm = radial_grid::dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2;
+            auto const work = r2rho;
+            scale(work, nr, potential[TRU]);
+            auto const tru_potential_E = radial_grid::dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
+            auto const tru_kinetic_E = vs.energy*tru_norm - tru_potential_E; // kinetic energy contribution up to r_cut
             
 //          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
             show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, vs.ell, vs.occupation, vs.energy, 'v');
 
             int const nr_diff = rg[TRU]->n - rg[SMT]->n;
             // construct a simple pseudo wave
+            int const n_poly = 3; // number of even-order polynomial terms used
+            double coeff[4], smt_kinetic_E = 0, smt_norm = 0;
+            set(coeff, 4, 0.0);
             set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
-            auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], 3, vs.ell);
-            if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
+            auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, vs.ell, coeff);
+            if (stat) {
+                if (echo > 0) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
                                               __func__, vs.enn, ellchar[vs.ell], stat);
-
+            } else {
+                if (echo > 0) printf("# %s Matching of smooth %d%c-valence state with polynomial r^%d*(%g + r^2* %g + r^4* %g + r^6* %g)\n", 
+                                              __func__, vs.enn, ellchar[vs.ell], vs.ell, coeff[0], coeff[1], coeff[2], coeff[3]);
+                // psi(r) = \sum_i c_i r^{\ell + 2i}
+                // \hat T_radial psi = -\frac 12 1/r d^2/dr^2 (r*psi) = -\frac 12 \sum_i c_i (\ell + 2i + 1) (\ell + 2i) r^{\ell + 2i - 2}
+                // for ell=0 the i=0 term cancels with the centrifugal potential \ell(\ell + 1)r^{-2}
+                // then \int_0^R dr r^2 psi(r) \hat T psi(r) 
+                //    = -\frac 12 \sum_i c_i \sum_j c_j \left\[ (\ell + 2j + 1) (\ell + 2j) - (\ell + 1) \ell \right\] R^{2\ell + 2i + 2j + 1}/{2\ell + 2i + 2j + 1}
+                //    =
+                { 
+                    double const rcut = rg[SMT]->r[ir_cut[SMT]];
+                    smt_kinetic_E = 0; smt_norm = 0;
+                    for(int i = 0; i < n_poly; ++i) {
+                        for(int j = 0; j < n_poly; ++j) {
+                            smt_kinetic_E += ((vs.ell + 2*j + 1)*(vs.ell + 2*j) - (vs.ell + 1)*vs.ell)*
+                                             coeff[i]*coeff[j]*intpow(rcut, 2*vs.ell + 2*i + 2*j + 1)/(2*vs.ell + 2*i + 2*j + 1.);
+                            smt_norm      += coeff[i]*coeff[j]*intpow(rcut, 2*vs.ell + 2*i + 2*j + 3)/(2*vs.ell + 2*i + 2*j + 3.);
+                        } // j
+                    } // i
+                    smt_kinetic_E *= -0.5; // prefactor for the kinetic energy in Hartree atomic units
+                }
+            } // stat
+            
+            product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
+            double const smt_norm_numerical = radial_grid::dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
+            if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth %g and %g (smooth numerically)\n", 
+               __func__, vs.enn, ellchar[vs.ell], tru_norm, smt_norm, smt_norm_numerical);
+            kinetic_energy[nln*iln + iln][TRU] = tru_kinetic_E; // set diagonal entry, offdiagonals still missing
+            kinetic_energy[nln*iln + iln][SMT] = smt_kinetic_E; // set diagonal entry, offdiagonals still missing
+            if (echo > 0) printf("# %s %d%c-valence state has kinetic energy %g and (smooth) %g %s, norm deficit = %g electrons\n", 
+               __func__, vs.enn, ellchar[vs.ell], tru_kinetic_E*eV, smt_kinetic_E*eV,_eV, tru_norm - smt_norm);
+           
             // ToDo: solve for partial waves at the same energy, match and establish dual orthgonality with SHO projectors
         } // iln
         delete[] r2rho;
@@ -608,7 +672,7 @@ extern "C" {
     } // update_charge_deficit
 
     template<typename int_t>
-    void get_valence_mapping(int_t ln_index_list[], int const nlmn, int const nln, 
+    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[], int const nlmn, int const nln, 
                              int_t lmn_begin[], int_t lmn_end[], int const mlm, 
                              int const echo=0) {
         for(int lm = 0; lm < mlm; ++lm) lmn_begin[lm] = -1;
@@ -625,6 +689,7 @@ extern "C" {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                     ln_index_list[ilmn] = iln_enn[nrn]; // valence state index
                     int const lm = solid_harmonics::lm_index(ell, emm);
+                    lm_index_list[ilmn] = lm;
                     if (lmn_begin[lm] < 0) lmn_begin[lm] = ilmn; // store the first index of this lm
                                              lmn_end[lm] = ilmn + 1; // store the last index of this lm
                     ++ilmn;
@@ -956,9 +1021,6 @@ extern "C" {
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
             delete[] on_grid;
-            
-//             double diff; for(int ir = 0; ir < nr; ++ir) { diff += std::abs(full_potential[ts][ir] - full_density[ts][ir])*rg[ts]->r2dr[ir]; }
-//             printf("# difference on radial 2 angular 2 radial grid %g\n", diff);
 
             // solve electrostatics inside the spheres
             auto   const vHt = new double[nlm*mr];
@@ -989,13 +1051,14 @@ extern "C" {
             // analyze the zero potential
             double vol = 0, Vint = 0, r2Vint = 0;
             for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
-                auto const r2 = pow2(rg[SMT]->r[ir]);
-                auto const dV = rg[SMT]->r2dr[ir];
-                vol += dV;
-                Vint += zero_potential[ir]*dV;
+                auto const r2 = pow2(rg[SMT]->r[ir]), dV = rg[SMT]->r2dr[ir];
+                vol    +=                       dV;
+                Vint   += zero_potential[ir]*   dV;
                 r2Vint += zero_potential[ir]*r2*dV;
             } // ir
             if (echo > 5) printf("# %s zero potential statistics = %g %g %s\n", __func__, Vint/vol*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
+                // these numbers should be small since they indicate that V_bar is localized inside the sphere
+                // and how much V_smt deviates from V_tru ouside the sphere
         } // pseudization successful
         if (echo > 5) printf("# %s zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
             __func__, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT]->n - 1]*df, _eV);
@@ -1007,11 +1070,8 @@ extern "C" {
         // feed back spherical part of the true potential into the spherical true potential r*V 
         // which determines core states and true partial waves
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const nr = rg[ts]->n;
-            for(int ir = 0; ir < nr; ++ir) {
-                auto const r = rg[ts]->r[ir];
-                potential[ts][ir] = mixing * (r*Y00*full_potential[ts][0 + ir]) + (1 - mixing) * potential[ts][ir];
-            } // ir
+            scale(potential[ts], rg[ts]->n, 1. - mixing);
+            add_product(potential[ts], rg[ts]->n, full_potential[ts] + 0, rg[ts]->r, Y00*mixing);
         } // ts true and smooth
 
 //         // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
@@ -1020,7 +1080,7 @@ extern "C" {
 //         printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
 //         atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi, Z);
 //         delete[] rho4pi;
-        
+
     } // update_full_potential
 
     void update_matrix_elements(int const echo=9) {
@@ -1103,11 +1163,15 @@ extern "C" {
         // add the kinetic_energy deficit to the hamiltonian
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
+            int const ilm = lm_index_list[ilmn];
             if ((echo > 7)) printf("# hamiltonian elements for ilmn=%3d  ", ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                int const jln = ln_index_list[jlmn];
-                hamiltonian_lmn[ilmn*nlmn + jlmn] += ( kinetic_energy[iln*nln + jln][TRU]
-                                                     - kinetic_energy[iln*nln + jln][SMT] )*Y00;
+                int const jlm = lm_index_list[jlmn];
+                if (ilm == jlm) {
+                    int const jln = ln_index_list[jlmn];
+                    hamiltonian_lmn[ilmn*nlmn + jlmn] += ( kinetic_energy[iln*nln + jln][TRU]
+                                                         - kinetic_energy[iln*nln + jln][SMT] )*Y00;
+                } // diagonal in lm, offdiagonal in nrn
                 if ((echo > 7)) printf(" %g", hamiltonian_lmn[ilmn*nlmn + jlmn]);
             } // jlmn
             if ((echo > 7)) printf("\n");
