@@ -18,12 +18,13 @@
 
 namespace sho_projection {
 
-  template<typename real_t, int D0>
+  template<typename real_t, int D0, int PROJECT0_OR_ADD1>
   status_t sho_project(real_t coeff[] // result, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
-                     , real_space_grid::grid_t<real_t,D0> const g // grid values, assume that g is a Cartesian grid
+                     , real_t values[] // grid array
+                     , real_space_grid::grid_t<real_t,D0> const g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4
                       ) { //
       assert( 1 == D0 );
@@ -43,9 +44,11 @@ namespace sho_projection {
       if (echo > 2) printf("# rectangular sub-domain z:[%d, %d) y:[%d, %d) x:[%d, %d)\n", 
                            off[2], end[2], off[1], end[1], off[0], end[0]);
       long const nvolume = num[0] * num[1] * num[2];
-      if (echo > 1) printf("# project on rectangular sub-domain %d x %d x %d = %ld points\n", 
-                           num[0], num[1], num[2], nvolume);
+      if (echo > 1) printf("# %s on rectangular sub-domain %d x %d x %d = %ld points\n", 
+                 (0 == PROJECT0_OR_ADD1)?"project":"add", num[0], num[1], num[2], nvolume);
       if (nvolume < 1) return 0; // no range
+
+      // ToDo: analyze if the grid spacing is small enough for this \sigma
 
       int const M = 1 + numax;
       real_t* H1d[3];
@@ -58,20 +61,21 @@ namespace sho_projection {
           for(int ii = 0; ii < nd; ++ii) {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
-              hermite_polys(&(H1d[dir][ii*M]), x, numax);
+              hermite_polys(H1d[dir] + ii*M, x, numax);
               if (echo > 5) { printf("%g\t", x); for(int nu = 0; nu <= numax; ++nu) printf("%12.6f", H1d[dir][ii*M + nu]); printf("\n"); }
           } // i
       } // dir
    
       int const nSHO = sho_tools::nSHO(numax);
+      if (0 == PROJECT0_OR_ADD1)
       for(int iSHO = 0; iSHO < nSHO; ++iSHO) coeff[iSHO] = 0; // clear
       
       int ixyz = 0;
       for(        int iz = 0; iz < g.dim('z'); ++iz) {
           for(    int iy = 0; iy < g.dim('y'); ++iy) {
               for(int ix = 0; ix < g.dim('x'); ++ix) {
-                  auto const val = g.values[ixyz];
-                  if (0 != val) {
+                  auto val = values[ixyz];
+                  if ((0 != val) || (1 == PROJECT0_OR_ADD1))  {
 //                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO = 0;
                       for(int nz = 0; nz <= numax; ++nz) {
@@ -80,19 +84,25 @@ namespace sho_projection {
                                   auto const H3d = H1d[2][(iz - off[2])*M + nz]
                                                  * H1d[1][(iy - off[1])*M + ny]
                                                  * H1d[0][(ix - off[0])*M + nx];
-                                  coeff[iSHO] += val * H3d; // here, the projection happens                                          
+                                  if (0 == PROJECT0_OR_ADD1) {
+                                      coeff[iSHO] += val * H3d; // here, the projection happens                                          
+                                  } else {
+                                      val += coeff[iSHO] * H3d; // here, the addition happens                                          
+                                  }
                                   ++iSHO;
                               } // nx
                           } // ny
                       } // nz
                       assert( nSHO == iSHO );
                   } // non-zero
+                  if (1 == PROJECT0_OR_ADD1) values[ixyz] = val;
                   ++ixyz;
               } // ix
           } // iy
       } // iz
       // g.dV(); // volume element of the grid has been ignored
       
+      if (0 == PROJECT0_OR_ADD1) {
       if (echo > 0) {
           int const nu_show = std::min(echo, numax);
           printf("# coefficients (up to nu = %d):\n", nu_show);
@@ -125,7 +135,8 @@ namespace sho_projection {
           delete[] loop_ordered;
           delete[] energy_ordered;
       } // 1
-      
+      } // PROJECT
+
       for(int dir = 0; dir < 3; ++dir) {
           delete[] H1d[dir]; // free memory
       } // dir
@@ -146,7 +157,8 @@ namespace sho_projection {
       double const pos[] = {g.dim('x')*.42*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.60*g.h[2]};
       int constexpr numax = 7;
       real_t coeff[sho_tools::nSHO(numax)];
-      auto const stat = sho_project<real_t,1>(coeff, numax, pos, 1.0, g);
+      auto stat = sho_project<real_t,1,0>(coeff, numax, pos, 1.0, g.values, g);
+          stat += sho_project<real_t,1,1>(coeff, numax, pos, 1.0, g.values, g);
       return stat;
   } // test_create_and_destroy
 

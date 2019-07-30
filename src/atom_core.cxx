@@ -473,7 +473,7 @@ namespace atom_core {
       
       auto const active = new char[g->n];
       set(active, g->n, (char)1); // init all entries as active
-      int const new_n = ]]=(active, g->r, y, g->n);
+      int const new_n = RamerDouglasPeucker(active, g->r, y, g->n);
       if (echo > 0) printf("# RamerDouglasPeucker reduced %d points to %d points\n", g->n, new_n);
       auto const new_y = new double[new_n];
       radial_grid_t new_g; new_g.n = new_n; new_g.r = new double[new_n]; // this radial grid is incomplete and only provides r[]
@@ -538,9 +538,9 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
     status += test_nl_index();
-//     for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
-//         printf("\n\n# Z = %d\n\n", Z);
-//         status += simplify_Zeff_file(Z);
+    // for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
+    //     printf("\n\n# Z = %d\n\n", Z);
+    //     status += simplify_Zeff_file(Z);
     
 //     for(int Z = 119; Z > 0; --Z) { // test all atoms, backwards
 //     for(int Z = 0; Z < 120; ++Z) { // test all atoms, backwards
