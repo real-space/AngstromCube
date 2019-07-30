@@ -26,6 +26,13 @@
       return xpow;
   } // intpow
 
+
+  template<typename real_t> 
+  inline real_t constexpr factorial(unsigned const n) {
+      return (n > 1)? factorial<real_t>(n - 1)*((real_t)n) : 1;
+  } // factorial
+
+
   template<typename real_t>
   void set(real_t y[], int const n, real_t const a) {
       for(int i = 0; i < n; ++i) y[i] = a;

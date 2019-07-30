@@ -1,7 +1,7 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <algorithm> // std::copy, std::fill
-#include <cmath> // std::floor
+#include <cmath> // std::floor, std::pow
 
 #include "sho_projection.hxx"
 
@@ -12,6 +12,7 @@
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "constants.hxx" // pi
+#include "inline_math.hxx" // set, factorial
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -19,12 +20,12 @@
 namespace sho_projection {
 
   template<typename real_t, int D0, int PROJECT0_OR_ADD1>
-  status_t sho_project(real_t coeff[] // result, coefficients are zyx-ordered
+  status_t sho_project_or_add(real_t coeff[] // result if projecting, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
-                     , real_t values[] // grid array
-                     , real_space_grid::grid_t<real_t,D0> const g // grid descriptor, assume that g is a Cartesian grid
+                     , real_t values[] // grid array, result if adding
+                     , real_space_grid::grid_t<real_t,D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4
                       ) { //
       assert( 1 == D0 );
@@ -44,8 +45,8 @@ namespace sho_projection {
       if (echo > 2) printf("# rectangular sub-domain z:[%d, %d) y:[%d, %d) x:[%d, %d)\n", 
                            off[2], end[2], off[1], end[1], off[0], end[0]);
       long const nvolume = num[0] * num[1] * num[2];
-      if (echo > 1) printf("# %s on rectangular sub-domain %d x %d x %d = %ld points\n", 
-                 (0 == PROJECT0_OR_ADD1)?"project":"add", num[0], num[1], num[2], nvolume);
+      if (echo > 1) printf("# %s on rectangular sub-domain %d * %d * %d = %ld points\n", 
+                 (0 == PROJECT0_OR_ADD1)?"project":"add", num[2], num[1], num[0], nvolume);
       if (nvolume < 1) return 0; // no range
 
       // ToDo: analyze if the grid spacing is small enough for this \sigma
@@ -67,14 +68,14 @@ namespace sho_projection {
       } // dir
    
       int const nSHO = sho_tools::nSHO(numax);
-      if (0 == PROJECT0_OR_ADD1)
-      for(int iSHO = 0; iSHO < nSHO; ++iSHO) coeff[iSHO] = 0; // clear
+      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, (real_t)0);
       
       int ixyz = 0;
       for(        int iz = 0; iz < g.dim('z'); ++iz) {
           for(    int iy = 0; iy < g.dim('y'); ++iy) {
               for(int ix = 0; ix < g.dim('x'); ++ix) {
-                  auto val = values[ixyz];
+                  auto const val0 = values[ixyz];
+                  auto val = val0;
                   if ((0 != val) || (1 == PROJECT0_OR_ADD1))  {
 //                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO = 0;
@@ -84,10 +85,10 @@ namespace sho_projection {
                                   auto const H3d = H1d[2][(iz - off[2])*M + nz]
                                                  * H1d[1][(iy - off[1])*M + ny]
                                                  * H1d[0][(ix - off[0])*M + nx];
-                                  if (0 == PROJECT0_OR_ADD1) {
-                                      coeff[iSHO] += val * H3d; // here, the projection happens                                          
-                                  } else {
+                                  if (1 == PROJECT0_OR_ADD1) {
                                       val += coeff[iSHO] * H3d; // here, the addition happens                                          
+                                  } else {
+                                      coeff[iSHO] += val0 * H3d; // here, the projection happens                                          
                                   }
                                   ++iSHO;
                               } // nx
@@ -100,7 +101,8 @@ namespace sho_projection {
               } // ix
           } // iy
       } // iz
-      // g.dV(); // volume element of the grid has been ignored
+
+      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, g.dV()); // volume element of the grid
       
       if (0 == PROJECT0_OR_ADD1) {
       if (echo > 0) {
@@ -141,24 +143,90 @@ namespace sho_projection {
           delete[] H1d[dir]; // free memory
       } // dir
       return 0; // success
-  } // sho_project
+  } // sho_project_or_add
   
+
+  template<typename real_t, int D0>
+  status_t sho_project(real_t coeff[] // result, coefficients are zyx-ordered
+                     , int const numax // how many
+                     , double const center[3] // where
+                     , double const sigma
+                     , real_space_grid::grid_t<real_t,D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                     , real_t const *values=nullptr // input, grid array, defaults to g.values
+                     , int const echo=4) { //
+      real_t const *val = (nullptr != values)? values : g.values;
+      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)val, g, echo);
+  } // sho_project
+
+  template<typename real_t, int D0>
+  status_t sho_add(real_t values[] // result, grid array
+                 , real_space_grid::grid_t<real_t,D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                 , real_t const coeff[] // input, coefficients are zyx-ordered
+                 , int const numax // how many
+                 , double const center[3] // where
+                 , double const sigma
+                 , int const echo=4) { //
+      return sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo);
+  } // sho_add
+
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
-  status_t test_create_and_destroy(int echo=9) {
+  status_t test_create_and_destroy(int echo=1) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
       real_space_grid::grid_t<real_t,1> g(dims);
-      std::fill(g.values, g.all() + g.values, 1.0);
+      std::fill(g.values, g.all() + g.values, 0.0);
       g.set_grid_spacing(0.5);
-      double const pos[] = {g.dim('x')*.42*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.60*g.h[2]};
+      double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
       int constexpr numax = 7;
-      real_t coeff[sho_tools::nSHO(numax)];
-      auto stat = sho_project<real_t,1,0>(coeff, numax, pos, 1.0, g.values, g);
-          stat += sho_project<real_t,1,1>(coeff, numax, pos, 1.0, g.values, g);
+      int const ncoeff = sho_tools::nSHO(numax);
+      auto const icoeff = new uint8_t[ncoeff][4];
+      {
+                      int iSHO = 0;
+                      for(int nz = 0; nz <= numax; ++nz) {
+                          for(int ny = 0; ny <= numax - nz; ++ny) {
+                              for(int nx = 0; nx <= numax - nz - ny; ++nx) {
+                                  icoeff[iSHO][0] = nx;
+                                  icoeff[iSHO][1] = ny;
+                                  icoeff[iSHO][2] = nz;
+                                  icoeff[iSHO][3] = sho_tools::get_nu(nx, ny, nz);
+                                  ++iSHO;
+                              } // nx
+                          } // ny
+                      } // nz
+      }
+      auto fac = factorial<double>;
+      double const pi_factor = std::pow(constants::pi, 1.5);
+      auto const coeff = new real_t[ncoeff];
+      status_t stat = 0;
+      for(int i = 0; i < ncoeff; ++i) {
+          set(coeff, ncoeff, 0.0);
+          coeff[i] = 1;
+          set(g.values, g.all(), 0.0);
+          stat += sho_add(g.values, g, coeff, numax, pos, 1.0, 0);
+          stat += sho_project(coeff, numax, pos, 1.0, g, g.values, 0);
+          for(int j = 0; j < ncoeff; ++j) {
+              if (i == j) {
+                  double const diag = fac(icoeff[i][2]) * fac(icoeff[i][1]) * fac(icoeff[i][0]) 
+                                      * pi_factor / (1 << icoeff[i][3]);
+                  if (echo > 2) printf("# diag i=%d  %g  nu=%d  zyx=%x%x%x\n", i, coeff[i] / diag
+                                , icoeff[i][3], icoeff[i][2], icoeff[i][1], icoeff[i][0]);
+                  if (std::abs(coeff[i] / diag - 1.0) > 1e-8) {
+                      printf("# diagonal i=%d  %g\n", i, coeff[i] / diag - 1.0);
+                      ++stat;
+                  }
+              } else {
+                  if (std::abs(coeff[j]) > 1e-7) {
+                      printf("# i=%d j=%d  %g\n", i, j, coeff[j]);
+                      ++stat;
+                  }
+              } // i == j
+          } // j
+      } // i
       return stat;
   } // test_create_and_destroy
 
