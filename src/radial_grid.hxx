@@ -4,6 +4,8 @@
 
 #include "radial_grid.h" // radial_grid_t
 
+typedef int status_t;
+
 namespace radial_grid {
 
   
@@ -28,6 +30,6 @@ namespace radial_grid {
       return dot;
   } // dot_product
   
-  int all_tests();
+  status_t all_tests();
   
 } // namespace radial_grid
