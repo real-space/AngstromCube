@@ -4,7 +4,7 @@
 extern "C" {
 #endif
 
-char element_symbols[] =
+char const element_symbols[] =
 "__"                            //    0 vaccum
 "H He"                          // 1s 1--2
 "LiBe"                          // 2s 3--4

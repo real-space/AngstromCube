@@ -6,6 +6,8 @@
     #include <algorithm> // std::max
 #endif // NO_UNIT_TESTS
 
+  typedef int status_t;
+
 
   template<typename T> inline int constexpr sgn(T const val) {
       return (T(0) < val) - (val < T(0));

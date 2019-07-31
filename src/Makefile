@@ -15,6 +15,7 @@ OBJ = \
 	exchange_correlation.o \
 	bessel_transform.o \
 	real_space_grid.o \
+	spherical_atoms.o \
 	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
