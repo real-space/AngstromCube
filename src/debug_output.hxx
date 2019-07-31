@@ -9,7 +9,7 @@ int dump_to_file(
     int const Stride=1, // Stride, default=1 for 1D functions
     int const M=1, // number of columns to display
     char const *title=nullptr, // title line in the file
-    int echo=6) // report writing to stdout, 0: suppress report
+    int const echo=6) // report writing to stdout, 0: suppress report
 {
     FILE *f = fopen(filename, "w");
     if (nullptr == f) {

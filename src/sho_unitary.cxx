@@ -89,10 +89,10 @@ namespace sho_unitary {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test_generation(int echo=9) { return 0; } // return generate_unitary_transform(9, echo); }
+  int test_generation(int const echo=9) { return 0; } // return generate_unitary_transform(9, echo); }
 
   template<typename real_t>
-  int test_loading(int const numax=9, int echo=1) {
+  int test_loading(int const numax=9, int const echo=1) {
       Unitary_SHO_Transform<real_t> U(numax);
       auto const dev = U.test_unitarity(echo);
       if (echo > 0) printf("# Unitary_SHO_Transform<real_%ld>.test_unitarity = %g\n", sizeof(real_t), dev);
@@ -113,7 +113,7 @@ namespace sho_unitary {
 
 #if 0  
   
-  status_t generate_unitary_transform(int const numax, int echo=9) {
+  status_t generate_unitary_transform(int const numax, int const echo=9) {
 //       int const mx = align<2>(1 + numax);
 
       int const lmax = numax;

@@ -104,7 +104,7 @@ namespace sho_radial {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test(int echo=1) {
+  int test(int const echo=1) {
       int const numax = 9;
       int const n = nSHO_radial(numax);
       if (echo > 1) printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);

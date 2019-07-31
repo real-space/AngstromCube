@@ -318,7 +318,7 @@ namespace angular_grid {
 // cTeX     journal='Computational Mathematics and Mathematical Physics', volume='15', year='1975', pages='44-51')
   } // gen_oh6
   
-  int Lebedev_grid_size(int const ellmax, int echo) {
+  int Lebedev_grid_size(int const ellmax, int const echo) {
     if (ellmax < -1) return -1;
     
     int const available[34] = {0,1,6,14,26,38,50,74,86,110,146,170,194,230,266,302,350,
@@ -339,7 +339,7 @@ namespace angular_grid {
 
   
   template<typename real_t>
-  status_t create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int echo) {
+  status_t create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo) {
 
     int nc[8] = {0,0,0,0, 0,0,0,0}; // init
     int m = 0; // init
@@ -1834,7 +1834,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test_generation(int echo=1) {
+  int test_generation(int const echo=1) {
       if (echo > 1) printf("\n# %s: \n", __func__);
       int const max_size = Lebedev_grid_size(ellmax_implemented);
       auto xyzw = new double[max_size][4];
@@ -1862,7 +1862,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
       return stat;
   } // test
     
-  int test_orthogonality(int echo=9, int lmax=20) { // terribly slow
+  int test_orthogonality(int const echo=9, int const lmax=20) { // terribly slow
       printf("\n# %s: \n", __func__);
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);

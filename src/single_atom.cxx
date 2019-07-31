@@ -483,7 +483,7 @@ extern "C" {
                charge_outside/stats[1]);
     } // show_state_analysis
 
-    void update_core_states(float const mixing, int echo=0) {
+    void update_core_states(float const mixing, int const echo=0) {
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
         auto const r2rho = new double[nr];
@@ -561,7 +561,7 @@ extern "C" {
 
     } // update_core_states
 
-    void update_valence_states(int echo=0) {
+    void update_valence_states(int const echo=0) {
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
@@ -638,7 +638,7 @@ extern "C" {
         delete[] r2rho;
     } // update_valence_states
 
-    void update_charge_deficit(int echo=9) {
+    void update_charge_deficit(int const echo=9) {
         int const nln = nvalencestates;
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
@@ -870,7 +870,7 @@ extern "C" {
     
     
     template<int ADD0_or_PROJECT1>
-    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[], int echo=0) {
+    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[], int const echo=0) {
         int const nr = rg->n, mr = align<2>(nr);
         auto const sig2inv = -1./(sigma_compensator*sigma_compensator);
         if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
@@ -1281,7 +1281,7 @@ namespace single_atom {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test(int echo=9) {
+  int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
     // for(int Z = 109; Z >= 0; --Z) { // all elements backwards

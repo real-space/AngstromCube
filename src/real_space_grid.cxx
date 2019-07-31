@@ -99,7 +99,7 @@ namespace real_space_grid {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_create_and_destroy(int echo=9) {
+  status_t test_create_and_destroy(int const echo=9) {
       int const dims[] = {10, 20, 30};
       auto gp = new grid_t<float,1>(dims); // allocate and construct
       gp->~grid_t(); // explicity call the destructor
@@ -108,7 +108,7 @@ namespace real_space_grid {
       return 0;
   } // test_create_and_destroy
 
-  status_t test_add_function(int echo=9) {
+  status_t test_add_function(int const echo=9) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
       grid_t<double,1> g(dims);
