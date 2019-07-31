@@ -3,6 +3,7 @@
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
 #include "inline_math.hxx" // set
+#include "bessel_transform.hxx" // Bessel_j0
 
 typedef int status_t;
 
@@ -70,6 +71,8 @@ namespace real_space_grid {
       
   }; // class grid_t
   
+  
+  
   template<typename real_t, int D0> // inner dimension
   status_t add_function(grid_t<real_t,D0> &g, // grid values are modified
                         double const r2coeff[][D0], int const ncoeff, float const hcoeff,
@@ -129,6 +132,54 @@ namespace real_space_grid {
               __func__, modified, out_of_range); // show stats
       return 0; // success
   } // add_function
+
+  template<typename real_t, int D0> // inner dimension
+  status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
+                grid_t<real_t,D0> const &g, double const center[3]=nullptr, 
+                float const rcut=-1, double const scale=1) {
+      assert(D0 == g.dim('w'));
+      double c[3] = {0,0,0}; if (center) set(c, 3, center);
+      bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
+      double const r2cut = cutoff ? rcut*rcut : 100.; // stop at 10 Bohr
+      int imn[3], imx[3];
+      size_t nwindow = 1;
+      for(int i3 = 0; i3 < 3; ++i3) {
+          int const M = g.dim(i3) - 1; // highest index
+          if (cutoff) {
+              imn[i3] = std::max(0, (int)std::floor((c[i3] - rcut)*g.inv_h[i3]));
+              imx[i3] = std::min(M, (int)std::ceil ((c[i3] + rcut)*g.inv_h[i3]));
+          } else {
+              imn[i3] = 0;
+              imx[i3] = M;
+          } // cutoff
+#ifdef  DEBUG
+          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+i3, imx[i3] + 1 - imn[i3], imn[i3], imx[i3]);
+#endif
+          nwindow *= std::max(0, imx[i3] + 1 - imn[i3]);
+      } // i3
+      set(q_coeff, nq*D0, (real_t)0); // clear
+      auto const dV = g.dV();
+      for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+          for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+              if (vz2 + vy2 < r2cut) {
+                  for(int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
+                      double const r2 = vz2 + vy2 + vx2;
+                      if (r2 < r2cut) {
+                          int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+                          double const r = std::sqrt(r2);
+                          for(int iq = 0; iq < nq; ++iq) {
+                              double const q = iq*dq;
+                              for(int i0 = 0; i0 < D0; ++i0) { // vectorize
+                                  q_coeff[iq*D0 + i0] += g.values[ixyz*D0 + i0] * bessel_transform::Bessel_j0(q*r) * dV;
+                              } // i0
+                          } // iq
+                      } // inside rcut
+                  } // ix
+              } // rcut for (y,z)
+          } // iy
+      } // iz
+      return 0; // success
+  } // bessel_projection
   
   status_t all_tests();
 

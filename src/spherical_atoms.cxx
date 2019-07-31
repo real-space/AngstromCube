@@ -81,6 +81,21 @@ namespace spherical_atoms {
           stat += fourier_poisson::fourier_solve(Ves, rho, ng, reci);
       }
       
+      g.values = Ves;
+      for(int ia = 0; ia < na; ++ia) {
+          double center[3]; for(int d = 0; d < 3; ++d) center[d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia][d];
+          int const nq = 80; float const dq = 1.f/32;
+          auto const qc = new double[nq];
+          stat += real_space_grid::bessel_projection(qc, nq, dq, g, center);
+          
+          if (echo > -1) {
+              printf("# Bessel coeff for atom #%d:\n", ia);
+              for(int iq = 0; iq < nq; ++iq) {
+                  printf("%g %g\n", iq*dq, qc[iq]);
+              }   printf("\n\n");
+         } // echo
+      } // ia
+      
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
       // get the ell=0 compensator charge and add it to the 3D grid

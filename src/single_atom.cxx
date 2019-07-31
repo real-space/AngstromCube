@@ -1257,6 +1257,10 @@ extern "C" {
                              __func__, (void*)rho, ar2, nr2, (void*)core_density[SMT], (void*)rg[SMT]);
         return bessel_transform::transform_to_r2_grid(rho, ar2, nr2, core_density[SMT], *rg[SMT], echo);
     } // get_smooth_core_density
+
+    radial_grid_t* get_smooth_radial_grid(int const echo=0) {
+        return rg[TRU];
+    } // get_smooth_radial_grid
     
   }; // class LiveAtom
 

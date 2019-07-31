@@ -8,7 +8,7 @@ typedef int status_t;
 
 namespace bessel_transform {
   
-  inline double j0(double const x) { return (x*x < 1e-16) ? 1.0 - x*x/6. : std::sin(x)/x; }
+  inline double Bessel_j0(double const x) { return (x*x < 1e-16) ? 1.0 - x*x/6. : std::sin(x)/x; }
   
   template<typename real_t>
   status_t transform_s_function(real_t out[], // result
@@ -48,7 +48,7 @@ namespace bessel_transform {
           double tmp = 0;
           for(int ii = 0; ii < n_in; ++ii) {
               double const qr = x_in[ii]*x_out[io];
-              tmp += in[ii] * j0(qr) * dx_in[ii];
+              tmp += in[ii] * Bessel_j0(qr) * dx_in[ii];
           } // ii
           out[io] = tmp*sqrt2pi;
       } // io
