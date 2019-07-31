@@ -465,7 +465,7 @@ namespace atom_core {
 
   } // RamerDouglasPeucker
   
-  status_t simplify_Zeff_file(int const iZ, int const echo=9) {
+  status_t simplify_Zeff_file(int const iZ, float const epsilon=1e-6, int const echo=9) {
       float const Z = iZ;
       auto const g = radial_grid::create_default_radial_grid(Z);
       auto const y = new double[g->n];
@@ -473,7 +473,7 @@ namespace atom_core {
       
       auto const active = new char[g->n];
       set(active, g->n, (char)1); // init all entries as active
-      int const new_n = RamerDouglasPeucker(active, g->r, y, g->n);
+      int const new_n = RamerDouglasPeucker(active, g->r, y, g->n, 0, epsilon);
       if (echo > 0) printf("# RamerDouglasPeucker reduced %d points to %d points\n", g->n, new_n);
       auto const new_y = new double[new_n];
       radial_grid_t new_g; new_g.n = new_n; new_g.r = new double[new_n]; // this radial grid is incomplete and only provides r[]
@@ -538,19 +538,19 @@ namespace atom_core {
     auto status = 0;
 //  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
     status += test_nl_index();
-    // for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
-    //     printf("\n\n# Z = %d\n\n", Z);
-    //     status += simplify_Zeff_file(Z);
+//     for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
+//         printf("\n\n# Z = %d\n\n", Z);
+//         status += simplify_Zeff_file(Z, 1e-8);
     
 //     for(int Z = 119; Z > 0; --Z) { // test all atoms, backwards
 //     for(int Z = 0; Z < 120; ++Z) { // test all atoms, backwards
 //         printf("\n\n# Z = %d\n\n", Z);
 //         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
-//    { int const Z = 1;  // 1:hydrogen
-//  { int const Z = 5;  // 5:boron
-//    { int const Z = 6;  // 6:carbon
-    { int const Z = 29; // 29:copper
-    // { int const Z = 70; // 70:ytterbium
+//     { int const Z = 1;  // 1:hydrogen
+//     { int const Z = 5;  // 5:boron
+       { int const Z = 6;  // 6:carbon
+//     { int const Z = 29; // 29:copper
+//     { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);

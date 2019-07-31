@@ -9,6 +9,7 @@
 #include "radial_integrator.hxx" // all_tests
 #include "finite_difference.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
+#include "bessel_transform.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
 #include "fourier_poisson.hxx" // all_tests
 #include "sho_projection.hxx" // all_tests
@@ -39,6 +40,7 @@
           module_test("finite_difference.",         finite_difference::all_tests);
           module_test("radial_integrator.",         radial_integrator::all_tests);
           module_test("radial_potential.",           radial_potential::all_tests);
+          module_test("bessel_transform.",           bessel_transform::all_tests);
           module_test("real_space_grid.",             real_space_grid::all_tests);
           module_test("fourier_poisson.",             fourier_poisson::all_tests);
           module_test("sho_projection.",               sho_projection::all_tests);

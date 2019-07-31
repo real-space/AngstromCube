@@ -103,7 +103,7 @@ namespace sho_projection {
           } // iy
       } // iz
 
-      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, g.dV()); // volume element of the grid
+      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, (real_t)g.dV()); // volume element of the grid
       
       if (0 == PROJECT0_OR_ADD1) {
           if (echo > 0) {
@@ -208,9 +208,9 @@ namespace sho_projection {
       for(int i = 0; i < ncoeff; ++i) {
           double const diag = fac(icoeff[i][2]) * fac(icoeff[i][1]) * fac(icoeff[i][0]) 
                                   * pi_factor / (1 << icoeff[i][3]);
-          set(coeff, ncoeff, 0.0);
+          set(coeff, ncoeff, (real_t)0);
           coeff[i] = 1;
-          set(g.values, g.all(), 0.0);
+          set(g.values, g.all(), (real_t)0);
           stat += sho_add(g.values, g, coeff, numax, pos, 1.0, 0);
           stat += sho_project(coeff, numax, pos, 1.0, g, g.values, 0);
           for(int j = 0; j < ncoeff; ++j) {
@@ -235,6 +235,7 @@ namespace sho_projection {
   status_t all_tests() {
     auto status = 0;
     status += test_orthogonality<double>();
+//  status += test_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
