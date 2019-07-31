@@ -26,8 +26,6 @@ extern "C" {
 
 namespace fourier_poisson {
 
-  double constexpr epsilon0 = 4*constants::pi; // in atomic units
-  
   template<typename real_t>
   status_t fft_MKL(real_t out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
                  , real_t imag[] // imaginary part of in when backward, imaginary part of out when forward
@@ -66,8 +64,7 @@ namespace fourier_poisson {
                        , real_t const b[] // right hand side b
                        , int const ng[3] // grid numbers
                        , double const reci[3][4] // shape of the reciprocal space
-                       , double const factor=-epsilon0
-                        ) {
+                       , double const factor) {
       status_t stat = 0;
       
       size_t const ng_all = 1ul * ng[0] * ng[1] * ng[2];

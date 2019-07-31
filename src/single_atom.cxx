@@ -20,6 +20,7 @@
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product
+#include "bessel_transform.hxx" // transform_to_r2_grid
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -162,8 +163,7 @@ extern "C" {
 
       
   public:
-    LiveAtom(double const Z_nucleons) : gaunt_init{false} { // constructor
-        int constexpr echo = 9;
+    LiveAtom(double const Z_nucleons, bool const transfer2valence=true, int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
         Z = Z_nucleons; // convert to float
         if (echo > 0) printf("# LiveAtom with %.1f nucleons\n", Z);
@@ -210,7 +210,7 @@ extern "C" {
 
         set(core_density[SMT], nrs, 0.0); // init
         set(core_density[TRU], nrt, 0.0); // init
-        atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "pot/Zeff", -1);
+        atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "pot/Zeff", -1, echo);
 
 //         // show the loaded Zeff(r)
 //         for(int ir = 0; ir < rg[TRU]->n; ++ir) {
@@ -219,8 +219,6 @@ extern "C" {
 
         int8_t as_valence[99];
         set(as_valence, 99, (int8_t)-1);
-        bool const transfer2valence = true;
-        
         
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
         auto const r2rho = new double[nrt];
@@ -280,9 +278,9 @@ extern "C" {
         
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
-        printf("\n# initial core density has %g electrons\n", radial_grid::dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
+        if (echo > 2) printf("\n# initial core density has %g electrons\n", radial_grid::dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
 
-        printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n");
+        if (echo > 5) { printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n"); }
 
         nvalencestates = (numax*(numax + 4) + 4)/4; // ToDo: new function in sho_tools::
         valence_state = new valence_level_t[nvalencestates];
@@ -378,10 +376,11 @@ extern "C" {
             pseudize_function(potential[SMT], rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
-        int const maxit_scf = 33;
+        int const maxit_scf = 3;
         for(int scf = 0; scf < maxit_scf; ++scf) {
-            printf("\n\n# SCF-iteration %d\n\n", scf);
-            update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
+            if (echo > 1) printf("\n\n# SCF-iteration %d\n\n", scf);
+//             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
+            update(echo);
         } // self-consistency iterations
 
         // show the smooth and true potential
@@ -638,7 +637,7 @@ extern "C" {
         delete[] r2rho;
     } // update_valence_states
 
-    void update_charge_deficit(int const echo=9) {
+    void update_charge_deficit(int const echo=0) {
         int const nln = nvalencestates;
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
@@ -791,7 +790,7 @@ extern "C" {
         delete[] tmp;
     } // transform_SHO
     
-    void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const echo=9) {
+    void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const echo=0) {
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
         assert(stride >= nSHO);
@@ -914,7 +913,7 @@ extern "C" {
     } // add_or_project_compensators
 
         
-    void update_full_density(double q_lm[], double const rho_tensor[], int const echo=2) { // density tensor rho_{lm iln jln}
+    void update_full_density(double q_lm[], double const rho_tensor[], int const echo=0) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
         int const nln = nvalencestates;
         
@@ -978,16 +977,16 @@ extern "C" {
             set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], rho_compensator);
             double const aug_charge = radial_grid::dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
-            printf("# augmented density has %g electrons\n", aug_charge/Y00); // this value should be small
+            if (echo > 5) printf("# augmented density has %g electrons\n", aug_charge/Y00); // this value should be small
 
             double const tru_charge = radial_grid::dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
-            printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
+            if (echo > 5) printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
 
             auto const vHt = new double[nlm*mr];
             set(vHt, nlm*mr, 0.0);
             radial_potential::Hartree_potential(vHt, *rg[SMT], aug_density, mr, ellmax); // solve without boundary conditions
             add_or_project_compensators<1>(q_lm, ellmax_compensator, rg[SMT], vHt);
-            printf("# inner integral between normalized compensator and electrostatic potential = %g\n", q_lm[0]);
+            if (echo > 5) printf("# inner integral between normalized compensator and electrostatic potential = %g\n", q_lm[0]);
             delete [] vHt;
             set(q_lm, mlm_cmp, 0.0); // not yet correct
         } // scope
@@ -995,7 +994,7 @@ extern "C" {
     } // update_full_density
 
     
-    void update_full_potential(float const mixing, double const q_lm[], int const echo=9) {
+    void update_full_potential(float const mixing, double const q_lm[], int const echo=0) {
         int const nlm = pow2(1 + ellmax);
         int const npt = angular_grid::Lebedev_grid_size(ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1083,7 +1082,7 @@ extern "C" {
 
     } // update_full_potential
 
-    void update_matrix_elements(int const echo=9) {
+    void update_matrix_elements(int const echo=0) {
         int const nlm = pow2(1 + ellmax);
         int const mlm = pow2(1 + numax);
         int const nln = nvalencestates;
@@ -1187,7 +1186,7 @@ extern "C" {
         delete[] overlap_lmn;
     } // update_matrix_elements
     
-    void set_pure_density_matrix(double density_matrix[], float const occ_spdf[4]=nullptr, int const echo=4) {
+    void set_pure_density_matrix(double density_matrix[], float const occ_spdf[4]=nullptr, int const echo=0) {
         float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) std::copy(occ_spdf, 4+occ_spdf, occ);
         int const nSHO = sho_tools::nSHO(numax);
         auto const radial_density_matrix = new double[nSHO*nSHO];
@@ -1220,8 +1219,8 @@ extern "C" {
     void update(int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
         float const mixing = 0.45; // mixing with .45 works well for Cu (Z=29)
-        update_core_states(mixing, echo + 1);
-        update_valence_states(echo + 1); // create new partial waves for the valence description
+        update_core_states(mixing, echo);
+        update_valence_states(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
         int const nSHO = sho_tools::nSHO(numax);
         auto const density_matrix = new double[nSHO*nSHO];
@@ -1231,7 +1230,7 @@ extern "C" {
                 int const ell = valence_state[ivs].ell;
                 if ((ell < 4) && (0 == valence_state[ivs].nrn[SMT])) {
                     occ[ell] = valence_state[ivs].occupation;
-                    if (occ[ell] > 0)
+                    if ((occ[ell] > 0) && (echo > 1))
                     printf("# Set density matrix to be a pure %d%c-state with occupation %.3f\n", 
                         valence_state[ivs].enn, ellchar[ell], occ[ell]);
                 } // matching enn-ell quantum numbers?
@@ -1241,18 +1240,24 @@ extern "C" {
         int const lmax = std::max(ellmax, ellmax_compensator);
         auto const rho_tensor = new double[pow2(1 + lmax)*pow2(nvalencestates)];
         set(rho_tensor, pow2(1 + lmax)*pow2(nvalencestates), 0.0);
-        get_rho_tensor(rho_tensor, density_matrix);
+        get_rho_tensor(rho_tensor, density_matrix, echo);
         delete[] density_matrix;
         int const mlm = pow2(1 + ellmax_compensator);
         auto const q_lm = new double[mlm];
         set(q_lm, mlm, 0.0);
-        update_full_density(q_lm, rho_tensor);
+        update_full_density(q_lm, rho_tensor, echo);
         delete[] rho_tensor;
-        update_full_potential(mixing, q_lm);
+        update_full_potential(mixing, q_lm, echo);
         delete[] q_lm;
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update
 
+    status_t get_smooth_core_density(double rho[], float const ar2, int const nr2, int const echo=1) {
+        if (echo > 7) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, core_density=%p, rg=%p)\n", 
+                             __func__, (void*)rho, ar2, nr2, (void*)core_density[SMT], (void*)rg[SMT]);
+        return bessel_transform::transform_to_r2_grid(rho, ar2, nr2, core_density[SMT], *rg[SMT], echo);
+    } // get_smooth_core_density
+    
   }; // class LiveAtom
 
 
@@ -1276,6 +1281,29 @@ namespace single_atom {
   // Maybe we should write a live_atom module first 
   //   (a PAW generator prepared for core level und partial wave update)
   
+  status_t update(float const Za[], int const na, double **rho) {
+      
+      static LiveAtom **a=nullptr;
+      
+      if (nullptr == a) {
+          a = new LiveAtom*[na];
+          for(int ia = 0; ia < na; ++ia) {
+              a[ia] = new LiveAtom(Za[ia], false);
+          } // ia
+      } // a has not been initialized
+      
+      if (nullptr != rho) {
+          int const nr2 = 1 << 11;
+          float const ar2 = 16.f;
+          for(int ia = 0; ia < na; ++ia) {
+              rho[ia] = new double[nr2];
+              a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
+          } // ia
+      } // get the core density
+    
+      return 0;
+  } // update
+  
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -1292,7 +1320,7 @@ namespace single_atom {
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
         if (echo > 1) printf("\n# Z = %d\n", Z);      
-        LiveAtom a(Z);
+        LiveAtom a(Z, true, echo);
     } // Z
     return 0;
   } // test

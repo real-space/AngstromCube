@@ -13,42 +13,6 @@
 // #define DEBUG
 
 namespace bessel_transform {
-
-  template<typename real_t>
-  status_t transform_to_r2_grid(real_t out[], float const ar2, int const nr2,
-                                double const in[], radial_grid_t const &g, int const echo=9) {
-      if (echo > 8) {
-          printf("\n# %s input:\n", __func__);
-          for(int ir = 0; ir < g.n; ++ir) {
-              printf("%g %g\n", g.r[ir], in[ir]);
-          }   printf("\n\n");
-      } // echo
-    
-      int const nq = 64; double const dq = 0.125; // choose a q-grid
-      auto const bt = new double[nq];
-      transform_s_function(bt, in, g, nq, dq); // transform to Bessel-space
-      
-      // construct a r2-grid descriptor: ir2 = ar2*r^2
-      double const ar2inv = 1./ar2;
-      radial_grid_t r2g; r2g.n = nr2; r2g.r = new double[nr2];
-      for(int ir2 = 0; ir2 < nr2; ++ir2) {
-          r2g.r[ir2] = std::sqrt(ir2*ar2inv);
-      } // ir2
-
-      auto const stat = transform_s_function(out, bt, r2g, nq, dq, true); // transform back to real-space
-
-      if (echo > 8) {
-          printf("\n# %s output:\n", __func__);
-          for(int ir2 = 0; ir2 < r2g.n; ++ir2) {
-              printf("%g %g\n", r2g.r[ir2], out[ir2]);
-          }   printf("\n\n");
-      } // echo
-      
-      delete[] r2g.r;
-      delete[] bt;
-      return stat;
-  } // transform_to_r2_grid
-  
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

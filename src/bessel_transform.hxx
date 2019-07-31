@@ -13,9 +13,11 @@ namespace bessel_transform {
   template<typename real_t>
   status_t transform_s_function(real_t out[], // result
                   real_t const in[], radial_grid_t const &g, int const n, 
-                  double const dq=.125, bool const back=false, int const echo=9) {
-
-      auto q_lin = new double[n];
+                  double const dq=.125, bool const back=false, int const echo=3) {
+      if (echo > 8) printf("# %s(out=%p, in=%p, g=%p, n=%d, dq=%.3f, back=%d, echo=%d);\n",
+                           __func__, (void*)out, (void*)in, (void*)&g, n, dq, back, echo);
+      
+      auto const q_lin = new double[n];
       for(int iq = 0; iq < n; ++iq) {
           q_lin[iq] = iq*dq;
       } // iq
@@ -38,6 +40,8 @@ namespace bessel_transform {
           n_out = n;
           x_out = q_lin;
       } // back-transform ?
+      if (echo > 8) printf("# %s    n_in=%d x_in=%p dx_in=%p n_out=%d x_out=%p\n",
+                   __func__, n_in, (void*)x_in, (void*)dx_in, n_out, (void*)x_out);
 
       double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
       for(int io = 0; io < n_out; ++io) {
@@ -54,6 +58,41 @@ namespace bessel_transform {
       
       return 0;
   } // transform_s_function
+
+  template<typename real_t>
+  status_t transform_to_r2_grid(real_t out[], float const ar2, int const nr2,
+                                double const in[], radial_grid_t const &g, int const echo=2) {
+      if (echo > 8) {
+          printf("\n# %s input:\n", __func__);
+          for(int ir = 0; ir < g.n; ++ir) {
+              printf("%g %g\n", g.r[ir], in[ir]);
+          }   printf("\n\n");
+      } // echo
+    
+      int const nq = 64; double const dq = 0.125; // choose a q-grid
+      auto const bt = new double[nq];
+      auto stat = transform_s_function(bt, in, g, nq, dq); // transform to Bessel-space
+      
+      // construct a r2-grid descriptor: ir2 = ar2*r^2
+      double const ar2inv = 1./ar2;
+      radial_grid_t r2g; r2g.n = nr2; r2g.r = new double[nr2];
+      for(int ir2 = 0; ir2 < nr2; ++ir2) {
+          r2g.r[ir2] = std::sqrt(ir2*ar2inv);
+      } // ir2
+
+      stat += transform_s_function(out, bt, r2g, nq, dq, true); // transform back to real-space
+
+      if (echo > 8) {
+          printf("\n# %s output:\n", __func__);
+          for(int ir2 = 0; ir2 < r2g.n; ++ir2) {
+              printf("%g %g\n", r2g.r[ir2], out[ir2]);
+          }   printf("\n\n");
+      } // echo
+      
+      delete[] r2g.r;
+      delete[] bt;
+      return stat;
+  } // transform_to_r2_grid
   
   status_t all_tests();
 

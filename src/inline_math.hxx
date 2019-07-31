@@ -15,6 +15,8 @@
 
   template<typename T> inline T constexpr pow2(T const x) { return x*x; } // pow2
   template<typename T> inline T constexpr pow3(T const x) { return x*pow2(x); } // pow3
+  template<typename T> inline T constexpr pow4(T const x) { return pow2(pow2(x)); }
+  template<typename T> inline T constexpr pow8(T const x) { return pow2(pow4(x)); }
 
   template<typename real_t> 
   inline real_t intpow(real_t const x, unsigned n) {

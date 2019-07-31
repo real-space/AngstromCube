@@ -47,11 +47,11 @@ namespace radial_grid {
     return g;
   } // create_exponential_radial_grid
 
-  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min)
+  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min, int const echo)
   {
       // find a suitable grid point to start from
       int ir = 0; while (tru.r[ir] < r_min) ++ir;
-      printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
+      if (echo > 3) printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
       int const ir_offset = ir;
 
       auto g = new radial_grid_t;

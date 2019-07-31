@@ -2,6 +2,7 @@
 
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
+#include "inline_math.hxx" // set
 
 typedef int status_t;
 
@@ -66,7 +67,68 @@ namespace real_space_grid {
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
 
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
-  };
+      
+  }; // class grid_t
+  
+  template<typename real_t, int D0> // inner dimension
+  status_t add_function(grid_t<real_t,D0> &g, // grid values are modified
+                        double const r2coeff[][D0], int const ncoeff, float const hcoeff,
+                        double const center[3]=nullptr, float const rcut=-1, double const scale=1) {
+  // Add a spherically symmetric regular function to the grid.
+  // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff] 
+      assert(D0 == g.dim('w'));
+      double c[3] = {0,0,0}; if (center) set(c, 3, center);
+      bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
+      double const r2cut = cutoff ? rcut*rcut : (ncoeff - 1)/hcoeff;
+      int imn[3], imx[3];
+      size_t nwindow = 1;
+      for(int i3 = 0; i3 < 3; ++i3) {
+          int const M = g.dim(i3) - 1; // highest index
+          if (cutoff) {
+              imn[i3] = std::max(0, (int)std::floor((c[i3] - rcut)*g.inv_h[i3]));
+              imx[i3] = std::min(M, (int)std::ceil ((c[i3] + rcut)*g.inv_h[i3]));
+          } else {
+              imn[i3] = 0;
+              imx[i3] = M;
+          } // cutoff
+#ifdef  DEBUG
+          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+i3, imx[i3] + 1 - imn[i3], imn[i3], imx[i3]);
+#endif
+          nwindow *= std::max(0, imx[i3] + 1 - imn[i3]);
+      } // i3
+      assert(hcoeff > 0);
+      size_t modified = 0, out_of_range = 0;
+      for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+          for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+              if (vz2 + vy2 < r2cut) {
+                  for(int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
+                      double const r2 = vz2 + vy2 + vx2;
+                      if (r2 < r2cut) {
+                          int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+                          int const ir2 = (int)(hcoeff*r2);
+                          if (ir2 < ncoeff) {
+                              double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
+                              int const ir2p1 = ir2 + 1;
+                              for(int i0 = 0; i0 < D0; ++i0) { // vectorize
+                                  g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2][i0]*(1 - w8) 
+                                           + ((ir2p1 < ncoeff) ? r2coeff[ir2p1][i0] : 0)*w8);
+                              } // i0
+                              ++modified;
+                          } else ++out_of_range;
+                      } // inside rcut
+                  } // ix
+              } // rcut for (y,z)
+          } // iy
+      } // iz
+#ifdef  DEBUG
+      printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
+              __func__, modified*1e-3, nwindow*1e-3, g.dim('x')*g.dim('y')*g.dim('z')*1e-3); // show stats
+#endif
+      if (out_of_range)
+          printf("# Warning! %s modified %ld points and found %ld entries out of range of the radial function!\n", 
+              __func__, modified, out_of_range); // show stats
+      return 0; // success
+  } // add_function
   
   status_t all_tests();
 
