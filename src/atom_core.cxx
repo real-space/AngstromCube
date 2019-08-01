@@ -543,17 +543,17 @@ namespace atom_core {
 //         status += simplify_Zeff_file(Z, 1e-8);
     
 //     for(int Z = 119; Z > 0; --Z) { // test all atoms, backwards
-    for(int Z = 0; Z < 120; ++Z) { // test all atoms, backwards
-        printf("\n\n# Z = %d\n\n", Z);
-        status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
+    // for(int Z = 0; Z < 120; ++Z) { // test all atoms, backwards
+        // printf("\n\n# Z = %d\n\n", Z);
+        // status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
 //     { int const Z = 1;  // 1:hydrogen
 //     { int const Z = 5;  // 5:boron
 //        { int const Z = 6;  // 6:carbon
-//     { int const Z = 29; // 29:copper
+    { int const Z = 29; // 29:copper
 //     { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element
-//         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
+        status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
 //         status += simplify_Zeff_file(Z);
     } // Z
     return status;
