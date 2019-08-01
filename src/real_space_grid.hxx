@@ -75,10 +75,10 @@ namespace real_space_grid {
   
   template<typename real_t, int D0> // inner dimension
   status_t add_function(grid_t<real_t,D0> &g, // grid values are modified
-                        double const r2coeff[][D0], int const ncoeff, float const hcoeff,
+                        double const r2coeff[], int const ncoeff, float const hcoeff,
                         double const center[3]=nullptr, float const rcut=-1, double const scale=1) {
   // Add a spherically symmetric regular function to the grid.
-  // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff] 
+  // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
       assert(D0 == g.dim('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
@@ -113,8 +113,8 @@ namespace real_space_grid {
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
                               int const ir2p1 = ir2 + 1;
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2][i0]*(1 - w8) 
-                                           + ((ir2p1 < ncoeff) ? r2coeff[ir2p1][i0] : 0)*w8);
+                                  g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2*D0 + i0]*(1 - w8) 
+                                           + ((ir2p1 < ncoeff) ? r2coeff[ir2p1*D0 + i0] : 0)*w8);
                               } // i0
                               ++modified;
                           } else ++out_of_range;

@@ -10,6 +10,7 @@
 #include "constants.hxx" // Y00
 #include "solid_harmonics.hxx" // Y00
 #include "real_space_grid.hxx" // grid_t, add_function
+#include "radial_grid.h" // radial_grid_t
 #include "chemical_symbol.h" // element_symbols
 #include "single_atom.hxx" // update
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
@@ -44,13 +45,14 @@ namespace spherical_atoms {
       } // ia
       
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^11 points, ar2=16.f
-      stat += single_atom::update(Za, 2, rho_core);
+      radial_grid_t *rg[na];
+      stat += single_atom::update(Za, 2, rho_core, rg);
       
       auto const rho = g.values;
       set(rho, g.all(), 0.0); // clear
       for(int ia = 0; ia < na; ++ia) {
           double center[3]; for(int d = 0; d < 3; ++d) center[d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia][d];
-          stat += real_space_grid::add_function(g, (double (*)[1])rho_core[ia], 1 << 11, 16.f, center, 9.f, Y00sq);
+          stat += real_space_grid::add_function(g, rho_core[ia], 1 << 11, 16.f, center, 9.f, Y00sq);
           if (echo > -1) {
               double s = 0; for(int i = 0; i < (int)g.all(); ++i) s += g.values[i]; s *= g.dV();
               printf("# integral over rho = %g after adding smooth core density of atom #%d\n", s, ia);
@@ -87,13 +89,24 @@ namespace spherical_atoms {
           int const nq = 80; float const dq = 1.f/32;
           auto const qc = new double[nq];
           stat += real_space_grid::bessel_projection(qc, nq, dq, g, center);
-          
-          if (echo > -1) {
+
+          if (echo > 7) {
               printf("# Bessel coeff for atom #%d:\n", ia);
               for(int iq = 0; iq < nq; ++iq) {
                   printf("%g %g\n", iq*dq, qc[iq]);
               }   printf("\n\n");
-         } // echo
+          } // echo
+          
+          if (echo > -1) {
+              auto const rs = new double[rg[ia]->n];
+              bessel_transform::transform_s_function(rs, qc, *rg[ia], nq, dq, true); // transform back to real-space again
+              printf("# Real-space projection for atom #%d:\n", ia);
+              for(int ir = 0; ir < rg[ia]->n; ++ir) {
+                  printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
+              }   printf("\n\n");
+              delete[] rs;
+          } // echo
+
       } // ia
       
       // compute the self-consistent solution of a single_atom, all states in the core

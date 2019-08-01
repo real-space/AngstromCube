@@ -1285,8 +1285,8 @@ namespace single_atom {
   // Maybe we should write a live_atom module first 
   //   (a PAW generator prepared for core level und partial wave update)
   
-  status_t update(float const Za[], int const na, double **rho) {
-      
+  status_t update(float const Za[], int const na, double **rho, radial_grid_t **rg) {
+
       static LiveAtom **a=nullptr;
       
       if (nullptr == a) {
@@ -1304,7 +1304,13 @@ namespace single_atom {
               a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
           } // ia
       } // get the core density
-    
+
+      if (nullptr != rg) {
+          for(int ia = 0; ia < na; ++ia) {
+              rg[ia] = a[ia]->get_smooth_radial_grid();
+          } // ia
+      } // pointers to smooth radial grid
+      
       return 0;
   } // update
   

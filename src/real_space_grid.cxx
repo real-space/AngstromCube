@@ -36,16 +36,16 @@ namespace real_space_grid {
                             g.dim('y')*.51*g.h[1], 
                             g.dim('z')*.60*g.h[2]}; // center is slightly shifted from exact grid point positions
       int const nr2 = 1 << 11;
-      double r2c[nr2][1], rad_integral = 0;
+      double r2c[nr2], rad_integral = 0;
       float const rcut = 4;
       float const inv_hr2 = nr2/(rcut*rcut);
       double const hr2 = 1./inv_hr2;
       if (echo > 4) printf("\n# values on the radial grid\n");
       for(int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
           double const r2 = ir2*hr2, r = std::sqrt(r2);
-          r2c[ir2][0] = std::exp(-r2); // function evaluation here
-          if (echo > 4) printf("%g %g\n", r, r2c[ir2][0]); // plot function value vs r
-          rad_integral += r2c[ir2][0] * r;
+          r2c[ir2] = std::exp(-r2); // function evaluation here
+          if (echo > 4) printf("%g %g\n", r, r2c[ir2]); // plot function value vs r
+          rad_integral += r2c[ir2] * r;
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
       if (echo > 2) printf("\n# add_function()\n\n");
