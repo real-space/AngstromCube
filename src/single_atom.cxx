@@ -163,7 +163,7 @@ extern "C" {
 
       
   public:
-    LiveAtom(double const Z_nucleons, bool const transfer2valence=true, int const echo=0) : gaunt_init{false} { // constructor
+    LiveAtom(float const Z_nucleons, bool const transfer2valence=true, int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
         Z = Z_nucleons; // convert to float
         if (echo > 0) printf("# LiveAtom with %.1f nucleons\n", Z);
@@ -376,7 +376,7 @@ extern "C" {
             pseudize_function(potential[SMT], rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
-        int const maxit_scf = 3;
+        int const maxit_scf = 2;
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# SCF-iteration %d\n\n", scf);
 //             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
@@ -942,7 +942,7 @@ extern "C" {
                 } // iln
             } // lm
             if (echo > 0) printf("# %s: %s density has %g electrons after adding the valence density\n",  __func__, 
-             (TRU == ts)?"true":"smooth", radial_grid::dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
+                    (TRU == ts)?"true":"smooth", radial_grid::dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
 
         } // true and smooth
 
@@ -1030,6 +1030,9 @@ extern "C" {
             // solve electrostatics with inner (q_nucleus) and outer boundary conditions (q_lm)
             radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus); 
             add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
+            if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", vHt[0]*Y00*eV,_eV);
+            if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
+                                                                          vHt[1]*(rg[TRU]->r[1])*Y00, -Z);
             delete [] vHt;
         } // true and smooth
         if (echo > -1) printf("# local smooth augmented density at origin is %g a.u.\n", aug_density[0]*Y00);

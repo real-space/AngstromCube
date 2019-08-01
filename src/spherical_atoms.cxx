@@ -36,17 +36,18 @@ namespace spherical_atoms {
       int const dims[] = {80 + (na-1)*16, 80, 80};
       real_space_grid::grid_t<double,1> g(dims);
       g.set_grid_spacing(0.25);
-      float Za[na];
-      double centers[na][4];
+      float Za[na]; // list of atomic numbers
+      double centers[na][4]; // list of atomic centers
       if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
       for(int ia = 0; ia < na; ++ia) {
           int const iZ = (int)std::round(xyzZ[ia][3]);
-          char const *El = &(element_symbols[2*iZ]);
+          char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
           if (echo > 4) printf("# %c%c  %16.9f%16.9f%16.9f\n", El[0],El[1], 
                          xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
           Za[ia] = xyzZ[ia][3]; // list of atomic numbers
+          for(int d = 0; d < 3; ++d) centers[ia][d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia][d];
       } // ia
-      
+
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^11 points, ar2=16.f
       radial_grid_t *rg[na];
       stat += single_atom::update(Za, na, rho_core, rg);
@@ -56,16 +57,14 @@ namespace spherical_atoms {
       auto const rho = g.values;
       set(rho, g.all(), 0.0); // clear
       for(int ia = 0; ia < na; ++ia) {
-          for(int d = 0; d < 3; ++d) centers[ia][d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia][d];
-          double q_added;
-          int const nr2 = 1 << 11;
-          float const ar2 = 16.f;
+          int const nr2 = 1 << 11; float const ar2 = 16.f;
           if (echo > 3) {
               printf("# Real-space smooth core density for atom #%d:\n", ia);
               for(int ir2 = 0; ir2 < nr2; ++ir2) {
                   printf("%g %g\n", std::sqrt(ir2/ar2), rho_core[ia][ir2]);
               }   printf("\n\n");
           } // echo
+          double q_added;
           stat += real_space_grid::add_function(g, &q_added, rho_core[ia], nr2, ar2, centers[ia], 9.f, Y00sq);
           if (echo > -1) {
               double s = 0; for(int i = 0; i < (int)g.all(); ++i) s += g.values[i]; s *= g.dV();
@@ -73,7 +72,7 @@ namespace spherical_atoms {
           } // echo
           q00[ia] = -q_added; // spherical compensator
       } // ia
-     
+
       auto const Vxc = new double[g.all()];
       double Exc = 0, Edc = 0;
       for(size_t i = 0; i < g.all(); ++i) {
@@ -85,7 +84,7 @@ namespace spherical_atoms {
 
       auto const Ves = new double[g.all()];
       set(Ves, g.all(), 0.0);
-      if (0) { 
+      if (1) { 
           for(int ia = 0; ia < na; ++ia) {
               // todo: add the compensators
               double const sigma_compensator = 2.0/std::sqrt(10.); // Bohr
@@ -95,10 +94,10 @@ namespace spherical_atoms {
                   double coeff[1];
                   set(coeff, 1, &q00[ia]);
                   stat += sho_projection::sho_add(rho, g, coeff, 0, centers[ia], sigma, echo);
-              } else if (0) {
+              } else if (1) {
                   float const rcut = 6*sigma_compensator;
                   double const prefactor = 1./(pow3(sigma_compensator*constants::sqrtpi));
-                  float const ar2 = 32.f;
+                  float const ar2 = 32.f; 
                   int const nr2 = (int)std::ceil(ar2*pow2(rcut));
                   auto const rho_cmp = new double[nr2];
                   for(int ir2 = 0; ir2 < nr2; ++ir2) rho_cmp[ir2] = q00[ia]*prefactor*std::exp(-ir2/(ar2*pow2(sigma_compensator)));
@@ -123,8 +122,8 @@ namespace spherical_atoms {
       }
       
 //       g.values = Ves; // analyze the electrostatic potential
-//       g.values = rho; // analyze the augmented density
-      g.values = Vxc; // analyze the xc potential
+      g.values = rho; // analyze the augmented density
+//       g.values = Vxc; // analyze the xc potential
       for(int ia = 0; ia < na; ++ia) {
           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
           auto const qc = new double[nq];
@@ -148,6 +147,15 @@ namespace spherical_atoms {
           } // echo
           delete[] qc;
       } // ia
+      // report extremal values
+      double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
+      for(size_t i = 0; i < g.all(); ++i) {
+          gmin = std::min(gmin, g.values[i]);
+          gmax = std::max(gmax, g.values[i]);
+          gsum += g.values[i];
+          gsum2 += pow2(g.values[i]);
+      } // i
+      printf("\n# real-space grid stats min %g max %g avg %g\n", gmin, gmax, gsum/g.all());
       
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
