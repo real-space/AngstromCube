@@ -1058,19 +1058,25 @@ extern "C" {
         if (stat) {
             if (echo > 0) printf("# %s Matching procedure for the potential parabola failed! info = %d\n", __func__, stat);
         } else {
+//             if (echo > -1) printf("# local smooth zero_potential:\n");
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 zero_potential[ir] = V_smt[ir] - full_potential[SMT][0 + ir];
+//                 if (echo > -1) printf("%g %g\n", rg[SMT]->r[ir], zero_potential[ir]*Y00);
             } // ir
-            if (echo > 5) printf("# %s potential parabola: V_smt(0) = %g, V_smt(R_cut) = %g %s\n", __func__, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
+//             if (echo > -1) printf("\n\n");
+            if (echo > 5) printf("# %s potential parabola: V_smt(0) = %g, V_smt(R_cut) = %g %s\n", 
+                                  __func__, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
             // analyze the zero potential
             double vol = 0, Vint = 0, r2Vint = 0;
             for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
-                auto const r2 = pow2(rg[SMT]->r[ir]), dV = rg[SMT]->r2dr[ir];
-                vol    +=                       dV;
-                Vint   += zero_potential[ir]*   dV;
-                r2Vint += zero_potential[ir]*r2*dV;
+                auto const r  = rg[SMT]->r[ir];
+                auto const dV = rg[SMT]->r2dr[ir];
+                vol    +=                    dV;
+                Vint   += zero_potential[ir]*dV;
+                r2Vint += zero_potential[ir]*dV*pow2(r);
             } // ir
-            if (echo > 5) printf("# %s zero potential statistics = %g %g %s\n", __func__, Vint/vol*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
+            if (echo > 5) printf("# %s zero potential statistics = %g %g %s\n", 
+                        __func__, Vint/vol*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
                 // these numbers should be small since they indicate that V_bar is localized inside the sphere
                 // and how much V_smt deviates from V_tru ouside the sphere
         } // pseudization successful

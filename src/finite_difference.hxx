@@ -225,7 +225,7 @@ namespace finite_difference {
           } else if (-1 == fd.bc[d][1]) { // mirror BC
               for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = n - 1 - i; // wrap around and mirror
           } // else open BC, list[:] = -1
-          printf("# indirection list for %c  ", 120+d);
+//           printf("# indirection list for %c  ", 120+d);
           for(int i = n16 - nf; i < n16 + n + nf; ++i) {
               if ((n16 == i) || (n16 + n) == i) printf(" |");
               printf(" %d", list[d][i]);

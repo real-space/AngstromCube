@@ -34,9 +34,10 @@ namespace spherical_atoms {
       status_t stat = 0;
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
-      int const dims[] = {80 + (na-1)*16, 80, 80};
+//       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125;
+      int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
       real_space_grid::grid_t<double,1> g(dims);
-      g.set_grid_spacing(0.25);
+      g.set_grid_spacing(grid_spacing);
       float Za[na]; // list of atomic numbers
       double centers[na][4]; // list of atomic centers
       if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
@@ -129,7 +130,7 @@ namespace spherical_atoms {
           } // d
           stat += fourier_poisson::fourier_solve(Ves, rho, ng, reci);
           
-          auto const fd = new finite_difference::finite_difference_t<double>(0.25, 1, 12);
+          auto const fd = new finite_difference::finite_difference_t<double>(grid_spacing, 1, 12);
           g.values = Ves;
           stat += Laplacian(Laplace_Ves, g, *fd); // compute the Laplacian using high-order finite-differences
       }
@@ -141,7 +142,8 @@ namespace spherical_atoms {
 //       g.values = Vxc; add_product(g.values, g.all(), Ves, 1.0); // analyze the total potential: Vxc + Ves
 
       for(int ia = 0; ia < na; ++ia) {
-          int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
+//           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
+          float const dq = 1.f/16; int const nq = (int)(constants::pi/(grid_spacing*dq));
           auto const qc = new double[nq];
           stat += real_space_grid::bessel_projection(qc, nq, dq, g, centers[ia]);
 
