@@ -101,7 +101,7 @@ namespace fourier_poisson {
       } // j2
       
       stat += fft_MKL(x, x_Im, x_Re, ng, 'b'); // transform solution x back into real-space
-      delete[] x_Re;
+      delete[] x_Re; // also deallocates x_Im
       return stat;
   } // fourier_solve
 

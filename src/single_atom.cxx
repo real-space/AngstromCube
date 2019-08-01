@@ -376,7 +376,7 @@ extern "C" {
             pseudize_function(potential[SMT], rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
-        int const maxit_scf = 2;
+        int const maxit_scf = 1;
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# SCF-iteration %d\n\n", scf);
 //             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
@@ -1006,7 +1006,7 @@ extern "C" {
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
-            if (SMT == ts) printf("# local smooth density at origin %g a.u.\n", full_density[ts][0]*Y00);
+            if ((echo > 6) &&(SMT == ts)) printf("# local smooth density at origin %g a.u.\n", full_density[ts][0]*Y00);
             angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
@@ -1021,7 +1021,7 @@ extern "C" {
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
             delete[] on_grid;
-            if (SMT == ts) printf("# local smooth XC potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
+            if ((echo > 6) &&(SMT == ts)) printf("# local smooth XC potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
 
             // solve electrostatics inside the spheres
             auto   const vHt = new double[nlm*mr];
@@ -1030,12 +1030,20 @@ extern "C" {
             // solve electrostatics with inner (q_nucleus) and outer boundary conditions (q_lm)
             radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus); 
             add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
-            if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", vHt[0]*Y00*eV,_eV);
-            if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
-                                                                          vHt[1]*(rg[TRU]->r[1])*Y00, -Z);
+            if (echo > 6) {
+                if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", vHt[0]*Y00*eV,_eV);
+                if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
+                                                                              vHt[1]*(rg[TRU]->r[1])*Y00, -Z);
+                if (SMT == ts) {
+                    printf("# local smooth electrostatic potential and augmented density:\n");
+                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                        printf("%g %g %g\n", rg[SMT]->r[ir], vHt[ir]*Y00, aug_density[ir]*Y00);
+                    }   printf("\n\n");
+                } // smooth
+            } // echo
             delete [] vHt;
         } // true and smooth
-        if (echo > -1) printf("# local smooth augmented density at origin is %g a.u.\n", aug_density[0]*Y00);
+        if (echo > 6) printf("# local smooth augmented density at origin is %g a.u.\n", aug_density[0]*Y00);
         
 
         // construct the zero_potential V_bar
@@ -1266,7 +1274,7 @@ extern "C" {
     } // get_smooth_core_density
 
     radial_grid_t* get_smooth_radial_grid(int const echo=0) {
-        return rg[TRU];
+        return rg[SMT];
     } // get_smooth_radial_grid
     
   }; // class LiveAtom

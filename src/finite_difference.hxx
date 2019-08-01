@@ -3,6 +3,8 @@
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
 
+#include "real_space_grid.hxx" // grid_t
+
 typedef int status_t;
 
 namespace finite_difference {
@@ -198,6 +200,66 @@ namespace finite_difference {
 
 
   }; // class finite_difference_t
+  
+  
+  template<typename real_t, int D0>
+  status_t Laplacian(real_t out[], real_space_grid::grid_t<real_t,D0> const &g, 
+                     finite_difference_t<real_t> const &fd) {
+      int const n16 = 16; // max number of finite difference neighbors
+      int* list[3];
+      for(int d = 0; d < 3; ++d) {
+          int const n = g.dim(d);
+          int const nf = fd.nn[d];
+          int const nh = n16 + n + n16; // number including largest halos
+          list[d] = new int[nh]; // get memory
+          for(int i = 0; i < nh; ++i) list[d][i] = -1; // init as non-existing
+          for(int i = 0; i < n; ++i) list[d][n16 + i] = i; // itself
+          // lower boundary
+          if (1 == fd.bc[d][0]) { // periodic BC
+              for(int i = n16 - nf; i < n16; ++i) list[d][i] = n + i - n16; // wrap around
+          } else if (-1 == fd.bc[d][0]) { // mirror BC
+              for(int i = n16 - nf; i < n16; ++i) list[d][i] = n16 - 1 - i; // wrap around and mirror
+          } // else open BC, list[:] = -1
+          if (1 == fd.bc[d][1]) { // periodic BC
+              for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = i; // wrap around
+          } else if (-1 == fd.bc[d][1]) { // mirror BC
+              for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = n - 1 - i; // wrap around and mirror
+          } // else open BC, list[:] = -1
+          printf("# indirection list for %c  ", 120+d);
+          for(int i = n16 - nf; i < n16 + n + nf; ++i) {
+              if ((n16 == i) || (n16 + n) == i) printf(" |");
+              printf(" %d", list[d][i]);
+          }   printf("\n");
+      } // spatial direction d
+
+      assert(1 == D0); // no vectorization active
+
+      for(int z = 0; z < g.dim('z'); ++z) {
+          for(int y = 0; y < g.dim('y'); ++y) {
+              for(int x = 0; x < g.dim('x'); ++x) {
+                  int const i_zyx = (z*g.dim('y') + y)*g.dim('x') + x;
+                  out[i_zyx] = 0; // init result
+
+                  for(int ddir = 0; ddir < 3; ++ddir) {
+                      int zyx[3] = {x, y, z};
+                      int const i_center = zyx[ddir];
+                      for(int jmi = -fd.nn[ddir]; jmi <= fd.nn[ddir]; ++jmi) {
+                          int const j = i_center + jmi;
+                          int const index = list[ddir][n16 + j];
+                          if (index > 0) {
+                              zyx[ddir] = index;
+                              int const zyx_prime = (zyx[2]*g.dim('y') + zyx[1])*g.dim('x') + zyx[0];
+                              out[i_zyx] += g.values[zyx_prime] * fd.c2nd[ddir][std::abs(jmi)];
+                          } // index exists
+                      } // jmi
+                  } // ddir direction of the derivative
+
+              } // x
+          } // y
+      } // z
+
+      return 0; // success
+  } // Laplacian
   
   
   status_t all_tests();

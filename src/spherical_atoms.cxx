@@ -15,7 +15,8 @@
 #include "single_atom.hxx" // update
 #include "sho_projection.hxx" // sho_add
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
-#include "fourier_poisson.hxx" // lda_PZ81_kernel
+#include "fourier_poisson.hxx" // fourier_solve
+#include "finite_difference.hxx" // Laplacian
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -61,7 +62,7 @@ namespace spherical_atoms {
           if (echo > 3) {
               printf("# Real-space smooth core density for atom #%d:\n", ia);
               for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  printf("%g %g\n", std::sqrt(ir2/ar2), rho_core[ia][ir2]);
+                  printf("%g %g\n", std::sqrt(ir2/ar2), rho_core[ia][ir2]*Y00sq);
               }   printf("\n\n");
           } // echo
           double q_added;
@@ -82,6 +83,7 @@ namespace spherical_atoms {
       Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
       if (echo > -1) printf("# XC energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
 
+      auto const Laplace_Ves = new double[g.all()];
       auto const Ves = new double[g.all()];
       set(Ves, g.all(), 0.0);
       if (1) { 
@@ -95,12 +97,19 @@ namespace spherical_atoms {
                   set(coeff, 1, &q00[ia]);
                   stat += sho_projection::sho_add(rho, g, coeff, 0, centers[ia], sigma, echo);
               } else if (1) {
-                  float const rcut = 6*sigma_compensator;
+                  float const rcut = 6.5*sigma_compensator;
                   double const prefactor = 1./(pow3(sigma_compensator*constants::sqrtpi));
-                  float const ar2 = 32.f; 
+                  float const ar2 = 64.f; 
                   int const nr2 = (int)std::ceil(ar2*pow2(rcut));
+                  if (echo > -1) printf("# use r^2-grid with r^2 = %.1f*i with %d points for compensator of atom #%d\n", ar2, nr2, ia);
                   auto const rho_cmp = new double[nr2];
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) rho_cmp[ir2] = q00[ia]*prefactor*std::exp(-ir2/(ar2*pow2(sigma_compensator)));
+                  if (echo > -1) printf("# compensator charge density of atom #%d:\n", ia);
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2;
+                      rho_cmp[ir2] = prefactor*std::exp(-r2/pow2(sigma_compensator));
+                      rho_cmp[ir2] *= q00[ia];
+                      if (echo > 3) printf("%g %g\n", std::sqrt(r2), rho_cmp[ir2]);
+                  }   if (echo > 3) printf("\n\n");
                   double q_added;
                   stat += real_space_grid::add_function(g, &q_added, rho_cmp, nr2, ar2, centers[ia], rcut);
                   q00[ia] = q_added;
@@ -111,7 +120,7 @@ namespace spherical_atoms {
                   printf("# integral over rho = %g after adding %g compensator electrons of atom #%d\n", s, q00[ia], ia);
               } // echo
           } // ia
-        
+
           int ng[3]; double reci[3][4]; 
           for(int d = 0; d < 3; ++d) { 
               ng[d] = g.dim(d);
@@ -119,35 +128,53 @@ namespace spherical_atoms {
               reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
           } // d
           stat += fourier_poisson::fourier_solve(Ves, rho, ng, reci);
+          
+          auto const fd = new finite_difference::finite_difference_t<double>(0.25, 1, 12);
+          g.values = Ves;
+          stat += Laplacian(Laplace_Ves, g, *fd); // compute the Laplacian using high-order finite-differences
       }
       
 //       g.values = Ves; // analyze the electrostatic potential
-      g.values = rho; // analyze the augmented density
+      g.values = Laplace_Ves; // analyze the electrostatic potential
+//       g.values = rho; // analyze the augmented density
 //       g.values = Vxc; // analyze the xc potential
+//       g.values = Vxc; add_product(g.values, g.all(), Ves, 1.0); // analyze the total potential: Vxc + Ves
+
       for(int ia = 0; ia < na; ++ia) {
           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
           auto const qc = new double[nq];
           stat += real_space_grid::bessel_projection(qc, nq, dq, g, centers[ia]);
 
-          if (echo > 7) {
-              printf("# Bessel coeff for atom #%d:\n", ia);
-              for(int iq = 0; iq < nq; ++iq) {
-                  printf("%g %g\n", iq*dq, qc[iq]);
-              }   printf("\n\n");
-          } // echo
+          scale(qc, nq, pow2(solid_harmonics::Y00));
+          
+//           auto const qcq2 = new double[nq]; 
+//           qcq2[0] = 0;
+//           for(int iq = 1; iq < nq; ++iq) {
+//               qcq2[iq] = qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
+//           } // iq
+// 
+//           if (echo > 6) {
+//               printf("# Bessel coeff for atom #%d:\n", ia);
+//               for(int iq = 0; iq < nq; ++iq) {
+//                   printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
+//               }   printf("\n\n");
+//           } // echo
 
           if (echo > 3) {
               auto const rs = new double[rg[ia]->n];
               bessel_transform::transform_s_function(rs, qc, *rg[ia], nq, dq, true); // transform back to real-space again
+//               auto const Vr = new double[rg[ia]->n];
+//               bessel_transform::transform_s_function(Vr, qcq2, *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
               printf("# Real-space projection for atom #%d:\n", ia);
               for(int ir = 0; ir < rg[ia]->n; ++ir) {
-                  printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
+                  printf("%g %g\n", rg[ia]->r[ir], rs[ir]); // seems like we are missing some factor
               }   printf("\n\n");
               delete[] rs;
           } // echo
           delete[] qc;
       } // ia
-      // report extremal values
+      
+      // report extremal values of what is stored on the grid
       double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
       for(size_t i = 0; i < g.all(); ++i) {
           gmin = std::min(gmin, g.values[i]);
@@ -155,7 +182,7 @@ namespace spherical_atoms {
           gsum += g.values[i];
           gsum2 += pow2(g.values[i]);
       } // i
-      printf("\n# real-space grid stats min %g max %g avg %g\n", gmin, gmax, gsum/g.all());
+      printf("\n# real-space grid stats min %g max %g avg %g\n\n", gmin, gmax, gsum/g.all());
       
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
@@ -167,6 +194,7 @@ namespace spherical_atoms {
       
       delete[] Vxc;
       delete[] Ves;
+      delete[] Laplace_Ves;
       for(int ia = 0; ia < na; ++ia) {
           delete[] rho_core[ia]; // has been allocated in single_atom::update()
       } // ia
