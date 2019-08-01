@@ -49,8 +49,9 @@ namespace real_space_grid {
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
       if (echo > 2) printf("\n# add_function()\n\n");
-      add_function(g, r2c, nr2, inv_hr2, cnt, rcut);
-      if (echo > 6) printf("\n# non-zero values on the Cartesian grid\n");
+      double added;
+      add_function(g, &added, r2c, nr2, inv_hr2, cnt, rcut);
+      if (echo > 6) printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
       double xyz_integral = 0;
       int ixyz = 0;
       for(        int iz = 0; iz < g.dim('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];

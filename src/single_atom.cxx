@@ -1006,6 +1006,7 @@ extern "C" {
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
+            if (SMT == ts) printf("# local smooth density at origin %g a.u.\n", full_density[ts][0]*Y00);
             angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
@@ -1020,6 +1021,7 @@ extern "C" {
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
             delete[] on_grid;
+            if (SMT == ts) printf("# local smooth XC potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
 
             // solve electrostatics inside the spheres
             auto   const vHt = new double[nlm*mr];
@@ -1030,6 +1032,8 @@ extern "C" {
             add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
             delete [] vHt;
         } // true and smooth
+        if (echo > -1) printf("# local smooth augmented density at origin is %g a.u.\n", aug_density[0]*Y00);
+        
 
         // construct the zero_potential V_bar
         auto const V_smt = new double[rg[SMT]->n];
@@ -1254,7 +1258,7 @@ extern "C" {
 
     status_t get_smooth_core_density(double rho[], float const ar2, int const nr2, int const echo=1) {
         if (echo > 7) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, core_density=%p, rg=%p)\n", 
-                             __func__, (void*)rho, ar2, nr2, (void*)core_density[SMT], (void*)rg[SMT]);
+                              __func__, (void*)rho, ar2, nr2, (void*)core_density[SMT], (void*)rg[SMT]);
         return bessel_transform::transform_to_r2_grid(rho, ar2, nr2, core_density[SMT], *rg[SMT], echo);
     } // get_smooth_core_density
 
@@ -1326,11 +1330,12 @@ namespace single_atom {
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
-    { int const Z = 29; // 29:copper
+//     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
+     { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);      
-        LiveAtom a(Z, true, echo);
+        LiveAtom a(Z, false, echo);
     } // Z
     return 0;
   } // test

@@ -60,7 +60,7 @@ namespace bessel_transform {
       float const ar2 = (1 << 3); // ir2 = ar2*r^2
       int   const nr2 = std::ceil(ar2*pow2(rg->rmax));
       auto  const out = new double[nr2];
-      
+
       auto const stat = transform_to_r2_grid(out, ar2, nr2, in, *rg);
       
       if (echo > 4) {

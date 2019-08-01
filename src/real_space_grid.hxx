@@ -2,7 +2,7 @@
 
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
-#include "inline_math.hxx" // set
+#include "inline_math.hxx" // set, scale
 #include "bessel_transform.hxx" // Bessel_j0
 
 typedef int status_t;
@@ -74,9 +74,9 @@ namespace real_space_grid {
   
   
   template<typename real_t, int D0> // inner dimension
-  status_t add_function(grid_t<real_t,D0> &g, // grid values are modified
+  status_t add_function(grid_t<real_t,D0> &g, real_t added[], // grid values are modified
                         double const r2coeff[], int const ncoeff, float const hcoeff,
-                        double const center[3]=nullptr, float const rcut=-1, double const scale=1) {
+                        double const center[3]=nullptr, float const rcut=-1, double const factor=1) {
   // Add a spherically symmetric regular function to the grid.
   // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
       assert(D0 == g.dim('w'));
@@ -100,6 +100,7 @@ namespace real_space_grid {
           nwindow *= std::max(0, imx[i3] + 1 - imn[i3]);
       } // i3
       assert(hcoeff > 0);
+      set(added, D0, (real_t)0); // clear
       size_t modified = 0, out_of_range = 0;
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
@@ -113,8 +114,10 @@ namespace real_space_grid {
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
                               int const ir2p1 = ir2 + 1;
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  g.values[ixyz*D0 + i0] += scale*(r2coeff[ir2*D0 + i0]*(1 - w8) 
-                                           + ((ir2p1 < ncoeff) ? r2coeff[ir2p1*D0 + i0] : 0)*w8);
+                                  auto const value_to_add = (r2coeff[ir2*D0 + i0]*(1 - w8)
+                                     + ((ir2p1 < ncoeff) ? r2coeff[ir2p1*D0 + i0] : 0)*w8);
+                                  g.values[ixyz*D0 + i0] += factor*value_to_add;
+                                  added[i0]              += factor*value_to_add;
                               } // i0
                               ++modified;
                           } else ++out_of_range;
@@ -123,6 +126,7 @@ namespace real_space_grid {
               } // rcut for (y,z)
           } // iy
       } // iz
+      scale(added, D0, g.dV()); // volume integral
 #ifdef  DEBUG
       printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
               __func__, modified*1e-3, nwindow*1e-3, g.dim('x')*g.dim('y')*g.dim('z')*1e-3); // show stats
@@ -136,7 +140,7 @@ namespace real_space_grid {
   template<typename real_t, int D0> // inner dimension
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
                 grid_t<real_t,D0> const &g, double const center[3]=nullptr, 
-                float const rcut=-1, double const scale=1) {
+                float const rcut=-1, double const factor=1) {
       assert(D0 == g.dim('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
@@ -158,7 +162,6 @@ namespace real_space_grid {
           nwindow *= std::max(0, imx[i3] + 1 - imn[i3]);
       } // i3
       set(q_coeff, nq*D0, (real_t)0); // clear
-      auto const dV = g.dV();
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
@@ -170,7 +173,7 @@ namespace real_space_grid {
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  q_coeff[iq*D0 + i0] += g.values[ixyz*D0 + i0] * bessel_transform::Bessel_j0(q*r) * dV;
+                                  q_coeff[iq*D0 + i0] += g.values[ixyz*D0 + i0] * bessel_transform::Bessel_j0(q*r);
                               } // i0
                           } // iq
                       } // inside rcut
@@ -178,6 +181,8 @@ namespace real_space_grid {
               } // rcut for (y,z)
           } // iy
       } // iz
+      double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
+      scale(q_coeff, nq*D0, (real_t)(g.dV()*factor*sqrt2pi)); // volume element, external factor, Bessel transform factor
       return 0; // success
   } // bessel_projection
   

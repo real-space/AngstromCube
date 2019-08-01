@@ -88,7 +88,7 @@ namespace bessel_transform {
               printf("%g %g\n", r2g.r[ir2], out[ir2]);
           }   printf("\n\n");
       } // echo
-      
+
       delete[] r2g.r;
       delete[] bt;
       return stat;
