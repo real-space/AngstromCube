@@ -29,7 +29,7 @@
     #include <algorithm> // std::max
 #endif // NO_UNIT_TESTS
   
-namespace hermite_polynomials {
+namespace hermite_polynomial {
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -102,4 +102,4 @@ namespace hermite_polynomials {
   } // all_tests
 #endif // NO_UNIT_TESTS  
 
-} // namespace hermite_polynomials
+} // namespace hermite_polynomial

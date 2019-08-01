@@ -3,8 +3,8 @@
 #include <string> // std::string
 #include <cassert> // assert
 
-#include "element_configuration.hxx" // all_tests
-#include "hermite_polynomials.hxx" // all_tests
+#include "core_configuration.hxx" // all_tests
+#include "hermite_polynomial.hxx" // all_tests
 #include "radial_eigensolver.hxx" // all_tests
 #include "radial_integrator.hxx" // all_tests
 #include "finite_difference.hxx" // all_tests
@@ -38,27 +38,27 @@
       { // testing scope
 #define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
                            { run.push_back(make_pair(std::string(NAME), FUN())); }
-          module_test("element_configuration.", element_configuration::all_tests);
-          module_test("hermite_polynomials.",     hermite_polynomials::all_tests);
-          module_test("radial_eigensolver.",       radial_eigensolver::all_tests);
-          module_test("finite_difference.",         finite_difference::all_tests);
-          module_test("recorded_warnings.",         recorded_warnings::all_tests);
-          module_test("radial_integrator.",         radial_integrator::all_tests);
-          module_test("radial_potential.",           radial_potential::all_tests);
-          module_test("bessel_transform.",           bessel_transform::all_tests);
-          module_test("real_space_grid.",             real_space_grid::all_tests);
-          module_test("fourier_poisson.",             fourier_poisson::all_tests);
-          module_test("spherical_atoms.",             spherical_atoms::all_tests);
-          module_test("sho_projection.",               sho_projection::all_tests);
-          module_test("angular_grid.",                   angular_grid::all_tests);
-          module_test("radial_grid.",                     radial_grid::all_tests);
-          module_test("single_atom.",                     single_atom::all_tests);
-          module_test("inline_math.",                     inline_math::all_tests);
-          module_test("sho_unitary.",                     sho_unitary::all_tests);
-          module_test("sho_radial.",                       sho_radial::all_tests);
-          module_test("sho_tools.",                         sho_tools::all_tests);
-          module_test("atom_core.",                         atom_core::all_tests);
-          module_test("overlap.",                             overlap::all_tests);
+          module_test("recorded_warnings.",  recorded_warnings::all_tests);
+          module_test("core_configuration.", core_configuration::all_tests);
+          module_test("hermite_polynomial.", hermite_polynomial::all_tests);
+          module_test("radial_eigensolver.", radial_eigensolver::all_tests);
+          module_test("finite_difference.",   finite_difference::all_tests);
+          module_test("radial_integrator.",   radial_integrator::all_tests);
+          module_test("radial_potential.",     radial_potential::all_tests);
+          module_test("bessel_transform.",     bessel_transform::all_tests);
+          module_test("real_space_grid.",       real_space_grid::all_tests);
+          module_test("fourier_poisson.",       fourier_poisson::all_tests);
+          module_test("spherical_atoms.",       spherical_atoms::all_tests);
+          module_test("sho_projection.",         sho_projection::all_tests);
+          module_test("angular_grid.",             angular_grid::all_tests);
+          module_test("radial_grid.",               radial_grid::all_tests);
+          module_test("single_atom.",               single_atom::all_tests);
+          module_test("inline_math.",               inline_math::all_tests);
+          module_test("sho_unitary.",               sho_unitary::all_tests);
+          module_test("sho_radial.",                 sho_radial::all_tests);
+          module_test("sho_tools.",                   sho_tools::all_tests);
+          module_test("atom_core.",                   atom_core::all_tests);
+          module_test("overlap.",                       overlap::all_tests);
 #undef    module_test
       } // testing scope
 

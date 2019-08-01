@@ -110,10 +110,10 @@ namespace recorded_warnings {
         auto const hash = combined_hash(file, line);
         auto const search = map_.find(hash);
         if (map_.end() != search) {
-            if (echo > 1) printf("# %s: found entry for hash %16llx\n", __func__, hash);
+            if (echo > 1) printf("# %s: found entry for hash %16lx\n", __func__, hash);
             return search->second.get_message();
         } else {
-            if (echo > 1) printf("# %s: insert new entry for hash %16llx\n", __func__, hash);
+            if (echo > 1) printf("# %s: insert new entry for hash %16lx\n", __func__, hash);
             auto const iit = map_.insert({hash, WarningRecord(file, line)});
             // if (success) {
             return iit.first->second.get_message();

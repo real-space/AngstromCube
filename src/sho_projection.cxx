@@ -7,7 +7,7 @@
 
 #include "sho_tools.hxx" // sho_tools::nSHO, sho_tools::get_nu, sho_tools::order_zyx
 #include "real_space_grid.hxx" // real_space_grid::grid_t<real_t,D0>
-#include "hermite_polynomials.hxx" // hermite_polys
+#include "hermite_polynomial.hxx" // hermite_polys
 #include "constants.hxx" // constants::pi
 #include "inline_math.hxx" // set, factorial
 
