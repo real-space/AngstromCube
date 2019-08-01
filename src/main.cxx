@@ -25,6 +25,8 @@
 #include "atom_core.hxx" // all_tests
 #include "overlap.hxx" // all_tests
 
+#include "recorded_warnings.hxx" // show_warnings, clear_warnings
+
   int run_unit_tests(char const *module) 
   {
       bool const all = (nullptr == module);
@@ -80,6 +82,7 @@
 
   int main(int const argc, char const * argv[]) 
   {
+      int stat = 0;
       if (argc < 2) { printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); return -1; }
 //    printf("%s: argument #1 is %s\n", argv[0], argv[1]);
       char const c10 = *argv[1]; // char #0 of command line argument #1
@@ -88,11 +91,13 @@
           char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
           if ('h' == (c11 | IgnoreCase)) {
               printf("Usage %s [OPTION]\n", argv[0]);
-              printf(" -h, -H     \tThis Help message\n"
-                      " -t <module> \tTest module\n");
+              printf(" -h, -H      \tThis Help message\n"
+                     " -t <module> \tTest module\n");
           } else if ('t' == (c11 | IgnoreCase)) {
-              return run_unit_tests((argc > 2)?argv[2]:nullptr);
+              stat = run_unit_tests((argc > 2)?argv[2]:nullptr);
           } // help or test
       } // option expected
-      return 0;
+      recorded_warnings::show_warnings(3);
+      recorded_warnings::clear_warnings(1);
+      return stat;
   } // main

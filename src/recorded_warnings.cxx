@@ -81,10 +81,11 @@ namespace recorded_warnings {
         if (0 == line) {
             // show_warnings has been called
             if (echo > 1) {
-                if (echo < 3) { // only give a summary of how many
-                    printf("# %s: %ld warnings have been recorded.\n", __func__, map_.size());
+                auto const nw = map_.size();
+                if ((echo < 3) || (nw < 1)) { // only give a summary of how many
+                    printf("# %ld warnings have been recorded.\n", nw);
                 } else {
-                    printf("# %s: %ld recorded warnings:\n", __func__, map_.size());
+                    printf("# %s: %ld recorded warnings:\n", __func__, nw);
                     size_t total_count = 0;
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
@@ -93,7 +94,7 @@ namespace recorded_warnings {
                           w.get_sourceline(), n_times, w.get_message_pointer());
                         total_count += n_times;
                     } // w
-                    printf("# %s: %.3f k warnings in total\n", __func__, total_count*1e-3);
+                    if (nw > 0) printf("# %s: %ld warnings in total\n", __func__, total_count);
                 } // summary
             } // echo
         } else {
@@ -170,8 +171,8 @@ namespace recorded_warnings {
     status += test_create_and_destroy();
     status += test_preprocessor_macro();
     status += test_overwriting();
-    status += show_warnings(3);
-    status += clear_warnings(2);
+    // status += show_warnings(3);
+    // status += clear_warnings(2);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
