@@ -3,7 +3,7 @@
 #include <string> // std::string
 #include <cassert> // assert
 
-#include "core_configuration.hxx" // all_tests
+#include "element_config.hxx" // all_tests
 #include "hermite_polynomial.hxx" // all_tests
 #include "radial_eigensolver.hxx" // all_tests
 #include "radial_integrator.hxx" // all_tests
@@ -38,8 +38,7 @@
       { // testing scope
 #define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
                            { run.push_back(make_pair(std::string(NAME), FUN())); }
-          module_test("recorded_warnings.",  recorded_warnings::all_tests);
-          module_test("core_configuration.", core_configuration::all_tests);
+          module_test("recorded_warnings.",   recorded_warnings::all_tests);
           module_test("hermite_polynomial.", hermite_polynomial::all_tests);
           module_test("radial_eigensolver.", radial_eigensolver::all_tests);
           module_test("finite_difference.",   finite_difference::all_tests);
@@ -49,6 +48,7 @@
           module_test("real_space_grid.",       real_space_grid::all_tests);
           module_test("fourier_poisson.",       fourier_poisson::all_tests);
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
+          module_test("element_config.",         element_config::all_tests);
           module_test("sho_projection.",         sho_projection::all_tests);
           module_test("angular_grid.",             angular_grid::all_tests);
           module_test("radial_grid.",               radial_grid::all_tests);

@@ -11,7 +11,6 @@ OBJ = \
 	radial_integrator.o \
 	radial_eigensolver.o \
 	radial_potential.o \
-	core_configuration.o \
 	exchange_correlation.o \
 	bessel_transform.o \
 	real_space_grid.o \

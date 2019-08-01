@@ -171,8 +171,8 @@ namespace recorded_warnings {
     status += test_create_and_destroy();
     status += test_preprocessor_macro();
     status += test_overwriting();
-    // status += show_warnings(3);
-    // status += clear_warnings(2);
+    status += show_warnings(3); // display those warnings that have been launched for test purposes
+    status += clear_warnings(2); // clear test warnings from record
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

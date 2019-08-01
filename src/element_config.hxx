@@ -3,35 +3,26 @@
 #include <cmath>
 #include <algorithm> // max
 
-#include "core_configuration.hxx"
-
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "chemical_symbol.h" // element_symbols
 
 // #define FULL_DEBUG
 // #define DEBUG
+typedef int status_t;
 
-typedef struct {
-    char A;
-    char b;
-} element_symbol_t;
-
-namespace core_configuration {
+namespace element_config {
   
-  element_symbol_t element_symbol(int const Z) {
+  inline char const* element_symbol(int const Z) {
       int const z128 = Z & 127; // == Z % 128
-      element_symbol_t El;
-      El.A = element_symbols[2*z128];
-      El.b = element_symbols[2*z128 + 1];
-      return El;
+      return &(element_symbols[2*z128]); // this and the following char belong to this element
   } // element_symbol
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_show_all_elements(int const echo=2) {
+  inline status_t test_show_all_elements(int const echo=2) {
       if (echo > 0) printf("# %s:  %s\n", __FILE__, __func__);
       float iocc[32];
       char const ellchar[] = "spdfghi";
@@ -58,12 +49,12 @@ namespace core_configuration {
                               if (echo) {
                                   auto const El = element_symbol(iZ);
                                   if (1 == echo) {
-                                      printf("%c%c occupation ", El.A, El.b);
+                                      printf("%c%c occupation ", El[0], El[1]);
                                       for(int inl = 0; inl < ishell; ++inl)
                                           printf("%.1f ", iocc[inl]);
                                       printf("\n");
                                   } else if ((echo > 1) && (0 == spin)) {
-                                      printf("%c%c ", El.A, El.b);
+                                      printf("%c%c ", El[0], El[1]);
                                   }
                               } // echo
                           } // s
@@ -108,9 +99,9 @@ namespace core_configuration {
 //   7s 7p
 //   8s
 
-  status_t all_tests() {
+  inline status_t all_tests() {
       return test_show_all_elements();
   } // all_tests
 #endif // NO_UNIT_TESTS
 
-} // namespace core_configuration
+} // namespace element_config
