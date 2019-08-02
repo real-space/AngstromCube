@@ -18,8 +18,7 @@ namespace sho_projection {
                      , double const sigma
                      , real_t values[] // grid array, result if adding
                      , real_space_grid::grid_t<real_t,D0> const &g // grid descriptor, assume that g is a Cartesian grid
-                     , int const echo=4
-                      ) { //
+                     , int const echo=4) { //
       assert( 1 == D0 );
       double const rcut = 9*sigma;
       double const sigma_inv = 1./sigma;
@@ -113,11 +112,10 @@ namespace sho_projection {
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
+                     , real_t const values[] // input, grid array
                      , real_space_grid::grid_t<real_t,D0> const &g // grid descriptor, assume that g is a Cartesian grid
-                     , real_t const *values=nullptr // input, grid array, defaults to g.values
-                     , int const echo=4) { //
-      real_t const *val = (nullptr != values)? values : g.values;
-      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)val, g, echo);
+                     , int const echo=0) { //
+      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const coeff pointer
   } // sho_project
 
   // wrapper function
@@ -128,8 +126,8 @@ namespace sho_projection {
                  , int const numax // how many
                  , double const center[3] // where
                  , double const sigma
-                 , int const echo=4) { //
-      return sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo);
+                 , int const echo=0) { //
+      return sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
   
   status_t all_tests();

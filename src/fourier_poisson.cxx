@@ -74,6 +74,7 @@ namespace fourier_poisson {
 
       stat += fft_MKL(x_Re, x_Im, b, ng); // transform b into reciprocal space
       
+      printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
       
       real_t const scale = -factor/ng_all;
@@ -101,7 +102,8 @@ namespace fourier_poisson {
       } // j2
       
       stat += fft_MKL(x, x_Im, x_Re, ng, 'b'); // transform solution x back into real-space
-      delete[] x_Re; // also deallocates x_Im
+
+      delete[] x_Re; // deallocates x_Re and also x_Im
       return stat;
   } // fourier_solve
 

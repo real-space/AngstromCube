@@ -78,6 +78,25 @@
   void add_product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const f=1) {
       for(int i = 0; i < n; ++i) y[i] += a[i]*b[i]*f;
   } // add_product
+
+  template<typename real_t>
+  real_t inline dot_product(int const n, real_t const bra[], real_t const ket[]) {
+      real_t dot = 0;
+      for(int i = 0; i < n; ++i) {
+          dot += bra[i]*ket[i];
+      } // i
+      return dot;
+  } // dot_product
+
+  template<typename real_t>
+  real_t inline dot_product(int const n, real_t const bra[], real_t const ket[], real_t const metric[]) {
+      real_t dot = 0;
+      for(int i = 0; i < n; ++i) {
+          dot += bra[i]*metric[i]*ket[i];
+      } // i
+      return dot;
+  } // dot_product
+  
   
 namespace inline_math {
 

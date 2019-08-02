@@ -170,6 +170,7 @@ namespace real_space_grid {
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
                           double const r = std::sqrt(r2);
+//                           printf("%g %g\n", r, g.values[ixyz*D0 + 0]); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
@@ -178,6 +179,7 @@ namespace real_space_grid {
                           } // iq
                       } // inside rcut
                   } // ix
+//                   printf("\n"); // DEBUG
               } // rcut for (y,z)
           } // iy
       } // iz

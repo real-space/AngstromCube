@@ -225,11 +225,13 @@ namespace finite_difference {
           } else if (-1 == fd.bc[d][1]) { // mirror BC
               for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = n - 1 - i; // wrap around and mirror
           } // else open BC, list[:] = -1
-//           printf("# indirection list for %c  ", 120+d);
-          for(int i = n16 - nf; i < n16 + n + nf; ++i) {
-              if ((n16 == i) || (n16 + n) == i) printf(" |");
-              printf(" %d", list[d][i]);
-          }   printf("\n");
+          if (1) {
+              printf("# indirection list for %c  ", 120+d);
+              for(int i = n16 - nf; i < n16 + n + nf; ++i) {
+                  if ((n16 == i) || (n16 + n) == i) printf(" |");
+                  printf(" %d", list[d][i]);
+              }   printf("\n");
+          } // show indirection list
       } // spatial direction d
 
       assert(1 == D0); // no vectorization active
@@ -246,7 +248,7 @@ namespace finite_difference {
                       for(int jmi = -fd.nn[ddir]; jmi <= fd.nn[ddir]; ++jmi) {
                           int const j = i_center + jmi;
                           int const index = list[ddir][n16 + j];
-                          if (index > 0) {
+                          if (index >= 0) {
                               zyx[ddir] = index;
                               int const zyx_prime = (zyx[2]*g.dim('y') + zyx[1])*g.dim('x') + zyx[0];
                               out[i_zyx] += g.values[zyx_prime] * fd.c2nd[ddir][std::abs(jmi)];

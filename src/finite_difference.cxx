@@ -48,28 +48,28 @@ namespace finite_difference {
   } // test_create_and_destroy
 
   template<typename real_t>
-  status_t test_Laplacian(int const echo=9) {
+  status_t test_Laplacian(int const echo=3) {
       status_t stat = 0;
-      int const bc[3] = {0,0,0}; // not periodic
+      int const bc[3] = {1,1,1}; // periodic
       double const h[3] = {1,1,1};
       for(int dir = 0; dir < 3; ++dir) {
-          int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the perpendicular directions
+          int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           finite_difference_t<real_t> fd(h, bc, nn);
           int dims[] = {0,0,0}; dims[dir] = 127 + dir;
           real_space_grid::grid_t<real_t,1> g(dims);
-          double const k = (1 + dir)/32.;
+          double const k = (1 + dir)*2*constants::pi/g.dim(dir);
           for(int i = 0; i < g.all(); ++i) g.values[i] = std::cos(k*i); // fill with some non-zero values
           real_t* out = new real_t[g.all()];
           stat += Laplacian(out, g, fd);
-          printf("\n# in, out, ref values: \n");
+          if (echo > 5) printf("\n# in, out, ref values:\n");
           double dev = 0;
           for(int i = 0; i < g.all(); ++i) {
               double const ref = -k*k*g.values[i];
-              printf("%d %g %g %g\n", i, g.values[i], out[i], ref);
+              if (echo > 5) printf("%d %g %g %g\n", i, g.values[i], out[i], ref);
               // compare in the middle range out and ref values
-              if ((i > 16) && (i < dims[dir] - 16)) dev += std::abs(out[i] - ref);
+              dev += std::abs(out[i] - ref);
           } // i
-          printf("# %c-direction: dev = %g\n", 120+dir, dev);
+          if (echo > 2) printf("# %c-direction: dev = %g\n", 120+dir, dev);
       } // direction
       return stat;
   } // test_Laplacian

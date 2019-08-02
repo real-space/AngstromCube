@@ -188,8 +188,8 @@ extern "C" {
         ellmax_compensator = 0;
         if (echo > 0) printf("# compensation charges are expanded up to lmax = %d\n", ellmax_compensator);
         r_cut = 2.0; // Bohr
-        sigma = 0.5; // Bohr
         sigma_compensator = r_cut/std::sqrt(10.); // Bohr
+        sigma = 0.5; // Bohr
         r_match = 9*sigma;
         if (echo > 0) printf("# numbers of projectors ");
         for(int ell = 0; ell <= ELLMAX; ++ell) {
@@ -264,7 +264,7 @@ extern "C" {
                             if (transfer2valence) occ = 0;
                         } // not as valence
                         if (occ > 0) {
-                            double const norm = occ/radial_grid::dot_product(rg[TRU]->n, r2rho, rg[TRU]->dr);
+                            double const norm = occ/dot_product(rg[TRU]->n, r2rho, rg[TRU]->dr);
                             add_product(core_density[TRU], rg[TRU]->n, r2rho, norm);
                         } // occupied
                         ne -= max_occ;
@@ -278,7 +278,7 @@ extern "C" {
         
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
-        if (echo > 2) printf("\n# initial core density has %g electrons\n", radial_grid::dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
+        if (echo > 2) printf("\n# initial core density has %g electrons\n", dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
 
         if (echo > 5) { printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n"); }
 
@@ -493,7 +493,7 @@ extern "C" {
             auto &cs = core_state[ics]; // abbreviate
             int constexpr SRA = 1;
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho);
-            auto const norm = radial_grid::dot_product(nr, r2rho, rg[TRU]->dr);
+            auto const norm = dot_product(nr, r2rho, rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
             nelectrons += cs.occupation;
@@ -506,8 +506,8 @@ extern "C" {
         delete[] r2rho;
 
         // report integrals
-        auto const old_core_charge = radial_grid::dot_product(nr, rg[TRU]->r2dr, core_density[TRU]);
-        auto const new_core_charge = radial_grid::dot_product(nr, rg[TRU]->dr, new_r2core_density);
+        auto const old_core_charge = dot_product(nr, rg[TRU]->r2dr, core_density[TRU]);
+        auto const new_core_charge = dot_product(nr, rg[TRU]->dr, new_r2core_density);
         if (echo > 0) printf("# expect a core density with %g electrons\n", nelectrons);
         if (echo > 0) printf("# previous core density has %g electrons\n", old_core_charge);
         if (echo > 0) printf("# new core density has %g electrons\n",      new_core_charge);
@@ -552,8 +552,8 @@ extern "C" {
             } // plot
 
             // report integrals
-            auto const tru_core_charge = radial_grid::dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU]);
-            auto const smt_core_charge = radial_grid::dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT]);
+            auto const tru_core_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU]);
+            auto const smt_core_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT]);
             if (echo > 0) printf("# true and smooth core density have %g and %g electrons\n", tru_core_charge, smt_core_charge);
             core_charge_deficit = tru_core_charge - smt_core_charge;
         } // scope
@@ -577,14 +577,14 @@ extern "C" {
             // solve for a valence eigenstate
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, vs.ell, vs.energy, vs.wave[TRU], r2rho);
             // normalize the partial waves
-            auto const norm_wf2 = radial_grid::dot_product(nr, r2rho, rg[TRU]->dr);
+            auto const norm_wf2 = dot_product(nr, r2rho, rg[TRU]->dr);
             auto const norm_factor = 1./std::sqrt(norm_wf2);
             scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
             
-            auto const tru_norm = radial_grid::dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2;
+            auto const tru_norm = dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2;
             auto const work = r2rho;
             scale(work, nr, potential[TRU]);
-            auto const tru_potential_E = radial_grid::dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
+            auto const tru_potential_E = dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
             auto const tru_kinetic_E = vs.energy*tru_norm - tru_potential_E; // kinetic energy contribution up to r_cut
             
 //          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
@@ -624,7 +624,7 @@ extern "C" {
             } // stat
             
             product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
-            double const smt_norm_numerical = radial_grid::dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
+            double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
             if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth %g and %g (smooth numerically)\n", 
                __func__, vs.enn, ellchar[vs.ell], tru_norm, smt_norm, smt_norm_numerical);
             kinetic_energy[nln*iln + iln][TRU] = tru_kinetic_E; // set diagonal entry, offdiagonals still missing
@@ -657,7 +657,7 @@ extern "C" {
                     product(wave_r2rl_dr, nr, wave_i, rl, rg[ts]->r2dr); // product of three arrays
                     for(int jln = 0; jln < nln; ++jln) {
                         auto const wave_j = valence_state[jln].wave[ts];
-                        auto const cd = radial_grid::dot_product(nr, wave_r2rl_dr, wave_j);
+                        auto const cd = dot_product(nr, wave_r2rl_dr, wave_j);
                         charge_deficit[(ell*nln + iln)*nln + jln][ts] = cd;
                         if (echo > 1) printf("\t%10.6f", cd);
                     } // jln
@@ -902,7 +902,7 @@ extern "C" {
                 } else {
                     double dot = 0;
                     for(int ir = 0; ir < nr; ++ir) {
-                        dot += in[lm*mr + ir] * rlgauss[ir];
+                        dot += in[lm*mr + ir] * rlgauss[ir] * rg->r2dr[ir];
                     } // ir
                     out[lm] = dot * scal;
                 } // add or project
@@ -924,7 +924,7 @@ extern "C" {
                 if (0 == lm) {
                     set(full_density[ts], nr, core_density[ts], Y00); // needs scaling with Y00 since core_density has a factor 4*pi
                     if (echo > 0) printf("# %s: %s density has %g electrons after adding the core density\n",  __func__, 
-                     (TRU == ts)?"true":"smooth", radial_grid::dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
+                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
                 } else {
                     set(&(full_density[ts][lm*mr]), nr, 0.0); // clear
                 }
@@ -942,7 +942,7 @@ extern "C" {
                 } // iln
             } // lm
             if (echo > 0) printf("# %s: %s density has %g electrons after adding the valence density\n",  __func__, 
-                    (TRU == ts)?"true":"smooth", radial_grid::dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
+                    (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
 
         } // true and smooth
 
@@ -976,19 +976,25 @@ extern "C" {
             set(aug_density, nlm_aug*mr, 0.0); // clear
             set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], rho_compensator);
-            double const aug_charge = radial_grid::dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
+            double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
             if (echo > 5) printf("# augmented density has %g electrons\n", aug_charge/Y00); // this value should be small
 
-            double const tru_charge = radial_grid::dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
+            double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
             if (echo > 5) printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
 
             auto const vHt = new double[nlm*mr];
             set(vHt, nlm*mr, 0.0);
             radial_potential::Hartree_potential(vHt, *rg[SMT], aug_density, mr, ellmax); // solve without boundary conditions
-            add_or_project_compensators<1>(q_lm, ellmax_compensator, rg[SMT], vHt);
-            if (echo > 5) printf("# inner integral between normalized compensator and electrostatic potential = %g\n", q_lm[0]);
-            delete [] vHt;
+            
+            double v_lm[1] = {0};
+            add_or_project_compensators<1>(v_lm, ellmax_compensator, rg[SMT], vHt);
+            if (echo > -1) printf("# inner integral between normalized compensator and electrostatic potential = %g %s\n", v_lm[0]*eV,_eV);
             set(q_lm, mlm_cmp, 0.0); // not yet correct
+            
+            double const chk = dot_product(nr, aug_density, vHt, rg[SMT]->r2dr); // dot_product with diagonal metric
+            if (echo > -1) printf("# inner integral between augmented density and electrostatic potential = %g %s\n", chk*eV,_eV);
+            
+            delete [] vHt;
         } // scope
 
     } // update_full_density
@@ -1006,7 +1012,7 @@ extern "C" {
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
-            if ((echo > 6) &&(SMT == ts)) printf("# local smooth density at origin %g a.u.\n", full_density[ts][0]*Y00);
+            if ((echo > 6) && (SMT == ts)) printf("# local smooth density at origin %g a.u.\n", full_density[ts][0]*Y00);
             angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
@@ -1021,16 +1027,27 @@ extern "C" {
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
             delete[] on_grid;
-            if ((echo > 6) &&(SMT == ts)) printf("# local smooth XC potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
+            if ((echo > 6) && (SMT == ts)) printf("# local smooth XC potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
+            if (echo > -1) {
+                auto const Edc00 = dot_product(nr, full_potential[ts], full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
+                printf("# double counting correction in %s 00 channel %.12g %s\n", (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+            } // echo
 
             // solve electrostatics inside the spheres
             auto   const vHt = new double[nlm*mr];
             double const q_nucleus = (TRU == ts) ? -Z*Y00 : 0; // Z = number of protons in the nucleus
             auto   const       rho = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with inner (q_nucleus) and outer boundary conditions (q_lm)
-            radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus); 
+            radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus);
+
+            if (SMT == ts) {
+                double v_lm[1] = {0};
+                add_or_project_compensators<1>(v_lm, ellmax_compensator, rg[SMT], vHt);
+                if (echo > -1) printf("# inner integral between normalized compensator and electrostatic potential = %g %s\n", v_lm[0]*eV,_eV);
+            } // smooth only
+            
             add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
-            if (echo > 6) {
+            if (echo > -1) {
                 if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", vHt[0]*Y00*eV,_eV);
                 if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
                                                                               vHt[1]*(rg[TRU]->r[1])*Y00, -Z);
@@ -1135,7 +1152,7 @@ extern "C" {
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = valence_state[jln].wave[ts];
                             potential_ln[(lm*nln + iln)*nln + jln][ts] =
-                                radial_grid::dot_product(nr, wave_pot_r2dr, wave_j);
+                                dot_product(nr, wave_pot_r2dr, wave_j);
                         } // jln
                     } // iln
                 } // emm
@@ -1318,7 +1335,7 @@ namespace single_atom {
       } // a has not been initialized
       
       if (nullptr != rho) {
-          int const nr2 = 1 << 11;
+          int const nr2 = 1 << 12;
           float const ar2 = 16.f;
           for(int ia = 0; ia < na; ++ia) {
               rho[ia] = new double[nr2];

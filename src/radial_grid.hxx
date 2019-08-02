@@ -21,15 +21,6 @@ namespace radial_grid {
 
   void destroy_radial_grid(radial_grid_t* g); // radial grid descriptor
 
-  template<typename real_t>
-  real_t inline dot_product(int const n, real_t const bra[], real_t const ket[]) {
-      real_t dot = 0;
-      for(int i = 0; i < n; ++i) {
-          dot += bra[i]*ket[i];
-      } // i
-      return dot;
-  } // dot_product
-  
   status_t all_tests();
   
 } // namespace radial_grid

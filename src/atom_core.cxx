@@ -266,7 +266,7 @@ namespace atom_core {
                               printf("# %s  Z=%g  %d%c E=%15.6f %s\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV);
                           } // echo
                           // add orbital density
-                          double const q = radial_grid::dot_product(g.n, r2rho, g.dr);
+                          double const q = dot_product(g.n, r2rho, g.dr);
                           assert(q > 0);
                           double const f = orb[i].occ/q;
                           add_product(r2rho4pi, g.n, r2rho, f);
@@ -288,8 +288,8 @@ namespace atom_core {
                   
                   product(rho4pi, g.n, r2rho4pi, g.rinv, g.rinv);
 
-                  double const q  = radial_grid::dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
-                  double const qq = radial_grid::dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
+                  double const q  = dot_product(g.n, rho4pi, g.r2dr); // can be merged with the loop above
+                  double const qq = dot_product(g.n, r2rho4pi, g.dr); // can be merged with the loop above
                   if (std::abs(q - Z) > .1 && echo > 0) {
                       printf("# %s  Z=%g  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, Z, icyc, q, qq);
                   } // not charge neutral
@@ -507,7 +507,7 @@ namespace atom_core {
     double diff = 0;
     for(float zz = 0; zz < 128; zz += 1) {
         initial_density(rho, g, zz);
-        double const q = radial_grid::dot_product(g.n, g.r2dr, rho);
+        double const q = dot_product(g.n, g.r2dr, rho);
         diff = std::max(diff, std::abs(zz - q));
         if (echo > 0)  printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n", 
                                  __FILE__, __LINE__, zz, q, diff);
@@ -549,7 +549,8 @@ namespace atom_core {
 //     { int const Z = 1;  // 1:hydrogen
 //     { int const Z = 5;  // 5:boron
 //        { int const Z = 6;  // 6:carbon
-    { int const Z = 29; // 29:copper
+//     { int const Z = 29; // 29:copper
+    { int const Z = 13; // 13:aluminum
 //     { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 120; // very heavy non-existing element

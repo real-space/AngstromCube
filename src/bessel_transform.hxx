@@ -69,7 +69,7 @@ namespace bessel_transform {
           }   printf("\n\n");
       } // echo
     
-      int const nq = 64; double const dq = 0.125; // choose a q-grid
+      int const nq = 128; double const dq = 0.125; // choose a q-grid: 127*0.125 = 16 = pi/0.2
       auto const bt = new double[nq];
       auto stat = transform_s_function(bt, in, g, nq, dq); // transform to Bessel-space
       

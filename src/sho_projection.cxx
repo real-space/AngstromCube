@@ -50,7 +50,7 @@ namespace sho_projection {
           coeff[i] = 1;
           set(g.values, g.all(), (real_t)0);
           stat += sho_add(g.values, g, coeff, numax, pos, 1.0, 0);
-          stat += sho_project(coeff, numax, pos, 1.0, g, g.values, 0);
+          stat += sho_project(coeff, numax, pos, 1.0, g.values, g, 0);
 
           if (echo > 0) {
               int const nu_show = std::min(echo, numax);
