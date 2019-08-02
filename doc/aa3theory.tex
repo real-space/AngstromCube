@@ -454,7 +454,230 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
 \end{figure}
 %
 %
+\section{All electron calculations}\label{sec:all-electron}
+%
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t atom_core.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/atom_core_LDA} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:atom_core_levels}
+  \caption{
+	Eigenenergies of self-consistent neutral isolated spherical spin-paired atom calculations with LDA.
+  }
+\end{figure}
+%
+%
 
+\section{Exact Poisson solver}
+%
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t atom_core.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/fourier_poisson} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:fourier_poisson_solver}
+  \caption{
+	Comparison of input and output of the (3D periodic) \ttt{fourier\_poisson.}-solver with (isolated 1D) radial solutions.
+	Differences might stem from the different boundary conditions.
+  }
+\end{figure}
+%
+%
+A Poisson solver based on Fourier-transforms (FFT by Intel Math Kernel Library)
+is implemented to be able to exclude artifacts from e.g.~iterative Poisson solvers
+when developing other modules of the code. 
+It serves also as a reference so estimate the precision of other Poisson solvers
+as the treatment in reciprocal space is analytically exact.
+
+
+\section{Live Atoms}\label{sec:live_atoms}
+%
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t single_atom.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/single_atom_Cu_smooth_partial_waves_order3} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:single_atom_Cu}
+  \caption{
+	True wave functions for core states and valence states, 
+	smooth pseudized wave functions for valence states of copper.
+  }
+\end{figure}
+%
+%
+The module \ttt{single\_atom.} starts from a self-consistent calculation by loading 
+\ttt{pot/Zeff.00}$Z$ where $Z$ is the atomic number.
+The files store $Z\um{eff}(r)$ i.e.~the screening of the nuclear charge.
+It can be converted to the self-consistent spherical true potential
+\begin{equation}
+	V\um{tru}(r) = -\frac{Z\um{eff}(r)}{r}
+\end{equation}
+however, the core solver used \ttt{atom\_core.} takes $rV(r)$ as input so
+we only need to modify the sign.
+The advantage of storing $Z\um{eff}$ is that the numbers stay in a regular range
+and users can distinguish files simply by looking at the \ttt{head} of the file.
+%
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t single_atom.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/RamerDouglasPeucker_reduction} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:RamerDouglasPeucker_reduction}
+  \caption{
+	Applying algorithms from vector graphics allows to sparsify and reduce 
+	the file sizes for input data.
+  }
+\end{figure}
+%
+When storing $Z(r)$ instead of $rV(r)$ typically all numbers are positive 
+which facilitates plotting on a log scale.
+This way of representation also allows for data compression of the files:
+$Z\um{eff}(r)$ is a monotonously falling function from $Z$ at the origin to $q$ at the
+end of the radial grid (assume that atom has total charge $q$).
+It is sampled on the same grid that is used to solve for core and valence states,
+i.e.~it often features more than 2000 radial grid points.
+Using the sparsification method for path data by Ramer/Douglas and Peucker,
+we can reduce the number of radial support points below 500 (1000) points while
+the deviations are not larger than $10^{-6}$ ($10^{-11}$), c.f.~fig.~\ref{fig:}.
+
+
+From the self-consistent spherical potential, we compute the eigenenergies
+of all occupied atomic eigenstates.
+Then, we distinguish which of those are to be considered as valence states, 
+typically by an energy criterion, e.g.~\unit[1]{Ha} below zero.
+
+The module has an update function which then envokes updates on the following parts
+\begin{itemize}
+ \item true core states from true spherical potential
+ \item true core density from core occupations, mix with previous
+ \item smooth core density
+ \item energy parameters and true partial waves
+ \item smooth partial waves
+ \item charge deficit tensor
+ \item density matrix from valence occupations (isolated mode only)
+ \item density tensor from density matrix
+ \item true and smooth density from density tensor
+ \item compensation charges from density tensor
+ \item smooth augmented density from smooth density and compensators
+ \item true and smooth potential from corresponding densities
+ \item zero potential $\bar V$ by parabola matching
+ \item extract spherical potentials, mix with previous
+ \item matrix elements for atomic Hamiltonian and overlap operator 
+		from potentials and corresponding partial waves
+\end{itemize}
+
+This workflow can be iterated to let the atomic data relax.
+In the isolated mode, the energy parameters for the true partial waves are chosen as valence eigenenergies
+and the density matrix is prepared to represent spherically symmetrized valence occupations.
+Then, it can be verified that the self-consistent potential that was input is
+not changing any more when iterated in the \ttt{single\_atom.} update cycle.
+
+In full operation, density matrix, energy parameters and electrostatic multipoles
+are input from outside and only atomic Hamiltonian correction, projector functions
+and charge deficit matrix for the atomic overlap operator are output. 
+
+
+
+
+\section{Spherical Atoms}\label{sec:spherial-atoms}
+%
+The \ttt{spherical\_atoms.} mode aims to
+make a cheap module to find the initial
+charge density of very large calculations.
+It is based on LiveAtoms (see sec.~\ref{sec:live_atoms})
+and their isolated mode, i.e.~the density matrix is generated from valence occupation numbers.
+Currently, the atomic densities and potentials are restricted to
+stay spherical (only $\ell = 0$ terms) so
+also the valence occupation numbers are averaged whithin the shells.
+This constraint could be relased in the future.
+
+The atoms export a smooth density (currently only a spherical core density, 
+therefore also valence states need to be treated as core states)
+which is brought to a 3D grid.
+There, we evaluate the exchange-correlation potential and, after adding 
+appropriate charge compensators, also the electrostatic potential.
+The Poisson equation is so far solved using FFTs but this will be
+replaced by a multi-grid accelerated iterative Poisson solver based on a
+high-order finite-difference Laplacian since this is more flexible
+in terms of boundary conditions and scalability.
+Then, the 3D smooth effective potential is projected to a radial basis
+for each atom center and these potentials are fed back into the LiveAtom module.
+
+Probably, we should make an intermediate module that takes care of
+valence treatment of single atoms on coarse radial grids with an artificial confinement potential.
+This would then be able to capture $m$-resolution.
+
+With the spherical constraint as-is,
+we could let the valence occupation numbers relax 
+in order to get the initial charge transfer right.
+For this, only the height of the smooth effective potential at
+the position of each atom needs to be communicated to the LiveAtom objects.
+It can be done by the $v^a_{00}$ term which is found by projection 
+$\braket{\hat n^a_{00}}{V\um{es}(\vec r)}$.
+
+\subsection{On the shape of compensators}\label{sec:compensator-radii}
+In order to get $v^a_{00}$ correct, we have to assume that there is no overlap
+between charge compensation densities of two different atoms
+which leads to very localized compensators.
+The GPAW choice $r\um{aug}/\sqrt{10}$ leads to only a fraction of $1.7\cdot 10^{-4}$ of the total charge of the compensator
+outside of $r\um{aug}$ which is probably a good compromise in terms of accuracy and cost.
+With a typical $r\um{aug} =$\unit[2]{Bohr}, the compensation charge shapes
+$\exp(-10\frac{r^2}{r\um{aug}^2}) = \exp(-\frac{r^2}{2 \sigma^2})$
+has $\sigma = r\um{aug}/\sqrt{20} = $\unit[0.447]{Bohr}.
+The corresponding grid cutoffs are $3\sigma^{-2} = $\unit[15]{Rydberg}
+which requires a grid spacing of at most \unit[0.811]{Bohr}.
+For first row elements, the augmentation radii can be 
+of the order of 1.0 and even \unit[0.9]{Bohr} for hydrogen.
+So the max.~grid spacing would be \unit[.365]{Bohr}.
+In order to be accurate enough, we would like to
+keep the density grids at a grid spacing of \unit[.236]{Bohr}
+so that there are $8^3$ grid points in one \AA$^3$.
+
+
+%
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t single_atom.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/larger_compensation_radii} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:larger_compensation_radii}
+  \caption{
+	Increasing the $r\um{cut}$ of the compensation charge densities
+	to $2\times$, $3\times$ and $4\times$ the typical $r\um{aug}/\sqrt{10}$
+	used by GPAW shows that the zero potential $\bar V$ becomes much smoother
+	and even attractive (here shown for aluminum, $r\um{aug} =$ \unit[2]{Bohr}).
+  }
+\end{figure}
+%
+%
+In the spirit of Ewald's method we could make the compensation charges
+softer, i.e.~allow a larger radius. However, then we need correction
+potentials.
+In PAW, the potential contribution $\bar V$ is added only inside the sphere.
+Figure \ref{fig:larger_compensation_radii} shows that $\bar V$ extends beyond
+$r\um{aug}$ if we increase $r\um{cut}$.
+We probably have to consider to have two different corrections:
+The traditional localized $\bar V$ which fills the potential well inside the sphere
+and a new correction for extended very smooth compensators.
+The, the latter is added after solving the Poisson equation.
+After adding, we can make the projection with the more localized compensation charges.
+And then add the traditional $\bar V$ to get to the effective potential.
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
