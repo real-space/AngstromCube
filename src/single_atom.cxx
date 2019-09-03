@@ -385,17 +385,17 @@ extern "C" {
 
         // show the smooth and true potential
         if (true && (echo > 0)) {
-            printf("\n# spherical parts: "
-            "r*Zeff_tru(r), r*Zeff_smt(r)"
-            "r^2*rho_tru(r), r^2*rho_smt(r), "
+            printf("\n# spherical parts: r, "
+            "Zeff_tru(r), Zeff_smt(r)"
+            ", r^2*rho_tru(r), r^2*rho_smt(r)"
             ", zero_potential(r):"
             "\n");
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
                 printf("%g %g %g %g %g %g\n", r
-//                         , -full_potential[TRU][ir + nr_diff]*Y00*r
-                        , -potential[TRU][ir + nr_diff]
-                        , -potential[SMT][ir]
+//                         , -full_potential[TRU][ir + nr_diff]*Y00*r // for comparison, should be the same as Z_eff(r)
+                        , -potential[TRU][ir + nr_diff] // Z_eff(r)
+                        , -potential[SMT][ir] //    \tilde Z_eff(r)
                         , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
                         , core_density[SMT][ir]*r*r*Y00*Y00
                         , zero_potential[ir]*Y00
@@ -977,7 +977,7 @@ extern "C" {
             set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], rho_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
-            if (echo > 5) printf("# augmented density has %g electrons\n", aug_charge/Y00); // this value should be small
+            if (echo > 5) printf("# augmented density has %g electrons, zero expected\n", aug_charge/Y00); // this value should be small
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
             if (echo > 5) printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
@@ -1323,7 +1323,7 @@ namespace single_atom {
   // Maybe we should write a live_atom module first 
   //   (a PAW generator prepared for core level und partial wave update)
   
-  status_t update(float const Za[], int const na, double **rho, radial_grid_t **rg) {
+  status_t update(float const Za[], int const na, double **rho, radial_grid_t **rg, double *sigma_cmp) {
 
       static LiveAtom **a=nullptr;
       
@@ -1349,6 +1349,12 @@ namespace single_atom {
           } // ia
       } // pointers to smooth radial grid
       
+      if (nullptr != sigma_cmp) {
+          for(int ia = 0; ia < na; ++ia) {
+              sigma_cmp[ia] = a[ia]->sigma_compensator; // ToDo: use a getter function
+          } // ia
+      } // spreads of the compensators
+      
       return 0;
   } // update
   
@@ -1367,7 +1373,7 @@ namespace single_atom {
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
-     { int const Z = 13; // 13:aluminum
+    { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z, false, echo);
     } // Z

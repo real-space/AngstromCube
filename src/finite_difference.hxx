@@ -204,7 +204,7 @@ namespace finite_difference {
   
   template<typename real_t, int D0>
   status_t Laplacian(real_t out[], real_space_grid::grid_t<real_t,D0> const &g, 
-                     finite_difference_t<real_t> const &fd) {
+                     finite_difference_t<real_t> const &fd, double const factor=1) {
       int const n16 = 16; // max number of finite difference neighbors
       int* list[3];
       for(int d = 0; d < 3; ++d) {
@@ -236,6 +236,7 @@ namespace finite_difference {
 
       assert(1 == D0); // no vectorization active
 
+      real_t const scale_factor = factor;
       for(int z = 0; z < g.dim('z'); ++z) {
           for(int y = 0; y < g.dim('y'); ++y) {
               for(int x = 0; x < g.dim('x'); ++x) {
@@ -255,6 +256,7 @@ namespace finite_difference {
                           } // index exists
                       } // jmi
                   } // ddir direction of the derivative
+                  out[i_zyx] *= scale_factor;
 
               } // x
           } // y

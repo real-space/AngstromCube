@@ -52,7 +52,8 @@ namespace spherical_atoms {
 
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na];
-      stat += single_atom::update(Za, na, rho_core, rg);
+      double sigma_cmp[na]; //
+      stat += single_atom::update(Za, na, rho_core, rg, sigma_cmp);
       
       double q00[na], v00[na];
 
@@ -85,12 +86,12 @@ namespace spherical_atoms {
       if (echo > -1) printf("# XC energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
 
       auto const Laplace_Ves = new double[g.all()];
-      auto const Ves = new double[g.all()];
+      auto const         Ves = new double[g.all()];
       set(Ves, g.all(), 0.0);
       if (1) { 
           for(int ia = 0; ia < na; ++ia) {
               // todo: add the compensators
-              double const sigma_compensator = 2.0/std::sqrt(10.); // Bohr  (maybe we should not call it sigma)
+              double const sigma_compensator = sigma_cmp[ia];
               if (1) {
                   double const sigma = sigma_compensator/std::sqrt(2.); // assume exp(-r^2/(2*sigma^2))
                   double const prefactor = 1./pow3(std::sqrt(2*constants::pi)*sigma);
@@ -118,11 +119,21 @@ namespace spherical_atoms {
                   delete[] rho_cmp;
               }
               if (echo > -1) {
-                  double s = 0; for(int i = 0; i < (int)g.all(); ++i) s += g.values[i]; s *= g.dV();
+                  double s = 0; for(size_t i = 0; i < g.all(); ++i) s += g.values[i]; s *= g.dV();
                   printf("# integral over rho = %g after adding %g compensator electrons of atom #%d\n", s, q00[ia], ia);
               } // echo
           } // ia
 
+          // report extremal values of the density on the grid
+          double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
+          for(size_t i = 0; i < g.all(); ++i) {
+              gmin = std::min(gmin, g.values[i]);
+              gmax = std::max(gmax, g.values[i]);
+              gsum += g.values[i];
+              gsum2 += pow2(g.values[i]);
+          } // i
+          printf("\n# real-space grid stats min %g max %g avg %g for the density\n\n", gmin, gmax, gsum/g.all());
+          
           int ng[3]; double reci[3][4]; 
           for(int d = 0; d < 3; ++d) { 
               ng[d] = g.dim(d);
@@ -133,7 +144,7 @@ namespace spherical_atoms {
 
           // test the potential in real space
           for(int ia = 0; ia < na; ++ia) {
-              double const sigma = 2.0/std::sqrt(20.); // Bohr
+              double const sigma = sigma_cmp[ia]/std::sqrt(2.);
               double const prefactor = 1./pow3(std::sqrt(2*constants::pi)*sigma);
               double coeff[1];
               set(coeff, 1, 0.0);
@@ -145,14 +156,25 @@ namespace spherical_atoms {
 
           auto const fd = new finite_difference::finite_difference_t<double>(grid_spacing, 1, 12);
           g.values = Ves;
-          stat += Laplacian(Laplace_Ves, g, *fd); // compute the Laplacian using high-order finite-differences
+          stat += finite_difference::Laplacian(Laplace_Ves, g, *fd, -.25/constants::pi); // compute the Laplacian using high-order finite-differences
       }
-      
+
       g.values = Ves; // analyze the electrostatic potential
 //       g.values = Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
 //       g.values = rho; // analyze the augmented density
 //       g.values = Vxc; // analyze the xc potential
 //       g.values = Vxc; add_product(g.values, g.all(), Ves, 1.0); // analyze the total potential: Vxc + Ves
+
+      // report extremal values of what is stored on the grid
+      double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
+      for(size_t i = 0; i < g.all(); ++i) {
+          gmin = std::min(gmin, g.values[i]);
+          gmax = std::max(gmax, g.values[i]);
+          gsum += g.values[i];
+          gsum2 += pow2(g.values[i]);
+      } // i
+      printf("\n# real-space grid stats min %g max %g avg %g\n\n", gmin, gmax, gsum/g.all());
+
 
       for(int ia = 0; ia < na; ++ia) {
 //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
@@ -195,15 +217,6 @@ namespace spherical_atoms {
           delete[] qc;
       } // ia
       
-      // report extremal values of what is stored on the grid
-      double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
-      for(size_t i = 0; i < g.all(); ++i) {
-          gmin = std::min(gmin, g.values[i]);
-          gmax = std::max(gmax, g.values[i]);
-          gsum += g.values[i];
-          gsum2 += pow2(g.values[i]);
-      } // i
-      printf("\n# real-space grid stats min %g max %g avg %g\n\n", gmin, gmax, gsum/g.all());
       
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
