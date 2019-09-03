@@ -189,6 +189,7 @@ extern "C" {
         if (echo > 0) printf("# compensation charges are expanded up to lmax = %d\n", ellmax_compensator);
         r_cut = 2.0; // Bohr
         sigma_compensator = r_cut/std::sqrt(10.); // Bohr
+//         sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
         sigma = 0.5; // Bohr
         r_match = 9*sigma;
         if (echo > 0) printf("# numbers of projectors ");
