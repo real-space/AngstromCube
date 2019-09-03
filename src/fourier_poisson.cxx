@@ -65,15 +65,15 @@ namespace fourier_poisson {
                        , int const ng[3] // grid numbers
                        , double const reci[3][4] // shape of the reciprocal space
                        , double const factor) {
-      status_t stat = 0;
       
       size_t const ng_all = 1ul * ng[0] * ng[1] * ng[2];
       auto const mg_all = align<3>(ng_all); // aligned to 8 real_t numbers
       auto const x_Re = new real_t[2*mg_all]; // get memory
       auto const x_Im = x_Re + mg_all; // point to the second half of that array
 
+      status_t stat = 0;
       stat += fft_MKL(x_Re, x_Im, b, ng); // transform b into reciprocal space
-      
+
       printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
       
@@ -82,7 +82,7 @@ namespace fourier_poisson {
       typedef vector_math::vec<3,double> vec3;
       vec3 rec[3]; for(int d = 0; d < 3; ++d) rec[d] = reci[d];
 
-      int const nh[3] = {ng[0]/2, ng[1]/2, ng[3]/2};
+      int const nh[3] = {ng[0]/2, ng[1]/2, ng[2]/2};
 
       for(int j2 = 0; j2 < ng[2]; ++j2) {         int const k2 = j2 - (j2 > nh[2])*ng[2]; vec3 const vec2   = rec[2]*k2;
           for(int j1 = 0; j1 < ng[1]; ++j1) {     int const k1 = j1 - (j1 > nh[1])*ng[1]; vec3 const vec21  = rec[1]*k1 + vec2;
@@ -91,10 +91,10 @@ namespace fourier_poisson {
 
                   int const kk = k0*k0 + k1*k1 + k2*k2;
                   if (kk > 0) {
-                      real_t const Laplacian = scale/norm(vec210);
+                      real_t const invLaplacian = scale/norm(vec210);
                       // modify x_Re and x_Im in-place
-                      x_Re[i] *= Laplacian;
-                      x_Im[i] *= Laplacian;
+                      x_Re[i] *= invLaplacian;
+                      x_Im[i] *= invLaplacian;
                   } // kk > 0
 
               } // j0

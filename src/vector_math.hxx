@@ -1,7 +1,7 @@
 #pragma once
 // copied from exafmm (Rio Yokota)
 
-// #include <ostream>
+#include <ostream>
 
 namespace vector_math {
   
