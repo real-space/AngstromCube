@@ -62,13 +62,10 @@ namespace sho_projection {
       if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, (real_t)0);
       
       // int ixyz = 0;
-      // for(        int iz = 0; iz < g.dim('z'); ++iz) {
-      //     for(    int iy = 0; iy < g.dim('y'); ++iy) {
-      //         for(int ix = 0; ix < g.dim('x'); ++ix) {
-      for(        int iz = off[2]; iz < end[2]; ++iz) {
-          for(    int iy = off[1]; iy < end[1]; ++iy) {
-              for(int ix = off[0]; ix < end[0]; ++ix) {
-                  int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+      for(        int iz = 0; iz < num[2]; ++iz) {
+          for(    int iy = 0; iy < num[1]; ++iy) {
+              for(int ix = 0; ix < num[0]; ++ix) {
+                  int const ixyz = ((iz + off[2])*g.dim('y') + (iy + off[1]))*g.dim('x') + (ix + off[0]);
                   auto const val0 = values[ixyz];
                   auto val = val0;
                   if ((0 != val) || (1 == PROJECT0_OR_ADD1))  {
@@ -77,9 +74,9 @@ namespace sho_projection {
                       for(int nz = 0; nz <= numax; ++nz) {
                           for(int ny = 0; ny <= numax - nz; ++ny) {
                               for(int nx = 0; nx <= numax - nz - ny; ++nx) {
-                                  auto const H3d = H1d[2][(iz - off[2])*M + nz]
-                                                 * H1d[1][(iy - off[1])*M + ny]
-                                                 * H1d[0][(ix - off[0])*M + nx];
+                                  auto const H3d = H1d[2][iz*M + nz]
+                                                 * H1d[1][iy*M + ny]
+                                                 * H1d[0][ix*M + nx];
                                   if (1 == PROJECT0_OR_ADD1) {
                                       val += coeff[iSHO] * H3d; // here, the addition happens                                          
                                   } else {

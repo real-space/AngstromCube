@@ -11,44 +11,30 @@ namespace real_space_grid {
 
   template<typename real_t, int D0> // D0: inner dimension, vector length
   class grid_t {
-  public:
-      real_t* values;
   private:
       uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
 
-      grid_t(int const dim[3], int const dim_outer=1, real_t* const v=nullptr)
-       : h{1,1,1}, inv_h{1,1,1} {
+      grid_t(int const dim[3], int const dim_outer=1) : h{1,1,1}, inv_h{1,1,1} {
           dims[0] = std::max(1, dim[0]); // x
           dims[1] = std::max(1, dim[1]); // y
           dims[2] = std::max(1, dim[2]); // z
           dims[3] = std::max(1, dim_outer);
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (nnumbers > 0) {
-              if (nullptr == v) {
-                  printf("# allocate a grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte\n", 
-                      dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t));
-                  values = new real_t[nnumbers];
-              } else {
-                  printf("# use %p as grid with %d * %d x %d x %d * %d real_%ld\n", 
-                      (void*)v, dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t));
-                  values = v;
-              }
+              printf("# grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte\n", 
+                  dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t));
           } else {
-              printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n", 
+              printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n",
                       D0, dims[0], dims[1], dims[2], dims[3]);
-              values = nullptr;
           }
       } // constructor
 
       ~grid_t() {
-          if (nullptr != values) {
-              long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
-              printf("# release a grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte, values=%p\n",
-                  dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t), (void*)values);
-//               delete[] values; // leads to a segfault
-          } // free memory
+          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
+          printf("# release a grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte\n",
+              dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t));
       } // destructor
       
       status_t set_grid_spacing(float const hx, float const hy=-1, float const hz=-1) {
@@ -74,7 +60,7 @@ namespace real_space_grid {
   
   
   template<typename real_t, int D0> // inner dimension
-  status_t add_function(grid_t<real_t,D0> &g, real_t added[], // grid values are modified
+  status_t add_function(real_t values[], grid_t<real_t,D0> const &g, real_t added[], //
                         double const r2coeff[], int const ncoeff, float const hcoeff,
                         double const center[3]=nullptr, float const rcut=-1, double const factor=1) {
   // Add a spherically symmetric regular function to the grid.
@@ -116,8 +102,8 @@ namespace real_space_grid {
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
                                   auto const value_to_add = (r2coeff[ir2*D0 + i0]*(1 - w8)
                                      + ((ir2p1 < ncoeff) ? r2coeff[ir2p1*D0 + i0] : 0)*w8);
-                                  g.values[ixyz*D0 + i0] += factor*value_to_add;
-                                  added[i0]              += factor*value_to_add;
+                                  values[ixyz*D0 + i0] += factor*value_to_add;
+                                  added[i0]            += factor*value_to_add;
                               } // i0
                               ++modified;
                           } else ++out_of_range;
@@ -139,7 +125,7 @@ namespace real_space_grid {
 
   template<typename real_t, int D0> // inner dimension
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
-                grid_t<real_t,D0> const &g, double const center[3]=nullptr, 
+                real_t const values[], grid_t<real_t,D0> const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
       assert(D0 == g.dim('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
@@ -170,11 +156,11 @@ namespace real_space_grid {
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
                           double const r = std::sqrt(r2);
-//                           printf("%g %g\n", r, g.values[ixyz*D0 + 0]); // DEBUG
+//                           printf("%g %g\n", r, values[ixyz*D0 + 0]); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  q_coeff[iq*D0 + i0] += g.values[ixyz*D0 + i0] * bessel_transform::Bessel_j0(q*r);
+                                  q_coeff[iq*D0 + i0] += values[ixyz*D0 + i0] * bessel_transform::Bessel_j0(q*r);
                               } // i0
                           } // iq
                       } // inside rcut

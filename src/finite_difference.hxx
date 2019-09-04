@@ -203,7 +203,7 @@ namespace finite_difference {
   
   
   template<typename real_t, int D0>
-  status_t Laplacian(real_t out[], real_space_grid::grid_t<real_t,D0> const &g, 
+  status_t Laplacian(real_t out[], real_t const in[], real_space_grid::grid_t<real_t,D0> const &g, 
                      finite_difference_t<real_t> const &fd, double const factor=1) {
       int const n16 = 16; // max number of finite difference neighbors
       int* list[3];
@@ -252,7 +252,7 @@ namespace finite_difference {
                           if (index >= 0) {
                               zyx[ddir] = index;
                               int const zyx_prime = (zyx[2]*g.dim('y') + zyx[1])*g.dim('x') + zyx[0];
-                              out[i_zyx] += g.values[zyx_prime] * fd.c2nd[ddir][std::abs(jmi)];
+                              out[i_zyx] += in[zyx_prime] * fd.c2nd[ddir][std::abs(jmi)];
                           } // index exists
                       } // jmi
                   } // ddir direction of the derivative

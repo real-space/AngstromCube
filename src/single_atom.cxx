@@ -377,11 +377,15 @@ extern "C" {
             pseudize_function(potential[SMT], rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
-        int const maxit_scf = 3;
+        int const maxit_scf = 1;
+        float const mixing = 0.45; // mixing with .45 works well for Cu (Z=29)
+        
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# SCF-iteration %d\n\n", scf);
 //             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
-            update(echo);
+            update_density(mixing, echo);
+            double* const ves_multipoles = nullptr;
+            update_potential(mixing, ves_multipoles, echo);
         } // self-consistency iterations
 
         // show the smooth and true potential
@@ -514,12 +518,13 @@ extern "C" {
         if (echo > 0) printf("# expect a core density with %g electrons\n", nelectrons);
         if (echo > 0) printf("# previous core density has %g electrons\n", old_core_charge);
         if (echo > 0) printf("# new core density has %g electrons\n",      new_core_charge);
-        auto mix_new = mixing, mix_old = 1 - mixing;
+        double mix_new = mixing, mix_old = 1 - mixing;
         // can we rescale the mixing coefficients such that the desired number of core electrons comes out?
         auto const mixed_charge = mix_old*old_core_charge + mix_new*new_core_charge;
         if (mixed_charge != 0) {
-            mix_old *= nelectrons/mixed_charge;
-            mix_new *= nelectrons/mixed_charge;
+            auto const rescale = nelectrons/mixed_charge;
+            mix_old *= rescale;
+            mix_new *= rescale;
         } // rescale
 
         double core_density_change = 0, core_density_change2 = 0, core_nuclear_energy = 0;
@@ -534,7 +539,7 @@ extern "C" {
         if (echo > 0) printf("# core density change %g e (rms %g e) energy change %g %s\n",
             core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
         delete[] new_r2core_density;
-        
+
         { // scope: pseudize the core density
             int const nrs = rg[SMT]->n;
             int const nr_diff = nr - nrs;
@@ -982,7 +987,6 @@ extern "C" {
         qlm_compensator[0] += Y00*(core_charge_deficit - Z);
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
-//         int const mlm_cmp = pow2(1 + ellmax_compensator);
         // construct the augmented density
         {   int const nr = rg[SMT]->n, mr = align<2>(nr); // on the smooth grid
             set(aug_density, nlm_aug*mr, 0.0); // clear
@@ -993,21 +997,6 @@ extern "C" {
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
             if (echo > 5) printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
-
-//             auto const vHt = new double[nlm*mr];
-//             set(vHt, nlm*mr, 0.0);
-//             radial_potential::Hartree_potential(vHt, *rg[SMT], aug_density, mr, ellmax); // solve without boundary conditions
-//             
-//             double v_lm[1] = {0};
-//             add_or_project_compensators<1>(v_lm, ellmax_compensator, rg[SMT], vHt);
-//             if (echo > -1) printf("# inner integral between normalized compensator and electrostatic potential = %g %s\n", v_lm[0]*eV,_eV);
-//             set(q_lm, mlm_cmp, 0.0); // not yet correct
-//             
-//             double const chk = dot_product(nr, aug_density, vHt, rg[SMT]->r2dr); // dot_product with diagonal metric
-//             if (echo > -1) printf("# inner integral between augmented density and electrostatic potential = %g %s\n", chk*eV,_eV);
-//             
-//             delete [] vHt;
-
         } // scope
 
     } // update_full_density
@@ -1056,17 +1045,31 @@ extern "C" {
 
             if (SMT == ts) {
                 add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves); // project to compensators
-                if (echo > -1) printf("# inner integral between normalized compensator and smooth Ves(r) = %g %s\n", vlm[0]*eV,_eV);
+                if (echo > -1) printf("# inner integral between normalized compensator and smooth Ves(r) = %g %s\n", vlm[0]*Y00*eV,_eV);
+                // this seems to high by a factor sqrt(4*pi), ToDo: find out why
+//                 scale(vlm, nlm, Y00);
+                
                 // but the solution of the 3D problem found that these integrals should be v_lm, therefore
                 if (nullptr == ves_multipole) {
                     set(vlm, nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
                 } else {
-                    scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
+                    if (echo > -1) printf("# v_00 found %g but expected %g %s\n", vlm[0]*Y00*eV, ves_multipole[0]*eV,_eV);
+                    scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1./Y00); // vlm := ves_multipole - vlm
                 } // no ves_multipole given
             } // smooth only
+            
+            if (echo > -1) {
+                if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", Ves[0]*Y00*eV,_eV);
+            }
 
-            correct_multipole_shift(Ves, ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
-//             add_or_project_compensators<2>(Ves, ellmax_compensator, rg[ts], vlm); // has the same effect as correct_multipole_shift
+//             correct_multipole_shift(Ves, ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
+            add_or_project_compensators<2>(Ves, ellmax_compensator, rg[ts], vlm); // has the same effect as correct_multipole_shift
+
+            if (SMT == ts) {   // debug: project again to see if the correction worked out
+                double v00;
+                add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves); // project to compensators
+                if (echo > -1) printf("# after correction v_00 is %g %s\n", v00*Y00*eV,_eV);
+            }
 
             add_product(full_potential[ts], nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
             if (echo > -1) {
@@ -1276,9 +1279,8 @@ extern "C" {
         delete[] radial_density_matrix;
     } // set_pure_density_matrix
 
-    void update(int const echo=0) {
+    void update_density(float const mixing, int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
-        float const mixing = 0.45; // mixing with .45 works well for Cu (Z=29)
         update_core_states(mixing, echo);
         update_valence_states(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
@@ -1304,11 +1306,18 @@ extern "C" {
         delete[] density_matrix;
         update_full_density(rho_tensor, echo);
         delete[] rho_tensor;
-        // export qlm_compensator, solve 3D electrostatic problem, return here with ves_multipoles
-        double* const ves_multipoles = nullptr;
+    } // update_density
+
+    // ==============
+    // between update_density and update_potential we need to
+    // export qlm_compensator, solve 3D electrostatic problem, return here with ves_multipoles
+    // ==============
+
+    void update_potential(float const mixing, double const ves_multipoles[], int const echo=0) {
+        if (echo > 2) printf("\n# %s\n", __func__);
         update_full_potential(mixing, ves_multipoles, echo);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
-    } // update
+    } // update_potential
 
     status_t get_smooth_core_density(double rho[], float const ar2, int const nr2, int const echo=1) {
         if (echo > 7) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, core_density=%p, rg=%p)\n", 
@@ -1343,7 +1352,7 @@ namespace single_atom {
   // Maybe we should write a live_atom module first 
   //   (a PAW generator prepared for core level und partial wave update)
   
-  status_t update(float const Za[], int const na, double **rho, radial_grid_t **rg, double *sigma_cmp) {
+  status_t update(float const Za[], int const na, double **rho, radial_grid_t **rg, double *sigma_cmp, double **vlm) {
 
       static LiveAtom **a=nullptr;
       
@@ -1361,17 +1370,23 @@ namespace single_atom {
               rho[ia] = new double[nr2];
               a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
           } // ia
-      } // get the core density
+      } // get the smooth core densities
 
       if (nullptr != rg) {
           for(int ia = 0; ia < na; ++ia) {
               rg[ia] = a[ia]->get_smooth_radial_grid();
           } // ia
-      } // pointers to smooth radial grid
+      } // pointers to smooth radial grids
       
       if (nullptr != sigma_cmp) {
           for(int ia = 0; ia < na; ++ia) {
               sigma_cmp[ia] = a[ia]->sigma_compensator; // ToDo: use a getter function
+          } // ia
+      } // spreads of the compensators
+
+      if (nullptr != vlm) {
+          for(int ia = 0; ia < na; ++ia) {
+              a[ia]->update_potential(.5f, vlm[ia], 9);
           } // ia
       } // spreads of the compensators
       
@@ -1385,7 +1400,7 @@ namespace single_atom {
 
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-    for(int Z = 0; Z <= 109; ++Z) { // all elements
+//     for(int Z = 0; Z <= 109; ++Z) { // all elements
     // for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
@@ -1393,7 +1408,7 @@ namespace single_atom {
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
-//     { int const Z = 13; // 13:aluminum
+    { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z, false, echo);
     } // Z

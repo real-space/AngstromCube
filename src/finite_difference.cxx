@@ -58,14 +58,15 @@ namespace finite_difference {
           int dims[] = {0,0,0}; dims[dir] = 127 + dir;
           real_space_grid::grid_t<real_t,1> g(dims);
           double const k = (1 + dir)*2*constants::pi/g.dim(dir);
-          for(auto i = 0ul; i < g.all(); ++i) g.values[i] = std::cos(k*i); // fill with some non-zero values
+          auto const values = new real_t[g.all()];
+          for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
           real_t* out = new real_t[g.all()];
-          stat += Laplacian(out, g, fd);
+          stat += Laplacian(out, values, g, fd);
           if (echo > 5) printf("\n# in, out, ref values:\n");
           double dev = 0;
-          for(auto i = 0ul; i < g.all(); ++i) {
-              double const ref = -k*k*g.values[i];
-              if (echo > 5) printf("%ld %g %g %g\n", i, g.values[i], out[i], ref);
+          for(size_t i = 0; i < g.all(); ++i) {
+              double const ref = -k*k*values[i];
+              if (echo > 5) printf("%ld %g %g %g\n", i, values[i], out[i], ref);
               // compare in the middle range out and ref values
               dev += std::abs(out[i] - ref);
           } // i

@@ -20,7 +20,8 @@ namespace sho_projection {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
       real_space_grid::grid_t<real_t,1> g(dims);
-      std::fill(g.values, g.all() + g.values, 0.0);
+      auto const values = new real_t[g.all()];
+      set(values, g.all(), 0.0);
       g.set_grid_spacing(0.45);
       double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
       int constexpr numax = 7;
@@ -48,9 +49,9 @@ namespace sho_projection {
                                   * pi_factor / (1 << icoeff[i][3]);
           set(coeff, nSHO, (real_t)0);
           coeff[i] = 1;
-          set(g.values, g.all(), (real_t)0);
-          stat += sho_add(g.values, g, coeff, numax, pos, 1.0, 0);
-          stat += sho_project(coeff, numax, pos, 1.0, g.values, g, 0);
+          set(values, g.all(), (real_t)0);
+          stat += sho_add(values, g, coeff, numax, pos, 1.0, 0);
+          stat += sho_project(coeff, numax, pos, 1.0, values, g, 0);
 
           if (echo > 0) {
               int const nu_show = std::min(echo, numax);
