@@ -132,7 +132,7 @@ extern "C" {
       uint8_t nn[1+ELLMAX]; // number of projectors and partial waves used in each ell-channel
       ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
       double sigma_compensator; // Gaussian spread for the charge deficit compensators
-      double* rho_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
+      double* qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
       double* aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
       int matrix_stride; // stride for the matrices hamiltonian and overlap, must be >= nSHO(numax)
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-oribit) core states are maximum
@@ -338,7 +338,7 @@ extern "C" {
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
         aug_density     = new double[nlm_aug*nrs]; // get memory
         int const nlm_cmp = pow2(1 + ellmax_compensator);
-        rho_compensator = new double[nlm_cmp]; // get memory
+        qlm_compensator = new double[nlm_cmp]; // get memory
         int const nln = nvalencestates;
         charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
         kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
@@ -377,7 +377,7 @@ extern "C" {
             pseudize_function(potential[SMT], rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
-        int const maxit_scf = 1;
+        int const maxit_scf = 3;
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# SCF-iteration %d\n\n", scf);
 //             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
@@ -439,7 +439,7 @@ extern "C" {
         } // tru and smt
         delete[] valence_state;
         delete[] aug_density;
-        delete[] rho_compensator;
+        delete[] qlm_compensator;
         delete[] charge_deficit;
         delete[] zero_potential;
         delete[] kinetic_energy;
@@ -456,7 +456,7 @@ extern "C" {
     } // initialize_Gaunt
 
     void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[], 
-            int const enn, int const ell, float const occ, double const energy, char const csv) {
+            int const enn, int const ell, float const occ, double const energy, char const csv, int const ir_cut=-1) {
         if (echo < 1) return;
         double stats[] = {0,0,0,0,0};
         for(int ir = 0; ir < rg->n; ++ir) {
@@ -470,11 +470,13 @@ extern "C" {
         } // ir
 
         double charge_outside = 0;
-        for(int ir = ir_cut[TRU]; ir < rg->n; ++ir) {
-            double const rho_wf = pow2(wave[ir]);
-            double const dV = rg->r2dr[ir];
-            charge_outside += rho_wf*dV;
-        } // ir
+        if (ir_cut >= 0) {
+            for(int ir = ir_cut; ir < rg->n; ++ir) {
+                double const rho_wf = pow2(wave[ir]);
+                double const dV = rg->r2dr[ir];
+                charge_outside += rho_wf*dV;
+            } // ir
+        } // ir_cut
 
         //  printf("# core    %2d%c %g %g %g %g %g\n", cs.enn, ellchar[cs.ell], stats[0], stats[1], stats[2], stats[3], stats[4]);
         printf("# %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", 
@@ -502,7 +504,7 @@ extern "C" {
             // and normalize the core level wave function to one
             scale(cs.wave[TRU], nr, rg[TRU]->rinv, norm_factor);
             add_product(new_r2core_density, nr, r2rho, scal);
-            show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, 'c');
+            show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, 'c', ir_cut[TRU]);
         } // ics
         delete[] r2rho;
 
@@ -589,7 +591,7 @@ extern "C" {
             auto const tru_kinetic_E = vs.energy*tru_norm - tru_potential_E; // kinetic energy contribution up to r_cut
             
 //          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
-            show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, vs.ell, vs.occupation, vs.energy, 'v');
+            show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, vs.ell, vs.occupation, vs.energy, 'v', ir_cut[TRU]);
 
             int const nr_diff = rg[TRU]->n - rg[SMT]->n;
             // construct a simple pseudo wave
@@ -874,8 +876,8 @@ extern "C" {
         int const nr = rg->n, mr = align<2>(nr);
         auto const sig2inv = -1./(sigma_compensator*sigma_compensator);
         if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
-        auto const rl = new double [nr];
         auto const rlgauss = new double[nr];
+        auto const rl      = new double[nr];
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
             double norm = 0;
             for(int ir = 0; ir < nr; ++ir) {
@@ -896,25 +898,34 @@ extern "C" {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
                 if (0 == ADD0_or_PROJECT1) {
-                    auto const rho_lm_scal = in[lm] * scal;
-                    for(int ir = 0; ir < nr; ++ir) {
-                        out[lm*mr + ir] += rho_lm_scal * rlgauss[ir];
-                    } // ir
+                    add_product(&out[lm*mr], nr, rlgauss, in[lm] * scal); // add normalized compensator to augmented density
+                } else if (2 == ADD0_or_PROJECT1) {
+                    add_product(&out[lm*mr], nr, rl, in[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+                    // ToDo: setup of normalized rlgauss is not necessary in this version
                 } else {
-                    double dot = 0;
-                    for(int ir = 0; ir < nr; ++ir) {
-                        dot += in[lm*mr + ir] * rlgauss[ir] * rg->r2dr[ir];
-                    } // ir
-                    out[lm] = dot * scal;
+                    out[lm] = dot_product(nr, &in[lm*mr], rlgauss, rg->r2dr) * scal; // dot_product with metric
                 } // add or project
             } // emm
         } // ell
-        delete[] rlgauss;
         delete[] rl;
+        delete[] rlgauss;
     } // add_or_project_compensators
 
-        
-    void update_full_density(double q_lm[], double const rho_tensor[], int const echo=0) { // density tensor rho_{lm iln jln}
+    void correct_multipole_shift(double ves[], int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
+        int const nr = rg->n, mr = align<2>(nr);
+        auto const rl = new double[nr];
+        set(rl, nr, 1.); // init with r^0
+        for(int ell = 0; ell <= lmax; ++ell) { // serial!
+            for(int emm = -ell; emm <= ell; ++emm) {
+                int const lm = solid_harmonics::lm_index(ell, emm);
+                add_product(&ves[lm*mr], nr, rl, vlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+            } // emm
+            scale(rl, nr, rg->r); // construct r^ell for the next ell-iteration
+        } // ell
+        delete[] rl;
+    } // correct_multipole_shift
+
+    void update_full_density(double const rho_tensor[], int const echo=0) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
         int const nln = nvalencestates;
         
@@ -963,48 +974,50 @@ extern "C" {
                 } // iln
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
-                rho_compensator[lm] = rho_lm;
+                qlm_compensator[lm] = rho_lm;
             } // emm
         } // ell
         
         // account for Z protons in the nucleus and the missing charge in the smooth core density
-        rho_compensator[0] += Y00*(core_charge_deficit - Z);
+        qlm_compensator[0] += Y00*(core_charge_deficit - Z);
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
-        int const mlm_cmp = pow2(1 + ellmax_compensator);
+//         int const mlm_cmp = pow2(1 + ellmax_compensator);
         // construct the augmented density
         {   int const nr = rg[SMT]->n, mr = align<2>(nr); // on the smooth grid
             set(aug_density, nlm_aug*mr, 0.0); // clear
             set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
-            add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], rho_compensator);
+            add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], qlm_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
             if (echo > 5) printf("# augmented density has %g electrons, zero expected\n", aug_charge/Y00); // this value should be small
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
             if (echo > 5) printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
 
-            auto const vHt = new double[nlm*mr];
-            set(vHt, nlm*mr, 0.0);
-            radial_potential::Hartree_potential(vHt, *rg[SMT], aug_density, mr, ellmax); // solve without boundary conditions
-            
-            double v_lm[1] = {0};
-            add_or_project_compensators<1>(v_lm, ellmax_compensator, rg[SMT], vHt);
-            if (echo > -1) printf("# inner integral between normalized compensator and electrostatic potential = %g %s\n", v_lm[0]*eV,_eV);
-            set(q_lm, mlm_cmp, 0.0); // not yet correct
-            
-            double const chk = dot_product(nr, aug_density, vHt, rg[SMT]->r2dr); // dot_product with diagonal metric
-            if (echo > -1) printf("# inner integral between augmented density and electrostatic potential = %g %s\n", chk*eV,_eV);
-            
-            delete [] vHt;
+//             auto const vHt = new double[nlm*mr];
+//             set(vHt, nlm*mr, 0.0);
+//             radial_potential::Hartree_potential(vHt, *rg[SMT], aug_density, mr, ellmax); // solve without boundary conditions
+//             
+//             double v_lm[1] = {0};
+//             add_or_project_compensators<1>(v_lm, ellmax_compensator, rg[SMT], vHt);
+//             if (echo > -1) printf("# inner integral between normalized compensator and electrostatic potential = %g %s\n", v_lm[0]*eV,_eV);
+//             set(q_lm, mlm_cmp, 0.0); // not yet correct
+//             
+//             double const chk = dot_product(nr, aug_density, vHt, rg[SMT]->r2dr); // dot_product with diagonal metric
+//             if (echo > -1) printf("# inner integral between augmented density and electrostatic potential = %g %s\n", chk*eV,_eV);
+//             
+//             delete [] vHt;
+
         } // scope
 
     } // update_full_density
 
     
-    void update_full_potential(float const mixing, double const q_lm[], int const echo=0) {
+    void update_full_potential(float const mixing, double const ves_multipole[], int const echo=0) {
         int const nlm = pow2(1 + ellmax);
         int const npt = angular_grid::Lebedev_grid_size(ellmax);
-        for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+        auto vlm = new double[nlm];
+        for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts]->n, mr = align<2>(nr);
             // full_potential[ts][nlm*mr]; // memory layout
 
@@ -1019,7 +1032,7 @@ extern "C" {
 //          printf("# envoke the exchange-correlation on angular grid\n");
             double Exc = 0;
             for(int ip = 0; ip < npt*mr; ++ip) {
-                double const  rho = on_grid[ip];
+                double const rho = on_grid[ip];
                 double vxc = 0, exc = 0;
                 exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
                 on_grid[ip] = vxc;
@@ -1035,31 +1048,39 @@ extern "C" {
             } // echo
 
             // solve electrostatics inside the spheres
-            auto   const vHt = new double[nlm*mr];
+            auto   const Ves = new double[nlm*mr];
             double const q_nucleus = (TRU == ts) ? -Z*Y00 : 0; // Z = number of protons in the nucleus
-            auto   const       rho = (TRU == ts) ? full_density[TRU] : aug_density;
-            // solve electrostatics with inner (q_nucleus) and outer boundary conditions (q_lm)
-            radial_potential::Hartree_potential(vHt, *rg[ts], rho, mr, ellmax, q_lm, q_nucleus);
+            auto   const rho_aug   = (TRU == ts) ? full_density[TRU] : aug_density;
+            // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
+            radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug, mr, ellmax, q_nucleus);
 
             if (SMT == ts) {
-                double v_lm[1] = {0};
-                add_or_project_compensators<1>(v_lm, ellmax_compensator, rg[SMT], vHt);
-                if (echo > -1) printf("# inner integral between normalized compensator and electrostatic potential = %g %s\n", v_lm[0]*eV,_eV);
+                add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves); // project to compensators
+                if (echo > -1) printf("# inner integral between normalized compensator and smooth Ves(r) = %g %s\n", vlm[0]*eV,_eV);
+                // but the solution of the 3D problem found that these integrals should be v_lm, therefore
+                if (nullptr == ves_multipole) {
+                    set(vlm, nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
+                } else {
+                    scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
+                } // no ves_multipole given
             } // smooth only
-            
-            add_product(full_potential[ts], nlm*mr, vHt, 1.0); // add the electrostatic potential, scale_factor=1.0
+
+            correct_multipole_shift(Ves, ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
+//             add_or_project_compensators<2>(Ves, ellmax_compensator, rg[ts], vlm); // has the same effect as correct_multipole_shift
+
+            add_product(full_potential[ts], nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
             if (echo > -1) {
-                if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", vHt[0]*Y00*eV,_eV);
+                if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", Ves[0]*Y00*eV,_eV);
                 if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
-                                                                              vHt[1]*(rg[TRU]->r[1])*Y00, -Z);
+                                          Ves[1]*(rg[TRU]->r[1])*Y00, -Z);
                 if (SMT == ts) {
                     printf("# local smooth electrostatic potential and augmented density:\n");
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        printf("%g %g %g\n", rg[SMT]->r[ir], vHt[ir]*Y00, aug_density[ir]*Y00);
+                        printf("%g %g %g\n", rg[SMT]->r[ir], Ves[ir]*Y00, aug_density[ir]*Y00);
                     }   printf("\n\n");
                 } // smooth
             } // echo
-            delete [] vHt;
+            delete [] Ves;
         } // true and smooth
         if (echo > 6) printf("# local smooth augmented density at origin is %g a.u.\n", aug_density[0]*Y00);
         
@@ -1281,13 +1302,11 @@ extern "C" {
         set(rho_tensor, pow2(1 + lmax)*pow2(nvalencestates), 0.0);
         get_rho_tensor(rho_tensor, density_matrix, echo);
         delete[] density_matrix;
-        int const mlm = pow2(1 + ellmax_compensator);
-        auto const q_lm = new double[mlm];
-        set(q_lm, mlm, 0.0);
-        update_full_density(q_lm, rho_tensor, echo);
+        update_full_density(rho_tensor, echo);
         delete[] rho_tensor;
-        update_full_potential(mixing, q_lm, echo);
-        delete[] q_lm;
+        // export qlm_compensator, solve 3D electrostatic problem, return here with ves_multipoles
+        double* const ves_multipoles = nullptr;
+        update_full_potential(mixing, ves_multipoles, echo);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update
 
@@ -1366,7 +1385,7 @@ namespace single_atom {
 
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-//     for(int Z = 0; Z <= 109; ++Z) { // all elements
+    for(int Z = 0; Z <= 109; ++Z) { // all elements
     // for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
@@ -1374,7 +1393,7 @@ namespace single_atom {
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
-    { int const Z = 13; // 13:aluminum
+//     { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);      
         LiveAtom a(Z, false, echo);
     } // Z

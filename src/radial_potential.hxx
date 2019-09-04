@@ -18,8 +18,8 @@ namespace radial_potential {
             double const rho[],  // density_lm(r)
             int const stride, // stride between differen lm-compenents in rho and V
             ell_QN_t const ellmax,
-            double const qlm[]=nullptr,
-            double const q0=0); // external boundary conditions
+            double const q0=0, // singularity
+            double const qlm[]=nullptr); // external boundary conditions, functionality redundant
 
   status_t all_tests();
 

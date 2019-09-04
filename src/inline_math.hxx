@@ -38,44 +38,44 @@
 
 
   template<typename real_t>
-  void set(real_t y[], int const n, real_t const a) {
+  void inline set(real_t y[], int const n, real_t const a) {
       for(int i = 0; i < n; ++i) y[i] = a;
   } // set
 
   template<typename real_t>
-  void set(real_t y[], int const n, real_t const a[], real_t const f=1) {
+  void inline set(real_t y[], int const n, real_t const a[], real_t const f=1) {
       for(int i = 0; i < n; ++i) y[i] = a[i]*f;
   } // set
 
   template<typename real_t>
-  void scale(real_t y[], int const n, real_t const a[], real_t const f=1) {
+  void inline scale(real_t y[], int const n, real_t const a[], real_t const f=1) {
       for(int i = 0; i < n; ++i) y[i] *= a[i]*f;
   } // scale
 
   template<typename real_t>
-  void scale(real_t y[], int const n, real_t const f) {
+  void inline scale(real_t y[], int const n, real_t const f) {
       // no default value for f here, as scaling with 1.0 has no effect
       for(int i = 0; i < n; ++i) y[i] *= f;
   } // scale
 
   template<typename real_t>
-  void product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const f=1) {
+  void inline product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const f=1) {
       for(int i = 0; i < n; ++i) y[i] = a[i]*b[i]*f;
   } // product
 
   template<typename real_t>
-  void product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const c[], real_t const f=1) {
+  void inline product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const c[], real_t const f=1) {
       for(int i = 0; i < n; ++i) y[i] = a[i]*b[i]*c[i]*f;
   } // product
 
   template<typename real_t>
-  void add_product(real_t y[], int const n, real_t const a[], real_t const f) {
+  void inline add_product(real_t y[], int const n, real_t const a[], real_t const f) {
       // no default value for f here, otherwise the name add_product is missleading!
       for(int i = 0; i < n; ++i) y[i] += a[i]*f;
   } // add_product == axpy-type
 
   template<typename real_t>
-  void add_product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const f=1) {
+  void inline add_product(real_t y[], int const n, real_t const a[], real_t const b[], real_t const f=1) {
       for(int i = 0; i < n; ++i) y[i] += a[i]*b[i]*f;
   } // add_product
 

@@ -32,6 +32,15 @@ namespace spherical_atoms {
   
   status_t init(int const echo=0) {
       status_t stat = 0;
+      
+      // compute the self-consistent solution of a single_atom, all states in the core
+      // get the spherical core_density and bring it to the 3D grid
+      // get the ell=0 compensator charge and add it to the 3D grid
+      // envoke exchange_correlation and fourier_poisson
+      // add XC and electrostatic potential and zero_potential contributions
+      // project the total effective potential to each center using bessel_transforms
+      // feed back spherical potential into single_atom
+      
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125;
@@ -87,6 +96,7 @@ namespace spherical_atoms {
 
       auto const Laplace_Ves = new double[g.all()];
       auto const         Ves = new double[g.all()];
+      auto const        Vtot = new double[g.all()];
       set(Ves, g.all(), 0.0);
       if (1) { 
           for(int ia = 0; ia < na; ++ia) {
@@ -157,77 +167,81 @@ namespace spherical_atoms {
           auto const fd = new finite_difference::finite_difference_t<double>(grid_spacing, 1, 12);
           g.values = Ves;
           stat += finite_difference::Laplacian(Laplace_Ves, g, *fd, -.25/constants::pi); // compute the Laplacian using high-order finite-differences
-      }
+      } // if
 
-      g.values = Ves; // analyze the electrostatic potential
-//       g.values = Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
+      set(Vtot, g.all(), Vxc); add_product(Vtot, g.all(), Ves, 1.);
+      
+      double* const value_pointers[] = {rho, Ves, Laplace_Ves, Vxc, Vtot};
 //       g.values = rho; // analyze the augmented density
+//       g.values = Ves; // analyze the electrostatic potential
+//       g.values = Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
 //       g.values = Vxc; // analyze the xc potential
-//       g.values = Vxc; add_product(g.values, g.all(), Ves, 1.0); // analyze the total potential: Vxc + Ves
+//       g.values = Vtot; // analyze the total potential: Vxc + Ves
 
-      // report extremal values of what is stored on the grid
-      double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
-      for(size_t i = 0; i < g.all(); ++i) {
-          gmin = std::min(gmin, g.values[i]);
-          gmax = std::max(gmax, g.values[i]);
-          gsum += g.values[i];
-          gsum2 += pow2(g.values[i]);
-      } // i
-      printf("\n# real-space grid stats min %g max %g avg %g\n\n", gmin, gmax, gsum/g.all());
-
-
-      for(int ia = 0; ia < na; ++ia) {
-//           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
-          float const dq = 1.f/16; int const nq = (int)(constants::pi/(grid_spacing*dq));
-          auto const qc = new double[nq];
-          
-          printf("\n\n\n# start bessel_projection:\n\n"); // DEBUG
-          stat += real_space_grid::bessel_projection(qc, nq, dq, g, center[ia]);
-          printf("\n\n\n#   end bessel_projection.\n\n"); // DEBUG
-
-          scale(qc, nq, pow2(solid_harmonics::Y00));
-          
-//           auto const qcq2 = new double[nq]; 
-//           qcq2[0] = 0;
-//           for(int iq = 1; iq < nq; ++iq) {
-//               qcq2[iq] = qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
-//           } // iq
-// 
-//           if (echo > 6) {
-//               printf("# Bessel coeff for atom #%d:\n", ia);
-//               for(int iq = 0; iq < nq; ++iq) {
-//                   printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
-//               }   printf("\n\n");
-//           } // echo
-
-          if (echo > 3) {
-              auto const rs = new double[rg[ia]->n];
-              bessel_transform::transform_s_function(rs, qc, *rg[ia], nq, dq, true); // transform back to real-space again
-              printf("# Real-space projection for atom #%d:\n", ia);
-              for(int ir = 0; ir < rg[ia]->n; ++ir) {
-                  printf("%g %g\n", rg[ia]->r[ir], rs[ir]); // seems like we are missing some factor
-              }   printf("\n\n");
-              
-//               bessel_transform::transform_s_function(rs, qcq2, *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
-//               printf("# Hartree potential computed by Bessel transform for atom #%d:\n", ia);
-//               for(int ir = 0; ir < rg[ia]->n; ++ir) { printf("%g %g\n", rg[ia]->r[ir], rs[ir]); } printf("\n\n");
-              
-              delete[] rs;
-          } // echo
-          delete[] qc;
-      } // ia
+      for(int iptr = 0; iptr < 5; ++iptr) {
+          g.values = value_pointers[iptr];
+        
       
+          // report extremal values of what is stored on the grid
+          double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
+          for(size_t i = 0; i < g.all(); ++i) {
+              gmin = std::min(gmin, g.values[i]);
+              gmax = std::max(gmax, g.values[i]);
+              gsum += g.values[i];
+              gsum2 += pow2(g.values[i]);
+          } // i
+          printf("\n# real-space grid stats min %g max %g avg %g\n\n", gmin, gmax, gsum/g.all());
+
+
+          for(int ia = 0; ia < na; ++ia) {
+    //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
+              float const dq = 1.f/16; int const nq = (int)(constants::pi/(grid_spacing*dq));
+              auto const qc = new double[nq];
+              
+              printf("\n\n\n# start bessel_projection:\n\n"); // DEBUG
+              stat += real_space_grid::bessel_projection(qc, nq, dq, g, center[ia]);
+              printf("\n\n\n#   end bessel_projection.\n\n"); // DEBUG
+
+              scale(qc, nq, pow2(solid_harmonics::Y00));
+              
+              auto const qcq2 = new double[nq]; 
+              qcq2[0] = 0;
+              for(int iq = 1; iq < nq; ++iq) {
+                  qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
+              } // iq
+    
+//               if (echo > 6) {
+//                   printf("# Bessel coeff for atom #%d:\n", ia);
+//                   for(int iq = 0; iq < nq; ++iq) {
+//                       printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
+//                   }   printf("\n\n");
+//               } // echo
+
+              if (echo > 3) {
+                  auto const rs = new double[rg[ia]->n];
+                  bessel_transform::transform_s_function(rs, qc, *rg[ia], nq, dq, true); // transform back to real-space again
+                  printf("# Real-space projection for atom #%d:\n", ia);
+                  for(int ir = 0; ir < rg[ia]->n; ++ir) {
+                      printf("%g %g\n", rg[ia]->r[ir], rs[ir]); // seems like we are missing some factor
+                  }   printf("\n\n");
+                  
+                  if ((g.values == rho) || (g.values == Laplace_Ves)) {
+                      bessel_transform::transform_s_function(rs, qcq2, *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
+                      printf("# Hartree potential computed by Bessel transform for atom #%d:\n", ia);
+                      for(int ir = 0; ir < rg[ia]->n; ++ir) { printf("%g %g\n", rg[ia]->r[ir], rs[ir]); } printf("\n\n");
+                  } // density
+                  
+                  delete[] rs;
+              } // echo
+              delete[] qc;
+          } // ia
       
-      // compute the self-consistent solution of a single_atom, all states in the core
-      // get the spherical core_density and bring it to the 3D grid
-      // get the ell=0 compensator charge and add it to the 3D grid
-      // envoke exchange_correlation and fourier_poisson
-      // add XC and electrostatic potential and zero_potential contributions
-      // project the total effective potential to each center using bessel_transforms
-      // feed back spherical potential into single_atom
+      } // iptr loop for different quantities represented on the grid.
+      
       
       delete[] Vxc;
       delete[] Ves;
+      delete[] Vtot;
       delete[] Laplace_Ves;
       for(int ia = 0; ia < na; ++ia) {
           delete[] rho_core[ia]; // has been allocated in single_atom::update()
