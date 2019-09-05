@@ -43,6 +43,7 @@ namespace spherical_atoms {
 
   status_t init(int const echo=0) {
       status_t stat = 0;
+      double constexpr Y00 = solid_harmonics::Y00;
       
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
@@ -53,10 +54,13 @@ namespace spherical_atoms {
       // feed back spherical potential into single_atom
       
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
-//       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 3}}; // Al only
-      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 0}, {2,0,0, 6}}; // B-N
+//       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
+//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 5}, {2,0,0, 7}}; // B-N
 //       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 3}}; // Li only
+      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 3}, {2,0,0, 9}}; // Li-F
+      double ionization[na]; ionization[0] = 0.125*(na - 1); ionization[na - 1] = -ionization[0];
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
+
       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
       real_space_grid::grid_t<double,1> g(dims);
       g.set_grid_spacing(grid_spacing);
@@ -84,7 +88,7 @@ namespace spherical_atoms {
       set(rho, g.all(), 0.0); // clear
       for(int ia = 0; ia < na; ++ia) {
           int const nr2 = 1 << 12; float const ar2 = 16.f;
-          if (echo > 3) {
+          if (echo > 9) {
               printf("# Real-space smooth core density for atom #%d:\n", ia);
               for(int ir2 = 0; ir2 < nr2; ++ir2) {
                   printf("%g %g\n", std::sqrt(ir2/ar2), rho_core[ia][ir2]*Y00sq);
@@ -96,7 +100,7 @@ namespace spherical_atoms {
               printf("# after adding %g electrons smooth core density of atom #%d: ", q_added, ia);
               print_stats(rho, g);
           } // echo
-          q00[ia] = -q_added; // spherical compensator
+          q00[ia] = -(q_added + ionization[ia])/Y00; // spherical compensator
           vlm[ia] = new double[1];
       } // ia
 
@@ -119,40 +123,39 @@ namespace spherical_atoms {
           for(int ia = 0; ia < na; ++ia) {
               // todo: add the compensators
               double const sigma_compensator = sigma_cmp[ia];
-              if (0) {
-                  float const rcut = 6.5*sigma_compensator;
-                  double const prefactor = 1./(pow3(sigma_compensator*constants::sqrtpi));
-                  float const ar2 = 64.f; 
+              double const prefactor = Y00/(pow3(std::sqrt(2*constants::pi)*sigma_compensator));
+              if (0) { // also works
+                  float const rcut = 9.2*sigma_compensator;
+                  float const ar2 = 64.f;
                   int const nr2 = (int)std::ceil(ar2*pow2(rcut));
                   if (echo > -1) printf("# use r^2-grid with r^2 = %.1f*i with %d points for compensator of atom #%d\n", ar2, nr2, ia);
                   auto const rho_cmp = new double[nr2];
                   if (echo > -1) printf("# compensator charge density of atom #%d:\n", ia);
+                  double const sig2inv = -.5/pow2(sigma_compensator);
                   for(int ir2 = 0; ir2 < nr2; ++ir2) {
                       double const r2 = ir2/ar2;
-                      rho_cmp[ir2] = prefactor*std::exp(-r2/pow2(sigma_compensator));
+                      rho_cmp[ir2] = prefactor*std::exp(sig2inv*r2);
                       rho_cmp[ir2] *= q00[ia];
                       if (echo > 3) printf("%g %g\n", std::sqrt(r2), rho_cmp[ir2]);
                   }   if (echo > 3) printf("\n\n");
                   double q_added;
                   stat += real_space_grid::add_function(cmp, g, &q_added, rho_cmp, nr2, ar2, center[ia], rcut);
-                  q00[ia] = q_added;
+                  q00[ia] = q_added/Y00;
                   delete[] rho_cmp;
               } else if (1) {
-                  double const sigma = sigma_compensator/std::sqrt(2.); // assume exp(-r^2/(2*sigma^2))
-                  double const prefactor = 1./pow3(std::sqrt(2*constants::pi)*sigma);
-                  // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}
+                  // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
                   double coeff[1];
                   set(coeff, 1, &q00[ia], prefactor);
-                  stat += sho_projection::sho_add(cmp, g, coeff, 0, center[ia], sigma, echo);
+                  stat += sho_projection::sho_add(cmp, g, coeff, 0, center[ia], sigma_compensator, echo);
               }
               if (echo > -1) {
                   // report extremal values of the density on the grid
-                  printf("# after adding %g compensator electrons of atom #%d:  ", q00[ia], ia);
+                  printf("# after adding %g compensator electrons of atom #%d:  ", q00[ia]*Y00, ia);
                   print_stats(cmp, g);
               } // echo
           } // ia
 
-          // add cmp to rho
+          // add compensators cmp to rho
           add_product(rho, g.all(), cmp, 1.);
           
           int ng[3]; double reci[3][4]; 
@@ -165,13 +168,13 @@ namespace spherical_atoms {
 
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
-              double const sigma = sigma_cmp[ia]/std::sqrt(2.);
-              double const prefactor = 1./pow3(std::sqrt(2*constants::pi)*sigma);
+              double const sigma_compensator = sigma_cmp[ia];
+              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator)); // why is the definition here different from that above by a factor 4*pi?
               double coeff[1];
               set(coeff, 1, 0.0);
-              stat += sho_projection::sho_project(coeff, 0, center[ia], sigma, Ves, g, echo);
+              stat += sho_projection::sho_project(coeff, 0, center[ia], sigma_compensator, Ves, g, echo);
               set(vlm[ia], 1, coeff, prefactor); // SHO-projectors are brought to the grid unnormalized, i.e. p_{00}(0) = 1.0
-              printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][0]*eV,_eV);
+              printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][0]*Y00*eV,_eV);
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp, Ves)*g.dV()*eV,_eV);
 
@@ -183,15 +186,15 @@ namespace spherical_atoms {
       
       set(Vtot, g.all(), Vxc); add_product(Vtot, g.all(), Ves, 1.);
       
-      double* const value_pointers[] = {rho, Ves, Laplace_Ves, cmp, Vxc, Vtot};
-//       values = rho; // analyze the augmented density
+      double* const value_pointers[] = {Ves, rho, Laplace_Ves, cmp, Vxc, Vtot};
 //       values = Ves; // analyze the electrostatic potential
+//       values = rho; // analyze the augmented density
 //       values = Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
 //       values = cmp; // analyze only the compensator density
 //       values = Vxc; // analyze the xc potential
 //       values = Vtot; // analyze the total potential: Vxc + Ves
 
-      for(int iptr = 0; iptr < 3; ++iptr) { // only loop over the first 3 for electrostatics
+      for(int iptr = 0; iptr < 1; ++iptr) { // only loop over the first 1 for electrostatics
           auto const values = value_pointers[iptr];
       
           // report extremal values of what is stored on the grid
@@ -227,7 +230,7 @@ namespace spherical_atoms {
                   bessel_transform::transform_s_function(rs, qc, *rg[ia], nq, dq, true); // transform back to real-space again
                   printf("# Real-space projection for atom #%d:\n", ia);
                   for(int ir = 0; ir < rg[ia]->n; ++ir) {
-                      printf("%g %g\n", rg[ia]->r[ir], rs[ir]); // seems like we are missing some factor
+                      printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
                   }   printf("\n\n");
                   
                   if ((values == rho) || (values == Laplace_Ves)) {

@@ -76,7 +76,7 @@ namespace fourier_poisson {
 
       printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
-      
+
       real_t const scale = -factor/ng_all;
 
       typedef vector_math::vec<3,double> vec3;

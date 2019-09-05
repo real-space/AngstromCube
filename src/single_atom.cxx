@@ -115,6 +115,65 @@ extern "C" {
   
   
   
+    template<int ADD0_or_PROJECT1>
+    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[]
+                                   , double const sigma_compensator, int const echo=0) {
+        int const nr = rg->n, mr = align<2>(nr);
+        auto const sig2inv = -.5/(sigma_compensator*sigma_compensator);
+        if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
+        auto const rlgauss = new double[nr];
+        auto const rl      = new double[nr];
+        for(int ell = 0; ell <= lmax; ++ell) { // serial!
+            double norm = 0;
+            for(int ir = 0; ir < nr; ++ir) {
+                auto const r = rg->r[ir];
+                if (0 == ell) {
+                    rl[ir] = 1; // start with r^0
+                    rlgauss[ir] = std::exp(sig2inv*r*r);
+                } else {
+                    rl[ir]      *= r; // construct r^ell
+                    rlgauss[ir] *= r; // construct r^ell*gaussian
+                }
+                norm += rlgauss[ir] * rl[ir] * rg->r2dr[ir];
+                if (echo > 8) printf("# ell=%d norm=%g ir=%d rlgauss=%g rl=%g r2dr=%g\n", ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
+            } // ir
+            if (echo > 1) printf("# ell=%d norm=%g nr=%d\n", ell, norm, nr);
+            assert(norm > 0);
+            auto const scal = 1./norm;
+            for(int emm = -ell; emm <= ell; ++emm) {
+                int const lm = solid_harmonics::lm_index(ell, emm);
+                if (0 == ADD0_or_PROJECT1) {
+                    add_product(&out[lm*mr], nr, rlgauss, in[lm] * scal); // add normalized compensator to augmented density
+                } else if (2 == ADD0_or_PROJECT1) {
+                    add_product(&out[lm*mr], nr, rl, in[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+                    // ToDo: setup of normalized rlgauss is not necessary in this version
+                } else if (3 == ADD0_or_PROJECT1) {
+                    out[lm] = dot_product(nr, &in[lm*mr], rl, rg->r2dr); // dot_product with metric
+                    // ToDo: setup of normalized rlgauss is not necessary in this version
+                } else {
+                    out[lm] = dot_product(nr, &in[lm*mr], rlgauss, rg->r2dr) * scal; // dot_product with metric
+                } // add or project
+            } // emm
+        } // ell
+        delete[] rl;
+        delete[] rlgauss;
+    } // add_or_project_compensators
+
+    void correct_multipole_shift(double ves[], int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
+        int const nr = rg->n, mr = align<2>(nr);
+        auto const rl = new double[nr];
+        set(rl, nr, 1.); // init with r^0
+        for(int ell = 0; ell <= lmax; ++ell) { // serial!
+            for(int emm = -ell; emm <= ell; ++emm) {
+                int const lm = solid_harmonics::lm_index(ell, emm);
+                add_product(&ves[lm*mr], nr, rl, vlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+            } // emm
+            scale(rl, nr, rg->r); // construct r^ell for the next ell-iteration
+        } // ell
+        delete[] rl;
+    } // correct_multipole_shift
+  
+  
   class LiveAtom {
   public:
 //    double* mem; // memory to which all radial function pointers and matrices point
@@ -188,9 +247,9 @@ extern "C" {
         ellmax_compensator = 0;
         if (echo > 0) printf("# compensation charges are expanded up to lmax = %d\n", ellmax_compensator);
         r_cut = 2.0; // Bohr
-        sigma_compensator = r_cut/std::sqrt(10.); // Bohr
+        sigma_compensator = r_cut/std::sqrt(20.); // Bohr
 //         sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
-        sigma = 0.5; // Bohr
+        sigma = 0.5; // Bohr, spread for projectors
         r_match = 9*sigma;
         if (echo > 0) printf("# numbers of projectors ");
         for(int ell = 0; ell <= ELLMAX; ++ell) {
@@ -876,60 +935,6 @@ extern "C" {
     } // get_rho_tensor
     
     
-    template<int ADD0_or_PROJECT1>
-    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[], int const echo=0) {
-        int const nr = rg->n, mr = align<2>(nr);
-        auto const sig2inv = -1./(sigma_compensator*sigma_compensator);
-        if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
-        auto const rlgauss = new double[nr];
-        auto const rl      = new double[nr];
-        for(int ell = 0; ell <= lmax; ++ell) { // serial!
-            double norm = 0;
-            for(int ir = 0; ir < nr; ++ir) {
-                auto const r = rg->r[ir];
-                if (0 == ell) {
-                    rl[ir] = 1; // start with r^0
-                    rlgauss[ir] = std::exp(sig2inv*r*r);
-                } else {
-                    rl[ir]      *= r; // construct r^ell
-                    rlgauss[ir] *= r; // construct r^ell*gaussian
-                }
-                norm += rlgauss[ir] * rl[ir] * rg->r2dr[ir];
-                if (echo > 6) printf("# ell=%d norm=%g ir=%d rlgauss=%g rl=%g r2dr=%g\n", ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
-            } // ir
-            if (echo > 1) printf("# ell=%d norm=%g nr=%d\n", ell, norm, nr);
-            assert(norm > 0);
-            auto const scal = 1./norm;
-            for(int emm = -ell; emm <= ell; ++emm) {
-                int const lm = solid_harmonics::lm_index(ell, emm);
-                if (0 == ADD0_or_PROJECT1) {
-                    add_product(&out[lm*mr], nr, rlgauss, in[lm] * scal); // add normalized compensator to augmented density
-                } else if (2 == ADD0_or_PROJECT1) {
-                    add_product(&out[lm*mr], nr, rl, in[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
-                    // ToDo: setup of normalized rlgauss is not necessary in this version
-                } else {
-                    out[lm] = dot_product(nr, &in[lm*mr], rlgauss, rg->r2dr) * scal; // dot_product with metric
-                } // add or project
-            } // emm
-        } // ell
-        delete[] rl;
-        delete[] rlgauss;
-    } // add_or_project_compensators
-
-    void correct_multipole_shift(double ves[], int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
-        int const nr = rg->n, mr = align<2>(nr);
-        auto const rl = new double[nr];
-        set(rl, nr, 1.); // init with r^0
-        for(int ell = 0; ell <= lmax; ++ell) { // serial!
-            for(int emm = -ell; emm <= ell; ++emm) {
-                int const lm = solid_harmonics::lm_index(ell, emm);
-                add_product(&ves[lm*mr], nr, rl, vlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
-            } // emm
-            scale(rl, nr, rg->r); // construct r^ell for the next ell-iteration
-        } // ell
-        delete[] rl;
-    } // correct_multipole_shift
-
     void update_full_density(double const rho_tensor[], int const echo=0) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
         int const nln = nvalencestates;
@@ -991,7 +996,7 @@ extern "C" {
         {   int const nr = rg[SMT]->n, mr = align<2>(nr); // on the smooth grid
             set(aug_density, nlm_aug*mr, 0.0); // clear
             set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
-            add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], qlm_compensator);
+            add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], qlm_compensator, sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
             if (echo > 5) printf("# augmented density has %g electrons, zero expected\n", aug_charge/Y00); // this value should be small
 
@@ -1044,7 +1049,7 @@ extern "C" {
             radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug, mr, ellmax, q_nucleus);
 
             if (SMT == ts) {
-                add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves); // project to compensators
+                add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves, sigma_compensator); // project to compensators
                 if (echo > -1) printf("# inner integral between normalized compensator and smooth Ves(r) = %g %s\n", vlm[0]*Y00*eV,_eV);
                 // this seems to high by a factor sqrt(4*pi), ToDo: find out why
 //                 scale(vlm, nlm, Y00);
@@ -1053,8 +1058,8 @@ extern "C" {
                 if (nullptr == ves_multipole) {
                     set(vlm, nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
                 } else {
-                    if (echo > -1) printf("# v_00 found %g but expected %g %s\n", vlm[0]*Y00*eV, ves_multipole[0]*eV,_eV);
-                    scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1./Y00); // vlm := ves_multipole - vlm
+                    if (echo > -1) printf("# v_00 found %g but expected %g %s\n", vlm[0]*Y00*eV, ves_multipole[0]*Y00*eV,_eV);
+                    scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
                 } // no ves_multipole given
             } // smooth only
             
@@ -1063,11 +1068,11 @@ extern "C" {
             }
 
 //             correct_multipole_shift(Ves, ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
-            add_or_project_compensators<2>(Ves, ellmax_compensator, rg[ts], vlm); // has the same effect as correct_multipole_shift
+            add_or_project_compensators<2>(Ves, ellmax_compensator, rg[ts], vlm, sigma_compensator); // has the same effect as correct_multipole_shift
 
             if (SMT == ts) {   // debug: project again to see if the correction worked out
                 double v00;
-                add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves); // project to compensators
+                add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves, sigma_compensator); // project to compensators
                 if (echo > -1) printf("# after correction v_00 is %g %s\n", v00*Y00*eV,_eV);
             }
 
@@ -1398,6 +1403,23 @@ namespace single_atom {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
+  status_t test_compensator_normalization(int const echo=5) {
+      if (echo > 1) printf("\n# %s: %s\n", __FILE__, __func__);
+      auto const rg = radial_grid::create_exponential_radial_grid(512, 2.0);
+      int const nr = rg->n, lmax = 0, nlm = pow2(1 + lmax);
+      auto const cmp = new double[nr];
+      for(double sigma = 0.5; sigma < 2.1; sigma *= 1.1) {
+          double qlm[nlm]; set(qlm, nlm, 0.); qlm[0] = 1.;
+          set(cmp, nr, 0.); // clear
+          add_or_project_compensators<0>(cmp, lmax, rg, qlm, sigma, 0); // add normalized compensator
+//        add_or_project_compensators<1>(qlm, lmax, rg, cmp, sigma, 0); // project
+//        if (echo > 0) printf("# %s: square-norm of normalized compensator with sigma = %g is %g\n", __func__, sigma, qlm[0]);
+          add_or_project_compensators<3>(qlm, lmax, rg, cmp, sigma, 0); // test normalization
+          if (echo > 0) printf("# %s: normalization of compensators with sigma = %g is %g\n", __func__, sigma, qlm[0]);
+      } // sigma
+      return 0;
+  } // test_compensator_normalization
+
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
@@ -1417,6 +1439,7 @@ namespace single_atom {
 
   status_t all_tests() {
     auto status = 0;
+    status += test_compensator_normalization();
     status += test();
     return status;
   } // all_tests

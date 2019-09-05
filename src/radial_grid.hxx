@@ -7,7 +7,6 @@
 typedef int status_t;
 
 namespace radial_grid {
-
   
   radial_grid_t* create_exponential_radial_grid( // returns a pointer to a new radial grid descriptor
       int const n, // number of grid points
