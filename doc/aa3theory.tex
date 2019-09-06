@@ -551,7 +551,8 @@ It is sampled on the same grid that is used to solve for core and valence states
 i.e.~it often features more than 2000 radial grid points.
 Using the sparsification method for path data by Ramer/Douglas and Peucker,
 we can reduce the number of radial support points below 500 (1000) points while
-the deviations are not larger than $10^{-6}$ ($10^{-11}$), c.f.~fig.~\ref{fig:}.
+the deviations are not larger than $10^{-6}$ ($10^{-11}$), 
+c.f.~fig.~\ref{fig:RamerDouglasPeucker_reduction}.
 
 
 From the self-consistent spherical potential, we compute the eigenenergies
@@ -678,6 +679,39 @@ and a new correction for extended very smooth compensators.
 The, the latter is added after solving the Poisson equation.
 After adding, we can make the projection with the more localized compensation charges.
 And then add the traditional $\bar V$ to get to the effective potential.
+
+
+
+\subsection{Communicating the potential shifts}\label{sec:multipole-shifts}
+Different spheres in the PAW framework communicate via the electrostatic
+potential which is to be evaluated in 3D for the smooth quantities
+and inside the spheres for both, smooth and true quantities.
+The charge deficits $q^a_{\ell m}$ inside each sphere are
+brought to the 3D grid with the help of localized smooth compensator charge densities 
+(see sec.~\ref{sec:compensator-radii}).
+%
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t single_atom.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/finding_electrostatic_multipole_shifts} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:multipole-shifts}
+  \caption{Smooth electrostatic potentials of an A-B dimer with ionization, here Al$^+$-P$^-$.
+  In the radial representation, the electrostatic problem is first solved disregarding boundary conditions (dotted lines).
+  Then, the radial solutions are shifted to match $v_{\ell m}$ as found by projection with the compensator shapes.
+  The shifted (solid lines) and a Bessel projection of the 3D solution match inside the spheres (radii 2 Bohr).}
+\end{figure}
+%
+%
+After solving for the 3D electrostatic potential $\tilde V\um{es}(\vec r)$,
+we can probe the value and derivatives of the potential at the nuclear site, $V\um{es}(\vec R^a)$,
+however, in order to avoid egg-box effects we
+probe by a projection to the charge compensator shape:
+$$ v^a_{\ell m} = \int d^3 \vec r \  \hat g_{\ell m}(\vec r) \tilde V\um{es}(\vec r) $$
+See fig.~\ref{fig:multipole-shifts} for an example.
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}

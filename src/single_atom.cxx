@@ -321,8 +321,8 @@ extern "C" {
                         cs.occupation = occ;
                         if (occ > 0) {
                             jcs = ics;
-                            if (echo > 0) printf("# %s %2d%c%6.1f E = %g\n", (as_valence[inl] < 0)?
-                                              "core   ":"valence", enn, ellchar[ell], occ, E);
+                            if (echo > 0) printf("# %s %2d%c%6.1f E = %g %s\n", (as_valence[inl] < 0)?
+                                              "core   ":"valence", enn, ellchar[ell], occ, E*eV,_eV);
                         } // occupied
                         if (as_valence[inl] < 0) {
                             enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
@@ -386,7 +386,7 @@ extern "C" {
                     vs.ell = ell;
                     vs.emm = emm_Degenerate;
                     vs.spin = spin_Degenerate;
-                    if (echo > 0) printf("# valence %2d%c%6.1f E = %g\n", enn, ellchar[ell], vs.occupation, E);
+                    if (echo > 0) printf("# valence %2d%c%6.1f E = %g %s\n", enn, ellchar[ell], vs.occupation, E*eV,_eV);
                     ++iln;
                 } // nrn
             } // ell
@@ -458,7 +458,7 @@ extern "C" {
             printf("\n## spherical parts: r, "
             "Zeff_tru(r), Zeff_smt(r)"
             ", r^2*rho_tru(r), r^2*rho_smt(r)"
-            ", zero_potential(r)"
+            ", zero_potential(r) in a.u."
             ":\n");
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
@@ -468,7 +468,7 @@ extern "C" {
                         , -potential[SMT][ir] //    \tilde Z_eff(r)
                         , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
                         , core_density[SMT][ir]*r*r*Y00*Y00
-                        , zero_potential[ir]*Y00
+                        , zero_potential[ir]*Y00 // not converted to eV
                       );
             } // ir
             printf("\n\n");
@@ -612,14 +612,14 @@ extern "C" {
             set(core_density[SMT], nrs, core_density[TRU] + nr_diff);
 
             auto const stat = pseudize_function(core_density[SMT], rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-            // alternatively, pseudize_function(core_density[SMT], rg[SMT], ir_cut[SMT], 3, 2); //
+            // alternatively, pseudize_function(core_density[SMT], rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
             if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", __func__, stat);
 
             if (0) { // plot the core densities
-                printf("\n## core densities: radius, smooth, true\n");
+                printf("\n## radius, smooth core density, true core density:\n");
                 for(int ir = 0; ir < nrs; ir += 2) {
                     printf("%g %g %g\n", rg[SMT]->r[ir], core_density[SMT][ir]
-                                             , core_density[TRU][ir + nr_diff]);
+                                                       , core_density[TRU][ir + nr_diff]);
                 } // ir backwards
                 printf("\n\n");
             } // plot
@@ -1090,10 +1090,10 @@ extern "C" {
             add_product(full_potential[ts], nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
             if (echo > -1) {
                 if (SMT == ts) printf("# local smooth electrostatic potential at origin is %g %s\n", Ves[0]*Y00*eV,_eV);
-                if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
+                if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", 
                                           Ves[1]*(rg[TRU]->r[1])*Y00, -Z);
                 if (SMT == ts) {
-                    printf("\n## local smooth electrostatic potential and augmented density:\n");
+                    printf("\n## local smooth electrostatic potential and augmented density in a.u.:\n");
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                         printf("%g %g %g\n", rg[SMT]->r[ir], Ves[ir]*Y00, aug_density[ir]*Y00);
                     }   printf("\n\n");
@@ -1102,7 +1102,6 @@ extern "C" {
             delete [] Ves;
         } // true and smooth
         if (echo > 6) printf("# local smooth augmented density at origin is %g a.u.\n", aug_density[0]*Y00);
-        
 
         // construct the zero_potential V_bar
         auto const V_smt = new double[rg[SMT]->n];
@@ -1243,7 +1242,7 @@ extern "C" {
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
-            if ((echo > 7)) printf("# hamiltonian elements for ilmn=%3d  ", ilmn);
+            if (echo > 7) printf("# hamiltonian elements in %s for ilmn=%3d  ", _eV, ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                 int const jlm = lm_index_list[jlmn];
                 if (ilm == jlm) {
@@ -1251,7 +1250,7 @@ extern "C" {
                     hamiltonian_lmn[ilmn*nlmn + jlmn] += ( kinetic_energy[iln*nln + jln][TRU]
                                                          - kinetic_energy[iln*nln + jln][SMT] )*Y00;
                 } // diagonal in lm, offdiagonal in nrn
-                if ((echo > 7)) printf(" %g", hamiltonian_lmn[ilmn*nlmn + jlmn]);
+                if ((echo > 7)) printf(" %g", hamiltonian_lmn[ilmn*nlmn + jlmn]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
         } // ilmn
@@ -1380,47 +1379,31 @@ namespace single_atom {
               a[ia] = new LiveAtom(Za[ia], false, ion[ia], 9);
           } // ia
       } // a has not been initialized
-      
-      if (nullptr != rho) {
-          int const nr2 = 1 << 12;
-          float const ar2 = 16.f;
-          for(int ia = 0; ia < na; ++ia) {
-              rho[ia] = new double[nr2];
-              a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
-          } // ia
-      } // get the smooth core densities
 
-      if (nullptr != rg) {
-          for(int ia = 0; ia < na; ++ia) {
-              rg[ia] = a[ia]->get_smooth_radial_grid();
-          } // ia
-      } // pointers to smooth radial grids
-      
-      if (nullptr != sigma_cmp) {
-          for(int ia = 0; ia < na; ++ia) {
-              sigma_cmp[ia] = a[ia]->sigma_compensator; // ToDo: use a getter function
-          } // ia
-      } // spreads of the compensators
-
-      if (nullptr != qlm) {
-          for(int ia = 0; ia < na; ++ia) {
-              set(qlm[ia], 1, a[ia]->qlm_compensator); // copy
-          } // ia
-      } // compensator multipoles
-
-      if (nullptr != vlm) {
-          for(int ia = 0; ia < na; ++ia) {
-              a[ia]->update_potential(.5f, vlm[ia], 9);
-          } // ia
-      } // electrostatic multipole shifts
-      
       if (na < 0) {
           for(int ia = 0; ia < -na; ++ia) {
               a[ia]->~LiveAtom(); // envoke destructor
           } // ia
-          delete[] a;
-          a = nullptr;
+          delete[] a; a = nullptr;
       } // cleanup
+      
+      for(int ia = 0; ia < na; ++ia) {
+        
+          if (nullptr != rho) {
+              int const nr2 = 1 << 12; float const ar2 = 16.f;
+              rho[ia] = new double[nr2];
+              a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
+          } // get the smooth core densities
+          
+          if (nullptr != rg) rg[ia] = a[ia]->get_smooth_radial_grid(); // pointers to smooth radial grids
+          
+          if (nullptr != sigma_cmp) sigma_cmp[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
+          
+          if (nullptr != qlm) set(qlm[ia], 1, a[ia]->qlm_compensator); // copy compensator multipoles
+          
+          if (nullptr != vlm) a[ia]->update_potential(.5f, vlm[ia], 9); // set electrostatic multipole shifts
+          
+      } // ia
 
       return 0;
   } // update
@@ -1448,7 +1431,7 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test(int const echo=9) {
-    if (echo > 0) printf("\n# %s: new struct live_atom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
+    if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
     // for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
