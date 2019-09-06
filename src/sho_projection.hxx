@@ -112,7 +112,7 @@ namespace sho_projection {
                      , real_t const values[] // input, grid array
                      , real_space_grid::grid_t<real_t,D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
-      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const coeff pointer
+      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
   } // sho_project
 
   // wrapper function

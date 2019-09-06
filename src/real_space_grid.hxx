@@ -9,6 +9,7 @@ typedef int status_t;
 
 namespace real_space_grid {
 
+  // ToDo: check if there is a real use for this templation with real_t and D0
   template<typename real_t, int D0> // D0: inner dimension, vector length
   class grid_t {
   private:

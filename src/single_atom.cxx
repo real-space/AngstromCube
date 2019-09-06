@@ -222,7 +222,10 @@ extern "C" {
 
       
   public:
-    LiveAtom(float const Z_nucleons, bool const transfer2valence=true, int const echo=0) : gaunt_init{false} { // constructor
+    LiveAtom(float const Z_nucleons
+            , bool const transfer2valence=true// results look slightly different in the shape of smooth potentials but matrix elements are the same
+            , float const ionization=0
+            , int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
         Z = Z_nucleons; // convert to float
         if (echo > 0) printf("# LiveAtom with %.1f nucleons\n", Z);
@@ -284,7 +287,7 @@ extern "C" {
         auto const r2rho = new double[nrt];
         ncorestates = 20;
         core_state = new core_level_t[ncorestates];
-        {   int ics = 0, jcs = -1; float ne = Z;
+        {   int ics = 0, jcs = -1; float ne = Z - ionization;
             for(int m = 0; m < 8; ++m) { // auxiliary number
                 int enn = (m + 1)/2;
                 for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
@@ -990,6 +993,7 @@ extern "C" {
         
         // account for Z protons in the nucleus and the missing charge in the smooth core density
         qlm_compensator[0] += Y00*(core_charge_deficit - Z);
+        if (echo > 5) printf("# compensator monopole charge is %g\n", qlm_compensator[0]/Y00);
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
         // construct the augmented density
@@ -1114,16 +1118,17 @@ extern "C" {
             if (echo > 5) printf("# %s potential parabola: V_smt(0) = %g, V_smt(R_cut) = %g %s\n", 
                                   __func__, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
             // analyze the zero potential
-            double vol = 0, Vint = 0, r2Vint = 0;
+            double vol = 0, Vint = 0, r1Vint = 0, r2Vint = 0;
             for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
                 auto const r  = rg[SMT]->r[ir];
                 auto const dV = rg[SMT]->r2dr[ir];
                 vol    +=                    dV;
                 Vint   += zero_potential[ir]*dV;
+                r1Vint += zero_potential[ir]*dV*r;
                 r2Vint += zero_potential[ir]*dV*pow2(r);
             } // ir
-            if (echo > 5) printf("# %s zero potential statistics = %g %g %s\n", 
-                        __func__, Vint/vol*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
+            if (echo > 5) printf("# %s zero potential statistics = %g %g %g %s\n", 
+                        __func__, Vint/vol*eV, r1Vint/(vol*r_cut)*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
                 // these numbers should be small since they indicate that V_bar is localized inside the sphere
                 // and how much V_smt deviates from V_tru ouside the sphere
         } // pseudization successful
@@ -1298,7 +1303,7 @@ extern "C" {
                 if ((ell < 4) && (0 == valence_state[ivs].nrn[SMT])) {
                     occ[ell] = valence_state[ivs].occupation;
                     if ((occ[ell] > 0) && (echo > 1))
-                    printf("# Set density matrix to be a pure %d%c-state with occupation %.3f\n", 
+                    printf("# Set valence density matrix to be a pure %d%c-state with occupation %.3f\n", 
                         valence_state[ivs].enn, ellchar[ell], occ[ell]);
                 } // matching enn-ell quantum numbers?
             } // ivs
@@ -1357,14 +1362,15 @@ namespace single_atom {
   // Maybe we should write a live_atom module first 
   //   (a PAW generator prepared for core level und partial wave update)
   
-  status_t update(float const Za[], int const na, double **rho, radial_grid_t **rg, double *sigma_cmp, double **vlm) {
+  status_t update(int const na, float const Za[], float const ion[], 
+                  double **rho, radial_grid_t **rg, double *sigma_cmp, double **qlm, double **vlm) {
 
       static LiveAtom **a=nullptr;
       
       if (nullptr == a) {
           a = new LiveAtom*[na];
           for(int ia = 0; ia < na; ++ia) {
-              a[ia] = new LiveAtom(Za[ia], false);
+              a[ia] = new LiveAtom(Za[ia], false, ion[ia], 9);
           } // ia
       } // a has not been initialized
       
@@ -1389,12 +1395,26 @@ namespace single_atom {
           } // ia
       } // spreads of the compensators
 
+      if (nullptr != qlm) {
+          for(int ia = 0; ia < na; ++ia) {
+              set(qlm[ia], 1, a[ia]->qlm_compensator); // copy
+          } // ia
+      } // compensator multipoles
+
       if (nullptr != vlm) {
           for(int ia = 0; ia < na; ++ia) {
               a[ia]->update_potential(.5f, vlm[ia], 9);
           } // ia
-      } // spreads of the compensators
+      } // electrostatic multipole shifts
       
+      if (na < 0) {
+          for(int ia = 0; ia < -na; ++ia) {
+              a[ia]->~LiveAtom(); // envoke destructor
+          } // ia
+          delete[] a;
+          a = nullptr;
+      } // cleanup
+
       return 0;
   } // update
   
@@ -1431,8 +1451,8 @@ namespace single_atom {
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
     { int const Z = 13; // 13:aluminum
-        if (echo > 1) printf("\n# Z = %d\n", Z);      
-        LiveAtom a(Z, false, echo);
+        if (echo > 1) printf("\n# Z = %d\n", Z);
+        LiveAtom a(Z, false, 0.f, echo); // envoke constructor
     } // Z
     return 0;
   } // test
