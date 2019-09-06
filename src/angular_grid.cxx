@@ -105,6 +105,20 @@ namespace angular_grid {
 
   } // get_grid
   
+  
+  status_t get_weights(double weights[], int const ellmax, int const echo) {
+      auto const g = get_grid(ellmax, echo);
+      if (nullptr != g) {
+          for(int i = 0; g->npoints; ++i) {
+              weights[i] = g->xyzw[i][3]; // copy out weights
+          } // i
+          return 0;
+      } // worked
+      if (echo > 0) printf("# failed to find an angular grid for ellmax= %d\n", ellmax);
+      return -1;
+  } // get_weights
+  
+  
 // ! cvw    icode=0:   (0,0,0) only                               ( 1 point)
 // ! cvw    icode=1:   (0,0,1) etc                                ( 6 points)
 // ! cvw    icode=2:   (0,a,a) etc, a=1/sqrt(2)                   (12 points)

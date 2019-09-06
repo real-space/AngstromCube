@@ -228,7 +228,7 @@ extern "C" {
             , int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
         Z = Z_nucleons; // convert to float
-        if (echo > 0) printf("# LiveAtom with %.1f nucleons\n", Z);
+        if (echo > 0) printf("# LiveAtom with %.1f nucleons, ionization=%g\n", Z, ionization);
         
         rg[TRU] = radial_grid::create_default_radial_grid(Z);
         
@@ -276,9 +276,12 @@ extern "C" {
         atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "pot/Zeff", -1, echo);
 
 //         // show the loaded Zeff(r)
-//         for(int ir = 0; ir < rg[TRU]->n; ++ir) {
-//             printf("%.15g %.15g\n", rg[TRU]->r[ir], -potential[TRU][ir]);
-//         } // ir
+//         if (echo > 0) {
+//            printf("\n## loaded Z_eff(r) function:\n");
+//            for(int ir = 0; ir < rg[TRU]->n; ++ir) {
+//                printf("%.15g %.15g\n", rg[TRU]->r[ir], -potential[TRU][ir]);
+//            } // ir
+//         } // echo
 
         int8_t as_valence[99];
         set(as_valence, 99, (int8_t)-1);
@@ -341,9 +344,9 @@ extern "C" {
         
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
-        if (echo > 2) printf("\n# initial core density has %g electrons\n", dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
+        if (echo > 2) printf("# initial core density has %g electrons\n", dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
 
-        if (echo > 5) { printf("\n# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n\n"); }
+        if (echo > 5) { printf("# enn_core_ell  "); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n"); }
 
         nvalencestates = (numax*(numax + 4) + 4)/4; // ToDo: new function in sho_tools::
         valence_state = new valence_level_t[nvalencestates];
@@ -452,11 +455,11 @@ extern "C" {
 
         // show the smooth and true potential
         if (true && (echo > 0)) {
-            printf("\n# spherical parts: r, "
+            printf("\n## spherical parts: r, "
             "Zeff_tru(r), Zeff_smt(r)"
             ", r^2*rho_tru(r), r^2*rho_smt(r)"
-            ", zero_potential(r):"
-            "\n");
+            ", zero_potential(r)"
+            ":\n");
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
                 printf("%g %g %g %g %g %g\n", r
@@ -613,7 +616,7 @@ extern "C" {
             if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", __func__, stat);
 
             if (0) { // plot the core densities
-                printf("# core densities: radius, smooth, true\n");
+                printf("\n## core densities: radius, smooth, true\n");
                 for(int ir = 0; ir < nrs; ir += 2) {
                     printf("%g %g %g\n", rg[SMT]->r[ir], core_density[SMT][ir]
                                              , core_density[TRU][ir + nr_diff]);
@@ -1019,7 +1022,7 @@ extern "C" {
             int const nr = rg[ts]->n, mr = align<2>(nr);
             // full_potential[ts][nlm*mr]; // memory layout
 
-            auto const on_grid = new double[npt*mr];
+            auto const on_grid = new double[2*npt*mr];
             // set(on_grid, npt*mr, 0.0); // clear
 
             // transform the lm-index into real-space 
@@ -1028,22 +1031,26 @@ extern "C" {
             angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
-            double Exc = 0;
             for(int ip = 0; ip < npt*mr; ++ip) {
                 double const rho = on_grid[ip];
                 double vxc = 0, exc = 0;
                 exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
                 on_grid[ip] = vxc;
-                Exc += rho*exc; // r^2 dr and angular grid weights missing here, ToDo:
+                on_grid[npt*mr + ip] = exc;
             } // ip
             // transform back to lm-index
             angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
+            auto const exc_lm = new double[nlm*mr];
+            angular_grid::transform(exc_lm, &on_grid[npt*mr], mr, ellmax, true);
             delete[] on_grid;
-            if ((echo > 6) && (SMT == ts)) printf("# local smooth XC potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
+            if ((echo > 6) && (SMT == ts)) printf("# local smooth exchange-correlation potential at origin is %g %s\n", full_potential[ts][0]*Y00*eV,_eV);
             if (echo > -1) {
                 auto const Edc00 = dot_product(nr, full_potential[ts], full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
-                printf("# double counting correction in %s 00 channel %.12g %s\n", (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+                printf("# double counting correction  in %s 00 channel %.12g %s\n", (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+                auto const Exc00 = dot_product(nr, exc_lm, full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
+                printf("# exchange-correlation energy in %s 00 channel %.12g %s\n", (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
             } // echo
+            delete[] exc_lm;
 
             // solve electrostatics inside the spheres
             auto   const Ves = new double[nlm*mr];
@@ -1086,7 +1093,7 @@ extern "C" {
                 if (TRU == ts) printf("# local true electrostatic potential*r at origin is %g a.u. (should match -Z=%.1f)\n", 
                                           Ves[1]*(rg[TRU]->r[1])*Y00, -Z);
                 if (SMT == ts) {
-                    printf("# local smooth electrostatic potential and augmented density:\n");
+                    printf("\n## local smooth electrostatic potential and augmented density:\n");
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                         printf("%g %g %g\n", rg[SMT]->r[ir], Ves[ir]*Y00, aug_density[ir]*Y00);
                     }   printf("\n\n");
@@ -1103,11 +1110,11 @@ extern "C" {
         set(V_smt, rg[SMT]->n, full_potential[TRU] + nr_diff); // copy the tail of the spherical part of the true potential
         set(zero_potential, rg[SMT]->n, 0.0); // init zero
         auto const df = Y00*eV; assert(df > 0); // display factor
-        if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n", 
+        if (echo > 5) printf("# %s: match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n", 
                     __func__, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][0 + ir_cut[TRU]]*df, _eV);
         auto const stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2);
         if (stat) {
-            if (echo > 0) printf("# %s Matching procedure for the potential parabola failed! info = %d\n", __func__, stat);
+            if (echo > 0) printf("# %s: Matching procedure for the potential parabola failed! info = %d\n", __func__, stat);
         } else {
 //             if (echo > -1) printf("# local smooth zero_potential:\n");
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -1115,7 +1122,7 @@ extern "C" {
 //                 if (echo > -1) printf("%g %g\n", rg[SMT]->r[ir], zero_potential[ir]*Y00);
             } // ir
 //             if (echo > -1) printf("\n\n");
-            if (echo > 5) printf("# %s potential parabola: V_smt(0) = %g, V_smt(R_cut) = %g %s\n", 
+            if (echo > 5) printf("# %s: potential parabola: V_smt(0) = %g, V_smt(R_cut) = %g %s\n", 
                                   __func__, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
             // analyze the zero potential
             double vol = 0, Vint = 0, r1Vint = 0, r2Vint = 0;
@@ -1127,12 +1134,12 @@ extern "C" {
                 r1Vint += zero_potential[ir]*dV*r;
                 r2Vint += zero_potential[ir]*dV*pow2(r);
             } // ir
-            if (echo > 5) printf("# %s zero potential statistics = %g %g %g %s\n", 
+            if (echo > 5) printf("# %s: zero potential statistics = %g %g %g %s\n", 
                         __func__, Vint/vol*eV, r1Vint/(vol*r_cut)*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
                 // these numbers should be small since they indicate that V_bar is localized inside the sphere
                 // and how much V_smt deviates from V_tru ouside the sphere
         } // pseudization successful
-        if (echo > 5) printf("# %s zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
+        if (echo > 5) printf("# %s: zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
             __func__, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT]->n - 1]*df, _eV);
         delete [] V_smt;
 

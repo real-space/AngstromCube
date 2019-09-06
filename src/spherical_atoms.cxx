@@ -30,7 +30,7 @@ namespace spherical_atoms {
   
   double constexpr Y00sq = pow2(solid_harmonics::Y00);
   
-  void print_stats(double const values[], real_space_grid::grid_t<double,1> &g) {
+  void print_stats(double const values[], real_space_grid::grid_t<double,1> &g, char const prefix=' ') {
       double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
       for(size_t i = 0; i < g.all(); ++i) {
           gmin = std::min(gmin, values[i]);
@@ -38,7 +38,7 @@ namespace spherical_atoms {
           gsum  += values[i];
           gsum2 += pow2(values[i]);
       } // i
-      printf("# grid stats min %g max %g integral %g avg %g\n", gmin, gmax, gsum*g.dV(), gsum/g.all());
+      printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*g.dV(), gsum/g.all());
   } // print_stats
 
   status_t init(float const ion=0.f, int const echo=0) {
@@ -94,7 +94,7 @@ namespace spherical_atoms {
       for(int ia = 0; ia < na; ++ia) {
           int const nr2 = 1 << 12; float const ar2 = 16.f;
           if (echo > 6) {
-              printf("# Real-space smooth core density for atom #%d:\n", ia);
+              printf("\n## Real-space smooth core density for atom #%d:\n", ia);
               for(int ir2 = 0; ir2 < nr2; ++ir2) {
                   double const r2 = ir2/ar2, r = std::sqrt(r2);
                   printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
@@ -103,7 +103,7 @@ namespace spherical_atoms {
           double q_added;
           stat += real_space_grid::add_function(rho, g, &q_added, rho_core[ia], nr2, ar2, center[ia], 9.f, Y00sq);
           if (echo > -1) {
-              printf("# after adding %g electrons smooth core density of atom #%d: ", q_added, ia);
+              printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
               print_stats(rho, g);
           } // echo
 //        qlm[ia][0] = -(q_added + ionization[ia])/Y00; // spherical compensator
@@ -119,7 +119,7 @@ namespace spherical_atoms {
           Edc += rho[i]*Vxc[i]; // double counting correction
       } // i
       Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
-      if (echo > -1) printf("# XC energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
+      if (echo > -1) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
 
       auto const Laplace_Ves = new double[g.all()];
       auto const         Ves = new double[g.all()];
@@ -127,7 +127,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       set(Ves, g.all(), 0.0);
       set(cmp, g.all(), 0.0);
-      if (1) { 
+      { // scope
           for(int ia = 0; ia < na; ++ia) {
               // todo: add the compensators
               double const sigma_compensator = sigma_cmp[ia];
@@ -140,6 +140,7 @@ namespace spherical_atoms {
                   auto const rho_cmp = new double[nr2];
                   if (echo > -1) printf("# compensator charge density of atom #%d:\n", ia);
                   double const sig2inv = -.5/pow2(sigma_compensator);
+                  if (echo > 3) printf("\n## radial function of the spherical compensator:\n");
                   for(int ir2 = 0; ir2 < nr2; ++ir2) {
                       double const r2 = ir2/ar2;
                       rho_cmp[ir2] = prefactor*std::exp(sig2inv*r2);
@@ -158,14 +159,14 @@ namespace spherical_atoms {
               }
               if (echo > -1) {
                   // report extremal values of the density on the grid
-                  printf("# after adding %g electrons compensator density for atom #%d:  ", qlm[ia][0]/Y00, ia);
+                  printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][0]/Y00, ia);
                   print_stats(cmp, g);
               } // echo
           } // ia
 
           // add compensators cmp to rho
           add_product(rho, g.all(), cmp, 1.);
-          printf("\n# augmented charge density grid stats: ");
+          printf("\n# augmented charge density grid stats:");
           print_stats(rho, g);
           
           int ng[3]; double reci[3][4]; 
@@ -190,7 +191,7 @@ namespace spherical_atoms {
 
           auto const fd = new finite_difference::finite_difference_t<double>(grid_spacing, 1, 12);
           stat += finite_difference::Laplacian(Laplace_Ves, Ves, g, *fd, -.25/constants::pi); // compute the Laplacian using high-order finite-differences
-      } // if
+      } // scope
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, nullptr, nullptr, vlm);
 
@@ -208,17 +209,16 @@ namespace spherical_atoms {
           auto const values = value_pointers[iptr];
       
           // report extremal values of what is stored on the grid
-          printf("\n# real-space grid stats: ");
-          print_stats(values, g);
+          printf("\n# real-space grid stats:"); print_stats(values, g);
 
           for(int ia = 0; ia < na; ++ia) {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
               float const dq = 1.f/16; int const nq = (int)(constants::pi/(grid_spacing*dq));
               auto const qc = new double[nq];
               
-              printf("\n\n\n# start bessel_projection:\n\n"); // DEBUG
+//            printf("\n\n# start bessel_projection:\n"); // DEBUG
               stat += real_space_grid::bessel_projection(qc, nq, dq, values, g, center[ia]);
-              printf("\n\n\n#   end bessel_projection.\n\n"); // DEBUG
+//            printf("\n# end bessel_projection.\n\n"); // DEBUG
 
               scale(qc, nq, pow2(solid_harmonics::Y00));
               
@@ -229,7 +229,7 @@ namespace spherical_atoms {
               } // iq
     
 //               if (echo > 6) {
-//                   printf("# Bessel coeff for atom #%d:\n", ia);
+//                   printf("\n## Bessel coeff for atom #%d:\n", ia);
 //                   for(int iq = 0; iq < nq; ++iq) {
 //                       printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
 //                   }   printf("\n\n");
@@ -238,15 +238,17 @@ namespace spherical_atoms {
               if (echo > 3) {
                   auto const rs = new double[rg[ia]->n];
                   bessel_transform::transform_s_function(rs, qc, *rg[ia], nq, dq, true); // transform back to real-space again
-                  printf("# Real-space projection for atom #%d:\n", ia);
+                  printf("\n## Real-space projection for atom #%d:\n", ia);
                   for(int ir = 0; ir < rg[ia]->n; ++ir) {
                       printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
                   }   printf("\n\n");
                   
                   if ((values == rho) || (values == Laplace_Ves)) {
                       bessel_transform::transform_s_function(rs, qcq2, *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
-                      printf("# Hartree potential computed by Bessel transform for atom #%d:\n", ia);
-                      for(int ir = 0; ir < rg[ia]->n; ++ir) { printf("%g %g\n", rg[ia]->r[ir], rs[ir]); } printf("\n\n");
+                      printf("\n## Hartree potential computed by Bessel transform for atom #%d:\n", ia);
+                      for(int ir = 0; ir < rg[ia]->n; ++ir) {
+                          printf("%g %g\n", rg[ia]->r[ir], rs[ir]); 
+                      }   printf("\n\n");
                   } // density
                   
                   delete[] rs;
@@ -280,7 +282,7 @@ namespace spherical_atoms {
 //           init(ion, echo);
 //       } // ion
 //       return 0; // experiment, see ionization_result.* files
-      return init(0.f, echo); // ionization of Al-P dimer by 3.0 electrons
+      return init(3.f, echo); // ionization of Al-P dimer by 3.0 electrons
   } // test_create_and_destroy
 
   status_t all_tests() {

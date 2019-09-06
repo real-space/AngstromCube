@@ -9,6 +9,8 @@ typedef int status_t;
 namespace angular_grid {
 
   angular_grid_t* get_grid(int const ellmax, int const echo=0);
+
+  status_t get_weights(double weights[], int const ellmax, int const echo=0);
   
   template<typename real_t>
   status_t transform(real_t out[], real_t const in[], int const stride, int const ellmax, bool const back=false, int const echo=0);
