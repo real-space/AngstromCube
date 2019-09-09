@@ -282,11 +282,11 @@ We will assume a Cartesian uniform grid here.
 Then, viable options would be
 \begin{itemize}
 %
-\item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically.
+\item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically. This may lead to a large cost prefactor.
 %
 \item for each pair $(a,a')$ which is not too distant
 compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
-at the common center and do the product and integral there.
+at the common center and do the product and integral there. Still costly.
 %
 \item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{sho} basis. 
 Then, we can insert a completeness relation:

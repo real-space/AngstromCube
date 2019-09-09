@@ -127,7 +127,7 @@ namespace overlap {
       
       // now add the terms coming from the inner derivative of exp(-.5*(x/sigma)^2)
       for(int d = 0; d < ncut - 1; ++d) {
-          dH[d + 1] -= H[d]*siginv*siginv; // times (x/sigma^2)
+          dH[d + 1] -= H[d]*siginv*siginv; // times -(x/sigma^2)
       } // d
 
   } // derive
@@ -195,15 +195,6 @@ namespace overlap {
       return result;
   } // overlap_of_two_Hermite_Gauss_functions
 
-  template<typename real_t>
-  void plot_poly(real_t const poly[], int const m, char const *name) {
-      printf("Poly %s : ", name);
-      for(int d = 0; d < m; ++d) {
-          printf("%.6f  ", poly[d]);
-      } // d
-      printf("\n");
-  } // plot
-  
   template<int ncut, typename real_t>
   status_t generate_density_tensor(real_t tensor[], int const echo=9, 
       float const sigma_over_sigmap_squared=2) {
@@ -303,6 +294,15 @@ namespace overlap {
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
+
+  template<typename real_t>
+  void plot_poly(real_t const poly[], int const m, char const *name) {
+      printf("Poly %s : ", name);
+      for(int d = 0; d < m; ++d) {
+          printf("%.6f  ", poly[d]);
+      } // d
+      printf("\n");
+  } // plot
 
   status_t test_Hermite_polynomials(int const echo=1) {
     // see if the first ncut Hermite polynomials are orthogonal and normalized

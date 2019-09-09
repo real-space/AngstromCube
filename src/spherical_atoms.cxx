@@ -53,6 +53,7 @@ namespace spherical_atoms {
       // project the total effective potential to each center using bessel_transforms
       // feed back spherical potential into single_atom
       
+      
       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
 //       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 5}, {2,0,0, 7}}; // B-N
@@ -60,6 +61,7 @@ namespace spherical_atoms {
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 3}, {2,0,0, 9}}; // Li-F
       float ionization[na]; ionization[0] = ion*(na - 1); ionization[na - 1] = -ionization[0];
       
+      // choose the box large enough not to require any periodic images
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
 //       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid

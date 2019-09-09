@@ -1239,10 +1239,11 @@ extern "C" {
         delete[] potential_ln;
 
         // add the kinetic_energy deficit to the hamiltonian
+        if (echo > 7) printf("\n# lmn-based Hamiltonian elements in %s:\n", _eV);
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
-            if (echo > 7) printf("# hamiltonian elements in %s for ilmn=%3d  ", _eV, ilmn);
+            if (echo > 7) printf("# hamiltonian elements for ilmn=%3d  ", ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                 int const jlm = lm_index_list[jlmn];
                 if (ilm == jlm) {
@@ -1260,7 +1261,20 @@ extern "C" {
         // Now transform _lmn quantities to Cartesian representations using sho_unitary
         transform_SHO(hamiltonian, matrix_stride, hamiltonian_lmn, nlmn, false);
         transform_SHO(    overlap, matrix_stride,     overlap_lmn, nlmn, false);
+        // Mind that this transform is unitary and assumes normalized SHO-projectors
+        // ... which requires proper normalization factors f(i)*f(j) to be multiplied in
 
+        if (echo > 2) {
+            printf("\n# SHO-transformed Hamiltonian elements in %s:\n", _eV);
+            for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+                printf("# hamiltonian elements for iSHO=%3d  ", iSHO);
+                for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
+                    printf(" %g", hamiltonian[iSHO*matrix_stride + jSHO]*eV);
+                } // jSHO
+                printf("\n");
+            } // iSHO
+        } // echo
+        
         delete[] hamiltonian_lmn;
         delete[] overlap_lmn;
     } // update_matrix_elements
