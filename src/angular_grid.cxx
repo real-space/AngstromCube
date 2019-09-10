@@ -1939,8 +1939,6 @@ cTeXit '. ', '' ! full stop and an extra empty line
     status += test_generation(1);
     status += test_orthogonality(4);
     status += test_numerical_Gaunt();
-    
-    status += solid_harmonics::test();
     solid_harmonics::cleanup<double>(); // free internal memory
     return status;
   } // all_tests

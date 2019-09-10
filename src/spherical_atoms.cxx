@@ -54,7 +54,8 @@ namespace spherical_atoms {
       // feed back spherical potential into single_atom
       
       
-      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
+//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
+      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 79}, {2,0,0, 81}}; // Au-Tl
 //       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 5}, {2,0,0, 7}}; // B-N
 //       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 3}}; // Li only
@@ -89,9 +90,19 @@ namespace spherical_atoms {
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na];
       double sigma_cmp[na]; //
-      stat += single_atom::update(na, Za, ionization, rho_core, rg, sigma_cmp, qlm);
+      stat += single_atom::update(na, Za, ionization, nullptr, rg, sigma_cmp);
+      auto const Laplace_Ves = new double[g.all()];
+      auto const         Ves = new double[g.all()];
+      auto const         cmp = new double[g.all()];
+      auto const         rho = new double[g.all()];
+      auto const        Vtot = new double[g.all()];
+      auto const         Vxc = new double[g.all()];
 
-      auto const rho = new double[g.all()];
+  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+      printf("\n\n#\n# SCF-Iteration #%d:\n#\n\n", scf_iteration);
+
+      stat += single_atom::update(na, Za, ionization, rho_core, nullptr, nullptr, qlm);
+
       set(rho, g.all(), 0.0); // clear
       for(int ia = 0; ia < na; ++ia) {
           int const nr2 = 1 << 12; float const ar2 = 16.f;
@@ -114,7 +125,6 @@ namespace spherical_atoms {
 //           printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][0]*Y00);
       } // ia
 
-      auto const Vxc = new double[g.all()];
       double Exc = 0, Edc = 0;
       for(size_t i = 0; i < g.all(); ++i) {
           Exc += rho[i]*exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
@@ -123,10 +133,6 @@ namespace spherical_atoms {
       Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
       if (echo > -1) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
 
-      auto const Laplace_Ves = new double[g.all()];
-      auto const         Ves = new double[g.all()];
-      auto const         cmp = new double[g.all()];
-      auto const        Vtot = new double[g.all()];
       set(Ves, g.all(), 0.0);
       set(cmp, g.all(), 0.0);
       { // scope
@@ -170,7 +176,7 @@ namespace spherical_atoms {
           add_product(rho, g.all(), cmp, 1.);
           printf("\n# augmented charge density grid stats:");
           print_stats(rho, g.all(), g.dV());
-          
+
           int ng[3]; double reci[3][4]; 
           for(int d = 0; d < 3; ++d) { 
               ng[d] = g.dim(d);
@@ -198,6 +204,9 @@ namespace spherical_atoms {
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, nullptr, nullptr, vlm);
 
       set(Vtot, g.all(), Vxc); add_product(Vtot, g.all(), Ves, 1.);
+      
+  } // scf_iteration
+      
       
       double* const value_pointers[] = {Ves, rho, Laplace_Ves, cmp, Vxc, Vtot};
 //       values = Ves; // analyze the electrostatic potential
@@ -284,7 +293,8 @@ namespace spherical_atoms {
 //           init(ion, echo);
 //       } // ion
 //       return 0; // experiment, see ionization_result.* files
-      return init(3.f, echo); // ionization of Al-P dimer by 3.0 electrons
+//       return init(3.f, echo); // ionization of Al-P dimer by 3.0 electrons
+      return init(.7f, echo); // ionization of Au-Tl dimer by 0.7 electrons
   } // test_create_and_destroy
 
   status_t all_tests() {

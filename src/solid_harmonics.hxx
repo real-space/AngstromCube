@@ -168,14 +168,25 @@ namespace solid_harmonics {
   inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
   inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
 
-  inline int test(int const echo=0) { // test interal consistency of find_-functions
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+#else // NO_UNIT_TESTS
+
+  inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
       for(int lm = -3; lm < 64; ++lm) {
           int const ell = find_ell(lm), emm = find_emm(lm, ell);
           if (echo > 0) printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
           assert(lm_index(ell, emm) == lm);
       } // lm
       return 0;
-  } // test
-  
+  } // test_indices
+
+  inline status_t all_tests(int const echo=3) {
+    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+    auto status = 0;
+    status += test_indices(echo);
+    return status;
+  } // all_tests
+#endif // NO_UNIT_TESTS  
   
 } // namespace solid_harmonics

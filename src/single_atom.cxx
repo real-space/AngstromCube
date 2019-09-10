@@ -228,7 +228,7 @@ extern "C" {
             , int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
         Z = Z_nucleons; // convert to float
-        if (echo > 0) printf("# LiveAtom with %.1f nucleons, ionization=%g\n", Z, ionization);
+        if (echo > 0) printf("\n\n#\n# LiveAtom with %.1f nucleons, ionization=%g\n", Z, ionization);
         
         rg[TRU] = radial_grid::create_default_radial_grid(Z);
         
@@ -321,7 +321,7 @@ extern "C" {
                         cs.occupation = occ;
                         if (occ > 0) {
                             jcs = ics;
-                            if (echo > 0) printf("# %s %2d%c%6.1f E = %g %s\n", (as_valence[inl] < 0)?
+                            if (echo > 0) printf("# %s %2d%c%6.1f E= %g %s\n", (as_valence[inl] < 0)?
                                               "core   ":"valence", enn, ellchar[ell], occ, E*eV,_eV);
                         } // occupied
                         if (as_valence[inl] < 0) {
@@ -996,7 +996,7 @@ extern "C" {
         
         // account for Z protons in the nucleus and the missing charge in the smooth core density
         qlm_compensator[0] += Y00*(core_charge_deficit - Z);
-        if (echo > 5) printf("# compensator monopole charge is %g\n", qlm_compensator[0]/Y00);
+        if (echo > 5) printf("# compensator monopole charge is %g electrons\n", qlm_compensator[0]/Y00);
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
         // construct the augmented density
@@ -1415,7 +1415,10 @@ namespace single_atom {
           
           if (nullptr != qlm) set(qlm[ia], 1, a[ia]->qlm_compensator); // copy compensator multipoles
           
-          if (nullptr != vlm) a[ia]->update_potential(.5f, vlm[ia], 9); // set electrostatic multipole shifts
+          if (nullptr != vlm) { 
+              a[ia]->update_potential(.5f, vlm[ia], 9); // set electrostatic multipole shifts
+              a[ia]->update_density(.5f, 9);
+          } //  vlm
           
       } // ia
 
@@ -1453,8 +1456,8 @@ namespace single_atom {
 //     { int const Z = 2; // 2:helium
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
-//     { int const Z = 79; // 79:gold
-    { int const Z = 13; // 13:aluminum
+    { int const Z = 79; // 79:gold
+//     { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);
         LiveAtom a(Z, false, 0.f, echo); // envoke constructor
     } // Z

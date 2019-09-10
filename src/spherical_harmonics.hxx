@@ -128,6 +128,16 @@ namespace spherical_harmonics {
       return;
   } // Ylm
 
-//   int all_tests();
-  
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+#else // NO_UNIT_TESTS
+
+  inline status_t all_tests(int const echo=3) {
+    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+    auto status = 0;
+    printf("\n# %s    no test implemented!\n\n", __FILE__);
+    return status;
+  } // all_tests
+#endif // NO_UNIT_TESTS
+
 } // namespace spherical_harmonics

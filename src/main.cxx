@@ -3,18 +3,21 @@
 #include <string> // std::string
 #include <cassert> // assert
 
-#include "element_config.hxx" // all_tests
+typedef int status_t;
+
+#include "recorded_warnings.hxx" // all_tests
 #include "hermite_polynomial.hxx" // all_tests
 #include "radial_eigensolver.hxx" // all_tests
 #include "radial_integrator.hxx" // all_tests
 #include "finite_difference.hxx" // all_tests
-#include "recorded_warnings.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
 #include "bessel_transform.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
 #include "fourier_poisson.hxx" // all_tests
 #include "spherical_atoms.hxx" // all_tests
+#include "solid_harmonics.hxx" // all_tests
 #include "sho_projection.hxx" // all_tests
+#include "element_config.hxx" // all_tests
 #include "angular_grid.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
@@ -24,6 +27,7 @@
 #include "sho_tools.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
 #include "overlap.hxx" // all_tests
+#include "spherical_harmonics.hxx" // no test implemented
 
 #include "recorded_warnings.hxx" // show_warnings, clear_warnings
 
@@ -37,7 +41,7 @@
       std::vector<std::pair<std::string,int>> run;
       { // testing scope
 #define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
-                           { run.push_back(make_pair(std::string(NAME), FUN())); }
+                        { run.push_back(make_pair(std::string(NAME), FUN())); }
           module_test("recorded_warnings.",   recorded_warnings::all_tests);
           module_test("hermite_polynomial.", hermite_polynomial::all_tests);
           module_test("radial_eigensolver.", radial_eigensolver::all_tests);
@@ -48,8 +52,9 @@
           module_test("real_space_grid.",       real_space_grid::all_tests);
           module_test("fourier_poisson.",       fourier_poisson::all_tests);
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
-          module_test("element_config.",         element_config::all_tests);
+          module_test("solid_harmonics.",       solid_harmonics::all_tests);
           module_test("sho_projection.",         sho_projection::all_tests);
+          module_test("element_config.",         element_config::all_tests);
           module_test("angular_grid.",             angular_grid::all_tests);
           module_test("radial_grid.",               radial_grid::all_tests);
           module_test("single_atom.",               single_atom::all_tests);
