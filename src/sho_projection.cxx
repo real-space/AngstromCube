@@ -19,7 +19,7 @@ namespace sho_projection {
   status_t test_orthogonality(int const echo=1) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
-      real_space_grid::grid_t<real_t,1> g(dims);
+      real_space_grid::grid_t<1> g(dims);
       auto const values = new real_t[g.all()];
       set(values, g.all(), 0.0);
       g.set_grid_spacing(0.45);

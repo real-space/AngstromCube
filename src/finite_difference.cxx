@@ -56,7 +56,7 @@ namespace finite_difference {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           finite_difference_t<real_t> fd(h, bc, nn);
           int dims[] = {0,0,0}; dims[dir] = 127 + dir;
-          real_space_grid::grid_t<real_t,1> g(dims);
+          real_space_grid::grid_t<1> g(dims);
           double const k = (1 + dir)*2*constants::pi/g.dim(dir);
           auto const values = new real_t[g.all()];
           for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
