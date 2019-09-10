@@ -54,8 +54,8 @@ namespace spherical_atoms {
       // feed back spherical potential into single_atom
       
       
-//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
-      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 79}, {2,0,0, 81}}; // Au-Tl
+      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
+//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 79}, {2,0,0, 81}}; // Au-Tl
 //       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
 //       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 5}, {2,0,0, 7}}; // B-N
 //       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 3}}; // Li only
@@ -98,7 +98,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 2; ++scf_iteration) {
       printf("\n\n#\n# SCF-Iteration #%d:\n#\n\n", scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, rho_core, nullptr, nullptr, qlm);
@@ -293,8 +293,8 @@ namespace spherical_atoms {
 //           init(ion, echo);
 //       } // ion
 //       return 0; // experiment, see ionization_result.* files
-//       return init(3.f, echo); // ionization of Al-P dimer by 3.0 electrons
-      return init(.7f, echo); // ionization of Au-Tl dimer by 0.7 electrons
+      return init(1.5f, echo); // ionization of Al-P dimer by 1.5 electrons
+//       return init(.7f, echo); // ionization of Au-Tl dimer by 0.7 electrons
   } // test_create_and_destroy
 
   status_t all_tests() {

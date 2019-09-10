@@ -1005,7 +1005,7 @@ extern "C" {
             set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], qlm_compensator, sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
-            if (echo > 5) printf("# augmented density has %g electrons, zero expected\n", aug_charge/Y00); // this value should be small
+            if (echo > 5) printf("# augmented density shows an ionization of %g electrons\n", aug_charge/Y00); // this value should be small
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
             if (echo > 5) printf("# true density has %g electrons\n", tru_charge/Y00); // this value should be of the order of Z
