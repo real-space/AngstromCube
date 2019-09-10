@@ -64,8 +64,8 @@ namespace spherical_atoms {
       
       // choose the box large enough not to require any periodic images
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
-//       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
-      int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
+      int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
+//       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
       real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(grid_spacing);
       
@@ -98,7 +98,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 2; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
       printf("\n\n#\n# SCF-Iteration #%d:\n#\n\n", scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, rho_core, nullptr, nullptr, qlm);
