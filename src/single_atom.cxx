@@ -1261,7 +1261,7 @@ extern "C" {
         // Now transform _lmn quantities to Cartesian representations using sho_unitary
         transform_SHO(hamiltonian, matrix_stride, hamiltonian_lmn, nlmn, false);
         transform_SHO(    overlap, matrix_stride,     overlap_lmn, nlmn, false);
-        // Mind that this transform is unitary and assumes normalized SHO-projectors
+        // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in
 
         if (echo > 2) {
@@ -1363,30 +1363,13 @@ extern "C" {
 
 
 namespace single_atom {
-  // this module allows to compute a full PAW calculation on a radial grid, 
-  // i.e. we assume radial symmetry of density and potential and thus 
-  // we can solve all equations on 1D radial grids.
-  
-  // Potential radial basis functions:
-  //  * grid points
-  //  * Bessel functions or 
-  //  * radial SHO eigenfunctions
-
-  // What is needed?
-  //  * PAW construction of smooth partial waves (SHO-scheme), see ReSpawN or juRS
-  //  * projection coefficients
-  //  * Diagonalizer: LAPACK dsygv.f
-  //  * self-consistency, e.g. by potential mixing
-  // We have only up to 4 wave functions: s, p, d and f
-  // We have only a monopole charge compensator (Gaussian)
-  // Maybe we should write a live_atom module first 
-  //   (a PAW generator prepared for core level und partial wave update)
   
   status_t update(int const na, float const Za[], float const ion[], 
-                  double **rho, radial_grid_t **rg, double *sigma_cmp, double **qlm, double **vlm) {
+                  radial_grid_t **rg, double *sigma_cmp,
+                  double **rho, double **qlm, double **vlm) {
 
       static LiveAtom **a=nullptr;
-      
+
       if (nullptr == a) {
           a = new LiveAtom*[na];
           for(int ia = 0; ia < na; ++ia) {

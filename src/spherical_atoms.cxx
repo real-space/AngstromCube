@@ -90,7 +90,7 @@ namespace spherical_atoms {
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na];
       double sigma_cmp[na]; //
-      stat += single_atom::update(na, Za, ionization, nullptr, rg, sigma_cmp);
+      stat += single_atom::update(na, Za, ionization, rg, sigma_cmp);
       auto const Laplace_Ves = new double[g.all()];
       auto const         Ves = new double[g.all()];
       auto const         cmp = new double[g.all()];
@@ -101,7 +101,7 @@ namespace spherical_atoms {
   for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
       printf("\n\n#\n# SCF-Iteration #%d:\n#\n\n", scf_iteration);
 
-      stat += single_atom::update(na, Za, ionization, rho_core, nullptr, nullptr, qlm);
+      stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
 
       set(rho, g.all(), 0.0); // clear
       for(int ia = 0; ia < na; ++ia) {
@@ -274,6 +274,8 @@ namespace spherical_atoms {
       delete[] Ves;
       delete[] Vtot;
       delete[] Laplace_Ves;
+      delete[] rho;
+      delete[] cmp;
       for(int ia = 0; ia < na; ++ia) {
           delete[] rho_core[ia]; // has been allocated in single_atom::update()
       } // ia
@@ -288,13 +290,7 @@ namespace spherical_atoms {
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=5) {
-//       for(float ion = 1.0; ion >= -.01; ion -= 0.1) {
-//           printf("\n\n\n#\n# Ionization = %g\n\n", ion);
-//           init(ion, echo);
-//       } // ion
-//       return 0; // experiment, see ionization_result.* files
       return init(1.5f, echo); // ionization of Al-P dimer by 1.5 electrons
-//       return init(.7f, echo); // ionization of Au-Tl dimer by 0.7 electrons
   } // test_create_and_destroy
 
   status_t all_tests() {
