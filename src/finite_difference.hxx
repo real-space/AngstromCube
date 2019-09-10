@@ -3,7 +3,7 @@
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
 
-#include "real_space_grid.hxx" // grid_t
+#include "real_space_grid.hxx" // grid_t<D0>
 
 typedef int status_t;
 
@@ -203,7 +203,7 @@ namespace finite_difference {
   
   
   template<typename real_t, int D0>
-  status_t Laplacian(real_t out[], real_t const in[], real_space_grid::grid_t<real_t,D0> const &g, 
+  status_t Laplacian(real_t out[], real_t const in[], real_space_grid::grid_t<D0> const &g, 
                      finite_difference_t<real_t> const &fd, double const factor=1) {
       int const n16 = 16; // max number of finite difference neighbors
       int* list[3];

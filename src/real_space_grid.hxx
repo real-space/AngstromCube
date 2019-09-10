@@ -9,8 +9,7 @@ typedef int status_t;
 
 namespace real_space_grid {
 
-  // ToDo: check if there is a real use for this templation with real_t and D0
-  template<typename real_t, int D0> // D0: inner dimension, vector length
+  template<int D0> // D0: inner dimension, vector length
   class grid_t {
   private:
       uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
@@ -24,8 +23,8 @@ namespace real_space_grid {
           dims[3] = std::max(1, dim_outer);
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (nnumbers > 0) {
-              printf("# grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte\n", 
-                  dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t));
+              printf("# grid with %d * %d x %d x %d * %d = %.6f M numbers\n", 
+                  dims[3], dims[2], dims[1], dims[0], D0, nnumbers*1e-6);
           } else {
               printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n",
                       D0, dims[0], dims[1], dims[2], dims[3]);
@@ -34,8 +33,8 @@ namespace real_space_grid {
 
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
-          printf("# release a grid with %d * %d x %d x %d * %d real_%ld = %.6f GByte\n",
-              dims[3], dims[2], dims[1], dims[0], D0, sizeof(real_t), nnumbers*1e-9*sizeof(real_t));
+          printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
+              dims[3], dims[2], dims[1], dims[0], D0, nnumbers*1e-6);
       } // destructor
       
       status_t set_grid_spacing(float const hx, float const hy=-1, float const hz=-1) {
@@ -61,7 +60,7 @@ namespace real_space_grid {
   
   
   template<typename real_t, int D0> // inner dimension
-  status_t add_function(real_t values[], grid_t<real_t,D0> const &g, real_t added[], //
+  status_t add_function(real_t values[], grid_t<D0> const &g, real_t added[], //
                         double const r2coeff[], int const ncoeff, float const hcoeff,
                         double const center[3]=nullptr, float const rcut=-1, double const factor=1) {
   // Add a spherically symmetric regular function to the grid.
@@ -126,7 +125,7 @@ namespace real_space_grid {
 
   template<typename real_t, int D0> // inner dimension
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
-                real_t const values[], grid_t<real_t,D0> const &g, double const center[3]=nullptr, 
+                real_t const values[], grid_t<D0> const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
       assert(D0 == g.dim('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);

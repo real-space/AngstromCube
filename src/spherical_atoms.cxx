@@ -30,15 +30,15 @@ namespace spherical_atoms {
   
   double constexpr Y00sq = pow2(solid_harmonics::Y00);
   
-  void print_stats(double const values[], real_space_grid::grid_t<double,1> &g, char const prefix=' ') {
+  void print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
       double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
-      for(size_t i = 0; i < g.all(); ++i) {
+      for(size_t i = 0; i < all; ++i) {
           gmin = std::min(gmin, values[i]);
           gmax = std::max(gmax, values[i]);
           gsum  += values[i];
           gsum2 += pow2(values[i]);
       } // i
-      printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*g.dV(), gsum/g.all());
+      printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*dV, gsum/all);
   } // print_stats
 
   status_t init(float const ion=0.f, int const echo=0) {
@@ -65,7 +65,7 @@ namespace spherical_atoms {
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
 //       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
-      real_space_grid::grid_t<double,1> g(dims);
+      real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(grid_spacing);
       
       double *qlm[na];
@@ -106,7 +106,7 @@ namespace spherical_atoms {
           stat += real_space_grid::add_function(rho, g, &q_added, rho_core[ia], nr2, ar2, center[ia], 9.f, Y00sq);
           if (echo > -1) {
               printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
-              print_stats(rho, g);
+              print_stats(rho, g.all(), g.dV());
           } // echo
 //        qlm[ia][0] = -(q_added + ionization[ia])/Y00; // spherical compensator
           printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][0]/Y00);
@@ -162,14 +162,14 @@ namespace spherical_atoms {
               if (echo > -1) {
                   // report extremal values of the density on the grid
                   printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][0]/Y00, ia);
-                  print_stats(cmp, g);
+                  print_stats(cmp, g.all(), g.dV());
               } // echo
           } // ia
 
           // add compensators cmp to rho
           add_product(rho, g.all(), cmp, 1.);
           printf("\n# augmented charge density grid stats:");
-          print_stats(rho, g);
+          print_stats(rho, g.all(), g.dV());
           
           int ng[3]; double reci[3][4]; 
           for(int d = 0; d < 3; ++d) { 
@@ -211,7 +211,7 @@ namespace spherical_atoms {
           auto const values = value_pointers[iptr];
       
           // report extremal values of what is stored on the grid
-          printf("\n# real-space grid stats:"); print_stats(values, g);
+          printf("\n# real-space grid stats:"); print_stats(values, g.all(), g.dV());
 
           for(int ia = 0; ia < na; ++ia) {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
