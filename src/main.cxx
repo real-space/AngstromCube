@@ -11,9 +11,11 @@ typedef int status_t;
 #include "boundary_condition.hxx" // all_tests
 #include "radial_integrator.hxx" // all_tests
 #include "finite_difference.hxx" // all_tests
+#include "geometry_analysis.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
 #include "bessel_transform.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
+#include "chemical_symbol.hxx" // all_tests
 #include "fourier_poisson.hxx" // all_tests
 #include "spherical_atoms.hxx" // all_tests
 #include "solid_harmonics.hxx" // all_tests
@@ -48,10 +50,12 @@ typedef int status_t;
           module_test("radial_eigensolver.", radial_eigensolver::all_tests);
           module_test("boundary_condition.", boundary_condition::all_tests);
           module_test("finite_difference.",   finite_difference::all_tests);
+          module_test("geometry_analysis.",   geometry_analysis::all_tests);
           module_test("radial_integrator.",   radial_integrator::all_tests);
           module_test("radial_potential.",     radial_potential::all_tests);
           module_test("bessel_transform.",     bessel_transform::all_tests);
           module_test("real_space_grid.",       real_space_grid::all_tests);
+          module_test("chemical_symbol.",       chemical_symbol::all_tests);
           module_test("fourier_poisson.",       fourier_poisson::all_tests);
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
           module_test("solid_harmonics.",       solid_harmonics::all_tests);
