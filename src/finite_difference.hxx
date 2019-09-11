@@ -4,6 +4,7 @@
 #include <cstdio> // printf
 
 #include "real_space_grid.hxx" // grid_t<D0>
+#include "boundary_condition.hxx" // *_Boundary
 
 typedef int status_t;
 
@@ -216,14 +217,14 @@ namespace finite_difference {
           for(int i = 0; i < nh; ++i) list[d][i] = -1; // init as non-existing
           for(int i = 0; i < n; ++i) list[d][n16 + i] = i; // itself
           // lower boundary
-          if (1 == fd.bc[d][0]) { // periodic BC
+          if (Periodic_Boundary == fd.bc[d][0]) { // periodic BC
               for(int i = n16 - nf; i < n16; ++i) list[d][i] = n + i - n16; // wrap around
-          } else if (-1 == fd.bc[d][0]) { // mirror BC
+          } else if (Mirrored_Boundary == fd.bc[d][0]) { // mirror BC
               for(int i = n16 - nf; i < n16; ++i) list[d][i] = n16 - 1 - i; // wrap around and mirror
           } // else open BC, list[:] = -1
-          if (1 == fd.bc[d][1]) { // periodic BC
+          if (Periodic_Boundary == fd.bc[d][1]) { // periodic BC
               for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = i; // wrap around
-          } else if (-1 == fd.bc[d][1]) { // mirror BC
+          } else if (Mirrored_Boundary == fd.bc[d][1]) { // mirror BC
               for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = n - 1 - i; // wrap around and mirror
           } // else open BC, list[:] = -1
           if (0) { // DEBUG

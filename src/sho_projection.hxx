@@ -13,6 +13,10 @@ typedef int status_t;
 
 namespace sho_projection {
 
+  
+  template<typename real_t>
+  inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
+  
   template<typename real_t, int D0, int PROJECT0_OR_ADD1>
   status_t sho_project_or_add(real_t coeff[] // result if projecting, coefficients are zyx-ordered
                      , int const numax // how many
@@ -22,7 +26,7 @@ namespace sho_projection {
                      , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4) { //
       assert( 1 == D0 );
-      double const rcut = 9*sigma;
+      double const rcut = truncation_radius(sigma, numax);
       double const sigma_inv = 1./sigma;
       // determine the limitations of the projection domain
       int off[3], end[3], num[3];

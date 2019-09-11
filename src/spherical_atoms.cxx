@@ -141,7 +141,7 @@ namespace spherical_atoms {
               double const sigma_compensator = sigma_cmp[ia];
               double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
               if (0) { // also works
-                  float const rcut = 9.2*sigma_compensator;
+                  float const rcut = sho_projection::truncation_radius(sigma_compensator, 0);
                   float const ar2 = 64.f;
                   int const nr2 = (int)std::ceil(ar2*pow2(rcut));
                   if (echo > -1) printf("# use r^2-grid with r^2 = %.1f*i with %d points for compensator of atom #%d\n", ar2, nr2, ia);

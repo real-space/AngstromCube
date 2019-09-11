@@ -8,6 +8,7 @@ typedef int status_t;
 #include "recorded_warnings.hxx" // all_tests
 #include "hermite_polynomial.hxx" // all_tests
 #include "radial_eigensolver.hxx" // all_tests
+#include "boundary_condition.hxx" // all_tests
 #include "radial_integrator.hxx" // all_tests
 #include "finite_difference.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
@@ -45,6 +46,7 @@ typedef int status_t;
           module_test("recorded_warnings.",   recorded_warnings::all_tests);
           module_test("hermite_polynomial.", hermite_polynomial::all_tests);
           module_test("radial_eigensolver.", radial_eigensolver::all_tests);
+          module_test("boundary_condition.", boundary_condition::all_tests);
           module_test("finite_difference.",   finite_difference::all_tests);
           module_test("radial_integrator.",   radial_integrator::all_tests);
           module_test("radial_potential.",     radial_potential::all_tests);
