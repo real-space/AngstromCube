@@ -205,8 +205,9 @@ namespace finite_difference {
   template<typename real_t, int D0>
   status_t Laplacian(real_t out[], real_t const in[], real_space_grid::grid_t<D0> const &g, 
                      finite_difference_t<real_t> const &fd, double const factor=1) {
+
       int const n16 = 16; // max number of finite difference neighbors
-      int* list[3];
+      int* list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
       for(int d = 0; d < 3; ++d) {
           int const n = g.dim(d);
           int const nf = fd.nn[d];
@@ -234,14 +235,14 @@ namespace finite_difference {
           } // show indirection list
       } // spatial direction d
 
-      assert(1 == D0); // no vectorization active
-
       real_t const scale_factor = factor;
       for(int z = 0; z < g.dim('z'); ++z) {
           for(int y = 0; y < g.dim('y'); ++y) {
               for(int x = 0; x < g.dim('x'); ++x) {
                   int const i_zyx = (z*g.dim('y') + y)*g.dim('x') + x;
-                  out[i_zyx] = 0; // init result
+                  for(int i0 = 0; i0 < D0; ++i0) { // vectorization
+                      out[i_zyx*D0 + i0] = 0; // init result
+                  } // i0
 
                   for(int ddir = 0; ddir < 3; ++ddir) {
                       int zyx[3] = {x, y, z};
@@ -252,16 +253,24 @@ namespace finite_difference {
                           if (index >= 0) {
                               zyx[ddir] = index;
                               int const zyx_prime = (zyx[2]*g.dim('y') + zyx[1])*g.dim('x') + zyx[0];
-                              out[i_zyx] += in[zyx_prime] * fd.c2nd[ddir][std::abs(jmi)];
+                              auto const coeff = fd.c2nd[ddir][std::abs(jmi)];
+                              for(int i0 = 0; i0 < D0; ++i0) { // vectorization
+                                  out[i_zyx*D0 + i0] += in[zyx_prime*D0 + i0] * coeff;
+                              } // i0
                           } // index exists
                       } // jmi
                   } // ddir direction of the derivative
-                  out[i_zyx] *= scale_factor;
+                  for(int i0 = 0; i0 < D0; ++i0) { // vectorization
+                      out[i_zyx*D0 + i0] *= scale_factor;
+                  } // i0
 
               } // x
           } // y
       } // z
 
+      for(int d = 0; d < 3; ++d) {
+          delete[] list[d];
+      } // d
       return 0; // success
   } // Laplacian
   

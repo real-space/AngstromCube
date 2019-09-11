@@ -59,7 +59,7 @@ namespace spherical_harmonics {
               } // l
           } // scope to full ynorm with values
           ellmaxd = ellmax; // set static variable
-      } else if (ellmax < 0 && nullptr != ynorm) {
+      } else if ((ellmax < 0) && (nullptr != ynorm)) {
           delete[] ynorm; // cleanup
       }
 

@@ -19,7 +19,7 @@
 #include "sho_tools.hxx" // lnm_index, nSHO
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product
+#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
 #include "bessel_transform.hxx" // transform_to_r2_grid
 
 // #define FULL_DEBUG
@@ -700,8 +700,8 @@ extern "C" {
             double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
             if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth %g and %g (smooth numerically)\n", 
                __func__, vs.enn, ellchar[vs.ell], tru_norm, smt_norm, smt_norm_numerical);
-            kinetic_energy[nln*iln + iln][TRU] = tru_kinetic_E; // set diagonal entry, offdiagonals still missing
-            kinetic_energy[nln*iln + iln][SMT] = smt_kinetic_E; // set diagonal entry, offdiagonals still missing
+            kinetic_energy[nln*iln + iln][TRU] = tru_kinetic_E; // set diagonal entry, offdiagonals still missing, ToDo
+            kinetic_energy[nln*iln + iln][SMT] = smt_kinetic_E; // set diagonal entry, offdiagonals still missing, ToDo
             if (echo > 0) printf("# %s %d%c-valence state has kinetic energy %g and (smooth) %g %s, norm deficit = %g electrons\n", 
                __func__, vs.enn, ellchar[vs.ell], tru_kinetic_E*eV, smt_kinetic_E*eV,_eV, tru_norm - smt_norm);
            
@@ -1262,7 +1262,7 @@ extern "C" {
         transform_SHO(hamiltonian, matrix_stride, hamiltonian_lmn, nlmn, false);
         transform_SHO(    overlap, matrix_stride,     overlap_lmn, nlmn, false);
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
-        // ... which requires proper normalization factors f(i)*f(j) to be multiplied in
+        // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
 
         if (echo > 2) {
             printf("\n# SHO-transformed Hamiltonian elements in %s:\n", _eV);
@@ -1280,7 +1280,7 @@ extern "C" {
     } // update_matrix_elements
     
     void set_pure_density_matrix(double density_matrix[], float const occ_spdf[4]=nullptr, int const echo=0) {
-        float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) std::copy(occ_spdf, 4+occ_spdf, occ);
+        float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) set(occ, 4, occ_spdf);
         int const nSHO = sho_tools::nSHO(numax);
         auto const radial_density_matrix = new double[nSHO*nSHO];
         set(radial_density_matrix, nSHO*nSHO, 0.0); // clear
