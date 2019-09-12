@@ -15,6 +15,7 @@
 #include "inline_math.hxx" // set, pow2
 #include "vector_math.hxx" // vec<n,T>
 #include "chemical_symbol.h" // element_symbols
+#include "recorded_warnings.hxx" // warn
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -40,7 +41,8 @@ namespace geometry_analysis {
           std::istringstream iss(line);
           std::string Symbol;
           double px, py, pz; // positions
-          if (!(iss >> Symbol >> px >> py >> pz)) { 
+          if (!(iss >> Symbol >> px >> py >> pz)) {
+              if (na < natoms) // we expect more atom lines
               printf("# failed parsing in %s:%d reads \"%s\", stop\n", filename, linenumber, line.c_str());
               break; // error
           }
@@ -201,20 +203,21 @@ namespace geometry_analysis {
   
   status_t analysis(double const xyzZ[], int const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
+      status_t stat = 0;
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
       double *image_pos = nullptr;
       
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
       
       double const rcut = 5.11*Angstrom2Bohr; // maximum analysis range is 5 Angstrom
-//       int const num_bins = 0; // no histogram
+      int const num_bins = 0; // no histogram
 //       int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
 //       double const rcut = 4*5.11*Angstrom2Bohr; // maximum analysis range is 20 Angstrom
 //       int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
 //       double const bin_width = 0.01*Angstrom2Bohr;
 
-      double const bin_width = 0.01*Angstrom2Bohr;
-      int const num_bins = std::ceil(rcut/bin_width);
+      double const bin_width = 0.02*Angstrom2Bohr;
+//       int const num_bins = std::ceil(rcut/bin_width);
       
       if (echo > 4) {
           printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
@@ -299,8 +302,7 @@ namespace geometry_analysis {
                       ++nfar; // too far to be analyzed
                   } else {
                       ++near;
-                      if (echo > 8) printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2);
-                      if (echo > 8) printf("%g\n", d2);
+                      if (echo > 8) printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
                       int const ijs = isi*nspecies + isj;
                       int const jis = isj*nspecies + isi;
@@ -327,6 +329,15 @@ namespace geometry_analysis {
       if (echo > 0) printf("# checked %d atom-atom pairs, %d near and %d far\n", npairs, near, nfar);
       assert((natoms*(natoms + 1))/2 * nimages - natoms == npairs);
 
+      float minimum_distance = 9e9;
+      for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
+          minimum_distance = std::min(minimum_distance, smallest_distance[ijs]);
+      } // ijs
+      if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
+          ++stat;
+          sprintf(warn, "Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
+      }
+      
       if (echo > 2) {
           if (num_bins > 0) {
               printf("\n## bond histogram (in %s)\n", _Ang);
@@ -406,12 +417,16 @@ namespace geometry_analysis {
               printf("\n");
           } // is
           printf("\n");
+          if (cn_exceeds > 0) {
+              sprintf(warn, "In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
+              ++stat;
+          }
           delete[] cn_hist;
       } // echo
       
       if (nullptr != dist_hist) delete[] dist_hist;
       delete[] image_pos;
-      return 0;
+      return stat;
   } // analysis
   
   
@@ -419,15 +434,20 @@ namespace geometry_analysis {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_analysis(char const *filename="dna.xyz", int const echo=9) {
+  status_t test_analysis(int const echo=9) {
+    
+//     char const *filename="dna.xyz";
+//     double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
+//     int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
+
+    char const *filename="gst.xyz";
+    double const edge = 12*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
+    double const cell[] = {edge, edge, edge};
+    int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
 
     double *xyzZ = nullptr;
     int natoms;
     status_t stat = read_xyz_file(&xyzZ, &natoms, filename, echo);
-
-    double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
-    int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
-
     stat += analysis(xyzZ, natoms, cell, bc);
     
     delete[] xyzZ;
