@@ -25,7 +25,8 @@ namespace boundary_condition {
       } // d
       if (echo > 5) printf("# check %d x %d x %d = %d images\n", 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
       auto const pos = new double[ni_max*4];
-      int ii = 0;
+      for(int d = 0; d < 4; ++d) pos[d] = 0; // zero image
+      int ni = 1;
       for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {
           for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {
               if (echo > 6) printf("#   ");
@@ -34,23 +35,25 @@ namespace boundary_condition {
                   auto const py = iy*cell[1];
                   auto const pz = iz*cell[2];
                   auto const d2 = pow2(px) + pow2(py) + pow2(pz);
-                  if (d2 < cell_diagonal2) {
-                      pos[ii*4 + 0] = px;
-                      pos[ii*4 + 1] = py;
-                      pos[ii*4 + 2] = pz;
-                      pos[ii*4 + 3] = 0;
-                      ++ii;
-                      if (echo > 6) printf("%c", (ix*ix + iy*iy + iz*iz)?'x':'o');
-                  } else {
-                      if (echo > 6) printf(" ");
-                  }
+                  char mark;
+                  if (d2 > 0) { // exclude the origin (because we want the original image as index #0)
+                      if (d2 < cell_diagonal2) {
+                          pos[ni*4 + 0] = px;
+                          pos[ni*4 + 1] = py;
+                          pos[ni*4 + 2] = pz;
+                          pos[ni*4 + 3] = 0;
+                          ++ni;
+                              mark = 'x';
+                      } else  mark = ' ';
+                  } else      mark = 'o';
+                  if (echo > 6) printf("%c", mark);
               } // ix
               if (echo > 6) printf("\n");
           } // iy
       } // iz
       *ipos = pos;
-      if (echo > 1) printf("# %s: found %d images\n", __func__, ii);
-      return ii;
+      if (echo > 1) printf("# %s: found %d images\n", __func__, ni);
+      return ni;
   } // periodic_images
   
 #ifdef  NO_UNIT_TESTS

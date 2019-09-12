@@ -6,11 +6,14 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector> // std::vector<T>
 
 #include "geometry_analysis.hxx"
 
+#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, periodic_images
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
+#include "vector_math.hxx" // vec<n,T>
 #include "chemical_symbol.h" // element_symbols
 
 // #define FULL_DEBUG
@@ -18,13 +21,59 @@
 
 namespace geometry_analysis {
   
+  double constexpr Bohr2Angstrom = 0.52917724924;
+  double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
+  
+  status_t read_xyz_file(double **xyzz, int *n_atoms, char const *filename, int const echo=5) {
+      
+      std::ifstream infile(filename, std::ifstream::in);
+      int natoms = 0, linenumber = 2;
+      infile >> natoms; // read the number of atoms
+      std::string line;
+      std::getline(infile, line);
+      std::getline(infile, line);
+      if (echo > 2) printf("# expect %d atoms, comment line in file: %s\n", natoms, line.c_str());
+      auto const xyzZ = (natoms > 0) ? new double[natoms*4] : nullptr;
+      int na = 0;
+      while (std::getline(infile, line)) {
+          ++linenumber;
+          std::istringstream iss(line);
+          std::string Symbol;
+          double px, py, pz; // positions
+          if (!(iss >> Symbol >> px >> py >> pz)) { 
+              printf("# failed parsing in %s:%d reads \"%s\", stop\n", filename, linenumber, line.c_str());
+              break; // error
+          }
+          char const *Sy = Symbol.c_str();
+          char const S = Sy[0], y = (Sy[1])? Sy[1] : ' ';
+          if (echo > 7) printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, px, py, pz);
+          int iZ = -1;
+          { // scope: search matching iZ
+              for(int Z = 0; Z < 128; ++Z) {
+                  if ((S == element_symbols[2*Z + 0]) &&
+                      (y == element_symbols[2*Z + 1])) iZ = Z;
+              } // Z
+          } // scope
+          xyzZ[na*4 + 0] = px*Angstrom2Bohr;
+          xyzZ[na*4 + 1] = py*Angstrom2Bohr;
+          xyzZ[na*4 + 2] = pz*Angstrom2Bohr;
+          xyzZ[na*4 + 3] = iZ;
+          ++na;
+          assert(na <= natoms);
+          // process pair 
+      } // parse file line by line
+      
+//    auto const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr, bc={periodic,isolated,isolated}
+      *xyzz = (natoms == na) ? xyzZ : nullptr;
+      *n_atoms = na;
+      return na - natoms; // returns 0 if the exact number of atoms has been found
+  } // read_xyz_file
   
   
 
   float default_bond_length(int const Z1, int const Z2) {
     // data from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
-    uint8_t const bl[128] = {
-     24   //        0
+    uint8_t const bl[128] = { 32 // 0 // artificial
     ,31   //  H     1
     ,28   //  He    2
     ,128  //  Li    3
@@ -111,7 +160,7 @@ namespace geometry_analysis {
     ,140  //  Po    84
     ,150  //  At    85
     ,150  //  Rn    86
-    ,255  //  Fr    87  // used to be 260
+    ,255  //  Fr    87  // Fr reduced from 260
     ,221  //  Ra    88
     ,215  //  Ac    89
     ,206  //  Th    90
@@ -147,49 +196,158 @@ namespace geometry_analysis {
     // data from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
     float const picometer = .01889726;
     return (bl[Z1] + bl[Z2]) * picometer;
-  } // def_bond_length
+  } // default_bond_length
+  
+  
+  status_t analysis(double const xyzZ[], int const natoms, 
+                    double const cell[3], int const bc[3], int const echo=6) {
+      if (echo > 1) printf("# %s:%s\n", __FILE__, __func__);
+//       status_t stat = 0;
+      double *image_pos = nullptr;
+      double const rcut = 9.45; // maximum analysis range is 5 Angstrom
+      int const nimages = boundary_condition::periodic_images(&image_pos, cell, bc, rcut, echo);
+      
+      auto ispecies = std::vector<int8_t>(natoms, 0); 
+      int8_t species_of_Z[128];
+      int8_t Z_of_species[128];
+      char  Sy_of_species[128][4];
+      int nspecies = 0; // number of different species
+      { // scope: fill ispecies and species_of_Z
+          auto Z_hist = std::vector<int>(128, 0);
+          for(int first = 1; first >= 0; --first) {
+              for(int ia = 0; ia < natoms; ++ia) {
+                  int const Z_ia = std::round(xyzZ[ia*4 + 3]);
+                  int const Z_ia_mod = Z_ia & 127;
+                  if (first) {
+                      ++Z_hist[Z_ia_mod];
+                  } else {
+                      ispecies[ia] = species_of_Z[Z_ia_mod];
+                  } // first
+              } // ia
+              if (first) {
+                  // evalutate the histogram
+                  for(int Z = 0; Z < 128; ++Z) {
+                      if (Z_hist[Z] > 0) {
+                          species_of_Z[Z] = nspecies;
+                          Z_of_species[nspecies] = Z;
+                          Sy_of_species[nspecies][0] = element_symbols[2*Z + 0];
+                          Sy_of_species[nspecies][1] = element_symbols[2*Z + 1];
+                          Sy_of_species[nspecies][2] = 0;
+                          Sy_of_species[nspecies][3] = 0;
+                          ++nspecies;
+                      } // non-zero count
+                  } // Z
+              } // i10
+          } // run twice
+
+      } // scope
+      
+      if (echo > 2) {
+          printf("# Found %d different elements: ", nspecies);
+          for(int is = 0; is < nspecies; ++is) {
+              printf(" %s", Sy_of_species[is]); 
+          }   printf("\n"); 
+      } // echo
+      
+      int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
+      double const bin_width = 0.01*Angstrom2Bohr;
+      double const inv_bin_width = 1./bin_width;
+      auto const bond_hist = new int[nspecies*nspecies][num_bins];
+      set((int*)bond_hist, nspecies*nspecies*num_bins, 0); // clear
+
+      typedef vector_math::vec<3,double> vec3;
+      double const rcut2 = pow2(rcut);
+      int npairs = 0;
+      int nfar = 0, near = 0;
+      for(int ia = 0; ia < natoms; ++ia) {
+          vec3 const pos_ia = &xyzZ[ia*4];
+          int const Z_ia = std::round(xyzZ[ia*4 + 3]);
+          int const isi = ispecies[ia];
+          assert(Z_ia == Z_of_species[isi]);
+          if (echo > 6) printf("# [ia=%d] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0], pos_ia[1], pos_ia[2], Z_ia);
+          for(int ja = 0; ja <= ia; ++ja) {
+              vec3 const pos_ja = &xyzZ[ja*4];
+              int const isj = ispecies[ja];
+              int const Z_ja = Z_of_species[isj];
+//            auto const expected_bond_length = default_bond_length(Z_ia, Z_ja);
+              if (echo > 7) printf("# [ia=%d, ja=%d] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0], pos_ja[1], pos_ja[2], Z_ja);
+              for(int ii = (ia == ja); ii < nimages; ++ii) { // start from 0 unless self-interaction
+                  vec3 const pos_ii = &image_pos[ii*4];
+                  vec3 const diff = pos_ja + pos_ii - pos_ia;
+                  auto const d2 = norm(diff);
+                  if (d2 > rcut2) {
+                      ++nfar; // too far to be analyzed
+                  } else {
+                      ++near;
+                      if (echo > 8) printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2);
+                      if (echo > 8) printf("%g\n", d2);
+                      auto const dist = std::sqrt(d2);
+                      int const ibin = (int)(dist*inv_bin_width);
+                      assert(ibin < num_bins);
+                      ++bond_hist[isi*nspecies + isj][ibin];
+                  }
+                  ++npairs;
+              } // ii
+          } // ja
+      } // ia
+      if (echo > 0) printf("# checked %d atom-atom pairs, %d near and %d far\n", npairs, near, nfar);
+      assert((natoms*(natoms + 1))/2 * nimages - natoms == npairs);
+      
+      if (echo > 2) {
+          printf("\n## bond histogram (in %s)\n", _Ang);
+          float const too_large = 188.973;
+          auto smallest_bond = std::vector<float>(nspecies*nspecies, too_large);
+          for(int ibin = 0; ibin < num_bins; ++ibin) {
+              float const dist = ibin*bin_width;
+              printf("%.3f ", dist*Ang);
+              for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
+                  if (bond_hist[ijs][ibin] > 0) smallest_bond[ijs] = std::min(smallest_bond[ijs], dist);
+                  printf(" %d", bond_hist[ijs][ibin]);
+              } // ijs
+              printf("\n");
+          } // ibin
+          printf("\n\n");
+          
+          printf("# shortest bonds    ");
+          for(int js = 0; js < nspecies; ++js) {
+              printf("     %s ", Sy_of_species[js]); // create legend
+          } // js
+          printf("  in %s\n", _Ang);
+          for(int is = 0; is < nspecies; ++is) {
+              printf("# shortest bond  %s ", Sy_of_species[is]);
+              for(int js = 0; js < nspecies; ++js) {
+                  if (smallest_bond[is*nspecies + js] < too_large) {
+                      printf(" %7.3f", smallest_bond[is*nspecies + js]*Ang);
+                  } else {
+                      printf("   n/a  ");
+                  }
+              } // js
+              printf("  in %s\n", _Ang);
+          } // is
+      } // echo
+
+      delete[] image_pos;
+      return 0;
+  } // analysis
   
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_analysis(int const echo=5, char const *filename="dna.xyz") {
+  status_t test_analysis(char const *filename="dna.xyz", int const echo=9) {
 
-      double const Anstrom2Bohr = 1./0.52917724924;
-      
-      std::ifstream infile(filename, std::ifstream::in);
-      int natoms = 0, linenumber = 2;
-      infile >> natoms; // read the number of atoms
-      std::string line;
-      std::getline(infile, line);
-      std::getline(infile, line);
-      if (echo > 2) printf("# expect %d atoms, comment line in file: %s\n", natoms, line.c_str());
-      auto const xyzZ = (natoms > 0) ? new double[natoms*4] : nullptr;
-      int na = 0;
-      while (std::getline(infile, line)) {
-          ++linenumber;
-          std::istringstream iss(line);
-          char Sy[2];
-          double px, py, pz; // positions
-          if (!(iss >> Sy >> px >> py >> pz)) { 
-              printf("# failed parsing in %s:%d reads \"%s\"\n", filename, linenumber, line.c_str());
-              break; // error
-          }
-          if (echo > 7) printf("# %c%c  %16.9f %16.9f %16.9f\n", Sy[0],Sy[1], px, py, pz);
-          int iZ = -1; for(int Z = 0; Z < 128; ++Z) if ((Sy[0] == element_symbols[2*Z]) && (Sy[1] == element_symbols[2*Z + 1])) iZ = Z;
-          xyzZ[na*4 + 0] = px*Anstrom2Bohr;
-          xyzZ[na*4 + 1] = py*Anstrom2Bohr;
-          xyzZ[na*4 + 2] = pz*Anstrom2Bohr;
-          xyzZ[na*4 + 3] = iZ;
-          ++na;
-          assert(na <= natoms);
-          // process pair 
-      } // parse file line by line
-            
-//    auto const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr, bc={periodic,isolated,isolated}
+    double *xyzZ = nullptr;
+    int natoms;
+    status_t stat = read_xyz_file(&xyzZ, &natoms, filename, echo);
 
-      return na - natoms; // returns 0 if the exact number of atoms has been found
+    double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
+    int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
+
+    stat += analysis(xyzZ, natoms, cell, bc);
+    
+    delete[] xyzZ;
+    return stat;
   } // test_analysis
 
   status_t all_tests() {
