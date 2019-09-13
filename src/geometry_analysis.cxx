@@ -69,7 +69,7 @@ namespace geometry_analysis {
           { // scope: fill indirection list
               for        (int jz = 0; jz < hnh[Z]; ++jz) {  int const iz = get_center_box<Z>(jz - nhalo[Z]);
                   for    (int jy = 0; jy < hnh[Y]; ++jy) {  int const iy = get_center_box<Y>(jy - nhalo[Y]);
-                      if (echo > 8) printf("# %s: indirection(iz=%2d, iy=%2d):", __func__, jz - nhalo[Z], jy - nhalo[Y]);                        
+                      if (echo > 9) printf("# %s: indirection(iz=%2d, iy=%2d):", __func__, jz - nhalo[Z], jy - nhalo[Y]);                        
                       for(int jx = 0; jx < hnh[X]; ++jx) {  int const ix = get_center_box<X>(jx - nhalo[X]);
                           int ib = get_center_index(ix, iy, iz);
                           int const jb = (jz*hnh[Y] + jy)*hnh[X] + jx;
@@ -80,9 +80,9 @@ namespace geometry_analysis {
                           if ((Isolated_Boundary == bc[Y]) && (0 != image_index[4*jb + Y])) ib = -1;
                           if ((Isolated_Boundary == bc[Z]) && (0 != image_index[4*jb + Z])) ib = -1;
                           indirection[jb] = ib;
-                          if (echo > 8) printf(" %2d", ib);
+                          if (echo > 9) printf(" %2d", ib);
                       } // jx
-                      if (echo > 8) printf("\n");                        
+                      if (echo > 9) printf("\n");                        
                   } // jy
               } // jz
           } // scope
@@ -97,10 +97,18 @@ namespace geometry_analysis {
           if (mbx > 1) {
               // start to sort the atomic positions into the boxes
               if (echo > 8) printf("# %s: inverse box size is %g %g %g\n", __func__, inv_box_size[X],inv_box_size[Y],inv_box_size[Z]);
+              double min_coords[3] = {9e99, 9e99, 9e99};
               for(size_t ia = 0; ia < natoms; ++ia) {
-                  int const iz = get_center_box<Z>((int)std::floor((xyzZ[ia*4 + Z] + 0.5*cell[Z])*inv_box_size[Z]));
-                  int const iy = get_center_box<Y>((int)std::floor((xyzZ[ia*4 + Y] + 0.5*cell[Y])*inv_box_size[Y]));
-                  int const ix = get_center_box<X>((int)std::floor((xyzZ[ia*4 + X] + 0.5*cell[X])*inv_box_size[X]));
+                  for(int d = 0; d < 3; ++d) {
+                      min_coords[d] = std::min(min_coords[d], xyzZ[ia*4 + d]);
+                  } // d
+              } // ia
+              double const offset[3] = {-min_coords[X], -min_coords[Y], -min_coords[Z]};
+              
+              for(size_t ia = 0; ia < natoms; ++ia) {
+                  int const iz = get_center_box<Z>((int)std::floor((xyzZ[ia*4 + Z] + offset[Z])*inv_box_size[Z]));
+                  int const iy = get_center_box<Y>((int)std::floor((xyzZ[ia*4 + Y] + offset[Y])*inv_box_size[Y]));
+                  int const ix = get_center_box<X>((int)std::floor((xyzZ[ia*4 + X] + offset[X])*inv_box_size[X]));
                   if (echo > 9) printf("# %s: atom #%ld Z=%.1f at %g %g %g goes into box %d %d %d\n", __func__,
                                 ia, xyzZ[ia*4+3], xyzZ[ia*4+X],xyzZ[ia*4+Y],xyzZ[ia*4+Z], ix, iy, iz);
                   int const ib = get_center_index(ix, iy, iz);
@@ -856,14 +864,14 @@ namespace geometry_analysis {
 
   status_t test_analysis(int const echo=9) {
     
-    char const *filename="dna.xyz";
-    double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
-    int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
+//     char const *filename="dna.xyz";
+//     double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
+//     int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
 
-//     char const *filename="gst.xyz";
-//     double const edge = 12*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
-//     double const cell[] = {edge, edge, edge};
-//     int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
+    char const *filename="gst.xyz";
+    double const edge = 250*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
+    double const cell[] = {edge, edge, edge};
+    int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
 
     double *xyzZ = nullptr;
     int natoms;
