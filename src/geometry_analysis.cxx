@@ -201,7 +201,7 @@ namespace geometry_analysis {
   } // default_bond_length
   
   
-  status_t analysis(double const xyzZ[], int const natoms, 
+  status_t analysis(double const xyzZ[], int64_t const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
       status_t stat = 0;
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
@@ -262,7 +262,7 @@ namespace geometry_analysis {
       } // scope
       
       if (echo > 2) {
-          printf("# Found %d different elements: ", nspecies);
+          printf("# Found %d different elements for %ld atoms: ", nspecies, natoms);
           for(int is = 0; is < nspecies; ++is) {
               printf("  %dx %s", occurrence[Z_of_species[is]], Sy_of_species[is]); 
           } // is
@@ -280,8 +280,8 @@ namespace geometry_analysis {
 
       typedef vector_math::vec<3,double> vec3;
       double const rcut2 = pow2(rcut);
-      int npairs = 0, nbonds = 0;
-      int nfar = 0, near = 0;
+      int64_t npairs = 0, nbonds = 0;
+      int64_t nfar = 0, near = 0;
       for(int ia = 0; ia < natoms; ++ia) {
           vec3 const pos_ia = &xyzZ[ia*4];
           int const Z_ia = std::round(xyzZ[ia*4 + 3]);
@@ -326,8 +326,8 @@ namespace geometry_analysis {
               } // ii
           } // ja
       } // ia
-      if (echo > 0) printf("# checked %d atom-atom pairs, %d near and %d far\n", npairs, near, nfar);
-      assert((natoms*(natoms + 1))/2 * nimages - natoms == npairs);
+      if (echo > 0) printf("# checked %.6f M atom-atom pairs, %.3f k near and %.6f M far\n", 1e-6*npairs, 1e-3*near, 1e-6*nfar);
+      assert((natoms*(natoms + 1))/2 * nimages == npairs + natoms);
 
       float minimum_distance = 9e9;
       for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
@@ -355,8 +355,8 @@ namespace geometry_analysis {
           for(int js = 0; js < nspecies; ++js) {
               printf("     %s ", Sy_of_species[js]); // create legend
           } // js
-          printf("total = %d\n", nbonds);
-          int check_nbonds = 0;
+          printf("total = %ld\n", nbonds);
+          int64_t check_nbonds = 0;
           for(int is = 0; is < nspecies; ++is) {
               printf("# bond count ");
               for(int js = 0; js < nspecies; ++js) {
@@ -369,7 +369,7 @@ namespace geometry_analysis {
               } // js
               printf("  %s\n", Sy_of_species[is]);
           } // is
-          printf("# check total = %d vs %d\n", check_nbonds, 2*nbonds);
+          printf("# check total = %ld vs %ld\n", check_nbonds, 2*nbonds);
           printf("\n");
           assert(check_nbonds == 2*nbonds);
           
