@@ -869,7 +869,7 @@ namespace geometry_analysis {
 //     int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
 
     char const *filename="gst.xyz";
-    double const edge = 250*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
+    double const edge = 12*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
     double const cell[] = {edge, edge, edge};
     int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
 
