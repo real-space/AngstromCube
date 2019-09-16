@@ -616,8 +616,8 @@ namespace geometry_analysis {
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
       
       double const rcut = 5.11*Angstrom2Bohr; // maximum analysis range is 5 Angstrom
-//       int const num_bins = 0; // no histogram
-      int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
+      int const num_bins = 0; // no histogram
+//       int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
 //       double const rcut = 4*5.11*Angstrom2Bohr; // maximum analysis range is 20 Angstrom
 //       int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
       double const bin_width = 0.01*Angstrom2Bohr;
@@ -874,27 +874,19 @@ namespace geometry_analysis {
 #else // NO_UNIT_TESTS
 
   status_t test_analysis(int const echo=9) {
-    
-//     char const *filename="dna.xyz";
-//     double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
-//     int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
-
-//     char const *filename="gst.xyz";
-//     double const edge = 12*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
-//     double const cell[] = {edge, edge, edge};
-//     int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
 
     double *xyzZ = nullptr;
-    int natoms;
-//     status_t stat = read_xyz_file(&xyzZ, &natoms, filename, 0); // silenced
-    auto const filename = "dna.xyz";
-    double cell[3]; int bc[3];
-    status_t stat = read_xyz_file(&xyzZ, &natoms, filename, cell, bc, 1);
-    if (echo > 2) printf("# found %d atoms in file \"%s\" with cell = [%.3f %.3f %.3f] %s and bc = [%d %d %d]\n",
+    int natoms = 0;
+    auto const filename = "gst.xyz";
+    double cell[3] = {0, 0, 0}; 
+    int bc[3] = {-7, -7, -7};
+    status_t stat = read_xyz_file(&xyzZ, &natoms, filename, cell, bc, 0);
+    
+    if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                              natoms, filename, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
-    
+
     stat += analysis_box(xyzZ, natoms, cell, bc);
-    
+
     delete[] xyzZ;
     return stat;
   } // test_analysis
