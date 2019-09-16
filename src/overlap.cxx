@@ -434,7 +434,7 @@ namespace overlap {
                   int const*, double*, complex_t*, int const*, double*, int*);
   } // LAPACK
  
-  status_t test_fcc(int const echo=3, float const a0=8) {
+  status_t test_simple_crystal(int const echo=3, float const a0=8) {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
@@ -807,7 +807,7 @@ namespace overlap {
         if (echo > 1) printf("# smallest eigenvalue at kvec  %.6f %.6f %.6f\n", kv_smallest[0],kv_smallest[1],kv_smallest[2]);
     }
     return diagonalization_failed;
-  } // test_fcc
+  } // test_simple_crystal
 
   status_t all_tests() {
     auto status = 0;
@@ -815,7 +815,7 @@ namespace overlap {
     status += test_Hermite_Gauss_overlap();
     status += test_kinetic_overlap();
     status += test_density_or_potential_tensor();
-    status += test_fcc(); // expensive
+    status += test_simple_crystal(); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath> // std::sin
+
 #include "inline_math.hxx" // product
 #include "radial_grid.h" // radial_grid_t
 #include "constants.hxx" // pi

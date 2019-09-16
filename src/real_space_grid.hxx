@@ -1,7 +1,9 @@
 #pragma once
 
 #include <cstdint> // uint32_t
+#include <algorithm> // std::max
 #include <cstdio> // printf
+
 #include "inline_math.hxx" // set, scale
 #include "bessel_transform.hxx" // Bessel_j0
 

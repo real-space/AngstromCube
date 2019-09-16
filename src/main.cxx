@@ -15,11 +15,13 @@ typedef int status_t;
 #include "radial_potential.hxx" // all_tests
 #include "bessel_transform.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
+#include "sho_hamiltonian.hxx" // all_tests
 #include "chemical_symbol.hxx" // all_tests
 #include "fourier_poisson.hxx" // all_tests
 #include "spherical_atoms.hxx" // all_tests
 #include "solid_harmonics.hxx" // all_tests
 #include "sho_projection.hxx" // all_tests
+#include "grid_operators.hxx" // all_tests
 #include "element_config.hxx" // all_tests
 #include "angular_grid.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
@@ -55,11 +57,13 @@ typedef int status_t;
           module_test("radial_potential.",     radial_potential::all_tests);
           module_test("bessel_transform.",     bessel_transform::all_tests);
           module_test("real_space_grid.",       real_space_grid::all_tests);
+          module_test("sho_hamiltonian.",       sho_hamiltonian::all_tests);
           module_test("chemical_symbol.",       chemical_symbol::all_tests);
           module_test("fourier_poisson.",       fourier_poisson::all_tests);
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
           module_test("solid_harmonics.",       solid_harmonics::all_tests);
           module_test("sho_projection.",         sho_projection::all_tests);
+          module_test("grid_operators.",         grid_operators::all_tests);
           module_test("element_config.",         element_config::all_tests);
           module_test("angular_grid.",             angular_grid::all_tests);
           module_test("radial_grid.",               radial_grid::all_tests);
