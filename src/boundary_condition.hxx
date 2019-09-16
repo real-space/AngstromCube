@@ -9,6 +9,7 @@ typedef int status_t;
   int constexpr Periodic_Boundary =  1;
   int constexpr Isolated_Boundary =  0;
   int constexpr Mirrored_Boundary = -1;
+  int constexpr Invalid_Boundary = -9;
 
 namespace boundary_condition {
 
@@ -55,6 +56,21 @@ namespace boundary_condition {
       if (echo > 1) printf("# %s: found %d images\n", __func__, ni);
       return ni;
   } // periodic_images
+  
+  inline int fromString(char const *string, int const echo=0) {
+      char const first = *string;
+      switch (first | 32) { // ignore case with | 32
+        case 'p': case '1':
+            if (echo > 0) printf("# interpret \"%s\" as periodic boundary condition\n", string);
+            return Periodic_Boundary; break;
+        case 'i': case '0': 
+            if (echo > 0) printf("# interpret \"%s\" as isolated boundary condition\n", string);
+            return Isolated_Boundary; break;
+        default :
+            if (echo > 0) printf("# cannot interpret \"%s\" as boundary condition\n", string);
+            return Invalid_Boundary;
+      } // switch
+  } // fromString
   
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

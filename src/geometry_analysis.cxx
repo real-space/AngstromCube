@@ -161,7 +161,8 @@ namespace geometry_analysis {
   double constexpr Bohr2Angstrom = 0.52917724924;
   double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
   
-  status_t read_xyz_file(double **xyzz, int *n_atoms, char const *filename, int const echo=5) {
+  status_t read_xyz_file(double **xyzz, int *n_atoms, char const *filename, 
+                         double *cell=nullptr, int *bc=nullptr, int const echo=5) {
       
       std::ifstream infile(filename, std::ifstream::in);
       int natoms = 0, linenumber = 2;
@@ -170,6 +171,16 @@ namespace geometry_analysis {
       std::getline(infile, line);
       std::getline(infile, line);
       if (echo > 2) printf("# expect %d atoms, comment line in file: %s\n", natoms, line.c_str());
+      { // scope parse comment line
+          std::istringstream iss(line);
+          std::string Cell, B[3];
+          double L[3]; // positions
+          iss >> Cell >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2];
+          for(int d = 0; d < 3; ++d) {
+              if (nullptr != cell) cell[d] = L[d] * Angstrom2Bohr;
+              if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo);
+          } // d
+      } // scope
       auto const xyzZ = (natoms > 0) ? new double[natoms*4] : nullptr;
       int na = 0;
       while (std::getline(infile, line)) {
@@ -868,14 +879,20 @@ namespace geometry_analysis {
 //     double const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr
 //     int const bc[] = {Periodic_Boundary, Isolated_Boundary, Isolated_Boundary};
 
-    char const *filename="gst.xyz";
-    double const edge = 12*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
-    double const cell[] = {edge, edge, edge};
-    int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
+//     char const *filename="gst.xyz";
+//     double const edge = 12*6.04*Angstrom2Bohr; // GeSbTe-cell edge in Bohr
+//     double const cell[] = {edge, edge, edge};
+//     int const bc[] = {Periodic_Boundary, Periodic_Boundary, Periodic_Boundary};
 
     double *xyzZ = nullptr;
     int natoms;
-    status_t stat = read_xyz_file(&xyzZ, &natoms, filename, 0); // silenced
+//     status_t stat = read_xyz_file(&xyzZ, &natoms, filename, 0); // silenced
+    auto const filename = "dna.xyz";
+    double cell[3]; int bc[3];
+    status_t stat = read_xyz_file(&xyzZ, &natoms, filename, cell, bc, 1);
+    if (echo > 2) printf("# found %d atoms in file \"%s\" with cell = [%.3f %.3f %.3f] %s and bc = [%d %d %d]\n",
+                             natoms, filename, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+    
     stat += analysis_box(xyzZ, natoms, cell, bc);
     
     delete[] xyzZ;
