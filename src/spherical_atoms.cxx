@@ -7,6 +7,7 @@
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
+#include "inline_tools.hxx" // align<n>
 #include "constants.hxx" // Y00, sqrtpi
 #include "solid_harmonics.hxx" // Y00
 #include "real_space_grid.hxx" // grid_t, add_function
@@ -15,6 +16,7 @@
 #include "single_atom.hxx" // update
 #include "sho_projection.hxx" // sho_add
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
+#include "boundary_condition.hxx" // periodic_images
 #include "fourier_poisson.hxx" // fourier_solve
 #include "finite_difference.hxx" // Laplacian
 #include "geometry_analysis.hxx" // read_xyz_file
@@ -42,6 +44,8 @@ namespace spherical_atoms {
       printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*dV, gsum/all);
   } // print_stats
 
+  inline int n_grid_points(double const suggest) { return (int)align<1>((int)std::ceil(suggest)); }
+  
   status_t init(float const ion=0.f, int const echo=0) {
       status_t stat = 0;
       double constexpr Y00 = solid_harmonics::Y00;
@@ -64,14 +68,15 @@ namespace spherical_atoms {
       double *xyzZ;
       int na = 0;
       double cell[3];
-      stat += geometry_analysis::read_xyz_file(&xyzZ, &na, "atoms.xyz", cell, nullptr, echo);
+      int bc[3];
+      stat += geometry_analysis::read_xyz_file(&xyzZ, &na, "atoms.xyz", cell, bc, echo);
 
 //       float ionization[na]; ionization[0] = ion*(na - 1); ionization[na - 1] = -ionization[0];
       float ionization[na]; set(ionization, na, 0.f);
       
       // choose the box large enough not to require any periodic images
       double const h1 = 0.2378; // works for GeSbTe with alat=6.04
-      int const dims[3] = {(int)std::ceil(cell[0]/h1), (int)std::ceil(cell[1]/h1), (int)std::ceil(cell[2]/h1)};
+      int const dims[3] = {n_grid_points(cell[0]/h1), n_grid_points(cell[1]/h1), n_grid_points(cell[2]/h1)};
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
 //       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
@@ -98,6 +103,12 @@ namespace spherical_atoms {
           qlm[ia] = new double[1];
       } // ia
 
+      
+      float const rcut = 9;
+      
+      double *periodic_images = nullptr;
+      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images, cell, bc, rcut, echo);
+      
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na];
       double sigma_cmp[na]; //
@@ -124,16 +135,21 @@ namespace spherical_atoms {
                   printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
               }   printf("\n\n");
           } // echo
-          double q_added;
-          stat += real_space_grid::add_function(rho, g, &q_added, rho_core[ia], nr2, ar2, center[ia], 9.f, Y00sq);
+          double q_added = 0;
+          for(int ii = 0; ii < n_periodic_images; ++ii) {
+              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+              double q_added_image = 0;
+              stat += real_space_grid::add_function(rho, g, &q_added_image, rho_core[ia], nr2, ar2, cnt, rcut, Y00sq);
+              q_added += q_added_image;
+          } // periodic images
           if (echo > -1) {
               printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
               print_stats(rho, g.all(), g.dV());
           } // echo
 //        qlm[ia][0] = -(q_added + ionization[ia])/Y00; // spherical compensator
           printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][0]/Y00);
+          printf("# added smooth core charge for atom #%d is %g\n", ia, q_added);
 //           qlm[ia][0] = -(q_added)/Y00; // spherical compensator
-//           printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][0]*Y00);
       } // ia
 
       double Exc = 0, Edc = 0;
@@ -166,15 +182,23 @@ namespace spherical_atoms {
                       rho_cmp[ir2] *= qlm[ia][0];
                       if (echo > 3) printf("%g %g\n", std::sqrt(r2), rho_cmp[ir2]);
                   }   if (echo > 3) printf("\n\n");
-                  double q_added;
-                  stat += real_space_grid::add_function(cmp, g, &q_added, rho_cmp, nr2, ar2, center[ia], rcut);
+                  double q_added = 0;
+                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                      double q_added_image = 0;
+                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+                      stat += real_space_grid::add_function(cmp, g, &q_added_image, rho_cmp, nr2, ar2, cnt, rcut);
+                      q_added += q_added_image;
+                  } // periodic images
                   qlm[ia][0] = q_added*Y00;
                   delete[] rho_cmp;
               } else if (1) {
                   // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
                   double coeff[1];
                   set(coeff, 1, qlm[ia], prefactor);
-                  stat += sho_projection::sho_add(cmp, g, coeff, 0, center[ia], sigma_compensator, echo);
+                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+                      stat += sho_projection::sho_add(cmp, g, coeff, 0, cnt, sigma_compensator, echo);
+                  } // periodic images
               }
               if (echo > -1) {
                   // report extremal values of the density on the grid
@@ -182,7 +206,7 @@ namespace spherical_atoms {
                   print_stats(cmp, g.all(), g.dV());
               } // echo
           } // ia
-
+          
           // add compensators cmp to rho
           add_product(rho, g.all(), cmp, 1.);
           printf("\n# augmented charge density grid stats:");
@@ -194,15 +218,21 @@ namespace spherical_atoms {
               set(reci[d], 4, 0.0);
               reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
           } // d
+          
+          // solve the Poisson equation
           stat += fourier_poisson::fourier_solve(Ves, rho, ng, reci);
 
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
               double const sigma_compensator = sigma_cmp[ia];
               double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
-              double coeff[1];
-              set(coeff, 1, 0.0);
-              stat += sho_projection::sho_project(coeff, 0, center[ia], sigma_compensator, Ves, g, echo);
+              double coeff[1]; set(coeff, 1, 0.0);
+              for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+                  double coeff_image[1]; set(coeff_image, 1, 0.0);
+                  stat += sho_projection::sho_project(coeff_image, 0, center[ia], sigma_compensator, Ves, g, echo);
+                  add_product(coeff, 1, coeff_image, 1.0);
+              } // periodic images
               set(vlm[ia], 1, coeff, prefactor); // SHO-projectors are brought to the grid unnormalized, i.e. p_{00}(0) = 1.0
               printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][0]*Y00*eV,_eV);
           } // ia

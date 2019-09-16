@@ -877,7 +877,7 @@ namespace geometry_analysis {
 
     double *xyzZ = nullptr;
     int natoms = 0;
-    auto const filename = "gst.xyz";
+    auto const filename = "atoms.xyz";
     double cell[3] = {0, 0, 0}; 
     int bc[3] = {-7, -7, -7};
     status_t stat = read_xyz_file(&xyzZ, &natoms, filename, cell, bc, 0);
