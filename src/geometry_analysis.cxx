@@ -162,8 +162,8 @@ namespace geometry_analysis {
   double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
   
   status_t read_xyz_file(double **xyzz, int *n_atoms, char const *filename, 
-                         double *cell=nullptr, int *bc=nullptr, int const echo=5) {
-      
+                         double *cell, int *bc, int const echo) { // optionals
+
       std::ifstream infile(filename, std::ifstream::in);
       int natoms = 0, linenumber = 2;
       infile >> natoms; // read the number of atoms

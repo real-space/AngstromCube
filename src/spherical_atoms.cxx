@@ -17,6 +17,7 @@
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "fourier_poisson.hxx" // fourier_solve
 #include "finite_difference.hxx" // Laplacian
+#include "geometry_analysis.hxx" // read_xyz_file
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -54,34 +55,44 @@ namespace spherical_atoms {
       // feed back spherical potential into single_atom
       
       
-      int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 13}, {2,0,0, 15}}; // Al-P
-//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 79}, {2,0,0, 81}}; // Au-Tl
-//       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 13}}; // Al only
-//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 5}, {2,0,0, 7}}; // B-N
-//       int const na = 1; double const xyzZ[na][4] = {{0,0,0, 3}}; // Li only
-//       int const na = 2; double const xyzZ[na][4] = {{-2,0,0, 3}, {2,0,0, 9}}; // Li-F
-      float ionization[na]; ionization[0] = ion*(na - 1); ionization[na - 1] = -ionization[0];
+//       int const na = 2; double const xyzZ[na*4] = {-2,0,0, 13,   2,0,0, 15}; // Al-P
+//       int const na = 2; double const xyzZ[na*4] = {-2,0,0, 79,   2,0,0, 81}; // Au-Tl
+//       int const na = 1; double const xyzZ[na*4] = {0,0,0, 13}; // Al only
+//       int const na = 2; double const xyzZ[na*4] = {-2,0,0, 5,    2,0,0, 7}; // B-N
+//       int const na = 1; double const xyzZ[na*4] = {0,0,0, 3}; // Li only
+//       int const na = 2; double const xyzZ[na*4] = {-2,0,0, 3,    2,0,0, 9}; // Li-F
+      double *xyzZ;
+      int na = 0;
+      double cell[3];
+      stat += geometry_analysis::read_xyz_file(&xyzZ, &na, "atoms.xyz", cell, nullptr, echo);
+
+//       float ionization[na]; ionization[0] = ion*(na - 1); ionization[na - 1] = -ionization[0];
+      float ionization[na]; set(ionization, na, 0.f);
       
       // choose the box large enough not to require any periodic images
+      double const h1 = 0.2378; // works for GeSbTe with alat=6.04
+      int const dims[3] = {(int)std::ceil(cell[0]/h1), (int)std::ceil(cell[1]/h1), (int)std::ceil(cell[2]/h1)};
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
-      int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
+//       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
       real_space_grid::grid_t<1> g(dims);
+      double const grid_spacing = cell[0]/dims[0];
       g.set_grid_spacing(grid_spacing);
       
+
       double *qlm[na];
       double *vlm[na];
       float Za[na]; // list of atomic numbers
       double center[na][4]; // list of atomic centers
       if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
       for(int ia = 0; ia < na; ++ia) {
-          int const iZ = (int)std::round(xyzZ[ia][3]);
+          int const iZ = (int)std::round(xyzZ[ia*4 + 3]);
           char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
           if (echo > 4) printf("# %c%c  %16.9f%16.9f%16.9f\n", El[0],El[1], 
-                         xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
-          Za[ia] = xyzZ[ia][3]; // list of atomic numbers
+                         xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang);
+          Za[ia] = (float)xyzZ[ia*4 + 3]; // list of atomic numbers
           for(int d = 0; d < 3; ++d) {
-              center[ia][d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia][d];
+              center[ia][d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia*4 + d];
           }   center[ia][3] = 0; // component is not used
           vlm[ia] = new double[1];
           qlm[ia] = new double[1];
@@ -98,7 +109,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 13; ++scf_iteration) {
       printf("\n\n#\n# SCF-Iteration #%d:\n#\n\n", scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
