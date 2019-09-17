@@ -16,6 +16,7 @@
 #include "vector_math.hxx" // vec<n,T>
 #include "chemical_symbol.h" // element_symbols
 #include "recorded_warnings.hxx" // warn
+#include "simple_timer.hxx" // SimpleTimer
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -177,7 +178,10 @@ namespace geometry_analysis {
           double L[3]; // positions
           iss >> Cell >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2];
           for(int d = 0; d < 3; ++d) {
-              if (nullptr != cell) cell[d] = L[d] * Angstrom2Bohr;
+              if (nullptr != cell) {
+                  cell[d] = L[d] * Angstrom2Bohr;
+                  assert(cell[d] > 0);
+              }
               if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo);
           } // d
       } // scope
@@ -218,397 +222,41 @@ namespace geometry_analysis {
       return na - natoms; // returns 0 if the exact number of atoms has been found
   } // read_xyz_file
   
-  
-
   float default_bond_length(int const Z1, int const Z2=0) {
-    // data from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
-    uint8_t const bl[128] = { 0 // 0 // artificial
-    ,31   //  H     1
-    ,28   //  He    2
-    ,128  //  Li    3
-    ,96   //  Be    4
-    ,84   //  B     5
-    ,76   //  C     6
-    ,73   //  N     7
-    ,69   //  O     8
-    ,71   //  F     9
-    ,66   //  Ne    10
-    ,57   //  Na    11
-    ,141  //  Mg    12
-    ,121  //  Al    13
-    ,111  //  Si    14
-    ,107  //  P     15
-    ,105  //  S     16
-    ,102  //  Cl    17
-    ,106  //  Ar    18
-    ,203  //  K     19
-    ,176  //  Ca    20
-    ,170  //  Sc    21
-    ,160  //  Ti    22
-    ,153  //  V     23
-    ,139  //  Cr    24
-    ,132  //  Mn    25
-    ,110  //  Fe    26  110pm is good for bcc bulk
-    ,139  //  Co    27
-    ,124  //  Ni    28
-    ,132  //  Cu    29
-    ,122  //  Zn    30
-    ,122  //  Ga    31
-    ,120  //  Ge    32
-    ,119  //  As    33
-    ,120  //  Se    34
-    ,120  //  Br    35
-    ,116  //  Kr    36
-    ,220  //  Rb    37
-    ,195  //  Sr    38
-    ,190  //  Y     39
-    ,175  //  Zr    40
-    ,164  //  Nb    41
-    ,154  //  Mo    42
-    ,147  //  Tc    43
-    ,146  //  Ru    44
-    ,142  //  Rh    45
-    ,139  //  Pd    46
-    ,145  //  Ag    47
-    ,144  //  Cd    48
-    ,142  //  In    49
-    ,139  //  Sn    50
-    ,139  //  Sb    51
-    ,138  //  Te    52
-    ,139  //  I     53
-    ,140  //  Xe    54
-    ,244  //  Cs    55
-    ,215  //  Ba    56
-    ,207  //  La    57
-    ,204  //  Ce    58
-    ,203  //  Pr    59
-    ,201  //  Nd    60
-    ,199  //  Pm    61
-    ,198  //  Sm    62
-    ,198  //  Eu    63
-    ,196  //  Gd    64
-    ,194  //  Tb    65
-    ,192  //  Dy    66
-    ,192  //  Ho    67
-    ,189  //  Er    68
-    ,190  //  Tm    69
-    ,187  //  Yb    70
-    ,187  //  Lu    71
-    ,175  //  Hf    72
-    ,170  //  Ta    73
-    ,162  //  W     74
-    ,151  //  Re    75
-    ,144  //  Os    76
-    ,141  //  Ir    77
-    ,136  //  Pt    78
-    ,136  //  Au    79
-    ,132  //  Hg    80
-    ,145  //  Tl    81
-    ,146  //  Pb    82
-    ,148  //  Bi    83
-    ,140  //  Po    84
-    ,150  //  At    85
-    ,150  //  Rn    86
-    ,255  //  Fr    87  // Fr reduced from 260
-    ,221  //  Ra    88
-    ,215  //  Ac    89
-    ,206  //  Th    90
-    ,200  //  Pa    91
-    ,196  //  U     92
-    ,190  //  Np    93
-    ,187  //  Pu    94
-    ,180  //  Am    95
-    ,169  //  Cm    96
-    ,166  //  Bk    97
-    ,168  //  Cf    98
-    ,165  //  Es    99
-    ,167  //  Fm    100
-    ,173  //  Md    101
-    ,176  //  No    102
-    ,161  //  Lr    103
-    ,157  //  Rf    104
-    ,149  //  Dr    105
-    ,143  //  Sg    106
-    ,141  //  Bh    107
-    ,134  //  Hs    108
-    ,129  //  Mt    109
-    ,128  //  Ds    110
-    ,121  //  Rg    111
-    ,122  //  Cn    112
-    ,136  //  ut    113
-    ,143  //  uq    114
-    ,162  //  up    115
-    ,175  //  uh    116
-    ,165  //  us    117
-    ,157  //  uo    118
-    ,159 ,160 ,161 ,162 ,163 ,164 ,165 ,166, 167}; // 119--127 invented numbers
-    // data from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
-    float const picometer = .01889726;
-    return (bl[Z1] + bl[Z2]) * picometer;
+    // data originally from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
+    // can now be found for single bonds at
+    // https://chem.libretexts.org/Ancillary_Materials/Reference/
+    //              Reference_Tables/Atomic_and_Molecular_Properties/A3%3A_Covalent_Radii
+    // which references https://doi.org/10.1002/chem.200901472 (Pekka Pyykk\"o and Michiko Atsumi)
+    // Fe 26 with 110pm is good for bcc bulk
+    // Fr 87 reduced from 260 to 255 to fit data format
+    uint8_t const bl[128] = {0, // now following Z=1..118 in Aco Z. Muradjan-ordering
+      31,  28,                                                             // H  He
+     128,  96,                                                             // Li Be
+      84,  76,  73,  69,  71,  66,                                         // B  C  N  O  F  Ne
+      57, 141,                                                             // Na Mg
+     121, 111, 107, 105, 102, 106,                                         // Al Si P  S  Cl Ar
+     203, 176,                                                             // K  Ca
+     170, 160, 153, 139, 132, 110, 139, 124, 132, 122,                     // Sc Ti V  Cr Mn Fe Co Ni Cu Zn
+     122, 120, 119, 120, 120, 116,                                         // Ga Ge As Se Br Kr
+     220, 195,                                                             // Rb Sr
+     190, 175, 164, 154, 147, 146, 142, 139, 145, 144,                     // Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd
+     142, 139, 139, 138, 139, 140,                                         // In Sn Sb Te I  Xe
+     244, 215,                                                             // Cs Ba
+     207, 204, 203, 201, 199, 198, 198, 196, 194, 192, 192, 189, 190, 187, // La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb
+     187, 175, 170, 162, 151, 144, 141, 136, 136, 132,                     // Lu Hf Ta W  Re Os Ir Pt Au Hg
+     145, 146, 148, 140, 150, 150,                                         // Tl Pb Bi Po At Rn
+     255, 221,                                                             // Fr Ra
+     215, 206, 200, 196, 190, 187, 180, 169, 166, 168, 165, 167, 173, 176, // Ac Th Pa U  Np Pu Am Cm Bk Cf Es Fm Md No
+     161, 157, 149, 143, 141, 134, 129, 128, 121, 122,                     // Lr Rf Db Sg Bh Hs Mt Ds Rg Cn
+     136, 143, 162, 175, 165, 157,                                         // ut uq up uh us uo
+     159, 160,                                                             // un ud
+     161, 162, 163, 164, 165, 166, 167};                                   // Z=121 .. Z=127 invented numbers
+    float const picometer2Bohr = .01889726;
+    return (bl[Z1] + bl[Z2]) * picometer2Bohr;
   } // default_bond_length
-
   
   status_t analysis(double const xyzZ[], int64_t const natoms, 
-                    double const cell[3], int const bc[3], int const echo=6) {
-      status_t stat = 0;
-      if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
-      double *image_pos = nullptr;
-      
-      float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
-      
-      double const rcut = 5.11*Angstrom2Bohr; // maximum analysis range is 5 Angstrom
-//       int const num_bins = 0; // no histogram
-      int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
-//       double const rcut = 4*5.11*Angstrom2Bohr; // maximum analysis range is 20 Angstrom
-//       int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
-      double const bin_width = 0.01*Angstrom2Bohr;
-
-//       double const bin_width = 0.02*Angstrom2Bohr;
-//       int const num_bins = std::ceil(rcut/bin_width);
-      
-      if (echo > 4) {
-          printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
-          if (num_bins > 0) printf("# Distance histogram bin width is %.6f %s\n", bin_width*Ang,_Ang);
-      } // echo
-      
-      int const nimages = boundary_condition::periodic_images(&image_pos, cell, bc, rcut, echo);
-      
-      
-      auto ispecies = std::vector<int8_t>(natoms, 0); 
-      auto occurrence = std::vector<int>(128, 0); 
-      int8_t species_of_Z[128];
-      int8_t Z_of_species[128];
-      char  Sy_of_species[128][4];
-      int nspecies = 0; // number of different species
-      { // scope: fill ispecies and species_of_Z
-          for(int first = 1; first >= 0; --first) {
-              for(int ia = 0; ia < natoms; ++ia) {
-                  int const Z_ia = std::round(xyzZ[ia*4 + 3]);
-                  int const Z_ia_mod = Z_ia & 127;
-                  if (first) {
-                      ++occurrence[Z_ia_mod];
-                  } else {
-                      ispecies[ia] = species_of_Z[Z_ia_mod];
-                  } // first
-              } // ia
-              if (first) {
-                  // evaluate the histogram only in the first iteration
-                  for(int Z = 0; Z < 128; ++Z) {
-                      if (occurrence[Z] > 0) {
-                          species_of_Z[Z] = nspecies;
-                          Z_of_species[nspecies] = Z;
-                          Sy_of_species[nspecies][0] = element_symbols[2*Z + 0];
-                          Sy_of_species[nspecies][1] = element_symbols[2*Z + 1];
-                          Sy_of_species[nspecies][2] = 0;
-                          Sy_of_species[nspecies][3] = 0;
-                          ++nspecies;
-                      } // non-zero count
-                  } // Z
-              } // i10
-          } // run twice
-
-      } // scope
-      
-      if (echo > 2) {
-          printf("# Found %d different elements for %ld atoms: ", nspecies, natoms);
-          for(int is = 0; is < nspecies; ++is) {
-              printf("  %dx %s", occurrence[Z_of_species[is]], Sy_of_species[is]); 
-          } // is
-          printf("\n");
-      } // echo
-      
-      double const inv_bin_width = 1./bin_width;
-      auto const dist_hist = (num_bins > 0) ? new int[nspecies*nspecies][num_bins] : nullptr;
-      set((int*) dist_hist, nspecies*nspecies*num_bins, 0); // clear
-      auto bond_hist = std::vector<int>(nspecies*nspecies, 0);
-
-      auto coordination_number = std::vector<uint8_t>(natoms, 0);
-      float const too_large = 188.973;
-      auto smallest_distance = std::vector<float>(nspecies*nspecies, too_large);
-
-
-      typedef vector_math::vec<3,double> vec3;
-      double const rcut2 = pow2(rcut);
-      int64_t nzero = 0, nstrange = 0;
-      int64_t npairs = 0, nbonds = 0;
-      int64_t nfar = 0, near = 0;
-      for(int ia = 0; ia < natoms; ++ia) { // without BoxStructure
-          vec3 const pos_ia = &xyzZ[ia*4];
-          int const Z_ia = std::round(xyzZ[ia*4 + 3]);
-          int const isi = ispecies[ia];
-          assert(Z_ia == Z_of_species[isi]);
-          if (echo > 6) printf("# [ia=%d] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0], pos_ia[1], pos_ia[2], Z_ia);
-//           for(int ja = 0; ja <= ia; ++ja) { // without BoxStructure
-          for(int ja = 0; ja < natoms; ++ja) { // without BoxStructure
-              vec3 const pos_ja = &xyzZ[ja*4];
-              int const isj = ispecies[ja];
-              int const Z_ja = Z_of_species[isj];
-              auto const expected_bond_length = default_bond_length(Z_ia, Z_ja);
-              if (echo > 7) printf("# [ia=%d, ja=%d] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0], pos_ja[1], pos_ja[2], Z_ja);
-//               for(int ii = (ia == ja); ii < nimages; ++ii) { // start from 0 unless self-interaction
-              for(int ii = 0; ii < nimages; ++ii) { // include self-interaction
-                  vec3 const pos_ii = &image_pos[ii*4];
-                  vec3 const diff = pos_ja + pos_ii - pos_ia;
-                  auto const d2 = norm(diff);
-                  if (d2 > rcut2) {
-                      ++nfar; // too far to be analyzed
-                  } else if (d2 < 1e-6) {
-                      if (ia == ja) {
-                          ++nzero; // ok - self interaction
-                      } else ++nstrange; // ?
-                      ++near;
-                  } else {
-                      ++near;
-                      if (echo > 8) printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2); // very verbose!!
-                      auto const dist = std::sqrt(d2);
-                      int const ijs = isi*nspecies + isj;
-                      int const jis = isj*nspecies + isi;
-                      if (nullptr != dist_hist) {
-                          int const ibin = (int)(dist*inv_bin_width);
-                          assert(ibin < num_bins);
-                          ++dist_hist[ijs][ibin];
-                          ++dist_hist[jis][ibin];
-                      }
-                      if (dist < expected_bond_length*elongation) {
-                          ++nbonds;
-                          ++coordination_number[ia];
-                          ++coordination_number[ja];
-                          ++bond_hist[ijs];
-                          ++bond_hist[jis];
-                      } // atoms are close enough to assume a chemical bond
-                      smallest_distance[ijs] = std::min(smallest_distance[ijs], (float)dist);
-                      smallest_distance[jis] = std::min(smallest_distance[jis], (float)dist);
-                  }
-                  ++npairs;
-              } // ii
-          } // ja
-      } // ia
-      if (echo > 0) printf("# checked %.6f M atom-atom pairs, %.3f k near and %.6f M far\n", 1e-6*npairs, 1e-3*near, 1e-6*nfar);
-//       assert((natoms*(natoms + 1))/2 * nimages == npairs + natoms);
-      assert(natoms == nzero);
-      assert(0 == nstrange);
-
-      float minimum_distance = 9e9;
-      for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
-          minimum_distance = std::min(minimum_distance, smallest_distance[ijs]);
-      } // ijs
-      if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
-          ++stat;
-          sprintf(warn, "Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
-      }
-      
-      if (echo > 2) {
-          if (num_bins > 0) {
-              printf("\n## bond histogram (in %s)\n", _Ang);
-              for(int ibin = 0; ibin < num_bins; ++ibin) {
-                  float const dist = ibin*bin_width;
-                  printf("%.3f ", dist*Ang);
-                  for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
-                      printf(" %d", dist_hist[ijs][ibin] >> 1); // divide by 2
-                  } // ijs
-                  printf("\n");
-              } // ibin
-          } // num_bins > 0
-
-          printf("\n# bond counts  ");
-          for(int js = 0; js < nspecies; ++js) {
-              printf("     %s ", Sy_of_species[js]); // create legend
-          } // js
-          printf("total = %ld\n", nbonds);
-          int64_t check_nbonds = 0;
-          for(int is = 0; is < nspecies; ++is) {
-              printf("# bond count ");
-              for(int js = 0; js < nspecies; ++js) {
-                  check_nbonds += bond_hist[is*nspecies + js];
-                  if (js >= is) {
-                      printf("%8d", bond_hist[is*nspecies + js] >> 1); // divide by 2
-                  } else {
-                      printf("        "); // do not show elements below the diagonal
-                  }
-              } // js
-              printf("  %s\n", Sy_of_species[is]);
-          } // is
-          printf("# check total = %ld vs %ld\n", check_nbonds, 2*nbonds);
-          printf("\n");
-          assert(check_nbonds == 2*nbonds);
-          
-          printf("# shortest distances");
-          for(int js = 0; js < nspecies; ++js) {
-              printf("     %s ", Sy_of_species[js]); // create legend
-          } // js
-          printf("      in %s\n", _Ang);
-          for(int is = 0; is < nspecies; ++is) {
-              printf("# shortest distance ");
-              for(int js = 0; js < nspecies; ++js) {
-                  if (js >= is) {
-                      if (smallest_distance[is*nspecies + js] < too_large) {
-                          printf("%8.3f", smallest_distance[is*nspecies + js]*Ang);
-                      } else {
-                          printf("   n/a  "); // no distance below rcut found
-                      }
-                  } else {
-                      printf("        "); // do not show elements below the diagonal
-                  }
-              } // js
-              printf("  %s  in %s\n", Sy_of_species[is], _Ang);
-          } // is
-      } // echo
-      
-      // analyze coordination numbers
-      if (echo > 3) {
-          int cn_exceeds = 0;
-          int const max_cn = 24;
-          auto const cn_hist = new int[nspecies][max_cn];
-          set((int*)cn_hist, nspecies*max_cn, 0);
-          for(int ia = 0; ia < natoms; ++ia) {
-              int const isi = ispecies[ia];
-              int const cni = coordination_number[ia] >> 1;
-              if (cni < max_cn) ++cn_hist[isi][cni]; else ++cn_exceeds;
-          } // ia
-          printf("\n# coordination numbers (radius in %s)\n", _Ang);
-          for(int is = 0; is < nspecies; ++is) {
-              printf("# coordination number for %s (%.3f)", Sy_of_species[is], default_bond_length(Z_of_species[is])*Ang);
-              for(int cn = 0; cn < max_cn; ++cn) {
-                  if (cn_hist[is][cn] > 0) {
-                      printf("  %dx%d", cn_hist[is][cn], cn);
-                  } // histogram count non-zero
-              } // cn
-              printf("\n");
-          } // is
-          printf("\n");
-          if (cn_exceeds > 0) {
-              sprintf(warn, "In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
-              ++stat;
-          }
-          delete[] cn_hist;
-      } // echo
-      
-      if (nullptr != dist_hist) delete[] dist_hist;
-      delete[] image_pos;
-      return stat;
-  } // analysis
-
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  status_t analysis_box(double const xyzZ[], int64_t const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
       status_t stat = 0;
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
@@ -616,12 +264,12 @@ namespace geometry_analysis {
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
       if (echo > 3) printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", (elongation - 1)*100);
       
-      double const rcut = 5.11*Angstrom2Bohr; // maximum analysis range is 5 Angstrom
-//       int const num_bins = 0; // no histogram
-      int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
+      double const rcut = 6.144*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
+//       int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
+      int const num_bins = 0; // no histogram
 //       double const rcut = 4*5.11*Angstrom2Bohr; // maximum analysis range is 20 Angstrom
 //       int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
-      double const bin_width = 0.01*Angstrom2Bohr;
+      double const bin_width = 0.012*Angstrom2Bohr;
 
 //       double const bin_width = 0.02*Angstrom2Bohr;
 //       int const num_bins = std::ceil(rcut/bin_width);
@@ -683,14 +331,26 @@ namespace geometry_analysis {
       float const too_large = 188.973;
       auto smallest_distance = std::vector<float>(nspecies*nspecies, too_large);
 
-      
-      BoxStructure<int> box(cell, bc, 1*rcut, natoms, xyzZ);
-
+      double *image_pos = nullptr;
       typedef vector_math::vec<3,double> vec3;
       double const rcut2 = pow2(rcut);
       int64_t nzero = 0, nstrange = 0;
       int64_t npairs = 0, nbonds = 0;
       int64_t nfar = 0, near = 0;
+
+// #define GEO_ORDER_N2
+#ifdef  GEO_ORDER_N2
+      int const nimages = boundary_condition::periodic_images(&image_pos, cell, bc, rcut, echo);
+      if (echo > 2) printf("# use N^2-algorithm, expect to visit %.1e atom pairs\n", nimages*pow2((double)natoms));
+
+      {{{{{ // open 5 loops for the box structure
+      for(int ii = 0; ii < nimages; ++ii) { // includes self-interaction
+          vec3 const pos_ii = &image_pos[ii*4];
+          for(int ia = 0; ia < natoms; ++ia) {
+              //========================================================================================================
+#else
+      BoxStructure<int> box(cell, bc, 1*rcut, natoms, xyzZ);
+      
       for(int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
       for(int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {
       for(int ibx = 0; ibx < box.get_number_of_boxes(0); ++ibx) {
@@ -699,29 +359,34 @@ namespace geometry_analysis {
         for(int jbz = ibz - box.get_halo_thickness(2); jbz <= ibz + box.get_halo_thickness(2); ++jbz) {
         for(int jby = iby - box.get_halo_thickness(1); jby <= iby + box.get_halo_thickness(1); ++jby) {
         for(int jbx = ibx - box.get_halo_thickness(0); jbx <= ibx + box.get_halo_thickness(0); ++jbx) {
-            int const *list_j;
-            int shift[3];
-            int const na_j = box.get_atom_list(&list_j, jbx, jby, jbz, shift);
-            double const ppos_i[3] = {shift[0]*cell[0], shift[1]*cell[1], shift[2]*cell[2]}; // periodic shift if applicable
-            vec3 const pos_ii = ppos_i; // convert to vector
+          int const *list_j;
+          int shift[3];
+          int const na_j = box.get_atom_list(&list_j, jbx, jby, jbz, shift);
+          double const ppos_i[3] = {shift[0]*cell[0], shift[1]*cell[1], shift[2]*cell[2]}; // periodic shift if applicable
+          vec3 const pos_ii = ppos_i; // convert to vector
 
-            for(int iia = 0; iia < na_i; ++iia) { int const ia = list_i[iia];
+          for(int iia = 0; iia < na_i; ++iia) { int const ia = list_i[iia];
+              //========================================================================================================
+#endif
               //========================================================================================================
               vec3 const pos_ia = &xyzZ[ia*4];
-              int const Z_ia = std::round(xyzZ[ia*4 + 3]);
               int const isi = ispecies[ia];
-              assert(Z_ia == Z_of_species[isi]);
-              if (echo > 6) printf("# [ia=%d] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0], pos_ia[1], pos_ia[2], Z_ia);
+              int const Z_ia = Z_of_species[isi];
+              if (echo > 6) printf("# [ia=%d] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_ia);
               //========================================================================================================
+              vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
+#ifdef  GEO_ORDER_N2
+              for(int ja = 0; ja < natoms; ++ja) {
+#else
               for(int ija = 0; ija < na_j; ++ija) { int const ja = list_j[ija];
+#endif
                   //========================================================================================================
                   vec3 const pos_ja = &xyzZ[ja*4];
                   int const isj = ispecies[ja];
                   int const Z_ja = Z_of_species[isj];
-                  auto const expected_bond_length = default_bond_length(Z_ia, Z_ja);
-                  if (echo > 7) printf("# [ia=%d, ja=%d] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0], pos_ja[1], pos_ja[2], Z_ja);
+                  if (echo > 7) printf("# [ia=%d, ja=%d] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_ja);
                   //========================================================================================================
-                  vec3 const diff = pos_ja + pos_ii - pos_ia;
+                  vec3 const diff = pos_ja + pos_ii_minus_ia;
                   auto const d2 = norm(diff);
                   if (d2 > rcut2) {
                       ++nfar; // too far to be analyzed
@@ -732,7 +397,8 @@ namespace geometry_analysis {
                       ++near;
                   } else {
                       ++near;
-                      if (echo > 8) printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0],shift[1],shift[2], d2); // very verbose!!
+//                    if (echo > 8) printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2); // very verbose!!
+//                    if (echo > 8) printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0],shift[1],shift[2], d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
                       int const ijs = isi*nspecies + isj;
                       if (nullptr != dist_hist) {
@@ -740,35 +406,27 @@ namespace geometry_analysis {
                           assert(ibin < num_bins);
                           ++dist_hist[ijs][ibin];
                       }
-                      if (dist < expected_bond_length*elongation) {
+                      if (dist < elongation*default_bond_length(Z_ia, Z_ja)) {
                           ++nbonds;
                           ++coordination_number[ia];
                           ++bond_hist[ijs];
-//                        if ((0 == isi) || (0 == isj)) printf("# hydrogen bond i#%d j#%d\n", (int)ia, (int)ja);
                       } // atoms are close enough to assume a chemical bond
                       smallest_distance[ijs] = std::min(smallest_distance[ijs], (float)dist);
                   }
                   ++npairs;
-
-          } // ija
-        } // iia
-        
-      } // jbx
-      } // jby
-      } // jbz
-          
-      } // ibx
-      } // iby
-      } // ibz
-//       assert(natoms == nzero);
+                  //========================================================================================================
+              } // ja
+          } // ia
+      } // ii
+      }}}}} // close 5 loops for the box structure
+      
+      if (echo > 0) printf("# checked %.6f M atom-atom pairs, %.3f k near and %.6f M far\n", 1e-6*npairs, 1e-3*near, 1e-6*nfar);
       if (natoms != nzero) {
           sprintf(warn, "Should find %ld exact zero distances but found %ld", natoms, nzero);
           ++stat;
       } // warn
+      assert(natoms == nzero);
       assert(0 == nstrange);
-                  
-      if (echo > 0) printf("# checked %.6f M atom-atom pairs, %.3f k near and %.6f M far\n", 1e-6*npairs, 1e-3*near, 1e-6*nfar);
-//       assert((natoms*(natoms + 1))/2 * nimages == npairs + natoms);
 
       float minimum_distance = 9e9;
       for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
@@ -866,9 +524,9 @@ namespace geometry_analysis {
       } // echo
       
       if (nullptr != dist_hist) delete[] dist_hist;
+      if (nullptr != image_pos) delete[] image_pos;
       return stat;
   } // analysis
-  
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -885,8 +543,9 @@ namespace geometry_analysis {
     
     if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                              natoms, filename, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
-
-    stat += analysis_box(xyzZ, natoms, cell, bc);
+    { SimpleTimer timer(__FILE__, __LINE__, "analysis");
+        stat += analysis(xyzZ, natoms, cell, bc);
+    } // timer
 
     delete[] xyzZ;
     return stat;

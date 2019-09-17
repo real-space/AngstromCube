@@ -715,6 +715,59 @@ probe by a projection to the charge compensator shape:
 $$ v^a_{\ell m} = \int d^3 \vec r \  \hat g_{\ell m}(\vec r) \tilde V\um{es}(\vec r) $$
 See fig.~\ref{fig:multipole-shifts} for an example.
 
+
+\section{Linear Scaling}\label{sec:linear-scaling}
+%
+A first glimpse of linear scaling algorithms can be found in the
+\ttt{geometry\_analysis.} module.
+Here, all target atoms in the vicinity of $r\um{vic} = \unit[6.144]{\AA}$ around each source atoms
+have to be found in order to analyse its local bond structure
+and coordination number.
+A naive implementation leads to an $N\um{atoms}^2$-scaling algorithm,
+in fact, the distance of $n\um{images} \cdot N\um{atoms}^2$ atom-atom pairs
+needs to be visited.
+Although we can compare the squared distance to the squared radius of the vicinity,
+hence omitting the computation of the sqaure root, the cost prefactor
+is in the range of one nanosecond on a single core CPU.
+For example the CPU runtimes shown in fig.~\ref{fig:geometry-analysis-scaling}
+are $t \approx n\um{images} \cdot N\um{atoms}^2 \cdot \unit[1.32]{ns}$, c.f.~red data points.
+%%%% 27*110592^2 atom-atom pairs in 435.866 sec
+\\
+A linear scaling algorithm that produces the same output comes at the additional
+cost of an initial grouping operation of the atomic positions into clusters.
+However, as we know the spatial position and max.~extend of the clusters,
+it is simple to analyze only atom pairs where the clusters of both partners
+are not too remote.
+A simple treatment in 3D is to generate uniform rectangular boxes. 
+The min.~box extend is $r\um{vic}$.
+Periodic images of boxes need to be taken into account.
+If the simulation cell is large, a halo thickness of 1 needs is sufficient.
+The initial (linear scaling) operation is to generate lists of those atoms
+that are located inside each box.
+%
+\begin{figure}
+  %% how to generate this plot:
+  %%    rm -f atoms.xyz && ln -s gst_set128.xyz ./atoms.xyz
+  %% 	time run -t geometry_analysis.
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/geometry_analysis-scaling} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:geometry-analysis-scaling}
+  \caption{
+  Linear scaling vs.~quadratic scaling can be observed when computing atom-atom distances.
+  The dashed lines have slope 1 and 2, respectively, fitted through a single data point.
+  The crossover of the dashed lines happens around $18$ atoms.
+  }
+\end{figure}
+%
+%
+Comparing the prefactors in fig.~\ref{fig:geometry-analysis-scaling} 
+we can extrapolate a theoretical crossover for this particular case (bulk, cubic cell) around $18$ atoms.
+For any larger number, the linear scaling solution is faster.
+
+
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
 % ==============================================================================

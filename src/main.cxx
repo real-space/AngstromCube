@@ -24,6 +24,7 @@ typedef int status_t;
 #include "grid_operators.hxx" // all_tests
 #include "element_config.hxx" // all_tests
 #include "angular_grid.hxx" // all_tests
+#include "simple_timer.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
 #include "inline_math.hxx" // all_tests
@@ -66,6 +67,7 @@ typedef int status_t;
           module_test("grid_operators.",         grid_operators::all_tests);
           module_test("element_config.",         element_config::all_tests);
           module_test("angular_grid.",             angular_grid::all_tests);
+          module_test("simple_timer.",             simple_timer::all_tests);
           module_test("radial_grid.",               radial_grid::all_tests);
           module_test("single_atom.",               single_atom::all_tests);
           module_test("inline_math.",               inline_math::all_tests);

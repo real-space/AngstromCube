@@ -54,7 +54,7 @@ namespace element_config {
                                           printf("%.1f ", iocc[inl]);
                                       printf("\n");
                                   } else if ((echo > 1) && (0 == spin)) {
-                                      printf("%c%c ", El[0], El[1]);
+                                      printf(" %c%c", El[0], El[1]);
                                   }
                               } // echo
                           } // s
