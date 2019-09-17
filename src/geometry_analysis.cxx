@@ -557,7 +557,7 @@ namespace geometry_analysis {
       // analyze coordination numbers
       if (echo > 3) {
           int cn_exceeds = 0;
-          int const max_cn = 16;
+          int const max_cn = 24;
           auto const cn_hist = new int[nspecies][max_cn];
           set((int*)cn_hist, nspecies*max_cn, 0);
           for(int ia = 0; ia < natoms; ++ia) {
@@ -614,10 +614,11 @@ namespace geometry_analysis {
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
       
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
+      if (echo > 3) printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", (elongation - 1)*100);
       
       double const rcut = 5.11*Angstrom2Bohr; // maximum analysis range is 5 Angstrom
-      int const num_bins = 0; // no histogram
-//       int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
+//       int const num_bins = 0; // no histogram
+      int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
 //       double const rcut = 4*5.11*Angstrom2Bohr; // maximum analysis range is 20 Angstrom
 //       int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
       double const bin_width = 0.01*Angstrom2Bohr;
@@ -838,7 +839,7 @@ namespace geometry_analysis {
       // analyze coordination numbers
       if (echo > 3) {
           int cn_exceeds = 0;
-          int const max_cn = 16;
+          int const max_cn = 24;
           auto const cn_hist = new int[nspecies][max_cn];
           set((int*)cn_hist, nspecies*max_cn, 0);
           for(int ia = 0; ia < natoms; ++ia) {
