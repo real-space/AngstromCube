@@ -559,6 +559,7 @@ extern "C" {
     } // show_state_analysis
 
     void update_core_states(float const mixing, int const echo=0) {
+        if (echo > 1) printf("\n# %s %s\n", label, __func__);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
         auto const r2rho = new double[nr];
@@ -638,6 +639,7 @@ extern "C" {
     } // update_core_states
 
     void update_valence_states(int const echo=0) {
+        if (echo > 1) printf("\n# %s %s\n", label, __func__); 
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
@@ -1094,7 +1096,7 @@ extern "C" {
             add_product(full_potential[ts], nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
             if (echo > -1) {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
-                if (TRU == ts) printf("# %s  local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
+                if (TRU == ts) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
                                           Ves[1]*(rg[TRU]->r[1])*Y00, -Z);
                 if (SMT == ts) {
                     printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
@@ -1268,7 +1270,7 @@ extern "C" {
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
 
-        if (echo > 2) {
+        if (echo > 9) {
             printf("\n# %s SHO-transformed Hamiltonian elements in %s:\n", label, _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO);

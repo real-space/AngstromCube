@@ -33,15 +33,16 @@ namespace sho_projection {
       for(int dir = 0; dir < 3; ++dir) {
           off[dir] = std::ceil((center[dir] - rcut)*g.inv_h[dir]);
           end[dir] = std::ceil((center[dir] + rcut)*g.inv_h[dir]);
-          if (echo > 3) printf("# prelim for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
+          if (echo > 9) printf("# prelim for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
           off[dir] = std::max(off[dir], 0); // lower
           end[dir] = std::min(end[dir], g.dim(dir)); // upper boundary
-          if (echo > 3) printf("# limits for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
+          if (echo > 9) printf("# limits for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
           num[dir] = std::max(0, end[dir] - off[dir]);
       } // dir
+      long const nvolume = num[0] * num[1] * num[2];
+      if ((nvolume < 1) && (echo < 7)) return 0; // no range
       if (echo > 2) printf("# rectangular sub-domain z:[%d, %d) y:[%d, %d) x:[%d, %d)\n", 
                            off[2], end[2], off[1], end[1], off[0], end[0]);
-      long const nvolume = num[0] * num[1] * num[2];
       if (echo > 1) printf("# %s on rectangular sub-domain %d * %d * %d = %ld points\n", 
                  (0 == PROJECT0_OR_ADD1)?"project":"add", num[2], num[1], num[0], nvolume);
       if (nvolume < 1) return 0; // no range
@@ -51,12 +52,11 @@ namespace sho_projection {
       int const M = 1 + numax;
       real_t* H1d[3];
       for(int dir = 0; dir < 3; ++dir) {
-          int const nd = num[dir];
-          H1d[dir] = new real_t[nd*M]; // get memory
+          H1d[dir] = new real_t[num[dir]*M]; // get memory
 
           real_t const grid_spacing = g.h[dir];
           if (echo > 5) printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
-          for(int ii = 0; ii < nd; ++ii) {
+          for(int ii = 0; ii < num[dir]; ++ii) {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
               hermite_polys(H1d[dir] + ii*M, x, numax);
@@ -118,7 +118,7 @@ namespace sho_projection {
                      , real_t const values[] // input, grid array
                      , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
-      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
+      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, 5); // un-const values pointer
   } // sho_project
 
   // wrapper function
@@ -130,7 +130,7 @@ namespace sho_projection {
                  , double const center[3] // where
                  , double const sigma
                  , int const echo=0) { //
-      return sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
+      return sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, 5); // un-const coeff pointer
   } // sho_add
   
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 

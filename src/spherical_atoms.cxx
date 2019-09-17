@@ -33,7 +33,7 @@ namespace spherical_atoms {
   
   double constexpr Y00sq = pow2(solid_harmonics::Y00);
   
-  void print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
+  double print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
       double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
       for(size_t i = 0; i < all; ++i) {
           gmin = std::min(gmin, values[i]);
@@ -42,9 +42,18 @@ namespace spherical_atoms {
           gsum2 += pow2(values[i]);
       } // i
       printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*dV, gsum/all);
+      return gsum*dV;
   } // print_stats
 
-  inline int n_grid_points(double const suggest) { return (int)align<1>((int)std::ceil(suggest)); }
+//   inline int n_grid_points(double const suggest) { return (int)align<1>((int)std::ceil(suggest)); }
+  inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
+  inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
+  
+  inline double fold_back(double x, double const cell_extend) { 
+      while(x > 0.5*cell_extend) x -= cell_extend; 
+      while(x < -.5*cell_extend) x += cell_extend;
+      return x;
+  } // fold_back
   
   status_t init(float const ion=0.f, int const echo=0) {
       status_t stat = 0;
@@ -83,22 +92,27 @@ namespace spherical_atoms {
       real_space_grid::grid_t<1> g(dims);
       double const grid_spacing = cell[0]/dims[0];
       g.set_grid_spacing(grid_spacing);
-      
+      for(int d = 0; d < 3; ++d) {
+          assert(std::abs(g.h[d]*g.dim(d) - cell[d]) < 1e-6);
+          assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
+      } // d
 
       double *qlm[na];
       double *vlm[na];
       float Za[na]; // list of atomic numbers
-      double center[na][4]; // list of atomic centers
+      auto const center = new double[na][4]; // list of atomic centers
       if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
       for(int ia = 0; ia < na; ++ia) {
           int const iZ = (int)std::round(xyzZ[ia*4 + 3]);
           char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
-          if (echo > 4) printf("# %c%c  %16.9f%16.9f%16.9f\n", El[0],El[1], 
-                         xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang);
+          if (echo > 4) printf("# %c%c  %16.9f%16.9f%16.9f\n", El[0],El[1],
+                          xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang);
           Za[ia] = (float)xyzZ[ia*4 + 3]; // list of atomic numbers
           for(int d = 0; d < 3; ++d) {
-              center[ia][d] = 0.5*(g.dim(d) + 1)*g.h[d] - xyzZ[ia*4 + d];
-          }   center[ia][3] = 0; // component is not used
+              center[ia][d] = fold_back(xyzZ[ia*4 + d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+          }   center[ia][3] = 0; // 4th component is not used
+          if (echo > 8) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
+                                       center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
           vlm[ia] = new double[1];
           qlm[ia] = new double[1];
       } // ia
@@ -120,8 +134,8 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 13; ++scf_iteration) {
-      printf("\n\n#\n# SCF-Iteration #%d:\n#\n\n", scf_iteration);
+  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+      printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
 
@@ -197,7 +211,7 @@ namespace spherical_atoms {
                   set(coeff, 1, qlm[ia], prefactor);
                   for(int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                      stat += sho_projection::sho_add(cmp, g, coeff, 0, cnt, sigma_compensator, echo);
+                      stat += sho_projection::sho_add(cmp, g, coeff, 0, cnt, sigma_compensator, 0);
                   } // periodic images
               }
               if (echo > -1) {
@@ -230,7 +244,7 @@ namespace spherical_atoms {
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
                   double coeff_image[1]; set(coeff_image, 1, 0.0);
-                  stat += sho_projection::sho_project(coeff_image, 0, center[ia], sigma_compensator, Ves, g, echo);
+                  stat += sho_projection::sho_project(coeff_image, 0, cnt, sigma_compensator, Ves, g, 0);
                   add_product(coeff, 1, coeff_image, 1.0);
               } // periodic images
               set(vlm[ia], 1, coeff, prefactor); // SHO-projectors are brought to the grid unnormalized, i.e. p_{00}(0) = 1.0
@@ -306,6 +320,7 @@ namespace spherical_atoms {
                   delete[] rs;
               } // echo
               delete[] qc;
+              delete[] qcq2;
           } // ia
       
       } // iptr loop for different quantities represented on the grid.
@@ -319,7 +334,10 @@ namespace spherical_atoms {
       delete[] cmp;
       for(int ia = 0; ia < na; ++ia) {
           delete[] rho_core[ia]; // has been allocated in single_atom::update()
+          delete[] vlm[ia];
+          delete[] qlm[ia];
       } // ia
+      delete[] center;
 
       stat += single_atom::update(-na, nullptr, nullptr); // cleanup
       return stat;
