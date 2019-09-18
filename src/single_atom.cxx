@@ -180,7 +180,7 @@ extern "C" {
       
       // general config
       int32_t id; // global atom identifyer
-      float Z; // number of nucleons in the core
+      float Z_core; // number of nucleons in the core
       char label[16]; // label string
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
@@ -229,12 +229,12 @@ extern "C" {
             , int const global_atom_id=-1
             , int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
-        Z = Z_nucleons; // convert to float
-        if (echo > 0) printf("\n\n#\n# LiveAtom with %.1f nucleons, ionization=%g\n", Z, ionization);
+        Z_core = Z_nucleons; // convert to float
+        if (echo > 0) printf("\n\n#\n# LiveAtom with %g nucleons, ionization=%g\n", Z_core, ionization);
         
         id = global_atom_id; if (id >= 0) { sprintf(label, "a#%d", id); } else { label[0]=0; }
         
-        rg[TRU] = radial_grid::create_default_radial_grid(Z);
+        rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
         
         if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
@@ -277,7 +277,7 @@ extern "C" {
 
         set(core_density[SMT], nrs, 0.0); // init
         set(core_density[TRU], nrt, 0.0); // init
-        atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z, "pot/Zeff", -1, echo);
+        atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z_core, "pot/Zeff", -1, echo);
 
 //         // show the loaded Zeff(r)
 //         if (echo > 0) {
@@ -294,7 +294,7 @@ extern "C" {
         auto const r2rho = new double[nrt];
         ncorestates = 20;
         core_state = new core_level_t[ncorestates];
-        {   int ics = 0, jcs = -1; float ne = Z - ionization;
+        {   int ics = 0, jcs = -1; float ne = Z_core - ionization;
             for(int m = 0; m < 8; ++m) { // auxiliary number
                 int enn = (m + 1)/2;
                 for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
@@ -302,7 +302,7 @@ extern "C" {
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
                         auto &cs = core_state[ics]; // abbreviate
                         cs.wave[TRU] = new double[nrt]; // get memory for the true radial function
-                        double E = atom_core::guess_energy(Z, enn);
+                        double E = atom_core::guess_energy(Z_core, enn);
                         set(r2rho, rg[TRU]->n, 0.0);
                         radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
                                  enn, ell, E, cs.wave[TRU], r2rho);
@@ -357,14 +357,14 @@ extern "C" {
         {   int iln = 0;
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                     auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     
                     vs.wave[SMT] = new double[nrs]; // get memory for the smooth radial function
                     vs.wave[TRU] = new double[nrt]; // get memory for the true radial function
-                    double E = atom_core::guess_energy(Z, enn);
+                    double E = atom_core::guess_energy(Z_core, enn);
                     radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
                                           enn, ell, E, vs.wave[TRU]);
                     vs.energy = E;
@@ -559,7 +559,7 @@ extern "C" {
     } // show_state_analysis
 
     void update_core_states(float const mixing, int const echo=0) {
-        if (echo > 1) printf("\n# %s %s\n", label, __func__);
+        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
         auto const r2rho = new double[nr];
@@ -605,7 +605,7 @@ extern "C" {
             core_nuclear_energy  +=         (new_rho - core_density[TRU][ir])*rg[TRU]->rdr[ir]; // Coulomb integral change
             core_density[TRU][ir] = mix_new*new_rho + mix_old*core_density[TRU][ir];
         } // ir
-        core_nuclear_energy *= -Z;
+        core_nuclear_energy *= -Z_core;
         if (echo > 0) printf("# %s core density change %g e (rms %g e) energy change %g %s\n", label,
             core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
         delete[] new_r2core_density;
@@ -639,7 +639,7 @@ extern "C" {
     } // update_core_states
 
     void update_valence_states(int const echo=0) {
-        if (echo > 1) printf("\n# %s %s\n", label, __func__); 
+        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core); 
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
@@ -1001,7 +1001,7 @@ extern "C" {
         } // ell
         
         // account for Z protons in the nucleus and the missing charge in the smooth core density
-        qlm_compensator[0] += Y00*(core_charge_deficit - Z);
+        qlm_compensator[0] += Y00*(core_charge_deficit - Z_core);
         if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]/Y00);
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
@@ -1049,8 +1049,8 @@ extern "C" {
             auto const exc_lm = new double[nlm*mr];
             angular_grid::transform(exc_lm, &on_grid[npt*mr], mr, ellmax, true);
             delete[] on_grid;
-            if ((echo > 6) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[ts][0]*Y00*eV,_eV);
-            if (echo > -1) {
+            if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[ts][0]*Y00*eV,_eV);
+            if (echo > 5) {
                 auto const Edc00 = dot_product(nr, full_potential[ts], full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
                 printf("# %s double counting correction  in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
                 auto const Exc00 = dot_product(nr, exc_lm, full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
@@ -1060,14 +1060,14 @@ extern "C" {
 
             // solve electrostatics inside the spheres
             auto   const Ves = new double[nlm*mr];
-            double const q_nucleus = (TRU == ts) ? -Z*Y00 : 0; // Z = number of protons in the nucleus
+            double const q_nucleus = (TRU == ts) ? -Z_core*Y00 : 0; // Z_core = number of protons in the nucleus
             auto   const rho_aug   = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
             radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug, mr, ellmax, q_nucleus);
 
             if (SMT == ts) {
                 add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves, sigma_compensator); // project to compensators
-                if (echo > -1) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
+                if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
                 // this seems to high by a factor sqrt(4*pi), ToDo: find out why
 //                 scale(vlm, nlm, Y00);
                 
@@ -1075,12 +1075,12 @@ extern "C" {
                 if (nullptr == ves_multipole) {
                     set(vlm, nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
                 } else {
-                    if (echo > -1) printf("# %s v_00 found %g but expected %g %s\n", label, vlm[0]*Y00*eV, ves_multipole[0]*Y00*eV,_eV);
+                    if (echo > 6) printf("# %s v_00 found %g but expected %g %s\n", label, vlm[0]*Y00*eV, ves_multipole[0]*Y00*eV,_eV);
                     scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
                 } // no ves_multipole given
             } // smooth only
             
-            if (echo > -1) {
+            if (echo > 7) {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
             }
 
@@ -1090,14 +1090,14 @@ extern "C" {
             if (SMT == ts) {   // debug: project again to see if the correction worked out
                 double v00;
                 add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves, sigma_compensator); // project to compensators
-                if (echo > -1) printf("# %s after correction v_00 is %g %s\n", label, v00*Y00*eV,_eV);
+                if (echo > 7) printf("# %s after correction v_00 is %g %s\n", label, v00*Y00*eV,_eV);
             }
 
             add_product(full_potential[ts], nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
-            if (echo > -1) {
+            if (echo > 8) {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
                 if (TRU == ts) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
-                                          Ves[1]*(rg[TRU]->r[1])*Y00, -Z);
+                                          Ves[1]*(rg[TRU]->r[1])*Y00, -Z_core);
                 if (SMT == ts) {
                     printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -1372,14 +1372,14 @@ namespace single_atom {
   
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm) {
+                  double **rho, double **qlm, double **vlm, int const echo) {
 
       static LiveAtom **a=nullptr;
 
       if (nullptr == a) {
           a = new LiveAtom*[na];
           for(int ia = 0; ia < na; ++ia) {
-              a[ia] = new LiveAtom(Za[ia], false, ion[ia], ia, 9);
+              a[ia] = new LiveAtom(Za[ia], false, ion[ia], ia, echo);
           } // ia
       } // a has not been initialized
 
@@ -1389,7 +1389,7 @@ namespace single_atom {
           } // ia
           delete[] a; a = nullptr;
       } // cleanup
-      
+
       for(int ia = 0; ia < na; ++ia) {
         
           if (nullptr != rho) {
@@ -1405,8 +1405,8 @@ namespace single_atom {
           if (nullptr != qlm) set(qlm[ia], 1, a[ia]->qlm_compensator); // copy compensator multipoles
           
           if (nullptr != vlm) { 
-              a[ia]->update_potential(.5f, vlm[ia], 9); // set electrostatic multipole shifts
-              a[ia]->update_density(.5f, 9);
+              a[ia]->update_potential(.5f, vlm[ia], echo); // set electrostatic multipole shifts
+              a[ia]->update_density(.5f, echo);
           } //  vlm
           
       } // ia

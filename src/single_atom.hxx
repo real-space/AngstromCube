@@ -8,7 +8,8 @@ namespace single_atom {
 
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg=nullptr, double *sigma_cmp=nullptr, 
-                  double **rho=nullptr, double **qlm=nullptr, double **vlm=nullptr);
+                  double **rho=nullptr, double **qlm=nullptr, double **vlm=nullptr,
+                  int const echo=9);
 
   status_t all_tests();
 

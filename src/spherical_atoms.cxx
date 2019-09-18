@@ -136,7 +136,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 33; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);

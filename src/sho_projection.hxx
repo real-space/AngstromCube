@@ -41,10 +41,9 @@ namespace sho_projection {
       } // dir
       long const nvolume = num[0] * num[1] * num[2];
       if ((nvolume < 1) && (echo < 7)) return 0; // no range
-      if (echo > 2) printf("# rectangular sub-domain z:[%d, %d) y:[%d, %d) x:[%d, %d)\n", 
-                           off[2], end[2], off[1], end[1], off[0], end[0]);
-      if (echo > 1) printf("# %s on rectangular sub-domain %d * %d * %d = %ld points\n", 
-                 (0 == PROJECT0_OR_ADD1)?"project":"add", num[2], num[1], num[0], nvolume);
+      if (echo > 2) printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n", 
+                           (0 == PROJECT0_OR_ADD1)?"project":"add", off[0], end[0], off[1], end[1], off[2], end[2],
+                           num[0], num[1], num[2], nvolume);
       if (nvolume < 1) return 0; // no range
 
       // ToDo: analyze if the grid spacing is small enough for this \sigma
