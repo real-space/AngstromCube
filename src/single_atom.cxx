@@ -352,7 +352,7 @@ extern "C" {
 
         if (echo > 5) { printf("# %s enn_core_ell  ", label); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n"); }
 
-        nvalencestates = (numax*(numax + 4) + 4)/4; // ToDo: new function in sho_tools::
+        nvalencestates = sho_tools::num_ln_indices(numax); // == (numax*(numax + 4) + 4)/4
         valence_state = new valence_level_t[nvalencestates];
         {   int iln = 0;
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows

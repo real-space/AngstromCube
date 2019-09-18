@@ -134,7 +134,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 13; ++scf_iteration) {
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
@@ -281,9 +281,16 @@ namespace spherical_atoms {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
               float const dq = 1.f/16; int const nq = (int)(constants::pi/(grid_spacing*dq));
               auto const qc = new double[nq];
+              set(qc, nq, 0.0);
               
 //            printf("\n\n# start bessel_projection:\n"); // DEBUG
-              stat += real_space_grid::bessel_projection(qc, nq, dq, values, g, center[ia]);
+              auto const qc_image = new double[nq];
+              for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+                  stat += real_space_grid::bessel_projection(qc_image, nq, dq, values, g, cnt);
+                  add_product(qc, nq, qc_image, 1.0);
+              } // ii
+              delete[] qc_image;
 //            printf("\n# end bessel_projection.\n\n"); // DEBUG
 
               scale(qc, nq, pow2(solid_harmonics::Y00));

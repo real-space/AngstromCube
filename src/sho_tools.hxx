@@ -34,13 +34,15 @@ namespace sho_tools {
   inline constexpr int ndeg(int const nu) { return n2HO(nu); }
 
   // =============================== Radial indices ===============================
+
+  inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
   
   // emm-degenerate
   inline constexpr int ln_index(int const numax, int const ell, int const nrn)
       { return nrn + (1 + ell*( (2*numax + 4) - ell))/4; } // ln_index
   template<int numax> inline constexpr
-  int ln_index(int const ell, int const nrn) 
-      { return ln_index(numax, ell, nrn); }
+  int ln_index(int const ell, int const nrn) { 
+      return ln_index(numax, ell, nrn); }
 
   // emm-resolved
   inline constexpr 
@@ -51,8 +53,8 @@ namespace sho_tools {
               + ell*((3*numax + 6) - 2*ell))))/6; // quadratic and cubic terms
   } // lnm_index
   template<int numax> inline constexpr
-  int lnm_index(int const ell, int const nrn, int const emm) 
-      { return lnm_index(numax, ell, nrn, emm); }
+  int lnm_index(int const ell, int const nrn, int const emm) {
+      return lnm_index(numax, ell, nrn, emm); }
 
   inline constexpr
   int lmn_index(int const numax, int const ell, int const emm, int const nrn) {
@@ -61,7 +63,8 @@ namespace sho_tools {
             + nrn; } // linear contribution
 
   inline constexpr
-  int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; } // usual spherical harmonics index
+  int lm_index(int const ell, int const emm) { 
+      return ell*ell + ell + emm; } // usual spherical harmonics index
       
   // =============================== Cartesian indices ===============================
 
@@ -70,43 +73,46 @@ namespace sho_tools {
       return (nz*nz*nz - 3*(2 + numax)*nz*nz + (3*pow2(2 + numax) - 1)*nz // contribution for nx=0, ny=0
               + ny*(2 + numax - nz)*6 - (ny*(1 + ny))*3  +  6*nx)/6;  // contribution from previous y and x
   } // zyx_index
-  template<int numax, typename int_t>
-  inline constexpr int zyx_index(int_t const nx, int_t const ny, int_t const nz)
-      { return zyx_index(numax, nx, ny, nz); }
-  template<typename int_t>
-  inline constexpr int zyx_index(int const numax, int_t const nzyx[3])
-      { return zyx_index(numax, nzyx[0], nzyx[1], nzyx[2]); }
-  template<int numax, typename int_t>
-  inline constexpr int zyx_index(int_t const nzyx[3]) 
-      { return zyx_index<numax>(nzyx[0], nzyx[1], nzyx[2]); }
+  template<int numax, typename int_t> inline constexpr 
+  int zyx_index(int_t const nx, int_t const ny, int_t const nz) {
+      return zyx_index(numax, nx, ny, nz); }
+  template<typename int_t> inline constexpr 
+  int zyx_index(int const numax, int_t const nzyx[3]) {
+      return zyx_index(numax, nzyx[0], nzyx[1], nzyx[2]); }
+  template<int numax, typename int_t> inline constexpr
+  int zyx_index(int_t const nzyx[3]) {
+      return zyx_index<numax>(nzyx[0], nzyx[1], nzyx[2]); }
 
   // =============================== Energy-ordered indices ===============================
 
   // energy-ordered Cartesian 3D index
-  inline constexpr int nzyx_index(int const nx, int const ny, int const nz) { 
+  inline constexpr
+  int nzyx_index(int const nx, int const ny, int const nz) { 
       return ((nx+ny+nz)*(1 + nx+ny+nz)*(2 + nx+ny+nz))/6 // contribution from previous shells
                + nx + (nz*((2+ nx+ny+nz )*2-(nz + 1)))/2; // contribution from previous row and x
   } // nzyx_index
 
   // energy-ordered radial emm-degenerate index
-  inline constexpr int nln_index(int const ell, int const nrn) {
+  inline constexpr
+  int nln_index(int const ell, int const nrn) {
       return (pow2(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
 
   // energy-ordered radial 3D index
-  inline constexpr int nlnm_index(int const ell, int const nrn, int const emm) {
+  inline constexpr
+  int nlnm_index(int const ell, int const nrn, int const emm) {
       return ((ell + 2*nrn)*(ell + 2*nrn + 1)*(ell + 2*nrn + 2) // energy shell offset (nu*(nu+1)*(nu+2))/6
               + 3*ell*(ell - 1) // previous ells (ell*(ell - 1))/2
               + 6*(emm + ell))/6; } // linear emm-contribution
 
-  template<typename int_t>
-  inline constexpr int_t get_nu(int_t const nx, int_t const ny, int_t const nz) { return nx + ny + nz; }
+  template<typename int_t> inline constexpr
+  int_t get_nu(int_t const nx, int_t const ny, int_t const nz) { return nx + ny + nz; }
 
-  template<typename int_t>
-  inline constexpr int_t get_nu(int_t const ell, int_t const nrn) { return ell + 2*nrn; }
+  template<typename int_t> inline constexpr
+  int_t get_nu(int_t const ell, int_t const nrn) { return ell + 2*nrn; }
 
-  template<typename int_t>
-  inline int get_nu(int_t const energy_ordered)
-      { int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
+  template<typename int_t> inline
+  int get_nu(int_t const energy_ordered) {
+      int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
 
 //   template<typename int_t>
 //   inline status_t zyx_translation_table(int_t table[], int const numax, bool const inverse=false) {
@@ -132,8 +138,8 @@ namespace sho_tools {
 //       return 0;
 //   } // get_translation_table
 
-  template<typename int_t>
-  status_t inline construct_index_table(int_t energy_ordered[], int const numax, 
+  template<typename int_t> inline
+  status_t construct_index_table(int_t energy_ordered[], int const numax, 
                     SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
       // construct a table of energy ordered indices
       if (echo > 1) printf("# construct_index_table for <numax=%d> order=%c%c%c%c\n", numax, order>>24, order>>16, order>>8, order);

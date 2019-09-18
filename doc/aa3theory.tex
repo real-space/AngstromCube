@@ -730,8 +730,8 @@ Although we can compare the squared distance to the squared radius of the vicini
 hence omitting the computation of the sqaure root, the cost prefactor
 is in the range of one nanosecond on a single core CPU.
 For example the CPU runtimes shown in fig.~\ref{fig:geometry-analysis-scaling}
-are $t \approx n\um{images} \cdot N\um{atoms}^2 \cdot \unit[1.32]{ns}$, c.f.~red data points.
-%%%% 27*110592^2 atom-atom pairs in 435.866 sec
+are $t \approx n\um{images} \cdot N\um{atoms}^2 \cdot \unit[1.78]{ns}$, c.f.~red data points.
+%%%% 27*1e6^2 atom-atom pairs in 48116.43 sec
 \\
 A linear scaling algorithm that produces the same output comes at the additional
 cost of an initial grouping operation of the atomic positions into clusters.
@@ -758,15 +758,16 @@ that are located inside each box.
   \caption{
   Linear scaling vs.~quadratic scaling can be observed when computing atom-atom distances.
   The dashed lines have slope 1 and 2, respectively, fitted through a single data point.
-  The crossover of the dashed lines happens around $18$ atoms.
+  The crossover of the dashed lines happens around $13$ atoms 
+  whereas the measured data (circles) cross around $32$ atoms.
   }
 \end{figure}
 %
 %
-This solution leads to a time requirement $t \approx n\um{images} \cdot N\um{atoms} \cdot \unit[23.57]{ns}$.
-Comparing these prefactors
-we can extrapolate a theoretical crossover for this particular case (bulk, cubic cell) around $18$ atoms.
-For any larger number of atoms, the linear scaling solution is faster.
+This solution leads to a time requirement $t \approx N\um{atoms} \cdot \unit[633]{ns}$.
+% Comparing these prefactors
+% we can extrapolate a theoretical crossover for this particular case (bulk, cubic cell) around $13$ atoms.
+% For any larger number of atoms, the linear scaling solution is faster.
 
 
 % ==============================================================================
