@@ -20,6 +20,7 @@
 #include "fourier_poisson.hxx" // fourier_solve
 #include "finite_difference.hxx" // Laplacian
 #include "geometry_analysis.hxx" // read_xyz_file
+#include "simple_timer.hxx" // SimpleTimer
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -91,7 +92,7 @@ namespace spherical_atoms {
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
       real_space_grid::grid_t<1> g(dims);
       double const grid_spacing = cell[0]/dims[0];
-      g.set_grid_spacing(grid_spacing);
+      g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
       for(int d = 0; d < 3; ++d) {
           assert(std::abs(g.h[d]*g.dim(d) - cell[d]) < 1e-6);
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
@@ -122,6 +123,7 @@ namespace spherical_atoms {
       
       double *periodic_images = nullptr;
       int const n_periodic_images = boundary_condition::periodic_images(&periodic_images, cell, bc, rcut, echo);
+      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
       
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na];
@@ -134,7 +136,7 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 13; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 33; ++scf_iteration) {
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
@@ -252,8 +254,6 @@ namespace spherical_atoms {
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp, Ves)*g.dV()*eV,_eV);
 
-          auto const fd = new finite_difference::finite_difference_t<double>(grid_spacing, 1, 12);
-          stat += finite_difference::Laplacian(Laplace_Ves, Ves, g, *fd, -.25/constants::pi); // compute the Laplacian using high-order finite-differences
       } // scope
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, nullptr, nullptr, vlm);
@@ -261,8 +261,15 @@ namespace spherical_atoms {
       set(Vtot, g.all(), Vxc); add_product(Vtot, g.all(), Ves, 1.);
       
   } // scf_iteration
-      
-      
+
+      { // scope: compute the Laplacian using high-order finite-differences
+          int const fd_nn[3] = {12, 12, 12}; // nearest neighbors in the finite-difference approximation
+          auto const fd = new finite_difference::finite_difference_t<double>(g.h, bc, fd_nn);
+          {// SimpleTimer timer(__FILE__, __LINE__, "finite-difference");
+              stat += finite_difference::Laplacian(Laplace_Ves, Ves, g, *fd, -.25/constants::pi);
+          } // timer
+      } // scope
+
       double* const value_pointers[] = {Ves, rho, Laplace_Ves, cmp, Vxc, Vtot};
 //       values = Ves; // analyze the electrostatic potential
 //       values = rho; // analyze the augmented density

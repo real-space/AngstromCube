@@ -264,20 +264,10 @@ namespace geometry_analysis {
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
       if (echo > 3) printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", (elongation - 1)*100);
       
-//       double const rcut = 6.144*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
-// //       int const num_bins = 1 << 9; // 512 bins for 5.12 Angstrom
-//       int const num_bins = 0; // no histogram
-// //       double const rcut = 4*5.11*Angstrom2Bohr; // maximum analysis range is 20 Angstrom
-// //       int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
-//       double const bin_width = 0.012*Angstrom2Bohr;
-   
-      double const rcut = 20.48*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
-      int const num_bins = 1 << 11; // 2048 bins for 20.48 Angstrom
-      double const bin_width = 0.01*Angstrom2Bohr;
-      
-      
-//       double const bin_width = 0.02*Angstrom2Bohr;
-//       int const num_bins = std::ceil(rcut/bin_width);
+      double const rcut = 6.144*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
+      double const bin_width = 0.012*Angstrom2Bohr;
+//       int const num_bins = 1 << 9; // 512 bins for 6.144 Angstrom
+      int const num_bins = 0; // no histogram
       
       if (echo > 4) {
           printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
@@ -339,9 +329,7 @@ namespace geometry_analysis {
       double *image_pos = nullptr;
       typedef vector_math::vec<3,double> vec3;
       double const rcut2 = pow2(rcut);
-      int64_t nzero = 0, nstrange = 0;
-      int64_t npairs = 0, nbonds = 0;
-      int64_t nfar = 0, near = 0;
+      int64_t nzero = 0, nstrange = 0, npairs = 0, nbonds = 0, nfar = 0, near = 0; // init counters
 
 // #define GEO_ORDER_N2
 #ifdef  GEO_ORDER_N2
@@ -354,7 +342,7 @@ namespace geometry_analysis {
           for(int ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else
-      BoxStructure<int> box(cell, bc, 1*rcut, natoms, xyzZ);
+      BoxStructure<int> box(cell, bc, rcut, natoms, xyzZ);
       
       for(int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
       for(int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {

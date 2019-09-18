@@ -6,6 +6,8 @@
   typedef int status_t;
 
   class SimpleTimer {
+    // This timer object prints the time elapsed between construction and destruction 
+    // into stdout immediately when destructed. See test_usage() below.
     private:
       std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
       char file[60];
@@ -14,10 +16,10 @@
     public:
 
       SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr) {
-          start_time = std::chrono::high_resolution_clock::now(); // start
           strcpy(file, sourcefile);
           line = sourceline;
           if (nullptr != function) strcpy(func, function); else func[0] = 0;
+          start_time = std::chrono::high_resolution_clock::now(); // start
       } // constructor
 
       ~SimpleTimer() {
@@ -37,11 +39,10 @@ namespace simple_timer {
   inline int64_t fibonacci(int64_t const n) { if (n < 3) return 1; return fibonacci(n - 1) + fibonacci(n - 2); }
 
   inline status_t test_usage() {
-    int64_t const inp = 42;
-    int64_t result;
-    {   SimpleTimer timer(__FILE__, __LINE__);
+    int64_t result, inp = 42;
+    {   SimpleTimer timer(__FILE__, __LINE__, "[optional comment]");
         result = fibonacci(inp);
-    } // timer
+    } // timer destructor is envoked at the end of this scope
     printf("# fibonacci(%ld) = %ld\n", inp, result);
     return 0;
   } // test_usage
