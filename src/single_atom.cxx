@@ -17,6 +17,7 @@
 #include "solid_harmonics.hxx" // lm_index, Y00, Y00inv
 #include "atom_core.hxx" // initial_density, rad_pot, nl_index
 #include "sho_tools.hxx" // lnm_index, nSHO
+#include "sho_radial.hxx" // nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
@@ -224,7 +225,8 @@ extern "C" {
       
   public:
     LiveAtom(float const Z_nucleons
-            , bool const transfer2valence=true// results look slightly different in the shape of smooth potentials but matrix elements are the same
+            , bool const transfer2valence=true // depending on transfer2valence results look 
+    // slightly different in the shape of smooth potentials but matrix elements are the same
             , float const ionization=0
             , int const global_atom_id=-1
             , int const echo=0) : gaunt_init{false} { // constructor
@@ -257,6 +259,7 @@ extern "C" {
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
 //         sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
         sigma = 0.5; // Bohr, spread for projectors
+        sigma_inv = 1./sigma;
         r_match = 9*sigma;
         if (echo > 0) printf("# %s numbers of projectors ", label);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
@@ -352,7 +355,7 @@ extern "C" {
 
         if (echo > 5) { printf("# %s enn_core_ell  ", label); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n"); }
 
-        nvalencestates = sho_tools::num_ln_indices(numax); // == (numax*(numax + 4) + 4)/4
+        nvalencestates = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         valence_state = new valence_level_t[nvalencestates];
         {   int iln = 0;
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
@@ -711,9 +714,101 @@ extern "C" {
             if (echo > 0) printf("# %s %d%c-valence state has kinetic energy %g and (smooth) %g %s, norm deficit = %g electrons\n", 
                label, vs.enn, ellchar[vs.ell], tru_kinetic_E*eV, smt_kinetic_E*eV,_eV, tru_norm - smt_norm);
            
-            // ToDo: solve for partial waves at the same energy, match and establish dual orthgonality with SHO projectors
+            
         } // iln
         delete[] r2rho;
+        
+        { // scope: ToDo: solve for partial waves at the same energy, match and establish dual orthgonality with SHO projectors
+            int const nr = rg[SMT]->n, mr = align<2>(nr);
+            int const msub = (1 + numax/2); // max. size of the subspace
+            auto const proj = new double[msub*mr];
+            double coeff[msub];
+            int ln_off = 0;
+            for(int ell = 0; ell <= numax; ++ell) {
+                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+//                  int const iln = ln_off + nrn;
+                    sho_radial::radial_eigenstates(coeff, nrn, ell); // get the r2-polynomial coefficients
+                    double const norm_factor = sho_radial::radial_normalization(coeff, nrn, ell) * std::pow(sigma, -1.5);
+                    int const ncoeff = 1 + nrn;
+                    scale(coeff, ncoeff, norm_factor);
+                    bool const echo_prj = (echo > 9); // -1:always, 9:never
+                    if (echo_prj) printf("\n## %s %c-projector #%d in a.u.:\n", label, ellchar[ell], nrn);
+//                  double check_norm = 0;
+                    for(int ir = 0; ir < nr; ++ir) {
+                        double const r = rg[SMT]->r[ir];
+                        double const x = r*sigma_inv;
+                        proj[nrn*mr + ir] = sho_radial::expand_poly(coeff, ncoeff, x*x) * intpow(x, ell) * std::exp(-.5*x*x);
+//                      check_norm += pow2(proj[nrn*mr + ir]) * rg[SMT]->r2dr[ir];
+                        if (echo_prj) printf("%g %g\n", r, proj[nrn*mr + ir]);
+                    } // ir
+                    if (echo_prj) printf("\n\n");
+                    if (echo > 2) printf("# %s %c-projector #%d has normalization 1 + %g, sigma=%g %s\n", label, ellchar[ell], nrn, 
+                                  dot_product(nr, &proj[nrn*mr], &proj[nrn*mr], rg[SMT]->r2dr) - 1, sigma*Ang,_Ang);
+                } // nrn
+                
+                double ovl[msub*msub];
+                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                    int const iln = ln_off + nrn;
+                    auto const wave = valence_state[iln].wave[SMT];
+                    for(int krn = 0; krn < nn[ell]; ++krn) { // smooth number or radial nodes
+                        ovl[nrn*msub + krn] = dot_product(nr, wave, &proj[krn*mr], rg[SMT]->r2dr);
+                        if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
+                                               label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
+                    } // krn
+                } // nrn
+                
+                double const det = (1 == nn[ell])? ovl[0*msub + 0] : ovl[0*msub + 0]*ovl[1*msub + 1] - ovl[1*msub + 0]*ovl[0*msub + 1];
+                if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
+                double const inv_det = 1./det;
+                
+                double inv[msub*msub];
+                if (1 == nn[ell]) {
+                    inv[0*msub + 0] = inv_det;
+                } else if(2 == nn[ell]) { // 2x2 inverse
+                    inv[0*msub + 0] =  inv_det*ovl[1*msub + 1];
+                    inv[0*msub + 1] = -inv_det*ovl[0*msub + 1];
+                    inv[1*msub + 0] = -inv_det*ovl[1*msub + 0];
+                    inv[1*msub + 1] =  inv_det*ovl[0*msub + 0];
+                    if (echo > 2) printf("# %s inverse matrix for %c-projectors %g %g %g %g\n", label, ellchar[ell],
+                                          inv[0*msub + 0], inv[0*msub + 1], inv[1*msub + 0], inv[1*msub + 1]);
+                } else exit(__LINE__); // error not implemented
+#if 0
+                // make a new linear combination
+                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                    int const nrts = rg[ts]->n, mrts = align<2>(nrts);
+                    auto const waves = new double[nn[ell]*mrts]; // temporary storage
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        int const iln = ln_off + nrn;
+                        set(&waves[nrn*mrts], nrts, valence_state[iln].wave[ts]); // copy
+                    } // nrn
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        int const iln = ln_off + nrn;
+                        set(valence_state[iln].wave[ts], nrts, 0.0); // clear
+                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                            add_product(valence_state[iln].wave[ts], nrts, &waves[krn*mrts], inv[nrn*msub + krn]);
+                        } // krn
+                    } // nrn
+                    delete[] waves;
+                } // ts - tru and smt
+                
+#if 1
+                // check again the overlap, seems ok
+                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                    int const iln = ln_off + nrn;
+                    auto const wave = valence_state[iln].wave[SMT];
+                    for(int krn = 0; krn < nn[ell]; ++krn) { // smooth number or radial nodes
+                        ovl[nrn*msub + krn] = dot_product(nr, wave, &proj[krn*mr], rg[SMT]->r2dr);
+                        if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
+                                               label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
+                    } // krn
+                } // nrn
+#endif
+#endif
+                ln_off += nn[ell];
+            } // ell
+            delete[] proj;
+        } // scope
+        
     } // update_valence_states
 
     void update_charge_deficit(int const echo=0) {
