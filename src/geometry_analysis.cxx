@@ -264,10 +264,10 @@ namespace geometry_analysis {
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
       if (echo > 3) printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", (elongation - 1)*100);
       
-      double const rcut = 6.144*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
-      double const bin_width = 0.012*Angstrom2Bohr;
-      int const num_bins = 1 << 9; // 512 bins for 6.144 Angstrom
-//       int const num_bins = 0; // no histogram
+      double const rcut = 6.03*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
+      double const bin_width = 0.02*Angstrom2Bohr;
+      double const inv_bin_width = 1./bin_width;
+      int const num_bins = (int)std::ceil(rcut*inv_bin_width); // 0:no histogram
 
       if (echo > 4) {
           printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
@@ -317,9 +317,7 @@ namespace geometry_analysis {
           printf("\n");
       } // echo
       
-      double const inv_bin_width = 1./bin_width;
-      auto const dist_hist = (num_bins > 0) ? new int[nspecies*nspecies][num_bins] : nullptr;
-      set((int*) dist_hist, nspecies*nspecies*num_bins, 0); // clear
+      auto dist_hist = std::vector<uint16_t>(num_bins*nspecies*nspecies, 0);
       auto bond_hist = std::vector<int>(nspecies*nspecies, 0);
 
       auto coordination_number = std::vector<uint8_t>(natoms, 0);
@@ -381,7 +379,7 @@ namespace geometry_analysis {
                   //========================================================================================================
                   vec3 const diff = pos_ja + pos_ii_minus_ia;
                   auto const d2 = norm(diff);
-                  if (d2 > rcut2) {
+                  if (d2 >= rcut2) {
                       ++nfar; // too far to be analyzed
                   } else if (d2 < 1e-6) {
                       if (ia == ja) {
@@ -394,10 +392,10 @@ namespace geometry_analysis {
 //                    if (echo > 8) printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0],shift[1],shift[2], d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
                       int const ijs = isi*nspecies + isj;
-                      if (nullptr != dist_hist) {
+                      if (num_bins > 0) {
                           int const ibin = (int)(dist*inv_bin_width);
                           assert(ibin < num_bins);
-                          ++dist_hist[ijs][ibin];
+                          ++dist_hist[ibin*nspecies*nspecies + ijs];
                       }
                       if (dist < elongation*default_bond_length(Z_ia, Z_ja)) {
                           ++nbonds;
@@ -433,15 +431,34 @@ namespace geometry_analysis {
       }
       
       if (echo > 2) {
+        
           if (num_bins > 0) {
-              printf("\n## bond histogram (in %s)\n", _Ang);
+              printf("\n## distance histogram (in %s)\n", _Ang);
+              int last_bins[4] = {0, -1, -1, -1}; // show the first bin always, -1: do not show
               for(int ibin = 0; ibin < num_bins; ++ibin) {
-                  float const dist = (ibin + 0.5)*bin_width; // display the center of the bin
-                  printf("%.3f ", dist*Ang);
+#if 1
+                  bool nonzero = false; // sparsify the plotting of the distance histogram
                   for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
-                      printf(" %d", dist_hist[ijs][ibin]);
+                      nonzero = nonzero || (dist_hist[ibin*nspecies*nspecies + ijs] > 0); // analyze dist_hist[ibin]
                   } // ijs
-                  printf("\n");
+                  if (nonzero) {
+                      last_bins[(ibin + 1) & 3] = ibin - 1;
+                      last_bins[(ibin + 2) & 3] = ibin; // also plot bins to the left and right of this nonzero line
+                      last_bins[(ibin + 3) & 3] = ibin + 1;
+                  } // nonzero
+                  int const jbin = last_bins[ibin & 3];
+                  last_bins[ibin & 3] = -1; // clear
+#else
+                  int const jbin = ibin;
+#endif
+                  if (jbin >= 0) {
+                      float const dist = (jbin + 0.5)*bin_width; // display the center of the bin
+                      printf("%.3f ", dist*Ang);
+                      for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
+                          printf(" %d", dist_hist[jbin*nspecies*nspecies + ijs]);
+                      } // ijs
+                      printf("\n");
+                  } // non-zero or before non-zero or after non-zero
               } // ibin
           } // num_bins > 0
 
@@ -518,7 +535,6 @@ namespace geometry_analysis {
           delete[] cn_hist;
       } // echo
       
-      if (nullptr != dist_hist) delete[] dist_hist;
       if (nullptr != image_pos) delete[] image_pos;
       return stat;
   } // analysis
