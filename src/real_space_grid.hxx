@@ -26,7 +26,7 @@ namespace real_space_grid {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (nnumbers > 0) {
               printf("# grid with %d * %d x %d x %d * %d = %.6f M numbers\n", 
-                  dims[3], dims[2], dims[1], dims[0], D0, nnumbers*1e-6);
+                  D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
           } else {
               printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n",
                       D0, dims[0], dims[1], dims[2], dims[3]);
@@ -36,12 +36,12 @@ namespace real_space_grid {
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
-              dims[3], dims[2], dims[1], dims[0], D0, nnumbers*1e-6);
+              D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
       } // destructor
       
       status_t set_grid_spacing(float const hx, float const hy=-1, float const hz=-1) {
           status_t stat = 0;
-          float const h3[] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hy};
+          float const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
           for(int i3 = 0; i3 < 3; ++i3) {
               h[i3] = h3[i3]; // convert to double
               if ((0.0 != h[i3]) && (h[i3] == h[i3])) {

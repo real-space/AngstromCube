@@ -266,9 +266,9 @@ namespace geometry_analysis {
       
       double const rcut = 6.144*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
       double const bin_width = 0.012*Angstrom2Bohr;
-//       int const num_bins = 1 << 9; // 512 bins for 6.144 Angstrom
-      int const num_bins = 0; // no histogram
-      
+      int const num_bins = 1 << 9; // 512 bins for 6.144 Angstrom
+//       int const num_bins = 0; // no histogram
+
       if (echo > 4) {
           printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
           if (num_bins > 0) printf("# Distance histogram bin width is %.6f %s\n", bin_width*Ang,_Ang);
@@ -403,6 +403,8 @@ namespace geometry_analysis {
                           ++nbonds;
                           ++coordination_number[ia];
                           ++bond_hist[ijs];
+//                           if (echo > 2) printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
+//                             ia, Sy_of_species[isi], Sy_of_species[isj], ja, dist*Ang,_Ang);
                       } // atoms are close enough to assume a chemical bond
                       smallest_distance[ijs] = std::min(smallest_distance[ijs], (float)dist);
                   }
@@ -434,7 +436,7 @@ namespace geometry_analysis {
           if (num_bins > 0) {
               printf("\n## bond histogram (in %s)\n", _Ang);
               for(int ibin = 0; ibin < num_bins; ++ibin) {
-                  float const dist = ibin*bin_width;
+                  float const dist = (ibin + 0.5)*bin_width; // display the center of the bin
                   printf("%.3f ", dist*Ang);
                   for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
                       printf(" %d", dist_hist[ijs][ibin]);

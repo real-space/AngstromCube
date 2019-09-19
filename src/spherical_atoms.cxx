@@ -90,13 +90,20 @@ namespace spherical_atoms {
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
 //       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
 //       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
+      if (echo > 1) printf("# use  %d x %d x %d  grid points\n", dims[0],dims[1],dims[2]);
       real_space_grid::grid_t<1> g(dims);
-      double const grid_spacing = cell[0]/dims[0];
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
+      if (echo > 1) printf("# use  %g %g %g  grid spacing in %s\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
+      if (echo > 1) printf("# cell is  %g %g %g  in %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
       for(int d = 0; d < 3; ++d) {
+          if (std::abs(g.h[d]*g.dim(d) - cell[d]) >= 1e-6) {
+              printf("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s\n", 
+                     120+d, g.dim(d), g.h[d]*Ang, cell[d]*Ang, _Ang);
+          }
           assert(std::abs(g.h[d]*g.dim(d) - cell[d]) < 1e-6);
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
       } // d
+      double const min_grid_spacing = std::min(std::min(g.h[0], g.h[1]), g.h[2]);
 
       double *qlm[na];
       double *vlm[na];
@@ -286,7 +293,7 @@ namespace spherical_atoms {
 
           for(int ia = 0; ia < na; ++ia) {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
-              float const dq = 1.f/16; int const nq = (int)(constants::pi/(grid_spacing*dq));
+              float const dq = 1.f/16; int const nq = (int)(constants::pi/(min_grid_spacing*dq));
               auto const qc = new double[nq];
               set(qc, nq, 0.0);
               
