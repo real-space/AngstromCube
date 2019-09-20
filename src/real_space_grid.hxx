@@ -125,7 +125,7 @@ namespace real_space_grid {
       return 0; // success
   } // add_function
 
-  template<typename real_t, int D0> // inner dimension
+  template<typename real_t, int D0> // D0:inner dimension
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
                 real_t const values[], grid_t<D0> const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
@@ -161,8 +161,10 @@ namespace real_space_grid {
 //                           printf("%g %g\n", r, values[ixyz*D0 + 0]); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
+                              double const x = q*r;
+                              double const j0 = bessel_transform::Bessel_j0(x);
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  q_coeff[iq*D0 + i0] += values[ixyz*D0 + i0] * bessel_transform::Bessel_j0(q*r);
+                                  q_coeff[iq*D0 + i0] += values[ixyz*D0 + i0] * j0;
                               } // i0
                           } // iq
                       } // inside rcut

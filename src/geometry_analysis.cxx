@@ -554,7 +554,7 @@ namespace geometry_analysis {
     
     if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                              natoms, filename, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
-    { SimpleTimer timer(__FILE__, __LINE__, "analysis");
+    { // SimpleTimer timer(__FILE__, __LINE__, "analysis");
         stat += analysis(xyzZ, natoms, cell, bc);
     } // timer
 

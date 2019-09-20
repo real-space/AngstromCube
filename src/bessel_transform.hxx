@@ -11,7 +11,7 @@ typedef int status_t;
 namespace bessel_transform {
   
   inline double Bessel_j0(double const x) { return (x*x < 1e-16) ? 1.0 - x*x/6. : std::sin(x)/x; }
-  
+
   template<typename real_t>
   status_t transform_s_function(real_t out[], // result
                   real_t const in[], radial_grid_t const &g, int const n, 
