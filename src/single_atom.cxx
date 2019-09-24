@@ -21,6 +21,7 @@
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
+#include "simple_math.hxx" // invert2x2, invert3x3
 #include "bessel_transform.hxx" // transform_to_r2_grid
 
 // #define FULL_DEBUG
@@ -646,98 +647,149 @@ extern "C" {
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
-        auto r2rho = new double[nr];
+        auto const r2rho = new double[nr];
+        auto const tru_wave_i = new double[nr];
+        auto const tru_waveVi = new double[nr];
+        auto const smt_wave_i = new double[rg[SMT]->n];
+        auto const smt_waveTi = new double[rg[SMT]->n];
         int const nln = nvalencestates;
-        for(int iln = 0; iln < nln; ++iln) {
-            auto &vs = valence_state[iln]; // abbreviate
-            int constexpr SRA = 1;
-            
-            // solve for a true partial wave
-//          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], vs.ell, vs.energy, vs.wave[TRU], small_component);
-            set(vs.wave[TRU], nr, 0.0); // clear
+        int const n_poly = 3; // number of even-order polynomial terms used
+        int const nr_diff = rg[TRU]->n - rg[SMT]->n;
+        double c_smt[nln][4];
+        int ln_off = 0;
+        for(int ell = 0; ell <= numax; ++ell) {
+            int const msub = (1 + numax/2); // max. size of the subspace
+            for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                int const iln = ln_off + nrn;
+                auto &vs = valence_state[iln]; // abbreviate
+                int constexpr SRA = 1;
+                
+                // solve for a true partial wave
+    //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
+                set(vs.wave[TRU], nr, 0.0); // clear
 
-            // solve for a valence eigenstate
-            radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, vs.ell, vs.energy, vs.wave[TRU], r2rho);
-            // normalize the partial waves
-            auto const norm_wf2 = dot_product(nr, r2rho, rg[TRU]->dr);
-            auto const norm_factor = 1./std::sqrt(norm_wf2);
-            scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
-            
-            auto const tru_norm = dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2;
-            auto const work = r2rho;
-            scale(work, nr, potential[TRU]);
-            auto const tru_potential_E = dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
-            auto const tru_kinetic_E = vs.energy*tru_norm - tru_potential_E; // kinetic energy contribution up to r_cut
-            
-//          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[vs.ell], vs.occupation, vs.energy*eV,_eV);
-            show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, vs.ell, vs.occupation, vs.energy, 'v', ir_cut[TRU]);
+                // solve for a valence eigenstate
+                radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho);
+                // normalize the partial waves
+                auto const norm_wf2 = dot_product(nr, r2rho, rg[TRU]->dr);
+                auto const norm_factor = 1./std::sqrt(norm_wf2);
+                scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
+                
+//                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
+//                 auto const work = r2rho;
+//                 scale(work, nr, potential[TRU]);
+//                 auto const tru_potential_E = dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
+//                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_potential_E; // kinetic energy contribution up to r_cut
+                
+    //          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
+                show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[TRU]);
 
-            int const nr_diff = rg[TRU]->n - rg[SMT]->n;
-            // construct a simple pseudo wave
-            int const n_poly = 3; // number of even-order polynomial terms used
-            double coeff[4], smt_kinetic_E = 0, smt_norm = 0;
-            set(coeff, 4, 0.0);
-            set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
-            auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, vs.ell, coeff);
-            if (stat) {
-                if (echo > 0) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
-                                              label, vs.enn, ellchar[vs.ell], stat);
-            } else {
-                if (echo > 0) printf("# %s Matching of smooth %d%c-valence state with polynomial r^%d*(%g + r^2* %g + r^4* %g + r^6* %g)\n", 
-                                              label, vs.enn, ellchar[vs.ell], vs.ell, coeff[0], coeff[1], coeff[2], coeff[3]);
-                // psi(r) = \sum_i c_i r^{\ell + 2i}
-                // \hat T_radial psi = -\frac 12 1/r d^2/dr^2 (r*psi) = -\frac 12 \sum_i c_i (\ell + 2i + 1) (\ell + 2i) r^{\ell + 2i - 2}
-                // for ell=0 the i=0 term cancels with the centrifugal potential \ell(\ell + 1)r^{-2}
-                // then \int_0^R dr r^2 psi(r) \hat T psi(r) 
-                //    = -\frac 12 \sum_i c_i \sum_j c_j \left\[ (\ell + 2j + 1) (\ell + 2j) - (\ell + 1) \ell \right\] R^{2\ell + 2i + 2j + 1}/{2\ell + 2i + 2j + 1}
-                //    =
-                { 
-                    double const rcut = rg[SMT]->r[ir_cut[SMT]];
-                    smt_kinetic_E = 0; smt_norm = 0;
+                // construct a simple pseudo wave
+                double* coeff = c_smt[iln];
+                set(coeff, 4, 0.0);
+                set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
+                auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, ell, coeff);
+    //          show_state_analysis(echo, rg[SMT], vs.wave[SMT], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[SMT]); // not useful
+                if (stat) {
+                    if (echo > 0) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
+                                                  label, vs.enn, ellchar[ell], stat);
+                } else {
+                    if (echo > 0) printf("# %s Matching of smooth %d%c-valence state with polynomial r^%d*(%g + r^2* %g + r^4* %g + r^6* %g)\n", 
+                                                  label, vs.enn, ellchar[ell], ell, coeff[0], coeff[1], coeff[2], coeff[3]);
+                } // stat
+
+//                 product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
+//                 double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
+//                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
+//                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical);
+            } // nrn
+            
+            double const rcut = rg[SMT]->r[ir_cut[SMT]];
+            for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                int const iln = ln_off + nrn;
+                product(tru_wave_i, nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
+                product(tru_waveVi, nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
+                
+                product(smt_wave_i, rg[SMT]->n, valence_state[iln].wave[SMT], rg[SMT]->r2dr);
+                double T_coeff[4] = {0,0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
+                for(int i = 1; i < n_poly; ++i) {
+                    double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
+                    T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
+                } // i
+                set(        smt_waveTi, rg[SMT]->n, T_coeff[0]);
+                add_product(smt_waveTi, rg[SMT]->n, rg[SMT]->r, rg[SMT]->r, T_coeff[1]); assert(3 == n_poly);
+                scale(      smt_waveTi, rg[SMT]->n, rg[SMT]->r2dr);
+                for(int l = 0; l < ell; ++l) scale(smt_waveTi, rg[SMT]->n, rg[SMT]->r); // r^\ell
+
+                for(int krn = 0; krn < nn[ell]; ++krn) {
+                    int const jln = ln_off + krn;
+                    
+                    double const tru_norm = dot_product(ir_cut[TRU], tru_wave_i, valence_state[jln].wave[TRU]); // integrate only up to rcut
+                    double const tru_potential_E = dot_product(ir_cut[TRU], tru_waveVi, valence_state[jln].wave[TRU]); //    only up to rcut
+                    double const tru_kinetic_E = valence_state[iln].energy*tru_norm - tru_potential_E; // kinetic energy contribution up to r_cut
+                    
+                    double const smt_norm_numerical = dot_product(ir_cut[SMT], smt_wave_i, valence_state[jln].wave[SMT]);
+                    double const smt_Ekin_numerical = dot_product(ir_cut[SMT], smt_waveTi, valence_state[jln].wave[SMT]);
+//                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
+//                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical
+                    
+                    // psi(r) = \sum_i c_i r^{\ell + 2i}
+                    // \hat T_radial psi = -\frac 12 1/r d^2/dr^2 (r*psi) = -\frac 12 \sum_i c_i (\ell + 2i + 1) (\ell + 2i) r^{\ell + 2i - 2}
+                    // for ell=0 the i=0 term cancels with the centrifugal potential \ell(\ell + 1)r^{-2}
+                    // then \int_0^R dr r^2 psi(r) \hat T psi(r) 
+                    //    = -\frac 12 \sum_i c_i \sum_j c_j \left\[ (\ell + 2j + 1) (\ell + 2j) - (\ell + 1) \ell \right\] R^{2\ell + 2i + 2j + 1}/{2\ell + 2i + 2j + 1}
+                    //    =
+                    double smt_kinetic_E = 0, smt_norm = 0;
                     for(int i = 0; i < n_poly; ++i) {
+                        double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
                         for(int j = 0; j < n_poly; ++j) {
-                            smt_kinetic_E += ((vs.ell + 2*j + 1)*(vs.ell + 2*j) - (vs.ell + 1)*vs.ell)*
-                                             coeff[i]*coeff[j]*intpow(rcut, 2*vs.ell + 2*i + 2*j + 1)/(2*vs.ell + 2*i + 2*j + 1.);
-                            smt_norm      += coeff[i]*coeff[j]*intpow(rcut, 2*vs.ell + 2*i + 2*j + 3)/(2*vs.ell + 2*i + 2*j + 3.);
+                            auto const rpower = 2*ell + 2*i + 2*j;
+                            smt_kinetic_E += kinetic_poly*
+                                             c_smt[iln][i]*c_smt[jln][j]*intpow(rcut, rpower + 1)/(rpower + 1.);
+                            smt_norm      += c_smt[jln][i]*c_smt[jln][j]*intpow(rcut, rpower + 3)/(rpower + 3.);
                         } // j
                     } // i
-                    smt_kinetic_E *= -0.5; // prefactor for the kinetic energy in Hartree atomic units
-                }
-            } // stat
+                    kinetic_energy[iln*nln + jln][TRU] = tru_kinetic_E;
+                    kinetic_energy[iln*nln + jln][SMT] = smt_kinetic_E;
+                    if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy (true) %g and (smooth) %g (smooth numerical) %g %s\n", 
+                      label, ellchar[ell], nrn, krn, tru_kinetic_E*eV, smt_kinetic_E*eV, smt_Ekin_numerical*eV,_eV);
+
+                    // show the norm deficit computed by integrations only up to rcut
+                    // .... this should match the corresponding charge deficit tensor entries
+                    if ((iln == jln) && (echo > 0)) printf("# %s %d%c-valence state has norm deficit %g - %g = %g electrons, (smooth numerical = %g)\n",
+                      label, valence_state[iln].enn, ellchar[ell], tru_norm, smt_norm, tru_norm - smt_norm, smt_norm_numerical);
+                } // krn
+            } // nrn
             
-            product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
-            double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
-            if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth %g and %g (smooth numerically)\n", 
-               label, vs.enn, ellchar[vs.ell], tru_norm, smt_norm, smt_norm_numerical);
-            kinetic_energy[nln*iln + iln][TRU] = tru_kinetic_E; // set diagonal entry, offdiagonals still missing, ToDo
-            kinetic_energy[nln*iln + iln][SMT] = smt_kinetic_E; // set diagonal entry, offdiagonals still missing, ToDo
-            if (echo > 0) printf("# %s %d%c-valence state has kinetic energy %g and (smooth) %g %s, norm deficit = %g electrons\n", 
-               label, vs.enn, ellchar[vs.ell], tru_kinetic_E*eV, smt_kinetic_E*eV,_eV, tru_norm - smt_norm);
-           
-            
-        } // iln
+            ln_off += nn[ell];
+        } // ell
+        
         delete[] r2rho;
+        delete[] tru_wave_i;
+        delete[] tru_waveVi;
+        delete[] smt_wave_i;
+        delete[] smt_waveTi;
         
         { // scope: ToDo: solve for partial waves at the same energy, match and establish dual orthgonality with SHO projectors
             int const nr = rg[SMT]->n, mr = align<2>(nr);
             int const msub = (1 + numax/2); // max. size of the subspace
             auto const proj = new double[msub*mr];
-            double coeff[msub];
+            double c_prj[msub];
             int ln_off = 0;
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
 //                  int const iln = ln_off + nrn;
-                    sho_radial::radial_eigenstates(coeff, nrn, ell); // get the r2-polynomial coefficients
-                    double const norm_factor = sho_radial::radial_normalization(coeff, nrn, ell) * std::pow(sigma, -1.5);
+                    sho_radial::radial_eigenstates(c_prj, nrn, ell); // get the r2-polynomial coefficients
+                    double const norm_factor = sho_radial::radial_normalization(c_prj, nrn, ell) * std::pow(sigma, -1.5);
                     int const ncoeff = 1 + nrn;
-                    scale(coeff, ncoeff, norm_factor);
+                    scale(c_prj, ncoeff, norm_factor);
                     bool const echo_prj = (echo > 9); // -1:always, 9:never
                     if (echo_prj) printf("\n## %s %c-projector #%d in a.u.:\n", label, ellchar[ell], nrn);
 //                  double check_norm = 0;
                     for(int ir = 0; ir < nr; ++ir) {
                         double const r = rg[SMT]->r[ir];
                         double const x = r*sigma_inv;
-                        proj[nrn*mr + ir] = sho_radial::expand_poly(coeff, ncoeff, x*x) * intpow(x, ell) * std::exp(-.5*x*x);
+                        proj[nrn*mr + ir] = sho_radial::expand_poly(c_prj, ncoeff, x*x) * intpow(x, ell) * std::exp(-.5*x*x);
 //                      check_norm += pow2(proj[nrn*mr + ir]) * rg[SMT]->r2dr[ir];
                         if (echo_prj) printf("%g %g\n", r, proj[nrn*mr + ir]);
                     } // ir
@@ -757,22 +809,26 @@ extern "C" {
                     } // krn
                 } // nrn
                 
-                double const det = (1 == nn[ell])? ovl[0*msub + 0] : ovl[0*msub + 0]*ovl[1*msub + 1] - ovl[1*msub + 0]*ovl[0*msub + 1];
-                if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
-                double const inv_det = 1./det;
+//                 double const det = (1 == nn[ell])? ovl[0*msub + 0] : ovl[0*msub + 0]*ovl[1*msub + 1] - ovl[1*msub + 0]*ovl[0*msub + 1];
+//                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
+//                 double const inv_det = 1./det;
                 
-                double inv[msub*msub];
-                if (1 == nn[ell]) {
-                    inv[0*msub + 0] = inv_det;
-                } else if(2 == nn[ell]) { // 2x2 inverse
-                    inv[0*msub + 0] =  inv_det*ovl[1*msub + 1];
-                    inv[0*msub + 1] = -inv_det*ovl[0*msub + 1];
-                    inv[1*msub + 0] = -inv_det*ovl[1*msub + 0];
-                    inv[1*msub + 1] =  inv_det*ovl[0*msub + 0];
-                    if (echo > 2) printf("# %s inverse matrix for %c-projectors %g %g %g %g\n", label, ellchar[ell],
-                                          inv[0*msub + 0], inv[0*msub + 1], inv[1*msub + 0], inv[1*msub + 1]);
-                } else exit(__LINE__); // error not implemented
-#if 0
+                double det, inv[msub*msub];
+                if (1 == nn[ell]) det = simple_math::invert1x1(inv, msub, ovl, msub); else
+                if (2 == nn[ell]) det = simple_math::invert2x2(inv, msub, ovl, msub); else
+                if (3 == nn[ell]) det = simple_math::invert3x3(inv, msub, ovl, msub); else
+                exit(__LINE__); // error not implemented
+                if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
+
+//                     inv[0*msub + 0] =  inv_det*ovl[1*msub + 1];
+//                     inv[0*msub + 1] = -inv_det*ovl[0*msub + 1];
+//                     inv[1*msub + 0] = -inv_det*ovl[1*msub + 0];
+//                     inv[1*msub + 1] =  inv_det*ovl[0*msub + 0];
+//                     if (echo > 2) printf("# %s inverse matrix for %c-projectors %g %g %g %g\n", label, ellchar[ell],
+//                                           inv[0*msub + 0], inv[0*msub + 1], inv[1*msub + 0], inv[1*msub + 1]);
+//                 } else exit(__LINE__); // error not implemented
+                    
+#if 1
                 // make a new linear combination
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nrts = rg[ts]->n, mrts = align<2>(nrts);
@@ -788,9 +844,9 @@ extern "C" {
                             add_product(valence_state[iln].wave[ts], nrts, &waves[krn*mrts], inv[nrn*msub + krn]);
                         } // krn
                     } // nrn
-                    delete[] waves;
+                    delete[] waves; // release temporary storage
                 } // ts - tru and smt
-                
+
 #if 1
                 // check again the overlap, seems ok
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
@@ -803,6 +859,40 @@ extern "C" {
                     } // krn
                 } // nrn
 #endif
+                // rotate the kinetic energy difference matrix
+                double mat[msub*msub], rot[msub*msub];
+                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                    // copy out
+                    for(int i = 0; i < nn[ell]; ++i) {
+                        for(int j = 0; j < nn[ell]; ++j) {
+                            mat[i*msub + j] = kinetic_energy[(ln_off + i)*nln + (ln_off + j)][ts];
+                        } // j
+                    } // i
+                    
+                    simple_math::matrix_rotation(nn[ell], rot, msub, mat, msub, inv, msub);
+
+                    // symmetrize the kinetic energy tensor
+                    for(int i = 0; i < nn[ell]; ++i) {
+                        for(int j = 0; j < i; ++j) { // triangular loop excluding the diagonal elements
+                            auto const aij = rot[i*msub + j];
+                            auto const aji = rot[j*msub + i];
+                            auto const avg = 0.5*(aij + aji);
+                            // SYMMETRIZATION DEACTIVATED
+//                             rot[i*msub + j] = avg;
+//                             rot[j*msub + i] = avg;
+                        } // j
+                    } // i
+
+                    // put back
+                    for(int i = 0; i < nn[ell]; ++i) {
+                        for(int j = 0; j < nn[ell]; ++j) {
+                            kinetic_energy[(ln_off + i)*nln + (ln_off + j)][ts] = rot[i*msub + j]; 
+                            if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy (%s) %g %s\n", 
+                              label, ellchar[ell], i, j, (TRU==ts)?"true":"smooth", rot[i*msub + j]*eV,_eV);
+                        } // j
+                    } // i
+                    
+                } // ts
 #endif
                 ln_off += nn[ell];
             } // ell

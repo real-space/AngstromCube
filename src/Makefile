@@ -58,7 +58,8 @@ INC = -I/usr/local/cuda/include
 EXTFLAGS ?=
 # EXTFLAGS += -D HAS_no_MKL
 
-ERRFLAGS = -Werror -Wall -Wfatal-errors
+ERRFLAGS =
+# ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
 # FEAFLAGS += -D NO_UNIT_TESTS ## for production
 

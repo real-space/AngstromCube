@@ -438,7 +438,7 @@ namespace overlap {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 4, ncut = nmax + 2;
+    int constexpr nmax = 12, ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
@@ -782,6 +782,7 @@ namespace overlap {
             progress_percent = 0.1*std::ceil(ik/(.1*kps.size()));
         } // show percentage
     } // ik
+    
 
     if (DoS) {
         if (echo > 2) {
@@ -798,6 +799,8 @@ namespace overlap {
         } // echo
         if (ibin_out_of_range > 0 && echo > 1) printf("# Warning: %d bin entries were out of range!\n", ibin_out_of_range);
     } // DoS
+    
+    if (echo > 1) printf("# diagonalized %d x %d Hamiltonian for %ld k-points\n", n3D, n3D, kps.size());
 
     if (diagonalization_failed > 0) {
         if (echo > 0) printf("# Warning: %d diagonalizations failed in %s!\n", diagonalization_failed, __func__);
