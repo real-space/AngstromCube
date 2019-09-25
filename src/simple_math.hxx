@@ -32,7 +32,7 @@ namespace simple_math {
     auto const det = determinant1x1(a, as);
     if (std::abs(det) < 1e-16) return 0;
     auto const inv_det = 1/det;
-    inv[0*is + 0] = a[0*as + 0]*inv_det;
+    inv[0*is + 0] = inv_det;
     return det;
   } // invert
   
@@ -76,7 +76,7 @@ namespace simple_math {
   
   template<typename real_t>
   inline void matrix_rotation(int const n, real_t c[], int const cs, real_t const a[], int const as, real_t const u[], int const us) {
-      // compute C = U^transposed * A * U
+      // compute C = U * A * U^transposed
       for(int i = 0; i < n; ++i) {
           for(int j = 0; j < n; ++j) {
               real_t c_ij = 0;
@@ -114,7 +114,7 @@ namespace simple_math {
   } // matmul
 
   inline status_t test_inversion2(int const echo=3) {
-    printf("\n# %s\n", __func__);
+    if (echo > 1) printf("\n# %s\n", __func__);
     int const n = 2;
     double a[n*n], inv[n*n], ainv[n*n], inva[n*n];
     for(int ij = 0; ij < n*n; ++ij) a[ij] = random<double>(-1, 1);
@@ -122,16 +122,17 @@ namespace simple_math {
     if (0 == det) return -1;
     auto const dev_ia = matmul(inva, n, inv, a);
     auto const dev_ai = matmul(ainv, n, a, inv);
-    printf("\n# %s deviations %g and %g\n", __func__, dev_ia, dev_ai);
-    if (echo > 5)
-    for(int i = 0; i < n; ++i)
-        for(int j = 0; j < n; ++j) 
-          printf("# i=%d j=%d a*inv_ij=%.6f inv*a_ij=%.6f a_ij=%g inv_ij=%g\n", i, j, ainv[i*n + j], inva[i*n + j], a[i*n + j], inv[i*n + j]);
+    if (echo > 2) printf("# %s deviations %g and %g\n", __func__, dev_ia, dev_ai);
+    if (echo > 5) {
+        for(int i = 0; i < n; ++i) {
+            for(int j = 0; j < n; ++j) { 
+              printf("# i=%d j=%d a*inv_ij=%.6f inv*a_ij=%.6f a_ij=%g inv_ij=%g\n", i, j, ainv[i*n + j], inva[i*n + j], a[i*n + j], inv[i*n + j]);
+    }}}
     return (dev_ia + dev_ai > 1e-14);
   } // test inversion
 
   inline status_t test_inversion3(int const echo=3) {
-    printf("\n# %s\n", __func__);
+    if (echo > 1) printf("\n# %s\n", __func__);
     int const n = 3;
     double a[n*n], inv[n*n], ainv[n*n], inva[n*n];
     for(int ij = 0; ij < n*n; ++ij) a[ij] = random<double>(-1, 1);
@@ -139,19 +140,20 @@ namespace simple_math {
     if (0 == det) return -1;
     auto const dev_ia = matmul(inva, n, inv, a);
     auto const dev_ai = matmul(ainv, n, a, inv);
-    printf("\n# %s deviations %g and %g\n", __func__, dev_ia, dev_ai);
-    if (echo > 5)
-        for(int i = 0; i < n; ++i)
-            for(int j = 0; j < n; ++j) 
+    if (echo > 2) printf("# %s deviations %g and %g\n", __func__, dev_ia, dev_ai);
+    if (echo > 5) {
+        for(int i = 0; i < n; ++i) {
+            for(int j = 0; j < n; ++j) { 
               printf("# i=%d j=%d a*inv_ij=%.6f inv*a_ij=%.6f a_ij=%g inv_ij=%g\n", i, j, ainv[i*n + j], inva[i*n + j], a[i*n + j], inv[i*n + j]);
+    }}}
     return (dev_ia + dev_ai > 1e-14);
   } // test inversion
   
   inline status_t all_tests(int const echo=3) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
     auto status = 0;
-    status += std::abs(test_inversion2());
-    status += std::abs(test_inversion3());
+    status += std::abs(test_inversion2(echo));
+    status += std::abs(test_inversion3(echo));
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

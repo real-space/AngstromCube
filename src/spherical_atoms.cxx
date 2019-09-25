@@ -143,7 +143,8 @@ namespace spherical_atoms {
       auto const        Vtot = new double[g.all()];
       auto const         Vxc = new double[g.all()];
 
-  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 1; ++scf_iteration) {
+      SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration");
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
@@ -268,11 +269,12 @@ namespace spherical_atoms {
       set(Vtot, g.all(), Vxc); add_product(Vtot, g.all(), Ves, 1.);
       
   } // scf_iteration
+//   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
       { // scope: compute the Laplacian using high-order finite-differences
           int const fd_nn[3] = {12, 12, 12}; // nearest neighbors in the finite-difference approximation
           auto const fd = new finite_difference::finite_difference_t<double>(g.h, bc, fd_nn);
-          {// SimpleTimer timer(__FILE__, __LINE__, "finite-difference");
+          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference");
               stat += finite_difference::Laplacian(Laplace_Ves, Ves, g, *fd, -.25/constants::pi);
           } // timer
       } // scope
@@ -286,6 +288,7 @@ namespace spherical_atoms {
 //       values = Vtot; // analyze the total potential: Vxc + Ves
 
       for(int iptr = 0; iptr < 1; ++iptr) { // only loop over the first 1 for electrostatics
+          SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis");
           auto const values = value_pointers[iptr];
       
           // report extremal values of what is stored on the grid
