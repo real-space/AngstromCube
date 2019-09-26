@@ -13,6 +13,8 @@
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, periodic_images
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
+#include "constants.hxx" // pi
+#include "inline_tools.hxx" // required_bits
 #include "vector_math.hxx" // vec<n,T>
 #include "chemical_symbol.h" // element_symbols
 #include "recorded_warnings.hxx" // warn
@@ -256,6 +258,106 @@ namespace geometry_analysis {
     return (bl[Z1] + bl[Z2]) * picometer2Bohr;
   } // default_bond_length
   
+  
+  typedef uint32_t index_t;
+  class atom_image_index_t {
+  public:
+      index_t ia; // global index of the atom in the coordinate list
+      int8_t is; // species index
+      int8_t ix, iy, iz; // periodic shifts
+      atom_image_index_t(index_t const atom_index=0, int const species_index=0, 
+                         int const iix=0, int const iiy=0, int const iiz=0) 
+      : ia(atom_index), is(species_index), ix(iix), iy(iiy), iz(iiz) {} // constructor
+  };
+  
+  
+  int constexpr MaxBP = 12; // maximum number of bond partners stored for later detailed analysis
+  
+  template<typename real_t>
+  void analyze_bond_structure(int const nb, real_t const (*bv)[4], int const echo=1) {
+      if (MaxBP < 1) return;
+//    if (echo > 1) printf(" coordination=%d", nb);
+      char const multiplicity_b = '^';
+      char const multiplicity_a = '*';
+      real_t constexpr Deg = 180/constants::pi; // Degrees
+      real_t const Len = Ang*1000; // 3 digits
+      real_t max_len2 = 0, min_len2 = 99;
+      real_t bond_length[MaxBP];
+      real_t bond_angle[(MaxBP*(MaxBP - 1))/2];
+      { // scope: compute all bond lengths
+          for(int ib = 0; ib < nb; ++ib) {
+              auto const d2i = pow2(bv[ib][0]) + pow2(bv[ib][1]) + pow2(bv[ib][2]);
+              max_len2 = std::max(max_len2, d2i);
+              min_len2 = std::min(min_len2, d2i);
+              bond_length[ib] = std::sqrt(d2i);
+    //           if (echo > 1) printf(" %.3f", bond_length[ib]*Ang);
+          } // ib
+      } // scope
+      std::sort(bond_length, bond_length + nb);
+      { // scope: display bond lengths
+      	  int last = -1, count = 1;
+          for(int ib = 0; ib <= nb; ++ib) {
+              int const now = (ib < nb) ? (int)(bond_length[ib]*Len + 0.5f) : -1;
+              if (now == last) {
+                ++count;
+              } else {
+                  if (last > 0) { 
+                      if (echo > 1) {
+                          printf(" %.3f", last*.001f);
+                  	      if (count > 1) printf("%c%d", multiplicity_b, count);
+          	    	    } // last > 0
+                      count = 1; // reset counter
+                  }
+                  last = now;
+              }
+//           if (echo > 1) printf(" %.3f", last*0.001f);
+          } // ib
+      } // scope
+
+      if (echo > 1) printf("  "); // some separator space
+
+      int const na = (nb*(nb - 1))/2;
+      { // scope: compute all possible bond angles
+          int ia = 0;
+          for(int ib = 0; ib < nb; ++ib) {
+              for(int jb = 0; jb < ib; ++jb) {
+                  auto const dot = bv[jb][0]*bv[ib][0] + bv[jb][1]*bv[ib][1] + bv[jb][2]*bv[ib][2];
+                  auto const cs = dot/(bond_length[ib]*bond_length[jb]);
+                  bond_angle[ia] = std::acos(cs);
+                  ++ia;
+    //               if (echo > 2) printf(" %d", (int)(bond_angle[ia]*Deg));
+              } // jb
+          } // ib
+          assert(na == ia);
+      } // scope
+      std::sort(bond_angle, bond_angle + na);
+      { // scope: display bond angles
+          int last = -1, count = 1;
+          for(int ia = 0; ia <= na; ++ia) {
+              int const now = (ia < na) ? (int)(bond_angle[ia]*Deg + 0.5f) : -1;
+              if (now == last) {
+                ++count;
+              } else {
+                  if (last > 0) { 
+                      if (echo > 1) {
+                          printf(" %d", last);
+                          if (count > 1) printf("%c%d", multiplicity_a, count);
+                      } // last > 0
+                      count = 1; // reset counter
+                  }
+                  last = now;
+              }
+          } // ia
+      } // scope
+
+      if (echo > 0) {
+          if (echo < 2) printf(" [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
+          printf("\n");
+      }
+  } // analyze_bond_structure
+  
+  
+  
   status_t analysis(double const xyzZ[], int64_t const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
       status_t stat = 0;
@@ -268,6 +370,11 @@ namespace geometry_analysis {
       double const bin_width = 0.02*Angstrom2Bohr;
       double const inv_bin_width = 1./bin_width;
       int const num_bins = (int)std::ceil(rcut*inv_bin_width); // 0:no histogram
+
+      atom_image_index_t (*bond_partner)[MaxBP] = nullptr;
+      if (MaxBP > 0) {
+          bond_partner = new atom_image_index_t[natoms][MaxBP]; // can become quite large
+      } // MaxBP > 0
 
       if (echo > 4) {
           printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
@@ -327,7 +434,7 @@ namespace geometry_analysis {
       double *image_pos = nullptr;
       typedef vector_math::vec<3,double> vec3;
       double const rcut2 = pow2(rcut);
-      int64_t nzero = 0, nstrange = 0, npairs = 0, nbonds = 0, nfar = 0, near = 0; // init counters
+      int64_t nzero = 0, nstrange = 0, npairs = 0, nbonds = 0, nfar = 0, near = 0, bp_exceeded = 0; // init counters
 
 // #define GEO_ORDER_N2
 #ifdef  GEO_ORDER_N2
@@ -340,23 +447,23 @@ namespace geometry_analysis {
           for(int ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else
-      BoxStructure<int> box(cell, bc, rcut, natoms, xyzZ);
+      BoxStructure<index_t> box(cell, bc, rcut, natoms, xyzZ);
       
       for(int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
       for(int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {
       for(int ibx = 0; ibx < box.get_number_of_boxes(0); ++ibx) {
-        int const *list_i;
+        index_t const *list_i;
         int const na_i = box.get_atom_list(&list_i, ibx, iby, ibz);
         for(int jbz = ibz - box.get_halo_thickness(2); jbz <= ibz + box.get_halo_thickness(2); ++jbz) {
         for(int jby = iby - box.get_halo_thickness(1); jby <= iby + box.get_halo_thickness(1); ++jby) {
         for(int jbx = ibx - box.get_halo_thickness(0); jbx <= ibx + box.get_halo_thickness(0); ++jbx) {
-          int const *list_j;
+          index_t const *list_j;
           int shift[3];
           int const na_j = box.get_atom_list(&list_j, jbx, jby, jbz, shift);
           double const ppos_i[3] = {shift[0]*cell[0], shift[1]*cell[1], shift[2]*cell[2]}; // periodic shift if applicable
           vec3 const pos_ii = ppos_i; // convert to vector
 
-          for(int iia = 0; iia < na_i; ++iia) { int const ia = list_i[iia];
+          for(int iia = 0; iia < na_i; ++iia) { index_t const ia = list_i[iia];
               //========================================================================================================
 #endif
               //========================================================================================================
@@ -369,7 +476,7 @@ namespace geometry_analysis {
 #ifdef  GEO_ORDER_N2
               for(int ja = 0; ja < natoms; ++ja) {
 #else
-              for(int ija = 0; ija < na_j; ++ija) { int const ja = list_j[ija];
+              for(int ija = 0; ija < na_j; ++ija) { index_t const ja = list_j[ija];
 #endif
                   //========================================================================================================
                   vec3 const pos_ja = &xyzZ[ja*4];
@@ -399,6 +506,12 @@ namespace geometry_analysis {
                       }
                       if (dist < elongation*default_bond_length(Z_ia, Z_ja)) {
                           ++nbonds;
+                          if (MaxBP > 0) { // storing of bond partner active
+                              int const cn = coordination_number[ia];
+                              if (cn < MaxBP) {
+                                  bond_partner[ia][cn] = atom_image_index_t(ja, isj, shift[0], shift[1], shift[2]);
+                              } else ++bp_exceeded;
+                          } // MaxBP
                           ++coordination_number[ia];
                           ++bond_hist[ijs];
 //                           if (echo > 2) printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
@@ -534,6 +647,26 @@ namespace geometry_analysis {
           }
           delete[] cn_hist;
       } // echo
+     
+      // analyze local bond structure 
+      if (nullptr != bond_partner) {
+          float coords[MaxBP][4];
+          for(int ia = 0; ia < natoms; ++ia) {
+              int const cn = coordination_number[ia];
+              double const xyz_ia[3] = {xyzZ[4*ia + 0], xyzZ[4*ia + 1], xyzZ[4*ia + 2]}; // load center
+              for(int ip = 0; ip < cn; ++ip) {
+                  auto const &partner = bond_partner[ia][ip];
+                  int const ja = partner.ia; assert(ja >= 0); 
+                  coords[ip][0] = xyzZ[4*ja + 0] + partner.ix*cell[0] - xyz_ia[0];
+                  coords[ip][1] = xyzZ[4*ja + 1] + partner.iy*cell[1] - xyz_ia[1];
+                  coords[ip][2] = xyzZ[4*ja + 2] + partner.iz*cell[2] - xyz_ia[2];
+                  coords[ip][3] = xyzZ[4*ja + 3]; // Z of the bond partner, if needed
+              } // ip
+              int const isi = ispecies[ia];
+              printf("# a#%d %c%c  ", ia, Sy_of_species[isi][0], Sy_of_species[isi][1]); // no new line
+              analyze_bond_structure(cn, coords, echo);
+          } // ia
+      } // bond_partner
       
       if (nullptr != image_pos) delete[] image_pos;
       return stat;
@@ -544,7 +677,7 @@ namespace geometry_analysis {
 #else // NO_UNIT_TESTS
 
   status_t test_analysis(int const echo=9) {
-
+    
     double *xyzZ = nullptr;
     int natoms = 0;
     auto const filename = "atoms.xyz";
