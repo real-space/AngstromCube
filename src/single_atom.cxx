@@ -668,7 +668,7 @@ extern "C" {
         double c_smt[nln][4];
         int ln_off = 0;
         for(int ell = 0; ell <= numax; ++ell) {
-            int const msub = (1 + numax/2); // max. size of the subspace
+//          int const msub = (1 + numax/2); // max. size of the subspace
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto &vs = valence_state[iln]; // abbreviate
@@ -741,7 +741,6 @@ extern "C" {
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
 
             for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                double const rcut = rg[SMT]->r[ir_cut[SMT]];
                 int const iln = ln_off + nrn;
                 product(tru_wave_i, nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
                 product(tru_waveVi, nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
@@ -778,6 +777,7 @@ extern "C" {
                     
                     double const smt_kinetic_E = dot_product(ir_cut[SMT], smt_waveTi, valence_state[jln].wave[SMT]);
 #if 0
+                    double const rcut = rg[SMT]->r[ir_cut[SMT]];
 //                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
 //                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical
                     
@@ -1040,8 +1040,9 @@ extern "C" {
                                     auto const dji = kinetic_energy[jln*nln + iln][TRU] - kinetic_energy[jln*nln + iln][SMT];
                                     auto const asy = 0.5*(dij - dji); // asymmetry
                                     for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                                        kinetic_energy[iln*nln + jln][ts] += 0.5*(2*ts - 1)*asy;
-                                        kinetic_energy[jln*nln + iln][ts] -= 0.5*(2*ts - 1)*asy;
+                                        int const sign = (TRU == ts) ? -1 : 1;
+                                        kinetic_energy[iln*nln + jln][ts] += 0.5*sign*asy;
+                                        kinetic_energy[jln*nln + iln][ts] -= 0.5*sign*asy;
                                     } // ts
                                 } // twice
                                 // however, it should at the end not make a difference since only the difference enters the Hamiltonian
