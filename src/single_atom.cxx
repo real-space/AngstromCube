@@ -252,7 +252,7 @@ extern "C" {
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
 
-        numax = 5; // 3:up to f-projectors
+        numax = 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
         ellmax = 0; // should be 2*numax;
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
@@ -656,10 +656,12 @@ extern "C" {
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         auto const r2rho = new double[nr];
+#define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
+#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
         auto const tru_wave_i = new double[nr];
         auto const tru_waveVi = new double[nr];
-        auto const smt_wave_i = new double[rg[SMT]->n];
         auto const smt_waveTi = new double[rg[SMT]->n];
+#endif
         int const nln = nvalencestates;
         int const n_poly = 4; // number of even-order polynomial terms used
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
@@ -714,31 +716,46 @@ extern "C" {
 //                 double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
 //                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
 //                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical);
-            } // nrn
-            
-            double const rcut = rg[SMT]->r[ir_cut[SMT]];
-            for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                int const iln = ln_off + nrn;
-                product(tru_wave_i, nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
-                product(tru_waveVi, nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
-                
-                product(smt_wave_i, rg[SMT]->n, valence_state[iln].wave[SMT], rg[SMT]->r2dr);
+
                 double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
                 for(int i = 1; i < n_poly; ++i) {
                     double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
                     T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
                 } // i
-                
+
                 for(int ir = 0; ir < ir_cut[SMT]; ++ir) {
                     double const r = rg[SMT]->r[ir], r2 = pow2(r);
-                    smt_waveTi[ir] = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
-                    valence_state[iln].wKin[SMT][ir] = smt_waveTi[ir]*r;
-                    smt_waveTi[ir] *= rg[SMT]->r2dr[ir]; // multiply in the metric here
+                    double const wT = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
+                    valence_state[iln].wKin[SMT][ir] = wT*r;
                 } // ir
 
                 // copy the kinetic energy part of the true wave outside rcut
                 for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
                     valence_state[iln].wKin[SMT][ir] = valence_state[iln].wKin[TRU][ir + nr_diff];
+                } // ir
+
+
+            } // nrn
+            
+            
+#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
+
+            for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                double const rcut = rg[SMT]->r[ir_cut[SMT]];
+                int const iln = ln_off + nrn;
+                product(tru_wave_i, nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
+                product(tru_waveVi, nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
+                
+                double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
+                for(int i = 1; i < n_poly; ++i) {
+                    double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
+                    T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
+                } // i
+
+                for(int ir = 0; ir < ir_cut[SMT]; ++ir) {
+                    double const r = rg[SMT]->r[ir], r2 = pow2(r);
+                    double const wT = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
+                    smt_waveTi[ir] = wT*rg[SMT]->r2dr[ir]; // multiply in the metric here
                 } // ir
 
                 if (echo > 9) {
@@ -759,8 +776,8 @@ extern "C" {
                     double const tru_Epot = dot_product(ir_cut[TRU], tru_waveVi, valence_state[jln].wave[TRU]); //    only up to rcut
                     double const tru_kinetic_E = valence_state[iln].energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
                     
-                    double const smt_norm_numerical = dot_product(ir_cut[SMT], smt_wave_i, valence_state[jln].wave[SMT]);
-                    double const smt_Ekin_numerical = dot_product(ir_cut[SMT], smt_waveTi, valence_state[jln].wave[SMT]);
+                    double const smt_kinetic_E = dot_product(ir_cut[SMT], smt_waveTi, valence_state[jln].wave[SMT]);
+#if 0
 //                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
 //                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical
                     
@@ -782,15 +799,16 @@ extern "C" {
                             smt_norm      += c_smt[iln][i]*c_smt[jln][j]*intpow(rcut, rpower + 3)/(rpower + 3.);
                         } // j
                     } // i
-                    kinetic_energy[iln*nln + jln][TRU] = tru_kinetic_E;
-                    kinetic_energy[iln*nln + jln][SMT] = smt_kinetic_E;
-                    if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy (true) %g and (smooth) %g (diff) %g (smooth numerical) %g %s\n", 
-                      label, ellchar[ell], nrn, krn, tru_kinetic_E*eV, smt_kinetic_E*eV, (tru_kinetic_E - smt_kinetic_E)*eV, smt_Ekin_numerical*eV,_eV);
-
                     // show the norm deficit computed by integrations only up to rcut
                     // .... this should match the corresponding charge deficit tensor entries
                     if ((iln == jln) && (echo > 0)) printf("# %s %d%c-valence state has norm deficit %g - %g = %g electrons, (smooth numerical = %g)\n",
                       label, valence_state[iln].enn, ellchar[ell], tru_norm, smt_norm, tru_norm - smt_norm, smt_norm_numerical);
+#endif                    
+                    kinetic_energy[iln*nln + jln][TRU] = tru_kinetic_E;
+                    kinetic_energy[iln*nln + jln][SMT] = smt_kinetic_E;
+                    if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
+                      label, ellchar[ell], nrn, krn, tru_kinetic_E*eV, smt_kinetic_E*eV, (tru_kinetic_E - smt_kinetic_E)*eV, _eV);
+
                 } // krn
             } // nrn
             
@@ -810,14 +828,18 @@ extern "C" {
                 } // iln
             } // active?
             
+// end  ALTERNATIVE_KINETIC_ENERGY_TENSOR
+#endif
+            
             ln_off += nn[ell];
         } // ell
         
         delete[] r2rho;
+#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
         delete[] tru_wave_i;
         delete[] tru_waveVi;
-        delete[] smt_wave_i;
         delete[] smt_waveTi;
+#endif            
         
         { // scope: create SHO projectors // ToDo: establish dual orthgonality with SHO projectors
             int const nr = rg[SMT]->n, mr = align<2>(nr);
@@ -877,7 +899,6 @@ extern "C" {
 //                                           inv[0*msub + 0], inv[0*msub + 1], inv[1*msub + 0], inv[1*msub + 1]);
 //                 } else exit(__LINE__); // error not implemented
                     
-#if 1
                 // make a new linear combination
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nrts = rg[ts]->n, mrts = align<2>(nrts);
@@ -891,6 +912,7 @@ extern "C" {
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                         int const iln = ln_off + nrn;
                         set(valence_state[iln].wave[ts], nrts, 0.0); // clear
+                        set(valence_state[iln].wKin[ts], nrts, 0.0); // clear
                         for(int krn = 0; krn < nn[ell]; ++krn) {
                             add_product(valence_state[iln].wave[ts], nrts, &waves[krn*mrts], inv[nrn*msub + krn]);
                             add_product(valence_state[iln].wKin[ts], nrts, &wkins[krn*mrts], inv[nrn*msub + krn]);
@@ -913,13 +935,14 @@ extern "C" {
                 } // nrn
 #endif
 
+#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
                 // rotate the kinetic energy difference matrix
                 double mat[msub*msub], rot[msub*msub];
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     // copy out
                     for(int i = 0; i < nn[ell]; ++i) {
                         for(int j = 0; j < nn[ell]; ++j) {
-                            mat[i*msub + j] = kinetic_energy[(ln_off + i)*nln + (ln_off + j)][ts];
+                            mat[i*msub + j] = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][ts];
                         } // j
                     } // i
 
@@ -941,7 +964,7 @@ extern "C" {
                     // put back
                     for(int i = 0; i < nn[ell]; ++i) {
                         for(int j = 0; j < nn[ell]; ++j) {
-                            kinetic_energy[(ln_off + i)*nln + (ln_off + j)][ts] = rot[i*msub + j]; 
+                            kinetic_energy[(i+ln_off)*nln + (j+ln_off)][ts] = rot[i*msub + j]; 
                         } // j
                     } // i
 
@@ -950,26 +973,31 @@ extern "C" {
                 // display
                 for(int i = 0; i < nn[ell]; ++i) {
                     for(int j = 0; j < nn[ell]; ++j) {
-                        auto const E_kin_tru = kinetic_energy[(ln_off + i)*nln + (ln_off + j)][TRU];
-                        auto const E_kin_smt = kinetic_energy[(ln_off + i)*nln + (ln_off + j)][SMT]; 
+                        auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
+                        auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> transformed kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
-                
-                
+
                 if (echo > 9) {
-                    printf("\n## %s orthogonalized partial waves for ell=%c in a.u.:\n", label, ellchar[ell]);
+                    printf("\n## %s orthogonalized partial waves "
+//                         "and kinetic part"
+                           " for ell=%c in a.u.:\n", label, ellchar[ell]);
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                         printf("%g", rg[SMT]->r[ir]); // radius
                         for(int iln = ln_off; iln < ln_off + nn[ell]; ++iln) {
                             printf("  %g %g", valence_state[iln].wave[TRU][ir + nr_diff], valence_state[iln].wave[SMT][ir]);
+//                          printf(" %g %g",  valence_state[iln].wKin[TRU][ir + nr_diff], valence_state[iln].wKin[SMT][ir]);
                         } // iln
                         printf("\n");
                     } // ir
                     printf("\n\n");
                 } // echo
-                
+
+// end  ALTERNATIVE_KINETIC_ENERGY_TENSOR                
+#endif                
+       
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     for(int iln = 0 + ln_off; iln < nn[ell] + ln_off; ++iln) {
@@ -979,9 +1007,20 @@ extern "C" {
                                                         valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
                         } // j
                     } // i
+                } // ts
 
-                    if (0) {
-                        // symmetrize the kinetic energy tensor
+                // display
+                for(int i = 0; i < nn[ell]; ++i) {
+                    for(int j = 0; j < nn[ell]; ++j) {
+                        auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
+                        auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
+                        if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
+                          label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
+                    } // j
+                } // i
+
+                if (1) { // symmetrize the kinetic energy tensor
+                    for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                         for(int iln = 0 + ln_off; iln < nn[ell] + ln_off; ++iln) {
                             for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
                                 auto &aij = kinetic_energy[iln*nln + jln][ts];
@@ -991,21 +1030,9 @@ extern "C" {
                                 aji = avg;
                             } // j
                         } // i
-                    } // active?
-                    
-                } // ts
-                
-                // display
-                for(int i = 0; i < nn[ell]; ++i) {
-                    for(int j = 0; j < nn[ell]; ++j) {
-                        auto const E_kin_tru = kinetic_energy[(ln_off + i)*nln + (ln_off + j)][TRU];
-                        auto const E_kin_smt = kinetic_energy[(ln_off + i)*nln + (ln_off + j)][SMT]; 
-                        if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [from wKin] (true) %g and (smooth) %g (diff) %g %s\n", 
-                          label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
-                    } // j
-                } // i
-                
-#endif
+                    } // ts
+                } // symmetrization active?
+
                 ln_off += nn[ell];
             } // ell
             delete[] proj;
