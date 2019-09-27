@@ -6,6 +6,7 @@
 
 #include "inline_math.hxx" // set, scale
 #include "bessel_transform.hxx" // Bessel_j0
+#include "recorded_warnings.hxx" // warn
 
 typedef int status_t;
 
@@ -67,6 +68,7 @@ namespace real_space_grid {
                         double const center[3]=nullptr, float const rcut=-1, double const factor=1) {
   // Add a spherically symmetric regular function to the grid.
   // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
+      status_t stat = 0;
       assert(D0 == g.dim('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
@@ -119,10 +121,10 @@ namespace real_space_grid {
       printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
               __func__, modified*1e-3, nwindow*1e-3, g.dim('x')*g.dim('y')*g.dim('z')*1e-3); // show stats
 #endif
-      if (out_of_range)
-          printf("# Warning! %s modified %ld points and found %ld entries out of range of the radial function!\n", 
-              __func__, modified, out_of_range); // show stats
-      return 0; // success
+      if (out_of_range > 0) {
+          stat += 0 < sprintf(warn, "Found %ld entries out of range of the radial function!\n", out_of_range);
+      } // out of range of the radial function
+      return stat;
   } // add_function
 
   template<typename real_t, int D0> // D0:inner dimension

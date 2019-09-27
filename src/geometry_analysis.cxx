@@ -271,16 +271,16 @@ namespace geometry_analysis {
   };
   
   
-  int constexpr MaxBP = 12; // maximum number of bond partners stored for later detailed analysis
+  int constexpr MaxBP = 4; // maximum number of bond partners stored for later detailed analysis, 0:inactive
   
   template<typename real_t>
-  void analyze_bond_structure(int const nb, real_t const (*bv)[4], int const echo=1) {
+  void analyze_bond_structure(char* string, int const nb, real_t const (*bv)[4], float const Z) {
       if (MaxBP < 1) return;
-//    if (echo > 1) printf(" coordination=%d", nb);
+//    printf(" coordination=%d", nb);
       char const multiplicity_b = '^';
       char const multiplicity_a = '*';
       real_t constexpr Deg = 180/constants::pi; // Degrees
-      real_t const Len = Ang*1000; // 3 digits
+      real_t const Len1000 = Ang*1000; // 3 digits
       real_t max_len2 = 0, min_len2 = 99;
       real_t bond_length[MaxBP];
       real_t bond_angle[(MaxBP*(MaxBP - 1))/2];
@@ -290,31 +290,29 @@ namespace geometry_analysis {
               max_len2 = std::max(max_len2, d2i);
               min_len2 = std::min(min_len2, d2i);
               bond_length[ib] = std::sqrt(d2i);
-    //           if (echo > 1) printf(" %.3f", bond_length[ib]*Ang);
+//            printf(" %.3f", bond_length[ib]*Ang);
           } // ib
       } // scope
       std::sort(bond_length, bond_length + nb);
       { // scope: display bond lengths
       	  int last = -1, count = 1;
           for(int ib = 0; ib <= nb; ++ib) {
-              int const now = (ib < nb) ? (int)(bond_length[ib]*Len + 0.5f) : -1;
+              int const now = (ib < nb) ? (int)(bond_length[ib]*Len1000 + 0.5f) : -1;
               if (now == last) {
                 ++count;
               } else {
                   if (last > 0) { 
-                      if (echo > 1) {
-                          printf(" %.3f", last*.001f);
-                  	      if (count > 1) printf("%c%d", multiplicity_b, count);
-          	    	    } // last > 0
+                      string += sprintf(string, " %.3f", last*.001f);
+                      if (count > 1) string += sprintf(string, "%c%d", multiplicity_b, count);
                       count = 1; // reset counter
-                  }
+                  } // last > 0
                   last = now;
-              }
-//           if (echo > 1) printf(" %.3f", last*0.001f);
+              } // now == last
+//            printf(" %.3f", last*0.001f);
           } // ib
       } // scope
 
-      if (echo > 1) printf("  "); // some separator space
+      string += sprintf(string, "  "); // some separator space
 
       int const na = (nb*(nb - 1))/2;
       { // scope: compute all possible bond angles
@@ -325,7 +323,7 @@ namespace geometry_analysis {
                   auto const cs = dot/(bond_length[ib]*bond_length[jb]);
                   bond_angle[ia] = std::acos(cs);
                   ++ia;
-    //               if (echo > 2) printf(" %d", (int)(bond_angle[ia]*Deg));
+//                printf(" %d", (int)(bond_angle[ia]*Deg));
               } // jb
           } // ib
           assert(na == ia);
@@ -338,27 +336,23 @@ namespace geometry_analysis {
               if (now == last) {
                 ++count;
               } else {
-                  if (last > 0) { 
-                      if (echo > 1) {
-                          printf(" %d", last);
-                          if (count > 1) printf("%c%d", multiplicity_a, count);
-                      } // last > 0
+                  if (last > 0) {
+                      string += sprintf(string, " %d", last);
+                      if (count > 1) string += sprintf(string, "%c%d", multiplicity_a, count);
                       count = 1; // reset counter
-                  }
+                  } // last > 0
                   last = now;
-              }
+              } // now == last
           } // ia
       } // scope
 
-      if (echo > 0) {
-          if (echo < 2) printf(" [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
-          printf("\n");
-      }
+      // show the minimum and maximum bond length
+//    string += sprintf(string, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
   } // analyze_bond_structure
   
   
   
-  status_t analysis(double const xyzZ[], int64_t const natoms, 
+  status_t analysis(double const xyzZ[], index_t const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
       status_t stat = 0;
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
@@ -372,7 +366,9 @@ namespace geometry_analysis {
       int const num_bins = (int)std::ceil(rcut*inv_bin_width); // 0:no histogram
 
       atom_image_index_t (*bond_partner)[MaxBP] = nullptr;
+      index_t natoms_BP = 0;
       if (MaxBP > 0) {
+          natoms_BP = std::min(natoms, (index_t)1000); // limit the number of atoms for which the bonds are analyzed
           bond_partner = new atom_image_index_t[natoms][MaxBP]; // can become quite large
       } // MaxBP > 0
 
@@ -389,7 +385,7 @@ namespace geometry_analysis {
       int nspecies = 0; // number of different species
       { // scope: fill ispecies and species_of_Z
           for(int first = 1; first >= 0; --first) {
-              for(int ia = 0; ia < natoms; ++ia) {
+              for(index_t ia = 0; ia < natoms; ++ia) {
                   int const Z_ia = std::round(xyzZ[ia*4 + 3]);
                   int const Z_ia_mod = Z_ia & 127;
                   if (first) {
@@ -417,7 +413,7 @@ namespace geometry_analysis {
       } // scope
       
       if (echo > 2) {
-          printf("# Found %d different elements for %ld atoms: ", nspecies, natoms);
+          printf("# Found %d different elements for %d atoms: ", nspecies, natoms);
           for(int is = 0; is < nspecies; ++is) {
               printf("  %dx %s", occurrence[Z_of_species[is]], Sy_of_species[is]); 
           } // is
@@ -434,7 +430,8 @@ namespace geometry_analysis {
       double *image_pos = nullptr;
       typedef vector_math::vec<3,double> vec3;
       double const rcut2 = pow2(rcut);
-      int64_t nzero = 0, nstrange = 0, npairs = 0, nbonds = 0, nfar = 0, near = 0, bp_exceeded = 0; // init counters
+      int64_t nzero = 0, nstrange = 0, npairs = 0, nbonds = 0, nfar = 0, near = 0; // init counters
+      int64_t bp_exceeded = 0, bp_truncated = 0; // init counters
 
 // #define GEO_ORDER_N2
 #ifdef  GEO_ORDER_N2
@@ -506,12 +503,14 @@ namespace geometry_analysis {
                       }
                       if (dist < elongation*default_bond_length(Z_ia, Z_ja)) {
                           ++nbonds;
-                          if (MaxBP > 0) { // storing of bond partner active
+                          if (MaxBP > 0) { // storing of bond partners active
                               int const cn = coordination_number[ia];
                               if (cn < MaxBP) {
-                                  bond_partner[ia][cn] = atom_image_index_t(ja, isj, shift[0], shift[1], shift[2]);
+                                  if (ia < natoms_BP) {
+                                      bond_partner[ia][cn] = atom_image_index_t(ja, isj, shift[0], shift[1], shift[2]);
+                                  } else ++bp_truncated;
                               } else ++bp_exceeded;
-                          } // MaxBP
+                          } // MaxBP > 0
                           ++coordination_number[ia];
                           ++bond_hist[ijs];
 //                           if (echo > 2) printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
@@ -528,7 +527,7 @@ namespace geometry_analysis {
       
       if (echo > 0) printf("# checked %.6f M atom-atom pairs, %.3f k near and %.6f M far\n", 1e-6*npairs, 1e-3*near, 1e-6*nfar);
       if (natoms != nzero) {
-          sprintf(warn, "Should find %ld exact zero distances but found %ld", natoms, nzero);
+          sprintf(warn, "Should find %d exact zero distances but found %ld", natoms, nzero);
           ++stat;
       } // warn
       assert(natoms == nzero);
@@ -625,7 +624,7 @@ namespace geometry_analysis {
           int const max_cn = 24;
           auto const cn_hist = new int[nspecies][max_cn];
           set((int*)cn_hist, nspecies*max_cn, 0);
-          for(int ia = 0; ia < natoms; ++ia) {
+          for(index_t ia = 0; ia < natoms; ++ia) {
               int const isi = ispecies[ia];
               int const cni = coordination_number[ia];
               if (cni < max_cn) ++cn_hist[isi][cni]; else ++cn_exceeds;
@@ -648,12 +647,15 @@ namespace geometry_analysis {
           delete[] cn_hist;
       } // echo
      
+
       // analyze local bond structure 
       if (nullptr != bond_partner) {
-          float coords[MaxBP][4];
-          for(int ia = 0; ia < natoms; ++ia) {
+          if (echo > 2) printf("# show a bond structure analysis\n");
+// #pragma omp parallel for         
+          for(index_t ia = 0; ia < natoms_BP; ++ia) {
               int const cn = coordination_number[ia];
               double const xyz_ia[3] = {xyzZ[4*ia + 0], xyzZ[4*ia + 1], xyzZ[4*ia + 2]}; // load center
+              float coords[MaxBP][4];
               for(int ip = 0; ip < cn; ++ip) {
                   auto const &partner = bond_partner[ia][ip];
                   int const ja = partner.ia; assert(ja >= 0); 
@@ -663,10 +665,18 @@ namespace geometry_analysis {
                   coords[ip][3] = xyzZ[4*ja + 3]; // Z of the bond partner, if needed
               } // ip
               int const isi = ispecies[ia];
-              printf("# a#%d %c%c  ", ia, Sy_of_species[isi][0], Sy_of_species[isi][1]); // no new line
-              analyze_bond_structure(cn, coords, echo);
+              char string_buffer[512];
+              analyze_bond_structure(string_buffer, cn, coords, xyzZ[4*ia + 3]);
+// #pragma omp critical
+              printf("# a#%d %c%c %s\n", ia, Sy_of_species[isi][0], Sy_of_species[isi][1], string_buffer); // no new line
           } // ia
       } // bond_partner
+      if (bp_exceeded > 0) {
+          stat += 0 < sprintf(warn, "In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
+      } // maximum number of bond partners was exceeded
+      if (bp_truncated > 0) {
+          stat += 0 < sprintf(warn, "Bond partner analysis is performed only for the first %d atoms", natoms_BP);
+      } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
       
       if (nullptr != image_pos) delete[] image_pos;
       return stat;

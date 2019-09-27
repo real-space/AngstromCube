@@ -466,7 +466,7 @@ extern "C" {
         } // self-consistency iterations
 
         // show the smooth and true potential
-        if (true && (echo > 0)) {
+        if (false && (echo > 0)) {
             printf("\n## %s spherical parts: r, "
             "Zeff_tru(r), Zeff_smt(r)"
             ", r^2*rho_tru(r), r^2*rho_smt(r)"
@@ -632,7 +632,7 @@ extern "C" {
             // alternatively, pseudize_function(core_density[SMT], rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
             if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", label, stat);
 
-            if (0) { // plot the core densities
+            if (1) { // plot the core densities
                 printf("\n## %s radius, smooth core density, true core density:\n", label);
                 for(int ir = 0; ir < nrs; ir += 2) {
                     printf("%g %g %g\n", rg[SMT]->r[ir], core_density[SMT][ir]
@@ -1452,7 +1452,7 @@ extern "C" {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
                 if (TRU == ts) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
                                           Ves[1]*(rg[TRU]->r[1])*Y00, -Z_core);
-                if (SMT == ts) {
+                if (false && (SMT == ts)) {
                     printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                         printf("%g %g %g\n", rg[SMT]->r[ir], Ves[ir]*Y00, aug_density[ir]*Y00);
@@ -1726,8 +1726,9 @@ namespace single_atom {
   
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm, int const echo) {
-
+                  double **rho, double **qlm, double **vlm, int const _echo) {
+      int const echo = 0; // mute
+    
       static LiveAtom **a=nullptr;
 
       if (nullptr == a) {
@@ -1748,7 +1749,7 @@ namespace single_atom {
       for(int ia = 0; ia < na; ++ia) {
         
           if (nullptr != rho) {
-              int const nr2 = 1 << 12; float const ar2 = 16.f;
+              int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
               rho[ia] = new double[nr2];
               a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
           } // get the smooth core densities
@@ -1794,13 +1795,13 @@ namespace single_atom {
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
-    // for(int Z = 109; Z >= 0; --Z) { // all elements backwards
+    for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
-    { int const Z = 79; // 79:gold
+//     { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);
         LiveAtom a(Z, false, 0.f, -1, echo); // envoke constructor

@@ -64,10 +64,10 @@ FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
 # FEAFLAGS += -D NO_UNIT_TESTS ## for production
 
 # normal mode
-# OPTFLAGS = -Ofast 
+OPTFLAGS = -Ofast 
 ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # OPTFLAGS = -O2
-OPTFLAGS = -O0 -g -pedantic -Wall -Warray-bounds
+# OPTFLAGS = -O0 -g -pedantic -Wall -Warray-bounds
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread
