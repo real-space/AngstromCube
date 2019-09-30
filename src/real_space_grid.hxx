@@ -39,10 +39,10 @@ namespace real_space_grid {
           printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
               D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
       } // destructor
-      
-      status_t set_grid_spacing(float const hx, float const hy=-1, float const hz=-1) {
+
+      status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
           status_t stat = 0;
-          float const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
+          double const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
           for(int i3 = 0; i3 < 3; ++i3) {
               h[i3] = h3[i3]; // convert to double
               if ((0.0 != h[i3]) && (h[i3] == h[i3])) {
@@ -75,20 +75,20 @@ namespace real_space_grid {
       double const r2cut = cutoff ? rcut*rcut : (ncoeff - 1)/hcoeff;
       int imn[3], imx[3];
       size_t nwindow = 1;
-      for(int i3 = 0; i3 < 3; ++i3) {
-          int const M = g.dim(i3) - 1; // highest index
+      for(int d = 0; d < 3; ++d) {
+          int const M = g.dim(d) - 1; // highest index
           if (cutoff) {
-              imn[i3] = std::max(0, (int)std::floor((c[i3] - rcut)*g.inv_h[i3]));
-              imx[i3] = std::min(M, (int)std::ceil ((c[i3] + rcut)*g.inv_h[i3]));
+              imn[d] = std::max(0, (int)std::floor((c[d] - rcut)*g.inv_h[d]));
+              imx[d] = std::min(M, (int)std::ceil ((c[d] + rcut)*g.inv_h[d]));
           } else {
-              imn[i3] = 0;
-              imx[i3] = M;
+              imn[d] = 0;
+              imx[d] = M;
           } // cutoff
 #ifdef  DEBUG
-          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+i3, imx[i3] + 1 - imn[i3], imn[i3], imx[i3]);
+          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
 #endif
-          nwindow *= std::max(0, imx[i3] + 1 - imn[i3]);
-      } // i3
+          nwindow *= std::max(0, imx[d] + 1 - imn[d]);
+      } // d
       assert(hcoeff > 0);
       set(added, D0, (real_t)0); // clear
       size_t modified = 0, out_of_range = 0;
@@ -108,6 +108,10 @@ namespace real_space_grid {
                                      + ((ir2p1 < ncoeff) ? r2coeff[ir2p1*D0 + i0] : 0)*w8);
                                   values[ixyz*D0 + i0] += factor*value_to_add;
                                   added[i0]            += factor*value_to_add;
+#if 0
+//       printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
+//        printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
+#endif
                               } // i0
                               ++modified;
                           } else ++out_of_range;

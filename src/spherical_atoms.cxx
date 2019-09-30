@@ -119,14 +119,14 @@ namespace spherical_atoms {
           for(int d = 0; d < 3; ++d) {
               center[ia][d] = fold_back(xyzZ[ia*4 + d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
           }   center[ia][3] = 0; // 4th component is not used
-          if (echo > 8) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
+          if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
                                        center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
           vlm[ia] = new double[1];
           qlm[ia] = new double[1];
       } // ia
 
       
-      float const rcut = 16;
+      float const rcut = 32; // radial grids usually and at 9.45 Bohr
       
       double *periodic_images = nullptr;
       int const n_periodic_images = boundary_condition::periodic_images(&periodic_images, cell, bc, rcut, echo);
@@ -157,20 +157,31 @@ namespace spherical_atoms {
               printf("\n## Real-space smooth core density for atom #%d:\n", ia);
               for(int ir2 = 0; ir2 < nr2; ++ir2) {
                   double const r2 = ir2/ar2, r = std::sqrt(r2);
-                  printf("%.15f %.15f", r, rho_core[ia][ir2]*Y00sq);
-                  if (1) {
-                      rho_core[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
-                  } // modify
-                  printf(" %.15f\n", rho_core[ia][ir2]*Y00sq); // print modified
+                  printf("%.15f %.15f\n", r, rho_core[ia][ir2]*Y00sq);
               }   printf("\n\n");
           } // echo
+
+          if (1) {
+              for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                  double const r2 = ir2/ar2;
+                  rho_core[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+              } // irs
+          } // mask the high frquency oscillations
           
+          if (echo > 6) {
+              printf("\n## masked Real-space smooth core density for atom #%d:\n", ia);
+              for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                  double const r2 = ir2/ar2, r = std::sqrt(r2);
+                  printf("%.15f %.15f\n", r, rho_core[ia][ir2]*Y00sq);
+              }   printf("\n\n");
+          } // echo
+
           double q_added = 0;
           for(int ii = 0; ii < n_periodic_images; ++ii) {
               double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
               double q_added_image = 0;
               stat += real_space_grid::add_function(rho, g, &q_added_image, rho_core[ia], nr2, ar2, cnt, rcut, Y00sq);
-              if (echo > -1) printf("# %.15f electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
+//               if (echo > -1) printf("# %.15f electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
               q_added += q_added_image;
           } // periodic images
           if (echo > -1) {
