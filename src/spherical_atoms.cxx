@@ -181,7 +181,7 @@ namespace spherical_atoms {
               double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
               double q_added_image = 0;
               stat += real_space_grid::add_function(rho, g, &q_added_image, rho_core[ia], nr2, ar2, cnt, rcut, Y00sq);
-//               if (echo > -1) printf("# %.15f electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
+//               if (echo > 7) printf("# %.15f electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
               q_added += q_added_image;
           } // periodic images
           if (echo > -1) {

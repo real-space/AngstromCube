@@ -232,6 +232,7 @@ namespace geometry_analysis {
     // which references https://doi.org/10.1002/chem.200901472 (Pekka Pyykk\"o and Michiko Atsumi)
     // Fe 26 with 110pm is good for bcc bulk
     // Fr 87 reduced from 260 to 255 to fit data format
+    // Sc 21 reduced from 170 to 130 to make no Sc-Sc bonds inside Sc2O3
     uint8_t const bl[128] = {0, // now following Z=1..118 in Aco Z. Muradjan-ordering
       31,  28,                                                             // H  He
      128,  96,                                                             // Li Be
@@ -239,7 +240,7 @@ namespace geometry_analysis {
       57, 141,                                                             // Na Mg
      121, 111, 107, 105, 102, 106,                                         // Al Si P  S  Cl Ar
      203, 176,                                                             // K  Ca
-     170, 160, 153, 139, 132, 110, 139, 124, 132, 122,                     // Sc Ti V  Cr Mn Fe Co Ni Cu Zn
+     130, 160, 153, 139, 132, 110, 139, 124, 132, 122,                     // Sc Ti V  Cr Mn Fe Co Ni Cu Zn
      122, 120, 119, 120, 120, 116,                                         // Ga Ge As Se Br Kr
      220, 195,                                                             // Rb Sr
      190, 175, 164, 154, 147, 146, 142, 139, 145, 144,                     // Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd
@@ -271,12 +272,12 @@ namespace geometry_analysis {
   };
   
   
-  int constexpr MaxBP = 4; // maximum number of bond partners stored for later detailed analysis, 0:inactive
+  int constexpr MaxBP = 12; // maximum number of bond partners stored for later detailed analysis, 0:inactive
   
   template<typename real_t>
   void analyze_bond_structure(char* string, int const nb, real_t const (*bv)[4], float const Z) {
       if (MaxBP < 1) return;
-//    printf(" coordination=%d", nb);
+//    string += sprintf(string, " coordination=%d", nb);
       char const multiplicity_b = '^';
       char const multiplicity_a = '*';
       real_t constexpr Deg = 180/constants::pi; // Degrees
@@ -312,7 +313,7 @@ namespace geometry_analysis {
           } // ib
       } // scope
 
-      string += sprintf(string, "  "); // some separator space
+      string += sprintf(string, "  "); // some separator
 
       int const na = (nb*(nb - 1))/2;
       { // scope: compute all possible bond angles
@@ -653,12 +654,12 @@ namespace geometry_analysis {
           if (echo > 2) printf("# show a bond structure analysis\n");
 // #pragma omp parallel for         
           for(index_t ia = 0; ia < natoms_BP; ++ia) {
-              int const cn = coordination_number[ia];
+              int const cn = std::min((int)coordination_number[ia], MaxBP);
               double const xyz_ia[3] = {xyzZ[4*ia + 0], xyzZ[4*ia + 1], xyzZ[4*ia + 2]}; // load center
               float coords[MaxBP][4];
               for(int ip = 0; ip < cn; ++ip) {
                   auto const &partner = bond_partner[ia][ip];
-                  int const ja = partner.ia; assert(ja >= 0); 
+                  auto const ja = partner.ia; assert(ja >= 0); 
                   coords[ip][0] = xyzZ[4*ja + 0] + partner.ix*cell[0] - xyz_ia[0];
                   coords[ip][1] = xyzZ[4*ja + 1] + partner.iy*cell[1] - xyz_ia[1];
                   coords[ip][2] = xyzZ[4*ja + 2] + partner.iz*cell[2] - xyz_ia[2];
