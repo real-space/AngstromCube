@@ -10,7 +10,7 @@ namespace sho_radial {
   inline int constexpr nSHO_radial(int const numax) { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
 
   template<typename real_t>
-  void radial_eigenstates(real_t poly[], // coefficients of a polynomial in r^2
+  status_t radial_eigenstates(real_t poly[], // coefficients of a polynomial in r^2
                    int const nrn, // number of radial nodes
                    int const ell, // angular momentum quantum number
                    real_t const factor=1) { // if we know the normalization prefactor in advance, we can provide it here

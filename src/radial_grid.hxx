@@ -9,9 +9,11 @@ typedef int status_t;
 namespace radial_grid {
   
   radial_grid_t* create_exponential_radial_grid( // returns a pointer to a new radial grid descriptor
-      int const n, // number of grid points
-      float const r=9.45, // [optional] largest radius
-      float const a=.015); // [optional] anisotropy parameter
+      int const npoints, // number of grid points
+      float const Rmax=9.45, // [optional] largest radius
+      float const anisotropy=.015); // [optional] anisotropy parameter
+
+  radial_grid_t* create_equidistant_radial_grid(int const npoints, float const Rmax=9.45);
   
   inline radial_grid_t* create_default_radial_grid(float const Z_nucleons)
     { return create_exponential_radial_grid(250*std::sqrt(Z_nucleons + 9.)+.5); }

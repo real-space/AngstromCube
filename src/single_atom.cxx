@@ -235,9 +235,9 @@ extern "C" {
             , int const echo=0) : gaunt_init{false} { // constructor
         id = -1; // unset
         Z_core = Z_nucleons; // convert to float
-        if (echo > 0) printf("\n\n#\n# LiveAtom with %g nucleons, ionization=%g\n", Z_core, ionization);
         
         id = global_atom_id; if (id >= 0) { sprintf(label, "a#%d", id); } else { label[0]=0; }
+        if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g nucleons, ionization=%g\n", label, Z_core, ionization);
         
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
         
@@ -656,7 +656,7 @@ extern "C" {
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         auto const r2rho = new double[nr];
-#define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
+// #define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
         auto const tru_wave_i = new double[nr];
         auto const tru_waveVi = new double[nr];
@@ -880,34 +880,22 @@ extern "C" {
                     } // krn
                 } // nrn
                 
-//                 double const det = (1 == nn[ell])? ovl[0*msub + 0] : ovl[0*msub + 0]*ovl[1*msub + 1] - ovl[1*msub + 0]*ovl[0*msub + 1];
-//                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
-//                 double const inv_det = 1./det;
-                
                 double det, inv[msub*msub];
                 if (1 == nn[ell]) det = simple_math::invert1x1(inv, msub, ovl, msub); else
                 if (2 == nn[ell]) det = simple_math::invert2x2(inv, msub, ovl, msub); else
                 if (3 == nn[ell]) det = simple_math::invert3x3(inv, msub, ovl, msub); else
                 exit(__LINE__); // error not implemented
                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
-
-//                     inv[0*msub + 0] =  inv_det*ovl[1*msub + 1];
-//                     inv[0*msub + 1] = -inv_det*ovl[0*msub + 1];
-//                     inv[1*msub + 0] = -inv_det*ovl[1*msub + 0];
-//                     inv[1*msub + 1] =  inv_det*ovl[0*msub + 0];
-//                     if (echo > 2) printf("# %s inverse matrix for %c-projectors %g %g %g %g\n", label, ellchar[ell],
-//                                           inv[0*msub + 0], inv[0*msub + 1], inv[1*msub + 0], inv[1*msub + 1]);
-//                 } else exit(__LINE__); // error not implemented
                     
                 // make a new linear combination
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nrts = rg[ts]->n, mrts = align<2>(nrts);
                     auto const waves = new double[nn[ell]*mrts]; // temporary storage
-                    auto const wkins = new double[nn[ell]*mrts]; // temporary storage for kinetic
+                    auto const wKins = new double[nn[ell]*mrts]; // temporary storage for kinetic
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                         int const iln = ln_off + nrn;
                         set(&waves[nrn*mrts], nrts, valence_state[iln].wave[ts]); // copy
-                        set(&wkins[nrn*mrts], nrts, valence_state[iln].wKin[ts]); // copy
+                        set(&wKins[nrn*mrts], nrts, valence_state[iln].wKin[ts]); // copy
                     } // nrn
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                         int const iln = ln_off + nrn;
@@ -915,11 +903,11 @@ extern "C" {
                         set(valence_state[iln].wKin[ts], nrts, 0.0); // clear
                         for(int krn = 0; krn < nn[ell]; ++krn) {
                             add_product(valence_state[iln].wave[ts], nrts, &waves[krn*mrts], inv[nrn*msub + krn]);
-                            add_product(valence_state[iln].wKin[ts], nrts, &wkins[krn*mrts], inv[nrn*msub + krn]);
+                            add_product(valence_state[iln].wKin[ts], nrts, &wKins[krn*mrts], inv[nrn*msub + krn]);
                         } // krn
                     } // nrn
                     delete[] waves; // release temporary storage
-                    delete[] wkins; // release temporary storage
+                    delete[] wKins; // release temporary storage
                 } // ts - tru and smt
 
 #if 1
@@ -1614,6 +1602,7 @@ extern "C" {
                 if ((echo > 7)) printf(" %g", hamiltonian_lmn[ilmn*nlmn + jlmn]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
+            printf("\n\n# %s ToDo: implement diagonalize_pseudo\n\n", label);
         } // ilmn
 
         set(hamiltonian, nSHO*matrix_stride, 0.0); // clear
@@ -1718,7 +1707,7 @@ extern "C" {
     radial_grid_t* get_smooth_radial_grid(int const echo=0) {
         return rg[SMT];
     } // get_smooth_radial_grid
-    
+
   }; // class LiveAtom
 
 
@@ -1795,16 +1784,16 @@ namespace single_atom {
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
-    for(int Z = 109; Z >= 0; --Z) { // all elements backwards
+//     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
-//     { int const Z = 79; // 79:gold
+    { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);
-        LiveAtom a(Z, false, 0.f, -1, echo); // envoke constructor
+        LiveAtom a(Z, true, 0.f, -1, echo); // envoke constructor
     } // Z
     return 0;
   } // test

@@ -114,30 +114,6 @@ namespace sho_tools {
   int get_nu(int_t const energy_ordered) {
       int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
 
-//   template<typename int_t>
-//   inline status_t zyx_translation_table(int_t table[], int const numax, bool const inverse=false) {
-//       int const nsho = nSHO(numax);
-//       int isho = 0;
-//       for(int nz = 0; nz <= numax; ++nz) {
-//           for(int ny = 0; ny <= numax - nz; ++ny) {
-//               for(int nx = 0; nx <= numax - nz - ny; ++nx) {
-//                   int const izyx = zyx_index(numax, nx, ny, nz);
-//                   assert(izyx >= 0); assert(izyx < nsho);
-//                   assert(izyx == isho);
-//                   int const nzyx = nzyx_index(nx, ny, nz);
-//                   assert(nzyx >= 0); assert(nzyx < nsho);
-//                   if (inverse) {
-//                       table[izyx] = nzyx;
-//                   } else {
-//                       table[nzyx] = izyx;
-//                   }
-//                   ++isho;
-//               } // nx
-//           } // ny
-//       } // nz
-//       return 0;
-//   } // get_translation_table
-
   template<typename int_t> inline
   status_t construct_index_table(int_t energy_ordered[], int const numax, 
                     SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
@@ -146,6 +122,7 @@ namespace sho_tools {
       if (echo > 3) printf("# ");
       int ii = 0;
       switch (order) {
+        
         case order_zyx:
           for(int z = 0; z <= numax; ++z) {
               for(int y = 0; y <= numax - z; ++y) {
@@ -158,6 +135,7 @@ namespace sho_tools {
           }}} // x y z
           assert(nSHO(numax) == ii);
         break;
+        
         case order_lmn:
           for(int l = 0; l <= numax; ++l) {
               for(int m = -l; m <= l; ++m) {
@@ -170,6 +148,7 @@ namespace sho_tools {
           }}} // l m n
           assert(nSHO(numax) == ii);
         break;
+        
         case order_ln:
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
@@ -180,6 +159,7 @@ namespace sho_tools {
                   ++ii;
           }} // l n
         break;
+        
         default:
             if (echo > 0) printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
       } // switch order

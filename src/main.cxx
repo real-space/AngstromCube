@@ -14,6 +14,7 @@ typedef int status_t;
 #include "geometry_analysis.hxx" // all_tests
 #include "radial_potential.hxx" // all_tests
 #include "bessel_transform.hxx" // all_tests
+#include "scattering_test.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
 #include "sho_hamiltonian.hxx" // all_tests
 #include "chemical_symbol.hxx" // all_tests
@@ -58,6 +59,7 @@ typedef int status_t;
           module_test("radial_integrator.",   radial_integrator::all_tests);
           module_test("radial_potential.",     radial_potential::all_tests);
           module_test("bessel_transform.",     bessel_transform::all_tests);
+          module_test("scattering_test.",       scattering_test::all_tests);
           module_test("real_space_grid.",       real_space_grid::all_tests);
           module_test("sho_hamiltonian.",       sho_hamiltonian::all_tests);
           module_test("chemical_symbol.",       chemical_symbol::all_tests);

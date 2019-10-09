@@ -76,7 +76,7 @@ namespace bessel_transform {
 //    int const nq = 64; double const dq = 0.125; // choose a q-grid: 64*0.125 = 8 = pi/0.39
       auto const bt = new double[nq];
       auto stat = transform_s_function(bt, in, g, nq, dq); // transform to Bessel-space
-      
+
       // construct a r2-grid descriptor: ir2 = ar2*r^2
       double const ar2inv = 1./ar2;
       radial_grid_t r2g; r2g.n = nr2; r2g.r = new double[nr2];

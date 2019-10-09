@@ -705,7 +705,6 @@ namespace overlap {
             } // m
 #endif
             // LAPACK call (Fortran77 interface);
-            int itype = 1;
             if (overlap_eigvals) {
               
                 // get the eigenvalues of the overlap operator only
@@ -724,6 +723,7 @@ namespace overlap {
             } else { // overlap_eigvals
               
                 // solve generalized eigenvalue problem lap_mat*X == diag*ovl_mat*X
+                int const itype = 1;
                 zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat, &n3D, ovl_mat, &n3D, 
                        eigvals, work, &lwork, rwork, &info);
                 

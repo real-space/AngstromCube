@@ -5,6 +5,7 @@
 #include <algorithm> // min, max
 
 #include "radial_grid.hxx"
+#include "inline_tools.hxx" // align
 
 #include "radial_grid.h" // radial_grid_t
 
@@ -12,41 +13,70 @@ typedef int status_t;
 
 namespace radial_grid {
 
+  inline radial_grid_t* get_memory(size_t const n_aligned) {
+      auto g = new radial_grid_t;
+      g->r = new double[5*n_aligned];
+      g->dr     = &g->r[1*n_aligned];
+      g->rdr    = &g->r[2*n_aligned];
+      g->r2dr   = &g->r[3*n_aligned];
+      g->rinv   = &g->r[4*n_aligned];
+      g->memory_owner = (nullptr != g->r);
+      return g;
+  } // get_memory
+  
+  inline void set_derived_grid_quantities(radial_grid_t& g, int const n_aligned) {
+      for (int ir = 0; ir < n_aligned; ++ir) {
+          auto const r = g.r[ir], dr = g.dr[ir];
+          g.rdr[ir] = r*dr;
+          g.r2dr[ir] = r*r*dr;
+          g.rinv[ir] = (ir)? 1./r : 0;
+//        printf("%g %g\n", r, dr); // DEBUG
+      } // ir
+  } // set_derived_grid_quantities
+
   radial_grid_t* create_exponential_radial_grid(int const npoints,
-                   float const rmax, float const anisotropy) // optional args
+                   float const Rmax, float const anisotropy) // optional args
   {
-    double const R = std::max(std::abs(rmax)*1., .945);
-    double const d = std::min(std::max(1e-4, anisotropy*1.), .1);
-    int const N = std::max(std::abs(npoints), 32);
+      double const R = std::max(std::abs(Rmax)*1., .945);
+      double const d = std::min(std::max(1e-4, anisotropy*1.), .1);
+      int const N = std::max(std::abs(npoints), 32);
 
-    int const N_aligned = (((N - 1) >> 2) + 1) << 2; // padded to 4
-
-    auto g = new radial_grid_t;
-    g->r = new double[5*N_aligned];
-    g->dr     = &g->r[1*N_aligned];
-    g->rdr    = &g->r[2*N_aligned];
-    g->r2dr   = &g->r[3*N_aligned];
-    g->rinv   = &g->r[4*N_aligned];
-    g->memory_owner = (nullptr != g->r);
-
-    double const a = R / (std::exp(d*(N - 1)) - 1.); // prefactor
-    for (auto ir = 0; ir < N_aligned; ++ir) {
-      double const edi = std::exp(d*ir);
-      double const r = a*(edi - 1.);
-      double const dr = a*d*edi * (ir < N);
-      g->r[ir] = r;
-      g->dr[ir] = dr;
-      g->rdr[ir] = r*dr;
-      g->r2dr[ir] = r*r*dr;
-      g->rinv[ir] = (ir)? 1./r : 0;
-//       printf("%g %g\n", r, dr); // DEBUG
-    } // ir
-
-    g->n = N;
-    g->rmax = g->r[g->n - 1];
-    return g;
+      int const N_aligned = align<2>(N); // padded to multiples of 4
+      auto const g = get_memory(N_aligned);    
+      
+      double const a = R / (std::exp(d*(N - 1)) - 1.); // prefactor
+      for (auto ir = 0; ir < N_aligned; ++ir) {
+          double const edi = std::exp(d*ir);
+          double const r = a*(edi - 1.);
+          double const dr = a*d*edi * (ir < N);
+          g->r[ir] = r;
+          g->dr[ir] = dr;
+      } // ir
+      set_derived_grid_quantities(*g, N_aligned);
+      g->n = N;
+      g->rmax = g->r[g->n - 1];
+      return g;
   } // create_exponential_radial_grid
 
+  radial_grid_t* create_equidistant_radial_grid(int const npoints, float const Rmax) 
+  {
+      int const N = std::max(1, npoints);
+      int const N_aligned = align<2>(N); // padded to multiples of 4
+      auto const g = get_memory(N_aligned);    
+
+      double const dr = Rmax/N;
+      for (auto ir = 0; ir < N_aligned; ++ir) {
+          double const r = ir*dr;
+          g->r[ir] = r;
+          g->dr[ir] = dr;
+      } // ir
+      set_derived_grid_quantities(*g, N_aligned);
+      g->n = N;
+      g->rmax = g->r[g->n - 1];
+      return g;
+  } // create_equidistant_radial_grid
+  
+  
   radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min, int const echo)
   {
       // find a suitable grid point to start from
@@ -70,8 +100,8 @@ namespace radial_grid {
   
   
   void destroy_radial_grid(radial_grid_t* g) {
-    if (g->memory_owner) delete [] g->r;
-    g->n = 0;
+      if (g->memory_owner) delete [] g->r;
+      g->n = 0;
   } // destroy
 
 #ifdef  NO_UNIT_TESTS
@@ -79,16 +109,16 @@ namespace radial_grid {
 #else // NO_UNIT_TESTS
 
   int test(int const echo=9) {
-    printf("\n# %s: \n", __func__);
-    auto g = create_exponential_radial_grid(1 << 11);
-    destroy_radial_grid(g);
-    return 0;
+      printf("\n# %s: \n", __func__);
+      auto g = create_exponential_radial_grid(1 << 11);
+      destroy_radial_grid(g);
+      return 0;
   } // test
 
   status_t all_tests() {
-    auto status = 0;
-    status += test();
-    return status;
+      auto status = 0;
+      status += test();
+      return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
   
