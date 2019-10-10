@@ -24,6 +24,7 @@
 #include "simple_math.hxx" // invert2x2, invert3x3
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // transform_to_r2_grid
+#include "scattering_test.hxx" // eigenstate_analysis, emm_average
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -1491,7 +1492,7 @@ extern "C" {
         delete [] V_smt;
 
         // add spherical zero potential for SMT==ts and 0==lm
-        add_product(full_potential[SMT], rg[SMT]->n, zero_potential, 1.0);
+        add_product(full_potential[SMT] + 0, rg[SMT]->n, zero_potential, 1.0);
 
         // feed back spherical part of the true potential into the spherical true potential r*V 
         // which determines core states and true partial waves
@@ -1585,7 +1586,7 @@ extern "C" {
             } // limits
         } // gnt
         delete[] potential_ln;
-
+        
         // add the kinetic_energy deficit to the hamiltonian
         if (echo > 7) printf("\n# %s lmn-based Hamiltonian elements in %s:\n", label, _eV);
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
@@ -1602,9 +1603,40 @@ extern "C" {
                 if ((echo > 7)) printf(" %g", hamiltonian_lmn[ilmn*nlmn + jlmn]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
-            printf("\n\n# %s ToDo: implement diagonalize_pseudo\n\n", label);
         } // ilmn
+        
+        if (1) { // debug: check if avgeraging over emm gives back the same operators
+            printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
+            auto const emm_averaged = new double[2*nln*nln];
+            auto const hamiltonian_ln = emm_averaged, overlap_ln = &emm_averaged[nln*nln];
+            for(int i01 = 0; i01 < 2; ++i01) {
+                auto const input_lmn = i01 ?  overlap_lmn :  hamiltonian_lmn;
+                auto const label_inp = i01 ? "overlap"    : "hamiltonian"   ;
+                auto const result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
+                scattering_test::emm_average(result_ln, input_lmn, (int)numax, nn);
+                for(int iln = 0; iln < nln; ++iln) {
+                    printf("# %s emm-averaged %2i %s ", label, iln, label_inp);
+                    for(int jln = 0; jln < nln; ++jln) {
+                        printf(" %g", result_ln[iln*nln + jln]);
+                    }   printf("\n");
+                }   printf("\n");
+            } // i01
+            
+            auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
+            { // scope: prepare a smooth local potential
+                auto const V_rmax = full_potential[SMT][rg[SMT]->n - 1];
+                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                    Vsmt[ir] = (full_potential[SMT][0 + ir] - V_rmax)*Y00;
+                } // ir
+            } // scope
 
+            // now start a scattering_test, i.e. find the eigenstates of the spherical Hamiltonian
+            scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax, nn, 
+                                                 hamiltonian_ln, overlap_ln, 384, 5);
+            delete[] emm_averaged;
+        } // debug
+        
+        
         set(hamiltonian, nSHO*matrix_stride, 0.0); // clear
         set(overlap,     nSHO*matrix_stride, 0.0); // clear
         // Now transform _lmn quantities to Cartesian representations using sho_unitary
@@ -1788,12 +1820,12 @@ namespace single_atom {
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
-//     { int const Z = 29; // 29:copper
+    { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
-    { int const Z = 79; // 79:gold
+//     { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
         if (echo > 1) printf("\n# Z = %d\n", Z);
-        LiveAtom a(Z, true, 0.f, -1, echo); // envoke constructor
+        LiveAtom a(Z, false, 0.f, -1, echo); // envoke constructor
     } // Z
     return 0;
   } // test

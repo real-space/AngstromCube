@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdio> // printf
+#include <cassert> // assert
+#include <cstdint> // uint8_t
 
 // #include "radial_integrator.hxx" // 
 #include "radial_grid.hxx" // create_equidistant_radial_grid
@@ -9,6 +11,7 @@
 #include "sho_radial.hxx" // radial_eigenstates, radial_normalization, expand_poly
 #include "display_units.h" // eV, Ang
 #include "inline_tools.hxx" // align<nBits>
+#include "inline_math.hxx" // set
 #include "sho_tools.hxx" // num_ln_indices
 
 typedef int status_t;
@@ -33,9 +36,9 @@ namespace scattering_test {
               , double const Vsmt[] // smooth potential given on radial grid
               , double const sigma // sigma spread of SHO projectors
               , int const lmax // ellmax or numax of SHO projectors
+              , uint8_t const nn[] // number of projectors per ell
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
-              , int const nn[] // number of projectors per ell
               , int const nr=384 // number of radial grid points in equidistance mesh
               , int const echo=2
     ) {
@@ -66,7 +69,7 @@ namespace scattering_test {
       int nln = 0; int mprj = 0; 
       for(int ell = 0; ell <= lmax; ++ell) {
           nln += nn[ell];
-          mprj = std::max(mprj, nn[ell]);
+          mprj = std::max(mprj, (int)nn[ell]);
       } // ell
       auto const rprj = new double[mprj*stride]; // projector functions*r
       auto const Gaussian = new double[nr]; // envelope function
@@ -186,6 +189,63 @@ namespace scattering_test {
   } // eigenstate_analysis
   
   
+  template<typename real_t>
+  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const lmax, uint8_t const nn[], int const stride=-1) 
+  {
+      int const echo = 9;
+      if (echo > 4) printf("# %s: ellmax = %i\n", __func__, lmax);
+      int iln = 0, ilmn = 0;
+      for(int ell = 0; ell <= lmax; ++ell) {
+          iln += nn[ell];
+          ilmn += (2*ell + 1)*nn[ell];
+      } // ell
+      int const nln = iln, nlmn = ilmn;
+      int const M_stride = (stride < 0) ? nlmn : stride;
+      auto ln_list = std::vector<int>(nlmn, 0);
+      auto lf_list = std::vector<real_t>(nln, 0);
+      { // scope: fill the ln_list
+          int ilmn = 0, ln_off = 0;
+          if (echo > 6) printf("# %s: ln_list ", __func__);
+          for(int ell = 0; ell <= lmax; ++ell) {
+              for(int emm = -ell; emm <= ell; ++emm) {
+                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                      ln_list[ilmn] = ln_off + nrn;
+                      if (echo > 6) printf(" %i", ln_list[ilmn]);
+                      ++ilmn;
+                  } // nrn
+              } // emm
+              for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                  lf_list[ln_off] = real_t(1)/std::sqrt(2*ell + real_t(1));
+                  ++ln_off;
+              } // nrn
+          } // ell
+          if (echo > 6) printf("\n");
+          assert(nlmn == ilmn);
+          if (echo > 5) {
+              printf("# %s: l2p1_list ", __func__);
+              for(int iln = 0; iln < nln; ++iln) {
+                  printf(" %.1f", 1./pow2(lf_list[iln]));
+              }   printf("\n");
+          } // echo
+      } // scope
+      
+      { // scope: now average
+          set(Mln, nln*nln, real_t(0)); // clear
+          for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_list[ilmn];
+              for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_list[jlmn];
+                  Mln[iln*nln + jln] += Mlmn[ilmn*M_stride + jlmn];
+              } // jlmn
+          } // ilmn
+          // apply (2*ell + 1) denominators
+          for(int iln = 0; iln < nln; ++iln) {
+              for(int jln = 0; jln < nln; ++jln) {
+                  Mln[iln*nln + jln] *= lf_list[iln]*lf_list[jln];
+              } // jln
+          } // iln
+      } // scope
+      
+  } // emm_average
+  
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
@@ -196,10 +256,10 @@ namespace scattering_test {
       int const nln = sho_tools::num_ln_indices(lmax);
       auto V = std::vector<double>(rg.n, 0.0);
       double const sigma = 1.0; // if the rmax ~= 10, lmax = 7, sigma <= 1.5, otherwise projectors leak out
-      for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow2(sigma); // harmonic potential 
+      for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
       auto const aHm = std::vector<double>(nln*nln, 0.0);
-      int nn[1 + lmax]; for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
-      return eigenstate_analysis(rg, V.data(), sigma, lmax, aHm.data(), aHm.data(), nn, 128, echo);
+      uint8_t nn[1 + lmax]; for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
+      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn, aHm.data(), aHm.data(), 128, echo);
       // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
   } // test_eigenstate_analysis
 
