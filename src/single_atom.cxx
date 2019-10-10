@@ -194,7 +194,7 @@ extern "C" {
       int ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
       float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
       ell_QN_t numax; // limit of the SHO projector quantum numbers
-      uint8_t nn[1+ELLMAX]; // number of projectors and partial waves used in each ell-channel
+      uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
       ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
       double sigma_compensator; // Gaussian spread for the charge deficit compensators
       double* qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
@@ -265,6 +265,7 @@ extern "C" {
         sigma = 0.5; // Bohr, spread for projectors
         sigma_inv = 1./sigma;
         r_match = 9*sigma;
+        set(nn, 1+ELLMAX+2, uint8_t(0));
         if (echo > 0) printf("# %s numbers of projectors ", label);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
@@ -1631,8 +1632,14 @@ extern "C" {
             } // scope
 
             // now start a scattering_test, i.e. find the eigenstates of the spherical Hamiltonian
-            scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax, nn, 
+            scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
                                                  hamiltonian_ln, overlap_ln, 384, 5);
+            
+            // scan the logarithmic derivatives
+            double const energy_range[] = {-1., 1e-3, 0.5};
+            scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
+                                                 hamiltonian_ln, overlap_ln, energy_range, 9);
+            
             delete[] emm_averaged;
         } // debug
         

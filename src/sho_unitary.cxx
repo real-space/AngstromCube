@@ -86,7 +86,7 @@ namespace sho_unitary {
   
 
 #ifdef  NO_UNIT_TESTS
-  template // explicit template instanciation
+  template // explicit template instantiation
   status_t read_unitary_matrix_from_file<double>(double**, int const, int &, char const*, int const);
 
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

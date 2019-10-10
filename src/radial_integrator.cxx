@@ -427,6 +427,9 @@ int integrate_outwards( // return the number of nodes
     return nnodes;
 } // integrate_outwards
 
+    template // explicit template instantiation needed for logarithmic derivatives
+    int integrate_outwards<1>(radial_grid_t const &g, double const rV[], ell_QN_t const ell, double const E,
+              double gg[], double ff[], int const ir_stop=-1, double *dg=nullptr, double const *rp=nullptr);
 
   template <int SRA>
   double shoot_sra( // returns the kink

@@ -62,9 +62,9 @@ namespace exchange_correlation {
 
   } // lda_PZ81_kernel
   
-//   // explicit template instanciation for float and double
-    template double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
-//   template float  lda_PZ81_kernel<float> (float  const rho, float  &Vdn, float  const mag, float  *Vup);
+    template // explicit template instantiation for float and double
+    double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
+//  template float  lda_PZ81_kernel<float> (float  const rho, float  &Vdn, float  const mag, float  *Vup);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

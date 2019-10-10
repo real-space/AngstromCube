@@ -119,7 +119,7 @@ namespace fourier_poisson {
   } // fourier_solve_MKL
 
 #ifdef  NO_UNIT_TESTS
-  template // explicit template instanciation
+  template // explicit template instantiation
   status_t fourier_solve<double>(double*, double const*, int const*, double const (*)[4], double const);
   
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

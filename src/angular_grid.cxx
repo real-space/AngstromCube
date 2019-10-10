@@ -1842,7 +1842,8 @@ cTeXit '. ', '' ! full stop and an extra empty line
       return 0;
   } // create_numerical_Gaunt
   
-  template status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t>* gaunt, int const echo); // explicit template instanciation
+  template // explicit template instantiation
+  status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t>* gaunt, int const echo);
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

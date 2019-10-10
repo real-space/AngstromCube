@@ -3,8 +3,8 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // uint8_t
+// #include <math.h> // fmod
 
-// #include "radial_integrator.hxx" // 
 #include "radial_grid.hxx" // create_equidistant_radial_grid
 #include "bessel_transform.hxx" // transform_s_function
 #include "finite_difference.hxx" // set_Laplacian_coefficients
@@ -13,6 +13,8 @@
 #include "inline_tools.hxx" // align<nBits>
 #include "inline_math.hxx" // set
 #include "sho_tools.hxx" // num_ln_indices
+#include "radial_integrator.hxx" // integrate_outwards<SRA>
+#include "constants.hxx" // pi
 
 typedef int status_t;
 
@@ -28,7 +30,52 @@ typedef int status_t;
 
 namespace scattering_test {
 
-  inline status_t logarithmic_derivative() {
+  int constexpr SRA = 1, TRU=0, SMT=1, TRU_AND_SMT=2;
+
+  template<typename real_t>
+  inline real_t arcus_tangent(real_t const nom, real_t const den) {
+      return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
+  
+  inline status_t logarithmic_derivative(
+                radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
+              , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
+              , double const sigma // sigma spread of SHO projectors
+              , int const lmax // ellmax or numax of SHO projectors
+              , uint8_t const nn[] // number of projectors per ell
+              , double const aHm[] // non-local Hamiltonian elements in ln_basis
+              , double const aSm[] // non-local overlap matrix elements
+              , double const energy_range[3] // {lower, step, upper}
+              , int const echo=2) {
+    
+      if (echo > 1) printf("\n# %s %s lmax=%i\n", __FILE__, __func__, lmax); 
+      double const one_over_pi = 1./constants::pi;
+      
+      int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
+      int ir_stop[TRU_AND_SMT];
+      ir_stop[SMT] = (rg[SMT]->n - 1)*0.9375; // somewhere outside
+      double const Rlog = rg[SMT]->r[ir_stop[SMT]];
+      if (echo > 0) printf("# %s check at radius %g %s\n", __func__, Rlog*Ang, _Ang);
+      ir_stop[TRU] = ir_stop[SMT] + nr_diff;
+      
+      int const mr = align<2>(rg[TRU]->n);
+      auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component
+      int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/std::max(1e-9, energy_range[1]));
+      if (echo > 0) printf("\n## logarithmic_derivative from %g to %g in steps of %g %s\n", 
+                        energy_range[0]*eV, energy_range[2]*eV, energy_range[1]*eV, _eV);
+      for(int ien = 0; ien <= nen; ++ien) {
+          auto const energy = energy_range[0] + ien*energy_range[1];
+//           if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
+          if (echo > 0) printf("%.6f ", energy*eV);
+          for(int ell = 0; ell <= lmax; ++ell) {
+              double dg[TRU_AND_SMT];
+              int constexpr ts = TRU;
+              int const nnodes = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, gg, ff, ir_stop[ts], &dg[ts]);
+              auto const vg = gg[ir_stop[ts]]; // value of the greater component at Rlog
+              double const node_count = nnodes + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg);
+              if (echo > 0) printf(" %.6f", node_count);
+          } // ell
+          if (echo > 0) printf("\n");
+      } // ien
       
   } // logarithmic_derivative
   
