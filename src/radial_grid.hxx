@@ -21,6 +21,8 @@ namespace radial_grid {
   radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min=1e-3, int const echo=0);
 
   void destroy_radial_grid(radial_grid_t* g); // radial grid descriptor
+  
+  int find_grid_index(radial_grid_t const &g, double const radius);
 
   status_t all_tests();
   

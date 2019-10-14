@@ -5,7 +5,7 @@
 #include <cstdint> // uint8_t
 // #include <math.h> // fmod
 
-#include "radial_grid.hxx" // create_equidistant_radial_grid
+#include "radial_grid.hxx" // create_equidistant_radial_grid, find_grid_index
 #include "bessel_transform.hxx" // transform_s_function
 #include "finite_difference.hxx" // set_Laplacian_coefficients
 #include "sho_radial.hxx" // radial_eigenstates, radial_normalization, expand_poly
@@ -50,33 +50,68 @@ namespace scattering_test {
       if (echo > 1) printf("\n# %s %s lmax=%i\n", __FILE__, __func__, lmax); 
       double const one_over_pi = 1./constants::pi;
       
+      double const dE = std::max(1e-9, energy_range[1]);
+      int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
+      if (echo > 0) printf("\n## logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+                        energy_range[0]*eV, (energy_range[0] + (nen - 1)*dE)*eV, nen, dE*eV, _eV);
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
+      int const mr = align<2>(rg[TRU]->n);
+      auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component
       int ir_stop[TRU_AND_SMT];
-      ir_stop[SMT] = (rg[SMT]->n - 1)*0.9375; // somewhere outside
+
+// #define  _RadialSpectralDensity
+#ifdef   _RadialSpectralDensity
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  // plot the energy derivative of the node count as a function of radius R and energy E
+  for(int ell = 0; ell <= lmax; ++ell) {
+      if (echo > 0) printf("\n# ell = %i\n", ell);
+      int ir_stop_prev = -1;
+      for(int irlog = 1; irlog < 200; ++irlog) {
+          double const Rlog_suggested = irlog*.047243153; // from .025 to 5.0 Angstrom in 200 steps
+          ir_stop[SMT] = radial_grid::find_grid_index(*rg[SMT], Rlog_suggested);
+          if (ir_stop[SMT] > ir_stop_prev) {
+              if (echo > 0) printf("\n");
+              double node_count_prev = 0;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+#else
+      ir_stop[SMT] = radial_grid::find_grid_index(*rg[SMT], 0.75*rg[SMT]->rmax);
+#endif
       double const Rlog = rg[SMT]->r[ir_stop[SMT]];
       if (echo > 0) printf("# %s check at radius %g %s\n", __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
-      
-      int const mr = align<2>(rg[TRU]->n);
-      auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component
-      int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/std::max(1e-9, energy_range[1]));
-      if (echo > 0) printf("\n## logarithmic_derivative from %g to %g in steps of %g %s\n", 
-                        energy_range[0]*eV, energy_range[2]*eV, energy_range[1]*eV, _eV);
+
       for(int ien = 0; ien <= nen; ++ien) {
-          auto const energy = energy_range[0] + ien*energy_range[1];
-//           if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
+          auto const energy = energy_range[0] + ien*dE;
+#ifdef    _RadialSpectralDensity
+#else
+//        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
           if (echo > 0) printf("%.6f ", energy*eV);
-          for(int ell = 0; ell <= lmax; ++ell) {
+          for(int ell = 0; ell <= lmax; ++ell) 
+#endif
+          { // ell-loop
               double dg[TRU_AND_SMT];
               int constexpr ts = TRU;
               int const nnodes = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, gg, ff, ir_stop[ts], &dg[ts]);
               auto const vg = gg[ir_stop[ts]]; // value of the greater component at Rlog
               double const node_count = nnodes + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg);
+#ifdef   _RadialSpectralDensity
+              if (ien) printf("%g %g %g %g", Rlog*Ang, (energy - .5*dE)*eV, (node_count - node_count_prev)/dE, node_count); // energy derivative
+              node_count_prev = node_count;
+#else
               if (echo > 0) printf(" %.6f", node_count);
+#endif
           } // ell
           if (echo > 0) printf("\n");
       } // ien
-      
+
+#ifdef   _RadialSpectralDensity
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////            
+          } // do not compute the same radius twice
+          ir_stop_prev = ir_stop[SMT];
+      } // irlog
+  } // ell
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////            
+#endif
   } // logarithmic_derivative
   
   inline status_t eigenstate_analysis(radial_grid_t const& gV // grid descriptor for Vsmt

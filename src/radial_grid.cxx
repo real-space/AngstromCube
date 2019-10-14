@@ -104,6 +104,14 @@ namespace radial_grid {
       g->n = 0;
   } // destroy
 
+  int find_grid_index(radial_grid_t const &g, double const radius) {
+      for(int ir = 0; ir < g.n; ++ir) {
+          if (radius < g.r[ir]) return ir - 1;
+      } // ir
+      return g.n - 2;
+  } // find_grid_index
+  
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS

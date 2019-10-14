@@ -634,7 +634,7 @@ extern "C" {
             // alternatively, pseudize_function(core_density[SMT], rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
             if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", label, stat);
 
-            if (1) { // plot the core densities
+            if (0) { // plot the core densities
                 printf("\n## %s radius, smooth core density, true core density:\n", label);
                 for(int ir = 0; ir < nrs; ir += 2) {
                     printf("%g %g %g\n", rg[SMT]->r[ir], core_density[SMT][ir]
