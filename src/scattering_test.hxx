@@ -122,6 +122,7 @@ namespace scattering_test {
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
               , int const nr=384 // number of radial grid points in equidistance mesh
+              , int const Vshift=0 // potential shift
               , int const echo=2
     ) {
       status_t stat = 0;
@@ -130,11 +131,14 @@ namespace scattering_test {
       if (echo > 1) printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
       
       auto const Vloc = new double[g.n];
-      { // scope: interpolate to the equidistant grid by bessel transform
+      { // scope: interpolate to the equidistant grid by Bessel-transform
           int const nq = nr/2; double const dq = .125;
           auto const Vq = new double[nq];
           stat += bessel_transform::transform_s_function(Vq, Vsmt, gV, nq, dq, false, echo);
           stat += bessel_transform::transform_s_function(Vloc, Vq, g, nq, dq, true, echo); // back=true
+          for(int ir = 0; ir < g.n; ++ir) {
+              Vloc[ir] += Vshift;
+          } // ir
           if (echo > 8) {
               printf("\n## Vsmt:\n"); for(int ir = 1; ir < gV.n; ++ir) printf("%g %g\n", gV.r[ir], Vsmt[ir]); printf("\n\n");
               printf("\n## Vq:\n");   for(int iq = 0; iq < nq; ++iq) printf("%g %g\n", iq*dq, Vq[iq]); printf("\n\n");
@@ -162,9 +166,9 @@ namespace scattering_test {
       } // ir
       auto const poly = new double[mprj];
 
-      int const nFD = 1; double cFD[1 + nFD];
-      stat += finite_difference::set_Laplacian_coefficients(cFD, 1, dr);
-      
+      int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
+      stat += finite_difference::set_Laplacian_coefficients(cFD, nFD, dr);
+
       int ln_off = 0;
       for(int ell = 0; ell <= lmax; ++ell) {
           set(Ham, 2*nr*stride, 0.0); // clear Hamiltonian and overlap matrix
@@ -175,8 +179,9 @@ namespace scattering_test {
               // local potential and repulsive angular part of the kinetic energy
               Ham[ir*stride + ir] = Vloc[ir + 1] + 0.5*(ell*(ell + 1.)/pow2(r)); 
               Ovl[ir*stride + ir] = 1.;
-              for(int jr = std::max(0, ir - 1); jr <= std::min(ir + 1, nr - 1); ++jr) {
-                  Ham[ir*stride + jr] += -0.5*cFD[std::abs(ir - jr)]; // finite_difference kinetic energy operator
+              for(int jr = 0; jr < nr; ++jr) {
+                  int const dij = std::abs(ir - jr);
+                  if (dij <= nFD) Ham[ir*stride + jr] -= 0.5*cFD[dij]; // finite_difference kinetic energy operator
               } // jr
               // in the radial representation, the usual Laplacian d^2/dr^2 can be applied 
               // for the radial component if the wave functions are in r*phi(r) representation
@@ -221,10 +226,10 @@ namespace scattering_test {
               
               // solve the generalized eigenvalue problem
               dsygv_(&itype, &jobv, &uplo, &nr, Ham, &stride, Ovl, &stride, eigs, work, &lwork, &info);
-//            dsyev_(&jobv, &uplo, &nr, Ham, &stride, eigs, work, &lwork, &info);  // standard EV problem
+//            dsyev_(&jobv, &uplo, &nr, Ham, &stride, eigs, work, &lwork, &info); // standard EV problem
 
               if (0 == info) {
-                
+
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
                   if (echo > 1) {
                       printf("# lowest eigenvalues for ell=%i  ", ell);
@@ -257,7 +262,7 @@ namespace scattering_test {
                   ++stat;
               } // info
           } // scope: diagonalize
-          
+
           ln_off += nn[ell]; // forward
       } // ell
 

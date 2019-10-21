@@ -245,7 +245,7 @@ extern "C" {
         if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
-            rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU]);
+            rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], 1e-4);
         } // use the same number of radial grid points for true and smooth quantities
         
         int const nrt = align<2>(rg[TRU]->n),
@@ -867,9 +867,18 @@ extern "C" {
                         if (echo_prj) printf("%g %g\n", r, proj[nrn*mr + ir]);
                     } // ir
                     if (echo_prj) printf("\n\n");
-                    if (echo > 2) printf("# %s %c-projector #%d has normalization 1 + %g, sigma=%g %s\n", label, ellchar[ell], nrn, 
+                    if (echo > 3) printf("# %s %c-projector #%d has normalization 1 + %g, sigma=%g %s\n", label, ellchar[ell], nrn, 
                                   dot_product(nr, &proj[nrn*mr], &proj[nrn*mr], rg[SMT]->r2dr) - 1, sigma*Ang,_Ang);
                 } // nrn
+
+                if (echo > 4) { // show normalization and orthogonality of projectors
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                            printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn, 
+                                (nrn == krn), dot_product(nr, &proj[nrn*mr], &proj[krn*mr], rg[SMT]->r2dr) - (nrn==krn), sigma*Ang,_Ang);
+                        } // krn
+                    } // nrn
+                } // echo
                 
                 double ovl[msub*msub];
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
@@ -888,7 +897,7 @@ extern "C" {
                 if (3 == nn[ell]) det = simple_math::invert3x3(inv, msub, ovl, msub); else
                 exit(__LINE__); // error not implemented
                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
-                    
+
                 // make a new linear combination
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nrts = rg[ts]->n, mrts = align<2>(nrts);
@@ -1083,10 +1092,11 @@ extern "C" {
                         auto const cd = dot_product(nr, wave_r2rl_dr, wave_j);
                         charge_deficit[(ell*nln + iln)*nln + jln][ts] = cd;
                         if (echo > 1) printf("\t%10.6f", cd);
+//                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit[(ell*nln + iln)*nln + jln][TRU] - cd);
                     } // jln
                     if (echo > 1) printf("\n");
                 } // iln
-                if (echo > 1) printf("\n\n");
+                if (echo > 1) printf("\n");
             } // ell
             delete[] wave_r2rl_dr;
             delete[] rl;
@@ -1606,7 +1616,7 @@ extern "C" {
             if ((echo > 7)) printf("\n");
         } // ilmn
         
-        if (1) { // debug: check if avgeraging over emm gives back the same operators
+        if (1) { // debug: check if averaging over emm gives back the same operators
             printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
             auto const emm_averaged = new double[2*nln*nln];
             auto const hamiltonian_ln = emm_averaged, overlap_ln = &emm_averaged[nln*nln];
@@ -1623,18 +1633,20 @@ extern "C" {
                 }   printf("\n");
             } // i01
             
-            auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
-            { // scope: prepare a smooth local potential
-                auto const V_rmax = full_potential[SMT][rg[SMT]->n - 1];
-                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                    Vsmt[ir] = (full_potential[SMT][0 + ir] - V_rmax)*Y00;
-                } // ir
-            } // scope
+            {
+                double const V_rmax = full_potential[SMT][rg[SMT]->n - 1]*Y00;
+                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
+                { // scope: prepare a smooth local potential which goes to zero at Rmax
+                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                        Vsmt[ir] = full_potential[SMT][0 + ir]*Y00 - V_rmax;
+                    } // ir
+                } // scope
 
-            // now start a scattering_test, i.e. find the eigenstates of the spherical Hamiltonian
-            scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-                                                 hamiltonian_ln, overlap_ln, 384, 5);
-            
+                // find the eigenstates of the spherical Hamiltonian
+                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
+                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
+            }
+                
             // scan the logarithmic derivatives
             double const energy_range[] = {-1., 1e-3, 0.5};
             scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
