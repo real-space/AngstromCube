@@ -218,6 +218,7 @@ extern "C" {
       double (*kinetic_energy)[TRU_AND_SMT]; // matrix [nln*nln][TRU_AND_SMT]
       double (*charge_deficit)[TRU_AND_SMT]; // matrix [(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]
       double  core_charge_deficit; // in units of electrons
+      double* true_norm; // vector[nln] for display of partial wave results
 
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
@@ -422,6 +423,7 @@ extern "C" {
         charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
         kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
         zero_potential  = new double[nrs]; // get memory
+        true_norm       = new double[nln]; // get memory
         
         set(zero_potential, nrs, 0.0); // clear
         set(kinetic_energy[0], nln*nln*2, 0.0); // clear
@@ -1071,8 +1073,22 @@ extern "C" {
 
     void update_charge_deficit(int const echo=0) {
         int const nln = nvalencestates;
+        { // scope: generate a vector true_norm such that 
+          // true_norm[iln]*charge_deficit[(0*nln + iln)*nln + jln][TRU]*true_norm[jln] is normalized to 1
+            int const ts = TRU;
+            int const nr = rg[ts]->n; // entire radial grid
+            for(int iln = 0; iln < nln; ++iln) {
+                if (0) {
+                    auto const wave_i = valence_state[iln].wave[ts];
+                    auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
+                    true_norm[iln] = 1./std::sqrt(norm2);
+                } else true_norm[iln] = 1.;
+            } // iln
+        } // scope
+        
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
+//             int const nr = ir_cut[ts]; // integrate only up to the matching radius
             auto const rl = new double[nr];
             auto const wave_r2rl_dr = new double[nr];
             if (echo > 1) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
@@ -1091,7 +1107,7 @@ extern "C" {
                         auto const wave_j = valence_state[jln].wave[ts];
                         auto const cd = dot_product(nr, wave_r2rl_dr, wave_j);
                         charge_deficit[(ell*nln + iln)*nln + jln][ts] = cd;
-                        if (echo > 1) printf("\t%10.6f", cd);
+                        if (echo > 1) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
 //                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit[(ell*nln + iln)*nln + jln][TRU] - cd);
                     } // jln
                     if (echo > 1) printf("\n");
@@ -1538,8 +1554,8 @@ extern "C" {
         //            + sum_lm Gaunt_{lm ilm jlm} * potential[(lm*nln + iln)*nln + jln]
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
         //    overlap[iSHO*nSHO + jSHO] and hamiltonian[iSHO*nSHO + jSHO]
-        
-        auto const potential_ln = new double[nlm*nln*nln][TRU_AND_SMT];
+
+        auto const potential_ln = new double[nlm*nln*nln][TRU_AND_SMT]; // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n, mr = align<2>(nr);
             auto const wave_pot_r2dr = new double[mr];
@@ -1581,23 +1597,10 @@ extern "C" {
                         } // jlmn
                     } // ilmn
                 } // lm
-                if (0 == lm) {  
-                    int const ell = 0;
-    //              printf("# nln = %d\n", nln);
-                    for(int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {
-                        int const iln = ln_index_list[ilmn];
-                        for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
-                            int const jln = ln_index_list[jlmn];
-                            overlap_lmn[ilmn*nlmn + jlmn] += 
-                              G * ( charge_deficit[(ell*nln + iln)*nln + jln][TRU]
-                                  - charge_deficit[(ell*nln + iln)*nln + jln][SMT] );
-                        } // jlmn
-                    } // ilmn
-                } // 0 == lm
             } // limits
         } // gnt
         delete[] potential_ln;
-        
+
         // add the kinetic_energy deficit to the hamiltonian
         if (echo > 7) printf("\n# %s lmn-based Hamiltonian elements in %s:\n", label, _eV);
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
@@ -1606,15 +1609,29 @@ extern "C" {
             if (echo > 7) printf("# %s hamiltonian elements for ilmn=%3d  ", label, ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                 int const jlm = lm_index_list[jlmn];
+                int const jln = ln_index_list[jlmn];
                 if (ilm == jlm) {
-                    int const jln = ln_index_list[jlmn];
-                    hamiltonian_lmn[ilmn*nlmn + jlmn] += ( kinetic_energy[iln*nln + jln][TRU]
-                                                         - kinetic_energy[iln*nln + jln][SMT] )*Y00;
+                    hamiltonian_lmn[ilmn*nlmn + jlmn] +=
+                        ( kinetic_energy[iln*nln + jln][TRU]
+                        - kinetic_energy[iln*nln + jln][SMT] );
+                    overlap_lmn[ilmn*nlmn + jlmn] =
+                        ( charge_deficit[(0*nln + iln)*nln + jln][TRU]
+                        - charge_deficit[(0*nln + iln)*nln + jln][SMT] ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
-                if ((echo > 7)) printf(" %g", hamiltonian_lmn[ilmn*nlmn + jlmn]*eV);
+                if ((echo > 7)) printf(" %g", true_norm[iln]*true_norm[jln]*hamiltonian_lmn[ilmn*nlmn + jlmn]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
         } // ilmn
+
+        if (echo > 8) { 
+            printf("\n# %s lmn-based Overlap elements:\n", label);
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
+                printf("# %s hamiltonian elements for ilmn=%3d  ", label, ilmn);
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_index_list[jlmn];
+                    printf(" %g", true_norm[iln]*true_norm[jln]*overlap_lmn[ilmn*nlmn + jlmn]);
+                }   printf("\n");
+            } // ilmn
+        } // echo
         
         if (1) { // debug: check if averaging over emm gives back the same operators
             printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
@@ -1628,12 +1645,13 @@ extern "C" {
                 for(int iln = 0; iln < nln; ++iln) {
                     printf("# %s emm-averaged %2i %s ", label, iln, label_inp);
                     for(int jln = 0; jln < nln; ++jln) {
-                        printf(" %g", result_ln[iln*nln + jln]);
+                        printf(" %g", true_norm[iln]*true_norm[jln]*result_ln[iln*nln + jln]);
                     }   printf("\n");
                 }   printf("\n");
             } // i01
             
             {
+#if 0              
                 double const V_rmax = full_potential[SMT][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1641,7 +1659,15 @@ extern "C" {
                         Vsmt[ir] = full_potential[SMT][0 + ir]*Y00 - V_rmax;
                     } // ir
                 } // scope
-
+#else              
+                double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
+                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
+                { // scope: prepare a smooth local potential which goes to zero at Rmax
+                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                        Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
+                    } // ir
+                } // scope
+#endif
                 // find the eigenstates of the spherical Hamiltonian
                 scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
                                                     hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
@@ -1669,7 +1695,7 @@ extern "C" {
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO);
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-                    printf(" %g", hamiltonian[iSHO*matrix_stride + jSHO]*eV);
+                    printf(" %g", hamiltonian[iSHO*matrix_stride + jSHO]*eV); // true_norm cannot be used here!
                 } // jSHO
                 printf("\n");
             } // iSHO
