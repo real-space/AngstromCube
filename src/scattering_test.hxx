@@ -49,6 +49,7 @@ namespace scattering_test {
     
       if (echo > 1) printf("\n# %s %s lmax=%i\n", __FILE__, __func__, lmax); 
       double const one_over_pi = 1./constants::pi;
+      status_t stat = 0;
       
       double const dE = std::max(1e-9, energy_range[1]);
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
@@ -56,8 +57,70 @@ namespace scattering_test {
                         energy_range[0]*eV, (energy_range[0] + (nen - 1)*dE)*eV, nen, dE*eV, _eV);
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
       int const mr = align<2>(rg[TRU]->n);
-      auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component
+      auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component, TRU grid
       int ir_stop[TRU_AND_SMT];
+
+      
+      int nln = 0; for(int ell = 0; ell <= lmax; ++ell) nln += nn[ell];
+      int const stride = mr;
+      auto const rprj = new double[nln*stride]; // mr might be much larger than needed since mr is taken from the TRU grid
+      { // scope: preparation for the projector functions
+          auto const f = new double[nln]; // normalization factors
+          auto const norm2 = new double[nln]; // normalization checks
+          auto const poly = new double[nln][8]; // much too large
+          double const siginv = 1./sigma;
+          {
+              double const sigma_m23 = std::sqrt(pow3(siginv));
+              int iln = 0;
+              for(int ell = 0; ell <= lmax; ++ell) {
+                  assert(nn[ell] <= 8);
+                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                      stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell);
+                      f[iln] = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
+                      norm2[iln] = 0; // init
+                      ++iln;
+                  } // nrn
+              } // ell
+              assert(nln == iln);
+          }
+          
+          if (echo > 9) printf("\n## %i projectors on radial grid: r, p_ln(r):\n", nln);
+          for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+              double const r = rg[SMT]->r[ir], dr = rg[SMT]->dr[ir];
+//            double const dr = 0.03125, r = dr*ir; // equidistant grid
+              
+              double const x = siginv*r, x2 = pow2(x);
+              if (echo > 9) printf("%g ", r);
+              double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
+              int iln = 0;
+              for(int ell = 0; ell <= lmax; ++ell) {
+                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                      rprj[iln*stride + ir] = f[iln] * sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * intpow(x, ell);
+                      if (echo > 9) printf(" %g", rprj[iln*stride + ir]);
+                      rprj[iln*stride + ir] *= r;
+                      norm2[iln] += pow2(rprj[iln*stride + ir]) * dr;
+                      ++iln;
+                  } // nrn
+              } // ell
+              assert(nln == iln);
+              if (echo > 9) printf("\n");
+          } // ir
+          if (echo > 9) printf("\n\n");
+          
+          if (echo > 0) {
+              int iln = 0;
+              for(int ell = 0; ell <= lmax; ++ell) {
+                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                      printf("# projector normalization of ell=%i nrn=%i is %g\n", ell, nrn, norm2[iln]);
+                      ++iln;
+                  } // nrn
+              } // ell
+              assert(nln == iln);
+          }
+          delete[] f;
+          delete[] norm2;
+          delete[] poly;
+      } // scope: preparation for the projector functions
 
 // #define  _RadialSpectralDensity
 #ifdef   _RadialSpectralDensity
@@ -112,6 +175,7 @@ namespace scattering_test {
   } // ell
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////            
 #endif
+      return stat;
   } // logarithmic_derivative
   
   inline status_t eigenstate_analysis(radial_grid_t const& gV // grid descriptor for Vsmt
@@ -197,14 +261,14 @@ namespace scattering_test {
               for(int ir = 0; ir < nr; ++ir) {
                   double const r = g.r[ir + 1];
                   double &p = rprj[nrn*stride + ir];
-                  rprj[nrn*stride + ir] = f*sho_radial::expand_poly(poly, 1 + nrn, pow2(siginv*r));
+                  rprj[nrn*stride + ir] = f * sho_radial::expand_poly(poly, 1 + nrn, pow2(siginv*r));
                   // now multiply what is missing: Gaussian envelope and r^{ell + 1} factors
                   rprj[nrn*stride + ir] *= Gaussian[ir] * intpow(siginv*r, ell) * r;
-                  norm2 += pow2(rprj[nrn*stride + ir]);
+                  norm2 += pow2(rprj[nrn*stride + ir])*dr;
                   if (echo > 7) printf("%g %g\n", r, rprj[nrn*stride + ir]);
               } // ir
               if (echo > 7) printf("\n\n");
-              if (echo > 6) printf("# SHO projector for ell=%i nrn=%i is normalized to %g\n", ell, nrn, norm2*dr);
+              if (echo > 2) printf("# SHO projector for ell=%i nrn=%i is normalized to %g\n", ell, nrn, norm2);
           } // nrn
 
           // add the non-local dyadic operators to the Hamiltonian and overlap

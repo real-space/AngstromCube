@@ -87,7 +87,7 @@ namespace radial_grid {
       auto g = new radial_grid_t;
       // offset pointers
       g->r      = tru.r    + ir_offset;
-      g->dr     = tru.rdr  + ir_offset;
+      g->dr     = tru.dr   + ir_offset;
       g->rdr    = tru.rdr  + ir_offset;
       g->r2dr   = tru.r2dr + ir_offset;
       g->rinv   = tru.rinv + ir_offset;
