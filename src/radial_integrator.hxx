@@ -41,7 +41,7 @@ int integrate_outwards( // return the number of nodes
     double ff[], // small component*r
     int const ir_stop=-1, // latest stop index, -1:(g.n - 1)
     double *dg=nullptr, // derivative at end point
-    double const *rp=nullptr); // inhomogeneitity*r, only outward
+    double const *rp=nullptr); // inhomogeneity*r, only outward
 
 status_t all_tests();
 

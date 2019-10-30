@@ -30,6 +30,7 @@ OBJ = \
 	finite_difference.o \
 	recorded_warnings.o \
 	main.o
+# 	partial_waves.o \
 
 ifdef ENABLEGPU
 	OBJ += GPUdrivers.o

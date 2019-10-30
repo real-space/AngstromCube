@@ -19,6 +19,7 @@
 #include "sho_tools.hxx" // lnm_index, nSHO
 #include "sho_radial.hxx" // nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
+#include "energy_level.hxx" // core_level_t, valence_level_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
 #include "simple_math.hxx" // invert2x2, invert3x3
@@ -61,29 +62,9 @@ extern "C" {
   } // solve_Ax_b
 
 
-  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2, TRU_ONLY=1;
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
   double const Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
-  
-  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
-
-  // ToDo: write a class with constructors and destructors to handle the memory for *wave
-  template<int Pseudo> // Pseudo=1: core states, Pseudo=2: valence states
-  struct energy_level {
-      double* wave[Pseudo]; // for valence states points to the true and smooth partial waves
-      double* wKin[Pseudo]; // kinetic energy operator onto r*wave
-      double energy; // energy level in Hartree atomic units
-      float occupation; // occupation number
-      enn_QN_t enn; // main quantum_number
-      ell_QN_t ell; // angular momentum quantum_number
-      emm_QN_t emm; // usually emm == emm_Degenerate
-      spin_QN_t spin; // usually spin == spin_Degenerate
-      enn_QN_t nrn[Pseudo]; // number of radial nodes
-  };
-
-  typedef struct energy_level<TRU_ONLY> core_level_t;
-  typedef struct energy_level<TRU_AND_SMT> valence_level_t;
 
   
   status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc, 
@@ -206,7 +187,7 @@ extern "C" {
       double* unitary_zyx_lmn; // unitary sho transformation matrix [Cartesian][Radial], stride=nSHO(numax)
 
       // spin-resolved members of LiveAtom
-      core_level_t* core_state;
+      core_level_t* core_state;  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       valence_level_t* valence_state;
       double* core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
       double* full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
@@ -512,11 +493,17 @@ extern "C" {
     } // constructor
       
     ~LiveAtom() { // destructor
-        for(int ics = 0; ics < ncorestates; ++ics) { delete[] core_state[ics].wave[TRU]; }
+        for(int ics = 0; ics < ncorestates; ++ics) { 
+            delete[] core_state[ics].wave[TRU]; 
+            delete[] core_state[ics].wKin[TRU];
+        } // ics
         delete[] core_state;
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             radial_grid::destroy_radial_grid(rg[ts]);
-            for(int ivs = 0; ivs < nvalencestates; ++ivs) { delete[] valence_state[ivs].wave[ts]; }
+            for(int ivs = 0; ivs < nvalencestates; ++ivs) { 
+                delete[] valence_state[ivs].wave[ts]; 
+                delete[] valence_state[ivs].wKin[ts]; 
+            } // ivs
             delete[] core_density[ts];
             delete[] potential[ts];
             delete[] full_density[ts];
@@ -1674,7 +1661,7 @@ extern "C" {
             }
                 
             // scan the logarithmic derivatives
-            double const energy_range[] = {-1., 1e-3, 0.5};
+            double const energy_range[] = {-2., 1e-3, 0.5};
             scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
                                                  hamiltonian_ln, overlap_ln, energy_range, 9);
             

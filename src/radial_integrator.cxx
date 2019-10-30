@@ -308,7 +308,7 @@ int integrate_outwards( // return the number of nodes
     double ff[], // small component*r
     int const ir_stop, // latest stop index, -1:(g.n - 1), default is -1
     double *dg, // derivative at end point, defaults to nullptr
-    double const *rp) // inhomogeneitity*r, only outward, defaults to nullptr
+    double const *rp) // inhomogeneity*r, only outward, defaults to nullptr
 {
     int constexpr Step = 1;
     float const llp1 = ell*(ell + 1.f);
@@ -356,7 +356,7 @@ int integrate_outwards( // return the number of nodes
         dF[2 - i3] = s[1][0] * bG + s[1][1] * bF;
 
         if (nullptr != rp) {
-            dF[2 - i3] -= 2*rp[ir]*g.dr[ir];  // inhomogeneitity comes in here
+            dF[2 - i3] -= 2*rp[ir]*g.dr[ir];  // inhomogeneity comes in here
         } // rp
 
 #ifdef FULL_DEBUG
@@ -380,7 +380,7 @@ int integrate_outwards( // return the number of nodes
         bF = ((24*Step)*ff[ir - Step] + 19*dF[0] - 5*dF[1] + dF[2])/9.;
 
         if (nullptr != rp) {
-            bF -= (2*8./3.)*g.dr[ir]*rp[ir]; // inhomogeneitity comes in here
+            bF -= (2*8./3.)*g.dr[ir]*rp[ir]; // inhomogeneity comes in here
         } // rp
 
         sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
@@ -578,12 +578,12 @@ int integrate_outwards( // return the number of nodes
     auto const gg = new double[4*g.n], ff = &gg[g.n], rp = &gg[2*g.n], rV = &gg[3*g.n];
     double E = 0.5, dg;
     for(int ir = 0; ir < g.n; ++ir) {
-        rp[ir] = g.r[ir]*exp(-0.5*pow2(g.r[ir])); // init inhomogeneitity*r
+        rp[ir] = g.r[ir]*exp(-0.5*pow2(g.r[ir])); // init inhomogeneity*r
         rV[ir] = -Z; // bare hydrogen potential
     } // ir
     for(ell_QN_t ell = 0; ell < 4; ++ell) {
         integrate_outwards<0>(g, rV, ell, E/(ell + 1.), gg, ff, -1, &dg, rp);
-        printf("\n## %s for ell=%d: r, f(r), inhomogeneitity(r):\n", __func__, ell);
+        printf("\n## %s for ell=%d: r, f(r), inhomogeneity(r):\n", __func__, ell);
         for(int ir = 0; ir < g.n; ++ir) {
             if (ir > 0) printf("%g %g %g\n", g.r[ir], gg[ir], rp[ir]); //, ff[ir], rV[ir]);
             rp[ir] *= g.r[ir];

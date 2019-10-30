@@ -26,6 +26,9 @@ typedef int status_t;
       // double symmetric standard eigenvalue problem
       void dsyev_(char const* JOBZ, char const* UPLO, int const* N, double* A, int const* LDA,
                   double* W, double* WORK, int const* LWORK, int* INFO);
+      // double linear solve
+      void dgesv_(int const* N, int const* NRHS, double* A, int const* LDA, 
+                  int* IPIV, double* B, int const* LDB, int* info);
   } // LAPACK
 
 namespace scattering_test {
@@ -36,6 +39,59 @@ namespace scattering_test {
   inline real_t arcus_tangent(real_t const nom, real_t const den) {
       return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
   
+  inline status_t linear_solve(double x[], int const n, double A[], int const nrhs=1) {
+      int info = 0;
+      auto const ipiv = new int[n];
+      dgesv_(&n, &nrhs, A, &n, ipiv, x, &n, &info);
+      delete[] ipiv;
+      return info;
+  } // linear_solve
+  
+  template<typename real_t>
+  inline size_t count_nodes(size_t const n, real_t const f[]) {
+      size_t nnodes = 0;
+      for(int i = 1; i < n; ++i) {
+          nnodes += (f[i - 1]*f[i] < 0);
+      };
+      return nnodes;
+  } // count_nodes
+
+  inline status_t expand_sho_projectors(double prj[], int const stride, radial_grid_t const &rg, double const sigma,
+       int const n, int const nrns[], int const ells[], int const rpow=0, int const echo=9) {
+      
+      status_t stat = 0;
+      int maxpoly = 0;
+      for(int i = 0; i < n; ++i) {
+          maxpoly = std::max(maxpoly, 1 + nrns[i]);
+      } // i
+      double const siginv = 1./sigma;
+      double const sigma_m23 = std::sqrt(pow3(siginv));
+      auto const poly = new double[maxpoly];
+      for(int i = 0; i < n; ++i) {
+          int const ell = ells[i];
+          int const nrn = nrns[i];
+          stat += sho_radial::radial_eigenstates(poly, nrn, ell);
+          double const f = sho_radial::radial_normalization(poly, nrn, ell) * sigma_m23;
+          double norm = 0;
+          if (echo > 8) printf("\n## ell=%i nrn=%i projectors on radial grid: r, p_ln(r):\n", ell, nrn);
+          for(int ir = 0; ir < rg.n; ++ir) {
+              double const r = rg.r[ir], dr = rg.dr[ir];
+//            double const dr = 0.03125, r = dr*ir; // equidistant grid
+              double const x = siginv*r, x2 = pow2(x);
+              double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
+              prj[i*stride + ir] = f * sho_radial::expand_poly(poly, 1 + nrn, x2) * Gaussian * intpow(x, ell);
+              if (echo > 8) printf("%g %g\n", r, prj[i*stride + ir]);
+              norm += pow2(r*prj[i*stride + ir]) * dr;
+              prj[i*stride + ir] *= intpow(r, rpow);
+          } // ir
+          if (echo > 8) printf("\n\n");
+          if (echo > 5) printf("# projector normalization of ell=%i nrn=%i is %g\n", ell, nrn, norm);
+      } // i
+      delete[] poly;
+      return stat;
+  } // expand_sho_projectors
+  
+
   inline status_t logarithmic_derivative(
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
@@ -60,11 +116,18 @@ namespace scattering_test {
       auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component, TRU grid
       int ir_stop[TRU_AND_SMT];
 
+      auto linsolfail = std::vector<size_t>(1 + lmax, 0);
+      
+
       
       int nln = 0; for(int ell = 0; ell <= lmax; ++ell) nln += nn[ell];
       int const stride = mr;
+
+      int const count_smt_nodes = 1; // 1 or 0 switch
+      auto const rphi = new double[count_smt_nodes*9*rg[SMT]->n];
+
       auto const rprj = new double[nln*stride]; // mr might be much larger than needed since mr is taken from the TRU grid
-      { // scope: preparation for the projector functions
+      if (0) { // scope: preparation for the projector functions
           auto const f = new double[nln]; // normalization factors
           auto const norm2 = new double[nln]; // normalization checks
           auto const poly = new double[nln][8]; // much too large
@@ -121,6 +184,19 @@ namespace scattering_test {
           delete[] norm2;
           delete[] poly;
       } // scope: preparation for the projector functions
+      else {
+          int ells[nln], nrns[nln], iln = 0;
+          for(int ell = 0; ell <= lmax; ++ell) {
+              for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                  ells[iln] = ell;
+                  nrns[iln] = nrn;
+                  ++iln;
+              } // nrn
+          } // ell
+          assert(nln == iln);
+          stat += expand_sho_projectors(rprj, stride, *rg[SMT], sigma, nln, nrns, ells, 1, 8);
+      } // scope: preparation for the projector functions
+      
 
 // #define  _RadialSpectralDensity
 #ifdef   _RadialSpectralDensity
@@ -149,20 +225,83 @@ namespace scattering_test {
 #else
 //        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
           if (echo > 0) printf("%.6f ", energy*eV);
+          int iln_off = 0;
           for(int ell = 0; ell <= lmax; ++ell) 
 #endif
           { // ell-loop
-              double dg[TRU_AND_SMT];
-              int constexpr ts = TRU;
-              int const nnodes = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, gg, ff, ir_stop[ts], &dg[ts]);
-              auto const vg = gg[ir_stop[ts]]; // value of the greater component at Rlog
-              double const node_count = nnodes + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg);
+              double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
+              double deriv[9], value[9];
+              double mat[99], gfp[99], x[9];
+              int nnodes[1 + 9];
+              int const n = nn[ell];
+              for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+
+                  for(int jrn = 0; jrn <= n*ts; ++jrn) {
+                      bool const inhomgeneous = ((SMT == ts) && (jrn));
+                      int const nrn = jrn - 1;
+                      int const iln = iln_off + nrn;
+                      double* const rp = (inhomgeneous) ? &rprj[iln*stride] : nullptr;
+                      nnodes[ts + jrn] = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
+                                                                     gg, ff, ir_stop[ts], &deriv[jrn], rp);
+                      if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU], gg);
+                      value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
+                      if (SMT == ts) {
+                          if (count_smt_nodes) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts], gg); // store radial solution
+                          for(int krn = 0; krn < n; ++krn) {
+                              // compute the inner products of the solution with the projectors
+                              gfp[jrn*n + krn] = dot_product(rg[SMT]->n, &rprj[krn*stride], gg, rg[SMT]->dr);
+                          } // krn
+                      } // SMT == ts
+                  } // jrn
+                  
+                  set(x, 1 + n, 0.0); // clear
+                  x[0] = 1.0;
+                  int nx = 1;
+                  if ((SMT == ts) && n > 0) {
+                      int const n0 = 1 + n;
+                      set(mat, n0*n0, 0.0); // clear
+                      for(int i = 0; i < n; ++i) {
+                          for(int k = 0; k < n0; ++k) {
+                              for(int j = 0; j < n; ++j) {
+                                  mat[k*n0 + i] += gfp[k*n + j] * ( aHm[(i + iln_off)*nln + (j + iln_off)]
+                                                         - energy * aSm[(i + iln_off)*nln + (j + iln_off)] );
+                              } // j
+                          } // k
+                      } // i
+                      for(int i = 0; i < n0; ++i) {
+                          mat[i*n0 + i] += 1.0; // add unity matrix
+                      } // i
+                      int const solving_status = linear_solve(x, n0, mat);
+                      stat += solving_status;
+                      nnodes[SMT] = 0;
+                      if (0 == solving_status) {
+                          nx = n0; // successful --> linear combination with all n0 elements
+                          
+                          scale(rphi, rg[SMT]->n, x[0]);
+                          for(int i = 1; i < n0; ++i) {
+                              add_product(rphi, rg[SMT]->n, &rphi[i*rg[SMT]->n], x[i]);
+                          } // i
+                          nnodes[SMT] = count_nodes(ir_stop[SMT], rphi);
+
+                      } else {
+                          ++linsolfail[ell];
+                      }
+                  } // SMT == ts
+
+                  vg[ts] = dot_product(nx, x, value); // value of the greater component at Rlog
+                  dg[ts] = dot_product(nx, x, deriv); // derivative
+
+                  double const node_count = nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]);
 #ifdef   _RadialSpectralDensity
-              if (ien) printf("%g %g %g %g", Rlog*Ang, (energy - .5*dE)*eV, (node_count - node_count_prev)/dE, node_count); // energy derivative
-              node_count_prev = node_count;
+                  if (TRU == ts) {
+                      if (ien) printf("%g %g %g %g", Rlog*Ang, (energy - .5*dE)*eV, (node_count - node_count_prev)/dE, node_count); // energy derivative
+                      node_count_prev = node_count;
+                  } // tru
 #else
-              if (echo > 0) printf(" %.6f", node_count);
+                  if (echo > 0) printf(" %.6f", node_count);
+              } // ts
 #endif
+              iln_off += n;
           } // ell
           if (echo > 0) printf("\n");
       } // ien
@@ -175,6 +314,15 @@ namespace scattering_test {
   } // ell
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////            
 #endif
+
+      for(int ell = 0; ell <= lmax; ++ell) {
+          if (linsolfail[ell]) {
+              printf("# %s linear solve failed %ld times for ell=%i\n", __func__, ell, linsolfail[ell]);
+          } // fail
+      } // ell
+
+      delete[] rphi;
+      
       return stat;
   } // logarithmic_derivative
   
@@ -221,17 +369,11 @@ namespace scattering_test {
           nln += nn[ell];
           mprj = std::max(mprj, (int)nn[ell]);
       } // ell
-      auto const rprj = new double[mprj*stride]; // projector functions*r
-      auto const Gaussian = new double[nr]; // envelope function
-      double const siginv = 1./sigma;
-      for(int ir = 0; ir < nr; ++ir) {
-          double const r = g.r[ir + 1];
-          Gaussian[ir] = std::exp(-0.5*pow2(siginv*r));
-      } // ir
-      auto const poly = new double[mprj];
+      auto rprj = new double[mprj*stride]; // projector functions*r
 
       int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += finite_difference::set_Laplacian_coefficients(cFD, nFD, dr);
+      if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", __FILE__, __func__, nFD); 
 
       int ln_off = 0;
       for(int ell = 0; ell <= lmax; ++ell) {
@@ -253,23 +395,15 @@ namespace scattering_test {
           
           // generate normalized SHO projectors
           int const nprj = nn[ell];
-          for(int nrn = 0; nrn < nprj; ++nrn) {
-              stat += sho_radial::radial_eigenstates(poly, nrn, ell);
-              auto const f = sho_radial::radial_normalization(poly, nrn, ell) * std::sqrt(pow3(siginv));
-              double norm2 = 0;
-              if (echo > 7) printf("\n## %s ell=%i projector nrn=%i:\n", __func__, ell, nrn);
-              for(int ir = 0; ir < nr; ++ir) {
-                  double const r = g.r[ir + 1];
-                  double &p = rprj[nrn*stride + ir];
-                  rprj[nrn*stride + ir] = f * sho_radial::expand_poly(poly, 1 + nrn, pow2(siginv*r));
-                  // now multiply what is missing: Gaussian envelope and r^{ell + 1} factors
-                  rprj[nrn*stride + ir] *= Gaussian[ir] * intpow(siginv*r, ell) * r;
-                  norm2 += pow2(rprj[nrn*stride + ir])*dr;
-                  if (echo > 7) printf("%g %g\n", r, rprj[nrn*stride + ir]);
-              } // ir
-              if (echo > 7) printf("\n\n");
-              if (echo > 2) printf("# SHO projector for ell=%i nrn=%i is normalized to %g\n", ell, nrn, norm2);
-          } // nrn
+          {
+              int ells[nprj], nrns[nprj];
+              for(int nrn = 0; nrn < nprj; ++nrn) {
+                  nrns[nrn] = nrn;
+                  ells[nrn] = ell;
+              } // nrn
+              stat += expand_sho_projectors(rprj, stride, g, sigma, nprj, nrns, ells, 1, 8);
+          } // scope
+          auto const rprj1 = rprj + 1; // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
           // add the non-local dyadic operators to the Hamiltonian and overlap
           for(int ir = 0; ir < nr; ++ir) {
@@ -277,8 +411,8 @@ namespace scattering_test {
                   for(int nrn = 0; nrn < nprj; ++nrn) {
                       for(int mrn = 0; mrn < nprj; ++mrn) {
                           int const ijln = (ln_off + nrn)*nln + (ln_off + mrn);
-                          Ham[ir*stride + jr] += rprj[nrn*stride + ir]*aHm[ijln]*rprj[mrn*stride + jr]*dr;
-                          Ovl[ir*stride + jr] += rprj[nrn*stride + ir]*aSm[ijln]*rprj[mrn*stride + jr]*dr;
+                          Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm[ijln]*rprj1[mrn*stride + jr]*dr;
+                          Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm[ijln]*rprj1[mrn*stride + jr]*dr;
                       } // mrn
                   } // nrn
               } // jr
@@ -331,9 +465,7 @@ namespace scattering_test {
       } // ell
 
       delete[] rprj;
-      delete[] poly;
       delete[] Vloc;
-      delete[] Gaussian;
       delete[] Ham;
       
       return stat;
