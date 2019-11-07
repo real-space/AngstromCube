@@ -51,6 +51,8 @@ extern "C" {
   void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*, 
               const double*, const int*, const double*, const int*, const double*, double*, const int*);
   void dgesv_(const int*, const int*, double*, const int*, int*, double*, const int*, int*);
+  void dsygv_(const int*, const char*, const char*, const int*, double*, const int*, double*, const int*, 
+              double*, double*, const int*, int*);
 } // extern "C"
 
   status_t solve_Ax_b(double x[], double const b[], double A[], int const n, int const stride) {
@@ -66,6 +68,9 @@ extern "C" {
   char const ellchar[] = "spdfghijklmno";
   double const Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
 
+  
+  template<typename real_t>
+  inline void symmetrize(real_t &left, real_t &right) { left = (left + right)/2; right = left; }
   
   status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc, 
               int const nmax=4, int const ell=0, double *coeff=nullptr) {
@@ -278,7 +283,7 @@ extern "C" {
 //         } // echo
 
         int8_t as_valence[99];
-        set(as_valence, 99, (int8_t)-1);
+        set(as_valence, 99, int8_t(-1));
         
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
         auto const r2rho = new double[nrt];
@@ -657,9 +662,26 @@ extern "C" {
         int const n_poly = 4; // number of even-order polynomial terms used
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
         double c_smt[nln][4];
+#define SHO_PartialWaves                
+#ifdef  SHO_PartialWaves
+        int ir_match[TRU_AND_SMT];
+        for(int ts = TRU; ts <= SMT; ++ts) {
+            ir_match[ts] = radial_grid::find_grid_index(*rg[ts], r_match);
+        } // ts
+        if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n", label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
+#endif
+        
         int ln_off = 0;
         for(int ell = 0; ell <= numax; ++ell) {
 //          int const msub = (1 + numax/2); // max. size of the subspace
+#ifdef  SHO_PartialWaves
+            auto const SHO_rprj = new double[nn[ell]*align<2>(rg[SMT]->n)];
+            {   int nrns[nn[ell]]; std::iota(nrns, nrns + nn[ell], 0);
+                int ells[nn[ell]]; std::fill(ells, ells + nn[ell], ell);
+                scattering_test::expand_sho_projectors(SHO_rprj, align<2>(rg[SMT]->n), *rg[SMT], 
+                                                              sigma, nn[ell], nrns, ells, 1, 0);
+            }
+#endif
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto &vs = valence_state[iln]; // abbreviate
@@ -669,7 +691,7 @@ extern "C" {
     //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
                 set(vs.wave[TRU], nr, 0.0); // clear
 
-                // solve for a valence eigenstate
+                // solve for a true valence eigenstate
                 radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho);
                 // normalize the partial waves
                 auto const norm_wf2 = dot_product(nr, r2rho, rg[TRU]->dr);
@@ -679,7 +701,7 @@ extern "C" {
                 // create wKin for the computation of the kinetic energy density
                 product(vs.wKin[TRU], nr, potential[TRU], vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
                 add_product(vs.wKin[TRU], nr, rg[TRU]->r, vs.wave[TRU], vs.energy); // now wKin = r*(E - V(r))*wave(r)
-                
+
 //                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
 //                 auto const work = r2rho;
 //                 scale(work, nr, potential[TRU]);
@@ -688,7 +710,152 @@ extern "C" {
                 
     //          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[TRU]);
+                
+                
+                // idea: make this module flexible enough so it can load a potential and 
+                //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
+#ifdef  SHO_PartialWaves
+                
+                
+                { // scope: generate smooth partial waves from projectors
+                    int const stride = align<2>(rg[SMT]->n);
+                    auto const rphi = new double[(1 + 2*nn[ell] + 1)*stride];
+                    auto const ff =        &rphi[(1 + nn[ell] + 0)*stride];
+                    auto const Tphi =      &rphi[(1 + nn[ell] + 1)*stride];
+                    double const vgtru = vs.wave[TRU][ir_match[TRU]]*rg[TRU]->r[ir_match[TRU]];
+                    double const dgtru = vs.wave[TRU][ir_match[TRU] - 1]*rg[TRU]->r[ir_match[TRU] - 1] - vgtru;
+                    double vghom, dghom;
 
+                    for(int krn = 0; krn <= nn[ell]; ++krn) { // loop must run serial and forward
+                        auto const projector = (krn > 0) ? &SHO_rprj[(krn - 1)*stride] : nullptr;
+                        double dg; // derivative at end point, not used
+                        // solve inhomgeneous equation and match tru wave in value and derivative
+                        radial_integrator::integrate_outwards<SRA>(*rg[SMT], potential[SMT], ell, vs.energy,
+                                                         &rphi[krn*stride], ff, -1, &dg, projector);
+                        auto const vginh = rphi[krn*stride + ir_match[SMT]];
+                        auto const dginh = rphi[krn*stride + ir_match[SMT] - 1] - vginh;
+                        if (0 == krn) {
+                            vghom = vginh; dghom = dginh;
+                        } else {
+                            // matching coefficient
+                            auto const c_hom = - (vgtru*dginh - dgtru*vginh)  
+                                               / // ------------------------
+                                                 (vgtru*dghom - dgtru*vghom);
+ 
+                            // combine inhomogeneous and homogeneous solution to match true solution outside r_match
+                            add_product(&rphi[krn*stride], rg[SMT]->n, &rphi[0*stride], c_hom); 
+                            
+                            auto const scal = vgtru / (vginh + c_hom*vghom); // match not only oin logder but also in value
+                            scale(&rphi[krn*stride], rg[SMT]->n, rg[SMT]->rinv, scal); // and divide by r
+                            // ToDo: extrapolate lowest point?
+                            
+                            // Tphi = projector + (E - V)*phi
+                            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                                Tphi[krn*stride + ir] = projector[ir] + (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn*stride + ir];
+                            } // ir
+                            
+                            // now check that the matching of value and derivative of rphi is ok.
+                            if (echo > 8) {
+                                printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
+                                        label, ell, nrn, krn-1);
+                                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                                    printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir], 
+                                        vs.wave[TRU][ir + nr_diff], rphi[krn*stride + ir],
+                                        vs.wKin[TRU][ir + nr_diff], Tphi[krn*stride + ir]);
+                                } // ir
+                                printf("\n\n");
+                            } // echo
+
+                            // ToDo: now check that the matching of value and derivative of rphi is ok.
+                            if (echo > 6) {
+                                printf("# %s check matching of vg and dg for ell=%i nrn=%i krn=%i: %g == %g ? and %g == %g ?\n",
+                                       label, ell, nrn, krn-1,  vgtru, scal*(vginh + c_hom*vghom),  dgtru, scal*(dginh + c_hom*dghom));
+                            } // echo
+                            
+                        } // krn > 0
+                    } // krn
+                    
+                    if (echo > 8) {
+                        printf("# fflush(stdout) in line %i\n", __LINE__ + 1);
+                        fflush(stdout);
+                    } // echo
+                    
+                    auto const Ekin = new double[6*nn[ell]*nn[ell]];
+                    auto const Olap =      &Ekin[1*nn[ell]*nn[ell]];
+                    auto const Vkin =      &Ekin[2*nn[ell]*nn[ell]];
+                    if (0) {   
+                        int const nr_max = ir_match[SMT];
+                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {
+                                // definition of Tphi contains factor *r
+                                Ekin[krn*nn[ell] + jrn] = dot_product(nr_max, &Tphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->rdr);
+                                Olap[krn*nn[ell] + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->r2dr);
+                                Vkin[krn*nn[ell] + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->dr)
+                                                        * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
+                                // minimize only the radial kinetic energy
+                                Ekin[krn*nn[ell] + jrn] -= Vkin[krn*nn[ell] + jrn]; // subtract the angular part, suggested by Morian Sonnet
+                            } // jrn
+                        } // krn
+
+                        // symmetrize
+                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                            for(int jrn = 0; jrn < krn; ++jrn) { // triangular loop
+                                symmetrize(Ekin[krn*nn[ell] + jrn], Ekin[jrn*nn[ell] + krn]);
+                                symmetrize(Olap[krn*nn[ell] + jrn], Olap[jrn*nn[ell] + krn]);
+                            } // jrn
+                        } // krn
+                        
+                        { // LAPACK
+                            int info = 0; int const itype = 1, n = nn[ell], lwork = 2*n*n;
+                            auto const work    = &Ekin[3*nn[ell]*nn[ell]];
+                            auto const eigvals = &Ekin[5*nn[ell]*nn[ell]];
+                            char const jobz = 'v', uplo = 'u';
+                            // solve generalized eigenvalue problem
+                            dsygv_(&itype, &jobz, &uplo, &n, Ekin, &n, Olap, &n, eigvals, work, &lwork, &info);
+                            
+                            if (info) printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
+                            if (echo > 6) printf("# %s lowest eigenvalue g% %s\n", label, eigvals[0]*eV, _eV);
+                        } // LAPACK
+                        
+                    } // minimize radial kinetic energy of partial wave
+                    else {
+                        set(Ekin, nn[ell], 0.0); Ekin[nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                    }
+                    
+                    set(vs.wave[SMT], rg[SMT]->n, 0.0);
+                    set(vs.wKin[SMT], rg[SMT]->n, 0.0);
+                    double sum = 0; for(int krn = 0; krn < nn[ell]; ++krn) sum += Ekin[0*nn[ell] + krn];
+                    double const scal = 1.0/sum; // scaling such that the sum is 1
+                    for(int krn = 0; krn < nn[ell]; ++krn) {
+                        auto const coeff = scal*Ekin[0*nn[ell] + krn];
+                        add_product(vs.wave[SMT], rg[SMT]->n, &rphi[(1 + krn)*stride], coeff);
+                        add_product(vs.wKin[SMT], rg[SMT]->n, &Tphi[(1 + krn)*stride], coeff);
+                    } // krn
+
+
+                    // ToDo: now check that the matching of value and derivative of wave and wKin are ok.
+                    if (echo > 8) {
+                        printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
+                                label, ell, nrn);
+                        for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                            printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir], 
+                                vs.wave[TRU][ir + nr_diff], vs.wave[SMT][ir],
+                                vs.wKin[TRU][ir + nr_diff], vs.wKin[SMT][ir]);
+                        } // ir
+                        printf("\n\n");
+                    } // echo
+                    
+                    if (echo > 8) {
+                        printf("# fflush(stdout) in line %i\n", __LINE__ + 1);
+                        fflush(stdout);
+                    } // echo
+                    
+                    delete[] Ekin;
+                    delete[] rphi;
+                } // scope
+#endif
+                
+                
                 // construct a simple pseudo wave
                 double* coeff = c_smt[iln];
                 set(coeff, 4, 0.0);
@@ -821,9 +988,13 @@ extern "C" {
             
 // end  ALTERNATIVE_KINETIC_ENERGY_TENSOR
 #endif
-            
+
+#ifdef  SHO_PartialWaves
+            delete[] SHO_rprj;
+#endif
             ln_off += nn[ell];
         } // ell
+        
         
         delete[] r2rho;
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
@@ -839,26 +1010,14 @@ extern "C" {
             double c_prj[msub];
             int ln_off = 0;
             for(int ell = 0; ell <= numax; ++ell) {
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
-//                  int const iln = ln_off + nrn;
-                    sho_radial::radial_eigenstates(c_prj, nrn, ell); // get the r2-polynomial coefficients
-                    double const norm_factor = sho_radial::radial_normalization(c_prj, nrn, ell) * std::pow(sigma, -1.5);
-                    int const ncoeff = 1 + nrn;
-                    scale(c_prj, ncoeff, norm_factor);
-                    bool const echo_prj = (echo > 9); // -1:always, 9:never
-                    if (echo_prj) printf("\n## %s %c-projector #%d in a.u.:\n", label, ellchar[ell], nrn);
-//                  double check_norm = 0;
-                    for(int ir = 0; ir < nr; ++ir) {
-                        double const r = rg[SMT]->r[ir];
-                        double const x = r*sigma_inv;
-                        proj[nrn*mr + ir] = sho_radial::expand_poly(c_prj, ncoeff, x*x) * intpow(x, ell) * std::exp(-.5*x*x);
-//                      check_norm += pow2(proj[nrn*mr + ir]) * rg[SMT]->r2dr[ir];
-                        if (echo_prj) printf("%g %g\n", r, proj[nrn*mr + ir]);
-                    } // ir
-                    if (echo_prj) printf("\n\n");
-                    if (echo > 3) printf("# %s %c-projector #%d has normalization 1 + %g, sigma=%g %s\n", label, ellchar[ell], nrn, 
-                                  dot_product(nr, &proj[nrn*mr], &proj[nrn*mr], rg[SMT]->r2dr) - 1, sigma*Ang,_Ang);
-                } // nrn
+                {
+                    int ells[msub], nrns[msub];
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        ells[nrn] = ell;
+                        nrns[nrn] = nrn;
+                    } // nrn
+                    scattering_test::expand_sho_projectors(proj, mr, *rg[SMT], sigma, nn[ell], nrns, ells, 0, echo);
+                }
 
                 if (echo > 4) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -1613,7 +1772,7 @@ extern "C" {
         if (echo > 8) { 
             printf("\n# %s lmn-based Overlap elements:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
-                printf("# %s hamiltonian elements for ilmn=%3d  ", label, ilmn);
+                printf("# %s overlap elements for ilmn=%3d  ", label, ilmn);
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_index_list[jlmn];
                     printf(" %g", true_norm[iln]*true_norm[jln]*overlap_lmn[ilmn*nlmn + jlmn]);
                 }   printf("\n");

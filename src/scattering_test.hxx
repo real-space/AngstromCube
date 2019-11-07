@@ -92,6 +92,9 @@ namespace scattering_test {
   } // expand_sho_projectors
   
 
+  
+  
+  
   inline status_t logarithmic_derivative(
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
@@ -118,8 +121,6 @@ namespace scattering_test {
 
       auto linsolfail = std::vector<size_t>(1 + lmax, 0);
       
-
-      
       int nln = 0; for(int ell = 0; ell <= lmax; ++ell) nln += nn[ell];
       int const stride = mr;
 
@@ -127,64 +128,7 @@ namespace scattering_test {
       auto const rphi = new double[count_smt_nodes*9*rg[SMT]->n];
 
       auto const rprj = new double[nln*stride]; // mr might be much larger than needed since mr is taken from the TRU grid
-      if (0) { // scope: preparation for the projector functions
-          auto const f = new double[nln]; // normalization factors
-          auto const norm2 = new double[nln]; // normalization checks
-          auto const poly = new double[nln][8]; // much too large
-          double const siginv = 1./sigma;
-          {
-              double const sigma_m23 = std::sqrt(pow3(siginv));
-              int iln = 0;
-              for(int ell = 0; ell <= lmax; ++ell) {
-                  assert(nn[ell] <= 8);
-                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                      stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell);
-                      f[iln] = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
-                      norm2[iln] = 0; // init
-                      ++iln;
-                  } // nrn
-              } // ell
-              assert(nln == iln);
-          }
-          
-          if (echo > 9) printf("\n## %i projectors on radial grid: r, p_ln(r):\n", nln);
-          for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-              double const r = rg[SMT]->r[ir], dr = rg[SMT]->dr[ir];
-//            double const dr = 0.03125, r = dr*ir; // equidistant grid
-              
-              double const x = siginv*r, x2 = pow2(x);
-              if (echo > 9) printf("%g ", r);
-              double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
-              int iln = 0;
-              for(int ell = 0; ell <= lmax; ++ell) {
-                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                      rprj[iln*stride + ir] = f[iln] * sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * intpow(x, ell);
-                      if (echo > 9) printf(" %g", rprj[iln*stride + ir]);
-                      rprj[iln*stride + ir] *= r;
-                      norm2[iln] += pow2(rprj[iln*stride + ir]) * dr;
-                      ++iln;
-                  } // nrn
-              } // ell
-              assert(nln == iln);
-              if (echo > 9) printf("\n");
-          } // ir
-          if (echo > 9) printf("\n\n");
-          
-          if (echo > 0) {
-              int iln = 0;
-              for(int ell = 0; ell <= lmax; ++ell) {
-                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                      printf("# projector normalization of ell=%i nrn=%i is %g\n", ell, nrn, norm2[iln]);
-                      ++iln;
-                  } // nrn
-              } // ell
-              assert(nln == iln);
-          }
-          delete[] f;
-          delete[] norm2;
-          delete[] poly;
-      } // scope: preparation for the projector functions
-      else {
+      { // scope: preparation for the projector functions
           int ells[nln], nrns[nln], iln = 0;
           for(int ell = 0; ell <= lmax; ++ell) {
               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -195,39 +139,19 @@ namespace scattering_test {
           } // ell
           assert(nln == iln);
           stat += expand_sho_projectors(rprj, stride, *rg[SMT], sigma, nln, nrns, ells, 1, 8);
-      } // scope: preparation for the projector functions
+      } // scope
       
-
-// #define  _RadialSpectralDensity
-#ifdef   _RadialSpectralDensity
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // plot the energy derivative of the node count as a function of radius R and energy E
-  for(int ell = 0; ell <= lmax; ++ell) {
-      if (echo > 0) printf("\n# ell = %i\n", ell);
-      int ir_stop_prev = -1;
-      for(int irlog = 1; irlog < 200; ++irlog) {
-          double const Rlog_suggested = irlog*.047243153; // from .025 to 5.0 Angstrom in 200 steps
-          ir_stop[SMT] = radial_grid::find_grid_index(*rg[SMT], Rlog_suggested);
-          if (ir_stop[SMT] > ir_stop_prev) {
-              if (echo > 0) printf("\n");
-              double node_count_prev = 0;
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-#else
       ir_stop[SMT] = radial_grid::find_grid_index(*rg[SMT], 0.75*rg[SMT]->rmax);
-#endif
       double const Rlog = rg[SMT]->r[ir_stop[SMT]];
       if (echo > 0) printf("# %s check at radius %g %s\n", __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
       for(int ien = 0; ien <= nen; ++ien) {
           auto const energy = energy_range[0] + ien*dE;
-#ifdef    _RadialSpectralDensity
-#else
 //        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
           if (echo > 0) printf("%.6f ", energy*eV);
           int iln_off = 0;
           for(int ell = 0; ell <= lmax; ++ell) 
-#endif
           { // ell-loop
               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
               double deriv[9], value[9];
@@ -237,9 +161,8 @@ namespace scattering_test {
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
 
                   for(int jrn = 0; jrn <= n*ts; ++jrn) {
-                      bool const inhomgeneous = ((SMT == ts) && (jrn));
-                      int const nrn = jrn - 1;
-                      int const iln = iln_off + nrn;
+                      bool const inhomgeneous = ((SMT == ts) && (jrn > 0));
+                      int const nrn = jrn - 1, iln = iln_off + nrn;
                       double* const rp = (inhomgeneous) ? &rprj[iln*stride] : nullptr;
                       nnodes[ts + jrn] = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
                                                                      gg, ff, ir_stop[ts], &deriv[jrn], rp);
@@ -253,7 +176,7 @@ namespace scattering_test {
                           } // krn
                       } // SMT == ts
                   } // jrn
-                  
+
                   set(x, 1 + n, 0.0); // clear
                   x[0] = 1.0;
                   int nx = 1;
@@ -292,28 +215,12 @@ namespace scattering_test {
                   dg[ts] = dot_product(nx, x, deriv); // derivative
 
                   double const node_count = nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]);
-#ifdef   _RadialSpectralDensity
-                  if (TRU == ts) {
-                      if (ien) printf("%g %g %g %g", Rlog*Ang, (energy - .5*dE)*eV, (node_count - node_count_prev)/dE, node_count); // energy derivative
-                      node_count_prev = node_count;
-                  } // tru
-#else
                   if (echo > 0) printf(" %.6f", node_count);
               } // ts
-#endif
               iln_off += n;
           } // ell
           if (echo > 0) printf("\n");
       } // ien
-
-#ifdef   _RadialSpectralDensity
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////            
-          } // do not compute the same radius twice
-          ir_stop_prev = ir_stop[SMT];
-      } // irlog
-  } // ell
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////            
-#endif
 
       for(int ell = 0; ell <= lmax; ++ell) {
           if (linsolfail[ell]) {
@@ -325,6 +232,10 @@ namespace scattering_test {
       
       return stat;
   } // logarithmic_derivative
+  
+  
+  
+  
   
   inline status_t eigenstate_analysis(radial_grid_t const& gV // grid descriptor for Vsmt
               , double const Vsmt[] // smooth potential given on radial grid
