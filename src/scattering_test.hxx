@@ -199,7 +199,7 @@ namespace scattering_test {
                   vg[ts] = dot_product(nx, x, value); // value of the greater component at Rlog
                   dg[ts] = dot_product(nx, x, deriv); // derivative
 
-                  double const node_count = success*(nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
+                  double const node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
                   if (echo > 0) printf(" %.6f", node_count);
               } // ts
               iln_off += n;
@@ -328,7 +328,7 @@ namespace scattering_test {
                   
                   if (echo > 2) {
                       // projection analysis for the lowest nev eigenvectors
-                      auto const evec = Ham; // eigenvectors are store in the memory space that was used to input the Hamiltonian
+                      auto const evec = Ham; // eigenvectors are stored in the memory space that was used to input the Hamiltonian
                       for(int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
                           if (echo > 8) {
@@ -337,7 +337,7 @@ namespace scattering_test {
                                   printf("%g %g\n", g.r[ir + 1], evec[iev*stride + ir]);
                               }   printf("\n\n");
                           } // echo
-                          
+
                           printf("# projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", ell, iev, eigs[iev]*eV, _eV);
                           for(int nrn = 0; nrn < nprj; ++nrn) {
                               printf("%12.6f", dot_product(nr, &evec[iev*stride], &rprj[nrn*stride])*std::sqrt(dr));

@@ -680,9 +680,7 @@ extern "C" {
         auto const smt_waveTi = new double[rg[SMT]->n];
 #endif
         int const nln = nvalencestates;
-        int const n_poly = 4; // number of even-order polynomial terms used
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
-        double c_smt[nln][4];
 
 #define SHO_PartialWaves
 #ifdef  SHO_PartialWaves
@@ -693,11 +691,14 @@ extern "C" {
         if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n", 
                                label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
         
-        if (echo > 9) { printf("\n## %s show the local potentials (r, r*Vtru, r*Vsmt):\n");
+        if (echo > 9) { printf("\n## %s show the local potentials (r, r*Vtru, r*Vsmt):\n", label);
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 printf("%g %g %g\n", rg[SMT]->r[ir], potential[TRU][ir + nr_diff], potential[SMT][ir]);
             }   printf("\n\n");
         } // echo
+#else
+        int const n_poly = 4; // number of even-order polynomial terms used
+        double c_smt[nln][4];
 #endif
         
         int ln_off = 0;
@@ -1866,7 +1867,7 @@ extern "C" {
             }
                 
             // scan the logarithmic derivatives
-            double const energy_range[] = {-2., 1e-3, 0.5};
+            double const energy_range[] = {-2., 1e-5, 0.5};
             scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
                                                  hamiltonian_ln, overlap_ln, energy_range, 9);
             
