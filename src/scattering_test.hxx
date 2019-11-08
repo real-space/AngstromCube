@@ -15,21 +15,9 @@
 #include "sho_tools.hxx" // num_ln_indices
 #include "radial_integrator.hxx" // integrate_outwards<SRA>
 #include "constants.hxx" // pi
+#include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
 
 typedef int status_t;
-
-  extern "C" {
-      // double symmetric generalized eigenvalue problem
-      void dsygv_(int const* ITYPE, char const* JOBZ, char const* UPLO, int const* N, 
-                  double* A, int const* LDA, double* B, int const* LDB, 
-                  double* W, double* WORK, int const* LWORK, int* INFO);
-      // double symmetric standard eigenvalue problem
-      void dsyev_(char const* JOBZ, char const* UPLO, int const* N, double* A, int const* LDA,
-                  double* W, double* WORK, int const* LWORK, int* INFO);
-      // double linear solve
-      void dgesv_(int const* N, int const* NRHS, double* A, int const* LDA, 
-                  int* IPIV, double* B, int const* LDB, int* info);
-  } // LAPACK
 
 namespace scattering_test {
 
@@ -39,18 +27,10 @@ namespace scattering_test {
   inline real_t arcus_tangent(real_t const nom, real_t const den) {
       return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
   
-  inline status_t linear_solve(double x[], int const n, double A[], int const nrhs=1) {
-      int info = 0;
-      auto const ipiv = new int[n];
-      dgesv_(&n, &nrhs, A, &n, ipiv, x, &n, &info);
-      delete[] ipiv;
-      return info;
-  } // linear_solve
-  
   template<typename real_t>
   inline size_t count_nodes(size_t const n, real_t const f[]) {
       size_t nnodes = 0;
-      for(int i = 1; i < n; ++i) {
+      for(auto i = 1u; i < n; ++i) {
           nnodes += (f[i - 1]*f[i] < 0);
       };
       return nnodes;
@@ -124,8 +104,8 @@ namespace scattering_test {
       int nln = 0; for(int ell = 0; ell <= lmax; ++ell) nln += nn[ell];
       int const stride = mr;
 
-      int const count_smt_nodes = 1; // 1 or 0 switch
-      auto const rphi = new double[count_smt_nodes*9*rg[SMT]->n];
+      int const count_smt_nodes = 0; // 1 or 0 switch
+      auto const rphi = new double[count_smt_nodes*9*rg[SMT]->n + 1];
 
       auto const rprj = new double[nln*stride]; // mr might be much larger than needed since mr is taken from the TRU grid
       { // scope: preparation for the projector functions
@@ -159,6 +139,7 @@ namespace scattering_test {
               int nnodes[1 + 9];
               int const n = nn[ell];
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                  int success = 1;
 
                   for(int jrn = 0; jrn <= n*ts; ++jrn) {
                       bool const inhomgeneous = ((SMT == ts) && (jrn > 0));
@@ -166,7 +147,7 @@ namespace scattering_test {
                       double* const rp = (inhomgeneous) ? &rprj[iln*stride] : nullptr;
                       nnodes[ts + jrn] = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
                                                                      gg, ff, ir_stop[ts], &deriv[jrn], rp);
-                      if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU], gg);
+//                    if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU], gg);
                       value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
                       if (SMT == ts) {
                           if (count_smt_nodes) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts], gg); // store radial solution
@@ -194,27 +175,31 @@ namespace scattering_test {
                       for(int i = 0; i < n0; ++i) {
                           mat[i*n0 + i] += 1.0; // add unity matrix
                       } // i
-                      int const solving_status = linear_solve(x, n0, mat);
+//                    int const solving_status = linear_solve(x, n0, mat);
+                      auto const solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
                       stat += solving_status;
                       nnodes[SMT] = 0;
                       if (0 == solving_status) {
                           nx = n0; // successful --> linear combination with all n0 elements
                           
-                          scale(rphi, rg[SMT]->n, x[0]);
-                          for(int i = 1; i < n0; ++i) {
-                              add_product(rphi, rg[SMT]->n, &rphi[i*rg[SMT]->n], x[i]);
-                          } // i
-                          nnodes[SMT] = count_nodes(ir_stop[SMT], rphi);
+                          if (count_smt_nodes) {
+                              scale(rphi, rg[SMT]->n, x[0]);
+                              for(int i = 1; i < n0; ++i) {
+                                  add_product(rphi, rg[SMT]->n, &rphi[i*rg[SMT]->n], x[i]);
+                              } // i
+                              nnodes[SMT] = count_nodes(ir_stop[SMT], rphi);
+                          } // count_smt_nodes
 
                       } else {
                           ++linsolfail[ell];
+                          success = 0;
                       }
                   } // SMT == ts
 
                   vg[ts] = dot_product(nx, x, value); // value of the greater component at Rlog
                   dg[ts] = dot_product(nx, x, deriv); // derivative
 
-                  double const node_count = nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]);
+                  double const node_count = success*(nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
                   if (echo > 0) printf(" %.6f", node_count);
               } // ts
               iln_off += n;
@@ -224,12 +209,11 @@ namespace scattering_test {
 
       for(int ell = 0; ell <= lmax; ++ell) {
           if (linsolfail[ell]) {
-              printf("# %s linear solve failed %ld times for ell=%i\n", __func__, ell, linsolfail[ell]);
+              printf("# %s linear solve failed %ld times for ell=%i\n", __func__, linsolfail[ell], ell);
           } // fail
       } // ell
 
       delete[] rphi;
-      
       return stat;
   } // logarithmic_derivative
   
@@ -270,10 +254,10 @@ namespace scattering_test {
           delete[] Vq;
       } // scope
       
-      int const stride = align<2>(nr);
+      int const stride = align<2>(nr); assert(stride >= nr);
       // allocate Hamiltonian and overlap matrix
-      auto const Ham = new double[(3*nr + 1)*stride], Ovl = &Ham[1*nr*stride], 
-                           work = &Ham[2*nr*stride], eigs = &Ham[3*nr*stride];
+      auto const Ham = new double[(2*nr + 1)*stride], Ovl = &Ham[1*nr*stride], 
+                 eigs = &Ham[2*nr*stride]; // work = &Ham[(2*nr + 1)*stride]
 
       int nln = 0; int mprj = 0; 
       for(int ell = 0; ell <= lmax; ++ell) {
@@ -329,14 +313,9 @@ namespace scattering_test {
               } // jr
           } // ir
           
-          {   // scope: diagonalize
-              int const lwork = nr*stride, itype = 1; // for the LAPACK solver
-              char const uplo = 'u', jobv = 'v'; int info = 0;
-              
+          { // scope: diagonalize
               // solve the generalized eigenvalue problem
-              dsygv_(&itype, &jobv, &uplo, &nr, Ham, &stride, Ovl, &stride, eigs, work, &lwork, &info);
-//            dsyev_(&jobv, &uplo, &nr, Ham, &stride, eigs, work, &lwork, &info); // standard EV problem
-
+              auto const info = linear_algebra::generalized_eigenvalues(nr, Ham, stride, Ovl, stride, eigs);
               if (0 == info) {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
@@ -437,7 +416,7 @@ namespace scattering_test {
               } // jln
           } // iln
       } // scope
-      
+      return 0;
   } // emm_average
   
 #ifdef  NO_UNIT_TESTS
@@ -452,8 +431,8 @@ namespace scattering_test {
       double const sigma = 1.0; // if the rmax ~= 10, lmax = 7, sigma <= 1.5, otherwise projectors leak out
       for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
       auto const aHm = std::vector<double>(nln*nln, 0.0);
-      uint8_t nn[1 + lmax]; for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
-      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn, aHm.data(), aHm.data(), 128, echo);
+      auto nn = std::vector<uint8_t>(1 + lmax, 0); for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
+      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn.data(), aHm.data(), aHm.data(), 128, echo);
       // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
   } // test_eigenstate_analysis
 

@@ -447,6 +447,7 @@ int integrate_outwards( // return the number of nodes
       int ir_x = 0; // radial grid index of the extremum
       double dg_inw = 0;
       int const N_aligned = align<2>(g.n);
+//    printf("# %s: N_aligned = %i\n", __func__, N_aligned); fflush(stdout); // DEBUG
 
       auto const gf = new double[4*N_aligned];
       auto const gg_inw =    &gf[0*N_aligned];

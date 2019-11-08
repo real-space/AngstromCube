@@ -726,7 +726,7 @@ namespace overlap {
                 int const itype = 1;
                 zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat, &n3D, ovl_mat, &n3D, 
                        eigvals, work, &lwork, rwork, &info);
-                
+
             } // overlap_eigvals
         } // Ref
 

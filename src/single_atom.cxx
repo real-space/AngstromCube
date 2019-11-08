@@ -26,6 +26,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // transform_to_r2_grid
 #include "scattering_test.hxx" // eigenstate_analysis, emm_average
+#include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -50,19 +51,16 @@ extern "C" {
    // BLAS interface to matrix matrix multiplication
   void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*, 
               const double*, const int*, const double*, const int*, const double*, double*, const int*);
-  void dgesv_(const int*, const int*, double*, const int*, int*, double*, const int*, int*);
-  void dsygv_(const int*, const char*, const char*, const int*, double*, const int*, double*, const int*, 
-              double*, double*, const int*, int*);
 } // extern "C"
-
-  status_t solve_Ax_b(double x[], double const b[], double A[], int const n, int const stride) {
-      std::copy(b, b+n, x); // copy right-hand-side into x
-      status_t info = 0; int const nRHSs = 1; auto const ipivot = new int[n];
-      dgesv_(&n, &nRHSs, A, &stride, ipivot, x, &n, &info);
-      delete [] ipivot;
+  
+  status_t minimize_curvature(double A[], double B[], int const n, double* lowest=nullptr) {
+      // solve a generalized eigenvalue problem
+      auto eigs = std::vector<double>(n);
+      auto const info = linear_algebra::generalized_eigenvalues(n, A, n, B, n, eigs.data());
+      if (lowest) *lowest = eigs[0];
       return info;
-  } // solve_Ax_b
-
+  } // minimize_curvature 
+  
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
@@ -74,8 +72,9 @@ extern "C" {
   
   status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc, 
               int const nmax=4, int const ell=0, double *coeff=nullptr) {
+      int constexpr echo = 0;
       // match a radial function with an even-order polynomial inside r[irc]
-      double Amat[4*4], x[4] = {0,0,0,0}; double* bvec = x;
+      double Amat[4*4], bvec[4] = {0,0,0,0};
       set(Amat, 4*4, 0.0);
       int const nm = std::min(std::max(1, nmax), 4);
       for(int i4 = 0; i4 < nm; ++i4) {
@@ -91,7 +90,28 @@ extern "C" {
           // b is the inhomogeneus right side of the set of linear equations
           bvec[i4] = fun[ir];
       } // i4
-      status_t info = solve_Ax_b(x, bvec, Amat, nm, 4);
+      
+      if (echo > 7) {
+          for(int i4 = 0; i4 < nm; ++i4) {
+              printf("# %s Amat i=%i ", __func__, i4);
+              for(int j4 = 0; j4 < nm; ++j4) {
+                  printf(" %16.9f", Amat[j4*4 + i4]);
+              } // j4
+              printf(" bvec %16.9f\n", bvec[i4]);
+          } // i4
+      } // echo
+      
+      double* x = bvec;
+//       auto const info = solve_Ax_b(x, bvec, Amat, nm, 4);
+      auto const info = linear_algebra::linear_solve(nm, Amat, 4, bvec, 4, 1);
+
+      if (echo > 7) {
+          printf("# %s xvec     ", __func__); 
+          for(int j4 = 0; j4 < nm; ++j4) {
+              printf(" %16.9f", x[j4]);
+          }   printf("\n");
+      } // echo
+      
       set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
       // replace the inner part of the function by the even-order polynomial
       for(int ir = 0; ir < irc; ++ir) {
@@ -249,7 +269,7 @@ extern "C" {
         r_cut = 2.0; // Bohr
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
 //         sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
-        sigma = 0.5; // Bohr, spread for projectors
+        sigma = 0.61; // Bohr, spread for projectors (Cu)
         sigma_inv = 1./sigma;
         r_match = 9*sigma;
         set(nn, 1+ELLMAX+2, uint8_t(0));
@@ -439,8 +459,9 @@ extern "C" {
         
         
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
-        {   // construct initial smooth spherical density
+        {   // construct initial smooth spherical potential
             set(potential[SMT], rg[SMT]->n, potential[TRU] + nr_diff); // copy the tail of the spherical part of r*V_tru(r)
+            if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
             pseudize_function(potential[SMT], rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
@@ -662,26 +683,36 @@ extern "C" {
         int const n_poly = 4; // number of even-order polynomial terms used
         int const nr_diff = rg[TRU]->n - rg[SMT]->n;
         double c_smt[nln][4];
-#define SHO_PartialWaves                
+
+#define SHO_PartialWaves
 #ifdef  SHO_PartialWaves
         int ir_match[TRU_AND_SMT];
         for(int ts = TRU; ts <= SMT; ++ts) {
             ir_match[ts] = radial_grid::find_grid_index(*rg[ts], r_match);
         } // ts
-        if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n", label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
+        if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n", 
+                               label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
+        
+        if (echo > 9) { printf("\n## %s show the local potentials (r, r*Vtru, r*Vsmt):\n");
+            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                printf("%g %g %g\n", rg[SMT]->r[ir], potential[TRU][ir + nr_diff], potential[SMT][ir]);
+            }   printf("\n\n");
+        } // echo
 #endif
         
         int ln_off = 0;
-        for(int ell = 0; ell <= numax; ++ell) {
+        for(int ell = 0; ell <= numax; ++ell) { // ell-loop must run forward serial
 //          int const msub = (1 + numax/2); // max. size of the subspace
-#ifdef  SHO_PartialWaves
+            if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
+
+          
             auto const SHO_rprj = new double[nn[ell]*align<2>(rg[SMT]->n)];
-            {   int nrns[nn[ell]]; std::iota(nrns, nrns + nn[ell], 0);
-                int ells[nn[ell]]; std::fill(ells, ells + nn[ell], ell);
+            {   int nrns[9]; std::iota(nrns, nrns + nn[ell], 0);
+                int ells[9]; std::fill(ells, ells + nn[ell], ell);
                 scattering_test::expand_sho_projectors(SHO_rprj, align<2>(rg[SMT]->n), *rg[SMT], 
                                                               sigma, nn[ell], nrns, ells, 1, 0);
             }
-#endif
+            
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto &vs = valence_state[iln]; // abbreviate
@@ -708,54 +739,57 @@ extern "C" {
 //                 auto const tru_Epot = dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
                 
-    //          if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
+//                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[TRU]);
                 
                 
                 // idea: make this module flexible enough so it can load a potential and 
                 //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
 #ifdef  SHO_PartialWaves
+//+ SHO_PartialWaves
                 
-                
-                { // scope: generate smooth partial waves from projectors
+                { // scope: generate smooth partial waves from projectors, revPAW scheme
                     int const stride = align<2>(rg[SMT]->n);
-                    auto const rphi = new double[(1 + 2*nn[ell] + 1)*stride];
-                    auto const ff =        &rphi[(1 + nn[ell] + 0)*stride];
-                    auto const Tphi =      &rphi[(1 + nn[ell] + 1)*stride];
-                    double const vgtru = vs.wave[TRU][ir_match[TRU]]*rg[TRU]->r[ir_match[TRU]];
-                    double const dgtru = vs.wave[TRU][ir_match[TRU] - 1]*rg[TRU]->r[ir_match[TRU] - 1] - vgtru;
+                    auto const rphi = new double[(3 + nn[ell]*2)*stride];
+                    auto const Tphi =      &rphi[(1 + nn[ell]  )*stride];
+                    auto const ff   =      &rphi[(2 + nn[ell]*2)*stride];
+                    auto const vgtru = vs.wave[TRU][ir_match[TRU]]    *rg[TRU]->r[ir_match[TRU]];
+                    auto const dgtru = vs.wave[TRU][ir_match[TRU] - 1]*rg[TRU]->r[ir_match[TRU] - 1] - vgtru;
                     double vghom, dghom;
 
                     for(int krn = 0; krn <= nn[ell]; ++krn) { // loop must run serial and forward
+                        // krn == 0 generates the homogeneous solution in the first iteration
                         auto const projector = (krn > 0) ? &SHO_rprj[(krn - 1)*stride] : nullptr;
                         double dg; // derivative at end point, not used
-                        // solve inhomgeneous equation and match tru wave in value and derivative
+                        
+                        // solve inhomgeneous equation and match true wave in value and derivative
                         radial_integrator::integrate_outwards<SRA>(*rg[SMT], potential[SMT], ell, vs.energy,
                                                          &rphi[krn*stride], ff, -1, &dg, projector);
+                        
                         auto const vginh = rphi[krn*stride + ir_match[SMT]];
                         auto const dginh = rphi[krn*stride + ir_match[SMT] - 1] - vginh;
                         if (0 == krn) {
                             vghom = vginh; dghom = dginh;
                         } else {
-                            // matching coefficient
-                            auto const c_hom = - (vgtru*dginh - dgtru*vginh)  
-                                               / // ------------------------
-                                                 (vgtru*dghom - dgtru*vghom);
+                            // matching coefficient - how much of the homogeneous solution do we need to add to match logder
+                            auto const denom =    vgtru*dghom - dgtru*vghom; // ToDo: check if denom is not too small
+                            auto const c_hom = - (vgtru*dginh - dgtru*vginh) / denom;
  
                             // combine inhomogeneous and homogeneous solution to match true solution outside r_match
                             add_product(&rphi[krn*stride], rg[SMT]->n, &rphi[0*stride], c_hom); 
                             
-                            auto const scal = vgtru / (vginh + c_hom*vghom); // match not only oin logder but also in value
+                            auto const scal = vgtru / (vginh + c_hom*vghom); // match not only in logder but also in value
                             scale(&rphi[krn*stride], rg[SMT]->n, rg[SMT]->rinv, scal); // and divide by r
                             // ToDo: extrapolate lowest point?
-                            
+
                             // Tphi = projector + (E - V)*phi
                             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                                Tphi[krn*stride + ir] = projector[ir] + (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn*stride + ir];
+                                Tphi[krn*stride + ir] = scal*projector[ir] 
+                                                      + (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn*stride + ir];
                             } // ir
                             
-                            // now check that the matching of value and derivative of rphi is ok.
-                            if (echo > 8) {
+                            // now visually check that the matching of value and derivative of rphi is ok.
+                            if (echo > 9) {
                                 printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
                                         label, ell, nrn, krn-1);
                                 for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -766,24 +800,19 @@ extern "C" {
                                 printf("\n\n");
                             } // echo
 
-                            // ToDo: now check that the matching of value and derivative of rphi is ok.
+                            // check that the matching of value and derivative of rphi is ok by comparing value and derivative
                             if (echo > 6) {
                                 printf("# %s check matching of vg and dg for ell=%i nrn=%i krn=%i: %g == %g ? and %g == %g ?\n",
                                        label, ell, nrn, krn-1,  vgtru, scal*(vginh + c_hom*vghom),  dgtru, scal*(dginh + c_hom*dghom));
                             } // echo
-                            
+
                         } // krn > 0
                     } // krn
                     
-                    if (echo > 8) {
-                        printf("# fflush(stdout) in line %i\n", __LINE__ + 1);
-                        fflush(stdout);
-                    } // echo
-                    
-                    auto const Ekin = new double[6*nn[ell]*nn[ell]];
+                    auto const Ekin = new double[3*nn[ell]*nn[ell]];
                     auto const Olap =      &Ekin[1*nn[ell]*nn[ell]];
                     auto const Vkin =      &Ekin[2*nn[ell]*nn[ell]];
-                    if (0) {   
+                    if (1) {
                         int const nr_max = ir_match[SMT];
                         for(int krn = 0; krn < nn[ell]; ++krn) {
                             for(int jrn = 0; jrn < nn[ell]; ++jrn) {
@@ -805,22 +834,37 @@ extern "C" {
                             } // jrn
                         } // krn
                         
-                        { // LAPACK
-                            int info = 0; int const itype = 1, n = nn[ell], lwork = 2*n*n;
-                            auto const work    = &Ekin[3*nn[ell]*nn[ell]];
-                            auto const eigvals = &Ekin[5*nn[ell]*nn[ell]];
-                            char const jobz = 'v', uplo = 'u';
-                            // solve generalized eigenvalue problem
-                            dsygv_(&itype, &jobz, &uplo, &n, Ekin, &n, Olap, &n, eigvals, work, &lwork, &info);
-                            
-                            if (info) printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
-                            if (echo > 6) printf("# %s lowest eigenvalue g% %s\n", label, eigvals[0]*eV, _eV);
-                        } // LAPACK
+                        if (echo > 7) {
+                            printf("\n");
+                            for(int krn = 0; krn < nn[ell]; ++krn) {
+                                printf("# %s curvature|overlap for i=%i ", label, krn);
+                                for(int jrn = 0; jrn < nn[ell]; ++jrn) {
+                                    printf(" %g|%g", Ekin[krn*nn[ell] + jrn], Olap[krn*nn[ell] + jrn]);
+                                } // jrn
+                                printf("\n");
+                            } // krn
+                            printf("\n");
+                        } // echo
                         
-                    } // minimize radial kinetic energy of partial wave
-                    else {
+                        { // scope: minimize the radial curvature of the smooth partial wave
+                            double lowest_eigenvalue = 0;
+                            auto const info = minimize_curvature(Ekin, Olap, nn[ell], &lowest_eigenvalue);
+                            if (info) {
+                                printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
+                            } else {
+                                if (echo > 6) {
+                                    printf("# %s lowest eigenvalue %g %s", label, lowest_eigenvalue*eV, _eV);
+                                    if (echo > 8) {
+                                        printf(", coefficients"); for(int krn = 0; krn < nn[ell]; ++krn) printf(" %g", Ekin[krn]);
+                                    } // high echo
+                                    printf("\n");
+                                } // echo
+                            } // info
+                        } // scope
+                        
+                    } else {
                         set(Ekin, nn[ell], 0.0); Ekin[nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-                    }
+                    } // minimize radial kinetic energy of partial wave
                     
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
@@ -834,7 +878,7 @@ extern "C" {
 
 
                     // ToDo: now check that the matching of value and derivative of wave and wKin are ok.
-                    if (echo > 8) {
+                    if (echo > 9) {
                         printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
                                 label, ell, nrn);
                         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -844,54 +888,72 @@ extern "C" {
                         } // ir
                         printf("\n\n");
                     } // echo
-                    
-                    if (echo > 8) {
-                        printf("# fflush(stdout) in line %i\n", __LINE__ + 1);
-                        fflush(stdout);
-                    } // echo
+
+//                     if (echo > 8) {
+//                         printf("# fflush(stdout) in line %i\n", __LINE__ + 1);
+//                         fflush(stdout);
+//                     } // echo
                     
                     delete[] Ekin;
                     delete[] rphi;
                 } // scope
+                
+//- SHO_PartialWaves
+#else
+//- SHO_PartialWaves
+                
+                { // scope: construct a simple pseudo wave using low order polynomials
+                    double* coeff = c_smt[iln];
+                    set(coeff, 4, 0.0);
+                    set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
+                    auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, ell, coeff);
+        //          show_state_analysis(echo, rg[SMT], vs.wave[SMT], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[SMT]); // not useful
+                    if (stat) {
+                        if (echo > 0) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
+                                                      label, vs.enn, ellchar[ell], stat);
+                    } else {
+                        if (echo > 0) printf("# %s Matching of smooth %d%c-valence state with polynomial r^%d*(%g + r^2* %g + r^4* %g + r^6* %g)\n", 
+                                                      label, vs.enn, ellchar[ell], ell, coeff[0], coeff[1], coeff[2], coeff[3]);
+                    } // stat
+
+    //                 product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
+    //                 double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
+    //                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
+    //                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical);
+
+                    double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
+                    for(int i = 1; i < n_poly; ++i) {
+                        double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
+                        T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
+                    } // i
+
+                    for(int ir = 0; ir < ir_cut[SMT]; ++ir) {
+                        double const r = rg[SMT]->r[ir], r2 = pow2(r);
+                        double const wT = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
+                        valence_state[iln].wKin[SMT][ir] = wT*r;
+                    } // ir
+
+                    // copy the kinetic energy part of the true wave outside rcut
+                    for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
+                        valence_state[iln].wKin[SMT][ir] = valence_state[iln].wKin[TRU][ir + nr_diff];
+                    } // ir
+                    
+                    if (echo > 9) {
+                        printf("\n## %s polynomial smooth partial waves "
+                                  "and kinetic part"
+                                  " for ell=%c in a.u.:\n", label, ellchar[ell]);
+                        for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                            printf("%g", rg[SMT]->r[ir]); // radius
+                            printf("  %g %g", valence_state[iln].wave[TRU][ir + nr_diff], valence_state[iln].wave[SMT][ir]);
+                            printf("  %g %g", valence_state[iln].wKin[TRU][ir + nr_diff], valence_state[iln].wKin[SMT][ir]);
+                            printf("\n");
+                        }   printf("\n\n");
+                    } // echo
+
+                } // scope
+                
+//+ SHO_PartialWaves
 #endif
-                
-                
-                // construct a simple pseudo wave
-                double* coeff = c_smt[iln];
-                set(coeff, 4, 0.0);
-                set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
-                auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, ell, coeff);
-    //          show_state_analysis(echo, rg[SMT], vs.wave[SMT], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[SMT]); // not useful
-                if (stat) {
-                    if (echo > 0) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
-                                                  label, vs.enn, ellchar[ell], stat);
-                } else {
-                    if (echo > 0) printf("# %s Matching of smooth %d%c-valence state with polynomial r^%d*(%g + r^2* %g + r^4* %g + r^6* %g)\n", 
-                                                  label, vs.enn, ellchar[ell], ell, coeff[0], coeff[1], coeff[2], coeff[3]);
-                } // stat
-
-//                 product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
-//                 double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
-//                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
-//                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical);
-
-                double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
-                for(int i = 1; i < n_poly; ++i) {
-                    double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
-                    T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
-                } // i
-
-                for(int ir = 0; ir < ir_cut[SMT]; ++ir) {
-                    double const r = rg[SMT]->r[ir], r2 = pow2(r);
-                    double const wT = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
-                    valence_state[iln].wKin[SMT][ir] = wT*r;
-                } // ir
-
-                // copy the kinetic energy part of the true wave outside rcut
-                for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
-                    valence_state[iln].wKin[SMT][ir] = valence_state[iln].wKin[TRU][ir + nr_diff];
-                } // ir
-
 
             } // nrn
             
@@ -989,41 +1051,16 @@ extern "C" {
 // end  ALTERNATIVE_KINETIC_ENERGY_TENSOR
 #endif
 
-#ifdef  SHO_PartialWaves
-            delete[] SHO_rprj;
-#endif
-            ln_off += nn[ell];
-        } // ell
-        
-        
-        delete[] r2rho;
-#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-        delete[] tru_wave_i;
-        delete[] tru_waveVi;
-        delete[] smt_waveTi;
-#endif            
-        
-        { // scope: create SHO projectors // ToDo: establish dual orthgonality with SHO projectors
-            int const nr = rg[SMT]->n, mr = align<2>(nr);
-            int const msub = (1 + numax/2); // max. size of the subspace
-            auto const proj = new double[msub*mr];
-            double c_prj[msub];
-            int ln_off = 0;
-            for(int ell = 0; ell <= numax; ++ell) {
-                {
-                    int ells[msub], nrns[msub];
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                        ells[nrn] = ell;
-                        nrns[nrn] = nrn;
-                    } // nrn
-                    scattering_test::expand_sho_projectors(proj, mr, *rg[SMT], sigma, nn[ell], nrns, ells, 0, echo);
-                }
+            { // scope: establish dual orthgonality with [SHO] projectors
+                int const nr = rg[SMT]->n, mr = align<2>(nr);
+                int const stride = align<2>(rg[SMT]->n);
+                int const msub = (1 + numax/2); // max. size of the subspace
 
                 if (echo > 4) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                         for(int krn = 0; krn < nn[ell]; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn, 
-                                (nrn == krn), dot_product(nr, &proj[nrn*mr], &proj[krn*mr], rg[SMT]->r2dr) - (nrn==krn), sigma*Ang,_Ang);
+                                (nrn == krn), dot_product(nr, &SHO_rprj[nrn*stride], &SHO_rprj[krn*stride], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
                         } // krn
                     } // nrn
                 } // echo
@@ -1033,7 +1070,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < nn[ell]; ++krn) { // smooth number or radial nodes
-                        ovl[nrn*msub + krn] = dot_product(nr, wave, &proj[krn*mr], rg[SMT]->r2dr);
+                        ovl[nrn*msub + krn] = dot_product(nr, wave, &SHO_rprj[krn*stride], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
                     } // krn
@@ -1075,7 +1112,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < nn[ell]; ++krn) { // smooth number or radial nodes
-                        ovl[nrn*msub + krn] = dot_product(nr, wave, &proj[krn*mr], rg[SMT]->r2dr);
+                        ovl[nrn*msub + krn] = dot_product(nr, wave, &SHO_rprj[krn*mr], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
                     } // krn
@@ -1209,11 +1246,20 @@ extern "C" {
                     } // j
                 } // i
                 
-                ln_off += nn[ell];
-            } // ell
-            delete[] proj;
-        } // scope
-//      printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
+            } // scope establish dual orthgonality with [SHO] projectors
+            
+//             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
+
+            delete[] SHO_rprj;
+            ln_off += nn[ell];
+        } // ell
+        
+        delete[] r2rho;
+#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
+        delete[] tru_wave_i;
+        delete[] tru_waveVi;
+        delete[] smt_waveTi;
+#endif            
 
     } // update_valence_states
 
@@ -1224,7 +1270,7 @@ extern "C" {
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
-                if (0) {
+                if (1) {
                     auto const wave_i = valence_state[iln].wave[ts];
                     auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
                     true_norm[iln] = 1./std::sqrt(norm2);
