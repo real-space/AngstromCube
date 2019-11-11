@@ -1859,16 +1859,18 @@ extern "C" {
                 } // scope
 #endif
                 // find the eigenstates of the spherical Hamiltonian
-                if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
-//                 scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-//                                                     hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
+//              if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
+                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
                 
             }
                 
             // scan the logarithmic derivatives
-            double const energy_range[] = {-2., 1e-5, 0.5};
-            scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
+            if (0) {
+                double const energy_range[] = {-2., 1e-5, 0.5};
+                scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
                                                  hamiltonian_ln, overlap_ln, energy_range, 9);
+            } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
             
             delete[] emm_averaged;
         } // debug
@@ -1896,6 +1898,93 @@ extern "C" {
         delete[] hamiltonian_lmn;
         delete[] overlap_lmn;
     } // update_matrix_elements
+
+    
+    void update_spherical_matrix_elements(int const echo=0) {
+        int const nln = nvalencestates;
+
+        auto const potential_ln = new double[nln*nln][TRU_AND_SMT]; // emm1-emm2-degenerate, no emm0-dependency
+        for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+            int const nr = rg[ts]->n, mr = align<2>(nr);
+            auto const wave_pot_r2dr = new double[mr];
+            for(int iln = 0; iln < nln; ++iln) {
+                auto const wave_i = valence_state[iln].wave[ts];
+                // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights 
+                product(wave_pot_r2dr, nr, wave_i, potential[ts], rg[ts]->rdr); 
+                for(int jln = 0; jln < nln; ++jln) {
+                    auto const wave_j = valence_state[jln].wave[ts];
+                    potential_ln[iln*nln + jln][ts] = dot_product(nr, wave_pot_r2dr, wave_j);
+                } // jln
+            } // iln
+            delete[] wave_pot_r2dr;
+        } // ts: true and smooth
+
+        auto const hamiltonian_ln = new double[nln*nln];
+        auto const overlap_ln     = new double[nln*nln];
+        set(hamiltonian_ln, nln*nln, 0.0); // clear
+        set(overlap_ln,     nln*nln, 0.0); // clear
+        { // scope
+            for(int iln = 0; iln < nln; ++iln) {
+                for(int jln = 0; jln < nln; ++jln) {
+                    hamiltonian_ln[iln*nln + jln] =
+                        ( kinetic_energy[iln*nln + jln][TRU]
+                        - kinetic_energy[iln*nln + jln][SMT] )
+                        + ( potential_ln[iln*nln + jln][TRU]
+                          - potential_ln[iln*nln + jln][SMT] );
+                    overlap_ln[iln*nln + jln] =
+                        ( charge_deficit[iln*nln + jln][TRU]
+                        - charge_deficit[iln*nln + jln][SMT] ); // ell=0
+                } // jln
+            } // iln
+        } // scope
+        delete[] potential_ln;
+
+        // scan the logarithmic derivatives
+        double const energy_range[] = {-2., 1e-3, 0.5};
+        scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
+                                              hamiltonian_ln, overlap_ln, energy_range, 9);
+
+        
+        {
+                double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
+                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
+                { // scope: prepare a smooth local potential which goes to zero at Rmax
+                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                        Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
+                    } // ir
+                } // scope
+
+                // find the eigenstates of the spherical Hamiltonian
+                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
+                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
+//                 if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+        }
+        
+        if (1) {
+            std::vector<int> ells(nln, -1);
+            {   int iln = 0;
+                for(int ell = 0; ell <= numax; ++ell) {
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        ells[iln] = ell;
+                        ++iln;
+                    }
+                }
+            }
+            printf("\n");            
+            for(int i01 = 0; i01 < 2; ++i01) {
+                auto const input_ln = i01 ?  overlap_ln : hamiltonian_ln;
+                auto const label_qn = i01 ? "overlap"   : "hamiltonian" ;
+                for(int iln = 0; iln < nln; ++iln) {
+                    printf("# %s spherical%3i %s ", label, iln, label_qn);
+                    for(int jln = 0; jln < nln; ++jln) {
+                        printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*true_norm[jln]*input_ln[iln*nln + jln] : 0);
+                    }   printf("\n");
+                }   printf("\n");
+            } // i01
+        } // 1
+        
+    } // update_spherical_matrix_elements
+    
     
     void set_pure_density_matrix(double density_matrix[], float const occ_spdf[4]=nullptr, int const echo=0) {
         float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) set(occ, 4, occ_spdf);
@@ -1964,6 +2053,7 @@ extern "C" {
     void update_potential(float const mixing, double const ves_multipoles[], int const echo=0) {
         if (echo > 2) printf("\n# %s %s\n", label, __func__);
         update_full_potential(mixing, ves_multipoles, echo);
+        update_spherical_matrix_elements(echo); // test logarithmic derivative
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
