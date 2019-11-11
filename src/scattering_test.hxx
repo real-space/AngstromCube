@@ -21,7 +21,7 @@ typedef int status_t;
 
 namespace scattering_test {
 
-  int constexpr SRA = 1, TRU=0, SMT=1, TRU_AND_SMT=2;
+  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
 
   template<typename real_t>
   inline real_t arcus_tangent(real_t const nom, real_t const den) {
@@ -91,9 +91,17 @@ namespace scattering_test {
       status_t stat = 0;
       
       double const dE = std::max(1e-9, energy_range[1]);
+#define _SELECTED_ENERGIES_LOGDER
+#ifdef  _SELECTED_ENERGIES_LOGDER
+      int const nen = 6;
+      double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
+#else
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
       if (echo > 0) printf("\n## logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                         energy_range[0]*eV, (energy_range[0] + (nen - 1)*dE)*eV, nen, dE*eV, _eV);
+      
+#endif
+      
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
       int const mr = align<2>(rg[TRU]->n);
       auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component, TRU grid
@@ -104,8 +112,9 @@ namespace scattering_test {
       int nln = 0; for(int ell = 0; ell <= lmax; ++ell) nln += nn[ell];
       int const stride = mr;
 
-      int const count_smt_nodes = 0; // 1 or 0 switch
-      auto const rphi = new double[count_smt_nodes*9*rg[SMT]->n + 1];
+      int const node_count = 1; // 1 or 0 switch
+      auto const rphi = new double[node_count*9*rg[SMT]->n + 1];
+      auto const rtru = new double[node_count*rg[TRU]->n];
 
       auto const rprj = new double[nln*stride]; // mr might be much larger than needed since mr is taken from the TRU grid
       { // scope: preparation for the projector functions
@@ -127,15 +136,20 @@ namespace scattering_test {
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
       for(int ien = 0; ien <= nen; ++ien) {
+#ifdef  _SELECTED_ENERGIES_LOGDER
+          auto const energy = energy_list[ien];
+#else
           auto const energy = energy_range[0] + ien*dE;
+#endif
 //        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
-          if (echo > 0) printf("%.6f ", energy*eV);
+          if (echo > 0) printf("# %.6f", energy*eV);
           int iln_off = 0;
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
               double deriv[9], value[9];
               double mat[99], gfp[99], x[9];
+              double mat2[99];
               int nnodes[1 + 9];
               int const n = nn[ell];
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -143,17 +157,21 @@ namespace scattering_test {
 
                   for(int jrn = 0; jrn <= n*ts; ++jrn) {
                       bool const inhomgeneous = ((SMT == ts) && (jrn > 0));
+                      printf("# find %s %shomgeneous solution for ell=%i E=%g %s\n", (TRU == ts)?"true":"smooth",
+                             (inhomgeneous)?"in":"", ell, energy*eV,_eV); // DEBUG
                       int const nrn = jrn - 1, iln = iln_off + nrn;
                       double* const rp = (inhomgeneous) ? &rprj[iln*stride] : nullptr;
+                      int constexpr SRA = 1; // use the scalar relativistic approximation
                       nnodes[ts + jrn] = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
                                                                      gg, ff, ir_stop[ts], &deriv[jrn], rp);
-//                    if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU], gg);
+//                    if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg);
+                      if ((TRU == ts) && node_count) set(rtru, ir_stop[TRU] + 1, gg);
                       value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
                       if (SMT == ts) {
-                          if (count_smt_nodes) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts], gg); // store radial solution
+                          if (node_count) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts] + 1, gg); // store radial solution
                           for(int krn = 0; krn < n; ++krn) {
                               // compute the inner products of the solution with the projectors
-                              gfp[jrn*n + krn] = dot_product(rg[SMT]->n, &rprj[krn*stride], gg, rg[SMT]->dr);
+                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, &rprj[krn*stride], gg, rg[SMT]->dr);
                           } // krn
                       } // SMT == ts
                   } // jrn
@@ -167,28 +185,44 @@ namespace scattering_test {
                       for(int i = 0; i < n; ++i) {
                           for(int k = 0; k < n0; ++k) {
                               for(int j = 0; j < n; ++j) {
-                                  mat[k*n0 + i] += gfp[k*n + j] * ( aHm[(i + iln_off)*nln + (j + iln_off)]
-                                                         - energy * aSm[(i + iln_off)*nln + (j + iln_off)] );
+                                  mat[k*n0 + (i+1)] += gfp[k*n + j] * ( aHm[(i + iln_off)*nln + (j + iln_off)]
+                                                             - energy * aSm[(i + iln_off)*nln + (j + iln_off)] );
                               } // j
                           } // k
                       } // i
                       for(int i = 0; i < n0; ++i) {
                           mat[i*n0 + i] += 1.0; // add unity matrix
                       } // i
-//                    int const solving_status = linear_solve(x, n0, mat);
+                      set(mat2, n0*n0, mat); // copy
                       auto const solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
                       stat += solving_status;
                       nnodes[SMT] = 0;
                       if (0 == solving_status) {
                           nx = n0; // successful --> linear combination with all n0 elements
                           
-                          if (count_smt_nodes) {
-                              scale(rphi, rg[SMT]->n, x[0]);
+                          if (1) { // scope: verify
+                              printf("# scattering_test linear solve test: ");
+                              for(int i = 0; i < n0; ++i) {
+                                  double bi = 0; for(int j = 0; j < n0; ++j) bi += x[j]*mat2[j*n0 + i];
+                                  printf(" %g", bi);
+                              }   printf("\n");
+                          } // scope
+
+                          if (node_count) {
+                              scale(rphi, rg[SMT]->n, x[0]); // scale the homogeneous solution with x[0]
                               for(int i = 1; i < n0; ++i) {
-                                  add_product(rphi, rg[SMT]->n, &rphi[i*rg[SMT]->n], x[i]);
+                                  add_product(rphi, rg[SMT]->n, &rphi[i*rg[SMT]->n], x[i]); // add inhom. solutions
                               } // i
-                              nnodes[SMT] = count_nodes(ir_stop[SMT], rphi);
-                          } // count_smt_nodes
+                              nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rphi);
+                              if (echo > 8) {
+                                  auto const scal = rtru[ir_stop[TRU]]/rphi[ir_stop[SMT]]; // match in value at end point
+                                  printf("\n## scattering solution for ell=%i E=%g %s (r,tru,smt):\n", ell, energy*eV,_eV);
+                                  for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
+                                      printf("%g\t%g %g\n", rg[SMT]->r[ir], rtru[ir + nr_diff], rphi[ir]*scal);
+//                                    printf("\t%g %g\n", rV[TRU][ir + nr_diff], rV[SMT][ir]); // compare potentials
+                                  }   printf("\n\n");
+                              } // echo
+                          } // node_count
 
                       } else {
                           ++linsolfail[ell];
@@ -199,8 +233,8 @@ namespace scattering_test {
                   vg[ts] = dot_product(nx, x, value); // value of the greater component at Rlog
                   dg[ts] = dot_product(nx, x, deriv); // derivative
 
-                  double const node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
-                  if (echo > 0) printf(" %.6f", node_count);
+                  double const generalized_node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
+//                   if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', generalized_node_count);
               } // ts
               iln_off += n;
           } // ell
@@ -256,8 +290,8 @@ namespace scattering_test {
       
       int const stride = align<2>(nr); assert(stride >= nr);
       // allocate Hamiltonian and overlap matrix
-      auto const Ham = new double[(2*nr + 1)*stride], Ovl = &Ham[1*nr*stride], 
-                 eigs = &Ham[2*nr*stride]; // work = &Ham[(2*nr + 1)*stride]
+      auto const Ham = new double[(3*nr + 1)*stride], Ovl = &Ham[1*nr*stride], 
+                   Ovl_copy = &Ham[2*nr*stride],     eigs = &Ham[3*nr*stride];
 
       int nln = 0; int mprj = 0; 
       for(int ell = 0; ell <= lmax; ++ell) {
@@ -313,6 +347,8 @@ namespace scattering_test {
               } // jr
           } // ir
           
+          set(Ovl_copy, nr*stride, Ovl); // copy
+          
           { // scope: diagonalize
               // solve the generalized eigenvalue problem
               auto const info = linear_algebra::generalized_eigenvalues(nr, Ham, stride, Ovl, stride, eigs);
@@ -347,6 +383,18 @@ namespace scattering_test {
                   
               } else { // info
                   if (echo > 2) printf("# diagonalization for ell=%i returned info=%i\n", ell, info);
+                  
+                  // diagonalize Ovl_copy, standard eigenvalue problem
+                  linear_algebra::eigenvalues(nr, Ovl_copy, stride, eigs);
+                  if (eigs[0] <= 0) { // warn
+                      if (echo > 0) printf("# %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", __func__, ell, eigs[0]);
+                  } // overlap matrix is not positive definite
+                  if (echo > 1) {
+                      printf("# %s ell=%i eigenvalues of the overlap matrix", __func__, ell);
+                      for(int iev = 0; iev < 8; ++iev) {
+                          printf(" %g", eigs[iev]);
+                      }   printf("\n");
+                  } // echo
                   ++stat;
               } // info
           } // scope: diagonalize

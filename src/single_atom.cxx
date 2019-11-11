@@ -836,7 +836,7 @@ extern "C" {
                         } // krn
                         
                         if (echo > 7) {
-                            printf("\n");
+//                          printf("\n");
                             for(int krn = 0; krn < nn[ell]; ++krn) {
                                 printf("# %s curvature|overlap for i=%i ", label, krn);
                                 for(int jrn = 0; jrn < nn[ell]; ++jrn) {
@@ -844,7 +844,7 @@ extern "C" {
                                 } // jrn
                                 printf("\n");
                             } // krn
-                            printf("\n");
+//                          printf("\n");
                         } // echo
                         
                         { // scope: minimize the radial curvature of the smooth partial wave
@@ -1271,7 +1271,7 @@ extern "C" {
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
-                if (1) {
+                if (0) {
                     auto const wave_i = valence_state[iln].wave[ts];
                     auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
                     true_norm[iln] = 1./std::sqrt(norm2);
@@ -1523,7 +1523,7 @@ extern "C" {
                     if (echo > 0) printf("# %s %s density has %g electrons after adding the core density\n", label, 
                      (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
                 } else {
-                    set(&(full_density[ts][lm*mr]), nr, 0.0); // clear
+                    set(&(full_density[ts][lm*mr]), mr, 0.0); // clear
                 }
                 for(int iln = 0; iln < nln; ++iln) {
                     auto const wave_i = valence_state[iln].wave[ts];
@@ -1592,7 +1592,7 @@ extern "C" {
             // full_potential[ts][nlm*mr]; // memory layout
 
             auto const on_grid = new double[2*npt*mr];
-            // set(on_grid, npt*mr, 0.0); // clear
+            set(on_grid, 2*npt*mr, 0.0); // clear
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
@@ -1862,8 +1862,10 @@ extern "C" {
                 } // scope
 #endif
                 // find the eigenstates of the spherical Hamiltonian
-                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
+                if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+//                 scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
+//                                                     hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
+                
             }
                 
             // scan the logarithmic derivatives
