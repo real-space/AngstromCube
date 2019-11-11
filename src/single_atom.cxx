@@ -195,6 +195,7 @@ extern "C" {
       char label[16]; // label string
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
+      int nr_diff;
       ell_QN_t ellmax; // limit ell for full_potential and full_density
       double r_cut; // classical augmentation radius for potential and core density
       int ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
@@ -415,11 +416,11 @@ extern "C" {
         } // valence states
         delete[] r2rho;
 
-        int irc = 0; while (rg[SMT]->r[irc] < r_cut) ++irc; // find the radial index of r_cut on the smooth radial grid
-        ir_cut[SMT] = irc;
-        ir_cut[TRU] = irc + rg[TRU]->n - rg[SMT]->n;
+        nr_diff = rg[TRU]->n - rg[SMT]->n;
+        ir_cut[SMT] = radial_grid::find_grid_index(*rg[SMT], r_cut);
+        ir_cut[TRU] = ir_cut[SMT] + nr_diff;
         if (echo > 0) printf("# %s pseudize the core density at r[%d or %d] = %.6f, requested %.3f %s\n", 
-                              label, ir_cut[SMT], ir_cut[TRU], rg[SMT]->r[irc]*Ang, r_cut*Ang, _Ang);
+                              label, ir_cut[SMT], ir_cut[TRU], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
         assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
         aug_density     = new double[nlm_aug*nrs]; // get memory
@@ -458,7 +459,6 @@ extern "C" {
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
         
-        int const nr_diff = rg[TRU]->n - rg[SMT]->n;
         {   // construct initial smooth spherical potential
             set(potential[SMT], rg[SMT]->n, potential[TRU] + nr_diff); // copy the tail of the spherical part of r*V_tru(r)
             if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
@@ -641,7 +641,6 @@ extern "C" {
 
         { // scope: pseudize the core density
             int const nrs = rg[SMT]->n;
-            int const nr_diff = nr - nrs;
             // copy the tail of the true core density into the smooth core density
             set(core_density[SMT], nrs, core_density[TRU] + nr_diff);
 
@@ -680,7 +679,6 @@ extern "C" {
         auto const smt_waveTi = new double[rg[SMT]->n];
 #endif
         int const nln = nvalencestates;
-        int const nr_diff = rg[TRU]->n - rg[SMT]->n;
 
 #define SHO_PartialWaves
 #ifdef  SHO_PartialWaves
@@ -1280,8 +1278,8 @@ extern "C" {
         } // scope
         
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const nr = rg[ts]->n;
-//             int const nr = ir_cut[ts]; // integrate only up to the matching radius
+//             int const nr = rg[ts]->n;
+            int const nr = ir_cut[ts]; // integrate only up to the matching radius
             auto const rl = new double[nr];
             auto const wave_r2rl_dr = new double[nr];
             if (echo > 1) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
@@ -1674,7 +1672,6 @@ extern "C" {
 
         // construct the zero_potential V_bar
         auto const V_smt = new double[rg[SMT]->n];
-        int const nr_diff = rg[TRU]->n - rg[SMT]->n;
         set(V_smt, rg[SMT]->n, full_potential[TRU] + nr_diff); // copy the tail of the spherical part of the true potential
         set(zero_potential, rg[SMT]->n, 0.0); // init zero
         auto const df = Y00*eV; assert(df > 0); // display factor
@@ -1836,7 +1833,7 @@ extern "C" {
                 auto const result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
                 scattering_test::emm_average(result_ln, input_lmn, (int)numax, nn);
                 for(int iln = 0; iln < nln; ++iln) {
-                    printf("# %s emm-averaged %2i %s ", label, iln, label_inp);
+                    printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
                     for(int jln = 0; jln < nln; ++jln) {
                         printf(" %g", true_norm[iln]*true_norm[jln]*result_ln[iln*nln + jln]);
                     }   printf("\n");

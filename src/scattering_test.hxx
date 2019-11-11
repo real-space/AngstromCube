@@ -150,8 +150,9 @@ namespace scattering_test {
               double deriv[9], value[9];
               double mat[99], gfp[99], x[9];
               double mat2[99];
-              int nnodes[1 + 9];
+              int nnodes[9];
               int const n = nn[ell];
+              assert(n < 9);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                   int success = 1;
 
@@ -172,6 +173,7 @@ namespace scattering_test {
                           for(int krn = 0; krn < n; ++krn) {
                               // compute the inner products of the solution with the projectors
                               gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, &rprj[krn*stride], gg, rg[SMT]->dr);
+//                            printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", ell, energy*eV,_eV, jrn, krn, gfp[jrn*n + krn]);
                           } // krn
                       } // SMT == ts
                   } // jrn
@@ -182,23 +184,33 @@ namespace scattering_test {
                   if ((SMT == ts) && n > 0) {
                       int const n0 = 1 + n;
                       set(mat, n0*n0, 0.0); // clear
-                      for(int i = 0; i < n; ++i) {
-                          for(int k = 0; k < n0; ++k) {
-                              for(int j = 0; j < n; ++j) {
-                                  mat[k*n0 + (i+1)] += gfp[k*n + j] * ( aHm[(i + iln_off)*nln + (j + iln_off)]
-                                                             - energy * aSm[(i + iln_off)*nln + (j + iln_off)] );
-                              } // j
-                          } // k
-                      } // i
                       for(int i = 0; i < n0; ++i) {
-                          mat[i*n0 + i] += 1.0; // add unity matrix
+                          mat[i*n0 + i] = 1.0; // unity matrix
                       } // i
+                      for(int irn = 0; irn < n; ++irn) {
+                          for(int jrn = 0; jrn < n0; ++jrn) {
+                              for(int krn = 0; krn < n; ++krn) {
+                                  mat[jrn*n0 + (1 + irn)] += gfp[jrn*n + krn] * ( aHm[(irn + iln_off)*nln + (krn + iln_off)]
+                                                                       - energy * aSm[(irn + iln_off)*nln + (krn + iln_off)] );
+                              } // krn
+                          } // jrn
+                      } // irn
+                      
                       set(mat2, n0*n0, mat); // copy
                       auto const solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
                       stat += solving_status;
                       nnodes[SMT] = 0;
                       if (0 == solving_status) {
                           nx = n0; // successful --> linear combination with all n0 elements
+
+                          if (echo > 8) { // show the problem
+                              for(int i = 0; i < n0; ++i) {
+                                  printf("# scattering_test mat[%i] ", i);
+                                  for(int j = 0; j < n0; ++j) {
+                                      printf("\t%g", mat2[i*n0 + j]);
+                                  }   printf(" \t x[%i] = %g\n", i, x[i]);
+                              } // i
+                          } // echo
                           
                           if (1) { // scope: verify
                               printf("# scattering_test linear solve test: ");
@@ -209,10 +221,13 @@ namespace scattering_test {
                           } // scope
 
                           if (node_count) {
-                              scale(rphi, rg[SMT]->n, x[0]); // scale the homogeneous solution with x[0]
+                              scale(rphi, ir_stop[SMT] + 1, x[0]); // scale the homogeneous solution with x[0]
+                              if (echo > 8) printf("# scattering solution for ell=%i E=%g %s coefficients %g", ell, energy*eV,_eV, x[0]);
                               for(int i = 1; i < n0; ++i) {
-                                  add_product(rphi, rg[SMT]->n, &rphi[i*rg[SMT]->n], x[i]); // add inhom. solutions
+                                  if (echo > 8) printf(" %g", ell, energy*eV,_eV, x[i]);
+                                  add_product(rphi, ir_stop[SMT] + 1, &rphi[i*rg[SMT]->n], x[i]); // add inhom. solutions
                               } // i
+                              if (echo > 8) printf("\n");
                               nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rphi);
                               if (echo > 8) {
                                   auto const scal = rtru[ir_stop[TRU]]/rphi[ir_stop[SMT]]; // match in value at end point
@@ -236,6 +251,7 @@ namespace scattering_test {
                   double const generalized_node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 //                   if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', generalized_node_count);
               } // ts
+              if (echo > 0) printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
               iln_off += n;
           } // ell
           if (echo > 0) printf("\n");
