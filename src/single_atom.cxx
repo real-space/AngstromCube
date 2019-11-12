@@ -709,7 +709,7 @@ extern "C" {
             {   int nrns[9]; std::iota(nrns, nrns + nn[ell], 0);
                 int ells[9]; std::fill(ells, ells + nn[ell], ell);
                 scattering_test::expand_sho_projectors(SHO_rprj, align<2>(rg[SMT]->n), *rg[SMT], 
-                                                              sigma, nn[ell], nrns, ells, 1, 0);
+                                                              sigma, nn[ell], nrns, ells, 1, echo/2);
             }
             
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
@@ -1840,8 +1840,7 @@ extern "C" {
                 }   printf("\n");
             } // i01
             
-            {
-#if 0              
+            if (1) {
                 double const V_rmax = full_potential[SMT][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1849,27 +1848,18 @@ extern "C" {
                         Vsmt[ir] = full_potential[SMT][0 + ir]*Y00 - V_rmax;
                     } // ir
                 } // scope
-#else              
-                double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
-                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
-                { // scope: prepare a smooth local potential which goes to zero at Rmax
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
-                    } // ir
-                } // scope
-#endif
-                // find the eigenstates of the spherical Hamiltonian
-//              if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
-                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
                 
-            }
+                // find the eigenstates of the spherical Hamiltonian
+                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
+                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
+                
+            } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
                 
             // scan the logarithmic derivatives
-            if (0) {
-                double const energy_range[] = {-2., 1e-5, 0.5};
+            if (1) {
+                double const energy_range[] = {-2., 1e-4, 0.5};
                 scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
-                                                 hamiltonian_ln, overlap_ln, energy_range, 9);
+                                                 hamiltonian_ln, overlap_ln, energy_range, 11);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
             
             delete[] emm_averaged;
@@ -1939,13 +1929,15 @@ extern "C" {
         } // scope
         delete[] potential_ln;
 
-        // scan the logarithmic derivatives
-        double const energy_range[] = {-2., 1e-3, 0.5};
-        scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
-                                              hamiltonian_ln, overlap_ln, energy_range, 9);
+        if (0) {
+            // scan the logarithmic derivatives
+            double const energy_range[] = {-2., 1e-3, 0.5};
+            scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
+                                                  hamiltonian_ln, overlap_ln, energy_range, 2);
+        } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
 
         
-        {
+        if (1) {
                 double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1956,11 +1948,11 @@ extern "C" {
 
                 // find the eigenstates of the spherical Hamiltonian
                 scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 5);
-//                 if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
-        }
+                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
+//                 
+        } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
         
-        if (1) {
+        if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
             {   int iln = 0;
                 for(int ell = 0; ell <= numax; ++ell) {
