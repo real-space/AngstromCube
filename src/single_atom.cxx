@@ -22,7 +22,7 @@
 #include "energy_level.hxx" // core_level_t, valence_level_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
-#include "simple_math.hxx" // invert2x2, invert3x3
+#include "simple_math.hxx" // invert
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // transform_to_r2_grid
 #include "scattering_test.hxx" // eigenstate_analysis, emm_average
@@ -1075,11 +1075,9 @@ extern "C" {
                     } // krn
                 } // nrn
                 
-                double det, inv[msub*msub];
-                if (1 == nn[ell]) det = simple_math::invert1x1(inv, msub, ovl, msub); else
-                if (2 == nn[ell]) det = simple_math::invert2x2(inv, msub, ovl, msub); else
-                if (3 == nn[ell]) det = simple_math::invert3x3(inv, msub, ovl, msub); else
-                exit(__LINE__); // error not implemented
+                double inv[msub*msub];
+                if (nn[ell] > 4) exit(__LINE__); // error not implemented
+                double const det = simple_math::invert(nn[ell], inv, msub, ovl, msub);
                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
 
                 // make a new linear combination
