@@ -34,7 +34,9 @@ typedef int status_t;
 #include "sho_radial.hxx" // all_tests
 #include "sho_tools.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
+#include "data_view.hxx" // all_tests
 #include "overlap.hxx" // all_tests
+#include "control.hxx" // all_tests
 #include "spherical_harmonics.hxx" // no test implemented
 
 #include "recorded_warnings.hxx" // show_warnings, clear_warnings
@@ -79,7 +81,9 @@ typedef int status_t;
           module_test("sho_radial.",                 sho_radial::all_tests);
           module_test("sho_tools.",                   sho_tools::all_tests);
           module_test("atom_core.",                   atom_core::all_tests);
+          module_test("data_view.",                   data_view::all_tests);
           module_test("overlap.",                       overlap::all_tests);
+          module_test("control.",                       control::all_tests);
 #undef    module_test
       } // testing scope
 

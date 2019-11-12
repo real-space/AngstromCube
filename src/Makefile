@@ -29,6 +29,7 @@ OBJ = \
 	sho_projection.o \
 	finite_difference.o \
 	recorded_warnings.o \
+	control.o \
 	main.o
 
 ifdef ENABLEGPU
