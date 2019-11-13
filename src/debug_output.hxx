@@ -38,3 +38,5 @@ int dump_to_file(
     if (echo) printf("# file %s written with %d x %d (of %d) data entries.\n", filename, N, M, Stride);
     return 0;
 } // dump_to_file
+
+#define here { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); fflush(stdout); }

@@ -27,6 +27,7 @@
 #include "bessel_transform.hxx" // transform_to_r2_grid
 #include "scattering_test.hxx" // eigenstate_analysis, emm_average
 #include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
+#include "data_view.hxx" // view2D<T>
 #include "control.hxx" // get
 
 // #define FULL_DEBUG
@@ -1842,7 +1843,6 @@ extern "C" {
         } // echo
         
         if (1) { // debug: check if averaging over emm gives back the same operators
-            printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
             auto const emm_averaged = new double[2*nln*nln];
             auto const hamiltonian_ln = emm_averaged, overlap_ln = &emm_averaged[nln*nln];
             for(int i01 = 0; i01 < 2; ++i01) {
@@ -1859,6 +1859,7 @@ extern "C" {
             } // i01
             
             if (0) {
+                printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 double const V_rmax = full_potential[SMT][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1910,42 +1911,41 @@ extern "C" {
     void update_spherical_matrix_elements(int const echo=0) {
         int const nln = nvalencestates;
 
-        auto const potential_ln = new double[nln*nln][TRU_AND_SMT]; // emm1-emm2-degenerate, no emm0-dependency
+        view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // emm1-emm2-degenerate, no emm0-dependency
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const nr = rg[ts]->n, mr = align<2>(nr);
-            auto const wave_pot_r2dr = new double[mr];
+            int const nr = rg[ts]->n;
+            auto _w = std::vector<double>(nr); auto const wave_pot_r2dr = _w.data();
             for(int iln = 0; iln < nln; ++iln) {
                 auto const wave_i = valence_state[iln].wave[ts];
                 // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights 
                 product(wave_pot_r2dr, nr, wave_i, potential[ts], rg[ts]->rdr); 
                 for(int jln = 0; jln < nln; ++jln) {
                     auto const wave_j = valence_state[jln].wave[ts];
-                    potential_ln[iln*nln + jln][ts] = dot_product(nr, wave_pot_r2dr, wave_j);
+//                     potential_ln[iln*nln + jln][ts] = dot_product(nr, wave_pot_r2dr, wave_j);
+                    potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr, wave_j);
                 } // jln
             } // iln
-            delete[] wave_pot_r2dr;
         } // ts: true and smooth
 
-        auto const hamiltonian_ln = new double[2*nln*nln], 
-                   overlap_ln = hamiltonian_ln + nln*nln;
-        set(hamiltonian_ln, 2*nln*nln, 0.0); // clear hamiltonian and overlap
+        view2D<double> hamiltonian_ln(nln, nln); 
+        view2D<double> overlap_ln    (nln, nln);
         { // scope
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
-                    hamiltonian_ln[iln*nln + jln] =
+                    hamiltonian_ln[iln][jln] =
                         ( kinetic_energy[iln*nln + jln][TRU]
                         - kinetic_energy[iln*nln + jln][SMT] )
-                        + ( potential_ln[iln*nln + jln][TRU]
-                          - potential_ln[iln*nln + jln][SMT] );
-                    overlap_ln[iln*nln + jln] =
+                        + ( potential_ln(TRU,iln,jln)
+                          - potential_ln(SMT,iln,jln) )
+                        ;
+                    overlap_ln[iln][jln] =
                         ( charge_deficit[iln*nln + jln][TRU]
                         - charge_deficit[iln*nln + jln][SMT] ); // ell=0
                 } // jln
             } // iln
         } // scope
-        delete[] potential_ln;
-
-        
+//      delete[] potential_ln;
+     
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
             {   for(int iln = 0, ell = 0; ell <= numax; ++ell)
@@ -1954,12 +1954,12 @@ extern "C" {
             }
             printf("\n");            
             for(int i01 = 0; i01 < 2; ++i01) {
-                auto const input_ln = i01 ?  overlap_ln : hamiltonian_ln;
-                auto const label_qn = i01 ? "overlap"   : "hamiltonian" ;
+                auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
+                auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
                 for(int iln = 0; iln < nln; ++iln) {
                     printf("# %s spherical%3i %s ", label, iln, label_qn);
                     for(int jln = 0; jln < nln; ++jln) {
-                        printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*true_norm[jln]*input_ln[iln*nln + jln] : 0);
+                        printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln[iln][jln]*true_norm[jln] : 0);
                     }   printf("\n");
                 }   printf("\n");
             } // i01
@@ -1977,18 +1977,17 @@ extern "C" {
 
                 // find the eigenstates of the spherical Hamiltonian
                 scattering_test::eigenstate_analysis
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, 384, V_rmax, 12);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 12);
 //                 
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
         if (1) {
             // scan the logarithmic derivatives
             scattering_test::logarithmic_derivative
-              (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, logder_energy_range, 2);
+              (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
 
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-        delete[] hamiltonian_ln;
     } // update_spherical_matrix_elements
     
     
