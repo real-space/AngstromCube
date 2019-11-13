@@ -72,7 +72,7 @@ namespace scattering_test {
   } // expand_sho_projectors
   
 
-// #define _SELECTED_ENERGIES_LOGDER
+#define _SELECTED_ENERGIES_LOGDER
   
   inline status_t logarithmic_derivative(
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
@@ -98,12 +98,15 @@ namespace scattering_test {
 
 #ifdef  _SELECTED_ENERGIES_LOGDER
       int const nen = 6;
-      double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
+//    double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
+//    int const ell_start = 0;
+      double const energy_list[nen] = {-0.359751, -0.221950, 0.047733, -0.045238,  0.120905, 0.181009}; // check the Cu d-eigenstate
+      int const ell_start = 2;
 #else
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
       if (echo > 0) printf("\n## logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
-                        energy_range[0]*eV, (energy_range[0] + (nen - 1)*dE)*eV, nen, dE*eV, _eV);
-      
+                        energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
+      int const ell_start = 0; // ToDo: delete this variable after debugging
 #endif
       
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
@@ -142,7 +145,7 @@ namespace scattering_test {
       for(int ien = 0; ien <= nen; ++ien) {
 #ifdef  _SELECTED_ENERGIES_LOGDER
           auto const energy = energy_list[ien];
-          if (echo > 0) printf("# ");
+          if (echo > 0) printf("# %s energy = ", __func__);
 #else
           auto const energy = energy_range[0] + ien*dE;
 #endif
@@ -150,7 +153,7 @@ namespace scattering_test {
           
           if (echo > 0) printf("%.6f", energy*eV);
           int iln_off = 0;
-          for(int ell = 0; ell <= lmax; ++ell) 
+          for(int ell = ell_start; ell <= lmax; ++ell) 
           { // ell-loop
               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
               double deriv[9], value[9];
@@ -255,13 +258,13 @@ namespace scattering_test {
                               nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rphi);
                               if (echo > 9) {
                                   auto const scal = rtru[ir_stop[TRU]]/rphi[ir_stop[SMT]]; // match in value at end point
+                                  auto const s = 1./std::sqrt(dot_product(ir_stop[TRU] + 1, rtru, rtru, rg[TRU]->dr)); // normalize
                                   printf("\n## scattering solution for ell=%i E=%g %s (r,tru,smt,diff):\n", ell, energy*eV,_eV);
                                   for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
-                                      printf("%g\t%g %g %g\n", rg[SMT]->r[ir], rtru[ir + nr_diff], rphi[ir]*scal, 
-                                             rtru[ir + nr_diff] - rphi[ir]*scal);
+                                      printf("%g\t%g %g %g\n", rg[SMT]->r[ir], s*rtru[ir + nr_diff] , rphi[ir]*scal*s, 
+                                                                                (rtru[ir + nr_diff] - rphi[ir]*scal)*s);
 //                                    printf("\t%g %g\n", rV[TRU][ir + nr_diff], rV[SMT][ir]); // compare potentials
                                   }   printf("\n\n");
-                                  printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG
                               } // echo
                           } // node_count
 
@@ -276,7 +279,7 @@ namespace scattering_test {
 
                   double const generalized_node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #ifdef  _SELECTED_ENERGIES_LOGDER
-                  if (echo > 0) printf("# ");
+                  if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
                   if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', generalized_node_count);
 #ifdef  _SELECTED_ENERGIES_LOGDER
@@ -284,6 +287,9 @@ namespace scattering_test {
 #endif
               } // ts
 //            if (echo > 0) printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
+#ifdef  _SELECTED_ENERGIES_LOGDER
+              printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG
+#endif              
               iln_off += n;
           } // ell
           if (echo > 0) printf("\n");

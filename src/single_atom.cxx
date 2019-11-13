@@ -27,6 +27,7 @@
 #include "bessel_transform.hxx" // transform_to_r2_grid
 #include "scattering_test.hxx" // eigenstate_analysis, emm_average
 #include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
+#include "control.hxx" // get
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -212,6 +213,8 @@ extern "C" {
       int nspins; // 1 or 2 or 4
       double* unitary_zyx_lmn; // unitary sho transformation matrix [Cartesian][Radial], stride=nSHO(numax)
 
+      double logder_energy_range[3]; // [start, increment, stop]
+      
       // spin-resolved members of LiveAtom
       core_level_t* core_state;  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       valence_level_t* valence_state;
@@ -458,6 +461,13 @@ extern "C" {
         lmn_end.resize(mlm);
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
         
+
+        logder_energy_range[0] = control::get("logder.start", -2.0, echo);
+        logder_energy_range[1] = control::get("logder.step",  1e-3, echo);
+        logder_energy_range[2] = control::get("logder.stop",   1.0, echo);
+        if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n", 
+            label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
+
         
         {   // construct initial smooth spherical potential
             set(potential[SMT], rg[SMT]->n, potential[TRU] + nr_diff); // copy the tail of the spherical part of r*V_tru(r)
@@ -721,7 +731,8 @@ extern "C" {
     //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
                 set(vs.wave[TRU], nr, 0.0); // clear
 
-                if ((0 == nrn) || (vs.occupation > 0)) {
+//                 if ((0 == nrn) || (vs.occupation > 0)) {
+                if (true) {
                     // solve for a true valence eigenstate
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho);
                 } else {
@@ -1847,7 +1858,7 @@ extern "C" {
                 }   printf("\n");
             } // i01
             
-            if (1) {
+            if (0) {
                 double const V_rmax = full_potential[SMT][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1857,16 +1868,15 @@ extern "C" {
                 } // scope
                 
                 // find the eigenstates of the spherical Hamiltonian
-                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
+                scattering_test::eigenstate_analysis
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
                 
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
                 
             // scan the logarithmic derivatives
-            if (1) {
-                double const energy_range[] = {-2., 1e-4, 0.5};
-                scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
-                                                 hamiltonian_ln, overlap_ln, energy_range, 2);
+            if (0) {
+                scattering_test::logarithmic_derivative
+                  (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, logder_energy_range, 2);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
             delete[] emm_averaged;
@@ -1916,10 +1926,9 @@ extern "C" {
             delete[] wave_pot_r2dr;
         } // ts: true and smooth
 
-        auto const hamiltonian_ln = new double[nln*nln];
-        auto const overlap_ln     = new double[nln*nln];
-        set(hamiltonian_ln, nln*nln, 0.0); // clear
-        set(overlap_ln,     nln*nln, 0.0); // clear
+        auto const hamiltonian_ln = new double[2*nln*nln], 
+                   overlap_ln = hamiltonian_ln + nln*nln;
+        set(hamiltonian_ln, 2*nln*nln, 0.0); // clear hamiltonian and overlap
         { // scope
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
@@ -1936,28 +1945,6 @@ extern "C" {
         } // scope
         delete[] potential_ln;
 
-        if (0) {
-            // scan the logarithmic derivatives
-            double const energy_range[] = {-2., 1e-3, 0.5};
-            scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
-                                                  hamiltonian_ln, overlap_ln, energy_range, 2);
-        } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-
-        
-        if (0) {
-                double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
-                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
-                { // scope: prepare a smooth local potential which goes to zero at Rmax
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
-                    } // ir
-                } // scope
-
-                // find the eigenstates of the spherical Hamiltonian
-                scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
-                                                    hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
-//                 
-        } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
@@ -1978,6 +1965,30 @@ extern "C" {
             } // i01
         } // 1
         
+        
+        if (1) {
+                double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
+                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
+                { // scope: prepare a smooth local potential which goes to zero at Rmax
+                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                        Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
+                    } // ir
+                } // scope
+
+                // find the eigenstates of the spherical Hamiltonian
+                scattering_test::eigenstate_analysis
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, 384, V_rmax, 12);
+//                 
+        } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
+        
+        if (1) {
+            // scan the logarithmic derivatives
+            scattering_test::logarithmic_derivative
+              (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, logder_energy_range, 2);
+
+        } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
+
+        delete[] hamiltonian_ln;
     } // update_spherical_matrix_elements
     
     
