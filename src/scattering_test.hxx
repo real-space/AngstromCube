@@ -117,14 +117,16 @@ namespace scattering_test {
 
       auto linsolfail = std::vector<size_t>(1 + lmax, 0);
       
-      int nln = 0; for(int ell = 0; ell <= lmax; ++ell) nln += nn[ell];
+      int iln = 0; for(int ell = 0; ell <= lmax; ++ell) iln += nn[ell];
+      int const nln = iln;
       int const stride = mr;
 
       int const node_count = 1; // 1 or 0 switch
-      auto const rphi = new double[node_count*9*rg[SMT]->n + 1];
-      auto const rtru = new double[node_count*rg[TRU]->n];
+//       auto const rphi = new double[node_count*9*rg[SMT]->n + 1];
+      view2D<double> rphi(node_count*9, align<2>(rg[SMT]->n));
+      auto rtru = std::vector<double>(node_count*rg[TRU]->n);
 
-      auto const rprj = new double[nln*stride]; // mr might be much larger than needed since mr is taken from the TRU grid
+      view2D<double> rprj(nln, stride); // mr might be much larger than needed since mr is taken from the TRU grid
       { // scope: preparation for the projector functions
           int ells[nln], nrns[nln], iln = 0;
           for(int ell = 0; ell <= lmax; ++ell) {
@@ -135,7 +137,7 @@ namespace scattering_test {
               } // nrn
           } // ell
           assert(nln == iln);
-          stat += expand_sho_projectors(rprj, stride, *rg[SMT], sigma, nln, nrns, ells, 1, 0);
+          stat += expand_sho_projectors(rprj.data(), rprj.stride(), *rg[SMT], sigma, nln, nrns, ells, 1, 0);
       } // scope
 
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], 9*sigma), rg[SMT]->n - 2);
@@ -171,18 +173,19 @@ namespace scattering_test {
 //                       printf("# find %s %shomgeneous solution for ell=%i E=%g %s\n", (TRU == ts)?"true":"smooth",
 //                              (inhomgeneous)?"in":"", ell, energy*eV,_eV); // DEBUG
                       int const nrn = jrn - 1, iln = iln_off + nrn;
-                      double const *const rp = inhomgeneous ? &rprj[iln*stride] : nullptr;
+                      double const *const rp = inhomgeneous ? rprj[iln] : nullptr;
                       int constexpr SRA = 1; // use the scalar relativistic approximation
                       nnodes[ts + jrn] = radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
                                                                      gg, ff, ir_stop[ts], &deriv[jrn], rp);
 //                    if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg);
-                      if ((TRU == ts) && node_count) set(rtru, ir_stop[TRU] + 1, gg);
+                      if ((TRU == ts) && node_count) set(rtru.data(), ir_stop[TRU] + 1, gg);
                       value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
                       if (SMT == ts) {
-                          if (node_count) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts] + 1, gg); // store radial solution
+                          if (node_count) set(rphi[jrn], ir_stop[ts] + 1, gg); // store radial solution
                           for(int krn = 0; krn < n; ++krn) {
                               // compute the inner products of the  projectors rprj with the solution gg
-                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, &rprj[(iln_off + krn)*stride], gg, rg[SMT]->dr);
+                              int const jln = iln_off + krn;
+                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, rprj[jln], gg, rg[SMT]->dr);
                               if (echo > 8) printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", 
                                                           ell, energy*eV,_eV, jrn, 1+krn, gfp[jrn*n + krn]);
                           } // krn
@@ -192,7 +195,7 @@ namespace scattering_test {
                                     (jrn)?"in":"", ell, energy*eV,_eV);
                               for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
                                   auto const r = rg[SMT]->r[ir];
-                                  printf("%g %g %g %g\n", r, gg[ir], (energy*r - rV[SMT][ir])*gg[ir], (jrn > 0)?rprj[iln*stride + ir]:0);
+                                  printf("%g %g %g %g\n", r, gg[ir], (energy*r - rV[SMT][ir])*gg[ir], (jrn > 0) ? rprj[iln][ir] : 0);
                               }   printf("\n\n");
                           } // echo
                           
@@ -249,21 +252,22 @@ namespace scattering_test {
                           } // scope
 
                           if (node_count) {
-                              scale(rphi, ir_stop[SMT] + 1, x[0]); // scale the homogeneous solution with x[0] (which is usually == 1)
+                              scale(rphi[0], ir_stop[SMT] + 1, x[0]); // scale the homogeneous solution with x[0] (which is usually == 1)
                               if (echo > 9) printf("# scattering solution for ell=%i E=%g %s coefficients %g", ell, energy*eV,_eV, x[0]);
                               for(int i = 1; i < n0; ++i) {
                                   if (echo > 9) printf(" %g", x[i]);
-                                  add_product(rphi, ir_stop[SMT] + 1, &rphi[i*rg[SMT]->n], x[i]); // add inhom. solutions
+                                  add_product(rphi[0], ir_stop[SMT] + 1, rphi[i], x[i]); // add inhom. solutions
                               } // i
                               if (echo > 9) printf("\n");
-                              nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rphi);
+                              auto const rsmt = rphi[0];
+                              nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rsmt);
                               if (echo > 9) {
-                                  auto const scal = rtru[ir_stop[TRU]]/rphi[ir_stop[SMT]]; // match in value at end point
-                                  auto const s = 1./std::sqrt(dot_product(ir_stop[TRU] + 1, rtru, rtru, rg[TRU]->dr)); // normalize
+                                  auto const scal = rtru[ir_stop[TRU]]/rsmt[ir_stop[SMT]]; // match in value at end point
+                                  auto const s = 1./std::sqrt(dot_product(ir_stop[TRU] + 1, rtru.data(), rtru.data(), rg[TRU]->dr)); // normalize
                                   printf("\n## scattering solution for ell=%i E=%g %s (r,tru,smt,diff):\n", ell, energy*eV,_eV);
                                   for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
-                                      printf("%g\t%g %g %g\n", rg[SMT]->r[ir], s*rtru[ir + nr_diff] , rphi[ir]*scal*s, 
-                                                                                (rtru[ir + nr_diff] - rphi[ir]*scal)*s);
+                                      printf("%g\t%g %g %g\n", rg[SMT]->r[ir], s*rtru[ir + nr_diff] , rsmt[ir]*scal*s, 
+                                                                                (rtru[ir + nr_diff] - rsmt[ir]*scal)*s);
 //                                    printf("\t%g %g\n", rV[TRU][ir + nr_diff], rV[SMT][ir]); // compare potentials
                                   }   printf("\n\n");
                               } // echo
@@ -302,7 +306,6 @@ namespace scattering_test {
           } // fail
       } // ell
 
-      delete[] rphi;
       return stat;
   } // logarithmic_derivative
   
