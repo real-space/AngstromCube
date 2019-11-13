@@ -430,7 +430,7 @@ namespace scattering_test {
 
                           printf("# projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", ell, iev, eigs[iev]*eV, _eV);
                           for(int nrn = 0; nrn < nprj; ++nrn) {
-                              printf("%12.6f", dot_product(nr, &evec[iev*stride], &rprj[nrn*stride])*std::sqrt(dr));
+                              printf("%12.6f", dot_product(nr, &evec[iev*stride], &rprj1[nrn*stride])*std::sqrt(dr));
                           }   printf("\n");
                       } // iev
                   } // echo
