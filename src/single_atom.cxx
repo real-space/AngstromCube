@@ -1752,7 +1752,6 @@ extern "C" {
         int const nln = nvalencestates;
         int const nSHO = sho_tools::nSHO(numax);
         int const nlmn = nSHO;
-        
         initialize_Gaunt();
         
         // first generate the matrix elemnts in the valence basis

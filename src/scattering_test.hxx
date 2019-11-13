@@ -329,9 +329,9 @@ namespace scattering_test {
       auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
           int const nq = nr/2; double const dq = .125;
-          auto const Vq = new double[nq];
-          stat += bessel_transform::transform_s_function(Vq, Vsmt, gV, nq, dq, false, 0);
-          stat += bessel_transform::transform_s_function(Vloc.data(), Vq, g, nq, dq, true, 0); // back=true
+          auto Vq = std::vector<double>(nq);
+          stat += bessel_transform::transform_s_function(Vq.data(), Vsmt, gV, nq, dq, false, 0);
+          stat += bessel_transform::transform_s_function(Vloc.data(), Vq.data(), g, nq, dq, true, 0); // back=true
           for(int ir = 0; ir < g.n; ++ir) {
               Vloc[ir] += Vshift;
           } // ir
@@ -340,9 +340,8 @@ namespace scattering_test {
               printf("\n## Vq:\n");   for(int iq = 0; iq < nq; ++iq) printf("%g %g\n", iq*dq, Vq[iq]); printf("\n\n");
               printf("\n## Vloc:\n"); for(int ir = 1; ir < nr; ++ir) printf("%g %g\n", g.r[ir], Vloc[ir]); printf("\n\n");
           } // echo
-          delete[] Vq;
       } // scope
-      
+
       int const stride = align<2>(nr); assert(stride >= nr);
       // allocate Hamiltonian and overlap matrix
       view2D<double> Ham(nr, stride); // get memory
@@ -356,7 +355,6 @@ namespace scattering_test {
           mprj = std::max(mprj, (int)nn[ell]);
       } // ell
       int const nln = iln;
-//       auto rprj = new double[mprj*stride]; // projector functions*r
       view2D<double> rprj(mprj, stride); // projector functions*r
 
       int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
@@ -394,7 +392,6 @@ namespace scattering_test {
               } // nrn
               stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, nprj, nrns, ells, 1, echo);
           } // scope
-//        auto const rprj1 = rprj + 1; // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
           view2D<double const> rprj1(rprj.data() + 1, rprj.stride()); // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
           // add the non-local dyadic operators to the Hamiltonian and overlap
