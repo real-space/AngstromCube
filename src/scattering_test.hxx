@@ -390,7 +390,8 @@ namespace scattering_test {
               } // nrn
               stat += expand_sho_projectors(rprj, stride, g, sigma, nprj, nrns, ells, 1, echo);
           } // scope
-          auto const rprj1 = rprj + 1; // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
+//        auto const rprj1 = rprj + 1; // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
+          view2D<double const> rprj1(rprj + 1, stride); // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
           // add the non-local dyadic operators to the Hamiltonian and overlap
           for(int ir = 0; ir < nr; ++ir) {
@@ -400,8 +401,10 @@ namespace scattering_test {
 //                           int const ijln = (ln_off + nrn)*nln + (ln_off + mrn);
 //                           Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm[ijln]*rprj1[mrn*stride + jr]*dr;
 //                           Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm[ijln]*rprj1[mrn*stride + jr]*dr;
-                          Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
-                          Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
+                          Ham[ir*stride + jr] += rprj1[nrn][ir]*aHm_ell[nrn][mrn]*rprj1[mrn][jr]*dr;
+                          Ovl[ir*stride + jr] += rprj1[nrn][ir]*aSm_ell[nrn][mrn]*rprj1[mrn][jr]*dr;
+//                           Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
+//                           Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
                       } // mrn
                   } // nrn
               } // jr
