@@ -16,6 +16,7 @@
 #include "radial_integrator.hxx" // integrate_outwards<SRA>
 #include "constants.hxx" // pi
 #include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
+#include "data_view.hxx" // view2D
 
 typedef int status_t;
 
@@ -314,8 +315,8 @@ namespace scattering_test {
               , double const sigma // sigma spread of SHO projectors
               , int const lmax // ellmax or numax of SHO projectors
               , uint8_t const nn[] // number of projectors per ell
-              , double const aHm[] // non-local Hamiltonian elements in ln_basis
-              , double const aSm[] // non-local overlap matrix elements
+              , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
+              , double const aSm[] // non-local overlap matrix elements, assume stride nln
               , int const nr=384 // number of radial grid points in equidistance mesh
               , int const Vshift=0 // potential shift
               , int const echo=2
@@ -347,11 +348,12 @@ namespace scattering_test {
       auto const Ham = new double[(3*nr + 1)*stride], Ovl = &Ham[1*nr*stride], 
                    Ovl_copy = &Ham[2*nr*stride],     eigs = &Ham[3*nr*stride];
 
-      int nln = 0; int mprj = 0; 
+      int iln = 0; int mprj = 0; 
       for(int ell = 0; ell <= lmax; ++ell) {
-          nln += nn[ell];
+          iln += nn[ell];
           mprj = std::max(mprj, (int)nn[ell]);
       } // ell
+      int const nln = iln;
       auto rprj = new double[mprj*stride]; // projector functions*r
 
       int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
@@ -361,6 +363,8 @@ namespace scattering_test {
       int ln_off = 0;
       for(int ell = 0; ell <= lmax; ++ell) {
           set(Ham, 2*nr*stride, 0.0); // clear Hamiltonian and overlap matrix
+          view2D<double const> aHm_ell(&aHm[ln_off*nln + ln_off], nln);
+          view2D<double const> aSm_ell(&aSm[ln_off*nln + ln_off], nln);
 
           // setup the local Hamiltonian
           for(int ir = 0; ir < nr; ++ir) {
@@ -393,9 +397,11 @@ namespace scattering_test {
               for(int jr = 0; jr < nr; ++jr) {
                   for(int nrn = 0; nrn < nprj; ++nrn) {
                       for(int mrn = 0; mrn < nprj; ++mrn) {
-                          int const ijln = (ln_off + nrn)*nln + (ln_off + mrn);
-                          Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm[ijln]*rprj1[mrn*stride + jr]*dr;
-                          Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm[ijln]*rprj1[mrn*stride + jr]*dr;
+//                           int const ijln = (ln_off + nrn)*nln + (ln_off + mrn);
+//                           Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm[ijln]*rprj1[mrn*stride + jr]*dr;
+//                           Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm[ijln]*rprj1[mrn*stride + jr]*dr;
+                          Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
+                          Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
                       } // mrn
                   } // nrn
               } // jr

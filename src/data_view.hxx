@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdio> // printf
 #include <cassert> // assert
 
