@@ -326,12 +326,12 @@ namespace scattering_test {
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
       
-      auto const Vloc = new double[g.n];
+      auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
           int const nq = nr/2; double const dq = .125;
           auto const Vq = new double[nq];
           stat += bessel_transform::transform_s_function(Vq, Vsmt, gV, nq, dq, false, 0);
-          stat += bessel_transform::transform_s_function(Vloc, Vq, g, nq, dq, true, 0); // back=true
+          stat += bessel_transform::transform_s_function(Vloc.data(), Vq, g, nq, dq, true, 0); // back=true
           for(int ir = 0; ir < g.n; ++ir) {
               Vloc[ir] += Vshift;
           } // ir
@@ -345,8 +345,10 @@ namespace scattering_test {
       
       int const stride = align<2>(nr); assert(stride >= nr);
       // allocate Hamiltonian and overlap matrix
-      auto const Ham = new double[(3*nr + 1)*stride], Ovl = &Ham[1*nr*stride], 
-                   Ovl_copy = &Ham[2*nr*stride],     eigs = &Ham[3*nr*stride];
+      view2D<double> Ham(nr, stride); // get memory
+      view2D<double> Ovl(nr, stride);
+      view2D<double> Ovl_copy(nr, stride);
+      std::vector<double> eigs(nr);
 
       int iln = 0; int mprj = 0; 
       for(int ell = 0; ell <= lmax; ++ell) {
@@ -354,7 +356,8 @@ namespace scattering_test {
           mprj = std::max(mprj, (int)nn[ell]);
       } // ell
       int const nln = iln;
-      auto rprj = new double[mprj*stride]; // projector functions*r
+//       auto rprj = new double[mprj*stride]; // projector functions*r
+      view2D<double> rprj(mprj, stride); // projector functions*r
 
       int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += finite_difference::set_Laplacian_coefficients(cFD, nFD, dr);
@@ -362,7 +365,8 @@ namespace scattering_test {
 
       int ln_off = 0;
       for(int ell = 0; ell <= lmax; ++ell) {
-          set(Ham, 2*nr*stride, 0.0); // clear Hamiltonian and overlap matrix
+          set(Ham.data(), nr*stride, 0.0); // clear Hamiltonian
+          set(Ovl.data(), nr*stride, 0.0); // clear overlap matrix
           view2D<double const> aHm_ell(&aHm[ln_off*nln + ln_off], nln);
           view2D<double const> aSm_ell(&aSm[ln_off*nln + ln_off], nln);
 
@@ -370,11 +374,11 @@ namespace scattering_test {
           for(int ir = 0; ir < nr; ++ir) {
               double const r = g.r[ir + 1];
               // local potential and repulsive angular part of the kinetic energy
-              Ham[ir*stride + ir] = Vloc[ir + 1] + 0.5*(ell*(ell + 1.)/pow2(r)); 
-              Ovl[ir*stride + ir] = 1.;
+              Ham[ir][ir] = Vloc[ir + 1] + 0.5*(ell*(ell + 1.)/pow2(r)); 
+              Ovl[ir][ir] = 1.;
               for(int jr = 0; jr < nr; ++jr) {
                   int const dij = std::abs(ir - jr);
-                  if (dij <= nFD) Ham[ir*stride + jr] -= 0.5*cFD[dij]; // finite_difference kinetic energy operator
+                  if (dij <= nFD) Ham[ir][jr] -= 0.5*cFD[dij]; // finite_difference kinetic energy operator
               } // jr
               // in the radial representation, the usual Laplacian d^2/dr^2 can be applied 
               // for the radial component if the wave functions are in r*phi(r) representation
@@ -388,33 +392,28 @@ namespace scattering_test {
                   nrns[nrn] = nrn;
                   ells[nrn] = ell;
               } // nrn
-              stat += expand_sho_projectors(rprj, stride, g, sigma, nprj, nrns, ells, 1, echo);
+              stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, nprj, nrns, ells, 1, echo);
           } // scope
 //        auto const rprj1 = rprj + 1; // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
-          view2D<double const> rprj1(rprj + 1, stride); // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
+          view2D<double const> rprj1(rprj.data() + 1, rprj.stride()); // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
           // add the non-local dyadic operators to the Hamiltonian and overlap
           for(int ir = 0; ir < nr; ++ir) {
               for(int jr = 0; jr < nr; ++jr) {
                   for(int nrn = 0; nrn < nprj; ++nrn) {
                       for(int mrn = 0; mrn < nprj; ++mrn) {
-//                           int const ijln = (ln_off + nrn)*nln + (ln_off + mrn);
-//                           Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm[ijln]*rprj1[mrn*stride + jr]*dr;
-//                           Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm[ijln]*rprj1[mrn*stride + jr]*dr;
-                          Ham[ir*stride + jr] += rprj1[nrn][ir]*aHm_ell[nrn][mrn]*rprj1[mrn][jr]*dr;
-                          Ovl[ir*stride + jr] += rprj1[nrn][ir]*aSm_ell[nrn][mrn]*rprj1[mrn][jr]*dr;
-//                           Ham[ir*stride + jr] += rprj1[nrn*stride + ir]*aHm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
-//                           Ovl[ir*stride + jr] += rprj1[nrn*stride + ir]*aSm_ell[nrn][mrn]*rprj1[mrn*stride + jr]*dr;
+                          Ham[ir][jr] += rprj1[nrn][ir] * aHm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
+                          Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
                       } // mrn
                   } // nrn
               } // jr
           } // ir
-          
-          set(Ovl_copy, nr*stride, Ovl); // copy
-          
+
+          set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
+
           { // scope: diagonalize
               // solve the generalized eigenvalue problem
-              auto const info = linear_algebra::generalized_eigenvalues(nr, Ham, stride, Ovl, stride, eigs);
+              auto const info = linear_algebra::generalized_eigenvalues(nr, Ham.data(), Ham.stride(), Ovl.data(), Ovl.stride(), eigs.data());
               if (0 == info) {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
@@ -427,19 +426,19 @@ namespace scattering_test {
                   
                   if (echo > 2) {
                       // projection analysis for the lowest nev eigenvectors
-                      auto const evec = Ham; // eigenvectors are stored in the memory space that was used to input the Hamiltonian
+                      view2D<double> evec(Ham.data(), Ham.stride()); // eigenvectors are stored in the memory space that was used to input the Hamiltonian
                       for(int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
                           if (echo > 8) {
                               printf("\n## %s ell=%i eigenvalue %.6f %s %i-th eigenvector:\n", __func__, ell, eigs[iev]*eV, _eV, iev);
                               for(int ir = 0; ir < nr; ++ir) {
-                                  printf("%g %g\n", g.r[ir + 1], evec[iev*stride + ir]);
+                                  printf("%g %g\n", g.r[ir + 1], evec[iev][ir]);
                               }   printf("\n\n");
                           } // echo
 
                           printf("# projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", ell, iev, eigs[iev]*eV, _eV);
                           for(int nrn = 0; nrn < nprj; ++nrn) {
-                              printf("%12.6f", dot_product(nr, &evec[iev*stride], &rprj1[nrn*stride])*std::sqrt(dr));
+                              printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
                           }   printf("\n");
                       } // iev
                   } // echo
@@ -448,7 +447,7 @@ namespace scattering_test {
                   if (echo > 2) printf("# diagonalization for ell=%i returned info=%i\n", ell, info);
                   
                   // diagonalize Ovl_copy, standard eigenvalue problem
-                  linear_algebra::eigenvalues(nr, Ovl_copy, stride, eigs);
+                  linear_algebra::eigenvalues(nr, Ovl_copy.data(), Ovl_copy.stride(), eigs.data());
                   if (eigs[0] <= 0) { // warn
                       if (echo > 0) printf("# %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", __func__, ell, eigs[0]);
                   } // overlap matrix is not positive definite
@@ -465,10 +464,6 @@ namespace scattering_test {
           ln_off += nn[ell]; // forward
       } // ell
 
-      delete[] rprj;
-      delete[] Vloc;
-      delete[] Ham;
-      
       return stat;
   } // eigenstate_analysis
   
