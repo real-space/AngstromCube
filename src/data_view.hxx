@@ -71,11 +71,13 @@ inline int test_view2D(int const echo=9) {
         #endif
     } // j
 
+    return 0;
 } // test_view2D
 
 inline int all_tests(int const echo=3) {
     int status = 0;
     status += test_view2D(echo);
+    return status;
 } // all_tests
 
 #endif // NO_UNIT_TESTS  

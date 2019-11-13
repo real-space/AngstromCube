@@ -111,30 +111,28 @@ typedef int status_t;
   {
       int stat = 0;
       if (argc < 2) { printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); return -1; }
-//    printf("%s: argument #1 is %s\n", argv[0], argv[1]);
+//    printf("%s: argument #1 is %s\n", argv[0], argv[1]); // DEBUG
       for(int iarg = argc - 1; iarg > 0; --iarg) { // backward
-          char const c10 = *argv[iarg]; // char #0 of command line argument #1
-          if ('-' == c10) {
-              char const c11 = *(argv[iarg] + 1); // char #1 of command line argument #1
+          char const ci0 = *argv[iarg]; // char #0 of command line argument #1
+          if ('-' == ci0) {
+              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #1
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
-              if ('h' == (c11 | IgnoreCase)) {
+              if ('h' == (ci1 | IgnoreCase)) {
                   printf("Usage %s [OPTION]\n", argv[0]);
                   printf("   -h, -H      \tThis Help message\n"
                          "   -t <module> \tTest module\n"
                          "   +<var>=<val>\tModify variable environment\n"
                          "\n");
                   return 0;
-              } else if ('t' == (c11 | IgnoreCase)) {
+              } else if ('t' == (ci1 | IgnoreCase)) {
                   stat = run_unit_tests((argc > 2)?argv[iarg + 1]:nullptr);
+              } else {
+                  sprintf(warn, "# ignored unknown command line option %c%c", ci0, ci1);
+                  ++stat; // error
               } // help or test
           } // '-'
-          else if ('+' == c10) {
-              char* statement = argv[iarg] + 1; // start after the '+'
-              auto const equal = control::find_equal_sign(statement);
-              if (nullptr != equal) {
-                  *equal = 0; // delete the '=' sign to mark the name
-                  control::set(statement, equal + 1); // value comes after '='
-              } else sprintf(warn, "# ignored \"%s\" from command line argument #%i, maybe missing \'=\'", argv[iarg], iarg);
+          else if ('+' == ci0) {
+              stat += control::cli(argv[iarg] + 1); // start after the '+'
           } // '+'
 
       } // iarg

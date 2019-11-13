@@ -1,10 +1,13 @@
-#include <cstdio> // printf
+#include <cstdio> // printf, sprintf
 #include <cassert> // assert
 #include <string>
 #include <cstdlib> // std::atof
 #include <map> // std::map<T,T2>
+#include <cstring> // strchr, strncpy
 
 #include "control.hxx"
+
+#include "recorded_warnings.hxx" // warn
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -13,6 +16,10 @@ namespace control {
 
   // public functions: set and get
 
+  inline char* find_equal_sign(char const * string) { return (char*)strchr(string, '='); }
+
+  int constexpr MaxNameLength = 96;
+  
   // hidden function: _manage_variables
   char const* _manage_variables(char const *name, char const *value=nullptr) {
 
@@ -44,21 +51,39 @@ namespace control {
 
   } // _manage_variables
 
-
   char const* set(char const *name, char const *value, int const echo) {
       if (echo > 5) printf("# control::set(\"%s\", \"%s\")\n", name, value);
       return _manage_variables(name, value);
   } // set
 
+  status_t cli(char const *statement, int const echo) {
+      auto const equal = find_equal_sign(statement);
+      if (nullptr != equal) {
+          auto const equal_char = equal - statement;
+          assert('=' == statement[equal_char]);
+          char name[MaxNameLength]; // get a mutable string
+          std::strncpy(name, statement, std::min(MaxNameLength, (int)equal_char)); // copy the statement up to '='
+          name[equal_char] = 0; // delete the '=' sign to mark the name
+          char const *value = equal + 1; // everything after the '=' marker
+          if (echo > 7) printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
+          set(name, value, echo); // value comes after '='
+          return 0;
+      } else {
+          sprintf(warn, "# ignored statement \"%s\", maybe missing \'=\'", statement);
+          return 1; // error, no '=' sign given
+      }
+  } // cli
+  
   char const* get(char const *name, char const *default_value, int const echo) {
       auto const value = _manage_variables(name);
-      if (0 == value[0]) {
-          if (echo > 5) printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-          return default_value;
-      } else {
-          if (echo > 5) printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
-          return value;
+      if (nullptr != value) {
+          if (0 != value[0]) {
+              if (echo > 5) printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
+              return value;
+          }
       }
+      if (echo > 5) printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
+      return default_value;
   } // get
 
   char const* set(char const *name, double const value, int const echo) {
@@ -84,6 +109,7 @@ namespace control {
     // if (echo > 1) printf("# b = %s (%p)\n", defined, defined);
 
     set("a", "5");
+    cli("a=6");
     auto const a = get("a", "defaultA");
     if (echo > 1) printf("# a = %s\n", a);
 
