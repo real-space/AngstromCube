@@ -22,6 +22,7 @@ typedef int status_t;
 #include "spherical_atoms.hxx" // all_tests
 #include "solid_harmonics.hxx" // all_tests
 #include "sho_projection.hxx" // all_tests
+#include "linear_algebra.hxx" // all_tests
 #include "grid_operators.hxx" // all_tests
 #include "element_config.hxx" // all_tests
 #include "angular_grid.hxx" // all_tests
@@ -36,10 +37,10 @@ typedef int status_t;
 #include "atom_core.hxx" // all_tests
 #include "data_view.hxx" // all_tests
 #include "overlap.hxx" // all_tests
-#include "control.hxx" // all_tests
+#include "control.hxx" // all_tests, find_equal_sign, set
 #include "spherical_harmonics.hxx" // no test implemented
 
-#include "recorded_warnings.hxx" // show_warnings, clear_warnings
+#include "recorded_warnings.hxx" // warn, show_warnings, clear_warnings
 
   int run_unit_tests(char const *module) 
   {
@@ -69,6 +70,7 @@ typedef int status_t;
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
           module_test("solid_harmonics.",       solid_harmonics::all_tests);
           module_test("sho_projection.",         sho_projection::all_tests);
+          module_test("linear_algebra.",         linear_algebra::all_tests);
           module_test("grid_operators.",         grid_operators::all_tests);
           module_test("element_config.",         element_config::all_tests);
           module_test("angular_grid.",             angular_grid::all_tests);
@@ -105,23 +107,37 @@ typedef int status_t;
   } // run_unit_tests
 
 
-  int main(int const argc, char const * argv[]) 
+  int main(int const argc, char * argv[]) 
   {
       int stat = 0;
       if (argc < 2) { printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); return -1; }
 //    printf("%s: argument #1 is %s\n", argv[0], argv[1]);
-      char const c10 = *argv[1]; // char #0 of command line argument #1
-      if ('-' == c10) {
-          char const c11 = *(argv[1] + 1); // char #1 of command line argument #1
-          char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
-          if ('h' == (c11 | IgnoreCase)) {
-              printf("Usage %s [OPTION]\n", argv[0]);
-              printf(" -h, -H      \tThis Help message\n"
-                     " -t <module> \tTest module\n");
-          } else if ('t' == (c11 | IgnoreCase)) {
-              stat = run_unit_tests((argc > 2)?argv[2]:nullptr);
-          } // help or test
-      } // option expected
+      for(int iarg = argc - 1; iarg > 0; --iarg) { // backward
+          char const c10 = *argv[iarg]; // char #0 of command line argument #1
+          if ('-' == c10) {
+              char const c11 = *(argv[iarg] + 1); // char #1 of command line argument #1
+              char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
+              if ('h' == (c11 | IgnoreCase)) {
+                  printf("Usage %s [OPTION]\n", argv[0]);
+                  printf("   -h, -H      \tThis Help message\n"
+                         "   -t <module> \tTest module\n"
+                         "   +<var>=<val>\tModify variable environment\n"
+                         "\n");
+                  return 0;
+              } else if ('t' == (c11 | IgnoreCase)) {
+                  stat = run_unit_tests((argc > 2)?argv[iarg + 1]:nullptr);
+              } // help or test
+          } // '-'
+          else if ('+' == c10) {
+              char* statement = argv[iarg] + 1; // start after the '+'
+              auto const equal = control::find_equal_sign(statement);
+              if (nullptr != equal) {
+                  *equal = 0; // delete the '=' sign to mark the name
+                  control::set(statement, equal + 1); // value comes after '='
+              } else sprintf(warn, "# ignored \"%s\" from command line argument #%i, maybe missing \'=\'", argv[iarg], iarg);
+          } // '+'
+
+      } // iarg
       recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
       return stat;
