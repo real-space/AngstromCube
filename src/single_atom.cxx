@@ -1961,13 +1961,9 @@ extern "C" {
         
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
-            {   int iln = 0;
-                for(int ell = 0; ell <= numax; ++ell) {
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                        ells[iln] = ell;
-                        ++iln;
-                    }
-                }
+            {   for(int iln = 0, ell = 0; ell <= numax; ++ell)
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn)
+                        ells[iln++] = ell;
             }
             printf("\n");            
             for(int i01 = 0; i01 < 2; ++i01) {
