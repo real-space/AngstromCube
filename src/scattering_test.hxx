@@ -72,7 +72,7 @@ namespace scattering_test {
   } // expand_sho_projectors
   
 
-#define _SELECTED_ENERGIES_LOGDER
+// #define _SELECTED_ENERGIES_LOGDER
   
   inline status_t logarithmic_derivative(
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
@@ -329,8 +329,8 @@ namespace scattering_test {
       { // scope: interpolate to the equidistant grid by Bessel-transform
           int const nq = nr/2; double const dq = .125;
           auto const Vq = new double[nq];
-          stat += bessel_transform::transform_s_function(Vq, Vsmt, gV, nq, dq, false, echo);
-          stat += bessel_transform::transform_s_function(Vloc, Vq, g, nq, dq, true, echo); // back=true
+          stat += bessel_transform::transform_s_function(Vq, Vsmt, gV, nq, dq, false, 0);
+          stat += bessel_transform::transform_s_function(Vloc, Vq, g, nq, dq, true, 0); // back=true
           for(int ir = 0; ir < g.n; ++ir) {
               Vloc[ir] += Vshift;
           } // ir
