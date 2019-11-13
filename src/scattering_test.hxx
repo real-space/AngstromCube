@@ -181,7 +181,7 @@ namespace scattering_test {
                           if (node_count) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts] + 1, gg); // store radial solution
                           for(int krn = 0; krn < n; ++krn) {
                               // compute the inner products of the  projectors rprj with the solution gg
-                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, &rprj[krn*stride], gg, rg[SMT]->dr);
+                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, &rprj[(iln_off + krn)*stride], gg, rg[SMT]->dr);
                               if (echo > 8) printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", 
                                                           ell, energy*eV,_eV, jrn, 1+krn, gfp[jrn*n + krn]);
                           } // krn
