@@ -261,7 +261,7 @@ extern "C" {
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
 
-        numax = 3; // 3:up to f-projectors
+        numax = 3; // 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
         ellmax = 0; // should be 2*numax;
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
@@ -721,8 +721,17 @@ extern "C" {
     //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
                 set(vs.wave[TRU], nr, 0.0); // clear
 
-                // solve for a true valence eigenstate
-                radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho);
+                if ((0 == nrn) || (vs.occupation > 0)) {
+                    // solve for a true valence eigenstate
+                    radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho);
+                } else {
+                    assert(nrn > 0);
+                    vs.energy = valence_state[iln - 1].energy + 1.0; // copy energy from lower state and add 1.0 Hartree
+                    int nnodes = 0;
+                    // integrate outwards
+                    radial_integrator::shoot(SRA, *rg[TRU], potential[TRU], ell, vs.energy, nnodes, vs.wave[TRU], r2rho);
+                } // bound state?
+    
                 // normalize the partial waves
                 auto const norm_wf2 = dot_product(nr, r2rho, rg[TRU]->dr);
                 auto const norm_factor = 1./std::sqrt(norm_wf2);
@@ -1851,14 +1860,14 @@ extern "C" {
                 scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
                                                     hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
                 
-            } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+            } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
                 
             // scan the logarithmic derivatives
             if (1) {
                 double const energy_range[] = {-2., 1e-4, 0.5};
                 scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
-                                                 hamiltonian_ln, overlap_ln, energy_range, 11);
-            } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+                                                 hamiltonian_ln, overlap_ln, energy_range, 2);
+            } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
             delete[] emm_averaged;
         } // debug
@@ -1932,10 +1941,10 @@ extern "C" {
             double const energy_range[] = {-2., 1e-3, 0.5};
             scattering_test::logarithmic_derivative(rg, potential, sigma, (int)numax + 1, nn, 
                                                   hamiltonian_ln, overlap_ln, energy_range, 2);
-        } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+        } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         
-        if (1) {
+        if (0) {
                 double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1948,7 +1957,7 @@ extern "C" {
                 scattering_test::eigenstate_analysis(*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, 
                                                     hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
 //                 
-        } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s line %i\n\n", __FILE__, __LINE__);
+        } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);

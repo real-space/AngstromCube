@@ -1,7 +1,5 @@
 #pragma once
 
-// #include <cstring> // strchr
-
 typedef int status_t;
 
 namespace control {
@@ -9,7 +7,7 @@ namespace control {
   int constexpr default_echo_level = 2;
 
   status_t cli(char const *statement, int const echo=default_echo_level); // command line interface
-  
+
   char const* set(char const *name, char const * value, int const echo=default_echo_level);
   char const* set(char const *name, double const value, int const echo=default_echo_level);
 

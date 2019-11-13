@@ -72,6 +72,7 @@ namespace scattering_test {
   } // expand_sho_projectors
   
 
+// #define _SELECTED_ENERGIES_LOGDER
   
   inline status_t logarithmic_derivative(
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
@@ -82,15 +83,19 @@ namespace scattering_test {
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
               , double const energy_range[3] // {lower, step, upper}
+#ifdef  _SELECTED_ENERGIES_LOGDER
+              , int const echo_level=2) {
+                int const echo = echo_level + 10; // turn a lot of output on
+#else
               , int const echo=2) {
-
+#endif
+    
       if (echo > 1) printf("\n# %s %s lmax=%i\n", __FILE__, __func__, lmax); 
       double const one_over_pi = 1./constants::pi;
       status_t stat = 0;
       
       double const dE = std::max(1e-9, energy_range[1]);
 
-#define _SELECTED_ENERGIES_LOGDER
 #ifdef  _SELECTED_ENERGIES_LOGDER
       int const nen = 6;
       double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
@@ -172,7 +177,7 @@ namespace scattering_test {
                       if (SMT == ts) {
                           if (node_count) set(&rphi[jrn*rg[SMT]->n], ir_stop[ts] + 1, gg); // store radial solution
                           for(int krn = 0; krn < n; ++krn) {
-                              // compute the inner products of the solution gg with the projectors rprj
+                              // compute the inner products of the  projectors rprj with the solution gg
                               gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, &rprj[krn*stride], gg, rg[SMT]->dr);
                               if (echo > 8) printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", 
                                                           ell, energy*eV,_eV, jrn, 1+krn, gfp[jrn*n + krn]);
@@ -231,7 +236,7 @@ namespace scattering_test {
                               } // i
                           } // echo
                           
-                          if (1) { // scope: verify
+                          if (echo > 7) { // scope: verify
                               printf("# scattering_test linear solve test: ");
                               for(int i = 0; i < n0; ++i) {
                                   double bi = 0; for(int j = 0; j < n0; ++j) bi += x[j]*mat2[j*n0 + i];
@@ -250,9 +255,10 @@ namespace scattering_test {
                               nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rphi);
                               if (echo > 9) {
                                   auto const scal = rtru[ir_stop[TRU]]/rphi[ir_stop[SMT]]; // match in value at end point
-                                  printf("\n## scattering solution for ell=%i E=%g %s (r,tru,smt):\n", ell, energy*eV,_eV);
+                                  printf("\n## scattering solution for ell=%i E=%g %s (r,tru,smt,diff):\n", ell, energy*eV,_eV);
                                   for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
-                                      printf("%g\t%g %g\n", rg[SMT]->r[ir], rtru[ir + nr_diff], rphi[ir]*scal);
+                                      printf("%g\t%g %g %g\n", rg[SMT]->r[ir], rtru[ir + nr_diff], rphi[ir]*scal, 
+                                             rtru[ir + nr_diff] - rphi[ir]*scal);
 //                                    printf("\t%g %g\n", rV[TRU][ir + nr_diff], rV[SMT][ir]); // compare potentials
                                   }   printf("\n\n");
                                   printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG

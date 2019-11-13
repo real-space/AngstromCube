@@ -37,7 +37,7 @@ typedef int status_t;
 #include "atom_core.hxx" // all_tests
 #include "data_view.hxx" // all_tests
 #include "overlap.hxx" // all_tests
-#include "control.hxx" // all_tests, find_equal_sign, set
+#include "control.hxx" // all_tests, cli
 #include "spherical_harmonics.hxx" // no test implemented
 
 #include "recorded_warnings.hxx" // warn, show_warnings, clear_warnings
