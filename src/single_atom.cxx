@@ -256,7 +256,7 @@ extern "C" {
         
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
         
-        if (1) { // flat copy, true and smooth quantities live on the same radial grid
+        if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], 1e-4);

@@ -12,13 +12,12 @@ public:
   view2D(T* const ptr, size_t const stride) 
     : _data(ptr), _n0(stride), _n1(DimUnknown) { }
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
-    : _data{new T[n1*stride]}, _n0(stride), _n1(n1)
+    : _data{new T[n1*stride]}, _n0(stride), _n1(n1) {
         std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
     } // constructor
 
   ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
-    // to prevent unwanted copying:
   view2D(view2D<T> const &rhs) { *this = rhs; } 
   view2D(view2D<T>      &&rhs) { *this = std::move(rhs); }
 
@@ -53,12 +52,10 @@ public:
   size_t stride() const { return _n0; }
   bool is_memory_owner() const { return (_n1 > DimUnknown); }
 
-  // private data members
 private:
+  // private data members
   T* _data;
   size_t _n0, _n1; // _n1==0 --> unknown
-
-
   
 }; // view2D
 
