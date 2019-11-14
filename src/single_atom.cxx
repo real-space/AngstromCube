@@ -1591,47 +1591,51 @@ extern "C" {
         int const npt = angular_grid::Lebedev_grid_size(ellmax);
         auto vlm = new double[nlm];
         for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
-            int const nr = rg[ts]->n, mr = align<2>(nr);
+            int const nr = rg[ts]->n;
+            int const mr = full_density[ts].stride();
 
-            auto const on_grid = new double[2*npt*mr];
-            set(on_grid, 2*npt*mr, 0.0); // clear
+            view2D<double> on_grid(2, npt*mr);
+            auto const rho_on_grid = on_grid[0];
+            auto const vxc_on_grid = on_grid[0];
+            auto const exc_on_grid = on_grid[1];
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
             if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", label, full_density[ts][00][0]*Y00);
-            angular_grid::transform(on_grid, full_density[ts].data(), mr, ellmax, false);
+            angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
             for(int ip = 0; ip < npt*mr; ++ip) {
-                double const rho = on_grid[ip];
+                double const rho = rho_on_grid[ip];
                 double vxc = 0, exc = 0;
                 exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
-                on_grid[ip] = vxc;
-                on_grid[npt*mr + ip] = exc;
+                vxc_on_grid[ip] = vxc;
+                exc_on_grid[ip] = exc;
             } // ip
             // transform back to lm-index
-            angular_grid::transform(full_potential[ts].data(), on_grid, mr, ellmax, true);
-            auto const exc_lm = new double[nlm*mr];
-            angular_grid::transform(exc_lm, &on_grid[npt*mr], mr, ellmax, true);
-            delete[] on_grid;
-            if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[SMT][00][0]*Y00*eV,_eV);
-            if (echo > 5) {
-                auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                printf("# %s double counting correction  in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
-                auto const Exc00 = dot_product(nr, exc_lm, full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
-            } // echo
-            delete[] exc_lm;
+            assert(full_potential[ts].stride() == mr);
+            angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax, true);
+            { // scope: transform also the exchange-correlation energy
+                view2D<double> exc_lm(nlm, mr);
+                angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax, true);
+                if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[SMT][00][0]*Y00*eV,_eV);
+                if (echo > 5) {
+                    auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                    printf("# %s double counting correction  in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+                    auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                    printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
+                } // echo
+            } // scope
 
             // solve electrostatics inside the spheres
-            auto   const Ves = new double[nlm*mr];
+            view2D<double> Ves(nlm, mr);
             double const q_nucleus = (TRU == ts) ? -Z_core*Y00 : 0; // Z_core = number of protons in the nucleus
             auto   const & rho_aug   = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
-            radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
+            radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
 
             if (SMT == ts) {
-                add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves, sigma_compensator); // project to compensators
+                add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves.data(), sigma_compensator); // project to compensators
                 if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
                 // this seems to high by a factor sqrt(4*pi), ToDo: find out why
 //                 scale(vlm, nlm, Y00);
@@ -1646,42 +1650,41 @@ extern "C" {
             } // smooth only
             
             if (echo > 7) {
-                if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
+                if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
             }
 
-//             correct_multipole_shift(Ves, ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
-            add_or_project_compensators<2>(Ves, ellmax_compensator, rg[ts], vlm, sigma_compensator); // has the same effect as correct_multipole_shift
+//             correct_multipole_shift(Ves.data(), ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
+            add_or_project_compensators<2>(Ves.data(), ellmax_compensator, rg[ts], vlm, sigma_compensator); // has the same effect as correct_multipole_shift
 
             if (SMT == ts) {   // debug: project again to see if the correction worked out
                 double v00;
-                add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves, sigma_compensator); // project to compensators
+                add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves.data(), sigma_compensator); // project to compensators
                 if (echo > 7) printf("# %s after correction v_00 is %g %s\n", label, v00*Y00*eV,_eV);
             }
 
-            add_product(full_potential[ts].data(), nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
+            add_product(full_potential[ts].data(), nlm*mr, Ves.data(), 1.0); // add the electrostatic potential, scale_factor=1.0
             if (echo > 8) {
-                if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
+                if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
                 if (TRU == ts) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
-                                          Ves[1]*(rg[TRU]->r[1])*Y00, -Z_core);
+                                          Ves[00][1]*(rg[TRU]->r[1])*Y00, -Z_core);
                 if (false && (SMT == ts)) {
                     printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        printf("%g %g %g\n", rg[SMT]->r[ir], Ves[00 + ir]*Y00, aug_density[00][ir]*Y00);
+                        printf("%g %g %g\n", rg[SMT]->r[ir], Ves[00][ir]*Y00, aug_density[00][ir]*Y00);
                     }   printf("\n\n");
                 } // smooth
             } // echo
-            delete [] Ves;
         } // true and smooth
         if (echo > 6) printf("# %s local smooth augmented density at origin is %g a.u.\n", label, aug_density[00][0]*Y00);
 
         // construct the zero_potential V_bar
-        auto const V_smt = new double[rg[SMT]->n];
-        set(V_smt, rg[SMT]->n, full_potential[TRU][00] + nr_diff); // copy the tail of the spherical part of the true potential
+        std::vector<double> V_smt(rg[SMT]->n);
+        set(V_smt.data(), rg[SMT]->n, full_potential[TRU][00] + nr_diff); // copy the tail of the spherical part of the true potential
         set(zero_potential, rg[SMT]->n, 0.0); // init zero
         auto const df = Y00*eV; assert(df > 0); // display factor
         if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n", 
                     label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][00][ir_cut[TRU]]*df, _eV);
-        auto const stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2);
+        auto const stat = pseudize_function(V_smt.data(), rg[SMT], ir_cut[SMT], 2);
         if (stat) {
             if (echo > 0) printf("# %s matching procedure for the potential parabola failed! info = %d\n", label, stat);
         } else {
@@ -1710,7 +1713,6 @@ extern "C" {
         } // pseudization successful
         if (echo > 5) printf("# %s zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
             label, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT]->n - 1]*df, _eV);
-        delete [] V_smt;
 
         // add spherical zero potential for SMT==ts and 0==lm
         add_product(full_potential[SMT][00], rg[SMT]->n, zero_potential, 1.0);
