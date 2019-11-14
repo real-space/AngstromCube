@@ -9,15 +9,15 @@ template<typename T>
 class view2D {
 public:
   
-  view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown) { }
+  view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown) { } // default constructor
     
   view2D(T* const ptr, size_t const stride) 
-    : _data(ptr), _n0(stride), _n1(DimUnknown) { }
+    : _data(ptr), _n0(stride), _n1(DimUnknown) { } // data view constructor
     
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
-    : _data{new T[n1*stride]}, _n0(stride), _n1(n1) {
+    : _data(new T[n1*stride]), _n0(stride), _n1(n1) {
         std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
-    } // constructor
+  } // memory owning constructor
 
   ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
@@ -56,7 +56,7 @@ public:
   T       & at(size_t const i1, size_t const i0)       { assert(i0 < _n0); return _data[i1*_n0 + i0]; }
 #endif
 
-  T* operator [] (size_t const i1) const { return &_data[i1*_n0]; } // []
+  T* operator[] (size_t const i1) const { return &_data[i1*_n0]; } // []
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
@@ -77,17 +77,47 @@ template<typename T>
 class view3D {
 public:
   
+  view3D() : _data(nullptr), _n0(0), _n1(0), _n2(DimUnknown) { } // default constructor
+
   view3D(T* const ptr, size_t const n1, size_t const stride) 
     : _data(ptr), _n0(stride), _n1(n1), _n2(DimUnknown) { } // constructor
-  view3D(size_t const n2, size_t const n1, size_t const stride, T const init_value=T(0)) 
-    :  _n0(stride), _n1(n1), _n2(n2) {
-        auto const all = _n2*_n1*_n0;
-        _data = new T[all];
-        for(size_t i = 0; i < all; ++i) _data[i] = init_value; // warning! first touch here!
-    } // constructor
 
-  ~view3D() { if (is_memory_owner()) delete[] _data; } // destructor
+  view3D(size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
+    : _data(new T[n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2) {
+        std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
+  } // memory owning constructor
 
+  ~view3D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
+
+  view3D(view3D<T> const & rhs) { 
+      printf("# view3D(view3D<T> const & rhs);\n");
+      *this = rhs;
+  } 
+
+  view3D(view3D<T>      && rhs) { 
+      printf("# view3D(view3D<T> && rhs);\n");
+      *this = std::move(rhs);
+  }
+
+  view3D& operator= (view3D<T> && rhs) {
+      printf("# view3D& operator= (view3D<T> && rhs);\n");
+      _data = rhs._data;
+      _n0   = rhs._n0;
+      _n1   = rhs._n1;
+      _n2   = rhs._n2;
+      rhs._n2 = DimUnknown; // steal ownership
+      return *this;
+  }
+
+  view3D& operator= (view3D<T> const & rhs) {
+      printf("# view3D& operator= (view3D<T> const & rhs);\n");
+      _data = rhs._data;
+      _n0   = rhs._n0;
+      _n1   = rhs._n1;
+      _n2   = DimUnknown; // we are just a shallow copy
+      return *this;
+  }
+  
 #define _VIEW3D_HAS_PARENTHESIS
 #ifdef  _VIEW3D_HAS_PARENTHESIS
 #define _access return _data[(i2*_n1 + i1)*_n0 + i0]
@@ -99,22 +129,20 @@ public:
 #undef _access
 #endif
 
+#define _VIEW3D_HAS_INDEXING
 #ifdef  _VIEW3D_HAS_INDEXING
-  T* operator [] (size_t const i2) const { return &_data[i2*_n1*_n0]; } // [] returns the inner 2 dimensions as flat array
+  view2D<T> operator[] (size_t const i2) const { return view2D<T>(_data + i2*_n1*_n0, _n0); } // [] returns a sub-array
+  // maybe sub-optimal as it creates a view2D object every time
 #endif
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
   bool is_memory_owner() const { return (_n2 > DimUnknown); }
 
-  // private data members
 private:
+  // private data members
   T* _data;
   size_t _n0, _n1, _n2; // _n2==0 -->unknown
-
-  // to prevent unwanted copying:
-  view3D(view3D<T> const &); // delete the copy constructor
-  view3D& operator = (view3D<T> const &); // delete the copy assignment constructor
 
 }; // view3D
 
@@ -173,7 +201,7 @@ inline int test_view3D(int const echo=9) {
             a(h,i,j) = h + 0.1*i + 0.01*j;
             if (echo > 0) printf("# a3D(%i,%i,%i) = %g\n", h, i, j, a(h,i,j));
             #ifdef _VIEW3D_HAS_INDEXING
-            assert(a(h,i,j) == a[h][i*a.stride() + j]);
+            assert(a(h,i,j) == a[h][i][j]);
             #endif
         } // j
       } // h
