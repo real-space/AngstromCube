@@ -225,8 +225,10 @@ extern "C" {
       double* zero_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
       view2D<double> hamiltonian, overlap; // matrices [nSHO*matrix_stride]
-      view3D<double> kinetic_energy; // matrix [TRU_AND_SMT][nln][nln]
-      double (*charge_deficit)[TRU_AND_SMT]; // matrix [(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]
+      view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
+      // double (*charge_deficit)[TRU_AND_SMT]; // matrix [(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]
+      view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
+
       double  core_charge_deficit; // in units of electrons
       double* true_norm; // vector[nln] for display of partial wave results
 
@@ -433,7 +435,8 @@ extern "C" {
         int const nlm_cmp = pow2(1 + ellmax_compensator);
         qlm_compensator = new double[nlm_cmp]; // get memory
         int const nln = nvalencestates;
-        charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
+        // charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
+        charge_deficit = view4D<double>(1 + ellmax_compensator, TRU_AND_SMT, nln, nln); // get memory
         // kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
         kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln); // get memory
         zero_potential  = new double[nrs]; // get memory
@@ -549,9 +552,8 @@ extern "C" {
         delete[] valence_state;
         delete[] aug_density;
         delete[] qlm_compensator;
-        delete[] charge_deficit;
+        // delete[] charge_deficit;
         delete[] zero_potential;
-        // delete[] kinetic_energy;
         delete[] unitary_zyx_lmn;
     } // destructor
 
@@ -1276,7 +1278,7 @@ extern "C" {
     void update_charge_deficit(int const echo=0) {
         int const nln = nvalencestates;
         { // scope: generate a vector true_norm such that 
-          // true_norm[iln]*charge_deficit[(0*nln + iln)*nln + jln][TRU]*true_norm[jln] is normalized to 1
+          // true_norm[iln]*charge_deficit[0][TRU][iln][jln]*true_norm[jln] is normalized to 1
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
@@ -1291,33 +1293,28 @@ extern "C" {
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
 //             int const nr = rg[ts]->n;
             int const nr = ir_cut[ts]; // integrate only up to the matching radius
-            auto const rl = new double[nr];
+            std::vector<double> rl(nr, 1.0); // init as r^0
             auto const wave_r2rl_dr = new double[nr];
             if (echo > 1) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
             for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
                 if (echo > 1) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
-                if (0 == ell) {
-                    set(rl, nr, 1.0); // init as r^0
-                } else {
-                    scale(rl, nr, rg[ts]->r); // create r^{\ell}
-                } // 0 == ell
+                if (ell > 0) scale(rl.data(), nr, rg[ts]->r); // create r^{\ell}
                 for(int iln = 0; iln < nln; ++iln) {
                     if (echo > 1) printf("# %s iln = %d ", label, iln);
                     auto const wave_i = valence_state[iln].wave[ts];
-                    product(wave_r2rl_dr, nr, wave_i, rl, rg[ts]->r2dr); // product of three arrays
+                    product(wave_r2rl_dr, nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                     for(int jln = 0; jln < nln; ++jln) {
                         auto const wave_j = valence_state[jln].wave[ts];
                         auto const cd = dot_product(nr, wave_r2rl_dr, wave_j);
-                        charge_deficit[(ell*nln + iln)*nln + jln][ts] = cd;
+                        charge_deficit(ell,ts,iln,jln) = cd;
                         if (echo > 1) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
-//                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit[(ell*nln + iln)*nln + jln][TRU] - cd);
+//                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
                     } // jln
                     if (echo > 1) printf("\n");
                 } // iln
                 if (echo > 1) printf("\n");
             } // ell
             delete[] wave_r2rl_dr;
-            delete[] rl;
         } // ts
     } // update_charge_deficit
 
@@ -1561,8 +1558,8 @@ extern "C" {
                         double const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
                         if (std::abs(rho_ij) > 1e-9)
                             printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij/Y00, ell, emm, iln, jln);
-                        rho_lm += rho_ij * ( charge_deficit[(ell*nln + iln)*nln + jln][TRU]
-                                           - charge_deficit[(ell*nln + iln)*nln + jln][SMT] );
+                        rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
+                                           - charge_deficit(ell,SMT,iln,jln) );
                     } // jln
                 } // iln
                 assert(lm >= 0);
@@ -1807,8 +1804,8 @@ extern "C" {
                 if (ilm == jlm) {
                     hamiltonian_lmn[ilmn][jlmn] += ( kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln) );
                     overlap_lmn[ilmn][jlmn] =
-                        ( charge_deficit[(0*nln + iln)*nln + jln][TRU]
-                        - charge_deficit[(0*nln + iln)*nln + jln][SMT] ); // ell=0
+                        ( charge_deficit(0,TRU,iln,jln)
+                        - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
                 if ((echo > 7)) printf(" %g", true_norm[iln]*hamiltonian_lmn[ilmn][jlmn]*true_norm[jln]*eV);
             } // jlmn
@@ -1920,8 +1917,8 @@ extern "C" {
                           - potential_ln(SMT,iln,jln) )
                         ;
                     overlap_ln[iln][jln] =
-                        ( charge_deficit[iln*nln + jln][TRU]
-                        - charge_deficit[iln*nln + jln][SMT] ); // ell=0
+                        ( charge_deficit(0,TRU,iln,jln)
+                        - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // jln
             } // iln
         } // scope
