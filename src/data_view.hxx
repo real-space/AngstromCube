@@ -9,8 +9,11 @@ template<typename T>
 class view2D {
 public:
   
+  view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown) { }
+    
   view2D(T* const ptr, size_t const stride) 
     : _data(ptr), _n0(stride), _n1(DimUnknown) { }
+    
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
     : _data{new T[n1*stride]}, _n0(stride), _n1(n1) {
         std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
@@ -61,6 +64,9 @@ private:
 
 
 template<typename T>
+inline void set(view2D<T> & y, size_t const n1, T const a) { std::fill(y.data(), y.data() + n1*y.stride(), a); }
+
+template<typename T>
 class view3D {
 public:
   
@@ -104,6 +110,7 @@ private:
   view3D& operator = (view3D<T> const &); // delete the copy assignment constructor
 
 }; // view3D
+
 
 #undef DimUnknown
 

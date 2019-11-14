@@ -220,7 +220,8 @@ extern "C" {
       core_level_t* core_state;  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       valence_level_t* valence_state;
       double* core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
-      double* full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
+//    double* full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
+      view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       double* full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
       double* potential[TRU_AND_SMT]; // spherical potentials r*V(r), no Y00 factor
       double* zero_potential; // PAW potential shape correction
@@ -293,7 +294,8 @@ extern "C" {
             int const nr = (TRU == ts)? nrt : nrs;
             core_density[ts]   = new double[nr]; // get memory
             potential[ts]      = new double[nr]; // get memory
-            full_density[ts]   = new double[nlm*nr]; // get memory
+//             full_density[ts]   = new double[nlm*nr]; // get memory
+            full_density[ts]   = view2D<double>(nlm, nr, 0); // get memory
             full_potential[ts] = new double[nlm*nr]; // get memory
         } // true and smooth
 
@@ -545,7 +547,7 @@ extern "C" {
             } // ivs
             delete[] core_density[ts];
             delete[] potential[ts];
-            delete[] full_density[ts];
+//          delete[] full_density[ts];
             delete[] full_potential[ts];
         } // tru and smt
         delete[] valence_state;
@@ -1534,17 +1536,15 @@ extern "C" {
         int const nln = nvalencestates;
         
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const nr = rg[ts]->n, mr = align<2>(nr);
-            // full_density[ts][nlm*mr]; // memory layout
-            set(full_density[ts], nlm*mr, 0.0); // clear
+            size_t const nr = rg[ts]->n;
+            assert(full_density[ts].stride() >= nr);
+            set(full_density[ts], nlm, 0.0); // clear
             for(int lm = 0; lm < nlm; ++lm) {
-                if (0 == lm) {
-                    set(full_density[ts], nr, core_density[ts], Y00); // needs scaling with Y00 since core_density has a factor 4*pi
+                if (00 == lm) {
+                    set(full_density[ts][lm], nr, core_density[ts], Y00); // needs scaling with Y00 since core_density has a factor 4*pi
                     if (echo > 0) printf("# %s %s density has %g electrons after adding the core density\n", label, 
-                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
-                } else {
-                    set(&(full_density[ts][lm*mr]), mr, 0.0); // clear
-                }
+                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)/Y00);
+                } // 00 == lm
                 for(int iln = 0; iln < nln; ++iln) {
                     auto const wave_i = valence_state[iln].wave[ts];
                     assert(nullptr != wave_i);
@@ -1554,12 +1554,12 @@ extern "C" {
                         double const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
 //                         if (std::abs(rho_ij) > 1e-9)
 //                             printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij/Y00, lm, iln, jln);
-                        add_product(&(full_density[ts][lm*mr]), nr, wave_i, wave_j, rho_ij);
+                        add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
                     } // jln
                 } // iln
             } // lm
             if (echo > 0) printf("# %s %s density has %g electrons after adding the valence density\n",  label, 
-                    (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts], rg[ts]->r2dr)/Y00);
+                    (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][00], rg[ts]->r2dr)/Y00);
 
         } // true and smooth
 
@@ -1591,12 +1591,12 @@ extern "C" {
         // construct the augmented density
         {   int const nr = rg[SMT]->n, mr = align<2>(nr); // on the smooth grid
             set(aug_density, nlm_aug*mr, 0.0); // clear
-            set(aug_density, nlm*mr, full_density[SMT]); // copy smooth full_density, need spin summation?
+            set(aug_density, nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], qlm_compensator, sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
             if (echo > 5) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge/Y00); // this value should be small
 
-            double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU]); // only full_density[0==lm]
+            double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU][00]); // only full_density[0==lm]
             if (echo > 5) printf("# %s true density has %g electrons\n", label, tru_charge/Y00); // this value should be of the order of Z
         } // scope
 
@@ -1609,15 +1609,14 @@ extern "C" {
         auto vlm = new double[nlm];
         for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts]->n, mr = align<2>(nr);
-            // full_potential[ts][nlm*mr]; // memory layout
 
             auto const on_grid = new double[2*npt*mr];
             set(on_grid, 2*npt*mr, 0.0); // clear
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
-            if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", label, full_density[ts][0]*Y00);
-            angular_grid::transform(on_grid, full_density[ts], mr, ellmax, false);
+            if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", label, full_density[ts][00][0]*Y00);
+            angular_grid::transform(on_grid, full_density[ts].data(), mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
             for(int ip = 0; ip < npt*mr; ++ip) {
@@ -1634,9 +1633,9 @@ extern "C" {
             delete[] on_grid;
             if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[ts][0]*Y00*eV,_eV);
             if (echo > 5) {
-                auto const Edc00 = dot_product(nr, full_potential[ts], full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
+                auto const Edc00 = dot_product(nr, full_potential[ts], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                 printf("# %s double counting correction  in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
-                auto const Exc00 = dot_product(nr, exc_lm, full_density[ts], rg[ts]->r2dr); // dot_product with diagonal metric
+                auto const Exc00 = dot_product(nr, exc_lm, full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                 printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
             } // echo
             delete[] exc_lm;
@@ -1644,7 +1643,7 @@ extern "C" {
             // solve electrostatics inside the spheres
             auto   const Ves = new double[nlm*mr];
             double const q_nucleus = (TRU == ts) ? -Z_core*Y00 : 0; // Z_core = number of protons in the nucleus
-            auto   const rho_aug   = (TRU == ts) ? full_density[TRU] : aug_density;
+            auto   const rho_aug   = (TRU == ts) ? full_density[TRU].data() : aug_density;
             // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
             radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug, mr, ellmax, q_nucleus);
 
@@ -1742,7 +1741,7 @@ extern "C" {
 
 //         // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
 //         auto const rho4pi = new double[rg[TRU]->n];
-//         set(rho4pi, rg[TRU]->n, full_density[TRU], 1./Y00);
+//         set(rho4pi, rg[TRU]->n, full_density[TRU][00], 1./Y00);
 //         printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
 //         atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi, Z);
 //         delete[] rho4pi;
