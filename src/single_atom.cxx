@@ -208,7 +208,6 @@ extern "C" {
       double sigma_compensator; // Gaussian spread for the charge deficit compensators
       double* qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
       double* aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
-      int matrix_stride; // stride for the matrices hamiltonian and overlap, must be >= nSHO(numax)
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-oribit) core states are maximum
       int nvalencestates; // for emm-Degenerate (numax*(numax + 4) + 4)/4 is a good choice;
       int nspins; // 1 or 2 or 4
@@ -225,7 +224,7 @@ extern "C" {
       double* potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor
       double* zero_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
-      double *hamiltonian, *overlap; // matrices [nSHO*matrix_stride]
+      view2D<double> hamiltonian, overlap; // matrices [nSHO*matrix_stride]
       double (*kinetic_energy)[TRU_AND_SMT]; // matrix [nln*nln][TRU_AND_SMT]
       double (*charge_deficit)[TRU_AND_SMT]; // matrix [(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]
       double  core_charge_deficit; // in units of electrons
@@ -443,10 +442,10 @@ extern "C" {
         set(kinetic_energy[0], nln*nln*2, 0.0); // clear
 
         int const nSHO = sho_tools::nSHO(numax);
-        matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
+        int const matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
         if (echo > 0) printf("# %s matrix size for hamiltonian and overlap: dim = %d, stride = %d\n", label, nSHO, matrix_stride);
-        hamiltonian = new double[nSHO*matrix_stride]; // get memory
-        overlap     = new double[nSHO*matrix_stride]; // get memory
+        hamiltonian = view2D<double>(nSHO, matrix_stride); // get memory
+        overlap     = view2D<double>(nSHO, matrix_stride); // get memory
 
         unitary_zyx_lmn = new double[nSHO*nSHO];
         {   auto const u = new sho_unitary::Unitary_SHO_Transform<double>(numax);
@@ -553,8 +552,6 @@ extern "C" {
         delete[] charge_deficit;
         delete[] zero_potential;
         delete[] kinetic_energy;
-        delete[] hamiltonian;
-        delete[] overlap;
         delete[] unitary_zyx_lmn;
     } // destructor
 
@@ -1756,35 +1753,37 @@ extern "C" {
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
         //    overlap[iSHO*nSHO + jSHO] and hamiltonian[iSHO*nSHO + jSHO]
 
-        auto const potential_ln = new double[nlm*nln*nln][TRU_AND_SMT]; // emm1-emm2-degenerate
+        view3D<double> potential_ln[TRU_AND_SMT];
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+        	potential_ln[ts] = view3D<double>(nlm, nln, nln); // get memory, // emm1-emm2-degenerate
             int const nr = rg[ts]->n, mr = align<2>(nr);
-            auto const wave_pot_r2dr = new double[mr];
+            std::vector<double> wave_pot_r2dr(mr);
             for(int ell = 0; ell <= ellmax; ++ell) {
                 for(int emm = -ell; emm <= ell; ++emm) {
                     int const lm = solid_harmonics::lm_index(ell, emm);
                     assert(lm < nlm);
+                    auto potential_lm = potential_ln[ts][lm];
                     for(int iln = 0; iln < nln; ++iln) {
                         auto const wave_i = valence_state[iln].wave[ts];
-                        product(wave_pot_r2dr, nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
+                        product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = valence_state[jln].wave[ts];
-                            potential_ln[(lm*nln + iln)*nln + jln][ts] =
-                                dot_product(nr, wave_pot_r2dr, wave_j);
+                            potential_lm[iln][jln] = dot_product(nr, wave_pot_r2dr.data(), wave_j);
                         } // jln
                     } // iln
                 } // emm
             } // ell
-            delete[] wave_pot_r2dr;
         } // ts: true and smooth
 
-        auto const hamiltonian_lmn = new double[nlmn*nlmn];
-        auto const overlap_lmn     = new double[nlmn*nlmn];
-        set(hamiltonian_lmn, nlmn*nlmn, 0.0); // clear
-        set(overlap_lmn,     nlmn*nlmn, 0.0); // clear
+        view2D<double> hamiltonian_lmn(nlmn, nlmn); // get memory
+        view2D<double> overlap_lmn(nlmn, nlmn);
+        set(hamiltonian_lmn, nlmn, 0.0); // clear
+        set(overlap_lmn,     nlmn, 0.0); // clear
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
-            if (0 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
+            if (00 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
+            auto potential_TRU_lm = potential_ln[TRU][lm];
+            auto potential_SMT_lm = potential_ln[SMT][lm];
 
             if (lm1 < mlm && lm2 < mlm) {
                 if (lm < nlm) {
@@ -1792,15 +1791,14 @@ extern "C" {
                         int const iln = ln_index_list[ilmn];
                         for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                             int const jln = ln_index_list[jlmn];
-                            hamiltonian_lmn[ilmn*nlmn + jlmn] +=
-                              G * ( potential_ln[(lm*nln + iln)*nln + jln][TRU] 
-                                  - potential_ln[(lm*nln + iln)*nln + jln][SMT] );
+                            hamiltonian_lmn[ilmn][jlmn] +=
+                              G * ( potential_TRU_lm[iln][jln]
+                                  - potential_SMT_lm[iln][jln] );
                         } // jlmn
                     } // ilmn
                 } // lm
             } // limits
         } // gnt
-        delete[] potential_ln;
 
         // add the kinetic_energy deficit to the hamiltonian
         if (echo > 7) printf("\n# %s lmn-based Hamiltonian elements in %s:\n", label, _eV);
@@ -1812,14 +1810,14 @@ extern "C" {
                 int const jlm = lm_index_list[jlmn];
                 int const jln = ln_index_list[jlmn];
                 if (ilm == jlm) {
-                    hamiltonian_lmn[ilmn*nlmn + jlmn] +=
+                    hamiltonian_lmn[ilmn][jlmn] +=
                         ( kinetic_energy[iln*nln + jln][TRU]
                         - kinetic_energy[iln*nln + jln][SMT] );
-                    overlap_lmn[ilmn*nlmn + jlmn] =
+                    overlap_lmn[ilmn][jlmn] =
                         ( charge_deficit[(0*nln + iln)*nln + jln][TRU]
                         - charge_deficit[(0*nln + iln)*nln + jln][SMT] ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
-                if ((echo > 7)) printf(" %g", true_norm[iln]*true_norm[jln]*hamiltonian_lmn[ilmn*nlmn + jlmn]*eV);
+                if ((echo > 7)) printf(" %g", true_norm[iln]*hamiltonian_lmn[ilmn][jlmn]*true_norm[jln]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
         } // ilmn
@@ -1829,23 +1827,24 @@ extern "C" {
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
                 printf("# %s overlap elements for ilmn=%3d  ", label, ilmn);
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_index_list[jlmn];
-                    printf(" %g", true_norm[iln]*true_norm[jln]*overlap_lmn[ilmn*nlmn + jlmn]);
+                    printf(" %g", true_norm[iln]*true_norm[jln]*overlap_lmn[ilmn][jlmn]);
                 }   printf("\n");
             } // ilmn
         } // echo
         
         if (1) { // debug: check if averaging over emm gives back the same operators
-            auto const emm_averaged = new double[2*nln*nln];
-            auto const hamiltonian_ln = emm_averaged, overlap_ln = &emm_averaged[nln*nln];
+
+            view2D<double> hamiltonian_ln(nln, nln); // get memory
+            view2D<double>     overlap_ln(nln, nln); // get memory
             for(int i01 = 0; i01 < 2; ++i01) {
-                auto const input_lmn = i01 ?  overlap_lmn :  hamiltonian_lmn;
-                auto const label_inp = i01 ? "overlap"    : "hamiltonian"   ;
-                auto const result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
-                scattering_test::emm_average(result_ln, input_lmn, (int)numax, nn);
+                auto const & input_lmn = i01 ?  overlap_lmn :  hamiltonian_lmn;
+                auto const   label_inp = i01 ? "overlap"    : "hamiltonian"   ;
+                auto const & result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
+                scattering_test::emm_average(result_ln.data(), input_lmn.data(), (int)numax, nn);
                 for(int iln = 0; iln < nln; ++iln) {
                     printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
                     for(int jln = 0; jln < nln; ++jln) {
-                        printf(" %g", true_norm[iln]*true_norm[jln]*result_ln[iln*nln + jln]);
+                        printf(" %g", true_norm[iln]*true_norm[jln]*result_ln[iln][jln]);
                     }   printf("\n");
                 }   printf("\n");
             } // i01
@@ -1862,25 +1861,24 @@ extern "C" {
                 
                 // find the eigenstates of the spherical Hamiltonian
                 scattering_test::eigenstate_analysis
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, 384, V_rmax, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 2);
                 
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
                 
             // scan the logarithmic derivatives
             if (0) {
                 scattering_test::logarithmic_derivative
-                  (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln, overlap_ln, logder_energy_range, 2);
+                  (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
-            delete[] emm_averaged;
         } // debug
         
         
-        set(hamiltonian, nSHO*matrix_stride, 0.0); // clear
-        set(overlap,     nSHO*matrix_stride, 0.0); // clear
+        set(hamiltonian, nSHO, 0.0); // clear
+        set(overlap,     nSHO, 0.0); // clear
         // Now transform _lmn quantities to Cartesian representations using sho_unitary
-        transform_SHO(hamiltonian, matrix_stride, hamiltonian_lmn, nlmn, false);
-        transform_SHO(    overlap, matrix_stride,     overlap_lmn, nlmn, false);
+        transform_SHO(hamiltonian.data(), hamiltonian.stride(), hamiltonian_lmn.data(), hamiltonian_lmn.stride(), false);
+        transform_SHO(    overlap.data(),     overlap.stride(),     overlap_lmn.data(),     overlap_lmn.stride(), false);
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
 
@@ -1889,14 +1887,13 @@ extern "C" {
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO);
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-                    printf(" %g", hamiltonian[iSHO*matrix_stride + jSHO]*eV); // true_norm cannot be used here!
+                    printf("\t%g", hamiltonian[iSHO][jSHO]*eV); // true_norm cannot be used here 
+                    // since hamiltonian is given in the Cartesian representation!
                 } // jSHO
                 printf("\n");
             } // iSHO
         } // echo
         
-        delete[] hamiltonian_lmn;
-        delete[] overlap_lmn;
     } // update_matrix_elements
 
     
