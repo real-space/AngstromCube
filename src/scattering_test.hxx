@@ -345,12 +345,12 @@ namespace scattering_test {
           } // echo
       } // scope
 
-      int const stride = align<2>(nr); assert(stride >= nr);
+      int const stride = align<2>(nr + 1); assert(stride >= nr);
       // allocate Hamiltonian and overlap matrix
       view2D<double> Ham(nr, stride); // get memory
-      view2D<double> Ovl(nr, stride);
-      view2D<double> Ovl_copy(nr, stride);
-      std::vector<double> eigs(nr);
+      view2D<double> Ovl(nr, stride); // get memory
+      view2D<double> Ovl_copy(nr, stride); // get memory
+      std::vector<double> eigs(nr); // get memory
 
       int iln = 0; int mprj = 0; 
       for(int ell = 0; ell <= lmax; ++ell) {
@@ -531,6 +531,7 @@ namespace scattering_test {
   
   inline status_t test_eigenstate_analysis(int const echo=3, int const lmax=7) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
       auto const rg = *radial_grid::create_default_radial_grid(0);
       int const nln = sho_tools::num_ln_indices(lmax);
       auto V = std::vector<double>(rg.n, 0.0);

@@ -27,7 +27,7 @@
 #include "bessel_transform.hxx" // transform_to_r2_grid
 #include "scattering_test.hxx" // eigenstate_analysis, emm_average
 #include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
-#include "data_view.hxx" // view2D<T>
+#include "data_view.hxx" // view2D<T>, view3D<T>
 #include "control.hxx" // get
 
 // #define FULL_DEBUG
@@ -240,6 +240,8 @@ extern "C" {
 
       
   public:
+    
+    // constructor method:
     LiveAtom(float const Z_nucleons
             , bool const transfer2valence=true // depending on transfer2valence results look 
     // slightly different in the shape of smooth potentials but matrix elements are the same
@@ -254,7 +256,7 @@ extern "C" {
         
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
         
-        if (0) { // flat copy, true and smooth quantities live on the same radial grid
+        if (1) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], 1e-4);
@@ -1534,6 +1536,7 @@ extern "C" {
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n, mr = align<2>(nr);
             // full_density[ts][nlm*mr]; // memory layout
+            set(full_density[ts], nlm*mr, 0.0); // clear
             for(int lm = 0; lm < nlm; ++lm) {
                 if (0 == lm) {
                     set(full_density[ts], nr, core_density[ts], Y00); // needs scaling with Y00 since core_density has a factor 4*pi
@@ -1976,7 +1979,7 @@ extern "C" {
 
                 // find the eigenstates of the spherical Hamiltonian
                 scattering_test::eigenstate_analysis
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 12);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 2);
 //                 
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
