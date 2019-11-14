@@ -71,7 +71,8 @@ private:
 
 
 template<typename T>
-inline void set(view2D<T> & y, size_t const n1, T const a) { std::fill(y.data(), y.data() + n1*y.stride(), a); }
+inline void set(view2D<T> & y, size_t const n1, T const a) { 
+         std::fill(y.data(), y.data() + n1*y.stride(), a); }
 
 template<typename T>
 class view3D {
@@ -84,7 +85,7 @@ public:
 
   view3D(size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
     : _data(new T[n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2) {
-        std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
+        std::fill(_data, _data + n2*n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
   ~view3D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
@@ -124,8 +125,10 @@ public:
   T const & operator () (size_t const i2, size_t const i1, size_t const i0) const { _access; }
   T       & operator () (size_t const i2, size_t const i1, size_t const i0)       { _access; }
 
-  T const & at(size_t const i2, size_t const i1, size_t const i0) const { assert(i1 < _n1); assert(i0 < _n0); _access; }
-  T       & at(size_t const i2, size_t const i1, size_t const i0)       { assert(i1 < _n1); assert(i0 < _n0); _access; }
+  T const & at(size_t const i2, size_t const i1, size_t const i0) const 
+              { assert(i1 < _n1); assert(i0 < _n0); _access; }
+  T       & at(size_t const i2, size_t const i1, size_t const i0)       
+              { assert(i1 < _n1); assert(i0 < _n0); _access; }
 #undef _access
 #endif
 
@@ -137,6 +140,7 @@ public:
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
+  size_t dim1()   const { return _n1; }
   bool is_memory_owner() const { return (_n2 > DimUnknown); }
 
 private:
@@ -145,6 +149,95 @@ private:
   size_t _n0, _n1, _n2; // _n2==0 -->unknown
 
 }; // view3D
+
+template<typename T>
+inline void set(view3D<T> & y, size_t const n2, T const a) { 
+         std::fill(y.data(), y.data() + n2*y.dim1()*y.stride(), a); }
+
+
+template<typename T>
+class view4D {
+public:
+  
+  view4D() : _data(nullptr), _n0(0), _n1(0), _n2(0), _n3(DimUnknown) { } // default constructor
+
+  view4D(T* const ptr, size_t const n2, size_t const n1, size_t const stride) 
+    : _data(ptr), _n0(stride), _n1(n1), _n2(n2), _n3(DimUnknown) { } // constructor
+
+  view4D(size_t const n3, size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
+    : _data(new T[n3*n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _n3(n3) {
+        std::fill(_data, _data + n3*n2*n1*stride, init_value); // warning! first touch here!
+  } // memory owning constructor
+
+  ~view4D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
+
+  view4D(view4D<T> const & rhs) { 
+      printf("# view4D(view4D<T> const & rhs);\n");
+      *this = rhs;
+  } 
+
+  view4D(view4D<T>      && rhs) { 
+      printf("# view4D(view4D<T> && rhs);\n");
+      *this = std::move(rhs);
+  }
+
+  view4D& operator= (view4D<T> && rhs) {
+      printf("# view4D& operator= (view4D<T> && rhs);\n");
+      _data = rhs._data;
+      _n0   = rhs._n0;
+      _n1   = rhs._n1;
+      _n2   = rhs._n2;
+      _n3   = rhs._n3;
+      rhs._n3 = DimUnknown; // steal ownership
+      return *this;
+  }
+
+  view4D& operator= (view4D<T> const & rhs) {
+      printf("# view4D& operator= (view4D<T> const & rhs);\n");
+      _data = rhs._data;
+      _n0   = rhs._n0;
+      _n1   = rhs._n1;
+      _n2   = rhs._n2;
+      _n3   = DimUnknown; // we are just a shallow copy
+      return *this;
+  }
+  
+#define _VIEW4D_HAS_PARENTHESIS
+#ifdef  _VIEW4D_HAS_PARENTHESIS
+#define _access return _data[((i3*_n2 + i2)*_n1 + i1)*_n0 + i0]
+  T const & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0) const { _access; }
+  T       & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0)       { _access; }
+
+  T const & at(size_t const i3, size_t const i2, size_t const i1, size_t const i0) const 
+              { assert(i2 < _n2); assert(i1 < _n1); assert(i0 < _n0); _access; }
+  T       & at(size_t const i3, size_t const i2, size_t const i1, size_t const i0)       
+              { assert(i2 < _n2); assert(i1 < _n1); assert(i0 < _n0); _access; }
+#undef _access
+#endif
+
+#define _VIEW4D_HAS_INDEXING
+#ifdef  _VIEW4D_HAS_INDEXING
+  view3D<T> operator[] (size_t const i3) const { return view3D<T>(_data + i3*_n2*_n1*_n0, _n1, _n0); } // [] returns a sub-array
+  // maybe sub-optimal as it creates a view2D object every time
+#endif
+
+  T* data() const { return _data; }
+  size_t stride() const { return _n0; }
+  size_t dim1()   const { return _n1; }
+  size_t dim2()   const { return _n2; }
+  bool is_memory_owner() const { return (_n3 > DimUnknown); }
+
+private:
+  // private data members
+  T* _data;
+  size_t _n0, _n1, _n2, _n3; // _n3==0 -->unknown
+
+}; // view4D
+
+template<typename T>
+inline void set(view4D<T> & y, size_t const n3, T const a) { 
+         std::fill(y.data(), y.data() + n3*y.dim2()*y.dim1()*y.stride(), a); }
+
 
 
 #undef DimUnknown

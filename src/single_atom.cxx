@@ -225,7 +225,7 @@ extern "C" {
       double* zero_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
       view2D<double> hamiltonian, overlap; // matrices [nSHO*matrix_stride]
-      double (*kinetic_energy)[TRU_AND_SMT]; // matrix [nln*nln][TRU_AND_SMT]
+      view3D<double> kinetic_energy; // matrix [TRU_AND_SMT][nln][nln]
       double (*charge_deficit)[TRU_AND_SMT]; // matrix [(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]
       double  core_charge_deficit; // in units of electrons
       double* true_norm; // vector[nln] for display of partial wave results
@@ -434,12 +434,12 @@ extern "C" {
         qlm_compensator = new double[nlm_cmp]; // get memory
         int const nln = nvalencestates;
         charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
-        kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
+        // kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
+        kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln); // get memory
         zero_potential  = new double[nrs]; // get memory
         true_norm       = new double[nln]; // get memory
         
         set(zero_potential, nrs, 0.0); // clear
-        set(kinetic_energy[0], nln*nln*2, 0.0); // clear
 
         int const nSHO = sho_tools::nSHO(numax);
         int const matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
@@ -551,7 +551,7 @@ extern "C" {
         delete[] qlm_compensator;
         delete[] charge_deficit;
         delete[] zero_potential;
-        delete[] kinetic_energy;
+        // delete[] kinetic_energy;
         delete[] unitary_zyx_lmn;
     } // destructor
 
@@ -1043,8 +1043,8 @@ extern "C" {
                     if ((iln == jln) && (echo > 0)) printf("# %s %d%c-valence state has norm deficit %g - %g = %g electrons, (smooth numerical = %g)\n",
                       label, valence_state[iln].enn, ellchar[ell], tru_norm, smt_norm, tru_norm - smt_norm, smt_norm_numerical);
 #endif                    
-                    kinetic_energy[iln*nln + jln][TRU] = tru_kinetic_E;
-                    kinetic_energy[iln*nln + jln][SMT] = smt_kinetic_E;
+                    kinetic_energy(TRU,iln,jln) = tru_kinetic_E;
+                    kinetic_energy(SMT,iln,jln) = smt_kinetic_E;
                     if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
                       label, ellchar[ell], nrn, krn, tru_kinetic_E*eV, smt_kinetic_E*eV, (tru_kinetic_E - smt_kinetic_E)*eV, _eV);
 
@@ -1057,8 +1057,8 @@ extern "C" {
                 for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                     for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
                         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                            auto &aij = kinetic_energy[iln*nln + jln][ts];
-                            auto &aji = kinetic_energy[jln*nln + iln][ts];
+                            auto &aij = kinetic_energy(ts,iln,jln);
+                            auto &aji = kinetic_energy(ts,jln,iln);
                             auto const avg = 0.5*(aij + aji);
                             aij = avg;
                             aji = avg;
@@ -1143,7 +1143,7 @@ extern "C" {
                     // copy out
                     for(int i = 0; i < n; ++i) {
                         for(int j = 0; j < n; ++j) {
-                            mat[i*msub + j] = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][ts];
+                            mat[i*msub + j] = kinetic_energy(ts,i+ln_off,j+ln_off);
                         } // j
                     } // i
 
@@ -1165,7 +1165,7 @@ extern "C" {
                     // put back
                     for(int i = 0; i < n; ++i) {
                         for(int j = 0; j < n; ++j) {
-                            kinetic_energy[(i+ln_off)*nln + (j+ln_off)][ts] = rot[i*msub + j]; 
+                            kinetic_energy(ts,i+ln_off,j+ln_off) = rot[i*msub + j]; 
                         } // j
                     } // i
 
@@ -1174,8 +1174,8 @@ extern "C" {
                 // display
                 for(int i = 0; i < n; ++i) {
                     for(int j = 0; j < n; ++j) {
-                        auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
-                        auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
+                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
+                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off); 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> transformed kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
@@ -1204,7 +1204,7 @@ extern "C" {
                     int const nr_cut = ir_cut[ts]; // rg[ts]->n use for integration over the entire grid --> diagonal elements than appear positive.
                     for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                         for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
-                            kinetic_energy[iln*nln + jln][ts]
+                            kinetic_energy(ts,iln,jln)
                               = dot_product(nr_cut, valence_state[iln].wKin[ts],
                                                     valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
                         } // j
@@ -1214,8 +1214,8 @@ extern "C" {
                 // display
                 for(int i = 0; i < n; ++i) {
                     for(int j = 0; j < n; ++j) {
-                        auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
-                        auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
+                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
+                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off); 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
@@ -1226,8 +1226,8 @@ extern "C" {
                         for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
                             if (1) { // usual
                                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                                    auto &aij = kinetic_energy[iln*nln + jln][ts];
-                                    auto &aji = kinetic_energy[jln*nln + iln][ts];
+                                    auto &aij = kinetic_energy(ts,iln,jln);
+                                    auto &aji = kinetic_energy(ts,jln,iln);
                                     auto const avg = 0.5*(aij + aji);
                                     aij = avg;
                                     aji = avg;
@@ -1237,13 +1237,13 @@ extern "C" {
                                 // but it would be enough to symmetrize the difference matrix kinetic_energy[TRU] - kinetic_energy[SMT]
                                 // --> symmetrize only the difference
                                 for(int twice = 0; twice < 2; ++twice) { // do this twice for numerical accuracy
-                                    auto const dij = kinetic_energy[iln*nln + jln][TRU] - kinetic_energy[iln*nln + jln][SMT];
-                                    auto const dji = kinetic_energy[jln*nln + iln][TRU] - kinetic_energy[jln*nln + iln][SMT];
+                                    auto const dij = kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln);
+                                    auto const dji = kinetic_energy(TRU,jln,iln) - kinetic_energy(SMT,jln,iln);
                                     auto const asy = 0.5*(dij - dji); // asymmetry
                                     for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                                         int const sign = (TRU == ts) ? -1 : 1;
-                                        kinetic_energy[iln*nln + jln][ts] += 0.5*sign*asy;
-                                        kinetic_energy[jln*nln + iln][ts] -= 0.5*sign*asy;
+                                        kinetic_energy(ts,iln,jln) += 0.5*sign*asy;
+                                        kinetic_energy(ts,jln,iln) -= 0.5*sign*asy;
                                     } // ts
                                 } // twice
                                 // however, it should at the end not make a difference since only the difference enters the Hamiltonian
@@ -1256,8 +1256,8 @@ extern "C" {
                 // display
                 for(int i = 0; i < n; ++i) {
                     for(int j = 0; j < n; ++j) {
-                        auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
-                        auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
+                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
+                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off); 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
@@ -1810,9 +1810,7 @@ extern "C" {
                 int const jlm = lm_index_list[jlmn];
                 int const jln = ln_index_list[jlmn];
                 if (ilm == jlm) {
-                    hamiltonian_lmn[ilmn][jlmn] +=
-                        ( kinetic_energy[iln*nln + jln][TRU]
-                        - kinetic_energy[iln*nln + jln][SMT] );
+                    hamiltonian_lmn[ilmn][jlmn] += ( kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln) );
                     overlap_lmn[ilmn][jlmn] =
                         ( charge_deficit[(0*nln + iln)*nln + jln][TRU]
                         - charge_deficit[(0*nln + iln)*nln + jln][SMT] ); // ell=0
@@ -1922,8 +1920,8 @@ extern "C" {
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
                     hamiltonian_ln[iln][jln] =
-                        ( kinetic_energy[iln*nln + jln][TRU]
-                        - kinetic_energy[iln*nln + jln][SMT] )
+                        ( kinetic_energy(TRU,iln,jln)
+                        - kinetic_energy(SMT,iln,jln) )
                         + ( potential_ln(TRU,iln,jln)
                           - potential_ln(SMT,iln,jln) )
                         ;
