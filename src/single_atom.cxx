@@ -207,7 +207,7 @@ extern "C" {
       ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
       double sigma_compensator; // Gaussian spread for the charge deficit compensators
       double* qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
-      double* aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
+      view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-oribit) core states are maximum
       int nvalencestates; // for emm-Degenerate (numax*(numax + 4) + 4)/4 is a good choice;
       int nspins; // 1 or 2 or 4
@@ -224,9 +224,8 @@ extern "C" {
       double* potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor
       double* zero_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
-      view2D<double> hamiltonian, overlap; // matrices [nSHO*matrix_stride]
+      view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
-      // double (*charge_deficit)[TRU_AND_SMT]; // matrix [(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
 
       double  core_charge_deficit; // in units of electrons
@@ -293,14 +292,16 @@ extern "C" {
         int const nlm = pow2(1 + ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = (TRU == ts)? nrt : nrs;
+            // spherically symmetric quantities:
             core_density[ts]   = new double[nr]; // get memory
+            set(core_density[ts], nr, 0.0); // init
             potential[ts]      = new double[nr]; // get memory
-            full_density[ts]   = view2D<double>(nlm, nr, 0); // get memory
-            full_potential[ts] = view2D<double>(nlm, nr, 0); // get memory
+            // quantities with lm-resolution:
+            int const mr = align<2>(nr);
+            full_density[ts]   = view2D<double>(nlm, mr, 0); // get memory
+            full_potential[ts] = view2D<double>(nlm, mr, 0); // get memory
         } // true and smooth
 
-        set(core_density[SMT], nrs, 0.0); // init
-        set(core_density[TRU], nrt, 0.0); // init
         atom_core::read_Zeff_from_file(potential[TRU], *rg[TRU], Z_core, "pot/Zeff", -1, echo);
 
 //         // show the loaded Zeff(r)
@@ -430,8 +431,9 @@ extern "C" {
         if (echo > 0) printf("# %s pseudize the core density at r[%d or %d] = %.6f, requested %.3f %s\n", 
                               label, ir_cut[SMT], ir_cut[TRU], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
         assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal
+
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
-        aug_density     = new double[nlm_aug*nrs]; // get memory
+        aug_density = view2D<double>(nlm_aug, full_density[SMT].stride()); // get memory
         int const nlm_cmp = pow2(1 + ellmax_compensator);
         qlm_compensator = new double[nlm_cmp]; // get memory
         int const nln = nvalencestates;
@@ -550,9 +552,7 @@ extern "C" {
             delete[] potential[ts];
         } // tru and smt
         delete[] valence_state;
-        delete[] aug_density;
         delete[] qlm_compensator;
-        // delete[] charge_deficit;
         delete[] zero_potential;
         delete[] unitary_zyx_lmn;
     } // destructor
@@ -682,7 +682,6 @@ extern "C" {
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
-        int const nln = nvalencestates;
         
 // #define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
@@ -707,7 +706,8 @@ extern "C" {
         } // echo
 #else
         int const n_poly = 4; // number of even-order polynomial terms used
-        double c_smt[nln][4];
+        int const nln = nvalencestates;
+        view2D<double> c_smt(nln, 4);
 #endif
         
         int ln_off = 0;
@@ -829,9 +829,6 @@ extern "C" {
                         } // krn > 0
                     } // krn
                     
-//                     auto const Ekin = new double[3*n*n];
-//                     auto const Olap =      &Ekin[1*n*n];
-//                     auto const Vkin =      &Ekin[2*n*n];
                     view2D<double> Ekin(     3*n , n);
                     view2D<double> Olap(Ekin[1*n], n);
                     view2D<double> Vkin(Ekin[2*n], n);
@@ -924,7 +921,7 @@ extern "C" {
 //- SHO_PartialWaves
                 
                 { // scope: construct a simple pseudo wave using low order polynomials
-                    double* coeff = c_smt[iln];
+                    auto const coeff = c_smt[iln];
                     set(coeff, 4, 0.0);
                     set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
                     auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, ell, coeff);
@@ -1572,13 +1569,14 @@ extern "C" {
         qlm_compensator[0] += Y00*(core_charge_deficit - Z_core);
         if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]/Y00);
 
-        int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
-        // construct the augmented density
-        {   int const nr = rg[SMT]->n, mr = align<2>(nr); // on the smooth grid
-            set(aug_density, nlm_aug*mr, 0.0); // clear
-            set(aug_density, nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
-            add_or_project_compensators<0>(aug_density, ellmax_compensator, rg[SMT], qlm_compensator, sigma_compensator);
-            double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density); // only aug_density[0==lm]
+        { // scope: construct the augmented density
+        	int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
+        	int const mr = full_density[SMT].stride(); // on the smooth grid
+        	assert(aug_density.stride() == mr);
+            set(aug_density, nlm_aug, 0.0); // clear all entries
+            set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
+            add_or_project_compensators<0>(aug_density.data(), ellmax_compensator, rg[SMT], qlm_compensator, sigma_compensator);
+            double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density[00]); // only aug_density[00==lm]
             if (echo > 5) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge/Y00); // this value should be small
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU][00]); // only full_density[0==lm]
@@ -1628,9 +1626,9 @@ extern "C" {
             // solve electrostatics inside the spheres
             auto   const Ves = new double[nlm*mr];
             double const q_nucleus = (TRU == ts) ? -Z_core*Y00 : 0; // Z_core = number of protons in the nucleus
-            auto   const rho_aug   = (TRU == ts) ? full_density[TRU].data() : aug_density;
+            auto   const & rho_aug   = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
-            radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug, mr, ellmax, q_nucleus);
+            radial_potential::Hartree_potential(Ves, *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
 
             if (SMT == ts) {
                 add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves, sigma_compensator); // project to compensators
@@ -1668,13 +1666,13 @@ extern "C" {
                 if (false && (SMT == ts)) {
                     printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        printf("%g %g %g\n", rg[SMT]->r[ir], Ves[ir]*Y00, aug_density[ir]*Y00);
+                        printf("%g %g %g\n", rg[SMT]->r[ir], Ves[00 + ir]*Y00, aug_density[00][ir]*Y00);
                     }   printf("\n\n");
                 } // smooth
             } // echo
             delete [] Ves;
         } // true and smooth
-        if (echo > 6) printf("# %s local smooth augmented density at origin is %g a.u.\n", label, aug_density[0]*Y00);
+        if (echo > 6) printf("# %s local smooth augmented density at origin is %g a.u.\n", label, aug_density[00][0]*Y00);
 
         // construct the zero_potential V_bar
         auto const V_smt = new double[rg[SMT]->n];
@@ -1750,7 +1748,7 @@ extern "C" {
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
         //    overlap[iSHO*nSHO + jSHO] and hamiltonian[iSHO*nSHO + jSHO]
 
-        view4D<double> potential_ln(TRU_AND_SMT, nlm, nln, nln); // get memory, // emm1-emm2-degenerate
+        view4D<double> potential_ln(nlm, TRU_AND_SMT, nln, nln); // get memory, // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n, mr = align<2>(nr);
             std::vector<double> wave_pot_r2dr(mr);
@@ -1763,7 +1761,7 @@ extern "C" {
                         product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = valence_state[jln].wave[ts];
-                            potential_ln(ts,lm,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
+                            potential_ln(lm,ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
                         } // jln
                     } // iln
                 } // emm
@@ -1784,8 +1782,8 @@ extern "C" {
                         for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                             int const jln = ln_index_list[jlmn];
                             hamiltonian_lmn[ilmn][jlmn] +=
-                              G * ( potential_ln(TRU,lm,iln,jln) 
-                              	  - potential_ln(SMT,lm,iln,jln) );
+                              G * ( potential_ln(lm,TRU,iln,jln) 
+                              	  - potential_ln(lm,SMT,iln,jln) );
                         } // jlmn
                     } // ilmn
                 } // lm
