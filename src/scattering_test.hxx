@@ -18,6 +18,11 @@
 #include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
 #include "data_view.hxx" // view2D
 
+#define DEBUG
+#ifdef  DEBUG
+  #include "debug_output.hxx" // here
+#endif
+
 typedef int status_t;
 
 namespace scattering_test {
@@ -206,6 +211,7 @@ namespace scattering_test {
                   x[0] = 1.0;
                   int nx = 1;
                   if ((SMT == ts) && n > 0) {
+//                       here;
                       int const n0 = 1 + n;
                       set(mat, n0*n0, 0.0); // clear
                       for(int i = 0; i < n0; ++i) {
@@ -286,6 +292,7 @@ namespace scattering_test {
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
+//                here;
                   if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', generalized_node_count);
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("\n");
