@@ -222,7 +222,7 @@ extern "C" {
       double* core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
-      double* potential[TRU_AND_SMT]; // spherical potentials r*V(r), no Y00 factor
+      double* potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor
       double* zero_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
       double *hamiltonian, *overlap; // matrices [nSHO*matrix_stride]
@@ -715,15 +715,15 @@ extern "C" {
 //          int const msub = (1 + numax/2); // max. size of the subspace
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
-          
-            auto const SHO_rprj = new double[nn[ell]*align<2>(rg[SMT]->n)];
-            {   int nrns[9]; std::iota(nrns, nrns + nn[ell], 0);
-                int ells[9]; std::fill(ells, ells + nn[ell], ell);
+            int const n = nn[ell];
+            auto const SHO_rprj = new double[n*align<2>(rg[SMT]->n)];
+            {   int nrns[9]; std::iota(nrns, nrns + n, 0);
+                int ells[9]; std::fill(ells, ells + n, ell);
                 scattering_test::expand_sho_projectors(SHO_rprj, align<2>(rg[SMT]->n), *rg[SMT], 
-                                                              sigma, nn[ell], nrns, ells, 1, echo/2);
+                                                              sigma, n, nrns, ells, 1, echo/2);
             }
             
-            for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+            for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto &vs = valence_state[iln]; // abbreviate
                 int constexpr SRA = 1;
@@ -770,14 +770,15 @@ extern "C" {
                 
                 { // scope: generate smooth partial waves from projectors, revPAW scheme
                     int const stride = align<2>(rg[SMT]->n);
-                    auto const rphi = new double[(3 + nn[ell]*2)*stride];
-                    auto const Tphi =      &rphi[(1 + nn[ell]  )*stride];
-                    auto const ff   =      &rphi[(2 + nn[ell]*2)*stride];
+//                     view2D<double> rphi()
+                    auto const rphi = new double[(3 + n*2)*stride];
+                    auto const Tphi =      &rphi[(1 + n  )*stride];
+                    auto const ff   =      &rphi[(2 + n*2)*stride];
                     auto const vgtru = vs.wave[TRU][ir_match[TRU]]    *rg[TRU]->r[ir_match[TRU]];
                     auto const dgtru = vs.wave[TRU][ir_match[TRU] - 1]*rg[TRU]->r[ir_match[TRU] - 1] - vgtru;
                     double vghom, dghom;
 
-                    for(int krn = 0; krn <= nn[ell]; ++krn) { // loop must run serial and forward
+                    for(int krn = 0; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
                         auto const projector = (krn > 0) ? &SHO_rprj[(krn - 1)*stride] : nullptr;
                         double dg; // derivative at end point, not used
@@ -829,37 +830,37 @@ extern "C" {
                         } // krn > 0
                     } // krn
                     
-                    auto const Ekin = new double[3*nn[ell]*nn[ell]];
-                    auto const Olap =      &Ekin[1*nn[ell]*nn[ell]];
-                    auto const Vkin =      &Ekin[2*nn[ell]*nn[ell]];
+                    auto const Ekin = new double[3*n*n];
+                    auto const Olap =      &Ekin[1*n*n];
+                    auto const Vkin =      &Ekin[2*n*n];
                     if (1) {
                         int const nr_max = ir_match[SMT];
-                        for(int krn = 0; krn < nn[ell]; ++krn) {
-                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {
+                        for(int krn = 0; krn < n; ++krn) {
+                            for(int jrn = 0; jrn < n; ++jrn) {
                                 // definition of Tphi contains factor *r
-                                Ekin[krn*nn[ell] + jrn] = dot_product(nr_max, &Tphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->rdr);
-                                Olap[krn*nn[ell] + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->r2dr);
-                                Vkin[krn*nn[ell] + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->dr)
+                                Ekin[krn*n + jrn] = dot_product(nr_max, &Tphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->rdr);
+                                Olap[krn*n + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->r2dr);
+                                Vkin[krn*n + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->dr)
                                                         * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
                                 // minimize only the radial kinetic energy
-                                Ekin[krn*nn[ell] + jrn] -= Vkin[krn*nn[ell] + jrn]; // subtract the angular part, suggested by Morian Sonnet
+                                Ekin[krn*n + jrn] -= Vkin[krn*n + jrn]; // subtract the angular part, suggested by Morian Sonnet
                             } // jrn
                         } // krn
 
                         // symmetrize
-                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                        for(int krn = 0; krn < n; ++krn) {
                             for(int jrn = 0; jrn < krn; ++jrn) { // triangular loop
-                                symmetrize(Ekin[krn*nn[ell] + jrn], Ekin[jrn*nn[ell] + krn]);
-                                symmetrize(Olap[krn*nn[ell] + jrn], Olap[jrn*nn[ell] + krn]);
+                                symmetrize(Ekin[krn*n + jrn], Ekin[jrn*n + krn]);
+                                symmetrize(Olap[krn*n + jrn], Olap[jrn*n + krn]);
                             } // jrn
                         } // krn
                         
                         if (echo > 7) {
 //                          printf("\n");
-                            for(int krn = 0; krn < nn[ell]; ++krn) {
+                            for(int krn = 0; krn < n; ++krn) {
                                 printf("# %s curvature|overlap for i=%i ", label, krn);
-                                for(int jrn = 0; jrn < nn[ell]; ++jrn) {
-                                    printf(" %g|%g", Ekin[krn*nn[ell] + jrn], Olap[krn*nn[ell] + jrn]);
+                                for(int jrn = 0; jrn < n; ++jrn) {
+                                    printf(" %g|%g", Ekin[krn*n + jrn], Olap[krn*n + jrn]);
                                 } // jrn
                                 printf("\n");
                             } // krn
@@ -868,14 +869,14 @@ extern "C" {
                         
                         { // scope: minimize the radial curvature of the smooth partial wave
                             double lowest_eigenvalue = 0;
-                            auto const info = minimize_curvature(Ekin, Olap, nn[ell], &lowest_eigenvalue);
+                            auto const info = minimize_curvature(Ekin, Olap, n, &lowest_eigenvalue);
                             if (info) {
                                 printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
                             } else {
                                 if (echo > 6) {
                                     printf("# %s lowest eigenvalue %g %s", label, lowest_eigenvalue*eV, _eV);
                                     if (echo > 8) {
-                                        printf(", coefficients"); for(int krn = 0; krn < nn[ell]; ++krn) printf(" %g", Ekin[krn]);
+                                        printf(", coefficients"); for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin[krn]);
                                     } // high echo
                                     printf("\n");
                                 } // echo
@@ -883,15 +884,15 @@ extern "C" {
                         } // scope
                         
                     } else {
-                        set(Ekin, nn[ell], 0.0); Ekin[nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                        set(Ekin, n, 0.0); Ekin[nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
                     } // minimize radial kinetic energy of partial wave
                     
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
-                    double sum = 0; for(int krn = 0; krn < nn[ell]; ++krn) sum += Ekin[0*nn[ell] + krn];
+                    double sum = 0; for(int krn = 0; krn < n; ++krn) sum += Ekin[0*n + krn];
                     double const scal = 1.0/sum; // scaling such that the sum is 1
-                    for(int krn = 0; krn < nn[ell]; ++krn) {
-                        auto const coeff = scal*Ekin[0*nn[ell] + krn];
+                    for(int krn = 0; krn < n; ++krn) {
+                        auto const coeff = scal*Ekin[0*n + krn];
                         add_product(vs.wave[SMT], rg[SMT]->n, &rphi[(1 + krn)*stride], coeff);
                         add_product(vs.wKin[SMT], rg[SMT]->n, &Tphi[(1 + krn)*stride], coeff);
                     } // krn
@@ -980,7 +981,7 @@ extern "C" {
             
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
 
-            for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+            for(int nrn = 0; nrn < n; ++nrn) {
                 int const iln = ln_off + nrn;
                 product(tru_wave_i, nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
                 product(tru_waveVi, nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
@@ -1008,7 +1009,7 @@ extern "C" {
                     printf("\n\n");
                 } // echo
 
-                for(int krn = 0; krn < nn[ell]; ++krn) {
+                for(int krn = 0; krn < n; ++krn) {
                     int const jln = ln_off + krn;
                     
                     double const tru_norm = dot_product(ir_cut[TRU], tru_wave_i, valence_state[jln].wave[TRU]); // integrate only up to rcut
@@ -1055,7 +1056,7 @@ extern "C" {
             
             if (0) {
                 // symmetrize the kinetic energy tensor
-                for(int iln = 0 + ln_off; iln < nn[ell] + ln_off; ++iln) {
+                for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                     for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
                         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                             auto &aij = kinetic_energy[iln*nln + jln][ts];
@@ -1077,8 +1078,8 @@ extern "C" {
                 int const msub = (1 + numax/2); // max. size of the subspace
 
                 if (echo > 4) { // show normalization and orthogonality of projectors
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                    for(int nrn = 0; nrn < n; ++nrn) {
+                        for(int krn = 0; krn < n; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn, 
                                 (nrn == krn), dot_product(nr, &SHO_rprj[nrn*stride], &SHO_rprj[krn*stride], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
                         } // krn
@@ -1086,10 +1087,10 @@ extern "C" {
                 } // echo
                 
                 double ovl[msub*msub];
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
-                    for(int krn = 0; krn < nn[ell]; ++krn) { // smooth number or radial nodes
+                    for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
                         ovl[nrn*msub + krn] = dot_product(nr, wave, &SHO_rprj[krn*stride], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
@@ -1097,25 +1098,25 @@ extern "C" {
                 } // nrn
                 
                 double inv[msub*msub];
-                if (nn[ell] > 4) exit(__LINE__); // error not implemented
-                double const det = simple_math::invert(nn[ell], inv, msub, ovl, msub);
+                if (n > 4) exit(__LINE__); // error not implemented
+                double const det = simple_math::invert(n, inv, msub, ovl, msub);
                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
 
                 // make a new linear combination
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nrts = rg[ts]->n, mrts = align<2>(nrts);
-                    auto const waves = new double[nn[ell]*mrts]; // temporary storage
-                    auto const wKins = new double[nn[ell]*mrts]; // temporary storage for kinetic
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                    auto const waves = new double[n*mrts]; // temporary storage
+                    auto const wKins = new double[n*mrts]; // temporary storage for kinetic
+                    for(int nrn = 0; nrn < n; ++nrn) {
                         int const iln = ln_off + nrn;
                         set(&waves[nrn*mrts], nrts, valence_state[iln].wave[ts]); // copy
                         set(&wKins[nrn*mrts], nrts, valence_state[iln].wKin[ts]); // copy
                     } // nrn
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                    for(int nrn = 0; nrn < n; ++nrn) {
                         int const iln = ln_off + nrn;
                         set(valence_state[iln].wave[ts], nrts, 0.0); // clear
                         set(valence_state[iln].wKin[ts], nrts, 0.0); // clear
-                        for(int krn = 0; krn < nn[ell]; ++krn) {
+                        for(int krn = 0; krn < n; ++krn) {
                             add_product(valence_state[iln].wave[ts], nrts, &waves[krn*mrts], inv[nrn*msub + krn]);
                             add_product(valence_state[iln].wKin[ts], nrts, &wKins[krn*mrts], inv[nrn*msub + krn]);
                         } // krn
@@ -1126,10 +1127,10 @@ extern "C" {
 
 #if 1
                 // check again the overlap, seems ok
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
-                    for(int krn = 0; krn < nn[ell]; ++krn) { // smooth number or radial nodes
+                    for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
                         ovl[nrn*msub + krn] = dot_product(nr, wave, &SHO_rprj[krn*mr], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
@@ -1142,17 +1143,17 @@ extern "C" {
                 double mat[msub*msub], rot[msub*msub];
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     // copy out
-                    for(int i = 0; i < nn[ell]; ++i) {
-                        for(int j = 0; j < nn[ell]; ++j) {
+                    for(int i = 0; i < n; ++i) {
+                        for(int j = 0; j < n; ++j) {
                             mat[i*msub + j] = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][ts];
                         } // j
                     } // i
 
-                    simple_math::matrix_rotation(nn[ell], rot, msub, mat, msub, inv, msub);
+                    simple_math::matrix_rotation(n, rot, msub, mat, msub, inv, msub);
 
                     if (0) {
                         // symmetrize the kinetic energy tensor
-                        for(int i = 0; i < nn[ell]; ++i) {
+                        for(int i = 0; i < n; ++i) {
                             for(int j = 0; j < i; ++j) { // triangular loop excluding the diagonal elements
                                 auto &aij = rot[i*msub + j];
                                 auto &aji = rot[j*msub + i];
@@ -1164,8 +1165,8 @@ extern "C" {
                     } // active?
 
                     // put back
-                    for(int i = 0; i < nn[ell]; ++i) {
-                        for(int j = 0; j < nn[ell]; ++j) {
+                    for(int i = 0; i < n; ++i) {
+                        for(int j = 0; j < n; ++j) {
                             kinetic_energy[(i+ln_off)*nln + (j+ln_off)][ts] = rot[i*msub + j]; 
                         } // j
                     } // i
@@ -1173,8 +1174,8 @@ extern "C" {
                 } // ts
                 
                 // display
-                for(int i = 0; i < nn[ell]; ++i) {
-                    for(int j = 0; j < nn[ell]; ++j) {
+                for(int i = 0; i < n; ++i) {
+                    for(int j = 0; j < n; ++j) {
                         auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
                         auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> transformed kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
@@ -1188,7 +1189,7 @@ extern "C" {
                            " for ell=%c in a.u.:\n", label, ellchar[ell]);
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                         printf("%g", rg[SMT]->r[ir]); // radius
-                        for(int iln = ln_off; iln < ln_off + nn[ell]; ++iln) {
+                        for(int iln = ln_off; iln < ln_off + n; ++iln) {
                             printf("  %g %g", valence_state[iln].wave[TRU][ir + nr_diff], valence_state[iln].wave[SMT][ir]);
 //                          printf(" %g %g",  valence_state[iln].wKin[TRU][ir + nr_diff], valence_state[iln].wKin[SMT][ir]);
                         } // iln
@@ -1203,8 +1204,8 @@ extern "C" {
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nr_cut = ir_cut[ts]; // rg[ts]->n use for integration over the entire grid --> diagonal elements than appear positive.
-                    for(int iln = 0 + ln_off; iln < nn[ell] + ln_off; ++iln) {
-                        for(int jln = 0 + ln_off; jln < nn[ell] + ln_off; ++jln) {
+                    for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
+                        for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
                             kinetic_energy[iln*nln + jln][ts]
                               = dot_product(nr_cut, valence_state[iln].wKin[ts],
                                                     valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
@@ -1213,8 +1214,8 @@ extern "C" {
                 } // ts
 
                 // display
-                for(int i = 0; i < nn[ell]; ++i) {
-                    for(int j = 0; j < nn[ell]; ++j) {
+                for(int i = 0; i < n; ++i) {
+                    for(int j = 0; j < n; ++j) {
                         auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
                         auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
@@ -1223,7 +1224,7 @@ extern "C" {
                 } // i
 
                 if (1) { // symmetrize the kinetic energy tensor
-                    for(int iln = 0 + ln_off; iln < nn[ell] + ln_off; ++iln) {
+                    for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                         for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
                             if (1) { // usual
                                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1255,8 +1256,8 @@ extern "C" {
                 } // symmetrization active?
 
                 // display
-                for(int i = 0; i < nn[ell]; ++i) {
-                    for(int j = 0; j < nn[ell]; ++j) {
+                for(int i = 0; i < n; ++i) {
+                    for(int j = 0; j < n; ++j) {
                         auto const E_kin_tru = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][TRU];
                         auto const E_kin_smt = kinetic_energy[(i+ln_off)*nln + (j+ln_off)][SMT]; 
                         if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
@@ -1269,7 +1270,7 @@ extern "C" {
 //             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
             delete[] SHO_rprj;
-            ln_off += nn[ell];
+            ln_off += n;
         } // ell
         
         delete[] r2rho;
