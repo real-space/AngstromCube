@@ -1753,22 +1753,20 @@ extern "C" {
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
         //    overlap[iSHO*nSHO + jSHO] and hamiltonian[iSHO*nSHO + jSHO]
 
-        view3D<double> potential_ln[TRU_AND_SMT];
+        view4D<double> potential_ln(TRU_AND_SMT, nlm, nln, nln); // get memory, // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-        	potential_ln[ts] = view3D<double>(nlm, nln, nln); // get memory, // emm1-emm2-degenerate
             int const nr = rg[ts]->n, mr = align<2>(nr);
             std::vector<double> wave_pot_r2dr(mr);
             for(int ell = 0; ell <= ellmax; ++ell) {
                 for(int emm = -ell; emm <= ell; ++emm) {
                     int const lm = solid_harmonics::lm_index(ell, emm);
                     assert(lm < nlm);
-                    auto potential_lm = potential_ln[ts][lm];
                     for(int iln = 0; iln < nln; ++iln) {
                         auto const wave_i = valence_state[iln].wave[ts];
                         product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = valence_state[jln].wave[ts];
-                            potential_lm[iln][jln] = dot_product(nr, wave_pot_r2dr.data(), wave_j);
+                            potential_ln(ts,lm,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
                         } // jln
                     } // iln
                 } // emm
@@ -1782,9 +1780,6 @@ extern "C" {
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
             if (00 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
-            auto potential_TRU_lm = potential_ln[TRU][lm];
-            auto potential_SMT_lm = potential_ln[SMT][lm];
-
             if (lm1 < mlm && lm2 < mlm) {
                 if (lm < nlm) {
                     for(int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {
@@ -1792,8 +1787,8 @@ extern "C" {
                         for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                             int const jln = ln_index_list[jlmn];
                             hamiltonian_lmn[ilmn][jlmn] +=
-                              G * ( potential_TRU_lm[iln][jln]
-                                  - potential_SMT_lm[iln][jln] );
+                              G * ( potential_ln(TRU,lm,iln,jln) 
+                              	  - potential_ln(SMT,lm,iln,jln) );
                         } // jlmn
                     } // ilmn
                 } // lm
@@ -1908,7 +1903,6 @@ extern "C" {
                 product(wave_pot_r2dr, nr, wave_i, potential[ts], rg[ts]->rdr); 
                 for(int jln = 0; jln < nln; ++jln) {
                     auto const wave_j = valence_state[jln].wave[ts];
-//                     potential_ln[iln*nln + jln][ts] = dot_product(nr, wave_pot_r2dr, wave_j);
                     potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr, wave_j);
                 } // jln
             } // iln
@@ -1931,7 +1925,6 @@ extern "C" {
                 } // jln
             } // iln
         } // scope
-//      delete[] potential_ln;
      
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
