@@ -10,15 +10,34 @@ class view2D {
 public:
   
   view2D(T* const ptr, size_t const stride) 
-    : _data(ptr), _n0(stride), _n1(DimUnknown) { } // constructor
-  view2D(size_t const n1, size_t const stride, T const init_value=T(0)) 
-    : _n0(stride), _n1(n1) { 
-        auto const all = _n1*_n0;
-        _data = new T[all];
-        for(size_t i = 0; i < all; ++i) _data[i] = init_value; // warning! first touch here!
+    : _data(ptr), _n0(stride), _n1(DimUnknown) { }
+  view2D(size_t const n1, size_t const stride, T const init_value={0}) 
+    : _data{new T[n1*stride]}, _n0(stride), _n1(n1)
+        std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
     } // constructor
 
-  ~view2D() { if (is_memory_owner()) delete[] _data; } // destructor
+  ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
+
+    // to prevent unwanted copying:
+  view2D(view2D<T> const &rhs) { *this = rhs; } 
+  view2D(view2D<T>      &&rhs) { *this = std::move(rhs); }
+
+  view2D& operator= (view2D<T> && rhs) {
+    printf("Hey, we are moving stuff\n");
+    _data = rhs._data;
+    _n0   = rhs._n0; 
+    _n1   = rhs._n1;
+    rhs._n1 = DimUnknown; // steal ownership
+    return *this;
+  }
+
+  view2D& operator= (view2D<T> const &rhs) {
+    printf("Hey, we are copying stuff\n");
+    _data = rhs._data;
+    _n0   = rhs._n0; 
+    _n1   = DimUnknown; // we are just a shallow copy
+    return *this;
+  }
 
 #ifdef  _VIEW2D_HAS_PARENTHESIS
   T const & operator () (size_t const i1, size_t const i0) const { return _data[i1*_n0 + i0]; } // (i,j)
@@ -39,9 +58,7 @@ private:
   T* _data;
   size_t _n0, _n1; // _n1==0 --> unknown
 
-  // to prevent unwanted copying:
-  view2D(view2D<T> const &); // delete the copy constructor
-  view2D& operator = (view2D<T> const &); // delete the copy assignment constructor
+
   
 }; // view2D
 
@@ -102,7 +119,9 @@ namespace data_view {
 inline int test_view2D(int const echo=9) {
     int constexpr n1 = 3, n0 = 5;
     if (echo > 0) printf("\n# %s(%i,%i)\n", __func__, n1, n0);
-    view2D<double> a(n1,8); // memory allocation
+
+    // view2D<double> a(n1,8); // memory allocation
+    auto a = view2D<double>(n1,8);
     assert(a.stride() >= n0);
     for(int i = 0; i < n1; ++i) {
         for(int j = 0; j < n0; ++j) {
