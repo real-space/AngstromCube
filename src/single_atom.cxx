@@ -770,26 +770,26 @@ extern "C" {
                 
                 { // scope: generate smooth partial waves from projectors, revPAW scheme
                     int const stride = align<2>(rg[SMT]->n);
-//                     view2D<double> rphi()
-                    auto const rphi = new double[(3 + n*2)*stride];
-                    auto const Tphi =      &rphi[(1 + n  )*stride];
-                    auto const ff   =      &rphi[(2 + n*2)*stride];
+                    view2D<double> rphi(1 + n, stride);
+                    view2D<double> Tphi(1 + n, stride);
+                    std::vector<double> ff(rg[SMT]->n);
                     auto const vgtru = vs.wave[TRU][ir_match[TRU]]    *rg[TRU]->r[ir_match[TRU]];
                     auto const dgtru = vs.wave[TRU][ir_match[TRU] - 1]*rg[TRU]->r[ir_match[TRU] - 1] - vgtru;
                     double vghom, dghom;
 
-                    for(int krn = 0; krn <= n; ++krn) { // loop must run serial and forward
+                    int constexpr HOM = 0;
+                    for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
-                        auto const projector = (krn > 0) ? &SHO_rprj[(krn - 1)*stride] : nullptr;
+                        auto const projector = (krn > HOM) ? &SHO_rprj[(krn - 1)*stride] : nullptr;
                         double dg; // derivative at end point, not used
                         
                         // solve inhomgeneous equation and match true wave in value and derivative
                         radial_integrator::integrate_outwards<SRA>(*rg[SMT], potential[SMT], ell, vs.energy,
-                                                         &rphi[krn*stride], ff, -1, &dg, projector);
+                                                                  rphi[krn], ff.data(), -1, &dg, projector);
                         
-                        auto const vginh = rphi[krn*stride + ir_match[SMT]];
-                        auto const dginh = rphi[krn*stride + ir_match[SMT] - 1] - vginh;
-                        if (0 == krn) {
+                        auto const vginh = rphi[krn][ir_match[SMT]];
+                        auto const dginh = rphi[krn][ir_match[SMT] - 1] - vginh;
+                        if (HOM == krn) {
                             vghom = vginh; dghom = dginh;
                         } else {
                             // matching coefficient - how much of the homogeneous solution do we need to add to match logder
@@ -797,26 +797,25 @@ extern "C" {
                             auto const c_hom = - (vgtru*dginh - dgtru*vginh) / denom;
  
                             // combine inhomogeneous and homogeneous solution to match true solution outside r_match
-                            add_product(&rphi[krn*stride], rg[SMT]->n, &rphi[0*stride], c_hom); 
+                            add_product(rphi[krn], rg[SMT]->n, rphi[HOM], c_hom); 
                             
                             auto const scal = vgtru / (vginh + c_hom*vghom); // match not only in logder but also in value
-                            scale(&rphi[krn*stride], rg[SMT]->n, rg[SMT]->rinv, scal); // and divide by r
+                            scale(rphi[krn], rg[SMT]->n, rg[SMT]->rinv, scal); // and divide by r
                             // ToDo: extrapolate lowest point?
 
                             // Tphi = projector + (E - V)*phi
                             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                                Tphi[krn*stride + ir] = scal*projector[ir] 
-                                                      + (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn*stride + ir];
+                                Tphi[krn][ir] = scal*projector[ir] + (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn][ir];
                             } // ir
-                            
+
                             // now visually check that the matching of value and derivative of rphi is ok.
                             if (echo > 9) {
                                 printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
                                         label, ell, nrn, krn-1);
                                 for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                                     printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir], 
-                                        vs.wave[TRU][ir + nr_diff], rphi[krn*stride + ir],
-                                        vs.wKin[TRU][ir + nr_diff], Tphi[krn*stride + ir]);
+                                        vs.wave[TRU][ir + nr_diff], rphi[krn][ir],
+                                        vs.wKin[TRU][ir + nr_diff], Tphi[krn][ir]);
                                 } // ir
                                 printf("\n\n");
                             } // echo
@@ -838,9 +837,9 @@ extern "C" {
                         for(int krn = 0; krn < n; ++krn) {
                             for(int jrn = 0; jrn < n; ++jrn) {
                                 // definition of Tphi contains factor *r
-                                Ekin[krn*n + jrn] = dot_product(nr_max, &Tphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->rdr);
-                                Olap[krn*n + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->r2dr);
-                                Vkin[krn*n + jrn] = dot_product(nr_max, &rphi[(krn + 1)*stride], &rphi[(jrn + 1)*stride], rg[SMT]->dr)
+                                Ekin[krn*n + jrn] = dot_product(nr_max, Tphi[1 + krn], rphi[1 + jrn], rg[SMT]->rdr);
+                                Olap[krn*n + jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->r2dr);
+                                Vkin[krn*n + jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->dr)
                                                         * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
                                 // minimize only the radial kinetic energy
                                 Ekin[krn*n + jrn] -= Vkin[krn*n + jrn]; // subtract the angular part, suggested by Morian Sonnet
@@ -893,8 +892,8 @@ extern "C" {
                     double const scal = 1.0/sum; // scaling such that the sum is 1
                     for(int krn = 0; krn < n; ++krn) {
                         auto const coeff = scal*Ekin[0*n + krn];
-                        add_product(vs.wave[SMT], rg[SMT]->n, &rphi[(1 + krn)*stride], coeff);
-                        add_product(vs.wKin[SMT], rg[SMT]->n, &Tphi[(1 + krn)*stride], coeff);
+                        add_product(vs.wave[SMT], rg[SMT]->n, rphi[1 + krn], coeff);
+                        add_product(vs.wKin[SMT], rg[SMT]->n, Tphi[1 + krn], coeff);
                     } // krn
 
 
@@ -916,7 +915,6 @@ extern "C" {
 //                     } // echo
                     
                     delete[] Ekin;
-                    delete[] rphi;
                 } // scope
                 
 //- SHO_PartialWaves
