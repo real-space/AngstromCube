@@ -829,28 +829,31 @@ extern "C" {
                         } // krn > 0
                     } // krn
                     
-                    auto const Ekin = new double[3*n*n];
-                    auto const Olap =      &Ekin[1*n*n];
-                    auto const Vkin =      &Ekin[2*n*n];
+//                     auto const Ekin = new double[3*n*n];
+//                     auto const Olap =      &Ekin[1*n*n];
+//                     auto const Vkin =      &Ekin[2*n*n];
+                    view2D<double> Ekin(     3*n , n);
+                    view2D<double> Olap(Ekin[1*n], n);
+                    view2D<double> Vkin(Ekin[2*n], n);
                     if (1) {
                         int const nr_max = ir_match[SMT];
                         for(int krn = 0; krn < n; ++krn) {
                             for(int jrn = 0; jrn < n; ++jrn) {
                                 // definition of Tphi contains factor *r
-                                Ekin[krn*n + jrn] = dot_product(nr_max, Tphi[1 + krn], rphi[1 + jrn], rg[SMT]->rdr);
-                                Olap[krn*n + jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->r2dr);
-                                Vkin[krn*n + jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->dr)
+                                Ekin[krn][jrn] = dot_product(nr_max, Tphi[1 + krn], rphi[1 + jrn], rg[SMT]->rdr);
+                                Olap[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->r2dr);
+                                Vkin[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->dr)
                                                         * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
                                 // minimize only the radial kinetic energy
-                                Ekin[krn*n + jrn] -= Vkin[krn*n + jrn]; // subtract the angular part, suggested by Morian Sonnet
+                                Ekin[krn][jrn] -= Vkin[krn][jrn]; // subtract the angular part, suggested by Morian Sonnet
                             } // jrn
                         } // krn
 
                         // symmetrize
                         for(int krn = 0; krn < n; ++krn) {
                             for(int jrn = 0; jrn < krn; ++jrn) { // triangular loop
-                                symmetrize(Ekin[krn*n + jrn], Ekin[jrn*n + krn]);
-                                symmetrize(Olap[krn*n + jrn], Olap[jrn*n + krn]);
+                                symmetrize(Ekin[krn][jrn], Ekin[jrn][krn]);
+                                symmetrize(Olap[krn][jrn], Olap[jrn][krn]);
                             } // jrn
                         } // krn
                         
@@ -859,7 +862,7 @@ extern "C" {
                             for(int krn = 0; krn < n; ++krn) {
                                 printf("# %s curvature|overlap for i=%i ", label, krn);
                                 for(int jrn = 0; jrn < n; ++jrn) {
-                                    printf(" %g|%g", Ekin[krn*n + jrn], Olap[krn*n + jrn]);
+                                    printf(" %g|%g", Ekin[krn][jrn], Olap[krn][jrn]);
                                 } // jrn
                                 printf("\n");
                             } // krn
@@ -868,14 +871,14 @@ extern "C" {
                         
                         { // scope: minimize the radial curvature of the smooth partial wave
                             double lowest_eigenvalue = 0;
-                            auto const info = minimize_curvature(Ekin, Olap, n, &lowest_eigenvalue);
+                            auto const info = minimize_curvature(Ekin.data(), Olap.data(), Ekin.stride(), &lowest_eigenvalue);
                             if (info) {
                                 printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
                             } else {
                                 if (echo > 6) {
                                     printf("# %s lowest eigenvalue %g %s", label, lowest_eigenvalue*eV, _eV);
                                     if (echo > 8) {
-                                        printf(", coefficients"); for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin[krn]);
+                                        printf(", coefficients"); for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin[0][krn]);
                                     } // high echo
                                     printf("\n");
                                 } // echo
@@ -883,15 +886,15 @@ extern "C" {
                         } // scope
                         
                     } else {
-                        set(Ekin, n, 0.0); Ekin[nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                        set(Ekin, n, 0.0); Ekin[0][nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
                     } // minimize radial kinetic energy of partial wave
                     
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
-                    double sum = 0; for(int krn = 0; krn < n; ++krn) sum += Ekin[0*n + krn];
+                    double sum = 0; for(int krn = 0; krn < n; ++krn) sum += Ekin[0][krn];
                     double const scal = 1.0/sum; // scaling such that the sum is 1
                     for(int krn = 0; krn < n; ++krn) {
-                        auto const coeff = scal*Ekin[0*n + krn];
+                        auto const coeff = scal*Ekin[0][krn];
                         add_product(vs.wave[SMT], rg[SMT]->n, rphi[1 + krn], coeff);
                         add_product(vs.wKin[SMT], rg[SMT]->n, Tphi[1 + krn], coeff);
                     } // krn
@@ -914,7 +917,6 @@ extern "C" {
 //                         fflush(stdout);
 //                     } // echo
                     
-                    delete[] Ekin;
                 } // scope
                 
 //- SHO_PartialWaves
