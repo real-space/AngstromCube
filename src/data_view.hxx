@@ -21,24 +21,31 @@ public:
 
   ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
-  view2D(view2D<T> const &rhs) { *this = rhs; } 
-  view2D(view2D<T>      &&rhs) { *this = std::move(rhs); }
+  view2D(view2D<T> const & rhs) { 
+      printf("# view2D(view2D<T> const & rhs);\n");
+      *this = rhs;
+  } 
 
-  view2D& operator= (view2D<T> && rhs) {
-    printf("Hey, we are moving stuff\n");
-    _data = rhs._data;
-    _n0   = rhs._n0; 
-    _n1   = rhs._n1;
-    rhs._n1 = DimUnknown; // steal ownership
-    return *this;
+  view2D(view2D<T>      && rhs) { 
+      printf("# view2D(view2D<T> && rhs);\n");
+      *this = std::move(rhs);
   }
 
-  view2D& operator= (view2D<T> const &rhs) {
-    printf("Hey, we are copying stuff\n");
-    _data = rhs._data;
-    _n0   = rhs._n0; 
-    _n1   = DimUnknown; // we are just a shallow copy
-    return *this;
+  view2D& operator= (view2D<T> && rhs) {
+      printf("# view2D& operator= (view2D<T> && rhs);\n");
+      _data = rhs._data;
+      _n0   = rhs._n0; 
+      _n1   = rhs._n1;
+      rhs._n1 = DimUnknown; // steal ownership
+      return *this;
+  }
+
+  view2D& operator= (view2D<T> const & rhs) {
+      printf("# view2D& operator= (view2D<T> const & rhs);\n");
+      _data = rhs._data;
+      _n0   = rhs._n0; 
+      _n1   = DimUnknown; // we are just a shallow copy
+      return *this;
   }
 
 #ifdef  _VIEW2D_HAS_PARENTHESIS

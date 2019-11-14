@@ -220,9 +220,8 @@ extern "C" {
       core_level_t* core_state;  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       valence_level_t* valence_state;
       double* core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
-//    double* full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
-      double* full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
+      view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
       double* potential[TRU_AND_SMT]; // spherical potentials r*V(r), no Y00 factor
       double* zero_potential; // PAW potential shape correction
       double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
@@ -294,9 +293,8 @@ extern "C" {
             int const nr = (TRU == ts)? nrt : nrs;
             core_density[ts]   = new double[nr]; // get memory
             potential[ts]      = new double[nr]; // get memory
-//             full_density[ts]   = new double[nlm*nr]; // get memory
             full_density[ts]   = view2D<double>(nlm, nr, 0); // get memory
-            full_potential[ts] = new double[nlm*nr]; // get memory
+            full_potential[ts] = view2D<double>(nlm, nr, 0); // get memory
         } // true and smooth
 
         set(core_density[SMT], nrs, 0.0); // init
@@ -501,7 +499,7 @@ extern "C" {
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
                 printf("%g %g %g %g %g %g\n", r
-//                         , -full_potential[TRU][ir + nr_diff]*Y00*r // for comparison, should be the same as Z_eff(r)
+//                         , -full_potential[TRU][00][ir + nr_diff]*Y00*r // for comparison, should be the same as Z_eff(r)
                         , -potential[TRU][ir + nr_diff] // Z_eff(r)
                         , -potential[SMT][ir] //    \tilde Z_eff(r)
                         , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
@@ -547,8 +545,6 @@ extern "C" {
             } // ivs
             delete[] core_density[ts];
             delete[] potential[ts];
-//          delete[] full_density[ts];
-            delete[] full_potential[ts];
         } // tru and smt
         delete[] valence_state;
         delete[] aug_density;
@@ -1627,13 +1623,13 @@ extern "C" {
                 on_grid[npt*mr + ip] = exc;
             } // ip
             // transform back to lm-index
-            angular_grid::transform(full_potential[ts], on_grid, mr, ellmax, true);
+            angular_grid::transform(full_potential[ts].data(), on_grid, mr, ellmax, true);
             auto const exc_lm = new double[nlm*mr];
             angular_grid::transform(exc_lm, &on_grid[npt*mr], mr, ellmax, true);
             delete[] on_grid;
-            if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[ts][0]*Y00*eV,_eV);
+            if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[SMT][00][0]*Y00*eV,_eV);
             if (echo > 5) {
-                auto const Edc00 = dot_product(nr, full_potential[ts], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                 printf("# %s double counting correction  in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
                 auto const Exc00 = dot_product(nr, exc_lm, full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                 printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
@@ -1675,7 +1671,7 @@ extern "C" {
                 if (echo > 7) printf("# %s after correction v_00 is %g %s\n", label, v00*Y00*eV,_eV);
             }
 
-            add_product(full_potential[ts], nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
+            add_product(full_potential[ts].data(), nlm*mr, Ves, 1.0); // add the electrostatic potential, scale_factor=1.0
             if (echo > 8) {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[0]*Y00*eV,_eV);
                 if (TRU == ts) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
@@ -1693,18 +1689,18 @@ extern "C" {
 
         // construct the zero_potential V_bar
         auto const V_smt = new double[rg[SMT]->n];
-        set(V_smt, rg[SMT]->n, full_potential[TRU] + nr_diff); // copy the tail of the spherical part of the true potential
+        set(V_smt, rg[SMT]->n, full_potential[TRU][00] + nr_diff); // copy the tail of the spherical part of the true potential
         set(zero_potential, rg[SMT]->n, 0.0); // init zero
         auto const df = Y00*eV; assert(df > 0); // display factor
         if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n", 
-                    label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][0 + ir_cut[TRU]]*df, _eV);
+                    label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][00][ir_cut[TRU]]*df, _eV);
         auto const stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2);
         if (stat) {
             if (echo > 0) printf("# %s matching procedure for the potential parabola failed! info = %d\n", label, stat);
         } else {
 //             if (echo > -1) printf("# local smooth zero_potential:\n");
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                zero_potential[ir] = V_smt[ir] - full_potential[SMT][0 + ir];
+                zero_potential[ir] = V_smt[ir] - full_potential[SMT][00][ir];
 //                 if (echo > -1) printf("%g %g\n", rg[SMT]->r[ir], zero_potential[ir]*Y00);
             } // ir
 //             if (echo > -1) printf("\n\n");
@@ -1730,13 +1726,13 @@ extern "C" {
         delete [] V_smt;
 
         // add spherical zero potential for SMT==ts and 0==lm
-        add_product(full_potential[SMT] + 0, rg[SMT]->n, zero_potential, 1.0);
+        add_product(full_potential[SMT][00], rg[SMT]->n, zero_potential, 1.0);
 
         // feed back spherical part of the true potential into the spherical true potential r*V 
         // which determines core states and true partial waves
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             scale(potential[ts], rg[ts]->n, 1. - mixing);
-            add_product(potential[ts], rg[ts]->n, full_potential[ts] + 0, rg[ts]->r, Y00*mixing);
+            add_product(potential[ts], rg[ts]->n, full_potential[ts][00], rg[ts]->r, Y00*mixing);
         } // ts true and smooth
 
 //         // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
@@ -1775,7 +1771,7 @@ extern "C" {
                     assert(lm < nlm);
                     for(int iln = 0; iln < nln; ++iln) {
                         auto const wave_i = valence_state[iln].wave[ts];
-                        product(wave_pot_r2dr, nr, wave_i, &(full_potential[ts][lm*mr]), rg[ts]->r2dr);
+                        product(wave_pot_r2dr, nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = valence_state[jln].wave[ts];
                             potential_ln[(lm*nln + iln)*nln + jln][ts] =
@@ -1861,11 +1857,11 @@ extern "C" {
             
             if (0) {
                 printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
-                double const V_rmax = full_potential[SMT][rg[SMT]->n - 1]*Y00;
+                double const V_rmax = full_potential[SMT][00][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
                     for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        Vsmt[ir] = full_potential[SMT][0 + ir]*Y00 - V_rmax;
+                        Vsmt[ir] = full_potential[SMT][00][ir]*Y00 - V_rmax;
                     } // ir
                 } // scope
                 
