@@ -256,10 +256,11 @@ extern "C" {
         
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
         
-        if (1) { // flat copy, true and smooth quantities live on the same radial grid
+        if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
-            rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], 1e-4);
+            auto const rc = control::get("smooth.radial.grid.from", 1e-124, echo);
+            rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
         
         int const nrt = align<2>(rg[TRU]->n),

@@ -4,6 +4,7 @@
 #include <cstdlib> // std::atof
 #include <map> // std::map<T,T2>
 #include <cstring> // strchr, strncpy
+#include <cmath> // std::sqrt
 
 #include "control.hxx"
 
@@ -21,31 +22,29 @@ namespace control {
   int constexpr MaxNameLength = 96;
   
   // hidden function: _manage_variables
-  char const* _manage_variables(char const *name, char const *value=nullptr) {
+  char const* _manage_variables(char const *name, char const *value=nullptr, int const echo=0) {
 
-      static std::map<std::string, std::string> map_; // hidden archive
-
-      int constexpr echo = 9;
+      static std::map<std::string, std::string> _map; // hidden archive
 
       assert(nullptr == strchr(name, '=')); // make sure that there is no '=' sign in the name
 
       auto const varname = std::string(name);
       if (nullptr == value) {
           // query
-          auto const & oldvalue = map_[varname];
+          auto const & oldvalue = _map[varname];
           if (echo > 7) printf("# control found \"%s\" = \"%s\"\n", name, oldvalue.c_str());
           return oldvalue.c_str();
       } else {
           // set
           auto const newvalue = std::string(value);
           if (echo > 7) {
-              auto const & oldvalue = map_[varname];
+              auto const & oldvalue = _map[varname];
               auto const old = oldvalue.c_str();
               printf("# control sets \"%s\" ", name);
               if (old) { if (0 != *old) printf("from \"%s\" ", old); }
               printf("to \"%s\"\n", value);
           } // echo
-          map_[varname] = newvalue;
+          _map[varname] = newvalue;
           return value;
       }
 
@@ -53,7 +52,7 @@ namespace control {
 
   char const* set(char const *name, char const *value, int const echo) {
       if (echo > 5) printf("# control::set(\"%s\", \"%s\")\n", name, value);
-      return _manage_variables(name, value);
+      return _manage_variables(name, value, echo);
   } // set
 
   status_t cli(char const *statement, int const echo) {
@@ -75,7 +74,7 @@ namespace control {
   } // cli
   
   char const* get(char const *name, char const *default_value, int const echo) {
-      auto const value = _manage_variables(name);
+      auto const value = _manage_variables(name, nullptr, echo);
       if (nullptr != value) {
           if (0 != value[0]) {
               if (echo > 5) printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
@@ -87,12 +86,12 @@ namespace control {
   } // get
 
   char const* set(char const *name, double const value, int const echo) {
-      char buffer[32]; std::sprintf(buffer, "%30.20e", value);
+      char buffer[32]; std::sprintf(buffer, "%.16e", value);
       return set(name, buffer, echo);
   } // set<double>
 
   double get(char const *name, double const default_value, int const echo) {
-      char buffer[32]; std::sprintf(buffer, "%30.20e", default_value);
+      char buffer[32]; std::sprintf(buffer, "%.16e", default_value);
       return std::atof(get(name, buffer, echo));
   } // get<double>
 
@@ -101,6 +100,7 @@ namespace control {
 #else // NO_UNIT_TESTS
 
   status_t test_control(int const echo=9) {
+    if (echo > 1) printf("\n# %s %s\n", __FILE__, __func__);
     status_t stat = 0;
     // manage_variables("a", "5"); // set
     // auto const five = manage_variables("a"); // get
@@ -125,9 +125,28 @@ namespace control {
     return stat;
   } // test_control
 
+
+  status_t test_precision(int const echo=3) {
+    // check if there are rounding errors arising from the 
+    //    ASCII representation of double precision numbers
+    if (echo > 2) printf("\n# %s %s\n", __FILE__, __func__);
+    status_t stat = 0;
+    auto const nmax = 100;
+    double d = .2;
+    for(int i = 0; i < nmax; ++i) {
+        set("d", d, echo);
+        double const g = get("d", 1., echo);
+        stat += (g != d);
+        d *= std::sqrt(33/32.); // some irrational number close to 1
+    } // i
+    if (echo > 1) printf("# %s: for %i of %i cases, double precision numbers are not retrieved!\n", __func__, stat, nmax);
+    return stat;
+  } // test_precision
+  
   status_t all_tests() {
     auto status = 0;
     status += test_control();
+    status += test_precision();
     return status;
   } // all_tests
 
