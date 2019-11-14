@@ -598,15 +598,15 @@ extern "C" {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
-        auto const r2rho = new double[nr];
+        std::vector<double> r2rho(nr);
         auto const new_r2core_density = new double[nr];
         set(new_r2core_density, nr, 0.0);
         double nelectrons = 0;
         for(int ics = 0; ics < ncorestates; ++ics) {
             auto &cs = core_state[ics]; // abbreviate
             int constexpr SRA = 1;
-            radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho);
-            auto const norm = dot_product(nr, r2rho, rg[TRU]->dr);
+            radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
+            auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
             nelectrons += cs.occupation;
@@ -617,10 +617,9 @@ extern "C" {
             product(cs.wKin[TRU], nr, potential[TRU], cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
             add_product(cs.wKin[TRU], nr, rg[TRU]->r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
 
-            add_product(new_r2core_density, nr, r2rho, scal);
+            add_product(new_r2core_density, nr, r2rho.data(), scal);
             show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, 'c', ir_cut[TRU]);
         } // ics
-        delete[] r2rho;
 
         // report integrals
         auto const old_core_charge = dot_product(nr, rg[TRU]->r2dr, core_density[TRU]);
@@ -682,14 +681,15 @@ extern "C" {
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
-        auto const r2rho = new double[nr];
+        std::vector<double> r2rho(nr);
+        int const nln = nvalencestates;
+        
 // #define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-        auto const tru_wave_i = new double[nr];
-        auto const tru_waveVi = new double[nr];
-        auto const smt_waveTi = new double[rg[SMT]->n];
+        std::vector<double> tru_wave_i(nr);
+        std::vector<double> tru_waveVi(nr);
+        std::vector<double> smt_waveTi(rg[SMT]->n);
 #endif
-        int const nln = nvalencestates;
 
 #define SHO_PartialWaves
 #ifdef  SHO_PartialWaves
@@ -735,17 +735,17 @@ extern "C" {
 //                 if ((0 == nrn) || (vs.occupation > 0)) {
                 if (true) {
                     // solve for a true valence eigenstate
-                    radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho);
+                    radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
                 } else {
                     assert(nrn > 0);
                     vs.energy = valence_state[iln - 1].energy + 1.0; // copy energy from lower state and add 1.0 Hartree
                     int nnodes = 0;
                     // integrate outwards
-                    radial_integrator::shoot(SRA, *rg[TRU], potential[TRU], ell, vs.energy, nnodes, vs.wave[TRU], r2rho);
+                    radial_integrator::shoot(SRA, *rg[TRU], potential[TRU], ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
                 } // bound state?
     
                 // normalize the partial waves
-                auto const norm_wf2 = dot_product(nr, r2rho, rg[TRU]->dr);
+                auto const norm_wf2 = dot_product(nr, r2rho.data(), rg[TRU]->dr);
                 auto const norm_factor = 1./std::sqrt(norm_wf2);
                 scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
 
@@ -753,8 +753,8 @@ extern "C" {
                 product(vs.wKin[TRU], nr, potential[TRU], vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
                 add_product(vs.wKin[TRU], nr, rg[TRU]->r, vs.wave[TRU], vs.energy); // now wKin = r*(E - V(r))*wave(r)
 
-//                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho, rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
-//                 auto const work = r2rho;
+//                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho.data(), rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
+//                 auto const work = r2rho.data();
 //                 scale(work, nr, potential[TRU]);
 //                 auto const tru_Epot = dot_product(ir_cut[TRU], work, rg[TRU]->dr)/norm_wf2;
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
@@ -843,7 +843,7 @@ extern "C" {
                                 Ekin[krn][jrn] = dot_product(nr_max, Tphi[1 + krn], rphi[1 + jrn], rg[SMT]->rdr);
                                 Olap[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->r2dr);
                                 Vkin[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->dr)
-                                                        * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
+                                                 * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
                                 // minimize only the radial kinetic energy
                                 Ekin[krn][jrn] -= Vkin[krn][jrn]; // subtract the angular part, suggested by Morian Sonnet
                             } // jrn
@@ -983,8 +983,8 @@ extern "C" {
 
             for(int nrn = 0; nrn < n; ++nrn) {
                 int const iln = ln_off + nrn;
-                product(tru_wave_i, nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
-                product(tru_waveVi, nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
+                product(tru_wave_i.data(), nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
+                product(tru_waveVi.data(), nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
                 
                 double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
                 for(int i = 1; i < n_poly; ++i) {
@@ -1012,11 +1012,11 @@ extern "C" {
                 for(int krn = 0; krn < n; ++krn) {
                     int const jln = ln_off + krn;
                     
-                    double const tru_norm = dot_product(ir_cut[TRU], tru_wave_i, valence_state[jln].wave[TRU]); // integrate only up to rcut
-                    double const tru_Epot = dot_product(ir_cut[TRU], tru_waveVi, valence_state[jln].wave[TRU]); //    only up to rcut
+                    double const tru_norm = dot_product(ir_cut[TRU], tru_wave_i.data(), valence_state[jln].wave[TRU]); // integrate only up to rcut
+                    double const tru_Epot = dot_product(ir_cut[TRU], tru_waveVi.data(), valence_state[jln].wave[TRU]); //    only up to rcut
                     double const tru_kinetic_E = valence_state[iln].energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
                     
-                    double const smt_kinetic_E = dot_product(ir_cut[SMT], smt_waveTi, valence_state[jln].wave[SMT]);
+                    double const smt_kinetic_E = dot_product(ir_cut[SMT], smt_waveTi.data(), valence_state[jln].wave[SMT]);
 #if 0
                     double const rcut = rg[SMT]->r[ir_cut[SMT]];
 //                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
@@ -1272,13 +1272,6 @@ extern "C" {
             delete[] SHO_rprj;
             ln_off += n;
         } // ell
-        
-        delete[] r2rho;
-#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-        delete[] tru_wave_i;
-        delete[] tru_waveVi;
-        delete[] smt_waveTi;
-#endif            
 
     } // update_valence_states
 
