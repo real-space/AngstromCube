@@ -77,8 +77,8 @@ extern "C" {
               int const nmax=4, int const ell=0, double *coeff=nullptr) {
       int constexpr echo = 0;
       // match a radial function with an even-order polynomial inside r[irc]
-      double Amat[4*4], bvec[4] = {0,0,0,0};
-      set(Amat, 4*4, 0.0);
+      double Amat[4][4], bvec[4] = {0,0,0,0};
+      set(Amat[0], 4*4, 0.0);
       int const nm = std::min(std::max(1, nmax), 4);
       for(int i4 = 0; i4 < nm; ++i4) {
           // use up to 4 radial indices [irc-2,irc-1,irc+0,irc+1]
@@ -87,7 +87,7 @@ extern "C" {
           double rl = intpow(r, ell);
           // set up a basis of 4 functions: r^0, r^0, r^4, r^6 at up to 4 neighboring grid points around r(irc)
           for(int j4 = 0; j4 < nm; ++j4) {
-              Amat[j4*4 + i4] = rl;
+              Amat[j4][i4] = rl;
               rl *= pow2(r);
           } // j4
           // b is the inhomogeneus right side of the set of linear equations
@@ -98,15 +98,14 @@ extern "C" {
           for(int i4 = 0; i4 < nm; ++i4) {
               printf("# %s Amat i=%i ", __func__, i4);
               for(int j4 = 0; j4 < nm; ++j4) {
-                  printf(" %16.9f", Amat[j4*4 + i4]);
+                  printf(" %16.9f", Amat[j4][i4]);
               } // j4
               printf(" bvec %16.9f\n", bvec[i4]);
           } // i4
       } // echo
       
       double* x = bvec;
-//       auto const info = solve_Ax_b(x, bvec, Amat, nm, 4);
-      auto const info = linear_algebra::linear_solve(nm, Amat, 4, bvec, 4, 1);
+      auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
 
       if (echo > 7) {
           printf("# %s xvec     ", __func__); 
@@ -130,11 +129,17 @@ extern "C" {
   
   
     template<int ADD0_or_PROJECT1>
-    void add_or_project_compensators(view2D<double> & Alm, double qlm[], int const lmax, 
-    		radial_grid_t const *rg, double const sigma_compensator, int const echo=0) {
+    void add_or_project_compensators(
+    	  view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
+    	, double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
+    	, int const lmax	   // cutoff for anuular momentum expansion
+    	, radial_grid_t const *rg // radial grid despriptor
+    	, double const sigma   // spread_compensator
+    	, int const echo=0     // log output level
+    ) {
         int const nr = rg->n, mr = align<2>(nr);
-        auto const sig2inv = -.5/(sigma_compensator*sigma_compensator);
-        if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
+        auto const sig2inv = -.5/(sigma*sigma);
+        if (echo > 0) printf("# sigma = %g\n", sigma);
         std::vector<double> rlgauss(nr);
         std::vector<double> rl(nr);
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
@@ -149,9 +154,10 @@ extern "C" {
                     rlgauss[ir] *= r; // construct r^ell*gaussian
                 }
                 norm += rlgauss[ir] * rl[ir] * rg->r2dr[ir];
-                if (echo > 8) printf("# ell=%d norm=%g ir=%d rlgauss=%g rl=%g r2dr=%g\n", ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
+                if (echo > 8) printf("# ell=%i norm=%g ir=%i rlgauss=%g rl=%g r2dr=%g\n", 
+                						ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
             } // ir
-            if (echo > 1) printf("# ell=%d norm=%g nr=%d\n", ell, norm, nr);
+            if (echo > 1) printf("# ell=%i norm=%g nr=%i\n", ell, norm, nr);
             assert(norm > 0);
             auto const scal = 1./norm;
             for(int emm = -ell; emm <= ell; ++emm) {
@@ -171,18 +177,16 @@ extern "C" {
         } // ell
     } // add_or_project_compensators
 
-    void correct_multipole_shift(double ves[], int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
-        int const nr = rg->n, mr = align<2>(nr);
-        auto const rl = new double[nr];
-        set(rl, nr, 1.); // init with r^0
+    void correct_multipole_shift(double ves[], int const stride, int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
+        int const nr = rg->n; assert(stride >= nr);
+        std::vector<double> rl(nr, 1.0); // init with r^0
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
-                add_product(&ves[lm*mr], nr, rl, vlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+                add_product(&ves[lm*stride], nr, rl.data(), vlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
             } // emm
-            scale(rl, nr, rg->r); // construct r^ell for the next ell-iteration
+            scale(rl.data(), nr, rg->r); // construct r^ell for the next ell-iteration
         } // ell
-        delete[] rl;
     } // correct_multipole_shift
   
   
@@ -1652,7 +1656,7 @@ extern "C" {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
             }
 
-//             correct_multipole_shift(Ves.data(), ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
+//          correct_multipole_shift(Ves.data(), Ves.stride(), ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
             add_or_project_compensators<2>(Ves, vlm, ellmax_compensator, rg[ts], sigma_compensator); // has the same effect as correct_multipole_shift
 
             if (SMT == ts) {   // debug: project again to see if the correction worked out
