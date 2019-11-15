@@ -1367,7 +1367,10 @@ extern "C" {
 
         int const u_stride = sho_tools::nSHO(numax);
         int const N = (nu_max > -1)? sho_tools::nSHO(nu_max) : u_stride;
-        auto const tmp = new double[N*N];
+        view2D<double> tmp(N, N); // get memory
+        view2D<double const> inp(in, in_stride);
+        view2D<double> res(out, out_stride);
+        view2D<double const> uni(unitary_zyx_lmn, u_stride);
         
 //         double const beta = 0;
 //         char const nn = 'n', tn = in_Cartesian?'n':'t', nt = in_Cartesian?'t':'n';
@@ -1382,18 +1385,18 @@ extern "C" {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij = 0;
                     for(int kC = 0; kC < N; ++kC) {
-                        tij += in[nC*in_stride + kC] * unitary_zyx_lmn[kC*u_stride + mR]; // *u
+                        tij += inp[nC][kC] * uni[kC][mR]; // *u
                     } // kC
-                    tmp[nC*N + mR] = alpha*tij;
+                    tmp[nC][mR] = alpha*tij;
                 } // mR
             } // nC
             for(int nR = 0; nR < N; ++nR) {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij = 0;
                     for(int kC = 0; kC < N; ++kC) {
-                        tij += unitary_zyx_lmn[kC*u_stride + nR] * tmp[kC*N + mR]; // u^T*
+                        tij += uni[kC][nR] * tmp[kC][mR]; // u^T*
                     } // kC
-                    out[nR*out_stride + mR] = alpha*tij;
+                    res[nR][mR] = alpha*tij;
                 } // mR
             } // nR
             
@@ -1407,18 +1410,18 @@ extern "C" {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij = 0;
                     for(int kR = 0; kR < N; ++kR) {
-                        tij += unitary_zyx_lmn[nC*u_stride + kR] * in[kR*in_stride + mR]; // u*
+                        tij += uni[nC][kR] * inp[kR][mR]; // u*
                     } // kR
-                    tmp[nC*N + mR] = alpha*tij;
+                    tmp[nC][mR] = alpha*tij;
                 } // mR
             } // nC
             for(int nC = 0; nC < N; ++nC) {
                 for(int mC = 0; mC < N; ++mC) {
                     double tij = 0;
                     for(int kR = 0; kR < N; ++kR) {
-                        tij += tmp[nC*N + kR] * unitary_zyx_lmn[mC*u_stride + kR]; // *u^T
+                        tij += tmp[nC][kR] * uni[mC][kR]; // *u^T
                     } // kR
-                    out[nC*out_stride + mC] = alpha*tij;
+                    res[nC][mC] = alpha*tij;
                 } // mC
             } // nC
 
@@ -1432,7 +1435,6 @@ extern "C" {
 //         dgemm_(&tn, &nn, &N, &N, &N, &alpha, unitary_zyx_lmn, &N, in, &in_stride, &beta, tmp, &N);
 //         dgemm_(&nn, &nt, &N, &N, &N, &alpha, tmp, &N, unitary_zyx_lmn, &N, &beta, out, &out_stride);
         
-        delete[] tmp;
     } // transform_SHO
     
     void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const echo=0) {
