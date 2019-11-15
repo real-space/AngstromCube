@@ -1727,12 +1727,12 @@ extern "C" {
             add_product(potential[ts], rg[ts]->n, full_potential[ts][00], rg[ts]->r, Y00*mixing);
         } // ts true and smooth
 
-//         // test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
-//         auto const rho4pi = new double[rg[TRU]->n];
-//         set(rho4pi, rg[TRU]->n, full_density[TRU][00], 1./Y00);
-//         printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
-//         atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi, Z);
-//         delete[] rho4pi;
+        if (0) { // scope: test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
+            std::vector<double> rho4pi(rg[TRU]->n);
+            set(rho4pi.data(), rg[TRU]->n, full_density[TRU][00], 1./Y00);
+            printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
+            atom_core::rad_pot(potential[TRU], *rg[TRU], rho4pi.data(), Z_core);
+        } // scope
 
     } // update_full_potential
 
@@ -1745,13 +1745,13 @@ extern "C" {
         initialize_Gaunt();
         
         // first generate the matrix elemnts in the valence basis
-        //    overlap[iln*nln + jln] and potential[(lm*nln + iln)*nln + jln]
+        //    overlap[iln][jln] and potential_lm[iln][jln]
         // then, generate the matrix elements in the radial representation
-        //    overlap[ilmn*nlmn + jlmn] and hamiltonian[ilmn*nlmn + jlmn]
-        //    where hamiltonian[ilmn*nlmn + jlmn] = kinetic_energy_deficit_{iln jln} 
-        //            + sum_lm Gaunt_{lm ilm jlm} * potential[(lm*nln + iln)*nln + jln]
+        //    overlap[ilmn][jlmn] and hamiltonian[ilmn][jlmn]
+        //    where hamiltonian[ilmn][jlmn] = kinetic_energy_deficit_{iln jln} 
+        //            + sum_lm Gaunt_{lm ilm jlm} * potential_{lm iln jln}
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
-        //    overlap[iSHO*nSHO + jSHO] and hamiltonian[iSHO*nSHO + jSHO]
+        //    overlap[iSHO][jSHO] and hamiltonian[iSHO][jSHO]
 
         view4D<double> potential_ln(nlm, TRU_AND_SMT, nln, nln); // get memory, // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1825,7 +1825,7 @@ extern "C" {
             } // ilmn
         } // echo
         
-        if (1) { // debug: check if averaging over emm gives back the same operators
+        if (1) { // scope: check if averaging over emm gives back the same operators
 
             view2D<double> hamiltonian_ln(nln, nln); // get memory
             view2D<double>     overlap_ln(nln, nln); // get memory
@@ -1864,7 +1864,7 @@ extern "C" {
                   (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
-        } // debug
+        } // scope
         
         
         set(hamiltonian, nSHO, 0.0); // clear
@@ -1913,15 +1913,12 @@ extern "C" {
         { // scope
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
-                    hamiltonian_ln[iln][jln] =
-                        ( kinetic_energy(TRU,iln,jln)
-                        - kinetic_energy(SMT,iln,jln) )
-                        + ( potential_ln(TRU,iln,jln)
-                          - potential_ln(SMT,iln,jln) )
-                        ;
-                    overlap_ln[iln][jln] =
-                        ( charge_deficit(0,TRU,iln,jln)
-                        - charge_deficit(0,SMT,iln,jln) ); // ell=0
+                    hamiltonian_ln[iln][jln] = ( kinetic_energy(TRU,iln,jln) 
+                                               - kinetic_energy(SMT,iln,jln) )
+                                             + ( potential_ln(TRU,iln,jln) 
+                      	                       - potential_ln(SMT,iln,jln) );
+                    overlap_ln[iln][jln] = ( charge_deficit(0,TRU,iln,jln) 
+                                           - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // jln
             } // iln
         } // scope
@@ -2128,12 +2125,12 @@ namespace single_atom {
 
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-//     for(int Z = 0; Z <= 109; ++Z) { // all elements
+     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
-    { int const Z = 29; // 29:copper
+    // { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
