@@ -1288,10 +1288,10 @@ extern "C" {
         } // scope
         
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-//             int const nr = rg[ts]->n;
+//          int const nr = rg[ts]->n; // integrate over the full radial grid
             int const nr = ir_cut[ts]; // integrate only up to the matching radius
             std::vector<double> rl(nr, 1.0); // init as r^0
-            auto const wave_r2rl_dr = new double[nr];
+            std::vector<double> wave_r2rl_dr(nr);
             if (echo > 1) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
             for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
                 if (echo > 1) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
@@ -1299,10 +1299,10 @@ extern "C" {
                 for(int iln = 0; iln < nln; ++iln) {
                     if (echo > 1) printf("# %s iln = %d ", label, iln);
                     auto const wave_i = valence_state[iln].wave[ts];
-                    product(wave_r2rl_dr, nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
+                    product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                     for(int jln = 0; jln < nln; ++jln) {
                         auto const wave_j = valence_state[jln].wave[ts];
-                        auto const cd = dot_product(nr, wave_r2rl_dr, wave_j);
+                        auto const cd = dot_product(nr, wave_r2rl_dr.data(), wave_j);
                         charge_deficit(ell,ts,iln,jln) = cd;
                         if (echo > 1) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
 //                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
@@ -1311,7 +1311,6 @@ extern "C" {
                 } // iln
                 if (echo > 1) printf("\n");
             } // ell
-            delete[] wave_r2rl_dr;
         } // ts
     } // update_charge_deficit
 
@@ -1437,7 +1436,7 @@ extern "C" {
 
     } // transform_SHO
     
-    void get_rho_tensor(double rho_tensor[], double const rho_matrix[], int const echo=0) {
+    void get_rho_tensor(view3D<double> & density_tensor, view2D<double> const & density_matrix, int const echo=0) {
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
         assert(stride >= nSHO);
@@ -1448,9 +1447,10 @@ extern "C" {
         int const nlm = pow2(1 + lmax);
         int const mlm = pow2(1 + numax);
         int const nln = nvalencestates;
-        // wrap the arguments with data views
-        view2D<double const> density_matrix(rho_matrix, stride);
-        view3D<double> density_tensor(rho_tensor, nln, nln);
+
+	        // wrap the arguments with data views
+        // view2D<double const> density_matrix(rho_matrix, stride);
+        // view3D<double> density_tensor(rho_tensor, nln, nln);
 
         // ToDo:
         //   transform the density_matrix[izyx][jzyx]
@@ -1522,10 +1522,10 @@ extern "C" {
     } // get_rho_tensor
     
     
-    void update_full_density(double const rho_tensor[], int const echo=0) { // density tensor rho_{lm iln jln}
+    void update_full_density(view3D<double> const & density_tensor, int const echo=0) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
         int const nln = nvalencestates;
-        view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
+        // view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
         
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             size_t const nr = rg[ts]->n;
@@ -2026,9 +2026,10 @@ extern "C" {
             set_pure_density_matrix(density_matrix, occ);
         }
         int const lmax = std::max(ellmax, ellmax_compensator);
-        view3D<double> rho_tensor(pow2(1 + lmax), nln, nln, 0.0); // get memory
-        get_rho_tensor(rho_tensor.data(), density_matrix.data(), echo);
-        update_full_density(rho_tensor.data(), echo);
+        int const mlm = pow2(1 + lmax);
+        view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
+        get_rho_tensor(rho_tensor, density_matrix, echo);
+        update_full_density(rho_tensor, echo);
     } // update_density
 
     // ==============
@@ -2049,9 +2050,7 @@ extern "C" {
         return bessel_transform::transform_to_r2_grid(rho, ar2, nr2, core_density[SMT], *rg[SMT], echo);
     } // get_smooth_core_density
 
-    radial_grid_t* get_smooth_radial_grid(int const echo=0) {
-        return rg[SMT];
-    } // get_smooth_radial_grid
+    radial_grid_t* get_smooth_radial_grid(int const echo=0) { return rg[SMT]; }
 
   }; // class LiveAtom
 
