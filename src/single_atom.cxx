@@ -1434,10 +1434,10 @@ extern "C" {
 
 //         dgemm_(&tn, &nn, &N, &N, &N, &alpha, unitary_zyx_lmn, &N, in, &in_stride, &beta, tmp, &N);
 //         dgemm_(&nn, &nt, &N, &N, &N, &alpha, tmp, &N, unitary_zyx_lmn, &N, &beta, out, &out_stride);
-        
+
     } // transform_SHO
     
-    void get_rho_tensor(double rho_tensor[], double const density_matrix[], int const echo=0) {
+    void get_rho_tensor(double rho_tensor[], double const rho_matrix[], int const echo=0) {
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
         assert(stride >= nSHO);
@@ -1448,20 +1448,28 @@ extern "C" {
         int const nlm = pow2(1 + lmax);
         int const mlm = pow2(1 + numax);
         int const nln = nvalencestates;
+        // wrap the arguments with data views
+        view2D<double const> density_matrix(rho_matrix, stride);
+        view3D<double> density_tensor(rho_tensor, nln, nln);
+
         // ToDo:
-        //   transform the density_matrix[izyx*stride + jzyx]
-        //   into a radial_density_matrix[ilmn*stride + jlmn]
+        //   transform the density_matrix[izyx][jzyx]
+        //   into a radial_density_matrix[ilmn][jlmn]
         //   using the unitary transform from left and right
-        auto const radial_density_matrix = new double[nSHO*stride];
-        transform_SHO(radial_density_matrix, stride, density_matrix, stride, true);
+        view2D<double> radial_density_matrix(nSHO, stride);
+        transform_SHO(radial_density_matrix.data(), stride,
+        	          density_matrix.data(), density_matrix.stride(), true);
 
         if (0) { // debugging
-            auto const check_matrix = new double[nSHO*stride];
-            transform_SHO(check_matrix, stride, radial_density_matrix, stride, false);
-            double d = 0; for(int i = 0; i < nSHO*stride; ++i) d = std::max(d, std::abs(check_matrix[i] - density_matrix[i]));
+            view2D<double> check_matrix(nSHO, nSHO);
+            transform_SHO(check_matrix.data(), check_matrix.stride(), 
+            	          radial_density_matrix.data(), radial_density_matrix.stride(), false);
+            double d = 0;
+            for(int i = 0; i < nSHO; ++i)
+            	for(int j = 0; j < check_matrix.stride(); ++j) 
+	            	d = std::max(d, std::abs(check_matrix[i][j] - density_matrix[i][j]));
             printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, d);
             assert(d < 1e-9);
-            delete[] check_matrix;
         } // debugging
 
 
@@ -1469,7 +1477,7 @@ extern "C" {
             printf("# %s Radial density matrix\n", label);
             for(int i = 0; i < nSHO; ++i) {
                 for(int j = 0; j < nSHO; ++j) {
-                    printf("\t%.1f", radial_density_matrix[i*stride + j]);
+                    printf("\t%.1f", radial_density_matrix[i][j]);
                 } // j
                 printf("\n");
             } // i
@@ -1477,10 +1485,10 @@ extern "C" {
         } // plot
         
         //   Then, contract with the Gaunt tensor over m_1 and m_2
-        //   rho_tensor[(lm*nln + iln)*nln + jln] = 
-        //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix[il_1m_1n_1*stride + jl_2m_2n_2]
+        //   rho_tensor[lm][iln][jln] = 
+        //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix[il_1m_1n_1][jl_2m_2n_2]
 
-        set(rho_tensor, nlm*nln*nln, 0.0); // clear
+        set(density_tensor, nlm, 0.0); // clear
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
             // if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-12); // make sure that G_00ij = delta_ij*Y00
@@ -1490,22 +1498,21 @@ extern "C" {
                     int const iln = ln_index_list[ilmn];
                     for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
-                        rho_tensor[(lm*nln + iln)*nln + jln] += G * radial_density_matrix[ilmn*stride + jlmn];
+                        density_tensor(lm,iln,jln) += G * radial_density_matrix[ilmn][jlmn];
 
-//                         auto const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+//                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
 //                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij/Y00, lm, iln, jln);
                     } // jlmn
                 } // ilmn
             } // limits
         } // gnt
-        delete[] radial_density_matrix;
 
 #ifdef FULL_DEBUG        
         for(int lm = 0; lm < nlm; ++lm) {
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
-                    auto const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+                    auto const rho_ij = density_tensor(lm,iln,jln);
                     if (std::abs(rho_ij) > 1e-9)
                         printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", label, __LINE__, rho_ij/Y00, lm, iln, jln);
                 } // jln
@@ -1518,6 +1525,7 @@ extern "C" {
     void update_full_density(double const rho_tensor[], int const echo=0) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
         int const nln = nvalencestates;
+        view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
         
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             size_t const nr = rg[ts]->n;
@@ -1535,7 +1543,7 @@ extern "C" {
                     for(int jln = 0; jln < nln; ++jln) {
                         auto const wave_j = valence_state[jln].wave[ts];
                         assert(nullptr != wave_j);
-                        double const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+                        double const rho_ij = density_tensor(lm,iln,jln);
 //                         if (std::abs(rho_ij) > 1e-9)
 //                             printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij/Y00, lm, iln, jln);
                         add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
@@ -1554,7 +1562,7 @@ extern "C" {
                 double rho_lm = 0;
                 for(int iln = 0; iln < nln; ++iln) {
                     for(int jln = 0; jln < nln; ++jln) {
-                        double const rho_ij = rho_tensor[(lm*nln + iln)*nln + jln];
+                        double const rho_ij = density_tensor(lm,iln,jln);
                         if (std::abs(rho_ij) > 1e-9)
                             printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij/Y00, ell, emm, iln, jln);
                         rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
@@ -1967,34 +1975,33 @@ extern "C" {
     } // update_spherical_matrix_elements
     
     
-    void set_pure_density_matrix(double density_matrix[], float const occ_spdf[4]=nullptr, int const echo=0) {
+    void set_pure_density_matrix(view2D<double> & density_matrix, float const occ_spdf[4]=nullptr, int const echo=0) {
         float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) set(occ, 4, occ_spdf);
         int const nSHO = sho_tools::nSHO(numax);
-        auto const radial_density_matrix = new double[nSHO*nSHO];
-        set(radial_density_matrix, nSHO*nSHO, 0.0); // clear
+        view2D<double> radial_density_matrix(nSHO, nSHO, 0.0);
         for(int ell = 0; ell <= numax; ++ell) {
             for(int emm = -ell; emm <= ell; ++emm) {
                 for(int enn = 0; enn <= (numax - ell)/2; ++enn) {
                     int const i = sho_tools::lmn_index(numax, ell, emm, enn);
                     assert(nSHO > i);
-                    if (0 == enn) radial_density_matrix[i*nSHO + i] = occ[ell]/(2*ell + 1.); // diagonal entry
+                    if (0 == enn) radial_density_matrix[i][i] = occ[ell]/(2*ell + 1.); // diagonal entry
                 } // enn
             } // emm
         } // ell
-        transform_SHO(density_matrix, nSHO, radial_density_matrix, nSHO, false);
+        transform_SHO(density_matrix.data(), density_matrix.stride(), 
+        	   radial_density_matrix.data(), radial_density_matrix.stride(), false);
         if (echo > 7) {
             printf("# %s radial density matrix\n", label);
             for(int i = 0; i < nSHO; ++i) {
-                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", radial_density_matrix[i*nSHO + j]);
+                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", radial_density_matrix[i][j]);
                 printf("\n");
             } // i
             printf("\n# %s Cartesian density matrix\n", label);
             for(int i = 0; i < nSHO; ++i) {
-                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", density_matrix[i*nSHO + j]);
+                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", density_matrix[i][j]);
                 printf("\n");
             } // i
         } // echo
-        delete[] radial_density_matrix;
     } // set_pure_density_matrix
 
     void update_density(float const mixing, int const echo=0) {
@@ -2003,10 +2010,11 @@ extern "C" {
         update_valence_states(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
         int const nSHO = sho_tools::nSHO(numax);
-        auto const density_matrix = new double[nSHO*nSHO];
+        view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
+        int const nln = nvalencestates;
         {
             float occ[] = {0,0,0,0};
-            for(int ivs = 0; ivs < nvalencestates; ++ivs) {
+            for(int ivs = 0; ivs < nln; ++ivs) {
                 int const ell = valence_state[ivs].ell;
                 if ((ell < 4) && (0 == valence_state[ivs].nrn[SMT])) {
                     occ[ell] = valence_state[ivs].occupation;
@@ -2018,12 +2026,9 @@ extern "C" {
             set_pure_density_matrix(density_matrix, occ);
         }
         int const lmax = std::max(ellmax, ellmax_compensator);
-        auto const rho_tensor = new double[pow2(1 + lmax)*pow2(nvalencestates)];
-        set(rho_tensor, pow2(1 + lmax)*pow2(nvalencestates), 0.0);
-        get_rho_tensor(rho_tensor, density_matrix, echo);
-        delete[] density_matrix;
-        update_full_density(rho_tensor, echo);
-        delete[] rho_tensor;
+        view3D<double> rho_tensor(pow2(1 + lmax), nln, nln, 0.0); // get memory
+        get_rho_tensor(rho_tensor.data(), density_matrix.data(), echo);
+        update_full_density(rho_tensor.data(), echo);
     } // update_density
 
     // ==============
