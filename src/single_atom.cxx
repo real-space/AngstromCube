@@ -719,10 +719,10 @@ extern "C" {
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
             int const n = nn[ell];
-            auto const SHO_rprj = new double[n*align<2>(rg[SMT]->n)];
+            view2D<double> SHO_rprj(n, align<2>(rg[SMT]->n)); // get memory
             {   int nrns[9]; std::iota(nrns, nrns + n, 0);
                 int ells[9]; std::fill(ells, ells + n, ell);
-                scattering_test::expand_sho_projectors(SHO_rprj, align<2>(rg[SMT]->n), *rg[SMT], 
+                scattering_test::expand_sho_projectors(SHO_rprj.data(), SHO_rprj.stride(), *rg[SMT], 
                                                               sigma, n, nrns, ells, 1, echo/2);
             }
             
@@ -783,7 +783,7 @@ extern "C" {
                     int constexpr HOM = 0;
                     for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
-                        auto const projector = (krn > HOM) ? &SHO_rprj[(krn - 1)*stride] : nullptr;
+                        auto const projector = (krn > HOM) ? SHO_rprj[krn - 1] : nullptr;
                         double dg; // derivative at end point, not used
                         
                         // solve inhomgeneous equation and match true wave in value and derivative
@@ -1073,15 +1073,15 @@ extern "C" {
 #endif
 
             { // scope: establish dual orthgonality with [SHO] projectors
-                int const nr = rg[SMT]->n, mr = align<2>(nr);
-                int const stride = align<2>(rg[SMT]->n);
+                int const nr = rg[SMT]->n; //, mr = align<2>(nr);
+                // int const stride = align<2>(rg[SMT]->n);
                 int const msub = (1 + numax/2); // max. size of the subspace
 
                 if (echo > 4) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn, 
-                                (nrn == krn), dot_product(nr, &SHO_rprj[nrn*stride], &SHO_rprj[krn*stride], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
+                                (nrn == krn), dot_product(nr, SHO_rprj[nrn], SHO_rprj[krn], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
                         } // krn
                     } // nrn
                 } // echo
@@ -1091,7 +1091,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn][krn] = dot_product(nr, wave, &SHO_rprj[krn*stride], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, SHO_rprj[krn], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
@@ -1128,7 +1128,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn][krn] = dot_product(nr, wave, &SHO_rprj[krn*mr], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, SHO_rprj[krn], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
@@ -1267,7 +1267,6 @@ extern "C" {
             
 //             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
-            delete[] SHO_rprj;
             ln_off += n;
         } // ell
 
