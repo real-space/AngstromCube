@@ -55,10 +55,11 @@ extern "C" {
               const double*, const int*, const double*, const int*, const double*, double*, const int*);
 } // extern "C"
   
-  status_t minimize_curvature(double A[], double B[], int const n, double* lowest=nullptr) {
+  status_t minimize_curvature(int const n, view2D<double> & A, view2D<double> & B, double* lowest=nullptr) {
       // solve a generalized eigenvalue problem
       auto eigs = std::vector<double>(n);
-      auto const info = linear_algebra::generalized_eigenvalues(n, A, n, B, n, eigs.data());
+      auto const info = linear_algebra::generalized_eigenvalues(n, A.data(), A.stride(), 
+      	                                                           B.data(), B.stride(), eigs.data());
       if (lowest) *lowest = eigs[0];
       return info;
   } // minimize_curvature 
@@ -129,13 +130,13 @@ extern "C" {
   
   
     template<int ADD0_or_PROJECT1>
-    void add_or_project_compensators(double out[], int const lmax, radial_grid_t const *rg, double const in[]
-                                   , double const sigma_compensator, int const echo=0) {
+    void add_or_project_compensators(view2D<double> & Alm, double qlm[], int const lmax, 
+    		radial_grid_t const *rg, double const sigma_compensator, int const echo=0) {
         int const nr = rg->n, mr = align<2>(nr);
         auto const sig2inv = -.5/(sigma_compensator*sigma_compensator);
         if (echo > 0) printf("# sigma = %g\n", sigma_compensator);
-        auto const rlgauss = new double[nr];
-        auto const rl      = new double[nr];
+        std::vector<double> rlgauss(nr);
+        std::vector<double> rl(nr);
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
             double norm = 0;
             for(int ir = 0; ir < nr; ++ir) {
@@ -156,20 +157,18 @@ extern "C" {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
                 if (0 == ADD0_or_PROJECT1) {
-                    add_product(&out[lm*mr], nr, rlgauss, in[lm] * scal); // add normalized compensator to augmented density
+                    add_product(Alm[lm], nr, rlgauss.data(), qlm[lm]*scal); // add normalized compensator to augmented density
                 } else if (2 == ADD0_or_PROJECT1) {
-                    add_product(&out[lm*mr], nr, rl, in[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+                    add_product(Alm[lm], nr, rl.data(), qlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
                     // ToDo: setup of normalized rlgauss is not necessary in this version
                 } else if (3 == ADD0_or_PROJECT1) {
-                    out[lm] = dot_product(nr, &in[lm*mr], rl, rg->r2dr); // dot_product with metric
+                    qlm[lm] = dot_product(nr, Alm[lm], rl.data(), rg->r2dr); // dot_product with metric
                     // ToDo: setup of normalized rlgauss is not necessary in this version
                 } else {
-                    out[lm] = dot_product(nr, &in[lm*mr], rlgauss, rg->r2dr) * scal; // dot_product with metric
+                    qlm[lm] = dot_product(nr, Alm[lm], rlgauss.data(), rg->r2dr) * scal; // dot_product with metric
                 } // add or project
             } // emm
         } // ell
-        delete[] rl;
-        delete[] rlgauss;
     } // add_or_project_compensators
 
     void correct_multipole_shift(double ves[], int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
@@ -868,7 +867,7 @@ extern "C" {
                         
                         { // scope: minimize the radial curvature of the smooth partial wave
                             double lowest_eigenvalue = 0;
-                            auto const info = minimize_curvature(Ekin.data(), Olap.data(), Ekin.stride(), &lowest_eigenvalue);
+                            auto const info = minimize_curvature(n, Ekin, Olap, &lowest_eigenvalue);
                             if (info) {
                                 printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
                             } else {
@@ -1575,7 +1574,7 @@ extern "C" {
         	assert(aug_density.stride() == mr);
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
-            add_or_project_compensators<0>(aug_density.data(), ellmax_compensator, rg[SMT], qlm_compensator, sigma_compensator);
+            add_or_project_compensators<0>(aug_density, qlm_compensator, ellmax_compensator, rg[SMT], sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density[00]); // only aug_density[00==lm]
             if (echo > 5) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge/Y00); // this value should be small
 
@@ -1635,7 +1634,7 @@ extern "C" {
             radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
 
             if (SMT == ts) {
-                add_or_project_compensators<1>(vlm, ellmax_compensator, rg[SMT], Ves.data(), sigma_compensator); // project to compensators
+                add_or_project_compensators<1>(Ves, vlm, ellmax_compensator, rg[SMT], sigma_compensator); // project Ves to compensators
                 if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
                 // this seems to high by a factor sqrt(4*pi), ToDo: find out why
 //                 scale(vlm, nlm, Y00);
@@ -1654,12 +1653,12 @@ extern "C" {
             }
 
 //             correct_multipole_shift(Ves.data(), ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
-            add_or_project_compensators<2>(Ves.data(), ellmax_compensator, rg[ts], vlm, sigma_compensator); // has the same effect as correct_multipole_shift
+            add_or_project_compensators<2>(Ves, vlm, ellmax_compensator, rg[ts], sigma_compensator); // has the same effect as correct_multipole_shift
 
             if (SMT == ts) {   // debug: project again to see if the correction worked out
-                double v00;
-                add_or_project_compensators<1>(&v00, 0, rg[SMT], Ves.data(), sigma_compensator); // project to compensators
-                if (echo > 7) printf("# %s after correction v_00 is %g %s\n", label, v00*Y00*eV,_eV);
+                double v_[1];
+                add_or_project_compensators<1>(Ves, v_, 0, rg[SMT], sigma_compensator); // project to compensators
+                if (echo > 7) printf("# %s after correction v_00 is %g %s\n", label, v_[00]*Y00*eV,_eV);
             }
 
             add_product(full_potential[ts].data(), nlm*mr, Ves.data(), 1.0); // add the electrostatic potential, scale_factor=1.0
@@ -2109,14 +2108,15 @@ namespace single_atom {
       if (echo > 1) printf("\n# %s: %s\n", __FILE__, __func__);
       auto const rg = radial_grid::create_exponential_radial_grid(512, 2.0);
       int const nr = rg->n, lmax = 0, nlm = pow2(1 + lmax);
-      auto const cmp = new double[nr];
+      std::vector<double> qlm(nlm, 0.0);
+      view2D<double> cmp(1, nr);
       for(double sigma = 0.5; sigma < 2.1; sigma *= 1.1) {
-          double qlm[nlm]; set(qlm, nlm, 0.); qlm[0] = 1.;
-          set(cmp, nr, 0.); // clear
-          add_or_project_compensators<0>(cmp, lmax, rg, qlm, sigma, 0); // add normalized compensator
-//        add_or_project_compensators<1>(qlm, lmax, rg, cmp, sigma, 0); // project
+          set(qlm.data(), nlm, 0.0); qlm[0] = 1.0;
+          set(cmp, 1, 0.0); // clear
+          add_or_project_compensators<0>(cmp, qlm.data(), lmax, rg, sigma, 0); // add normalized compensator
+//        add_or_project_compensators<1>(cmp, qlm.data(), lmax, rg, sigma, 0); // project
 //        if (echo > 0) printf("# %s: square-norm of normalized compensator with sigma = %g is %g\n", __func__, sigma, qlm[0]);
-          add_or_project_compensators<3>(qlm, lmax, rg, cmp, sigma, 0); // test normalization
+          add_or_project_compensators<3>(cmp, qlm.data(), lmax, rg, sigma, 0); // test normalization
           if (echo > 0) printf("# %s: normalization of compensators with sigma = %g is %g\n", __func__, sigma, qlm[0]);
       } // sigma
       return 0;
