@@ -169,6 +169,7 @@ namespace fourier_poisson {
       delete[] rs_back;
       delete[] ft;
       delete[] rs;
+      if (echo > 1) printf("# %s: status = %i\n\n", __func__, status_fft + status_inv);
       return status_fft + status_inv;
   } // test_fft
 
@@ -217,6 +218,7 @@ namespace fourier_poisson {
       } // i01
       delete[] V;
       delete[] rho;
+      if (echo > 1) printf("# %s: status = %i\n\n", __func__, stat);
       return stat;
   } // test_FFT_Poisson_solver
 

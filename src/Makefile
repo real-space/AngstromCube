@@ -3,6 +3,8 @@
 ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
 #ENABLEGPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
 
+THISMACHINE := $(shell hostname)
+
 EXECUTABLE = aa3
 all: ${EXECUTABLE}
 
@@ -16,6 +18,7 @@ OBJ = \
 	bessel_transform.o \
 	real_space_grid.o \
 	spherical_atoms.o \
+	chemical_symbol.o \
 	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
@@ -56,8 +59,6 @@ CXX    = g++
 SRC ?= ./src
 INC = -I/usr/local/cuda/include
 
-EXTFLAGS ?=
-EXTFLAGS += -D HAS_no_MKL
 
 ERRFLAGS =
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
@@ -92,6 +93,16 @@ ifdef ENABLEGPU
 	LDFLAGS  += -rdynamic -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt
 endif
 
+EXTFLAGS ?=
+
+# ifeq ($(THISMACHINE), "zam054")
+	### works with g++ on zam054 (JSC workstation)
+	LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread 
+# else
+# 	EXTFLAGS += -D HAS_no_MKL
+# 	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
+# endif
+
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 
 GENCODE_SM60= -gencode arch=compute_60,code=sm_60 -gencode arch=compute_60,code=compute_60
@@ -106,8 +117,6 @@ CUFLAGS  = -std=c++11 ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CXXFLAGS = -std=c++11 ${FLAGS}
 
-# LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread ### works with g++ on zam054 (JSC workstation)
-LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
 
 DEP=$(OBJ:%.o=%.d)
 

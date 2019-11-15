@@ -262,7 +262,7 @@ extern "C" {
         if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
-            auto const rc = control::get("smooth.radial.grid.from", 1e-124, echo);
+            auto const rc = control::get("smooth.radial.grid.from", 1e-4, echo);
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
         
@@ -474,7 +474,7 @@ extern "C" {
         
 
         logder_energy_range[0] = control::get("logder.start", -2.0, echo);
-        logder_energy_range[1] = control::get("logder.step",  1e-3, echo);
+        logder_energy_range[1] = control::get("logder.step",  1e-2, echo);
         logder_energy_range[2] = control::get("logder.stop",   1.0, echo);
         if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n", 
             label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
@@ -1446,11 +1446,6 @@ extern "C" {
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const nlm = pow2(1 + lmax);
         int const mlm = pow2(1 + numax);
-        int const nln = nvalencestates;
-
-	        // wrap the arguments with data views
-        // view2D<double const> density_matrix(rho_matrix, stride);
-        // view3D<double> density_tensor(rho_tensor, nln, nln);
 
         // ToDo:
         //   transform the density_matrix[izyx][jzyx]
@@ -1465,9 +1460,11 @@ extern "C" {
             transform_SHO(check_matrix.data(), check_matrix.stride(), 
             	          radial_density_matrix.data(), radial_density_matrix.stride(), false);
             double d = 0;
-            for(int i = 0; i < nSHO; ++i)
-            	for(int j = 0; j < check_matrix.stride(); ++j) 
+            for(int i = 0; i < nSHO; ++i) {
+            	for(int j = 0; j < nSHO; ++j) {
 	            	d = std::max(d, std::abs(check_matrix[i][j] - density_matrix[i][j]));
+                } // j
+            } // i 
             printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, d);
             assert(d < 1e-9);
         } // debugging
@@ -1580,9 +1577,9 @@ extern "C" {
         if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]/Y00);
 
         { // scope: construct the augmented density
-        	int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
-        	int const mr = full_density[SMT].stride(); // on the smooth grid
-        	assert(aug_density.stride() == mr);
+            int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
+            auto const mr = full_density[SMT].stride(); // on the smooth grid
+            assert(aug_density.stride() == mr);
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator, ellmax_compensator, rg[SMT], sigma_compensator);
@@ -1602,7 +1599,7 @@ extern "C" {
         auto vlm = new double[nlm];
         for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts]->n;
-            int const mr = full_density[ts].stride();
+            auto const mr = full_density[ts].stride();
 
             view2D<double> on_grid(2, npt*mr);
             auto const rho_on_grid = on_grid[0];
@@ -1611,11 +1608,12 @@ extern "C" {
 
             // transform the lm-index into real-space 
             // using an angular grid quadrature, e.g. Lebedev-Laikov grids
-            if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", label, full_density[ts][00][0]*Y00);
+            if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", 
+                                                      label, full_density[ts][00][0]*Y00);
             angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax, false);
             // envoke the exchange-correlation potential (acts in place)
 //          printf("# envoke the exchange-correlation on angular grid\n");
-            for(int ip = 0; ip < npt*mr; ++ip) {
+            for(size_t ip = 0; ip < npt*mr; ++ip) {
                 double const rho = rho_on_grid[ip];
                 double vxc = 0, exc = 0;
                 exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
@@ -1628,12 +1626,15 @@ extern "C" {
             { // scope: transform also the exchange-correlation energy
                 view2D<double> exc_lm(nlm, mr);
                 angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax, true);
-                if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n", label, full_potential[SMT][00][0]*Y00*eV,_eV);
+                if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
+                                                         label, full_potential[SMT][00][0]*Y00*eV,_eV);
                 if (echo > 5) {
                     auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                    printf("# %s double counting correction  in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+                    printf("# %s double counting correction  in %s 00 channel %.12g %s\n", 
+                              label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
                     auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                    printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
+                    printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", 
+                              label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
                 } // echo
             } // scope
 

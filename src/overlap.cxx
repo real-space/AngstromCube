@@ -7,13 +7,13 @@
 #include <utility> // std::pair<T1,T2>, make_pair
 #include <vector> // std::vector<T>
 #include <array> // std::array<T,n>
-// #include <cmath>
 #include <cassert> // assert
  
 #include "overlap.hxx"
 
 #include "vector_math.hxx" // vector_math from exafmm
 #include "constants.hxx" // pi, sqrtpi
+#include "control.hxx" // control::get
 
 
 // #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
@@ -438,19 +438,21 @@ namespace overlap {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 12, ncut = nmax + 2;
+    int constexpr nmax = 4; // ToDo: int const nmax = control::get("overlap.numax", 4);
+    int const ncut = nmax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     {
+        int const structure = control::get("overlap.crystal.structure", 4); // 1:sc, 2:bcc, default:fcc 
         double const recip = (2*constants::pi)/a0;
         for(int dir = 0; dir < 3; ++dir) {
-            if (0) { // simple-cubic
+            if (1 == structure) { // simple-cubic
                 cv[dir] = 0; cv[dir][dir] = a0;
                 bv[dir] = 0; bv[dir][dir] = recip; // sc
             } else {
                 int8_t const cell_bcc[3][3] = { {0,1,1},  {1,0,1},  {1,1,0}}; // bcc
                 int8_t const cell_fcc[3][3] = {{-1,1,1}, {1,-1,1}, {1,1,-1}}; // fcc
-                if (0) { // body-centered-cubic
+                if (2 == structure) { // body-centered-cubic
                     cv[dir] = cell_bcc[dir];
                     bv[dir] = cell_fcc[dir];
                 } else { // face-centered-cubic
@@ -489,7 +491,7 @@ namespace overlap {
     
     double const dmax = 12*sigma; // 12 sigma is converged for fcc
 
-    double H0[ncut*ncut], H1[ncut*ncut], normalize=0; // do not normalize
+    double H0[ncut*ncut], H1[ncut*ncut], normalize = 0; // do not normalize
     prepare_centered_Hermite_polynomials(H0, ncut, 1./sigma0, normalize);
     prepare_centered_Hermite_polynomials(H1, ncut, 1./sigma1, normalize);
 
@@ -606,7 +608,7 @@ namespace overlap {
     if (DoS) { 
         dos.assign(num_bins, 0); // allocate and clear
         // create a k-point set with weights
-        int const nkp_sampling = 16; // use a 2N x 2N x 2N k-point set
+        int const nkp_sampling = control::get("overlap.kmesh.sampling", 2); // this is N, use a 2N x 2N x 2N k-point set
         double const inv_kp_sampling = 0.5/nkp_sampling;
         double w8sum = 0;
         double const weight = 1;
@@ -623,7 +625,7 @@ namespace overlap {
         if (echo > 1) printf("# %ld k-points in the irriducible Brillouin zone, weight sum = %g\n", kps.size(), w8sum);
     } else {
         int const nedges = 6;
-        float const sampling_density = 1.f/(1 << 8);
+        float const sampling_density = control::get("overlap.kpath.sampling", 1./32);
         double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
         float path_progress = 0;
         for(int edge = 0; edge < nedges; ++edge) {
