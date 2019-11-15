@@ -137,7 +137,7 @@ extern "C" {
     	, double const sigma   // spread_compensator
     	, int const echo=0     // log output level
     ) {
-        int const nr = rg->n, mr = align<2>(nr);
+        int const nr = rg->n;
         auto const sig2inv = -.5/(sigma*sigma);
         if (echo > 0) printf("# sigma = %g\n", sigma);
         std::vector<double> rlgauss(nr);
@@ -1086,43 +1086,40 @@ extern "C" {
                     } // nrn
                 } // echo
                 
-                double ovl[msub*msub];
+                view2D<double> ovl(msub, msub); // get memory
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn*msub + krn] = dot_product(nr, wave, &SHO_rprj[krn*stride], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, &SHO_rprj[krn*stride], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
-                                               label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
+                                               label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
                 } // nrn
                 
-                double inv[msub*msub];
+                view2D<double> inv(msub, msub); // get memory
                 if (n > 4) exit(__LINE__); // error not implemented
-                double const det = simple_math::invert(n, inv, msub, ovl, msub);
+                double const det = simple_math::invert(n, inv.data(), inv.stride(), ovl.data(), ovl.stride());
                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
 
                 // make a new linear combination
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nrts = rg[ts]->n, mrts = align<2>(nrts);
-                    auto const waves = new double[n*mrts]; // temporary storage
-                    auto const wKins = new double[n*mrts]; // temporary storage for kinetic
+                    view3D<double> waves(2, n, mrts, 0.0); // temporary storage for pairs {wave, wKin}
                     for(int nrn = 0; nrn < n; ++nrn) {
                         int const iln = ln_off + nrn;
-                        set(&waves[nrn*mrts], nrts, valence_state[iln].wave[ts]); // copy
-                        set(&wKins[nrn*mrts], nrts, valence_state[iln].wKin[ts]); // copy
+                        set(waves[0][nrn], nrts, valence_state[iln].wave[ts]); // copy
+                        set(waves[1][nrn], nrts, valence_state[iln].wKin[ts]); // copy
                     } // nrn
                     for(int nrn = 0; nrn < n; ++nrn) {
                         int const iln = ln_off + nrn;
                         set(valence_state[iln].wave[ts], nrts, 0.0); // clear
                         set(valence_state[iln].wKin[ts], nrts, 0.0); // clear
                         for(int krn = 0; krn < n; ++krn) {
-                            add_product(valence_state[iln].wave[ts], nrts, &waves[krn*mrts], inv[nrn*msub + krn]);
-                            add_product(valence_state[iln].wKin[ts], nrts, &wKins[krn*mrts], inv[nrn*msub + krn]);
+                            add_product(valence_state[iln].wave[ts], nrts, waves[0][krn], inv[nrn][krn]);
+                            add_product(valence_state[iln].wKin[ts], nrts, waves[1][krn], inv[nrn][krn]);
                         } // krn
                     } // nrn
-                    delete[] waves; // release temporary storage
-                    delete[] wKins; // release temporary storage
                 } // ts - tru and smt
 
 #if 1
@@ -1131,32 +1128,33 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn*msub + krn] = dot_product(nr, wave, &SHO_rprj[krn*mr], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, &SHO_rprj[krn*mr], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
-                                               label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn*msub + krn]);
+                                               label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
                 } // nrn
 #endif
 
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
                 // rotate the kinetic energy difference matrix
-                double mat[msub*msub], rot[msub*msub];
+                view2D<double> mat(msub, msub), rot(msub, msub);
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     // copy out
                     for(int i = 0; i < n; ++i) {
                         for(int j = 0; j < n; ++j) {
-                            mat[i*msub + j] = kinetic_energy(ts,i+ln_off,j+ln_off);
+                            mat[i][j] = kinetic_energy(ts,i+ln_off,j+ln_off);
                         } // j
                     } // i
 
-                    simple_math::matrix_rotation(n, rot, msub, mat, msub, inv, msub);
+                    simple_math::matrix_rotation(n, rot.data(), rot.stride(), 
+                    	  mat.data(), mat.stride(), inv.data(), inv.stride());
 
                     if (0) {
                         // symmetrize the kinetic energy tensor
                         for(int i = 0; i < n; ++i) {
                             for(int j = 0; j < i; ++j) { // triangular loop excluding the diagonal elements
-                                auto &aij = rot[i*msub + j];
-                                auto &aji = rot[j*msub + i];
+                                auto &aij = rot[i][j];
+                                auto &aji = rot[j][i];
                                 auto const avg = 0.5*(aij + aji);
                                 aij = avg;
                                 aji = avg;
@@ -1167,7 +1165,7 @@ extern "C" {
                     // put back
                     for(int i = 0; i < n; ++i) {
                         for(int j = 0; j < n; ++j) {
-                            kinetic_energy(ts,i+ln_off,j+ln_off) = rot[i*msub + j]; 
+                            kinetic_energy(ts,i+ln_off,j+ln_off) = rot[i][j]; 
                         } // j
                     } // i
 
@@ -1206,9 +1204,9 @@ extern "C" {
                     int const nr_cut = ir_cut[ts]; // rg[ts]->n use for integration over the entire grid --> diagonal elements than appear positive.
                     for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                         for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
-                            kinetic_energy(ts,iln,jln)
-                              = dot_product(nr_cut, valence_state[iln].wKin[ts],
-                                                    valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
+                            kinetic_energy(ts,iln,jln) = dot_product(nr_cut, 
+                            	valence_state[iln].wKin[ts],
+                                valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
                         } // j
                     } // i
                 } // ts
@@ -2125,12 +2123,12 @@ namespace single_atom {
 
   int test(int const echo=9) {
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-     for(int Z = 0; Z <= 109; ++Z) { // all elements
+     // for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
-    // { int const Z = 29; // 29:copper
+    { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
