@@ -739,6 +739,9 @@ extern "C" {
                 if (true) {
                     // solve for a true valence eigenstate
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
+//                     // manipulate --> tried this, becomes worse
+//                     if ((n > 1) && (0 == nrn)) vs.energy -= 0.125;
+//                     if ((n > 1) && (1 == nrn)) vs.energy  = 0.25 + valence_state[ln_off].energy;
                 } else {
                     assert(nrn > 0);
                     vs.energy = valence_state[iln - 1].energy + 1.0; // copy energy from lower state and add 1.0 Hartree
