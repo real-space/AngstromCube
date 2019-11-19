@@ -315,12 +315,13 @@ extern "C" {
 //            } // ir
 //         } // echo
 
-        int8_t as_valence[99];
-        set(as_valence, 99, int8_t(-1));
+        std::vector<int8_t> as_valence(99, -1);
         
+        double const core_valence_separation = control::get("core.valence.separation", -1.0);
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
         auto const r2rho = new double[nrt];
         ncorestates = 20;
+        int constexpr SRA = 1;
         core_state = new core_level_t[ncorestates];
         {   int ics = 0, jcs = -1; float ne = Z_core - ionization;
             for(int m = 0; m < 8; ++m) { // auxiliary number
@@ -333,12 +334,12 @@ extern "C" {
                         cs.wKin[TRU] = new double[nrt]; // get memory for the kinetic energy
                         double E = atom_core::guess_energy(Z_core, enn);
                         set(r2rho, rg[TRU]->n, 0.0);
-                        radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU],
+                        radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU],
                                  enn, ell, E, cs.wave[TRU], r2rho);
                         cs.energy = E;
                         
                         int const inl = atom_core::nl_index(enn, ell);
-                        if (E > -1.0) { // ToDo: make the limit (-1.0 Ha) between core and valence states dynamic
+                        if (E > core_valence_separation) {
                             as_valence[inl] = ics; // mark as good for the valence band
 //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                         } // move to the valence band
@@ -355,13 +356,13 @@ extern "C" {
                         if (occ > 0) {
                             jcs = ics;
                             if (echo > 0) printf("# %s %s %2d%c%6.1f E= %g %s\n", label, (as_valence[inl] < 0)?
-                                              "core   ":"valence", enn, ellchar[ell], occ, E*eV,_eV);
+                                                 "core   ":"valence", enn, ellchar[ell], occ, E*eV,_eV);
+                            if (as_valence[inl] < 0) {
+                                enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
+                            } else {
+                                if (transfer2valence) occ = 0;
+                            } // not as valence
                         } // occupied
-                        if (as_valence[inl] < 0) {
-                            enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
-                        } else {
-                            if (transfer2valence) occ = 0;
-                        } // not as valence
                         if (occ > 0) {
                             double const norm = occ/dot_product(rg[TRU]->n, r2rho, rg[TRU]->dr);
                             add_product(core_density[TRU], rg[TRU]->n, r2rho, norm);
@@ -390,13 +391,13 @@ extern "C" {
                     auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
-                    
+
                     vs.wave[SMT] = new double[nrs]; // get memory for the smooth radial function
                     vs.wave[TRU] = new double[nrt]; // get memory for the true radial function
                     vs.wKin[SMT] = new double[nrs]; // get memory for the smooth kinetic energy
                     vs.wKin[TRU] = new double[nrt]; // get memory for the true kinetic energy
-                    double E = atom_core::guess_energy(Z_core, enn);
-                    radial_eigensolver::shooting_method(1, *rg[TRU], potential[TRU], enn, ell, E, vs.wave[TRU]);
+                    double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
+                    radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], enn, ell, E, vs.wave[TRU]);
                     vs.energy = E;
 
                     vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
@@ -2137,10 +2138,11 @@ namespace single_atom {
         // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
 //     { int const Z = 1; // 1:hydrogen
 //     { int const Z = 2; // 2:helium
-    { int const Z = 29; // 29:copper
+//     { int const Z = 29; // 29:copper
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
+    { int const Z = control::get("single_atom.Z", 29); // default copper
         if (echo > 1) printf("\n# Z = %d\n", Z);
         LiveAtom a(Z, false, 0.f, -1, echo); // envoke constructor
     } // Z

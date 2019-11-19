@@ -56,7 +56,7 @@ public:
   T       & at(size_t const i1, size_t const i0)       { assert(i0 < _n0); return _data[i1*_n0 + i0]; }
 #endif
 
-  T* operator[] (size_t const i1) const { return &_data[i1*_n0]; } // []
+  T* operator[] (size_t const i1) const { assert((i1 < _n1) || (DimUnknown == _n1)); return &_data[i1*_n0]; } // []
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
