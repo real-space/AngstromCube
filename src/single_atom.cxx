@@ -230,6 +230,7 @@ extern "C" {
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
+      view2D<double> projectors; // [nln][nr_smt] r*projectors
 
       double  core_charge_deficit; // in units of electrons
       double* true_norm; // vector[nln] for display of partial wave results
@@ -447,6 +448,8 @@ extern "C" {
         kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln); // get memory
         zero_potential  = new double[nrs]; // get memory
         true_norm       = new double[nln]; // get memory
+        
+        projectors = view2D<double>(nln, align<2>(rg[SMT]->n)); // get memory
         
         set(zero_potential, nrs, 0.0); // clear
 
@@ -720,10 +723,9 @@ extern "C" {
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
             int const n = nn[ell];
-            view2D<double> SHO_rprj(n, align<2>(rg[SMT]->n)); // get memory
             {   int nrns[9]; std::iota(nrns, nrns + n, 0);
                 int ells[9]; std::fill(ells, ells + n, ell);
-                scattering_test::expand_sho_projectors(SHO_rprj.data(), SHO_rprj.stride(), *rg[SMT], 
+                scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], 
                                                               sigma, n, nrns, ells, 1, echo/2);
             }
             
@@ -787,7 +789,7 @@ extern "C" {
                     int constexpr HOM = 0;
                     for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
-                        auto const projector = (krn > HOM) ? SHO_rprj[krn - 1] : nullptr;
+                        auto const projector = (krn > HOM) ? projectors[krn - 1] : nullptr;
                         double dg; // derivative at end point, not used
                         
                         // solve inhomgeneous equation and match true wave in value and derivative
@@ -1085,7 +1087,7 @@ extern "C" {
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn, 
-                                (nrn == krn), dot_product(nr, SHO_rprj[nrn], SHO_rprj[krn], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
+                                (nrn == krn), dot_product(nr, projectors[nrn], projectors[krn], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
                         } // krn
                     } // nrn
                 } // echo
@@ -1095,7 +1097,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn][krn] = dot_product(nr, wave, SHO_rprj[krn], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, projectors[krn], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
@@ -1132,7 +1134,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn][krn] = dot_product(nr, wave, SHO_rprj[krn], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, projectors[krn], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
@@ -2142,7 +2144,7 @@ namespace single_atom {
 //     { int const Z = 47; // 47:silver
 //     { int const Z = 79; // 79:gold
 //     { int const Z = 13; // 13:aluminum
-    { int const Z = control::get("single_atom.Z", 29); // default copper
+    { int const Z = control::get("single_atom.test.Z", 29); // default copper
         if (echo > 1) printf("\n# Z = %d\n", Z);
         LiveAtom a(Z, false, 0.f, -1, echo); // envoke constructor
     } // Z
