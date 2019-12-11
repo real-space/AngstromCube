@@ -288,6 +288,7 @@ extern "C" {
         if (echo > 0) printf("# %s numbers of projectors ", label);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
+//          nn[ell] = std::min((int)nn[ell], 1); // limit to unity at most
             if (echo > 0) printf(" %d", nn[ell]);
         } // ell
         if (echo > 0) printf("\n");
@@ -776,7 +777,7 @@ extern "C" {
                 //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
 #ifdef  SHO_PartialWaves
 //+ SHO_PartialWaves
-                
+
                 { // scope: generate smooth partial waves from projectors, revPAW scheme
                     int const stride = align<2>(rg[SMT]->n);
                     view2D<double> rphi(1 + n, stride);
@@ -838,10 +839,12 @@ extern "C" {
                         } // krn > 0
                     } // krn
                     
-                    view2D<double> Ekin(     3*n , n);
-                    view2D<double> Olap(Ekin[1*n], n);
-                    view2D<double> Vkin(Ekin[2*n], n);
-                    if (1) {
+                    std::vector<double> evec(n, 0.0);
+                    evec[nrn] = 1.0;    // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                    if (0 && (n > 1)) { // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
+                        view2D<double> Ekin(     3*n , n);
+                        view2D<double> Olap(Ekin[1*n], n);
+                        view2D<double> Vkin(Ekin[2*n], n);
                         int const nr_max = ir_match[SMT];
                         for(int krn = 0; krn < n; ++krn) {
                             for(int jrn = 0; jrn < n; ++jrn) {
@@ -881,6 +884,7 @@ extern "C" {
                             if (info) {
                                 printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
                             } else {
+                                set(evec.data(), n, Ekin[0]);
                                 if (echo > 6) {
                                     printf("# %s lowest eigenvalue %g %s", label, lowest_eigenvalue*eV, _eV);
                                     if (echo > 8) {
@@ -890,21 +894,18 @@ extern "C" {
                                 } // echo
                             } // info
                         } // scope
-                        
-                    } else {
-                        set(Ekin, n, 0.0); Ekin[0][nrn] = 1.0; // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+
                     } // minimize radial kinetic energy of partial wave
-                    
+
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
-                    double sum = 0; for(int krn = 0; krn < n; ++krn) sum += Ekin[0][krn];
+                    double sum = 0; for(int krn = 0; krn < n; ++krn) sum += evec[krn];
                     double const scal = 1.0/sum; // scaling such that the sum is 1
                     for(int krn = 0; krn < n; ++krn) {
-                        auto const coeff = scal*Ekin[0][krn];
+                        auto const coeff = scal*evec[krn];
                         add_product(vs.wave[SMT], rg[SMT]->n, rphi[1 + krn], coeff);
                         add_product(vs.wKin[SMT], rg[SMT]->n, Tphi[1 + krn], coeff);
                     } // krn
-
 
                     // ToDo: now check that the matching of value and derivative of wave and wKin are ok.
                     if (echo > 9) {
@@ -922,7 +923,7 @@ extern "C" {
 //                         printf("# fflush(stdout) in line %i\n", __LINE__ + 1);
 //                         fflush(stdout);
 //                     } // echo
-                    
+
                 } // scope
                 
 //- SHO_PartialWaves
@@ -1294,8 +1295,7 @@ extern "C" {
         } // scope
         
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-//          int const nr = rg[ts]->n; // integrate over the full radial grid
-            int const nr = ir_cut[ts]; // integrate only up to the matching radius
+            int const nr = rg[ts]->n; // integrate over the full radial grid
             std::vector<double> rl(nr, 1.0); // init as r^0
             std::vector<double> wave_r2rl_dr(nr);
             if (echo > 1) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
