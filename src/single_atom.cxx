@@ -842,7 +842,7 @@ extern "C" {
                     
                     std::vector<double> evec(n, 0.0);
                     evec[nrn] = 1.0;    // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-                    if (0 && (n > 1)) { // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
+                    if (true && (n > 1)) { // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
                         view2D<double> Ekin(     3*n , n);
                         view2D<double> Olap(Ekin[1*n], n);
                         view2D<double> Vkin(Ekin[2*n], n);
