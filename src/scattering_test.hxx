@@ -122,7 +122,7 @@ namespace scattering_test {
       int const nln = iln;
       int const stride = mr;
 
-      int const node_count = 1; // 1 or 0 switch
+      int constexpr node_count = 0; // 1 or 0 switch
       view2D<double> rphi(node_count*9, align<2>(rg[SMT]->n));
       auto rtru = std::vector<double>(node_count*rg[TRU]->n);
 
@@ -280,8 +280,8 @@ namespace scattering_test {
                           success = 0;
                       }
                   } else { // SMT == ts
-                      vg[TRU] = value[0]; // value of the greater component at Rlog
-                      dg[TRU] = deriv[0]; // derivative
+                      vg[ts] = value[0]; // value of the greater component at Rlog
+                      dg[ts] = deriv[0]; // derivative
                   }
                   double const generalized_node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #ifdef  _SELECTED_ENERGIES_LOGDER
