@@ -84,18 +84,18 @@ namespace scattering_test {
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
               , double const sigma // sigma spread of SHO projectors
-              , int const lmax // ellmax or numax of SHO projectors
+              , int const lmax // ellmax or numax of SHO projectors (or even one more)
               , uint8_t const nn[] // number of projectors per ell
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
               , double const energy_range[3] // {lower, step, upper}
-#ifdef  _SELECTED_ENERGIES_LOGDER
+#ifndef  _SELECTED_ENERGIES_LOGDER
+              , int const echo=2) {
+#else
               , int const echo_level=2) {
                 int const echo = echo_level + 10; // turn a lot of output on
-#else
-              , int const echo=2) {
 #endif
-    
+
       if (echo > 1) printf("\n# %s %s lmax=%i\n", __FILE__, __func__, lmax); 
       double const one_over_pi = 1./constants::pi;
       status_t stat = 0;
@@ -105,17 +105,15 @@ namespace scattering_test {
 #ifdef  _SELECTED_ENERGIES_LOGDER
       int const nen = 6;
       double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
-      int const ell_start = 0;
 #else
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
       if (echo > 0) printf("\n## logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                         energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
-      int const ell_start = 0; // ToDo: delete this variable after debugging
 #endif
       
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
       int const mr = align<2>(rg[TRU]->n);
-      auto const gg = new double[2*mr], ff = &gg[mr]; // greater and smaller component, TRU grid
+      std::vector<double> gg(mr), ff(mr); // greater and smaller component, TRU grid
       int ir_stop[TRU_AND_SMT];
 
       auto linsolfail = std::vector<size_t>(1 + lmax, 0);
@@ -161,15 +159,15 @@ namespace scattering_test {
           
           if (echo > 0) printf("%.6f", energy*eV);
           int iln_off = 0;
-          for(int ell = ell_start; ell <= lmax; ++ell) 
+          for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
               int const n = nn[ell];
-              double deriv[9], value[9];
-              double gfp[99];
+              double deriv[8], value[8];
+              double gfp[96];
               int nnodes[TRU_AND_SMT];
               
-              assert(n < 9);
+              assert(n < 8);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                   int success = 1;
                   for(int jrn = 0; jrn <= n*ts; ++jrn) {
@@ -180,16 +178,16 @@ namespace scattering_test {
                       double const *const rp = inhomgeneous ? rprj[iln] : nullptr;
                       int constexpr SRA = 1; // use the scalar relativistic approximation
                       radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
-                                                         gg, ff, ir_stop[ts], &deriv[jrn], rp);
-                      if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg);
-                      if ((TRU == ts) && node_count) set(rtru.data(), ir_stop[TRU] + 1, gg);
+                                                         gg.data(), ff.data(), ir_stop[ts], &deriv[jrn], rp);
+                      if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg.data());
+                      if ((TRU == ts) && node_count) set(rtru.data(), ir_stop[TRU] + 1, gg.data());
                       value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
                       if (SMT == ts) {
-                          if (node_count) set(rphi[jrn], ir_stop[SMT] + 1, gg); // store radial solution
+                          if (node_count) set(rphi[jrn], ir_stop[SMT] + 1, gg.data()); // store radial solution
                           for(int krn = 0; krn < n; ++krn) {
                               // compute the inner products of the  projectors rprj with the solution gg
                               int const jln = iln_off + krn;
-                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, rprj[jln], gg, rg[SMT]->dr);
+                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, rprj[jln], gg.data(), rg[SMT]->dr);
                               if (echo > 8) printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", 
                                                           ell, energy*eV,_eV, jrn, 1+krn, gfp[jrn*n + krn]);
                           } // krn
@@ -312,8 +310,6 @@ namespace scattering_test {
           } // fail
       } // ell
       
-      delete[] gg;
-
 #ifdef  _SELECTED_ENERGIES_LOGDER
 //       printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG
 #endif
@@ -327,7 +323,7 @@ namespace scattering_test {
   inline status_t eigenstate_analysis(radial_grid_t const& gV // grid descriptor for Vsmt
               , double const Vsmt[] // smooth potential given on radial grid
               , double const sigma // sigma spread of SHO projectors
-              , int const lmax // ellmax or numax of SHO projectors
+              , int const lmax // // ellmax or numax of SHO projectors (or even one more)
               , uint8_t const nn[] // number of projectors per ell
               , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
               , double const aSm[] // non-local overlap matrix elements, assume stride nln

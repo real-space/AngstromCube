@@ -247,6 +247,7 @@ extern "C" {
     
     // constructor method:
     LiveAtom(float const Z_nucleons
+            , int const nu_max=3
             , bool const transfer2valence=true // depending on transfer2valence results look 
     // slightly different in the shape of smooth potentials but matrix elements are the same
             , float const ionization=0
@@ -272,7 +273,7 @@ extern "C" {
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
 
-        numax = 3; // 3; // 3:up to f-projectors
+        numax = nu_max; // 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
         ellmax = 0; // should be 2*numax;
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
@@ -288,7 +289,7 @@ extern "C" {
         if (echo > 0) printf("# %s numbers of projectors ", label);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
-//          nn[ell] = std::min((int)nn[ell], 1); // limit to unity at most
+//          nn[ell] = std::min((int)nn[ell], 1); // limit to 1 at most, does not work, full SHO set assumed in some routines
             if (echo > 0) printf(" %d", nn[ell]);
         } // ell
         if (echo > 0) printf("\n");
@@ -475,7 +476,7 @@ extern "C" {
         lm_index_list.resize(nSHO);
         lmn_begin.resize(mlm);
         lmn_end.resize(mlm);
-        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nSHO, nln, lmn_begin.data(), lmn_end.data(), mlm);
+        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nln, lmn_begin.data(), lmn_end.data(), mlm, echo);
         
 
         logder_energy_range[0] = control::get("logder.start", -2.0, echo);
@@ -831,7 +832,7 @@ extern "C" {
                             } // echo
 
                             // check that the matching of value and derivative of rphi is ok by comparing value and derivative
-                            if (echo > 6) {
+                            if (echo > 9) {
                                 printf("# %s check matching of vg and dg for ell=%i nrn=%i krn=%i: %g == %g ? and %g == %g ?\n",
                                        label, ell, nrn, krn-1,  vgtru, scal*(vginh + c_hom*vghom),  dgtru, scal*(dginh + c_hom*dghom));
                             } // echo
@@ -1208,7 +1209,7 @@ extern "C" {
        
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                    int const nr_cut = ir_cut[ts]; // rg[ts]->n use for integration over the entire grid --> diagonal elements than appear positive.
+                    int const nr_cut = rg[ts]->n; // integration over the entire grid --> diagonal elements then appear positive.
                     for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                         for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
                             kinetic_energy(ts,iln,jln) = dot_product(nr_cut, 
@@ -1269,8 +1270,8 @@ extern "C" {
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
-                
-            } // scope establish dual orthgonality with [SHO] projectors
+
+            } // scope  establish dual orthgonality with [SHO] projectors
             
 //             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
@@ -1321,7 +1322,7 @@ extern "C" {
     } // update_charge_deficit
 
     template<typename int_t>
-    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[], int const nlmn, int const nln, 
+    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[], int const nln, 
                              int_t lmn_begin[], int_t lmn_end[], int const mlm, 
                              int const echo=0) {
         for(int lm = 0; lm < mlm; ++lm) lmn_begin[lm] = -1;
@@ -1345,8 +1346,8 @@ extern "C" {
                 } // nrn
             } // emm
         } // ell
-        assert(nlmn == ilmn);
-        
+        int const nlmn = ilmn;
+
         if (echo > 3) {
             printf("# %s ln_index_list ", label);
             for(int i = 0; i < nlmn; ++i) {
@@ -1354,8 +1355,7 @@ extern "C" {
             }   printf("\n");
             printf("# %s lmn_begin--lmn_end ", label); 
             for(int i = 0; i < mlm; ++i) {
-//              if (lmn_begin[i] == lmn_end[i] - 1) { 
-                if (0) { 
+                if (lmn_begin[i] == lmn_end[i] - 1) { 
                     printf(" %d", lmn_begin[i]); 
                 } else {
                     printf(" %d--%d", lmn_begin[i], lmn_end[i] - 1); 
@@ -2134,6 +2134,7 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test(int const echo=9) {
+    int const numax = control::get("single_atom.test.numax", 3); // default 3
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
      // for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
@@ -2146,7 +2147,7 @@ namespace single_atom {
 //     { int const Z = 13; // 13:aluminum
     { int const Z = control::get("single_atom.test.Z", 29); // default copper
         if (echo > 1) printf("\n# Z = %d\n", Z);
-        LiveAtom a(Z, false, 0.f, -1, echo); // envoke constructor
+        LiveAtom a(Z, numax, false, 0.f, -1, echo); // envoke constructor
     } // Z
     return 0;
   } // test

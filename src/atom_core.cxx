@@ -17,6 +17,7 @@
 #include "inline_math.hxx" // pow2, set, scale, product, add_product
 #include "radial_eigensolver.hxx" // shooting_method
 #include "constants.hxx" // constants::pi
+#include "control.hxx" // control::get
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -550,7 +551,7 @@ namespace atom_core {
 //     { int const Z = 5;  // 5:boron
 //     { int const Z = 6;  // 6:carbon
 //     { int const Z = 13; // 13:aluminum
-    { int const Z = 26; // 26:iron
+    { int const Z = control::get("atom_core.test.Z", 29); // default copper
 //     { int const Z = 29; // 29:copper
 //     { int const Z = 70; // 70:ytterbium
 //     { int const Z = 79; // 79:gold
