@@ -179,8 +179,11 @@ namespace scattering_test {
                       int constexpr SRA = 1; // use the scalar relativistic approximation
                       radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
                                                          gg.data(), ff.data(), ir_stop[ts], &deriv[jrn], rp);
-                      if (TRU == ts) nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg.data());
-                      if ((TRU == ts) && node_count) set(rtru.data(), ir_stop[TRU] + 1, gg.data());
+                      nnodes[TRU] = 0;
+                      if ((TRU == ts) && node_count) {
+                          nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg.data());
+                          set(rtru.data(), ir_stop[TRU] + 1, gg.data());
+                      }
                       value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
                       if (SMT == ts) {
                           if (node_count) set(rphi[jrn], ir_stop[SMT] + 1, gg.data()); // store radial solution
@@ -283,7 +286,7 @@ namespace scattering_test {
                       vg[ts] = value[0]; // value of the greater component at Rlog
                       dg[ts] = deriv[0]; // derivative
                   }
-                  double const generalized_node_count = success*(0*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
+                  double const generalized_node_count = success*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
@@ -373,15 +376,15 @@ namespace scattering_test {
 
       int ln_off = 0;
       for(int ell = 0; ell <= lmax; ++ell) {
-          set(Ham.data(), nr*stride, 0.0); // clear Hamiltonian
-          set(Ovl.data(), nr*stride, 0.0); // clear overlap matrix
+          set(Ham, nr, 0.0); // clear Hamiltonian
+          set(Ovl, nr, 0.0); // clear overlap matrix
           view2D<double const> aHm_ell(&aHm[ln_off*nln + ln_off], nln);
           view2D<double const> aSm_ell(&aSm[ln_off*nln + ln_off], nln);
 
           // setup the local Hamiltonian
           for(int ir = 0; ir < nr; ++ir) {
               double const r = g.r[ir + 1];
-              // local potential and repulsive angular part of the kinetic energy
+              // diagonal: local potential and repulsive angular part of the kinetic energy
               Ham[ir][ir] = Vloc[ir + 1] + 0.5*(ell*(ell + 1.)/pow2(r)); 
               Ovl[ir][ir] = 1.;
               for(int jr = 0; jr < nr; ++jr) {

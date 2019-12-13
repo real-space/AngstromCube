@@ -59,7 +59,7 @@ extern "C" {
       // solve a generalized eigenvalue problem
       auto eigs = std::vector<double>(n);
       auto const info = linear_algebra::generalized_eigenvalues(n, A.data(), A.stride(), 
-      	                                                           B.data(), B.stride(), eigs.data());
+                                                                   B.data(), B.stride(), eigs.data());
       if (lowest) *lowest = eigs[0];
       return info;
   } // minimize_curvature 
@@ -177,7 +177,8 @@ extern "C" {
         } // ell
     } // add_or_project_compensators
 
-    void correct_multipole_shift(double ves[], int const stride, int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
+    void correct_multipole_shift(double ves[], int const stride, 
+            int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
         int const nr = rg->n; assert(stride >= nr);
         std::vector<double> rl(nr, 1.0); // init with r^0
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
@@ -200,7 +201,7 @@ extern "C" {
       char label[16]; // label string
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
-      int nr_diff;
+      int nr_diff; // how many more radial grid points are in *rg[TRU] compared to *rg[SMT]
       ell_QN_t ellmax; // limit ell for full_potential and full_density
       double r_cut; // classical augmentation radius for potential and core density
       int ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
@@ -264,7 +265,7 @@ extern "C" {
         if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
-            auto const rc = control::get("smooth.radial.grid.from", 1e-4, echo);
+            auto const rc = control::get("smooth.radial.grid.from", 1e-4);
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
         
@@ -320,7 +321,7 @@ extern "C" {
 
         std::vector<int8_t> as_valence(99, -1);
         
-        double const core_valence_separation = control::get("core.valence.separation", -1.0);
+        double const core_valence_separation = control::get("core.valence.separation", -2.0);
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
         auto const r2rho = new double[nrt];
         ncorestates = 20;
@@ -479,9 +480,9 @@ extern "C" {
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nln, lmn_begin.data(), lmn_end.data(), mlm, echo);
         
 
-        logder_energy_range[0] = control::get("logder.start", -2.0, echo);
-        logder_energy_range[1] = control::get("logder.step",  1e-2, echo);
-        logder_energy_range[2] = control::get("logder.stop",   1.0, echo);
+        logder_energy_range[0] = control::get("logder.start", -2.0);
+        logder_energy_range[1] = control::get("logder.step",  1e-2);
+        logder_energy_range[2] = control::get("logder.stop",   1.0);
         if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n", 
             label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
 
@@ -1856,7 +1857,7 @@ extern "C" {
                 }   printf("\n");
             } // i01
             
-            if (0) {
+            if (1) {
                 printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 double const V_rmax = full_potential[SMT][00][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
@@ -1866,15 +1867,14 @@ extern "C" {
                     } // ir
                 } // scope
                 
-                // find the eigenstates of the spherical Hamiltonian
-                scattering_test::eigenstate_analysis
+                if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
+                scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
                   (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 2);
-                
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-                
-            // scan the logarithmic derivatives
-            if (0) {
-                scattering_test::logarithmic_derivative
+
+            if (1) {
+                if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
+                scattering_test::logarithmic_derivative // scan the logarithmic derivatives
                   (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
@@ -1905,6 +1905,8 @@ extern "C" {
 
     
     void update_spherical_matrix_elements(int const echo=0) {
+        // check if the emm-averaged Hamiltonian elements produce the same scattering properties 
+        // as the spherical part of the full potential
         int const nln = nvalencestates;
 
         view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // emm1-emm2-degenerate, no emm0-dependency
@@ -1930,7 +1932,7 @@ extern "C" {
                     hamiltonian_ln[iln][jln] = ( kinetic_energy(TRU,iln,jln) 
                                                - kinetic_energy(SMT,iln,jln) )
                                              + ( potential_ln(TRU,iln,jln) 
-                      	                       - potential_ln(SMT,iln,jln) );
+                                               - potential_ln(SMT,iln,jln) );
                     overlap_ln[iln][jln] = ( charge_deficit(0,TRU,iln,jln) 
                                            - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // jln
@@ -1956,7 +1958,6 @@ extern "C" {
             } // i01
         } // 1
         
-        
         if (1) {
                 double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
@@ -1965,18 +1966,16 @@ extern "C" {
                         Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
                     } // ir
                 } // scope
-
-                // find the eigenstates of the spherical Hamiltonian
-                scattering_test::eigenstate_analysis
+                
+                if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
+                scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
                   (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 2);
-//                 
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
         if (1) {
-            // scan the logarithmic derivatives
-            scattering_test::logarithmic_derivative
+            if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
+            scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
-
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
     } // update_spherical_matrix_elements
@@ -2047,7 +2046,7 @@ extern "C" {
     void update_potential(float const mixing, double const ves_multipoles[], int const echo=0) {
         if (echo > 2) printf("\n# %s %s\n", label, __func__);
         update_full_potential(mixing, ves_multipoles, echo);
-        update_spherical_matrix_elements(echo); // test logarithmic derivative
+        // update_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
@@ -2134,18 +2133,12 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test(int const echo=9) {
-    int const numax = control::get("single_atom.test.numax", 3); // default 3
+    int const numax = control::get("single_atom.test.numax", 3); // default 3: ssppdf
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
-     // for(int Z = 0; Z <= 109; ++Z) { // all elements
+//     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
-        // if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
-//     { int const Z = 1; // 1:hydrogen
-//     { int const Z = 2; // 2:helium
-//     { int const Z = 29; // 29:copper
-//     { int const Z = 47; // 47:silver
-//     { int const Z = 79; // 79:gold
-//     { int const Z = 13; // 13:aluminum
-    { int const Z = control::get("single_atom.test.Z", 29); // default copper
+//        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
+    {   int const Z = control::get("single_atom.test.Z", 29); // default copper
         if (echo > 1) printf("\n# Z = %d\n", Z);
         LiveAtom a(Z, numax, false, 0.f, -1, echo); // envoke constructor
     } // Z

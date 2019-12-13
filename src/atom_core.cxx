@@ -510,17 +510,11 @@ namespace atom_core {
         initial_density(rho, g, zz);
         double const q = dot_product(g.n, g.r2dr, rho);
         diff = std::max(diff, std::abs(zz - q));
-        if (echo > 0)  printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n", 
-                                 __FILE__, __LINE__, zz, q, diff);
+        if (echo > 0) printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n", 
+                                __FILE__, __LINE__, zz, q, diff);
     } // zz
     return (diff > 1e-3);
   } // test_initial_density
-
-  status_t test_core_solver(radial_grid_t const &g, float const Z) {
-    int const echo = 3;
-    printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
-    return scf_atom(g, Z, echo);
-  } // test_core_solver
 
   status_t test_nl_index(int const echo=2) {
       int inl = 0;
@@ -535,29 +529,24 @@ namespace atom_core {
       return 0;
   } // test_nl_index
   
+  status_t test_core_solver(radial_grid_t const &g, float const Z) {
+    int const echo = 3;
+    printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
+    return scf_atom(g, Z, echo);
+  } // test_core_solver
+
   status_t all_tests() {
     auto status = 0;
-//  status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
+    status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
     status += test_nl_index();
-//     for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
-//         printf("\n\n# Z = %d\n\n", Z);
-//         status += simplify_Zeff_file(Z, 1e-8);
     
-//     for(int Z = 119; Z > 0; --Z) { // test all atoms, backwards
-    // for(int Z = 0; Z < 120; ++Z) { // test all atoms, backwards
-        // printf("\n\n# Z = %d\n\n", Z);
-        // status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
-//     { int const Z = 1;  // 1:hydrogen
-//     { int const Z = 5;  // 5:boron
-//     { int const Z = 6;  // 6:carbon
-//     { int const Z = 13; // 13:aluminum
-    { int const Z = control::get("atom_core.test.Z", 29); // default copper
-//     { int const Z = 29; // 29:copper
-//     { int const Z = 70; // 70:ytterbium
-//     { int const Z = 79; // 79:gold
-//     { int const Z = 120; // very heavy non-existing element
+//      for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
+//          printf("\n\n# Z = %d\n\n", Z);
+//          status += simplify_Zeff_file(Z, 1e-8);
+//      } // Z
+
+    {   int const Z = control::get("atom_core.test.Z", 29); // default copper
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
-//         status += simplify_Zeff_file(Z);
     } // Z
     return status;
   } // all_tests
