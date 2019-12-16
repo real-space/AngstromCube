@@ -28,7 +28,7 @@ namespace atom_core {
       assert(ell >= 0); assert(enn > ell); // atomic eigenstates
       return (enn*(enn - 1))/2 + ell;
   } // nl_index
-  
+
   status_t all_tests();
 
 } // namespace atom_core

@@ -3,6 +3,9 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 
+// #define debug_printf(...) printf(...)  
+#define debug_printf(...)
+
 #define DimUnknown 0
 
 template<typename T>
@@ -21,18 +24,18 @@ public:
 
   ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
-  view2D(view2D<T> const & rhs) { 
-      printf("# view2D(view2D<T> const & rhs);\n");
+  view2D(view2D<T> const & rhs) {
+      debug_printf("# view2D(view2D<T> const & rhs);\n");
       *this = rhs;
   } 
 
   view2D(view2D<T>      && rhs) { 
-      printf("# view2D(view2D<T> && rhs);\n");
+      debug_printf("# view2D(view2D<T> && rhs);\n");
       *this = std::move(rhs);
   }
 
   view2D& operator= (view2D<T> && rhs) {
-      printf("# view2D& operator= (view2D<T> && rhs);\n");
+      debug_printf("# view2D& operator= (view2D<T> && rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0; 
       _n1   = rhs._n1;
@@ -41,7 +44,7 @@ public:
   }
 
   view2D& operator= (view2D<T> const & rhs) {
-      printf("# view2D& operator= (view2D<T> const & rhs);\n");
+      debug_printf("# view2D& operator= (view2D<T> const & rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0; 
       _n1   = DimUnknown; // we are just a shallow copy
@@ -91,17 +94,17 @@ public:
   ~view3D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
   view3D(view3D<T> const & rhs) { 
-      printf("# view3D(view3D<T> const & rhs);\n");
+      debug_printf("# view3D(view3D<T> const & rhs);\n");
       *this = rhs;
   } 
 
   view3D(view3D<T>      && rhs) { 
-      printf("# view3D(view3D<T> && rhs);\n");
+      debug_printf("# view3D(view3D<T> && rhs);\n");
       *this = std::move(rhs);
   }
 
   view3D& operator= (view3D<T> && rhs) {
-      printf("# view3D& operator= (view3D<T> && rhs);\n");
+      debug_printf("# view3D& operator= (view3D<T> && rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
@@ -111,7 +114,7 @@ public:
   }
 
   view3D& operator= (view3D<T> const & rhs) {
-      printf("# view3D& operator= (view3D<T> const & rhs);\n");
+      debug_printf("# view3D& operator= (view3D<T> const & rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
@@ -172,17 +175,17 @@ public:
   ~view4D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
   view4D(view4D<T> const & rhs) { 
-      printf("# view4D(view4D<T> const & rhs);\n");
+      debug_printf("# view4D(view4D<T> const & rhs);\n");
       *this = rhs;
   } 
 
   view4D(view4D<T>      && rhs) { 
-      printf("# view4D(view4D<T> && rhs);\n");
+      debug_printf("# view4D(view4D<T> && rhs);\n");
       *this = std::move(rhs);
   }
 
   view4D& operator= (view4D<T> && rhs) {
-      printf("# view4D& operator= (view4D<T> && rhs);\n");
+      debug_printf("# view4D& operator= (view4D<T> && rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
@@ -193,7 +196,7 @@ public:
   }
 
   view4D& operator= (view4D<T> const & rhs) {
-      printf("# view4D& operator= (view4D<T> const & rhs);\n");
+      debug_printf("# view4D& operator= (view4D<T> const & rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;

@@ -89,6 +89,7 @@ namespace scattering_test {
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
               , double const energy_range[3] // {lower, step, upper}
+              , char const *label=""
 #ifndef  _SELECTED_ENERGIES_LOGDER
               , int const echo=2) {
 #else
@@ -96,7 +97,7 @@ namespace scattering_test {
                 int const echo = echo_level + 10; // turn a lot of output on
 #endif
 
-      if (echo > 1) printf("\n# %s %s lmax=%i\n", __FILE__, __func__, lmax); 
+      if (echo > 1) printf("\n# %s %s %s lmax=%i\n", label, __FILE__, __func__, lmax); 
       double const one_over_pi = 1./constants::pi;
       status_t stat = 0;
       
@@ -107,8 +108,8 @@ namespace scattering_test {
       double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
 #else
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
-      if (echo > 0) printf("\n## logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
-                        energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
+      if (echo > 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
 #endif
       
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
@@ -145,7 +146,7 @@ namespace scattering_test {
   
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], 9*sigma), rg[SMT]->n - 2);
       double const Rlog = rg[SMT]->r[ir_stop[SMT]];
-      if (echo > 0) printf("# %s check at radius %g %s\n", __func__, Rlog*Ang, _Ang);
+      if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
       for(int ien = 0; ien <= nen; ++ien) {
@@ -309,7 +310,7 @@ namespace scattering_test {
       
       for(int ell = 0; ell <= lmax; ++ell) {
           if (linsolfail[ell]) {
-              printf("# %s linear solve failed %ld times for ell=%i\n", __func__, linsolfail[ell], ell);
+              printf("# %s %s linear solve failed %ld times for ell=%i\n", label, __func__, linsolfail[ell], ell);
           } // fail
       } // ell
       
@@ -332,12 +333,13 @@ namespace scattering_test {
               , double const aSm[] // non-local overlap matrix elements, assume stride nln
               , int const nr=384 // number of radial grid points in equidistance mesh
               , int const Vshift=0 // potential shift
+              , char const *label=""
               , int const echo=2
     ) {
       status_t stat = 0;
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
-      if (echo > 1) printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
+      if (echo > 1) printf("\n# %s %s %s dr=%g nr=%i rmax=%g %s\n", label, __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
       
       auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
@@ -428,7 +430,7 @@ namespace scattering_test {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
                   if (echo > 1) {
-                      printf("# lowest eigenvalues for ell=%i  ", ell);
+                      printf("# %s lowest eigenvalues for ell=%i  ", label, ell);
                       for(int iev = 0; iev < nev; ++iev) {
                           printf("  %.6f", eigs[iev]*eV);
                       }   printf("  %s\n", _eV);
@@ -440,13 +442,13 @@ namespace scattering_test {
                       for(int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
                           if (echo > 8) {
-                              printf("\n## %s ell=%i eigenvalue %.6f %s %i-th eigenvector:\n", __func__, ell, eigs[iev]*eV, _eV, iev);
+                              printf("\n## %s %s ell=%i eigenvalue %.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
                               for(int ir = 0; ir < nr; ++ir) {
                                   printf("%g %g\n", g.r[ir + 1], evec[iev][ir]);
                               }   printf("\n\n");
                           } // echo
 
-                          printf("# projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", ell, iev, eigs[iev]*eV, _eV);
+                          printf("# %s projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", label, ell, iev, eigs[iev]*eV, _eV);
                           for(int nrn = 0; nrn < nprj; ++nrn) {
                               printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
                           }   printf("\n");
@@ -454,15 +456,15 @@ namespace scattering_test {
                   } // echo
                   
               } else { // info
-                  if (echo > 2) printf("# diagonalization for ell=%i returned info=%i\n", ell, info);
+                  if (echo > 2) printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, info);
                   
                   // diagonalize Ovl_copy, standard eigenvalue problem
                   linear_algebra::eigenvalues(nr, Ovl_copy.data(), Ovl_copy.stride(), eigs.data());
                   if (eigs[0] <= 0) { // warn
-                      if (echo > 0) printf("# %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", __func__, ell, eigs[0]);
+                      if (echo > 0) printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
                   } // overlap matrix is not positive definite
                   if (echo > 1) {
-                      printf("# %s ell=%i eigenvalues of the overlap matrix", __func__, ell);
+                      printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
                       for(int iev = 0; iev < 8; ++iev) {
                           printf(" %g", eigs[iev]);
                       }   printf("\n");

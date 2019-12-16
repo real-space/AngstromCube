@@ -1869,13 +1869,13 @@ extern "C" {
                 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
             if (1) {
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-                  (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
+                  (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
         } // scope
@@ -1969,13 +1969,13 @@ extern "C" {
                 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
         if (1) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-              (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, 2);
+              (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
     } // update_spherical_matrix_elements
@@ -2074,7 +2074,7 @@ namespace single_atom {
           SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
           a = new LiveAtom*[na];
           for(int ia = 0; ia < na; ++ia) {
-              a[ia] = new LiveAtom(Za[ia], false, ion[ia], ia, echo);
+              a[ia] = new LiveAtom(Za[ia], 2, false, ion[ia], ia, echo);
           } // ia
       } // a has not been initialized
 

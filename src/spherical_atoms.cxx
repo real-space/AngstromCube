@@ -22,6 +22,8 @@
 #include "finite_difference.hxx" // Laplacian
 #include "geometry_analysis.hxx" // read_xyz_file
 #include "simple_timer.hxx" // SimpleTimer
+#include "control.hxx" // control::get
+#include "lossful_compression.hxx" // RDP_lossful_compression
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -58,6 +60,7 @@ namespace spherical_atoms {
   } // fold_back
   
   status_t init(float const ion=0.f, int const echo=0) {
+      SimpleTimer init_function_timer(__FILE__, __LINE__, __func__);
       status_t stat = 0;
       double constexpr Y00 = solid_harmonics::Y00;
       
@@ -82,9 +85,12 @@ namespace spherical_atoms {
       int bc[3];
       stat += geometry_analysis::read_xyz_file(&xyzZ, &na, "atoms.xyz", cell, bc, echo);
 
-//       float ionization[na]; ionization[0] = ion*(na - 1); ionization[na - 1] = -ionization[0];
       float ionization[na]; set(ionization, na, 0.f);
-      
+      if ((ion != 0.0) && (na > 1)) {
+          if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
+          ionization[0] = ion; ionization[na - 1] = -ionization[0];
+      } // ionized
+
       // choose the box large enough not to require any periodic images
       double const h1 = 0.2378; // works for GeSbTe with alat=6.04
       int const dims[3] = {n_grid_points(cell[0]/h1), n_grid_points(cell[1]/h1), n_grid_points(cell[2]/h1)};
@@ -145,7 +151,7 @@ namespace spherical_atoms {
       std::vector<double>        Vtot(g.all());
       std::vector<double>         Vxc(g.all());
 
-  for(int scf_iteration = 0; scf_iteration < 1; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
       SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration");
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
@@ -348,9 +354,11 @@ namespace spherical_atoms {
                   std::vector<double> rs(rg[ia]->n);
                   bessel_transform::transform_s_function(rs.data(), qc.data(), *rg[ia], nq, dq, true); // transform back to real-space again
                   printf("\n## Real-space projection for atom #%d:\n", ia);
-                  for(int ir = 0; ir < rg[ia]->n; ++ir) {
-                      printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
-                  }   printf("\n\n");
+                  {   auto const mask = RDP_lossful_compression(rg[ia]->r, rs.data(), rg[ia]->n);
+                      for(int ir = 0; ir < rg[ia]->n; ++ir) {
+                          if (mask[ir]) printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
+                      }   printf("\n\n");
+                  } // scope: RDP-mask
                   
                   if ((values == rho.data()) || (values == Laplace_Ves.data())) {
                       bessel_transform::transform_s_function(rs.data(), qcq2.data(), *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
@@ -381,7 +389,8 @@ namespace spherical_atoms {
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=5) {
-      return init(1.5f, echo); // ionization of Al-P dimer by 1.5 electrons
+      float const ion = control::get("spherical_atoms.test.ion", 0.0);
+      return init(ion, echo); // ionization of Al-P dimer by 0.5 electrons
   } // test_create_and_destroy
 
   status_t all_tests() {
