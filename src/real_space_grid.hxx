@@ -65,7 +65,7 @@ namespace real_space_grid {
   template<typename real_t, int D0> // inner dimension
   status_t add_function(real_t values[], grid_t<D0> const &g, real_t added[], //
                         double const r2coeff[], int const ncoeff, float const hcoeff,
-                        double const center[3]=nullptr, float const rcut=-1, double const factor=1) {
+                        double const center[3]=nullptr, double const factor=1, float const rcut=-1) {
   // Add a spherically symmetric regular function to the grid.
   // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
       status_t stat = 0;
