@@ -22,6 +22,7 @@ OBJ = \
 	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
+	sho_potential.o \
 	overlap.o \
 	angular_grid.o \
 	sho_tools.o \

@@ -24,6 +24,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // control::get
 #include "lossful_compression.hxx" // RDP_lossful_compression
+#include "debug_output.hxx" // dump_to_file
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -378,6 +379,12 @@ namespace spherical_atoms {
           delete[] qlm[ia];
       } // ia
       delete[] center;
+
+      // generate a file which contains the full potential Vtot
+      {   char title[96];
+          sprintf(title, "%i x %i x %i", g.dim(2), g.dim(1), g.dim(0));
+          dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, 9);
+      }
 
       stat += single_atom::update(-na, nullptr, nullptr); // cleanup
       return stat;

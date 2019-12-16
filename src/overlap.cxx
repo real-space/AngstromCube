@@ -290,6 +290,38 @@ namespace overlap {
     return 0; // success
   } // generate_density_or_potential_tensor
 
+  template<int ncut, typename real_t>
+  status_t generate_tensor(real_t tensor[], double const sigma=2, // 2:typical for density tensor
+                     double const sigma0=1, double const sigma1=1) {
+    double const sigma0inv = 1./sigma0;
+    double const sigma1inv = 1./sigma1;
+    double const sigmapinv = 1./sigma;
+    double const alpha = pow2(sigma0inv) + pow2(sigma1inv) + pow2(sigmapinv);
+    double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
+    double H0[ncut*ncut], H1[ncut*ncut], Hp[2*ncut*2*ncut];
+    prepare_centered_Hermite_polynomials(H0, ncut, sigma0inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(H1, ncut, sigma1inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sigmapinv); // L2-normalized
+    for(int n = 0; n < ncut; ++n) {
+        for(int m = 0; m < ncut; ++m) {
+            double HH[2*ncut];
+            multiply(HH, 2*ncut, &H0[ncut*n], ncut, &H1[ncut*m], ncut);
+            for(int p = 0; p < 2*ncut - 1; ++p) {
+                real_t tensor_value = 0;
+                if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                    double HHHp[4*ncut];
+                    multiply(HHHp, 4*ncut, HH, 2*ncut, &Hp[2*ncut*p], 2*ncut);
+                    auto const P_pnm = integrate(HHHp, 4*ncut, sqrt_alpha_inv);
+                    // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
+                    tensor_value = P_pnm;
+                } // even?
+                if (tensor) tensor[(p*ncut + n)*ncut + m] = tensor_value; // store only if output array pointer is non-zero
+            } // p
+        } // m
+    } // n
+    return 0; // success
+  } // generate_tensor
+  
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
