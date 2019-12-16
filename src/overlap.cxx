@@ -522,8 +522,9 @@ namespace overlap {
     } // scope
     
     
-    bool const DoS = false; // true: density of states, false: bandstructure
-    bool const Ref = false; // compute the analytically known spectrum of the free electron gas as reference
+    bool const DoS = control::get("overlap.test.DoS", 0.); // 1: density of states, 0: bandstructure
+    bool const Ref = control::get("overlap.test.Ref", 0.); // 1: compute the analytically known spectrum 
+                                                           //      of the free electron gas as reference
 
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
@@ -618,7 +619,7 @@ namespace overlap {
                 for(int ix = 0; ix <= iy; ++ix) {            kvec[0] = inv_kp_sampling*(ix + 0.5);
                     kps.push_back({kvec[0], kvec[1], kvec[2], weight});
                     w8sum += weight;
-                    if (echo > 9) printf("# new k-point %g %g %g weight %g\n", kvec[0], kvec[1], kvec[2], weight);
+                    if (echo > 8) printf("# new k-point %g %g %g weight %g\n", kvec[0], kvec[1], kvec[2], weight);
                 } // ix
             } // iy
         } // iz
