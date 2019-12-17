@@ -71,16 +71,19 @@ namespace sho_potential {
                       } // jx
                     } // jy
                   } // jz
+                  assert(sho_tools::nSHO(numax_j) == jxyz);
 
                   ++ixyz;
                 } // ix
               } // iy
             } // iz
+            assert(sho_tools::nSHO(numax_i) == ixyz);
 
             ++pxyz;
           } // px
         } // py
       } // pz
+      assert(sho_tools::nSHO(numax_p) == pxyz);
     
       return 0;
   } // generate_potential_matrix
@@ -148,6 +151,7 @@ namespace sho_potential {
       double const usual_sigma = control::get("sho_potential.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
+      int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
       int const method = control::get("sho_potential.test.method", 1.);
       if (1 & method) { // scope:
@@ -157,30 +161,38 @@ namespace sho_potential {
           //    add one basis function to an empty grid,
           //    multiply the potential, project with the other basis function
           std::vector<double> basis(g.all(), 0.0);
+          int const mb = sho_tools::nSHO(numax_max);
+          view3D<double> Vmat(natoms, mb, mb, 0.0);
           for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential
               if (echo > 1) printf("\n# %s\n", i01?"potential":"overlap");
               for(int ia = 0; ia < natoms; ++ia) {
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   std::vector<double> coeff(nb, 0.0);
                   for(int ib = 0; ib < nb; ++ib) {
-                      set(basis.data(), g.all(), 0.0); // clear
-                      coeff[ib] = 1;
+                      set(basis.data(), g.all(), 0.0); coeff[ib] = 1; // delta
                       sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ia], center[ia], sigmas[ia], 0);
+                      // multiply Vtot to the basis function
                       if(i01) scale(basis.data(), basis.size(), vtot.data());
                       for(int ja = 0; ja < natoms; ++ja) {
                           int const mb = sho_tools::nSHO(numaxs[ja]);
                           std::vector<double> Vcoeff(mb, 0.0);
                           sho_projection::sho_project(Vcoeff.data(), numaxs[ja], center[ja], sigmas[ja], basis.data(), g, 0);
-                          // display matrix
-                          if (echo > 0) {
-                              printf("# ai#%i b#%i %c aj#%i ", ia, ib, i01?'V':'S', ja);
-                              for(int jb = 0; jb < mb; ++jb) {
-                                  printf("%8.3f", Vcoeff[jb]); // show potential matrix element
-                              }   printf("\n");
-                          } // echo
+                          set(Vmat(ja,ib), mb, Vcoeff.data()); // copy data into result array
                       } // ja
                       coeff[ib] = 0;
                   } // ib
+
+                  if (echo > 0) {
+                      for(int ja = 0; ja < natoms; ++ja) {
+                          printf("# ai#%i aj#%i\n", ia, ja);
+                          for(int ib = 0; ib < mb; ++ib) {
+                              printf("# ai#%i b#%i %c aj#%i ", ia, ib, i01?'V':'S', ja);
+                              for(int jb = 0; jb < mb; ++jb) {
+                                  printf("%8.3f", Vmat(ja,ib,jb)); // show potential matrix element
+                              }   printf("\n");
+                          } // ib
+                      } // ja
+                  } // echo
               } // ia
           } // i01
           if (echo > 2) printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
@@ -199,6 +211,8 @@ namespace sho_potential {
           for(int ia = 0; ia < natoms; ++ia) {
               auto const sigma2i = pow2(sigmas[ia]);
               for(int ja = 0; ja < natoms; ++ja) {
+                  if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
+                
                   auto const sigma2j = pow2(sigmas[ja]);
                   auto const denom = 1./(sigma2i + sigma2j);
                   double const sigma_V = std::sqrt(sigma2i*sigma2j*denom);
@@ -223,7 +237,7 @@ namespace sho_potential {
                   
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   generate_potential_matrix(Vmat, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
-                  
+
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
@@ -271,20 +285,16 @@ namespace sho_potential {
 
               
               for(int ja = 0; ja < natoms; ++ja) {
+                  if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
+                  
                   int const mucut = 1 + numaxs[ja];
                   view3D<double> ovl(3, mucut, nucut);
                   for(int d = 0; d < 3; ++d) {
                       overlap::generate_overlap_matrix(ovl[d].data(), center[ja][d] - center[ia][d],
                                                   nucut, mucut, 
                                                   sigma, sigmas[ja]);
-
-                      for(int nu = 0; nu <= numaxs[ia]; ++nu) {
-                          for(int mu = 0; mu < nucut; ++mu) {
-//                               ovl(d, nu, mu) = 0;
-                          } // mu
-                      } // nu
                   } // d
-                  
+
                   int const mb = sho_tools::nSHO(numaxs[ja]);
                   view2D<double> Vmat(nb, mb, 0.0);
 
@@ -298,7 +308,7 @@ namespace sho_potential {
                               for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
 
                                   double Vm = 0;
-                                
+
                                   int const numax_k = lmax;
                                   int kxyz = 0;
                                   for    (int kz = 0; kz <= numax_k; ++kz) {
@@ -336,7 +346,7 @@ namespace sho_potential {
                       } // echo
                   } // ib
                   
-              } // ia
+              } // ja
           } // ia
         
           if (echo > 2) printf("\n# %s method=3 seems asymmetric!\n", __func__);
