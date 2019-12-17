@@ -14,7 +14,8 @@
 #include "vector_math.hxx" // vector_math from exafmm
 #include "constants.hxx" // pi, sqrtpi
 #include "control.hxx" // control::get
-
+#include "inline_math.hxx" // pow2
+#include "data_view.hxx" // view2D<T>
 
 // #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 // #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -291,7 +292,7 @@ namespace overlap {
   } // generate_density_or_potential_tensor
 
   template<int ncut, typename real_t>
-  status_t generate_tensor(real_t tensor[], double const sigma=2, // 2:typical for density tensor
+  status_t generate_tensor_plain(real_t tensor[], double const sigma=2, // 2:typical for density tensor
                      double const sigma0=1, double const sigma1=1) {
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
@@ -320,8 +321,44 @@ namespace overlap {
         } // m
     } // n
     return 0; // success
-  } // generate_tensor
+  } // generate_tensor_plain
+
   
+  template<typename real_t>
+  status_t generate_tensor(real_t tensor[], int const ncut, 
+                     double const sigma, // =2:typical for density tensor
+                     double const sigma0, // =1 
+                     double const sigma1) {// =1
+    double const sigma0inv = 1./sigma0;
+    double const sigma1inv = 1./sigma1;
+    double const sigmapinv = 1./sigma;
+    double const alpha = pow2(sigma0inv) + pow2(sigma1inv) + pow2(sigmapinv);
+    double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
+    view2D<double> H0(ncut, ncut);
+    view2D<double> H1(ncut, ncut);
+    view2D<double> Hp(2*ncut, 2*ncut);
+    prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
+    for(int n = 0; n < ncut; ++n) {
+        for(int m = 0; m < ncut; ++m) {
+            std::vector<double> HH(2*ncut);
+            multiply(HH.data(), 2*ncut, H0[n], ncut, H1[m], ncut);
+            for(int p = 0; p < 2*ncut - 1; ++p) {
+                real_t tensor_value = 0;
+                if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                    std::vector<double> HHHp(4*ncut);
+                    multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
+                    auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
+                    // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
+                    tensor_value = P_pnm;
+                } // even?
+                if (tensor) tensor[(p*ncut + n)*ncut + m] = tensor_value; // store only if output array pointer is non-zero
+            } // p
+        } // m
+    } // n
+    return 0; // success
+  } // generate_tensor
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -434,14 +471,18 @@ namespace overlap {
 
   status_t test_density_or_potential_tensor(int const echo=2) {
       int constexpr ncut = 8, n = (2*ncut - 1)*ncut*ncut;
-      double t[n], tp[n], df_max = 0;
+      double t[n], tp[n], tt[n], df_max = 0;
       float ssp2_min = 1.f, ssp2_max = 3.f, ssp2_inc = 1.01f;
       for(float ssp2 = ssp2_min; ssp2 < ssp2_max; ssp2 *= ssp2_inc) {
           generate_density_tensor<ncut>(t, 0, ssp2); // reference implementation
+//           generate_tensor_plain<ncut>(tt, 1./std::sqrt(ssp2)); // old implementation
+          generate_tensor(tt, ncut, 1./std::sqrt(ssp2)); // new implementation
+          auto const ts = tt;
           generate_density_or_potential_tensor<ncut>(tp, 0, ssp2);
+//           auto const ts = tp;
           double df = 0;
           for(int i = 0; i < n; ++i) {
-              auto const ab = std::abs(t[i] - tp[i]);
+              auto const ab = std::abs(t[i] - ts[i]);
               if ((ab > 1e-14) && (echo > 7)) printf("# %s deviations in element [%d] %g\n", __func__, i, ab);
               df = std::max(df, ab);
           } // i
