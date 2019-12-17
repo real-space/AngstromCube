@@ -524,7 +524,7 @@ namespace overlap {
       if (echo > 0) printf("\n# %s (%.2f ... %.1f %% ... %.2f) largest deviation %g\n", 
                     __func__, ssp2_min, (ssp2_inc - 1)*100, ssp2_max, df_max);
       if (echo > 2) generate_density_or_potential_tensor<ncut>(tp, echo); // default ssp2=2
-      return (df_max > 4e-14); // return error of the deviations are too strong
+      return (df_max > 8e-9); // return error of the deviations are too strong
   } // test
 
   

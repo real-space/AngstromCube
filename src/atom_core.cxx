@@ -432,18 +432,19 @@ namespace atom_core {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_initial_density(radial_grid_t const &g, int const echo=0) {
+  status_t test_initial_density(int const echo=0) {
     printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
-    auto rho = new double[g.n];
-    double diff = 0;
+    double max_diff = 0;
     for(float zz = 0; zz < 128; zz += 1) {
-        initial_density(rho, g, zz);
-        double const q = dot_product(g.n, g.r2dr, rho);
-        diff = std::max(diff, std::abs(zz - q));
+        auto const g = *radial_grid::create_default_radial_grid(zz);
+        std::vector<double> r2rho(g.n);
+        double const q = initial_density(r2rho.data(), g, zz);
+        double const diff = std::max(diff, std::abs(zz - q));
         if (echo > 0) printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n", 
                                 __FILE__, __LINE__, zz, q, diff);
+        max_diff = std::max(max_diff, diff);
     } // zz
-    return (diff > 1e-3);
+    return (max_diff > 2e-5);
   } // test_initial_density
 
   status_t test_nl_index(int const echo=2) {
@@ -467,7 +468,7 @@ namespace atom_core {
 
   status_t all_tests() {
     auto status = 0;
-    status += test_initial_density(*radial_grid::create_exponential_radial_grid(512));
+    status += test_initial_density();
     status += test_nl_index();
     
 //      for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards

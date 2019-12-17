@@ -152,7 +152,7 @@ namespace spherical_atoms {
       std::vector<double>        Vtot(g.all());
       std::vector<double>         Vxc(g.all());
 
-  for(int scf_iteration = 0; scf_iteration < 3; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 1; ++scf_iteration) {
       SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration");
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
