@@ -153,7 +153,7 @@ namespace sho_potential {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
-      int const method = control::get("sho_potential.test.method", 1.);
+      int const method = control::get("sho_potential.test.method", 1.); // bit-string, use method=7 to activate all
       if (1 & method) { // scope:
           if (echo > 2) printf("\n# %s Method=1\n", __func__);
           // Method 1) fully numerical -- cubically scaling, expensive
@@ -209,32 +209,37 @@ namespace sho_potential {
                                         .5*(g.dim(1) - 1)*g.h[1], 
                                         .5*(g.dim(2) - 1)*g.h[2]};
           for(int ia = 0; ia < natoms; ++ia) {
-              auto const sigma2i = pow2(sigmas[ia]);
+              double const sigma2i = pow2(sigmas[ia]);
               for(int ja = 0; ja < natoms; ++ja) {
-                  if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
                 
-                  auto const sigma2j = pow2(sigmas[ja]);
-                  auto const denom = 1./(sigma2i + sigma2j);
+                  double const sigma2j = pow2(sigmas[ja]);
+                  double const denom = 1./(sigma2i + sigma2j);
                   double const sigma_V = std::sqrt(sigma2i*sigma2j*denom);
                   double const wi = sigma2j*denom;
                   double const wj = sigma2i*denom;
                   double cnt[3];
                   for(int d = 0; d < 3; ++d) {
-                      cnt[d] = central_pos[d] + wi*xyzZ[4*ia + d] + wj*xyzZ[4*ja + d];
+                      cnt[d] = wi*xyzZ[4*ia + d] + wj*xyzZ[4*ja + d];
                   } // d
-                  auto const numax_V = numaxs[ia] + numaxs[ja];
+                  if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g %s\n", ia, ja, 
+                                            cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, _Ang);
+                  for(int d = 0; d < 3; ++d) {
+                      cnt[d] += central_pos[d];
+                  } // d
+                  int const numax_V = numaxs[ia] + numaxs[ja];
                   int const nucut = 1 + std::max(numaxs[ia], numaxs[ja]);
                   view3D<double> t(2*nucut, nucut, nucut, 0.0);
                   overlap::generate_product_tensor(t.data(), nucut, sigma_V, sigmas[ia], sigmas[ja]);
-                                              
+
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
+                  // ToDo: consider normalization of Vcoeff since sho_project(sho_add(i))[j] != delta_ij
 
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   int const mb = sho_tools::nSHO(numaxs[ja]);
                   view2D<double> Vmat(nb, mb, 0.0); // matrix
-                  
+
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   generate_potential_matrix(Vmat, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
 
@@ -276,7 +281,7 @@ namespace sho_potential {
               set(Vcoeff.data(), nc, 0.0);
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), lmax, center[ia], 2*sigma, vtot.data(), g, 0);
-              
+
               int const nb = sho_tools::nSHO(numaxs[ia]);
               view2D<double> Vaux(nb, nc, 0.0);
               // now compute local matrix elements <local basis|V|large aux. basis>
