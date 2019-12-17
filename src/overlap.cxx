@@ -292,7 +292,7 @@ namespace overlap {
   } // generate_density_or_potential_tensor
 
   template<int ncut, typename real_t>
-  status_t generate_tensor_plain(real_t tensor[], double const sigma=2, // 2:typical for density tensor
+  status_t generate_product_tensor_plain(real_t tensor[], double const sigma=2, // 2:typical for density tensor
                      double const sigma0=1, double const sigma1=1) {
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
@@ -321,11 +321,11 @@ namespace overlap {
         } // m
     } // n
     return 0; // success
-  } // generate_tensor_plain
+  } // generate_product_tensor_plain
 
   
   template<typename real_t>
-  status_t generate_tensor(real_t tensor[], int const ncut, 
+  status_t generate_product_tensor(real_t tensor[], int const ncut, 
                      double const sigma, // =2:typical for density tensor
                      double const sigma0, // =1 
                      double const sigma1) {// =1
@@ -358,10 +358,42 @@ namespace overlap {
         } // m
     } // n
     return 0; // success
-  } // generate_tensor
+  } // generate_product_tensor
+
+  
+  template<typename real_t>
+  status_t generate_overlap_matrix(real_t matrix[], // matrix layout [][n0]
+                     double const distance,
+                     int const n0, int const n1, 
+                     double const sigma0,   // =1
+                     double const sigma1) { // =1
+    double const sigma0inv = 1./sigma0;
+    double const sigma1inv = 1./sigma1;
+    view2D<double> H0(n0, n0);
+    view2D<double> H1(n1, n1);
+    prepare_centered_Hermite_polynomials(H0.data(), n0, sigma0inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(H1.data(), n1, sigma1inv); // L2-normalized
+    for(int n = 0; n < n1; ++n) {
+        for(int m = 0; m < n0; ++m) {
+            matrix[n*n0 + m] = overlap_of_two_Hermite_Gauss_functions(
+                                  H0[m], n0, sigma0,
+                                  H1[n], n1, sigma1, distance);
+        } // m
+    } // n
+    return 0; // success
+  } // generate_overlap_matrix
+  
+  template // explicit template instantiation
+  status_t generate_overlap_matrix(double matrix[], double const distance, int const n0, int const n1,
+                                   double const sigma0, double const sigma1);
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  
+  template // explicit template instantiation
+  status_t generate_product_tensor(double tensor[], int const ncut, double const sigma,
+                                   double const sigma0, double const sigma1)
+  
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
@@ -475,8 +507,8 @@ namespace overlap {
       float ssp2_min = 1.f, ssp2_max = 3.f, ssp2_inc = 1.01f;
       for(float ssp2 = ssp2_min; ssp2 < ssp2_max; ssp2 *= ssp2_inc) {
           generate_density_tensor<ncut>(t, 0, ssp2); // reference implementation
-//           generate_tensor_plain<ncut>(tt, 1./std::sqrt(ssp2)); // old implementation
-          generate_tensor(tt, ncut, 1./std::sqrt(ssp2)); // new implementation
+//           generate_product_tensor_plain<ncut>(tt, 1./std::sqrt(ssp2)); // old implementation
+          generate_product_tensor(tt, ncut, 1./std::sqrt(ssp2)); // new implementation
           auto const ts = tt;
           generate_density_or_potential_tensor<ncut>(tp, 0, ssp2);
 //           auto const ts = tp;
