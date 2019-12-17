@@ -345,7 +345,7 @@ namespace sho_potential {
                           }   printf("\n");
                       } // echo
                   } // ib
-                  
+
               } // ja
           } // ia
         
