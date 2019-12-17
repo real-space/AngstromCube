@@ -157,39 +157,32 @@ namespace sho_potential {
           //    add one basis function to an empty grid,
           //    multiply the potential, project with the other basis function
           std::vector<double> basis(g.all(), 0.0);
-          std::vector<double> vxsho(g.all(), 0.0);
-          for(int ia = 0; ia < natoms; ++ia) {
-              int const nb = sho_tools::nSHO(numaxs[ia]);
-              std::vector<double> coeff(nb, 0.0);
-              for(int ib = 0; ib < nb; ++ib) {
-                  set(basis.data(), g.all(), 0.0); // clear
-                  coeff[ib] = 1;
-                  sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ia], center[ia], sigmas[ia], 0);
-                  product(vxsho.data(), basis.size(), basis.data(), vtot.data());
-                  for(int ja = 0; ja < natoms; ++ja) {
-                      int const mb = sho_tools::nSHO(numaxs[ja]);
-                      std::vector<double> Vcoeff(mb, 0.0);
-                      std::vector<double> Scoeff(mb, 0.0);
-                      sho_projection::sho_project(Vcoeff.data(), numaxs[ja], center[ja], sigmas[ja], vxsho.data(), g, 0);
-                      sho_projection::sho_project(Scoeff.data(), numaxs[ja], center[ja], sigmas[ja], basis.data(), g, 0);
-                      if (echo > 0) {
-                          printf("# ai#%i b#%i S aj#%i ", ia, ib, ja);
-                          for(int jb = 0; jb < mb; ++jb) {
-                              printf("%8.3f", Scoeff[jb]); // show overlap matrix element
-                          }   printf("\n");
-                      } // echo
-                      
-                      // display matrix
-                      if (echo > 0) {
-                          printf("# ai#%i b#%i V aj#%i  ", ia, ib, ja);
-                          for(int jb = 0; jb < mb; ++jb) {
-                              printf("%8.3f", Vcoeff[jb]); // show potential matrix element
-                          }   printf("\n");
-                      } // echo
-                  } // ja
-                  coeff[ib] = 0;
-              } // ib
-          } // ia
+          for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential
+              if (echo > 1) printf("\n# %s\n", i01?"potential":"overlap");
+              for(int ia = 0; ia < natoms; ++ia) {
+                  int const nb = sho_tools::nSHO(numaxs[ia]);
+                  std::vector<double> coeff(nb, 0.0);
+                  for(int ib = 0; ib < nb; ++ib) {
+                      set(basis.data(), g.all(), 0.0); // clear
+                      coeff[ib] = 1;
+                      sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ia], center[ia], sigmas[ia], 0);
+                      if(i01) scale(basis.data(), basis.size(), vtot.data());
+                      for(int ja = 0; ja < natoms; ++ja) {
+                          int const mb = sho_tools::nSHO(numaxs[ja]);
+                          std::vector<double> Vcoeff(mb, 0.0);
+                          sho_projection::sho_project(Vcoeff.data(), numaxs[ja], center[ja], sigmas[ja], basis.data(), g, 0);
+                          // display matrix
+                          if (echo > 0) {
+                              printf("# ai#%i b#%i %c aj#%i ", ia, ib, i01?'V':'S', ja);
+                              for(int jb = 0; jb < mb; ++jb) {
+                                  printf("%8.3f", Vcoeff[jb]); // show potential matrix element
+                              }   printf("\n");
+                          } // echo
+                      } // ja
+                      coeff[ib] = 0;
+                  } // ib
+              } // ia
+          } // i01
           if (echo > 2) printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
       } // scope: Method 1
 
