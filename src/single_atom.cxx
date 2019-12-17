@@ -391,7 +391,8 @@ extern "C" {
         {
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+//              for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     auto &vs = valence_state[iln]; // abbreviate
@@ -554,10 +555,10 @@ extern "C" {
         delete[] core_state;
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             radial_grid::destroy_radial_grid(rg[ts]);
-            for(int ivs = 0; ivs < nvalencestates; ++ivs) { 
-                delete[] valence_state[ivs].wave[ts]; 
-                delete[] valence_state[ivs].wKin[ts]; 
-            } // ivs
+            for(int iln = 0; iln < nvalencestates; ++iln) { 
+                delete[] valence_state[iln].wave[ts]; 
+                delete[] valence_state[iln].wKin[ts]; 
+            } // iln
             delete[] core_density[ts];
             delete[] potential[ts];
         } // tru and smt
@@ -720,8 +721,9 @@ extern "C" {
         view2D<double> c_smt(nln, 4);
 #endif
         
-        int ln_off = 0;
-        for(int ell = 0; ell <= numax; ++ell) { // ell-loop must run forward serial
+        for(int ell = 0; ell <= numax; ++ell) {
+            int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing valence states
+            
 //          int const msub = (1 + numax/2); // max. size of the subspace
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
@@ -1277,7 +1279,6 @@ extern "C" {
             
 //             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
-            ln_off += n;
         } // ell
 
     } // update_valence_states
@@ -1338,7 +1339,7 @@ extern "C" {
                 } // ell matches
             } // iln
             for(int emm = -ell; emm <= ell; ++emm) {
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
                     ln_index_list[ilmn] = iln_enn[nrn]; // valence state index
                     int const lm = solid_harmonics::lm_index(ell, emm);
                     lm_index_list[ilmn] = lm;
@@ -1942,9 +1943,13 @@ extern "C" {
      
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
-            {   for(int iln = 0, ell = 0; ell <= numax; ++ell)
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn)
-                        ells[iln++] = ell;
+            {
+                for(int ell = 0; ell <= numax; ++ell) {
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        int const iln = sho_tools::ln_index(numax, ell, nrn);
+                        ells[iln] = ell;
+                    } // nrn
+                } // ell 
             }
             printf("\n");            
             for(int i01 = 0; i01 < 2; ++i01) {
@@ -2021,15 +2026,15 @@ extern "C" {
         int const nln = nvalencestates;
         {
             float occ[] = {0,0,0,0};
-            for(int ivs = 0; ivs < nln; ++ivs) {
-                int const ell = valence_state[ivs].ell;
-                if ((ell < 4) && (0 == valence_state[ivs].nrn[SMT])) {
-                    occ[ell] = valence_state[ivs].occupation;
+            for(int iln = 0; iln < nln; ++iln) {
+                int const ell = valence_state[iln].ell;
+                if ((ell < 4) && (0 == valence_state[iln].nrn[SMT])) {
+                    occ[ell] = valence_state[iln].occupation;
                     if ((occ[ell] > 0) && (echo > 1))
-                    printf("# %s Set valence density matrix to be a pure %d%c-state with occupation %.3f\n", 
-                        label, valence_state[ivs].enn, ellchar[ell], occ[ell]);
+                        printf("# %s Set valence density matrix to be a pure %d%c-state with occupation %.3f\n", 
+                            label, valence_state[iln].enn, ellchar[ell], occ[ell]);
                 } // matching enn-ell quantum numbers?
-            } // ivs
+            } // iln
             set_pure_density_matrix(density_matrix, occ);
         }
         int const lmax = std::max(ellmax, ellmax_compensator);
