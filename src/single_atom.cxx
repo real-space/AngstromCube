@@ -388,10 +388,12 @@ extern "C" {
 
         nvalencestates = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         valence_state = new valence_level_t[nvalencestates];
-        {   int iln = 0;
+        {   // int iln = -1;
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+//                  ++iln;
+                    int const iln = sho_tools::ln_index(numax, ell, nrn);
                     auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
@@ -426,7 +428,7 @@ extern "C" {
                     vs.emm = emm_Degenerate;
                     vs.spin = spin_Degenerate;
                     if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
-                    ++iln;
+//                     ++iln;
                 } // nrn
             } // ell
 //          if (echo > 0) printf("  (%d states)\n", iln);
