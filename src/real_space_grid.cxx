@@ -51,7 +51,7 @@ namespace real_space_grid {
       double added;
       auto values = new double[g.all()];
       set(values, g.all(), 0.0);
-      add_function(values, g, &added, r2c, nr2, inv_hr2, cnt, rcut);
+      add_function(values, g, &added, r2c, nr2, inv_hr2, cnt);
       if (echo > 6) printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
       double xyz_integral = 0;
       for(        int iz = 0; iz < g.dim('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
