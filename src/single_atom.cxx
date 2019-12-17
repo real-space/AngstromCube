@@ -388,11 +388,11 @@ extern "C" {
 
         nvalencestates = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         valence_state = new valence_level_t[nvalencestates];
-        {   // int iln = -1;
+        {
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
-//                  ++iln;
+
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
@@ -428,10 +428,8 @@ extern "C" {
                     vs.emm = emm_Degenerate;
                     vs.spin = spin_Degenerate;
                     if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
-//                     ++iln;
                 } // nrn
             } // ell
-//          if (echo > 0) printf("  (%d states)\n", iln);
         } // valence states
         delete[] r2rho;
 
@@ -727,10 +725,11 @@ extern "C" {
 //          int const msub = (1 + numax/2); // max. size of the subspace
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
+            view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view
             int const n = nn[ell];
             {   int nrns[9]; std::iota(nrns, nrns + n, 0);
                 int ells[9]; std::fill(ells, ells + n, ell);
-                scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], 
+                scattering_test::expand_sho_projectors(projectors_ell.data(), projectors_ell.stride(), *rg[SMT], 
                                                               sigma, n, nrns, ells, 1, echo/2);
             }
             
@@ -794,7 +793,7 @@ extern "C" {
                     int constexpr HOM = 0;
                     for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
-                        auto const projector = (krn > HOM) ? projectors[krn - 1] : nullptr;
+                        auto const projector = (krn > HOM) ? projectors_ell[krn - 1] : nullptr;
                         double dg; // derivative at end point, not used
                         
                         // solve inhomgeneous equation and match true wave in value and derivative
@@ -1092,7 +1091,7 @@ extern "C" {
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn, 
-                                (nrn == krn), dot_product(nr, projectors[nrn], projectors[krn], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
+                                (nrn == krn), dot_product(nr, projectors_ell[nrn], projectors_ell[krn], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
                         } // krn
                     } // nrn
                 } // echo
@@ -1102,7 +1101,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn][krn] = dot_product(nr, wave, projectors[krn], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, projectors_ell[krn], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
@@ -1139,7 +1138,7 @@ extern "C" {
                     int const iln = ln_off + nrn;
                     auto const wave = valence_state[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                        ovl[nrn][krn] = dot_product(nr, wave, projectors[krn], rg[SMT]->rdr);
+                        ovl[nrn][krn] = dot_product(nr, wave, projectors_ell[krn], rg[SMT]->rdr);
                         if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n", 
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
