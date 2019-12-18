@@ -43,6 +43,7 @@ namespace scattering_test {
       return nnodes;
   } // count_nodes
 
+#if 0
   inline status_t expand_sho_projectors(double prj[], int const stride, radial_grid_t const &rg, double const sigma,
        int const n, int const nrns[], int const ells[], int const rpow=0, int const echo=9) {
 
@@ -94,7 +95,56 @@ namespace scattering_test {
       
       return expand_sho_projectors(prj, stride, rg, sigma, nln, nrns.data(), ells.data(), rpow, echo);
   } // expand_sho_projectors
-  
+#else
+  inline status_t expand_sho_projectors(double prj[], int const stride, radial_grid_t const &rg, double const sigma,
+       int const numax, int const rpow=0, int const echo=9) {
+    
+      status_t stat = 0;
+      double const siginv = 1./sigma;
+      double const sigma_m23 = std::sqrt(pow3(siginv));
+      int const maxpoly = align<2>(1 + numax/2);
+      int const nln = sho_radial::nSHO_radial(numax);
+      view2D<double> poly(nln, maxpoly);
+      std::vector<double> f(nln), norm(nln, 0.0);
+      std::vector<int> nrns(nln), ells(nln);
+      for(int ell = 0; ell <= numax; ++ell) {
+          for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+              int const iln = sho_tools::ln_index(numax, ell, nrn);
+              stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell);
+              f[iln] = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
+          } // nrn
+      } // ell
+              
+      if (echo > 8) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
+      for(int ir = 0; ir < rg.n; ++ir) {
+          double const r = rg.r[ir], dr = rg.dr[ir];
+//        double const dr = 0.03125, r = dr*ir; // equidistant grid
+          double const x = siginv*r, x2 = pow2(x);
+          double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
+          if (echo > 8) printf("%g ", r);
+          auto const r_pow_rpow = intpow(r, rpow);
+          for(int ell = 0; ell <= numax; ++ell) {
+              auto const x_pow_ell = intpow(x, ell);
+              for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+                  int const iln = sho_tools::ln_index(numax, ell, nrn);
+                  prj[iln*stride + ir] = f[iln] * sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * x_pow_ell;
+                  if (echo > 8) printf(" %g", prj[iln*stride + ir]);
+                  norm[iln] += pow2(r*prj[iln*stride + ir]) * dr;
+                  prj[iln*stride + ir] *= r_pow_rpow;
+              } // nrn
+          } // ell
+          if (echo > 8) printf("\n");
+      } // ir
+      if (echo > 8) printf("\n\n");
+      if (echo > 5) {
+          printf("# projector normalizations are ");
+          for(int iln = 0; iln < nln; ++iln) {
+              printf(" %g", norm[iln]);
+          }   printf("\n");
+      } // echo
+      return stat;
+  } // expand_sho_projectors
+#endif
 
 // #define _SELECTED_ENERGIES_LOGDER
   
