@@ -96,13 +96,14 @@ endif
 
 EXTFLAGS ?=
 
-# ifeq ($(THISMACHINE), "zam054")
+ifdef zam044
+	EXTFLAGS += -D HAS_no_MKL
+	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
+else
+	## eq ($(THISMACHINE), "zam054")
 	### works with g++ on zam054 (JSC workstation)
 	LDFLAGS += -lm -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread 
-# else
-# 	EXTFLAGS += -D HAS_no_MKL
-# 	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
-# endif
+endif
 
 FLAGS = ${ERRFLAGS} ${FEAFLAGS} ${OPTFLAGS} ${EXTFLAGS}
 
