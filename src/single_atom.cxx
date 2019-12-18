@@ -289,9 +289,10 @@ extern "C" {
         r_match = 9*sigma;
         set(nn, 1+ELLMAX+2, uint8_t(0));
         if (echo > 0) printf("# %s numbers of projectors ", label);
+        int const nn_limiter = control::get("single_atom.nn.limit", 9.);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
-            nn[ell] = std::min((int)nn[ell], 2); // limit to 1 at most, does not work, full SHO set assumed in some routines
+            nn[ell] = std::min((int)nn[ell], nn_limiter); // take a smaller numer of partial waves
             if (echo > 0) printf(" %d", nn[ell]);
         } // ell
         if (echo > 0) printf("\n");
@@ -385,7 +386,7 @@ extern "C" {
         scale(core_density[TRU], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
         if (echo > 2) printf("# %s initial core density has %g electrons\n", label, dot_product(rg[TRU]->n, core_density[TRU], rg[TRU]->r2dr));
 
-        if (echo > 5) { printf("# %s enn_core_ell  ", label); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n"); }
+        if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
         nvalencestates = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         int const nln = nvalencestates; // abbreviate
@@ -403,43 +404,41 @@ extern "C" {
                     auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
-
-//                     vs.wave[SMT] = new double[nrs]; // get memory for the smooth radial function
-//                     vs.wave[TRU] = new double[nrt]; // get memory for the true radial function
-//                     vs.wKin[SMT] = new double[nrs]; // get memory for the smooth kinetic energy
-//                     vs.wKin[TRU] = new double[nrt]; // get memory for the true kinetic energy
-                    vs.wave[SMT] = waves[SMT](0,iln);
-                    vs.wave[TRU] = waves[TRU](0,iln);
-                    vs.wKin[SMT] = waves[SMT](1,iln);
-                    vs.wKin[TRU] = waves[TRU](1,iln);
-                    
-                    double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
-                    if (nrn > 0) E = std::max(E, valence_state[iln - 1].energy); // higher than previous energy
-                    radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], enn, ell, E, vs.wave[TRU]);
-                    vs.energy = E;
-
                     vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                     vs.nrn[SMT] = nrn;
                     vs.occupation = 0;
-                    {
-                        int const inl = atom_core::nl_index(enn, ell);
-                        int const ics = as_valence[inl];
-//                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
-                        if (ics >= 0) { // atomic eigenstate was marked as valence
-                            if (transfer2valence) {
-                                auto const occ = core_state[ics].occupation;
-                                vs.occupation = occ;
-                                core_state[ics].occupation = 0;
-                                if (occ > 0) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
-                                        " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
-                            } // transfer2valence
-                        } // ics
-                    }
                     vs.enn = enn;
                     vs.ell = ell;
                     vs.emm = emm_Degenerate;
                     vs.spin = spin_Degenerate;
-                    if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
+
+                    vs.wave[SMT] = waves[SMT](0,iln); // the smooth radial function
+                    vs.wave[TRU] = waves[TRU](0,iln); // the true radial function
+                    vs.wKin[SMT] = waves[SMT](1,iln); // the smooth kinetic energy
+                    vs.wKin[TRU] = waves[TRU](1,iln); // the true kinetic energy
+
+                    if (nrn < nn[ell]) {
+                        double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
+                        if (nrn > 0) E = std::max(E, valence_state[iln - 1].energy); // higher than previous energy
+                        radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], enn, ell, E, vs.wave[TRU]);
+                        vs.energy = E;
+
+                        {
+                            int const inl = atom_core::nl_index(enn, ell);
+                            int const ics = as_valence[inl];
+    //                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
+                            if (ics >= 0) { // atomic eigenstate was marked as valence
+                                if (transfer2valence) {
+                                    auto const occ = core_state[ics].occupation;
+                                    vs.occupation = occ;
+                                    core_state[ics].occupation = 0;
+                                    if (occ > 0) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
+                                            " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
+                                } // transfer2valence
+                            } // ics
+                        }
+                        if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
+                    } // nrn < nn[ell]
                 } // nrn
             } // ell
         } // valence states
@@ -563,10 +562,6 @@ extern "C" {
         delete[] core_state;
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             radial_grid::destroy_radial_grid(rg[ts]);
-//             for(int iln = 0; iln < nvalencestates; ++iln) { 
-//                 delete[] valence_state[iln].wave[ts];
-//                 delete[] valence_state[iln].wKin[ts];
-//             } // iln
             delete[] core_density[ts];
             delete[] potential[ts];
         } // tru and smt
@@ -701,7 +696,10 @@ extern "C" {
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
-        
+
+        // ToDo: projectors only depend on sigma, numax and the radial grid --> move this to the contructor
+        scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], sigma, numax, 1, echo/2);
+
 // #define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
 #ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
         std::vector<double> tru_wave_i(nr);
@@ -736,13 +734,8 @@ extern "C" {
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
             view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view
-            int const n = nn[ell];
-            {   int nrns[9]; std::iota(nrns, nrns + n, 0);
-                int ells[9]; std::fill(ells, ells + n, ell);
-                scattering_test::expand_sho_projectors(projectors_ell.data(), projectors_ell.stride(), *rg[SMT], 
-                                                              sigma, n, nrns, ells, 1, echo/2);
-            }
             
+            int const n = nn[ell];
             for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto &vs = valence_state[iln]; // abbreviate
@@ -1879,13 +1872,13 @@ extern "C" {
                 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
             if (1) {
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-                  (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
+                  (rg, potential, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
             
         } // scope
@@ -1983,13 +1976,13 @@ extern "C" {
                 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         
         if (1) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-              (rg, potential, sigma, (int)numax + 1, nn, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
+              (rg, potential, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
     } // update_spherical_matrix_elements

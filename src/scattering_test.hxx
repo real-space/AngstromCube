@@ -8,11 +8,12 @@
 #include "radial_grid.hxx" // create_equidistant_radial_grid, find_grid_index
 #include "bessel_transform.hxx" // transform_s_function
 #include "finite_difference.hxx" // set_Laplacian_coefficients
-#include "sho_radial.hxx" // radial_eigenstates, radial_normalization, expand_poly
+#include "sho_radial.hxx" // radial_eigenstates, radial_normalization, expand_poly, nSHO_radial
 #include "display_units.h" // eV, Ang
 #include "inline_tools.hxx" // align<nBits>
 #include "inline_math.hxx" // set
-#include "sho_tools.hxx" // num_ln_indices
+#include "sho_tools.hxx" // num_ln_indices, nSHO
+#include "sho_radial.hxx" // nSHO_radial
 #include "radial_integrator.hxx" // integrate_outwards<SRA>
 #include "constants.hxx" // pi
 #include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
@@ -44,7 +45,8 @@ namespace scattering_test {
 
   inline status_t expand_sho_projectors(double prj[], int const stride, radial_grid_t const &rg, double const sigma,
        int const n, int const nrns[], int const ells[], int const rpow=0, int const echo=9) {
-      
+
+      // ToDo: compute Gaussian first and re-use it
       status_t stat = 0;
       int maxpoly = 0;
       for(int i = 0; i < n; ++i) {
@@ -76,6 +78,22 @@ namespace scattering_test {
       delete[] poly;
       return stat;
   } // expand_sho_projectors
+
+  inline status_t expand_sho_projectors(double prj[], int const stride, radial_grid_t const &rg, double const sigma,
+       int const numax, int const rpow=0, int const echo=9) {
+    
+      int const nln = sho_radial::nSHO_radial(numax);
+      std::vector<int> nrns(nln), ells(nln);
+      for(int ell = 0; ell <= numax; ++ell) {
+          for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+              int const iln = sho_tools::ln_index(numax, ell, nrn);
+              nrns[iln] = nrn;
+              ells[iln] = ell;
+          } // nrn
+      } // ell`
+      
+      return expand_sho_projectors(prj, stride, rg, sigma, nln, nrns.data(), ells.data(), rpow, echo);
+  } // expand_sho_projectors
   
 
 // #define _SELECTED_ENERGIES_LOGDER
@@ -84,8 +102,9 @@ namespace scattering_test {
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
               , double const sigma // sigma spread of SHO projectors
-              , int const lmax // ellmax or numax of SHO projectors (or even one more)
+              , int const lmax // ellmax up to which the analysis should go
               , uint8_t const nn[] // number of projectors per ell
+              , int const numax
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
               , double const energy_range[3] // {lower, step, upper}
@@ -119,8 +138,7 @@ namespace scattering_test {
 
       auto linsolfail = std::vector<size_t>(1 + lmax, 0);
       
-      int iln = 0; for(int ell = 0; ell <= lmax; ++ell) iln += nn[ell];
-      int const nln = iln;
+      int const nln = sho_radial::nSHO_radial(numax);
       int const stride = mr;
 
       int constexpr node_count = 0; // 1 or 0 switch
@@ -128,21 +146,8 @@ namespace scattering_test {
       auto rtru = std::vector<double>(node_count*rg[TRU]->n);
 
       view2D<double> rprj(nln, stride); // mr might be much larger than needed since mr is taken from the TRU grid
-      { // scope: preparation for the projector functions
-          std::vector<int> ells(nln), nrns(nln);
-          { // fill vectors with quantum numbers
-              int iln = 0;
-              for(int ell = 0; ell <= lmax; ++ell) {
-                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                      ells[iln] = ell;
-                      nrns[iln] = nrn;
-                      ++iln;
-                  } // nrn
-              } // ell
-              assert(nln == iln);
-          }
-          stat += expand_sho_projectors(rprj.data(), rprj.stride(), *rg[SMT], sigma, nln, nrns.data(), ells.data(), 1, 0);
-      } // scope
+      // preparation for the projector functions
+      stat += expand_sho_projectors(rprj.data(), rprj.stride(), *rg[SMT], sigma, numax, 1, 0);
   
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], 9*sigma), rg[SMT]->n - 2);
       double const Rlog = rg[SMT]->r[ir_stop[SMT]];
@@ -159,9 +164,9 @@ namespace scattering_test {
 //        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
           
           if (echo > 0) printf("%.6f", energy*eV);
-          int iln_off = 0;
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
+              int const iln_off = sho_tools::ln_index(numax, ell, 0);
               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
               int const n = nn[ell];
               double deriv[8], value[8];
@@ -303,7 +308,6 @@ namespace scattering_test {
               printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG
 #endif
 
-              iln_off += n;
           } // ell
           if (echo > 0) printf("\n");
       } // ien
@@ -327,8 +331,9 @@ namespace scattering_test {
   inline status_t eigenstate_analysis(radial_grid_t const& gV // grid descriptor for Vsmt
               , double const Vsmt[] // smooth potential given on radial grid
               , double const sigma // sigma spread of SHO projectors
-              , int const lmax // // ellmax or numax of SHO projectors (or even one more)
+              , int const lmax // ellmax up to which the analysis should go
               , uint8_t const nn[] // number of projectors per ell
+              , int const numax
               , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
               , double const aSm[] // non-local overlap matrix elements, assume stride nln
               , int const nr=384 // number of radial grid points in equidistance mesh
@@ -364,20 +369,20 @@ namespace scattering_test {
       view2D<double> Ovl_copy(nr, stride); // get memory
       std::vector<double> eigs(nr); // get memory
 
-      int iln = 0; int mprj = 0; 
-      for(int ell = 0; ell <= lmax; ++ell) {
-          iln += nn[ell];
-          mprj = std::max(mprj, (int)nn[ell]);
-      } // ell
-      int const nln = iln;
-      view2D<double> rprj(mprj, stride); // projector functions*r
+      int const nln = sho_radial::nSHO_radial(numax);
+
+      // generate normalized SHO projectors
+      view2D<double> rprj(nln, stride); // projector functions*r
+      // preparation for the projector functions
+      stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, numax, 1, echo);
 
       int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += finite_difference::set_Laplacian_coefficients(cFD, nFD, dr);
       if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", __FILE__, __func__, nFD); 
 
-      int ln_off = 0;
       for(int ell = 0; ell <= lmax; ++ell) {
+          int const ln_off = sho_tools::ln_index(numax, ell, 0);
+
           set(Ham, nr, 0.0); // clear Hamiltonian
           set(Ovl, nr, 0.0); // clear overlap matrix
           view2D<double const> aHm_ell(&aHm[ln_off*nln + ln_off], nln);
@@ -397,23 +402,14 @@ namespace scattering_test {
               // for the radial component if the wave functions are in r*phi(r) representation
           } // ir
           
-          // generate normalized SHO projectors
-          int const nprj = nn[ell];
-          {
-              int ells[nprj], nrns[nprj];
-              for(int nrn = 0; nrn < nprj; ++nrn) {
-                  nrns[nrn] = nrn;
-                  ells[nrn] = ell;
-              } // nrn
-              stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, nprj, nrns, ells, 1, echo);
-          } // scope
-          view2D<double const> rprj1(rprj.data() + 1, rprj.stride()); // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
+          view2D<double const> rprj1((ln_off < nln)?(rprj[ln_off] + 1):nullptr, rprj.stride()); 
+          // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
           // add the non-local dyadic operators to the Hamiltonian and overlap
           for(int ir = 0; ir < nr; ++ir) {
               for(int jr = 0; jr < nr; ++jr) {
-                  for(int nrn = 0; nrn < nprj; ++nrn) {
-                      for(int mrn = 0; mrn < nprj; ++mrn) {
+                  for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                      for(int mrn = 0; mrn < nn[ell]; ++mrn) {
                           Ham[ir][jr] += rprj1[nrn][ir] * aHm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
                           Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
                       } // mrn
@@ -449,7 +445,7 @@ namespace scattering_test {
                           } // echo
 
                           printf("# %s projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", label, ell, iev, eigs[iev]*eV, _eV);
-                          for(int nrn = 0; nrn < nprj; ++nrn) {
+                          for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                               printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
                           }   printf("\n");
                       } // iev
@@ -473,7 +469,6 @@ namespace scattering_test {
               } // info
           } // scope: diagonalize
 
-          ln_off += nn[ell]; // forward
       } // ell
 
       return stat;
@@ -481,41 +476,37 @@ namespace scattering_test {
   
   
   template<typename real_t>
-  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const lmax, uint8_t const nn[], int const stride=-1) 
+  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax, uint8_t const nn[], int const stride=-1) 
   {
       int const echo = 9;
-      if (echo > 4) printf("# %s: ellmax = %i\n", __func__, lmax);
-      int iln = 0, ilmn = 0;
-      for(int ell = 0; ell <= lmax; ++ell) {
-          iln += nn[ell];
-          ilmn += (2*ell + 1)*nn[ell];
-      } // ell
-      int const nln = iln, nlmn = ilmn;
+      if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
+      int const nln = sho_radial::nSHO_radial(numax);
+      int const nlmn = sho_tools::nSHO(numax);
       int const M_stride = (stride < 0) ? nlmn : stride;
       auto ln_list = std::vector<int>(nlmn, 0);
       auto lf_list = std::vector<real_t>(nln, 0);
       { // scope: fill the ln_list
-          int ilmn = 0, ln_off = 0;
+          
           if (echo > 6) printf("# %s: ln_list ", __func__);
-          for(int ell = 0; ell <= lmax; ++ell) {
+          for(int ell = 0; ell <= numax; ++ell) {
               for(int emm = -ell; emm <= ell; ++emm) {
                   for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                      ln_list[ilmn] = ln_off + nrn;
+                      int const ilmn = sho_tools::lmn_index(numax, ell, emm, nrn);
+                      int const iln = sho_tools::ln_index(numax, ell, nrn);
+                      ln_list[ilmn] = iln;
                       if (echo > 6) printf(" %i", ln_list[ilmn]);
-                      ++ilmn;
                   } // nrn
               } // emm
               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                  lf_list[ln_off] = real_t(1)/std::sqrt(2*ell + real_t(1));
-                  ++ln_off;
+                  int const iln = sho_tools::ln_index(numax, ell, nrn);
+                  lf_list[iln] = real_t(1)/std::sqrt(2*ell + real_t(1));
               } // nrn
           } // ell
           if (echo > 6) printf("\n");
-          assert(nlmn == ilmn);
           if (echo > 5) {
               printf("# %s: l2p1_list ", __func__);
               for(int iln = 0; iln < nln; ++iln) {
-                  printf(" %.1f", 1./pow2(lf_list[iln]));
+                  printf(" %.1f", (lf_list[iln] > 0) ? 1./pow2(lf_list[iln]) : 0);
               }   printf("\n");
           } // echo
       } // scope
@@ -551,7 +542,7 @@ namespace scattering_test {
       for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
       auto const aHm = std::vector<double>(nln*nln, 0.0);
       auto nn = std::vector<uint8_t>(1 + lmax, 0); for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
-      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn.data(), aHm.data(), aHm.data(), 128, echo);
+      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn.data(), lmax, aHm.data(), aHm.data(), 128, echo);
       // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
   } // test_eigenstate_analysis
 
