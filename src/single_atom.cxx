@@ -290,7 +290,7 @@ extern "C" {
         if (echo > 0) printf("# %s numbers of projectors ", label);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
-//          nn[ell] = std::min((int)nn[ell], 1); // limit to 1 at most, does not work, full SHO set assumed in some routines
+            nn[ell] = std::min((int)nn[ell], 2); // limit to 1 at most, does not work, full SHO set assumed in some routines
             if (echo > 0) printf(" %d", nn[ell]);
         } // ell
         if (echo > 0) printf("\n");
@@ -404,6 +404,7 @@ extern "C" {
                     vs.wKin[SMT] = new double[nrs]; // get memory for the smooth kinetic energy
                     vs.wKin[TRU] = new double[nrt]; // get memory for the true kinetic energy
                     double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
+                    if (nrn > 0) E = std::max(E, valence_state[iln - 1].energy); // higher than previous energy
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], enn, ell, E, vs.wave[TRU]);
                     vs.energy = E;
 
@@ -437,8 +438,8 @@ extern "C" {
         nr_diff = rg[TRU]->n - rg[SMT]->n;
         ir_cut[SMT] = radial_grid::find_grid_index(*rg[SMT], r_cut);
         ir_cut[TRU] = ir_cut[SMT] + nr_diff;
-        if (echo > 0) printf("# %s pseudize the core density at r[%d or %d] = %.6f, requested %.3f %s\n", 
-                              label, ir_cut[SMT], ir_cut[TRU], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
+        if (echo > 0) printf("# %s pseudize the core density at r[%i or %i] = %.6f, requested %.3f %s\n", 
+                          label, ir_cut[TRU], ir_cut[SMT], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
         assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
@@ -1356,12 +1357,12 @@ extern "C" {
             for(int i = 0; i < nlmn; ++i) {
                 printf("%3d", ln_index_list[i]); 
             }   printf("\n");
-            printf("# %s lmn_begin--lmn_end ", label); 
+            printf("# %s lmn_begin-lmn_end ", label); 
             for(int i = 0; i < mlm; ++i) {
                 if (lmn_begin[i] == lmn_end[i] - 1) { 
                     printf(" %d", lmn_begin[i]); 
                 } else {
-                    printf(" %d--%d", lmn_begin[i], lmn_end[i] - 1); 
+                    printf(" %d-%d", lmn_begin[i], lmn_end[i] - 1); 
                 }
             }   printf("\n");
         } // echo
