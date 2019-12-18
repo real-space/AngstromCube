@@ -87,6 +87,21 @@ namespace sho_potential {
       return 0;
   } // generate_potential_matrix
 
+  status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
+      int kxyz = 0;
+      for    (int kz = 0; kz <= numax;           ++kz) {
+        for  (int ky = 0; ky <= numax - kz;      ++ky) {
+          for(int kx = 0; kx <= numax - kz - ky; ++kx) {
+
+              coeff[kxyz] *= sho_projection::sho_prefactor(kx, ky, kz, sigma);
+
+              ++kxyz;
+          } // kx
+        } // ky
+      } // kz
+      assert(sho_tools::nSHO(numax) == kxyz);
+      return 0;
+  } // normalize_coefficients
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -233,24 +248,7 @@ namespace sho_potential {
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
-                  // ToDo: consider normalization of Vcoeff since sho_project(sho_add(i))[j] != delta_ij
-
-                  { // scope: scale
-                      int const numax_k = numax_V;
-                      int kxyz = 0;
-                      for    (int kz = 0; kz <= numax_k; ++kz) {
-                        for  (int ky = 0; ky <= numax_k - kz; ++ky) {
-                          for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {
-
-                              Vcoeff[kxyz] *= sho_projection::sho_prefactor(kx, ky, kz, sigma_V);
-
-                              ++kxyz;
-                          } // kx
-                        } // ky
-                      } // kz
-                      assert(sho_tools::nSHO(numax_k) == kxyz);
-                  } // scope: scale
-                  
+                  normalize_coefficients(Vcoeff.data(), numax_V, sigma_V);
                   
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   int const mb = sho_tools::nSHO(numaxs[ja]);
@@ -297,22 +295,7 @@ namespace sho_potential {
               set(Vcoeff.data(), nc, 0.0);
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), lmax, center[ia], 2*sigma, vtot.data(), g, 0);
-
-              { // scope: scale
-                  int const numax_k = lmax;
-                  int kxyz = 0;
-                  for    (int kz = 0; kz <= numax_k; ++kz) {
-                    for  (int ky = 0; ky <= numax_k - kz; ++ky) {
-                      for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {
-
-                          Vcoeff[kxyz] *= sho_projection::sho_prefactor(kx, ky, kz, 2*sigma);
-
-                          ++kxyz;
-                      } // kx
-                    } // ky
-                  } // kz
-                  assert(sho_tools::nSHO(numax_k) == kxyz);
-              } // scope: scale
+              normalize_coefficients(Vcoeff.data(), lmax, 2*sigma);
               
               int const nb = sho_tools::nSHO(numaxs[ia]);
               view2D<double> Vaux(nb, nc, 0.0);
