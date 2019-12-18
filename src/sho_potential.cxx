@@ -23,8 +23,7 @@
 #include "overlap.hxx" // overlap::generate_product_tensor, ::generate_overlap_matrix
 #include "data_view.hxx" // view2D<T>
 
-// #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
-// #include "display_units.h" // eV, _eV, Ang, _Ang
+// #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -236,6 +235,23 @@ namespace sho_potential {
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
                   // ToDo: consider normalization of Vcoeff since sho_project(sho_add(i))[j] != delta_ij
 
+                  { // scope: scale
+                      int const numax_k = numax_V;
+                      int kxyz = 0;
+                      for    (int kz = 0; kz <= numax_k; ++kz) {
+                        for  (int ky = 0; ky <= numax_k - kz; ++ky) {
+                          for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {
+
+                              Vcoeff[kxyz] *= sho_projection::sho_prefactor(kx, ky, kz, sigma_V);
+
+                              ++kxyz;
+                          } // kx
+                        } // ky
+                      } // kz
+                      assert(sho_tools::nSHO(numax_k) == kxyz);
+                  } // scope: scale
+                  
+                  
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   int const mb = sho_tools::nSHO(numaxs[ja]);
                   view2D<double> Vmat(nb, mb, 0.0); // matrix
@@ -282,6 +298,22 @@ namespace sho_potential {
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), lmax, center[ia], 2*sigma, vtot.data(), g, 0);
 
+              { // scope: scale
+                  int const numax_k = lmax;
+                  int kxyz = 0;
+                  for    (int kz = 0; kz <= numax_k; ++kz) {
+                    for  (int ky = 0; ky <= numax_k - kz; ++ky) {
+                      for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {
+
+                          Vcoeff[kxyz] *= sho_projection::sho_prefactor(kx, ky, kz, 2*sigma);
+
+                          ++kxyz;
+                      } // kx
+                    } // ky
+                  } // kz
+                  assert(sho_tools::nSHO(numax_k) == kxyz);
+              } // scope: scale
+              
               int const nb = sho_tools::nSHO(numaxs[ia]);
               view2D<double> Vaux(nb, nc, 0.0);
               // now compute local matrix elements <local basis|V|large aux. basis>

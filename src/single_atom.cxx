@@ -1355,14 +1355,14 @@ extern "C" {
         if (echo > 3) {
             printf("# %s ln_index_list ", label);
             for(int i = 0; i < nlmn; ++i) {
-                printf("%3d", ln_index_list[i]); 
+                printf(" %i", ln_index_list[i]); 
             }   printf("\n");
             printf("# %s lmn_begin-lmn_end ", label); 
             for(int i = 0; i < mlm; ++i) {
                 if (lmn_begin[i] == lmn_end[i] - 1) { 
-                    printf(" %d", lmn_begin[i]); 
+                    printf(" %i", lmn_begin[i]); 
                 } else {
-                    printf(" %d-%d", lmn_begin[i], lmn_end[i] - 1); 
+                    printf(" %i-%i", lmn_begin[i], lmn_end[i] - 1); 
                 }
             }   printf("\n");
         } // echo
@@ -1833,7 +1833,7 @@ extern "C" {
             if ((echo > 7)) printf("\n");
         } // ilmn
 
-        if (echo > 8) { 
+        if (echo > 8) {
             printf("\n# %s lmn-based Overlap elements:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
                 printf("# %s overlap elements for ilmn=%3d  ", label, ilmn);
@@ -1936,8 +1936,9 @@ extern "C" {
                                                - kinetic_energy(SMT,iln,jln) )
                                              + ( potential_ln(TRU,iln,jln) 
                                                - potential_ln(SMT,iln,jln) );
-                    overlap_ln[iln][jln] = ( charge_deficit(0,TRU,iln,jln) 
-                                           - charge_deficit(0,SMT,iln,jln) ); // ell=0
+                    int const ell = 0;
+                    overlap_ln[iln][jln] = ( charge_deficit(ell,TRU,iln,jln)
+                                           - charge_deficit(ell,SMT,iln,jln) );
                 } // jln
             } // iln
         } // scope
