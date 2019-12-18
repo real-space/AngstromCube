@@ -232,6 +232,7 @@ extern "C" {
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][nr_smt] r*projectors
+      view3D<double> waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
 
       double  core_charge_deficit; // in units of electrons
       double* true_norm; // vector[nln] for display of partial wave results
@@ -387,6 +388,9 @@ extern "C" {
         if (echo > 5) { printf("# %s enn_core_ell  ", label); for(int ell = 0; ell <= numax; ++ell) printf(" %d", enn_core_ell[ell]); printf("\n"); }
 
         nvalencestates = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
+        int const nln = nvalencestates; // abbreviate
+        waves[TRU] = view3D<double>(2, nln, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
+        waves[SMT] = view3D<double>(2, nln, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         valence_state = new valence_level_t[nvalencestates];
         {
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
@@ -395,14 +399,20 @@ extern "C" {
                 for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
+                    assert(iln < nln);
                     auto &vs = valence_state[iln]; // abbreviate
                     int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
 
-                    vs.wave[SMT] = new double[nrs]; // get memory for the smooth radial function
-                    vs.wave[TRU] = new double[nrt]; // get memory for the true radial function
-                    vs.wKin[SMT] = new double[nrs]; // get memory for the smooth kinetic energy
-                    vs.wKin[TRU] = new double[nrt]; // get memory for the true kinetic energy
+//                     vs.wave[SMT] = new double[nrs]; // get memory for the smooth radial function
+//                     vs.wave[TRU] = new double[nrt]; // get memory for the true radial function
+//                     vs.wKin[SMT] = new double[nrs]; // get memory for the smooth kinetic energy
+//                     vs.wKin[TRU] = new double[nrt]; // get memory for the true kinetic energy
+                    vs.wave[SMT] = waves[SMT](0,iln);
+                    vs.wave[TRU] = waves[TRU](0,iln);
+                    vs.wKin[SMT] = waves[SMT](1,iln);
+                    vs.wKin[TRU] = waves[TRU](1,iln);
+                    
                     double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
                     if (nrn > 0) E = std::max(E, valence_state[iln - 1].energy); // higher than previous energy
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], enn, ell, E, vs.wave[TRU]);
@@ -443,26 +453,23 @@ extern "C" {
         assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
-        aug_density = view2D<double>(nlm_aug, full_density[SMT].stride()); // get memory
+        aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
         int const nlm_cmp = pow2(1 + ellmax_compensator);
         qlm_compensator = new double[nlm_cmp]; // get memory
-        int const nln = nvalencestates;
-        // charge_deficit  = new double[(1 + ellmax_compensator)*nln*nln][TRU_AND_SMT]; // get memory
-        charge_deficit = view4D<double>(1 + ellmax_compensator, TRU_AND_SMT, nln, nln); // get memory
-        // kinetic_energy  = new double[nln*nln][TRU_AND_SMT]; // get memory
-        kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln); // get memory
+        charge_deficit = view4D<double>(1 + ellmax_compensator, TRU_AND_SMT, nln, nln, 0.0); // get memory
+        kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln, 0.0); // get memory
         zero_potential  = new double[nrs]; // get memory
         true_norm       = new double[nln]; // get memory
         
-        projectors = view2D<double>(nln, align<2>(rg[SMT]->n)); // get memory
+        projectors = view2D<double>(nln, align<2>(rg[SMT]->n), 0.0); // get memory
         
         set(zero_potential, nrs, 0.0); // clear
 
         int const nSHO = sho_tools::nSHO(numax);
         int const matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
         if (echo > 0) printf("# %s matrix size for hamiltonian and overlap: dim = %d, stride = %d\n", label, nSHO, matrix_stride);
-        hamiltonian = view2D<double>(nSHO, matrix_stride); // get memory
-        overlap     = view2D<double>(nSHO, matrix_stride); // get memory
+        hamiltonian = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
+        overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
         unitary_zyx_lmn = new double[nSHO*nSHO];
         {   auto const u = new sho_unitary::Unitary_SHO_Transform<double>(numax);
@@ -556,10 +563,10 @@ extern "C" {
         delete[] core_state;
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             radial_grid::destroy_radial_grid(rg[ts]);
-            for(int iln = 0; iln < nvalencestates; ++iln) { 
-                delete[] valence_state[iln].wave[ts]; 
-                delete[] valence_state[iln].wKin[ts]; 
-            } // iln
+//             for(int iln = 0; iln < nvalencestates; ++iln) { 
+//                 delete[] valence_state[iln].wave[ts];
+//                 delete[] valence_state[iln].wKin[ts];
+//             } // iln
             delete[] core_density[ts];
             delete[] potential[ts];
         } // tru and smt
@@ -1276,7 +1283,7 @@ extern "C" {
                     } // j
                 } // i
 
-            } // scope  establish dual orthgonality with [SHO] projectors
+            } // scope: establish dual orthgonality with [SHO] projectors
             
 //             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
@@ -1294,7 +1301,7 @@ extern "C" {
                 if (0) {
                     auto const wave_i = valence_state[iln].wave[ts];
                     auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
-                    true_norm[iln] = 1./std::sqrt(norm2);
+                    true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
                 } else true_norm[iln] = 1.;
             } // iln
         } // scope
