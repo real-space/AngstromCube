@@ -29,7 +29,7 @@ namespace grid_operators {
                           , std::vector<atom_image::sho_atom_t> const &a
                           , std::vector<atom_image::atom_image_t> const &ai
                           , double const *boundary_phase=nullptr);
-  
+
   status_t all_tests();
 
 } // namespace grid_operators

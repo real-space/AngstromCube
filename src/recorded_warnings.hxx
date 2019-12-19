@@ -2,7 +2,9 @@
 
 typedef int status_t;
 
-#define warn recorded_warnings::new_warning(__FILE__, __LINE__) 
+// #include <cstdio> // sprintf
+// #define warn(...) sprintf(recorded_warnings::new_warning(__FILE__, __LINE__), __VA_ARGS); 
+#define warn recorded_warnings::new_warning(__FILE__, __LINE__)
 
 namespace recorded_warnings {
 

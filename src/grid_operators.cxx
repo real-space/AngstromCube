@@ -4,14 +4,12 @@
  
 #include "grid_operators.hxx"
 
-// #include "vector_math.hxx" // vector_math from exafmm
-// #include "constants.hxx" // pi, sqrtpi
-#include "real_space_grid.hxx" // grid_t
-#include "finite_difference.hxx" // finite_difference_t, Laplacian
-#include "atom_image.hxx" // atom_image_t, sho_atom_t
+#include "real_space_grid.hxx" // ::grid_t
+#include "finite_difference.hxx" // ::finite_difference_t, ::Laplacian
+#include "atom_image.hxx" // ::atom_image_t, ::sho_atom_t
 #include "inline_math.hxx" // set
-#include "sho_projection.hxx" // sho_project, sho_add
-#include "sho_tools.hxx" // nSHO
+#include "sho_projection.hxx" // ::sho_project, ::sho_add
+#include "sho_tools.hxx" // ::nSHO
 
 // #include "display_units.h" // eV, _eV, Ang, _Ang
 
@@ -45,9 +43,9 @@ namespace grid_operators {
                         , std::vector<atom_image::sho_atom_t> const &a
                         , std::vector<atom_image::atom_image_t> const &ai
                         , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
-                        , finite_difference::finite_difference_t<real_t> const *fd // finite difference [optional]
-                        , double const *potential // diagonal potential operator [optional]
-                        , double const *boundary_phase // phase shifts at the boundary [optional]
+                        , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
+                        , finite_difference::finite_difference_t<real_t> const *fd=nullptr // finite difference [optional]
+                        , double const *potential=nullptr // diagonal potential operator [optional]
                         ) {
       status_t stat = 0;
 
@@ -65,11 +63,11 @@ namespace grid_operators {
           } // i0 vectorization
       } // izyx
 
-      int const echo = 1;
+      int const echo = 9;
 #if 1
       int const na = a.size();
       int const nai = ai.size();
-      assert(nai = a.size()); // this simple version works only of there is one image per atom
+      assert(nai == na); // this simple version works only of there is one image per atom
       for(int iai = 0; iai < nai; ++iai) { // warning: race condition on Hpsi if we parallelize this loop
           int const ia = ai[iai].index();
           assert(ia >= 0); assert(ia < na);
@@ -81,7 +79,7 @@ namespace grid_operators {
           std::vector<real_t>   image_coeff(ncoeff*D0, 0.0); // can we omit the initialization here?
           std::vector<real_t> V_image_coeff(ncoeff*D0, 0.0);
 
-          stat += sho_project(image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, psi, g, echo);
+          stat += sho_projection::sho_project(image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma, psi, g, echo);
           // warning: no k-dependent Bloch-factors in this version
 
           assert( nullptr != a[ia].matrix );
@@ -102,7 +100,7 @@ namespace grid_operators {
           } // scope
 
           // warning: no k-dependent inverse Bloch-factors in this version
-          stat += sho_add(Hpsi, g, V_image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, echo);
+          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma, echo);
       } // iai
 #else
       int const na = a.size();
@@ -124,7 +122,7 @@ namespace grid_operators {
           int const ncoeff = sho_tools::nSHO(numax);
           std::vector<real_t> image_coeff(ncoeff*D0, 0.0); // can we omit the initialization?
 
-          stat += sho_project(image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, psi, g, echo);
+          stat += sho_projection::sho_project(image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, psi, g, echo);
           
           int const ncoeff = sho_tools::nSHO(numax);
           double const Block_factor = 1.0; // ToDo: use k-dependent Bloch-factors
@@ -151,7 +149,7 @@ namespace grid_operators {
 
           product(V_image_coeff, ncoeff*D0, V_atom_coeff[ia], inv_Block_factor);
 
-          stat += sho_add(Hpsi, g, V_image_coeff, a[ia].numax, ai[iai].get_pos(), a[ia].sigma, echo);
+          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff, a[ia].numax, ai[iai].get_pos(), a[ia].sigma, echo);
       } // iai
 
       for(int ia = 0; ia < na; ++ia) { delete[] atom_coeff[ia]; delete[] V_atom_coeff[ia]; }
@@ -185,9 +183,23 @@ namespace grid_operators {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
+  status_t basic_test(int const echo=9) {
+      status_t stat = 0;
+      int constexpr D0 = 4;
+      int const dims[] = {12, 13, 14}; int const bc[] = {0, 0, 0}, nn[] = {-1, 8, 8};
+      real_space_grid::grid_t<D0> g(dims);
+      std::vector<double> psi(2*g.all(), 0.0);
+      std::vector<atom_image::sho_atom_t> a(0);
+      std::vector<atom_image::atom_image_t> ai(0);
+      finite_difference::finite_difference_t<double> fd(g.h, bc, nn);
+      stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, ai, fd, nullptr);
+      stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a, ai);
+      return stat;
+  } // basic_test
+    
   status_t all_tests() {
     auto status = 0;
-    printf("\n\n# %s: ToDo: implement tests\n", __FILE__);
+    status += basic_test();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

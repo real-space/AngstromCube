@@ -54,7 +54,7 @@ namespace real_space_grid {
       } // set
       
       inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
-      inline int dim(int const d) const { assert(0 >= d); assert(d < 3); return dims[d]; }
+      inline int dim(int const d) const { assert(0 <= d); assert(d < 3); return dims[d]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
       inline double get_grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; }
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }

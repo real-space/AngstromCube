@@ -5,6 +5,7 @@
 
 #include "real_space_grid.hxx" // grid_t<D0>
 #include "boundary_condition.hxx" // *_Boundary
+#include "recorded_warnings.hxx" // warn
 
 typedef int status_t;
 
@@ -12,7 +13,7 @@ namespace finite_difference {
 
   template<typename real_t>
   status_t set_Laplacian_coefficients(real_t c[], int const nn=1, 
-                                   double const grid_spacing=1) {
+             double const grid_spacing=1, char const direction='?') {
     double const h2 = grid_spacing*grid_spacing;
     int constexpr nnMaxImplemented = 13;
     switch (std::min(nn, nnMaxImplemented)) {
@@ -147,19 +148,19 @@ namespace finite_difference {
       c[0] = -40799043101./(12985932960.*h2);
       
     break; case -1:
-      printf("# Warning! Finite difference switched off, no pass!\n");
+      printf("# Warning! Finite difference in %c-direction switched off, no pass!\n", direction);
       return 0; // ok
     break; case 0:
-      printf("# Warning! Finite difference switched off!\n");
+      printf("# Warning! Finite difference in %c-direction  switched off!\n", direction);
       c[0] = 0.;
       return 0; // ok
     break; default:
-      printf("# Warning! Cannot treat case of %d finite difference neighbors\n", nn);
+      printf("# Warning! Cannot treat case of %d finite difference neighbors in %c-direction\n", nn, direction);
       return nn;
     } // switch min(nn, nnMaxImplemented)
     
     if (nn > nnMaxImplemented) {
-      printf("# Warning! Max implemented 13 but requested %d finite difference neighbors\n", nn);
+      printf("# Warning! Max implemented 13 but requested %d finite difference neighbors in %c-direction\n", nn, direction);
       for(int i = nnMaxImplemented + 1; i <= nn; ++i) c[i] = 0; // clear out the others.
     } // larger than implemented
     
@@ -197,8 +198,8 @@ namespace finite_difference {
               nn[d] = nneighbors[d];
               h[d] = grid_spacing[d];
               bc[d][0] = bc[d][1] = boundary_condition[d]; // 1:periodic, 0:open, -1:mirror
-              auto const stat = set_Laplacian_coefficients(c2nd[d], nn[d], h[d]);
-              if (stat) printf("# Warning! construction of finite_difference_t failed for direction=%c\n", 'x'+d);
+              auto const stat = set_Laplacian_coefficients(c2nd[d], nn[d], h[d], 'x'+d);
+              if (stat) printf("# Warning! construction of finite_difference_t failed for %c-direction\n", 'x'+d);
           } // spatial direction d
       } // constructor
 
