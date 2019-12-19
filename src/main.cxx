@@ -56,10 +56,10 @@ typedef int status_t;
 #define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
                         { run.push_back(make_pair(std::string(NAME), FUN())); }
           module_test("recorded_warnings.",   recorded_warnings::all_tests);
+          module_test("finite_difference.",   finite_difference::all_tests);
           module_test("hermite_polynomial.", hermite_polynomial::all_tests);
           module_test("radial_eigensolver.", radial_eigensolver::all_tests);
           module_test("boundary_condition.", boundary_condition::all_tests);
-          module_test("finite_difference.",   finite_difference::all_tests);
           module_test("geometry_analysis.",   geometry_analysis::all_tests);
           module_test("radial_integrator.",   radial_integrator::all_tests);
           module_test("radial_potential.",     radial_potential::all_tests);

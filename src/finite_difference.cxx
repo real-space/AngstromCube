@@ -7,6 +7,7 @@
 
 #include "real_space_grid.hxx" // grid_t
 #include "constants.hxx" // pi
+#include "recorded_warnings.hxx" // ::clear_warnings
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -82,6 +83,7 @@ namespace finite_difference {
     status += test_coefficients<float>();
     status += test_create_and_destroy();
     status += test_Laplacian<double>();
+    recorded_warnings::clear_warnings(); // clear
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
