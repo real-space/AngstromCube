@@ -11,8 +11,10 @@ typedef int status_t;
 
 namespace finite_difference {
 
+  int constexpr nnArraySize = 16;
+  
   template<typename real_t>
-  status_t set_Laplacian_coefficients(real_t c[], int const nn=1, 
+  int set_Laplacian_coefficients(real_t c[], int const nn=1, // return nn on success
              double const grid_spacing=1, char const direction='?') {
     double const h2 = grid_spacing*grid_spacing;
     int constexpr nnMaxImplemented = 13;
@@ -146,25 +148,25 @@ namespace finite_difference {
       c[2] = -13./(35.*h2);
       c[1] = 13./(7.*h2);
       c[0] = -40799043101./(12985932960.*h2);
-      
+
     break; case -1:
-      printf("# Warning! Finite difference in %c-direction switched off, no pass!\n", direction);
-      return 0; // ok
+      warn("Finite difference no pass in %c-direction", direction);
     break; case 0:
-      printf("# Warning! Finite difference in %c-direction  switched off!\n", direction);
-      c[0] = 0.;
-      return 0; // ok
+      warn("Finite difference in %c-direction switched off!", direction);
+      c[0] = 0;
     break; default:
-      printf("# Warning! Cannot treat case of %d finite difference neighbors in %c-direction\n", nn, direction);
-      return nn;
+      printf("# Cannot treat case of %i finite difference neighbors in %c-direction!\n", nn, direction);
+      warn("Cannot treat case of %i finite difference neighbors in %c-direction", nn, direction);
+      return -1; // failed, does not return nn
     } // switch min(nn, nnMaxImplemented)
-    
+
     if (nn > nnMaxImplemented) {
-      printf("# Warning! Max implemented 13 but requested %d finite difference neighbors in %c-direction\n", nn, direction);
-      for(int i = nnMaxImplemented + 1; i <= nn; ++i) c[i] = 0; // clear out the others.
+      warn("Max implemented %i but requested %i finite difference neighbors in %c-direction", nnMaxImplemented, nn, direction);
+      for(int i = nnMaxImplemented + 1; i < std::min(nn + 1, nnArraySize); ++i) c[i] = 0; // clear out the others.
+      return nnMaxImplemented;
     } // larger than implemented
-    
-    return 0;
+
+    return nn;
   } // set_Laplacian_coefficients
 
   
@@ -174,7 +176,7 @@ namespace finite_difference {
       int bc[3][2]; // boundary conditions, lower and upper
       double h[3]; // grid spacings
       int nn[3]; // number of FD neighbors
-      real_t c2nd[3][16]; // coefficients for the 2nd derivative
+      real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
     public:
 
       finite_difference_t(double const grid_spacing[3], 
@@ -194,15 +196,16 @@ namespace finite_difference {
                 int const boundary_condition[3], 
                 int const nneighbors[3]) {
           for(int d = 0; d < 3; ++d) {
-              for(int i = 0; i < 16; ++i) c2nd[d][i] = 0; // clear
-              nn[d] = nneighbors[d];
+              for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               h[d] = grid_spacing[d];
               bc[d][0] = bc[d][1] = boundary_condition[d]; // 1:periodic, 0:open, -1:mirror
-              auto const stat = set_Laplacian_coefficients(c2nd[d], nn[d], h[d], 'x'+d);
-              if (stat) printf("# Warning! construction of finite_difference_t failed for %c-direction\n", 'x'+d);
+              nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h[d], 'x'+d);
+              if (nn[d] < nneighbors[d]) {
+                  warn("In finite_difference_t requested nn=%i but use nn=%i for %c-direction", 
+                                  nneighbors[d], nn[d], 'x'+d);
+              }
           } // spatial direction d
       } // constructor
-
 
   }; // class finite_difference_t
   
@@ -211,7 +214,7 @@ namespace finite_difference {
   status_t Laplacian(real_t out[], real_t const in[], real_space_grid::grid_t<D0> const &g, 
                      finite_difference_t<real_t> const &fd, double const factor=1) {
 
-      int const n16 = 16; // max number of finite difference neighbors
+      int const n16 = nnArraySize; // max number of finite difference neighbors
       int* list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
       for(int d = 0; d < 3; ++d) {
           int const n = g.dim(d);
@@ -235,7 +238,7 @@ namespace finite_difference {
               printf("# indirection list for %c  ", 120+d);
               for(int i = n16 - nf; i < n16 + n + nf; ++i) {
                   if ((n16 == i) || (n16 + n) == i) printf(" |");
-                  printf(" %d", list[d][i]);
+                  printf(" %i", list[d][i]);
               }   printf("\n");
           } // show indirection list
       } // spatial direction d

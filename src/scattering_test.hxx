@@ -375,7 +375,7 @@ namespace scattering_test {
       stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, numax, 1, echo);
 
       int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
-      stat += finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r');
+      stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
       if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", __FILE__, __func__, nFD); 
 
       for(int ell = 0; ell <= lmax; ++ell) {

@@ -3,11 +3,12 @@
 typedef int status_t;
 
 #include <cstdio> // sprintf
-#define warn(...) sprintf(recorded_warnings::new_warning(__FILE__, __LINE__), __VA_ARGS__); 
+
+#define warn(...) sprintf(recorded_warnings::_new_warning(__FILE__, __LINE__), __VA_ARGS__); 
 
 namespace recorded_warnings {
 
-  char* new_warning(char const *file, int const line); // please use the macro above
+  char* _new_warning(char const *file, int const line); // hidden, please use the macro above
 
   status_t show_warnings(int const echo=1);
 

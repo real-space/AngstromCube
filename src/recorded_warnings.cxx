@@ -127,9 +127,9 @@ namespace recorded_warnings {
 
   } // manage_warnings
 
-  char* new_warning(char const *file, int const line) {
+  char* _new_warning(char const *file, int const line) {
       return manage_warnings(file, line);
-  } // new_warning
+  } // _new_warning
 
   status_t show_warnings(int const echo) {
       return (nullptr != manage_warnings("?",  0, echo));

@@ -186,7 +186,7 @@ namespace grid_operators {
   status_t basic_test(int const echo=9) {
       status_t stat = 0;
       int constexpr D0 = 4;
-      int const dims[] = {12, 13, 14}; int const bc[] = {0, 0, 0}, nn[] = {-1, 8, 8};
+      int const dims[] = {12, 13, 14}; int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8};
       real_space_grid::grid_t<D0> g(dims);
       std::vector<double> psi(2*g.all(), 0.0);
       std::vector<atom_image::sho_atom_t> a(0);
