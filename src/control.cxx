@@ -68,7 +68,7 @@ namespace control {
           set(name, value, echo); // value comes after '='
           return 0;
       } else {
-          sprintf(warn, "# ignored statement \"%s\", maybe missing \'=\'", statement);
+          warn("# ignored statement \"%s\", maybe missing \'=\'", statement);
           return 1; // error, no '=' sign given
       }
   } // cli

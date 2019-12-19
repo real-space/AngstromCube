@@ -528,7 +528,7 @@ namespace geometry_analysis {
       
       if (echo > 0) printf("# checked %.6f M atom-atom pairs, %.3f k near and %.6f M far\n", 1e-6*npairs, 1e-3*near, 1e-6*nfar);
       if (natoms != nzero) {
-          sprintf(warn, "Should find %d exact zero distances but found %ld", natoms, nzero);
+          warn("Should find %d exact zero distances but found %ld", natoms, nzero);
           ++stat;
       } // warn
       assert(natoms == nzero);
@@ -540,7 +540,7 @@ namespace geometry_analysis {
       } // ijs
       if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
           ++stat;
-          sprintf(warn, "Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
+          warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
       }
       
       if (echo > 2) {
@@ -642,7 +642,7 @@ namespace geometry_analysis {
           } // is
           printf("\n");
           if (cn_exceeds > 0) {
-              sprintf(warn, "In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
+              warn("In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
               ++stat;
           }
           delete[] cn_hist;
@@ -673,10 +673,10 @@ namespace geometry_analysis {
           } // ia
       } // bond_partner
       if (bp_exceeded > 0) {
-          stat += 0 < sprintf(warn, "In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
+          stat += 0 < warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
       } // maximum number of bond partners was exceeded
       if (bp_truncated > 0) {
-          stat += 0 < sprintf(warn, "Bond partner analysis is performed only for the first %d atoms", natoms_BP);
+          stat += 0 < warn("Bond partner analysis is performed only for the first %d atoms", natoms_BP);
       } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
       
       if (nullptr != image_pos) delete[] image_pos;

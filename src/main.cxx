@@ -131,7 +131,7 @@ typedef int status_t;
               } else if ('t' == (ci1 | IgnoreCase)) {
                   stat = run_unit_tests((argc > 2)?argv[iarg + 1]:nullptr);
               } else {
-                  sprintf(warn, "# ignored unknown command line option %c%c", ci0, ci1);
+                  warn("# ignored unknown command line option %c%c", ci0, ci1);
                   ++stat; // error
               } // help or test
           } // '-'

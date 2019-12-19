@@ -154,14 +154,14 @@ namespace recorded_warnings {
 
   status_t test_preprocessor_macro(int const echo=9) {
     if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
-    sprintf(warn, "This is a test warning from %s:%d", __FILE__, __LINE__);
+    warn("This is a test warning from %s:%d", __FILE__, __LINE__);
     return 0;
   } // test_preprocessor_macro
 
   status_t test_overwriting(int const echo=9) {
     if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
     for(int i = 0; i < 9; ++i) {
-        sprintf(warn, "This is a test warning from inside a loop, iteration #%d", i);
+        warn("This is a test warning from inside a loop, iteration #%d", i);
     } // i
     return 0;
   } // test_overwriting

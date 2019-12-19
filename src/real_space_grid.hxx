@@ -127,7 +127,7 @@ namespace real_space_grid {
               __func__, modified*1e-3, nwindow*1e-3, g.dim('x')*g.dim('y')*g.dim('z')*1e-3); // show stats
 #endif
       if (out_of_range > 0) {
-          stat += 0 < sprintf(warn, "Found %ld entries out of range of the radial function!\n", out_of_range);
+          stat += 0 < warn("Found %ld entries out of range of the radial function!\n", out_of_range);
       } // out of range of the radial function
       return stat;
   } // add_function
