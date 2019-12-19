@@ -25,7 +25,6 @@ namespace sho_projection {
                      , real_t values[] // grid array, result if adding
                      , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4) { //
-      assert( 1 == D0 );
       double const rcut = truncation_radius(sigma, numax);
       double const sigma_inv = 1./sigma;
       // determine the limitations of the projection domain
