@@ -16,7 +16,7 @@ typedef int status_t;
 #include "bessel_transform.hxx" // all_tests
 #include "scattering_test.hxx" // all_tests
 #include "real_space_grid.hxx" // all_tests
-#include "sho_hamiltonian.hxx" // all_tests
+#include "davidson_solver.hxx" // all_tests
 #include "chemical_symbol.hxx" // all_tests
 #include "fourier_poisson.hxx" // all_tests
 #include "spherical_atoms.hxx" // all_tests
@@ -33,6 +33,7 @@ typedef int status_t;
 #include "single_atom.hxx" // all_tests
 #include "inline_math.hxx" // all_tests
 #include "sho_unitary.hxx" // all_tests
+#include "atom_image.hxx" // all_tests
 #include "sho_radial.hxx" // all_tests
 #include "sho_tools.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
@@ -65,7 +66,7 @@ typedef int status_t;
           module_test("bessel_transform.",     bessel_transform::all_tests);
           module_test("scattering_test.",       scattering_test::all_tests);
           module_test("real_space_grid.",       real_space_grid::all_tests);
-          module_test("sho_hamiltonian.",       sho_hamiltonian::all_tests);
+          module_test("davidson_solver.",       davidson_solver::all_tests);
           module_test("chemical_symbol.",       chemical_symbol::all_tests);
           module_test("fourier_poisson.",       fourier_poisson::all_tests);
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
@@ -82,6 +83,7 @@ typedef int status_t;
           module_test("single_atom.",               single_atom::all_tests);
           module_test("inline_math.",               inline_math::all_tests);
           module_test("sho_unitary.",               sho_unitary::all_tests);
+          module_test("atom_image.",                 atom_image::all_tests);
           module_test("sho_radial.",                 sho_radial::all_tests);
           module_test("sho_tools.",                   sho_tools::all_tests);
           module_test("atom_core.",                   atom_core::all_tests);
@@ -121,7 +123,7 @@ typedef int status_t;
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
               if ('h' == (ci1 | IgnoreCase)) {
                   printf("Usage %s [OPTION]\n", argv[0]);
-                  printf("   -h, -H      \tThis Help message\n"
+                  printf("   -h, -H      \tThis help message\n"
                          "   -t <module> \tTest module\n"
                          "   +<var>=<val>\tModify variable environment\n"
                          "\n");

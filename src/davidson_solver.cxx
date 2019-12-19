@@ -10,7 +10,7 @@
 // #include <cmath>
 #include <cassert> // assert
  
-#include "sho_hamiltonian.hxx"
+#include "davidson_solver.hxx"
 
 // #include "vector_math.hxx" // vector_math from exafmm
 // #include "constants.hxx" // pi, sqrtpi
@@ -39,7 +39,7 @@
 #endif
 
 
-namespace sho_hamiltonian {
+namespace davidson_solver {
   // setup of the DFT Hamiltonian in SHO-basis
   
 #ifdef  NO_UNIT_TESTS
@@ -53,4 +53,4 @@ namespace sho_hamiltonian {
   } // all_tests
 #endif // NO_UNIT_TESTS  
 
-} // namespace sho_hamiltonian
+} // namespace davidson_solver

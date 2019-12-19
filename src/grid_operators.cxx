@@ -1,13 +1,5 @@
 #include <cstdio> // printf
-// #include <cstdlib> // abs
-// #include <cmath> // sqrt, exp
-// #include <algorithm> // max
-// #include <complex> // std::complex<real_t>
-// #include <complex>
-// #include <utility> // std::pair<T1,T2>, make_pair
-// #include <vector> // std::vector<T>
-// #include <array> // std::array<T,n>
-// #include <cmath>
+#include <vector> // std::vector<T>
 #include <cassert> // assert
  
 #include "grid_operators.hxx"
@@ -15,10 +7,12 @@
 // #include "vector_math.hxx" // vector_math from exafmm
 // #include "constants.hxx" // pi, sqrtpi
 #include "real_space_grid.hxx" // grid_t
-#include "finite_difference.hxx" // finite_difference_t
+#include "finite_difference.hxx" // finite_difference_t, Laplacian
+#include "atom_image.hxx" // atom_image_t, sho_atom_t
+#include "inline_math.hxx" // set
+#include "sho_projection.hxx" // sho_project, sho_add
+#include "sho_tools.hxx" // nSHO
 
-
-// #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 // #include "display_units.h" // eV, _eV, Ang, _Ang
 
 // #define FULL_DEBUG
@@ -43,19 +37,149 @@
 
 namespace grid_operators {
   // setup of the real-space grid-based Hamiltonian and overlap operator
-
+  
   template<typename real_t, int D0>
-  status_t Hamiltonian(real_t Hpsi[], real_space_grid::grid_t<D0> const &g, real_t const psi[], 
-                       int const na, int const strides[], double const **atom_part, double const kvec[3],
-                       finite_difference::finite_difference_t<real_t> const &fd, double const *potential=nullptr) {
-      return -1;
-  } // Hamiltonian
+  status_t _grid_operator(real_t Hpsi[] // result
+                        , real_t const psi[] // input wave functions
+                        , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                        , std::vector<atom_image::sho_atom_t> const &a
+                        , std::vector<atom_image::atom_image_t> const &ai
+                        , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
+                        , finite_difference::finite_difference_t<real_t> const *fd // finite difference [optional]
+                        , double const *potential // diagonal potential operator [optional]
+                        , double const *boundary_phase // phase shifts at the boundary [optional]
+                        ) {
+      status_t stat = 0;
 
-  template<typename real_t, int D0>
-  status_t Overlap(real_t Spsi[], real_space_grid::grid_t<D0> const &g, real_t const psi[],
-                       int const na, int const strides[], double const **atom_part, double const kvec[3]) {
+      if (fd) {
+          stat += Laplacian(Hpsi, psi, g, *fd, -0.5); // -0.5: kinetic energy prefactor in Hartree units
+      } else {
+          set(Hpsi, g.all(), real_t(0)); // clear
+      } // fd
+
+      size_t const nzyx = g.dim(2) * g.dim(1) * g.dim(0);
+      for(size_t izyx = 0; izyx < nzyx; ++izyx) {
+          real_t const V = potential ? potential[izyx] : real_t(1); // apply potential or the unity operation of the overlap operator
+          for(int i0 = 0; i0 < D0; ++i0) {
+              Hpsi[izyx*D0 + i0] += V * psi[izyx*D0 + i0];
+          } // i0 vectorization
+      } // izyx
+
+      int const echo = 1;
+#if 1
+      int const na = a.size();
+      int const nai = ai.size();
+      assert(nai = a.size()); // this simple version works only of there is one image per atom
+      for(int iai = 0; iai < nai; ++iai) { // warning: race condition on Hpsi if we parallelize this loop
+          int const ia = ai[iai].index();
+          assert(ia >= 0); assert(ia < na);
+          assert(ai[iai].atom_id() == a[ia].atom_id); // make sure the lists are linked correctly
+
+          int const numax = a[ia].numax;
+          int const ncoeff = sho_tools::nSHO(numax);
+          
+          std::vector<real_t>   image_coeff(ncoeff*D0, 0.0); // can we omit the initialization here?
+          std::vector<real_t> V_image_coeff(ncoeff*D0, 0.0);
+
+          stat += sho_project(image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, psi, g, echo);
+          // warning: no k-dependent Bloch-factors in this version
+
+          assert( nullptr != a[ia].matrix );
+          int const stride = a[ia].stride;
+
+          { // scope: V_image_coeff = matrix * image_coeff
+              assert(stride >= ncoeff); // check internal consistency
+              double const * const mat = &a[ia].matrix[h0s1*ncoeff*stride];
+              // DGEMM-style matrix multiplication
+              for(int i = 0; i < ncoeff; ++i) {
+                  for(int j = 0; j < ncoeff; ++j) {
+                      auto const am = mat[i*stride + j];
+                      for(int i0 = 0; i0 < D0; ++i0) {
+                          V_image_coeff[i*D0 + i0] += am * image_coeff[j*D0 + i0];
+                      } // i0 vectorization
+                  } // j
+              } // i
+          } // scope
+
+          // warning: no k-dependent inverse Bloch-factors in this version
+          stat += sho_add(Hpsi, g, V_image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, echo);
+      } // iai
+#else
+      int const na = a.size();
+      std::vector<double*> atom_coeff(na);
+      std::vector<double*> V_atom_coeff(na);
+      for(int ia = 0; ia < na; ++ia) {
+          int const ncoeff = sho_tools::nSHO(a[ia].numax);
+          atom_coeff[ia]   = new double[ncoeff*D0];
+          V_atom_coeff[ia] = new double[ncoeff*D0];
+          set(atom_coeff[ia], ncoeff*D0, 0.0);
+      } // ia
+
+      int const nai = ai.size();
+      for(int iai = 0; iai < nai; ++iai) {
+          int const ia = ai[iai].index(); 
+          assert(ia >= 0); assert(ia < na);
+          assert(ai[iai].atom_id == a[ia].atom_id); // make sure the lists are linked correctly
+          int const numax = a[ia].numax;
+          int const ncoeff = sho_tools::nSHO(numax);
+          std::vector<real_t> image_coeff(ncoeff*D0, 0.0); // can we omit the initialization?
+
+          stat += sho_project(image_coeff, numax, ai[iai].get_pos(), a[ia].sigma, psi, g, echo);
+          
+          int const ncoeff = sho_tools::nSHO(numax);
+          double const Block_factor = 1.0; // ToDo: use k-dependent Bloch-factors
+          add_product(atom_coeff[ia], ncoeff*D0, image_coeff, Block_factor);
+          
+      } // iai
+
+      for(int ia = 0; ia < na; ++ia) {
+          int const numax = a[ia].numax;
+          int const stride = a[ia].stride;
+          int const ncoeff = sho_tools::nSHO(numax);
+          assert( nullptr != a[ia].matrix );
+          
+          V_atom_coeff = matrix * atom_coeff;
+          
+      } // ia
+     
+      for(int iai = 0; iai < nai; ++iai) { // warning: race condition on Hpsi if we parallelize this loop
+          int const ia = ai[iai].index;
+          int const numax = a[ia].numax;
+          int const ncoeff = sho_tools::nSHO(numax);
+          double const inv_Block_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
+          std::vector<real_t> V_image_coeff(ncoeff*D0);
+
+          product(V_image_coeff, ncoeff*D0, V_atom_coeff[ia], inv_Block_factor);
+
+          stat += sho_add(Hpsi, g, V_image_coeff, a[ia].numax, ai[iai].get_pos(), a[ia].sigma, echo);
+      } // iai
+
+      for(int ia = 0; ia < na; ++ia) { delete[] atom_coeff[ia]; delete[] V_atom_coeff[ia]; }
+#endif
       return -1;
-  } // Overlap operator
+  } // _grid_operator
+
+  // Hamiltonian
+  template<typename real_t, int D0>
+  status_t grid_Hamiltonian(real_t Hpsi[] // result
+                          , real_t const psi[] // input wave functions
+                          , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                          , std::vector<atom_image::sho_atom_t> const &a
+                          , std::vector<atom_image::atom_image_t> const &ai
+                          , finite_difference::finite_difference_t<real_t> const &fd // finite difference
+                          , double const potential[] // diagonal potential operator
+                          , double const *boundary_phase // phase shifts at the boundary [optional]
+  ) { return _grid_operator(Hpsi, psi, g, a, ai, 0, boundary_phase, &fd, potential); }
+
+  // Overlap operator
+  template<typename real_t, int D0>
+  status_t grid_Overlapping(real_t Spsi[] // result
+                          , real_t const psi[] // input wave functions
+                          , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                          , std::vector<atom_image::sho_atom_t> const &a
+                          , std::vector<atom_image::atom_image_t> const &ai
+                          , double const *boundary_phase // phase shifts at the boundary [optional]
+  ) { return _grid_operator(Spsi, psi, g, a, ai, 1, boundary_phase); }
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

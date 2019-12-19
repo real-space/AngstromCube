@@ -18,7 +18,7 @@ namespace sho_projection {
   inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
   
   template<typename real_t, int D0, int PROJECT0_OR_ADD1>
-  status_t sho_project_or_add(real_t coeff[] // result if projecting, coefficients are zyx-ordered
+  status_t _sho_project_or_add(real_t coeff[] // result if projecting, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
@@ -64,17 +64,20 @@ namespace sho_projection {
       } // dir
    
       int const nSHO = sho_tools::nSHO(numax);
-      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, (real_t)0);
+      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO*D0, real_t(0));
       
       // int ixyz = 0;
       for(        int iz = 0; iz < num[2]; ++iz) {
           for(    int iy = 0; iy < num[1]; ++iy) {
               for(int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g.dim('y') + (iy + off[1]))*g.dim('x') + (ix + off[0]);
-                  auto const val0 = values[ixyz];
-                  auto val = val0;
-                  if ((0 != val) || (1 == PROJECT0_OR_ADD1))  {
-//                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
+                  
+                  real_t val[D0];
+                  for(int i0 = 0; i0 < D0; ++i0) {
+                      val[i0] = values[ixyz*D0 + i0];
+                  } // i0 vectorization
+                  if (true) {
+//                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val[0]); // plot function value vs r
                       int iSHO = 0;
                       for(int nz = 0; nz <= numax; ++nz) {
                           for(int ny = 0; ny <= numax - nz; ++ny) {
@@ -82,19 +85,25 @@ namespace sho_projection {
                                   auto const H3d = H1d[2][iz*M + nz]
                                                  * H1d[1][iy*M + ny]
                                                  * H1d[0][ix*M + nx];
-                                  if (1 == PROJECT0_OR_ADD1) {
-                                      val += coeff[iSHO] * H3d; // here, the addition happens                                          
-                                  } else {
-                                      coeff[iSHO] += val0 * H3d; // here, the projection happens                                          
-                                  }
+                                  for(int i0 = 0; i0 < D0; ++i0) {
+                                      if (1 == PROJECT0_OR_ADD1) {
+                                          val[i0] += coeff[iSHO*D0 + i0] * H3d; // here, the addition happens                                          
+                                      } else {
+                                          coeff[iSHO*D0 + i0] += val[i0] * H3d; // here, the projection happens                                          
+                                      }
+                                  } // i0 vectorization
                                   ++iSHO;
                               } // nx
                           } // ny
                       } // nz
                       assert( nSHO == iSHO );
-                  } // non-zero
-                  if (1 == PROJECT0_OR_ADD1) values[ixyz] = val;
-                  // ++ixyz;
+                  } // true
+                  if (1 == PROJECT0_OR_ADD1) {
+                      for(int i0 = 0; i0 < D0; ++i0) {
+                          values[ixyz*D0 + i0] = val[i0];
+                      } // i0 vectorization
+                  } // write back (add)
+                  
               } // ix
           } // iy
       } // iz
@@ -105,7 +114,7 @@ namespace sho_projection {
           delete[] H1d[dir]; // free memory
       } // dir
       return 0; // success
-  } // sho_project_or_add
+  } // _sho_project_or_add
   
 
   // wrapper function
@@ -117,7 +126,7 @@ namespace sho_projection {
                      , real_t const values[] // input, grid array
                      , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
-      return sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
+      return _sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
   } // sho_project
 
   // wrapper function
@@ -129,7 +138,7 @@ namespace sho_projection {
                  , double const center[3] // where
                  , double const sigma
                  , int const echo=0) { //
-      return sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
+      return _sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
   
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 

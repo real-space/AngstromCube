@@ -11,7 +11,7 @@ The executable shows a simple help when called with `-h`.
 
 Output to *stdout* should always depend on the `echo`-levels so it can be turned off completely.
 Warnings are recorded and summarized at the programs end (and when dying from fatal errors, ToDo)
-All output to *stdout* should start a line with `# ` and, if the information is about 
+All log output to *stdout* should start a line with `# ` and, if the information is about 
 a specific atom, followed by some atom identifier label.
 
 For development it is sometimes helpful to have plotable output. Here are two options:

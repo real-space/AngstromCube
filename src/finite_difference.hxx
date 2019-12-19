@@ -146,6 +146,9 @@ namespace finite_difference {
       c[1] = 13./(7.*h2);
       c[0] = -40799043101./(12985932960.*h2);
       
+    break; case -1:
+      printf("# Warning! Finite difference switched off, no pass!\n");
+      return 0; // ok
     break; case 0:
       printf("# Warning! Finite difference switched off!\n");
       c[0] = 0.;
@@ -241,6 +244,7 @@ namespace finite_difference {
           for(int y = 0; y < g.dim('y'); ++y) {
               for(int x = 0; x < g.dim('x'); ++x) {
                   int const i_zyx = (z*g.dim('y') + y)*g.dim('x') + x;
+                  
                   for(int i0 = 0; i0 < D0; ++i0) { // vectorization
                       out[i_zyx*D0 + i0] = 0; // init result
                   } // i0
@@ -261,6 +265,7 @@ namespace finite_difference {
                           } // index exists
                       } // jmi
                   } // ddir direction of the derivative
+
                   for(int i0 = 0; i0 < D0; ++i0) { // vectorization
                       out[i_zyx*D0 + i0] *= scale_factor;
                   } // i0

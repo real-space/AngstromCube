@@ -27,7 +27,7 @@ OBJ = \
 	angular_grid.o \
 	sho_tools.o \
 	sho_unitary.o \
-	sho_hamiltonian.o \
+	davidson_solver.o \
 	grid_operators.o \
 	sho_radial.o \
 	sho_projection.o \

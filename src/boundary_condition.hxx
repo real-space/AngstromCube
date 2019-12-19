@@ -10,7 +10,7 @@ typedef int status_t;
   int constexpr Isolated_Boundary =  0;
   int constexpr Mirrored_Boundary = -1;
   int constexpr Invalid_Boundary = -9;
-
+  
 namespace boundary_condition {
 
   inline int periodic_images(double **ipos, double const cell[3], // orthorhombic cell parameters
