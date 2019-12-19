@@ -23,7 +23,7 @@ OBJ = \
 	atom_core.o \
 	single_atom.o \
 	sho_potential.o \
-	overlap.o \
+	sho_overlap.o \
 	angular_grid.o \
 	sho_tools.o \
 	sho_unitary.o \
@@ -67,10 +67,10 @@ FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
 # FEAFLAGS += -D NO_UNIT_TESTS ## for production
 
 # normal mode
-# OPTFLAGS = -Ofast 
+OPTFLAGS = -Ofast 
 ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # OPTFLAGS = -O2
-OPTFLAGS = -O0 -g -pedantic -Wall -Warray-bounds -Wno-vla
+# OPTFLAGS = -O0 -g -pedantic -Wall -Warray-bounds -Wno-vla
 ### g++ option -Wno-vla suppresses warnings about variable length arrays to be non-standart
 
 # LDFLAGS = -mkl

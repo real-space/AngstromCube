@@ -20,7 +20,7 @@
 #include "sho_tools.hxx" // sho_tools::nSHO
 #include "sho_projection.hxx" // ::sho_project, ::sho_add
 #include "boundary_condition.hxx" // Isolated_Boundary
-#include "overlap.hxx" // overlap::generate_product_tensor, ::generate_overlap_matrix
+#include "sho_overlap.hxx" // overlap::generate_product_tensor, ::generate_overlap_matrix
 #include "data_view.hxx" // view2D<T>
 
 // #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
@@ -40,7 +40,6 @@
 #else
     #define debug(print)
 #endif
-
 
 namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
@@ -243,7 +242,7 @@ namespace sho_potential {
                   int const numax_V = numaxs[ia] + numaxs[ja];
                   int const nucut = 1 + std::max(numaxs[ia], numaxs[ja]);
                   view3D<double> t(2*nucut, nucut, nucut, 0.0);
-                  overlap::generate_product_tensor(t.data(), nucut, sigma_V, sigmas[ia], sigmas[ja]);
+                  sho_overlap::generate_product_tensor(t.data(), nucut, sigma_V, sigmas[ia], sigmas[ja]);
 
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
@@ -286,7 +285,7 @@ namespace sho_potential {
 
           int const nucut = 1 + lmax;
           view3D<double> t(2*nucut, nucut, nucut, 0.0);
-          overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
+          sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
           
           int const nc = sho_tools::nSHO(lmax);
           std::vector<double> Vcoeff(nc, 0.0);
@@ -310,7 +309,7 @@ namespace sho_potential {
                   int const mucut = 1 + numaxs[ja];
                   view3D<double> ovl(3, mucut, nucut);
                   for(int d = 0; d < 3; ++d) {
-                      overlap::generate_overlap_matrix(ovl[d].data(), center[ja][d] - center[ia][d],
+                      sho_overlap::generate_overlap_matrix(ovl[d].data(), center[ja][d] - center[ia][d],
                                                   nucut, mucut, 
                                                   sigma, sigmas[ja]);
                   } // d

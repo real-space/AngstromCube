@@ -39,13 +39,27 @@ namespace atom_image {
         : _sigma(sigma), _numax(numax), _atom_id(atom_id) {
           _ncoeff = sho_tools::nSHO(_numax);
           _stride = align<2>(_ncoeff);
-          _matrix = std::vector<double>(2*_ncoeff*_stride, 1.0);
+          _matrix = std::vector<double>(2*_ncoeff*_stride, 0.0);
       } // constructor
 
-      double const * const get_matrix(int const h0s1=0) const { 
+      double const * get_matrix(int const h0s1=0) const { 
           assert(0 == h0s1 || 1 == h0s1);
           return &_matrix[h0s1*_ncoeff*_stride];
       } // get_matrix
+
+      status_t set_matrix(double const values[], int const ncoeff, int const stride, int const h0s1=0) { 
+          assert(0 == h0s1 || 1 == h0s1);
+          int const nc = std::min(ncoeff, _ncoeff);
+          for(int ij = 0; ij < _ncoeff*_stride; ++ij) {
+              _matrix[h0s1*_ncoeff*_stride + ij] = 0; // clear
+          } // ij
+          for(int i = 0; i < nc; ++i) {
+              for(int j = 0; j < nc; ++j) {
+                  _matrix[(h0s1*_ncoeff + i)*_stride + j] = values[i*stride + j];
+              } // j
+          } // i
+          return (ncoeff != _ncoeff); // report missmatch
+      } // set_matrix
 
       int32_t atom_id() const { return _atom_id; }
       int     numax()   const { return _numax; }
@@ -53,7 +67,7 @@ namespace atom_image {
       int     stride()  const { return _stride; }
 
     private:
-      std::vector<double> _matrix; // data layout matrix[Ovl0_Hmt1][ncoeff][stride]
+      std::vector<double> _matrix; // data layout matrix[Hmt0_Ovl1][ncoeff][stride]
       double  _sigma{1.};
       int32_t _numax{-1};
       int32_t _atom_id{-1};

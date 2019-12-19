@@ -2,7 +2,7 @@
 
 typedef int status_t;
 
-namespace overlap {
+namespace sho_overlap {
 
   template<typename real_t>
   status_t generate_overlap_matrix(real_t matrix[], // matrix layout [][n0]
@@ -17,4 +17,4 @@ namespace overlap {
 
   status_t all_tests();
 
-} // namespace overlap
+} // namespace sho_overlap

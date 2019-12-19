@@ -67,7 +67,7 @@ namespace grid_operators {
       } // izyx
 
       int constexpr echo_sho = 1;
-      
+
 #if 1
       int const na = a.size();
       int const nai = ai.size();
@@ -75,7 +75,8 @@ namespace grid_operators {
       for(int iai = 0; iai < nai; ++iai) { // warning: race condition on Hpsi if we parallelize this loop
           int const ia = ai[iai].index();
           assert(ia >= 0); assert(ia < na);
-          assert(ai[iai].atom_id() == a[ia].atom_id()); // make sure the lists are linked correctly
+          auto const atom_id = ai[iai].atom_id();
+          assert(atom_id == a[ia].atom_id()); // make sure the lists are linked correctly
 
           int const numax = a[ia].numax();
           int const ncoeff = sho_tools::nSHO(numax);
@@ -85,7 +86,7 @@ namespace grid_operators {
 
           stat += sho_projection::sho_project(image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma(), psi, g, echo_sho);
           // warning: no k-dependent Bloch-factors in this version
-          if (echo > 7) printf("# %s Apply non-local projection for a#%i, status=%i\n", __func__, ai[iai].atom_id(), stat);
+          if (echo > 7) printf("# %s Apply non-local projection for a#%i, status=%i\n", __func__, atom_id, stat);
 
           { // scope: V_image_coeff = matrix * image_coeff
               int const stride = a[ia].stride();
@@ -103,7 +104,7 @@ namespace grid_operators {
           } // scope
           
           if (echo > 8) { 
-              printf("\n# a#%i coefficients and H*coeff (vector length=%i):\n", ai[iai].atom_id(), D0);
+              printf("\n# a#%i coefficients and H*coeff (vector length=%i):\n", atom_id, D0);
               for(int i = 0; i < ncoeff; ++i) {
                   printf("# i=%i", i);
                   for(int i0 = 0; i0 < D0; ++i0) {
@@ -115,7 +116,7 @@ namespace grid_operators {
 
           // warning: no k-dependent inverse Bloch-factors in this version
           stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma(), echo_sho);
-          if (echo > 7) printf("# %s Apply non-local %c addition for a#%i, status=%i\n", __func__, 'H'+h0s1, ai[iai].atom_id(), stat);
+          if (echo > 7) printf("# %s Apply non-local %c addition for a#%i, status=%i\n", __func__, 'H'+h0s1, atom_id, stat);
       } // iai
 #else
       int const na = a.size();
@@ -193,6 +194,11 @@ namespace grid_operators {
                           , std::vector<atom_image::atom_image_t> const &ai
                           , double const *boundary_phase // phase shifts at the boundary [optional]
   ) { return _grid_operator(Spsi, psi, g, a, ai, 1, boundary_phase); }
+  //
+  // idea: the identity operation of the Overlap operator could be implemented with a
+  //       finite difference stencil that has nn[] = {0, -1, -1} (-1 means that there is no pass)
+  //       because then, all three operators, Hamiltonian, Overlapping and Preconditioner share
+  //       the same structure, whereas latter has a FD-stencil with all positive coefficients
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

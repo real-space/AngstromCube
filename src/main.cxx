@@ -29,6 +29,7 @@ typedef int status_t;
 #include "angular_grid.hxx" // all_tests
 #include "simple_timer.hxx" // all_tests
 #include "simple_math.hxx" // all_tests
+#include "sho_overlap.hxx" // all_tests
 #include "radial_grid.hxx" // all_tests
 #include "single_atom.hxx" // all_tests
 #include "inline_math.hxx" // all_tests
@@ -38,7 +39,6 @@ typedef int status_t;
 #include "sho_tools.hxx" // all_tests
 #include "atom_core.hxx" // all_tests
 #include "data_view.hxx" // all_tests
-#include "overlap.hxx" // all_tests
 #include "control.hxx" // all_tests, cli
 #include "spherical_harmonics.hxx" // no test implemented
 
@@ -79,6 +79,7 @@ typedef int status_t;
           module_test("angular_grid.",             angular_grid::all_tests);
           module_test("simple_timer.",             simple_timer::all_tests);
           module_test("simple_math.",               simple_math::all_tests);
+          module_test("sho_overlap.",               sho_overlap::all_tests);
           module_test("radial_grid.",               radial_grid::all_tests);
           module_test("single_atom.",               single_atom::all_tests);
           module_test("inline_math.",               inline_math::all_tests);
@@ -88,7 +89,6 @@ typedef int status_t;
           module_test("sho_tools.",                   sho_tools::all_tests);
           module_test("atom_core.",                   atom_core::all_tests);
           module_test("data_view.",                   data_view::all_tests);
-          module_test("overlap.",                       overlap::all_tests);
           module_test("control.",                       control::all_tests);
 #undef    module_test
       } // testing scope
@@ -98,13 +98,13 @@ typedef int status_t;
           printf("# ERROR: test for '%s' not found!\n", module);
           status = -1;
       } else {
-          printf("\n# %ld modules have been tested:\n", run.size());
+          printf("\n\n#%3ld modules have been tested:\n", run.size());
           for(auto r : run) {
               auto const stat = r.second;
-              printf("#   module = '%s' \t status = %d\n", r.first.c_str(), stat);
+              printf("#    module= %-24s status= %i\n", r.first.c_str(), stat);
               status += abs(stat);
           } // r
-          printf("# total status = %d\n\n", status);
+          printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), status);
           if (status > 0) printf("# Warning! At least one module test failed!\n");
       } // something has been tested
       return status;

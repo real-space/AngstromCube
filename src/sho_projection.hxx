@@ -9,7 +9,7 @@ typedef int status_t;
 #include "real_space_grid.hxx" // real_space_grid::grid_t<D0>
 #include "hermite_polynomial.hxx" // hermite_polys
 #include "inline_math.hxx" // pow3
-#include "constants.hxx" // sqrtpi, factorial<>
+#include "constants.hxx" // sqrtpi, factorial<T>
 
 namespace sho_projection {
 

@@ -9,7 +9,7 @@
 #include <array> // std::array<T,n>
 #include <cassert> // assert
  
-#include "overlap.hxx"
+#include "sho_overlap.hxx"
 
 #include "vector_math.hxx" // vector_math from exafmm
 #include "constants.hxx" // pi, sqrtpi
@@ -40,7 +40,7 @@
 #endif
 
 
-namespace overlap {
+namespace sho_overlap {
   // computes the overlap between Gaussian-localized 1D polynomials
   
   template<typename real_t>
@@ -386,6 +386,11 @@ namespace overlap {
   template // explicit template instantiation
   status_t generate_overlap_matrix(double matrix[], double const distance, int const n0, int const n1,
                                    double const sigma0, double const sigma1);
+
+  template // explicit template instantiation
+  status_t generate_product_tensor(double tensor[], int const n, double const sigma,
+                                   double const sigma0, double const sigma1);
+
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -931,4 +936,4 @@ namespace overlap {
   } // all_tests
 #endif // NO_UNIT_TESTS  
 
-} // namespace overlap
+} // namespace sho_overlap
