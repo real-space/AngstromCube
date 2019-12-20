@@ -7,7 +7,7 @@
 #include "real_space_grid.hxx" // ::grid_t
 #include "grid_operators.hxx" // ::grid_Hamiltonian, ::grid_Overlapping
 #include "data_view.hxx" // view2D<T>, view3D<T>
-#include "linear_algebra.hxx" // ::generalized_eigenvalues
+#include "linear_algebra.hxx" // ::generalized_eigval
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // set
 
@@ -62,7 +62,7 @@ namespace davidson_solver {
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i); else printf("#  ");
           for(int j = 0; j < m; ++j) {
-              printf(" %g", mat[i*stride + j]);
+              printf("%10.3f", mat[i*stride + j]);
           }   printf("\n");
       }   printf("\n");
   } // show_matrix
@@ -75,7 +75,7 @@ namespace davidson_solver {
   ) {
       status_t stat = 0;
       size_t const ndof = (size_t)g.dim(0) * (size_t)g.dim(1) * (size_t)g.dim(2);
-      int const mbasis = control::get("davidson.basis.multiplier", 4);
+      int const mbasis = control::get("davidson.basis.multiplier", 3);
       if (echo > 0) printf("# start Davidson (subspace size up to %i x %i bands)\n", mbasis, nbands);
       
       int const max_space = mbasis*nbands;
@@ -97,27 +97,69 @@ namespace davidson_solver {
       set(psi.data(), nbands*g.all(), waves); // copy nbands initial wave functions
       std::vector<real_t> hpsi(max_space*g.all(), 0.0);
       std::vector<real_t> spsi(max_space*g.all(), 0.0);
-      
-      assert( 1 == D0 );
-      for(int istate = 0; istate < sub_space; ++istate) {
-          stat += grid_operators::grid_Hamiltonian(hpsi.data() + istate*g.all(), psi.data() + istate*g.all(), g, a, ai, kinetic, potential.data());
-          stat += grid_operators::grid_Overlapping(spsi.data() + istate*g.all(), psi.data() + istate*g.all(), g, a, ai);
-      } // istate
+      std::vector<real_t> epsi(max_space*g.all(), 0.0); // new eigenfunctions
 
-      inner_products<real_t,D0>(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
-      inner_products<real_t,D0>(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
-      if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
-      if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
+      int iteration = 0;
+      while(sub_space <= max_space) {
+          if (echo > 0) printf("# Davidson iteration %i\n", iteration);
 
-      std::vector<real_t> eigenvalues(sub_space);
-      stat += linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigenvalues.data());
-      if (echo > 8) show_matrix(eigenvalues.data(), sub_space, 1, sub_space, "Eigenvalues");
-      
-      // now rotate the basis into the eigenspace
-      
-      // now compute the residual vectors and add them to the basis if their norm is not too small
-      
-      
+          // apply Hamiltonian and Overlap operator
+          for(int istate = 0; istate < sub_space; ++istate) {
+              assert( 1 == D0 );
+              stat += grid_operators::grid_Hamiltonian(hpsi.data() + istate*g.all(), psi.data() + istate*g.all(), g, a, ai, kinetic, potential.data());
+              stat += grid_operators::grid_Overlapping(spsi.data() + istate*g.all(), psi.data() + istate*g.all(), g, a, ai);
+          } // istate
+
+          // compute matrix representation in the sub_space
+          inner_products<real_t,D0>(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
+          inner_products<real_t,D0>(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
+          
+          if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
+          if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
+
+          std::vector<real_t> eigval(sub_space);
+          stat += linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigval.data());
+          auto const eigvec = Hmt;
+          if (echo > 8) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
+          if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
+
+          // now rotate the basis into the eigenspace, ToDo: can we use DGEMM-style operations?
+          int const stride = g.all();
+          for(int i = 0; i < sub_space; ++i) {
+              for(int j = 0; j < sub_space; ++j) {
+                  for(int k = 0; k < stride; ++k) {
+                      epsi[i*stride + k] += eigvec[i][j] * psi[j*stride + k];
+                  } // k
+              } // j
+          } // i
+
+
+          if (sub_space < max_space) {
+            
+              // apply Hamiltonian and Overlap operator again
+              for(int istate = 0; istate < sub_space; ++istate) {
+                  assert( 1 == D0 );
+                  stat += grid_operators::grid_Hamiltonian(hpsi.data() + istate*g.all(), epsi.data() + istate*g.all(), g, a, ai, kinetic, potential.data());
+                  stat += grid_operators::grid_Overlapping(spsi.data() + istate*g.all(), epsi.data() + istate*g.all(), g, a, ai);
+              } // istate
+
+              // now compute the residual vectors and add them to the basis if their norm is not too small
+              for(int i = 0; i < nbands; ++i) {
+                  for(int k = 0; k < stride; ++k) {
+                      epsi[(i + sub_space)*stride + k] = hpsi[i*stride + k] - eigval[i] * spsi[i*stride + k];
+                  } // k
+              } // i
+              
+          } // not in the last iteration
+              
+          set(psi.data(), sub_space*g.all(), epsi.data()); // copy sub_space wave functions
+
+          sub_space += nbands;
+          
+      } // iteration
+     
+      set(waves, nbands*g.all(), psi.data()); // copy result wave functions back
+      // ToDo: export last set of nbands eigenvalues
       
       return stat;
   } // solve
