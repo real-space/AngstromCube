@@ -48,7 +48,7 @@ namespace grid_operators {
                         , double const *potential=nullptr // diagonal potential operator [optional]
                         ) {
       status_t stat = 0;
-      int constexpr echo = 8;
+      int constexpr echo = 0;
 
       if (fd) {
           stat += Laplacian(Hpsi, psi, g, *fd, -0.5); // -0.5: kinetic energy prefactor in Hartree units
@@ -66,7 +66,7 @@ namespace grid_operators {
           } // i0 vectorization
       } // izyx
 
-      int constexpr echo_sho = 1;
+      int constexpr echo_sho = 0;
 
 #if 1
       int const na = a.size();
@@ -200,6 +200,25 @@ namespace grid_operators {
   //       because then, all three operators, Hamiltonian, Overlapping and Preconditioner share
   //       the same structure, whereas latter has a FD-stencil with all positive coefficients
 
+  template // explicit template instantiation for real_t=double and D0=1
+  status_t grid_Hamiltonian(double Hpsi[] // result
+                          , double const psi[] // input wave functions
+                          , real_space_grid::grid_t<1> const &g // 3D Cartesian grid descriptor
+                          , std::vector<atom_image::sho_atom_t> const &a
+                          , std::vector<atom_image::atom_image_t> const &ai
+                          , finite_difference::finite_difference_t<double> const &fd // finite difference
+                          , double const potential[] // diagonal potential operator
+                          , double const *boundary_phase);
+
+  template // explicit template instantiation for real_t=double and D0=1
+  status_t grid_Overlapping(double Spsi[] // result
+                          , double const psi[] // input wave functions
+                          , real_space_grid::grid_t<1> const &g // 3D Cartesian grid descriptor
+                          , std::vector<atom_image::sho_atom_t> const &a
+                          , std::vector<atom_image::atom_image_t> const &ai
+                          , double const *boundary_phase);
+  
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
