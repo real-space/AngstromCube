@@ -193,8 +193,6 @@ extern "C" {
   
   class LiveAtom {
   public:
-//    double* mem; // memory to which all radial function pointers and matrices point
-      
       // general config
       int32_t id; // global atom identifyer
       float Z_core; // number of nucleons in the core
@@ -250,7 +248,7 @@ extern "C" {
     // constructor method:
     LiveAtom(float const Z_nucleons
             , int const nu_max=3
-            , bool const transfer2valence=true // depending on transfer2valence results look 
+            , bool const transfer2valence=true // depending on transfer2valence results look
     // slightly different in the shape of smooth potentials but matrix elements are the same
             , float const ionization=0
             , int const global_atom_id=-1
@@ -277,19 +275,19 @@ extern "C" {
 
         numax = nu_max; // 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
-        ellmax = 0; // should be 2*numax;
+        ellmax = 2*numax; // can be smaller than 2*numax
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
         ellmax_compensator = 0;
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
         r_cut = 2.0; // Bohr
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
-//         sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
+//      sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
         sigma = 0.61; // Bohr, spread for projectors (Cu)
         sigma_inv = 1./sigma;
         r_match = 9*sigma;
         set(nn, 1+ELLMAX+2, uint8_t(0));
         if (echo > 0) printf("# %s numbers of projectors ", label);
-        int const nn_limiter = control::get("single_atom.nn.limit", 9.);
+        int const nn_limiter = control::get("single_atom.nn.limit", 9);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
             nn[ell] = std::min((int)nn[ell], nn_limiter); // take a smaller numer of partial waves
@@ -700,15 +698,7 @@ extern "C" {
         // ToDo: projectors only depend on sigma, numax and the radial grid --> move this to the contructor
         scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], sigma, numax, 1, echo/2);
 
-// #define ALTERNATIVE_KINETIC_ENERGY_TENSOR        
-#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-        std::vector<double> tru_wave_i(nr);
-        std::vector<double> tru_waveVi(nr);
-        std::vector<double> smt_waveTi(rg[SMT]->n);
-#endif
 
-#define SHO_PartialWaves
-#ifdef  SHO_PartialWaves
         int ir_match[TRU_AND_SMT];
         for(int ts = TRU; ts <= SMT; ++ts) {
             ir_match[ts] = radial_grid::find_grid_index(*rg[ts], r_match);
@@ -721,11 +711,6 @@ extern "C" {
                 printf("%g %g %g\n", rg[SMT]->r[ir], potential[TRU][ir + nr_diff], potential[SMT][ir]);
             }   printf("\n\n");
         } // echo
-#else
-        int const n_poly = 4; // number of even-order polynomial terms used
-        int const nln = nvalencestates;
-        view2D<double> c_smt(nln, 4);
-#endif
         
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing valence states
@@ -781,8 +766,6 @@ extern "C" {
                 
                 // idea: make this module flexible enough so it can load a potential and 
                 //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
-#ifdef  SHO_PartialWaves
-//+ SHO_PartialWaves
 
                 { // scope: generate smooth partial waves from projectors, revPAW scheme
                     int const stride = align<2>(rg[SMT]->n);
@@ -932,158 +915,10 @@ extern "C" {
 
                 } // scope
                 
-//- SHO_PartialWaves
-#else
-//- SHO_PartialWaves
-                
-                { // scope: construct a simple pseudo wave using low order polynomials
-                    auto const coeff = c_smt[iln];
-                    set(coeff, 4, 0.0);
-                    set(vs.wave[SMT], rg[SMT]->n, vs.wave[TRU] + nr_diff); // workaround: simply take the tail of the true wave
-                    auto const stat = pseudize_function(vs.wave[SMT], rg[SMT], ir_cut[SMT], n_poly, ell, coeff);
-        //          show_state_analysis(echo, rg[SMT], vs.wave[SMT], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[SMT]); // not useful
-                    if (stat) {
-                        if (echo > 0) printf("# %s Matching procedure for the smooth %d%c-valence state failed! info = %d\n", 
-                                                      label, vs.enn, ellchar[ell], stat);
-                    } else {
-                        if (echo > 0) printf("# %s Matching of smooth %d%c-valence state with polynomial r^%d*(%g + r^2* %g + r^4* %g + r^6* %g)\n", 
-                                                      label, vs.enn, ellchar[ell], ell, coeff[0], coeff[1], coeff[2], coeff[3]);
-                    } // stat
-
-    //                 product(work, rg[SMT]->n, vs.wave[SMT], vs.wave[SMT]);
-    //                 double const smt_norm_numerical = dot_product(ir_cut[SMT], work, rg[SMT]->r2dr);
-    //                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
-    //                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical);
-
-                    double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
-                    for(int i = 1; i < n_poly; ++i) {
-                        double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
-                        T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
-                    } // i
-
-                    for(int ir = 0; ir < ir_cut[SMT]; ++ir) {
-                        double const r = rg[SMT]->r[ir], r2 = pow2(r);
-                        double const wT = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
-                        valence_state[iln].wKin[SMT][ir] = wT*r;
-                    } // ir
-
-                    // copy the kinetic energy part of the true wave outside rcut
-                    for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
-                        valence_state[iln].wKin[SMT][ir] = valence_state[iln].wKin[TRU][ir + nr_diff];
-                    } // ir
-                    
-                    if (echo > 9) {
-                        printf("\n## %s polynomial smooth partial waves "
-                                  "and kinetic part"
-                                  " for ell=%c in a.u.:\n", label, ellchar[ell]);
-                        for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                            printf("%g", rg[SMT]->r[ir]); // radius
-                            printf("  %g %g", valence_state[iln].wave[TRU][ir + nr_diff], valence_state[iln].wave[SMT][ir]);
-                            printf("  %g %g", valence_state[iln].wKin[TRU][ir + nr_diff], valence_state[iln].wKin[SMT][ir]);
-                            printf("\n");
-                        }   printf("\n\n");
-                    } // echo
-
-                } // scope
-                
-//+ SHO_PartialWaves
-#endif
 
             } // nrn
             
             
-#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-
-            for(int nrn = 0; nrn < n; ++nrn) {
-                int const iln = ln_off + nrn;
-                product(tru_wave_i.data(), nr, valence_state[iln].wave[TRU], rg[TRU]->r2dr);
-                product(tru_waveVi.data(), nr, valence_state[iln].wave[TRU], potential[TRU], rg[TRU]->rdr); // potential[]=r*V(r)
-                
-                double T_coeff[3] = {0,0,0}; // polynomial coefficients of the kinetic energy operator applied to the smooth wave
-                for(int i = 1; i < n_poly; ++i) {
-                    double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
-                    T_coeff[i - 1] = kinetic_poly*c_smt[iln][i];
-                } // i
-
-                for(int ir = 0; ir < ir_cut[SMT]; ++ir) {
-                    double const r = rg[SMT]->r[ir], r2 = pow2(r);
-                    double const wT = (T_coeff[0] + r2*(T_coeff[1] + r2*T_coeff[2]))*intpow(r, ell);
-                    smt_waveTi[ir] = wT*rg[SMT]->r2dr[ir]; // multiply in the metric here
-                } // ir
-
-                if (echo > 9) {
-                    printf("\n## %s kinetic energy operator onto partial waves for ell=%c |%d> in a.u.:\n", label, ellchar[ell], nrn);
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        printf("%g", rg[SMT]->r[ir]); // radius
-                        printf("  %g %g", valence_state[iln].wave[TRU][ir + nr_diff], valence_state[iln].wave[SMT][ir]);
-                        printf("  %g %g", valence_state[iln].wKin[TRU][ir + nr_diff], valence_state[iln].wKin[SMT][ir]);
-                        printf("\n");
-                    } // ir
-                    printf("\n\n");
-                } // echo
-
-                for(int krn = 0; krn < n; ++krn) {
-                    int const jln = ln_off + krn;
-                    
-                    double const tru_norm = dot_product(ir_cut[TRU], tru_wave_i.data(), valence_state[jln].wave[TRU]); // integrate only up to rcut
-                    double const tru_Epot = dot_product(ir_cut[TRU], tru_waveVi.data(), valence_state[jln].wave[TRU]); //    only up to rcut
-                    double const tru_kinetic_E = valence_state[iln].energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
-                    
-                    double const smt_kinetic_E = dot_product(ir_cut[SMT], smt_waveTi.data(), valence_state[jln].wave[SMT]);
-#if 0
-                    double const rcut = rg[SMT]->r[ir_cut[SMT]];
-//                 if (echo > 0) printf("# %s smooth %d%c-valence state true norm %g, smooth norm %g\n", 
-//                   label, vs.enn, ellchar[ell], tru_norm, smt_norm_numerical
-                    
-                    // psi(r) = \sum_i c_i r^{\ell + 2i}
-                    // \hat T_radial psi = -\frac 12 1/r d^2/dr^2 (r*psi) = -\frac 12 \sum_i c_i (\ell + 2i + 1) (\ell + 2i) r^{\ell + 2i - 2}
-                    // for ell=0 the i=0 term cancels with the centrifugal potential \ell(\ell + 1)r^{-2}
-                    // then \int_0^R dr r^2 psi(r) \hat T psi(r) 
-                    //    = -\frac 12 \sum_i c_i \sum_j c_j \left\[ (\ell + 2j + 1) (\ell + 2j) - (\ell + 1) \ell \right\] R^{2\ell + 2i + 2j + 1}/{2\ell + 2i + 2j + 1}
-                    //    =
-                    double smt_kinetic_E = 0;
-                    double smt_norm = 0; // for comparison between analytical and numerical
-                    for(int i = 0; i < n_poly; ++i) {
-                        // kinetic energy operator acts to the left in <i|T|j>
-                        double const kinetic_poly = -0.5*((ell + 2*i + 1)*(ell + 2*i) - (ell + 1)*ell); // prefactor -0.5 for the kinetic energy in Hartree atomic units
-                        for(int j = 0; j < n_poly; ++j) {
-                            auto const rpower = 2*ell + 2*i + 2*j;
-                            smt_kinetic_E += kinetic_poly*
-                                             c_smt[iln][i]*c_smt[jln][j]*intpow(rcut, rpower + 1)/(rpower + 1.);
-                            smt_norm      += c_smt[iln][i]*c_smt[jln][j]*intpow(rcut, rpower + 3)/(rpower + 3.);
-                        } // j
-                    } // i
-                    // show the norm deficit computed by integrations only up to rcut
-                    // .... this should match the corresponding charge deficit tensor entries
-                    if ((iln == jln) && (echo > 0)) printf("# %s %d%c-valence state has norm deficit %g - %g = %g electrons, (smooth numerical = %g)\n",
-                      label, valence_state[iln].enn, ellchar[ell], tru_norm, smt_norm, tru_norm - smt_norm, smt_norm_numerical);
-#endif                    
-                    kinetic_energy(TRU,iln,jln) = tru_kinetic_E;
-                    kinetic_energy(SMT,iln,jln) = smt_kinetic_E;
-                    if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
-                      label, ellchar[ell], nrn, krn, tru_kinetic_E*eV, smt_kinetic_E*eV, (tru_kinetic_E - smt_kinetic_E)*eV, _eV);
-
-                } // krn
-            } // nrn
-            
-            
-            if (0) {
-                // symmetrize the kinetic energy tensor
-                for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
-                    for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
-                        for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                            auto &aij = kinetic_energy(ts,iln,jln);
-                            auto &aji = kinetic_energy(ts,jln,iln);
-                            auto const avg = 0.5*(aij + aji);
-                            aij = avg;
-                            aji = avg;
-                        } // ts
-                    } // jln
-                } // iln
-            } // active?
-            
-// end  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-#endif
 
             { // scope: establish dual orthgonality with [SHO] projectors
                 int const nr = rg[SMT]->n; //, mr = align<2>(nr);
@@ -1135,7 +970,6 @@ extern "C" {
                     } // nrn
                 } // ts - tru and smt
 
-#if 1
                 // check again the overlap, seems ok
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
@@ -1146,71 +980,6 @@ extern "C" {
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
                 } // nrn
-#endif
-
-#ifdef  ALTERNATIVE_KINETIC_ENERGY_TENSOR
-                // rotate the kinetic energy difference matrix
-                view2D<double> mat(msub, msub), rot(msub, msub);
-                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                    // copy out
-                    for(int i = 0; i < n; ++i) {
-                        for(int j = 0; j < n; ++j) {
-                            mat[i][j] = kinetic_energy(ts,i+ln_off,j+ln_off);
-                        } // j
-                    } // i
-
-                    simple_math::matrix_rotation(n, rot.data(), rot.stride(), 
-                    	  mat.data(), mat.stride(), inv.data(), inv.stride());
-
-                    if (0) {
-                        // symmetrize the kinetic energy tensor
-                        for(int i = 0; i < n; ++i) {
-                            for(int j = 0; j < i; ++j) { // triangular loop excluding the diagonal elements
-                                auto &aij = rot[i][j];
-                                auto &aji = rot[j][i];
-                                auto const avg = 0.5*(aij + aji);
-                                aij = avg;
-                                aji = avg;
-                            } // j
-                        } // i
-                    } // active?
-
-                    // put back
-                    for(int i = 0; i < n; ++i) {
-                        for(int j = 0; j < n; ++j) {
-                            kinetic_energy(ts,i+ln_off,j+ln_off) = rot[i][j]; 
-                        } // j
-                    } // i
-
-                } // ts
-                
-                // display
-                for(int i = 0; i < n; ++i) {
-                    for(int j = 0; j < n; ++j) {
-                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
-                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off); 
-                        if (echo > 0) printf("# %s %c-channel <%d|T|%d> transformed kinetic energy (true) %g and (smooth) %g (diff) %g %s\n", 
-                          label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
-                    } // j
-                } // i
-
-                if (echo > 9) {
-                    printf("\n## %s orthogonalized partial waves "
-//                         "and kinetic part"
-                           " for ell=%c in a.u.:\n", label, ellchar[ell]);
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        printf("%g", rg[SMT]->r[ir]); // radius
-                        for(int iln = ln_off; iln < ln_off + n; ++iln) {
-                            printf("  %g %g", valence_state[iln].wave[TRU][ir + nr_diff], valence_state[iln].wave[SMT][ir]);
-//                          printf(" %g %g",  valence_state[iln].wKin[TRU][ir + nr_diff], valence_state[iln].wKin[SMT][ir]);
-                        } // iln
-                        printf("\n");
-                    } // ir
-                    printf("\n\n");
-                } // echo
-
-// end  ALTERNATIVE_KINETIC_ENERGY_TENSOR                
-#endif                
        
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1277,8 +1046,6 @@ extern "C" {
                 } // i
 
             } // scope: establish dual orthgonality with [SHO] projectors
-            
-//             printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
         } // ell
 
@@ -1611,42 +1378,45 @@ extern "C" {
             int const nr = rg[ts]->n;
             auto const mr = full_density[ts].stride();
 
-            view2D<double> on_grid(2, npt*mr);
-            auto const rho_on_grid = on_grid[0];
-            auto const vxc_on_grid = on_grid[0];
-            auto const exc_on_grid = on_grid[1];
+            { // scope: quantities on the angular grid
+                if (echo > -1) printf("# %s quantities on the angular grid are %i * %i = %i\n", label, npt, mr, npt*mr);
+                view2D<double> on_grid(2, npt*mr);
+                auto const rho_on_grid = on_grid[0];
+                auto const vxc_on_grid = on_grid[0];
+                auto const exc_on_grid = on_grid[1];
 
-            // transform the lm-index into real-space 
-            // using an angular grid quadrature, e.g. Lebedev-Laikov grids
-            if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", 
-                                                      label, full_density[ts][00][0]*Y00);
-            angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax, false);
-            // envoke the exchange-correlation potential (acts in place)
-//          printf("# envoke the exchange-correlation on angular grid\n");
-            for(size_t ip = 0; ip < npt*mr; ++ip) {
-                double const rho = rho_on_grid[ip];
-                double vxc = 0, exc = 0;
-                exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
-                vxc_on_grid[ip] = vxc;
-                exc_on_grid[ip] = exc;
-            } // ip
-            // transform back to lm-index
-            assert(full_potential[ts].stride() == mr);
-            angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax, true);
-            { // scope: transform also the exchange-correlation energy
-                view2D<double> exc_lm(nlm, mr);
-                angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax, true);
-                if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
-                                                         label, full_potential[SMT][00][0]*Y00*eV,_eV);
-                if (echo > 5) {
-                    auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                    printf("# %s double counting correction  in %s 00 channel %.12g %s\n", 
-                              label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
-                    auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                    printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", 
-                              label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
-                } // echo
-            } // scope
+                // transform the lm-index into real-space 
+                // using an angular grid quadrature, e.g. Lebedev-Laikov grids
+                if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n", 
+                                                          label, full_density[ts][00][0]*Y00);
+                angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax, false);
+                // envoke the exchange-correlation potential (acts in place)
+    //          printf("# envoke the exchange-correlation on angular grid\n");
+                for(size_t ip = 0; ip < npt*mr; ++ip) {
+                    double const rho = rho_on_grid[ip];
+                    double vxc = 0, exc = 0;
+                    exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
+                    vxc_on_grid[ip] = vxc; // overwrites rho_on_grid[ip] due to pointer aliasing
+                    exc_on_grid[ip] = exc; // only needed if we want to compute the total energy
+                } // ip
+                // transform back to lm-index
+                assert(full_potential[ts].stride() == mr);
+                angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax, true);
+                { // scope: transform also the exchange-correlation energy
+                    view2D<double> exc_lm(nlm, mr);
+                    angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax, true);
+                    if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
+                                                            label, full_potential[SMT][00][0]*Y00*eV,_eV);
+                    if (echo > 5) {
+                        auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                        printf("# %s double counting correction  in %s 00 channel %.12g %s\n", 
+                                  label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+                        auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                        printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n", 
+                                  label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
+                    } // echo
+                } // scope
+            } // scope: quantities on the angular grid
 
             // solve electrostatics inside the spheres
             view2D<double> Ves(nlm, mr);
@@ -1989,35 +1759,6 @@ extern "C" {
     } // update_spherical_matrix_elements
     
     
-    void set_pure_density_matrix(view2D<double> & density_matrix, float const occ_spdf[4]=nullptr, int const echo=0) {
-        float occ[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; if (occ_spdf) set(occ, 4, occ_spdf);
-        int const nSHO = sho_tools::nSHO(numax);
-        view2D<double> radial_density_matrix(nSHO, nSHO, 0.0);
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int emm = -ell; emm <= ell; ++emm) {
-                for(int enn = 0; enn <= (numax - ell)/2; ++enn) {
-                    int const i = sho_tools::lmn_index(numax, ell, emm, enn);
-                    assert(nSHO > i);
-                    if (0 == enn) radial_density_matrix[i][i] = occ[ell]/(2*ell + 1.); // diagonal entry
-                } // enn
-            } // emm
-        } // ell
-        transform_SHO(density_matrix.data(), density_matrix.stride(), 
-        	   radial_density_matrix.data(), radial_density_matrix.stride(), false);
-        if (echo > 7) {
-            printf("# %s radial density matrix\n", label);
-            for(int i = 0; i < nSHO; ++i) {
-                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", radial_density_matrix[i][j]);
-                printf("\n");
-            } // i
-            printf("\n# %s Cartesian density matrix\n", label);
-            for(int i = 0; i < nSHO; ++i) {
-                for(int j = 0; j < nSHO; ++j) printf("\t%.1f", density_matrix[i][j]);
-                printf("\n");
-            } // i
-        } // echo
-    } // set_pure_density_matrix
-
     void update_density(float const mixing, int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
         update_core_states(mixing, echo);
@@ -2026,19 +1767,6 @@ extern "C" {
         int const nSHO = sho_tools::nSHO(numax);
         view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
         int const nln = nvalencestates;
-        {
-            float occ[] = {0,0,0,0};
-            for(int iln = 0; iln < nln; ++iln) {
-                int const ell = valence_state[iln].ell;
-                if ((ell < 4) && (0 == valence_state[iln].nrn[SMT])) {
-                    occ[ell] = valence_state[iln].occupation;
-                    if ((occ[ell] > 0) && (echo > 1))
-                        printf("# %s Set valence density matrix to be a pure %d%c-state with occupation %.3f\n", 
-                            label, valence_state[iln].enn, ellchar[ell], occ[ell]);
-                } // matching enn-ell quantum numbers?
-            } // iln
-            set_pure_density_matrix(density_matrix, occ);
-        }
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory

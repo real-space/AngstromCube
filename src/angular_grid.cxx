@@ -32,14 +32,14 @@ namespace angular_grid {
 
   template<> // template specialization
   status_t transform<double>(double out[], double const in[], int const ld, // ld is the stride for in[] and out[]
-                 int const ellmax, bool const back, int const echo) {
+                          int const ellmax, bool const back, int const echo) {
       auto const g = get_grid(ellmax, echo); if (nullptr == g) return -1;
       auto const c = 'n'; double const w8 = 1, zero = 0;
       double *b; int ldb = 0, N = 0, K = 0;
-      if (back) { K = pow2(1 + ellmax); N = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
-      else      { N = pow2(1 + ellmax); K = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
-      if (echo > 3) printf("# call dgemm(%c,%c,%d,%d,%d,%g,%p,%d,%p,%d,%g,%p,%d)\n", 
-                        c,c,ld,N,K,w8,(void*)in,ld,(void*)b,ldb,zero,(void*)out,ld);
+      if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
+      else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
+      if (echo > 3) printf("# call dgemm(transA=%c,transB=%c,M=%i,N=%i,K=%i,alpha=%g,%c,ldA=%i,%c,ldB=%i,beta=%g,%c,ldC=%i) back=%d\n", 
+                             c, c, ld, N, K, w8, 'A', ld, 'B', ldb, zero, 'C', ld, back); // pointer values may change from run to run
       dgemm_(&c, &c, &ld, &N, &K, &w8, in, &ld, b, &ldb, &zero, out, &ld); // matrix-matrix multiplication with BLAS
       return 0;
   } // transform
@@ -50,7 +50,7 @@ namespace angular_grid {
       static angular_grid_t grids[1 + ellmax_implemented];
       
       if ((ellmax < 0) || (ellmax > ellmax_implemented)) {
-          if (echo > 0) printf("# %s: ellmax= %d is out of range [0, %d]\n", __func__, ellmax, ellmax_implemented);
+          if (echo > 0) printf("# %s: ellmax= %i is out of range [0, %i]\n", __func__, ellmax, ellmax_implemented);
           return nullptr;
       } // in range
 
@@ -59,7 +59,7 @@ namespace angular_grid {
 //           for(int ell = 0; ell <= ellmax_implemented; ++ell) {
 //               auto g = &grids[ell];
 //               if ((g->npoints > 0) && (g->ellmax == ell)) {
-//                   if (echo > 4) printf("# %s: memory cleanup of ellmax=%d\n", __func__, ell);
+//                   if (echo > 4) printf("# %s: memory cleanup of ellmax=%i\n", __func__, ell);
 //                   delete[] g->xyzw;
 //                   delete[] g->Xlm2grid;
 //                   delete[] g->Xlm2grid;
@@ -82,7 +82,7 @@ namespace angular_grid {
           g->grid2Xlm = new double[nlm       *g->grid2Xlm_stride];
 
           auto const ist = create_Lebedev_grid(ellmax, g->xyzw);
-          if (echo > 0 && ist) printf("# %s: angular grid for ellmax= %d failed with status %d\n", __func__, ellmax, ist);
+          if (echo > 0 && ist) printf("# %s: angular grid for ellmax= %i failed with status %i\n", __func__, ellmax, ist);
           
           // clear the matrix memories
           for(int ij = 0; ij < g->npoints*g->Xlm2grid_stride; ++ij) g->Xlm2grid[ij] = 0;
@@ -99,7 +99,7 @@ namespace angular_grid {
               } // ilm
           } // ipt
           delete[] xlm;
-          if (echo > 0) printf("# %s: angular grid for ellmax= %d is requested 1st: %d points\n", __func__, ellmax, g->npoints);
+          if (echo > 0) printf("# %s: angular grid for ellmax= %i is requested 1st: %i points\n", __func__, ellmax, g->npoints);
       } // grid was not set
       return g;
 
@@ -114,7 +114,7 @@ namespace angular_grid {
 //           } // i
 //           return 0;
 //       } // worked
-//       if (echo > 0) printf("# failed to find an angular grid for ellmax= %d\n", ellmax);
+//       if (echo > 0) printf("# failed to find an angular grid for ellmax= %i\n", ellmax);
 //       return -1;
 //   } // get_weights
 
@@ -343,11 +343,11 @@ namespace angular_grid {
     // todo: check if the suggestion n = (ellmax+1)^2 leads to orthogonality of the spherical harmonics
     int i = 0; while (available[i] < n  && i < 33) { ++i; }
     if (i >= 32 && available[i] < n) {
-        if (echo > 0) printf("# %s ellmax= %d leads to n= %d (too large)!\n", __func__, ellmax, n);
+        if (echo > 0) printf("# %s ellmax= %i leads to n= %i (too large)!\n", __func__, ellmax, n);
         return -1;
     }
     if (echo > 1) printf("# %s correct the number of angular grid points of the Lebedev-Laikov grid"
-                         " for ellmax= %d from %d to %d\n", __func__, ellmax, n, available[i]);
+                         " for ellmax= %i from %i to %i\n", __func__, ellmax, n, available[i]);
     return available[i];
   } // Lebedev_grid_size
 
@@ -1686,7 +1686,7 @@ namespace angular_grid {
       m += gen_oh6(nc, .1905534498734563E-3, xyzw + m, .6772135750395347, .0291994613580811);
 #endif
     break; default:
-        if(echo > 0) printf("# %s A Lebedev-Laikov grid with %d points for ellmax= %d is not available!\n", __func__, n_corrected, ellmax); 
+        if(echo > 0) printf("# %s A Lebedev-Laikov grid with %i points for ellmax= %i is not available!\n", __func__, n_corrected, ellmax); 
 #ifdef  LARGE_GRIDS
 #else       
         if(echo > 0 && n_corrected >= 770) printf("# %s Please activate -D LARGE_GRIDS in %s\n", __func__, __FILE__); 
@@ -1696,10 +1696,10 @@ namespace angular_grid {
 
     if (echo > 6 && m > 0) {
         int8_t const npoints[8] = {1, 6, 12, 8, 24, 24, 48, 0};
-        printf("# %s The Lebedev-Laikov grid for ellmax= %d has %d = ", __func__, ellmax, n_corrected);
+        printf("# %s The Lebedev-Laikov grid for ellmax= %i has %i = ", __func__, ellmax, n_corrected);
         int n_check = 0;
         for(int icode = 0; icode < 7; ++icode) {
-            if (nc[icode] > 0) printf("%d*%d + ", nc[icode], npoints[icode]);
+            if (nc[icode] > 0) printf("%i*%i + ", nc[icode], npoints[icode]);
             n_check += nc[icode] * npoints[icode];
         } // icode
         printf("0 points\n");
@@ -1827,7 +1827,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
                   } // ipt
                   Gaunt *= 4*pi;
                   if (std::abs(Gaunt) > 1e-14) {
-                      if (echo > 1) printf("%d %d %d %.9f\n", lm0, lm1, lm2, Gaunt);
+                      if (echo > 1) printf("%i %i %i %.9f\n", lm0, lm1, lm2, Gaunt);
                       if (gaunt) gaunt->push_back({Gaunt, lm0, lm1, lm2});
                       ++nnz;
                   } // non-zero
@@ -1835,7 +1835,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
               } // lm2
           } // lm1
       } // lm0
-      if (echo > 0) printf("\n# %s: %d of %d real-Gaunt tensor elements are nonzero (%.3f %%), expected %d\n", 
+      if (echo > 0) printf("\n# %s: %i of %i real-Gaunt tensor elements are nonzero (%.3f %%), expected %i\n", 
                                 __func__, nnz, n, nnz/(.01*n), n_expected);
       delete[] xyzw;
       delete[] yy;
@@ -1855,9 +1855,9 @@ cTeXit '. ', '' ! full stop and an extra empty line
       auto xyzw = new double[max_size][4];
       status_t stat = 0;
       for(int ell = -2; ell <= ellmax_implemented + 3; ell += (1 + 2*(ell > 16))) { // in steps of 3 for the larger grids, no need to test the same n 3 times
-          if (echo > 3) printf("\n# %s: try to generate Lebedev-Laikov grid with for ellmax= %d\n", __func__, ell);
+          if (echo > 3) printf("\n# %s: try to generate Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
           auto const m = create_Lebedev_grid(ell, xyzw, echo);
-          if (echo > 2) printf("\n# %s: generated Lebedev-Laikov grid with for ellmax= %d using %d points\n", __func__, ell, m);
+          if (echo > 2) printf("\n# %s: generated Lebedev-Laikov grid with for ellmax= %i using %i points\n", __func__, ell, m);
           if (ell >= 0 && ell <= ellmax_implemented) stat += (m < 0); // count the number of failures in the relevant range
           if (m > 1) {
               // sanity checks on weights and coordinates of the points on the unit sphere
@@ -1867,13 +1867,13 @@ cTeXit '. ', '' ! full stop and an extra empty line
                   max_norm2_dev = std::max(max_norm2_dev, std::abs(1. - norm2));
                   w8sum += xyzw[i][3];
               } // i
-              if (echo > 4) printf("# Lebedev-Laikov grid with %d points for ellmax= %d: w8_dev= %g, |v|_dev= %g\n", m, ell, 1. - w8sum, max_norm2_dev);
+              if (echo > 4) printf("# Lebedev-Laikov grid with %i points for ellmax= %i: w8_dev= %g, |v|_dev= %g\n", m, ell, 1. - w8sum, max_norm2_dev);
               assert(std::abs(1. - w8sum) < 2.3e-14);
               assert(max_norm2_dev < 2.3e-16);
           } // m > 1, for m == 1, a single weight is set to unity but the coordinates are all zero, so the sanity test does not apply
       } // ell
       delete[] xyzw;
-      if (echo > 1) printf("\n# %s: %d grid generations failed!\n", __func__, stat);
+      if (echo > 1) printf("\n# %s: %i grid generations failed!\n", __func__, stat);
       return stat;
   } // test
     
@@ -1891,12 +1891,12 @@ cTeXit '. ', '' ! full stop and an extra empty line
       double dev_all = 0;
       for(int ell = ellmax; ell > 0; --ell) {
           int const m = (1 + ell)*(1 + ell);
-          if (echo > 3) printf("\n# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %d\n", __func__, ell);
+          if (echo > 3) printf("\n# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
           auto const np = create_Lebedev_grid(ell, xyzw, echo);
           for(int ij = 0; ij < M*M; ++ij) unity[ij] = 0; // clear
           for(int ip = 0; ip < np; ++ip) {
               auto const w8 = xyzw[ip][3] * 4*constants::pi;
-//            if (echo > 3) printf("# %s: envoke Ylm for %d  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
+//            if (echo > 3) printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
 //               spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
               solid_harmonics::Xlm(yy, ell, xyzw[ip]);
               for(int i = 0; i < m; ++i) {
@@ -1921,15 +1921,15 @@ cTeXit '. ', '' ! full stop and an extra empty line
               } // j
               if (echo > 7) printf("\n");
           } // i
-          if (echo > 2) printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %d is %g\n", __func__, ell, dev);
+          if (echo > 2) printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %i is %g\n", __func__, ell, dev);
           dev_all = std::max(dev_all, dev);
           stat += (dev > 2.7e-14);
 
       } // ell
-      if (echo > 0) printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %d is %g\n", __func__, ellmax, dev_all);
+      if (echo > 0) printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %g\n", __func__, ellmax, dev_all);
       delete[] xyzw;
       delete[] yy;
-      if (echo > 1) printf("\n# %s: %d grid generations failed!\n", __func__, stat);
+      if (echo > 1) printf("\n# %s: %i grid generations failed!\n", __func__, stat);
       return stat;
   } // test
 
