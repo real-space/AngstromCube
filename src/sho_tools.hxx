@@ -36,10 +36,10 @@ namespace sho_tools {
 
   // =============================== Radial indices ===============================
 
+  // emm-degenerate
   inline int constexpr nSHO_radial(int const numax)    { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
   inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
   
-  // emm-degenerate
   inline constexpr int ln_index(int const numax, int const ell, int const nrn)
       { return nrn + (1 + ell*( (2*numax + 4) - ell))/4; } // ln_index
   template<int numax> inline constexpr
@@ -64,7 +64,10 @@ namespace sho_tools {
       
   inline constexpr 
   int nlm_index(int const numax, int const nrn, int const ell, int const emm) {
-      return lm_index(ell, emm) + 4*pow3(nrn)/3 - 2*(numax + 2)*pow2(nrn); // 4/3*nrn^3 - 2*(numax + 2)*nrn^2 + ?
+      return lm_index(ell, emm) + (   4*pow3(nrn)
+                                    - 6*pow2(nrn)*(numax + 2)
+                                    + nrn *(12*numax + 3*numax*numax + 11)
+                                  )/3;
   } // nlm_index
   template<int numax> inline constexpr
   int nlm_index(int const nrn, int const ell, int const emm) {

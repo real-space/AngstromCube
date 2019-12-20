@@ -96,7 +96,7 @@ endif
 
 EXTFLAGS ?=
 
-ifdef zam044
+ifeq ($(SYSTEM),zam044)
 	EXTFLAGS += -D HAS_no_MKL
 	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
 else

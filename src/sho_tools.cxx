@@ -1,4 +1,3 @@
-
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // int16_t
@@ -24,7 +23,7 @@ namespace sho_tools {
 
   status_t test_radial_indices(int const echo=4) {
       status_t nerrors = 0;
-      for(int numax = 0; numax <= 19; ++numax) {
+      for(int numax = 0; numax <= 9; ++numax) {
           if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax);
           int lnm = 0, ln = 0, lm = 0, lmn = 0;
           for(int ell = 0; ell <= numax; ++ell) {
@@ -67,7 +66,9 @@ namespace sho_tools {
           for(int nrn = 0; nrn <= numax/2; ++nrn) {
               for(int ell = 0; ell <= numax - 2*nrn; ++ell) {
                   int const k = nlm_index(numax, nrn, ell, -ell);
-                  if (echo > -1) printf("# nlm_index<%i>(nrn=%i, ell=%d, emm=-ell) == %d %d diff=%d\n", numax, nrn, ell, nlm, k, nlm - k);
+                  if (echo > 7) printf("# nlm_index<%i>(nrn=%i, ell=%d, emm=-ell) == %d %d diff=%d\n", numax, nrn, ell, nlm, k, nlm - k);
+                  assert(k == nlm);
+                  nerrors += (k != nlm)*(2*ell + 1);
                   nlm += (2*ell + 1); // forward one ell-shell emm=-ell...ell
               } // ell
           } // nrn
