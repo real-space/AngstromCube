@@ -64,10 +64,8 @@ namespace sho_tools {
       
   inline constexpr 
   int nlm_index(int const numax, int const nrn, int const ell, int const emm) {
-      return lm_index(ell, emm) + (   4*pow3(nrn)
-                                    - 6*pow2(nrn)*(numax + 2)
-                                    + nrn *(12*numax + 3*numax*numax + 11)
-                                  )/3;
+      return lm_index(ell, emm) + (nrn*(nrn*(nrn*4 - 6*(numax + 2))
+                                        + 12*numax + 3*numax*numax + 11))/3;
   } // nlm_index
   template<int numax> inline constexpr
   int nlm_index(int const nrn, int const ell, int const emm) {
