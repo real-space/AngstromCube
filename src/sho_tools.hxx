@@ -4,21 +4,22 @@
 
 typedef int status_t;
 
-#include "inline_math.hxx" // pow2
+#include "inline_math.hxx" // pow2, pow3
 
 namespace sho_tools {
 
 //   union _order_u { uint32_t i; char c[4]; };
 
   typedef enum { // different index orderings
-      order_zyx     = 0x207a7978, // " zyx" Cartesian order best for triple loop, depends on numax
-      order_lmn     = 0x206c6d6e, // " lmn" Radial order best for Gaunt treatment, depends on numax
-      order_lnm     = 0x206c6e6d, // " lnm" Radial order best for radial basis functions, depends on numax
-      order_nlnm    = 0x6e6c6e6d, // "nlnm" energy-ordered Radial
-      order_ln      = 0x20206c6e, // "  ln" Radial emm-degenerate, depends on numax
-      order_nln     = 0x206e6c6e, // " nln" energy-ordered Radial emm-degenerate
-      order_nzyx    = 0x6e7a7978, // "nzyx" energy-ordered Cartesian
-      order_unknown = 0x3f3f3f3f  // "????" error flag
+      order_zyx     = 0x207a7978, // " zyx"  Cartesian order best for triple loop, depends on numax
+      order_lmn     = 0x206c6d6e, // " lmn"  Radial order best for Gaunt treatment, depends on numax
+      order_lnm     = 0x206c6e6d, // " lnm"  Radial order best for radial basis functions, depends on numax
+      order_nlm     = 0x206e6c6d, // " nlm"  Radial order best for spherical harmonics, depends on numax
+      order_nlnm    = 0x456c6e6d, // "Elnm"  energy-ordered Radial
+      order_ln      = 0x20206c6e, // "  ln"  Radial emm-degenerate, depends on numax
+      order_nln     = 0x20456c6e, // " Eln"  energy-ordered Radial emm-degenerate
+      order_nzyx    = 0x457a7978, // "Ezyx"  energy-ordered Cartesian
+      order_unknown = 0x3f3f3f3f  // "????"  error flag
   } SHO_order_t;
 
   // number of all 3D SHO states up to numax >= 0
@@ -35,6 +36,7 @@ namespace sho_tools {
 
   // =============================== Radial indices ===============================
 
+  inline int constexpr nSHO_radial(int const numax)    { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
   inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
   
   // emm-degenerate
@@ -57,14 +59,23 @@ namespace sho_tools {
       return lnm_index(numax, ell, nrn, emm); }
 
   inline constexpr
+  int lm_index(int const ell, int const emm) { 
+      return ell*ell + ell + emm; } // usual spherical harmonics index
+      
+  inline constexpr 
+  int nlm_index(int const numax, int const nrn, int const ell, int const emm) {
+      return lm_index(ell, emm) + 4*pow3(nrn)/3 - 2*(numax + 2)*pow2(nrn); // 4/3*nrn^3 - 2*(numax + 2)*nrn^2 + ?
+  } // nlm_index
+  template<int numax> inline constexpr
+  int nlm_index(int const nrn, int const ell, int const emm) {
+      return nlm_index(numax, nrn, ell, emm); }
+
+  inline constexpr
   int lmn_index(int const numax, int const ell, int const emm, int const nrn) {
       return ((3*numax + 5)*ell + 3*(1 + numax)*ell*ell - 2*ell*ell*ell)/6 // found through fitting emm=0, nrn=0 values
             + emm*(1 + (numax - ell)/2) // nrn_max = (numax - ell)/2
             + nrn; } // linear contribution
 
-  inline constexpr
-  int lm_index(int const ell, int const emm) { 
-      return ell*ell + ell + emm; } // usual spherical harmonics index
       
   // =============================== Cartesian indices ===============================
 
@@ -87,19 +98,19 @@ namespace sho_tools {
 
   // energy-ordered Cartesian 3D index
   inline constexpr
-  int nzyx_index(int const nx, int const ny, int const nz) { 
+  int Ezyx_index(int const nx, int const ny, int const nz) { 
       return ((nx+ny+nz)*(1 + nx+ny+nz)*(2 + nx+ny+nz))/6 // contribution from previous shells
                + nx + (nz*((2+ nx+ny+nz )*2-(nz + 1)))/2; // contribution from previous row and x
-  } // nzyx_index
+  } // Ezyx_index
 
   // energy-ordered radial emm-degenerate index
   inline constexpr
-  int nln_index(int const ell, int const nrn) {
+  int Eln_index(int const ell, int const nrn) {
       return (pow2(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
 
   // energy-ordered radial 3D index
   inline constexpr
-  int nlnm_index(int const ell, int const nrn, int const emm) {
+  int Elnm_index(int const ell, int const nrn, int const emm) {
       return ((ell + 2*nrn)*(ell + 2*nrn + 1)*(ell + 2*nrn + 2) // energy shell offset (nu*(nu+1)*(nu+2))/6
               + 3*ell*(ell - 1) // previous ells (ell*(ell - 1))/2
               + 6*(emm + ell))/6; } // linear emm-contribution
@@ -127,7 +138,7 @@ namespace sho_tools {
           for(int z = 0; z <= numax; ++z) {
               for(int y = 0; y <= numax - z; ++y) {
                   for(int x = 0; x <= numax - z - y; ++x) {
-                      int const nzyx = nzyx_index(x, y, z);
+                      int const nzyx = Ezyx_index(x, y, z);
                       energy_ordered[ii] = nzyx;
                       if (echo > 4) printf(" %d", nzyx);
                       if (nullptr != inverse) inverse[nzyx] = ii;
@@ -140,7 +151,7 @@ namespace sho_tools {
           for(int l = 0; l <= numax; ++l) {
               for(int m = -l; m <= l; ++m) {
                   for(int n = 0; n <= (numax - l)/2; ++n) {
-                      int const nlnm = nlnm_index(l, n, m);
+                      int const nlnm = Elnm_index(l, n, m);
                       energy_ordered[ii] = nlnm;
                       if (echo > 4) printf(" %d", nlnm);
                       if (nullptr != inverse) inverse[nlnm] = ii;
@@ -152,14 +163,14 @@ namespace sho_tools {
         case order_ln:
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
-                  int const nln = nln_index(l, n);
+                  int const nln = Eln_index(l, n);
                   energy_ordered[ii] = nln;
                   if (echo > 3) printf(" %d", nln);
                   if (nullptr != inverse) inverse[nln] = ii;
                   ++ii;
           }} // l n
         break;
-        
+
         default:
             if (echo > 0) printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
       } // switch order

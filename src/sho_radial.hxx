@@ -8,6 +8,7 @@ namespace sho_radial {
   
   inline int constexpr nSHO(int const numax) { return ((3 + numax)*(2 + numax)*(1 + numax))/6; } // number of SHO eigenstates
   inline int constexpr nSHO_radial(int const numax) { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
+                                                            //  ToDo: move to sho_tools
 
   template<typename real_t>
   status_t radial_eigenstates(real_t poly[], // coefficients of a polynomial in r^2

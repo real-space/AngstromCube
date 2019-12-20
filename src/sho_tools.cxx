@@ -24,7 +24,7 @@ namespace sho_tools {
 
   status_t test_radial_indices(int const echo=4) {
       status_t nerrors = 0;
-      for(int numax = 0; numax <= 9; ++numax) {
+      for(int numax = 0; numax <= 19; ++numax) {
           if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax);
           int lnm = 0, ln = 0, lm = 0, lmn = 0;
           for(int ell = 0; ell <= numax; ++ell) {
@@ -58,8 +58,20 @@ namespace sho_tools {
                   } // nrn
               } // emm
               assert((1 + ell)*(1 + ell) == lm); // checksum
-
           } // ell
+          assert(nSHO(numax) == lnm); // checksum
+          assert(nSHO(numax) == lmn); // checksum
+
+          // the nlm_index is nrn-first ordered, not energy-ordered
+          int nlm = 0;
+          for(int nrn = 0; nrn <= numax/2; ++nrn) {
+              for(int ell = 0; ell <= numax - 2*nrn; ++ell) {
+                  int const k = nlm_index(numax, nrn, ell, -ell);
+                  if (echo > -1) printf("# nlm_index<%i>(nrn=%i, ell=%d, emm=-ell) == %d %d diff=%d\n", numax, nrn, ell, nlm, k, nlm - k);
+                  nlm += (2*ell + 1); // forward one ell-shell emm=-ell...ell
+              } // ell
+          } // nrn
+          assert(nSHO(numax) == nlm); // checksum
           if (echo > 6) printf("\n# lmn_index<%d>\n", numax);
       } // numax
       if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
@@ -82,6 +94,7 @@ namespace sho_tools {
                   } // nx
               } // ny
           } // nz
+          assert(nSHO(numax) == zyx); // checksum
       } // numax
       if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
       return nerrors;
@@ -93,16 +106,16 @@ namespace sho_tools {
       if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax);
       int nzyx = 0, nln = 0, nlnm = 0;
       for(int nu = 0; nu <= numax; ++nu) { // shell index
-        
-          // Cartesian energy ordered index
+
+          // Cartesian energy-ordered index
           if (echo > 7) printf("\n# nzyx_index<nu=%d>\n", nu);
           int xyz = 0;
           for(int nz = 0; nz <= nu; ++nz) { // z can also run backwards so we start from (0,0,nu) and proceed with (1,0,nu-1)
               for(int nx = 0; nx <= nu - nz; ++nx) {
                   int const ny = nu - nz - nx;
-                  int const k = nzyx_index(nx, ny, nz);
+                  int const k = Ezyx_index(nx, ny, nz);
                   if ((echo > 6) && (k != nzyx))
-                      printf("# nzyx_index<nu=%d>(nx=%d, ny=%d, nz=%d) == %d %d diff=%d  xyz=%d %d\n", 
+                      printf("# Ezyx_index<nu=%d>(nx=%d, ny=%d, nz=%d) == %d %d diff=%d  xyz=%d %d\n", 
                              nu, nx, ny, nz, nzyx, k, k - nzyx, xyz,  nx + (nz*((2+nu)*2-(nz + 1)))/2 );
                   assert(k == nzyx);
                   nerrors += (k != nzyx);
@@ -114,16 +127,16 @@ namespace sho_tools {
           } // nz
           assert(nSHO(nu) == nzyx); // checksum
           
-          // radial energy ordered indices
+          // radial emm-degenerate energy-ordered indices
           for(int ell = nu%2; ell <= nu; ell+=2) {
               int const nrn = (nu - ell)/2;
-              int const k = nln_index(ell, nrn);
-              if (echo > 9) printf("# nln_index<nu=%d>(ell=%d, nrn=%d) == %d %d\n", nu, ell, nrn, nln, k);
+              int const k = Eln_index(ell, nrn);
+              if (echo > 9) printf("# Eln_index<nu=%d>(ell=%d, nrn=%d) == %d %d\n", nu, ell, nrn, nln, k);
               assert(k == nln);
               ++nln;
               for(int emm = -ell; emm <= ell; ++emm) {
-                  int const k = nlnm_index(ell, nrn, emm);
-                  if (echo > 9) printf("# nlnm_index<nu=%d>(ell=%d, nrn=%d, emm=%d) == %d\n", nu, ell, nrn, emm, nlnm);
+                  int const k = Elnm_index(ell, nrn, emm);
+                  if (echo > 9) printf("# Elnm_index<nu=%d>(ell=%d, nrn=%d, emm=%d) == %d\n", nu, ell, nrn, emm, nlnm);
                   assert(k == nlnm);
                   nerrors += (k != nlnm);
                   assert(nu == get_nu(nlnm));
@@ -131,7 +144,8 @@ namespace sho_tools {
               } // emm
           } // ell
           assert(nSHO(nu) == nlnm); // checksum
-          
+          assert(nSHO_radial(nu) == nln); // checksum
+
       } // nu
       if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
       return nerrors;

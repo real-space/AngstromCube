@@ -55,8 +55,8 @@ namespace sho_unitary {
 
                       real_t const u_entry = signed_sqrt(nom/((real_t)den));
                       if (echo > 8) printf("%d %d %d    %d %2d %d  %.15f\n", nx, ny, nz, ell, emm, nrn, u_entry);
-                      int const nzyx = sho_tools::nzyx_index(nx, ny, nz);
-                      int const nlnm = sho_tools::nlnm_index(ell, nrn, emm);
+                      int const nzyx = sho_tools::Ezyx_index(nx, ny, nz);
+                      int const nlnm = sho_tools::Elnm_index(ell, nrn, emm);
                       int const nu_xyz = sho_tools::get_nu(nx, ny, nz);
                       int const nu_rad = sho_tools::get_nu(ell, nrn);
                       if (nu_xyz != nu_rad) {

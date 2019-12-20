@@ -194,7 +194,7 @@ extern "C" {
   class LiveAtom {
   public:
       // general config
-      int32_t id; // global atom identifyer
+      int32_t atom_id; // global atom identifyer
       float Z_core; // number of nucleons in the core
       char label[16]; // label string
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
@@ -253,12 +253,12 @@ extern "C" {
             , float const ionization=0
             , int const global_atom_id=-1
             , int const echo=0) : gaunt_init{false} { // constructor
-        id = -1; // unset
+        atom_id = -1; // unset
         Z_core = Z_nucleons; // convert to float
         
-        id = global_atom_id; if (id >= 0) { sprintf(label, "a#%d", id); } else { label[0]=0; }
+        atom_id = global_atom_id; if (atom_id >= 0) { sprintf(label, "a#%d", atom_id); } else { label[0]=0; }
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g nucleons, ionization=%g\n", label, Z_core, ionization);
-        
+
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
         
         if (0) { // flat copy, true and smooth quantities live on the same radial grid
@@ -277,7 +277,7 @@ extern "C" {
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
         ellmax = 2*numax; // can be smaller than 2*numax
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
-        ellmax_compensator = 0;
+        ellmax_compensator = std::min(4, (int)ellmax);
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
         r_cut = 2.0; // Bohr
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
@@ -1379,7 +1379,7 @@ extern "C" {
             auto const mr = full_density[ts].stride();
 
             { // scope: quantities on the angular grid
-                if (echo > -1) printf("# %s quantities on the angular grid are %i * %i = %i\n", label, npt, mr, npt*mr);
+                if (echo > 6) printf("# %s quantities on the angular grid are %i * %li = %li\n", label, npt, mr, npt*mr);
                 view2D<double> on_grid(2, npt*mr);
                 auto const rho_on_grid = on_grid[0];
                 auto const vxc_on_grid = on_grid[0];
@@ -1801,7 +1801,7 @@ namespace single_atom {
   
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm, int const _echo) {
+                  double **rho, double **qlm, double **vlm, int *lmax, int *lmax_cmp, int const _echo) {
       int const echo = 0; // mute
     
       static LiveAtom **a=nullptr;
@@ -1810,7 +1810,7 @@ namespace single_atom {
           SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
           a = new LiveAtom*[na];
           for(int ia = 0; ia < na; ++ia) {
-              a[ia] = new LiveAtom(Za[ia], 2, false, ion[ia], ia, echo);
+              a[ia] = new LiveAtom(Za[ia], 3, false, ion[ia], ia, echo);
           } // ia
       } // a has not been initialized
 
@@ -1833,12 +1833,15 @@ namespace single_atom {
           
           if (nullptr != sigma_cmp) sigma_cmp[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
           
-          if (nullptr != qlm) set(qlm[ia], 1, a[ia]->qlm_compensator); // copy compensator multipoles
+          if (nullptr != qlm) set(qlm[ia], pow2(1 + a[ia]->ellmax_compensator), a[ia]->qlm_compensator); // copy compensator multipoles
           
           if (nullptr != vlm) { 
               a[ia]->update_potential(.5f, vlm[ia], echo); // set electrostatic multipole shifts
               a[ia]->update_density(.5f, echo);
           } //  vlm
+
+          if (nullptr != lmax)     lmax[ia]     = a[ia]->ellmax;
+          if (nullptr != lmax_cmp) lmax_cmp[ia] = a[ia]->ellmax_compensator;
           
       } // ia
 

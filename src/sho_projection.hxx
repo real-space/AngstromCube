@@ -8,8 +8,8 @@ typedef int status_t;
 #include "sho_tools.hxx" // sho_tools::nSHO, sho_tools::get_nu, sho_tools::order_zyx
 #include "real_space_grid.hxx" // real_space_grid::grid_t<D0>
 #include "hermite_polynomial.hxx" // hermite_polys
-#include "inline_math.hxx" // pow3
-#include "constants.hxx" // sqrtpi, factorial<T>
+#include "inline_math.hxx" // pow3, factorial<T>
+#include "constants.hxx" // sqrtpi
 
 namespace sho_projection {
 
@@ -139,7 +139,7 @@ namespace sho_projection {
                  , int const echo=0) { //
       return _sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
-  
+
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
       return std::sqrt( ( 1 << sho_tools::get_nu(nx, ny, nz) )
                        /(   pow3(constants::sqrtpi * sigma) 
