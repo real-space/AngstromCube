@@ -119,7 +119,7 @@ namespace davidson_solver {
 
           std::vector<real_t> eigval(sub_space);
           stat += linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigval.data());
-          auto const eigvec = Hmt;
+          auto const & eigvec = Hmt;
           if (echo > 8) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
           if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 

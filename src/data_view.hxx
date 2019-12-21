@@ -4,7 +4,7 @@
 #include <cassert> // assert
 #include <cstdint> // uint32_t --> replace size_t with this?
 
-// #define debug_printf(...) printf(...)  
+// #define debug_printf(...) printf(__VA_ARGS__)  
 #define debug_printf(...)
 
 #define DimUnknown 0
@@ -14,35 +14,37 @@ class view2D {
 public:
   
   view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown) { } // default constructor
-    
+
   view2D(T* const ptr, size_t const stride) 
     : _data(ptr), _n0(stride), _n1(DimUnknown) { } // data view constructor
-    
+
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
     : _data(new T[n1*stride]), _n0(stride), _n1(n1) {
         std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
-  } // memory owning constructor
+  } // memory owning constructor, ToDo: move this to the derived type
 
   ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
 
-  view2D(view2D<T> const & rhs) {
-      debug_printf("# view2D(view2D<T> const & rhs);\n");
-      *this = rhs;
-  } 
+  view2D(view2D<T> const & rhs) = delete;
+  // view2D(view2D<T> const & rhs) {
+  //     // copy constructor (may lead to problems, who owns the memory afterwards?)
+  //     debug_printf("# view2D(view2D<T> const & rhs);\n");
+  //     *this = rhs;
+  // } // copy constructor
 
-  view2D(view2D<T>      && rhs) { 
+  view2D(view2D<T> && rhs) {
       debug_printf("# view2D(view2D<T> && rhs);\n");
       *this = std::move(rhs);
-  }
+  } // move constructor (so far not called)
 
   view2D& operator= (view2D<T> && rhs) {
       debug_printf("# view2D& operator= (view2D<T> && rhs);\n");
       _data = rhs._data;
-      _n0   = rhs._n0; 
+      _n0   = rhs._n0;
       _n1   = rhs._n1;
       rhs._n1 = DimUnknown; // steal ownership
       return *this;
-  }
+  } // move assignment (used frequently)
 
   view2D& operator= (view2D<T> const & rhs) {
       debug_printf("# view2D& operator= (view2D<T> const & rhs);\n");
@@ -50,7 +52,8 @@ public:
       _n0   = rhs._n0; 
       _n1   = DimUnknown; // we are just a shallow copy
       return *this;
-  }
+  } // move assignment (so far not called)
+
 
 #ifdef  _VIEW2D_HAS_PARENTHESIS
   T const & operator () (size_t const i1, size_t const i0) const { return _data[i1*_n0 + i0]; } // (i,j)
