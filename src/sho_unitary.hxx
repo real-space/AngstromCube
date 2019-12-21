@@ -3,6 +3,8 @@
 typedef int status_t;
 
 #include <cmath> // std::abs
+#include <vector> // std::vector<T>
+
 #include "sho_tools.hxx" // sho_tools::, SHO_order_t
 
 namespace sho_unitary {
@@ -15,11 +17,6 @@ namespace sho_unitary {
   
   template<typename real_t> // typically real_t=double
   class Unitary_SHO_Transform {
-
-      private:
-          real_t **u; // block diagonal matrix entries
-          int numax; // largest ell
-          
       public:
         
           Unitary_SHO_Transform(int const lmax=7, int const echo=8) {
@@ -49,12 +46,12 @@ namespace sho_unitary {
 
           ~Unitary_SHO_Transform() {
               for(int nu = 0; nu <= numax; ++nu) {
-                  delete [] u[nu];
+                  delete[] u[nu];
               } // nu
-              delete [] u;
+              delete[] u;
           } // destructor
           
-          real_t inline get_entry(int const nzyx, int const nlnm) { // input must both be energy ordered indices
+          real_t inline get_entry(int const nzyx, int const nlnm) const { // input must both be energy ordered indices
               int const nu = sho_tools::get_nu(nzyx);
               if (nu != sho_tools::get_nu(nlnm)) return 0;
 //               if (nu > numax) return 0; // warn and return, ToDo: warning
@@ -73,14 +70,15 @@ namespace sho_unitary {
           template<typename real_out_t>
           status_t construct_dense_matrix(real_out_t matrix[], int const nu_max, int const matrix_stride=-1, 
                             sho_tools::SHO_order_t const row_order=sho_tools::order_zyx,
-                            sho_tools::SHO_order_t const col_order=sho_tools::order_lmn) {
+                            sho_tools::SHO_order_t const col_order=sho_tools::order_lmn) const {
+              status_t stat = 0;
               int const nSHO = sho_tools::nSHO(nu_max);
               int const stride = (matrix_stride > 0)? matrix_stride : nSHO;
-              auto const row_index = new int16_t[nSHO];
-              auto const col_index = new int16_t[nSHO];
-              status_t stat = 0;
-              stat += sho_tools::construct_index_table(row_index, nu_max, row_order);
-              stat += sho_tools::construct_index_table(col_index, nu_max, col_order);
+
+              std::vector<int16_t> row_index(nSHO), col_index(nSHO);
+              stat += sho_tools::construct_index_table(row_index.data(), nu_max, row_order);
+              stat += sho_tools::construct_index_table(col_index.data(), nu_max, col_order);
+
               for(int i = 0; i < nSHO; ++i) {
                   for(int j = 0; j < nSHO; ++j) {
                       matrix[i*stride + j] = get_entry(row_index[i], col_index[j]);
@@ -89,8 +87,7 @@ namespace sho_unitary {
                       matrix[i*stride + j] = 0; // fill stride-gaps
                   } // j col index
               } // i row index
-              delete[] col_index;
-              delete[] row_index;
+
               return stat; // success
           } // construct_dense_matrix
 
@@ -120,6 +117,9 @@ namespace sho_unitary {
               return maxdevall;
           } // test_unitarity
 
+      private:
+          real_t **u; // block diagonal matrix entries
+          int numax; // largest ell
   }; // class Unitary_SHO_Transform
   
 } // namespace sho_unitary

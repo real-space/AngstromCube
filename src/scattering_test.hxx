@@ -12,7 +12,7 @@
 #include "display_units.h" // eV, Ang
 #include "inline_tools.hxx" // align<nBits>
 #include "inline_math.hxx" // set
-#include "sho_tools.hxx" // num_ln_indices, nSHO
+#include "sho_tools.hxx" // nSHO
 #include "sho_radial.hxx" // nSHO_radial
 #include "radial_integrator.hxx" // integrate_outwards<SRA>
 #include "constants.hxx" // pi
@@ -534,12 +534,12 @@ namespace scattering_test {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
       auto const rg = *radial_grid::create_default_radial_grid(0);
-      int const nln = sho_tools::num_ln_indices(lmax);
-      auto V = std::vector<double>(rg.n, 0.0);
+      int const nln = sho_radial::nSHO_radial(lmax);
+      std::vector<double> V(rg.n, 0.0);
       double const sigma = 1.0; // if the rmax ~= 10, lmax = 7, sigma <= 1.5, otherwise projectors leak out
       for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
-      auto const aHm = std::vector<double>(nln*nln, 0.0);
-      auto nn = std::vector<uint8_t>(1 + lmax, 0); for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
+      std::vector<double> const aHm(nln*nln, 0.0);
+      std::vector<uint8_t> nn(1 + lmax, 0); for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
       return eigenstate_analysis(rg, V.data(), sigma, lmax, nn.data(), lmax, aHm.data(), aHm.data(), 128, echo);
       // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
   } // test_eigenstate_analysis

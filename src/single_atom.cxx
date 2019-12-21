@@ -469,8 +469,8 @@ extern "C" {
         overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
         unitary_zyx_lmn = new double[nSHO*nSHO];
-        {   auto const u = new sho_unitary::Unitary_SHO_Transform<double>(numax);
-            auto const stat = u->construct_dense_matrix(unitary_zyx_lmn, numax);
+        {   sho_unitary::Unitary_SHO_Transform<double> const u(numax);
+            auto const stat = u.construct_dense_matrix(unitary_zyx_lmn, numax);
             assert(0 == stat);
         } // scope to fill unitary
         
@@ -483,7 +483,7 @@ extern "C" {
         lm_index_list.resize(nSHO);
         lmn_begin.resize(mlm);
         lmn_end.resize(mlm);
-        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), nln, lmn_begin.data(), lmn_end.data(), mlm, echo);
+        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), echo);
         
 
         logder_energy_range[0] = control::get("logder.start", -2.0);
@@ -730,13 +730,9 @@ extern "C" {
     //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
                 set(vs.wave[TRU], nr, 0.0); // clear
 
-//                 if ((0 == nrn) || (vs.occupation > 0)) {
                 if (true) {
                     // solve for a true valence eigenstate
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU], vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
-//                     // manipulate --> tried this, becomes worse
-//                     if ((n > 1) && (0 == nrn)) vs.energy -= 0.125;
-//                     if ((n > 1) && (1 == nrn)) vs.energy  = 0.25 + valence_state[ln_off].energy;
                 } else {
                     assert(nrn > 0);
                     vs.energy = valence_state[iln - 1].energy + 1.0; // copy energy from lower state and add 1.0 Hartree
@@ -1093,35 +1089,29 @@ extern "C" {
     } // update_charge_deficit
 
     template<typename int_t>
-    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[], int const nln, 
-                             int_t lmn_begin[], int_t lmn_end[], int const mlm, 
+    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[],
+                             int_t lmn_begin[], int_t lmn_end[],
                              int const echo=0) {
-        for(int lm = 0; lm < mlm; ++lm) lmn_begin[lm] = -1;
-        int ilmn = 0;
+        int const mlm = pow2(1 + numax);
+        for(int lm = 0; lm < mlm; ++lm) {
+            lmn_begin[lm] = -1;
+        } // lm
         for(int ell = 0; ell <= numax; ++ell) {
-            int iln_enn[8]; // create a table of iln-indices
-            for(int iln = 0; iln < nln; ++iln) {
-                if (ell == valence_state[iln].ell) {
-                    int const nrn = valence_state[iln].nrn[SMT];
-                    iln_enn[nrn] = iln;
-                } // ell matches
-            } // iln
             for(int emm = -ell; emm <= ell; ++emm) {
                 for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
-                    ln_index_list[ilmn] = iln_enn[nrn]; // valence state index
-                    int const lm = solid_harmonics::lm_index(ell, emm);
+                    int const ilmn      = sho_tools::lmn_index(numax, ell, emm, nrn);
+                    ln_index_list[ilmn] = sho_tools::ln_index(numax, ell, nrn); // valence state index
+                    int const lm        = sho_tools::lm_index(ell, emm);
                     lm_index_list[ilmn] = lm;
                     if (lmn_begin[lm] < 0) lmn_begin[lm] = ilmn; // store the first index of this lm
-                                             lmn_end[lm] = ilmn + 1; // store the last index of this lm
-                    ++ilmn;
+                    lmn_end[lm] = ilmn + 1; // store the last index of this lm
                 } // nrn
             } // emm
         } // ell
-        int const nlmn = ilmn;
 
         if (echo > 3) {
             printf("# %s ln_index_list ", label);
-            for(int i = 0; i < nlmn; ++i) {
+            for(int i = 0; i < sho_tools::nSHO(numax); ++i) {
                 printf(" %i", ln_index_list[i]); 
             }   printf("\n");
             printf("# %s lmn_begin-lmn_end ", label); 

@@ -10,14 +10,14 @@ typedef int status_t;
 namespace sho_tools {
 
   typedef enum : int64_t { // different index orderings
-      order_zyx     = 0x78797a,   // "zyx"    Cartesian order best for triple loop, depends on numax
-      order_Ezyx    = 0x78797a45, // "Ezyx"   energy-ordered Cartesian
-      order_lmn     = 0x6e6d6c,   // "lmn"    Radial order best for Gaunt treatment, depends on numax
+      order_zyx     = 0x78797a,   // "zyx"    Cartesian order best for triple loop,         depends on numax
+      order_Ezyx    = 0x78797a45, // "Ezyx"   energy-ordered Cartesian,                 independent of numax
+      order_lmn     = 0x6e6d6c,   // "lmn"    Radial order best for Gaunt treatment,        depends on numax
       order_lnm     = 0x6d6e6c,   // "lnm"    Radial order best for radial basis functions, depends on numax
-      order_nlm     = 0x6d6c6e,   // "nlm"    Radial order best for spherical harmonics, depends on numax
-      order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial
-      order_ln      = 0x6e6c,     // "ln"     ell-ordered radial emm-degenerate, depends on numax
-      order_Eln     = 0x6e6c45,   // "Eln"    energy-ordered Radial emm-degenerate
+      order_nlm     = 0x6d6c6e,   // "nlm"    Radial order best for spherical harmonics,    depends on numax
+      order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial,                    independent of numax
+      order_ln      = 0x6e6c,     // "ln"     ell-ordered radial emm-degenerate,            depends on numax
+      order_Eln     = 0x6e6c45,   // "Eln"    energy-ordered Radial emm-degenerate,     independent of numax
       order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
 
@@ -131,6 +131,7 @@ namespace sho_tools {
   status_t construct_index_table(int_t energy_ordered[], int const numax, 
                     SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
       // construct a table of energy ordered indices
+      // this is needed to address e.g. the block-diagonal SHO-transformation operator
       if (echo > 1) printf("# construct_index_table for <numax=%d> order=%s\n", numax, SHO_order2string(&order));
       if (echo > 3) printf("# ");
       int ii = 0;
@@ -140,10 +141,10 @@ namespace sho_tools {
           for(int z = 0; z <= numax; ++z) {
               for(int y = 0; y <= numax - z; ++y) {
                   for(int x = 0; x <= numax - z - y; ++x) {
-                      int const nzyx = Ezyx_index(x, y, z);
-                      energy_ordered[ii] = nzyx;
-                      if (echo > 4) printf(" %d", nzyx);
-                      if (inverse) inverse[nzyx] = ii;
+                      int const eo = Ezyx_index(x, y, z);
+                      energy_ordered[ii] = eo;
+                      if (echo > 4) printf(" %d", eo);
+                      if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
@@ -153,10 +154,10 @@ namespace sho_tools {
           for(int l = 0; l <= numax; ++l) {
               for(int m = -l; m <= l; ++m) {
                   for(int n = 0; n <= (numax - l)/2; ++n) {
-                      int const nlnm = Elnm_index(l, n, m);
-                      energy_ordered[ii] = nlnm;
-                      if (echo > 4) printf(" %d", nlnm);
-                      if (inverse) inverse[nlnm] = ii;
+                      int const eo = Elnm_index(l, n, m);
+                      energy_ordered[ii] = eo;
+                      if (echo > 4) printf(" %d", eo);
+                      if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // l m n
           assert(nSHO(numax) == ii);
@@ -165,12 +166,13 @@ namespace sho_tools {
         case order_ln:
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
-                  int const nln = Eln_index(l, n);
-                  energy_ordered[ii] = nln;
-                  if (echo > 3) printf(" %d", nln);
-                  if (inverse) inverse[nln] = ii;
+                  int const eo = Eln_index(l, n);
+                  energy_ordered[ii] = eo;
+                  if (echo > 3) printf(" %d", eo);
+                  if (inverse) inverse[eo] = ii;
                   ++ii;
           }} // l n
+          assert(nSHO_radial(numax) == ii);
         break;
 
         default:

@@ -261,15 +261,17 @@ namespace spherical_atoms {
           printf("\n# augmented charge density grid stats:");
           print_stats(rho.data(), g.all(), g.dV());
 
-          int ng[3]; double reci[3][4]; 
-          for(int d = 0; d < 3; ++d) { 
-              ng[d] = g.dim(d);
-              set(reci[d], 4, 0.0);
-              reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
-          } // d
+          {
+              int ng[3]; double reci[3][4]; 
+              for(int d = 0; d < 3; ++d) { 
+                  ng[d] = g.dim(d);
+                  set(reci[d], 4, 0.0);
+                  reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
+              } // d
           
-          // solve the Poisson equation
-          stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
+              // solve the Poisson equation
+              stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
+          }
 
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
