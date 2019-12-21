@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdio> // printf
+#include <cstdint> // int64_t
 
 typedef int status_t;
 
@@ -8,19 +9,19 @@ typedef int status_t;
 
 namespace sho_tools {
 
-//   union _order_u { uint32_t i; char c[4]; };
-
-  typedef enum { // different index orderings
-      order_zyx     = 0x207a7978, // " zyx"  Cartesian order best for triple loop, depends on numax
-      order_lmn     = 0x206c6d6e, // " lmn"  Radial order best for Gaunt treatment, depends on numax
-      order_lnm     = 0x206c6e6d, // " lnm"  Radial order best for radial basis functions, depends on numax
-      order_nlm     = 0x206e6c6d, // " nlm"  Radial order best for spherical harmonics, depends on numax
-      order_nlnm    = 0x456c6e6d, // "Elnm"  energy-ordered Radial
-      order_ln      = 0x20206c6e, // "  ln"  Radial emm-degenerate, depends on numax
-      order_nln     = 0x20456c6e, // " Eln"  energy-ordered Radial emm-degenerate
-      order_nzyx    = 0x457a7978, // "Ezyx"  energy-ordered Cartesian
-      order_unknown = 0x3f3f3f3f  // "????"  error flag
+  typedef enum : int64_t { // different index orderings
+      order_zyx     = 0x78797a,   // "zyx"    Cartesian order best for triple loop, depends on numax
+      order_Ezyx    = 0x78797a45, // "Ezyx"   energy-ordered Cartesian
+      order_lmn     = 0x6e6d6c,   // "lmn"    Radial order best for Gaunt treatment, depends on numax
+      order_lnm     = 0x6d6e6c,   // "lnm"    Radial order best for radial basis functions, depends on numax
+      order_nlm     = 0x6d6c6e,   // "nlm"    Radial order best for spherical harmonics, depends on numax
+      order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial
+      order_ln      = 0x6e6c,     // "ln"     ell-ordered radial emm-degenerate, depends on numax
+      order_Eln     = 0x6e6c45,   // "Eln"    energy-ordered Radial emm-degenerate
+      order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
+
+  inline char const * SHO_order2string(SHO_order_t const *order) { return (char const *)order; }
 
   // number of all 3D SHO states up to numax >= 0
   inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
@@ -130,7 +131,7 @@ namespace sho_tools {
   status_t construct_index_table(int_t energy_ordered[], int const numax, 
                     SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
       // construct a table of energy ordered indices
-      if (echo > 1) printf("# construct_index_table for <numax=%d> order=%c%c%c%c\n", numax, order>>24, order>>16, order>>8, order);
+      if (echo > 1) printf("# construct_index_table for <numax=%d> order=%s\n", numax, SHO_order2string(&order));
       if (echo > 3) printf("# ");
       int ii = 0;
       switch (order) {
@@ -142,7 +143,7 @@ namespace sho_tools {
                       int const nzyx = Ezyx_index(x, y, z);
                       energy_ordered[ii] = nzyx;
                       if (echo > 4) printf(" %d", nzyx);
-                      if (nullptr != inverse) inverse[nzyx] = ii;
+                      if (inverse) inverse[nzyx] = ii;
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
@@ -155,7 +156,7 @@ namespace sho_tools {
                       int const nlnm = Elnm_index(l, n, m);
                       energy_ordered[ii] = nlnm;
                       if (echo > 4) printf(" %d", nlnm);
-                      if (nullptr != inverse) inverse[nlnm] = ii;
+                      if (inverse) inverse[nlnm] = ii;
                       ++ii;
           }}} // l m n
           assert(nSHO(numax) == ii);
@@ -167,13 +168,13 @@ namespace sho_tools {
                   int const nln = Eln_index(l, n);
                   energy_ordered[ii] = nln;
                   if (echo > 3) printf(" %d", nln);
-                  if (nullptr != inverse) inverse[nln] = ii;
+                  if (inverse) inverse[nln] = ii;
                   ++ii;
           }} // l n
         break;
 
         default:
-            if (echo > 0) printf("# no such case implemented: order=%c%c%c%c\n", order>>24, order>>16, order>>8, order);
+            if (echo > 0) printf("# no such case implemented: order=%s\n", SHO_order2string(&order));
       } // switch order
       if (echo > 3) printf("\n\n");
       return 0; // success if 0

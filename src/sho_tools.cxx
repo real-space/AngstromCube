@@ -12,10 +12,11 @@ namespace sho_tools {
 
   status_t test_order_enum(int const echo=4) {
       status_t nerrors = 0;
-      SHO_order_t const ord[8] = {order_zyx, order_lmn, order_lnm, order_nlnm, order_nzyx, order_ln, order_nln, order_unknown};
-      for(int io = 0; io < 8; ++io) {
+      SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm, 
+                  order_nlm, order_Elnm, order_ln, order_Eln, order_unknown};
+      for(int io = 0; io < 9; ++io) {
           SHO_order_t const oi = ord[io];
-          if (echo > 3) printf("# %s: SHO_order_t %c%c%c%c = 0x%8x = %10u\n", __func__, oi>>24, oi>>16, oi>>8, oi, oi, oi);
+          if (echo > 0) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10ld\n", __func__, SHO_order2string(&oi), oi, oi);
       } // io
       if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
       return nerrors;
