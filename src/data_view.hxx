@@ -3,6 +3,8 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // uint32_t --> replace size_t with this?
+#include <algorithm> // std::fill
+#include <utility> // std::move
 
 // #define debug_printf(...) printf(__VA_ARGS__)  
 #define debug_printf(...)
@@ -13,17 +15,29 @@ template<typename T>
 class view2D {
 public:
   
-  view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown) { } // default constructor
+  view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown), _mem(0) { 
+      debug_printf("# view2D() default constructor\n");
+  } // default constructor
 
   view2D(T* const ptr, size_t const stride) 
-    : _data(ptr), _n0(stride), _n1(DimUnknown) { } // data view constructor
+    : _data(ptr), _n0(stride), _n1(DimUnknown), _mem(0) { 
+      debug_printf("# view2D(ptr, stride=%i) constructor\n", stride);
+  } // data view constructor
 
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
-    : _data(new T[n1*stride]), _n0(stride), _n1(n1) {
-        std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
+    : _data(new T[n1*stride]), _n0(stride), _n1(n1), _mem(n1*stride*sizeof(T)) {
+      debug_printf("# view2D(n1=%i, stride=%i [, init_value]) constructor allocates %g kiByte\n", n1, stride, _mem/1024.);
+      std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor, ToDo: move this to the derived type
 
-  ~view2D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
+  ~view2D() {
+      debug_printf("# ~view2D() destructor");
+      if (_data && (_mem > 0)) {
+          debug_printf(" tries to free %g kiByte\n", _mem/1024.);
+          delete[] _data;
+      } // is memory owner
+      else debug_printf("\n");
+  } // destructor
 
   view2D(view2D<T> const & rhs) = delete;
   // view2D(view2D<T> const & rhs) {
@@ -32,27 +46,31 @@ public:
   //     *this = rhs;
   // } // copy constructor
 
+  // view2D(view2D<T> && rhs) = delete;
   view2D(view2D<T> && rhs) {
       debug_printf("# view2D(view2D<T> && rhs);\n");
       *this = std::move(rhs);
-  } // move constructor (so far not called)
+  } // move constructor, used
 
   view2D& operator= (view2D<T> && rhs) {
       debug_printf("# view2D& operator= (view2D<T> && rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
-      rhs._n1 = DimUnknown; // steal ownership
+      _mem  = rhs._mem;
+      rhs._mem = 0; // steal ownership
       return *this;
   } // move assignment (used frequently)
 
-  view2D& operator= (view2D<T> const & rhs) {
-      debug_printf("# view2D& operator= (view2D<T> const & rhs);\n");
-      _data = rhs._data;
-      _n0   = rhs._n0; 
-      _n1   = DimUnknown; // we are just a shallow copy
-      return *this;
-  } // move assignment (so far not called)
+  view2D& operator= (view2D<T> const & rhs) = delete;
+  // view2D& operator= (view2D<T> const & rhs) {
+  //     debug_printf("# view2D& operator= (view2D<T> const & rhs);\n");
+  //     _data = rhs._data;
+  //     _n0   = rhs._n0; 
+  //     _n1   = rhs._n0;
+  //     _mem  = 0; // we are just a shallow copy
+  //     return *this;
+  // } // move assignment (so far not called)
 
 
 #ifdef  _VIEW2D_HAS_PARENTHESIS
@@ -67,13 +85,13 @@ public:
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
-  bool is_memory_owner() const { return (_n1 > DimUnknown); }
 
 private:
   // private data members
-  T* _data;
+  T * _data;
   size_t _n0, _n1; // _n1==0 --> unknown
-  
+  size_t _mem; // only > 0 if memory owner
+
 }; // view2D
 
 
