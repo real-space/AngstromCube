@@ -56,8 +56,7 @@ public:
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
-      _mem  = rhs._mem;
-      rhs._mem = 0; // steal ownership
+      _mem  = rhs._mem; rhs._mem = 0; // steal ownership
       return *this;
   } // move assignment
 
