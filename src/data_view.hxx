@@ -16,28 +16,33 @@ class view2D {
 public:
   
   view2D() : _data(nullptr), _n0(DimUnknown), _n1(DimUnknown), _mem(0) { 
-      debug_printf("# view2D() default constructor\n");
+      // debug_printf("# view2D() default constructor\n");
   } // default constructor
 
   view2D(T* const ptr, size_t const stride) 
     : _data(ptr), _n0(stride), _n1(DimUnknown), _mem(0) { 
-      debug_printf("# view2D(ptr, stride=%i) constructor\n", stride);
+      // debug_printf("# view2D(ptr, stride=%i) constructor\n", stride);
   } // data view constructor
 
   view2D(size_t const n1, size_t const stride, T const init_value={0}) 
     : _data(new T[n1*stride]), _n0(stride), _n1(n1), _mem(n1*stride*sizeof(T)) {
-      debug_printf("# view2D(n1=%i, stride=%i [, init_value]) constructor allocates %g kiByte\n", n1, stride, _mem/1024.);
+      debug_printf("# view2D(n1=%i, stride=%i [, init_value]) constructor allocates %g kByte\n", n1, stride, _mem*.001);
       std::fill(_data, _data + n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor, ToDo: move this to the derived type
 
   ~view2D() {
-      debug_printf("# ~view2D() destructor");
+      // debug_printf("# ~view2D() destructor\n");
       if (_data && (_mem > 0)) {
-          debug_printf(" tries to free %g kiByte\n", _mem/1024.);
+          debug_printf("# ~view2D() destructor tries to free %g kByte\n", _mem*.001);
           delete[] _data;
       } // is memory owner
-      else debug_printf("\n");
   } // destructor
+
+  // view2D(view2D<T> && rhs) = delete;
+  view2D(view2D<T> && rhs) {
+      debug_printf("# view2D(view2D<T> && rhs);\n");
+      *this = std::move(rhs);
+  } // move constructor
 
   view2D(view2D<T> const & rhs) = delete;
   // view2D(view2D<T> const & rhs) {
@@ -45,12 +50,6 @@ public:
   //     debug_printf("# view2D(view2D<T> const & rhs);\n");
   //     *this = rhs;
   // } // copy constructor
-
-  // view2D(view2D<T> && rhs) = delete;
-  view2D(view2D<T> && rhs) {
-      debug_printf("# view2D(view2D<T> && rhs);\n");
-      *this = std::move(rhs);
-  } // move constructor, used
 
   view2D& operator= (view2D<T> && rhs) {
       debug_printf("# view2D& operator= (view2D<T> && rhs);\n");
@@ -60,7 +59,7 @@ public:
       _mem  = rhs._mem;
       rhs._mem = 0; // steal ownership
       return *this;
-  } // move assignment (used frequently)
+  } // move assignment
 
   view2D& operator= (view2D<T> const & rhs) = delete;
   // view2D& operator= (view2D<T> const & rhs) {
@@ -70,7 +69,7 @@ public:
   //     _n1   = rhs._n0;
   //     _mem  = 0; // we are just a shallow copy
   //     return *this;
-  // } // move assignment (so far not called)
+  // } // move assignment
 
 
 #ifdef  _VIEW2D_HAS_PARENTHESIS
@@ -103,46 +102,56 @@ template<typename T>
 class view3D {
 public:
   
-  view3D() : _data(nullptr), _n0(0), _n1(0), _n2(DimUnknown) { } // default constructor
+  view3D() : _data(nullptr), _n0(0), _n1(0), _n2(DimUnknown), _mem(0) { } // default constructor
 
-  view3D(T* const ptr, size_t const n1, size_t const stride) 
-    : _data(ptr), _n0(stride), _n1(n1), _n2(DimUnknown) { } // constructor
+  view3D(T* const ptr, size_t const n1, size_t const stride)
+    : _data(ptr), _n0(stride), _n1(n1), _n2(DimUnknown), _mem(0) { } // constructor
 
   view3D(size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
-    : _data(new T[n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2) {
-        std::fill(_data, _data + n2*n1*stride, init_value); // warning! first touch here!
+    : _data(new T[n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _mem(n2*n1*stride*sizeof(T)) {
+      debug_printf("# view3D(n2=%i, n1=%i, stride=%i [, init_value]) constructor allocates %g kByte\n", n2, n1, stride, _mem*.001);
+      std::fill(_data, _data + n2*n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
-  ~view3D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
-
-  view3D(view3D<T> const & rhs) { 
-      debug_printf("# view3D(view3D<T> const & rhs);\n");
-      *this = rhs;
-  } 
+  ~view3D() { 
+      if (_data && (_mem > 0)) {
+          delete[] _data;
+          debug_printf("# ~view3D() destructor tries to free %g kByte\n", _mem*.001);
+      }
+  } // destructor
 
   view3D(view3D<T>      && rhs) { 
       debug_printf("# view3D(view3D<T> && rhs);\n");
       *this = std::move(rhs);
-  }
+  } // move constructor
 
+  view3D(view3D<T> const & rhs) = delete; 
+  // view3D(view3D<T> const & rhs) { 
+  //     debug_printf("# view3D(view3D<T> const & rhs);\n");
+  //     *this = rhs;
+  // } // copy constructor
+
+  // view3D& operator= (view3D<T> && rhs) = delete;
   view3D& operator= (view3D<T> && rhs) {
       debug_printf("# view3D& operator= (view3D<T> && rhs);\n");
       _data = rhs._data;
       _n0   = rhs._n0;
       _n1   = rhs._n1;
       _n2   = rhs._n2;
-      rhs._n2 = DimUnknown; // steal ownership
+      _mem  = rhs._mem; rhs._mem = 0; // steal ownership
       return *this;
-  }
+  } // move assignment
 
-  view3D& operator= (view3D<T> const & rhs) {
-      debug_printf("# view3D& operator= (view3D<T> const & rhs);\n");
-      _data = rhs._data;
-      _n0   = rhs._n0;
-      _n1   = rhs._n1;
-      _n2   = DimUnknown; // we are just a shallow copy
-      return *this;
-  }
+  view3D& operator= (view3D<T> const & rhs) = delete;
+  // view3D& operator= (view3D<T> const & rhs) {
+  //     debug_printf("# view3D& operator= (view3D<T> const & rhs);\n");
+  //     _data = rhs._data;
+  //     _n0   = rhs._n0;
+  //     _n1   = rhs._n1;
+  //     _n2   = rhs._n2;
+  //     _mem  = 0; // we are just a shallow copy
+  //     return *this;
+  // } // move assignment
   
 #define _VIEW3D_HAS_PARENTHESIS
 #ifdef  _VIEW3D_HAS_PARENTHESIS
@@ -183,6 +192,7 @@ private:
   // private data members
   T* _data;
   size_t _n0, _n1, _n2; // _n2==0 -->unknown
+  size_t _mem; // only > 0 if memory owner
 
 }; // view3D
 
@@ -202,21 +212,29 @@ public:
 
   view4D(size_t const n3, size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
     : _data(new T[n3*n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _n3(n3) {
-        std::fill(_data, _data + n3*n2*n1*stride, init_value); // warning! first touch here!
+      debug_printf("# view4D(n3=%i, n2=%i, n1=%i, stride=%i [, init_value]) constructor allocates %g kByte\n", n3, n2, n1, stride, _mem*.001);
+      std::fill(_data, _data + n3*n2*n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
 
-  ~view4D() { if (_data && is_memory_owner()) delete[] _data; } // destructor
+  ~view4D() { 
+      if (_data && (_mem > 0)) {
+          delete[] _data;
+          debug_printf("# ~view4D() destructor tries to free %g kByte\n", _mem*.001);
+      }
+  } // destructor
 
-  view4D(view4D<T> const & rhs) { 
-      debug_printf("# view4D(view4D<T> const & rhs);\n");
-      *this = rhs;
-  } 
-
-  view4D(view4D<T>      && rhs) { 
+  view4D(view4D<T> && rhs) { 
       debug_printf("# view4D(view4D<T> && rhs);\n");
       *this = std::move(rhs);
-  }
+  } // move constructor
 
+  view4D(view4D<T> const & rhs) = delete;
+  // view4D(view4D<T> const & rhs) { 
+  //     debug_printf("# view4D(view4D<T> const & rhs);\n");
+  //     *this = rhs;
+  // } // copy constructor
+
+  // view4D& operator= (view4D<T> && rhs) = delete;
   view4D& operator= (view4D<T> && rhs) {
       debug_printf("# view4D& operator= (view4D<T> && rhs);\n");
       _data = rhs._data;
@@ -224,19 +242,21 @@ public:
       _n1   = rhs._n1;
       _n2   = rhs._n2;
       _n3   = rhs._n3;
-      rhs._n3 = DimUnknown; // steal ownership
+      _mem  = rhs._mem; rhs._mem = 0; // steal ownership
       return *this;
-  }
+  } // move assignment
 
-  view4D& operator= (view4D<T> const & rhs) {
-      debug_printf("# view4D& operator= (view4D<T> const & rhs);\n");
-      _data = rhs._data;
-      _n0   = rhs._n0;
-      _n1   = rhs._n1;
-      _n2   = rhs._n2;
-      _n3   = DimUnknown; // we are just a shallow copy
-      return *this;
-  }
+  view4D& operator= (view4D<T> const & rhs) = delete;
+  // view4D& operator= (view4D<T> const & rhs) {
+  //     debug_printf("# view4D& operator= (view4D<T> const & rhs);\n");
+  //     _data = rhs._data;
+  //     _n0   = rhs._n0;
+  //     _n1   = rhs._n1;
+  //     _n2   = rhs._n2;
+  //     _n3   = rhs._n3;
+  //     _mem  = 0; // we are just a shallow copy
+  //     return *this;
+  // } // move assignment
   
 #define _VIEW4D_HAS_PARENTHESIS
 #ifdef  _VIEW4D_HAS_PARENTHESIS
@@ -267,14 +287,13 @@ private:
   // private data members
   T* _data;
   size_t _n0, _n1, _n2, _n3; // _n3==0 -->unknown
+  size_t _mem; // only > 0 if memory owner
 
 }; // view4D
 
 template<typename T>
 inline void set(view4D<T> & y, size_t const n3, T const a) { 
          std::fill(y.data(), y.data() + n3*y.dim2()*y.dim1()*y.stride(), a); }
-
-
 
 #undef DimUnknown
 
