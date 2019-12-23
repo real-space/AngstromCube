@@ -2,6 +2,7 @@
 #include <vector> // std::vector
 #include <string> // std::string
 #include <cassert> // assert
+#include <cstdlib> // std::abs
 
 typedef int status_t;
 
@@ -102,7 +103,7 @@ typedef int status_t;
           for(auto r : run) {
               auto const stat = r.second;
               printf("#    module= %-24s status= %i\n", r.first.c_str(), stat);
-              status += abs(stat);
+              status += std::abs(stat);
           } // r
           printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), status);
           if (status > 0) printf("# Warning! At least one module test failed!\n");
