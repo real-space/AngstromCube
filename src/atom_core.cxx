@@ -117,10 +117,13 @@ namespace atom_core {
   
   
   
+  inline void get_Zeff_file_name(char *filename, char const *basename, float const Z) {
+      sprintf(filename, "%s.%03g", basename, Z); }
+
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, float const Z, 
-          char const name[], float const factor, int const echo) {
+          char const basename[], float const factor, int const echo) {
       status_t stat = 0;
-      char filename[99]; sprintf(filename, "%s.%03d", name, (int)std::ceil(Z));
+      char filename[96]; get_Zeff_file_name(filename, basename, Z);
       if (echo > 3) printf("# %s  Z=%g  try to read file %s\n",  __func__, Z, filename);
       std::ifstream infile(filename);
       int ngr = 0, ngu = 0; // number of radial grid points read and used
@@ -156,15 +159,15 @@ namespace atom_core {
       return stat;
   } // read_Zeff_from_file
 
-  status_t store_Zeff_to_file(double const Zeff[], radial_grid_t const &g, float const Z, 
-      char const name[]="pot/Zeff", float const factor=1, int const echo=9) {
-      char filename[99]; sprintf(filename, "%s.%03d", name, (int)std::ceil(Z));
+  status_t store_Zeff_to_file(double const Zeff[], double const r[], int const nr, float const Z, 
+      char const basename[]="pot/Zeff", float const factor=1, int const echo=9) {
+      char filename[96]; get_Zeff_file_name(filename, basename, Z);
       if (echo > 3) printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
       std::ofstream outfile(filename);
       if (outfile.is_open()) {
           outfile << std::setprecision(15);
-          for(int ir = 0; ir < g.n; ++ir) {
-              outfile << g.r[ir] << " " << Zeff[ir]*factor << "\n";
+          for(int ir = 0; ir < nr; ++ir) {
+              outfile << r[ir] << " " << Zeff[ir]*factor << "\n";
           } // write to file
           return 0; // success
       } else {
@@ -313,10 +316,10 @@ namespace atom_core {
 
                   energies[E_eig] = eigenvalue_sum;
                   energies[E_kin] = energies[E_eig] - energies[E_Htr]*2
-                                  - energies[E_Cou] - energies[E_vxc];
-                  energies[E_est] = energies[E_Htr] + energies[E_Cou];
-                  energies[E_tot] = energies[E_eig] - energies[E_Htr] 
-                                  + energies[E_exc] - energies[E_vxc];
+                                  - energies[E_Cou] - energies[E_vxc]; // total kinetic energy
+                  energies[E_est] = energies[E_Htr] + energies[E_Cou]; // total electrostatic energy
+                  energies[E_tot] = energies[E_eig] - energies[E_Htr]
+                                  + energies[E_exc] - energies[E_vxc]; // total energy
 
                   ++icyc;
                   auto const which = E_est; // monitor the change on some energy contribution which depends on the density only
@@ -362,7 +365,7 @@ namespace atom_core {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n", 
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
               
-              store_Zeff_to_file(rV_old, g, Z, "pot/Zeff", -1);
+              store_Zeff_to_file(rV_old, g.r, g.n, Z, "pot/Zeff", -1);
 
               if (echo > 1) {
                   for(int i = 0; i <= imax; ++i) {
@@ -421,7 +424,7 @@ namespace atom_core {
           delete[] active;
           delete[] y;
       }
-      stat += store_Zeff_to_file(new_y, new_g, Z, "pot/Zeff", 1., echo);
+      stat += store_Zeff_to_file(new_y, new_g.r, new_g.n, Z, "pot/Zeff", 1., echo);
       delete[] new_g.r;
       delete[] new_y;
       return stat;
@@ -472,11 +475,13 @@ namespace atom_core {
     status += test_nl_index();
     
 //      for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
-//          printf("\n\n# Z = %d\n\n", Z);
-//          status += simplify_Zeff_file(Z, 1e-8);
+//          status += simplify_Zeff_file(Z, 1e-8); // apply RamerDouglasPeucker reduction to Z_eff(r)
 //      } // Z
 
-    {   int const Z = control::get("atom_core.test.Z", 29); // default copper
+    float const Z_begin = control::get("atom_core.test.Z", 29.); // default copper
+    float const Z_inc   = control::get("atom_core.test.Z.inc", 1.); // default: sample only integer values
+    float const Z_end   = control::get("atom_core.test.Z.end", Z_begin + Z_inc); // default: only one core
+    for (float Z = Z_begin; Z < Z_end; Z += Z_inc) {
         status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
     } // Z
     return status;

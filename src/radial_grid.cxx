@@ -105,6 +105,7 @@ namespace radial_grid {
   } // destroy
 
   int find_grid_index(radial_grid_t const &g, double const radius) {
+      // ToDo: if this becomes performance critical, replace by bisection algorithm
       for(int ir = 0; ir < g.n; ++ir) {
           if (radius < g.r[ir]) return ir - 1;
       } // ir
