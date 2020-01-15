@@ -91,7 +91,7 @@ namespace grid_operators {
           { // scope: V_image_coeff = matrix * image_coeff
               int const stride = a[ia].stride();
               assert(stride >= ncoeff); // check internal consistency
-              double const * const mat = a[ia].get_matrix(h0s1);
+              double const * const mat = a[ia].get_matrix<real_t>(h0s1);
               // DGEMM-style matrix multiplication
               for(int i = 0; i < ncoeff; ++i) {
                   for(int j = 0; j < ncoeff; ++j) {

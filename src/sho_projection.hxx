@@ -143,9 +143,9 @@ namespace sho_projection {
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
       return std::sqrt( ( 1 << sho_tools::get_nu(nx, ny, nz) )
                        /(   pow3(constants::sqrtpi * sigma) 
-                          * factorial<double>(nx) 
-                          * factorial<double>(ny) 
-                          * factorial<double>(nz) 
+                          * factorial<double>(nx)
+                          * factorial<double>(ny)
+                          * factorial<double>(nz)
                         )
                       ); }
 

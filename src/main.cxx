@@ -19,6 +19,7 @@ typedef int status_t;
 #include "real_space_grid.hxx" // all_tests
 #include "davidson_solver.hxx" // all_tests
 #include "chemical_symbol.hxx" // all_tests
+#include "linear_operator.hxx" // all_tests
 #include "fourier_poisson.hxx" // all_tests
 #include "spherical_atoms.hxx" // all_tests
 #include "solid_harmonics.hxx" // all_tests
@@ -26,6 +27,7 @@ typedef int status_t;
 #include "linear_algebra.hxx" // all_tests
 #include "grid_operators.hxx" // all_tests
 #include "element_config.hxx" // all_tests
+#include "vector_layout.hxx" // all_tests
 #include "sho_potential.hxx" // all_tests
 #include "angular_grid.hxx" // all_tests
 #include "simple_timer.hxx" // all_tests
@@ -69,6 +71,7 @@ typedef int status_t;
           module_test("real_space_grid.",       real_space_grid::all_tests);
           module_test("davidson_solver.",       davidson_solver::all_tests);
           module_test("chemical_symbol.",       chemical_symbol::all_tests);
+          module_test("linear_operator.",       linear_operator::all_tests);
           module_test("fourier_poisson.",       fourier_poisson::all_tests);
           module_test("spherical_atoms.",       spherical_atoms::all_tests);
           module_test("solid_harmonics.",       solid_harmonics::all_tests);
@@ -76,6 +79,7 @@ typedef int status_t;
           module_test("linear_algebra.",         linear_algebra::all_tests);
           module_test("grid_operators.",         grid_operators::all_tests);
           module_test("element_config.",         element_config::all_tests);
+          module_test("vector_layout.",           vector_layout::all_tests);
           module_test("sho_potential.",           sho_potential::all_tests);
           module_test("angular_grid.",             angular_grid::all_tests);
           module_test("simple_timer.",             simple_timer::all_tests);

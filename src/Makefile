@@ -70,7 +70,7 @@ FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
 # OPTFLAGS = -Ofast 
 ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # OPTFLAGS = -O2
-OPTFLAGS = -O0 -g -pedantic -Wall -Warray-bounds -Wno-vla
+OPTFLAGS = -O0 -g -pedantic -Wall -Warray-bounds -Wno-vla -Wno-sign-compare
 ### g++ option -Wno-vla suppresses warnings about variable length arrays to be non-standart
 
 # LDFLAGS = -mkl
