@@ -68,9 +68,10 @@ namespace sho_unitary {
           } // get_entry
           
           template<typename real_out_t>
-          status_t construct_dense_matrix(real_out_t matrix[], int const nu_max, int const matrix_stride=-1, 
-                            sho_tools::SHO_order_t const row_order=sho_tools::order_zyx,
-                            sho_tools::SHO_order_t const col_order=sho_tools::order_lmn) const {
+          status_t construct_dense_matrix(real_out_t matrix[], int const nu_max, int const matrix_stride=-1
+                            , sho_tools::SHO_order_t const row_order=sho_tools::order_Ezyx // energy-ordered Cartesian
+                            , sho_tools::SHO_order_t const col_order=sho_tools::order_Elnm // energy-ordered radial
+                    ) const {
               status_t stat = 0;
               int const nSHO = sho_tools::nSHO(nu_max);
               int const stride = (matrix_stride > 0)? matrix_stride : nSHO;

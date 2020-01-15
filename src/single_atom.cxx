@@ -470,13 +470,9 @@ extern "C" {
 
         unitary_zyx_lmn = new double[nSHO*nSHO];
         {   sho_unitary::Unitary_SHO_Transform<double> const u(numax);
-            auto const stat = u.construct_dense_matrix(unitary_zyx_lmn, numax);
+            auto const stat = u.construct_dense_matrix(unitary_zyx_lmn, numax, nSHO, sho_tools::order_Ezyx, sho_tools::order_lmn);
             assert(0 == stat);
         } // scope to fill unitary
-        
-        
-        // return; // early return if we only want to test the occupation configuration
- 
 
         int const mlm = pow2(1 + numax);
         ln_index_list.resize(nSHO);
@@ -484,10 +480,9 @@ extern "C" {
         lmn_begin.resize(mlm);
         lmn_end.resize(mlm);
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), echo);
-        
 
         logder_energy_range[0] = control::get("logder.start", -2.0);
-        logder_energy_range[1] = control::get("logder.step",  1e-2);
+        logder_energy_range[1] = control::get("logder.step",  1e-2); // ToDo: these should be moved to the main function
         logder_energy_range[2] = control::get("logder.stop",   1.0);
         if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n", 
             label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
@@ -1137,7 +1132,7 @@ extern "C" {
         view2D<double const> inp(in, in_stride);
         view2D<double> res(out, out_stride);
         view2D<double const> uni(unitary_zyx_lmn, u_stride);
-        
+
 //         double const beta = 0;
 //         char const nn = 'n', tn = in_Cartesian?'n':'t', nt = in_Cartesian?'t':'n';
         
@@ -1652,8 +1647,9 @@ extern "C" {
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
 
-        if (echo > 9) {
-            printf("\n# %s SHO-transformed Hamiltonian elements in %s:\n", label, _eV);
+        if (echo > 1) {
+            printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n", 
+                       label, sho_tools::SHO_order2string(sho_tools::order_Ezyx), _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO);
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {

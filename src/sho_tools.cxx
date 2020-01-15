@@ -13,7 +13,7 @@ namespace sho_tools {
   status_t test_order_enum(int const echo=4) {
       status_t nerrors = 0;
       SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm, 
-                  order_nlm, order_Elnm, order_ln, order_Eln, order_unknown};
+                  order_nlm, order_Elnm, order_ln, order_Enl, order_unknown};
       for(int io = 0; io < 9; ++io) {
           SHO_order_t const oi = ord[io];
           if (echo > 0) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10li\n", __func__, SHO_order2string(&oi), (unsigned)oi, oi);
@@ -132,8 +132,8 @@ namespace sho_tools {
           // radial emm-degenerate energy-ordered indices
           for(int ell = nu%2; ell <= nu; ell+=2) {
               int const nrn = (nu - ell)/2;
-              int const k = Eln_index(ell, nrn);
-              if (echo > 9) printf("# Eln_index<nu=%d>(ell=%d, nrn=%d) == %d %d\n", nu, ell, nrn, nln, k);
+              int const k = Enl_index(ell, nrn);
+              if (echo > 9) printf("# Enl_index<nu=%d>(ell=%d, nrn=%d) == %d %d\n", nu, ell, nrn, nln, k);
               assert(k == nln);
               ++nln;
               for(int emm = -ell; emm <= ell; ++emm) {

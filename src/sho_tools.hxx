@@ -17,11 +17,14 @@ namespace sho_tools {
       order_nlm     = 0x6d6c6e,   // "nlm"    Radial order best for spherical harmonics,    depends on numax
       order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial,                    independent of numax
       order_ln      = 0x6e6c,     // "ln"     ell-ordered radial emm-degenerate,            depends on numax
-      order_Eln     = 0x6e6c45,   // "Eln"    energy-ordered Radial emm-degenerate,     independent of numax
+      order_Enl     = 0x6c6e45,   // "Enl"    energy-ordered Radial emm-degenerate,     independent of numax
       order_unknown = 0x3f3f3f3f  // "????"   error flag
+//    order_nl      = 0x6c6e,     // "nl"     enn-ordered radial emm-degenerate,            depends on numax, not implemented
   } SHO_order_t;
-
+  
+  
   inline char const * SHO_order2string(SHO_order_t const *order) { return (char const *)order; }
+  inline char const * SHO_order2string(SHO_order_t const order) { auto o = order; return SHO_order2string(&o); }
 
   // number of all 3D SHO states up to numax >= 0
   inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
@@ -107,7 +110,7 @@ namespace sho_tools {
 
   // energy-ordered radial emm-degenerate index
   inline constexpr
-  int Eln_index(int const ell, int const nrn) {
+  int Enl_index(int const ell, int const nrn) {
       return (pow2(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
 
   // energy-ordered radial 3D index
@@ -162,11 +165,37 @@ namespace sho_tools {
           }}} // l m n
           assert(nSHO(numax) == ii);
         break;
-        
-        case order_ln:
+
+        case order_lnm:
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
-                  int const eo = Eln_index(l, n);
+                  for(int m = -l; m <= l; ++m) {
+                      int const eo = Elnm_index(l, n, m);
+                      energy_ordered[ii] = eo;
+                      if (echo > 4) printf(" %d", eo);
+                      if (inverse) inverse[eo] = ii;
+                      ++ii;
+          }}} // l n m
+          assert(nSHO(numax) == ii);
+        break;
+
+        case order_nlm:
+          for(int n = 0; n <= numax/2; ++n) {
+              for(int l = 0; l <= numax - 2*n; ++l) {
+                  for(int m = -l; m <= l; ++m) {
+                      int const eo = Elnm_index(l, n, m);
+                      energy_ordered[ii] = eo;
+                      if (echo > 4) printf(" %d", eo);
+                      if (inverse) inverse[eo] = ii;
+                      ++ii;
+          }}} // n l m
+          assert(nSHO(numax) == ii);
+        break;
+
+        case order_ln: // emm-degenerate
+          for(int l = 0; l <= numax; ++l) {
+              for(int n = 0; n <= (numax - l)/2; ++n) {
+                  int const eo = Enl_index(l, n);
                   energy_ordered[ii] = eo;
                   if (echo > 3) printf(" %d", eo);
                   if (inverse) inverse[eo] = ii;
@@ -175,8 +204,26 @@ namespace sho_tools {
           assert(nSHO_radial(numax) == ii);
         break;
 
+        case order_Enl: // already energy-ordered emm-degenerate
+          for(int ii = 0; ii < nSHO_radial(numax); ++ii) {
+              energy_ordered[ii] = ii;
+              if (inverse) inverse[ii] = ii;
+          } // ii
+          if (echo > 3) printf(" <unity> ");
+        break;
+
+        case order_Ezyx: // already energy-ordered
+        case order_Elnm: // already energy-ordered
+          for(int ii = 0; ii < nSHO(numax); ++ii) {
+              energy_ordered[ii] = ii;
+              if (inverse) inverse[ii] = ii;
+          } // ii
+          if (echo > 3) printf(" <unity> ");
+        break;
+
         default:
             if (echo > 0) printf("# no such case implemented: order=%s\n", SHO_order2string(&order));
+            return order; // error
       } // switch order
       if (echo > 3) printf("\n\n");
       return 0; // success if 0
