@@ -19,7 +19,7 @@
 #include "sho_tools.hxx" // lnm_index, nSHO
 #include "sho_radial.hxx" // nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
-#include "energy_level.hxx" // core_level_t, valence_level_t
+#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, core_level_t, valence_level_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
 #include "simple_math.hxx" // invert
@@ -193,6 +193,8 @@ extern "C" {
   
   class LiveAtom {
   public:
+      // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t
+    
       // general config
       int32_t atom_id; // global atom identifyer
       float Z_core; // number of nucleons in the core
@@ -201,47 +203,54 @@ extern "C" {
               // SMT may point to TRU, but at least both radial grids must have the same tail
       int nr_diff; // how many more radial grid points are in *rg[TRU] compared to *rg[SMT]
       ell_QN_t ellmax; // limit ell for full_potential and full_density
+      ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
+      double sigma_compensator; // Gaussian spread for the charge deficit compensators
+      double* qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
+      
+      // the following quantities are energy-parameter-set dependent
       double r_cut; // classical augmentation radius for potential and core density
       int ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
       float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
       ell_QN_t numax; // limit of the SHO projector quantum numbers
+      double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
       uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
-      ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
-      double sigma_compensator; // Gaussian spread for the charge deficit compensators
-      double* qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
+      valence_level_t* valence_state;
+      // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
+      double* zero_potential; // PAW potential shape correction
+      view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
+      view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
+      view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
+      view2D<double> projectors; // [nln][nr_smt] r*projectors
+      view3D<double> waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
+      double* true_norm; // vector[nln] for display of partial wave results
+      // end of energy-parameter-set dependent members
+
       view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
-      int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-oribit) core states are maximum
+      int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
       int nvalencestates; // for emm-Degenerate (numax*(numax + 4) + 4)/4 is a good choice;
-      int nspins; // 1 or 2 or 4
+      int nspins; // 1 or 2 or 4, order: 0zxy
+
       double* unitary_zyx_lmn; // unitary sho transformation matrix [Cartesian][Radial], stride=nSHO(numax)
 
       double logder_energy_range[3]; // [start, increment, stop]
       
       // spin-resolved members of LiveAtom
       core_level_t* core_state;  // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
-      valence_level_t* valence_state;
       double* core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
-      double* potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor
-      double* zero_potential; // PAW potential shape correction
-      double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
-      view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
-      view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
-      view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
-      view2D<double> projectors; // [nln][nr_smt] r*projectors
-      view3D<double> waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
+      double* potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor, used for the generation of partial waves
 
-      double  core_charge_deficit; // in units of electrons
-      double* true_norm; // vector[nln] for display of partial wave results
+
+      double core_charge_deficit; // in units of electrons
 
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
+      // ToDo: check if all of these 4 lists are used
       std::vector<int16_t> ln_index_list;
       std::vector<int16_t> lm_index_list;
       std::vector<int16_t> lmn_begin;
       std::vector<int16_t> lmn_end;
-
       
   public:
     
@@ -267,8 +276,8 @@ extern "C" {
             auto const rc = control::get("smooth.radial.grid.from", 1e-4);
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
-        
-        int const nrt = align<2>(rg[TRU]->n),
+
+        int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
                   nrs = align<2>(rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
