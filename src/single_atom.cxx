@@ -1873,8 +1873,9 @@ namespace single_atom {
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");      
     {   int const Z = control::get("single_atom.test.Z", 29); // default copper
+        float const ion = control::get("single_atom.test.ion", 0.); // default neutral
         if (echo > 1) printf("\n# Z = %d\n", Z);
-        LiveAtom a(Z, numax, false, 0.f, -1, echo); // envoke constructor
+        LiveAtom a(Z, numax, false, ion, -1, echo); // envoke constructor
     } // Z
     return 0;
   } // test
