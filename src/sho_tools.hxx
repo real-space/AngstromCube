@@ -230,7 +230,8 @@ namespace sho_tools {
         break;
 
         default:
-            if (echo > 0) printf("# no such case implemented: order=%s\n", SHO_order2string(&order));
+            if (echo > 0) printf("# %s: no such case implemented: order=%s\n",
+                                    __func__, SHO_order2string(&order));
             return order; // error
       } // switch order
       if (echo > 3) printf("\n\n");
@@ -238,7 +239,7 @@ namespace sho_tools {
   } // construct_index_table
 
   inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order) {
-      auto const ellchar = "spdfghijkl";
+      auto const ellchar = "spdfghijklmno";
       int const echo = 1;
       int ii{0};
       switch (order) {
@@ -249,7 +250,7 @@ namespace sho_tools {
               for(int y = 0; y <= numax - z; ++y) {
                   for(int x = 0; x <= numax - z - y; ++x) {
                       int const j = is_energy_ordered(order) ? Ezyx_index(x, y, z) : ii;
-                      std::sprintf(&label[8*j], "%i%i%i", x, y, z);
+                      std::sprintf(&label[8*j], "%x%x%x", z, y, x);
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
@@ -262,11 +263,10 @@ namespace sho_tools {
           for(int l = 0; l <= numax; ++l) {
               for(int m = -l; m <= l; ++m) {
                   for(int n = 0; n <= (numax - l)/2; ++n) {
-                      int j{-1};
+                      int j{ii}; assert( lmn_index(numax, l, m, n) == j );
                       if (order_Elnm == order) j = Elnm_index(l, n, m);
-                      if (order_lmn == order) j = lmn_index(numax, l, m, n);
-                      if (order_lnm == order) j = lnm_index(numax, l, n, m);
-                      if (order_nlm == order) j = nlm_index(numax, n, l, m);
+                      if (order_lnm == order)  j =  lnm_index(numax, l, n, m);
+                      if (order_nlm == order)  j =  nlm_index(numax, n, l, m);
                       std::sprintf(&label[8*j], "%i%c%i", n, ellchar[l], m);
                       ++ii;
           }}} // l m n
@@ -285,10 +285,10 @@ namespace sho_tools {
         break;
         
         default:
-            if (echo > 0) printf("# no such case implemented: order=%s\n", SHO_order2string(&order));
+            if (echo > 0) printf("# %s: no such case implemented: order=%s\n", 
+                                    __func__, SHO_order2string(&order));
             return order; // error
       } // switch order
-      if (echo > 3) printf("\n\n");
       return 0; // success if 0
   } // construct_label_table
 

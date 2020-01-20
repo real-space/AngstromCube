@@ -104,22 +104,22 @@ namespace sho_unitary {
       return (dev > 2e-7);
   } // test_loading
 
-  int test_vecor_transform(int const numax=3, int const echo=9) {
+  int test_vector_transform(int const numax=3, int const echo=9) {
       Unitary_SHO_Transform<double> U(numax);
       if (echo > 0) printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
       int const nc = sho_tools::nSHO(numax);
-      std::vector<double> vi(nc, 0), vo(nc, 0);
+      std::vector<double> vi(nc, 1), vo(nc, 0);
       std::iota(vi.begin(), vi.end(), 0);
-//       return U.transform_vector(vo.data(), sho_tools::order_nlm, vi.data(), sho_tools::order_zyx, numax, echo);
+      return U.transform_vector(vo.data(), sho_tools::order_nlm, vi.data(), sho_tools::order_zyx, numax, echo);
       return U.transform_vector(vo.data(), sho_tools::order_Elnm, vi.data(), sho_tools::order_Ezyx, numax, echo);
-  } // test_loading
+  } // test_vector_transform
 
   status_t all_tests() {
     auto status = 0;
     status += test_generation();
     status += test_loading<float>();
     status += test_loading<double>();
-    status += test_vecor_transform();
+    status += test_vector_transform();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

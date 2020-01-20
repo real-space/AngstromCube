@@ -1,6 +1,7 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // int16_t
+#include <vector> // std::vector<T>
 
 #include "sho_tools.hxx"
 
@@ -158,20 +159,24 @@ namespace sho_tools {
       status_t stat = 0;
       int const numax_max = 9;
       if (echo > 6) printf("\n# %s: numax == %d\n", __func__, numax_max);
-      SHO_order_t const orders[3] = {order_zyx, order_lmn, order_ln};
-      for(int io = 0; io < 3; ++io) {
+      SHO_order_t const orders[] = {order_zyx, order_Ezyx, order_lmn, order_nlm, order_lnm, order_Elnm, order_ln, order_Enl};
+      for(int io = 0; io < 8; ++io) {
           auto const order = orders[io];
+          if (echo > 6) printf("# %s order_%s\n", __func__, SHO_order2string(&order));
+
           for(int numax = 0; numax <= numax_max; ++numax) {
-              int const nsho = (order == order_ln)? pow2(numax + 2)/4 : nSHO(numax);
-              auto const list     = new int_t[nsho];
-              auto const inv_list = new int_t[nsho];
-              stat += construct_index_table(list, numax, order, inv_list, echo);
+              int const nsho = is_emm_degenerate(order) ? nSHO_radial(numax) : nSHO(numax);
+              std::vector<int_t> list(nsho, -1), inv_list(nsho, -1);
+              stat += construct_index_table(list.data(), numax, order, inv_list.data(), echo);
+              std::vector<char> label(nsho*8, '\0');
+              stat += construct_label_table(label.data(), numax, order);
+              if (echo > 7) printf("# %s numax=%i order_%s labels:  ", __func__, numax, SHO_order2string(&order));
               for(int ii = 0; ii < nsho; ++ii) {
-                  assert(list[inv_list[ii]] == ii); // check that the lists are inverse of each other
-                  assert(inv_list[list[ii]] == ii); // check that the lists are inverse of each other
+                  assert( list[inv_list[ii]] == ii ); // check that the lists are inverse of each other
+                  assert( inv_list[list[ii]] == ii ); // check that the lists are inverse of each other
+                  if (echo > 7) printf(" %s", &label[ii*8]);
               } // ii
-              delete[] inv_list;
-              delete[] list;
+              if (echo > 7) printf("\n");
           } // numax
       } // io
       if (stat && (echo > 1)) printf("# Warning: %s found %d errors!\n", __func__, stat);

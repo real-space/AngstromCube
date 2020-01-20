@@ -1,11 +1,11 @@
 #pragma once
 
-typedef int status_t;
-
 #include <cmath> // std::abs
 #include <vector> // std::vector<T>
 
 #include "sho_tools.hxx" // sho_tools::, SHO_order_t
+
+typedef int status_t;
 
 namespace sho_unitary {
 
@@ -110,6 +110,17 @@ namespace sho_unitary {
               if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__, 
                   sho_tools::SHO_order2string(&inp_order), sho_tools::SHO_order2string(&out_order), nu_max);
 
+              std::vector<char> inp_label((echo > 3)*nSHO*8, '\0'),
+                              e_inp_label((echo > 3)*nSHO*8, '\0'),
+                              e_out_label((echo > 3)*nSHO*8, '\0'),
+                                out_label((echo > 3)*nSHO*8, '\0'); 
+              if (echo > 3) {
+                  sho_tools::construct_label_table(inp_label.data(), nu_max, inp_order);
+                  sho_tools::construct_label_table(out_label.data(), nu_max, out_order);
+                  sho_tools::construct_label_table(e_out_label.data(), nu_max, c2r ? sho_tools::order_Elnm : sho_tools::order_Ezyx);
+                  sho_tools::construct_label_table(e_inp_label.data(), nu_max, c2r ? sho_tools::order_Ezyx : sho_tools::order_Elnm);
+              } // echo
+
               std::vector<real_vec_t> ti, to;
               auto e_inp = inp; // e_inp is an input vector with energy ordered coefficients
               if (!sho_tools::is_energy_ordered(inp_order)) {
@@ -119,7 +130,7 @@ namespace sho_unitary {
                   stat += sho_tools::construct_index_table(inp_index.data(), nu_max, inp_order);
                   for(int i = 0; i < nSHO; ++i) {
                       ti[inp_index[i]] = inp[i]; // reorder to be energy ordered
-                      if (echo > 8) printf("# %s: inp[%i] = %g\n", __func__, inp_index[i], inp[i]);
+                      if (echo > 8) printf("# %s: inp[%s] = %g\n", __func__, &inp_label[i*8], inp[i]);
                   } // i
                   e_inp = ti.data();
               } // input is not energy ordered
@@ -135,16 +146,17 @@ namespace sho_unitary {
               for(int nu = 0; nu <= std::min(nu_max, numax_); ++nu) {
                   int const offset = sho_tools::nSHO(nu - 1);
                   int const nb = sho_tools::n2HO(nu);
-                  int const ib = c2r ? nb : 1; // check
-                  int const jb = c2r ? 1 : nb;
+                  int const ib = c2r ? 1 : nb;
+                  int const jb = c2r ? nb : 1;
                   for(int i = 0; i < nb; ++i) {
                       real_vec_t tmp = 0;
                       for(int j = 0; j < nb; ++j) {
                           tmp += u_[nu][i*ib + j*jb] * e_inp[offset + j]; // matrix-vector multiplication, block-diagonal in nu
                       } // j
                       e_out[offset + i] = tmp;
-                      if (echo > 7) printf("# %s: nu=%i e_inp[%i] = %g --> e_out[%i] = %g\n", __func__, 
-                                      nu, offset + i, e_inp[offset + i], offset + i, e_out[offset + i]);
+                      if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__, 
+                                      nu, &e_inp_label[(offset + i)*8], e_inp[offset + i], 
+                                          &e_out_label[(offset + i)*8], e_out[offset + i]);
                   } // i
               } // nu
 
@@ -154,7 +166,7 @@ namespace sho_unitary {
                   stat += sho_tools::construct_index_table(out_index.data(), nu_max, out_order);
                   for(int i = 0; i < nSHO; ++i) {
                       out[i] = e_out[out_index[i]];
-                      if (echo > 8) printf("# %s: out[%i] = %g\n", __func__, out_index[i], out[i]);
+                      if (echo > 8) printf("# %s: out[%s] = %g\n", __func__, &out_label[i*8], out[i]);
                   } // i
               } // output is not energy ordered
 

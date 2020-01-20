@@ -90,7 +90,7 @@ namespace linear_operator {
     hamiltonian.inner(xHx.data(), x.data(), Hx.data());
     hamiltonian.axpby(x.data(), Hx.data(), xHx.data());
 
-    for(uint i = 0; i < xHx.size(); ++i) { printf(" %g", xHx[i]); } printf("\n"); // show
+    for(unsigned i = 0; i < xHx.size(); ++i) { printf(" %g", xHx[i]); } printf("\n"); // show
     // printf("# hamiltonian has been applied %ld times\n", hamiltonian.get_apply_count());
 
     return 0;
