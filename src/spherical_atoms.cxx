@@ -15,7 +15,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "chemical_symbol.h" // element_symbols
 #include "single_atom.hxx" // update
-#include "sho_projection.hxx" // sho_add
+#include "sho_projection.hxx" // sho_add, sho_prefactors
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "boundary_condition.hxx" // periodic_images
 #include "fourier_poisson.hxx" // fourier_solve
@@ -25,6 +25,7 @@
 #include "control.hxx" // control::get
 #include "lossful_compression.hxx" // RDP_lossful_compression
 #include "debug_output.hxx" // dump_to_file
+#include "sho_unitary.hxx" // Unitary_SHO_Transform<real_t>
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -133,15 +134,16 @@ namespace spherical_atoms {
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na]; // smooth radial grid descriptors
       double sigma_cmp[na]; //
-      double *qlm[na]; int lmax_cmp[na];
-      double *vlm[na]; int lmax[na];
-      stat += single_atom::update(na, Za, ionization, rg, sigma_cmp, nullptr, nullptr, nullptr, lmax, lmax_cmp);
+      double *qlm[na]; int lmax_qlm[na];
+      double *vlm[na]; int lmax_vlm[na];
+      stat += single_atom::update(na, Za, ionization, rg, sigma_cmp, nullptr, nullptr, nullptr, lmax_vlm, lmax_qlm);
       for(int ia = 0; ia < na; ++ia) {
-          vlm[ia] = new double[pow2(1 + std::max(lmax[ia], 1))];
-          qlm[ia] = new double[pow2(1 + lmax_cmp[ia])];
+          vlm[ia] = new double[pow2(1 + std::max(lmax_vlm[ia], 1))];
+          qlm[ia] = new double[pow2(1 + lmax_qlm[ia])];
       } // ia
 
-      
+      sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
+
       std::vector<double> Laplace_Ves(g.all());
       std::vector<double>         Ves(g.all());
       std::vector<double>         cmp(g.all());
@@ -149,7 +151,7 @@ namespace spherical_atoms {
       std::vector<double>        Vtot(g.all());
       std::vector<double>         Vxc(g.all());
 
-  for(int scf_iteration = 0; scf_iteration < 1; ++scf_iteration) {
+  for(int scf_iteration = 0; scf_iteration < 9; ++scf_iteration) {
       SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration");
       printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
@@ -241,12 +243,12 @@ namespace spherical_atoms {
                   qlm[ia][00] = q_added*Y00;
               } else if (1) {
                   // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
-                  int const nc = sho_tools::nSHO(lmax_cmp[ia]);
+                  int const nc = sho_tools::nSHO(lmax_qlm[ia]);
                   std::vector<double> coeff(nc, 0.0);
                   set(coeff.data(), 1, qlm[ia], prefactor); // copy only monopole moment, ToDo
                   for(int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                      stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), lmax_cmp[ia], cnt, sigma_compensator, 0);
+                      stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), lmax_qlm[ia], cnt, sigma_compensator, 0);
                   } // periodic images
               }
               if (echo > -1) {
@@ -276,18 +278,32 @@ namespace spherical_atoms {
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
               double const sigma_compensator = sigma_cmp[ia];
-              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
-              int const nc = sho_tools::nSHO(lmax[ia]);
+//            double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
+              int const nc = sho_tools::nSHO(lmax_vlm[ia]);
               std::vector<double> coeff(nc, 0.0);
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   std::vector<double> coeff_image(nc, 0.0);
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                  stat += sho_projection::sho_project(coeff_image.data(), lmax[ia], cnt, sigma_compensator, Ves.data(), g, 0);
+                  stat += sho_projection::sho_project(coeff_image.data(), lmax_vlm[ia], cnt, sigma_compensator, Ves.data(), g, 0);
                   add_product(coeff.data(), nc, coeff_image.data(), 1.0); // need phase factors?
               } // periodic images
-              set(vlm[ia], 1, coeff.data(), prefactor); // ToDo: convert from zyx-SHO ordering to lm-order, neglect all nrn > 0 contributions
-              // SHO-projectors are brought to the grid unnormalized, i.e. p_{00}(0) = 1.0
+              // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
+
+              std::vector<double> vEzyx(nc, 0.0);
+              sho_projection::normalize_and_reorder_coefficients(vEzyx.data(), coeff.data(), lmax_vlm[ia], sigma_compensator, Y00);
+
+              // convert SHO-coefficients from order_Ezyx to order_nlm
+              std::vector<double> vnlm(nc, 0.0);
+              unitary.transform_vector(vnlm.data(), sho_tools::order_nlm, 
+                                      vEzyx.data(), sho_tools::order_Ezyx, lmax_vlm[ia], 9);
+
+              set(vlm[ia], pow2(1 + lmax_vlm[ia]), vnlm.data()); // neglect all nrn > 0 contributions
+              
               printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
+              if (lmax_vlm[ia] > 0) {
+                  printf("# potential projection for atom #%d v_1 = %g %g %g %s\n", ia, 
+                  vlm[ia][01]*Y00*eV, vlm[ia][02]*Y00*eV, vlm[ia][03]*Y00*eV,_eV);
+              } // more than monopole
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
 
@@ -298,6 +314,8 @@ namespace spherical_atoms {
       set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
   } // scf_iteration
+  return 1; // warning! no cleanup has been run
+  
 //   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
       { // scope: compute the Laplacian using high-order finite-differences
@@ -399,7 +417,7 @@ namespace spherical_atoms {
 
   status_t test_create_and_destroy(int const echo=5) {
       float const ion = control::get("spherical_atoms.test.ion", 0.0);
-      return init(ion, echo); // ionization of Al-P dimer by 0.5 electrons
+      return init(ion, echo); // ionization of Al-P dimer by -ion electrons
   } // test_create_and_destroy
 
   status_t all_tests() {

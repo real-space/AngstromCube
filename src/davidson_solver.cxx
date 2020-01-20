@@ -257,7 +257,7 @@ namespace davidson_solver {
           } // iband
       }
       
-      for(int it = 0; it < 9999; ++it) {
+      for(int it = 0; it < 3; ++it) {
           stat += solve(psi.data(), nbands, g, echo);
       } // it
       return stat;

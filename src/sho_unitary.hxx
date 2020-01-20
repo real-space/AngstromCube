@@ -19,44 +19,44 @@ namespace sho_unitary {
   class Unitary_SHO_Transform {
       public:
         
-          Unitary_SHO_Transform(int const lmax=7, int const echo=8) {
-              numax = lmax;
-              u = new real_t*[1 + numax]; // allocate pointers to blocks
-              for(int nu = 0; nu <= numax; ++nu) { // run serial forward
+          Unitary_SHO_Transform(int const lmax=7, int const echo=8) 
+              : numax_(lmax) {
+              u_ = new real_t*[1 + numax_]; // allocate pointers to blocks
+              for(int nu = 0; nu <= numax_; ++nu) { // run serial forward
                   int const nb = sho_tools::n2HO(nu); // dimension of block
-                  u[nu] = new real_t[nb*nb]; // allocate square blocks
+                  u_[nu] = new real_t[nb*nb]; // allocate square blocks
                   // ToDo: fill with more than pseudo-values
-                  std::fill(u[nu], u[nu] + nb*nb, 0); // clear
+                  std::fill(u_[nu], u_[nu] + nb*nb, 0); // clear
               } // nu
               
               int highest_nu = -1;
-              auto const stat = read_unitary_matrix_from_file(u, numax, highest_nu);
+              auto const stat = read_unitary_matrix_from_file(u_, numax_, highest_nu);
               if (stat) { // an error has occured while reading it from file
-                  for(int nu = 0; nu <= numax; ++nu) { // run serial forward
+                  for(int nu = 0; nu <= numax_; ++nu) { // run serial forward
                       int const nb = sho_tools::n2HO(nu); // dimension of block
-                      std::fill(u[nu], u[nu] + nb*nb, 0); // clear
+                      std::fill(u_[nu], u_[nu] + nb*nb, 0); // clear
                       for(int ib = 0; ib < nb; ++ib) {
-                          u[nu][ib*nb + ib] = 1; // diagonal
+                          u_[nu][ib*nb + ib] = 1; // diagonal
                       } // ib
                   } // nu
                   printf("# Warning: I/O failed, Unitary_SHO_Transform was initialized as unit operator!\n");
               } // stat
-              if (highest_nu < numax) printf("# Warning: file for Unitary_SHO_Transform did not provide enough elements!\n");
+              if (highest_nu < numax_) printf("# Warning: file for Unitary_SHO_Transform did not provide enough elements!\n");
           } // constructor
 
           ~Unitary_SHO_Transform() {
-              for(int nu = 0; nu <= numax; ++nu) {
-                  delete[] u[nu];
+              for(int nu = 0; nu <= numax_; ++nu) {
+                  delete[] u_[nu];
               } // nu
-              delete[] u;
+              delete[] u_;
           } // destructor
           
           real_t inline get_entry(int const nzyx, int const nlnm) const { // input must both be energy ordered indices
               int const nu = sho_tools::get_nu(nzyx);
               if (nu != sho_tools::get_nu(nlnm)) return 0;
-//               if (nu > numax) return 0; // warn and return, ToDo: warning
-              if (nu > numax) printf("# Assumption nu <= numax failed: <numax=%d> nzyx=%d nlnm=%d nu=%d\n", numax, nzyx, nlnm, nu);
-              assert(nu <= numax);
+//               if (nu > numax_) return 0; // warn and return, ToDo: warning
+              if (nu > numax_) printf("# Assumption nu <= numax failed: <numax=%d> nzyx=%d nlnm=%d nu=%d\n", numax_, nzyx, nlnm, nu);
+              assert(nu <= numax_);
               assert(nu >= 0);
               int const nb = sho_tools::n2HO(nu); // dimension of block
               int const ioff = sho_tools::nSHO(nu - 1); // offset from previous blocks
@@ -64,7 +64,7 @@ namespace sho_unitary {
               assert((nlnm - ioff) < nb);
               assert((nzyx - ioff) > -1);
               assert((nlnm - ioff) > -1);
-              return u[nu][(nzyx - ioff)*nb + (nlnm - ioff)];
+              return u_[nu][(nzyx - ioff)*nb + (nlnm - ioff)];
           } // get_entry
           
           template<typename real_out_t>
@@ -92,9 +92,78 @@ namespace sho_unitary {
               return stat; // success
           } // construct_dense_matrix
 
-          double test_unitarity(int const echo=9) {
+          template<typename real_vec_t>
+          status_t transform_vector(real_vec_t out[], sho_tools::SHO_order_t const out_order
+                            , real_vec_t const inp[], sho_tools::SHO_order_t const inp_order
+                            , int const nu_max, int const echo=0) const {
+              status_t stat = 0;
+              int const nSHO = sho_tools::nSHO(nu_max);
+
+              bool const c2r = sho_tools::is_Cartesian(inp_order); // input is Cartesian, tranform to radial
+              assert(    c2r ^ sho_tools::is_Cartesian(out_order) ); // either input or output may be Cartesian
+              if ( sho_tools::is_emm_degenerate(inp_order) || sho_tools::is_emm_degenerate(out_order) ) {
+                  if (echo > 0) printf("# %s cannot operate on emm-degenerate orders, inp:order_%s out:order_%s\n", __func__, 
+                      sho_tools::SHO_order2string(&inp_order), sho_tools::SHO_order2string(&out_order));
+                  return -1;
+              } // emm-degeneracy found
+
+              if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__, 
+                  sho_tools::SHO_order2string(&inp_order), sho_tools::SHO_order2string(&out_order), nu_max);
+
+              std::vector<real_vec_t> ti, to;
+              auto e_inp = inp; // e_inp is an input vector with energy ordered coefficients
+              if (!sho_tools::is_energy_ordered(inp_order)) {
+                  if (echo > 3) printf("# %s: energy-order input vector from order_%s\n", __func__, sho_tools::SHO_order2string(&inp_order));
+                  ti.resize(nSHO);
+                  std::vector<int16_t> inp_index(nSHO);
+                  stat += sho_tools::construct_index_table(inp_index.data(), nu_max, inp_order);
+                  for(int i = 0; i < nSHO; ++i) {
+                      ti[inp_index[i]] = inp[i]; // reorder to be energy ordered
+                      if (echo > 8) printf("# %s: inp[%i] = %g\n", __func__, inp_index[i], inp[i]);
+                  } // i
+                  e_inp = ti.data();
+              } // input is not energy ordered
+
+              auto e_out = out; // e_out is an output vector with energy ordered coefficients
+              if (!sho_tools::is_energy_ordered(out_order)) {
+                  to.resize(nSHO);
+                  e_out = to.data();
+              } // output is not energy ordered
+
+              // transform
+              stat += (nu_max > numax_); // error, not all vector elements could be transformed
+              for(int nu = 0; nu <= std::min(nu_max, numax_); ++nu) {
+                  int const offset = sho_tools::nSHO(nu - 1);
+                  int const nb = sho_tools::n2HO(nu);
+                  int const ib = c2r ? nb : 1; // check
+                  int const jb = c2r ? 1 : nb;
+                  for(int i = 0; i < nb; ++i) {
+                      real_vec_t tmp = 0;
+                      for(int j = 0; j < nb; ++j) {
+                          tmp += u_[nu][i*ib + j*jb] * e_inp[offset + j]; // matrix-vector multiplication, block-diagonal in nu
+                      } // j
+                      e_out[offset + i] = tmp;
+                      if (echo > 7) printf("# %s: nu=%i e_inp[%i] = %g --> e_out[%i] = %g\n", __func__, 
+                                      nu, offset + i, e_inp[offset + i], offset + i, e_out[offset + i]);
+                  } // i
+              } // nu
+
+              if (!sho_tools::is_energy_ordered(out_order)) {
+                  if (echo > 3) printf("# %s: restore output vector order_%s\n", __func__, sho_tools::SHO_order2string(&out_order));
+                  std::vector<int16_t> out_index(nSHO);
+                  stat += sho_tools::construct_index_table(out_index.data(), nu_max, out_order);
+                  for(int i = 0; i < nSHO; ++i) {
+                      out[i] = e_out[out_index[i]];
+                      if (echo > 8) printf("# %s: out[%i] = %g\n", __func__, out_index[i], out[i]);
+                  } // i
+              } // output is not energy ordered
+
+              return stat;
+          } // transform_vector
+
+          double test_unitarity(int const echo=9) const {
               double maxdevall = 0;
-              for(int nu = 0; nu <= numax; ++nu) {
+              for(int nu = 0; nu <= numax_; ++nu) {
                   // as the transform is block-diagonal, we can test each block for unitarity
                   int const nb = sho_tools::n2HO(nu); // dimension of block
                   double mxd[2][2] = {{0,0},{0,0}}; // mxd[{0:uuT 1:uTu}][{0:off 1:diag}]
@@ -102,8 +171,8 @@ namespace sho_unitary {
                       for(int jb = 0; jb < nb; ++jb) { // 
                           double uuT = 0, uTu = 0;
                           for(int kb = 0; kb < nb; ++kb) {
-                              uuT += u[nu][ib*nb + kb] * u[nu][jb*nb + kb]; // contraction over radial index
-                              uTu += u[nu][kb*nb + ib] * u[nu][kb*nb + jb]; // contraction over cartesian index
+                              uuT += u_[nu][ib*nb + kb] * u_[nu][jb*nb + kb]; // contraction over radial index
+                              uTu += u_[nu][kb*nb + ib] * u_[nu][kb*nb + jb]; // contraction over cartesian index
                           } // contraction index for matrix matrix multiplication
                           if (echo > 8) printf("# nu=%d ib=%d jb=%d uuT=%g uTu=%g\n", nu, ib, jb, uuT, uTu);
                           int const diag = (ib == jb); // 0:offdiagonal, 1:diagonal
@@ -118,9 +187,11 @@ namespace sho_unitary {
               return maxdevall;
           } // test_unitarity
 
+      inline int numax() const { return numax_; }
+
       private:
-          real_t **u; // block diagonal matrix entries
-          int numax; // largest ell
+          real_t **u_; // block diagonal matrix entries
+          int numax_; // largest ell
   }; // class Unitary_SHO_Transform
   
 } // namespace sho_unitary

@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // printf
-#include <cstdint> // int64_t
+#include <cstdint> // int64_t, std::sprintf
 
 typedef int status_t;
 
@@ -22,7 +22,15 @@ namespace sho_tools {
 //    order_nl      = 0x6c6e,     // "nl"     enn-ordered radial emm-degenerate,            depends on numax, not implemented
   } SHO_order_t;
   
-  
+  inline constexpr bool is_energy_ordered(SHO_order_t const order) { 
+      return (order_Ezyx == order) || (order_Elnm == order) || (order_Enl == order); }
+
+  inline constexpr bool is_Cartesian(SHO_order_t const order) { 
+      return (order_Ezyx == order) || (order_zyx == order); }
+
+  inline constexpr bool is_emm_degenerate(SHO_order_t const order) { 
+      return (order_Enl == order) || (order_ln == order); }
+
   inline char const * SHO_order2string(SHO_order_t const *order) { return (char const *)order; }
   inline char const * SHO_order2string(SHO_order_t const order) { auto o = order; return SHO_order2string(&o); }
 
@@ -110,7 +118,7 @@ namespace sho_tools {
 
   // energy-ordered radial emm-degenerate index
   inline constexpr
-  int Enl_index(int const ell, int const nrn) {
+  int Enl_index(int const nrn, int const ell) {
       return (pow2(ell + 2*nrn + 1) + 2*ell)/4; } // (ell + 2*nrn)=nu, use ((nu + 1)^2)/4 as offset and add ell/2
 
   // energy-ordered radial 3D index
@@ -195,7 +203,7 @@ namespace sho_tools {
         case order_ln: // emm-degenerate
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
-                  int const eo = Enl_index(l, n);
+                  int const eo = Enl_index(n, l);
                   energy_ordered[ii] = eo;
                   if (echo > 3) printf(" %d", eo);
                   if (inverse) inverse[eo] = ii;
@@ -228,6 +236,61 @@ namespace sho_tools {
       if (echo > 3) printf("\n\n");
       return 0; // success if 0
   } // construct_index_table
+
+  inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order) {
+      auto const ellchar = "spdfghijkl";
+      int const echo = 1;
+      int ii{0};
+      switch (order) {
+
+        case order_zyx:
+        case order_Ezyx: // energy-ordered
+          for(int z = 0; z <= numax; ++z) {
+              for(int y = 0; y <= numax - z; ++y) {
+                  for(int x = 0; x <= numax - z - y; ++x) {
+                      int const j = is_energy_ordered(order) ? Ezyx_index(x, y, z) : ii;
+                      std::sprintf(&label[8*j], "%i%i%i", x, y, z);
+                      ++ii;
+          }}} // x y z
+          assert(nSHO(numax) == ii);
+        break;
+        
+        case order_lmn:
+        case order_lnm:
+        case order_nlm:
+        case order_Elnm: // energy-ordered
+          for(int l = 0; l <= numax; ++l) {
+              for(int m = -l; m <= l; ++m) {
+                  for(int n = 0; n <= (numax - l)/2; ++n) {
+                      int j{-1};
+                      if (order_Elnm == order) j = Elnm_index(l, n, m);
+                      if (order_lmn == order) j = lmn_index(numax, l, m, n);
+                      if (order_lnm == order) j = lnm_index(numax, l, n, m);
+                      if (order_nlm == order) j = nlm_index(numax, n, l, m);
+                      std::sprintf(&label[8*j], "%i%c%i", n, ellchar[l], m);
+                      ++ii;
+          }}} // l m n
+          assert(nSHO(numax) == ii);
+        break;
+
+        case order_ln: // emm-degenerate
+        case order_Enl: // energy-ordered emm-degenerate
+          for(int l = 0; l <= numax; ++l) {
+              for(int n = 0; n <= (numax - l)/2; ++n) {
+                  int const j = is_energy_ordered(order) ? Enl_index(n, l) : ii;
+                  std::sprintf(&label[8*j], "%i%c", n, ellchar[l]);
+                  ++ii;
+          }} // l n
+          assert(nSHO_radial(numax) == ii);
+        break;
+        
+        default:
+            if (echo > 0) printf("# no such case implemented: order=%s\n", SHO_order2string(&order));
+            return order; // error
+      } // switch order
+      if (echo > 3) printf("\n\n");
+      return 0; // success if 0
+  } // construct_label_table
 
   status_t all_tests();
   

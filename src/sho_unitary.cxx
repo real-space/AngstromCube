@@ -4,6 +4,8 @@
 #include <algorithm> // max, fill
 #include <fstream> // std::ifstream 
 #include <sstream> // std::istringstream
+#include <vector> // std::vector
+#include <numeric> // std::iota
 
 #include "inline_tools.hxx" // align
 #include "sho_tools.hxx" // n2HO
@@ -99,14 +101,25 @@ namespace sho_unitary {
       Unitary_SHO_Transform<real_t> U(numax);
       auto const dev = U.test_unitarity(echo);
       if (echo > 0) printf("# Unitary_SHO_Transform<real_%ld>.test_unitarity = %g\n", sizeof(real_t), dev);
-      return 0;
+      return (dev > 2e-7);
   } // test_loading
-  
+
+  int test_vecor_transform(int const numax=3, int const echo=9) {
+      Unitary_SHO_Transform<double> U(numax);
+      if (echo > 0) printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
+      int const nc = sho_tools::nSHO(numax);
+      std::vector<double> vi(nc, 0), vo(nc, 0);
+      std::iota(vi.begin(), vi.end(), 0);
+//       return U.transform_vector(vo.data(), sho_tools::order_nlm, vi.data(), sho_tools::order_zyx, numax, echo);
+      return U.transform_vector(vo.data(), sho_tools::order_Elnm, vi.data(), sho_tools::order_Ezyx, numax, echo);
+  } // test_loading
+
   status_t all_tests() {
     auto status = 0;
     status += test_generation();
     status += test_loading<float>();
     status += test_loading<double>();
+    status += test_vecor_transform();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

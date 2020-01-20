@@ -132,8 +132,8 @@ namespace sho_tools {
           // radial emm-degenerate energy-ordered indices
           for(int ell = nu%2; ell <= nu; ell+=2) {
               int const nrn = (nu - ell)/2;
-              int const k = Enl_index(ell, nrn);
-              if (echo > 9) printf("# Enl_index<nu=%d>(ell=%d, nrn=%d) == %d %d\n", nu, ell, nrn, nln, k);
+              int const k = Enl_index(nrn, ell);
+              if (echo > 9) printf("# Enl_index<nu=%d>(nrn=%d, ell=%d) == %d %d\n", nu, nrn, ell, nln, k);
               assert(k == nln);
               ++nln;
               for(int emm = -ell; emm <= ell; ++emm) {

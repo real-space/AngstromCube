@@ -147,8 +147,29 @@ namespace sho_projection {
                           * factorial<double>(ny)
                           * factorial<double>(nz)
                         )
-                      ); }
-
+                      ); } // sho_prefactor
+  
+  template <typename real_t>
+  int normalize_and_reorder_coefficients(real_t out[], // energy ordered and normalized with sho_prefactor
+                                    real_t const in[], // zyx_ordered, unnormalized
+                                    int const numax, double const sigma, double const factor=1, bool const inverse=false) {
+        int iSHO{0};
+        for(int nz = 0; nz <= numax; ++nz) {
+            for(int ny = 0; ny <= numax - nz; ++ny) {
+                for(int nx = 0; nx <= numax - nz - ny; ++nx) {
+                    int const jSHO = sho_tools::Ezyx_index(nx, ny, nz);
+                    if (inverse) {
+                        out[iSHO] = in[jSHO] * (factor / sho_prefactor(nx, ny, nz, sigma));
+                    } else {
+                        out[jSHO] = in[iSHO] * (factor * sho_prefactor(nx, ny, nz, sigma));
+                    }
+                    ++iSHO;
+                } // nx
+            } // ny
+        } // nz
+        assert( sho_tools::nSHO(numax) == iSHO ); return 0;
+  } // normalize_and_reorder_coefficients
+  
   status_t all_tests();
 
 } // namespace sho_projection

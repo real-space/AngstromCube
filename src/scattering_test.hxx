@@ -476,7 +476,7 @@ namespace scattering_test {
   template<typename real_t>
   status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax, uint8_t const nn[], int const stride=-1) 
   {
-      int const echo = 9;
+      int const echo = 1;
       if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
       int const nln = sho_radial::nSHO_radial(numax);
       int const nlmn = sho_tools::nSHO(numax);

@@ -21,7 +21,7 @@
           // rotate registers for the next iteration
           Hnm1 = Hn; Hn = Hnp1; // ordering is important here
       } // nu
-      
+
   } // hermite_polys
 
 #ifndef NO_UNIT_TESTS

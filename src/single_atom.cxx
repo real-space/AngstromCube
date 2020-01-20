@@ -284,7 +284,7 @@ extern "C" {
 
         numax = nu_max; // 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
-        ellmax = 2*numax; // can be smaller than 2*numax
+        ellmax = 1; // 2*numax; // can be smaller than 2*numax
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
         ellmax_compensator = std::min(4, (int)ellmax);
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
@@ -504,8 +504,8 @@ extern "C" {
         }
         
         int const maxit_scf = 1;
-        float const mixing = 0.45; // mixing with .45 works well for Cu (Z=29)
-        
+        float const mixing = 0.5;
+
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# %s SCF-iteration %d\n\n", label, scf);
 //             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
@@ -519,7 +519,7 @@ extern "C" {
             printf("\n## %s spherical parts: r, "
             "Zeff_tru(r), Zeff_smt(r)"
             ", r^2*rho_tru(r), r^2*rho_smt(r)"
-            ", zero_potential(r) in a.u."
+            ", zero_potential(r) in Ha"
             ":\n", label);
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
@@ -1578,11 +1578,12 @@ extern "C" {
         } // gnt
 
         // add the kinetic_energy deficit to the hamiltonian
-        if (echo > 7) printf("\n# %s lmn-based Hamiltonian elements in %s:\n", label, _eV);
+        if (echo > 7) printf("\n# %s Hamiltonian elements %s-ordered in %s:\n", 
+                        label, sho_tools::SHO_order2string(sho_tools::order_lmn), _eV);
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
-            if (echo > 7) printf("# %s hamiltonian elements for ilmn=%3d  ", label, ilmn);
+            if (echo > 7) printf("# %s hamiltonian elements for ilmn=%3i  ", label, ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                 int const jlm = lm_index_list[jlmn];
                 int const jln = ln_index_list[jlmn];
@@ -1592,7 +1593,7 @@ extern "C" {
                         ( charge_deficit(0,TRU,iln,jln)
                         - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
-                if ((echo > 7)) printf(" %g", true_norm[iln]*hamiltonian_lmn[ilmn][jlmn]*true_norm[jln]*eV);
+                if ((echo > 7)) printf(" %7.3f", true_norm[iln]*hamiltonian_lmn[ilmn][jlmn]*true_norm[jln]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
         } // ilmn
@@ -1600,7 +1601,7 @@ extern "C" {
         if (echo > 8) {
             printf("\n# %s lmn-based Overlap elements:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
-                printf("# %s overlap elements for ilmn=%3d  ", label, ilmn);
+                printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_index_list[jlmn];
                     printf(" %g", true_norm[iln]*true_norm[jln]*overlap_lmn[ilmn][jlmn]);
                 }   printf("\n");
@@ -1619,13 +1620,15 @@ extern "C" {
                 for(int iln = 0; iln < nln; ++iln) {
                     printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
                     for(int jln = 0; jln < nln; ++jln) {
-                        printf(" %g", true_norm[iln]*true_norm[jln]*result_ln[iln][jln]);
+                        printf(" %11.6f", true_norm[iln]*true_norm[jln]*result_ln[iln][jln]);
                     }   printf("\n");
                 }   printf("\n");
             } // i01
             
-            if (1) {
-                printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
+            
+            if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
+                     //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
+                if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 double const V_rmax = full_potential[SMT][00][rg[SMT]->n - 1]*Y00;
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
                 { // scope: prepare a smooth local potential which goes to zero at Rmax
@@ -1639,14 +1642,21 @@ extern "C" {
                   (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-            if (1) {
+            if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
+                     //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
+                double* rV[TRU_AND_SMT];
+                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                    int const nr = rg[ts]->n;
+                    rV[ts] = new double[nr];
+                    product(rV[ts], nr, full_potential[ts][00], rg[ts]->r, Y00);
+                } // ts
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-                  (rg, potential, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
+                  (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
+                delete[] rV[TRU]; delete[] rV[SMT];
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-            
+
         } // scope
-        
         
         set(hamiltonian, nSHO, 0.0); // clear
         set(overlap,     nSHO, 0.0); // clear
@@ -1660,9 +1670,9 @@ extern "C" {
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n", 
                        label, sho_tools::SHO_order2string(sho_tools::order_Ezyx), _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO);
+                printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO); // ToDo: show the nx,ny,nz quantum numbers
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-                    printf("\t%g", hamiltonian[iSHO][jSHO]*eV); // true_norm cannot be used here 
+                    printf(" %7.3f", hamiltonian[iSHO][jSHO]*eV); // true_norm cannot be used here 
                     // since hamiltonian is given in the Cartesian representation!
                 } // jSHO
                 printf("\n");
@@ -1672,7 +1682,7 @@ extern "C" {
     } // update_matrix_elements
 
     
-    void update_spherical_matrix_elements(int const echo=0) {
+    void check_spherical_matrix_elements(int const echo=0) {
         // check if the emm-averaged Hamiltonian elements produce the same scattering properties 
         // as the spherical part of the full potential
         int const nln = nvalencestates;
@@ -1707,7 +1717,7 @@ extern "C" {
                 } // jln
             } // iln
         } // scope
-     
+
         if (1) { // show atomic matrix elements
             std::vector<int> ells(nln, -1);
             {
@@ -1739,19 +1749,19 @@ extern "C" {
                         Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
                     } // ir
                 } // scope
-                
+
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
                   (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-        
-        if (1) {
+
+        if (0) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, potential, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-    } // update_spherical_matrix_elements
+    } // check_spherical_matrix_elements
     
     
     void update_density(float const mixing, int const echo=0) {
@@ -1759,6 +1769,7 @@ extern "C" {
         update_core_states(mixing, echo);
         update_valence_states(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
+        check_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
         int const nSHO = sho_tools::nSHO(numax);
         view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
         int const nln = nvalencestates;
@@ -1777,7 +1788,6 @@ extern "C" {
     void update_potential(float const mixing, double const ves_multipoles[], int const echo=0) {
         if (echo > 2) printf("\n# %s %s\n", label, __func__);
         update_full_potential(mixing, ves_multipoles, echo);
-        // update_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
@@ -1796,9 +1806,9 @@ namespace single_atom {
   
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm, int *lmax, int *lmax_cmp, int const _echo) {
-      int const echo = 0; // mute
-    
+                  double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, int const _echo) {
+      int const echo = 9; // mute
+
       static LiveAtom **a=nullptr;
 
       if (nullptr == a) {
@@ -1823,21 +1833,21 @@ namespace single_atom {
               rho[ia] = new double[nr2];
               a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
           } // get the smooth core densities
-          
+
           if (nullptr != rg) rg[ia] = a[ia]->get_smooth_radial_grid(); // pointers to smooth radial grids
           
           if (nullptr != sigma_cmp) sigma_cmp[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
           
           if (nullptr != qlm) set(qlm[ia], pow2(1 + a[ia]->ellmax_compensator), a[ia]->qlm_compensator); // copy compensator multipoles
-          
+
           if (nullptr != vlm) { 
               a[ia]->update_potential(.5f, vlm[ia], echo); // set electrostatic multipole shifts
               a[ia]->update_density(.5f, echo);
-          } //  vlm
+          } // vlm
 
-          if (nullptr != lmax)     lmax[ia]     = a[ia]->ellmax;
-          if (nullptr != lmax_cmp) lmax_cmp[ia] = a[ia]->ellmax_compensator;
-          
+          if (nullptr != lmax_vlm) lmax_vlm[ia] = std::min((int)a[ia]->ellmax, 1);
+          if (nullptr != lmax_qlm) lmax_qlm[ia] = a[ia]->ellmax_compensator;
+
       } // ia
 
       return 0;
