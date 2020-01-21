@@ -284,7 +284,7 @@ extern "C" {
 
         numax = nu_max; // 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
-        ellmax = 1; // 2*numax; // can be smaller than 2*numax
+        ellmax = 0; // 2*numax; // can be smaller than 2*numax
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
         ellmax_compensator = std::min(4, (int)ellmax);
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
@@ -1807,7 +1807,7 @@ namespace single_atom {
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
                   double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, int const _echo) {
-      int const echo = 9; // mute
+      int const echo = 0; // mute
 
       static LiveAtom **a=nullptr;
 

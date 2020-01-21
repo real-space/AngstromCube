@@ -802,6 +802,28 @@ The factorizable representation comes with the advantage that the 1D functions,
 e.g.~$H_{n_x}(x) \cdot \exp(-\frac 12 x^2)$ can be evaluated on-the-fly 
 at affordable costs~\cite{BaumeisterTsukamotoPASC19}.
 
+\subsection{Normalization}
+In the factorizable representation, one could infer L2-normalization of each 1D projector. 
+However, this involves serveral \ttt{sqrt}-operations and divisions which can be avoided
+by applying scaling factors such as normalizations in
+after the projection or in advance of the addition operation.
+The recursive definition of the Hermite polyomials is
+$$ H_{\nu + 1}(x) = x H_{\nu} - \frac{\nu}{2} H_{\nu - 1} $$
+where $\nu$ is $n_x$, $n_y$ or $n_z$, respectively.
+(compare \ttt{hermite\_polynomial.hxx}) 
+With that and the decay factor $\exp{-\frac{r^2}{2\sigma^2}}$
+we find that Cartesian factorizable 3D projectors are L2-normalized by a prefactor
+$$ f_{n_x n_y n_z} = \sqrt{ \frac{2^{n_x + n_y + n_z}} {\sqrt{\pi^3} \sigma^3 n_x! n_y! n_z!} } $$
+
+\subsection{Normalization for electrostatic}
+For the preparation of neutral charge distributions despite charge deficits in the core and the partial waves
+compensator charges are used.
+These also follow the Gaussian decay %% reference needed, e.g. GPAW
+which makes it suitable to use the projection and addition routines for factorizable projectors.
+Although we do not require any contribution from $\nrn > 0$.
+Different from the L2-normalization, the normalization for electrostatics is given by
+$$ 1 = \int \mathrm d\vec r^3  \  \hat q_{\ell m}(\vec r) Y_{\ell m} |\vec r|^\ell $$
+
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
 % ==============================================================================

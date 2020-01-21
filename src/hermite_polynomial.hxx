@@ -11,15 +11,15 @@
 
       H[0] = H0; // store Gaussian H_0
 
-      real_t Hnp1, Hn = H0, Hnm1 = 0;
+      real_t Hnup1, Hnu = H0, Hnum1 = 0;
       for(int nu = 0; nu < numax; ++nu) {
           real_t const nuhalf = 0.5 * (real_t)nu; // nu/2.
           // use the two step recurrence relation to create the 1D Hermite polynomials
           // H[nu+1] = x * H[nu] - nu/2. * H[nu-1];
-          Hnp1 = x * Hn - nuhalf * Hnm1; // see snippets/3Hermite.F90 for the derivation of this
-          H[nu + 1] = Hnp1; // store
+          Hnup1 = x * Hnu - nuhalf * Hnum1; // see snippets/3Hermite.F90 for the derivation of this
+          H[nu + 1] = Hnup1; // store
           // rotate registers for the next iteration
-          Hnm1 = Hn; Hn = Hnp1; // ordering is important here
+          Hnum1 = Hnu; Hnu = Hnup1; // ordering is important here
       } // nu
 
   } // hermite_polys

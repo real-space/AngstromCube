@@ -95,8 +95,8 @@ namespace spherical_atoms {
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", dims[0],dims[1],dims[2]);
       real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
-      if (echo > 1) printf("# use  %g %g %g  grid spacing in %s\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
-      if (echo > 1) printf("# cell is  %g %g %g  in %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
+      if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
+      if (echo > 1) printf("# cell is  %g %g %g  %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
       for(int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g.dim(d) - cell[d]) >= 1e-6) {
               printf("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s\n", 
@@ -217,40 +217,17 @@ namespace spherical_atoms {
           for(int ia = 0; ia < na; ++ia) {
               // todo: add the compensators
               double const sigma_compensator = sigma_cmp[ia];
-              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
-              if (0) { // also works
-                  float const rcut = sho_projection::truncation_radius(sigma_compensator, 0);
-                  float const ar2 = 64.f;
-                  int const nr2 = (int)std::ceil(ar2*pow2(rcut));
-                  if (echo > -1) printf("# use r^2-grid with r^2 = %.1f*i with %d points for compensator of atom #%d\n", ar2, nr2, ia);
-                  std::vector<double> rho_cmp(nr2, 0.0);
-                  if (echo > -1) printf("# compensator charge density of atom #%d:\n", ia);
-                  double const sig2inv = -.5/pow2(sigma_compensator);
-                  if (echo > 3) printf("\n## radial function of the spherical compensator:\n");
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2;
-                      rho_cmp[ir2] = prefactor*std::exp(sig2inv*r2);
-                      rho_cmp[ir2] *= qlm[ia][00];
-                      if (echo > 3) printf("%g %g\n", std::sqrt(r2), rho_cmp[ir2]);
-                  }   if (echo > 3) printf("\n\n");
-                  double q_added = 0;
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
-                      double q_added_image = 0;
-                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                      stat += real_space_grid::add_function(cmp.data(), g, &q_added_image, rho_cmp.data(), nr2, ar2, cnt);
-                      q_added += q_added_image;
-                  } // periodic images
-                  qlm[ia][00] = q_added*Y00;
-              } else if (1) {
-                  // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
+              if (1) {
                   int const nc = sho_tools::nSHO(lmax_qlm[ia]);
                   std::vector<double> coeff(nc, 0.0);
+                  // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
+                  double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator)); // warning! only gets 00 correct
                   set(coeff.data(), 1, qlm[ia], prefactor); // copy only monopole moment, ToDo
                   for(int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), lmax_qlm[ia], cnt, sigma_compensator, 0);
                   } // periodic images
-              }
+              } // 1
               if (echo > -1) {
                   // report extremal values of the density on the grid
                   printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][00]/Y00, ia);
@@ -278,7 +255,6 @@ namespace spherical_atoms {
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
               double const sigma_compensator = sigma_cmp[ia];
-//            double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
               int const nc = sho_tools::nSHO(lmax_vlm[ia]);
               std::vector<double> coeff(nc, 0.0);
               for(int ii = 0; ii < n_periodic_images; ++ii) {
@@ -290,7 +266,7 @@ namespace spherical_atoms {
               // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
 
               std::vector<double> vEzyx(nc, 0.0);
-              sho_projection::normalize_and_reorder_coefficients(vEzyx.data(), coeff.data(), lmax_vlm[ia], sigma_compensator, Y00);
+              sho_projection::normalize_and_reorder_coefficients(vEzyx.data(), coeff.data(), lmax_vlm[ia], sigma_compensator, 1./Y00);
 
               // convert SHO-coefficients from order_Ezyx to order_nlm
               std::vector<double> vnlm(nc, 0.0);
@@ -304,6 +280,10 @@ namespace spherical_atoms {
                   printf("# potential projection for atom #%d v_1 = %g %g %g %s\n", ia, 
                   vlm[ia][01]*Y00*eV, vlm[ia][02]*Y00*eV, vlm[ia][03]*Y00*eV,_eV);
               } // more than monopole
+
+              set(vlm[ia], pow2(1 + lmax_vlm[ia]), 0.0);
+              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
+              vlm[ia][00] = prefactor*coeff[00]; // only monopole
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
 
