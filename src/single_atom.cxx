@@ -1603,16 +1603,17 @@ extern "C" {
                 auto const   label_inp = i01 ? "overlap"    : "hamiltonian"   ;
                 auto const & result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
                 scattering_test::emm_average(result_ln.data(), input_lmn.data(), (int)numax, nn);
-                for(int iln = 0; iln < nln; ++iln) {
-                    printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
-                    for(int jln = 0; jln < nln; ++jln) {
-                        printf(" %11.6f", true_norm[iln]*true_norm[jln]*result_ln[iln][jln]);
+                if (echo > 4) {
+                    for(int iln = 0; iln < nln; ++iln) {
+                        printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
+                        for(int jln = 0; jln < nln; ++jln) {
+                            printf(" %11.6f", true_norm[iln]*true_norm[jln]*result_ln[iln][jln]);
+                        }   printf("\n");
                     }   printf("\n");
-                }   printf("\n");
+                } // echo
             } // i01
             
-            
-            if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
+            if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 double const V_rmax = full_potential[SMT][00][rg[SMT]->n - 1]*Y00;
@@ -1713,17 +1714,20 @@ extern "C" {
                     } // nrn
                 } // ell 
             }
-            printf("\n");            
-            for(int i01 = 0; i01 < 2; ++i01) {
-                auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
-                auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
-                for(int iln = 0; iln < nln; ++iln) {
-                    printf("# %s spherical%3i %s ", label, iln, label_qn);
-                    for(int jln = 0; jln < nln; ++jln) {
-                        printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln[iln][jln]*true_norm[jln] : 0);
+            
+            if (echo > 4) {
+                printf("\n");            
+                for(int i01 = 0; i01 < 2; ++i01) {
+                    auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
+                    auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
+                    for(int iln = 0; iln < nln; ++iln) {
+                        printf("# %s spherical%3i %s ", label, iln, label_qn);
+                        for(int jln = 0; jln < nln; ++jln) {
+                            printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln[iln][jln]*true_norm[jln] : 0);
+                        }   printf("\n");
                     }   printf("\n");
-                }   printf("\n");
-            } // i01
+                } // i01
+            } // echo
         } // 1
         
         if (1) {
@@ -1793,7 +1797,7 @@ namespace single_atom {
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
                   double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, int const _echo) {
-      int const echo = 0; // mute
+      int const echo = 0; // mute atom output
 
       static LiveAtom **a=nullptr;
 
