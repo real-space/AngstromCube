@@ -1,13 +1,13 @@
 #include <cstdio> // printf
 #include <cassert> // assert
-#include <cmath> // sqrt, pow, exp
-#include <algorithm> // max
+#include <cmath> // std::pow, std::exp, std::abs
+#include <algorithm> // std::max
 
 #include "sho_radial.hxx"
 
 #include "constants.hxx" // sqrtpi
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
-#include "inline_tools.hxx" // align<T,nbits>
+#include "inline_tools.hxx" // align<nbits>
 
 namespace sho_radial {
 

@@ -1,51 +1,53 @@
 #include <cstdio> // printf
-#include <vector> // std::vector
-#include <string> // std::string
 #include <cassert> // assert
 #include <cstdlib> // std::abs
+#include <vector> // std::vector
+#include <string> // std::string
+#include <utility> // std::pair
+
+#include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
+#include "control.hxx" // ::cli
 
 typedef int status_t;
 
-#include "recorded_warnings.hxx" // all_tests
-#include "hermite_polynomial.hxx" // all_tests
-#include "radial_eigensolver.hxx" // all_tests
-#include "boundary_condition.hxx" // all_tests
-#include "radial_integrator.hxx" // all_tests
-#include "finite_difference.hxx" // all_tests
-#include "geometry_analysis.hxx" // all_tests
-#include "radial_potential.hxx" // all_tests
-#include "bessel_transform.hxx" // all_tests
-#include "scattering_test.hxx" // all_tests
-#include "real_space_grid.hxx" // all_tests
-#include "davidson_solver.hxx" // all_tests
-#include "chemical_symbol.hxx" // all_tests
-#include "linear_operator.hxx" // all_tests
-#include "fourier_poisson.hxx" // all_tests
-#include "spherical_atoms.hxx" // all_tests
-#include "solid_harmonics.hxx" // all_tests
-#include "sho_projection.hxx" // all_tests
-#include "linear_algebra.hxx" // all_tests
-#include "grid_operators.hxx" // all_tests
-#include "element_config.hxx" // all_tests
-#include "vector_layout.hxx" // all_tests
-#include "sho_potential.hxx" // all_tests
-#include "angular_grid.hxx" // all_tests
-#include "simple_timer.hxx" // all_tests
-#include "simple_math.hxx" // all_tests
-#include "sho_overlap.hxx" // all_tests
-#include "radial_grid.hxx" // all_tests
-#include "single_atom.hxx" // all_tests
-#include "inline_math.hxx" // all_tests
-#include "sho_unitary.hxx" // all_tests
-#include "atom_image.hxx" // all_tests
-#include "sho_radial.hxx" // all_tests
-#include "sho_tools.hxx" // all_tests
-#include "atom_core.hxx" // all_tests
-#include "data_view.hxx" // all_tests
-#include "control.hxx" // all_tests, cli
-#include "spherical_harmonics.hxx" // no test implemented
-
-#include "recorded_warnings.hxx" // warn, show_warnings, clear_warnings
+#include "recorded_warnings.hxx" // ::all_tests
+#include "finite_difference.hxx" // ::all_tests
+#include "hermite_polynomial.hxx" // ::all_tests
+#include "spherical_harmonics.hxx" // ::all_tests
+#include "radial_eigensolver.hxx" // ::all_tests
+#include "boundary_condition.hxx" // ::all_tests
+#include "radial_integrator.hxx" // ::all_tests
+#include "geometry_analysis.hxx" // ::all_tests
+#include "radial_potential.hxx" // ::all_tests
+#include "bessel_transform.hxx" // ::all_tests
+#include "scattering_test.hxx" // ::all_tests
+#include "real_space_grid.hxx" // ::all_tests
+#include "davidson_solver.hxx" // ::all_tests
+#include "chemical_symbol.hxx" // ::all_tests
+#include "linear_operator.hxx" // ::all_tests
+#include "fourier_poisson.hxx" // ::all_tests
+#include "spherical_atoms.hxx" // ::all_tests
+#include "solid_harmonics.hxx" // ::all_tests
+#include "sho_projection.hxx" // ::all_tests
+#include "linear_algebra.hxx" // ::all_tests
+#include "grid_operators.hxx" // ::all_tests
+#include "element_config.hxx" // ::all_tests
+#include "vector_layout.hxx" // ::all_tests
+#include "sho_potential.hxx" // ::all_tests
+#include "angular_grid.hxx" // ::all_tests
+#include "simple_timer.hxx" // ::all_tests
+#include "simple_math.hxx" // ::all_tests
+#include "sho_overlap.hxx" // ::all_tests
+#include "radial_grid.hxx" // ::all_tests
+#include "single_atom.hxx" // ::all_tests
+#include "inline_math.hxx" // ::all_tests
+#include "sho_unitary.hxx" // ::all_tests
+#include "atom_image.hxx" // ::all_tests
+#include "sho_radial.hxx" // ::all_tests
+#include "sho_tools.hxx" // ::all_tests
+#include "atom_core.hxx" // ::all_tests
+#include "data_view.hxx" // ::all_tests
+#include "control.hxx" // ::all_tests
 
   int run_unit_tests(char const *module) 
   {
@@ -58,43 +60,44 @@ typedef int status_t;
       { // testing scope
 #define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
                         { run.push_back(make_pair(std::string(NAME), FUN())); }
-          module_test("recorded_warnings.",   recorded_warnings::all_tests);
-          module_test("finite_difference.",   finite_difference::all_tests);
-          module_test("hermite_polynomial.", hermite_polynomial::all_tests);
-          module_test("radial_eigensolver.", radial_eigensolver::all_tests);
-          module_test("boundary_condition.", boundary_condition::all_tests);
-          module_test("geometry_analysis.",   geometry_analysis::all_tests);
-          module_test("radial_integrator.",   radial_integrator::all_tests);
-          module_test("radial_potential.",     radial_potential::all_tests);
-          module_test("bessel_transform.",     bessel_transform::all_tests);
-          module_test("scattering_test.",       scattering_test::all_tests);
-          module_test("real_space_grid.",       real_space_grid::all_tests);
-          module_test("davidson_solver.",       davidson_solver::all_tests);
-          module_test("chemical_symbol.",       chemical_symbol::all_tests);
-          module_test("linear_operator.",       linear_operator::all_tests);
-          module_test("fourier_poisson.",       fourier_poisson::all_tests);
-          module_test("spherical_atoms.",       spherical_atoms::all_tests);
-          module_test("solid_harmonics.",       solid_harmonics::all_tests);
-          module_test("sho_projection.",         sho_projection::all_tests);
-          module_test("linear_algebra.",         linear_algebra::all_tests);
-          module_test("grid_operators.",         grid_operators::all_tests);
-          module_test("element_config.",         element_config::all_tests);
-          module_test("vector_layout.",           vector_layout::all_tests);
-          module_test("sho_potential.",           sho_potential::all_tests);
-          module_test("angular_grid.",             angular_grid::all_tests);
-          module_test("simple_timer.",             simple_timer::all_tests);
-          module_test("simple_math.",               simple_math::all_tests);
-          module_test("sho_overlap.",               sho_overlap::all_tests);
-          module_test("radial_grid.",               radial_grid::all_tests);
-          module_test("single_atom.",               single_atom::all_tests);
-          module_test("inline_math.",               inline_math::all_tests);
-          module_test("sho_unitary.",               sho_unitary::all_tests);
-          module_test("atom_image.",                 atom_image::all_tests);
-          module_test("sho_radial.",                 sho_radial::all_tests);
-          module_test("sho_tools.",                   sho_tools::all_tests);
-          module_test("atom_core.",                   atom_core::all_tests);
-          module_test("data_view.",                   data_view::all_tests);
-          module_test("control.",                       control::all_tests);
+          module_test("recorded_warnings.",     recorded_warnings::all_tests);
+          module_test("finite_difference.",     finite_difference::all_tests);
+          module_test("hermite_polynomial.",   hermite_polynomial::all_tests);
+          module_test("spherical_harmonics.", spherical_harmonics::all_tests);
+          module_test("radial_eigensolver.",   radial_eigensolver::all_tests);
+          module_test("boundary_condition.",   boundary_condition::all_tests);
+          module_test("radial_integrator.",     radial_integrator::all_tests);
+          module_test("geometry_analysis.",     geometry_analysis::all_tests);
+          module_test("radial_potential.",       radial_potential::all_tests);
+          module_test("bessel_transform.",       bessel_transform::all_tests);
+          module_test("scattering_test.",         scattering_test::all_tests);
+          module_test("real_space_grid.",         real_space_grid::all_tests);
+          module_test("davidson_solver.",         davidson_solver::all_tests);
+          module_test("chemical_symbol.",         chemical_symbol::all_tests);
+          module_test("linear_operator.",         linear_operator::all_tests);
+          module_test("fourier_poisson.",         fourier_poisson::all_tests);
+          module_test("spherical_atoms.",         spherical_atoms::all_tests);
+          module_test("solid_harmonics.",         solid_harmonics::all_tests);
+          module_test("sho_projection.",           sho_projection::all_tests);
+          module_test("linear_algebra.",           linear_algebra::all_tests);
+          module_test("grid_operators.",           grid_operators::all_tests);
+          module_test("element_config.",           element_config::all_tests);
+          module_test("vector_layout.",             vector_layout::all_tests);
+          module_test("sho_potential.",             sho_potential::all_tests);
+          module_test("angular_grid.",               angular_grid::all_tests);
+          module_test("simple_timer.",               simple_timer::all_tests);
+          module_test("simple_math.",                 simple_math::all_tests);
+          module_test("sho_overlap.",                 sho_overlap::all_tests);
+          module_test("radial_grid.",                 radial_grid::all_tests);
+          module_test("single_atom.",                 single_atom::all_tests);
+          module_test("inline_math.",                 inline_math::all_tests);
+          module_test("sho_unitary.",                 sho_unitary::all_tests);
+          module_test("atom_image.",                   atom_image::all_tests);
+          module_test("sho_radial.",                   sho_radial::all_tests);
+          module_test("sho_tools.",                     sho_tools::all_tests);
+          module_test("atom_core.",                     atom_core::all_tests);
+          module_test("data_view.",                     data_view::all_tests);
+          module_test("control.",                         control::all_tests);
 #undef    module_test
       } // testing scope
 

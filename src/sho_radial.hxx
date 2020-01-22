@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath> // std::sqrt
+
 #include "constants.hxx" // sqrtpi
 
 typedef int status_t;

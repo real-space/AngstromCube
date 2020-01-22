@@ -26,12 +26,12 @@ namespace spherical_harmonics {
       real_t constexpr small = 1e-12;
 
 
-// !---> check whether  or not normalizations are needed
+      // check whether  or not normalizations are needed
       static real_t *ynorm = nullptr;
       static int ellmaxd = -1; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
-// !-->     first deallocate the array if it exists
+          // first deallocate the array if it exists
           if (nullptr != ynorm) {
               delete[] ynorm;
               printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
@@ -63,7 +63,7 @@ namespace spherical_harmonics {
           delete[] ynorm; // cleanup
       }
 
-// !--->    calculate sin and cos of theta and phi
+      // calculate sin and cos of theta and phi
       auto const x = v[0], y = v[1], z = v[2];
       auto const xy2 = x*x + y*y;
       auto const r = std::sqrt(xy2 + z*z);
@@ -88,14 +88,14 @@ namespace spherical_harmonics {
       int const S = (1 + ellmax); // stride for p, the array of associated legendre functions
       real_t p[(1 + ellmax)*S];
 
-// !---> generate associated legendre functions for m >= 0
+      // generate associated legendre functions for m >= 0
       real_t fac = 1;
-// !---> loop over m values
+      // loop over m values
       for(int m = 0; m < ellmax; ++m) {
           fac *= (1 - 2*m);
           p[m     + S*m] = fac;
           p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
-// !--->    recurse upward in l
+          // recurse upward in l
           for(int l = m + 2; l <= ellmax; ++l) {
               p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*p[l - 2 + S*m])/((real_t)(l - m));
           } // l
@@ -104,7 +104,7 @@ namespace spherical_harmonics {
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
       real_t c[1 + ellmax], s[1 + ellmax];
-// !--->    determine sin and cos of phi
+      // determine sin and cos of phi
       c[0] = 1; s[0] = 0;
       if (ellmax > 0) {
           c[1] = cph; s[1] = sph; 
@@ -115,7 +115,7 @@ namespace spherical_harmonics {
           } // m
       } // ellmax > 0
 
-// !--->    multiply in the normalization factors
+      // multiply in the normalization factors
       for(int m = 0; m <= ellmax; ++m) {
           for(int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;

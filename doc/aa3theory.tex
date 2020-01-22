@@ -817,12 +817,13 @@ $$ f_{n_x n_y n_z} = \sqrt{ \frac{2^{n_x + n_y + n_z}} {\sqrt{\pi^3} \sigma^3 n_
 
 \subsection{Normalization for electrostatic}
 For the preparation of neutral charge distributions despite charge deficits in the core and the partial waves
-compensator charges are used.
-These also follow the Gaussian decay %% reference needed, e.g. GPAW
+compensator charges $\hat q_{\ell m}(\vec r)$ are used.
+These also follow the Gaussian decay %% reference needed, e.g. GPAW (but GPAW usues \exp(-\frac{\vec r^2} {r_c^2})
+$$ \hat q_{\ell m}(\vec r) = f_{\ell} \exp(-\frac{\vec r^2} {2\sigma^2}) Y_{\ell m}(\hat{\vec r}) |\vec r|^\ell $$
 which makes it suitable to use the projection and addition routines for factorizable projectors.
 Although we do not require any contribution from $\nrn > 0$.
-Different from the L2-normalization, the normalization for electrostatics is given by
-$$ 1 = \int \mathrm d\vec r^3  \  \hat q_{\ell m}(\vec r) Y_{\ell m} |\vec r|^\ell $$
+Different from the L2-normalization, the normalization factor $f_\ell$ for electrostatics is determined by
+$$ 1 = \int \mathrm d^3\vec r  \  \hat q_{\ell m}(\vec r) Y^*_{\ell m}(\hat{\vec r}) |\vec r|^\ell $$
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}

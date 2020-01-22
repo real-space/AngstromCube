@@ -1,13 +1,11 @@
 #pragma once
 
-#include <algorithm> // std::max
-#include <cmath> // std::exp, std::abs, std::sqrt
-#include "constants.hxx" // constants::pi
+#include <cmath> // std::exp
 
   template<typename real_t>
   inline void hermite_polys(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
       // Hermite-polynomials times Gauss function, not normalized!
-      real_t const H0 = (x*x < rcut*rcut)? exp(-0.5*x*x) : 0; // Gaussian envelope function
+      real_t const H0 = (x*x < rcut*rcut)? std::exp(-0.5*x*x) : 0; // Gaussian envelope function
 
       H[0] = H0; // store Gaussian H_0
 
@@ -27,8 +25,12 @@
 #ifndef NO_UNIT_TESTS
     #include <cstdio> // printf
     #include <algorithm> // std::max
+    #include <cmath> // std::abs, std::sqrt
+    #include <cassert> // assert
+    
+    #include "constants.hxx" // constants::pi
 #endif // NO_UNIT_TESTS
-  
+
 namespace hermite_polynomial {
 
 #ifdef  NO_UNIT_TESTS
@@ -77,7 +79,7 @@ namespace hermite_polynomial {
           } // nup
           assert(std::abs(hh[nu*M + nu] - 1) < 1e-7);
       } // nu
-      
+
       if (echo > 3) {
           printf("# overlap matrix %d x %d\n", M, M);
           for(int nu = 0; nu <= numax; ++nu) {

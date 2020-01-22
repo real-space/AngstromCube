@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cmath> // std::exp
+
 #include "radial_grid.h" // radial_grid_t
 
 typedef int status_t;
