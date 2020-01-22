@@ -813,7 +813,7 @@ The recursive definition of the Hermite polyomials is
 \end{equation}
 where $\nu$ is $n_x$, $n_y$ or $n_z$, respectively.
 (compare \ttt{hermite\_polynomial.hxx}) 
-With that and the decay factor $\exp{-\frac{r^2}{2\sigma^2}}$
+With that and the decay factor $\exp\left({-\frac{r^2}{2\sigma^2}}\right)$
 we find that Cartesian factorizable 3D projectors are L2-normalized by a prefactor
 \begin{equation}
 	f_{n_x n_y n_z} = \sqrt{ \frac{2^{n_x + n_y + n_z}} {\sqrt{\pi^3} \sigma^3 n_x! n_y! n_z!} }
@@ -822,12 +822,12 @@ we find that Cartesian factorizable 3D projectors are L2-normalized by a prefact
 \subsection{Normalization for electrostatic}
 For the preparation of neutral charge distributions despite charge deficits in the core and the partial waves
 compensator charges $\hat q_{\ell m}(\vec r)$ are used.
-These also follow the Gaussian decay %% reference needed, e.g. GPAW (but GPAW usues \exp(-\frac{\vec r^2} {r_c^2})
+These also follow the Gaussian shape function %% reference needed, e.g. GPAW (but GPAW usues \exp(-\frac{\vec r^2} {r_c^2})
 \begin{equation}
  \hat q_{\ell m}(\vec r) = f_{\ell} \exp(-\frac{\vec r^2} {2\sigma^2}) Y_{\ell m}(\hat{\vec r}) |\vec r|^\ell
 \end{equation}
 which makes it suitable to use the projection and addition routines for factorizable projectors,
-although we do not require any contribution from $\nrn > 0$.
+although we do not require any contributions with $\nrn > 0$.
 Different from the L2-normalization, the normalization factor $f_\ell$ for electrostatics is determined by
 \begin{align}
  1 &= \int \mathrm d^3\vec r  \  \hat q_{\ell m}(\vec r) Y^*_{\ell m}(\hat{\vec r}) |\vec r|^\ell \\
@@ -835,6 +835,27 @@ Different from the L2-normalization, the normalization factor $f_\ell$ for elect
  f_\ell &= \frac{\sqrt{2}}{\sqrt{\pi} \sigma^{2\ell + 3} (2\ell + 1)!!}
 \end{align}
 where we used that $\int\limits_0^{\infty} x^{2m} \exp(-x^2/2) \mathrm dx  = \sqrt{\pi/2} (2m-1)!!$ for $m \in \mathbb N_0$.
+
+Before we use the unitary SHO transform from Cartesian to radial,
+Cartesian coefficients need to be normalized.
+After transformation, we have to see that also the radial SHO eigenfunctions are L2-normalized.
+For $\nrn = 0$ the Laguerre polynomial is a constant only, so
+the radial L2-normalization is given by
+\begin{align}
+	f^{-2}_{L2} &= \int\limits_0^\infty \mathrm dr r^2 \left( r^\ell \exp(-\frac{r^2}{2\sigma^2}) \right)^2 \\
+				&= \sigma^{2\ell + 3} \int\limits_0^\infty \mathrm dx x^{2\ell + 2} \exp(-x^2) \\
+				&= \sigma^{2\ell + 3} (2\ell + 1)!! \frac{\sqrt{\pi}}{2^{2+\ell}} \\
+\end{align}
+However, we need the (L1-)normalization w.r.t.~$r^\ell$:
+\begin{align}
+	f^{-1}_{L1} &= \int\limits_0^\infty \mathrm dr r^2 \exp(-\frac{r^2}{2\sigma^2}) r^\ell \\
+				&= \sigma^{\ell + 3} \int\limits_0^\infty \mathrm dx x^{\ell + 2} \exp(-x^2/2) = \sigma^{\ell + 3} d(\ell + 1)  \\
+\end{align}
+where $d(n)$ is simply the double factorial $n!!$ which needs to be multiplied by $\sqrt{\pi/2}$ for odd $n$.
+Therefore, we have to introduce another prefactor $f_{L1}/f_{L2}$ which corrects for the assumed L2 normalization 
+imposing the desired L1 normalization.
+
+
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
 % ==============================================================================

@@ -276,7 +276,6 @@ namespace spherical_atoms {
 
               set(vlm[ia], pow2(1 + lmax_vlm[ia]), vnlm.data()); // neglect all nrn > 0 contributions
               
-              printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
               if (lmax_vlm[ia] > 0) {
                   printf("# potential projection for atom #%d v_1 = %g %g %g %s\n", ia, 
                   vlm[ia][01]*Y00*eV, vlm[ia][02]*Y00*eV, vlm[ia][03]*Y00*eV,_eV);
@@ -285,6 +284,7 @@ namespace spherical_atoms {
               set(vlm[ia], pow2(1 + lmax_vlm[ia]), 0.0);
               double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
               vlm[ia][00] = prefactor*coeff[00]; // only monopole
+              printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
 
@@ -326,7 +326,7 @@ namespace spherical_atoms {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
               float const dq = 1.f/16; int const nq = (int)(constants::pi/(min_grid_spacing*dq));
               std::vector<double> qc(nq, 0.0);
-              
+
 //            printf("\n\n# start bessel_projection:\n"); // DEBUG
               {
                   std::vector<double> qc_image(nq, 0.0);

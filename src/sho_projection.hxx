@@ -171,6 +171,17 @@ namespace sho_projection {
             / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
   } // electrostatics_prefactor
 
+  inline double radial_L2_prefactor(int const ell, double const sigma, int const nrn=0) {
+      assert( 0 == nrn ); // derived only for the node-less radial SHO eigenfunction
+      double const fm2 = std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) * constants::sqrtpi * std::pow(0.5, 2 + ell);
+      return 1/std::sqrt(fm2);
+  } // radial_L2_prefactor
+
+  inline double electrostatic_L1_prefactor(int const ell, double const sigma) {
+      assert( ell >= 0 );
+      return std::pow(sigma, ell + 3) * factorial<2>(ell + 1) * ((ell % 2) ? constants::sqrtpi/std::sqrt(2) : 1);
+  } // electrostatic_L1_prefactor
+  
   status_t all_tests();
 
 } // namespace sho_projection

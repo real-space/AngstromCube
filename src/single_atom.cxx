@@ -222,7 +222,7 @@ extern "C" {
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][nr_smt] r*projectors
-      view3D<double> waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
+      view3D<double> partial_waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       std::vector<double> true_norm; // vector[nln] for display of partial wave results
       // end of energy-parameter-set dependent members
@@ -278,6 +278,7 @@ extern "C" {
             auto const rc = control::get("smooth.radial.grid.from", 1e-4);
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
+        // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
 
         int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
                   nrs = align<2>(rg[SMT]->n);
@@ -399,8 +400,8 @@ extern "C" {
 
         nvalencestates = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         int const nln = nvalencestates; // abbreviate
-        waves[TRU] = view3D<double>(2, nln, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
-        waves[SMT] = view3D<double>(2, nln, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
+        partial_waves[TRU] = view3D<double>(2, nln, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
+        partial_waves[SMT] = view3D<double>(2, nln, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         valence_state = std::vector<valence_level_t>(nvalencestates);
         {
 //          if (echo > 0) printf("# valence "); // no new line, compact list follows
@@ -421,10 +422,10 @@ extern "C" {
                     vs.emm = emm_Degenerate;
                     vs.spin = spin_Degenerate;
 
-                    vs.wave[SMT] = waves[SMT](0,iln); // the smooth radial function
-                    vs.wave[TRU] = waves[TRU](0,iln); // the true radial function
-                    vs.wKin[SMT] = waves[SMT](1,iln); // the smooth kinetic energy
-                    vs.wKin[TRU] = waves[TRU](1,iln); // the true kinetic energy
+                    vs.wave[SMT] = partial_waves[SMT](0,iln); // the smooth radial function
+                    vs.wave[TRU] = partial_waves[TRU](0,iln); // the true radial function
+                    vs.wKin[SMT] = partial_waves[SMT](1,iln); // the smooth kinetic energy
+                    vs.wKin[TRU] = partial_waves[TRU](1,iln); // the true kinetic energy
 
                     if (nrn < nn[ell]) {
                         double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
@@ -704,7 +705,6 @@ extern "C" {
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing valence states
             
-//          int const msub = (1 + numax/2); // max. size of the subspace
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell); 
 
             view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view
