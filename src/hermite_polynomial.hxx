@@ -65,7 +65,7 @@ namespace hermite_polynomial {
       for(int ij = 0; ij < M*M; ++ij) hh[ij] *= hg; // grid spacing
       
       double const pi_factor = 1./std::sqrt(constants::pi);
-      double max_dev[] = {0,0};
+      double max_dev[] = {0, 0}; // {diagonal, off-diagonal}
       for(int nu = 0; nu <= numax; ++nu) {
           double const diag = hh[nu*M + nu];
           if (echo > 2) printf("# nu = %d norm^2 = %g --> %g\n", nu, diag, diag*pi_factor*(1 << nu));

@@ -142,14 +142,10 @@ namespace sho_projection {
 
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
       return std::sqrt( ( 1 << sho_tools::get_nu(nx, ny, nz) )
-                       /(   pow3(constants::sqrtpi * sigma) 
-                          * factorial<double>(nx)
-                          * factorial<double>(ny)
-                          * factorial<double>(nz)
-                        )
-                      ); } // sho_prefactor
-  
-  template <typename real_t>
+                       /( pow3(constants::sqrtpi * sigma) * factorial(nx) * factorial(ny) * factorial(nz) ) );
+  } // sho_prefactor
+
+  template<typename real_t>
   int normalize_and_reorder_coefficients(real_t out[], // energy ordered and normalized with sho_prefactor
                                     real_t const in[], // zyx_ordered, unnormalized
                                     int const numax, double const sigma, double const factor=1, bool const inverse=false) {
@@ -169,7 +165,12 @@ namespace sho_projection {
         } // nz
         assert( sho_tools::nSHO(numax) == iSHO ); return 0;
   } // normalize_and_reorder_coefficients
-  
+
+  inline double electrostatics_prefactor(int const ell, double const sigma) {
+      return std::sqrt(2)
+            / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
+  } // electrostatics_prefactor
+
   status_t all_tests();
 
 } // namespace sho_projection

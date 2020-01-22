@@ -808,23 +808,33 @@ However, this involves serveral \ttt{sqrt}-operations and divisions which can be
 by applying scaling factors such as normalizations in
 after the projection or in advance of the addition operation.
 The recursive definition of the Hermite polyomials is
-$$ H_{\nu + 1}(x) = x H_{\nu} - \frac{\nu}{2} H_{\nu - 1} $$
+\begin{equation}
+	H_{\nu + 1}(x) = x H_{\nu} - \frac{\nu}{2} H_{\nu - 1}
+\end{equation}
 where $\nu$ is $n_x$, $n_y$ or $n_z$, respectively.
 (compare \ttt{hermite\_polynomial.hxx}) 
 With that and the decay factor $\exp{-\frac{r^2}{2\sigma^2}}$
 we find that Cartesian factorizable 3D projectors are L2-normalized by a prefactor
-$$ f_{n_x n_y n_z} = \sqrt{ \frac{2^{n_x + n_y + n_z}} {\sqrt{\pi^3} \sigma^3 n_x! n_y! n_z!} } $$
+\begin{equation}
+	f_{n_x n_y n_z} = \sqrt{ \frac{2^{n_x + n_y + n_z}} {\sqrt{\pi^3} \sigma^3 n_x! n_y! n_z!} }
+\end{equation}
 
 \subsection{Normalization for electrostatic}
 For the preparation of neutral charge distributions despite charge deficits in the core and the partial waves
 compensator charges $\hat q_{\ell m}(\vec r)$ are used.
 These also follow the Gaussian decay %% reference needed, e.g. GPAW (but GPAW usues \exp(-\frac{\vec r^2} {r_c^2})
-$$ \hat q_{\ell m}(\vec r) = f_{\ell} \exp(-\frac{\vec r^2} {2\sigma^2}) Y_{\ell m}(\hat{\vec r}) |\vec r|^\ell $$
-which makes it suitable to use the projection and addition routines for factorizable projectors.
-Although we do not require any contribution from $\nrn > 0$.
+\begin{equation}
+ \hat q_{\ell m}(\vec r) = f_{\ell} \exp(-\frac{\vec r^2} {2\sigma^2}) Y_{\ell m}(\hat{\vec r}) |\vec r|^\ell
+\end{equation}
+which makes it suitable to use the projection and addition routines for factorizable projectors,
+although we do not require any contribution from $\nrn > 0$.
 Different from the L2-normalization, the normalization factor $f_\ell$ for electrostatics is determined by
-$$ 1 = \int \mathrm d^3\vec r  \  \hat q_{\ell m}(\vec r) Y^*_{\ell m}(\hat{\vec r}) |\vec r|^\ell $$
-
+\begin{align}
+ 1 &= \int \mathrm d^3\vec r  \  \hat q_{\ell m}(\vec r) Y^*_{\ell m}(\hat{\vec r}) |\vec r|^\ell \\
+ 1 &= \int \mathrm d r r^2 f_\ell \exp(-\frac{r^2} {2\sigma^2}) r^{2\ell} \\
+ f_\ell &= \frac{\sqrt{2}}{\sqrt{\pi} \sigma^{2\ell + 3} (2\ell + 1)!!}
+\end{align}
+where we used that $\int\limits_0^{\infty} x^{2m} \exp(-x^2/2) \mathrm dx  = \sqrt{\pi/2} (2m-1)!!$ for $m \in \mathbb N_0$.
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
 % ==============================================================================

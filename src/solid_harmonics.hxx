@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cmath> // std::sqrt
+#include <cmath> // std::sqrt, std::sin, std::cos
 #include "constants.hxx" // constants::pi
 
 namespace solid_harmonics {

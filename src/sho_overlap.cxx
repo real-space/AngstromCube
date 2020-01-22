@@ -394,11 +394,6 @@ namespace sho_overlap {
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
-  
-  template // explicit template instantiation
-  status_t generate_product_tensor(double tensor[], int const ncut, double const sigma,
-                                   double const sigma0, double const sigma1)
-  
 #else // NO_UNIT_TESTS
 
   template<typename real_t>

@@ -84,15 +84,6 @@ namespace atom_core {
           energies[E_Htr] = EHtr;
       } // export energy contributions
   } // rad_pot
-  
-  
-  char ellchar(ell_QN_t const ell) {
-      char constexpr special_ellchars[] = "spd";
-      if (ell < 0) return '?';
-      if (ell < 3) return special_ellchars[ell];
-      return 99 + ell; // "fghijk ..."
-  } // ellchar
-
     
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
     auto const alpha = 0.3058*std::pow(Z, 1./3.);

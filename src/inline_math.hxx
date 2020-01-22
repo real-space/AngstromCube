@@ -1,10 +1,5 @@
 #pragma once
 
-#ifndef NO_UNIT_TESTS
-    #include <cstdio> // printf
-    #include <cmath> // std::pow (for reference)
-    #include <algorithm> // std::max
-#endif // NO_UNIT_TESTS
 
   typedef int status_t;
 
@@ -32,11 +27,10 @@
   } // intpow
 
 
-  template<typename real_t> 
-  inline real_t constexpr factorial(unsigned const n) {
-      return (n > 1)? factorial<real_t>(n - 1)*((real_t)n) : 1;
-  } // factorial
-
+  template<unsigned Step=1> 
+  inline double constexpr factorial(unsigned const n) {
+      return (n > 1)? factorial<Step>(n - Step)*((double)n) : 1;
+  } // factorial n! for Step=1 and double_factorial n!! for Step=2
 
   template<typename real_t>
   void inline set(real_t y[], size_t const n, real_t const a) {
@@ -99,6 +93,16 @@
   } // dot_product
   
   
+    #include <cstdio> // printf
+#ifndef NO_UNIT_TESTS
+    #include <cassert> // assert
+    #include <cmath> // std::round, std::pow (for reference)
+    #include <algorithm> // std::max
+   
+   bool constexpr is_integer(double const f) { return (f == std::round(f)); }
+
+#endif // NO_UNIT_TESTS
+
 namespace inline_math {
 
 #ifdef  NO_UNIT_TESTS
@@ -127,11 +131,34 @@ namespace inline_math {
       return (max_all_dev > threshold);
   } // test_intpow
 
+  inline status_t test_factorials(int const echo=4, double const threshold=9e-14) {
+      if (echo > 2) printf("\n# %s %s \n", __FILE__, __func__);
+      status_t stat = 0;
+      double fac = 1;
+      for(int n = 0; n < 171; ++n) {
+          assert( factorial(n) == fac );
+//        printf("# %i! = %g\n", n, fac);
+          if (!is_integer(fac)) { ++stat; if (echo > 0) printf("# %i! = %g is non-integer by %g\n", n, fac, fac - std::round(fac)); }
+          fac *= (n + 1); // prepare next
+      } // n
+      double dfac[] = {1, 1}; // {even, odd}
+      for(int n = 0; n < 301; ++n) {
+          double & fac2 = dfac[n & 1];
+          assert( factorial<2>(n) == fac2 );
+//        printf("# %i!! = %g\n", n, fac2);
+          if (!is_integer(fac2)) { ++stat; if (echo > 0) printf("# %i! = %g is non-integer by %g\n", n, fac2, fac2 - std::round(fac2)); }
+          fac2 *= (n + 2); // prepare next
+      } // n
+      // found: exponent of double numbers exceeds limits before the mantissa produces non-integer representations    
+      return stat;
+  } // test_factorials
+
   inline status_t all_tests(int const echo=3) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
     auto status = 0;
     status += test_intpow<float>(echo, 6e-6);
     status += test_intpow<double>(echo);
+    status += test_factorials(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

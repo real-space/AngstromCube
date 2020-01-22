@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Thu Aug  1 16:59:19 2019"
+@timestamp def "Wed Jan 22 09:58:35 2020"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -342,7 +342,7 @@
 @    s2 errorbar riser clip off
 @    s2 errorbar riser clip length 0.100000
 @    s2 comment "single_atom.out_Al_core_plot"
-@    s2 legend  ""
+@    s2 legend  "V_true"
 @    s3 hidden false
 @    s3 type xy
 @    s3 symbol 0
@@ -391,7 +391,7 @@
 @    s3 errorbar riser clip off
 @    s3 errorbar riser clip length 0.100000
 @    s3 comment "single_atom.out_Al_core_plot"
-@    s3 legend  ""
+@    s3 legend  "V_smt"
 @    s6 hidden false
 @    s6 type xy
 @    s6 symbol 0
@@ -440,7 +440,7 @@
 @    s6 errorbar riser clip off
 @    s6 errorbar riser clip length 0.100000
 @    s6 comment "single_atom.out_Al_core_plot"
-@    s6 legend  ""
+@    s6 legend  "V_bar .6325"
 @    s13 hidden false
 @    s13 type xy
 @    s13 symbol 0
@@ -489,7 +489,7 @@
 @    s13 errorbar riser clip off
 @    s13 errorbar riser clip length 0.100000
 @    s13 comment "single_atom.out_Al_core_plot_x2"
-@    s13 legend  ""
+@    s13 legend  "V_bar 1.265"
 @    s20 hidden false
 @    s20 type xy
 @    s20 symbol 0
@@ -538,7 +538,7 @@
 @    s20 errorbar riser clip off
 @    s20 errorbar riser clip length 0.100000
 @    s20 comment "single_atom.out_Al_core_plot_x3"
-@    s20 legend  ""
+@    s20 legend  "V_bar 1.897"
 @    s27 hidden false
 @    s27 type xy
 @    s27 symbol 0
@@ -587,7 +587,7 @@
 @    s27 errorbar riser clip off
 @    s27 errorbar riser clip length 0.100000
 @    s27 comment "single_atom.out_Al_core_plot_x4"
-@    s27 legend  ""
+@    s27 legend  "V_bar 2.53"
 @g1 on
 @g1 hidden false
 @g1 type XY
@@ -805,7 +805,7 @@
 @    s3 errorbar riser clip off
 @    s3 errorbar riser clip length 0.100000
 @    s3 comment "copy of set G0.S3"
-@    s3 legend  "V_smt"
+@    s3 legend  ""
 @    s6 hidden false
 @    s6 type xy
 @    s6 symbol 0
@@ -854,7 +854,7 @@
 @    s6 errorbar riser clip off
 @    s6 errorbar riser clip length 0.100000
 @    s6 comment "copy of set G0.S6"
-@    s6 legend  "V_bar .6325"
+@    s6 legend  ""
 @    s13 hidden false
 @    s13 type xy
 @    s13 symbol 0
@@ -903,7 +903,7 @@
 @    s13 errorbar riser clip off
 @    s13 errorbar riser clip length 0.100000
 @    s13 comment "copy of set G0.S13"
-@    s13 legend  "V_bar 1.265"
+@    s13 legend  ""
 @    s20 hidden false
 @    s20 type xy
 @    s20 symbol 0
@@ -952,7 +952,7 @@
 @    s20 errorbar riser clip off
 @    s20 errorbar riser clip length 0.100000
 @    s20 comment "copy of set G0.S20"
-@    s20 legend  "V_bar 1.897"
+@    s20 legend  ""
 @    s27 hidden false
 @    s27 type xy
 @    s27 symbol 0
@@ -1001,7 +1001,7 @@
 @    s27 errorbar riser clip off
 @    s27 errorbar riser clip length 0.100000
 @    s27 comment "copy of set G0.S27"
-@    s27 legend  "V_bar 2.53"
+@    s27 legend  ""
 @target G0.S2
 @type xy
 0.00100356 -12920.503

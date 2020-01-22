@@ -3,6 +3,7 @@
 #include <cmath> // std::exp
 
 #include "radial_grid.h" // radial_grid_t
+#include "quantum_numbers.h" // ell_QN_t
 
 typedef int status_t;
 
@@ -31,6 +32,13 @@ namespace atom_core {
       return (enn*(enn - 1))/2 + ell;
   } // nl_index
 
+  inline char ellchar(ell_QN_t const ell) {
+      char constexpr special_ellchars[] = "spd";
+      if (ell < 0) return '?';
+      if (ell < 3) return special_ellchars[ell];
+      return 99 + ell; // "fghijk ..."
+  } // ellchar
+  
   status_t all_tests();
 
 } // namespace atom_core

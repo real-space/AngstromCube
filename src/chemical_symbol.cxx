@@ -321,7 +321,7 @@ namespace chemical_symbol {
       return status;
   } // test_consistency
   
-  status_t all_tests(int echo) {
+  status_t all_tests() {
     auto status = 0;
     status += std::abs(test_decoding_14bit());
     status += std::abs(test_decoding());
