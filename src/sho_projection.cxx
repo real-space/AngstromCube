@@ -20,7 +20,7 @@ namespace sho_projection {
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
-  status_t test_orthogonality(int const numax=7, int const echo=2) {
+  status_t test_L2_orthogonality(int const numax=7, int const echo=2) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {42, 41, 40};
       real_space_grid::grid_t<1> g(dims);
@@ -112,7 +112,7 @@ namespace sho_projection {
       if (echo > 0) printf("# %s %s: max deviation  of off-diagonal  elements is %.1e\n", __FILE__, __func__, maxdev_offd);
       delete[] icoeff;
       return stat;
-  } // test_orthogonality
+  } // test_L2_orthogonality
 
   status_t test_electrostatic_normalization(int const numax=2, int const echo=2) {
       if (echo > 0) printf("\n# %s\n", __func__);
@@ -231,8 +231,8 @@ namespace sho_projection {
   status_t all_tests() {
     auto status = 0;
     status += test_electrostatic_normalization();
-//     status += test_orthogonality<double>(); // takes a while
-//  status += test_orthogonality<float>();
+    status += test_L2_orthogonality<double>(); // takes a while
+//  status += test_L2_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

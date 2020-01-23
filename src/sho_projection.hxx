@@ -140,11 +140,17 @@ namespace sho_projection {
       return _sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
 
-  inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
-      return std::sqrt( ( 1 << sho_tools::get_nu(nx, ny, nz) )
-                       /( pow3(constants::sqrtpi * sigma) * factorial(nx) * factorial(ny) * factorial(nz) ) );
-  } // sho_prefactor
 
+  inline double sho_1D_prefactor(int const nu, double const sigma) { 
+      return std::sqrt( ( 1 << nu ) /( constants::sqrtpi * sigma * factorial(nu) ) );
+  } // sho_1D_prefactor
+
+  inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
+//       return std::sqrt( ( 1 << sho_tools::get_nu(nx, ny, nz) )
+//                        /( pow3(constants::sqrtpi * sigma) * factorial(nx) * factorial(ny) * factorial(nz) ) );
+      return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
+  } // sho_prefactor
+  
   template<typename real_t>
   int normalize_and_reorder_coefficients(real_t out[], // energy ordered and normalized with sho_prefactor
                                     real_t const in[], // zyx_ordered, unnormalized
