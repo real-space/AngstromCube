@@ -142,28 +142,27 @@ namespace sho_projection {
 
 
   inline double sho_1D_prefactor(int const nu, double const sigma) { 
-      return std::sqrt( ( 1 << nu ) /( constants::sqrtpi * sigma * factorial(nu) ) );
+      return std::sqrt( ( 1 << nu ) / ( constants::sqrtpi * sigma * factorial(nu) ) ); // 1 << nu == 2^nu
   } // sho_1D_prefactor
 
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
-//       return std::sqrt( ( 1 << sho_tools::get_nu(nx, ny, nz) )
-//                        /( pow3(constants::sqrtpi * sigma) * factorial(nx) * factorial(ny) * factorial(nz) ) );
       return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
   } // sho_prefactor
-  
+
   template<typename real_t>
   int normalize_and_reorder_coefficients(real_t out[], // energy ordered and normalized with sho_prefactor
                                     real_t const in[], // zyx_ordered, unnormalized
                                     int const numax, double const sigma, double const factor=1, bool const inverse=false) {
         int iSHO{0};
-        for(int nz = 0; nz <= numax; ++nz) {
-            for(int ny = 0; ny <= numax - nz; ++ny) {
-                for(int nx = 0; nx <= numax - nz - ny; ++nx) {
+        for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
+            for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
+                for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
+                    auto const f = fx * fy * fz;
                     int const jSHO = sho_tools::Ezyx_index(nx, ny, nz);
                     if (inverse) {
-                        out[iSHO] = in[jSHO] * (factor / sho_prefactor(nx, ny, nz, sigma));
+                        out[iSHO] = in[jSHO] * (factor / f);
                     } else {
-                        out[jSHO] = in[iSHO] * (factor * sho_prefactor(nx, ny, nz, sigma));
+                        out[jSHO] = in[iSHO] * (factor * f);
                     }
                     ++iSHO;
                 } // nx
@@ -172,22 +171,16 @@ namespace sho_projection {
         assert( sho_tools::nSHO(numax) == iSHO ); return 0;
   } // normalize_and_reorder_coefficients
 
-  inline double electrostatics_prefactor(int const ell, double const sigma) {
-      return std::sqrt(2)
-            / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
-  } // electrostatics_prefactor
+  inline double radial_L1_prefactor(int const ell, double const sigma) {
+      return std::sqrt(2) / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
+  } // radial_L1_prefactor
 
   inline double radial_L2_prefactor(int const ell, double const sigma, int const nrn=0) {
-      assert( 0 == nrn ); // derived only for the node-less radial SHO eigenfunction
+      assert( 0 == nrn ); // derived only for the node-less radial SHO eigenfunctions
       double const fm2 = std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) * constants::sqrtpi * std::pow(0.5, 2 + ell);
       return 1/std::sqrt(fm2);
   } // radial_L2_prefactor
 
-  inline double electrostatic_L1_prefactor(int const ell, double const sigma) {
-      assert( ell >= 0 );
-      return std::pow(sigma, ell + 3) * factorial<2>(ell + 1) * ((ell % 2) ? constants::sqrtpi/std::sqrt(2) : 1);
-  } // electrostatic_L1_prefactor
-  
   status_t all_tests();
 
 } // namespace sho_projection

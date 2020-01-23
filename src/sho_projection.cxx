@@ -118,7 +118,7 @@ namespace sho_projection {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {42, 41, 40};
       real_space_grid::grid_t<1> g(dims);
-      double const sigma = 1.25;
+      double const sigma = 0.95;
       typedef double real_t;
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
@@ -137,8 +137,8 @@ namespace sho_projection {
       std::vector<real_t> coeff(nSHO);
       double maxdev_diag = 0, maxdev_offd = 0;
       status_t stat = 0;
-      for(int ell = 0; ell <= numax; ++ell) {
-        for(int emm = -ell; emm <= ell; ++emm) {
+      for(int ell = 0; ell <= numax; ++ell) { // angular momentum quantum number
+        for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
           int const lm = sho_tools::lm_index(ell, emm);
           
           double const diag = 1.0;
@@ -152,6 +152,7 @@ namespace sho_projection {
                           int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
                           solid_harmonics::rlXlm(xlm, numax, v);
                           values[ixyz] = xlm[lm];
+//                        if (00 == lm) printf(" %g", values[ixyz]); // found 0.282095 == 1/sqrt(4*pi)
                       } // ix
                   } // iy
               } // iz
@@ -159,7 +160,7 @@ namespace sho_projection {
 
           stat += sho_project(coeff.data(), numax, pos, sigma, values.data(), g, 0);
 
-          { // scope
+          { // scope: rescale with Cartesian L2 normalization factor, order_zyx unchanged
               int iSHO = 0;
               for(int nz = 0; nz <= numax; ++nz) {
                   for(int ny = 0; ny <= numax - nz; ++ny) {
@@ -182,30 +183,41 @@ namespace sho_projection {
               printf("\n\n");
           } // echo
 
+          // Ensure that coeff is L2 normalized before SHO unitary transform is applied!
           std::vector<double> vnlm(nSHO, 0.0);
           u.transform_vector(vnlm.data(), sho_tools::order_nlm, 
-                             coeff.data(), sho_tools::order_zyx, numax, 0);
+                            coeff.data(), sho_tools::order_zyx, numax, 0);
+          // now vnlm is L2 normalized
 
-          { // scope
-              for(int l = 0; l <= numax; ++l) {
-                  auto f = electrostatics_prefactor(l, sigma);
-                  f *= radial_L2_prefactor(l, sigma) / electrostatic_L1_prefactor(l, sigma); // correction
-                  for(int m = -l; m <= l; ++m) {
+          { // scope: renormalize
+              for(int l = 0; l <= numax; ++l) { // angular momentum quantum number
+                  auto const f = radial_L1_prefactor(l, sigma)
+                               / radial_L2_prefactor(l, sigma); // correction
+                  for(int m = -l; m <= l; ++m) { // magnetic quantum number
                       int const jlm = sho_tools::lm_index(l, m);
                       vnlm[jlm] *= f; // scale
                   } // m
               } // l
+
+              // for numax > 1, there are contributions from nrn > 0
               for(int iSHO = pow2(1 + numax); iSHO < nSHO; ++iSHO) {
                   vnlm[iSHO] = 0; // clear out all nrn > 0 contributions
               } // iSHO
           } // scope
           
-          printf("# vnlm for l=%i m=%i\t ", ell,emm);
+          if (echo > 0) {
+              printf("# vnlm for l=%i m=%i \t", ell,emm);
+              for(int j = 0; j < nSHO; ++j) {
+                  printf(" %11.6f", vnlm[j]); // show the matrix row
+              } // j
+              printf("\n");
+          } // echo
+
+          // analyze the matrix row, warning: the matrix may is rectangular for numax > 1
           for(int j = 0; j < nSHO; ++j) {
-              printf(" %11.6f", vnlm[j]);
-              
+
               if (lm == j) {
-                  double const dev = vnlm[j] / diag - 1.0; // relative deviation
+                  double const dev = std::abs(vnlm[j]) / diag - 1.0; // || takes because some sign definitions are not consistent
                   maxdev_diag = std::max(maxdev_diag, std::abs(dev));
                   if (std::abs(dev) > 1e-8) {
                       if (echo > 9) printf("# diagonal l=%i m=%i\t  %g\n", ell,emm, dev);
@@ -221,7 +233,6 @@ namespace sho_projection {
               } // lm == j
               
           } // j
-          printf("\n");
       }} // lm
       if (echo > 0) printf("# %s %s: max deviation from unity on the diagonal is %.1e\n", __FILE__, __func__, maxdev_diag);
       if (echo > 0) printf("# %s %s: max deviation  of off-diagonal  elements is %.1e\n", __FILE__, __func__, maxdev_offd);
