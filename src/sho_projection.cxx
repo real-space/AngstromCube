@@ -19,9 +19,27 @@ namespace sho_projection {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
+  inline constexpr char const * _diag(bool const diagonal) { return diagonal ? "diagonal" : "off-diag"; }
+
+  template<typename real_t>
+  inline status_t _analyze_row(int const i, real_t const out[], int const nj, double maxdev[2], int const echo=0) {
+      status_t stat = 0;
+      double const threshold = (8 == sizeof(real_t)) ? 1e-8 : 2e-5;
+      for(int j = 0; j < nj; ++j) {
+          int const d = (i == j); // d==0:off-diagonal, d==1:diagonal
+          double const dev = std::abs(out[j] - d);
+          maxdev[d] = std::max(maxdev[d], std::abs(dev));
+          if (std::abs(dev) > threshold) {
+              if (echo > 7) printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(d), i, j, out[j], dev);
+              ++stat;
+          } // deviation large
+      } // j
+      return stat;
+  } // _analyze_row
+  
   template<typename real_t>
   status_t test_L2_orthogonality(int const numax=7, int const echo=2) {
-      if (echo > 0) printf("\n# %s\n", __func__);
+      if (echo > 0) printf("\n# %s<%s>\n", __func__, (8 == sizeof(real_t))?"double":"float");
       int const dims[] = {42, 41, 40};
       real_space_grid::grid_t<1> g(dims);
       double const sigma = 1.25;
@@ -46,10 +64,9 @@ namespace sho_projection {
           } // nz
       } // scope
       std::vector<real_t> coeff(nSHO);
-      double maxdev_diag = 0, maxdev_offd = 0;
+      double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat = 0;
       for(int i = 0; i < nSHO; ++i) {
-          double const diag = 1.0;
           double const prefactor = sho_prefactor(icoeff[i][0], icoeff[i][1], icoeff[i][2], sigma);
           set(coeff.data(), nSHO, (real_t)0);
           coeff[i] = pow2(prefactor);
@@ -88,28 +105,11 @@ namespace sho_projection {
               printf("\n\n");
           } // echo
 
-          for(int j = 0; j < nSHO; ++j) {
-              if (i == j) {
-                  if (echo > 2) printf("# diag i=%i  %g  nu=%i  zyx=%x%x%x\n", i, coeff[i] / diag
-                                , icoeff[i][3], icoeff[i][2], icoeff[i][1], icoeff[i][0]);
-                  double const dev = coeff[i] / diag - 1.0; // relative deviation
-                  maxdev_diag = std::max(maxdev_diag, std::abs(dev));
-                  if (std::abs(dev) > 1e-8) {
-                      printf("# diagonal i=%i  %g\n", i, dev);
-                      ++stat;
-                  }
-              } else {
-                  double const dev = coeff[j]; // absolute deviation
-                  maxdev_offd = std::max(maxdev_offd, std::abs(dev)); // relative deviation
-                  if (dev > 1e-7) {
-                      printf("# i=%i j=%i  %g\n", i, j, coeff[j]);
-                      ++stat;
-                  }
-              } // i == j
-          } // j
+          stat += _analyze_row(i, coeff.data(), nSHO, maxdev, echo);
       } // i
-      if (echo > 0) printf("# %s %s: max deviation from unity on the diagonal is %.1e\n", __FILE__, __func__, maxdev_diag);
-      if (echo > 0) printf("# %s %s: max deviation  of off-diagonal  elements is %.1e\n", __FILE__, __func__, maxdev_offd);
+      for(int d = 0; d <= 1; ++d) {
+          if (echo > 0) printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
+      } // d
       delete[] icoeff;
       return stat;
   } // test_L2_orthogonality
@@ -135,13 +135,12 @@ namespace sho_projection {
       sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
       
       std::vector<real_t> coeff(nSHO);
-      double maxdev_diag = 0, maxdev_offd = 0;
+      double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat = 0;
       for(int ell = 0; ell <= numax; ++ell) { // angular momentum quantum number
         for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
           int const lm = sho_tools::lm_index(ell, emm);
           
-          double const diag = 1.0;
           set(values.data(), g.all(), (real_t)0); // clear all values on the grid
 
           { // scope: construct non-decaying solid harmonics on the grid r^ell*X_{ell m}
@@ -213,37 +212,66 @@ namespace sho_projection {
               printf("\n");
           } // echo
 
-          // analyze the matrix row, warning: the matrix may is rectangular for numax > 1
-          for(int j = 0; j < nSHO; ++j) {
-
-              if (lm == j) {
-                  double const dev = std::abs(vnlm[j]) / diag - 1.0; // || takes because some sign definitions are not consistent
-                  maxdev_diag = std::max(maxdev_diag, std::abs(dev));
-                  if (std::abs(dev) > 1e-8) {
-                      if (echo > 9) printf("# diagonal l=%i m=%i\t  %g\n", ell,emm, dev);
-                      ++stat;
-                  }
-              } else {
-                  double const dev = vnlm[j]; // absolute deviation
-                  maxdev_offd = std::max(maxdev_offd, std::abs(dev)); // relative deviation
-                  if (dev > 1e-7) {
-                      if (echo > 9) printf("# l=%i m=%i  j=%i\t  %g\n", ell,emm, j, vnlm[j]);
-                      ++stat;
-                  }
-              } // lm == j
-              
-          } // j
+          for(int j = 0; j < nSHO; ++j) vnlm[j] = std::abs(vnlm[j]); // some signs do not agree
+          
+          // analyze the matrix row, warning: the matrix is rectangular for numax > 1
+          stat += _analyze_row(lm, vnlm.data(), nSHO, maxdev, echo);
       }} // lm
-      if (echo > 0) printf("# %s %s: max deviation from unity on the diagonal is %.1e\n", __FILE__, __func__, maxdev_diag);
-      if (echo > 0) printf("# %s %s: max deviation  of off-diagonal  elements is %.1e\n", __FILE__, __func__, maxdev_offd);
+      for(int d = 0; d <= 1; ++d) {
+          if (echo > 0) printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
+      } // d
       return stat;
   } // test_electrostatic_normalization
+
+  status_t test_normalize_electrostatics(int const numax=2, int const echo=11) {
+      if (echo > 0) printf("\n# %s\n", __func__);
+      
+      sho_unitary::Unitary_SHO_Transform<double> u(numax);
+      status_t stat = (u.test_unitarity(echo/2) > 3e-16);
+
+      int const nSHO = sho_tools::nSHO(numax);
+      int const nlm = pow2(1 + numax); // lm is a combined 2D angular momentum and magnetic quantum number
+      double const sigma = 1.; // any
+      for(int inverse = 0; inverse <= 1; ++inverse) {
+          int const n = inverse ? nlm : nSHO;
+          int const m = inverse ? nSHO : nlm;
+          std::vector<double> inp(n), tmp(m), out(n);
+          double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
+          for(int i = 0; i < n; ++i) {
+
+              set(out.data(), n, 0.0); // clear
+              set(tmp.data(), m, 0.0); // clear
+              set(inp.data(), n, 0.0); // clear
+              inp[i] = 1.;
+  
+              if (inverse) {
+                  assert( n < m );
+                  stat += denormalize_electrostatics(tmp.data(), inp.data(), numax, sigma, u, echo);
+                  stat += renormalize_electrostatics(out.data(), tmp.data(), numax, sigma, u, echo);
+              } else {
+                  assert( n > m );
+                  stat += renormalize_electrostatics(tmp.data(), inp.data(), numax, sigma, u, echo);
+                  printf("# %s %s: here, i=%i\n", __FILE__, __func__, i);
+                  stat += denormalize_electrostatics(out.data(), tmp.data(), numax, sigma, u, echo);
+              } // inverse
+
+              stat += _analyze_row(i, out.data(), m, maxdev, echo);
+          } // i
+          for(int d = 0; d <= 1; ++d) {
+              if (echo > 0) printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
+          } // d
+      } // inverse
+      return stat;
+  } // test_normalize_electrostatics
+  
   
   status_t all_tests() {
     auto status = 0;
+    status += test_normalize_electrostatics();
+    
     status += test_electrostatic_normalization();
     status += test_L2_orthogonality<double>(); // takes a while
-//  status += test_L2_orthogonality<float>();
+    status += test_L2_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

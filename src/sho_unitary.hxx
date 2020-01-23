@@ -151,7 +151,11 @@ namespace sho_unitary {
                   for(int i = 0; i < nb; ++i) {
                       real_vec_t tmp = 0;
                       for(int j = 0; j < nb; ++j) {
-                          tmp += u_[nu][i*ib + j*jb] * e_inp[offset + j]; // matrix-vector multiplication, block-diagonal in nu
+                          int const ij = i*ib + j*jb;
+                          assert( 0 <= ij );
+                          assert( ij < nb*nb );
+//                        if (echo > 9) printf("# %s: u[nu=%i][%i*%i + %i*%i] = %g\n", __func__, nu, i, ib, j, jb, u_[nu][ij]);
+                          tmp += u_[nu][ij] * e_inp[offset + j]; // matrix-vector multiplication, block-diagonal in nu
                       } // j
                       e_out[offset + i] = tmp;
                       if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__, 
@@ -173,7 +177,7 @@ namespace sho_unitary {
               return stat;
           } // transform_vector
 
-          double test_unitarity(int const echo=9) const {
+          double test_unitarity(int const echo=7) const {
               double maxdevall = 0;
               for(int nu = 0; nu <= numax_; ++nu) {
                   // as the transform is block-diagonal, we can test each block for unitarity

@@ -267,7 +267,7 @@ namespace spherical_atoms {
               // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
 
               std::vector<double> vEzyx(nc, 0.0);
-              sho_projection::normalize_and_reorder_coefficients(vEzyx.data(), coeff.data(), lmax_vlm[ia], sigma_compensator, 1./Y00);
+              sho_projection::renormalize_coefficients(vEzyx.data(), coeff.data(), lmax_vlm[ia], sigma_compensator, 1./Y00);
 
               // convert SHO-coefficients from order_Ezyx to order_nlm
               std::vector<double> vnlm(nc, 0.0);
