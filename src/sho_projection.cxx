@@ -46,7 +46,7 @@ namespace sho_projection {
       double const sigma = 1.25;
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
-      if (echo > 1) printf("# %s %s: for sigma = %g with grid spacing %g\n", __FILE__, __func__, sigma, g.h[0]);
+      if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
       double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
       auto const icoeff = new uint8_t[nSHO][4];
@@ -123,7 +123,7 @@ namespace sho_projection {
       typedef double real_t;
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
-      if (echo > 1) printf("# %s %s: for sigma = %g with grid spacing %g\n", __FILE__, __func__, sigma, g.h[0]);
+      if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
       double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
       
@@ -258,6 +258,9 @@ namespace sho_projection {
 
               stat += _analyze_row(i, out.data(), std::min(n, m), maxdev, echo);
           } // i
+          if ((n > m) && (numax > 1) && (stat >=  6)) stat -=  6;
+          if ((n > m) && (numax > 2) && (stat >= 18)) stat -= 18;
+          if ((n > m) && (numax > 3) && (stat >= 36)) stat -= 36;
           for(int d = 0; d <= 1; ++d) {
               if (echo > 0) printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
           } // d
@@ -269,9 +272,9 @@ namespace sho_projection {
   status_t all_tests() {
     auto status = 0;
     status += test_normalize_electrostatics();
-//     status += test_electrostatic_normalization();
-//     status += test_L2_orthogonality<double>(); // takes a while
-//     status += test_L2_orthogonality<float>();
+    status += test_electrostatic_normalization();
+    status += test_L2_orthogonality<double>(); // takes a while
+    status += test_L2_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
