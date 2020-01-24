@@ -115,7 +115,7 @@ namespace spherical_atoms {
       for(int ia = 0; ia < na; ++ia) {
           int const iZ = (int)std::round(xyzZ[ia*4 + 3]);
           char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
-          if (echo > 4) printf("# %c%c  %16.9f%16.9f%16.9f\n", El[0],El[1],
+          if (echo > 4) printf("# %c%c   %15.9f %15.9f %15.9f\n", El[0],El[1],
                           xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang);
           Za[ia] = (float)xyzZ[ia*4 + 3]; // list of atomic numbers
           for(int d = 0; d < 3; ++d) {
@@ -179,7 +179,7 @@ namespace spherical_atoms {
           } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
 
           if (echo > 6) {
-              printf("\n## masked Real-space smooth core density for atom #%d:\n", ia);
+              printf("\n## masked real-space smooth core density for atom #%d:\n", ia);
               for(int ir2 = 0; ir2 < nr2; ++ir2) {
                   double const r2 = ir2/ar2, r = std::sqrt(r2);
                   printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
@@ -198,8 +198,8 @@ namespace spherical_atoms {
               printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
               print_stats(rho.data(), g.all(), g.dV());
           } // echo
-          printf("# 00 compensator    charge for atom #%d is %g electrons\n", ia, qlm[ia][00]/Y00);
-          printf("# added smooth core charge for atom #%d is %g electrons\n", ia, q_added);
+          printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
+          printf("#    00 compensator charge for atom #%d is %g electrons\n",  ia, qlm[ia][00]/Y00);
       } // ia
 
       double Exc = 0, Edc = 0;
@@ -214,6 +214,7 @@ namespace spherical_atoms {
       set(cmp.data(), g.all(), 0.0);
       { // scope
           for(int ia = 0; ia < na; ++ia) {
+              printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][00]);
               double const sigma = sigma_cmp[ia];
               int    const ellmax = lmax_qlm[ia];
               std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
@@ -224,6 +225,7 @@ namespace spherical_atoms {
               } else {
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), qlm[ia], ellmax, sigma, unitary, echo);
               }
+              printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
                   stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
@@ -257,7 +259,7 @@ namespace spherical_atoms {
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
               double const sigma = sigma_cmp[ia];
-              int const ellmax = lmax_vlm[ia];
+              int    const ellmax = lmax_vlm[ia];
               int const nc = sho_tools::nSHO(ellmax);
               std::vector<double> coeff(nc, 0.0);
               for(int ii = 0; ii < n_periodic_images; ++ii) {

@@ -99,7 +99,7 @@
     #include <cmath> // std::round, std::pow (for reference)
     #include <algorithm> // std::max
    
-   bool constexpr is_integer(double const f) { return (f == std::round(f)); }
+   inline bool is_integer(double const f) { return (f == std::round(f)); }
 
 #endif // NO_UNIT_TESTS
 

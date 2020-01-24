@@ -224,15 +224,74 @@ namespace sho_projection {
       return stat;
   } // test_electrostatic_normalization
 
+  status_t test_renormalize_electrostatics(int const numax=2, int const echo=2) {
+      double const sigma = 1.0;
+      if (echo > 0) printf("\n# %s with sigma = %g\n", __func__, sigma);
+      int const dims[] = {42, 41, 40};
+      real_space_grid::grid_t<1> g(dims);
+      typedef double real_t;
+      std::vector<real_t> values(g.all(), 0);
+      g.set_grid_spacing(0.472432); // 0.25 Angstrom
+      if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
+      double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
+      int const nSHO = sho_tools::nSHO(numax);
+      
+      std::vector<int> energy_ordered(nSHO, 0);
+      std::vector<int> loop_ordered(nSHO, 0);
+      sho_tools::construct_index_table(energy_ordered.data(), numax, sho_tools::order_zyx, loop_ordered.data());
+      std::vector<char> sho_label(nSHO*8, '\0');
+      sho_tools::construct_label_table(sho_label.data(), numax, sho_tools::order_Ezyx);
+      
+      sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
+      
+      std::vector<real_t> coeff(nSHO);
+      double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
+      status_t stat = 0;
+      for(int ell = 0; ell <= numax; ++ell) { // angular momentum quantum number
+        for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
+          int const lm = sho_tools::lm_index(ell, emm);
+          
+          set(values.data(), g.all(), (real_t)0); // clear all values on the grid
+
+          { // scope: construct non-decaying solid harmonics on the grid r^ell*X_{ell m}
+              double v[3], xlm[64]; assert( numax < 8 ); // sufficient up to lmax=7
+              for(        int iz = 0; iz < g.dim('z'); ++iz) { v[2] = iz*g.h[2] - pos[2];
+                  for(    int iy = 0; iy < g.dim('y'); ++iy) { v[1] = iy*g.h[1] - pos[1];
+                      for(int ix = 0; ix < g.dim('x'); ++ix) { v[0] = ix*g.h[0] - pos[0];
+                          int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+                          solid_harmonics::rlXlm(xlm, numax, v);
+                          values[ixyz] = xlm[lm];
+//                        if (00 == lm) printf(" %g", values[ixyz]); // found 0.282095 == 1/sqrt(4*pi)
+                      } // ix
+                  } // iy
+              } // iz
+          } // scope
+
+          stat += sho_project(coeff.data(), numax, pos, sigma, values.data(), g, 0);
+
+          int const nlm = pow2(1 + numax);
+          std::vector<double> vlm(nlm, 0.0);
+          stat += renormalize_electrostatics(vlm.data(), coeff.data(), numax, sigma, u, echo);
+
+          for(int ilm = 0; ilm < nlm; ++ilm) vlm[ilm] = std::abs(vlm[ilm]); // signs may differ
+          // analyze the matrix row, warning: the matrix is rectangular for numax > 1
+          stat += _analyze_row(lm, vlm.data(), nlm, maxdev, echo);
+      }} // lm
+      for(int d = 0; d <= 1; ++d) {
+          if (echo > 0) printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
+      } // d
+      return stat;
+  } // test_renormalize_electrostatics
+
   status_t test_normalize_electrostatics(int const numax=2, int const echo=9) {
-      if (echo > 0) printf("\n# %s\n", __func__);
+      double const sigma = 1.456; // any
+      if (echo > 0) printf("\n# %s with sigma = %g\n", __func__, sigma);
       
       sho_unitary::Unitary_SHO_Transform<double> u(numax);
       status_t stat = (u.test_unitarity(echo/2) > 3e-16);
 
       int const nSHO = sho_tools::nSHO(numax);
       int const nlm = pow2(1 + numax); // lm is a combined 2D angular momentum and magnetic quantum number
-      double const sigma = 1.; // any
       for(int inverse = 0; inverse <= 1; ++inverse) {
           int const n = inverse ? nlm : nSHO;
           int const m = inverse ? nSHO : nlm;
@@ -247,12 +306,14 @@ namespace sho_projection {
               inp[i] = 1.;
   
               if (inverse) {
-                  assert( n < m );
+                  assert( m >= n );
                   stat += denormalize_electrostatics(tmp.data(), inp.data(), numax, sigma, u, echo);
+                  if ((0 == i) && (echo > 1)) printf("# %s after denormalization tmp[000] = %g\n", __func__, tmp[0]); 
                   stat += renormalize_electrostatics(out.data(), tmp.data(), numax, sigma, u, echo);
               } else {
-                  assert( n > m );
+                  assert( n >= m );
                   stat += renormalize_electrostatics(tmp.data(), inp.data(), numax, sigma, u, echo);
+                  if ((0 == i) && (echo > 1)) printf("# %s after renormalization tmp[00] = %g\n", __func__, tmp[0]); 
                   stat += denormalize_electrostatics(out.data(), tmp.data(), numax, sigma, u, echo);
               } // inverse
 
@@ -272,9 +333,10 @@ namespace sho_projection {
   status_t all_tests() {
     auto status = 0;
     status += test_normalize_electrostatics();
+    status += test_renormalize_electrostatics();
     status += test_electrostatic_normalization();
-    status += test_L2_orthogonality<double>(); // takes a while
-    status += test_L2_orthogonality<float>();
+    // status += test_L2_orthogonality<double>(); // takes a while
+    // status += test_L2_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

@@ -145,11 +145,11 @@ namespace sho_projection {
 
   inline double sho_1D_prefactor(int const nu, double const sigma) { 
       return std::sqrt( ( 1 << nu ) / ( constants::sqrtpi * sigma * factorial(nu) ) ); // 1 << nu == 2^nu
-  } // sho_1D_prefactor
+  } // sho_1D_prefactor (L2)
 
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
       return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
-  } // sho_prefactor
+  } // sho_prefactor (L2)
 
   template<typename real_t, bool inverse=false, bool reorder=false>
   inline status_t
@@ -247,7 +247,7 @@ namespace sho_projection {
       stat += renormalize_coefficients<double,true>(qzyx, qzyx_L2n.data(), ellmax, sigma);
 
       return stat;
-  } // renormalize_electrostatics
+  } // denormalize_electrostatics
   
   
   status_t all_tests();

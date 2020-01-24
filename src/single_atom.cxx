@@ -293,6 +293,7 @@ extern "C" {
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
         r_cut = 2.0; // Bohr
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
+        sigma_compensator = 1.5*r_cut/std::sqrt(20.); // Bohr
 //      sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
         sigma = 0.61; // Bohr, spread for projectors (Cu)
         sigma_inv = 1./sigma;
