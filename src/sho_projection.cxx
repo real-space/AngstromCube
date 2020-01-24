@@ -29,6 +29,7 @@ namespace sho_projection {
           int const d = (i == j); // d==0:off-diagonal, d==1:diagonal
           double const dev = std::abs(out[j] - d);
           maxdev[d] = std::max(maxdev[d], std::abs(dev));
+          if (echo > 9) printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(d), i, j, out[j], dev);
           if (std::abs(dev) > threshold) {
               if (echo > 7) printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(d), i, j, out[j], dev);
               ++stat;
@@ -223,7 +224,7 @@ namespace sho_projection {
       return stat;
   } // test_electrostatic_normalization
 
-  status_t test_normalize_electrostatics(int const numax=2, int const echo=11) {
+  status_t test_normalize_electrostatics(int const numax=2, int const echo=9) {
       if (echo > 0) printf("\n# %s\n", __func__);
       
       sho_unitary::Unitary_SHO_Transform<double> u(numax);
@@ -235,6 +236,7 @@ namespace sho_projection {
       for(int inverse = 0; inverse <= 1; ++inverse) {
           int const n = inverse ? nlm : nSHO;
           int const m = inverse ? nSHO : nlm;
+          if (echo > 3) printf("# %s %s: n=%i m=%i n=%i\n", __FILE__, __func__, n, m, n);
           std::vector<double> inp(n), tmp(m), out(n);
           double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
           for(int i = 0; i < n; ++i) {
@@ -251,11 +253,10 @@ namespace sho_projection {
               } else {
                   assert( n > m );
                   stat += renormalize_electrostatics(tmp.data(), inp.data(), numax, sigma, u, echo);
-                  printf("# %s %s: here, i=%i\n", __FILE__, __func__, i);
                   stat += denormalize_electrostatics(out.data(), tmp.data(), numax, sigma, u, echo);
               } // inverse
 
-              stat += _analyze_row(i, out.data(), m, maxdev, echo);
+              stat += _analyze_row(i, out.data(), std::min(n, m), maxdev, echo);
           } // i
           for(int d = 0; d <= 1; ++d) {
               if (echo > 0) printf("# %s %s: max deviation of %s elements is %.1e\n", __FILE__, __func__, _diag(d), maxdev[d]);
@@ -268,10 +269,9 @@ namespace sho_projection {
   status_t all_tests() {
     auto status = 0;
     status += test_normalize_electrostatics();
-    
-    status += test_electrostatic_normalization();
-    status += test_L2_orthogonality<double>(); // takes a while
-    status += test_L2_orthogonality<float>();
+//     status += test_electrostatic_normalization();
+//     status += test_L2_orthogonality<double>(); // takes a while
+//     status += test_L2_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

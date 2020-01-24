@@ -198,10 +198,8 @@ namespace spherical_atoms {
               printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
               print_stats(rho.data(), g.all(), g.dV());
           } // echo
-//        qlm[ia][00] = -(q_added + ionization[ia])/Y00; // spherical compensator
-          printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][00]/Y00);
-          printf("# added smooth core charge for atom #%d is %g\n", ia, q_added);
-//        qlm[ia][00] = -(q_added)/Y00; // spherical compensator
+          printf("# 00 compensator    charge for atom #%d is %g electrons\n", ia, qlm[ia][00]/Y00);
+          printf("# added smooth core charge for atom #%d is %g electrons\n", ia, q_added);
       } // ia
 
       double Exc = 0, Edc = 0;
@@ -216,24 +214,27 @@ namespace spherical_atoms {
       set(cmp.data(), g.all(), 0.0);
       { // scope
           for(int ia = 0; ia < na; ++ia) {
-              // todo: add the compensators
-              double const sigma_compensator = sigma_cmp[ia];
-              if (1) {
-                  int const nc = sho_tools::nSHO(lmax_qlm[ia]);
-                  std::vector<double> coeff(nc, 0.0);
+              double const sigma = sigma_cmp[ia];
+              int    const ellmax = lmax_qlm[ia];
+              std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
+              if (1) { // old method, works only for the monopole
                   // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
-                  double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator)); // warning! only gets 00 correct
+                  double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma)); // warning! only gets 00 correct
                   set(coeff.data(), 1, qlm[ia], prefactor); // copy only monopole moment, ToDo
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
-                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                      stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), lmax_qlm[ia], cnt, sigma_compensator, 0);
-                  } // periodic images
-              } // 1
+              } else {
+                  stat += sho_projection::denormalize_electrostatics(coeff.data(), qlm[ia], ellmax, sigma, unitary, echo);
+              }
+              for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+                  stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
+              } // periodic images
+
               if (echo > -1) {
                   // report extremal values of the density on the grid
                   printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][00]/Y00, ia);
                   print_stats(cmp.data(), g.all(), g.dV());
               } // echo
+              
           } // ia
           
           // add compensators cmp to rho
@@ -255,35 +256,30 @@ namespace spherical_atoms {
 
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
-              double const sigma_compensator = sigma_cmp[ia];
-              int const nc = sho_tools::nSHO(lmax_vlm[ia]);
+              double const sigma = sigma_cmp[ia];
+              int const ellmax = lmax_vlm[ia];
+              int const nc = sho_tools::nSHO(ellmax);
               std::vector<double> coeff(nc, 0.0);
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   std::vector<double> coeff_image(nc, 0.0);
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                  stat += sho_projection::sho_project(coeff_image.data(), lmax_vlm[ia], cnt, sigma_compensator, Ves.data(), g, 0);
-                  add_product(coeff.data(), nc, coeff_image.data(), 1.0); // need phase factors?
+                  stat += sho_projection::sho_project(coeff_image.data(), ellmax, cnt, sigma, Ves.data(), g, 0);
+                  add_product(coeff.data(), nc, coeff_image.data(), 1.0); // need phase factors? no since we only test the electrostatic
               } // periodic images
               // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
 
-              std::vector<double> vEzyx(nc, 0.0);
-              sho_projection::renormalize_coefficients(vEzyx.data(), coeff.data(), lmax_vlm[ia], sigma_compensator, 1./Y00);
-
-              // convert SHO-coefficients from order_Ezyx to order_nlm
-              std::vector<double> vnlm(nc, 0.0);
-              unitary.transform_vector(vnlm.data(), sho_tools::order_nlm, 
-                                      vEzyx.data(), sho_tools::order_Ezyx, lmax_vlm[ia], 9);
-
-              set(vlm[ia], pow2(1 + lmax_vlm[ia]), vnlm.data()); // neglect all nrn > 0 contributions
+              if (1) { // old method, works only for the monopole
+                  set(vlm[ia], pow2(1 + ellmax), 0.0);
+                  double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma));
+                  vlm[ia][00] = prefactor*coeff[00]; // only monopole
+              } else {
+                  stat += sho_projection::renormalize_electrostatics(vlm[ia], coeff.data(), ellmax, sigma, unitary, echo);
+              }
               
-              if (lmax_vlm[ia] > 0) {
+              if (ellmax > 0) {
                   printf("# potential projection for atom #%d v_1 = %g %g %g %s\n", ia, 
-                  vlm[ia][01]*Y00*eV, vlm[ia][02]*Y00*eV, vlm[ia][03]*Y00*eV,_eV);
+                      vlm[ia][01]*Y00*eV, vlm[ia][02]*Y00*eV, vlm[ia][03]*Y00*eV,_eV);
               } // more than monopole
-
-              set(vlm[ia], pow2(1 + lmax_vlm[ia]), 0.0);
-              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma_compensator));
-              vlm[ia][00] = prefactor*coeff[00]; // only monopole
               printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
