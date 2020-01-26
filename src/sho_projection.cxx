@@ -335,8 +335,8 @@ namespace sho_projection {
     status += test_normalize_electrostatics();
     status += test_renormalize_electrostatics();
     status += test_electrostatic_normalization();
-    // status += test_L2_orthogonality<double>(); // takes a while
-    // status += test_L2_orthogonality<float>();
+    status += test_L2_orthogonality<double>(); // takes a while
+    status += test_L2_orthogonality<float>();
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

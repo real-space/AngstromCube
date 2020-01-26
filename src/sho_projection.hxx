@@ -151,7 +151,7 @@ namespace sho_projection {
       return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
   } // sho_prefactor (L2)
 
-  template<typename real_t, bool inverse=false, bool reorder=false>
+  template<typename real_t, char inverse='*', bool reorder=false>
   inline status_t
   renormalize_coefficients(real_t out[], // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
                            real_t const in[], // zyx_ordered, input unnormalized, if inverse input is assumed normalized
@@ -162,7 +162,7 @@ namespace sho_projection {
                 for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
                     auto const f = fx * fy * fz;
                     int const jSHO = reorder ? sho_tools::Ezyx_index(nx, ny, nz) : iSHO;
-                    if (inverse) {
+                    if ('/' == inverse) {
                         out[iSHO] = in[jSHO] * (factor / f);
                     } else {
                         out[jSHO] = in[iSHO] * (factor * f);
@@ -196,7 +196,7 @@ namespace sho_projection {
       int const nSHO = sho_tools::nSHO(ellmax);
       std::vector<double> vzyx_L2n(nSHO, 0.0); // L2-normalized order_zyx
       // rescale with Cartesian L2 normalization factor, order_zyx unchanged
-      stat += renormalize_coefficients<double,false>(vzyx_L2n.data(), vzyx, ellmax, sigma);
+      stat += renormalize_coefficients<double,'*'>(vzyx_L2n.data(), vzyx, ellmax, sigma);
 
       std::vector<double> vnlm_L2n(nSHO, 0.0); // L2-normalized order_nlm
       stat += u.transform_vector(vnlm_L2n.data(), sho_tools::order_nlm, 
@@ -244,7 +244,7 @@ namespace sho_projection {
                                  qnlm_L2n.data(), sho_tools::order_nlm, ellmax, 0);
 
       // denormalize with Cartesian L2 normalization factor, order_zyx unchanged
-      stat += renormalize_coefficients<double,true>(qzyx, qzyx_L2n.data(), ellmax, sigma);
+      stat += renormalize_coefficients<double,'/'>(qzyx, qzyx_L2n.data(), ellmax, sigma);
 
       return stat;
   } // denormalize_electrostatics
