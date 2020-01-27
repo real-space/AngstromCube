@@ -13,8 +13,6 @@ namespace sho_unitary {
   status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high, 
                   char const filename[]="sho_unitary.dat", int const echo=7);
 
-  status_t all_tests();
-  
   template<typename real_t> // typically real_t=double
   class Unitary_SHO_Transform {
       public:
@@ -209,5 +207,7 @@ namespace sho_unitary {
           real_t **u_; // block diagonal matrix entries
           int numax_; // largest ell
   }; // class Unitary_SHO_Transform
+  
+  status_t all_tests(int const echo=0);
   
 } // namespace sho_unitary

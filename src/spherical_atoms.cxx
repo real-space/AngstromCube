@@ -403,14 +403,14 @@ namespace spherical_atoms {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_create_and_destroy(int const echo=5) {
+  status_t test_create_and_destroy(int const echo=0) {
       float const ion = control::get("spherical_atoms.test.ion", 0.0);
       return init(ion, echo); // ionization of Al-P dimer by -ion electrons
   } // test_create_and_destroy
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_create_and_destroy();
+    status += test_create_and_destroy(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

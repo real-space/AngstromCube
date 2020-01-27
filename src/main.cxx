@@ -49,14 +49,14 @@ typedef int status_t;
 #include "data_view.hxx" // ::all_tests
 #include "control.hxx" // ::all_tests
 
-  int run_unit_tests(char const *module) 
+  int run_unit_tests(char const *module, int const echo=0) 
   {
       bool const all = (nullptr == module);
-      auto const m = std::string(all?"":module);
-      if (all) { printf("# run all tests!\n"); } 
-      else     { printf("# run unit tests for module '%s'\n\n", m.c_str()); }
-      
-      std::vector<std::pair<std::string,int>> run;
+      auto const m = std::string(all ? "" : module);
+      if (all) { if (echo > 0) printf("\n# run all tests!\n\n"); } 
+      else     { if (echo > 0) printf("# run unit tests for module '%s'\n\n", m.c_str()); }
+
+      std::vector<std::pair<std::string,status_t>> run;
       { // testing scope
 #define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
                         { run.push_back(make_pair(std::string(NAME), FUN())); }
@@ -119,9 +119,11 @@ typedef int status_t;
   } // run_unit_tests
 
 
-  int main(int const argc, char * argv[]) 
+  int main(int const argc, char const *argv[]) 
   {
       int stat = 0;
+      char const *test_unit = nullptr;
+      bool run_tests = false;
       if (argc < 2) { printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); return -1; }
 //    printf("%s: argument #1 is %s\n", argv[0], argv[1]); // DEBUG
       for(int iarg = argc - 1; iarg > 0; --iarg) { // backward
@@ -137,7 +139,8 @@ typedef int status_t;
                          "\n");
                   return 0;
               } else if ('t' == (ci1 | IgnoreCase)) {
-                  stat = run_unit_tests((argc > 2)?argv[iarg + 1]:nullptr);
+                  run_tests = true;
+                  if (argc > iarg + 1) test_unit = argv[iarg + 1]; // the the name of the unit to be tested
               } else {
                   warn("# ignored unknown command line option %c%c", ci0, ci1);
                   ++stat; // error
@@ -148,6 +151,8 @@ typedef int status_t;
           } // '+'
 
       } // iarg
+      int const echo = control::get("verbosity", 1.);
+      if (run_tests) run_unit_tests(test_unit, echo);
       recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
       return stat;

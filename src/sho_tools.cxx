@@ -183,13 +183,13 @@ namespace sho_tools {
       return stat;
   } // test_index_table_construction
   
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_order_enum();
-    status += test_radial_indices();
-    status += test_Cartesian_indices();
-    status += test_energy_ordered_indices();
-    status += test_index_table_construction<int16_t>();
+    status += test_order_enum(echo);
+    status += test_radial_indices(echo);
+    status += test_Cartesian_indices(echo);
+    status += test_energy_ordered_indices(echo);
+    status += test_index_table_construction<int16_t>(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

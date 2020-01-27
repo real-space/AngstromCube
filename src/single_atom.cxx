@@ -1855,7 +1855,7 @@ namespace single_atom {
       return 0;
   } // test_compensator_normalization
 
-  int test(int const echo=9) {
+  int test_LiveAtom(int const echo=9) {
     int const numax = control::get("single_atom.test.numax", 3); // default 3: ssppdf
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
@@ -1867,12 +1867,12 @@ namespace single_atom {
         LiveAtom a(Z, numax, false, ion, -1, echo); // envoke constructor
     } // Z
     return 0;
-  } // test
+  } // test_LiveAtom
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_compensator_normalization();
-    status += test();
+    status += test_compensator_normalization(echo);
+    status += test_LiveAtom(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

@@ -94,17 +94,17 @@ namespace sho_unitary {
   status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test_generation(int const echo=9) { return 0; } // return generate_unitary_transform(9, echo); }
+  int test_generation(int const echo=9) { return 0; } // { return generate_unitary_transform(9, echo); }
 
   template<typename real_t>
-  int test_loading(int const numax=9, int const echo=1) {
+  int test_loading(int const echo=1, int const numax=9) {
       Unitary_SHO_Transform<real_t> U(numax);
       auto const dev = U.test_unitarity(echo);
       if (echo > 0) printf("# Unitary_SHO_Transform<real_%ld>.test_unitarity = %g\n", sizeof(real_t), dev);
       return (dev > 2e-7);
   } // test_loading
 
-  int test_vector_transform(int const numax=3, int const echo=9) {
+  int test_vector_transform(int const echo=9, int const numax=3) {
       Unitary_SHO_Transform<double> U(numax);
       if (echo > 0) printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
       int const nc = sho_tools::nSHO(numax);
@@ -114,12 +114,12 @@ namespace sho_unitary {
       return U.transform_vector(vo.data(), sho_tools::order_Elnm, vi.data(), sho_tools::order_Ezyx, numax, echo);
   } // test_vector_transform
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_generation();
-    status += test_loading<float>();
-    status += test_loading<double>();
-    status += test_vector_transform();
+    status += test_generation(echo);
+    status += test_loading<float>(echo);
+    status += test_loading<double>(echo);
+    status += test_vector_transform(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

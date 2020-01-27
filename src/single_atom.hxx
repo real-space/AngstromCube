@@ -12,6 +12,6 @@ namespace single_atom {
                   int *lmax=nullptr, int *lmax_cmp=nullptr,
                   int const echo=9);
 
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
 
 } // namespace single_atom

@@ -292,6 +292,6 @@ namespace sho_tools {
       return 0; // success if 0
   } // construct_label_table
 
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
   
 } // namespace sho_tools

@@ -139,7 +139,7 @@ namespace control {
         stat += (g != d);
         d *= std::sqrt(33/32.); // some irrational number close to 1
     } // i
-    if (echo > 1) printf("# %s: for %i of %i cases, double precision numbers are not retrieved!\n", __func__, stat, nmax);
+    if (echo > 1) printf("# %s: for %i of %i cases double precision numbers are not retrieved\n", __func__, stat, nmax);
     return stat;
   } // test_precision
   
