@@ -9,7 +9,7 @@
 #include "radial_grid.hxx" // create_default_radial_grid, destroy_radial_grid, dot_product
 #include "radial_eigensolver.hxx" // shooting_method
 #include "radial_potential.hxx" // Hartree_potential
-#include "angular_grid.hxx" // transform, Lebedev_grid_size
+#include "angular_grid.hxx" // ::transform, ::Lebedev_grid_size
 #include "radial_integrator.hxx" // integrate_outwards
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "inline_tools.hxx" // align<nbits>
@@ -708,8 +708,8 @@ extern "C" {
                 if (true) {
                     // solve for a true valence eigenstate
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
-                    if (echo > -1) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n", 
-                                            label, __func__, vs.enn, atom_core::ellchar(ell), vs.energy*eV,_eV);
+                    if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n", 
+                                          label, __func__, vs.enn, atom_core::ellchar(ell), vs.energy*eV,_eV);
                 } else {
                     assert(nrn > 0);
                     vs.energy = valence_state[iln - 1].energy + 1.0; // copy energy from lower state and add 1.0 Hartree
@@ -1613,7 +1613,7 @@ extern "C" {
                 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
             if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
@@ -1626,7 +1626,7 @@ extern "C" {
                 } // ts
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-                  (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
+                  (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         } // scope
@@ -1728,14 +1728,14 @@ extern "C" {
 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, 2);
+                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         if (0) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-              (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, 2);
+              (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
     } // check_spherical_matrix_elements
@@ -1783,7 +1783,7 @@ namespace single_atom {
   
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, int const _echo) {
+                  double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm) {
     
       static int echo = -9;
       if (echo == -9) echo = control::get("single_atom.echo", 0.);
@@ -1791,7 +1791,7 @@ namespace single_atom {
       static LiveAtom **a=nullptr;
 
       if (nullptr == a) {
-          SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
+//        SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
           a = new LiveAtom*[na];
           for(int ia = 0; ia < na; ++ia) {
               a[ia] = new LiveAtom(Za[ia], 3, false, ion[ia], ia, echo);
@@ -1834,7 +1834,7 @@ namespace single_atom {
   
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_compensator_normalization(int const echo=5) {

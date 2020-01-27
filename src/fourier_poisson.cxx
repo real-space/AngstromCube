@@ -64,7 +64,8 @@ namespace fourier_poisson {
                        , real_t const b[] // right hand side b
                        , int const ng[3] // grid numbers
                        , double const reci[3][4] // shape of the reciprocal space
-                       , double const factor) {
+                       , double const factor
+                       , int const echo) {
       
       size_t const ng_all = 1ul * ng[0] * ng[1] * ng[2];
       auto const mg_all = align<3>(ng_all); // aligned to 8 real_t numbers
@@ -74,7 +75,7 @@ namespace fourier_poisson {
       status_t stat = 0;
       stat += fft_MKL(x_Re, x_Im, b, ng); // transform b into reciprocal space
 
-      printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
+      if (echo > 0) printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
 
       real_t const scale = -factor/ng_all;
@@ -120,14 +121,14 @@ namespace fourier_poisson {
 
 #ifdef  NO_UNIT_TESTS
   template // explicit template instantiation
-  status_t fourier_solve<double>(double*, double const*, int const*, double const (*)[4], double const);
+  status_t fourier_solve<double>(double*, double const*, int const*, double const (*)[4], double const, int const);
   
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
   int test_fft(int const echo=6) {
-      printf("\n# %s:\n", __func__);
+      if (echo > 0) printf("\n# %s:\n", __func__);
       int const ng[3] = {29, 13, 9};
       int const ngall = ng[2]*ng[1]*ng[0];
       auto rs = new real_t[ngall];
@@ -222,11 +223,11 @@ namespace fourier_poisson {
       return stat;
   } // test_FFT_Poisson_solver
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_fft<float>();
-    status += test_fft<double>();
-    status += test_FFT_Poisson_solver();
+    status += test_fft<float>(echo);
+    status += test_fft<double>(echo);
+    status += test_FFT_Poisson_solver(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

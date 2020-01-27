@@ -141,7 +141,7 @@ namespace recorded_warnings {
 
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
@@ -165,14 +165,14 @@ namespace recorded_warnings {
     } // i
     return 0;
   } // test_overwriting
-  
-  status_t all_tests() {
+
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_create_and_destroy();
-    status += test_preprocessor_macro();
-    status += test_overwriting();
-    status += show_warnings(3); // display those warnings that have been launched for test purposes
-    status += clear_warnings(2); // clear test warnings from record
+    status += test_create_and_destroy(echo);
+    status += test_preprocessor_macro(echo);
+    status += test_overwriting(echo);
+    status += show_warnings(echo); // display those warnings that have been launched for test purposes
+    status += clear_warnings(echo); // clear test warnings from record
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

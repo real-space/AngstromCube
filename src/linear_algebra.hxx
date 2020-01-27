@@ -60,6 +60,6 @@ namespace linear_algebra {
       return info;
   } // generalized_eigenvalues
 
-  inline status_t all_tests() { return 0; }
+  inline status_t all_tests(int const echo=0) { return 0; }
 
 } // namespace linear_algebra

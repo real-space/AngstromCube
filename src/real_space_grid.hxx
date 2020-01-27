@@ -12,6 +12,8 @@
 typedef int status_t;
 
 namespace real_space_grid {
+  
+  int constexpr debug = 0;
 
   template<int D0> // D0: inner dimension, vector length
   class grid_t {
@@ -27,17 +29,17 @@ namespace real_space_grid {
           dims[3] = std::max(1, dim_outer);
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (nnumbers > 0) {
-              printf("# grid with %d * %d x %d x %d * %d = %.6f M numbers\n", 
+              if (debug) printf("# grid with %d * %d x %d x %d * %d = %.6f M numbers\n", 
                   D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
           } else {
-              printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n",
+              if (debug) printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n",
                       D0, dims[0], dims[1], dims[2], dims[3]);
           }
       } // constructor
 
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
-          printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
+          if (debug) printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
               D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
       } // destructor
 
@@ -185,6 +187,6 @@ namespace real_space_grid {
       return 0; // success
   } // bessel_projection
   
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
 
 } // namespace real_space_grid

@@ -15,6 +15,6 @@ namespace sho_overlap {
                      double const sigma=2, // 2:typical for density tensor
                      double const sigma0=1, double const sigma1=1);
 
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
 
 } // namespace sho_overlap

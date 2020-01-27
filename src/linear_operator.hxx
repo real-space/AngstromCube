@@ -1,10 +1,10 @@
 #pragma once
 
 #include "vector_layout.hxx"
-// #define CRTP_printf(...)
+#define CRTP_printf(...)
 
 #include <cstdio> // printf
-#define CRTP_printf(...) printf(__VA_ARGS__)
+// #define CRTP_printf(...) printf(__VA_ARGS__)
 
 template <typename real_t> char const * real_t_name() { return nullptr; }
 template <> char const * real_t_name<double>() { return "double"; }
@@ -47,7 +47,7 @@ class LinOp {
 namespace linear_operator {
   
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   // example class
@@ -78,8 +78,8 @@ namespace linear_operator {
       std::vector<real_t> diagonal_; // vector of diagonal elements
   }; // class DiagOp
 
-
-  inline status_t all_tests(int const echo=9) {
+  
+  inline status_t test_DiagOp(int const echo=4) {
     if (echo > 0) printf("# %s\n", __func__);
 
     typedef double real_t;
@@ -90,10 +90,21 @@ namespace linear_operator {
     hamiltonian.inner(xHx.data(), x.data(), Hx.data());
     hamiltonian.axpby(x.data(), Hx.data(), xHx.data());
 
-    for(unsigned i = 0; i < xHx.size(); ++i) { printf(" %g", xHx[i]); } printf("\n"); // show
-    // printf("# hamiltonian has been applied %ld times\n", hamiltonian.get_apply_count());
+    if (echo > 0) {
+        for(unsigned i = 0; i < xHx.size(); ++i) { 
+            printf(" %g", xHx[i]); 
+        }   printf("\n"); // show
+        // printf("# hamiltonian has been applied %ld times\n", hamiltonian.get_apply_count());
+    } // echo
 
     return 0;
+  }
+
+  inline status_t all_tests(int const echo=0) {
+    if (echo > 0) printf("# %s\n", __func__);
+    status_t stat = 0;
+    stat += test_DiagOp(echo);
+    return stat;
   } // all_tests
 
 // in addition to .apply() what else do we need to run a general tfqmr inverter?

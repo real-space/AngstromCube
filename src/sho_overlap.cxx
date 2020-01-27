@@ -393,7 +393,7 @@ namespace sho_overlap {
 
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
@@ -582,17 +582,17 @@ namespace sho_overlap {
     } // i3
     double const shortest_bond = std::sqrt(shortest_bond2);
 
-    printf("# shortest bond is %g Bohr\n", shortest_bond);
+    if (echo > 0) printf("# shortest bond is %g Bohr\n", shortest_bond);
 
     bool const overlap_eigvals = false;
     // choose the return radius as a fraction of shortest_bond length
     double const sigma = .75*shortest_bond/std::sqrt(2.*nmax + 3.), 
                  sigma0 = sigma, sigma1 = sigma;
-    printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
+    if (echo > 0) printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
 
     // return radius of the classical harmonic oscillator
     double const return_radius = sigma*std::sqrt(2.*nmax + 3.);
-    printf("# classical return radius at %g Bohr\n", return_radius);
+    if (echo > 0) printf("# classical return radius at %g Bohr\n", return_radius);
     
     double const dmax = 12*sigma; // 12 sigma is converged for fcc
 
@@ -603,10 +603,12 @@ namespace sho_overlap {
     double dH0[ncut*ncut], dH1[ncut*ncut];
     for(int n = 0; n < ncut; ++n) {
         // show the Hermite polynomial coefficients for H0
-        printf("# H[%x]: ", n);
-        for(int m = 0; m <= n; ++m) {
-            printf("%8.4f", H0[n*ncut + m]);
-        }   printf("\n");
+        if (echo > 3) {
+            printf("# H[%x]: ", n);
+            for(int m = 0; m <= n; ++m) {
+                printf("%8.4f", H0[n*ncut + m]);
+            }   printf("\n");
+        } // echo
         
         // construct first derivatives
         derive_Hermite_Gauss_polynomials(&dH0[n*ncut], &H0[n*ncut], ncut, 1./sigma0);
@@ -614,17 +616,19 @@ namespace sho_overlap {
     } // n
 
     int const n3D = ((nmax + 1)*(nmax + 2)*(nmax + 3))/6;
-    printf("# %d SHO functions up to numax=%d\n", n3D, nmax);
-    {   printf("# list %d SHO functions: ", n3D);
-        for(int n0 = 0; n0 <= nmax; ++n0) {
-            for(int n1 = 0; n1 <= nmax - n0; ++n1) {
-                for(int n2 = 0; n2 <= nmax - n0 - n1; ++n2) {
-                    printf("%x%x%x ", n0,n1,n2);
-                } // 2n2
-            } // n1
-        } // n0
-        printf("\n");
-    } // scope
+    if (echo > 5) {
+        printf("# %d SHO functions up to numax=%d\n", n3D, nmax);
+        {   printf("# list %d SHO functions: ", n3D);
+            for(int n0 = 0; n0 <= nmax; ++n0) {
+                for(int n1 = 0; n1 <= nmax - n0; ++n1) {
+                    for(int n2 = 0; n2 <= nmax - n0 - n1; ++n2) {
+                        printf("%x%x%x ", n0,n1,n2);
+                    } // 2n2
+                } // n1
+            } // n0
+            printf("\n");
+        } // scope
+    } // echo
     
     
     bool const DoS = control::get("overlap.test.DoS", 0.); // 1: density of states, 0: bandstructure
@@ -633,7 +637,7 @@ namespace sho_overlap {
 
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
-    printf("# assume at most %d periodic images up to %.3f Bohr\n", max_npi, dmax);
+    if (echo > 2) printf("# assume at most %d periodic images up to %.3f Bohr\n", max_npi, dmax);
     auto mat = new double[max_npi][2][n3D*n3D];
     auto vpi = new    int[max_npi][3]; // periodic image shift vectors
     int npi = 0;
@@ -687,7 +691,7 @@ namespace sho_overlap {
         } // i2
     } // i3
     int const num_periodic_images = npi;
-    printf("# account for %d periodic images up to %.3f Bohr\n", npi, dmax);
+    if (echo > 2) printf("# account for %d periodic images up to %.3f Bohr\n", npi, dmax);
 
 
     double smallest_eigval = 9e99, largest_eigval = - 9e99;
@@ -872,7 +876,7 @@ namespace sho_overlap {
                     } // ibin in range
                 } // i3D
 
-            } else if(echo > 2) {
+            } else if(echo > 1) {
                 // show the bandstructure
                 printf("%.6f ", kp_id); // abscissa
                 for(int i3D = 0; i3D < n3D; ++i3D) {
@@ -920,13 +924,13 @@ namespace sho_overlap {
     return diagonalization_failed;
   } // test_simple_crystal
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_Hermite_polynomials();
-    status += test_Hermite_Gauss_overlap();
-    status += test_kinetic_overlap();
-    status += test_density_or_potential_tensor();
-    status += test_simple_crystal(); // expensive
+    status += test_Hermite_polynomials(echo);
+    status += test_Hermite_Gauss_overlap(echo);
+    status += test_kinetic_overlap(echo);
+    status += test_density_or_potential_tensor(echo);
+    status += test_simple_crystal(echo); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

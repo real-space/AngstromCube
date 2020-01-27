@@ -6,6 +6,7 @@
 #include <utility> // std::pair
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
+#include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::cli
 
 typedef int status_t;
@@ -49,7 +50,7 @@ typedef int status_t;
 #include "data_view.hxx" // ::all_tests
 #include "control.hxx" // ::all_tests
 
-  int run_unit_tests(char const *module, int const echo=0) 
+  status_t run_unit_tests(char const *module, int const echo=0) 
   {
       bool const all = (nullptr == module);
       auto const m = std::string(all ? "" : module);
@@ -58,8 +59,12 @@ typedef int status_t;
 
       std::vector<std::pair<std::string,status_t>> run;
       { // testing scope
-#define   module_test(NAME, FUN) if (all || (0 == std::string(NAME).compare(m))) \
-                        { run.push_back(make_pair(std::string(NAME), FUN())); }
+#define   module_test(NAME, FUN) \
+          if (all || (0 == std::string(NAME).compare(m))) { \
+              SimpleTimer timer("module test for", 0, NAME, 1); \
+              run.push_back(make_pair(std::string(NAME), FUN(echo))); \
+          }
+//            if (echo > -1) printf("\n# Module test for %s\n\n", NAME);
           module_test("recorded_warnings.",     recorded_warnings::all_tests);
           module_test("finite_difference.",     finite_difference::all_tests);
           module_test("hermite_polynomial.",   hermite_polynomial::all_tests);
@@ -103,17 +108,19 @@ typedef int status_t;
 
       int status = 0;
       if (run.size() < 1) { // nothing has been tested
-          printf("# ERROR: test for '%s' not found!\n", module);
+          if (echo > 0) printf("# ERROR: test for '%s' not found!\n", module);
           status = -1;
       } else {
-          printf("\n\n#%3ld modules have been tested:\n", run.size());
+          if (echo > 0) printf("\n\n#%3ld modules have been tested:\n", run.size());
           for(auto r : run) {
               auto const stat = r.second;
-              printf("#    module= %-24s status= %i\n", r.first.c_str(), stat);
+              if (echo > 0) printf("#    module= %-24s status= %i\n", r.first.c_str(), stat);
               status += std::abs(stat);
           } // r
-          printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), status);
-          if (status > 0) printf("# Warning! At least one module test failed!\n");
+          if (echo > 0) {
+              printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), status);
+              if (status > 0) printf("# Warning! At least one module test failed!\n");
+          } // echo
       } // something has been tested
       return status;
   } // run_unit_tests
@@ -151,8 +158,8 @@ typedef int status_t;
           } // '+'
 
       } // iarg
-      int const echo = control::get("verbosity", 1.);
-      if (run_tests) run_unit_tests(test_unit, echo);
+      int const echo = control::get("verbosity", 0.); // define default verbosity here
+      if (run_tests) stat += run_unit_tests(test_unit, echo);
       recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
       return stat;

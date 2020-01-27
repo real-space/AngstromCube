@@ -6,6 +6,8 @@
 #include <algorithm> // std::fill
 #include <utility> // std::move
 
+typedef int status_t;
+
 // #define debug_printf(...) printf(__VA_ARGS__)  
 #define debug_printf(...)
 
@@ -299,7 +301,7 @@ inline void set(view4D<T> & y, size_t const n3, T const a) {
 namespace data_view {
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
 inline int test_view2D(int const echo=9) {
@@ -358,8 +360,8 @@ inline int test_view3D(int const echo=9) {
 } // test_view3D
 
 
-inline int all_tests(int const echo=3) {
-    int status = 0;
+inline status_t all_tests(int const echo=0) {
+    status_t status = 0;
     status += test_view2D(echo);
     status += test_view3D(echo);
     return status;

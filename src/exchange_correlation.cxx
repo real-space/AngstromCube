@@ -62,25 +62,26 @@ namespace exchange_correlation {
 
   } // lda_PZ81_kernel
   
-    template // explicit template instantiation for float and double
+    template // explicit template instantiation for double
     double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
-//  template float  lda_PZ81_kernel<float> (float  const rho, float  &Vdn, float  const mag, float  *Vup);
+//  template // explicit template instantiation for float
+//  float  lda_PZ81_kernel<float> (float  const rho, float  &Vdn, float  const mag, float  *Vup);
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_PZ81_potential() {
+  status_t test_PZ81_potential(int const echo=0) {
     for(double rho = .625e-20; rho < 1e9; rho *= 2) {
         double V; double const E = lda_PZ81_kernel(rho, V);
-        printf("%g %g %g\n", rho, E, V);
+        if (echo > 0) printf("%g %g %g\n", rho, E, V);
     } // rho
     return 0;
   } // test_PZ81_potential
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_PZ81_potential();
+    status += test_PZ81_potential(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

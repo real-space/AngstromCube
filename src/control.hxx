@@ -14,6 +14,6 @@ namespace control {
   char const* get(char const *name, char const * default_value, int const echo=default_echo_level);
   double      get(char const *name, double const default_value, int const echo=default_echo_level);
 
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
 
 } // namespace control

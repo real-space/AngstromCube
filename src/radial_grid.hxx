@@ -24,6 +24,6 @@ namespace radial_grid {
   
   int find_grid_index(radial_grid_t const &g, double const radius);
 
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
   
 } // namespace radial_grid

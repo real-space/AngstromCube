@@ -45,7 +45,7 @@ namespace geometry_analysis {
 
   public:
       BoxStructure(double const cell[3], int const bc[3], 
-                   double const radius, size_t const natoms, double const xyzZ[], int const echo=9) {
+                   double const radius, size_t const natoms, double const xyzZ[], int const echo=0) {
           assert(radius > 0);
           double box_size[3], inv_box_size[3];
           int hnh[3];
@@ -617,6 +617,7 @@ namespace geometry_analysis {
               } // js
               printf("  %s  in %s\n", Sy_of_species[is], _Ang);
           } // is
+          
       } // echo
       
       // analyze coordination numbers
@@ -669,7 +670,7 @@ namespace geometry_analysis {
               char string_buffer[512];
               analyze_bond_structure(string_buffer, cn, coords, xyzZ[4*ia + 3]);
 // #pragma omp critical
-              printf("# a#%d %c%c %s\n", ia, Sy_of_species[isi][0], Sy_of_species[isi][1], string_buffer); // no new line
+              if (echo > 4) printf("# a#%d %c%c %s\n", ia, Sy_of_species[isi][0], Sy_of_species[isi][1], string_buffer); // no new line
           } // ia
       } // bond_partner
       if (bp_exceeded > 0) {
@@ -684,7 +685,7 @@ namespace geometry_analysis {
   } // analysis
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_analysis(int const echo=9) {
@@ -699,16 +700,16 @@ namespace geometry_analysis {
     if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                              natoms, filename, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
     { // SimpleTimer timer(__FILE__, __LINE__, "analysis");
-        stat += analysis(xyzZ, natoms, cell, bc);
+        stat += analysis(xyzZ, natoms, cell, bc, echo);
     } // timer
 
     delete[] xyzZ;
     return stat;
   } // test_analysis
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_analysis();
+    status += test_analysis(echo);
     return status;
   } // all_tests
 

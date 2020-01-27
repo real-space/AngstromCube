@@ -83,6 +83,6 @@ namespace sho_radial {
       return value;
   } // expand_poly
   
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
   
 } // namespace sho_radial

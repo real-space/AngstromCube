@@ -16,7 +16,7 @@ namespace bessel_transform {
   // a radial bessel transformation of s-functions (ell=0)
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_Gaussian(int const echo=9) {
@@ -42,7 +42,7 @@ namespace bessel_transform {
   } // test_Gaussian
 
   status_t test_r2grid(int const echo=9) {
-      printf("# %s: %s\n", __FILE__, __func__);
+      if (echo > 0) printf("# %s: %s\n", __FILE__, __func__);
       auto const rg = radial_grid::create_exponential_radial_grid(1 << 9);
       auto const in = new double[rg->n];
       for(int ir = 0; ir < rg->n; ++ir) {
@@ -74,11 +74,11 @@ namespace bessel_transform {
       delete[] out;
       return stat;
   } // test_r2grid
-  
-  status_t all_tests() {
+
+  status_t all_tests(int const echo) {
     auto status = 0;
-//  status += test_Gaussian();
-    status += test_r2grid();
+//  status += test_Gaussian(echo);
+    status += test_r2grid(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

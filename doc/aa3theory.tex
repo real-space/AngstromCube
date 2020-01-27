@@ -715,6 +715,20 @@ probe by a projection to the charge compensator shape:
 $$ v^a_{\ell m} = \int d^3 \vec r \  \hat g_{\ell m}(\vec r) \tilde V\um{es}(\vec r) $$
 See fig.~\ref{fig:multipole-shifts} for an example.
 
+\begin{figure}
+  %% how to generate this plot:
+  %% 	run -t spherical_atoms. +spherical_atoms.test.ion=.0 +spherical_atoms.max.scf=19 +single_atom.echo=9
+  %% 	run -t spherical_atoms. +spherical_atoms.test.ion=.9 +spherical_atoms.max.scf=19 +single_atom.echo=9
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/20200127_spherical_atoms_ionized0} %%
+	\includegraphics[width=\textwidth]{fig/20200127_spherical_atoms_ionized9} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:ionized-spherical-atoms-AlP-dimer}
+  \caption{Smooth electrostatic potentials of an Al-P dimer with ionization (Al$^{+.9}$-P$^{-.9}$, lower) and without (upper panel). }
+\end{figure}
+
 
 \section{Linear Scaling}\label{sec:linear-scaling}
 %
@@ -857,6 +871,8 @@ the radial L2-normalization is given by
 \end{align}
 See \ttt{sho\_projection::radial\_L2\_prefactor} for an implementation of $f_{L2}$ as a function of $\ell$.
 However, we need the (L1-)normalization described above, so we introduce a proper re-scaling factor.
+
+
 
 
 % ==============================================================================

@@ -524,7 +524,7 @@ int integrate_outwards( // return the number of nodes
 
     
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_hydrogen_atom(
@@ -561,16 +561,18 @@ int integrate_outwards( // return the number of nodes
   } // test_hydrogen_wave_functions
 
   // unit test for the outwards integration
-  status_t test_Bessel_functions(radial_grid_t const &g) { // radial grid descriptor
+  status_t test_Bessel_functions(int const echo, radial_grid_t const &g) { // radial grid descriptor
     auto rV = std::vector<double>(g.n, 0); // fill all potential values with r*V(r) == 0 everywhere
     auto const rf = new double[2*g.n]; // large component of the radial function
     double const k = 1.;
     integrate_outwards<0>(g, rV.data(), 0, 0.5*k*k, rf, &rf[g.n]);
-    printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
-    for(auto ir = 1; ir < g.n; ++ir) {
-        auto const x = k*g.r[ir];
-        printf("%g %g %g %g\n", x, sin(x), rf[ir], sin(x) - rf[ir]); // compare result to x*j0(x)==sin(x)
-    } // ir
+    if (echo > 0) {
+        printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
+        for(auto ir = 1; ir < g.n; ++ir) {
+            auto const x = k*g.r[ir];
+            printf("%g %g %g %g\n", x, sin(x), rf[ir], sin(x) - rf[ir]); // compare result to x*j0(x)==sin(x)
+        } // ir
+    } // echo
     return 0;
   } // test_Bessel_functions
 
@@ -594,12 +596,12 @@ int integrate_outwards( // return the number of nodes
     return 0;
   } // test_inhomogeneous
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
     auto const g = radial_grid::create_exponential_radial_grid(512);
 //  status += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), 1);
 //  status += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), 1);
-    status += test_Bessel_functions(*g);
+    status += test_Bessel_functions(echo, *g);
 //  status += test_inhomogeneous(*g); // solutions need to be inspected manually
     return status;
   } // all_tests

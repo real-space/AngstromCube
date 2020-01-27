@@ -335,7 +335,7 @@ namespace scattering_test {
               , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
               , double const aSm[] // non-local overlap matrix elements, assume stride nln
               , int const nr=384 // number of radial grid points in equidistance mesh
-              , int const Vshift=0 // potential shift
+              , double const Vshift=0 // potential shift
               , char const *label=""
               , int const echo=2
     ) {
@@ -527,7 +527,7 @@ namespace scattering_test {
   } // emm_average
   
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
   
   inline status_t test_eigenstate_analysis(int const echo=3, int const lmax=7) {
@@ -540,11 +540,11 @@ namespace scattering_test {
       for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
       std::vector<double> const aHm(nln*nln, 0.0);
       std::vector<uint8_t> nn(1 + lmax, 0); for(int ell = 0; ell <= lmax; ++ell) nn[ell] = 1 + (lmax - ell)/2;
-      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn.data(), lmax, aHm.data(), aHm.data(), 128, echo);
+      return eigenstate_analysis(rg, V.data(), sigma, lmax, nn.data(), lmax, aHm.data(), aHm.data(), 128, 0.0, "", echo);
       // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
   } // test_eigenstate_analysis
 
-  inline status_t all_tests(int const echo=3) {
+  inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       auto status = 0;
       status += test_eigenstate_analysis(echo);

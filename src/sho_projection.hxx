@@ -66,8 +66,7 @@ namespace sho_projection {
    
       int const nSHO = sho_tools::nSHO(numax);
       if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO*D0, real_t(0));
-      
-      // int ixyz = 0;
+
       for(        int iz = 0; iz < num[2]; ++iz) {
           for(    int iy = 0; iy < num[1]; ++iy) {
               for(int ix = 0; ix < num[0]; ++ix) {
@@ -80,12 +79,10 @@ namespace sho_projection {
                   if (true) {
 //                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val[0]); // plot function value vs r
                       int iSHO = 0;
-                      for(int nz = 0; nz <= numax; ++nz) {
-                          for(int ny = 0; ny <= numax - nz; ++ny) {
-                              for(int nx = 0; nx <= numax - nz - ny; ++nx) {
-                                  auto const H3d = H1d[2][iz*M + nz]
-                                                 * H1d[1][iy*M + ny]
-                                                 * H1d[0][ix*M + nx];
+                      for(int nz = 0; nz <= numax; ++nz) {                    auto const H1d_z = H1d[2][iz*M + nz];
+                          for(int ny = 0; ny <= numax - nz; ++ny) {           auto const H1d_y = H1d[1][iy*M + ny];
+                              for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const H1d_x = H1d[0][ix*M + nx];
+                                  auto const H3d = H1d_z * H1d_y * H1d_x;
                                   for(int i0 = 0; i0 < D0; ++i0) {
                                       if (1 == PROJECT0_OR_ADD1) {
                                           val[i0] += coeff[iSHO*D0 + i0] * H3d; // here, the addition happens                                          
@@ -243,6 +240,6 @@ namespace sho_projection {
   } // denormalize_electrostatics
 
   
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
 
 } // namespace sho_projection

@@ -16,7 +16,7 @@ namespace sho_projection {
 
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   inline constexpr char const * _diag(bool const diagonal) { return diagonal ? "diagonal" : "off-diag"; }
@@ -39,11 +39,10 @@ namespace sho_projection {
   } // _analyze_row
   
   template<typename real_t>
-  status_t test_L2_orthogonality(int const numax=7, int const echo=2) {
+  status_t test_L2_orthogonality(int const echo=2, int const numax=5, double const sigma=1.05) {
       if (echo > 0) printf("\n# %s<%s>\n", __func__, (8 == sizeof(real_t))?"double":"float");
       int const dims[] = {42, 41, 40};
       real_space_grid::grid_t<1> g(dims);
-      double const sigma = 1.25;
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
       if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
@@ -115,7 +114,7 @@ namespace sho_projection {
       return stat;
   } // test_L2_orthogonality
 
-  status_t test_renormalize_electrostatics(int const numax=2, int const echo=2) {
+  status_t test_renormalize_electrostatics(int const echo=2, int const numax=2) {
       double const sigma = 1.0;
       if (echo > 0) printf("\n# %s with sigma = %g\n", __func__, sigma);
       int const dims[] = {42, 41, 40};
@@ -174,11 +173,11 @@ namespace sho_projection {
       return stat;
   } // test_renormalize_electrostatics
   
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_renormalize_electrostatics();
-    status += test_L2_orthogonality<double>(); // takes a while
-    status += test_L2_orthogonality<float>();
+    status += test_renormalize_electrostatics(echo);
+    status += test_L2_orthogonality<double>(echo); // takes a while
+//     status += test_L2_orthogonality<float>(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

@@ -172,7 +172,7 @@ namespace atom_core {
   status_t scf_atom(radial_grid_t const &g, // radial grid descriptor
                float const Z, // atomic number
                int const echo) { // log output level
-      debug(printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__));
+      if (echo > 0) printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
 
       int constexpr sra = 1; // scalar-relativistic
       int constexpr MAXCYCLES = 200;
@@ -195,9 +195,8 @@ namespace atom_core {
                   orb[i].occ = std::min(std::max(0.f, Z - iZ), max_occ*1.f);
                   orb[i].E = guess_energy(Z, enn);
                   if (orb[i].occ > 0) {
-                      if (echo > 4) {
-                          printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n", __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
-                      } // echo
+                      if (echo > 4) printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n",
+                           __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
                       imax = std::max(i, imax);
                   } // occupied
                   iZ += max_occ; // iZ jumps between atomic numbers of atoms with full shells
@@ -423,11 +422,11 @@ namespace atom_core {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_initial_density(int const echo=0) {
-    printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
+    if (echo > 0) printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
     double max_diff = 0;
     for(float zz = 0; zz < 128; zz += 1) {
         auto const g = *radial_grid::create_default_radial_grid(zz);
@@ -454,17 +453,16 @@ namespace atom_core {
       return 0;
   } // test_nl_index
   
-  status_t test_core_solver(radial_grid_t const &g, float const Z) {
-    int const echo = 3;
-    printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
+  status_t test_core_solver(radial_grid_t const &g, float const Z, int const echo) {
+    if (echo > 0) printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
     return scf_atom(g, Z, echo);
   } // test_core_solver
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_initial_density();
-    status += test_nl_index();
-    
+    status += test_initial_density(echo);
+    status += test_nl_index(echo);
+
 //      for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
 //          status += simplify_Zeff_file(Z, 1e-8); // apply RamerDouglasPeucker reduction to Z_eff(r)
 //      } // Z
@@ -473,7 +471,7 @@ namespace atom_core {
     float const Z_inc   = control::get("atom_core.test.Z.inc", 1.); // default: sample only integer values
     float const Z_end   = control::get("atom_core.test.Z.end", Z_begin + Z_inc); // default: only one core
     for (float Z = Z_begin; Z < Z_end; Z += Z_inc) {
-        status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z);
+        status += test_core_solver(*radial_grid::create_default_radial_grid(Z), Z, echo);
     } // Z
     return status;
   } // all_tests

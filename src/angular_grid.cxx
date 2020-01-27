@@ -345,7 +345,7 @@ namespace angular_grid {
     if (i >= 32 && available[i] < n) {
         if (echo > 0) printf("# %s ellmax= %i leads to n= %i (too large)!\n", __func__, ellmax, n);
         return -1;
-    }
+    } // i
     if (echo > 1) printf("# %s correct the number of angular grid points of the Lebedev-Laikov grid"
                          " for ellmax= %i from %i to %i\n", __func__, ellmax, n, available[i]);
     return available[i];
@@ -1704,7 +1704,7 @@ namespace angular_grid {
         } // icode
         printf("0 points\n");
         assert(n_corrected == n_check);
-    } // report
+    } // echo
     
     assert (n_corrected == m);
     return m;
@@ -1846,7 +1846,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
   status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t>* gaunt, int const echo);
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   int test_generation(int const echo=1) {
@@ -1878,7 +1878,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
   } // test
     
   int test_orthogonality(int const echo=9, int const lmax=20) { // terribly slow
-      printf("\n# %s: \n", __func__);
+      if (echo > 0) printf("\n# %s: \n", __func__);
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);
       int const M = (1 + ellmax)*(1 + ellmax);
@@ -1931,15 +1931,17 @@ cTeXit '. ', '' ! full stop and an extra empty line
       delete[] yy;
       if (echo > 1) printf("\n# %s: %i grid generations failed!\n", __func__, stat);
       return stat;
-  } // test
+  } // test_orthogonality
 
-  status_t test_numerical_Gaunt(int const echo=1) { return create_numerical_Gaunt<3>(nullptr, echo); }
+  status_t test_numerical_Gaunt(int const echo=1) { 
+      return create_numerical_Gaunt<3>(nullptr, echo); 
+  } // test_numerical_Gaunt
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_generation(1);
-    status += test_orthogonality(4);
-    status += test_numerical_Gaunt();
+    status += test_generation(echo);
+    status += test_orthogonality(echo);
+    status += test_numerical_Gaunt(echo);
     solid_harmonics::cleanup<double>(); // free internal memory
     return status;
   } // all_tests

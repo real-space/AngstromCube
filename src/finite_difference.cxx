@@ -15,7 +15,7 @@
 namespace finite_difference {
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
@@ -77,12 +77,12 @@ namespace finite_difference {
   } // test_Laplacian
 
   
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_coefficients<double>();
-    status += test_coefficients<float>();
-    status += test_create_and_destroy();
-    status += test_Laplacian<double>();
+    status += test_coefficients<double>(echo);
+    status += test_coefficients<float>(echo);
+    status += test_create_and_destroy(echo);
+    status += test_Laplacian<double>(echo);
     recorded_warnings::clear_warnings(); // clear
     return status;
   } // all_tests

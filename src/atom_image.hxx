@@ -113,7 +113,7 @@ namespace atom_image {
       } // get_matrix
 
   
-  inline status_t all_tests() {
+  inline status_t all_tests(int const echo=0) {
       return (3*8 + 2*4 != sizeof(atom_image_t)); // make sure that this struct has 32 Byte
   } // all_tests
 

@@ -12,10 +12,10 @@ namespace atom_core {
   status_t scf_atom(
       radial_grid_t const &g, // radial grid descriptor
       float const Z, // atomic number
-      int const echo); // log output level
+      int const echo=0); // log output level
 
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, float const Z,
-                   char const name[]="Zeff", float const factor=1, int const echo=9);
+                   char const name[]="Zeff", float const factor=1, int const echo=0);
 
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0);
 
@@ -39,6 +39,6 @@ namespace atom_core {
       return 99 + ell; // "fghijk ..."
   } // ellchar
   
-  status_t all_tests();
+  status_t all_tests(int const echo=0);
 
 } // namespace atom_core

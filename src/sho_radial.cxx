@@ -12,7 +12,7 @@
 namespace sho_radial {
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
@@ -34,7 +34,7 @@ namespace sho_radial {
       return norm;
   } // numerical_norm
 
-  int test(int const echo=1) {
+  int test_orthonormality(int const echo=1) {
       int const numax = 9;
       int const n = nSHO_radial(numax);
       if (echo > 1) printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
@@ -91,11 +91,11 @@ namespace sho_radial {
       if (echo > 0) printf("# normalization of radial SHO eigenfunctions differs by %g from unity\n", dev[1]); // summary
       if (echo > 0) printf("# orthogonality of radial SHO eigenfunctions differs by %g from zero\n",  dev[0]); // summary
       return (dev[0] + dev[1] > 5e-11);
-  } // test
+  } // test_orthonormality
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test();
+    status += test_orthonormality(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

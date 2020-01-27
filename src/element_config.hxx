@@ -21,7 +21,7 @@ namespace element_config {
   } // element_symbol
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   inline status_t test_show_all_elements(int const echo=2) {
@@ -30,7 +30,7 @@ namespace element_config {
       char const ellchar[] = "spdfghi";
     
       for(int spin = 1; spin >= 0; --spin) {
-          if (echo) {
+          if (echo > 1 + spin) {
               if (spin > 0) printf("# including spin-orbit\n");
               printf("\n   nl    j    occ  index\n");
           } // echo
@@ -42,13 +42,13 @@ namespace element_config {
               for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
                   ++enn; // principal quantum number
                   for(int jj = 2*ell + spin; jj >= std::max(0, 2*ell - spin); jj -= 2) { // quantum number j = l + s, jj=2j
-                      if(echo) printf("%4d%c%6.1f%4d%9d    %c", enn, ellchar[ell], jj*.5f, 
+                      if (echo > 1 + spin) printf("%4d%c%6.1f%4d%9d    %c", enn, ellchar[ell], jj*.5f, 
                                   (2 - spin)*(jj + 1), ishell, (1==echo || spin)?'\n':' ');
                       for(int mm = -jj; mm <= jj; mm += 2) { // angular momentum z-component emm, mm=2*emm
                           for(int s = 0; s <= 1 - spin; ++s) { // when 0==spin, this loop fills each orbital with 2 electrons
                               iocc[ishell] += 1;
                               ++iZ; // next element
-                              if (echo) {
+                              if (echo > 1 + spin) {
                                   auto const El = element_symbol(iZ);
                                   if (1 == echo) {
                                       printf("%c%c occupation ", El[0], El[1]);
@@ -62,13 +62,13 @@ namespace element_config {
                           } // s
                       } // mm
                       ++ishell; // next shell
-                      if ((echo > 1) && (0 == spin)) {
+                      if ((echo > 1 + spin) && (0 == spin)) {
                           printf("\n");
                       } // echo
                   } // jj
               } // ell
           } // m
-          if(echo) {
+          if (echo > 1 + spin) {
               double sum_occ = 0;
               for(int inl = 0; inl < ishell; ++inl) {
                   sum_occ += iocc[inl];
@@ -76,7 +76,7 @@ namespace element_config {
               printf("# sum(occ) = %.3f\n", sum_occ);
           } // echo
       } // spin
-      printf("# table of elements according to Aco Z. Muradjan\n\n");
+      if (echo > 0) printf("# table of elements according to Aco Z. Muradjan\n\n");
       return 0;
   } // test_show_all_elements
 
@@ -101,8 +101,8 @@ namespace element_config {
 //   7s 7p
 //   8s
 
-  inline status_t all_tests() {
-      return test_show_all_elements();
+  inline status_t all_tests(int const echo=0) {
+      return test_show_all_elements(echo);
   } // all_tests
 #endif // NO_UNIT_TESTS
 

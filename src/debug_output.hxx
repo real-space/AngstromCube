@@ -9,11 +9,11 @@ int dump_to_file(
     int const Stride=1, // Stride, default=1 for 1D functions
     int const M=1, // number of columns to display
     char const *title=nullptr, // title line in the file
-    int const echo=6) // report writing to stdout, 0: suppress report
+    int const echo=0) // report writing to stdout, 0: suppress report
 {
     FILE *f = fopen(filename, "w");
     if (nullptr == f) {
-        printf("Error opening file!\n");
+        if (echo > 1) printf("# %s Error opening file %s!\n", __func__, filename);
         return 1;
     } // failed to open
 
@@ -33,9 +33,9 @@ int dump_to_file(
         fprintf(f, "\n"); // new line
     } // i
     fprintf(f, "\n"); // new line at the end of the file
-    
+
     fclose(f);
-    if (echo) printf("# file %s written with %d x %d (of %d) data entries.\n", filename, N, M, Stride);
+    if (echo > 3) printf("# file %s written with %d x %d (of %d) data entries.\n", filename, N, M, Stride);
     return 0;
 } // dump_to_file
 

@@ -103,7 +103,7 @@ namespace sho_potential {
   } // normalize_coefficients
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_potential_elements(int const echo=5) {
@@ -375,9 +375,9 @@ namespace sho_potential {
       return stat;
   } // test_potential_elements
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_potential_elements(); // expensive
+    status += test_potential_elements(echo); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

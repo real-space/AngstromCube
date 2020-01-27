@@ -114,19 +114,19 @@ namespace radial_grid {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test(int const echo=9) {
-      printf("\n# %s: \n", __func__);
+  int test_create_and_destroy(int const echo=9) {
+      if (echo > 0) printf("\n# %s: \n", __func__);
       auto g = create_exponential_radial_grid(1 << 11);
       destroy_radial_grid(g);
       return 0;
-  } // test
+  } // test_create_and_destroy
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
       auto status = 0;
-      status += test();
+      status += test_create_and_destroy(echo);
       return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

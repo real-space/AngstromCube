@@ -220,7 +220,7 @@ namespace grid_operators {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t basic_test(int const echo=9) {
@@ -240,9 +240,9 @@ namespace grid_operators {
       return stat;
   } // basic_test
 
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += basic_test();
+    status += basic_test(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

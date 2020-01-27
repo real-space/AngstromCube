@@ -62,7 +62,7 @@ namespace spherical_atoms {
   } // fold_back
   
   status_t init(float const ion=0.f, int const echo=0) {
-      SimpleTimer init_function_timer(__FILE__, __LINE__, __func__);
+      SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat = 0;
       double constexpr Y00 = solid_harmonics::Y00;
       
@@ -96,8 +96,8 @@ namespace spherical_atoms {
       if (echo > 1) printf("# cell is  %g %g %g  %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
       for(int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g.dim(d) - cell[d]) >= 1e-6) {
-              printf("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s\n", 
-                               'x'+d, g.dim(d), g.h[d]*Ang, cell[d]*Ang, _Ang);
+              warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
+                     'x'+d, g.dim(d), g.h[d]*Ang, cell[d]*Ang, _Ang);
           }
           assert(std::abs(g.h[d]*g.dim(d) - cell[d]) < 1e-6);
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
@@ -150,8 +150,8 @@ namespace spherical_atoms {
 
   int const max_scf_iterations = control::get("spherical_atoms.max.scf", 3.);
   for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
-      SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration");
-      printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
+      SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
+      if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
 
@@ -191,12 +191,12 @@ namespace spherical_atoms {
 //               if (echo > 7) printf("# %g electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
               q_added += q_added_image;
           } // periodic images
-          if (echo > -1) {
+          if (echo > 1) {
               printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
               print_stats(rho.data(), g.all(), g.dV());
           } // echo
-          printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
-          printf("#    00 compensator charge for atom #%d is %g electrons\n",  ia, qlm[ia][00]/Y00);
+          if (echo > 3) printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
+          if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n",  ia, qlm[ia][00]/Y00);
       } // ia
 
       double Exc = 0, Edc = 0;
@@ -205,13 +205,13 @@ namespace spherical_atoms {
           Edc += rho[i]*Vxc[i]; // double counting correction
       } // i
       Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
-      if (echo > -1) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
+      if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
 
       set(Ves.data(), g.all(), 0.0);
       set(cmp.data(), g.all(), 0.0);
       { // scope
           for(int ia = 0; ia < na; ++ia) {
-              printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][00]);
+              if (echo > 6) printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][00]);
               double const sigma = sigma_cmp[ia];
               int    const ellmax = lmax_qlm[ia];
               std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
@@ -220,16 +220,16 @@ namespace spherical_atoms {
                   // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
                   set(coeff.data(), 1, qlm[ia], prefactor); // copy only monopole moment, ToDo
               } else {
-                  printf("# theoretical value for atom #%d coeff[000] = %g\n", ia, qlm[ia][00]*prefactor);
+                  if (echo > 6) printf("# theoretical value for atom #%d coeff[000] = %g\n", ia, qlm[ia][00]*prefactor);
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), qlm[ia], ellmax, sigma, unitary, echo);
               }
-              printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
+              if (echo > 7) printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
                   stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
               } // periodic images
 
-              if (echo > -1) {
+              if (echo > 1) {
                   // report extremal values of the density on the grid
                   printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][00]/Y00, ia);
                   print_stats(cmp.data(), g.all(), g.dV());
@@ -240,8 +240,10 @@ namespace spherical_atoms {
           
           // add compensators cmp to rho
           add_product(rho.data(), g.all(), cmp.data(), 1.);
-          printf("\n# augmented charge density grid stats:");
-          print_stats(rho.data(), g.all(), g.dV());
+          if (echo > 1) {
+              printf("\n# augmented charge density grid stats:");
+              print_stats(rho.data(), g.all(), g.dV());
+          } // echo
 
           {
               int ng[3]; double reci[3][4]; 
@@ -292,7 +294,7 @@ namespace spherical_atoms {
               } // echo
               
           } // ia
-          printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
+          if (echo > 3) printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
 
       } // scope
 
@@ -309,7 +311,7 @@ namespace spherical_atoms {
       { // scope: compute the Laplacian using high-order finite-differences
           int const fd_nn[3] = {12, 12, 12}; // nearest neighbors in the finite-difference approximation
           finite_difference::finite_difference_t<double> fd(g.h, bc, fd_nn);
-          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference");
+          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
           } // timer
       } // scope
@@ -323,11 +325,11 @@ namespace spherical_atoms {
 //       values = Vtot; // analyze the total potential: Vxc + Ves
 
       for(int iptr = 0; iptr < 1; ++iptr) { // only loop over the first 1 for electrostatics
-          SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis");
+          SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
           auto const values = value_pointers[iptr];
 
           // report extremal values of what is stored on the grid
-          printf("\n# real-space grid stats:"); print_stats(values, g.all(), g.dV());
+          if (echo > 1) { printf("\n# real-space grid stats:"); print_stats(values, g.all(), g.dV()); }
 
           for(int ia = 0; ia < na; ++ia) {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
@@ -389,10 +391,10 @@ namespace spherical_atoms {
       delete[] center;
 
       // generate a file which contains the full potential Vtot
-      {   char title[96];
+      if (echo > 0) { char title[96];
           sprintf(title, "%i x %i x %i", g.dim(2), g.dim(1), g.dim(0));
-          dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, 9);
-      }
+          dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
+      } // unless all output is suppressed
 
       stat += single_atom::update(-na, nullptr, nullptr); // cleanup
       return stat;
@@ -400,17 +402,17 @@ namespace spherical_atoms {
 
  
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_create_and_destroy(int const echo=0) {
+  status_t test_init(int const echo=3) {
       float const ion = control::get("spherical_atoms.test.ion", 0.0);
       return init(ion, echo); // ionization of Al-P dimer by -ion electrons
-  } // test_create_and_destroy
+  } // test_init
 
   status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_create_and_destroy(echo);
+    status += test_init(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

@@ -91,7 +91,7 @@ namespace sho_unitary {
   template // explicit template instantiation
   status_t read_unitary_matrix_from_file<double>(double**, int const, int &, char const*, int const);
 
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   int test_generation(int const echo=9) { return 0; } // { return generate_unitary_transform(9, echo); }

@@ -96,7 +96,7 @@ namespace control {
   } // get<double>
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_control(int const echo=9) {
@@ -143,10 +143,10 @@ namespace control {
     return stat;
   } // test_precision
   
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += test_control();
-    status += test_precision();
+    status += test_control(echo);
+    status += test_precision(echo);
     return status;
   } // all_tests
 

@@ -245,7 +245,7 @@ namespace chemical_symbol {
 #endif
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests() { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_decoding(int const echo=1) { // echo>4: run code generation
@@ -321,11 +321,11 @@ namespace chemical_symbol {
       return status;
   } // test_consistency
   
-  status_t all_tests() {
+  status_t all_tests(int const echo) {
     auto status = 0;
-    status += std::abs(test_decoding_14bit());
-    status += std::abs(test_decoding());
-    status += std::abs(test_consistency());
+    status += std::abs(test_decoding_14bit(echo));
+    status += std::abs(test_decoding(echo));
+    status += std::abs(test_consistency(echo));
     return status;
   } // all_tests
 
