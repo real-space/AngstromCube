@@ -61,7 +61,7 @@ namespace atom_image {
                   for(int y = 0; y <= _numax - z; ++y) {
                       for(int x = 0; x <= _numax - z - y; ++x) {
                           assert(reorder[ii] == sho_tools::Ezyx_index(x, y, z));
-                          rescale[ii] = sho_projection::sho_prefactor(x, y, z, _sigma);
+                          rescale[ii] = sho_projection::sho_prefactor(x, y, z, _sigma); // ToDo: can be replaced by the factorized version
                           ++ii;
                       } // x
                   } // y

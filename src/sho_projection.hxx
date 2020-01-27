@@ -145,44 +145,54 @@ namespace sho_projection {
 
   inline double sho_1D_prefactor(int const nu, double const sigma) { 
       return std::sqrt( ( 1 << nu ) / ( constants::sqrtpi * sigma * factorial(nu) ) ); // 1 << nu == 2^nu
-  } // sho_1D_prefactor (L2)
+  } // sho_1D_prefactor (L2-normalization)
 
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
       return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
-  } // sho_prefactor (L2)
+  } // sho_prefactor (L2-normalization)
 
-  template<typename real_t, char inverse='*', bool reorder=false>
-  inline status_t
+  template<typename real_t> inline status_t
   renormalize_coefficients(real_t out[], // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
                            real_t const in[], // zyx_ordered, input unnormalized, if inverse input is assumed normalized
-                           int const numax, double const sigma, double const factor=1) {
+                           int const numax, double const sigma) {
         int iSHO{0};
         for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
             for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
                 for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
                     auto const f = fx * fy * fz;
-                    int const jSHO = reorder ? sho_tools::Ezyx_index(nx, ny, nz) : iSHO;
-                    if ('/' == inverse) {
-                        out[iSHO] = in[jSHO] * (factor / f);
-                    } else {
-                        out[jSHO] = in[iSHO] * (factor * f);
-                    }
+                    out[iSHO] = in[iSHO] * f;
                     ++iSHO;
                 } // nx
             } // ny
         } // nz
-        assert( sho_tools::nSHO(numax) == iSHO ); return 0;
+        assert( sho_tools::nSHO(numax) == iSHO );
+        return 0;
   } // renormalize_coefficients
-
+  
+  
   inline double radial_L1_prefactor(int const ell, double const sigma) {
       return std::sqrt(2) / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
-  } // radial_L1_prefactor
+  } // radial_L1_prefactor (L1-normalization)
 
   inline double radial_L2_prefactor(int const ell, double const sigma, int const nrn=0) {
       assert( 0 == nrn ); // derived only for the node-less radial SHO eigenfunctions
       double const fm2 = std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) * constants::sqrtpi * std::pow(0.5, 2 + ell);
       return 1/std::sqrt(fm2);
-  } // radial_L2_prefactor
+  } // radial_L2_prefactor (L2-normalization)
+
+  template<typename real_t> inline status_t
+  renormalize_radial_coeff(real_t out[], // out[pow2(1 + ellmax)]
+                           real_t const in[], // in[pow2(1 + ellmax)], assert all nrn > 0 contributions vanish
+                           int const ellmax, double const sigma) {
+      for(int ell = 0; ell <= ellmax; ++ell) { // angular momentum quantum number
+          auto const pfc = radial_L1_prefactor(ell, sigma) / radial_L2_prefactor(ell, sigma); // prefactor correction
+          for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
+              int const lm = sho_tools::lm_index(ell, emm);
+              out[lm] = pfc * in[lm]; // scale and set only nrn==0 contributions
+          } // emm
+      } // ell
+      return 0;
+  } // renormalize_radial_coeff
 
   inline status_t
   renormalize_electrostatics(double vlm[] // result vlm[pow2(1 + ellmax)]
@@ -194,25 +204,17 @@ namespace sho_projection {
       status_t stat = 0;
 
       int const nSHO = sho_tools::nSHO(ellmax);
-      std::vector<double> vzyx_L2n(nSHO, 0.0); // L2-normalized order_zyx
+      std::vector<double> vzyx_nrm(nSHO, 0.0); // L2-normalized order_zyx
+
       // rescale with Cartesian L2 normalization factor, order_zyx unchanged
-      stat += renormalize_coefficients<double,'*'>(vzyx_L2n.data(), vzyx, ellmax, sigma);
+      stat += renormalize_coefficients(vzyx_nrm.data(), vzyx, ellmax, sigma);
 
-      std::vector<double> vnlm_L2n(nSHO, 0.0); // L2-normalized order_nlm
-      stat += u.transform_vector(vnlm_L2n.data(), sho_tools::order_nlm, 
-                                 vzyx_L2n.data(), sho_tools::order_zyx, ellmax, 0);
+      std::vector<double> vnlm(nSHO, 0.0); // L2-normalized order_nlm
+      stat += u.transform_vector(vnlm.data(), sho_tools::order_nlm, 
+                             vzyx_nrm.data(), sho_tools::order_zyx, ellmax, 0);
 
-      { // scope: renormalize from L2 to L1
-          for(int ell = 0; ell <= ellmax; ++ell) { // angular momentum quantum number
-              auto const pfc = radial_L1_prefactor(ell, sigma)
-                             / radial_L2_prefactor(ell, sigma); // prefactor correction
-              for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
-                  int const lm = sho_tools::lm_index(ell, emm);
-                  vlm[lm] = pfc * vnlm_L2n[lm]; // scale and take only nrn==0 contributions
-              } // emm
-          } // ell
-      } // scope
-
+      stat += renormalize_radial_coeff(vlm, vnlm.data(), ellmax, sigma);
+      
       return stat;
   } // renormalize_electrostatics
 
@@ -226,29 +228,20 @@ namespace sho_projection {
       status_t stat = 0;
 
       int const nSHO = sho_tools::nSHO(ellmax);
-      std::vector<double> qnlm_L2n(nSHO, 0.0); // L2-normalized order_nlm
+      std::vector<double> qnlm(nSHO, 0.0); // L2-normalized order_nlm
+
+      stat += renormalize_radial_coeff(qnlm.data(), qlm, ellmax, sigma);
       
-      { // scope: renormalize from L1 to L2
-          for(int ell = 0; ell <= ellmax; ++ell) { // angular momentum quantum number
-              auto const pfc = radial_L2_prefactor(ell, sigma)
-                             / radial_L1_prefactor(ell, sigma); // prefactor correction
-              for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
-                  int const lm = sho_tools::lm_index(ell, emm);
-                  qnlm_L2n[lm] = qlm[lm] * pfc; // scale and set only nrn==0 contributions
-              } // emm
-          } // ell
-      } // scope
+      std::vector<double> qzyx_nrm(nSHO, 0.0); // L2-normalized order_zyx
+      stat += u.transform_vector(qzyx_nrm.data(), sho_tools::order_zyx, 
+                                     qnlm.data(), sho_tools::order_nlm, ellmax, 0);
 
-      std::vector<double> qzyx_L2n(nSHO, 0.0); // L2-normalized order_zyx
-      stat += u.transform_vector(qzyx_L2n.data(), sho_tools::order_zyx, 
-                                 qnlm_L2n.data(), sho_tools::order_nlm, ellmax, 0);
-
-      // denormalize with Cartesian L2 normalization factor, order_zyx unchanged
-      stat += renormalize_coefficients<double,'/'>(qzyx, qzyx_L2n.data(), ellmax, sigma);
+      // rescale with Cartesian L2 normalization factor, order_zyx unchanged
+      stat += renormalize_coefficients(qzyx, qzyx_nrm.data(), ellmax, sigma);
 
       return stat;
   } // denormalize_electrostatics
-  
+
   
   status_t all_tests();
 

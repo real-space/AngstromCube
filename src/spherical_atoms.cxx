@@ -9,23 +9,23 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
 #include "inline_tools.hxx" // align<n>
-#include "constants.hxx" // Y00, sqrtpi
-#include "solid_harmonics.hxx" // Y00
-#include "real_space_grid.hxx" // grid_t, add_function
-#include "radial_grid.h" // radial_grid_t
+#include "constants.hxx" // ::sqrtpi, ::pi
+#include "solid_harmonics.hxx" // ::Y00
+#include "real_space_grid.hxx" // ::grid_t, ::add_function
+#include "radial_grid.h" // ::radial_grid_t
 #include "chemical_symbol.h" // element_symbols
-#include "single_atom.hxx" // update
-#include "sho_projection.hxx" // sho_add, sho_prefactors
+#include "single_atom.hxx" // ::update
+#include "sho_projection.hxx" // ::sho_add, ::sho_project
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
-#include "boundary_condition.hxx" // periodic_images
-#include "fourier_poisson.hxx" // fourier_solve
-#include "finite_difference.hxx" // Laplacian
-#include "geometry_analysis.hxx" // read_xyz_file
+#include "boundary_condition.hxx" // ::periodic_images
+#include "fourier_poisson.hxx" // ::fourier_solve
+#include "finite_difference.hxx" // ::Laplacian
+#include "geometry_analysis.hxx" // ::read_xyz_file
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // control::get
 #include "lossful_compression.hxx" // RDP_lossful_compression
 #include "debug_output.hxx" // dump_to_file
-#include "sho_unitary.hxx" // Unitary_SHO_Transform<real_t>
+#include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -89,9 +89,6 @@ namespace spherical_atoms {
       // choose the box large enough not to require any periodic images
       double const h1 = 0.2378; // works for GeSbTe with alat=6.04
       int const dims[3] = {n_grid_points(cell[0]/h1), n_grid_points(cell[1]/h1), n_grid_points(cell[2]/h1)};
-//       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.125; // very dense grid
-//       int const dims[] = {80 + (na-1)*16, 80, 80}; double const grid_spacing = 0.25;
-//       int const dims[] = {160 + (na-1)*32, 160, 160}; double const grid_spacing = 0.25; // twice as large grid
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", dims[0],dims[1],dims[2]);
       real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
@@ -218,11 +215,12 @@ namespace spherical_atoms {
               double const sigma = sigma_cmp[ia];
               int    const ellmax = lmax_qlm[ia];
               std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
-              if (1) { // old method, works only for the monopole
+              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma)); // warning! only gets 00 correct
+              if (0) { // old method, works only for the monopole
                   // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
-                  double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma)); // warning! only gets 00 correct
                   set(coeff.data(), 1, qlm[ia], prefactor); // copy only monopole moment, ToDo
               } else {
+                  printf("# theoretical value for atom #%d coeff[000] = %g\n", ia, qlm[ia][00]*prefactor);
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), qlm[ia], ellmax, sigma, unitary, echo);
               }
               printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
@@ -238,6 +236,8 @@ namespace spherical_atoms {
               } // echo
               
           } // ia
+          
+//           return __LINE__; // debugging
           
           // add compensators cmp to rho
           add_product(rho.data(), g.all(), cmp.data(), 1.);
@@ -270,7 +270,7 @@ namespace spherical_atoms {
               } // periodic images
               // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
 
-              if (1) { // old method, works only for the monopole
+              if (0) { // old method, works only for the monopole
                   set(vlm[ia], pow2(1 + ellmax), 0.0);
                   double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma));
                   vlm[ia][00] = prefactor*coeff[00]; // only monopole
