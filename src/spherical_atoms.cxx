@@ -135,7 +135,7 @@ namespace spherical_atoms {
       double *vlm[na]; int lmax_vlm[na];
       stat += single_atom::update(na, Za, ionization, rg, sigma_cmp, nullptr, nullptr, nullptr, lmax_vlm, lmax_qlm);
       for(int ia = 0; ia < na; ++ia) {
-          vlm[ia] = new double[pow2(1 + std::max(lmax_vlm[ia], 1))];
+          vlm[ia] = new double[pow2(1 + lmax_vlm[ia])];
           qlm[ia] = new double[pow2(1 + lmax_qlm[ia])];
       } // ia
 
@@ -237,7 +237,6 @@ namespace spherical_atoms {
               
           } // ia
           
-//           return __LINE__; // debugging
           
           // add compensators cmp to rho
           add_product(rho.data(), g.all(), cmp.data(), 1.);
@@ -277,12 +276,21 @@ namespace spherical_atoms {
               } else {
                   stat += sho_projection::renormalize_electrostatics(vlm[ia], coeff.data(), ellmax, sigma, unitary, echo);
               }
+
+              if (echo > 3) {
+                  printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
+                  int const ellmax_show = std::min(ellmax, 2);
+                  for(int ell = 1; ell <= ellmax_show; ++ell) {
+                      printf("# potential projection for atom #%d v_%im =", ia, ell);
+                      double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
+                      for(int emm = -ell; emm <= ell; ++emm) {
+                          int const lm = sho_tools::lm_index(ell, emm);
+                          printf(" %.6f", vlm[ia][lm]*unitfactor);
+                      } // emm
+                      printf(" %s %s^%i\n", _eV, _Ang, -ell);
+                  } // ell
+              } // echo
               
-              if (ellmax > 0) {
-                  printf("# potential projection for atom #%d v_1 = %g %g %g %s\n", ia, 
-                      vlm[ia][01]*Y00*eV, vlm[ia][02]*Y00*eV, vlm[ia][03]*Y00*eV,_eV);
-              } // more than monopole
-              printf("# potential projection for atom #%d v_00 = %g %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
           } // ia
           printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
 
@@ -293,7 +301,8 @@ namespace spherical_atoms {
       set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
   } // scf_iteration
-  return 1; // warning! no cleanup has been run
+  
+//   return 1; // warning! no cleanup has been run
   
 //   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
@@ -359,7 +368,7 @@ namespace spherical_atoms {
                           if (mask[ir]) printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
                       }   printf("\n\n");
                   } // scope: RDP-mask
-                  
+
                   if ((values == rho.data()) || (values == Laplace_Ves.data())) {
                       bessel_transform::transform_s_function(rs.data(), qcq2.data(), *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
                       printf("\n## Hartree potential computed by Bessel transform for atom #%d:\n", ia);

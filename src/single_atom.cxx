@@ -177,19 +177,6 @@ extern "C" {
             } // emm
         } // ell
     } // add_or_project_compensators
-
-    void correct_multipole_shift(double ves[], int const stride, 
-            int const lmax, radial_grid_t const *rg, double const vlm[], int const echo=0) {
-        int const nr = rg->n; assert(stride >= nr);
-        std::vector<double> rl(nr, 1.0); // init with r^0
-        for(int ell = 0; ell <= lmax; ++ell) { // serial!
-            for(int emm = -ell; emm <= ell; ++emm) {
-                int const lm = solid_harmonics::lm_index(ell, emm);
-                add_product(&ves[lm*stride], nr, rl.data(), vlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
-            } // emm
-            scale(rl.data(), nr, rg->r); // construct r^ell for the next ell-iteration
-        } // ell
-    } // correct_multipole_shift
   
   
   class LiveAtom {
@@ -263,10 +250,8 @@ extern "C" {
     // slightly different in the shape of smooth potentials but matrix elements are the same
             , float const ionization=0
             , int const global_atom_id=-1
-            , int const echo=0) : gaunt_init{false} { // constructor
-        atom_id = -1; // unset
-        Z_core = Z_nucleons; // convert to float
-        
+            , int const echo=0) : Z_core(Z_nucleons), gaunt_init{false} { // constructor
+
         atom_id = global_atom_id; if (atom_id >= 0) { sprintf(label, "a#%d", atom_id); } else { label[0]=0; }
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g nucleons, ionization=%g\n", label, Z_core, ionization);
 
@@ -287,7 +272,7 @@ extern "C" {
 
         numax = nu_max; // 3; // 3:up to f-projectors
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
-        ellmax = 0; // 2*numax; // can be smaller than 2*numax
+        ellmax = 2*numax; // can be smaller than 2*numax
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
         ellmax_compensator = std::min(4, (int)ellmax);
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
@@ -504,7 +489,7 @@ extern "C" {
             pseudize_function(potential[SMT].data(), rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
         
-        int const maxit_scf = 1;
+        int const maxit_scf = control::get("single_atom.init.scf.maxit", 1.);
         float const mixing = 0.5f;
 
         for(int scf = 0; scf < maxit_scf; ++scf) {
@@ -1425,29 +1410,30 @@ extern "C" {
                 if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
             }
 
-//          correct_multipole_shift(Ves.data(), Ves.stride(), ellmax_compensator, rg[ts], vlm); // correct heights of the electrostatic potentials
-            add_or_project_compensators<2>(Ves, vlm, ellmax_compensator, rg[ts], sigma_compensator); // has the same effect as correct_multipole_shift
+            add_or_project_compensators<2>(Ves, vlm, ellmax_compensator, rg[ts], sigma_compensator);
 
-            if (SMT == ts) {   // debug: project again to see if the correction worked out
+            if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
                 double v_[1];
                 add_or_project_compensators<1>(Ves, v_, 0, rg[SMT], sigma_compensator); // project to compensators
-                if (echo > 7) printf("# %s after correction v_00 is %g %s\n", label, v_[00]*Y00*eV,_eV);
-            }
-
+                if (echo > 7) {
+                    printf("# %s after correction v_00 is %g %s\n", label, v_[00]*Y00*eV,_eV);
+                    printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
+                    printf("# %s local smooth augmented density at origin is %g a.u.\n", label, aug_density[00][0]*Y00);
+                    if (echo > 8) {
+                        printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
+                        for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                            printf("%g %g %g\n", rg[SMT]->r[ir], Ves[00][ir]*Y00, aug_density[00][ir]*Y00);
+                        }   printf("\n\n");
+                    } // show radial function of Ves[00]*Y00 to be compared to projections of the 3D electrostatic potential
+                } // echo
+            } else {
+                if (echo > 8) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", 
+                                label, Ves[00][1]*(rg[TRU]->r[1])*Y00, -Z_core);
+            } // ts
+            
             add_product(full_potential[ts].data(), nlm*mr, Ves.data(), 1.0); // add the electrostatic potential, scale_factor=1.0
-            if (echo > 8) {
-                if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
-                if (TRU == ts) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n", label,
-                                          Ves[00][1]*(rg[TRU]->r[1])*Y00, -Z_core);
-                if (false && (SMT == ts)) {
-                    printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        printf("%g %g %g\n", rg[SMT]->r[ir], Ves[00][ir]*Y00, aug_density[00][ir]*Y00);
-                    }   printf("\n\n");
-                } // smooth
-            } // echo
+
         } // true and smooth
-        if (echo > 6) printf("# %s local smooth augmented density at origin is %g a.u.\n", label, aug_density[00][0]*Y00);
 
         // construct the zero_potential V_bar
         std::vector<double> V_smt(rg[SMT]->n);
@@ -1798,8 +1784,10 @@ namespace single_atom {
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
                   double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, int const _echo) {
-      int const echo = 0; // mute atom output
-
+    
+      static int echo = -9;
+      if (echo == -9) echo = control::get("single_atom.echo", 0.);
+      
       static LiveAtom **a=nullptr;
 
       if (nullptr == a) {
@@ -1836,7 +1824,7 @@ namespace single_atom {
               a[ia]->update_density(.5f, echo);
           } // vlm
 
-          if (nullptr != lmax_vlm) lmax_vlm[ia] = std::min((int)a[ia]->ellmax, 1);
+          if (nullptr != lmax_vlm) lmax_vlm[ia] = a[ia]->ellmax;
           if (nullptr != lmax_qlm) lmax_qlm[ia] = a[ia]->ellmax_compensator;
 
       } // ia
