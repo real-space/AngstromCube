@@ -17,7 +17,7 @@ namespace sho_tools {
                   order_nlm, order_Elnm, order_ln, order_Enl, order_unknown};
       for(int io = 0; io < 9; ++io) {
           SHO_order_t const oi = ord[io];
-          if (echo > 0) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10li\n", __func__, SHO_order2string(&oi), (unsigned)oi, oi);
+          if (echo > 3) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10li\n", __func__, SHO_order2string(&oi), (unsigned)oi, oi);
       } // io
       if (nerrors && echo > 1) printf("# Warning: %s found %d errors!\n", __func__, nerrors);
       return nerrors;

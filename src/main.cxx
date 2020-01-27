@@ -61,7 +61,7 @@ typedef int status_t;
       { // testing scope
 #define   module_test(NAME, FUN) \
           if (all || (0 == std::string(NAME).compare(m))) { \
-              SimpleTimer timer("module test for", 0, NAME, 1); \
+              SimpleTimer timer("module test for", 0, NAME, 0); \
               run.push_back(make_pair(std::string(NAME), FUN(echo))); \
           }
 //            if (echo > -1) printf("\n# Module test for %s\n\n", NAME);
@@ -126,13 +126,14 @@ typedef int status_t;
   } // run_unit_tests
 
 
-  int main(int const argc, char const *argv[]) 
-  {
-      int stat = 0;
+  int main(int const argc, char const *argv[]) {
+      status_t stat = 0;
       char const *test_unit = nullptr;
       bool run_tests = false;
-      if (argc < 2) { printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); return -1; }
-//    printf("%s: argument #1 is %s\n", argv[0], argv[1]); // DEBUG
+      if (argc < 2) { 
+          printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
+          return -1;
+      } // no argument passed to executable
       for(int iarg = argc - 1; iarg > 0; --iarg) { // backward
           char const ci0 = *argv[iarg]; // char #0 of command line argument #1
           if ('-' == ci0) {
@@ -156,11 +157,10 @@ typedef int status_t;
           else if ('+' == ci0) {
               stat += control::cli(argv[iarg] + 1); // start after the '+'
           } // '+'
-
       } // iarg
-      int const echo = control::get("verbosity", 0.); // define default verbosity here
+      int const echo = control::get("verbosity", 3.); // define default verbosity here
       if (run_tests) stat += run_unit_tests(test_unit, echo);
-      recorded_warnings::show_warnings(3);
+      if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
       return stat;
   } // main
