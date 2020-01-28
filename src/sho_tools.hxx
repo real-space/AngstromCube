@@ -18,18 +18,18 @@ namespace sho_tools {
       order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial,                    independent of numax
       order_ln      = 0x6e6c,     // "ln"     ell-ordered radial emm-degenerate,            depends on numax
       order_Enl     = 0x6c6e45,   // "Enl"    energy-ordered Radial emm-degenerate,     independent of numax
+      order_nl      = 0x6c6e,     // "nl"     enn-ordered radial emm-degenerate,            depends on numax
       order_unknown = 0x3f3f3f3f  // "????"   error flag
-//    order_nl      = 0x6c6e,     // "nl"     enn-ordered radial emm-degenerate,            depends on numax, not implemented
   } SHO_order_t;
-  
+
   inline constexpr bool is_energy_ordered(SHO_order_t const order) { 
       return (order_Ezyx == order) || (order_Elnm == order) || (order_Enl == order); }
 
   inline constexpr bool is_Cartesian(SHO_order_t const order) { 
       return (order_Ezyx == order) || (order_zyx == order); }
 
-  inline constexpr bool is_emm_degenerate(SHO_order_t const order) { 
-      return (order_Enl == order) || (order_ln == order); }
+  inline constexpr bool is_emm_degenerate(SHO_order_t const order) {
+      return (order_Enl == order) || (order_ln == order) || (order_nl == order); }
 
   inline char const * SHO_order2string(SHO_order_t const *order) { return (char const *)order; }
   inline char const * SHO_order2string(SHO_order_t const order) { auto o = order; return SHO_order2string(&o); }
@@ -52,11 +52,17 @@ namespace sho_tools {
   inline int constexpr nSHO_radial(int const numax)    { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
   inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
   
-  inline constexpr int ln_index(int const numax, int const ell, int const nrn)
-      { return nrn + (1 + ell*( (2*numax + 4) - ell))/4; } // ln_index
+  inline constexpr int ln_index(int const numax, int const ell, int const nrn) {
+      return nrn + (1 + ell*( (2*numax + 4) - ell))/4; } // ln_index
   template<int numax> inline constexpr
   int ln_index(int const ell, int const nrn) { 
       return ln_index(numax, ell, nrn); }
+      
+  inline constexpr int nl_index(int const numax, int const nrn, int const ell) {
+      return ell + (numax + 2 - nrn)*nrn; } // nl_index
+  template<int numax> inline constexpr
+  int nl_index(int const nrn, int const ell) { 
+      return nl_index(numax, nrn, ell); }
 
   // emm-resolved
   inline constexpr 
@@ -143,7 +149,7 @@ namespace sho_tools {
                     SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
       // construct a table of energy ordered indices
       // this is needed to address e.g. the block-diagonal SHO-transformation operator
-      if (echo > 1) printf("# construct_index_table for <numax=%d> order=%s\n", numax, SHO_order2string(&order));
+      if (echo > 1) printf("# construct_index_table for <numax=%i> order_%s\n", numax, SHO_order2string(&order));
       if (echo > 3) printf("# ");
       int ii = 0;
       switch (order) {
@@ -152,9 +158,10 @@ namespace sho_tools {
           for(int z = 0; z <= numax; ++z) {
               for(int y = 0; y <= numax - z; ++y) {
                   for(int x = 0; x <= numax - z - y; ++x) {
+                      assert( zyx_index(numax, x, y, z) == ii );
                       int const eo = Ezyx_index(x, y, z);
                       energy_ordered[ii] = eo;
-                      if (echo > 4) printf(" %d", eo);
+                      if (echo > 4) printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // x y z
@@ -165,9 +172,10 @@ namespace sho_tools {
           for(int l = 0; l <= numax; ++l) {
               for(int m = -l; m <= l; ++m) {
                   for(int n = 0; n <= (numax - l)/2; ++n) {
+                      assert( lmn_index(numax, l, m, n) == ii );
                       int const eo = Elnm_index(l, n, m);
                       energy_ordered[ii] = eo;
-                      if (echo > 4) printf(" %d", eo);
+                      if (echo > 4) printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // l m n
@@ -178,9 +186,10 @@ namespace sho_tools {
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
                   for(int m = -l; m <= l; ++m) {
+                      assert( lnm_index(numax, l, n, m) == ii );
                       int const eo = Elnm_index(l, n, m);
                       energy_ordered[ii] = eo;
-                      if (echo > 4) printf(" %d", eo);
+                      if (echo > 4) printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // l n m
@@ -191,9 +200,10 @@ namespace sho_tools {
           for(int n = 0; n <= numax/2; ++n) {
               for(int l = 0; l <= numax - 2*n; ++l) {
                   for(int m = -l; m <= l; ++m) {
+                      assert( nlm_index(numax, n, l, m) == ii );
                       int const eo = Elnm_index(l, n, m);
                       energy_ordered[ii] = eo;
-                      if (echo > 4) printf(" %d", eo);
+                      if (echo > 4) printf(" %i", eo);
                       if (inverse) inverse[eo] = ii;
                       ++ii;
           }}} // n l m
@@ -203,15 +213,29 @@ namespace sho_tools {
         case order_ln: // emm-degenerate
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
+                  assert( ln_index(numax, l, n) == ii );
                   int const eo = Enl_index(n, l);
                   energy_ordered[ii] = eo;
-                  if (echo > 3) printf(" %d", eo);
+                  if (echo > 3) printf(" %i", eo);
                   if (inverse) inverse[eo] = ii;
                   ++ii;
           }} // l n
           assert(nSHO_radial(numax) == ii);
         break;
-
+        
+        case order_nl: // emm-degenerate
+          for(int n = 0; n <= numax/2; ++n) {
+              for(int l = 0; l <= numax - 2*n; ++l) {
+                  assert( nl_index(numax, n, l) == ii );
+                  int const eo = Enl_index(n, l);
+                  energy_ordered[ii] = eo;
+                  if (echo > 3) printf(" %i", eo);
+                  if (inverse) inverse[eo] = ii;
+                  ++ii;
+          }} // n l
+          assert(nSHO_radial(numax) == ii);
+        break;
+        
         case order_Enl: // already energy-ordered emm-degenerate
           for(int ii = 0; ii < nSHO_radial(numax); ++ii) {
               energy_ordered[ii] = ii;
@@ -230,7 +254,7 @@ namespace sho_tools {
         break;
 
         default:
-            if (echo > 0) printf("# %s: no such case implemented: order=%s\n",
+            if (echo > 0) printf("# %s: no such case implemented: order_%s\n",
                                     __func__, SHO_order2string(&order));
             return order; // error
       } // switch order
@@ -273,11 +297,16 @@ namespace sho_tools {
           assert(nSHO(numax) == ii);
         break;
 
-        case order_ln: // emm-degenerate
+        case order_ln: // ell-ordered emm-degenerate
+        case order_nl: // nrn-ordered emm-degenerate
         case order_Enl: // energy-ordered emm-degenerate
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
-                  int const j = is_energy_ordered(order) ? Enl_index(n, l) : ii;
+                  int j = -1; 
+                  if (is_energy_ordered(order)) { j = Enl_index(n, l); } else
+                  if (order_nl == order) { j = nl_index(numax, n, l); } else
+                  if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
+                  assert( j >= 0 );
                   std::sprintf(&label[8*j], "%i%c", n, ellchar[l]);
                   ++ii;
           }} // l n
@@ -285,7 +314,7 @@ namespace sho_tools {
         break;
         
         default:
-            if (echo > 0) printf("# %s: no such case implemented: order=%s\n", 
+            if (echo > 0) printf("# %s: no such case implemented: order_%s\n", 
                                     __func__, SHO_order2string(&order));
             return order; // error
       } // switch order

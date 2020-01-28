@@ -15,15 +15,13 @@
 #include "geometry_analysis.hxx" // geometry_analysis::read_xyz_file
 #include "constants.hxx" // pi, sqrtpi
 #include "control.hxx" // control::get
-#include "display_units.h" // Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
 #include "real_space_grid.hxx" // real_space_grid::grid_t<N>
 #include "sho_tools.hxx" // sho_tools::nSHO
 #include "sho_projection.hxx" // ::sho_project, ::sho_add
 #include "boundary_condition.hxx" // Isolated_Boundary
 #include "sho_overlap.hxx" // overlap::generate_product_tensor, ::generate_overlap_matrix
 #include "data_view.hxx" // view2D<T>
-
-// #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -48,46 +46,46 @@ namespace sho_potential {
   status_t generate_potential_matrix(view2D<real_t> & Vmat, view3D<real_t> const & t, real_t const Vcoeff[],
                             int const numax_p, int const numax_i, int const numax_j) {
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
-      int pxyz = 0;
-      for    (int pz = 0; pz <= numax_p; ++pz) {
-        for  (int py = 0; py <= numax_p - pz; ++py) {
+      int pxyz{0};
+      for    (int pz = 0; pz <= numax_p;           ++pz) {
+        for  (int py = 0; py <= numax_p - pz;      ++py) {
           for(int px = 0; px <= numax_p - pz - py; ++px) {
 
-            int ixyz = 0;
-            for    (int iz = 0; iz <= numax_i; ++iz) {
-              for  (int iy = 0; iy <= numax_i - iz; ++iy) {
+            int ixyz{0};
+            for    (int iz = 0; iz <= numax_i;           ++iz) {
+              for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
                 for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
-                  int jxyz = 0;
-                  for    (int jz = 0; jz <= numax_j; ++jz) {
-                    for  (int jy = 0; jy <= numax_j - jz; ++jy) {
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
+                  int jxyz{0};
+                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(pz,iz,jz);
+                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(py,iy,jy) * tz;
+                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(px,ix,jx) * tyz;
 
-                        Vmat[ixyz][jxyz] += t(px,ix,jx) * t(py,iy,jy) * t(pz,iz,jz) * Vcoeff[pxyz];
+                        Vmat[ixyz][jxyz] += txyz * Vcoeff[pxyz];
 
                         ++jxyz;
                       } // jx
                     } // jy
                   } // jz
-                  assert(sho_tools::nSHO(numax_j) == jxyz);
+                  assert( sho_tools::nSHO(numax_j) == jxyz );
 
                   ++ixyz;
                 } // ix
               } // iy
             } // iz
-            assert(sho_tools::nSHO(numax_i) == ixyz);
+            assert( sho_tools::nSHO(numax_i) == ixyz );
 
             ++pxyz;
           } // px
         } // py
       } // pz
-      assert(sho_tools::nSHO(numax_p) == pxyz);
+      assert( sho_tools::nSHO(numax_p) == pxyz );
     
       return 0;
   } // generate_potential_matrix
 
   status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
-      int kxyz = 0;
+      int kxyz{0};
       for    (int kz = 0; kz <= numax;           ++kz) {
         for  (int ky = 0; ky <= numax - kz;      ++ky) {
           for(int kx = 0; kx <= numax - kz - ky; ++kx) {
