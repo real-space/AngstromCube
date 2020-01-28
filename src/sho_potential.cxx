@@ -17,7 +17,9 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "sho_projection.hxx" // ::sho_project, ::sho_add, ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
-#include "sho_overlap.hxx" // overlap::generate_product_tensor, overlap::generate_overlap_matrix
+#include "sho_overlap.hxx" // overlap::generate_product_tensor, 
+                           // overlap::generate_overlap_matrix, 
+                           // overlap::generate_potential_tensor
 #include "data_view.hxx" // view2D<T>
 
 // #define FULL_DEBUG
@@ -81,6 +83,47 @@ namespace sho_potential {
       return 0;
   } // generate_potential_matrix
 
+  template<typename real_t>
+  status_t generate_potential_matrix(view2D<real_t> & Vmat, view4D<real_t> const & t, real_t const Vcoeff[],
+                            int const numax_p, int const numax_i, int const numax_j) {
+      // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
+      int pxyz{0};
+      for    (int pz = 0; pz <= numax_p;           ++pz) {
+        for  (int py = 0; py <= numax_p - pz;      ++py) {
+          for(int px = 0; px <= numax_p - pz - py; ++px) {
+
+            int ixyz{0};
+            for    (int iz = 0; iz <= numax_i;           ++iz) {
+              for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
+                for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
+
+                  int jxyz{0};
+                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(2,pz,iz,jz);
+                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(1,py,iy,jy) * tz;
+                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(0,px,ix,jx) * tyz;
+
+                        Vmat[ixyz][jxyz] += txyz * Vcoeff[pxyz];
+
+                        ++jxyz;
+                      } // jx
+                    } // jy
+                  } // jz
+                  assert( sho_tools::nSHO(numax_j) == jxyz );
+
+                  ++ixyz;
+                } // ix
+              } // iy
+            } // iz
+            assert( sho_tools::nSHO(numax_i) == ixyz );
+
+            ++pxyz;
+          } // px
+        } // py
+      } // pz
+      assert( sho_tools::nSHO(numax_p) == pxyz );
+    
+      return 0;
+  } // generate_potential_matrix
   
 
   status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
@@ -161,7 +204,7 @@ namespace sho_potential {
           int const mb = sho_tools::nSHO(numax_max);
           view3D<double> Vmat(natoms, mb, mb, 0.0);
           view2D<double> norm(natoms, mb, 0.0);
-          for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential
+          for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential --> this order is important
               if (echo > 1) printf("\n# %s\n", i01?"potential V":"overlap S");
               for(int ia = 0; ia < natoms; ++ia) {
                   int const nb = sho_tools::nSHO(numaxs[ia]);
@@ -230,9 +273,13 @@ namespace sho_potential {
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
                   int const nucut = sho_tools::n1HO(std::max(numaxs[ia], numaxs[ja]));
-                  view3D<double> t(2*nucut, nucut, nucut, 0.0);
-                  sho_overlap::generate_product_tensor(t.data(), nucut, sigma_V, sigmas[ia], sigmas[ja]);
-
+                  
+                  view4D<double> t(3, 2*nucut, nucut, nucut, 0.0);
+                  for(int d = 0; d < 3; ++d) {
+                      sho_overlap::generate_potential_tensor(t[d].data(), center[ja][d] - center[ia][d], 
+                                                             nucut, nucut, sigmas[ia], sigmas[ja], sigma_V);
+                  } // d
+                  
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
@@ -244,6 +291,8 @@ namespace sho_potential {
 
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   generate_potential_matrix(Vmat, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
+                  
+                  // Caveat: this approach neglects that the 3 expansion centers differ for ia != ja
 
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {

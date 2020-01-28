@@ -1,7 +1,7 @@
 #include <cstdio> // printf
-#include <cstdlib> // abs
-#include <cmath> // sqrt, exp
-#include <algorithm> // max
+#include <cstdlib> // std::abs
+#include <cmath> // std::sqrt, std::exp
+#include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
 #include <complex>
 #include <utility> // std::pair<T1,T2>, make_pair
@@ -101,7 +101,7 @@ namespace sho_overlap {
       if (0 != normalize) {
           double nfactorial = 1;
           for(int n = 0; n < ncut; ++n) {
-              double nrmf = normalize*sqrt(siginv/(constants::sqrtpi*nfactorial));
+              double nrmf = normalize*std::sqrt(siginv/(constants::sqrtpi*nfactorial));
               for(int d = 0; d <= n; ++d) {
                   H[S*n + d] *= nrmf;
               } // d
@@ -176,7 +176,7 @@ namespace sho_overlap {
       real_t const H1[], int const n1, double const s1, 
       double const distance) {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
-      auto const sigma = 1/sqrt(.5*(k0 + k1));
+      auto const sigma = 1/std::sqrt(.5*(k0 + k1));
 
       auto const sh0 = -distance*k0/(k0 + k1);
       auto const H0s = new real_t[n0]; // H0 shifted by sh0
@@ -195,6 +195,40 @@ namespace sho_overlap {
       delete[] h0xh1;
       return result;
   } // overlap_of_two_Hermite_Gauss_functions
+
+  
+  template<typename real_t>
+  real_t overlap_of_three_Hermite_Gauss_functions(
+      // here, we assume that the third Hermite Gauss function is centered at the center of weight of 0 and 1
+      real_t const H0[], int const n0, double const s0,
+      real_t const H1[], int const n1, double const s1,
+      real_t const Hc[], int const nc, double const sc,
+      double const distance) { // distance between 0 and 1
+      auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1), kc = 1/(sc*sc);
+      auto const sigma = 1/std::sqrt(.5*(k0 + k1 + kc));
+
+      auto const sh0 = -distance*k0/(k0 + k1);
+      auto const H0s = new real_t[n0]; // H0 shifted by sh0
+      shift_polynomial_centers(H0s, H0, n0, sh0);
+
+      auto const sh1 =  distance*k1/(k0 + k1);
+      auto const H1s = new real_t[n1]; // H1 shifted by sh1
+      shift_polynomial_centers(H1s, H1, n1, sh1);
+
+      int const m = n0 + n1;
+      auto const h0xh1 = new real_t[m]; // product of H0s and H1s
+      multiply(h0xh1, m, H0s, n0, H1s, n1);
+      delete[] H0s;
+      delete[] H1s;
+
+      int const n = m + nc;
+      auto const h0xh1xhc = new real_t[n]; // product of H0s * H1s * Hc
+      multiply(h0xh1xhc, n, h0xh1, m, Hc, nc);
+      delete[] h0xh1;
+      auto const result = integrate(h0xh1xhc, n, sigma) * std::exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
+      delete[] h0xh1xhc;
+      return result;
+  } // overlap_of_three_Hermite_Gauss_functions
 
   template<int ncut, typename real_t>
   status_t generate_density_tensor(real_t tensor[], int const echo=9, 
@@ -362,6 +396,34 @@ namespace sho_overlap {
 
   
   template<typename real_t>
+  status_t generate_potential_tensor(real_t tensor[], // tensor layout [][n1][n0]
+        double const distance, int const n0, int const n1, 
+        double const sigma0, double const sigma1, double const sigmac) {
+    view2D<double> H0(n0, n0);
+    view2D<double> H1(n1, n1);
+    prepare_centered_Hermite_polynomials(H0.data(), n0, 1./sigma0); // L2-normalized
+    prepare_centered_Hermite_polynomials(H1.data(), n1, 1./sigma1); // L2-normalized
+    int const nc = n0 + n1;
+    view2D<double> Hc(nc, nc);
+    prepare_centered_Hermite_polynomials(Hc.data(), nc, 1./sigmac); // L2-normalized
+    for(int j = 0; j < nc; ++j) {
+        for(int n = 0; n < n1; ++n) {
+            for(int m = 0; m < n0; ++m) {
+                tensor[(j*n1 + n)*n0 + m] = overlap_of_three_Hermite_Gauss_functions(
+                                      H0[m], n0, sigma0,
+                                      H1[n], n1, sigma1,
+                                      Hc[j], nc, sigmac,
+                                      distance);
+            } // m
+        } // n
+    } // j
+    return 0; // success
+  } // generate_potential_tensor
+
+
+  
+  
+  template<typename real_t>
   status_t generate_overlap_matrix(real_t matrix[], // matrix layout [][n0]
                      double const distance,
                      int const n0, int const n1, 
@@ -391,7 +453,10 @@ namespace sho_overlap {
   status_t generate_product_tensor(double tensor[], int const n, double const sigma,
                                    double const sigma0, double const sigma1);
 
-  
+  template // explicit template instantiation
+  status_t generate_potential_tensor(double tensor[], double const distance, int const n0, int const n1, 
+                                     double const sigma0, double const sigma1, double const sigmac);
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
