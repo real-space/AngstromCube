@@ -136,8 +136,8 @@ namespace sho_potential {
 
       real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
-      if (echo > 1) printf("# use  %g %g %g  grid spacing in %s\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
-      if (echo > 1) printf("# cell is  %g %g %g  in %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
+      if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
+      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g.dim(0)*Ang, g.h[1]*g.dim(1)*Ang, g.h[2]*g.dim(2)*Ang, _Ang);
       auto const center = new double[natoms][4]; // list of atomic centers
       for(int ia = 0; ia < natoms; ++ia) {
           for(int d = 0; d < 3; ++d) {
@@ -151,7 +151,7 @@ namespace sho_potential {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
-      int const method = control::get("sho_potential.test.method", 1.); // bit-string, use method=7 to activate all
+      int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
       if (1 & method) { // scope:
           if (echo > 2) printf("\n# %s Method=1\n", __func__);
           // Method 1) fully numerical -- cubically scaling, expensive
@@ -162,7 +162,7 @@ namespace sho_potential {
           int const mb = sho_tools::nSHO(numax_max);
           view3D<double> Vmat(natoms, mb, mb, 0.0);
           for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential
-              if (echo > 1) printf("\n# %s\n", i01?"potential":"overlap");
+              if (echo > 1) printf("\n# %s\n", i01?"potential V":"overlap S");
               for(int ia = 0; ia < natoms; ++ia) {
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   std::vector<double> coeff(nb, 0.0);
@@ -184,7 +184,7 @@ namespace sho_potential {
                       for(int ja = 0; ja < natoms; ++ja) {
                           printf("# ai#%i aj#%i\n", ia, ja);
                           for(int ib = 0; ib < mb; ++ib) {
-                              printf("# ai#%i b#%i %c aj#%i ", ia, ib, i01?'V':'S', ja);
+                              printf("# %c ai#%i aj#%i b#%i ", i01?'V':'S', ia, ja, ib);
                               for(int jb = 0; jb < mb; ++jb) {
                                   printf("%8.3f", Vmat(ja,ib,jb)); // show potential matrix element
                               }   printf("\n");
@@ -244,7 +244,7 @@ namespace sho_potential {
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
-                          printf("# ai#%i b#%i V aj#%i  ", ia, ib, ja);
+                          printf("# V ai#%i aj#%i b#%i ", ia, ja, ib);
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.3f", Vmat[ib][jb]);
                           }   printf("\n");
@@ -263,8 +263,8 @@ namespace sho_potential {
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
           //    expand the other orbital in the local SHO basis (may need high lmax)
-          //    also using the tensor
-          //    the matrix elements will not converge with the same speed w.r.t. lmax
+          //    also using the tensor.
+          //    The matrix elements will not converge with the same speed w.r.t. lmax
           //    so we will require symmetrization
           int const lmax = control::get("sho_potential.test.lmax", 2*usual_numax); // converge this!
 
@@ -343,7 +343,7 @@ namespace sho_potential {
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
-                          printf("# ai#%i b#%i V aj#%i  ", ia, ib, ja);
+                          printf("# V ai#%i aj#%i b#%i ", ia, ja, ib);
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.3f", Vmat[ib][jb]);
                           }   printf("\n");
