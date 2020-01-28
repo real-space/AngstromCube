@@ -73,6 +73,7 @@ public:
   // } // move assignment
 
 
+#define _VIEW2D_HAS_PARENTHESIS
 #ifdef  _VIEW2D_HAS_PARENTHESIS
   T const & operator () (size_t const i1, size_t const i0) const { return _data[i1*_n0 + i0]; } // (i,j)
   T       & operator () (size_t const i1, size_t const i0)       { return _data[i1*_n0 + i0]; } // (i,j)

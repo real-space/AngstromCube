@@ -91,7 +91,7 @@ namespace sho_potential {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_potential_elements(int const echo=5) {
+  status_t test_potential_elements(int const echo=5, char const *geofile="atoms.xyz") {
       status_t stat = 0;
       int dims[] = {0, 0, 0};
 
@@ -126,7 +126,6 @@ namespace sho_potential {
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
       {
-          auto const geofile = "atoms.xyz";
           stat += geometry_analysis::read_xyz_file(&xyzZ, &natoms, geofile, cell, bc, 0);
           if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geofile, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
@@ -161,32 +160,37 @@ namespace sho_potential {
           std::vector<double> basis(g.all(), 0.0);
           int const mb = sho_tools::nSHO(numax_max);
           view3D<double> Vmat(natoms, mb, mb, 0.0);
+          view2D<double> norm(natoms, mb, 0.0);
           for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential
               if (echo > 1) printf("\n# %s\n", i01?"potential V":"overlap S");
               for(int ia = 0; ia < natoms; ++ia) {
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   std::vector<double> coeff(nb, 0.0);
                   for(int ib = 0; ib < nb; ++ib) {
-                      set(basis.data(), g.all(), 0.0); coeff[ib] = 1; // delta
+                      set(basis.data(), g.all(), 0.0); // clear
+                      set(coeff.data(), nb, 0.0); coeff[ib] = 1; // delta
                       sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ia], center[ia], sigmas[ia], 0);
                       // multiply Vtot to the basis function
-                      if(i01) scale(basis.data(), basis.size(), vtot.data());
+                      if (i01) scale(basis.data(), basis.size(), vtot.data());
                       for(int ja = 0; ja < natoms; ++ja) {
                           int const mb = sho_tools::nSHO(numaxs[ja]);
                           std::vector<double> Vcoeff(mb, 0.0);
                           sho_projection::sho_project(Vcoeff.data(), numaxs[ja], center[ja], sigmas[ja], basis.data(), g, 0);
                           set(Vmat(ja,ib), mb, Vcoeff.data()); // copy data into result array
                       } // ja
-                      coeff[ib] = 0;
+                      
+                      if (0 == i01) norm(ia,ib) = Vmat(ia,ib,ib); // store diagonal elements of the Overlap operator
                   } // ib
-
+                  
                   if (echo > 0) {
                       for(int ja = 0; ja < natoms; ++ja) {
                           printf("# ai#%i aj#%i\n", ia, ja);
                           for(int ib = 0; ib < mb; ++ib) {
                               printf("# %c ai#%i aj#%i b#%i ", i01?'V':'S', ia, ja, ib);
                               for(int jb = 0; jb < mb; ++jb) {
-                                  printf("%8.3f", Vmat(ja,ib,jb)); // show potential matrix element
+                                  double elem = Vmat(ja,ib,jb);
+                                  if (1 == i01) elem /= std::sqrt(norm(ia,ib)*norm(ja,jb));
+                                  printf("%8.3f", elem); // show normalized potential matrix element
                               }   printf("\n");
                           } // ib
                       } // ja
@@ -215,7 +219,7 @@ namespace sho_potential {
                   double const sigma_V = std::sqrt(sigma2i*sigma2j*denom);
                   double const wi = sigma2j*denom;
                   double const wj = sigma2i*denom;
-                  double cnt[3];
+                  double cnt[3]; // center of weight
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] = wi*xyzZ[4*ia + d] + wj*xyzZ[4*ja + d];
                   } // d
@@ -225,7 +229,7 @@ namespace sho_potential {
                       cnt[d] += central_pos[d];
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
-                  int const nucut = 1 + std::max(numaxs[ia], numaxs[ja]);
+                  int const nucut = sho_tools::n1HO(std::max(numaxs[ia], numaxs[ja]));
                   view3D<double> t(2*nucut, nucut, nucut, 0.0);
                   sho_overlap::generate_product_tensor(t.data(), nucut, sigma_V, sigmas[ia], sigmas[ja]);
 
@@ -258,8 +262,8 @@ namespace sho_potential {
       } // scope: Method 2
 
       if (4 & method) { // scope:
-          if (echo > 2) printf("\n# %s Method=3\n", __func__);
-          // Method 3) approximated -- linear scaling, more expensive?
+          if (echo > 2) printf("\n# %s Method=4\n", __func__);
+          // Method 4) approximated -- linear scaling, more expensive?
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
           //    expand the other orbital in the local SHO basis (may need high lmax)
@@ -268,7 +272,7 @@ namespace sho_potential {
           //    so we will require symmetrization
           int const lmax = control::get("sho_potential.test.lmax", 2*usual_numax); // converge this!
 
-          int const nucut = 1 + lmax;
+          int const nucut = sho_tools::n1HO(lmax);
           view3D<double> t(2*nucut, nucut, nucut, 0.0);
           sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
           
@@ -291,7 +295,7 @@ namespace sho_potential {
               for(int ja = 0; ja < natoms; ++ja) {
                   if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
                   
-                  int const mucut = 1 + numaxs[ja];
+                  int const mucut = sho_tools::n1HO(numaxs[ja]);
                   view3D<double> ovl(3, mucut, nucut);
                   for(int d = 0; d < 3; ++d) {
                       sho_overlap::generate_overlap_matrix(ovl[d].data(), center[ja][d] - center[ia][d],
@@ -353,7 +357,7 @@ namespace sho_potential {
               } // ja
           } // ia
         
-          if (echo > 2) printf("\n# %s method=3 seems asymmetric!\n", __func__);
+          if (echo > 2) printf("\n# %s method=4 seems asymmetric!\n", __func__);
       } // scope: Method 3
      
       if (nullptr != xyzZ) delete[] xyzZ;
