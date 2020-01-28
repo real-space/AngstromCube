@@ -150,6 +150,7 @@ namespace sho_potential {
       double const usual_sigma = control::get("sho_potential.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
+      sigmas[0] *= 1.1; sigmas[natoms - 1] *= 0.9; // manipulate the spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
@@ -164,7 +165,7 @@ namespace sho_potential {
           view3D<double> Vmat(natoms, mb, mb, 0.0);
           view2D<double> norm(natoms, mb, 0.0);
           for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential --> this order is important
-              if (echo > 1) printf("\n# %s\n", i01?"potential V":"overlap S");
+              if (echo > 7) printf("\n# %s\n", i01?"potential V":"overlap S");
               for(int ia = 0; ia < natoms; ++ia) {
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   std::vector<double> coeff(nb, 0.0);
@@ -184,7 +185,7 @@ namespace sho_potential {
                       if (0 == i01) norm(ia,ib) = Vmat(ia,ib,ib); // store diagonal elements of the Overlap operator
                   } // ib
                   
-                  if (echo > 0) {
+                  if (echo > 7 - i01) {
                       for(int ja = 0; ja < natoms; ++ja) {
                           printf("# ai#%i aj#%i\n", ia, ja);
                           for(int ib = 0; ib < mb; ++ib) {
