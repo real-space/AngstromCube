@@ -150,7 +150,7 @@ namespace sho_potential {
       double const usual_sigma = control::get("sho_potential.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
-      sigmas[0] *= 1.1; sigmas[natoms - 1] *= 0.9; // manipulate the spreads
+      sigmas[0] *= 1.01; sigmas[natoms - 1] *= 0.99; // manipulate the spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
@@ -207,7 +207,7 @@ namespace sho_potential {
           if (echo > 2) printf("\n# %s Method=2\n", __func__);
           // Method 2) analytical -- quadratically scaling, linear scaling with truncation, cheap
           //    for each pair of atoms, find the center of weight,
-          //    expand the potential in a SHO basis with sigma_V^2 = sigma_1^2 + sigma_2^2
+          //    expand the potential in a SHO basis with sigma_V^-2 = sigma_1^-2 + sigma_2^-2
           //    and numax_V = numax_1 + numax_2 and determine the
           //    potential matrix elements using the tensor
           double const central_pos[] = {.5*(g.dim(0) - 1)*g.h[0],
@@ -216,18 +216,17 @@ namespace sho_potential {
           for(int ia = 0; ia < natoms; ++ia) {
               double const sigma2i = pow2(sigmas[ia]);
               for(int ja = 0; ja < natoms; ++ja) {
-                
                   double const sigma2j = pow2(sigmas[ja]);
-                  double const denom = 1./(sigma2i + sigma2j);
+                  double const denom = 1./(sigma2j + sigma2i);
                   double const sigma_V = std::sqrt(sigma2i*sigma2j*denom);
                   double const wi = sigma2j*denom;
                   double const wj = sigma2i*denom;
                   double cnt[3]; // center of weight
                   for(int d = 0; d < 3; ++d) {
-                      cnt[d] = wi*xyzZ[4*ia + d] + wj*xyzZ[4*ja + d];
+                      cnt[d] = wi*xyzZ[ia*4 + d] + wj*xyzZ[ja*4 + d];
                   } // d
-                  if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g %s\n", ia, ja, 
-                                            cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, _Ang);
+                  if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s\n", ia, ja, 
+                                            cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang);
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] += central_pos[d];
                   } // d
@@ -252,8 +251,6 @@ namespace sho_potential {
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   generate_potential_matrix(Vmat, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
                   
-                  // Caveat: this approach neglects that the 3 expansion centers differ for ia != ja
-
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
