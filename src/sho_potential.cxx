@@ -40,53 +40,12 @@
 
 namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
-  
-  template<typename real_t>
-  status_t generate_potential_matrix(view2D<real_t> & Vmat, view3D<real_t> const & t, real_t const Vcoeff[],
-                            int const numax_p, int const numax_i, int const numax_j) {
-      // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
-      int pxyz{0};
-      for    (int pz = 0; pz <= numax_p;           ++pz) {
-        for  (int py = 0; py <= numax_p - pz;      ++py) {
-          for(int px = 0; px <= numax_p - pz - py; ++px) {
-
-            int ixyz{0};
-            for    (int iz = 0; iz <= numax_i;           ++iz) {
-              for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
-                for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
-
-                  int jxyz{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(pz,iz,jz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(py,iy,jy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(px,ix,jx) * tyz;
-
-                        Vmat[ixyz][jxyz] += txyz * Vcoeff[pxyz];
-
-                        ++jxyz;
-                      } // jx
-                    } // jy
-                  } // jz
-                  assert( sho_tools::nSHO(numax_j) == jxyz );
-
-                  ++ixyz;
-                } // ix
-              } // iy
-            } // iz
-            assert( sho_tools::nSHO(numax_i) == ixyz );
-
-            ++pxyz;
-          } // px
-        } // py
-      } // pz
-      assert( sho_tools::nSHO(numax_p) == pxyz );
-    
-      return 0;
-  } // generate_potential_matrix
 
   template<typename real_t>
   status_t generate_potential_matrix(view2D<real_t> & Vmat, view4D<real_t> const & t, real_t const Vcoeff[],
-                            int const numax_p, int const numax_i, int const numax_j) {
+                            int const numax_p, int const numax_i, int const numax_j, int const dir01=1) {
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
+      // use different tensors per direction
       int pxyz{0};
       for    (int pz = 0; pz <= numax_p;           ++pz) {
         for  (int py = 0; py <= numax_p - pz;      ++py) {
@@ -98,8 +57,8 @@ namespace sho_potential {
                 for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
                   int jxyz{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(2,pz,iz,jz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(1,py,iy,jy) * tz;
+                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,pz,iz,jz);
+                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,py,iy,jy) * tz;
                       for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(0,px,ix,jx) * tyz;
 
                         Vmat[ixyz][jxyz] += txyz * Vcoeff[pxyz];
@@ -311,7 +270,8 @@ namespace sho_potential {
       } // scope: Method 2
 
       if (4 & method) { // scope:
-          if (echo > 2) printf("\n# %s Method=4\n", __func__);
+          int const lmax = control::get("sho_potential.test.lmax", 3*usual_numax); // converge this?
+          if (echo > 2) printf("\n# %s Method=4 lmax=%i\n", __func__, lmax);
           // Method 4) approximated -- linear scaling, more expensive?
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
@@ -319,10 +279,9 @@ namespace sho_potential {
           //    also using the tensor.
           //    The matrix elements will not converge with the same speed w.r.t. lmax
           //    so we will require symmetrization
-          int const lmax = control::get("sho_potential.test.lmax", 2*usual_numax); // converge this!
 
           int const nucut = sho_tools::n1HO(lmax);
-          view3D<double> t(2*nucut, nucut, nucut, 0.0);
+          view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
           sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
           
           int const nc = sho_tools::nSHO(lmax);
@@ -338,8 +297,7 @@ namespace sho_potential {
               view2D<double> Vaux(nb, nc, 0.0);
               // now compute local matrix elements <local basis|V|large aux. basis>
               
-              generate_potential_matrix(Vaux, t, Vcoeff.data(), lmax, numaxs[ia], lmax);
-
+              generate_potential_matrix(Vaux, t, Vcoeff.data(), lmax, numaxs[ia], lmax, 0);
               
               for(int ja = 0; ja < natoms; ++ja) {
                   if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
