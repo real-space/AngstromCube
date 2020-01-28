@@ -1,26 +1,23 @@
 #include <cstdio> // printf
-#include <cstdlib> // abs
-#include <cmath> // sqrt, exp
-#include <fstream> // ifstream, ofstream
-#include <algorithm> // max
+#include <cmath> // std::sqrt
+#include <fstream> // std::ifstream
+#include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
-#include <complex>
-#include <utility> // std::pair<T1,T2>, make_pair
+#include <utility> // std::pair<T1,T2>, std::make_pair
 #include <vector> // std::vector<T>
 #include <array> // std::array<T,n>
 #include <cassert> // assert
 
 #include "sho_potential.hxx"
 
-#include "geometry_analysis.hxx" // geometry_analysis::read_xyz_file
-#include "constants.hxx" // pi, sqrtpi
-#include "control.hxx" // control::get
+#include "geometry_analysis.hxx" // ::read_xyz_file
+#include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
-#include "real_space_grid.hxx" // real_space_grid::grid_t<N>
-#include "sho_tools.hxx" // sho_tools::nSHO
-#include "sho_projection.hxx" // ::sho_project, ::sho_add
+#include "real_space_grid.hxx" // ::grid_t<N>
+#include "sho_tools.hxx" // ::nSHO
+#include "sho_projection.hxx" // ::sho_project, ::sho_add, ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
-#include "sho_overlap.hxx" // overlap::generate_product_tensor, ::generate_overlap_matrix
+#include "sho_overlap.hxx" // overlap::generate_product_tensor, overlap::generate_overlap_matrix
 #include "data_view.hxx" // view2D<T>
 
 // #define FULL_DEBUG
@@ -84,20 +81,10 @@ namespace sho_potential {
       return 0;
   } // generate_potential_matrix
 
+  
+
   status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
-      int kxyz{0};
-      for    (int kz = 0; kz <= numax;           ++kz) {
-        for  (int ky = 0; ky <= numax - kz;      ++ky) {
-          for(int kx = 0; kx <= numax - kz - ky; ++kx) {
-
-              coeff[kxyz] *= sho_projection::sho_prefactor(kx, ky, kz, sigma);
-
-              ++kxyz;
-          } // kx
-        } // ky
-      } // kz
-      assert(sho_tools::nSHO(numax) == kxyz);
-      return 0;
+      return sho_projection::renormalize_coefficients(coeff, coeff, numax, sigma);
   } // normalize_coefficients
   
 #ifdef  NO_UNIT_TESTS
@@ -109,7 +96,7 @@ namespace sho_potential {
       int dims[] = {0, 0, 0};
 
       std::vector<double> vtot; // total smooth potential
-      auto const filename = control::get("sho_potential.test.vtot.filename", "vtot.dat");
+      auto const filename = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
       { // scope: read in the potential from a file
           std::ifstream infile(filename);
           int npt = 0; 
@@ -133,7 +120,6 @@ namespace sho_potential {
           } // while
           if (echo > 3) printf("# %s use %i values from file %s\n", __func__, npt, filename);
       } // scope
-      real_space_grid::grid_t<1> g(dims);
 
       double *xyzZ = nullptr;
       int natoms = 0;
@@ -148,6 +134,7 @@ namespace sho_potential {
       
 //    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
 
+      real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
       if (echo > 1) printf("# use  %g %g %g  grid spacing in %s\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
       if (echo > 1) printf("# cell is  %g %g %g  in %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
