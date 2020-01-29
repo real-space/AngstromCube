@@ -178,11 +178,11 @@ namespace sho_overlap {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
       auto const sigma = 1/std::sqrt(.5*(k0 + k1));
 
-      auto const sh0 = -distance*k0/(k0 + k1);
+      auto const sh0 =  distance*k0/(k0 + k1);
       auto const H0s = new real_t[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
 
-      auto const sh1 =  distance*k1/(k0 + k1);
+      auto const sh1 = -distance*k1/(k0 + k1);
       auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 
@@ -207,11 +207,11 @@ namespace sho_overlap {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1), kc = 1/(sc*sc);
       auto const sigma = 1/std::sqrt(.5*(k0 + k1 + kc));
 
-      auto const sh0 = -distance*k0/(k0 + k1);
+      auto const sh0 =  distance*k0/(k0 + k1);
       auto const H0s = new real_t[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
 
-      auto const sh1 =  distance*k1/(k0 + k1);
+      auto const sh1 = -distance*k1/(k0 + k1);
       auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 

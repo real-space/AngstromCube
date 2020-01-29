@@ -273,6 +273,20 @@ public:
 #undef _access
 #endif
 
+#define _VIEW4D_HAS_PARENTHESIS_3ARGS
+#ifdef  _VIEW4D_HAS_PARENTHESIS_3ARGS
+#define _access return &_data[((i3*_n2 + i2)*_n1 + i1)*_n0]
+  T* const operator () (size_t const i3, size_t const i2, size_t const i1) const { _access; }
+  T*       operator () (size_t const i3, size_t const i2, size_t const i1)       { _access; }
+
+  T* const at(size_t const i3, size_t const i2, size_t const i1) const 
+            { assert(i2 < _n2); assert(i1 < _n1); _access; }
+  T*       at(size_t const i3, size_t const i2, size_t const i1)
+            { assert(i2 < _n2); assert(i1 < _n1); _access; }
+#undef _access
+#endif
+
+
 #define _VIEW4D_HAS_INDEXING
 #ifdef  _VIEW4D_HAS_INDEXING
   view3D<T> operator[] (size_t const i3) const { return view3D<T>(_data + i3*_n2*_n1*_n0, _n1, _n0); } // [] returns a sub-array

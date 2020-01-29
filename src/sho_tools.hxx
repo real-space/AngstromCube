@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // printf
-#include <cstdint> // int64_t, std::sprintf
+#include <cstdint> // int64_t, std::sprintf, uint8_t
 
 typedef int status_t;
 
@@ -21,6 +21,15 @@ namespace sho_tools {
       order_nl      = 0x6c6e,     // "nl"     enn-ordered radial emm-degenerate,            depends on numax
       order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
+
+  typedef struct { 
+      union {
+        struct { uint8_t nx, ny, nz; } Cartesian;
+        uint8_t xyz[3]; // == {nx, ny, nz}
+        struct { uint8_t nrn, ell, emm; } radial;
+      };
+      uint8_t nu; // sanity check: nu == nx + ny + nz or nu == ell + 2*nrn
+  } SHO_index_t;
 
   inline constexpr bool is_energy_ordered(SHO_order_t const order) { 
       return (order_Ezyx == order) || (order_Elnm == order) || (order_Enl == order); }
@@ -261,6 +270,27 @@ namespace sho_tools {
       if (echo > 3) printf("\n\n");
       return 0; // success if 0
   } // construct_index_table
+
+  
+  template<SHO_order_t order> inline
+  status_t construct_index_table(SHO_index_t idx[], int const numax, int const echo=0) { return -1; }
+
+  template<> inline // template specialization
+  status_t construct_index_table<order_zyx>(SHO_index_t idx[], int const numax, int const echo) {
+          int ii{0};
+          for(int z = 0; z <= numax; ++z) {
+              for(int y = 0; y <= numax - z; ++y) {
+                  for(int x = 0; x <= numax - z - y; ++x) {
+                      assert( zyx_index(numax, x, y, z) == ii );
+                      idx[ii].Cartesian.nx = x;
+                      idx[ii].Cartesian.ny = y;
+                      idx[ii].Cartesian.nz = z;
+                      idx[ii].nu = get_nu(x, y, z);
+//                    idx[ii] = {x, y, z, get_nu(x, y, z)};
+                      ++ii;
+          }}} // x y z
+          return ( nSHO(numax) != ii );
+  } // construct_index_table<order_zyx>
 
   inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order) {
       auto const ellchar = "spdfghijklmno";
