@@ -220,18 +220,19 @@ Then the evaluation of matrix elements works as follows:
 \subsubsection{Overlap matrix elements}
 Basis functions $\chi$ centered at the same atom $a$ are orthogonal by construction
 so we only need to take care of their normalization.
+We assume that an atom is positioned at $\vec R_a = \{ X_a, Y_a, Z_a \}$ or $\{ X_{1a}, X_{2a}, X_{3a} \}$.
 For any pair of atoms $(a,a')$, we can compute the overlap element
 \begin{equation}
   \braket{ \chi_{a n_x n_y n_z} }{ \chi_{a' n'_x n'_y n'_z} } = \prod_{i=1}^D
-  \int\mathrm d x_i \  \psi^{[1D]}_{n_{x_i}}((x_i - x_{ia})/\sigma_a)
-                    \  \psi^{[1D]}_{n'_{x_i}}((x_i - x_{ia'})/\sigma_{a'})
+  \int\mathrm d x_i \  \psi^{[1D]}_{n_{x_i}}((x_i - X_{ia})/\sigma_a)
+                    \  \psi^{[1D]}_{n'_{x_i}}((x_i - X_{ia'})/\sigma_{a'})
   \label{eqn:overlap-factorized}
 \end{equation}
 In each of the integrals we can exploit that the product 
 of two Gaussians with spread $\sigma_a$ and $\sigma_{a'}$ 
 centered at $x_a$ and $x_{a'}$, respectively, 
-is again a Gaussian with spread $\sigma_p = \left(\sigma_a^{-2} + \sigma_{a'}^{-2}\right)^{-\frac12}$
-centered at $\sigma_p^2 \left( \sigma_a^{-2} x_a + \sigma_{a'}^{-2} x_{a'} \right)$.
+is again a Gaussian $\exp(-\vec r^2 \sigma_p^{-2})$ with spread $\sigma_p = \left(\sigma_a^{-2} + \sigma_{a'}^{-2}\right)^{-\frac12}$
+centered at $\sigma_p^2 \left( \sigma_a^{-2} \vec R_a + \sigma_{a'}^{-2} \vec R_{a'} \right)$.
 The polynomial expressions can be shifted to the new center and multiplied there.
 See fig.~\ref{fig:overlap_1D} for an impression of the 1D overlap values 
 as a function of distance the centers.
@@ -244,6 +245,8 @@ which can be evaluated recursively by $I_{k+1} = (k + \frac12)\,I_k$ starting at
 Mind that no approximations are required here.
 %
 \begin{figure}
+	%%% how to generate this plot:
+	%%% make -j && ./aa3 -t sho_overlap. +verbosity=9 | grep 'test_Hermite_Gauss_overlap' | sed -e 's/# test_Hermite_Gauss_overlap  distance=//g'
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/overlap_1D} %%
   \end{minipage}\hfill

@@ -16,6 +16,7 @@
 #include "control.hxx" // control::get
 #include "inline_math.hxx" // pow2
 #include "data_view.hxx" // view2D<T>
+#include "simple_math.hxx" // random<real_or_int_t>
 
 // #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 // #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -149,7 +150,7 @@ namespace sho_overlap {
 
           // evaluate the value of d^k p(x) / d x^k at x=x_shift
           real_t val = 0;
-          {   real_t xsp = 1; // init x_shift^p as shift^0
+          {   real_t xsp = 1; // x_shift^p
               for(int p = 0; p < nmax - k; ++p) { // we only need to run up to nmax-k as the degree of the input poly is decreased with every k
                   val += xsp * c_old[p];
                   xsp *= x_shift; // update x_shift^p for the next p-iteration
@@ -178,11 +179,11 @@ namespace sho_overlap {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
       auto const sigma = 1/std::sqrt(.5*(k0 + k1));
 
-      auto const sh0 =  distance*k0/(k0 + k1);
+      auto const sh0 = -distance*k0/(k0 + k1);
       auto const H0s = new real_t[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
 
-      auto const sh1 = -distance*k1/(k0 + k1);
+      auto const sh1 =  distance*k1/(k0 + k1);
       auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 
@@ -207,11 +208,11 @@ namespace sho_overlap {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1), kc = 1/(sc*sc);
       auto const sigma = 1/std::sqrt(.5*(k0 + k1 + kc));
 
-      auto const sh0 =  distance*k0/(k0 + k1);
+      auto const sh0 = -distance*k0/(k0 + k1);
       auto const H0s = new real_t[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
 
-      auto const sh1 = -distance*k1/(k0 + k1);
+      auto const sh1 =  distance*k1/(k0 + k1);
       auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 
@@ -463,14 +464,24 @@ namespace sho_overlap {
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
-  void plot_poly(real_t const poly[], int const m, char const *name) {
-      printf("Poly %s : ", name);
+  void plot_poly(real_t const poly[], int const m, char const *name="") {
+      printf("Poly %s :", name);
       for(int d = 0; d < m; ++d) {
-          printf("%.6f  ", poly[d]);
+          printf("  %.6f", poly[d]);
       } // d
       printf("\n");
   } // plot
 
+  template<typename real_t>
+  real_t eval_poly(real_t const poly[], int const m, double x) {
+      double xpow = 1, val = 0;
+      for(int d = 0; d < m; ++d) {
+          val += poly[d] * xpow;
+          xpow *= x;
+      } // d
+      return val;
+  } // eval
+  
   status_t test_Hermite_polynomials(int const echo=1) {
     // see if the first ncut Hermite polynomials are orthogonal and normalized
     int constexpr ncut = 8;
@@ -487,7 +498,7 @@ namespace sho_overlap {
             if (echo > 3) plot_poly(hh, 2*n - 1, "H^2");
             double const norm = integrate(hh, 2*ncut, sigma);
             mdev = std::max(mdev, fabs(norm - (m == n)));
-            if (echo > 1) printf(" %.1e", norm - (m == n));
+            if (echo > 5) printf("%9.1e", norm - (m == n));
             ndev += (fabs(norm - (m == n)) > 1e-10); 
         } // m
         if (echo > 1) printf("\n");
@@ -499,8 +510,8 @@ namespace sho_overlap {
   status_t test_Hermite_Gauss_overlap(int const echo=1) {
     // show the overlap of the lowest 1D Hermite-Gauss functions as a function of distance
     int constexpr ncut = 4;
-    double const sigma0 = 1.4567, sigma1 = sigma0 + .876; // any two positive real numbers
-//     double const sigma0 = 1, sigma1 = sigma0;
+//     double const sigma0 = 1.4567, sigma1 = sigma0 + .876; // any two positive real numbers
+    double const sigma0 = 1, sigma1 = sigma0;
     double H0[ncut*ncut], H1[ncut*ncut];
     prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
     prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
@@ -990,13 +1001,35 @@ namespace sho_overlap {
     return diagonalization_failed;
   } // test_simple_crystal
 
+  status_t test_shifted_polynomial(int const echo=5) {
+      status_t stat = 0;
+      int constexpr M = 8;
+      double original[M], shifted[M];
+      for(int it = 10; it-- > 0;) {
+          for(int d = 0; d < M; ++d) {
+              original[d] = simple_math::random(-1., 1.);
+          } // d
+          double const shift = simple_math::random(-3., 3.);
+          shift_polynomial_centers(shifted, original, M, shift);
+          double const Ps0 = eval_poly(shifted, M, 0);
+          double const PoS = eval_poly(original, M, shift);
+          if (echo > 7) printf("\n# %s P_shifted(0)=%g\n# %s P_ori(shift)=%g\n", __func__, Ps0, __func__, PoS);
+          double const PsS = eval_poly(shifted, M, -shift);
+          double const Po0 = eval_poly(original, M, 0);
+          if (echo > 7) printf("# %s P_shifted(-s)=%g\n# %s P_original(0)=%g\n", __func__, PsS, __func__, Po0);
+          stat += (std::abs(Ps0 - PoS) > 1e-9) + (std::abs(PsS - Po0) > 1e-9);
+      } // it
+      return stat;
+  } // test_shifted_polynomial
+  
   status_t all_tests(int const echo) {
     auto status = 0;
+    status += test_shifted_polynomial(echo);
     status += test_Hermite_polynomials(echo);
     status += test_Hermite_Gauss_overlap(echo);
     status += test_kinetic_overlap(echo);
     status += test_density_or_potential_tensor(echo);
-    status += test_simple_crystal(echo); // expensive
+//     status += test_simple_crystal(echo); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

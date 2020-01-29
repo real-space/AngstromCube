@@ -191,7 +191,7 @@ namespace sho_potential {
       double const usual_sigma = control::get("sho_potential.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
-//       sigmas[0] *= 1.001; sigmas[natoms - 1] *= 0.999; // manipulate the spreads
+      sigmas[0] *= 1.1; sigmas[natoms - 1] *= 0.9; // manipulate the spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
@@ -202,63 +202,59 @@ namespace sho_potential {
           //    add one basis function to an empty grid,
           //    multiply the potential, project with the other basis function
           std::vector<double> basis(g.all(), 0.0);
-          int const mb = sho_tools::nSHO(numax_max);
-          view3D<double> Vmat(natoms, mb, mb, 0.0);
-          view4D<double> Smat(natoms, natoms, mb, mb, 0.0);
-          view2D<double> Sdiag(natoms, mb, 0.0);
-          for(int i01 = 0; i01 <= 1; ++i01) { // 0:overlap, 1:potential --> this order is important
-              if (echo > 7) printf("\n# %s\n", i01?"potential V":"overlap S");
-              for(int ia = 0; ia < natoms; ++ia) {
-                  int const nb = sho_tools::nSHO(numaxs[ia]);
-                  std::vector<double> coeff(nb, 0.0);
-                  for(int ib = 0; ib < nb; ++ib) {
-                      set(basis.data(), g.all(), 0.0); // clear
-                      set(coeff.data(), nb, 0.0); coeff[ib] = 1; // delta
-                      sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ia], center[ia], sigmas[ia], 0);
-                      // multiply Vtot to the basis function
-                      if (i01) scale(basis.data(), basis.size(), vtot.data());
-                      for(int ja = 0; ja < natoms; ++ja) {
-                          int const mb = sho_tools::nSHO(numaxs[ja]);
-                          std::vector<double> Vcoeff(mb, 0.0);
-                          sho_projection::sho_project(Vcoeff.data(), numaxs[ja], center[ja], sigmas[ja], basis.data(), g, 0);
-                          set(Vmat(ja,ib), mb, Vcoeff.data()); // copy data into result array
-                          if (0 == i01) set(Smat(ia,ja,ib), mb, Vcoeff.data()); // copy result into large array
-                      } // ja
-                      
-                      if (0 == i01) Sdiag(ia,ib) = Vmat(ia,ib,ib); // store diagonal elements of the Overlap operator
-                  } // ib
+          std::vector<double> Vbasis(g.all(), 0.0);
+          int const mxb = sho_tools::nSHO(numax_max);
+          view4D<double> Vmat(natoms, natoms, mxb, mxb, 0.0);
+          view4D<double> Smat(natoms, natoms, mxb, mxb, 0.0);
+          view2D<double> Sdiag(natoms, mxb, 0.0);
+          for(int ja = 0; ja < natoms; ++ja) {
+              int const mb = sho_tools::nSHO(numaxs[ja]);
+              std::vector<double> coeff(mb, 0.0);
+              for(int jb = 0; jb < mb; ++jb) {
+                  set(basis.data(), g.all(), 0.0); // clear
+                  set(coeff.data(), mb, 0.0); coeff[jb] = 1; // delta
+                  sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ja], center[ja], sigmas[ja], 0);
+
+                  // multiply Vtot to the basis function
+                  product(Vbasis.data(), basis.size(), basis.data(), vtot.data());
                   
-                  if (echo > 7 - i01) {
-                      for(int ja = 0; ja < natoms; ++ja) {
+                  for(int ia = 0; ia < natoms; ++ia) {
+                      int const nb = sho_tools::nSHO(numaxs[ia]);
+                      std::vector<double> Scoeff(nb, 0.0);
+                      std::vector<double> Vcoeff(nb, 0.0);
+                      sho_projection::sho_project(Scoeff.data(), numaxs[ia], center[ia], sigmas[ia],  basis.data(), g, 0);
+                      sho_projection::sho_project(Vcoeff.data(), numaxs[ia], center[ia], sigmas[ia], Vbasis.data(), g, 0);
+                      for(int ib = 0; ib < nb; ++ib) {
+                          Smat(ia,ja,ib,jb) = Scoeff[ib]; // copy result into large array
+                          Vmat(ia,ja,ib,jb) = Vcoeff[ib]; // copy result into large array
+                      } // ib
+                  } // ia
+                  Sdiag(ja,jb) = Smat(ja,ja,jb,jb); // store diagonal elements of the Overlap operator
+
+              } // jb
+          } // ja
+          
+          if (echo > 4) { // show the normalized operators
+              for(int i01 = 0; i01 <= 1; ++i01) {
+                  if (echo > 7) printf("\n# %s\n", i01?"potential V ":"overlap S ");
+                  for(int ia = 0; ia < natoms; ++ia) {        int const nb = sho_tools::nSHO(numaxs[ia]);
+                      for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
                           printf("# ai#%i aj#%i\n", ia, ja);
-                          for(int ib = 0; ib < mb; ++ib) {
-                              printf("# %c ai#%i aj#%i b#%i ", i01?'V':'s', ia, ja, ib);
+                          for(int ib = 0; ib < nb; ++ib) {
+                              printf("# %c ai#%i aj#%i b#%i ", i01?'V':'S', ia, ja, ib);
                               for(int jb = 0; jb < mb; ++jb) {
-                                  double elem = Vmat(ja,ib,jb);
-                                  if (1 == i01) elem /= std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
-                                  printf("%8.3f", elem); // show normalized potential matrix element
-                              }   printf("\n");
+                                  double const elem = (i01 ? Vmat(ia,ja,ib,jb) : Smat(ia,ja,ib,jb)) 
+                                                    / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
+                                  printf("%8.3f", elem); // show normalized overlap matrix element
+                              } // jb
+                              printf("\n");
                           } // ib
                       } // ja
-                  } // echo
-              } // ia
-          } // i01
-          if (echo > 2) printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
-          
-          if (echo > 9) { // show the normalized Overlap operator
-              for(int ia = 0; ia < natoms; ++ia) {
-                  for(int ja = 0; ja < natoms; ++ja) {
-                      printf("# ai#%i aj#%i\n", ia, ja);
-                      for(int ib = 0; ib < mb; ++ib) {
-                          printf("# S ai#%i aj#%i b#%i ", ia, ja, ib);
-                          for(int jb = 0; jb < mb; ++jb) {
-                              double const elem = Smat(ia,ja,ib,jb) / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
-                              printf("%8.3f", elem); // show normalized overlap matrix element
-                          }   printf("\n");
-                      } // ib
-                  } // ja
-              } // ia
+                  } // ia
+              } // i01
           } // echo
+          
+          if (echo > 2) printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
           
       } // scope: Method 1
 
@@ -294,8 +290,9 @@ namespace sho_potential {
                   
                   view4D<double> t(3, 2*nucut, nucut, nucut, 0.0);
                   for(int d = 0; d < 3; ++d) {
-                      sho_overlap::generate_potential_tensor(t[d].data(), center[ja][d] - center[ia][d], 
-                                                             nucut, nucut, sigmas[ia], sigmas[ja], sigma_V);
+                      auto const distance = center[ja][d] - center[ia][d];
+                      sho_overlap::generate_potential_tensor(t[d].data(), distance, 
+                                        nucut, nucut, sigmas[ia], sigmas[ja], sigma_V);
                   } // d
                   
                   int const nc = sho_tools::nSHO(numax_V);
@@ -363,8 +360,8 @@ namespace sho_potential {
                   int const mucut = sho_tools::n1HO(numaxs[ja]);
                   view3D<double> ovl(3, mucut, nucut);
                   for(int d = 0; d < 3; ++d) {
-                      sho_overlap::generate_overlap_matrix(ovl[d].data(), center[ja][d] - center[ia][d],
-                                                  nucut, mucut, sigma, sigmas[ja]);
+                      auto const distance = center[ia][d] - center[ja][d];
+                      sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut, mucut, sigma, sigmas[ja]);
                   } // d
 
                   int const mb = sho_tools::nSHO(numaxs[ja]);
