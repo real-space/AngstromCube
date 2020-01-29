@@ -59,7 +59,7 @@ namespace sho_potential {
                   int jxyz{0};
                   for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,pz,iz,jz);
                     for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,py,iy,jy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(0,px,ix,jx) * tyz;
+                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(      0,px,ix,jx) * tyz;
 
                         Vmat[ixyz][jxyz] += txyz * Vcoeff[pxyz];
 
@@ -136,11 +136,13 @@ namespace sho_potential {
 
   status_t test_potential_elements(int const echo=5, char const *geofile="atoms.xyz") {
       status_t stat = 0;
-      int dims[] = {0, 0, 0};
-
-      std::vector<double> vtot; // total smooth potential
+      
+      int dims[] = {86, 86, 102}; std::vector<double> vtot(754392, 1.0); // total smooth potential, constant at 1 Hartree
+      
       auto const filename = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
-      { // scope: read in the potential from a file
+//       int dims[] = {0, 0, 0};
+//       std::vector<double> vtot; // total smooth potential
+      if(0) { // scope: read in the potential from a file
           std::ifstream infile(filename);
           int npt = 0; 
           if (!infile.is_open()) {
@@ -163,7 +165,7 @@ namespace sho_potential {
           } // while
           if (echo > 3) printf("# %s use %i values from file %s\n", __func__, npt, filename);
       } // scope
-
+      
       double *xyzZ = nullptr;
       int natoms = 0;
       double cell[3] = {0, 0, 0}; 
@@ -269,13 +271,15 @@ namespace sho_potential {
                                         .5*(g.dim(1) - 1)*g.h[1], 
                                         .5*(g.dim(2) - 1)*g.h[2]};
           for(int ia = 0; ia < natoms; ++ia) {
-              double const sigma2i = pow2(sigmas[ia]);
+              double const sigma_i = sigmas[ia];
               for(int ja = 0; ja < natoms; ++ja) {
-                  double const sigma2j = pow2(sigmas[ja]);
-                  double const denom = 1./(sigma2j + sigma2i);
-                  double const sigma_V = std::sqrt(sigma2i*sigma2j*denom);
-                  double const wi = sigma2j*denom;
-                  double const wj = sigma2i*denom;
+                  double const sigma_j = sigmas[ja];
+                  double const alpha_i = 1/pow2(sigma_i);
+                  double const alpha_j = 1/pow2(sigma_j);
+                  double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
+                  double const wi = alpha_i*pow2(sigma_V);
+                  double const wj = alpha_j*pow2(sigma_V);
+                  assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
                   double cnt[3]; // center of weight
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] = wi*xyzZ[ia*4 + d] + wj*xyzZ[ja*4 + d];
@@ -291,7 +295,7 @@ namespace sho_potential {
                   view4D<double> t(3, 2*nucut, nucut, nucut, 0.0);
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
-                      sho_overlap::generate_potential_tensor(t[d].data(), distance, 
+                      sho_overlap::generate_potential_tensor(t[d].data(), distance,
                                         nucut, nucut, sigmas[ia], sigmas[ja], sigma_V);
                   } // d
                   

@@ -208,11 +208,11 @@ namespace sho_overlap {
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1), kc = 1/(sc*sc);
       auto const sigma = 1/std::sqrt(.5*(k0 + k1 + kc));
 
-      auto const sh0 = -distance*k1/(k0 + k1);
+      auto const sh0 =  distance*k1/(k0 + k1);
       auto const H0s = new real_t[n0]; // H0 shifted by sh0
       shift_polynomial_centers(H0s, H0, n0, sh0);
 
-      auto const sh1 =  distance*k0/(k0 + k1);
+      auto const sh1 = -distance*k0/(k0 + k1);
       auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 
@@ -398,27 +398,27 @@ namespace sho_overlap {
 
   
   template<typename real_t>
-  status_t generate_potential_tensor(real_t tensor[], // tensor layout [][n1][n0]
+  status_t generate_potential_tensor(real_t tensor[], // tensor layout [n0+n1-1][n0][n1]
         double const distance, int const n0, int const n1, 
         double const sigma0, double const sigma1, double const sigmac) {
     view2D<double> H0(n0, n0);
     view2D<double> H1(n1, n1);
     prepare_centered_Hermite_polynomials(H0.data(), n0, 1./sigma0); // L2-normalized
     prepare_centered_Hermite_polynomials(H1.data(), n1, 1./sigma1); // L2-normalized
-    int const nc = n0 + n1;
+    int const nc = n0 + n1 - 1;
     view2D<double> Hc(nc, nc);
     prepare_centered_Hermite_polynomials(Hc.data(), nc, 1./sigmac); // L2-normalized
-    for(int j = 0; j < nc; ++j) {
-        for(int n = 0; n < n1; ++n) {
-            for(int m = 0; m < n0; ++m) {
-                tensor[(j*n1 + n)*n0 + m] = overlap_of_three_Hermite_Gauss_functions(
-                                      H0[m], n0, sigma0,
-                                      H1[n], n1, sigma1,
-                                      Hc[j], nc, sigmac,
+    for(int k = 0; k < nc; ++k) {
+        for(int i = 0; i < n0; ++i) {
+            for(int j = 0; j < n1; ++j) {
+                tensor[(k*n1 + i)*n0 + j] = overlap_of_three_Hermite_Gauss_functions(
+                                      H0[j], n0, sigma0,
+                                      H1[i], n1, sigma1,
+                                      Hc[k], nc, sigmac,
                                       distance);
-            } // m
-        } // n
-    } // j
+            } // j
+        } // i
+    } // k
     return 0; // success
   } // generate_potential_tensor
 
