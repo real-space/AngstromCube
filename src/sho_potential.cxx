@@ -338,6 +338,9 @@ namespace sho_potential {
           int const nucut = sho_tools::n1HO(lmax);
           view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
           sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
+
+          int const mxb = sho_tools::nSHO(numax_max);
+          view4D<double> Smat(natoms, natoms, mxb, mxb, 0.0);
           
           int const nc = sho_tools::nSHO(lmax);
           std::vector<double> Vcoeff(nc, 0.0);
@@ -360,7 +363,7 @@ namespace sho_potential {
                   int const mucut = sho_tools::n1HO(numaxs[ja]);
                   view3D<double> ovl(3, mucut, nucut);
                   for(int d = 0; d < 3; ++d) {
-                      auto const distance = center[ia][d] - center[ja][d];
+                      auto const distance = center[ja][d] - center[ia][d];
                       sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut, mucut, sigma, sigmas[ja]);
                   } // d
 
@@ -380,22 +383,38 @@ namespace sho_potential {
                       } // echo
                   } // ib
 
-                  if (echo > 9) { // extra: display overlap matrix
+                  if (1) { // extra: create overlap matrix
                       std::vector<sho_tools::SHO_index_t> idx(nb);
                       stat += sho_tools::construct_index_table<sho_tools::order_zyx>(idx.data(), numaxs[ia], echo);
                       std::vector<sho_tools::SHO_index_t> jdx(nb);
                       stat += sho_tools::construct_index_table<sho_tools::order_zyx>(jdx.data(), numaxs[ja], echo);
                       for(int ib = 0; ib < nb; ++ib) {        auto const i = idx[ib].Cartesian;
-                          printf("# S ai#%i aj#%i b#%i ", ia, ja, ib);
                           for(int jb = 0; jb < mb; ++jb) {    auto const j = jdx[jb].Cartesian;
-                              printf("%8.3f", ovl(0,j.nx,i.nx) * ovl(1,j.ny,i.ny) * ovl(2,j.nz,i.nz));
-                          }   printf("\n");
+                              Smat(ia,ja,ib,jb) = ovl(0,j.nx,i.nx) * ovl(1,j.ny,i.ny) * ovl(2,j.nz,i.nz);
+                          } // jb
                       } // ib
                   } // echo extra
                   
               } // ja
           } // ia
-        
+
+          
+          if (echo > 9) { // extra: display normalized overlap matrix
+              for(int ia = 0; ia < natoms; ++ia) {        int const nb = sho_tools::nSHO(numaxs[ia]);
+                  for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
+                      if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
+                      for(int ib = 0; ib < nb; ++ib) {
+                          printf("# S ai#%i aj#%i b#%i ", ia, ja, ib);
+                          for(int jb = 0; jb < mb; ++jb) {
+                              printf("%8.3f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
+                          } // jb
+                          printf("\n");
+                      } // ib
+                  } // ja
+              } // ia
+          } // echo extra
+                  
+          
           if (echo > 2) printf("\n# %s method=4 seems asymmetric!\n", __func__);
       } // scope: Method 3
      

@@ -168,6 +168,21 @@ In the code, spherical harmonics $Y_{\ell m}$ usually appear in their representa
 $X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $m$ and -$m$.
 \todo[inline]{cite Homeier}
 
+\begin{figure}
+	%%% how to generate this plot: 
+	%%% ./aa3 -t hermite_polynomial. +verbosity=10
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/hermite_gauss_functions} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:hermite_gauss_function}
+  \caption{
+  Hermite-Gauss functions up to $n\um{max} = 5$.
+  }
+\end{figure}
+
+
 \subsection{SHO as a basis}
 An infinite set of all \ac{sho} eigenfunctions forms a basis of the 3D function space.
 Limiting the set by cut-off energy $E\um{cut} = \sigma^{-2} (\nu\um{max} + \frac 32)$
@@ -729,7 +744,9 @@ See fig.~\ref{fig:multipole-shifts} for an example.
   \begin{minipage}[c]{.009\textwidth}
   \end{minipage}
   \label{fig:ionized-spherical-atoms-AlP-dimer}
-  \caption{Smooth electrostatic potentials of an Al-P dimer with ionization (Al$^{+.9}$-P$^{-.9}$, lower) and without (upper panel). }
+  \caption{Smooth electrostatic potentials of an Al$-$P dimer 
+   without ionization (upper panel) and ionized Al$^{+.9}$P$^{-.9}$ (lower panel).
+   }
 \end{figure}
 
 
