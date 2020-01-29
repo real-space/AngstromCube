@@ -149,7 +149,7 @@ namespace sho_overlap {
 
           // evaluate the value of d^k p(x) / d x^k at x=x_shift
           real_t val = 0;
-          {   real_t xsp = 1; // x_shift^p
+          {   real_t xsp = 1; // init x_shift^p as shift^0
               for(int p = 0; p < nmax - k; ++p) { // we only need to run up to nmax-k as the degree of the input poly is decreased with every k
                   val += xsp * c_old[p];
                   xsp *= x_shift; // update x_shift^p for the next p-iteration
@@ -227,6 +227,7 @@ namespace sho_overlap {
       delete[] h0xh1;
       auto const result = integrate(h0xh1xhc, n, sigma) * std::exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
       delete[] h0xh1xhc;
+//    printf("# %s sh0=%g sh1=%g Bohr\n", __func__, sh0, sh1);
       return result;
   } // overlap_of_three_Hermite_Gauss_functions
 

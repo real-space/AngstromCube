@@ -150,7 +150,7 @@ namespace sho_potential {
       double const usual_sigma = control::get("sho_potential.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
-      sigmas[0] *= 1.01; sigmas[natoms - 1] *= 0.99; // manipulate the spreads
+      sigmas[0] *= 1.001; sigmas[natoms - 1] *= 0.999; // manipulate the spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
