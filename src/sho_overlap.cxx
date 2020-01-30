@@ -16,8 +16,10 @@
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // pow2
 #include "data_view.hxx" // view2D<T>
-#include "simple_math.hxx" // random<real_or_int_t>
+#include "simple_math.hxx" // ::random<real_or_int_t>
 #include "sho_tools.hxx" // ::nSHO
+#include "linear_algebra.hxx" // ::inverse
+#include "recorded_warnings.hxx" // warn
 
 // #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 // #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -227,6 +229,7 @@ namespace sho_overlap {
     view2D<double> H(ncut, ncut, 0.0), Hp(2*ncut, 2*ncut, 0.0);
     prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
     prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
+    view3D<real_t> t3(tensor, ncut, ncut); // wrapper
     for(int p = 0; p < 2*ncut - 1; ++p) {
         if (echo > 1) printf("\n# p = %d\n", p);
         for(int n = 0; n < ncut; ++n) {
@@ -243,7 +246,7 @@ namespace sho_overlap {
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
-                if (tensor) tensor[(p*ncut + n)*ncut + m] = tensor_value; // store only if output array pointer is non-zero
+                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
             } // m
             if (echo > 1) printf("\n");
         } // n
@@ -270,6 +273,7 @@ namespace sho_overlap {
     view2D<double> H(ncut, ncut), Hp(2*ncut, 2*ncut);
     prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
     prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
+    view3D<real_t> t3(tensor, ncut, ncut); // wrapper
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
             std::vector<double> HH(2*ncut, 0.0);
@@ -283,7 +287,7 @@ namespace sho_overlap {
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
-                if (tensor) tensor[(p*ncut + n)*ncut + m] = tensor_value; // store only if output array pointer is non-zero
+                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
             } // p
         } // m
     } // n
@@ -295,7 +299,7 @@ namespace sho_overlap {
             for(int n = 0; n < ncut; ++n) {
                 for(int m = 0; m < ncut; ++m) {
                     if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
-                        printf(" %.9f", tensor[(p*ncut + n)*ncut + m]); // show tensor values
+                        printf(" %.9f", t3(p,n,m)); // show tensor values
                     } // even?
                 } // m
                 printf("\n");
@@ -319,6 +323,7 @@ namespace sho_overlap {
     prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
     prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
     prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
+    view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
             double HH[2*ncut];
@@ -332,7 +337,7 @@ namespace sho_overlap {
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
-                if (tensor) tensor[(p*ncut + n)*ncut + m] = tensor_value; // store only if output array pointer is non-zero
+                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
             } // p
         } // m
     } // n
@@ -357,6 +362,7 @@ namespace sho_overlap {
     prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
     prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
     prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
+    view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
             std::vector<double> HH(2*ncut);
@@ -370,7 +376,7 @@ namespace sho_overlap {
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
-                if (tensor) tensor[(p*ncut + n)*ncut + m] = tensor_value; // store only if output array pointer is non-zero
+                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
             } // p
         } // m
     } // n
@@ -384,25 +390,54 @@ namespace sho_overlap {
                      double const sigma0,   // =1
                      double const sigma1,   // =1
                      int const maxmoment) { // default=0 (overlap matrix)
-    double const sigma0inv = 1./sigma0;
-    double const sigma1inv = 1./sigma1;
-    view2D<double> H0(n0, n0); // polynomial coefficients
-    view2D<double> H1(n1, n1); // polynomial coefficients
+    double const sigma0inv = 1./sigma0, sigma1inv = 1./sigma1;
+    view2D<double> H0(n0, n0), H1(n1, n1); // polynomial coefficients
     double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
     prepare_centered_Hermite_polynomials(H0.data(), n0, sigma0inv, normalize);
     prepare_centered_Hermite_polynomials(H1.data(), n1, sigma1inv, normalize);
+    view3D<real_t> t3(tensor, n1, n0); // wrapper
+    // ToDo: this function will shift each of the polynomials H0 (1 + maxmoment)*n1 times
+    //                            and each of the polynomials H1 (1 + maxmoment)*n0 times
+    //                            so there could be a lot of saving when the shifted polynomials
+    //                            are contructed in advance and the moment loop becomes innermost
     for(int moment = 0; moment <= maxmoment; ++moment) {
         for(int n = 0; n < n1; ++n) {
             for(int m = 0; m < n0; ++m) {
-                tensor[(moment*n1 + n)*n0 + m] = 
-                    overlap_of_two_Hermite_Gauss_functions(
-                        H0[m], n0, sigma0,
-                        H1[n], n1, sigma1, distance, moment);
+                t3(moment,n,m) = overlap_of_two_Hermite_Gauss_functions(
+                    H0[m], 1+m, sigma0, H1[n], 1+n, sigma1, distance, moment);
             } // m
         } // n
     } // moment
     return 0; // success
   } // moment_tensor
+
+  
+  status_t moment_normalization(double matrix[], // matrix layout [m][m]
+                     int const m, double const sigma=1, int const echo=0) {
+    // uses overlap_of_poly_times_Gauss_with_pure_powers(real_t const p[], int const n0, double const s0, int const moment);
+    // and LAPACK for inversion
+    view2D<double> mat2D(matrix, m); // wrapper for result assume data layout [m][m]
+    view2D<double> H(m, m, 0.0); // polynomial coefficients
+    double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
+    prepare_centered_Hermite_polynomials(H.data(), m, 1./sigma, normalize);
+    for(int moment = 0; moment < m; ++moment) {
+        if (echo > 4) printf("# %s %i ", __func__, moment);
+        for(int n = 0; n < m; ++n) {
+            mat2D(moment,n) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], m, sigma, moment);
+//             if ((n & 1) == (moment & 1)) 
+            if (true) {
+                if (echo > 4) printf(" %g", mat2D(moment,n));
+            }
+        } // n = 1D HO quantum number
+        if (echo > 4) printf("\n");
+    } // moment
+    if (m < 1) return 0;
+    // now invert
+    auto const stat = linear_algebra::inverse(m, mat2D.data(), mat2D.stride());
+    if (stat) warn("Maybe factorization failed!");
+    return stat;
+  } // moment_normalization
+  
   
   template<typename real_t>
   status_t generate_overlap_matrix(real_t matrix[], // matrix layout [][n0]
@@ -1050,11 +1085,29 @@ namespace sho_overlap {
     if (numerical > 0 && echo > 1) printf("# %s max relative deviation between analytical and numerical is %.1e\n", __func__, maxreldevall);
     return stat;
   } // test_pure_power_overlap
+
   
+  status_t test_moment_normalization(int const echo=1, int const m=8) {
+    status_t stat = 0;
+    view2D<double> imat(m, m, 0.0);
+    stat += moment_normalization(imat.data(), imat.stride(), 1.0, echo);
+    if (echo < 4) return stat;
+    for(int i = 0; i < m; ++i) {
+        printf("# %s %i ", __func__, i);
+//         for(int j = i & 1; j < m; j += 2) // only even/odd terms
+        for(int j = 0; j < m; ++j) { // only even/odd terms
+            printf(" %g", imat(i,j));
+        } // j
+        printf("\n");
+    } // i
+    // ToDo: can we derive a recursion relation for the imat coefficients?
+    return stat;
+  } // test_moment_normalization
   
   status_t all_tests(int const echo) {
     int n{0}; int const t = control::get("sho_overlap.select.test", -1.); // -1:all
     auto stat = 0;
+    if (t & (1 << n++)) stat += test_moment_normalization(echo);
     if (t & (1 << n++)) stat += test_pure_power_overlap(echo);
     if (t & (1 << n++)) stat += test_shifted_polynomial(echo);
     if (t & (1 << n++)) stat += test_Hermite_polynomials(echo);

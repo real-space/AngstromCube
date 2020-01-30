@@ -18,10 +18,35 @@ extern "C" {
 #endif
 } // extern "C"
 
+
+extern "C" {
+    // LU decomoposition of a general matrix
+    void dgetrf_(int const *m, int const *n, double a[], int const *lda, int ipiv[], int *info);
+
+    // generate inverse of a matrix given its LU decomposition
+    void dgetri_(int const *n, double a[], int const *lda, int ipiv[], double work[], int const *lwork, int *info);
+} // extern "C"
+
+
 typedef int status_t;
 
 namespace linear_algebra {
+  
+  inline status_t inverse(int const n, double a[], int const lda) {
+      int info;
+      int const lwork = n*n;
+      auto const work = new double[lwork];
+      auto const ipiv = new int[n];
 
+      dgetrf_(&n, &n, a, &lda, ipiv, &info); // Fortran interface
+      if (info) return info; // early return: factorization failed!
+      dgetri_(&n, a, &lda, ipiv, work, &lwork, &info); // Fortran interface
+
+      delete[] ipiv;
+      delete[] work;
+      return info;
+  } // inverse
+  
   inline status_t linear_solve(int const n, double a[], int const lda, double b[], int const ldb, int const nrhs=1) {
 #ifdef 	HAS_MKL
       auto const ipiv = new MKL_INT[n];
@@ -34,7 +59,7 @@ namespace linear_algebra {
       delete[] ipiv;
       return info;
   } // linear_solve
-
+  
   inline status_t eigenvalues(int const n, double a[], int const lda, double w[]) {
 #ifdef 	HAS_MKL
       status_t const info = LAPACKE_dsyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
