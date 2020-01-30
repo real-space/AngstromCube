@@ -29,15 +29,17 @@ namespace recorded_warnings {
       char*     message_;
       uint64_t  hash_;
       std::string source_file_name_;
+      std::string function_name_;
       uint64_t    times_overwritten_;
       uint32_t    source_file_line_;
       // ToDo: we can include the time of last overwrite
   public:
       static const int DefaultMessageLength = 400;
 
-      WarningRecord(char const *file, int const line, 
+      WarningRecord(char const *file, int const line, char const *func=nullptr, 
                   int const message_length=DefaultMessageLength)
         : source_file_name_(file)
+        , function_name_(func)
         , times_overwritten_(0)   
         , source_file_line_(line) 
       {
@@ -61,6 +63,7 @@ namespace recorded_warnings {
       char* get_message(void) { ++times_overwritten_; return message_; }
       char* get_message_pointer(void) const { return message_; }
       char const* get_sourcefile(void) const { return source_file_name_.c_str(); }
+      char const* get_functionname(void) const { return function_name_.c_str(); }
       int get_sourceline(void) const { return source_file_line_; }
       size_t get_times(void) const { return times_overwritten_; }
 
@@ -69,7 +72,7 @@ namespace recorded_warnings {
 
 
 
-  char* manage_warnings(char const *file, int const line, int const echo=0) {
+  char* manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
     if (echo > 6) printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
                       __FILE__, __LINE__, __func__, file, line, echo);
 
@@ -90,8 +93,9 @@ namespace recorded_warnings {
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
                         auto const n_times = w.get_times();
-                        printf("# \tin %s:%d (%ld times) \t%s\n", w.get_sourcefile(), 
-                          w.get_sourceline(), n_times, w.get_message_pointer());
+                        printf("# \tin %s:%d %s (%ld times) \t%s\n", w.get_sourcefile(), 
+                            w.get_sourceline(), w.get_functionname(), 
+                            n_times, w.get_message_pointer());
                         total_count += n_times;
                     } // w
                     if (nw > 0) printf("# %s: %ld warnings in total\n", __func__, total_count);
@@ -114,7 +118,7 @@ namespace recorded_warnings {
             return search->second.get_message();
         } else {
             if (echo > 1) printf("# %s: insert new entry for hash %16lx\n", __func__, hash);
-            auto const iit = map_.insert({hash, WarningRecord(file, line)});
+            auto const iit = map_.insert({hash, WarningRecord(file, line, func)});
             // if (success) {
             return iit.first->second.get_message();
             // } else {
@@ -127,16 +131,16 @@ namespace recorded_warnings {
 
   } // manage_warnings
 
-  char* _new_warning(char const *file, int const line) {
-      return manage_warnings(file, line);
+  char* _new_warning(char const *file, int const line, char const *func=nullptr) {
+      return manage_warnings(file, line, func);
   } // _new_warning
 
   status_t show_warnings(int const echo) {
-      return (nullptr != manage_warnings("?",  0, echo));
+      return (nullptr != manage_warnings("?",  0, nullptr, echo));
   } // show_warnings
 
   status_t clear_warnings(int const echo) {
-      return (nullptr != manage_warnings("?", -1, echo));
+      return (nullptr != manage_warnings("?", -1, nullptr, echo));
   } // clear_warnings
 
 
@@ -146,7 +150,7 @@ namespace recorded_warnings {
 
   status_t test_create_and_destroy(int const echo=9) {
     if (echo > 1) printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
-    WarningRecord wr(__FILE__,__LINE__);
+    WarningRecord wr(__FILE__,__LINE__,__func__);
     auto const msg = wr.get_message();
     sprintf(msg, "This is a non-recorded warning! Text created in %s:%d", __FILE__, __LINE__);
     return 0;

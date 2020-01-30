@@ -155,7 +155,7 @@ typedef int status_t;
               } // help or test
           } // '-'
           else if ('+' == ci0) {
-              stat += control::cli(argv[iarg] + 1); // start after the '+'
+              stat += control::cli(argv[iarg] + 1); // start after the '+' char
           } // '+'
       } // iarg
       int const echo = control::get("verbosity", 3.); // define default verbosity here

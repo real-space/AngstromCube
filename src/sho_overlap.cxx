@@ -51,22 +51,22 @@ namespace sho_overlap {
   int multiply(real_t    p0xp1[], int const n, // result
                real_t const p0[], int const n0,
                real_t const p1[], int const n1) {
-    // multiplication of two polynomials
-    for(int d = 0; d < n; ++d) {
-        p0xp1[d] = 0; // clear
-    } // d
-    int nloss = 0;
-    for(int d0 = 0; d0 < n0; ++d0) {
-        for(int d1 = 0; d1 < n1; ++d1) {
-            int const d = d0 + d1;
-            if (d < n) {
-                p0xp1[d] += p0[d0] * p1[d1];
-            } else {
-                nloss += (0 != (p0[d0] * p1[d1]));
-            }
-        } // d1
-    } // d0
-    return nloss; // return a positive number if potentially non-zero coefficients have been lost because n < n0 + n1 - 1
+      // multiplication of two polynomials
+      for(int d = 0; d < n; ++d) {
+          p0xp1[d] = 0; // clear
+      } // d
+      int nloss = 0;
+      for(int d0 = 0; d0 < n0; ++d0) {
+          for(int d1 = 0; d1 < n1; ++d1) {
+              int const d = d0 + d1;
+              if (d < n) {
+                  p0xp1[d] += p0[d0] * p1[d1];
+              } else {
+                  nloss += (0 != (p0[d0] * p1[d1]));
+              }
+          } // d1
+      } // d0
+      return nloss; // return a positive number if potentially non-zero coefficients have been lost because n < n0 + n1 - 1
   } // multiply
 
   
@@ -94,13 +94,13 @@ namespace sho_overlap {
       int const S = ncut; // access stride
       for(int i = 0; i < S*S; ++i) H[i] = 0; // clear
 
-      H[S*0 + 0] = 1; // H_0 is the Gaussian envelope function exp(-.5*(x/sigma)^2) which is implicit here
-      for(int n = 1; n < ncut; ++n) {
+      H[0*S + 0] = 1; // H_0 is the Gaussian envelope function exp(-.5*(x/sigma)^2) which is implicit here
+      for(int n = 1; n < ncut; ++n) { // recursion in n
           for(int d = 0; d < n; ++d) {
-              H[S*n + (d + 1)] = H[S*(n - 1) + d]*siginv; // times (x/sigma)
+              H[n*S + (d + 1)] = H[(n - 1)*S + d] * siginv; // times (x/sigma)
           } // d
           for(int d = 0; d < n - 1; ++d) {
-              H[S*n + d] -= (0.5*(n - 1)) * H[S*(n - 2) + d];
+              H[n*S + d] -= (0.5*(n - 1)) * H[(n - 2)*S + d];
           } // d
       } // n
 
@@ -109,7 +109,7 @@ namespace sho_overlap {
           for(int n = 0; n < ncut; ++n) {
               double const nrmf = normalize*std::sqrt(siginv/(constants::sqrtpi*nfactorial));
               for(int d = 0; d <= n; ++d) {
-                  H[S*n + d] *= nrmf;
+                  H[n*S + d] *= nrmf; // scale
               } // d
               nfactorial *= (n + 1)*0.5; // update nfactorial
           } // n
@@ -485,7 +485,7 @@ namespace sho_overlap {
 
   template<typename real_t>
   void plot_poly(real_t const poly[], int const m, char const *name="") {
-      printf("Poly %s :", name);
+      printf("# Poly %s :", name);
       for(int d = 0; d < m; ++d) {
           printf("  %.6f", poly[d]);
       } // d
@@ -502,23 +502,24 @@ namespace sho_overlap {
       return val;
   } // eval
   
-  status_t test_Hermite_polynomials(int const echo=1) {
+  status_t test_Hermite_polynomials(int const echo=1, int const ncut=8, double const sigma=1) {
     // see if the first ncut Hermite polynomials are orthogonal and normalized
-    int constexpr ncut = 8;
-    double const sigma = 1.4567; // any positive real number
     view2D<double> H(ncut, ncut, 0.0);
     prepare_centered_Hermite_polynomials(H.data(), ncut, 1./sigma);
-    std::vector<double> hh(2*ncut, 0.0);
+    std::vector<double> hh(2*ncut, 0.0); // product polynomial
     int ndev = 0; double mdev = 0;
     for(int n = 0; n < ncut; ++n) {
-        if (echo > 3) plot_poly(H[n], 1+n, "H");
-        if (echo > 1) printf("# %s   %d   ortho", __func__, n);
+        if (echo > 4) printf("# %s n=%d check ortho-normality\n", __func__, n);
+        if (echo > 3) plot_poly(H[n], 1+n, "H_n");
         for(int m = 0; m < ncut; ++m) {
             multiply(hh.data(), 2*ncut, H[n], 1+n, H[m], 1+m);
-            if (echo > 3) plot_poly(hh.data(), 2*n - 1, "H^2");
-            double const norm = integrate(hh.data(), 2*ncut, sigma);
+            if (echo > 5) {
+                printf("# n=%i m=%i ", n, m); // no new line
+                plot_poly(hh.data(), 1+n+m, "H_n*H_m");
+            } // echo
+            double const norm = integrate(hh.data(), 1+n+m, sigma);
             mdev = std::max(mdev, fabs(norm - (m == n)));
-            if (echo > 5) printf("%9.1e", norm - (m == n));
+            if (echo > 9) printf("%9.1e", norm - (m == n));
             ndev += (fabs(norm - (m == n)) > 1e-10); 
         } // m
         if (echo > 1) printf("\n");

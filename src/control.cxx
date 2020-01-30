@@ -19,7 +19,7 @@ namespace control {
 
   inline char* find_equal_sign(char const * string) { return (char*)strchr(string, '='); }
 
-  int constexpr MaxNameLength = 96;
+  int constexpr MaxNameLength = 64;
   
   // hidden function: _manage_variables
   char const* _manage_variables(char const *name, char const *value=nullptr, int const echo=0) {
