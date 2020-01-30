@@ -4,3 +4,4 @@
 *.backup
 *.dat
 *.template.agr
+plot/*

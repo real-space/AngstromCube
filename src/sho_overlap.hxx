@@ -11,11 +11,11 @@ namespace sho_overlap {
                      double const sigma0=1, double const sigma1=1);
 
   template<typename real_t>
-  status_t generate_potential_tensor(real_t tensor[], // matrix layout [n0+n1-1][n1][n0]
+  status_t moment_tensor(real_t tensor[], // matrix layout [][n1][n0]
                      double const distance,
                      int const n0, int const n1,
-                     double const sigma0=1, double const sigma1=1, double const sigmac=1);
-  
+                     double const sigma0=1, double const sigma1=1, int const maxmoment=0);
+
   template<typename real_t>
   status_t generate_product_tensor(real_t tensor[], int const n, // tensor layout [2*n][n][n]
                      double const sigma=2, // 2:typical for density tensor

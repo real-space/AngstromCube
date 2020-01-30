@@ -17,6 +17,7 @@
 #include "inline_math.hxx" // pow2
 #include "data_view.hxx" // view2D<T>
 #include "simple_math.hxx" // random<real_or_int_t>
+#include "sho_tools.hxx" // ::nSHO
 
 // #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 // #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -45,21 +46,21 @@ namespace sho_overlap {
   // computes the overlap between Gaussian-localized 1D polynomials
   
   template<typename real_t>
-  int multiply(real_t pxp[], int const n, // result
+  int multiply(real_t    p0xp1[], int const n, // result
                real_t const p0[], int const n0,
                real_t const p1[], int const n1) {
     // multiplication of two polynomials
     for(int d = 0; d < n; ++d) {
-        pxp[d] = 0; // clear
+        p0xp1[d] = 0; // clear
     } // d
     int nloss = 0;
     for(int d0 = 0; d0 < n0; ++d0) {
         for(int d1 = 0; d1 < n1; ++d1) {
             int const d = d0 + d1;
             if (d < n) {
-                pxp[d] += p0[d0] * p1[d1];
+                p0xp1[d] += p0[d0] * p1[d1];
             } else {
-                nloss += (0 != p0[d0] * p1[d1]);
+                nloss += (0 != (p0[d0] * p1[d1]));
             }
         } // d1
     } // d0
@@ -68,14 +69,16 @@ namespace sho_overlap {
 
   
   template<typename real_t>
-  real_t integrate(real_t const p[], int const m, double const sigma=1) {
+  real_t integrate(real_t const p[], int const m, double const sigma=1, int const moment=0) {
       real_t value = 0;
       //            / infty
-      // kern_{n} = |   exp(-x^2/sigma^2) x^n dx
+      // kern_{n} = |   exp(-x^2/sigma^2) x^n dx  only non-zero for even n
       //            /-infty
+      // contract the polynomial p[k] x^{k + moment} with kern_{k + moment}
       real_t kern = constants::sqrtpi * sigma; // init recursive computation
-      for(int d = 0; 2*d < m; ++d) {
-          value += p[2*d] * kern; // access only the even terms of p[]
+      for(int d = 0; m > 2*d - moment; ++d) {
+          int const ip = 2*d - moment;
+          if (ip >= 0) value += p[ip] * kern;
           kern *= (d + 0.5) * (sigma*sigma);
       } // d
       return value;
@@ -114,21 +117,20 @@ namespace sho_overlap {
 
   
   template<typename real_t>
-  void derive_Hermite_Gauss_polynomials(real_t dH[], real_t const H[], int const ncut,
+  void derive_Hermite_Gauss_polynomials(real_t dH[], real_t const H[], int const n,
                     double const siginv=1) {
       // the Gaussian envelope function exp(-.5*(x/sigma)^2) is implicit here
       // but needs to be considered when deriving:
       // 
       // d/dx ( p(x)*exp(-x^2/2) ) = (d/dx p(x) - x*p(x)/sigma^2) * exp(-.5*(x/sigma)^2)
     
-      // derive the polynomial first
-      dH[ncut - 1] = 0;
-      for(int d = 1; d < ncut; ++d) {
+      // derive the polynomial part first
+      for(int d = 1; d < n; ++d) {
           dH[d - 1] = d*H[d];
-      } // d
-      
-      // now add the terms coming from the inner derivative of exp(-.5*(x/sigma)^2)
-      for(int d = 0; d < ncut - 1; ++d) {
+      }   dH[n - 1] = 0;
+
+      // now add the terms from the inner derivative of exp(-.5*(x/sigma)^2)
+      for(int d = 0; d < n - 1; ++d) {
           dH[d + 1] -= H[d]*siginv*siginv; // times -(x/sigma^2)
       } // d
 
@@ -172,10 +174,20 @@ namespace sho_overlap {
   
   
   template<typename real_t>
+  real_t overlap_of_poly_times_Gauss_with_pure_powers(
+      real_t const p[], int const n0, double const s0, int const moment) {
+      assert( 0 <= moment );
+      auto const sigma = std::sqrt(2.)*s0; // the integrate function assumes exp(-x^2/sigma^2)
+      return integrate(p, n0, sigma, moment);
+  } // overlap_of_poly_times_Gauss_with_pure_powers
+  
+  
+  template<typename real_t>
   real_t overlap_of_two_Hermite_Gauss_functions(
       real_t const H0[], int const n0, double const s0,
       real_t const H1[], int const n1, double const s1, 
-      double const distance) {
+      double const distance,
+      int const moment=0) { // multiply a moment x^m to the polynomial before integration
       auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1);
       auto const sigma = 1/std::sqrt(.5*(k0 + k1));
 
@@ -187,54 +199,20 @@ namespace sho_overlap {
       auto const H1s = new real_t[n1]; // H1 shifted by sh1
       shift_polynomial_centers(H1s, H1, n1, sh1);
 
-      int const m = n0 + n1;
-      auto const h0xh1 = new real_t[m]; // product of H0s and H1s
-      multiply(h0xh1, m, H0s, n0, H1s, n1);
+      int const n = n0 + n1;
+      auto const h0xh1 = new real_t[n]; // product of H0s and H1s
+      multiply(h0xh1, n, H0s, n0, H1s, n1);
       delete[] H0s;
       delete[] H1s;
-      auto const result = integrate(h0xh1, m, sigma) * std::exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
+      auto const result = integrate(h0xh1, n, sigma, moment) * std::exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
       delete[] h0xh1;
       return result;
   } // overlap_of_two_Hermite_Gauss_functions
 
-  
-  template<typename real_t>
-  real_t overlap_of_three_Hermite_Gauss_functions(
-      // here, we assume that the third Hermite Gauss function is centered at the center of weight of 0 and 1
-      real_t const H0[], int const n0, double const s0,
-      real_t const H1[], int const n1, double const s1,
-      real_t const Hc[], int const nc, double const sc,
-      double const distance) { // distance between 0 and 1
-      auto const k0 = 1/(s0*s0), k1 = 1/(s1*s1), kc = 1/(sc*sc);
-      auto const sigma = 1/std::sqrt(.5*(k0 + k1 + kc));
-
-      auto const sh0 =  distance*k1/(k0 + k1);
-      auto const H0s = new real_t[n0]; // H0 shifted by sh0
-      shift_polynomial_centers(H0s, H0, n0, sh0);
-
-      auto const sh1 = -distance*k0/(k0 + k1);
-      auto const H1s = new real_t[n1]; // H1 shifted by sh1
-      shift_polynomial_centers(H1s, H1, n1, sh1);
-
-      int const m = n0 + n1;
-      auto const h0xh1 = new real_t[m]; // product of H0s and H1s
-      multiply(h0xh1, m, H0s, n0, H1s, n1);
-      delete[] H0s;
-      delete[] H1s;
-
-      int const n = m + nc;
-      auto const h0xh1xhc = new real_t[n]; // product of H0s * H1s * Hc
-      multiply(h0xh1xhc, n, h0xh1, m, Hc, nc);
-      delete[] h0xh1;
-      auto const result = integrate(h0xh1xhc, n, sigma) * std::exp(-0.5*k0*sh0*sh0 -0.5*k1*sh1*sh1);
-      delete[] h0xh1xhc;
-//    printf("# %s sh0=%g sh1=%g Bohr\n", __func__, sh0, sh1);
-      return result;
-  } // overlap_of_three_Hermite_Gauss_functions
-
   template<int ncut, typename real_t>
   status_t generate_density_tensor(real_t tensor[], int const echo=9, 
       float const sigma_over_sigmap_squared=2) {
+    status_t stat = 0;
     // this structure can be used to describe the density generation
     // for the density we assume that it is sufficient to
     // represent the density in a SHO basis 
@@ -246,20 +224,20 @@ namespace sho_overlap {
     double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
     double const alpha = 2*sigma_inv*sigma_inv + sigmapinv2; // == 4
     double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
-    double H[ncut*ncut], Hp[2*ncut*2*ncut];
-    prepare_centered_Hermite_polynomials(H, ncut, sigma_inv); // unit spread sigma=1, L2-normalized
-    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
+    view2D<double> H(ncut, ncut, 0.0), Hp(2*ncut, 2*ncut, 0.0);
+    prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
+    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
     for(int p = 0; p < 2*ncut - 1; ++p) {
         if (echo > 1) printf("\n# p = %d\n", p);
         for(int n = 0; n < ncut; ++n) {
-            double HHp[3*ncut];
-            multiply(HHp, 3*ncut, &H[ncut*n], ncut, &Hp[2*ncut*p], 2*ncut);
+            std::vector<double> HHp(3*ncut, 0.0);
+            stat += multiply(HHp.data(), 3*ncut, H[n], ncut, Hp[p], 2*ncut);
             for(int m = 0; m < ncut; ++m) {
                 real_t tensor_value = 0;
                 if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
-                    double HHpH[4*ncut];
-                    multiply(HHpH, 4*ncut, &H[ncut*m], ncut, HHp, 3*ncut);
-                    auto const P_pnm = integrate(HHpH, 4*ncut, sqrt_alpha_inv);
+                    std::vector<double> HHpH(4*ncut, 0.0);
+                    stat += multiply(HHpH.data(), 4*ncut, H[m], ncut, HHp.data(), 3*ncut);
+                    auto const P_pnm = integrate(HHpH.data(), 4*ncut, sqrt_alpha_inv);
 //                  if (echo > 1) printf(" %d%d%d %.9f\n", p,n,m, P_pnm); // show tensor values as list
                     if (echo > 1) printf(" %.9f", P_pnm); // show tensor values
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
@@ -271,13 +249,14 @@ namespace sho_overlap {
         } // n
         if (echo > 1) printf("\n");
     } // p
-    return 0;
+    return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // generate_density_tensor
 
 
   template<int ncut, typename real_t>
   status_t generate_density_or_potential_tensor(real_t tensor[], int const echo=9, 
       float const sigma_over_sigmap_squared=2) { // 2:typical for density tensor
+    status_t stat = 0;
     // this structure can be used to describe the density generation
     // for the density we assume that it is sufficient to
     // represent the density in a SHO basis 
@@ -288,19 +267,19 @@ namespace sho_overlap {
     double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
     double const alpha = 2*sigma_inv*sigma_inv + sigmapinv2; // == 4
     double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
-    double H[ncut*ncut], Hp[2*ncut*2*ncut];
-    prepare_centered_Hermite_polynomials(H, ncut, sigma_inv); // unit spread sigma=1, L2-normalized
-    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
+    view2D<double> H(ncut, ncut), Hp(2*ncut, 2*ncut);
+    prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
+    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
-            double HH[2*ncut];
-            multiply(HH, 2*ncut, &H[ncut*n], ncut, &H[ncut*m], ncut);
+            std::vector<double> HH(2*ncut, 0.0);
+            stat += multiply(HH.data(), 2*ncut, H[n], ncut, H[m], ncut);
             for(int p = 0; p < 2*ncut - 1; ++p) {
                 real_t tensor_value = 0;
                 if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
-                    double HHHp[4*ncut];
-                    multiply(HHHp, 4*ncut, HH, 2*ncut, &Hp[2*ncut*p], 2*ncut);
-                    auto const P_pnm = integrate(HHHp, 4*ncut, sqrt_alpha_inv);
+                    std::vector<double> HHHp(4*ncut, 0.0);
+                    stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
+                    auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
@@ -324,30 +303,31 @@ namespace sho_overlap {
            printf("\n");
         } // p
     } // echo
-    return 0; // success
+    return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // generate_density_or_potential_tensor
 
   template<int ncut, typename real_t>
   status_t generate_product_tensor_plain(real_t tensor[], double const sigma=2, // 2:typical for density tensor
                      double const sigma0=1, double const sigma1=1) {
+    status_t stat = 0;
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
     double const sigmapinv = 1./sigma;
     double const alpha = pow2(sigma0inv) + pow2(sigma1inv) + pow2(sigmapinv);
     double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
-    double H0[ncut*ncut], H1[ncut*ncut], Hp[2*ncut*2*ncut];
-    prepare_centered_Hermite_polynomials(H0, ncut, sigma0inv); // L2-normalized
-    prepare_centered_Hermite_polynomials(H1, ncut, sigma1inv); // L2-normalized
-    prepare_centered_Hermite_polynomials(Hp, 2*ncut, sigmapinv); // L2-normalized
+    view2D<double> Hp(2*ncut, 2*ncut), H0(ncut, ncut), H1(ncut, ncut);
+    prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
+    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
             double HH[2*ncut];
-            multiply(HH, 2*ncut, &H0[ncut*n], ncut, &H1[ncut*m], ncut);
+            stat += multiply(HH, 2*ncut, H0[n], ncut, H1[m], ncut);
             for(int p = 0; p < 2*ncut - 1; ++p) {
                 real_t tensor_value = 0;
                 if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
                     double HHHp[4*ncut];
-                    multiply(HHHp, 4*ncut, HH, 2*ncut, &Hp[2*ncut*p], 2*ncut);
+                    stat += multiply(HHHp, 4*ncut, HH, 2*ncut, Hp[p], 2*ncut);
                     auto const P_pnm = integrate(HHHp, 4*ncut, sqrt_alpha_inv);
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
@@ -356,7 +336,7 @@ namespace sho_overlap {
             } // p
         } // m
     } // n
-    return 0; // success
+    return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // generate_product_tensor_plain
 
   
@@ -365,6 +345,7 @@ namespace sho_overlap {
                      double const sigma, // =2:typical for density tensor
                      double const sigma0, // =1 
                      double const sigma1) {// =1
+    status_t stat = 0;
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
     double const sigmapinv = 1./sigma;
@@ -379,12 +360,12 @@ namespace sho_overlap {
     for(int n = 0; n < ncut; ++n) {
         for(int m = 0; m < ncut; ++m) {
             std::vector<double> HH(2*ncut);
-            multiply(HH.data(), 2*ncut, H0[n], ncut, H1[m], ncut);
+            stat += multiply(HH.data(), 2*ncut, H0[n], ncut, H1[m], ncut);
             for(int p = 0; p < 2*ncut - 1; ++p) {
                 real_t tensor_value = 0;
                 if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
                     std::vector<double> HHHp(4*ncut);
-                    multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
+                    stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
                     auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
@@ -393,37 +374,35 @@ namespace sho_overlap {
             } // p
         } // m
     } // n
-    return 0; // success
+    return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // generate_product_tensor
 
-  
   template<typename real_t>
-  status_t generate_potential_tensor(real_t tensor[], // tensor layout [n0+n1-1][n0][n1]
-        double const distance, int const n0, int const n1, 
-        double const sigma0, double const sigma1, double const sigmac) {
-    view2D<double> H0(n0, n0);
-    view2D<double> H1(n1, n1);
-    prepare_centered_Hermite_polynomials(H0.data(), n0, 1./sigma0); // L2-normalized
-    prepare_centered_Hermite_polynomials(H1.data(), n1, 1./sigma1); // L2-normalized
-    int const nc = n0 + n1 - 1;
-    view2D<double> Hc(nc, nc);
-    prepare_centered_Hermite_polynomials(Hc.data(), nc, 1./sigmac); // L2-normalized
-    for(int k = 0; k < nc; ++k) {
-        for(int i = 0; i < n0; ++i) {
-            for(int j = 0; j < n1; ++j) {
-                tensor[(k*n1 + i)*n0 + j] = overlap_of_three_Hermite_Gauss_functions(
-                                      H0[j], n0, sigma0,
-                                      H1[i], n1, sigma1,
-                                      Hc[k], nc, sigmac,
-                                      distance);
-            } // j
-        } // i
-    } // k
+  status_t moment_tensor(real_t tensor[], // tensor layout [maxmoment + 1][n1][n0]
+                     double const distance,
+                     int const n0, int const n1, 
+                     double const sigma0,   // =1
+                     double const sigma1,   // =1
+                     int const maxmoment) { // default=0 (overlap matrix)
+    double const sigma0inv = 1./sigma0;
+    double const sigma1inv = 1./sigma1;
+    view2D<double> H0(n0, n0); // polynomial coefficients
+    view2D<double> H1(n1, n1); // polynomial coefficients
+    double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
+    prepare_centered_Hermite_polynomials(H0.data(), n0, sigma0inv, normalize);
+    prepare_centered_Hermite_polynomials(H1.data(), n1, sigma1inv, normalize);
+    for(int moment = 0; moment <= maxmoment; ++moment) {
+        for(int n = 0; n < n1; ++n) {
+            for(int m = 0; m < n0; ++m) {
+                tensor[(moment*n1 + n)*n0 + m] = 
+                    overlap_of_two_Hermite_Gauss_functions(
+                        H0[m], n0, sigma0,
+                        H1[n], n1, sigma1, distance, moment);
+            } // m
+        } // n
+    } // moment
     return 0; // success
-  } // generate_potential_tensor
-
-
-  
+  } // moment_tensor
   
   template<typename real_t>
   status_t generate_overlap_matrix(real_t matrix[], // matrix layout [][n0]
@@ -431,23 +410,9 @@ namespace sho_overlap {
                      int const n0, int const n1, 
                      double const sigma0,   // =1
                      double const sigma1) { // =1
-    double const sigma0inv = 1./sigma0;
-    double const sigma1inv = 1./sigma1;
-    view2D<double> H0(n0, n0);
-    view2D<double> H1(n1, n1);
-    double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
-    prepare_centered_Hermite_polynomials(H0.data(), n0, sigma0inv, normalize);
-    prepare_centered_Hermite_polynomials(H1.data(), n1, sigma1inv, normalize);
-    for(int n = 0; n < n1; ++n) {
-        for(int m = 0; m < n0; ++m) {
-            matrix[n*n0 + m] = overlap_of_two_Hermite_Gauss_functions(
-                                  H0[m], n0, sigma0,
-                                  H1[n], n1, sigma1, distance);
-        } // m
-    } // n
-    return 0; // success
-  } // generate_overlap_matrix
-  
+    return moment_tensor(matrix, distance, n0, n1, sigma0, sigma1, 0);
+  } // generate_overlap_matrix ToDo: can be written as moment_tensor(..., 0);
+
   template // explicit template instantiation
   status_t generate_overlap_matrix(double matrix[], double const distance, int const n0, int const n1,
                                    double const sigma0, double const sigma1);
@@ -457,8 +422,8 @@ namespace sho_overlap {
                                    double const sigma0, double const sigma1);
 
   template // explicit template instantiation
-  status_t generate_potential_tensor(double tensor[], double const distance, int const n0, int const n1, 
-                                     double const sigma0, double const sigma1, double const sigmac);
+  status_t moment_tensor(double tensor[], double const distance, int const n0, int const n1,
+                         double const sigma0, double const sigma1, int const maxmoment);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -487,17 +452,17 @@ namespace sho_overlap {
     // see if the first ncut Hermite polynomials are orthogonal and normalized
     int constexpr ncut = 8;
     double const sigma = 1.4567; // any positive real number
-    double H[ncut*ncut];
-    prepare_centered_Hermite_polynomials(H, ncut, 1./sigma);
-    double hh[2*ncut];
+    view2D<double> H(ncut, ncut, 0.0);
+    prepare_centered_Hermite_polynomials(H.data(), ncut, 1./sigma);
+    std::vector<double> hh(2*ncut, 0.0);
     int ndev = 0; double mdev = 0;
     for(int n = 0; n < ncut; ++n) {
-        if (echo > 3) plot_poly(&H[ncut*n], 1+n, "H");
+        if (echo > 3) plot_poly(H[n], 1+n, "H");
         if (echo > 1) printf("# %s   %d   ortho", __func__, n);
         for(int m = 0; m < ncut; ++m) {
-            multiply(hh, 2*ncut, &H[ncut*n], 1+n, &H[ncut*m], 1+m);
-            if (echo > 3) plot_poly(hh, 2*n - 1, "H^2");
-            double const norm = integrate(hh, 2*ncut, sigma);
+            multiply(hh.data(), 2*ncut, H[n], 1+n, H[m], 1+m);
+            if (echo > 3) plot_poly(hh.data(), 2*n - 1, "H^2");
+            double const norm = integrate(hh.data(), 2*ncut, sigma);
             mdev = std::max(mdev, fabs(norm - (m == n)));
             if (echo > 5) printf("%9.1e", norm - (m == n));
             ndev += (fabs(norm - (m == n)) > 1e-10); 
@@ -511,22 +476,19 @@ namespace sho_overlap {
   status_t test_Hermite_Gauss_overlap(int const echo=1, int const numerical=999) {
     // show the overlap of the lowest 1D Hermite-Gauss functions as a function of distance
     int constexpr ncut = 4;
-//     double const sigma0 = 1.4567, sigma1 = sigma0 + .876; // any two positive real numbers
-//     double const sigma0 = 1.01, sigma1 = 0.99; // any two positive real numbers
     double const sigma0 = 1.3, sigma1 = 0.75; // any two positive real numbers
 //     double const sigma0 = 1, sigma1 = sigma0; // both spreads are the same
 
-    double H0[ncut*ncut], H1[ncut*ncut];
+    view2D<double> H0(ncut, ncut, 0.0), H1(ncut, ncut, 0.0);
 
-    prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
-    prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
+    prepare_centered_Hermite_polynomials(H0.data(), ncut, 1/sigma0);
+    prepare_centered_Hermite_polynomials(H1.data(), ncut, 1/sigma1);
     for(auto dist = 0.0; dist < 11; dist += .1) {
         if (echo > 1) printf("# %s  distance=%.3f    ", __func__, dist);
         for(int n = 0; n < ncut; ++n) {
             for(int m = 0; m < ncut; ++m) {
-                double const ovl = overlap_of_two_Hermite_Gauss_functions(
-                                          &H0[ncut*n], 1+n, sigma0,
-                                          &H1[ncut*m], 1+m, sigma1, dist);
+                double const ovl = overlap_of_two_Hermite_Gauss_functions(H0[n], 1+n, sigma0,
+                                                                          H1[m], 1+m, sigma1, dist);
                 if (echo > 1) printf(" %.6f", ovl);
                 if (numerical > 0) {
                     double const dx = 7.0/numerical;
@@ -534,8 +496,8 @@ namespace sho_overlap {
                     for(int ix = -numerical; ix <= numerical + dist/dx; ++ix) {
                         double const x0 = ix*dx - 0; // position at zero 
                         double const x1 = ix*dx - dist; // position at (plus) dist
-                        ovl_numerical += eval_poly(&H0[ncut*n], 1+n, x0) * std::exp(-0.5*pow2(x0/sigma0))
-                                       * eval_poly(&H1[ncut*m], 1+m, x1) * std::exp(-0.5*pow2(x1/sigma1));
+                        ovl_numerical += eval_poly(H0[n], 1+n, x0) * std::exp(-0.5*pow2(x0/sigma0))
+                                       * eval_poly(H1[m], 1+m, x1) * std::exp(-0.5*pow2(x1/sigma1));
                     } //
                     if (echo > 1) printf(" %.6f", ovl_numerical*dx);
                 } // numerical
@@ -553,29 +515,31 @@ namespace sho_overlap {
     // --> we should use the first derivative applied to left and right for the kinetic energy
     int constexpr ncut = 6;
     int constexpr mcut = ncut - 2;
-    double const sigma0 = 1, sigma1 = sigma0 + 1e-8; // fails for different sigmas
-    double H0[ncut*ncut], H1[ncut*ncut];
-    prepare_centered_Hermite_polynomials(H0, ncut, 1/sigma0);
-    prepare_centered_Hermite_polynomials(H1, ncut, 1/sigma1);
+//     double const sigma0 = 1, sigma1 = sigma0; // same sigma
+    double const sigma0 = 0.9, sigma1 = 1.11; // seems ok for different sigmas
+    view2D<double> H0(ncut, ncut, 0.0), H1(ncut, ncut, 0.0);
+    prepare_centered_Hermite_polynomials(H0.data(), ncut, 1/sigma0);
+    prepare_centered_Hermite_polynomials(H1.data(), ncut, 1/sigma1);
 
-    double dH0[ncut*mcut], dH1[ncut*mcut], d2H0[ncut*mcut], d2H1[ncut*mcut];
+    view2D<double> dH0(ncut, ncut, 0.0), dH1(ncut, ncut, 0.0), d2H0(ncut, ncut, 0.0), d2H1(ncut, ncut, 0.0);
     for(int n = 0; n < mcut; ++n) {
         // first derivatives
-        derive_Hermite_Gauss_polynomials(&dH0[ncut*n], &H0[ncut*n], ncut, 1/sigma0);
-        derive_Hermite_Gauss_polynomials(&dH1[ncut*n], &H1[ncut*n], ncut, 1/sigma1);
+        derive_Hermite_Gauss_polynomials(dH0[n], H0[n], ncut, 1/sigma0);
+        derive_Hermite_Gauss_polynomials(dH1[n], H1[n], ncut, 1/sigma1);
         // second derivatives
-        derive_Hermite_Gauss_polynomials(&d2H0[ncut*n], &dH0[ncut*n], ncut, 1/sigma0);
-        derive_Hermite_Gauss_polynomials(&d2H1[ncut*n], &dH1[ncut*n], ncut, 1/sigma1);
+        derive_Hermite_Gauss_polynomials(d2H0[n], dH0[n], ncut, 1/sigma0);
+        derive_Hermite_Gauss_polynomials(d2H1[n], dH1[n], ncut, 1/sigma1);
     } // n
     double maxdev1 = 0, maxdev2 = 0, maxdev3 = 0;
+    if (echo > 4) printf("# %s  distance overlaps\n", __func__);
     for(auto dist = 0.0; dist < 11; dist += .01) {
-        if (echo > 4) printf("# %s  distance=%.3f    ", __func__, dist);
+        if (echo > 4) printf("%.3f", dist);
         for(int n = 0; n < mcut; ++n) {
             for(int m = 0; m < mcut; ++m) {
-                auto const d2d0 = overlap_of_two_Hermite_Gauss_functions(&d2H0[ncut*n], ncut, sigma0, &H1[ncut*m], ncut, sigma1, dist);
-                auto const d0d2 = overlap_of_two_Hermite_Gauss_functions(&H0[ncut*n], ncut, sigma0, &d2H1[ncut*m], ncut, sigma1, dist);
-                auto const d1d1 = overlap_of_two_Hermite_Gauss_functions(&dH0[ncut*n], ncut, sigma0, &dH1[ncut*m], ncut, sigma1, dist);
-//                 auto const ovl  = overlap_of_two_Hermite_Gauss_functions(&H0[ncut*n], ncut, sigma0, &H1[ncut*m], ncut, sigma1, dist);
+                auto const d2d0 = overlap_of_two_Hermite_Gauss_functions(d2H0[n], ncut, sigma0, H1[m], ncut, sigma1, dist);
+                auto const d0d2 = overlap_of_two_Hermite_Gauss_functions(H0[n], ncut, sigma0, d2H1[m], ncut, sigma1, dist);
+                auto const d1d1 = overlap_of_two_Hermite_Gauss_functions(dH0[n], ncut, sigma0, dH1[m], ncut, sigma1, dist);
+//                 auto const ovl  = overlap_of_two_Hermite_Gauss_functions(H0[n], ncut, sigma0, H1[m], ncut, sigma1, dist);
 //                 if (echo > 1) printf(" %.9f", ovl); // show overlap
 //              if (echo > 1) printf("  %.9f %.9f %.9f", d2d0, d0d2, -d1d1); // show 3 values
 //              if (echo > 1) printf("  %.1e %.1e %.1e", d2d0 + d1d1, d0d2 + d1d1, d2d0 - d0d2); // show deviations
@@ -596,15 +560,16 @@ namespace sho_overlap {
 
   status_t test_density_or_potential_tensor(int const echo=2) {
       int constexpr ncut = 8, n = (2*ncut - 1)*ncut*ncut;
-      double t[n], tp[n], tt[n], df_max = 0;
+      std::vector<double> t(n), tp(n), tt(n);
+      double df_max = 0;
       float ssp2_min = 1.f, ssp2_max = 3.f, ssp2_inc = 1.01f;
       for(float ssp2 = ssp2_min; ssp2 < ssp2_max; ssp2 *= ssp2_inc) {
-          generate_density_tensor<ncut>(t, 0, ssp2); // reference implementation
-//           generate_product_tensor_plain<ncut>(tt, 1./std::sqrt(ssp2)); // old implementation
-          generate_product_tensor(tt, ncut, 1./std::sqrt(ssp2)); // new implementation
-          auto const ts = tt;
-          generate_density_or_potential_tensor<ncut>(tp, 0, ssp2);
-//           auto const ts = tp;
+          generate_density_tensor<ncut>(t.data(), 0, ssp2); // reference implementation
+//           generate_product_tensor_plain<ncut>(tt.data(), 1./std::sqrt(ssp2)); // old implementation
+          generate_product_tensor(tt.data(), ncut, 1./std::sqrt(ssp2)); // new implementation
+          auto const & ts = tt;
+          generate_density_or_potential_tensor<ncut>(tp.data(), 0, ssp2);
+//           auto const & ts = tp;
           double df = 0;
           for(int i = 0; i < n; ++i) {
               auto const ab = std::abs(t[i] - ts[i]);
@@ -616,7 +581,7 @@ namespace sho_overlap {
       } // ssp2
       if (echo > 0) printf("\n# %s (%.2f ... %.1f %% ... %.2f) largest deviation %g\n", 
                     __func__, ssp2_min, (ssp2_inc - 1)*100, ssp2_max, df_max);
-      if (echo > 2) generate_density_or_potential_tensor<ncut>(tp, echo); // default ssp2=2
+      if (echo > 2) generate_density_or_potential_tensor<ncut>(tp.data(), echo); // default ssp2=2
       return (df_max > 8e-9); // return error of the deviations are too strong
   } // test
 
@@ -636,11 +601,11 @@ namespace sho_overlap {
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int constexpr nmax = 4; // ToDo: int const nmax = control::get("overlap.numax", 4);
-    int const ncut = nmax + 2;
+    int const numax = control::get("overlap.numax", 4);
+    int const ncut = numax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
-    {
+    { // scope: lattice structure
         int const structure = control::get("overlap.crystal.structure", 4); // 1:sc, 2:bcc, default:fcc 
         double const recip = (2*constants::pi)/a0;
         for(int dir = 0; dir < 3; ++dir) {
@@ -661,7 +626,7 @@ namespace sho_overlap {
                 bv[dir] *= (recip);
             }
         } // dir
-    }
+    } // scope
 
     double shortest_bond2 = 9e99;
     for(int i3 = -1; i3 <= 1; ++i3) {
@@ -679,42 +644,43 @@ namespace sho_overlap {
 
     bool const overlap_eigvals = false;
     // choose the return radius as a fraction of shortest_bond length
-    double const sigma = .75*shortest_bond/std::sqrt(2.*nmax + 3.), 
+    double const sigma = .75*shortest_bond/std::sqrt(2.*numax + 3.), 
                  sigma0 = sigma, sigma1 = sigma;
-    if (echo > 0) printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", nmax, sigma);
+    if (echo > 0) printf("# SHO up to numax=%d, spread sigma = %.9f Bohr\n", numax, sigma);
 
     // return radius of the classical harmonic oscillator
-    double const return_radius = sigma*std::sqrt(2.*nmax + 3.);
+    double const return_radius = sigma*std::sqrt(2.*numax + 3.);
     if (echo > 0) printf("# classical return radius at %g Bohr\n", return_radius);
     
     double const dmax = 12*sigma; // 12 sigma is converged for fcc
 
-    double H0[ncut*ncut], H1[ncut*ncut], normalize = 0; // do not normalize
-    prepare_centered_Hermite_polynomials(H0, ncut, 1./sigma0, normalize);
-    prepare_centered_Hermite_polynomials(H1, ncut, 1./sigma1, normalize);
+    double const normalize = 0; // 0:do not normalize, we have to deal with an overlap matrix anyway
+    view2D<double> H0(ncut, ncut, 0.0), H1(ncut, ncut, 0.0);
+    prepare_centered_Hermite_polynomials(H0.data(), ncut, 1./sigma0, normalize);
+    prepare_centered_Hermite_polynomials(H1.data(), ncut, 1./sigma1, normalize);
 
-    double dH0[ncut*ncut], dH1[ncut*ncut];
+    view2D<double> dH0(ncut, ncut, 0.0), dH1(ncut, ncut, 0.0);
     for(int n = 0; n < ncut; ++n) {
         // show the Hermite polynomial coefficients for H0
         if (echo > 3) {
             printf("# H[%x]: ", n);
             for(int m = 0; m <= n; ++m) {
-                printf("%8.4f", H0[n*ncut + m]);
+                printf("%8.4f", H0[n][m]);
             }   printf("\n");
         } // echo
         
         // construct first derivatives
-        derive_Hermite_Gauss_polynomials(&dH0[n*ncut], &H0[n*ncut], ncut, 1./sigma0);
-        derive_Hermite_Gauss_polynomials(&dH1[n*ncut], &H1[n*ncut], ncut, 1./sigma1);
+        derive_Hermite_Gauss_polynomials(dH0[n], H0[n], ncut, 1./sigma0);
+        derive_Hermite_Gauss_polynomials(dH1[n], H1[n], ncut, 1./sigma1);
     } // n
 
-    int const n3D = ((nmax + 1)*(nmax + 2)*(nmax + 3))/6;
+    int const n3D = sho_tools::nSHO(numax);
     if (echo > 5) {
-        printf("# %d SHO functions up to numax=%d\n", n3D, nmax);
+        printf("# %d SHO functions up to numax=%d\n", n3D, numax);
         {   printf("# list %d SHO functions: ", n3D);
-            for(int n0 = 0; n0 <= nmax; ++n0) {
-                for(int n1 = 0; n1 <= nmax - n0; ++n1) {
-                    for(int n2 = 0; n2 <= nmax - n0 - n1; ++n2) {
+            for(int n0 = 0; n0 <= numax; ++n0) {
+                for(int n1 = 0; n1 <= numax - n0; ++n1) {
+                    for(int n2 = 0; n2 <= numax - n0 - n1; ++n2) {
                         printf("%x%x%x ", n0,n1,n2);
                     } // 2n2
                 } // n1
@@ -723,66 +689,62 @@ namespace sho_overlap {
         } // scope
     } // echo
     
-    
     bool const DoS = control::get("overlap.test.DoS", 0.); // 1: density of states, 0: bandstructure
     bool const Ref = control::get("overlap.test.Ref", 0.); // 1: compute the analytically known spectrum 
                                                            //      of the free electron gas as reference
-
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
     if (echo > 2) printf("# assume at most %d periodic images up to %.3f Bohr\n", max_npi, dmax);
-    auto mat = new double[max_npi][2][n3D*n3D];
-    auto vpi = new    int[max_npi][3]; // periodic image shift vectors
+    view4D<double> mat(max_npi, 2, n3D, n3D);
+    view2D<int> vpi(max_npi, 4); // periodic image shift vectors
     int npi = 0;
     for(int i3 = -imax[2]; i3 <= imax[2]; ++i3) {
-        for(int i2 = -imax[1]; i2 <= imax[1]; ++i2) {
-            for(int i1 = -imax[0]; i1 <= imax[0]; ++i1) {
-                vec3 const pos = cv[0]*i1 + cv[1]*i2 + cv[2]*i3;
+    for(int i2 = -imax[1]; i2 <= imax[1]; ++i2) {
+    for(int i1 = -imax[0]; i1 <= imax[0]; ++i1) {
+        vec3 const pos = cv[0]*i1 + cv[1]*i2 + cv[2]*i3;
 
-                if (!Ref && norm(pos) < dmax*dmax) {
-                    if (echo > 9) printf("%f %f %f\n", pos[0],pos[1],pos[2]);
-                    int in = 0;
-                    for(int n2 = 0; n2 <= nmax; ++n2) {
-                    for(int n1 = 0; n1 <= nmax - n2; ++n1) {
-                    for(int n0 = 0; n0 <= nmax - n2 - n1; ++n0) {
-                        int const nv[] = {n0, n1, n2};
-                        int im = 0;
-                        for(int m2 = 0; m2 <= nmax; ++m2) {
-                        for(int m1 = 0; m1 <= nmax - m2; ++m1) {
-                        for(int m0 = 0; m0 <= nmax - m2 - m1; ++m0) {
-                            int const mv[] = {m0, m1, m2};
-                            double ovl[3], lap[3];
-                            // ToDo: overlap_of_two_Hermite_Gauss_functions 
-                            //       is called many more times than necessary
-                            //       and the max. length of non-zero polynomial coefficients 
-                            //       can be shorter than ncut in many cases
-                            for(int dir = 0; dir < 3; ++dir) {
-                                ovl[dir] = overlap_of_two_Hermite_Gauss_functions(
-                                               &H0[nv[dir]*ncut], ncut, sigma0,
-                                               &H1[mv[dir]*ncut], ncut, sigma1, pos[dir]);
-                                lap[dir] = overlap_of_two_Hermite_Gauss_functions(
-                                              &dH0[nv[dir]*ncut], ncut, sigma0,
-                                              &dH1[mv[dir]*ncut], ncut, sigma1, pos[dir]);
-                            } // dir
-                            double const o3D = ovl[0]*ovl[1]*ovl[2];
-                            double const l3D = lap[0]*ovl[1]*ovl[2]
-                                             + ovl[0]*lap[1]*ovl[2]
-                                             + ovl[0]*ovl[1]*lap[2];
-                            assert(n3D >= in);
-                            assert(n3D >= im);
-                            mat[npi][0][in*n3D + im] = o3D;
-                            mat[npi][1][in*n3D + im] = l3D;
-                            ++im;
-                        }}} // m
-                        ++in;
-                    }}} // n
-                    vpi[npi][0] = i1; vpi[npi][1] = i2; vpi[npi][2] = i3;
-                    ++npi; // count periodic images
-                    assert(max_npi >= npi);
-                } // pos inside sphere
-            } // i1
-        } // i2
-    } // i3
+        if (!Ref && norm(pos) < dmax*dmax) {
+            if (echo > 9) printf("%f %f %f\n", pos[0],pos[1],pos[2]);
+            int in = 0;
+            for(int n2 = 0; n2 <= numax; ++n2) {
+            for(int n1 = 0; n1 <= numax - n2; ++n1) {
+            for(int n0 = 0; n0 <= numax - n2 - n1; ++n0) {
+                int const nv[] = {n0, n1, n2};
+                int im = 0;
+                for(int m2 = 0; m2 <= numax; ++m2) {
+                for(int m1 = 0; m1 <= numax - m2; ++m1) {
+                for(int m0 = 0; m0 <= numax - m2 - m1; ++m0) {
+                    int const mv[] = {m0, m1, m2};
+                    double ovl[3], lap[3];
+                    // ToDo: overlap_of_two_Hermite_Gauss_functions 
+                    //       is called many more times than necessary
+                    //       and the max. length of non-zero polynomial coefficients 
+                    //       can be shorter than ncut in many cases
+                    for(int dir = 0; dir < 3; ++dir) {
+                        ovl[dir] = overlap_of_two_Hermite_Gauss_functions(
+                                        H0[nv[dir]], ncut, sigma0,
+                                        H1[mv[dir]], ncut, sigma1, pos[dir]);
+                        lap[dir] = overlap_of_two_Hermite_Gauss_functions(
+                                      dH0[nv[dir]], ncut, sigma0,
+                                      dH1[mv[dir]], ncut, sigma1, pos[dir]);
+                    } // dir
+                    double const o3D = ovl[0]*ovl[1]*ovl[2];
+                    double const l3D = lap[0]*ovl[1]*ovl[2]
+                                     + ovl[0]*lap[1]*ovl[2]
+                                     + ovl[0]*ovl[1]*lap[2];
+                    assert(n3D >= in);
+                    assert(n3D >= im);
+                    mat(npi,0,in,im) = o3D;
+                    mat(npi,1,in,im) = l3D;
+                    ++im;
+                }}} // m
+                ++in;
+            }}} // n
+            vpi(npi,0) = i1; vpi(npi,1) = i2; vpi(npi,2) = i3;
+            ++npi; // count periodic images
+            assert(max_npi >= npi);
+        } // pos inside sphere
+    }}} // i1 i2 i3
     int const num_periodic_images = npi;
     if (echo > 2) printf("# account for %d periodic images up to %.3f Bohr\n", npi, dmax);
 
@@ -791,10 +753,11 @@ namespace sho_overlap {
     vec3 kv_smallest = -9;
 
     int const lwork = n3D*n3D;
-    complex_t ovl_mat[n3D*n3D], lap_mat[n3D*n3D], work[lwork];
-    double rwork[lwork], eigvals[n3D];
+    view2D<complex_t> ovl_mat(n3D, n3D), lap_mat(n3D, n3D);
+    std::vector<complex_t> work(lwork);
+    std::vector<double> rwork(lwork), eigvals(n3D);
     auto const jobz = 'n', uplo = 'u', jobv = 'v';
-    
+
     std::vector<std::array<double,4>> kps;
     int diagonalization_failed = 0;
 
@@ -834,7 +797,9 @@ namespace sho_overlap {
         for(int edge = 0; edge < nedges; ++edge) {
             int const e0 = edge % nedges, e1 = (edge + 1) % nedges;
             vec3 const v0 = kpath[e0], v1 = kpath[e1];
-            vec3 const true_kdiff = bv[0]*(v1[0] - v0[0]) + bv[1]*(v1[1] - v0[1]) + bv[2]*(v1[2] - v0[2]);
+            vec3 const true_kdiff = bv[0]*(v1[0] - v0[0]) 
+                                  + bv[1]*(v1[1] - v0[1]) 
+                                  + bv[2]*(v1[2] - v0[2]);
             double const edge_length = std::sqrt(norm(true_kdiff));
 
             int const sampling = std::ceil(edge_length/sampling_density);
@@ -862,7 +827,9 @@ namespace sho_overlap {
             for(int iz = -imx; iz <= imx; ++iz) {
                 for(int iy = -imx; iy <= imx; ++iy) {
                     for(int ix = -imx; ix <= imx; ++ix) {
-                        auto const true_kv = bv[0]*(kvec[0] + ix) + bv[1]*(kvec[1] + iy) + bv[2]*(kvec[2] + iz);
+                        auto const true_kv = bv[0]*(kvec[0] + ix) 
+                                           + bv[1]*(kvec[1] + iy) 
+                                           + bv[2]*(kvec[2] + iz);
                         free_E.push_back(norm(true_kv)); // energy parabolas in Rydberg atomic units
                     } // ix
                 } // iy
@@ -877,8 +844,8 @@ namespace sho_overlap {
             // clear matrixes
             for(int in = 0; in < n3D; ++in) {
                 for(int im = 0; im < n3D; ++im) {
-                    ovl_mat[in*n3D + im] = 0;
-                    lap_mat[in*n3D + im] = 0;
+                    ovl_mat(in,im) = 0;
+                    lap_mat(in,im) = 0;
                 } // im
             } // in
             
@@ -886,12 +853,12 @@ namespace sho_overlap {
                 vec3 ipos = vpi[ipi];
                 complex_t const bloch_factor = std::polar(1.0, 2*constants::pi * dot(kvec, ipos));
                 if (echo > 9) printf("# periodic image%4d%4d%4d  Bloch-phase = %f + i %f\n", 
-                    vpi[ipi][0], vpi[ipi][1], vpi[ipi][2], bloch_factor.real(), bloch_factor.imag());
+                    vpi(ipi,0), vpi(ipi,1), vpi(ipi,2), bloch_factor.real(), bloch_factor.imag());
                 // add to matrixes
                 for(int in = 0; in < n3D; ++in) {
                     for(int im = 0; im < n3D; ++im) {
-                        ovl_mat[in*n3D + im] += bloch_factor*mat[ipi][0][in*n3D + im];
-                        lap_mat[in*n3D + im] += bloch_factor*mat[ipi][1][in*n3D + im];
+                        ovl_mat(in,im) += bloch_factor*mat(ipi,0,in,im);
+                        lap_mat(in,im) += bloch_factor*mat(ipi,1,in,im);
                     } // im
                 } // in
             } // ipi
@@ -902,10 +869,10 @@ namespace sho_overlap {
             for(auto m = ovl_mat; m == ovl_mat || m == lap_mat; m += (lap_mat - ovl_mat)) {
                 for(int in = 0; in < n3D; ++in) {
                     for(int im = 0; im < in; ++im) {
-                        assert(std::abs(m[in*n3D + im].real() - m[im*n3D + in].real()) < threshold);
-                        assert(std::abs(m[in*n3D + im].imag() + m[im*n3D + in].imag()) < threshold);
+                        assert(std::abs(m(in,im).real() - m(im,in).real()) < threshold);
+                        assert(std::abs(m(in,im).imag() + m(im,in).imag()) < threshold);
                     } // im
-                    assert(std::abs(m[in*n3D + in].imag()) < threshold);
+                    assert(std::abs(m(in,in).imag()) < threshold);
                 } // in
             } // m
 #endif
@@ -913,14 +880,14 @@ namespace sho_overlap {
             if (overlap_eigvals) {
               
                 // get the eigenvalues of the overlap operator only
-                zheev_(&jobv, &uplo, &n3D, ovl_mat, &n3D, 
-                       eigvals, work, &lwork, rwork, &info);
+                zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D, 
+                       eigvals.data(), work.data(), &lwork, rwork.data(), &info);
 #if 0
                 // DEBUG
                 if (0 == info && eigvals[0] < .00315) {
                    printf("# lowest eigenvector "); 
                    for(int i3D = 0; i3D < n3D; ++i3D) {
-                      auto const c = ovl_mat[0*n3D + i3D];
+                      auto const c = ovl_mat(0,i3D);
                       printf("(%.9f,%.9f) ", c.real(), c.imag());
                    }  printf("\n");
                 } // DEBUG
@@ -929,8 +896,8 @@ namespace sho_overlap {
               
                 // solve generalized eigenvalue problem lap_mat*X == diag*ovl_mat*X
                 int const itype = 1;
-                zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat, &n3D, ovl_mat, &n3D, 
-                       eigvals, work, &lwork, rwork, &info);
+                zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat.data(), &n3D, ovl_mat.data(), &n3D, 
+                       eigvals.data(), work.data(), &lwork, rwork.data(), &info);
 
             } // overlap_eigvals
         } // Ref
@@ -1038,9 +1005,57 @@ namespace sho_overlap {
       return stat;
   } // test_shifted_polynomial
   
+  status_t test_pure_power_overlap(int const echo=1, int const numerical=999) {
+    // show the overlap of the lowest 1D Hermite-Gauss functions with pure powers x^n
+    status_t stat = 0;
+    int constexpr ncut = 8;
+    view2D<double> H0(ncut, ncut);
+
+    double maxreldevall{0};
+    for(int isigma = -3; isigma <= 3; ++isigma) {
+        double maxreldev{0};
+        double const sigma = std::pow(1.1, isigma);
+        if (echo > 3) printf("# %s sigma = %g\n", __func__, sigma);
+        prepare_centered_Hermite_polynomials(H0.data(), ncut, 1/sigma);
+        for(int n = 0; n < ncut; ++n) {
+            for(int moment = 0; moment < ncut; ++moment) { // pure powers x^m
+                double const ovl = overlap_of_poly_times_Gauss_with_pure_powers(H0[n], 1+n, sigma, moment);
+                if ((n & 1) ^ (moment & 1)) {
+                    assert( 0 == ovl ); // results must be zero if n and moment have different parity!
+                } else {
+                    if (echo > 4) printf(" %.6f", ovl);
+                    if (numerical > 0) {
+                        double const dx = 9.0*sigma/numerical;
+                        double ovl_numerical = 0;
+                        for(int ix = -numerical; ix <= numerical; ++ix) {
+                            double const x = ix*dx; // centered at zero
+                            ovl_numerical += eval_poly(H0[n], 1+n, x) * std::exp(-0.5*pow2(x/sigma)) * std::pow(x, moment);
+                        } //
+                        ovl_numerical *= dx;
+                        if (echo > 5) printf(" %.6f", ovl_numerical);
+                        auto const dev = ovl - ovl_numerical;
+                        auto const absdev = std::abs(dev);
+                        auto const ref = std::max(std::abs(ovl), std::abs(ovl_numerical));
+                        maxreldev = std::max(maxreldev, absdev/ref);
+                    } // numerical
+                } // even odd
+            } // moment
+            if (echo > 1) printf("\n");
+        } // n
+        maxreldevall = std::max(maxreldevall, maxreldev);
+        if (numerical > 0 && echo > 2) printf("# %s max relative deviation for sigma = %g is %.1e\n", __func__, sigma, maxreldev);
+        if (echo > 5) printf("\n");
+        stat += (maxreldev > 2e-10);
+    } // isigma
+    if (numerical > 0 && echo > 1) printf("# %s max relative deviation between analytical and numerical is %.1e\n", __func__, maxreldevall);
+    return stat;
+  } // test_pure_power_overlap
+  
+  
   status_t all_tests(int const echo) {
     int n{0}; int const t = control::get("sho_overlap.select.test", -1.); // -1:all
     auto stat = 0;
+    if (t & (1 << n++)) stat += test_pure_power_overlap(echo);
     if (t & (1 << n++)) stat += test_shifted_polynomial(echo);
     if (t & (1 << n++)) stat += test_Hermite_polynomials(echo);
     if (t & (1 << n++)) stat += test_Hermite_Gauss_overlap(echo);

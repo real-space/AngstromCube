@@ -99,12 +99,11 @@ namespace sho_potential {
                   double Vm{0};
 
                   int kxyz{0};
-                  for    (int kz = 0; kz <= numax_k; ++kz) {
-                    for  (int ky = 0; ky <= numax_k - kz; ++ky) {
-                      for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {
+                  for    (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl(2,jz,kz);
+                    for  (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl(1,jy,ky) * tz;
+                      for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl(0,jx,kx) * tyz;
                   
-                          auto const Ovl_kj = ovl(0,jx,kx) * ovl(1,jy,ky) * ovl(2,jz,kz);
-                          Vm += Vaux[ixyz][kxyz] * Ovl_kj;
+                          Vm += Vaux[ixyz][kxyz] * txyz;
 
                           ++kxyz;
                       } // kx
@@ -295,14 +294,13 @@ namespace sho_potential {
                   view4D<double> t(3, 2*nucut, nucut, nucut, 0.0);
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
-                      sho_overlap::generate_potential_tensor(t[d].data(), distance,
-                                        nucut, nucut, sigmas[ia], sigmas[ja], sigma_V);
+                      sho_overlap::moment_tensor(t[d].data(), distance, nucut, nucut, sigmas[ia], sigmas[ja], numax_V);
                   } // d
                   
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
-                  normalize_coefficients(Vcoeff.data(), numax_V, sigma_V);
+                  normalize_coefficients(Vcoeff.data(), numax_V, sigma_V); // WARNING a special L1 normalization is required here
                   
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   int const mb = sho_tools::nSHO(numaxs[ja]);
