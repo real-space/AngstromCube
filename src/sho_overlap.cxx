@@ -107,11 +107,11 @@ namespace sho_overlap {
       if (0 != normalize) {
           double nfactorial = 1;
           for(int n = 0; n < ncut; ++n) {
-              double nrmf = normalize*std::sqrt(siginv/(constants::sqrtpi*nfactorial));
+              double const nrmf = normalize*std::sqrt(siginv/(constants::sqrtpi*nfactorial));
               for(int d = 0; d <= n; ++d) {
                   H[S*n + d] *= nrmf;
               } // d
-              nfactorial *= (n + 1.)*0.5; // update nfactorial
+              nfactorial *= (n + 1)*0.5; // update nfactorial
           } // n
       } // normalize
 
@@ -416,14 +416,19 @@ namespace sho_overlap {
                      int const m, double const sigma=1, int const echo=0) {
     // uses overlap_of_poly_times_Gauss_with_pure_powers(real_t const p[], int const n0, double const s0, int const moment);
     // and LAPACK for inversion
+    if (m < 1) return 0;
     view2D<double> mat2D(matrix, m); // wrapper for result assume data layout [m][m]
+    int constexpr check = 1;
+    view2D<double> mcopy(check*m, m, 0.0); // get memory if check > 0
+
     view2D<double> H(m, m, 0.0); // polynomial coefficients
-    double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
+    double constexpr normalize = 0; // 1: L2-normalize Hermite polynomials with Gauss metric
     prepare_centered_Hermite_polynomials(H.data(), m, 1./sigma, normalize);
     for(int moment = 0; moment < m; ++moment) {
         if (echo > 4) printf("# %s %i ", __func__, moment);
         for(int n = 0; n < m; ++n) {
             mat2D(moment,n) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], m, sigma, moment);
+            if (check > 0) mcopy(moment,n) = mat2D(moment,n); // store a copy
 //             if ((n & 1) == (moment & 1)) 
             if (true) {
                 if (echo > 4) printf(" %g", mat2D(moment,n));
@@ -431,10 +436,24 @@ namespace sho_overlap {
         } // n = 1D HO quantum number
         if (echo > 4) printf("\n");
     } // moment
-    if (m < 1) return 0;
     // now invert
     auto const stat = linear_algebra::inverse(m, mat2D.data(), mat2D.stride());
     if (stat) warn("Maybe factorization failed!");
+    if (check > 0) {
+        double maxdev[] = {0, 0};
+        for(int i = 0; i < m; ++i) {
+            for(int j = 0; j < m; ++j) {
+                double pij{0}, pji{0}; // matrix element (i,j) of the product mat2D * mcopy
+                for(int k = 0; k < m; ++k) { // contract over moments (for pij) and over n (for pji)
+                    pij += mat2D(i,k) * mcopy(k,j);
+                    pji += mcopy(i,k) * mat2D(k,j);
+                } // k
+                maxdev[0] = std::max(maxdev[0], std::abs(pij - (i == j)));
+                maxdev[1] = std::max(maxdev[1], std::abs(pji - (i == j)));
+            } // j
+        } // i
+        if (echo > 2) printf("# %s max deviation from unity is %.1e and %.1e\n", __func__, maxdev[0], maxdev[1]);
+    } // check
     return stat;
   } // moment_normalization
   
