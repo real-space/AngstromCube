@@ -428,7 +428,8 @@ During the SHO tranform onto the local potential we need to take care of the nor
 Typically, L2-normalizations are multiplied to the SHO projection coefficients 
 after the projection with unnormalized Hermite-Gauss functions.
 However, here, proper L1-normalization requires the matrix inverse of 
-$$ f_{nm} = \int \mathrm dx \  H_{n}\left( \frac{x}{\sigma} \right) \  \exp\left( -\frac{x^2}{2\sigma^2} \right) \  x^m $$
+$$ f_{nm\sigma} = \int\limits_{-\infty}^{\infty} \mathrm dx \  H_{n}\left( \frac{x}{\sigma} \right) \  \exp\left( -\frac{x^2}{2\sigma^2} \right) \  x^m $$
+%%% sho_overlap::moment_normalization
 
 \section{Benchmark: Free Electron Gas}
 The dispersion relation of the free electron gas is know to be

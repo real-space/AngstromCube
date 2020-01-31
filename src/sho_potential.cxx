@@ -46,40 +46,40 @@ namespace sho_potential {
                             int const numax_p, int const numax_i, int const numax_j, int const dir01=1) {
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
       // use different tensors per direction
-      int pxyz{0};
+      int pzyx{0};
       for    (int pz = 0; pz <= numax_p;           ++pz) {
         for  (int py = 0; py <= numax_p - pz;      ++py) {
           for(int px = 0; px <= numax_p - pz - py; ++px) {
 
-            int ixyz{0};
+            int izyx{0};
             for    (int iz = 0; iz <= numax_i;           ++iz) {
               for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
                 for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
-                  int jxyz{0};
+                  int jzyx{0};
                   for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,pz,iz,jz);
                     for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,py,iy,jy) * tz;
                       for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(      0,px,ix,jx) * tyz;
 
-                        Vmat[ixyz][jxyz] += txyz * Vcoeff[pxyz];
+                        Vmat[izyx][jzyx] += txyz * Vcoeff[pzyx];
 
-                        ++jxyz;
+                        ++jzyx;
                       } // jx
                     } // jy
                   } // jz
-                  assert( sho_tools::nSHO(numax_j) == jxyz );
+                  assert( sho_tools::nSHO(numax_j) == jzyx );
 
-                  ++ixyz;
+                  ++izyx;
                 } // ix
               } // iy
             } // iz
-            assert( sho_tools::nSHO(numax_i) == ixyz );
+            assert( sho_tools::nSHO(numax_i) == izyx );
 
-            ++pxyz;
+            ++pzyx;
           } // px
         } // py
       } // pz
-      assert( sho_tools::nSHO(numax_p) == pxyz );
+      assert( sho_tools::nSHO(numax_p) == pzyx );
     
       return 0;
   } // generate_potential_matrix
@@ -89,37 +89,37 @@ namespace sho_potential {
   status_t multiply_potential_matrix(view2D<real_t> & Vmat, view3D<real_t> const & ovl, view2D<real_t> const & Vaux,
                   int const numax_i, int const numax_j, int const numax_k) {
   
-      for(int ixyz = 0; ixyz < sho_tools::nSHO(numax_i); ++ixyz) {
+      for(int izyx = 0; izyx < sho_tools::nSHO(numax_i); ++izyx) {
         
-          int jxyz{0};
+          int jzyx{0};
           for    (int jz = 0; jz <= numax_j; ++jz) {
             for  (int jy = 0; jy <= numax_j - jz; ++jy) {
               for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
 
                   double Vm{0};
 
-                  int kxyz{0};
+                  int kzyx{0};
                   for    (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl(2,jz,kz);
                     for  (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl(1,jy,ky) * tz;
                       for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl(0,jx,kx) * tyz;
                   
-                          Vm += Vaux[ixyz][kxyz] * txyz;
+                          Vm += Vaux[izyx][kzyx] * txyz;
 
-                          ++kxyz;
+                          ++kzyx;
                       } // kx
                     } // ky
                   } // kz
-                  assert( sho_tools::nSHO(numax_k) == kxyz );
+                  assert( sho_tools::nSHO(numax_k) == kzyx );
 
-                  Vmat[ixyz][jxyz] = Vm;
+                  Vmat[izyx][jzyx] = Vm;
                   
-                  ++jxyz;
+                  ++jzyx;
               } // jx
             } // jy
           } // jz
-          assert( sho_tools::nSHO(numax_j) == jxyz );
+          assert( sho_tools::nSHO(numax_j) == jzyx );
 
-      } // ixyz
+      } // izyx
       
       return 0;
   } // multiply_potential_matrix
@@ -128,6 +128,50 @@ namespace sho_potential {
   status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
       return sho_projection::renormalize_coefficients(coeff, coeff, numax, sigma);
   } // normalize_coefficients
+
+  status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0) {
+      status_t stat = 0;
+      int const nc = sho_tools::nSHO(numax);
+      int const m = sho_tools::n1HO(numax);
+      view2D<double> inv1D(m, m, 0.0); // get memory
+      stat += sho_overlap::moment_normalization(inv1D.data(), m, sigma, echo);
+      
+      std::vector<double> c_new(nc, 0.0); // get memory
+
+      view2D<char> labels(nc*(echo > 4), 8, '\0');
+      if (echo > 4) sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_zyx);
+      if (echo > 4) printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang, _Ang);
+      int mzyx{0};
+      for    (int mz = 0; mz <= numax; ++mz) {
+        for  (int my = 0; my <= numax - mz; ++my) {
+          for(int mx = 0; mx <= numax - mz - my; ++mx) {
+            double cc{0};
+            
+            {
+              // a specialty of the result matrix inv1D is that only matrix elements 
+              //    connecting even-even or odd-odd indices are non-zero
+              //    ToDo: this could be exploited in the following pattern
+              int kzyx{0};
+              for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = inv1D(mz,kz);
+                for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = inv1D(my,ky) * tz;
+                  for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = inv1D(mx,kx) * tyz;
+
+                    cc += txyz * coeff[kzyx];
+                    
+                    ++kzyx;
+              }}} assert( nc == kzyx );
+            }
+
+            if (echo > 4) printf("# %s %s old%9.1e =%9.3f new%9.1e =%9.3f\n", __func__, labels[mzyx], coeff[mzyx], coeff[mzyx], cc, cc);
+            c_new[mzyx] = cc; // write
+            ++mzyx;
+      }}} assert( nc == mzyx );
+      if (echo > 4) printf("# %s\n\n", __func__);
+
+      set(coeff, nc, c_new.data()); // copy the results back into the input array
+      return stat;
+  } // normalize_potential_coefficients
+  
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -194,6 +238,12 @@ namespace sho_potential {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       sigmas[0] *= 1.1; sigmas[natoms - 1] *= 0.9; // manipulate the spreads
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
+      
+      
+      view3D<char> labels(1+numax_max, sho_tools::nSHO(numax_max), 8, '\0');
+      for(int nu = 0; nu <= numax_max; ++nu) {
+          sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
+      } // nu
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
       if (1 & method) { // scope:
@@ -242,7 +292,7 @@ namespace sho_potential {
                       for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
                           printf("# ai#%i aj#%i\n", ia, ja);
                           for(int ib = 0; ib < nb; ++ib) {
-                              printf("# %c ai#%i aj#%i b#%i ", i01?'V':'S', ia, ja, ib);
+                              printf("# %c ai#%i aj#%i %s ", i01?'V':'S', ia, ja, labels(numaxs[ia],ib));
                               for(int jb = 0; jb < mb; ++jb) {
                                   double const elem = (i01 ? Vmat(ia,ja,ib,jb) : Smat(ia,ja,ib,jb)) 
                                                     / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
@@ -288,7 +338,7 @@ namespace sho_potential {
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] += central_pos[d];
                   } // d
-                  int const numax_V = numaxs[ia] + numaxs[ja];
+                  int const numax_V = numaxs[ia] + numaxs[ja] + 1;
                   int const nucut = sho_tools::n1HO(std::max(numaxs[ia], numaxs[ja]));
                   
                   view4D<double> t(3, 2*nucut, nucut, nucut, 0.0);
@@ -300,8 +350,8 @@ namespace sho_potential {
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
-                  normalize_coefficients(Vcoeff.data(), numax_V, sigma_V); // WARNING a special L1 normalization is required here
-                  
+                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V);
+
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   int const mb = sho_tools::nSHO(numaxs[ja]);
                   view2D<double> Vmat(nb, mb, 0.0); // matrix
@@ -312,7 +362,7 @@ namespace sho_potential {
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
-                          printf("# V ai#%i aj#%i b#%i ", ia, ja, ib);
+                          printf("# V ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.3f", Vmat[ib][jb]);
                           }   printf("\n");
@@ -378,7 +428,7 @@ namespace sho_potential {
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
-                          printf("# V ai#%i aj#%i b#%i ", ia, ja, ib);
+                          printf("# V ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.3f", Vmat[ib][jb]);
                           }   printf("\n");
@@ -406,7 +456,7 @@ namespace sho_potential {
                   for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
                       if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
                       for(int ib = 0; ib < nb; ++ib) {
-                          printf("# S ai#%i aj#%i b#%i ", ia, ja, ib);
+                          printf("# S ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.3f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
                           } // jb
