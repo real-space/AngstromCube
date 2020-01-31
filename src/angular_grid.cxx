@@ -10,7 +10,7 @@
 #include "inline_tools.hxx" // align<>
 #include "inline_math.hxx" // pow2
 // #include "spherical_harmonics.hxx" // ::Ylm, Ylm_t
-#include "solid_harmonics.hxx" // ::Xlm, ::cleanup<real_t>, Ylm_t
+#include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 #include "gaunt_entry.h" // gaunt_entry_t
 #include "constants.hxx" // ::pi
 
@@ -94,7 +94,7 @@ namespace angular_grid {
           // create the real-valued spherical harmonics
           for(int ipt = 0; ipt < g.npoints; ++ipt) {
               auto const w8 = g.xyzw[ipt][3] * 4*constants::pi;
-              solid_harmonics::Xlm(xlm.data(), ellmax, g.xyzw[ipt]);
+              solid_harmonics::rlXlm(xlm.data(), ellmax, g.xyzw[ipt]);
               for(int ilm = 0; ilm < nlm; ++ilm) {
                   g.Xlm2grid[ipt*g.Xlm2grid_stride + ilm] = xlm[ilm];
                   g.grid2Xlm[ilm*g.grid2Xlm_stride + ipt] = xlm[ilm]*w8;
@@ -1814,7 +1814,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
       create_Lebedev_grid(2*lmax, xyzw, echo);
       double const pi = constants::pi;
       for(int ipt = 0; ipt < npt; ++ipt) {
-          solid_harmonics::Xlm(yy[ipt], 2*lmax, xyzw[ipt]);
+          solid_harmonics::rlXlm(yy[ipt], 2*lmax, xyzw[ipt]);
       } // ipt
       int const n_expected = (M*M*M0) >> 5;
       gaunt.clear();
@@ -1900,7 +1900,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
               auto const w8 = xyzw[ip][3] * 4*constants::pi;
 //            if (echo > 3) printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
 //            spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
-              solid_harmonics::Xlm(yy.data(), ell, xyzw[ip]); // real, r^ell*Xlm
+              solid_harmonics::rlXlm(yy.data(), ell, xyzw[ip]); // real
               for(int i = 0; i < m; ++i) {
 //                auto const yi = std::conj(yy[i])*w8; // complex
                   auto const yi = yy[i]*w8;

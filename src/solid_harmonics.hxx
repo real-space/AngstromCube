@@ -6,11 +6,11 @@
 namespace solid_harmonics {
 
   double constexpr pi = constants::pi;
-  double constexpr Y00inv = 3.544907701811032, // == sqrt(4*pi)
-                   Y00 = 1./Y00inv;
+  double constexpr Y00inv = 3.5449077018110318, // == sqrt(4*pi)
+                      Y00 = .28209479177387817; // == 1./Y00inv;
 
   template<typename real_t>
-  void Xlm_implementation(real_t xlm[], int const ellmax,
+  void rlXlm_implementation(real_t xlm[], int const ellmax,
                           real_t const cth, real_t const sth,
                           real_t const cph, real_t const sph,
                           real_t const r2=1,
@@ -126,7 +126,7 @@ namespace solid_harmonics {
 
   template<typename real_t>
   void Xlm(real_t xlm[], int const ellmax, double const theta, double const phi) {
-      Xlm_implementation(xlm, ellmax, std::cos(theta), std::sin(theta), std::cos(phi), std::sin(phi));
+      rlXlm_implementation(xlm, ellmax, std::cos(theta), std::sin(theta), std::cos(phi), std::sin(phi));
   } // Xlm
 
   template<typename real_t, typename vector_real_t>
@@ -153,17 +153,17 @@ namespace solid_harmonics {
          cph = 1;
          sph = 0;
       }
-      Xlm_implementation(xlm, ellmax, cth, sth, cph, sph);
+      rlXlm_implementation(xlm, ellmax, cth, sth, cph, sph);
   } // Xlm
 
   template<typename real_t, typename vector_real_t>
   void rlXlm(real_t xlm[], int const ellmax, vector_real_t const v[3]) {
       real_t const x = v[0], y = v[1], z = v[2], r2 = x*x + y*y + z*z;
-      Xlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
+      rlXlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
   } // rlXlm
 
   template<typename real_t>
-  void cleanup() { real_t z = 0; Xlm_implementation(&z, -1, z, z, z, z); } // free internal memory
+  void cleanup() { real_t z{0}; rlXlm_implementation(&z, -1, z, z, z, z); } // free internal memory
 
   inline int find_ell(int const lm) { int lp1 = 0; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
   inline int find_emm(int const lm, int const ell) { return lm - (ell*ell + ell); }
@@ -177,7 +177,7 @@ namespace solid_harmonics {
   inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
       for(int lm = -3; lm < 64; ++lm) {
           int const ell = find_ell(lm), emm = find_emm(lm, ell);
-          if (echo > 0) printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
+          if (echo > 4) printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
           assert(lm_index(ell, emm) == lm);
       } // lm
       return 0;
@@ -186,6 +186,7 @@ namespace solid_harmonics {
   inline status_t all_tests(int const echo=3) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
     auto status = 0;
+    assert( Y00 * Y00inv == 1.0 ); // should be exact
     status += test_indices(echo);
     return status;
   } // all_tests
