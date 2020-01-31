@@ -190,7 +190,7 @@ namespace sho_potential {
       auto const filename = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
 //       int dims[] = {0, 0, 0};
 //       std::vector<double> vtot; // total smooth potential
-      if(0) { // scope: read in the potential from a file
+      if (0) { // scope: read in the potential from a file
           std::ifstream infile(filename);
           int npt = 0; 
           if (!infile.is_open()) {
@@ -243,7 +243,7 @@ namespace sho_potential {
           }   center[ia][3] = 0; // 4th component is not used
       } // ia
 
-      if (0) { // scope: artificial potentials (other than constants)
+      if (1) { // scope: artificial potentials (other than constants)
           for(int iz = 0; iz < dims[2]; ++iz) {           auto const z = iz*g.h[2] - central_pos[2];
               for(int iy = 0; iy < dims[1]; ++iy) {       auto const y = iy*g.h[1] - central_pos[1];
                   for(int ix = 0; ix < dims[0]; ++ix) {   auto const x = ix*g.h[0] - central_pos[0];
