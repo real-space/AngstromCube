@@ -12,6 +12,7 @@
 #include "linear_algebra.hxx" // ::generalized_eigval
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // set
+#include "simple_math.hxx" // ::random<T>
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -223,7 +224,7 @@ namespace davidson_solver {
   status_t test_solver(int const echo=9) {
       status_t stat = 0;
       int constexpr D0 = 1; // 1: no vectorization
-      int const nbands = 4;
+      int const nbands = std::min(8, (int)control::get("davidson_solver.num.bands", 4));
       int const dims[] = {8, 8, 8};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
@@ -233,12 +234,13 @@ namespace davidson_solver {
       real_space_grid::grid_t<D0> g(dims);
       std::vector<double> psi(nbands*g.all(), 0.0);
       
-      if (0) { // scope: create good start wave functions
+      int const swm = control::get("davidson_solver.start.waves", 0.);
+      if (0 == swm) { // scope: create good start wave functions
           double const k = constants::pi/8.78; // ground state wave vector
           double wxyz[8] = {1, 0,0,0, 0,0,0, 0};
-          for(int iz = 0; iz < dims[2]; ++iz) { wxyz[3] = iz - 3.5; double const sin_z = std::sin(k*wxyz[3]); 
-          for(int iy = 0; iy < dims[1]; ++iy) { wxyz[2] = iy - 3.5; double const sin_y = std::sin(k*wxyz[2]);
-          for(int ix = 0; ix < dims[0]; ++ix) { wxyz[1] = ix - 3.5; double const sin_x = std::sin(k*wxyz[1]);
+          for(int iz = 0; iz < dims[2]; ++iz) { wxyz[3] = iz - 3.5; double const cos_z = std::cos(k*wxyz[3]); 
+          for(int iy = 0; iy < dims[1]; ++iy) { wxyz[2] = iy - 3.5; double const cos_y = std::cos(k*wxyz[2]);
+          for(int ix = 0; ix < dims[0]; ++ix) { wxyz[1] = ix - 3.5; double const cos_x = std::cos(k*wxyz[1]);
               if (nbands > 4) {
                   wxyz[4] = wxyz[1]*wxyz[2]; // x*y (ell=2)
                   wxyz[5] = wxyz[2]*wxyz[3]; // y*z (ell=2)
@@ -247,17 +249,24 @@ namespace davidson_solver {
               } // nbands > 4
               int const ixyz = (iz*dims[1] + iy)*dims[0] + ix;
               for(int iband = 0; iband < nbands; ++iband) {
-                  psi[iband*g.all() + ixyz] = wxyz[iband]*sin_x*sin_y*sin_z; // good start wave functions
+                  psi[iband*g.all() + ixyz] = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-      } // scope: create good start wave functions
-      else {
+          if (echo > 2) printf("# %s: use cosine solutions as start vectors\n", __func__);
+      } else if(1 == swm) {
+          for(size_t i = 0; i < nbands*g.all(); ++i) {
+              psi[i] = simple_math::random(-1., 1.); // random wave functions (most probably not very good)
+          } // i
+          if (echo > 2) printf("# %s: use random values as start vectors\n", __func__);
+      } else {
           for(int iband = 0; iband < nbands; ++iband) {
               psi[iband*g.all() + iband] = 1; // bad start wave functions
           } // iband
+          if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
       
-      for(int it = 0; it < 3; ++it) {
+      int const nit = control::get("davidson_solver.max.iterations", 1.);
+      for(int it = 0; it < nit; ++it) {
           stat += solve(psi.data(), nbands, g, echo);
       } // it
       return stat;
