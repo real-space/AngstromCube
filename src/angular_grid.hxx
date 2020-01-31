@@ -11,7 +11,7 @@ namespace angular_grid {
   angular_grid_t* get_grid(int const ellmax, int const echo=0);
 
 // status_t get_weights(double weights[], int const ellmax, int const echo=0); // needed?
-  
+
   template<typename real_t>
   status_t transform(real_t out[], real_t const in[], int const stride, int const ellmax, bool const back=false, int const echo=0);
 
@@ -23,6 +23,6 @@ namespace angular_grid {
   status_t all_tests(int const echo=0);
 
   template<int lmax>
-  status_t create_numerical_Gaunt(std::vector<gaunt_entry_t>* gaunt=nullptr, int const echo=0);
+  status_t create_numerical_Gaunt(std::vector<gaunt_entry_t> & gaunt, int const echo=0);
 
 } // namespace angular_grid

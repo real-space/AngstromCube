@@ -10,7 +10,7 @@ namespace solid_harmonics {
                    Y00 = 1./Y00inv;
 
   template<typename real_t>
-  void Xlm_implementation(real_t xlm[], int const ellmax, 
+  void Xlm_implementation(real_t xlm[], int const ellmax,
                           real_t const cth, real_t const sth,
                           real_t const cph, real_t const sph,
                           real_t const r2=1,
@@ -39,7 +39,7 @@ namespace solid_harmonics {
               delete[] xnorm;
 #ifdef DEBUG
               printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
-#endif             
+#endif
           } // resize
           xnorm = new real_t[(1 + ellmax)*(1 + ellmax)];
 
@@ -93,7 +93,7 @@ namespace solid_harmonics {
       cs[0] = 1; sn[0] = 0;
       if (cos_trick) {
         if (ellmax > 0) {
-              cs[1] = cph; sn[1] = sph; 
+              cs[1] = cph; sn[1] = sph;
               auto const cph2 = 2*cph;
               for(int m = 2; m <= ellmax; ++m) {
                   // this two-step recursion formula is more accurate but does not work for r^l*X_lm
@@ -123,12 +123,12 @@ namespace solid_harmonics {
       delete[] p;
 
   } // Xlm_implementation
-  
+
   template<typename real_t>
   void Xlm(real_t xlm[], int const ellmax, double const theta, double const phi) {
       Xlm_implementation(xlm, ellmax, std::cos(theta), std::sin(theta), std::cos(phi), std::sin(phi));
   } // Xlm
-  
+
   template<typename real_t, typename vector_real_t>
   void Xlm(real_t xlm[], int const ellmax, vector_real_t const v[3]) {
       real_t constexpr small = 1e-12;
@@ -161,7 +161,7 @@ namespace solid_harmonics {
       real_t const x = v[0], y = v[1], z = v[2], r2 = x*x + y*y + z*z;
       Xlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
   } // rlXlm
-  
+
   template<typename real_t>
   void cleanup() { real_t z = 0; Xlm_implementation(&z, -1, z, z, z, z); } // free internal memory
 
@@ -189,6 +189,6 @@ namespace solid_harmonics {
     status += test_indices(echo);
     return status;
   } // all_tests
-#endif // NO_UNIT_TESTS  
-  
+#endif // NO_UNIT_TESTS
+
 } // namespace solid_harmonics

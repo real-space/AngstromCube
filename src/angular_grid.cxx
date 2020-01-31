@@ -5,17 +5,18 @@
 #include <vector> // std::vector
 
 #include "angular_grid.hxx"
+
 #include "angular_grid.h" // angular_grid_t
 #include "inline_tools.hxx" // align<>
 #include "inline_math.hxx" // pow2
-#include "solid_harmonics.hxx" // Xlm
-//   #include "spherical_harmonics.hxx" // Ylm
+// #include "spherical_harmonics.hxx" // ::Ylm, Ylm_t
+#include "solid_harmonics.hxx" // ::Xlm, ::cleanup<real_t>, Ylm_t
 #include "gaunt_entry.h" // gaunt_entry_t
-#include "constants.hxx" // constants::pi
+#include "constants.hxx" // ::pi
 
 extern "C" {
    // BLAS interface to matrix matrix multiplication
-  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*, 
+  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
               const double*, const int*, const double*, const int*, const double*, double*, const int*);
 } // extern "C"
 
@@ -38,7 +39,7 @@ namespace angular_grid {
       double *b; int ldb = 0, N = 0, K = 0;
       if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
       else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
-      if (echo > 3) printf("# call dgemm(transA=%c,transB=%c,M=%i,N=%i,K=%i,alpha=%g,%c,ldA=%i,%c,ldB=%i,beta=%g,%c,ldC=%i) back=%d\n", 
+      if (echo > 7) printf("# call dgemm(transA=%c,transB=%c,M=%i,N=%i,K=%i,alpha=%g,%c,ldA=%i,%c,ldB=%i,beta=%g,%c,ldC=%i) back=%d\n",
                              c, c, ld, N, K, w8, 'A', ld, 'B', ldb, zero, 'C', ld, back); // pointer values may change from run to run
       dgemm_(&c, &c, &ld, &N, &K, &w8, in, &ld, b, &ldb, &zero, out, &ld); // matrix-matrix multiplication with BLAS
       return 0;
@@ -46,9 +47,9 @@ namespace angular_grid {
 
 
   angular_grid_t* get_grid(int const ellmax, int const echo) {
-    
+
       static angular_grid_t grids[1 + ellmax_implemented];
-      
+
       if ((ellmax < 0) || (ellmax > ellmax_implemented)) {
           if (echo > 0) printf("# %s: ellmax= %i is out of range [0, %i]\n", __func__, ellmax, ellmax_implemented);
           return nullptr;
@@ -58,59 +59,60 @@ namespace angular_grid {
 //           if (echo > 2) printf("# %s: memory cleanup!\n", __func__);
 //           for(int ell = 0; ell <= ellmax_implemented; ++ell) {
 //               auto g = &grids[ell];
-//               if ((g->npoints > 0) && (g->ellmax == ell)) {
+//               if ((g.npoints > 0) && (g.ellmax == ell)) {
 //                   if (echo > 4) printf("# %s: memory cleanup of ellmax=%i\n", __func__, ell);
-//                   delete[] g->xyzw;
-//                   delete[] g->Xlm2grid;
-//                   delete[] g->Xlm2grid;
+//                   delete[] g.xyzw;
+//                   delete[] g.Xlm2grid;
+//                   delete[] g.Xlm2grid;
 //               } // this grid was initialized
-//           } // 
+//           } //
 //           return 0; // success
 //       } // in range
 
-      auto g = &grids[ellmax];
-      if ((g->npoints < 1) || (g->ellmax != ellmax)) {
+      auto & g = grids[ellmax];
+      if ((g.npoints < 1) || (g.ellmax != ellmax)) {
           // init this instance
-          g->ellmax = ellmax;
-          g->npoints = Lebedev_grid_size(ellmax);
+          g.ellmax = ellmax;
+          g.npoints = Lebedev_grid_size(ellmax);
           int const nlm = pow2(1 + ellmax);
-          g->Xlm2grid_stride = align<2>(nlm); 
-          g->grid2Xlm_stride = align<2>(g->npoints);
+          g.Xlm2grid_stride = align<2>(nlm);
+          g.grid2Xlm_stride = align<2>(g.npoints);
           // allocations
-          g->xyzw     = new double[g->npoints][4];
-          g->Xlm2grid = new double[g->npoints*g->Xlm2grid_stride];
-          g->grid2Xlm = new double[nlm       *g->grid2Xlm_stride];
+          g.xyzw     = new double[g.npoints][4];
+          g.Xlm2grid = new double[g.npoints*g.Xlm2grid_stride];
+          g.grid2Xlm = new double[      nlm*g.grid2Xlm_stride];
 
-          auto const ist = create_Lebedev_grid(ellmax, g->xyzw);
-          if (echo > 0 && ist) printf("# %s: angular grid for ellmax= %i failed with status %i\n", __func__, ellmax, ist);
-          
+          auto const stat = create_Lebedev_grid(ellmax, g.xyzw);
+          if (echo > 0 && stat) printf("# %s: angular grid for ellmax= %i failed with status %i\n",
+                                         __func__, ellmax, stat);
+
           // clear the matrix memories
-          for(int ij = 0; ij < g->npoints*g->Xlm2grid_stride; ++ij) g->Xlm2grid[ij] = 0;
-          for(int ij = 0; ij < nlm       *g->grid2Xlm_stride; ++ij) g->grid2Xlm[ij] = 0;
-          
-          auto const xlm = new double[nlm];
+          set(g.Xlm2grid, g.npoints*g.Xlm2grid_stride, 0.0);
+          set(g.grid2Xlm,       nlm*g.grid2Xlm_stride, 0.0);
+
+          std::vector<double> xlm(nlm);
           // create the real-valued spherical harmonics
-          for(int ipt = 0; ipt < g->npoints; ++ipt) {
-              auto const w8 = g->xyzw[ipt][3] * 4*constants::pi;
-              solid_harmonics::Xlm(xlm, ellmax, g->xyzw[ipt]);
+          for(int ipt = 0; ipt < g.npoints; ++ipt) {
+              auto const w8 = g.xyzw[ipt][3] * 4*constants::pi;
+              solid_harmonics::Xlm(xlm.data(), ellmax, g.xyzw[ipt]);
               for(int ilm = 0; ilm < nlm; ++ilm) {
-                  g->Xlm2grid[ipt*g->Xlm2grid_stride + ilm] = xlm[ilm];
-                  g->grid2Xlm[ilm*g->grid2Xlm_stride + ipt] = xlm[ilm]*w8;
+                  g.Xlm2grid[ipt*g.Xlm2grid_stride + ilm] = xlm[ilm];
+                  g.grid2Xlm[ilm*g.grid2Xlm_stride + ipt] = xlm[ilm]*w8;
               } // ilm
           } // ipt
-          delete[] xlm;
-          if (echo > 0) printf("# %s: angular grid for ellmax= %i is requested 1st: %i points\n", __func__, ellmax, g->npoints);
+          if (echo > 0) printf("# %s: angular grid for ellmax= %i is requested 1st: %i points\n",
+                                __func__, ellmax, g.npoints);
       } // grid was not set
-      return g;
+      return &g;
 
   } // get_grid
-  
-  
+
+
 //   status_t get_weights(double weights[], int const ellmax, int const echo) {
 //       auto const g = get_grid(ellmax, echo);
 //       if (nullptr != g) {
-//           for(int i = 0; g->npoints; ++i) {
-//               weights[i] = g->xyzw[i][3]; // copy out weights
+//           for(int i = 0; g.npoints; ++i) {
+//               weights[i] = g.xyzw[i][3]; // copy out weights
 //           } // i
 //           return 0;
 //       } // worked
@@ -118,7 +120,7 @@ namespace angular_grid {
 //       return -1;
 //   } // get_weights
 
-  
+
 // ! cvw    icode=0:   (0,0,0) only                               ( 1 point)
 // ! cvw    icode=1:   (0,0,1) etc                                ( 6 points)
 // ! cvw    icode=2:   (0,a,a) etc, a=1/sqrt(2)                   (12 points)
@@ -139,10 +141,10 @@ namespace angular_grid {
 // cTeXit '% no citation needed for using a single point instead of an angular grid.'
       return 1;
   } // gen_oh0
-  
+
   template<typename real_t>
   int gen_oh1(int ncode[], double const w8, real_t xyzw[][4]) {
-      ++ncode[1]; int i = 0;
+      ++ncode[1]; int i{0};
       // start vector [O, O, A]
       // the octahedron
       for(int dir = 0; dir < 3; ++dir) {
@@ -150,7 +152,7 @@ namespace angular_grid {
               xyzw[i][0] = 0;
               xyzw[i][1] = 0;
               xyzw[i][2] = 0;
-              xyzw[i][dir] = (real_t)s;
+              xyzw[i][dir] = s;
               xyzw[i][3] = w8;
               ++i;
           } // s
@@ -166,10 +168,10 @@ namespace angular_grid {
 // cTeX     title='A quadrature formula for the sphere of the 131st algebraic order of accuracy', &
 // cTeX     journal='Doklady Mathematics', volume='59', number='3', year='1999', pages='477-481')
   } // gen_oh1
-  
+
   template<typename real_t>
   int gen_oh2(int ncode[], double const w8, real_t xyzw[][4]) {
-      ++ncode[2]; int i = 0;
+      ++ncode[2]; int i{0};
       // start vector [O, A, A]
       double const sq2 = std::sqrt(.5);
       // the dodecahedron
@@ -177,8 +179,8 @@ namespace angular_grid {
           for(int s1 = -1; s1 <= 1; s1 += 2) {
               for(int s2 = -1; s2 <= 1; s2 += 2) {
                   xyzw[i][ dir       ] = 0;
-                  xyzw[i][(dir + 1)%3] = (real_t)(s1*sq2);
-                  xyzw[i][(dir + 2)%3] = (real_t)(s2*sq2);
+                  xyzw[i][(dir + 1)%3] = s1*sq2;
+                  xyzw[i][(dir + 2)%3] = s2*sq2;
                   xyzw[i][3] = w8;
                   ++i;
               } // s2
@@ -189,26 +191,26 @@ namespace angular_grid {
 // ! chvd
 // ! chvd   [2] V.I. Lebedev
 // ! chvd       "A quadrature formula for the sphere of 59th algebraic order of accuracy"
-// ! chvd       Russian Acad. Sci. Dokl. Math., Vol. 50, 1995, pp. 283-286. 
+// ! chvd       Russian Acad. Sci. Dokl. Math., Vol. 50, 1995, pp. 283-286.
 // ! chvd
 // cTeX1c bib_entry('Lebedev95', 'article', author='V.I. Lebedev', &
 // cTeX     title='A quadrature formula for the sphere of 59th algebraic order of accuracy', &
 // cTeX     journal='Russian Acad. Sci. Dokl. Math.', volume='50', year='1999', pages='283-286')
 
   } // gen_oh2
-  
+
   template<typename real_t>
   int gen_oh3(int ncode[], double const w8, real_t xyzw[][4]) {
-      ++ncode[3]; int i = 0;
+      ++ncode[3]; int i{0};
       // start vector [A, A, A]
       double const sq3 = sqrt(1/3.);
       // the cube
       for(int s3 = -1; s3 < 2; s3 += 2) {
           for(int s2 = -1; s2 < 2; s2 += 2) {
               for(int s1 = -1; s1 < 2; s1 += 2) {
-                  xyzw[i][0] = (real_t)(sq3*s1);
-                  xyzw[i][1] = (real_t)(sq3*s2);
-                  xyzw[i][2] = (real_t)(sq3*s3);
+                  xyzw[i][0] = sq3*s1;
+                  xyzw[i][1] = sq3*s2;
+                  xyzw[i][2] = sq3*s3;
                   xyzw[i][3] = w8;
                   ++i;
               } // s1
@@ -219,16 +221,16 @@ namespace angular_grid {
 // ! chvd
 // ! chvd   [3] V.I. Lebedev, and A.L. Skorokhodov
 // ! chvd       "Quadrature formulas of orders 41, 47, and 53 for the sphere"
-// ! chvd       Russian Acad. Sci. Dokl. Math., Vol. 45, 1992, pp. 587-592. 
+// ! chvd       Russian Acad. Sci. Dokl. Math., Vol. 45, 1992, pp. 587-592.
 // ! chvd
 // cTeX1c bib_entry('Lebedev92', 'article', author='V.I. Lebedev', &
 // cTeX     title='Quadrature formulas of orders 41, 47, and 53 for the sphere', &
 // cTeX     journal='Russian Acad. Sci. Dokl. Math.', volume='45', year='1992', pages='587-592')
   } // gen_oh3
-  
+
   template<typename real_t>
   int gen_oh4(int ncode[], double const w8, real_t xyzw[][4], double const aa) {
-      ++ncode[4]; int i = 0;
+      ++ncode[4]; int i{0};
       // start vector [A, A, B]
       assert(2*aa*aa < 1);
 //       A = aa ; if(2*A*A >= 1) die_here('gen_oh: break; case 4: |AA| is too large!')
@@ -237,9 +239,9 @@ namespace angular_grid {
           for(int s3 = -1; s3 < 2; s3 += 2) {
               for(int s2 = -1; s2 < 2; s2 += 2) {
                   for(int s1 = -1; s1 < 2; s1 += 2) {
-                      xyzw[i][ dir       ] = (real_t)(bb*s3);
-                      xyzw[i][(dir + 1)%3] = (real_t)(aa*s1);
-                      xyzw[i][(dir + 2)%3] = (real_t)(aa*s2);
+                      xyzw[i][ dir       ] = bb*s3;
+                      xyzw[i][(dir + 1)%3] = aa*s1;
+                      xyzw[i][(dir + 2)%3] = aa*s2;
                       xyzw[i][3] = w8;
                       ++i;
                   } // s1
@@ -251,16 +253,16 @@ namespace angular_grid {
 // ! chvd
 // ! chvd   [4] V.I. Lebedev
 // ! chvd       "Spherical quadrature formulas exact to orders 25-29"
-// ! chvd       Siberian Mathematical Journal, Vol. 18, 1977, pp. 99-107. 
+// ! chvd       Siberian Mathematical Journal, Vol. 18, 1977, pp. 99-107.
 // ! chvd
 // cTeX1c bib_entry('Lebedev77', 'article', author='V.I. Lebedev', &
 // cTeX     title='Spherical quadrature formulas exact to orders 25-29', &
 // cTeX     journal='Siberian Mathematical Journal', volume='18', year='1977', pages='99-107')
   } // gen_oh4
-  
+
   template<typename real_t>
   int gen_oh5(int ncode[], double const w8, real_t xyzw[][4], double const aa) {
-      ++ncode[5]; int i = 0;
+      ++ncode[5]; int i{0};
       // start vector [A, B, O]
       assert(aa*aa < 1);
 //       A = aa ; if(A*A >= 1) die_here('gen_oh: break; case 5: |AA| is too large!')
@@ -271,8 +273,8 @@ namespace angular_grid {
               for(int s2 = -1; s2 < 2; s2 += 2) {
                   for(int s1 = -1; s1 < 2; s1 += 2) {
                       xyzw[i][ dir       ] = 0;
-                      xyzw[i][(dir + 1)%3] = (real_t)(a3*s1);
-                      xyzw[i][(dir + 2)%3] = (real_t)(b3*s2);
+                      xyzw[i][(dir + 1)%3] = a3*s1;
+                      xyzw[i][(dir + 2)%3] = b3*s2;
                       xyzw[i][3] = w8;
                       ++i;
                   } // s1
@@ -285,15 +287,15 @@ namespace angular_grid {
 // ! chvd
 // ! chvd   [5] V.I. Lebedev
 // ! chvd       "Quadratures on a sphere"
-// ! chvd       Computational Mathematics and Mathematical Physics, Vol. 16, 1976, pp. 10-24. 
+// ! chvd       Computational Mathematics and Mathematical Physics, Vol. 16, 1976, pp. 10-24.
 // ! chvd
 // cTeX1c bib_entry('Lebedev76', 'article', author='V.I. Lebedev', title='Quadratures on a sphere', &
 // cTeX     journal='Computational Mathematics and Mathematical Physics', volume='16', year='1976', pages='10-24')
   } // gen_oh5
-  
+
   template<typename real_t>
   int gen_oh6(int ncode[], double const w8, real_t xyzw[][4], double const aa, double const bb) {
-      ++ncode[6]; int i = 0;
+      ++ncode[6]; int i{0};
       // start vector [A, B, C]
 //       A = aa ; if(A*A >= 1) die_here('gen_oh: break; case 6: |AA| is too large!')
       assert(aa*aa < 1);
@@ -310,9 +312,9 @@ namespace angular_grid {
               for(int s3 = -1; s3 < 2; s3 += 2) {
                   for(int s2 = -1; s2 < 2; s2 += 2) {
                       for(int s1 = -1; s1 < 2; s1 += 2) {
-                          xyzw[i][0] = (real_t)(c3[rev][dir + 0]*s1);
-                          xyzw[i][1] = (real_t)(c3[rev][dir + 1]*s2);
-                          xyzw[i][2] = (real_t)(c3[rev][dir + 2]*s3);
+                          xyzw[i][0] = c3[rev][dir + 0]*s1;
+                          xyzw[i][1] = c3[rev][dir + 1]*s2;
+                          xyzw[i][2] = c3[rev][dir + 2]*s3;
                           xyzw[i][3] = w8;
                           ++i;
                       } // s1
@@ -331,33 +333,33 @@ namespace angular_grid {
 // cTeX     title='Values of the nodes and weights of ninth to seventeenth order Gauss-Markov quadrature formulae invariant under the octahedron group with inversion', &
 // cTeX     journal='Computational Mathematics and Mathematical Physics', volume='15', year='1975', pages='44-51')
   } // gen_oh6
-  
+
   int Lebedev_grid_size(int const ellmax, int const echo) {
-    if (ellmax < -1) return -1;
-    
+    if (ellmax < -1) return 0;
+
     int const available[34] = {0,1,6,14,26,38,50,74,86,110,146,170,194,230,266,302,350,
     434,590,770,974,1202,1454,1730,2030,2354,2702,3074,3470,3890,4334,4802,5294,5810};
     // for ellmax = 65, we reach 5808.0 which then is corrected to 5810
 
-    int n = (4*(ellmax + 1)*(ellmax + 1))/3; // to be corrected to next larger numbers of grid points available
+    int const n = (4*pow2(ellmax + 1))/3; // to be corrected to next larger numbers of grid points available
     // todo: check if the suggestion n = (ellmax+1)^2 leads to orthogonality of the spherical harmonics
     int i = 0; while (available[i] < n  && i < 33) { ++i; }
     if (i >= 32 && available[i] < n) {
         if (echo > 0) printf("# %s ellmax= %i leads to n= %i (too large)!\n", __func__, ellmax, n);
         return -1;
     } // i
-    if (echo > 1) printf("# %s correct the number of angular grid points of the Lebedev-Laikov grid"
+    if (echo > 4) printf("# %s correct the number of angular grid points of the Lebedev-Laikov grid"
                          " for ellmax= %i from %i to %i\n", __func__, ellmax, n, available[i]);
     return available[i];
   } // Lebedev_grid_size
 
-  
+
   template<typename real_t>
   status_t create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo) {
 
     int nc[8] = {0,0,0,0, 0,0,0,0}; // init
     int m = 0; // init
-    
+
     int const n_corrected = Lebedev_grid_size(ellmax, echo);
     switch (n_corrected) {
            case   0:
@@ -429,7 +431,7 @@ namespace angular_grid {
       m += gen_oh5(nc, .5051846064614808E-2, xyzw + m, .3457702197611283);
       m += gen_oh6(nc, .5530248916233094E-2, xyzw + m, .1590417105383530, .8360360154824589);
     break; case 230:
-      m += gen_oh1(nc, -.5522639919727325E-1, xyzw + m);;                                                     
+      m += gen_oh1(nc, -.5522639919727325E-1, xyzw + m);;
       m += gen_oh3(nc, .4450274607445226E-2, xyzw + m);
       m += gen_oh4(nc, .4496841067921404E-2, xyzw + m, .4492044687397611);
       m += gen_oh4(nc, .5049153450478750E-2, xyzw + m, .2520419490210201);
@@ -1686,10 +1688,10 @@ namespace angular_grid {
       m += gen_oh6(nc, .1905534498734563E-3, xyzw + m, .6772135750395347, .0291994613580811);
 #endif
     break; default:
-        if(echo > 0) printf("# %s A Lebedev-Laikov grid with %i points for ellmax= %i is not available!\n", __func__, n_corrected, ellmax); 
+        if(echo > 0) printf("# %s A Lebedev-Laikov grid with %i points for ellmax= %i is not available!\n", __func__, n_corrected, ellmax);
 #ifdef  LARGE_GRIDS
-#else       
-        if(echo > 0 && n_corrected >= 770) printf("# %s Please activate -D LARGE_GRIDS in %s\n", __func__, __FILE__); 
+#else
+        if(echo > 0 && n_corrected >= 770) printf("# %s Please activate -D LARGE_GRIDS in %s\n", __func__, __FILE__);
 #endif
         return -1;
     } // switch n
@@ -1705,14 +1707,14 @@ namespace angular_grid {
         printf("0 points\n");
         assert(n_corrected == n_check);
     } // echo
-    
+
     assert (n_corrected == m);
     return m;
   } // create_Lebedev_grid
 
-  
-  
-#if 0 
+
+
+#if 0
 // def USE_LaTeX
 cTeXit '', '%%%'+__FILE__+'line='-__LINE__,''
 cTeXit '', 'For the setup of the angular grid with $'-m-'$ points on the unit sphere'
@@ -1740,21 +1742,21 @@ cTeXit '. ', '' ! full stop and an extra empty line
 
 // interface documentation for gen_ohN()
 //   int gen_ohN(int ncode[], // (inout) count how many times this icode was used
-//              real_t const w8, // (in) weight 
+//              real_t const w8, // (in) weight
 //              real_t xyzw[][4], // (out) weights 3:weights, 0:x 1:y 2:z
 //              double const aa, double const bb);
-  
+
 #if 0
 !!! from http://server.ccl.net/cca/software/SOURCES/FORTRAN/Lebedev-Laikov-Grids/Lebedev-Laikov.F
 ! chvd
 ! chvd   This subroutine is part of a set of subroutines that generate
-! chvd   Lebedev grids [1-6] for integration on a sphere. The original 
-! chvd   C-code [1] was kindly provided by Dr. Dmitri N. Laikov and 
+! chvd   Lebedev grids [1-6] for integration on a sphere. The original
+! chvd   C-code [1] was kindly provided by Dr. Dmitri N. Laikov and
 ! chvd   translated into fortran by Dr. Christoph van Wuellen.
 ! chvd   This subroutine was translated from C to fortran77 by hand.
 ! chvd
 ! chvd   Users of this code are asked to include reference [1] in their
-! chvd   publications, and in the user- and programmers-manuals 
+! chvd   publications, and in the user- and programmers-manuals
 ! chvd   describing their codes.
 ! chvd
 ! chvd   This code was distributed through CCL (http://www.ccl.net].
@@ -1765,19 +1767,19 @@ cTeXit '. ', '' ! full stop and an extra empty line
 ! chvd
 ! chvd   [2] V.I. Lebedev
 ! chvd       "A quadrature formula for the sphere of 59th algebraic order of accuracy"
-! chvd       Russian Acad. Sci. Dokl. Math., Vol. 50, 1995, pp. 283-286. 
+! chvd       Russian Acad. Sci. Dokl. Math., Vol. 50, 1995, pp. 283-286.
 ! chvd
 ! chvd   [3] V.I. Lebedev, and A.L. Skorokhodov
 ! chvd       "Quadrature formulas of orders 41, 47, and 53 for the sphere"
-! chvd       Russian Acad. Sci. Dokl. Math., Vol. 45, 1992, pp. 587-592. 
+! chvd       Russian Acad. Sci. Dokl. Math., Vol. 45, 1992, pp. 587-592.
 ! chvd
 ! chvd   [4] V.I. Lebedev
 ! chvd       "Spherical quadrature formulas exact to orders 25-29"
-! chvd       Siberian Mathematical Journal, Vol. 18, 1977, pp. 99-107. 
+! chvd       Siberian Mathematical Journal, Vol. 18, 1977, pp. 99-107.
 ! chvd
 ! chvd   [5] V.I. Lebedev
 ! chvd       "Quadratures on a sphere"
-! chvd       Computational Mathematics and Mathematical Physics, Vol. 16, 1976, pp. 10-24. 
+! chvd       Computational Mathematics and Mathematical Physics, Vol. 16, 1976, pp. 10-24.
 ! chvd
 ! chvd   [6] V.I. Lebedev
 ! chvd       "Values of the nodes and weights of ninth to seventeenth order Gauss-Markov quadrature formulae invariant under the octahedron group with inversion"
@@ -1802,9 +1804,9 @@ cTeXit '. ', '' ! full stop and an extra empty line
 ! cvw    icode=6:   (a,b,c) etc, c=sqrt(1-a^2-b^2), a/b input  (48 points)
 ! cvw
 #endif
-  
+
   template<int lmax>
-  status_t create_numerical_Gaunt(std::vector<gaunt_entry_t>* gaunt, int const echo) {
+  status_t create_numerical_Gaunt(std::vector<gaunt_entry_t> & gaunt, int const echo) {
       int const npt = Lebedev_grid_size(2*lmax);
       int const M0 = (1 + 2*lmax)*(1 + 2*lmax), M = (1 + lmax)*(1 + lmax);
       auto yy   = new double[npt][M0];
@@ -1815,49 +1817,50 @@ cTeXit '. ', '' ! full stop and an extra empty line
           solid_harmonics::Xlm(yy[ipt], 2*lmax, xyzw[ipt]);
       } // ipt
       int const n_expected = (M*M*M0) >> 5;
-      if (gaunt) gaunt->reserve(n_expected);
-      int n = 0, nnz = 0;
+      gaunt.clear();
+      gaunt.reserve(n_expected);
+      int n{0}, nnz{0};
       for(int lm0 = 0; lm0 < M0; ++lm0) {
           for(int16_t lm1 = 0; lm1 < M; ++lm1) {
               for(int16_t lm2 = 0; lm2 < M; ++lm2) {
-                  double Gaunt = 0;
+                  double Gaunt{0};
                   for(int ipt = 0; ipt < npt; ++ipt) {
                       double const w8 = xyzw[ipt][3];
                       Gaunt += yy[ipt][lm0] * yy[ipt][lm1] * yy[ipt][lm2] * w8;
                   } // ipt
                   Gaunt *= 4*pi;
                   if (std::abs(Gaunt) > 1e-14) {
-                      if (echo > 1) printf("%i %i %i %.9f\n", lm0, lm1, lm2, Gaunt);
-                      if (gaunt) gaunt->push_back({Gaunt, lm0, lm1, lm2});
+                      if (echo > 8) printf("%i %i %i %.9f\n", lm0, lm1, lm2, Gaunt);
+                      gaunt.push_back({Gaunt, lm0, lm1, lm2});
                       ++nnz;
                   } // non-zero
                   ++n;
               } // lm2
           } // lm1
       } // lm0
-      if (echo > 0) printf("\n# %s: %i of %i real-Gaunt tensor elements are nonzero (%.3f %%), expected %i\n", 
-                                __func__, nnz, n, nnz/(.01*n), n_expected);
       delete[] xyzw;
       delete[] yy;
+      if (echo > 3) printf("\n# %s: %i of %i real-Gaunt tensor elements are nonzero (%.3f %%), expected %i\n",
+                                __func__, nnz, n, nnz/(.01*n), n_expected);
       return 0;
   } // create_numerical_Gaunt
-  
+
   template // explicit template instantiation
-  status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t>* gaunt, int const echo);
-  
+  status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t> & gaunt, int const echo);
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   int test_generation(int const echo=1) {
-      if (echo > 1) printf("\n# %s: \n", __func__);
+      if (echo > 3) printf("\n# %s: \n", __func__);
       int const max_size = Lebedev_grid_size(ellmax_implemented);
       auto xyzw = new double[max_size][4];
       status_t stat = 0;
       for(int ell = -2; ell <= ellmax_implemented + 3; ell += (1 + 2*(ell > 16))) { // in steps of 3 for the larger grids, no need to test the same n 3 times
-          if (echo > 3) printf("\n# %s: try to generate Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
+          if (echo > 3) printf("# %s: try to generate Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
           auto const m = create_Lebedev_grid(ell, xyzw, echo);
-          if (echo > 2) printf("\n# %s: generated Lebedev-Laikov grid with for ellmax= %i using %i points\n", __func__, ell, m);
+          if (echo > 4) printf("# %s: generated Lebedev-Laikov grid with for ellmax= %i using %i points\n", __func__, ell, m);
           if (ell >= 0 && ell <= ellmax_implemented) stat += (m < 0); // count the number of failures in the relevant range
           if (m > 1) {
               // sanity checks on weights and coordinates of the points on the unit sphere
@@ -1873,32 +1876,31 @@ cTeXit '. ', '' ! full stop and an extra empty line
           } // m > 1, for m == 1, a single weight is set to unity but the coordinates are all zero, so the sanity test does not apply
       } // ell
       delete[] xyzw;
-      if (echo > 1) printf("\n# %s: %i grid generations failed!\n", __func__, stat);
+      if (echo > 1 && stat) printf("\n# %s: %i grid generations failed!\n", __func__, stat);
       return stat;
-  } // test
-    
+  } // test_generation
+
   int test_orthogonality(int const echo=9, int const lmax=20) { // terribly slow
-      if (echo > 0) printf("\n# %s: \n", __func__);
+      if (echo > 3) printf("\n# %s: \n", __func__);
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);
-      int const M = (1 + ellmax)*(1 + ellmax);
-//       typedef std::complex<double> Ylm_t; // complex
-      typedef double Ylm_t;
-      auto yy = new Ylm_t[M];
-      auto unity = new Ylm_t[M*M];
-      auto xyzw = new double[max_size][4];
-      status_t stat = 0;
-      double dev_all = 0;
+      int const M = pow2(1 + ellmax);
+//    typedef std::complex<double> Ylm_t; // complex-valued
+      typedef double Ylm_t; // real-valued
+      std::vector<Ylm_t> yy(M);
+      auto const xyzw = new double[max_size][4];
+      status_t stat{0};
+      double dev_all{0};
       for(int ell = ellmax; ell > 0; --ell) {
-          int const m = (1 + ell)*(1 + ell);
+          int const m = pow2(1 + ell);
           if (echo > 3) printf("\n# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
           auto const np = create_Lebedev_grid(ell, xyzw, echo);
-          for(int ij = 0; ij < M*M; ++ij) unity[ij] = 0; // clear
+          std::vector<Ylm_t> unity(M*M, 0.0);
           for(int ip = 0; ip < np; ++ip) {
               auto const w8 = xyzw[ip][3] * 4*constants::pi;
 //            if (echo > 3) printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
-//               spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
-              solid_harmonics::Xlm(yy, ell, xyzw[ip]);
+//            spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
+              solid_harmonics::Xlm(yy.data(), ell, xyzw[ip]); // real, r^ell*Xlm
               for(int i = 0; i < m; ++i) {
 //                auto const yi = std::conj(yy[i])*w8; // complex
                   auto const yi = yy[i]*w8;
@@ -1907,8 +1909,8 @@ cTeXit '. ', '' ! full stop and an extra empty line
                   } // j
               } // i
           } // ip
-          
-          double dev = 0;
+
+          double dev{0};
           for(int i = 0; i < m; ++i) {
               for(int j = 0; j < m; ++j) {
 //                   auto const Re = unity[i*M + j].real(), Im = unity[i*M + j].imag();
@@ -1921,30 +1923,30 @@ cTeXit '. ', '' ! full stop and an extra empty line
               } // j
               if (echo > 7) printf("\n");
           } // i
-          if (echo > 2) printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %i is %g\n", __func__, ell, dev);
+          if (echo > 4) printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %i is %.1e\n", __func__, ell, dev);
           dev_all = std::max(dev_all, dev);
           stat += (dev > 2.7e-14);
 
       } // ell
-      if (echo > 0) printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %g\n", __func__, ellmax, dev_all);
+      if (echo > 2) printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %.1e\n", __func__, ellmax, dev_all);
       delete[] xyzw;
-      delete[] yy;
-      if (echo > 1) printf("\n# %s: %i grid generations failed!\n", __func__, stat);
+      if (echo > 0 && stat) printf("# %s: %i grid generations failed!\n", __func__, stat);
       return stat;
   } // test_orthogonality
 
-  status_t test_numerical_Gaunt(int const echo=1) { 
-      return create_numerical_Gaunt<3>(nullptr, echo); 
+  status_t test_numerical_Gaunt(int const echo=1) {
+      std::vector<gaunt_entry_t> gaunt;
+      return create_numerical_Gaunt<3>(gaunt, echo);
   } // test_numerical_Gaunt
 
   status_t all_tests(int const echo) {
-    auto status = 0;
-    status += test_generation(echo);
-    status += test_orthogonality(echo);
-    status += test_numerical_Gaunt(echo);
+    status_t stat{0};
+    stat += test_generation(echo);
+    stat += test_orthogonality(echo);
+    stat += test_numerical_Gaunt(echo);
     solid_harmonics::cleanup<double>(); // free internal memory
-    return status;
+    return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS
-  
+
 } // namespace angular_grid

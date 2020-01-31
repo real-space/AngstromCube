@@ -1,8 +1,9 @@
 #pragma once
 
-#include <complex> // std::complex<>
+#include <complex> // std::complex<real_t>
 #include <cmath> // std::sqrt
-#include "constants.hxx" // constants::pi
+#include "constants.hxx" // ::pi
+#include "inline_math.hxx" // pow2
 
 namespace spherical_harmonics {
 
@@ -109,7 +110,7 @@ namespace spherical_harmonics {
       // determine sin and cos of phi
       c[0] = 1; s[0] = 0;
       if (ellmax > 0) {
-          c[1] = cph; s[1] = sph; 
+          c[1] = cph; s[1] = sph;
           auto const cph2 = 2*cph;
           for(int m = 2; m <= ellmax; ++m) {
               s[m] = cph2*s[m - 1] - s[m - 2];
