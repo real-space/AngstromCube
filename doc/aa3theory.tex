@@ -701,6 +701,8 @@ the position of each atom needs to be communicated to the LiveAtom objects.
 It can be done by the $v^a_{00}$ term which is found by projection 
 $\braket{\hat n^a_{00}}{V\um{es}(\vec r)}$.
 
+
+
 \subsection{On the shape of compensators}\label{sec:compensator-radii}
 In order to get $v^a_{00}$ correct, we have to assume that there is no overlap
 between charge compensation densities of two different atoms
@@ -752,6 +754,32 @@ The, the latter is added after solving the Poisson equation.
 After adding, we can make the projection with the more localized compensation charges.
 And then add the traditional $\bar V$ to get to the effective potential.
 
+\subsection{The zero potential}
+
+In order to reproduce the exact total effective potential outside 
+%
+\begin{figure}
+   %%% how to reproduce this:
+   %%% git key 9f115f160f63d6cf7df64cf60de547293d8d5ca6 
+   %%% make -j && ./aa3 -t spherical_atoms. +verbosity=11  +single_atom.echo=6 > out
+   %%% and rune once again with
+   %%% manipulated prefactor (e.g. insert 0 instead of Y00 in spherical_atoms.cxx:343)
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/20200131_zero_potential_inset_times_r} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:zero_potential}
+  \caption{
+	Radial projection of the effective potential $V\um{tot} = V\um{xc} + V\um{es}$
+	Before adding the localized spherical atom contributions $\bar V^{a}$,
+	a strong potential dip can be seen at the positions of the two atoms Al and P in a dimer.
+	Furthermore, there is a faint dip around \unit[4]{Bohr} which indicates the position of the other atom, 
+	see inset. For better visibility, the inset shows $r\,V(r)$.
+  }
+\end{figure}
+%
+%
 
 
 \subsection{Communicating the potential shifts}\label{sec:multipole-shifts}

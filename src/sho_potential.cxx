@@ -385,7 +385,7 @@ namespace sho_potential {
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] = wi*xyzZ[ia*4 + d] + wj*xyzZ[ja*4 + d];
                   } // d
-                  int const numax_V = numaxs[ia] + numaxs[ja] + 1 + 3;
+                  int const numax_V = numaxs[ia] + numaxs[ja];
                   if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
                                             cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
                   for(int d = 0; d < 3; ++d) {

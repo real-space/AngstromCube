@@ -129,6 +129,7 @@ namespace spherical_atoms {
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
       
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
+      double *zero_pot[na]; // smooth zero_potential on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na]; // smooth radial grid descriptors
       double sigma_cmp[na]; //
       double *qlm[na]; int lmax_qlm[na];
@@ -298,10 +299,57 @@ namespace spherical_atoms {
 
       } // scope
 
-      stat += single_atom::update(na, Za, ionization, nullptr, nullptr, nullptr, nullptr, vlm);
+      stat += single_atom::update(na, Za, ionization, nullptr, nullptr, nullptr, nullptr, vlm, nullptr, nullptr, zero_pot);
 
       set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
+      
+      if (echo > 1) {
+          printf("\n# Total effective potential (before adding zero_potentials) grid stats:");
+          print_stats(Vtot.data(), g.all(), g.dV());
+      } // echo
+      
+      // now also add the zero_potential to Vtot
+                  
+      for(int ia = 0; ia < na; ++ia) {
+          // ToDo: these parameters are silently assumed for the r2-grid of zero_pot
+          int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
+          double const r2cut = pow2(rg[ia]->rmax), r2inv = 1./r2cut;
+          if (echo > 6) {
+              printf("\n## zero-potential for atom #%d:\n", ia);
+              for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                  double const r2 = ir2/ar2, r = std::sqrt(r2);
+                  printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
+              }   printf("\n\n");
+          } // echo
 
+          if (1) {
+              for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                  double const r2 = ir2/ar2;
+                  zero_pot[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+              } // irs
+          } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
+
+          if (echo > 6) {
+              printf("\n## Masked zero-potential for atom #%d:\n", ia);
+              for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                  double const r2 = ir2/ar2, r = std::sqrt(r2);
+                  printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
+              }   printf("\n\n");
+          } // echo
+          
+          for(int ii = 0; ii < n_periodic_images; ++ii) {
+              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+              double dummy = 0;
+              stat += real_space_grid::add_function(Vtot.data(), g, &dummy, zero_pot[ia], nr2, ar2, cnt, Y00);
+          } // periodic images
+
+      } // ia
+      
+      if (echo > 1) {
+          printf("\n# Total effective potential  (after adding zero_potentials) grid stats:");
+          print_stats(Vtot.data(), g.all(), g.dV());
+      } // echo
+      
   } // scf_iteration
   
 //   return 1; // warning! no cleanup has been run
@@ -324,7 +372,7 @@ namespace spherical_atoms {
 //       values = Vxc; // analyze the xc potential
 //       values = Vtot; // analyze the total potential: Vxc + Ves
 
-      for(int iptr = 0; iptr < 1; ++iptr) { // only loop over the first 1 for electrostatics
+      for(int iptr = 0; iptr < 6; iptr += 5) { // only loop over the first 1 for electrostatics
           SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
           auto const values = value_pointers[iptr];
 

@@ -1768,11 +1768,14 @@ extern "C" {
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
-    status_t get_smooth_core_density(double rho[], float const ar2, int const nr2, int const echo=1) {
-        if (echo > 7) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, core_density=%p, rg=%p)\n", 
-                              label, (void*)rho, ar2, nr2, (void*)core_density[SMT].data(), (void*)rg[SMT]);
-        return bessel_transform::transform_to_r2_grid(rho, ar2, nr2, core_density[SMT].data(), *rg[SMT], echo);
-    } // get_smooth_core_density
+    template<char what>
+    status_t get_smooth_spherical_quantity(double qnt[], float const ar2, int const nr2, int const echo=1) {
+        char const *qnt_name = ('c' == what) ? "core_density" : "zero_potential";
+        auto const & qnt_vector = ('c' == what) ? core_density[SMT] : zero_potential;
+        if (echo > -1) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
+                              label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
+        return bessel_transform::transform_to_r2_grid(qnt, ar2, nr2, qnt_vector.data(), *rg[SMT], echo);
+    } // get_smooth_spherical_quantity
 
     radial_grid_t* get_smooth_radial_grid(int const echo=0) { return rg[SMT]; }
 
@@ -1783,7 +1786,7 @@ namespace single_atom {
   
   status_t update(int const na, float const Za[], float const ion[], 
                   radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm) {
+                  double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, double **zero_pot) {
     
       static int echo = -9;
       if (echo == -9) echo = control::get("single_atom.echo", 0.);
@@ -1810,7 +1813,13 @@ namespace single_atom {
           if (nullptr != rho) {
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
               rho[ia] = new double[nr2];
-              a[ia]->get_smooth_core_density(rho[ia], ar2, nr2);
+              a[ia]->get_smooth_spherical_quantity<'c'>(rho[ia], ar2, nr2);
+          } // get the smooth core densities
+
+          if (nullptr != zero_pot) {
+              int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
+              zero_pot[ia] = new double[nr2];
+              a[ia]->get_smooth_spherical_quantity<'v'>(zero_pot[ia], ar2, nr2);
           } // get the smooth core densities
 
           if (nullptr != rg) rg[ia] = a[ia]->get_smooth_radial_grid(); // pointers to smooth radial grids
