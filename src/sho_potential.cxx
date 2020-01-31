@@ -42,10 +42,13 @@ namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
 
   template<typename real_t>
-  status_t generate_potential_matrix(view2D<real_t> & Vmat, view4D<real_t> const & t, real_t const Vcoeff[],
-                            int const numax_p, int const numax_i, int const numax_j, int const dir01=1) {
+  status_t generate_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j)
+                            , view4D<real_t> const & t // input t(dir,p,j,i)
+                            , real_t const Vcoeff[], int const numax_p // expansion of the potential in x^{nx}*y^{ny}*z^{nz}
+                            , int const numax_i, int const numax_j
+                            , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
-      // use different tensors per direction
+      // can use different tensors per direction
       int pzyx{0};
       for    (int pz = 0; pz <= numax_p;           ++pz) {
         for  (int py = 0; py <= numax_p - pz;      ++py) {
@@ -57,9 +60,9 @@ namespace sho_potential {
                 for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
                   int jzyx{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,pz,iz,jz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,py,iy,jy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(      0,px,ix,jx) * tyz;
+                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,pz,jz,iz);
+                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,py,jy,iy) * tz;
+                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(      0,px,jx,ix) * tyz;
 
                         Vmat[izyx][jzyx] += txyz * Vcoeff[pzyx];
 
@@ -86,9 +89,11 @@ namespace sho_potential {
 
   
   template<typename real_t>
-  status_t multiply_potential_matrix(view2D<real_t> & Vmat, view3D<real_t> const & ovl, view2D<real_t> const & Vaux,
-                  int const numax_i, int const numax_j, int const numax_k) {
-  
+  status_t multiply_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j)
+     , view3D<real_t> const & ovl  // input ovl(dir,j,i)
+     , view2D<real_t> const & Vaux // input Vaux(i,k) --> ToDo: check if this is consistent!!
+     , int const numax_i, int const numax_j, int const numax_k) {
+
       for(int izyx = 0; izyx < sho_tools::nSHO(numax_i); ++izyx) {
         
           int jzyx{0};
@@ -219,19 +224,36 @@ namespace sho_potential {
                               natoms, geofile, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       }
       
+      
+      
 //    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
 
       real_space_grid::grid_t<1> g(dims);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g.dim(0)*Ang, g.h[1]*g.dim(1)*Ang, g.h[2]*g.dim(2)*Ang, _Ang);
+      double const central_pos[] = {.5*(g.dim(0) - 1)*g.h[0],
+                                    .5*(g.dim(1) - 1)*g.h[1], 
+                                    .5*(g.dim(2) - 1)*g.h[2]};
+
       auto const center = new double[natoms][4]; // list of atomic centers
       for(int ia = 0; ia < natoms; ++ia) {
           for(int d = 0; d < 3; ++d) {
-              center[ia][d] = xyzZ[ia*4 + d] + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+              center[ia][d] = xyzZ[ia*4 + d] + central_pos[d]; // w.r.t. to the center of grid point (0,0,0)
           }   center[ia][3] = 0; // 4th component is not used
       } // ia
-      
+
+      if (0) { // scope: artificial potentials (other than constants)
+          for(int iz = 0; iz < dims[2]; ++iz) {           auto const z = iz*g.h[2] - central_pos[2];
+              for(int iy = 0; iy < dims[1]; ++iy) {       auto const y = iy*g.h[1] - central_pos[1];
+                  for(int ix = 0; ix < dims[0]; ++ix) {   auto const x = ix*g.h[0] - central_pos[0];
+                      int const izyx = (iz*dims[1] + iy)*dims[0] + ix;
+                      vtot[izyx] = 1.000 + x*.100 + y*.010 + z*.001;
+                  } // ix
+              } // iy
+          } // iz
+      } // scope: artificial potentials
+
       int    const usual_numax = control::get("sho_potential.test.numax", 1.);
       double const usual_sigma = control::get("sho_potential.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
@@ -287,7 +309,7 @@ namespace sho_potential {
           
           if (echo > 4) { // show the normalized operators
               for(int i01 = 0; i01 <= 1; ++i01) {
-                  if (echo > 7) printf("\n# %s\n", i01?"potential V ":"overlap S ");
+                  if (echo > 7) printf("\n# %s\n", i01?"potential (V)":"overlap (S)");
                   for(int ia = 0; ia < natoms; ++ia) {        int const nb = sho_tools::nSHO(numaxs[ia]);
                       for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
                           printf("# ai#%i aj#%i\n", ia, ja);
@@ -316,9 +338,6 @@ namespace sho_potential {
           //    expand the potential in a SHO basis with sigma_V^-2 = sigma_1^-2 + sigma_2^-2
           //    and numax_V = numax_1 + numax_2 and determine the
           //    potential matrix elements using the tensor
-          double const central_pos[] = {.5*(g.dim(0) - 1)*g.h[0],
-                                        .5*(g.dim(1) - 1)*g.h[1], 
-                                        .5*(g.dim(2) - 1)*g.h[2]};
           for(int ia = 0; ia < natoms; ++ia) {
               double const sigma_i = sigmas[ia];
               for(int ja = 0; ja < natoms; ++ja) {
@@ -350,7 +369,8 @@ namespace sho_potential {
                   int const nc = sho_tools::nSHO(numax_V);
                   std::vector<double> Vcoeff(nc, 0.0);
                   sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
-                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V);
+                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V); // mute
+                  // now Vcoeff is in a representation w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
 
                   int const nb = sho_tools::nSHO(numaxs[ia]);
                   int const mb = sho_tools::nSHO(numaxs[ja]);
@@ -399,12 +419,15 @@ namespace sho_potential {
           for(int ia = 0; ia < natoms; ++ia) {
               double const sigma = sigmas[ia];
               set(Vcoeff.data(), nc, 0.0);
+              double const sigma_V = std::sqrt(.5)*sigma;
+              int const numax_V = lmax;
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
-              sho_projection::sho_project(Vcoeff.data(), lmax, center[ia], 2*sigma, vtot.data(), g, 0);
-              normalize_coefficients(Vcoeff.data(), lmax, 2*sigma);
+              sho_projection::sho_project(Vcoeff.data(), numax_V, center[ia], sigma_V, vtot.data(), g, 0);
+              stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 9);
+              // now Vcoeff is in a representation w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
               
               int const nb = sho_tools::nSHO(numaxs[ia]);
-              view2D<double> Vaux(nb, nc, 0.0);
+              view2D<double> Vaux(nb, nc, 0.0); // Vaux(i,j)
               // now compute local matrix elements <local basis|V|large aux. basis>
               
               generate_potential_matrix(Vaux, t, Vcoeff.data(), lmax, numaxs[ia], lmax, 0);
@@ -413,7 +436,7 @@ namespace sho_potential {
                   if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
                   
                   int const mucut = sho_tools::n1HO(numaxs[ja]);
-                  view3D<double> ovl(3, mucut, nucut);
+                  view3D<double> ovl(3, mucut, nucut); // index order (dir,j,i)
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
                       sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut, mucut, sigma, sigmas[ja]);
@@ -458,7 +481,8 @@ namespace sho_potential {
                       for(int ib = 0; ib < nb; ++ib) {
                           printf("# S ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
-                              printf("%8.3f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
+//                               printf("%8.3f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
+                              printf("%8.3f", Smat(ia,ja,ib,jb)); // un-normalized, all diagonal elements are 1.0
                           } // jb
                           printf("\n");
                       } // ib
