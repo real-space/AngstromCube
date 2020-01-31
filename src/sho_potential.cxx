@@ -185,12 +185,12 @@ namespace sho_potential {
   status_t test_potential_elements(int const echo=5, char const *geofile="atoms.xyz") {
       status_t stat = 0;
       
-      int dims[] = {86, 86, 102}; std::vector<double> vtot(754392, 1.0); // total smooth potential, constant at 1 Hartree
+//       int dims[] = {86, 86, 102}; std::vector<double> vtot(754392, 1.0); // total smooth potential, constant at 1 Hartree
       
       auto const filename = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
-//       int dims[] = {0, 0, 0};
-//       std::vector<double> vtot; // total smooth potential
-      if (0) { // scope: read in the potential from a file
+      int dims[] = {0, 0, 0};
+      std::vector<double> vtot; // total smooth potential
+      if (1) { // scope: read in the potential from a file
           std::ifstream infile(filename);
           int npt = 0; 
           if (!infile.is_open()) {
@@ -243,12 +243,45 @@ namespace sho_potential {
           }   center[ia][3] = 0; // 4th component is not used
       } // ia
 
-      if (1) { // scope: artificial potentials (other than constants)
-          for(int iz = 0; iz < dims[2]; ++iz) {           auto const z = iz*g.h[2] - central_pos[2];
-              for(int iy = 0; iy < dims[1]; ++iy) {       auto const y = iy*g.h[1] - central_pos[1];
+      if (0) { // scope: artificial linear potentials (other than constants)
+          for        (int iz = 0; iz < dims[2]; ++iz) {   auto const z = iz*g.h[2] - central_pos[2];
+              for    (int iy = 0; iy < dims[1]; ++iy) {   auto const y = iy*g.h[1] - central_pos[1];
                   for(int ix = 0; ix < dims[0]; ++ix) {   auto const x = ix*g.h[0] - central_pos[0];
                       int const izyx = (iz*dims[1] + iy)*dims[0] + ix;
-                      vtot[izyx] = 1.000 + x*.100 + y*.010 + z*.001;
+//                    vtot[izyx] = 1.0 + x*.100 + y*.010 + z*.001;  // case 1xyz
+//                    vtot[izyx] = 1.0 + z*.100 + y*.010 + x*.001;  // case 1zyx
+//                    vtot[izyx] = 1.0 + y*.100 + z*.010 + x*.001;   // case 1yzx
+                      //
+                      // DevNotes: comparing Method1 and Method2, Al has sigma 1.65, P has sigma 1.35
+                      // 
+                      // found that in case 1xyz and case 1zyx on both, atom #0 and #1 (however, agreement on the atom-hopping terms)
+                      // there are small deviations ~6--8% in small matrix elements of the order ~0.015 Hartree
+                      // in particular (using zyx-labels) 
+                      // 110 <--> 120 [y], 010 <--> 020 [y] and 011 <--> 021 [y]
+                      // 
+                      // found in case 1yzx similarly small deviations in
+                      // 100 <--> 200 [z] and 101 <--> 201 [z] on atom #0 (Al) and
+                      // 100 <--> 200 [z],    101 <--> 201 [z] and 110 <--> 210 [z] on atom#1 (P)
+                      // 
+//                    vtot[izyx] = 1.0 + y*.3;   // case 1y.3 // good
+//                    vtot[izyx] = 1.0 + x*.3;   // case 1x.3 // good
+//                    vtot[izyx] = 1.0 + z*.3;   // case 1z.3 // good
+//                    vtot[izyx] = 1.0 + z*.2 + x*0.2;   // case 1zx2 // good
+//                    vtot[izyx] = 1.0 + x*.2 + y*0.2;   // case 1xy2 // good
+//                    vtot[izyx] = 1.0 + y*.2 + z*0.2;   // case 1yz2 // good
+//                    vtot[izyx] = 1.0 + x*.2 + y*.2 + z*.2 ; // case 1xyz2 // good
+//                    vtot[izyx] = 1.0 + x*.100 + y*.010 + z*.001;  // case 1xyz_new
+                      // found that in case 1xyz_new
+                      // there are small deviations ~.6--.8% in very small matrix elements of the order ~0.0015 Hartree
+                      // 100 <--> 200 [z] on atom #1 (P) and
+                      // 101 <--> 201 [z] and 110 <--> 210 on atom #0 (Al)
+//                     vtot[izyx] = 1.0 + z*.100 + y*.010 + x*.001;  // case 1zyx_new 
+                      // found in case 1zyx_new
+                      // 001 <--> 002 [x], 011 <--> 012 [x] and 101 <--> 102 on atom #0 (Al) and the same on atom #1 (P)
+                      vtot[izyx] = 1.0 + y*.100 + z*.010 + x*.001;   // case 1yzx_new
+                      // found in case 1yzx_new
+                      // 001 <--> 002 [x], 011 <--> 012 [x] and 101 <--> 102 on atom #0 (Al) and the same on atom #1 (P)
+                      
                   } // ix
               } // iy
           } // iz
@@ -318,7 +351,7 @@ namespace sho_potential {
                               for(int jb = 0; jb < mb; ++jb) {
                                   double const elem = (i01 ? Vmat(ia,ja,ib,jb) : Smat(ia,ja,ib,jb)) 
                                                     / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
-                                  printf("%8.3f", elem); // show normalized overlap matrix element
+                                  printf("%8.4f", elem); // show normalized overlap matrix element
                               } // jb
                               printf("\n");
                           } // ib
@@ -352,15 +385,15 @@ namespace sho_potential {
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] = wi*xyzZ[ia*4 + d] + wj*xyzZ[ja*4 + d];
                   } // d
-                  if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s\n", ia, ja, 
-                                            cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang);
+                  int const numax_V = numaxs[ia] + numaxs[ja] + 1 + 3;
+                  if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
+                                            cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] += central_pos[d];
                   } // d
-                  int const numax_V = numaxs[ia] + numaxs[ja] + 1;
                   int const nucut = sho_tools::n1HO(std::max(numaxs[ia], numaxs[ja]));
                   
-                  view4D<double> t(3, 2*nucut, nucut, nucut, 0.0);
+                  view4D<double> t(3, 1+numax_V, nucut, nucut, 0.0);
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
                       sho_overlap::moment_tensor(t[d].data(), distance, nucut, nucut, sigmas[ia], sigmas[ja], numax_V);
@@ -384,7 +417,7 @@ namespace sho_potential {
                       if (echo > 0) {
                           printf("# V ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
-                              printf("%8.3f", Vmat[ib][jb]);
+                              printf("%8.4f", Vmat[ib][jb]);
                           }   printf("\n");
                       } // echo
                   } // ib
@@ -453,7 +486,7 @@ namespace sho_potential {
                       if (echo > 0) {
                           printf("# V ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
-                              printf("%8.3f", Vmat[ib][jb]);
+                              printf("%8.4f", Vmat[ib][jb]);
                           }   printf("\n");
                       } // echo
                   } // ib
@@ -481,8 +514,8 @@ namespace sho_potential {
                       for(int ib = 0; ib < nb; ++ib) {
                           printf("# S ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
                           for(int jb = 0; jb < mb; ++jb) {
-//                               printf("%8.3f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
-                              printf("%8.3f", Smat(ia,ja,ib,jb)); // un-normalized, all diagonal elements are 1.0
+//                               printf("%8.4f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
+                              printf("%8.4f", Smat(ia,ja,ib,jb)); // un-normalized, all diagonal elements are 1.0
                           } // jb
                           printf("\n");
                       } // ib
