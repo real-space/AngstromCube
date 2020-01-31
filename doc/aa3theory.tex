@@ -430,6 +430,8 @@ after the projection with unnormalized Hermite-Gauss functions.
 However, here, proper L1-normalization requires the matrix inverse of 
 $$ f_{nm\sigma} = \int\limits_{-\infty}^{\infty} \mathrm dx \  H_{n}\left( \frac{x}{\sigma} \right) \  \exp\left( -\frac{x^2}{2\sigma^2} \right) \  x^m $$
 %%% sho_overlap::moment_normalization
+for $m \leq n$ which results in a triangular matrix that, in addition, features an even-odd parity, 
+i.e.~matrix entries are only non-zero if both $m$ and $n$ are even or both are odd.
 
 \section{Benchmark: Free Electron Gas}
 The dispersion relation of the free electron gas is know to be
@@ -546,20 +548,20 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
 
 \section{Exact Poisson solver}
 %
-\begin{figure}
-  %% how to generate this plot:
-  %% 	run -t atom_core.
-  \begin{minipage}[c]{.990\textwidth}
-	\includegraphics[width=\textwidth]{fig/fourier_poisson} %%
-  \end{minipage}\hfill
-  \begin{minipage}[c]{.009\textwidth}
-  \end{minipage}
-  \label{fig:fourier_poisson_solver}
-  \caption{
-	Comparison of input and output of the (3D periodic) \ttt{fourier\_poisson.}-solver with (isolated 1D) radial solutions.
-	Differences might stem from the different boundary conditions.
-  }
-\end{figure}
+% \begin{figure}
+%   %% how to generate this plot:
+%   %% 	run -t atom_core.
+%   \begin{minipage}[c]{.990\textwidth}
+% 	\includegraphics[width=\textwidth]{fig/fourier_poisson} %%
+%   \end{minipage}\hfill
+%   \begin{minipage}[c]{.009\textwidth}
+%   \end{minipage}
+%   \label{fig:fourier_poisson_solver}
+%   \caption{
+% 	Comparison of input and output of the (3D periodic) \ttt{fourier\_poisson.}-solver with (isolated 1D) radial solutions.
+% 	Differences might stem from the different boundary conditions.
+%   }
+% \end{figure}
 %
 %
 A Poisson solver based on Fourier-transforms (FFT by Intel Math Kernel Library)
@@ -799,7 +801,7 @@ brought to the 3D grid with the help of localized smooth compensator charge dens
   \begin{minipage}[c]{.009\textwidth}
   \end{minipage}
   \label{fig:multipole-shifts}
-  \caption{Smooth electrostatic potentials of an A-B dimer with ionization, here Al$^+$-P$^-$.
+  \caption{Smooth electrostatic potentials of an A$-$B dimer with ionization, here Al$^+ -$P$^-$.
   In the radial representation, the electrostatic problem is first solved disregarding boundary conditions (dotted lines).
   Then, the radial solutions are shifted to match $v_{\ell m}$ as found by projection with the compensator shapes.
   The shifted radial solutions (solid lines) and a Bessel projection of the 3D solution match inside the spheres (radii 2 Bohr).}
@@ -824,10 +826,24 @@ See fig.~\ref{fig:multipole-shifts} for an example.
   \begin{minipage}[c]{.009\textwidth}
   \end{minipage}
   \label{fig:ionized-spherical-atoms-AlP-dimer}
-  \caption{Smooth electrostatic potentials of an Al$-$P dimer 
+  \caption{
+   Smooth electrostatic potentials of an Al$-$P dimer 
    without ionization (upper panel) and ionized Al$^{+.9}$P$^{-.9}$ (lower panel).
+   Ionization shifts the potential value at the origin down for Al (by \unit[-67.9]{mHa} or \unit[-1.85]{eV})
+   and up for P (by \unit[54.3]{mHa} or \unit[1.47]{eV}).
+   %%% how to find this value?
+   %%% for Al grep '0.000100923'  20200127_spherical_atoms_ionized*.agr
+   %%% for P  grep '0.000101042'  20200127_spherical_atoms_ionized*.agr
+    %%% the first column here is V(r) and the seconds is the projected V(xyz)
+	% # for Al
+	% 20200127_spherical_atoms_ionized0.agr:0.000100923 -2.34213 -2.33898
+	% 20200127_spherical_atoms_ionized9.agr:0.000100923 -2.41004 -2.40433
+	% # for P
+	% 20200127_spherical_atoms_ionized0.agr:0.000101042 -3.07102 -3.0669
+	% 20200127_spherical_atoms_ionized9.agr:0.000101042 -3.01669 -3.01555
    }
 \end{figure}
+
 
 
 \section{Linear Scaling}\label{sec:linear-scaling}
