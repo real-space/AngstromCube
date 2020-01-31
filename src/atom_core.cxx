@@ -1,24 +1,25 @@
 // #include <vector> // std::vector
 #include <cstdio> // printf
 #include <cassert> // assert
-#include <cmath> // sqrt, pow, exp, fabs, sqrt
+#include <cmath> // std::sqrt, std::pow, std::exp, std::abs, std::sqrt, std::round
 #include <fstream> // ifstream, ofstream
-#include <algorithm> // min, max
-#include <iomanip> // setprecision
+#include <algorithm> // std::min, std::max
+#include <iomanip> // std::setprecision
+#include <vector> // std::vector<T>
 
 #include "atom_core.hxx"
 
-#include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // create_default_radial_grid, dot_product<real_t>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
+#include "radial_grid.h" // radial_grid_t
+#include "radial_grid.hxx" // ::create_default_radial_grid
 #include "display_units.h" // eV, _eV
-#include "radial_potential.hxx" // Hartree_potential
-#include "exchange_correlation.hxx" // lda_PZ81_kernel
-#include "inline_math.hxx" // pow2, set, scale, product, add_product
-#include "radial_eigensolver.hxx" // shooting_method
-#include "constants.hxx" // constants::pi
-#include "control.hxx" // control::get
-#include "lossful_compression.hxx" // RamerDouglasPeucker
+#include "radial_potential.hxx" // ::Hartree_potential
+#include "exchange_correlation.hxx" // ::lda_PZ81_kernel
+#include "inline_math.hxx" // pow2, set, scale, product, add_product, dot_product
+#include "radial_eigensolver.hxx" // ::shooting_method
+#include "constants.hxx" // ::pi
+#include "control.hxx" // ::get
+#include "lossful_compression.hxx" // RDP_lossful_compression
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -63,18 +64,18 @@ namespace atom_core {
       E_est,     // electrostatic: E_Htr + E_Cou
       NumEnergyContributions };
 
-  void rad_pot(double rV[], radial_grid_t const &g, double const rho4pi[], double const Z, double *energies) {
-      double Eexc = 0, Evxc = 0, EHtr = 0;
+  void rad_pot(double rV[], radial_grid_t const & g, double const rho4pi[], double const Z, double *energies) {
+      double Eexc{0}, Evxc{0}, EHtr{0};
       double const ECou = -Z*radial_potential::Hartree_potential(rV, g, rho4pi); // set rV to the Hartree potential
-      double const fpi = .25/constants::pi;
+      double const fpi = .25/constants::pi; // 1/(4*pi)
       for(int ir = 0; ir < g.n; ++ir) {
           EHtr += rho4pi[ir]*rV[ir]*g.rdr[ir];
-          double Vxc;
+          double Vxc{0};
           double const Exc = exchange_correlation::lda_PZ81_kernel(fpi*rho4pi[ir], Vxc);
           rV[ir] += g.r[ir]*Vxc; // add the exchange correlation potential
           Eexc += Exc*rho4pi[ir]*g.r2dr[ir]; // exchange correlation energy
           Evxc += Vxc*rho4pi[ir]*g.r2dr[ir]; // double counting correction
-          rV[ir] -= Z; // add the Coulomb potential -Z/r
+          rV[ir] -= Z; // add the Coulomb potential -Z/r to V(r) in r*V(r) representation
       } // ir
       EHtr *= 0.5;
       if (nullptr != energies) {
@@ -88,11 +89,10 @@ namespace atom_core {
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
     auto const alpha = 0.3058*std::pow(Z, 1./3.);
     auto const beta = std::sqrt(108./constants::pi)*std::max(0., Z - 2)*alpha;
-    if (4 + 3.2*charged < 0) return 1; // error
+    if (4 + 3.2*charged < 0) return -1; // error
     auto const gamma = std::sqrt(4 + 3.2*charged);
-    auto g2 = gamma*gamma*gamma;
-    if (Z < 2) g2 *= 0.5*Z;
-    double q = 0;
+    auto const g2 = pow3(gamma) * ((Z < 2) ? 0.5*Z : 1);
+    double q{0};
     for(auto ir = 0; ir < g.n; ++ir) {
         auto const r = g.r[ir];
         auto const x = alpha*r;
@@ -106,14 +106,12 @@ namespace atom_core {
     return q; // charge
   } // initial_density
 
-
-
   inline void get_Zeff_file_name(char *filename, char const *basename, float const Z) {
       sprintf(filename, "%s.%03g", basename, Z); }
 
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, float const Z,
           char const basename[], float const factor, int const echo) {
-      status_t stat = 0;
+      status_t stat{0};
       char filename[96]; get_Zeff_file_name(filename, basename, Z);
       if (echo > 3) printf("# %s Z=%g  try to read file %s\n",  __func__, Z, filename);
       std::ifstream infile(filename);
@@ -179,14 +177,14 @@ namespace atom_core {
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
 
-      int imax = -1;
+      int imax{-1};
       assert(Z <= 120);
       orbital_t orb[20];
       {   // prepare orbitals
-          int iZ = 0; // integer atomic number needed for occupations
-          int i = 0; // init shell index i
-          for(int m = 0; m < 8; ++m) {
-              int enn = (m + 1)/2;
+          int iZ{0}; // integer atomic number needed for occupations
+          int i{0}; // init shell index i
+          for(int m = 0; m < 8; ++m) { // auxiliary quantum number
+              int enn{(m + 1)/2};
               for(int ell = m/2; ell >= 0; --ell) {
                   ++enn; // main quantum number
                   int const max_occ = 2*(ell + 1 + ell); // spin degenerate
@@ -195,7 +193,7 @@ namespace atom_core {
                   orb[i].occ = std::min(std::max(0.f, Z - iZ), max_occ*1.f);
                   orb[i].E = guess_energy(Z, enn);
                   if (orb[i].occ > 0) {
-                      if (echo > 4) printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n",
+                      if (echo > 6) printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n",
                            __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
                       imax = std::max(i, imax);
                   } // occupied
@@ -214,30 +212,38 @@ namespace atom_core {
       auto rV_old = new double[g.n];
       set(rV_old, g.n, -1.*Z); // Hydrogen-like potential
       set(rV_new, g.n, -1.*Z); // Hydrogen-like potential
-      double mix = 0; // current mixing coefficient for the potential
+      double mix{0}; // init mixing coefficient for the potential
       double const alpha = 0.33; // limit case potential mixing coefficient
 
       double energies[NumEnergyContributions];
-      double eigenvalue_sum = 0;
-      double previous_energy = 0;
+      double eigenvalue_sum{0};
+      double previous_energy{0};
 
-      enum { Task_Solve, Task_ChkRho, Task_GenPot, Task_MixPot, Task_Energy } next_task = Task_Solve;
+      enum { Task_Solve, Task_ChkRho, Task_GenPot, Task_MixPot, Task_Energy } next_task{Task_Solve};
 
-      int icyc = 0;
+      int icyc{0};
       { // start scope
-          bool const loading_failed = (0 != read_Zeff_from_file(rV_old, g, Z, "pot/Zeff", -1));
+          bool loading_failed = (0 != read_Zeff_from_file(rV_old, g, Z, "pot/Zeff", -1));
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old, g.r));
 
+          if (Z != std::round(Z))
+
           if (loading_failed) {
-              // use guess density if loading failed
-              auto const q = initial_density(r2rho4pi, g, Z);
-              if (echo > 2) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
-              next_task = Task_ChkRho; // different entry point into the loop, skip the 1st solver call
+              if (Z != std::round(Z)) {
+                  // maybe loading failed because there is no file for non-integer core charges
+                  loading_failed = (0 != read_Zeff_from_file(rV_old, g, std::round(Z), "pot/Zeff", -1));
+              }
+              if (loading_failed) {
+                // use guess density if loading failed
+                auto const q = initial_density(r2rho4pi, g, Z);
+                if (echo > 2) printf("# %s  Z=%g  guess rho with %.6f electrons\n",  __func__, Z, q);
+                next_task = Task_ChkRho; // different entry point into the loop, skip the 1st solver call
+              } // loading_failed (still)
           } // loading_failed
       } // start scope
 
-      double res = 9e9; // residual
-      bool run = true;
+      double res{9e9}; // residual
+      bool run{true};
       while (run) {
 //           run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
 
@@ -247,7 +253,7 @@ namespace atom_core {
                   full_debug(printf("# Task_Solve\n"));
 
                   set(r2rho4pi, g.n, 0.0); // init accumulator density
-                  eigenvalue_sum = 0; // init energy accumulator
+                  eigenvalue_sum = 0; // reset energy accumulator
 
                   for(int i = 0; i <= imax; ++i) {
                       if (orb[i].occ > 0) {

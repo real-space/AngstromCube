@@ -22,13 +22,13 @@
 #endif
 
 #ifdef FULL_DEBUG
-    #define full_debug(print) print 
+    #define full_debug(print) print
 #else
     #define full_debug(print)
 #endif
 
 #ifdef DEBUG
-    #define debug(print) print 
+    #define debug(print) print
 #else
     #define debug(print)
 #endif
@@ -36,7 +36,7 @@
 
 namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
-  
+
   template<typename real_t, int D0> // D0: vectorization
   void inner_products(real_t s[] // result <bra|ket> [nstates][nstates]
                    , int const stride // same stride assumed for both, bra and ket
@@ -59,7 +59,7 @@ namespace davidson_solver {
       } // istate
   } // inner_products
 
-  
+
   template<typename real_t, int D0> // D0: vectorization
   void vector_norm2s(real_t s[] // result <ket|ket> [mstates]
                    , size_t const ndof
@@ -75,15 +75,15 @@ namespace davidson_solver {
           s[jstate] = tmp*factor; // init
       } // jstate
   } // vector_norm2s
-  
-  
+
+
   template<typename real_t>
   void show_matrix(real_t const mat, int const stride, int const n, int const m, char const *name=nullptr) {
       printf("\n# %s=%s%c", (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
-          if (n > 1) printf("#%4i ", i); else printf("#  ");
+          if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
-              printf("%10.3f", mat[i*stride + j]);
+              printf("%9.3f", mat[i*stride + j]);
           }   printf("\n");
       }   printf("\n");
   } // show_matrix
@@ -100,21 +100,21 @@ namespace davidson_solver {
       if (echo > 0) printf("# start Davidson (subspace size up to %i x %i bands)\n", mbasis, nbands);
 
       double const threshold2 = 1e-8;
-      
+
       int const max_space = mbasis*nbands;
       int       sub_space = nbands; // init with the waves from the input
-      
+
       view3D<real_t> matrices(2, max_space, max_space);
       auto Hmt = matrices[0], Ovl = matrices[1];
 
       // prepare the Hamiltonian and Overlapping
       std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential
-      
+
       std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
       std::vector<atom_image::atom_image_t> ai(1); // atom_images
       a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
       ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); // image position at the center, index=0 maps into list of sho_atoms
-     
+
       int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8};
       finite_difference::finite_difference_t<double> kinetic(g.h, bc, nn);
 
@@ -126,7 +126,7 @@ namespace davidson_solver {
       std::vector<real_t> eigval(max_space);
       std::vector<real_t> residual_norm2s(nbands);
       std::vector<int> band_index(nbands);
-      
+
       for(int iteration = 0; iteration < 2; ++iteration) {
           if (echo > 0) printf("# Davidson iteration %i\n", iteration);
 
@@ -140,16 +140,16 @@ namespace davidson_solver {
           // compute matrix representation in the sub_space
           inner_products<real_t,D0>(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
           inner_products<real_t,D0>(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
-          
+
           if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
 
           stat += linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigval.data());
           auto const & eigvec = Hmt;
           if (echo > 8) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
-          if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
+          // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 
-          // now rotate the basis into the eigenspace, ToDo: can we use DGEMM-style operations?
+          // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
           int const stride = g.all();
           for(int i = 0; i < sub_space; ++i) {
               for(int j = 0; j < sub_space; ++j) {
@@ -161,7 +161,7 @@ namespace davidson_solver {
 
 
           if (iteration < 1) { // only in the first iteration
-            
+
               // apply Hamiltonian and Overlap operator again
               for(int istate = 0; istate < sub_space; ++istate) {
                   assert( 1 == D0 );
@@ -187,7 +187,7 @@ namespace davidson_solver {
                       }
                   } // ires
               }
-              
+
               // re-pack the new residuals
               for(int ires = 0; ires < new_bands; ++ires) { // serial due to RAW dependencies
                   int const itarget = nbands + ires;
@@ -200,20 +200,20 @@ namespace davidson_solver {
               } // ires
 
               sub_space += new_bands; // increase the subspace size by the number of non-vanishing residual vectors
-              
+
               if (new_bands < nbands) { printf("# add %i residuals\n", new_bands); exit(__LINE__); }
 
           } // not in the second iteration
 
           std::swap(psi, epsi); // pointer swap instead of deep copy
-          
+
       } // iteration
 
       set(waves, nbands*g.all(), psi.data()); // copy result wave functions back
       // ToDo: export last set of nbands eigenvalues
 
       if (echo > 4) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
-      
+
       return stat;
   } // solve
 
@@ -222,7 +222,7 @@ namespace davidson_solver {
 #else // NO_UNIT_TESTS
 
   status_t test_solver(int const echo=9) {
-      status_t stat = 0;
+      status_t stat{0};
       int constexpr D0 = 1; // 1: no vectorization
       int const nbands = std::min(8, (int)control::get("davidson_solver.num.bands", 4));
       int const dims[] = {8, 8, 8};
@@ -233,12 +233,12 @@ namespace davidson_solver {
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
       real_space_grid::grid_t<D0> g(dims);
       std::vector<double> psi(nbands*g.all(), 0.0);
-      
+
       int const swm = control::get("davidson_solver.start.waves", 0.);
       if (0 == swm) { // scope: create good start wave functions
           double const k = constants::pi/8.78; // ground state wave vector
           double wxyz[8] = {1, 0,0,0, 0,0,0, 0};
-          for(int iz = 0; iz < dims[2]; ++iz) { wxyz[3] = iz - 3.5; double const cos_z = std::cos(k*wxyz[3]); 
+          for(int iz = 0; iz < dims[2]; ++iz) { wxyz[3] = iz - 3.5; double const cos_z = std::cos(k*wxyz[3]);
           for(int iy = 0; iy < dims[1]; ++iy) { wxyz[2] = iy - 3.5; double const cos_y = std::cos(k*wxyz[2]);
           for(int ix = 0; ix < dims[0]; ++ix) { wxyz[1] = ix - 3.5; double const cos_x = std::cos(k*wxyz[1]);
               if (nbands > 4) {
@@ -253,7 +253,7 @@ namespace davidson_solver {
               } // iband
           }}} // ix iy iz
           if (echo > 2) printf("# %s: use cosine solutions as start vectors\n", __func__);
-      } else if(1 == swm) {
+      } else if (1 == swm) {
           for(size_t i = 0; i < nbands*g.all(); ++i) {
               psi[i] = simple_math::random(-1., 1.); // random wave functions (most probably not very good)
           } // i
@@ -264,7 +264,7 @@ namespace davidson_solver {
           } // iband
           if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
-      
+
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
           stat += solve(psi.data(), nbands, g, echo);
@@ -273,10 +273,10 @@ namespace davidson_solver {
   } // test_solver
 
   status_t all_tests(int const echo) {
-    auto status = 0;
-    status += test_solver(echo);
-    return status;
+    status_t stat{0};
+    stat += test_solver(echo);
+    return stat;
   } // all_tests
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace davidson_solver
