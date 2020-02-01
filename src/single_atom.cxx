@@ -1847,16 +1847,20 @@ namespace single_atom {
       int const nr = rg->n, lmax = 0, nlm = pow2(1 + lmax);
       std::vector<double> qlm(nlm, 0.0);
       view2D<double> cmp(1, nr);
-      for(double sigma = 0.5; sigma < 2.1; sigma *= 1.1) {
+      double maxdev{0};
+      for(double sigma = 0.5; sigma < 2.25; sigma *= 1.1) {
           set(qlm.data(), nlm, 0.0); qlm[0] = 1.0;
           set(cmp, 1, 0.0); // clear
           add_or_project_compensators<0>(cmp, qlm.data(), lmax, rg, sigma, 0); // add normalized compensator
 //        add_or_project_compensators<1>(cmp, qlm.data(), lmax, rg, sigma, 0); // project
 //        if (echo > 0) printf("# %s: square-norm of normalized compensator with sigma = %g is %g\n", __func__, sigma, qlm[0]);
           add_or_project_compensators<3>(cmp, qlm.data(), lmax, rg, sigma, 0); // test normalization
-          if (echo > 0) printf("# %s: normalization of compensators with sigma = %g is %g\n", __func__, sigma, qlm[0]);
+          maxdev = std::max(maxdev, std::abs(qlm[0] - 1.0));
+          if (echo > 4) printf("# %s: for sigma = %g is 1 + %.1e\n",
+                                  __func__, sigma, qlm[0] - 1);
       } // sigma
-      return 0;
+      if (echo > 2) printf("# %s: largest deviation is %.1e\n", __func__, maxdev);
+      return (maxdev > 1e-15);
   } // test_compensator_normalization
 
   int test_LiveAtom(int const echo=9) {
