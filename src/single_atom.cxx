@@ -68,8 +68,9 @@ extern "C" {
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
-  double const Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
 
+  double constexpr Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
+  double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
 
   template<typename real_t>
   inline void symmetrize(real_t &left, real_t &right) { left = (left + right)/2; right = left; }
@@ -590,9 +591,9 @@ extern "C" {
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
         std::vector<double> new_r2core_density(nr, 0.0);
-        double nelectrons = 0;
+        double nelectrons{0};
         for(int ics = 0; ics < ncorestates; ++ics) {
-            auto &cs = core_state[ics]; // abbreviate
+            auto & cs = core_state[ics]; // abbreviate
             int constexpr SRA = 1;
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
@@ -625,7 +626,7 @@ extern "C" {
             mix_new *= rescale;
         } // rescale
 
-        double core_density_change = 0, core_density_change2 = 0, core_nuclear_energy = 0;
+        double core_density_change{0}, core_density_change2{0}, core_nuclear_energy{0};
         for(int ir = 0; ir < nr; ++ir) {
             auto const new_rho = new_r2core_density[ir]*pow2(rg[TRU]->rinv[ir]); // *r^{-2}
             core_density_change  += std::abs(new_rho - core_density[TRU][ir])*rg[TRU]->r2dr[ir];
@@ -675,10 +676,8 @@ extern "C" {
         scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], sigma, numax, 1, echo/2);
 
 
-        int ir_match[TRU_AND_SMT];
-        for(int ts = TRU; ts <= SMT; ++ts) {
-            ir_match[ts] = radial_grid::find_grid_index(*rg[ts], r_match);
-        } // ts
+        int const ir_match[] = {radial_grid::find_grid_index(*rg[TRU], r_match),
+                                radial_grid::find_grid_index(*rg[SMT], r_match)};
         if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n",
                                label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
 
@@ -698,7 +697,7 @@ extern "C" {
             int const n = nn[ell];
             for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                 int const iln = ln_off + nrn;
-                auto &vs = valence_state[iln]; // abbreviate
+                auto & vs = valence_state[iln]; // abbreviate
                 int constexpr SRA = 1;
 
                 // solve for a true partial wave
@@ -861,7 +860,7 @@ extern "C" {
 
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
-                    double sum = 0; for(int krn = 0; krn < n; ++krn) sum += evec[krn];
+                    double sum{0}; for(int krn = 0; krn < n; ++krn) sum += evec[krn];
                     double const scal = 1.0/sum; // scaling such that the sum is 1
                     for(int krn = 0; krn < n; ++krn) {
                         auto const coeff = scal*evec[krn];
@@ -961,7 +960,7 @@ extern "C" {
                         for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
                             kinetic_energy(ts,iln,jln) = dot_product(nr_cut,
                             	valence_state[iln].wKin[ts],
-                                valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
+                              valence_state[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
                         } // j
                     } // i
                 } // ts
@@ -1043,24 +1042,25 @@ extern "C" {
             int const nr = rg[ts]->n; // integrate over the full radial grid
             std::vector<double> rl(nr, 1.0); // init as r^0
             std::vector<double> wave_r2rl_dr(nr);
-            if (echo > 1) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
+            if (echo > 4) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
             for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
-                if (echo > 1) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
+                bool const echo_l = (echo > 4 + 2*(ell > 0));
+                if (echo_l) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
                 if (ell > 0) scale(rl.data(), nr, rg[ts]->r); // create r^{\ell}
                 for(int iln = 0; iln < nln; ++iln) {
-                    if (echo > 1) printf("# %s iln = %d ", label, iln);
+                    if (echo_l) printf("# %s iln = %d ", label, iln);
                     auto const wave_i = valence_state[iln].wave[ts];
                     product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                     for(int jln = 0; jln < nln; ++jln) {
                         auto const wave_j = valence_state[jln].wave[ts];
                         auto const cd = dot_product(nr, wave_r2rl_dr.data(), wave_j);
                         charge_deficit(ell,ts,iln,jln) = cd;
-                        if (echo > 1) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
+                        if (echo_l) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
 //                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
                     } // jln
-                    if (echo > 1) printf("\n");
+                    if (echo_l) printf("\n");
                 } // iln
-                if (echo > 1) printf("\n");
+                if (echo_l) printf("\n");
             } // ell
         } // ts
     } // update_charge_deficit
@@ -1070,9 +1070,7 @@ extern "C" {
                              int_t lmn_begin[], int_t lmn_end[],
                              int const echo=0) {
         int const mlm = pow2(1 + numax);
-        for(int lm = 0; lm < mlm; ++lm) {
-            lmn_begin[lm] = -1;
-        } // lm
+        set(lmn_begin, mlm, int_t(-1));
         for(int ell = 0; ell <= numax; ++ell) {
             for(int emm = -ell; emm <= ell; ++emm) {
                 for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
@@ -1202,26 +1200,23 @@ extern "C" {
             view2D<double> check_matrix(nSHO, nSHO);
             transform_SHO(check_matrix.data(), check_matrix.stride(),
             	          radial_density_matrix.data(), radial_density_matrix.stride(), false);
-            double d = 0;
+            double maxdev{0};
             for(int i = 0; i < nSHO; ++i) {
             	for(int j = 0; j < nSHO; ++j) {
-	            	d = std::max(d, std::abs(check_matrix[i][j] - density_matrix[i][j]));
+	            	  maxdev = std::max(maxdev, std::abs(check_matrix[i][j] - density_matrix[i][j]));
                 } // j
             } // i
-            printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, d);
-            assert(d < 1e-9);
+            printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, maxdev);
+            assert(maxdev < 1e-9);
         } // debugging
-
 
         if (0) {
             printf("# %s Radial density matrix\n", label);
             for(int i = 0; i < nSHO; ++i) {
                 for(int j = 0; j < nSHO; ++j) {
                     printf("\t%.1f", radial_density_matrix[i][j]);
-                } // j
-                printf("\n");
-            } // i
-            printf("\n");
+                }   printf("\n");
+            }   printf("\n");
         } // plot
 
         //   Then, contract with the Gaunt tensor over m_1 and m_2
@@ -1242,7 +1237,7 @@ extern "C" {
 
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
-//                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij/Y00, lm, iln, jln);
+//                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij*Y00inv, lm, iln, jln);
                     } // jlmn
                 } // ilmn
             } // limits
@@ -1254,7 +1249,7 @@ extern "C" {
                 for(int jln = 0; jln < nln; ++jln) {
                     auto const rho_ij = density_tensor(lm,iln,jln);
                     if (std::abs(rho_ij) > 1e-9)
-                        printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", label, __LINE__, rho_ij/Y00, lm, iln, jln);
+                        printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
                 } // jln
             } // iln
         } // lm
@@ -1275,7 +1270,7 @@ extern "C" {
                 if (00 == lm) {
                     set(full_density[ts][lm], nr, core_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
                     if (echo > 0) printf("# %s %s density has %g electrons after adding the core density\n", label,
-                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)/Y00);
+                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
                 } // 00 == lm
                 for(int iln = 0; iln < nln; ++iln) {
                     auto const wave_i = valence_state[iln].wave[ts];
@@ -1285,13 +1280,13 @@ extern "C" {
                         assert(nullptr != wave_j);
                         double const rho_ij = density_tensor(lm,iln,jln);
 //                         if (std::abs(rho_ij) > 1e-9)
-//                             printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij/Y00, lm, iln, jln);
+//                             printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
                         add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
                     } // jln
                 } // iln
             } // lm
             if (echo > 0) printf("# %s %s density has %g electrons after adding the valence density\n",  label,
-                    (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][00], rg[ts]->r2dr)/Y00);
+                    (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][00], rg[ts]->r2dr)*Y00inv);
 
         } // true and smooth
 
@@ -1304,7 +1299,7 @@ extern "C" {
                     for(int jln = 0; jln < nln; ++jln) {
                         double const rho_ij = density_tensor(lm,iln,jln);
                         if (std::abs(rho_ij) > 1e-9)
-                            printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij/Y00, ell, emm, iln, jln);
+                            printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
                         rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                            - charge_deficit(ell,SMT,iln,jln) );
                     } // jln
@@ -1317,7 +1312,7 @@ extern "C" {
 
         // account for Z protons in the nucleus and the missing charge in the smooth core density
         qlm_compensator[0] += Y00*(core_charge_deficit - Z_core);
-        if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]/Y00);
+        if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]*Y00inv);
 
         { // scope: construct the augmented density
             int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
@@ -1327,10 +1322,10 @@ extern "C" {
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), ellmax_compensator, rg[SMT], sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density[00]); // only aug_density[00==lm]
-            if (echo > 5) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge/Y00); // this value should be small
+            if (echo > 5) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge*Y00inv); // this value should be small
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU][00]); // only full_density[0==lm]
-            if (echo > 5) printf("# %s true density has %g electrons\n", label, tru_charge/Y00); // this value should be of the order of Z
+            if (echo > 5) printf("# %s true density has %g electrons\n", label, tru_charge*Y00inv); // this value should be of the order of Z
         } // scope
 
     } // update_full_density
@@ -1387,7 +1382,7 @@ extern "C" {
             // solve electrostatics inside the spheres
             view2D<double> Ves(nlm, mr);
             double const q_nucleus = (TRU == ts) ? -Z_core*Y00 : 0; // Z_core = number of protons in the nucleus
-            auto   const & rho_aug   = (TRU == ts) ? full_density[TRU] : aug_density;
+            auto   const & rho_aug = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
             radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
 
@@ -1484,7 +1479,7 @@ extern "C" {
 
         if (0) { // scope: test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
             std::vector<double> rho4pi(rg[TRU]->n);
-            set(rho4pi.data(), rg[TRU]->n, full_density[TRU][00], 1./Y00);
+            set(rho4pi.data(), rg[TRU]->n, full_density[TRU][00], Y00inv);
             printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
             atom_core::rad_pot(potential[TRU].data(), *rg[TRU], rho4pi.data(), Z_core);
         } // scope
@@ -1552,7 +1547,7 @@ extern "C" {
 
         // add the kinetic_energy deficit to the hamiltonian
         if (echo > 7) printf("\n# %s Hamiltonian elements %s-ordered in %s:\n",
-                        label, sho_tools::SHO_order2string(sho_tools::order_lmn), _eV);
+                        label, sho_tools::SHO_order2string(sho_tools::order_lmn).c_str(), _eV);
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
@@ -1641,7 +1636,7 @@ extern "C" {
 
         if (echo > 1) {
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
-                       label, sho_tools::SHO_order2string(sho_tools::order_Ezyx), _eV);
+                       label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO); // ToDo: show the nx,ny,nz quantum numbers
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
@@ -1820,7 +1815,7 @@ namespace single_atom {
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
               zero_pot[ia] = new double[nr2];
               a[ia]->get_smooth_spherical_quantity<'v'>(zero_pot[ia], ar2, nr2);
-          } // get the smooth core densities
+          } // get the zero_potential
 
           if (nullptr != rg) rg[ia] = a[ia]->get_smooth_radial_grid(); // pointers to smooth radial grids
 
@@ -1879,10 +1874,10 @@ namespace single_atom {
   } // test_LiveAtom
 
   status_t all_tests(int const echo) {
-    auto status = 0;
-    status += test_compensator_normalization(echo);
-    status += test_LiveAtom(echo);
-    return status;
+    status_t stat{0};
+    stat += test_compensator_normalization(echo);
+    stat += test_LiveAtom(echo);
+    return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS
 

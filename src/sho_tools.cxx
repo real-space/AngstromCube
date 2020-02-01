@@ -6,18 +6,18 @@
 #include "sho_tools.hxx"
 
 namespace sho_tools {
-  
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   status_t test_order_enum(int const echo=4) {
-      SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm, 
+      SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm,
                   order_nlm, order_Elnm, order_ln, order_Enl, order_nl};
       for(int io = 0; io < 9; ++io) {
           SHO_order_t const oi = ord[io];
-          if (echo > 3) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10li  %s-ordered emm-%s %s\n", 
-                      __func__, SHO_order2string(&oi), (unsigned)oi, oi
+          if (echo > 3) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10li  %s-ordered emm-%s %s\n",
+                      __func__, SHO_order2string(oi).c_str(), (unsigned)oi, oi
                        , is_energy_ordered(oi)?"energy":"  loop"
                        , is_emm_degenerate(oi)?"degenerate":"resolved  "
                        , is_Cartesian(oi)?"Cartesian":"Radial");
@@ -126,7 +126,7 @@ namespace sho_tools {
                   int const ny = nu - nz - nx;
                   int const k = Ezyx_index(nx, ny, nz);
                   if ((echo > 6) && (k != nzyx))
-                      printf("# Ezyx_index<nu=%i>(nx=%i, ny=%i, nz=%i) == %i %i diff=%i  xyz=%i %i\n", 
+                      printf("# Ezyx_index<nu=%i>(nx=%i, ny=%i, nz=%i) == %i %i diff=%i  xyz=%i %i\n",
                              nu, nx, ny, nz, nzyx, k, k - nzyx, xyz,  nx + (nz*((2+nu)*2-(nz + 1)))/2 );
                   assert(k == nzyx);
                   nerrors += (k != nzyx);
@@ -137,7 +137,7 @@ namespace sho_tools {
               } // ny
           } // nz
           assert(nSHO(nu) == nzyx); // checksum
-          
+
           // radial emm-degenerate energy-ordered indices
           for(int ell = nu%2; ell <= nu; ell+=2) {
               int const nrn = (nu - ell)/2;
@@ -170,7 +170,7 @@ namespace sho_tools {
       SHO_order_t const orders[] = {order_zyx, order_Ezyx, order_lmn, order_nlm, order_lnm, order_Elnm, order_ln, order_Enl, order_nl};
       for(int io = 0; io < 9; ++io) {
           auto const order = orders[io];
-          if (echo > 6) printf("# %s order_%s\n", __func__, SHO_order2string(&order));
+          if (echo > 6) printf("# %s order_%s\n", __func__, SHO_order2string(order).c_str());
 
           for(int numax = 0; numax <= numax_max; ++numax) {
               int const nsho = is_emm_degenerate(order) ? nSHO_radial(numax) : nSHO(numax);
@@ -178,7 +178,8 @@ namespace sho_tools {
               stat += construct_index_table(list.data(), numax, order, inv_list.data(), echo);
               std::vector<char> label(nsho*8, '\0');
               stat += construct_label_table(label.data(), numax, order);
-              if (echo > 7) printf("# %s numax=%i order_%s labels:  ", __func__, numax, SHO_order2string(&order));
+              if (echo > 7) printf("# %s numax=%i order_%s labels:  ",
+                              __func__, numax, SHO_order2string(order).c_str());
               for(int ii = 0; ii < nsho; ++ii) {
                   assert( list[inv_list[ii]] == ii ); // check that the lists are inverse of each other
                   assert( inv_list[list[ii]] == ii ); // check that the lists are inverse of each other
@@ -190,7 +191,7 @@ namespace sho_tools {
       if (stat && (echo > 1)) printf("# Warning: %s found %i errors!\n", __func__, stat);
       return stat;
   } // test_index_table_construction
-  
+
   status_t all_tests(int const echo) {
     auto status = 0;
     status += test_radial_indices(echo);
@@ -200,6 +201,6 @@ namespace sho_tools {
     status += test_order_enum(echo);
     return status;
   } // all_tests
-#endif // NO_UNIT_TESTS  
-  
+#endif // NO_UNIT_TESTS
+
 } // namespace sho_tools

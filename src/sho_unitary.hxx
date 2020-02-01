@@ -3,21 +3,21 @@
 #include <cmath> // std::abs
 #include <vector> // std::vector<T>
 
-#include "sho_tools.hxx" // sho_tools::, SHO_order_t
+#include "sho_tools.hxx" // ::SHO_order_t, ...
 
 typedef int status_t;
 
 namespace sho_unitary {
 
-  template<typename real_t> 
-  status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high, 
+  template<typename real_t>
+  status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high,
                   char const filename[]="sho_unitary.dat", int const echo=7);
 
   template<typename real_t> // typically real_t=double
   class Unitary_SHO_Transform {
       public:
-        
-          Unitary_SHO_Transform(int const lmax=7, int const echo=8) 
+
+          Unitary_SHO_Transform(int const lmax=7, int const echo=8)
               : numax_(lmax) {
               u_ = new real_t*[1 + numax_]; // allocate pointers to blocks
               for(int nu = 0; nu <= numax_; ++nu) { // run serial forward
@@ -26,7 +26,7 @@ namespace sho_unitary {
                   // ToDo: fill with more than pseudo-values
                   std::fill(u_[nu], u_[nu] + nb*nb, 0); // clear
               } // nu
-              
+
               int highest_nu = -1;
               auto const stat = read_unitary_matrix_from_file(u_, numax_, highest_nu);
               if (stat) { // an error has occured while reading it from file
@@ -48,7 +48,7 @@ namespace sho_unitary {
               } // nu
               delete[] u_;
           } // destructor
-          
+
           real_t inline get_entry(int const nzyx, int const nlnm) const { // input must both be energy ordered indices
               int const nu = sho_tools::get_nu(nzyx);
               if (nu != sho_tools::get_nu(nlnm)) return 0;
@@ -64,7 +64,7 @@ namespace sho_unitary {
               assert((nlnm - ioff) > -1);
               return u_[nu][(nzyx - ioff)*nb + (nlnm - ioff)];
           } // get_entry
-          
+
           template<typename real_out_t>
           status_t construct_dense_matrix(real_out_t matrix[], int const nu_max, int const matrix_stride=-1
                             , sho_tools::SHO_order_t const row_order=sho_tools::order_Ezyx // energy-ordered Cartesian
@@ -100,18 +100,18 @@ namespace sho_unitary {
               bool const c2r = sho_tools::is_Cartesian(inp_order); // input is Cartesian, tranform to radial
               assert(    c2r ^ sho_tools::is_Cartesian(out_order) ); // either input or output may be Cartesian
               if ( sho_tools::is_emm_degenerate(inp_order) || sho_tools::is_emm_degenerate(out_order) ) {
-                  if (echo > 0) printf("# %s cannot operate on emm-degenerate orders, inp:order_%s out:order_%s\n", __func__, 
-                      sho_tools::SHO_order2string(&inp_order), sho_tools::SHO_order2string(&out_order));
+                  if (echo > 0) printf("# %s cannot operate on emm-degenerate orders, inp:order_%s out:order_%s\n", __func__,
+                      sho_tools::SHO_order2string(inp_order).c_str(), sho_tools::SHO_order2string(out_order).c_str());
                   return -1;
               } // emm-degeneracy found
 
-              if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__, 
-                  sho_tools::SHO_order2string(&inp_order), sho_tools::SHO_order2string(&out_order), nu_max);
+              if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__,
+                  sho_tools::SHO_order2string(inp_order).c_str(), sho_tools::SHO_order2string(out_order).c_str(), nu_max);
 
               std::vector<char> inp_label((echo > 3)*nSHO*8, '\0'),
                               e_inp_label((echo > 3)*nSHO*8, '\0'),
                               e_out_label((echo > 3)*nSHO*8, '\0'),
-                                out_label((echo > 3)*nSHO*8, '\0'); 
+                                out_label((echo > 3)*nSHO*8, '\0');
               if (echo > 3) {
                   sho_tools::construct_label_table(inp_label.data(), nu_max, inp_order);
                   sho_tools::construct_label_table(out_label.data(), nu_max, out_order);
@@ -122,7 +122,8 @@ namespace sho_unitary {
               std::vector<real_vec_t> ti, to;
               auto e_inp = inp; // e_inp is an input vector with energy ordered coefficients
               if (!sho_tools::is_energy_ordered(inp_order)) {
-                  if (echo > 3) printf("# %s: energy-order input vector from order_%s\n", __func__, sho_tools::SHO_order2string(&inp_order));
+                  if (echo > 3) printf("# %s: energy-order input vector from order_%s\n",
+                                        __func__, sho_tools::SHO_order2string(inp_order).c_str());
                   ti.resize(nSHO);
                   std::vector<int16_t> inp_index(nSHO);
                   stat += sho_tools::construct_index_table(inp_index.data(), nu_max, inp_order);
@@ -156,14 +157,15 @@ namespace sho_unitary {
                           tmp += u_[nu][ij] * e_inp[offset + j]; // matrix-vector multiplication, block-diagonal in nu
                       } // j
                       e_out[offset + i] = tmp;
-                      if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__, 
-                                      nu, &e_inp_label[(offset + i)*8], e_inp[offset + i], 
+                      if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__,
+                                      nu, &e_inp_label[(offset + i)*8], e_inp[offset + i],
                                           &e_out_label[(offset + i)*8], e_out[offset + i]);
                   } // i
               } // nu
 
               if (!sho_tools::is_energy_ordered(out_order)) {
-                  if (echo > 3) printf("# %s: restore output vector order_%s\n", __func__, sho_tools::SHO_order2string(&out_order));
+                  if (echo > 3) printf("# %s: restore output vector order_%s\n",
+                                    __func__, sho_tools::SHO_order2string(out_order).c_str());
                   std::vector<int16_t> out_index(nSHO);
                   stat += sho_tools::construct_index_table(out_index.data(), nu_max, out_order);
                   for(int i = 0; i < nSHO; ++i) {
@@ -182,7 +184,7 @@ namespace sho_unitary {
                   int const nb = sho_tools::n2HO(nu); // dimension of block
                   double mxd[2][2] = {{0,0},{0,0}}; // mxd[{0:uuT 1:uTu}][{0:off 1:diag}]
                   for(int ib = 0; ib < nb; ++ib) { // cartesian block index or radial block index
-                      for(int jb = 0; jb < nb; ++jb) { // 
+                      for(int jb = 0; jb < nb; ++jb) { //
                           double uuT = 0, uTu = 0;
                           for(int kb = 0; kb < nb; ++kb) {
                               uuT += u_[nu][ib*nb + kb] * u_[nu][jb*nb + kb]; // contraction over radial index
@@ -207,7 +209,7 @@ namespace sho_unitary {
           real_t **u_; // block diagonal matrix entries
           int numax_; // largest ell
   }; // class Unitary_SHO_Transform
-  
+
   status_t all_tests(int const echo=0);
-  
+
 } // namespace sho_unitary

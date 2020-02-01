@@ -2,6 +2,7 @@
 
 #include <cstdio> // printf
 #include <cstdint> // int64_t, std::sprintf, uint8_t
+#include <string> // std::string
 
 typedef int status_t;
 
@@ -22,7 +23,7 @@ namespace sho_tools {
       order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
 
-  typedef struct { 
+  typedef struct {
       union {
         struct { uint8_t nx, ny, nz; } Cartesian;
         uint8_t xyz[3]; // == {nx, ny, nz}
@@ -31,17 +32,19 @@ namespace sho_tools {
       uint8_t nu; // sanity check: nu == nx + ny + nz or nu == ell + 2*nrn
   } SHO_index_t;
 
-  inline constexpr bool is_energy_ordered(SHO_order_t const order) { 
+  inline constexpr bool is_energy_ordered(SHO_order_t const order) {
       return (order_Ezyx == order) || (order_Elnm == order) || (order_Enl == order); }
 
-  inline constexpr bool is_Cartesian(SHO_order_t const order) { 
+  inline constexpr bool is_Cartesian(SHO_order_t const order) {
       return (order_Ezyx == order) || (order_zyx == order); }
 
   inline constexpr bool is_emm_degenerate(SHO_order_t const order) {
       return (order_Enl == order) || (order_ln == order) || (order_nl == order); }
 
-  inline char const * SHO_order2string(SHO_order_t const *order) { return (char const *)order; }
-  inline char const * SHO_order2string(SHO_order_t const order) { auto o = order; return SHO_order2string(&o); }
+  inline std::string SHO_order2string(SHO_order_t const order) {
+      auto const o = order;
+      return std::string((char const *)&o);
+  }
 
   // number of all 3D SHO states up to numax >= 0
   inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
@@ -51,7 +54,7 @@ namespace sho_tools {
 
   // number of all 1D HO (harmonic oscillator) states up to numax
   inline constexpr int n1HO(int const numax) { return (1 + numax); }
-  
+
   // number of all energy-degenerate 3D SHO states in the subspace nu >= 0
   inline constexpr int ndeg(int const nu) { return n2HO(nu); }
 
@@ -60,21 +63,21 @@ namespace sho_tools {
   // emm-degenerate
   inline int constexpr nSHO_radial(int const numax)    { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
   inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
-  
+
   inline constexpr int ln_index(int const numax, int const ell, int const nrn) {
       return nrn + (1 + ell*( (2*numax + 4) - ell))/4; } // ln_index
   template<int numax> inline constexpr
-  int ln_index(int const ell, int const nrn) { 
+  int ln_index(int const ell, int const nrn) {
       return ln_index(numax, ell, nrn); }
-      
+
   inline constexpr int nl_index(int const numax, int const nrn, int const ell) {
       return ell + (numax + 2 - nrn)*nrn; } // nl_index
   template<int numax> inline constexpr
-  int nl_index(int const nrn, int const ell) { 
+  int nl_index(int const nrn, int const ell) {
       return nl_index(numax, nrn, ell); }
 
   // emm-resolved
-  inline constexpr 
+  inline constexpr
   int lnm_index(int const numax, int const ell, int const nrn, int const emm) {
       return (6*(ell + emm) +  // within each block of size (2*ell + 1)
               6*nrn*(2*ell + 1) + // for each block of size (2*ell + 1)
@@ -86,10 +89,10 @@ namespace sho_tools {
       return lnm_index(numax, ell, nrn, emm); }
 
   inline constexpr
-  int lm_index(int const ell, int const emm) { 
+  int lm_index(int const ell, int const emm) {
       return ell*ell + ell + emm; } // usual spherical harmonics index
-      
-  inline constexpr 
+
+  inline constexpr
   int nlm_index(int const numax, int const nrn, int const ell, int const emm) {
       return lm_index(ell, emm) + (nrn*(nrn*(nrn*4 - 6*(numax + 2))
                                         + 12*numax + 3*numax*numax + 11))/3;
@@ -104,18 +107,18 @@ namespace sho_tools {
             + emm*(1 + (numax - ell)/2) // nrn_max = (numax - ell)/2
             + nrn; } // linear contribution
 
-      
+
   // =============================== Cartesian indices ===============================
 
   // Cartesian 3D index
-  inline constexpr int zyx_index(int const numax, int const nx, int const ny, int const nz) { 
+  inline constexpr int zyx_index(int const numax, int const nx, int const ny, int const nz) {
       return (nz*nz*nz - 3*(2 + numax)*nz*nz + (3*pow2(2 + numax) - 1)*nz // contribution for nx=0, ny=0
               + ny*(2 + numax - nz)*6 - (ny*(1 + ny))*3  +  6*nx)/6;  // contribution from previous y and x
   } // zyx_index
-  template<int numax, typename int_t> inline constexpr 
+  template<int numax, typename int_t> inline constexpr
   int zyx_index(int_t const nx, int_t const ny, int_t const nz) {
       return zyx_index(numax, nx, ny, nz); }
-  template<typename int_t> inline constexpr 
+  template<typename int_t> inline constexpr
   int zyx_index(int const numax, int_t const nzyx[3]) {
       return zyx_index(numax, nzyx[0], nzyx[1], nzyx[2]); }
   template<int numax, typename int_t> inline constexpr
@@ -126,7 +129,7 @@ namespace sho_tools {
 
   // energy-ordered Cartesian 3D index
   inline constexpr
-  int Ezyx_index(int const nx, int const ny, int const nz) { 
+  int Ezyx_index(int const nx, int const ny, int const nz) {
       return ((nx+ny+nz)*(1 + nx+ny+nz)*(2 + nx+ny+nz))/6 // contribution from previous shells
                + nx + (nz*((2+ nx+ny+nz )*2-(nz + 1)))/2; // contribution from previous row and x
   } // Ezyx_index
@@ -154,15 +157,16 @@ namespace sho_tools {
       int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
 
   template<typename int_t> inline
-  status_t construct_index_table(int_t energy_ordered[], int const numax, 
+  status_t construct_index_table(int_t energy_ordered[], int const numax,
                     SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
       // construct a table of energy ordered indices
       // this is needed to address e.g. the block-diagonal SHO-transformation operator
-      if (echo > 3) printf("# construct_index_table for <numax=%i> order_%s\n", numax, SHO_order2string(&order));
+      if (echo > 3) printf("# construct_index_table for <numax=%i> order_%s\n",
+                              numax, SHO_order2string(order).c_str());
       if (echo > 4) printf("# ");
       int ii = 0;
       switch (order) {
-        
+
         case order_zyx:
           for(int z = 0; z <= numax; ++z) {
               for(int y = 0; y <= numax - z; ++y) {
@@ -176,7 +180,7 @@ namespace sho_tools {
           }}} // x y z
           assert(nSHO(numax) == ii);
         break;
-        
+
         case order_lmn:
           for(int l = 0; l <= numax; ++l) {
               for(int m = -l; m <= l; ++m) {
@@ -231,7 +235,7 @@ namespace sho_tools {
           }} // l n
           assert(nSHO_radial(numax) == ii);
         break;
-        
+
         case order_nl: // emm-degenerate
           for(int n = 0; n <= numax/2; ++n) {
               for(int l = 0; l <= numax - 2*n; ++l) {
@@ -244,7 +248,7 @@ namespace sho_tools {
           }} // n l
           assert(nSHO_radial(numax) == ii);
         break;
-        
+
         case order_Enl: // already energy-ordered emm-degenerate
           for(int ii = 0; ii < nSHO_radial(numax); ++ii) {
               energy_ordered[ii] = ii;
@@ -264,14 +268,14 @@ namespace sho_tools {
 
         default:
             if (echo > 0) printf("# %s: no such case implemented: order_%s\n",
-                                    __func__, SHO_order2string(&order));
+                                    __func__, SHO_order2string(order).c_str());
             return order; // error
       } // switch order
       if (echo > 4) printf("\n\n");
       return 0; // success if 0
   } // construct_index_table
 
-  
+
   template<SHO_order_t order> inline
   status_t construct_index_table(SHO_index_t idx[], int const numax, int const echo=0) { return -1; }
 
@@ -309,7 +313,7 @@ namespace sho_tools {
           }}} // x y z
           assert(nSHO(numax) == ii);
         break;
-        
+
         case order_lmn:
         case order_lnm:
         case order_nlm:
@@ -332,7 +336,7 @@ namespace sho_tools {
         case order_Enl: // energy-ordered emm-degenerate
           for(int l = 0; l <= numax; ++l) {
               for(int n = 0; n <= (numax - l)/2; ++n) {
-                  int j = -1; 
+                  int j = -1;
                   if (is_energy_ordered(order)) { j = Enl_index(n, l); } else
                   if (order_nl == order) { j = nl_index(numax, n, l); } else
                   if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
@@ -342,15 +346,15 @@ namespace sho_tools {
           }} // l n
           assert(nSHO_radial(numax) == ii);
         break;
-        
+
         default:
-            if (echo > 0) printf("# %s: no such case implemented: order_%s\n", 
-                                    __func__, SHO_order2string(&order));
+            if (echo > 0) printf("# %s: no such case implemented: order_%s\n",
+                                    __func__, SHO_order2string(order).c_str());
             return order; // error
       } // switch order
       return 0; // success if 0
   } // construct_label_table
 
   status_t all_tests(int const echo=0);
-  
+
 } // namespace sho_tools
