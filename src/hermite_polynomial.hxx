@@ -27,7 +27,7 @@
     #include <algorithm> // std::max
     #include <cmath> // std::abs, std::sqrt
     #include <cassert> // assert
-    
+
     #include "constants.hxx" // constants::pi
 #endif // NO_UNIT_TESTS
 
@@ -61,9 +61,9 @@ namespace hermite_polynomial {
           } // echo
       } // i
       if (echo > 5) printf("\n\n");
-      
+
       for(int ij = 0; ij < M*M; ++ij) hh[ij] *= hg; // grid spacing
-      
+
       double const pi_factor = 1./std::sqrt(constants::pi);
       double max_dev[] = {0, 0}; // {diagonal, off-diagonal}
       for(int nu = 0; nu <= numax; ++nu) {
@@ -90,18 +90,18 @@ namespace hermite_polynomial {
           }   printf("\n\n");
       } // echo
 
-      if (echo > 1) printf("# %s largest deviation from unit matrix is %.1e and %.1e on the diagonal\n", 
+      if (echo > 1) printf("# %s largest deviation from unit matrix is %.1e and %.1e on the diagonal\n",
                             __func__, max_dev[0], max_dev[1]);
       return (max_dev[0] + max_dev[1] > threshold);
   } // test_hermite_polynomials
 
   inline status_t all_tests(int const echo=3) {
     if (echo > 0) printf("\n# %s: %s\n\n", __FILE__, __func__);
-    auto status = 0;
-    status += test_hermite_polynomials<float>(echo, 3.5e-6);
-    status += test_hermite_polynomials<double>(echo);
-    return status;
+    status_t stat{0};
+    stat += test_hermite_polynomials<float>(echo, 3.5e-6);
+    stat += test_hermite_polynomials<double>(echo);
+    return stat;
   } // all_tests
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace hermite_polynomial
