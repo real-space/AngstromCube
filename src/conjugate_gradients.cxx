@@ -134,14 +134,15 @@ namespace conjugate_gradients {
   } // submatrix2x2
   
   template<typename real_t, int D0> // D0: vectorization
-  status_t eigensolve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+  status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
     , real_space_grid::grid_t<D0> const & g // grid descriptor
     , int const echo=9 // log output level
     , float const threshold=1e-8f
+    , double *eigenvalues=nullptr // export results
   ) {
       status_t stat = 0;
-      int const maxiter = control::get("conjugate_gradients.max.iter", 2);
+      int const maxiter = control::get("conjugate_gradients.max.iter", 32);
       int const restart_every_n_iterations = std::max(1, 4);
       typedef real_t complex_t;
       
@@ -164,7 +165,7 @@ namespace conjugate_gradients {
       bool const use_cg = (0 == cg0sd1);
       
       int const nv = g.all();
-      view2D<real_t> s(waves, nv); // set wrapper
+      view2D<real_t> s(eigenstates, nv); // set wrapper
       if (echo > 8) printf("# %s allocate %.3f MByte for %d adjoint wave functions\n", 
                               __func__, nbands*nv*1e-6*sizeof(real_t), nbands);
       view2D<real_t> Ss(nbands, nv, 0.0); // get memory
@@ -192,9 +193,10 @@ namespace conjugate_gradients {
           for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
               if (echo > 5) printf("# start CG for band #%i\n", ib);
 
+              
               assert( 1 == D0 );
               // apply Hamiltonian and Overlap operator
-              stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
+//            stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
               stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
 
               for(int iortho = 0; iortho < northo[0]; ++iortho) {
@@ -218,8 +220,7 @@ namespace conjugate_gradients {
               } // orthogonalize s[ib] against s[0...ib-1]
               
               double res_new{1}, res_old;
-              
-
+              double prev_energy{0};
               
               bool restart = true;
 
@@ -269,8 +270,9 @@ namespace conjugate_gradients {
                   res_old = res_new; // pass
                   res_new = inner_product(nv, Pgrd, SPgrd, g.dV());
                   residual[ib] = std::abs(res_new); // store
-                  if (echo > 6) printf("# CG energy of band #%i is %g %s residual %.3e in iteration #%i\n", 
-                                                           ib, energy[ib]*eV, _eV, residual[ib], iiter);
+                  if (echo > 6) printf("# CG band #%i energy change %g %s residual %.2e in iteration #%i\n", 
+                                         ib, (energy[ib] - prev_energy)*eV, _eV, residual[ib], iiter);
+                  prev_energy = energy[ib];
 
                   if (use_cg) {
                       // conjugate gradients method
@@ -335,7 +337,7 @@ namespace conjugate_gradients {
                   energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
               } // evaluate only the energy so the display is correct
               
-              if (echo > 4) printf("# CG energy of band #%i is %g %s, residual %.1e %s in %d iterations\n", 
+              if (echo > 4) printf("# CG energy of band #%i is %.9g %s, residual %.1e %s in %d iterations\n", 
                                 ib, energy[ib]*eV, _eV, residual[ib],
                                 it_converged ? "converged" : "reached", 
                                 it_converged ? std::abs(it_converged) : maxiter);
@@ -345,6 +347,12 @@ namespace conjugate_gradients {
               print("Eigenvalues of outer iteration #%i", outer_iteration), '#', 0);
       } // outer iterations
 
+      if (eigenvalues) {
+          for(int ib = 0; ib < nbands; ++ib) {
+              eigenvalues[ib] = energy[ib];
+          } // ib
+      } // export eigenvalues
+      
       return stat;
   } // eigensolve
 
@@ -407,7 +415,7 @@ namespace conjugate_gradients {
   status_t all_tests(int const echo) {
     status_t stat{0};
     stat += test_solver<double>(echo);
-//  stat += test_solver<float>(echo); // test complation and convergence
+    stat += test_solver<float>(echo); // test complation and convergence
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS
