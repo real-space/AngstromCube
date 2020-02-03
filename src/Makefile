@@ -14,6 +14,7 @@ OBJ = \
 	radial_eigensolver.o \
 	radial_potential.o \
 	exchange_correlation.o \
+	conjugate_gradients.o \
 	geometry_analysis.o \
 	bessel_transform.o \
 	real_space_grid.o \

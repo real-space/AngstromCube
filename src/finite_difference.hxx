@@ -170,7 +170,7 @@ namespace finite_difference {
   } // set_Laplacian_coefficients
 
   
-  template<typename real_t>
+  template<typename real_t> // real_t: coefficient may be float or double
   class finite_difference_t {
     public:
       int bc[3][2]; // boundary conditions, lower and upper
@@ -210,9 +210,12 @@ namespace finite_difference {
   }; // class finite_difference_t
   
   
-  template<typename real_t, int D0>
-  status_t Laplacian(real_t out[], real_t const in[], real_space_grid::grid_t<D0> const &g, 
-                     finite_difference_t<real_t> const &fd, double const factor=1) {
+  template <typename real_out_t, // result is stored in this precision 
+            typename real_in_t, // input comes in this precision
+            typename real_fd_t, // computations are executed in this precision
+            int D0=1> // vectorization
+  status_t Laplacian(real_out_t out[], real_in_t const in[], real_space_grid::grid_t<D0> const &g, 
+                     finite_difference_t<real_fd_t> const &fd, double const factor=1) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors
       int* list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
@@ -243,14 +246,15 @@ namespace finite_difference {
           } // show indirection list
       } // spatial direction d
 
-      real_t const scale_factor = factor;
+      real_fd_t const scale_factor = factor;
       for(int z = 0; z < g.dim('z'); ++z) {
           for(int y = 0; y < g.dim('y'); ++y) {
               for(int x = 0; x < g.dim('x'); ++x) {
                   int const i_zyx = (z*g.dim('y') + y)*g.dim('x') + x;
                   
+                  real_fd_t t[D0];
                   for(int i0 = 0; i0 < D0; ++i0) { // vectorization
-                      out[i_zyx*D0 + i0] = 0; // init result
+                      t[i0] = 0; // init result
                   } // i0
 
                   for(int ddir = 0; ddir < 3; ++ddir) {
@@ -264,14 +268,14 @@ namespace finite_difference {
                               int const zyx_prime = (zyx[2]*g.dim('y') + zyx[1])*g.dim('x') + zyx[0];
                               auto const coeff = fd.c2nd[ddir][std::abs(jmi)];
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorization
-                                  out[i_zyx*D0 + i0] += in[zyx_prime*D0 + i0] * coeff;
+                                  t[i0] += in[zyx_prime*D0 + i0] * coeff;
                               } // i0
                           } // index exists
                       } // jmi
                   } // ddir direction of the derivative
 
                   for(int i0 = 0; i0 < D0; ++i0) { // vectorization
-                      out[i_zyx*D0 + i0] *= scale_factor;
+                      out[i_zyx*D0 + i0] = t[i0] * scale_factor; // store
                   } // i0
 
               } // x

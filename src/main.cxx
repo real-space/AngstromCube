@@ -15,6 +15,7 @@ typedef int status_t;
 #include "finite_difference.hxx" // ::all_tests
 #include "hermite_polynomial.hxx" // ::all_tests
 #include "spherical_harmonics.hxx" // ::all_tests
+#include "conjugate_gradients.hxx" // ::all_tests
 #include "radial_eigensolver.hxx" // ::all_tests
 #include "boundary_condition.hxx" // ::all_tests
 #include "radial_integrator.hxx" // ::all_tests
@@ -30,6 +31,7 @@ typedef int status_t;
 #include "spherical_atoms.hxx" // ::all_tests
 #include "solid_harmonics.hxx" // ::all_tests
 #include "sho_projection.hxx" // ::all_tests
+#include "shift_boundary.hxx" // ::all_tests
 #include "linear_algebra.hxx" // ::all_tests
 #include "grid_operators.hxx" // ::all_tests
 #include "element_config.hxx" // ::all_tests
@@ -69,6 +71,7 @@ typedef int status_t;
           module_test("finite_difference.",     finite_difference::all_tests);
           module_test("hermite_polynomial.",   hermite_polynomial::all_tests);
           module_test("spherical_harmonics.", spherical_harmonics::all_tests);
+          module_test("conjugate_gradients.", conjugate_gradients::all_tests);
           module_test("radial_eigensolver.",   radial_eigensolver::all_tests);
           module_test("boundary_condition.",   boundary_condition::all_tests);
           module_test("radial_integrator.",     radial_integrator::all_tests);
@@ -84,6 +87,7 @@ typedef int status_t;
           module_test("spherical_atoms.",         spherical_atoms::all_tests);
           module_test("solid_harmonics.",         solid_harmonics::all_tests);
           module_test("sho_projection.",           sho_projection::all_tests);
+          module_test("shift_boundary.",           shift_boundary::all_tests);
           module_test("linear_algebra.",           linear_algebra::all_tests);
           module_test("grid_operators.",           grid_operators::all_tests);
           module_test("element_config.",           element_config::all_tests);
