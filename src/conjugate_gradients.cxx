@@ -13,6 +13,10 @@
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // set
 #include "simple_math.hxx" // ::random<T>
+#include "display_units.h" // eV, _eV
+
+  #include <cstdarg> // 
+  #include <utility> // std::forward
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -33,6 +37,12 @@
     #define debug(print)
 #endif
 
+  template <class... Args>
+  char const * print(char const *const fmt, Args &&... args) {
+      static char line[256]; // warning, this static field makes this function NOT threadsafe!
+      std::sprintf(line, fmt, std::forward<Args>(args)... );
+      return line;
+  } // print
 
 namespace conjugate_gradients {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
@@ -63,7 +73,7 @@ namespace conjugate_gradients {
   double inner_product(size_t const ndof
                    , real_t const bra[] // assumed shape [nstates/D0][ndof][D0]
                    , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
-                   , real_t const factor=1) {
+                   , double const factor=1) {
               double tmp = 0;
               for(size_t dof = 0; dof < ndof; ++dof) {
                   tmp += bra[dof*D0] * ket[dof*D0];
@@ -89,16 +99,20 @@ namespace conjugate_gradients {
 
 
   template<typename real_t>
-  void show_matrix(real_t const mat, int const stride, int const n, int const m, char const *name=nullptr) {
-      printf("\n# %s=%s%c", (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
+  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr
+      , char const initchar='#', char const final_newline='\n') {
+      printf("%c# %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
               printf("%9.3f", mat[i*stride + j]);
           }   printf("\n");
-      }   printf("\n");
+      }   
+      if (final_newline) printf("%c", final_newline);
   } // show_matrix
 
+  
+  
   template<typename complex_t>
   double submatrix2x2(double const sAs, complex_t sAp, double const pAp, complex_t & alpha, double & beta) {
       // lowest eigenvalue of the 2 x 2 matrix ( sAs , pAs )
@@ -120,18 +134,19 @@ namespace conjugate_gradients {
   } // submatrix2x2
   
   template<typename real_t, int D0> // D0: vectorization
-  status_t solve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+  status_t eigensolve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
     , real_space_grid::grid_t<D0> const & g // grid descriptor
     , int const echo=9 // log output level
+    , float const threshold=1e-8f
   ) {
       status_t stat = 0;
-      int const maxiter = control::get("conjugate_gradients.max.iter", 4);
-      typedef double complex_t;
+      int const maxiter = control::get("conjugate_gradients.max.iter", 2);
+      int const restart_every_n_iterations = std::max(1, 4);
+      typedef real_t complex_t;
       
-      if (echo > 0) printf("# start CG (onto %i bands)\n", nbands);
+      if (echo > 0) printf("# start CG (onto %d bands)\n", nbands);
 
-      double const threshold2 = 1e-8;
 
       // prepare the Hamiltonian and Overlapping
       std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential
@@ -139,166 +154,199 @@ namespace conjugate_gradients {
       std::vector<atom_image::atom_image_t> ai(1); // atom_images
       a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
       ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); // image position at the center, index=0 maps into list of sho_atoms
-      int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8}, nn_precond[] = {1, 1, 1};
+      int const nprecond = control::get("conjugate_gradients.precond", 1.); // ToDo: implement preconditioner
+      bool const use_precond = false; // (nprecond > 0);
+      int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8}, nn_precond[] = {nprecond, nprecond, nprecond};
       finite_difference::finite_difference_t<double> kinetic(g.h, bc, nn), precond(g.h, bc, nn_precond);
       for(int d = 0; d < 3; ++d) { precond.c2nd[d][1] = 1/12.; precond.c2nd[d][0] = 1/6.; } // preconditioner is a diffusion stencil
-      bool constexpr use_precond = false;
-      bool constexpr use_cg = true; // or steepest descent otherwise
-
+      
+      int const cg0sd1 = control::get("conjugate_gradients.steepest.descent", 0.); // 1:steepest descent, 0:conjugate gradients
+      bool const use_cg = (0 == cg0sd1);
+      
       int const nv = g.all();
-      view2D<real_t> s(waves,   nv); // set wrapper
+      view2D<real_t> s(waves, nv); // set wrapper
+      if (echo > 8) printf("# %s allocate %.3f MByte for %d adjoint wave functions\n", 
+                              __func__, nbands*nv*1e-6*sizeof(real_t), nbands);
       view2D<real_t> Ss(nbands, nv, 0.0); // get memory
 
-      int const northo[] = {1, 0, 1};
-      
-      // get memory for single vectors:
-      view2D<real_t> mem(9, nv, 0.0);
-      auto const Hs=mem[0], grd=mem[1], SPgrd=mem[2], dir=mem[3], Sdir=mem[4], con=mem[5], Scon=mem[6], Hcon=mem[7], 
-          Pgrd=use_precond ? mem[8] : grd;
+      int const northo[] = {2, cg0sd1, 1};
 
-      std::vector<double> energy(nbands, 0.0), residual(nbands, 9e9);
-                  
-      for(int iteration = 0; iteration < 1; ++iteration) {
-          if (echo > 0) printf("# CG outer iteration %i\n", iteration);
-          
-          for(int ib_ = 0; ib_ < nbands; ++ib_) {      int const ib = ib_; // write protection to ib
-              if (echo > 0) printf("# start CG for band #%i\n", ib);
-              
-              bool converged{false};
-            
+      // get memory for single vectors:
+      int const nsinglevectors = 6 + (use_precond?1:0) + (use_cg?2:0);
+      if (echo > 8) printf("# %s allocate %.3f MByte for %d single vectors functions\n", 
+                              __func__, nsinglevectors*nv*1e-6*sizeof(real_t), nsinglevectors);
+      view2D<real_t> mem(nsinglevectors, nv, 0.0);
+      auto const Hs=mem[0], grd=mem[1], SPgrd=mem[2], dir=mem[3], Sdir=mem[4], Hcon=mem[5],
+                Pgrd=use_precond ? mem[6] : grd,
+                con =use_cg ? mem[nsinglevectors - 2] :  Pgrd,
+                Scon=use_cg ? mem[nsinglevectors - 1] : SPgrd;
+      if (echo > 9) printf("# CG vectors: Hs=%p, grd=%p, SPgrd=%p, dir=%p, \n#   Sdir=%p, Hcon=%p, Pgrd=%p, con=%p, Scon=%p\n",
+          (void*)Hs, (void*)grd, (void*)SPgrd, (void*)dir, (void*)Sdir, (void*)Hcon, (void*)Pgrd, (void*)con, (void*)Scon);
+
+      std::vector<double> energy(nbands, 0.0), residual(nbands, 9.9e99);
+
+      int const num_outer_iterations = control::get("conjugate_gradients.num.outer.iterations", 1.);
+      for(int outer_iteration = 0; outer_iteration < num_outer_iterations; ++outer_iteration) {
+          if (echo > 4) printf("# CG start outer iteration #%i\n", outer_iteration);
+
+          for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
+              if (echo > 5) printf("# start CG for band #%i\n", ib);
+
               assert( 1 == D0 );
               // apply Hamiltonian and Overlap operator
               stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
               stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
 
               for(int iortho = 0; iortho < northo[0]; ++iortho) {
+                  if (echo > 7 && ib > 0) printf("# orthogonalize band #%i against %d lower bands\n", ib, ib);
                   for(int jb = 0; jb < ib; ++jb) {
                       auto const a = inner_product(nv, s[ib], Ss[jb], g.dV());
-                      if (echo > 0) printf("# orthogonalize band #%i against band #%i\n", ib, jb);
-                      add_product(Ss[ib], nv, Ss[jb], -a);
-                      add_product( s[ib], nv,  s[jb], -a);
+                      if (echo > 8) printf("# orthogonalize band #%i against band #%i with %g\n", ib, jb, a);
+                      add_product(Ss[ib], nv, Ss[jb], real_t(-a));
+                      add_product( s[ib], nv,  s[jb], real_t(-a));
                   } // jb
 
                   auto const snorm = inner_product(nv, s[ib], Ss[ib], g.dV());
+                  if (echo > 7) printf("# norm^2 of band #%i is %g\n", ib, snorm);
                   if (snorm < 1e-12) {
                       printf("\n# CG failed for band #%i\n\n", ib); // ToDo: convert to a warning!
                       return 1;
                   }
-                  auto const snrm = 1./std::sqrt(snorm);
+                  real_t const snrm = 1./std::sqrt(snorm);
                   scale(Ss[ib], nv, snrm);
                   scale( s[ib], nv, snrm);
               } // orthogonalize s[ib] against s[0...ib-1]
               
-              // apply Hamiltonian and Overlap operator
-              stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
-              stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
-              
               double res_new{1}, res_old;
-              set(Sdir, nv, real_t(0));
-              set( dir, nv, real_t(0));
               
-              int iiter{0};
-              bool run = (iiter < maxiter);
-              if (!run) {
-                  energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
-              } // evaluate only the energy so the display is correct
+
               
-              while (run) {
-                  
-                  res_old = res_new; // pass
-                  
+              bool restart = true;
+
+              int it_converged = 0;
+              for(int iiter = 1; (iiter <= maxiter) && (0 == it_converged); ++iiter) {
+
+                  if (0 == (iiter - 1) % restart_every_n_iterations) restart = true;
+                  if (restart) {
+                      // apply Hamiltonian and Overlap operator
+                      stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
+                      stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
+
+                      set(Sdir, nv, real_t(0)); // clear search direction
+                      set( dir, nv, real_t(0)); // clear search direction
+                    
+                      restart = false;
+                  } // (re)start
+                
                   energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
+                  if (echo > 7) printf("# CG energy of band #%i is %g %s in iteration #%i\n", 
+                                                              ib, energy[ib]*eV, _eV, iiter);
                   
                   // compute gradient = - ( H\psi - E*S\psi )
-                  set(grd, nv, Hs, real_t(-1));
-                  add_product(grd, nv, Ss[ib], energy[ib]);
-                  
+                  set(grd, nv, Hs, real_t(-1)); add_product(grd, nv, Ss[ib], real_t(energy[ib]));
+                  if (echo > 7) printf("# norm^2 (no S) of gradient %.e\n", inner_product(nv, grd, grd, g.dV()));
+
                   if (use_precond) {
                       assert(0); // ToDo preconditioner
-                  } else assert(Pgrd == grd);
-                  
+                  } else {
+                      assert(Pgrd == grd); // Preconditioner=unity
+                  } // use_precond
+
                   for(int iortho = 0; iortho < northo[1]; ++iortho) {
+                      if (echo > 7) printf("# orthogonalize gradient against %d bands\n", ib + 1);
                       for(int jb = 0; jb <= ib; ++jb) {
                           auto const a = inner_product(nv, Pgrd, Ss[jb], g.dV());
-                          if (echo > 0) printf("# orthogonalize gradient against band #%i\n", jb);
-                          add_product(Pgrd, nv, s[jb], -a);
+                          if (echo > 8) printf("# orthogonalize gradient against band #%i with %g\n", jb, a);
+                          add_product(Pgrd, nv, s[jb], real_t(-a));
                       } // jb
                   } // orthogonalize Pgrd against s[0...ib]
-                      
+
                   // apply Overlap operator
                   stat += grid_operators::grid_Overlapping(SPgrd, Pgrd, g, a, ai);
-                  
+                  double const gnorm = inner_product(nv, SPgrd, Pgrd, g.dV());
+                  if (echo > 7) printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", gnorm);
+
+                  res_old = res_new; // pass
                   res_new = inner_product(nv, Pgrd, SPgrd, g.dV());
                   residual[ib] = std::abs(res_new); // store
-                  
+                  if (echo > 6) printf("# CG energy of band #%i is %g %s residual %.3e in iteration #%i\n", 
+                                                           ib, energy[ib]*eV, _eV, residual[ib], iiter);
+
                   if (use_cg) {
                       // conjugate gradients method
-                      double const f = (std::abs(res_new) > tiny<real_t>()) ? res_old/res_new : 0;
-                      
-                      scale(dir, nv, f);
-                      add_product(dir, nv, Pgrd, real_t(1));
-                      
-                      scale(Sdir, nv, f);
-                      add_product(dir, nv, SPgrd, real_t(1));
+                      real_t const f = ((std::abs(res_new) > tiny<real_t>()) ? res_old/res_new : 0);
+                      if (echo > 7) printf("# CG step with old/new = %g/%g = %g\n", res_old, res_new, f);
 
-                      set(con,  nv,  dir);
-                      set(Scon, nv, Sdir);
-                  } else {
-                      // steepest descent method
-                      set(con,  nv,  Pgrd);
-                      set(Scon, nv, SPgrd);
-                  } // CG or SD
-                  
+                      scale( dir, nv, f); add_product( dir, nv,  Pgrd, real_t(1));
+                      scale(Sdir, nv, f); add_product(Sdir, nv, SPgrd, real_t(1));
+
+                      set(con,  nv,  dir); // copy
+                      set(Scon, nv, Sdir); // copy
+                      if (echo > 7) printf("# norm^2 of con %.e\n", inner_product(nv, con, Scon, g.dV()));
                       
-                  for(int iortho = 0; iortho < northo[2]; ++iortho) {
-                      for(int jb = 0; jb <= ib; ++jb) {
-                          auto const a = inner_product(nv, con, Ss[jb], g.dV());
-                          if (echo > 0) printf("# orthogonalize conjugate direction against band #%i\n", jb);
-                          add_product(con,  nv,  s[jb], -a);
-                          add_product(Scon, nv, Ss[jb], -a);
-                      } // jb
-                  } // orthogonalize con against s[0...ib]
+                      for(int iortho = 0; iortho < northo[2]; ++iortho) {
+                          if (echo > 7) printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
+                          for(int jb = 0; jb <= ib; ++jb) {
+                              auto const a = inner_product(nv, con, Ss[jb], g.dV());
+                              if (echo > 8) printf("# orthogonalize conjugate direction against band #%i with %g\n", jb, a);
+                              add_product(con,  nv,  s[jb], real_t(-a));
+                              add_product(Scon, nv, Ss[jb], real_t(-a));
+                          } // jb
+                      } // orthogonalize con against s[0...ib]
+                      
+                  } else {
+                      assert(Scon == SPgrd); assert(con == Pgrd); // steepest descent method
+                  } // CG or SD
+
 
                   double const cnorm = inner_product(nv, con, Scon, g.dV());
+                  if (echo > 7) printf("# norm^2 of conjugate direction is %.e\n", cnorm);
                   if (cnorm < 1e-12) {
-                      converged = true;
+                      it_converged = iiter; // converged, stop the iiter loop
                   } else { 
                       real_t const cf = 1./std::sqrt(cnorm);
-                      scale(con,  nv, cf);
+                      scale( con, nv, cf);
+                      if (1) {
+                          scale(Scon, nv, cf); 
+                      } else { // recompute it from S*con?
+                          stat += grid_operators::grid_Overlapping(Scon, con, g, a, ai);
+                      }
                       // apply Hamiltonian
                       stat += grid_operators::grid_Hamiltonian(Hcon, con, g, a, ai, kinetic, potential.data());
                       
-                      scale(Scon, nv, cf); // instead of recomputing it from S*con
-                      
-                      double const sHs = energy[ib];
+                      double    const sHs = energy[ib];
                       complex_t const sHc = inner_product(nv, s[ib], Hcon, g.dV()); // must be complex_t
-                      double    const cHc = inner_product(nv, con, Scon, g.dV());
+                      double    const cHc = inner_product(nv, con, Hcon, g.dV());
                       complex_t alpha{1};
                       double    beta{0};
                       submatrix2x2(sHs, sHc, cHc, alpha, beta);
                       
-                      // update the band
-                      scale(s[ib],  nv, alpha);
-                      add_product(s[ib],  nv,  con, beta);
-                      scale(s[ib],  nv, alpha);
-                      add_product(Ss[ib], nv, Scon, beta);
-                      
-                      converged = (res_new > threshold2);
-                  }
+                      // update the band #ib
+                      scale( s[ib], nv, alpha); add_product( s[ib], nv,  con, real_t(beta));
+                      scale(Ss[ib], nv, alpha); add_product(Ss[ib], nv, Scon, real_t(beta));
+                      scale(Hs    , nv, alpha); add_product(Hs    , nv, Hcon, real_t(beta));
 
-                  ++iiter;
-                  run = (iiter < maxiter) && (!converged);
-              } // while
-          
+                      if (res_new < threshold) it_converged = -iiter;
+                  } // cnorm
+
+              } // iiter
+              
+              if (maxiter < 1) {
+                  energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
+              } // evaluate only the energy so the display is correct
+              
+              if (echo > 4) printf("# CG energy of band #%i is %g %s, residual %.1e %s in %d iterations\n", 
+                                ib, energy[ib]*eV, _eV, residual[ib],
+                                it_converged ? "converged" : "reached", 
+                                it_converged ? std::abs(it_converged) : maxiter);
           } // ib
           
-          if (echo > 1) printf("# %s outer iteration #%i\n", __func__, iteration);
-          if (echo > 2) show_matrix(energy.data(), nbands, 1, nbands, "Eigenvalues");
-          
+          if (echo > 4) show_matrix(energy.data(), nbands, 1, nbands, 
+              print("Eigenvalues of outer iteration #%i", outer_iteration), '#', 0);
       } // outer iterations
 
       return stat;
-  } // solve
+  } // eigensolve
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -308,7 +356,7 @@ namespace conjugate_gradients {
   status_t test_solver(int const echo=9) {
       status_t stat{0};
       int constexpr D0 = 1; // 1: no vectorization
-      int const nbands = std::min(8, (int)control::get("conjugate_gradients.num.bands", 4));
+      int const nbands = std::min(8, (int)control::get("conjugate_gradients.test.num.bands", 4));
       int const dims[] = {8, 8, 8};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
@@ -318,7 +366,7 @@ namespace conjugate_gradients {
       real_space_grid::grid_t<D0> g(dims);
       std::vector<real_t> psi(nbands*g.all(), 0.0);
 
-      int const swm = control::get("conjugate_gradients.start.waves", 0.);
+      int const swm = control::get("conjugate_gradients.test.start.waves", 0.);
       if (0 == swm) { // scope: create good start wave functions
           double const k = constants::pi/8.78; // ground state wave vector
           double wxyz[8] = {1, 0,0,0, 0,0,0, 0};
@@ -349,9 +397,9 @@ namespace conjugate_gradients {
           if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
 
-      int const nit = control::get("conjugate_gradients.max.iterations", 1.);
+      int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat += solve(psi.data(), nbands, g, echo);
+          stat += eigensolve(psi.data(), nbands, g, echo);
       } // it
       return stat;
   } // test_solver
@@ -359,7 +407,7 @@ namespace conjugate_gradients {
   status_t all_tests(int const echo) {
     status_t stat{0};
     stat += test_solver<double>(echo);
-//     stat += test_solver<float>(echo);
+//  stat += test_solver<float>(echo); // test complation and convergence
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS
