@@ -1,14 +1,10 @@
 #pragma once
-
-#include "vector_layout.hxx"
-#define CRTP_printf(...)
-
 #include <cstdio> // printf
 // #define CRTP_printf(...) printf(__VA_ARGS__)
+#define CRTP_printf(...)
 
-template <typename real_t> char const * real_t_name(); // provide no implementation for the general case
-template <> char const * real_t_name<double>() { return "double"; }
-template <> char const * real_t_name<float> () { return "float"; }
+#include "vector_layout.hxx" // VecLayout<real_t>
+#include "inline_tools.hxx" // real_t_name<real_t>
 
 template <class CRTP_t, typename real_t>
 class LinOp {

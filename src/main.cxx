@@ -138,7 +138,7 @@ typedef int status_t;
           printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
           return -1;
       } // no argument passed to executable
-      for(int iarg = argc - 1; iarg > 0; --iarg) { // backward
+      for(int iarg = 1; iarg < argc; ++iarg) {
           char const ci0 = *argv[iarg]; // char #0 of command line argument #1
           if ('-' == ci0) {
               char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #1
@@ -152,15 +152,20 @@ typedef int status_t;
                   return 0;
               } else if ('t' == (ci1 | IgnoreCase)) {
                   run_tests = true;
-                  if (argc > iarg + 1) test_unit = argv[iarg + 1]; // the the name of the unit to be tested
+                  if (argc > iarg + 1) test_unit = argv[iarg + 1]; // the name of the unit to be tested
               } else {
                   warn("# ignored unknown command line option %c%c", ci0, ci1);
                   ++stat; // error
               } // help or test
           } // '-'
-          else if ('+' == ci0) {
+          else
+          if ('+' == ci0) {
               stat += control::cli(argv[iarg] + 1); // start after the '+' char
           } // '+'
+          else 
+          if (argv[iarg] != test_unit) {
+              warn("# ignored command line argument %s", argv[iarg]);
+          }
       } // iarg
       int const echo = control::get("verbosity", 3.); // define default verbosity here
       if (echo > 0) { 

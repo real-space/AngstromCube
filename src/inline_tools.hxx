@@ -16,6 +16,9 @@ int inline required_bits(uint64_t const in) {
     return nbits;
 } // required_bits
 
+template <typename real_t> inline char const * real_t_name(); // provide no implementation for the general case
+template <> inline char const * real_t_name<double>() { return "double"; }
+template <> inline char const * real_t_name<float> () { return "float"; }
 
 // template<typename T> 
 // T** inline rectangular_array(size_t const n1, size_t const n0) {

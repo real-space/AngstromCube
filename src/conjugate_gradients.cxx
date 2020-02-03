@@ -12,6 +12,7 @@
 #include "linear_algebra.hxx" // ::generalized_eigval
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // set
+#include "inline_tools.hxx" // real_t_name<real_t>
 #include "simple_math.hxx" // ::random<T>
 #include "display_units.h" // eV, _eV
 
@@ -48,28 +49,6 @@ namespace conjugate_gradients {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
 
   template<typename real_t, int D0=1> // D0: vectorization
-  void inner_products(real_t s[] // result <bra|ket> [nstates][nstates]
-                   , int const stride // same stride assumed for both, bra and ket
-                   , size_t const ndof
-                   , real_t const bra[] // assumed shape [nstates/D0][ndof][D0]
-                   , int const nstates  // number of bra states
-                   , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
-                   , int const mstates  // number of ket states
-                   , real_t const factor=1) {
-      assert(stride >= mstates);
-      for(int istate = 0; istate < nstates; ++istate) {     int const ivec = istate/D0, i0 = istate % D0;
-          for(int jstate = 0; jstate < mstates; ++jstate) { int const jvec = jstate/D0, j0 = jstate % D0;
-              real_t tmp = 0;
-              for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += bra[(ivec*ndof + dof)*D0 + i0]
-                       * ket[(jvec*ndof + dof)*D0 + j0];
-              } // dof
-              s[istate*stride + jstate] = tmp*factor; // init
-          } // jstate
-      } // istate
-  } // inner_products
-
-  template<typename real_t, int D0=1> // D0: vectorization
   double inner_product(size_t const ndof
                    , real_t const bra[] // assumed shape [nstates/D0][ndof][D0]
                    , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
@@ -80,23 +59,6 @@ namespace conjugate_gradients {
               } // dof
               return tmp*factor; // init
   } // inner_product
-
-  template<typename real_t, int D0=1> // D0: vectorization
-  void vector_norm2s(real_t s[] // result <ket|ket> [mstates]
-                   , size_t const ndof
-                   , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
-                   , int const mstates  // number of ket states
-                   , real_t const factor=1) {
-      for(int jstate = 0; jstate < mstates; ++jstate) {     int const jvec = jstate/D0, j0 = jstate % D0;
-          real_t tmp = 0;
-          for(size_t dof = 0; dof < ndof; ++dof) {
-              tmp += ket[(jvec*ndof + dof)*D0 + j0]
-                   * ket[(jvec*ndof + dof)*D0 + j0];
-          } // dof
-          s[jstate] = tmp*factor; // init
-      } // jstate
-  } // vector_norm2s
-
 
   template<typename real_t>
   void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr
@@ -362,9 +324,10 @@ namespace conjugate_gradients {
   
   template <typename real_t>
   status_t test_solver(int const echo=9) {
+      int const nbands = std::min(8, (int)control::get("conjugate_gradients.test.num.bands", 4));
+      if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, real_t_name<real_t>(), nbands);
       status_t stat{0};
       int constexpr D0 = 1; // 1: no vectorization
-      int const nbands = std::min(8, (int)control::get("conjugate_gradients.test.num.bands", 4));
       int const dims[] = {8, 8, 8};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
@@ -374,8 +337,8 @@ namespace conjugate_gradients {
       real_space_grid::grid_t<D0> g(dims);
       std::vector<real_t> psi(nbands*g.all(), 0.0);
 
-      int const swm = control::get("conjugate_gradients.test.start.waves", 0.);
-      if (0 == swm) { // scope: create good start wave functions
+      char const swm = *control::get("conjugate_gradients.test.start.waves", "a"); // 'a':good, 'r':random
+      if ('a' == swm) { // scope: create good start wave functions
           double const k = constants::pi/8.78; // ground state wave vector
           double wxyz[8] = {1, 0,0,0, 0,0,0, 0};
           for(int iz = 0; iz < dims[2]; ++iz) { wxyz[3] = iz - 3.5; double const cos_z = std::cos(k*wxyz[3]);
@@ -393,7 +356,7 @@ namespace conjugate_gradients {
               } // iband
           }}} // ix iy iz
           if (echo > 2) printf("# %s: use cosine solutions as start vectors\n", __func__);
-      } else if (1 == swm) {
+      } else if ('r' == swm) {
           for(size_t i = 0; i < nbands*g.all(); ++i) {
               psi[i] = simple_math::random(-1., 1.); // random wave functions (most probably not very good)
           } // i
