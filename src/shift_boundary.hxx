@@ -6,8 +6,9 @@
   #include <string> // std::string
   #include <vector> // std::vector<T>
 
-  #include "constants.hxx" // constants::pi
 #endif // NO_UNIT_TESTS
+
+#include "constants.hxx" // constants::pi
 
 typedef int status_t;
 
@@ -132,7 +133,85 @@ namespace shift_boundary {
   // on the cell borders.
 
   // ToDo: how to treat k-points?
-  
+
+    inline status_t test_plane_wave(int const echo=9) {
+      status_t stat{0};
+      int const structure = 3; // 4:fcc, 3:hex, 2:bcc, 1:sc
+      double amat[3][4], bmat[3][4];
+      for(int ij = 0; ij < 3*4; ++ij) { amat[0][ij] = 0; bmat[0][ij] = 0; }
+      double const alat = 4.1741; // e.g. Gold in hcp or fcc
+      double const ahalf = 0.5 * alat;
+      if (4 == structure) { // fcc
+          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;  amat[0][2] = 0;
+          amat[1][0] = 0;       amat[1][1] = ahalf;  amat[1][2] = ahalf;
+          amat[2][0] = 0;       amat[2][1] = 0;      amat[2][2] = ahalf;
+      } else
+      if (3 == structure) { // hex in xy-direction, c/a for hcp
+          double const s34 = std::sqrt(.75), s83=std::sqrt(8/3.);
+          double const ann = ahalf*std::sqrt(2.); // nearest neighbor bond length as in fcc
+          amat[0][0] = ann; amat[0][1] = ann*0.5;
+          amat[1][0] = 0;   amat[1][1] = ann*s34;
+                                                      amat[2][2] = ann*s83;
+      } else
+      if (2 == structure) { // bcc
+          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;    amat[0][2] = 0;
+          amat[1][0] = 0;       amat[1][1] = 2*ahalf;  amat[1][2] = ahalf;
+          amat[2][0] = 0;       amat[2][1] = 0;        amat[2][2] = ahalf;
+      } else
+      if (1 == structure) { // sc
+          for(int d = 0; d < 3; ++d) amat[d][d] = 2*ahalf;
+      } // fcc
+
+      // invert amat to find bmat
+      double const detinv = 1./(amat[0][0]*amat[1][1]*amat[2][2]);
+      for(int i = 0; i < 3; ++i) {     int const i1 = (i + 1)%3, i2 = (i + 2)%3;
+          for(int j = 0; j < 3; ++j) { int const j1 = (j + 1)%3, j2 = (j + 2)%3;
+              bmat[j][i] = ( amat[i1][j1] * amat[i2][j2]
+                           - amat[i1][j2] * amat[i2][j1] )*detinv;
+          } // j
+      } // i
+
+      // show both matrices
+      for(int i = 0; i < 3; ++i) {
+          printf("#  bmat %c %8.3f%8.3f%8.3f   amat %8.3f%8.3f%8.3f\n",
+          i+120, bmat[i][0],bmat[i][1],bmat[i][2],   amat[i][0],amat[i][1],amat[i][2]);
+      } // i
+
+      // check if product a*b and b*a are 3x3 unit matrices
+      for(int i = 0; i < 3; ++i) {
+        printf("# i=%i ", i);
+        for(int j = 0; j < 3; ++j) {
+          double uij{0}, uji{0};
+          for(int k = 0; k < 3; ++k) {
+            uij += amat[i][k] * bmat[k][j];
+            uji += bmat[i][k] * amat[k][j];
+          } printf("%8.3f%8.3f ", uji, uij);
+          // printf("%.1e %.1e ", uji - (i == j), uij - (i == j));
+        } printf("\n");
+      }
+
+      // test: set up periodic+shifted BC and diagonalize the free electron Hamiltonian
+      // check that
+
+      //                  |
+      //         --+------+-----------------+--
+      //           |                        |
+      //           |                        |
+      //           |    phi=e^{i*Ly*kyy}    |     phi=e^{i*(Lx*kxx+Ly*kyy)}
+      //           |                        |
+      //           |                        |    --> x-direction
+      //  --+------+-----------------+------+--
+      //    |                        |
+      //    |                        |
+      //    |        phi=e^0         |   phi=e^{i*Lx*kxx}
+      //    |                        |             ^
+      //    |                        |             | y-direction
+      //  --+-----------------+------+----------   |
+      //                      |
+
+      return stat;
+    } // test_plane_wave
+
 #ifdef  NO_UNIT_TESTS
     inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
@@ -140,6 +219,7 @@ namespace shift_boundary {
     inline status_t all_tests(int const echo=3) {
       if (echo > 0) printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat{0};
+      stat += test_plane_wave(echo);
       return stat;
     } // all_tests
 #endif // NO_UNIT_TESTS
