@@ -277,7 +277,7 @@ namespace sho_tools {
 
 
   template<SHO_order_t order> inline
-  status_t construct_index_table(SHO_index_t idx[], int const numax, int const echo=0) { return -1; }
+  status_t construct_index_table(SHO_index_t idx[], int const numax, int const echo=0); // provide no implementation for the general case
 
   template<> inline // template specialization
   status_t construct_index_table<order_zyx>(SHO_index_t idx[], int const numax, int const echo) {

@@ -46,7 +46,7 @@ namespace atom_image {
       } // constructor
 
       template <typename real_t> 
-      inline real_t const * get_matrix(int const h0s1=0) const { assert(0); return nullptr; } // will fail
+      inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
       
       status_t set_matrix(double const values[], int const ncoeff, int const stride, int const h0s1=0) {
           assert(0 == h0s1 || 1 == h0s1);

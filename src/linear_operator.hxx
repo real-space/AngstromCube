@@ -6,7 +6,7 @@
 #include <cstdio> // printf
 // #define CRTP_printf(...) printf(__VA_ARGS__)
 
-template <typename real_t> char const * real_t_name() { return nullptr; }
+template <typename real_t> char const * real_t_name(); // provide no implementation for the general case
 template <> char const * real_t_name<double>() { return "double"; }
 template <> char const * real_t_name<float> () { return "float"; }
 
