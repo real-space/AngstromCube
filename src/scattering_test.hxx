@@ -173,7 +173,7 @@ namespace scattering_test {
               
               assert(n < 8);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                  int success = 1;
+                  status_t solving_status{0};
                   for(int jrn = 0; jrn <= n*ts; ++jrn) {
                       bool const inhomgeneous = ((SMT == ts) && (jrn > 0));
 //                       printf("# find %s %shomgeneous solution for ell=%i E=%g %s\n", (TRU == ts)?"true":"smooth",
@@ -230,7 +230,7 @@ namespace scattering_test {
                       x[0] = 1.0;
 
                       set(mat2, n0*n0, mat); // copy
-                      auto const solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
+                      solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
                       stat += solving_status;
                       nnodes[SMT] = 0;
                       if (0 == solving_status) {
@@ -284,13 +284,13 @@ namespace scattering_test {
                           dg[SMT] = dot_product(n0, x, deriv); // derivative
                       } else {
                           ++linsolfail[ell];
-                          success = 0;
+                          stat = 1; // error
                       }
                   } else { // SMT == ts
                       vg[ts] = value[0]; // value of the greater component at Rlog
                       dg[ts] = deriv[0]; // derivative
                   }
-                  double const generalized_node_count = success*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
+                  double const generalized_node_count = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
@@ -474,8 +474,7 @@ namespace scattering_test {
   
   
   template<typename real_t>
-  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax, uint8_t const nn[], int const stride=-1) 
-  {
+  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax, uint8_t const nn[], int const stride=-1) {
       int const echo = 1;
       if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
       int const nln = sho_radial::nSHO_radial(numax);

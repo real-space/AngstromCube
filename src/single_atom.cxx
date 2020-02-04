@@ -219,7 +219,7 @@ extern "C" {
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
       int nspins; // 1 or 2 or 4, order: 0zxy
 
-      view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [Cartesian][Radial], stride=nSHO(numax)
+      view2D<double> unitary_Ezyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
       double logder_energy_range[3]; // [start, increment, stop]
 
@@ -432,7 +432,7 @@ extern "C" {
                                 if (transfer2valence) {
                                     auto const occ = -core_state[ics].occupation; //
                                     vs.occupation = occ;
-                                    core_state[ics].occupation = 0;
+//                                  core_state[ics].occupation = 0;
                                     if (occ > 0) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
                                             " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
                                 } // transfer2valence
@@ -468,9 +468,9 @@ extern "C" {
         hamiltonian = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
         overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
-        unitary_zyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
+        unitary_Ezyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
         {   sho_unitary::Unitary_SHO_Transform<double> const u(numax);
-            auto const stat = u.construct_dense_matrix(unitary_zyx_lmn.data(), numax, nSHO, sho_tools::order_Ezyx, sho_tools::order_lmn);
+            auto const stat = u.construct_dense_matrix(unitary_Ezyx_lmn.data(), numax, nSHO, sho_tools::order_Ezyx, sho_tools::order_lmn);
             assert(0 == stat);
         } // scope to fill unitary
 
@@ -622,7 +622,7 @@ extern "C" {
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
-            nelectrons += cs.occupation;
+            nelectrons += std::max(0.f, cs.occupation);
             // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
             // and normalize the core level wave function to one
             scale(cs.wave[TRU], nr, rg[TRU]->rinv, norm_factor);
@@ -630,7 +630,7 @@ extern "C" {
             product(cs.wKin[TRU], nr, potential[TRU].data(), cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
             add_product(cs.wKin[TRU], nr, rg[TRU]->r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
 
-            add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
+            if (scal > 0) add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
             show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, (scal > 0)?'c':'v', ir_cut[TRU]);
         } // ics
 
@@ -1112,8 +1112,8 @@ extern "C" {
                   double const in[], int const in_stride,
                   bool const in_Cartesian, double const alpha=1) const {
 
-        int const N = unitary_zyx_lmn.stride();
-        view2D<double const> uni(unitary_zyx_lmn.data(), N);
+        int const N = unitary_Ezyx_lmn.stride();
+        view2D<double const> uni(unitary_Ezyx_lmn.data(), N);
         view2D<double> tmp(N, N); // get memory
         view2D<double const> inp(in, in_stride);
         view2D<double> res(out, out_stride);
@@ -1178,12 +1178,14 @@ extern "C" {
 //               const double* A, const int* sA, const double* B, const int* sB, const double* beta, double* C, const int* sC);
 //         performs C[n][m] := beta*C[n][m] + alpha*sum_k B[n][k] * A[k][m];
 
-//         dgemm_(&tn, &nn, &N, &N, &N, &alpha, unitary_zyx_lmn, &N, in, &in_stride, &beta, tmp, &N);
-//         dgemm_(&nn, &nt, &N, &N, &N, &alpha, tmp, &N, unitary_zyx_lmn, &N, &beta, out, &out_stride);
+//         dgemm_(&tn, &nn, &N, &N, &N, &alpha, uni.data(), &N, in, &in_stride, &beta, tmp, &N);
+//         dgemm_(&nn, &nt, &N, &N, &N, &alpha, tmp, &N, uni.data(), &N, &beta, out, &out_stride);
 
     } // transform_SHO
 
-    void get_rho_tensor(view3D<double> & density_tensor, view2D<double> const & density_matrix, int const echo=0) {
+    void get_rho_tensor(view3D<double> & density_tensor
+        , view2D<double> const & density_matrix, sho_tools::SHO_order_t const order=sho_tools::order_Ezyx
+        , int const echo=0) {
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
         assert(stride >= nSHO);
@@ -1194,27 +1196,34 @@ extern "C" {
         int const nlm = pow2(1 + lmax);
         int const mlm = pow2(1 + numax);
 
-        // ToDo:
-        //   transform the density_matrix[izyx][jzyx]
-        //   into a radial_density_matrix[ilmn][jlmn]
-        //   using the unitary transform from left and right
-        view2D<double> radial_density_matrix(nSHO, stride);
-        transform_SHO(radial_density_matrix.data(), stride,
-        	          density_matrix.data(), density_matrix.stride(), true);
-
-        if (0) { // debugging
-            view2D<double> check_matrix(nSHO, nSHO);
-            transform_SHO(check_matrix.data(), check_matrix.stride(),
-            	          radial_density_matrix.data(), radial_density_matrix.stride(), false);
-            double maxdev{0};
-            for(int i = 0; i < nSHO; ++i) {
-            	for(int j = 0; j < nSHO; ++j) {
-	            	  maxdev = std::max(maxdev, std::abs(check_matrix[i][j] - density_matrix[i][j]));
-                } // j
-            } // i
-            printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, maxdev);
-            assert(maxdev < 1e-9);
-        } // debugging
+        view2D<double> radial_density_matrix;
+        
+        if (sho_tools::order_Ezyx == order) {
+            // now transform the density_matrix[izyx][jzyx]
+            //     into a radial_density_matrix[ilmn][jlmn]
+            //     using the unitary transform from left and right
+            radial_density_matrix = view2D<double>(nSHO, stride);
+            transform_SHO(radial_density_matrix.data(), stride,
+                  density_matrix.data(), density_matrix.stride(), true);
+            
+            if (0) { // debugging
+                view2D<double> check_matrix(nSHO, nSHO);
+                transform_SHO(check_matrix.data(), check_matrix.stride(),
+                              radial_density_matrix.data(), radial_density_matrix.stride(), false);
+                double maxdev{0};
+                for(int i = 0; i < nSHO; ++i) {
+                    for(int j = 0; j < nSHO; ++j) {
+                          maxdev = std::max(maxdev, std::abs(check_matrix[i][j] - density_matrix[i][j]));
+                    } // j
+                } // i
+                printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, maxdev);
+                assert(maxdev < 1e-9);
+            } // debugging
+            
+        } else
+        if (sho_tools::order_lmn == order) {
+            radial_density_matrix = view2D<double>(density_matrix.data(), density_matrix.stride()); // wrap
+        }
 
         if (0) {
             printf("# %s Radial density matrix\n", label);
@@ -1733,7 +1742,7 @@ extern "C" {
                   (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-        if (0) {
+        if (1) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
@@ -1742,6 +1751,25 @@ extern "C" {
 
     } // check_spherical_matrix_elements
 
+    
+    void create_isolated_density_matrix(view2D<double> & density_matrix, sho_tools::SHO_order_t const order, int const echo=9) const {
+        int const nSHO = sho_tools::nSHO(numax);
+        if (echo > -1) printf("# %s %s for an %d x %d density matrix in %s_order\n", label, __func__, nSHO, nSHO,
+                                  sho_tools::SHO_order2string(order).c_str());
+        std::vector<double> rwave(rg[SMT]->n, 0.0);
+        for(int ics = 0; ics < ncorestates; ++ics) {
+            auto const occ = -core_state[ics].occupation;
+            int const enn = core_state[ics].enn;
+            int const ell = core_state[ics].ell;
+            if (occ > 0) {
+                double const energy = core_state[ics].energy;
+                if (echo > -1) printf("# %s %s found occ %g for %i%c-state at %g %s\n", label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
+                // solve for the pseudo eigenstate
+                
+            } // occupied
+        } // ics
+    } // create_isolated_density_matrix
+    
 
     void update_density(float const mixing, int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
@@ -1751,11 +1779,13 @@ extern "C" {
         check_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
         int const nSHO = sho_tools::nSHO(numax);
         view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
+        auto dm_order = sho_tools::order_Ezyx;
+        if (1) create_isolated_density_matrix(density_matrix, dm_order);
         int const nln = sho_radial::nSHO_radial(numax);
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
-        get_rho_tensor(rho_tensor, density_matrix, echo);
+        get_rho_tensor(rho_tensor, density_matrix, dm_order, echo);
         update_full_density(rho_tensor, echo);
     } // update_density
 
@@ -1875,6 +1905,7 @@ namespace single_atom {
 
   int test_LiveAtom(int const echo=9) {
     int const numax = control::get("single_atom.test.numax", 3); // default 3: ssppdf
+    bool const t2v = (control::get("single_atom.test.transfer.to.valence", 0.) > 0); //
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
@@ -1882,7 +1913,7 @@ namespace single_atom {
     {   int const Z = control::get("single_atom.test.Z", 29); // default copper
         float const ion = control::get("single_atom.test.ion", 0.); // default neutral
         if (echo > 1) printf("\n# Z = %d\n", Z);
-        LiveAtom a(Z, numax, false, ion, -1, echo); // envoke constructor
+        LiveAtom a(Z, numax, t2v, ion, -1, echo); // envoke constructor
     } // Z
     return 0;
   } // test_LiveAtom
