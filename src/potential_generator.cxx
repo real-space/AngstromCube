@@ -4,7 +4,7 @@
 #include <cmath> // std::floor
 #include <vector> // std::vector
 
-#include "spherical_atoms.hxx"
+#include "potential_generator.hxx"
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
@@ -30,7 +30,7 @@
 // #define FULL_DEBUG
 // #define DEBUG
 
-namespace spherical_atoms {
+namespace potential_generator {
   // this module makes a DFT calculation based on atoms
   // that live in a spherical potential which is found
   // by projecting the 3D potential.
@@ -149,12 +149,12 @@ namespace spherical_atoms {
       std::vector<double>        Vtot(g.all());
       std::vector<double>         Vxc(g.all());
 
-  int const max_scf_iterations = control::get("spherical_atoms.max.scf", 3.);
+  int const max_scf_iterations = control::get("potential_generator.max.scf", 3.);
   for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
       SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
       if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
-      stat += single_atom::update(na, Za, ionization, nullptr, nullptr, rho_core, qlm);
+      stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, rho_core, qlm);
 
       set(rho.data(), g.all(), 0.0); // clear
       for(int ia = 0; ia < na; ++ia) {
@@ -299,7 +299,7 @@ namespace spherical_atoms {
 
       } // scope
 
-      stat += single_atom::update(na, Za, ionization, nullptr, nullptr, nullptr, nullptr, vlm, nullptr, nullptr, zero_pot);
+      stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, vlm, nullptr, nullptr, zero_pot);
 
       set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
       
@@ -444,7 +444,7 @@ namespace spherical_atoms {
           dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
       } // unless all output is suppressed
 
-      stat += single_atom::update(-na, nullptr, nullptr); // cleanup
+      stat += single_atom::update(-na); // cleanup
       return stat;
   } // init
 
@@ -454,7 +454,7 @@ namespace spherical_atoms {
 #else // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
-      float const ion = control::get("spherical_atoms.test.ion", 0.0);
+      float const ion = control::get("potential_generator.test.ion", 0.0);
       return init(ion, echo); // ionization of Al-P dimer by -ion electrons
   } // test_init
 
@@ -465,4 +465,4 @@ namespace spherical_atoms {
   } // all_tests
 #endif // NO_UNIT_TESTS
 
-} // namespace spherical_atoms
+} // namespace potential_generator

@@ -16,6 +16,7 @@ typedef int status_t;
 #include "hermite_polynomial.hxx" // ::all_tests
 #include "spherical_harmonics.hxx" // ::all_tests
 #include "conjugate_gradients.hxx" // ::all_tests
+#include "potential_generator.hxx" // ::all_tests
 #include "radial_eigensolver.hxx" // ::all_tests
 #include "boundary_condition.hxx" // ::all_tests
 #include "radial_integrator.hxx" // ::all_tests
@@ -28,7 +29,6 @@ typedef int status_t;
 #include "chemical_symbol.hxx" // ::all_tests
 #include "linear_operator.hxx" // ::all_tests
 #include "fourier_poisson.hxx" // ::all_tests
-#include "spherical_atoms.hxx" // ::all_tests
 #include "solid_harmonics.hxx" // ::all_tests
 #include "sho_projection.hxx" // ::all_tests
 #include "shift_boundary.hxx" // ::all_tests
@@ -72,6 +72,7 @@ typedef int status_t;
           module_test("hermite_polynomial.",   hermite_polynomial::all_tests);
           module_test("spherical_harmonics.", spherical_harmonics::all_tests);
           module_test("conjugate_gradients.", conjugate_gradients::all_tests);
+          module_test("potential_generator.", potential_generator::all_tests);
           module_test("radial_eigensolver.",   radial_eigensolver::all_tests);
           module_test("boundary_condition.",   boundary_condition::all_tests);
           module_test("radial_integrator.",     radial_integrator::all_tests);
@@ -84,7 +85,6 @@ typedef int status_t;
           module_test("chemical_symbol.",         chemical_symbol::all_tests);
           module_test("linear_operator.",         linear_operator::all_tests);
           module_test("fourier_poisson.",         fourier_poisson::all_tests);
-          module_test("spherical_atoms.",         spherical_atoms::all_tests);
           module_test("solid_harmonics.",         solid_harmonics::all_tests);
           module_test("sho_projection.",           sho_projection::all_tests);
           module_test("shift_boundary.",           shift_boundary::all_tests);

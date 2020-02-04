@@ -8,7 +8,8 @@
 
 #endif // NO_UNIT_TESTS
 
-#include "constants.hxx" // constants::pi
+#include "constants.hxx" // ::pi
+#include "display_units.h" // Ang, _Ang
 
 typedef int status_t;
 
@@ -134,13 +135,14 @@ namespace shift_boundary {
 
   // ToDo: how to treat k-points?
 
-    inline status_t test_plane_wave(int const echo=9) {
+    inline status_t test_plane_wave(int const echo=9, int const structure=4) {
       status_t stat{0};
-      int const structure = 3; // 4:fcc, 3:hex, 2:bcc, 1:sc
+      char const structure_name[][4] = {"sc ","bcc","hcp","fcc"};
       double amat[3][4], bmat[3][4];
       for(int ij = 0; ij < 3*4; ++ij) { amat[0][ij] = 0; bmat[0][ij] = 0; }
       double const alat = 4.1741; // e.g. Gold in hcp or fcc
       double const ahalf = 0.5 * alat;
+      printf("\n# structure = %s  lattice constant = %g %s\n", structure_name[structure - 1], alat*Ang, _Ang);
       if (4 == structure) { // fcc
           amat[0][0] = 2*ahalf; amat[0][1] = ahalf;  amat[0][2] = 0;
           amat[1][0] = 0;       amat[1][1] = ahalf;  amat[1][2] = ahalf;
@@ -219,7 +221,9 @@ namespace shift_boundary {
     inline status_t all_tests(int const echo=3) {
       if (echo > 0) printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat{0};
-      stat += test_plane_wave(echo);
+      for(int structure = 1; structure <= 4; ++structure) {
+          stat += test_plane_wave(echo, structure);
+      } // structure
       return stat;
     } // all_tests
 #endif // NO_UNIT_TESTS
