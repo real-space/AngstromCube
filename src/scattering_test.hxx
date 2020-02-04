@@ -112,13 +112,15 @@ namespace scattering_test {
       , int const ell, double const energy // // angular moment quantum number and energy
       , double gg[], double ff[] // work arrays, greater and smaller component
       , int const ir_stop // radius where to stop
+      , int *numberofnodes=nullptr // export integer number of nodes
       , int const echo=0) {
     
       if (echo > 8) printf("# find true shomgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
+      int nnodes{0}; if (numberofnodes) { nnodes = count_nodes(ir_stop + 1, gg); *numberofnodes = nnodes; }
       double constexpr one_over_pi = 1./constants::pi;
-      return (0.5 - one_over_pi*arcus_tangent(deriv, value));
+      return (nnodes + 0.5 - one_over_pi*arcus_tangent(deriv, value));
   } // generalized_node_count_TRU
 
   template <int const nLIM=8>
@@ -131,6 +133,7 @@ namespace scattering_test {
       , double const *aHm=nullptr // pointer to Hamiltonian, can be zero if n=0
       , double const *aSm=nullptr // pointer to overlap, can be zero if n=0
       , int const stride=0 // stride for Hamiltonian and overlap
+      , int *numberofnodes=nullptr // // export integer number of nodes, ToDo: implement
       , int const echo=0) {
 
       double deriv[nLIM], value[nLIM], gfp[nLIM*nLIM]; assert(n < nLIM);
@@ -371,11 +374,11 @@ namespace scattering_test {
                   double const gnc_old = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #endif                 
                   double const gnc = (TRU == ts)
-                     ? generalized_node_count_TRU(*rg[TRU], rV[TRU], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo)
+                     ? generalized_node_count_TRU(*rg[TRU], rV[TRU], ell, energy, gg.data(), ff.data(), ir_stop[ts], nullptr, echo)
                      : generalized_node_count_SMT(*rg[SMT], rV[SMT], ell, energy, gg.data(), ff.data(), ir_stop[ts],
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), n,
                                                 &aHm[iln_off*nln + iln_off],
-                                                &aSm[iln_off*nln + iln_off], nln, echo);
+                                                &aSm[iln_off*nln + iln_off], nln, nullptr, echo);
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
