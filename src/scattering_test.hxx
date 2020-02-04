@@ -96,6 +96,82 @@ namespace scattering_test {
 
 // #define _SELECTED_ENERGIES_LOGDER
   
+  inline double find_outwards_solution(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
+      , int const ell, double const energy // // angular moment quantum number and energy
+      , double gg[], double ff[] // work arrays, greater and smaller component
+      , int const ir_stop=-1 // radius where to stop
+      , double const *inh=nullptr) // r*inhomogeneiety
+  {
+      int constexpr SRA = 1; // use the scalar relativistic approximation
+      double deriv{0};
+      radial_integrator::integrate_outwards<SRA>(rg, rV, ell, energy, gg, ff, ir_stop, &deriv, inh);
+      return deriv;
+  } // find_outwards_solution
+
+  inline double generalized_node_count_TRU(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
+      , int const ell, double const energy // // angular moment quantum number and energy
+      , double gg[], double ff[] // work arrays, greater and smaller component
+      , int const ir_stop // radius where to stop
+      , int const echo=0) {
+    
+      if (echo > 8) printf("# find true shomgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
+      double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
+      double const value = gg[ir_stop]; // value of the greater component at Rlog
+      double constexpr one_over_pi = 1./constants::pi;
+      return (0.5 - one_over_pi*arcus_tangent(deriv, value));
+  } // generalized_node_count_TRU
+
+  template <int const nLIM=8>
+  inline double generalized_node_count_SMT(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
+      , int const ell, double const energy // // angular moment quantum number and energy
+      , double gg[], double ff[] // work arrays, greater and smaller component
+      , int const ir_stop // radius where to stop
+      , view2D<double> const & rprj // pointer to inhomogeneieties
+      , int const n=0 // number of projector >= 0
+      , double const *aHm=nullptr // pointer to Hamiltonian, can be zero if n=0
+      , double const *aSm=nullptr // pointer to overlap, can be zero if n=0
+      , int const stride=0 // stride for Hamiltonian and overlap
+      , int const echo=0) {
+
+      double deriv[nLIM], value[nLIM], gfp[nLIM*nLIM]; assert(n < nLIM);
+
+      for(int jrn = 0; jrn <= n; ++jrn) { // 0: homogeneous, >0:inhomogeneous
+          if (echo > 9) printf("# find smooth %shomgeneous solution for ell=%i E=%g %s (%i)\n", (jrn > 0)?"in":"", ell, energy*eV,_eV, jrn-1);
+          deriv[jrn] = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, (jrn > 0) ? rprj[jrn - 1] : nullptr);
+          value[jrn] = gg[ir_stop]; // value of the greater component at Rlog
+          for(int krn = 0; krn < n; ++krn) {
+              // compute the inner products of the projectors rprj with the solution gg
+              gfp[jrn*n + krn] = dot_product(ir_stop + 1, rprj[krn], gg, rg.dr);
+          } // krn
+      } // jrn
+
+      int const n0 = 1 + n;
+      double x[nLIM];
+      set(x, n0, 0.0); // clear
+      x[0] = 1.0;
+      if (n > 0) {
+          double mat[nLIM*nLIM];
+          set(mat, n0*n0, 0.0); // clear
+          for(int i = 0; i < n0; ++i) {
+              mat[i*n0 + i] = 1.0; // unit matrix
+          } // i
+          for(int irn = 0; irn < n; ++irn) {
+              for(int jrn = 0; jrn < n0; ++jrn) {
+                  for(int krn = 0; krn < n; ++krn) {
+                      mat[jrn*n0 + (1 + irn)] += gfp[jrn*n + krn] * ( aHm[irn*stride + krn]
+                                                           - energy * aSm[irn*stride + krn] );
+                  } // krn
+              } // jrn
+          } // irn
+          auto const solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
+          if (solving_status) return 0; // failed
+      } // n > 0
+      double const val = dot_product(n0, x, value); // value of the greater component at Rlog
+      double const der = dot_product(n0, x, deriv); // derivative
+      double constexpr one_over_pi = 1./constants::pi;
+      return (0.5 - one_over_pi*arcus_tangent(der, val));
+  } // generalized_node_count_SMT
+
   inline status_t logarithmic_derivative(
                 radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
@@ -116,7 +192,7 @@ namespace scattering_test {
 
       if (echo > 1) printf("\n# %s %s %s lmax=%i\n", label, __FILE__, __func__, lmax); 
       double const one_over_pi = 1./constants::pi;
-      status_t stat = 0;
+      status_t stat{0};
       
       double const dE = std::max(1e-9, energy_range[1]);
 
@@ -139,14 +215,16 @@ namespace scattering_test {
       int const nln = sho_radial::nSHO_radial(numax);
       int const stride = mr;
 
+      if (echo > 9) printf("# %s nn = %d %d %d %d %d %d %d %d\n", __func__, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5], nn[6], nn[7]);
+      
       int constexpr node_count = 0; // 1 or 0 switch
       view2D<double> rphi(node_count*9, align<2>(rg[SMT]->n));
-      auto rtru = std::vector<double>(node_count*rg[TRU]->n);
+      std::vector<double> rtru(node_count*rg[TRU]->n);
 
       view2D<double> rprj(nln, stride); // mr might be much larger than needed since mr is taken from the TRU grid
       // preparation for the projector functions
       stat += expand_sho_projectors(rprj.data(), rprj.stride(), *rg[SMT], sigma, numax, 1, 0);
-  
+      
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], 9*sigma), rg[SMT]->n - 2);
       double const Rlog = rg[SMT]->r[ir_stop[SMT]];
       if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
@@ -173,6 +251,7 @@ namespace scattering_test {
               
               assert(n < 8);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+#if 0                
                   status_t solving_status{0};
                   for(int jrn = 0; jrn <= n*ts; ++jrn) {
                       bool const inhomgeneous = ((SMT == ts) && (jrn > 0));
@@ -180,9 +259,8 @@ namespace scattering_test {
 //                              (inhomgeneous)?"in":"", ell, energy*eV,_eV); // DEBUG
                       int const nrn = jrn - 1, iln = iln_off + nrn;
                       double const *const rp = inhomgeneous ? rprj[iln] : nullptr;
-                      int constexpr SRA = 1; // use the scalar relativistic approximation
-                      radial_integrator::integrate_outwards<SRA>(*rg[ts], rV[ts], ell, energy, 
-                                                         gg.data(), ff.data(), ir_stop[ts], &deriv[jrn], rp);
+                      deriv[jrn] = find_outwards_solution(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], rp);
+                      
                       nnodes[TRU] = 0;
                       if ((TRU == ts) && node_count) {
                           nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg.data());
@@ -192,7 +270,7 @@ namespace scattering_test {
                       if (SMT == ts) {
                           if (node_count) set(rphi[jrn], ir_stop[SMT] + 1, gg.data()); // store radial solution
                           for(int krn = 0; krn < n; ++krn) {
-                              // compute the inner products of the  projectors rprj with the solution gg
+                              // compute the inner products of the projectors rprj with the solution gg
                               int const jln = iln_off + krn;
                               gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, rprj[jln], gg.data(), rg[SMT]->dr);
                               if (echo > 8) printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", 
@@ -290,12 +368,19 @@ namespace scattering_test {
                       vg[ts] = value[0]; // value of the greater component at Rlog
                       dg[ts] = deriv[0]; // derivative
                   }
-                  double const generalized_node_count = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
+                  double const gnc_old = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
+#endif                 
+                  double const gnc = (TRU == ts)
+                     ? generalized_node_count_TRU(*rg[TRU], rV[TRU], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo)
+                     : generalized_node_count_SMT(*rg[SMT], rV[SMT], ell, energy, gg.data(), ff.data(), ir_stop[ts],
+                                                view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), n,
+                                                &aHm[iln_off*nln + iln_off],
+                                                &aSm[iln_off*nln + iln_off], nln, echo);
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
 //                here;
-                  if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', generalized_node_count);
+                  if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', gnc);
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("\n");
 #endif
