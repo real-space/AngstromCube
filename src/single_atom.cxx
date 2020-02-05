@@ -1665,7 +1665,7 @@ extern "C" {
     } // update_matrix_elements
 
 
-    void check_spherical_matrix_elements(int const echo=0) const {
+    void check_spherical_matrix_elements(int const echo, view3D<double> & aHSm) const {
         if (echo < 1) return; // this function only plots information to the logg
         // check if the emm-averaged Hamiltonian elements produce the same scattering properties
         // as the spherical part of the full potential
@@ -1686,8 +1686,9 @@ extern "C" {
             } // iln
         } // ts: true and smooth
 
-        view2D<double> hamiltonian_ln(nln, nln);
-        view2D<double> overlap_ln    (nln, nln);
+
+        // view2D<double> hamiltonian_ln(nln, nln), overlap_ln(nln, nln); // get memory
+        auto hamiltonian_ln = aHSm[0], overlap_ln = aHSm[1];
         { // scope
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
@@ -1703,7 +1704,7 @@ extern "C" {
         } // scope
 
         if (1) { // show atomic matrix elements
-            std::vector<int> ells(nln, -1);
+            std::vector<int8_t> ells(nln, -1);
             {
                 for(int ell = 0; ell <= numax; ++ell) {
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -1729,17 +1730,17 @@ extern "C" {
         } // 1
 
         if (1) {
-                double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
-                auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
-                { // scope: prepare a smooth local potential which goes to zero at Rmax
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
-                    } // ir
-                } // scope
+            double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
+            auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
+            { // scope: prepare a smooth local potential which goes to zero at Rmax
+                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                    Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
+                } // ir
+            } // scope
 
-                if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
-                scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+            if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
+            scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
+              (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         if (1) {
@@ -1752,22 +1753,89 @@ extern "C" {
     } // check_spherical_matrix_elements
 
     
-    void create_isolated_density_matrix(view2D<double> & density_matrix, sho_tools::SHO_order_t const order, int const echo=9) const {
+    void create_isolated_density_matrix(view2D<double> & density_matrix, 
+          sho_tools::SHO_order_t & order, 
+          view3D<double> const & aHSm, // atomic emm-degenrate matrix elements (h0s1, nln, nln)
+          int const echo=9) const {
         int const nSHO = sho_tools::nSHO(numax);
+        int const nln = sho_tools::nSHO_radial(numax);
+        order = sho_tools::order_lmn;
         if (echo > -1) printf("# %s %s for an %d x %d density matrix in %s_order\n", label, __func__, nSHO, nSHO,
                                   sho_tools::SHO_order2string(order).c_str());
-        std::vector<double> rwave(rg[SMT]->n, 0.0);
+        std::vector<double> rwave(rg[SMT]->n, 0.0), ff(rg[SMT]->n);
         for(int ics = 0; ics < ncorestates; ++ics) {
             auto const occ = -core_state[ics].occupation;
             int const enn = core_state[ics].enn;
             int const ell = core_state[ics].ell;
             if (occ > 0) {
-                double const energy = core_state[ics].energy;
-                if (echo > -1) printf("# %s %s found occ %g for %i%c-state at %g %s\n", label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
-                // solve for the pseudo eigenstate
-                
+                if (ell > numax) {
+                    warn("Unable to represent %c-states with numax=%d", ellchar[ell], numax);
+                } else {
+                    double const energy = core_state[ics].energy;
+                    int const iln_off = sho_tools::ln_index(numax, ell, 0);
+                    double const *const aHm = aHSm[0].data() + iln_off*nln + iln_off;
+                    double const *const aSm = aHSm[1].data() + iln_off*nln + iln_off;
+                    if (echo > -1) printf("# %s %s found occ %g for %i%c-state at %g %s\n", 
+                                              label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
+                    // solve for the pseudo state at the energy of the eigenstate of the true spherical potential
+                    scattering_test::generalized_node_count_SMT( // ToDo: list above in the includes
+                        *rg[SMT], potential[SMT].data(), ell, energy, rwave.data(), ff.data(), -1,
+                        view2D<double>(projectors[iln_off], projectors.stride()), nn[ell],
+                        aHm, aSm, aHSm.stride(), echo);
+                    // now find the correct normalization of rwave:
+                    double cprj[8];
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        cprj[nrn] = dot_product(rg[SMT]->n, projectors[iln_off + nrn], rwave.data(), rg[SMT]->dr);
+                        if (echo > -1) printf("# %s %i%c-state has projection coeff #%i %g\n", 
+                                                  label, enn,ellchar[ell], nrn, cprj[nrn]);
+                    } // nrn
+                    // normalization as 1 == <rwave| ( 1 + |p> charge_deficit <p| ) |rwave>
+                    double const l2norm = dot_product(rg[SMT]->n, rwave.data(), rwave.data(), rg[SMT]->dr);
+                    double norm{l2norm};
+                    for(int irn = 0; irn < nn[ell]; ++irn) {
+                        for(int jrn = 0; jrn < nn[ell]; ++jrn) {
+                            norm += ( charge_deficit(0,TRU,iln_off + irn,iln_off + jrn)
+                                    - charge_deficit(0,SMT,iln_off + irn,iln_off + jrn) )
+                                    * cprj[irn] * cprj[jrn];
+                        } // jrn
+                    } // irn
+                    double const f = 1./std::sqrt(norm);
+                    scale(rwave.data(), rwave.size(), f);
+                    scale(cprj, nn[ell], f);
+                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                        if (echo > -1) printf("# %s %i%c-state has normalized projection coeff #%i %g\n", 
+                                                  label, enn,ellchar[ell], nrn, cprj[nrn]);
+                    } // nrn
+
+                    // now set the density_matrix in order_lmn
+                    for(int emmi = -ell; emmi <= ell; ++emmi) {
+                        for(int irn = 0; irn < nn[ell]; ++irn) {
+                            int const ilmn = sho_tools::lmn_index(numax, ell, emmi, irn);
+                            for(int emmj = -ell; emmj <= ell; ++emmj) {
+                                for(int jrn = 0; jrn < nn[ell]; ++jrn) {
+                                    int const jlmn = sho_tools::lmn_index(numax, ell, emmj, jrn);
+                                    density_matrix[ilmn][jlmn] = occ * cprj[irn] * cprj[jrn];
+                                } // jrn
+                            } // emm_j
+                        } // irn
+                    } // emm_i
+
+                } // ell too large
             } // occupied
         } // ics
+
+        // show the density matrix
+        if (echo > 1) {
+            printf("# %s %s:\n", label, __func__);
+            for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
+                printf("# %s dm %02i ", label, ilmn);
+                for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
+                    printf(" %7.3f", density_matrix[ilmn][jlmn]);
+                } // jlmn
+                printf("\n");
+            } // ilmn
+        } // echo
+
     } // create_isolated_density_matrix
     
 
@@ -1776,12 +1844,13 @@ extern "C" {
         update_core_states(mixing, echo);
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
-        check_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
+        int const nln = sho_radial::nSHO_radial(numax);
+        view3D<double> aHSm(2, nln, nln, 0.0);
+        check_spherical_matrix_elements(echo, aHSm); // check scattering properties for emm-averaged Hamiltonian elements
         int const nSHO = sho_tools::nSHO(numax);
         view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
         auto dm_order = sho_tools::order_Ezyx;
-        if (1) create_isolated_density_matrix(density_matrix, dm_order);
-        int const nln = sho_radial::nSHO_radial(numax);
+        if (1) create_isolated_density_matrix(density_matrix, dm_order, aHSm);
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory

@@ -3,7 +3,6 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // uint8_t
-// #include <math.h> // fmod
 
 #include "radial_grid.hxx" // create_equidistant_radial_grid, find_grid_index
 #include "bessel_transform.hxx" // transform_s_function
@@ -108,22 +107,22 @@ namespace scattering_test {
       return deriv;
   } // find_outwards_solution
 
+  template<bool NodeCount=false>
   inline double generalized_node_count_TRU(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
       , int const ell, double const energy // // angular moment quantum number and energy
       , double gg[], double ff[] // work arrays, greater and smaller component
       , int const ir_stop // radius where to stop
-      , int *numberofnodes=nullptr // export integer number of nodes
       , int const echo=0) {
     
-      if (echo > 8) printf("# find true shomgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
+      if (echo > 8) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
-      int nnodes{0}; if (numberofnodes) { nnodes = count_nodes(ir_stop + 1, gg); *numberofnodes = nnodes; }
+      int nnodes{0}; if (NodeCount) nnodes = count_nodes(ir_stop + 1, gg);
       double constexpr one_over_pi = 1./constants::pi;
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(deriv, value));
   } // generalized_node_count_TRU
 
-  template <int const nLIM=8>
+  template <bool NodeCount=false, int const nLIM=8>
   inline double generalized_node_count_SMT(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
       , int const ell, double const energy // // angular moment quantum number and energy
       , double gg[], double ff[] // work arrays, greater and smaller component
@@ -133,18 +132,20 @@ namespace scattering_test {
       , double const *aHm=nullptr // pointer to Hamiltonian, can be zero if n=0
       , double const *aSm=nullptr // pointer to overlap, can be zero if n=0
       , int const stride=0 // stride for Hamiltonian and overlap
-      , int *numberofnodes=nullptr // // export integer number of nodes, ToDo: implement
       , int const echo=0) {
 
       double deriv[nLIM], value[nLIM], gfp[nLIM*nLIM]; assert(n < nLIM);
 
-      for(int jrn = 0; jrn <= n; ++jrn) { // 0: homogeneous, >0:inhomogeneous
+      view2D<double> waves(NodeCount ? (1 + n) : 0, align<2>(ir_stop + 1)); // get memory
+
+      for(int jrn = n; jrn >= 0; --jrn) { // >0:inhomogeneous, 0: homogeneous
           if (echo > 9) printf("# find smooth %shomgeneous solution for ell=%i E=%g %s (%i)\n", (jrn > 0)?"in":"", ell, energy*eV,_eV, jrn-1);
-          deriv[jrn] = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, (jrn > 0) ? rprj[jrn - 1] : nullptr);
-          value[jrn] = gg[ir_stop]; // value of the greater component at Rlog
+          auto const ggj = NodeCount ? waves[jrn] : gg;
+          deriv[jrn] = find_outwards_solution(rg, rV, ell, energy, ggj, ff, ir_stop, (jrn > 0) ? rprj[jrn - 1] : nullptr);
+          value[jrn] = ggj[ir_stop]; // value of the greater component at Rlog
           for(int krn = 0; krn < n; ++krn) {
-              // compute the inner products of the projectors rprj with the solution gg
-              gfp[jrn*n + krn] = dot_product(ir_stop + 1, rprj[krn], gg, rg.dr);
+              // compute the inner products of the projectors rprj with the solution ggj
+              gfp[jrn*n + krn] = dot_product(ir_stop + 1, rprj[krn], ggj, rg.dr);
           } // krn
       } // jrn
 
@@ -171,6 +172,14 @@ namespace scattering_test {
       } // n > 0
       double const val = dot_product(n0, x, value); // value of the greater component at Rlog
       double const der = dot_product(n0, x, deriv); // derivative
+      int nnodes{0}; 
+      if (NodeCount) {
+          set(gg, rg.n, 0.0); // clear
+          for(int jrn = 0; jrn <= n; ++jrn) {
+              add_product(gg, ir_stop + 1, waves[jrn], x[jrn]);
+          } // jrn
+          nnodes = count_nodes(ir_stop + 1, gg); 
+      } // NodeCount
       double constexpr one_over_pi = 1./constants::pi;
       return (0.5 - one_over_pi*arcus_tangent(der, val));
   } // generalized_node_count_SMT
@@ -374,11 +383,11 @@ namespace scattering_test {
                   double const gnc_old = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #endif                 
                   double const gnc = (TRU == ts)
-                     ? generalized_node_count_TRU(*rg[TRU], rV[TRU], ell, energy, gg.data(), ff.data(), ir_stop[ts], nullptr, echo)
-                     : generalized_node_count_SMT(*rg[SMT], rV[SMT], ell, energy, gg.data(), ff.data(), ir_stop[ts],
+                     ? generalized_node_count_TRU(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo)
+                     : generalized_node_count_SMT(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), n,
                                                 &aHm[iln_off*nln + iln_off],
-                                                &aSm[iln_off*nln + iln_off], nln, nullptr, echo);
+                                                &aSm[iln_off*nln + iln_off], nln, echo);
 #ifdef  _SELECTED_ENERGIES_LOGDER
                   if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
 #endif
