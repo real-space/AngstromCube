@@ -108,11 +108,12 @@ namespace sho_unitary {
               if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__,
                   sho_tools::SHO_order2string(inp_order).c_str(), sho_tools::SHO_order2string(out_order).c_str(), nu_max);
 
-              std::vector<char> inp_label((echo > 3)*nSHO*8, '\0'),
-                              e_inp_label((echo > 3)*nSHO*8, '\0'),
-                              e_out_label((echo > 3)*nSHO*8, '\0'),
-                                out_label((echo > 3)*nSHO*8, '\0');
+              std::vector<char[8]> inp_label, e_inp_label, e_out_label, out_label;
               if (echo > 3) {
+                  inp_label   = std::vector<char[8]>(nSHO);
+                  e_inp_label = std::vector<char[8]>(nSHO);
+                  e_out_label = std::vector<char[8]>(nSHO);
+                  out_label   = std::vector<char[8]>(nSHO);
                   sho_tools::construct_label_table(inp_label.data(), nu_max, inp_order);
                   sho_tools::construct_label_table(out_label.data(), nu_max, out_order);
                   sho_tools::construct_label_table(e_out_label.data(), nu_max, c2r ? sho_tools::order_Elnm : sho_tools::order_Ezyx);
@@ -129,7 +130,7 @@ namespace sho_unitary {
                   stat += sho_tools::construct_index_table(inp_index.data(), nu_max, inp_order);
                   for(int i = 0; i < nSHO; ++i) {
                       ti[inp_index[i]] = inp[i]; // reorder to be energy ordered
-                      if (echo > 8) printf("# %s: inp[%s] = %g\n", __func__, &inp_label[i*8], inp[i]);
+                      if (echo > 8) printf("# %s: inp[%s] = %g\n", __func__, inp_label[i], inp[i]);
                   } // i
                   e_inp = ti.data();
               } // input is not energy ordered
@@ -158,8 +159,8 @@ namespace sho_unitary {
                       } // j
                       e_out[offset + i] = tmp;
                       if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__,
-                                      nu, &e_inp_label[(offset + i)*8], e_inp[offset + i],
-                                          &e_out_label[(offset + i)*8], e_out[offset + i]);
+                                      nu, e_inp_label[offset + i], e_inp[offset + i],
+                                          e_out_label[offset + i], e_out[offset + i]);
                   } // i
               } // nu
 
@@ -170,7 +171,7 @@ namespace sho_unitary {
                   stat += sho_tools::construct_index_table(out_index.data(), nu_max, out_order);
                   for(int i = 0; i < nSHO; ++i) {
                       out[i] = e_out[out_index[i]];
-                      if (echo > 8) printf("# %s: out[%s] = %g\n", __func__, &out_label[i*8], out[i]);
+                      if (echo > 8) printf("# %s: out[%s] = %g\n", __func__, out_label[i], out[i]);
                   } // i
               } // output is not energy ordered
 

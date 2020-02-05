@@ -431,11 +431,10 @@ extern "C" {
             }
         } // echo
         
-        return;
-        
         scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
         scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
-        if (echo > 2) printf("# %s initial core density has %g electrons\n", label, dot_product(rg[TRU]->n, core_density[TRU].data(), rg[TRU]->r2dr));
+        if (echo > 2) printf("# %s initial core density has %g electrons\n", 
+                                label, dot_product(rg[TRU]->n, core_density[TRU].data(), rg[TRU]->r2dr));
         
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
@@ -1085,7 +1084,7 @@ extern "C" {
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
-                if (0) {
+                if (1) {
                     auto const wave_i = partial_wave[iln].wave[ts];
                     auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
                     true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
@@ -1765,11 +1764,13 @@ extern "C" {
 
             if (echo > 4) {
                 printf("\n");
+                std::vector<char[4]> ln_labels(nln);
+                sho_tools::construct_label_table(ln_labels.data(), numax, sho_tools::order_ln);
                 for(int i01 = 0; i01 < 2; ++i01) {
                     auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
                     auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
                     for(int iln = 0; iln < nln; ++iln) {
-                        printf("# %s spherical%3i %s ", label, iln, label_qn);
+                        printf("# %s spherical %s %s ", label, ln_labels[iln], label_qn);
                         for(int jln = 0; jln < nln; ++jln) {
                             printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln[iln][jln]*true_norm[jln] : 0);
                         }   printf("\n");
@@ -1801,7 +1802,6 @@ extern "C" {
 
     } // check_spherical_matrix_elements
 
-    
     void create_isolated_density_matrix(view2D<double> & density_matrix, 
           sho_tools::SHO_order_t & order, 
           view3D<double> const & aHSm, // atomic emm-degenrate matrix elements (h0s1, nln, nln)
@@ -1820,19 +1820,21 @@ extern "C" {
                 if (ell > numax) {
                     warn("Unable to represent %c-states with numax=%d", ellchar[ell], numax);
                 } else {
+                    double cprj[8]; assert( nn[ell] <= 8 );
+                    set(cprj, 8, 0.0); // clear
                     double const energy = core_state[ics].energy;
+                    if (echo > -1) printf("# %s %s found occ %g for %i%c-state at %g %s\n", 
+                                              label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
+#if 0        
                     int const iln_off = sho_tools::ln_index(numax, ell, 0);
                     double const *const aHm = aHSm[0].data() + iln_off*nln + iln_off;
                     double const *const aSm = aHSm[1].data() + iln_off*nln + iln_off;
-                    if (echo > -1) printf("# %s %s found occ %g for %i%c-state at %g %s\n", 
-                                              label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
                     // solve for the pseudo state at the energy of the eigenstate of the true spherical potential
                     scattering_test::generalized_node_count_SMT( // ToDo: list above in the includes
                         *rg[SMT], potential[SMT].data(), ell, energy, rwave.data(), ff.data(), -1,
                         view2D<double>(projectors[iln_off], projectors.stride()), nn[ell],
                         aHm, aSm, aHSm.stride(), echo);
                     // now find the correct normalization of rwave:
-                    double cprj[8];
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                         cprj[nrn] = dot_product(rg[SMT]->n, projectors[iln_off + nrn], rwave.data(), rg[SMT]->dr);
                         if (echo > -1) printf("# %s %i%c-state has projection coeff #%i %g\n", 
@@ -1855,20 +1857,22 @@ extern "C" {
                         if (echo > -1) printf("# %s %i%c-state has normalized projection coeff #%i %g\n", 
                                                   label, enn,ellchar[ell], nrn, cprj[nrn]);
                     } // nrn
-
+#else
+                    int const nrn = 0; 
+                    int const iln = sho_tools::ln_index(numax, ell, 0);
+                    if (1 == nn[ell]) cprj[0] = true_norm[iln]; // if nn[ell] == 1, the partial wave #0 can coincides with the eigenstate
+#endif
+                    
                     // now set the density_matrix in order_lmn
-                    for(int emmi = -ell; emmi <= ell; ++emmi) {
+                    for(int emm = -ell; emm <= ell; ++emm) {
                         for(int irn = 0; irn < nn[ell]; ++irn) {
-                            int const ilmn = sho_tools::lmn_index(numax, ell, emmi, irn);
-                            for(int emmj = -ell; emmj <= ell; ++emmj) {
-                                for(int jrn = 0; jrn < nn[ell]; ++jrn) {
-                                    int const jlmn = sho_tools::lmn_index(numax, ell, emmj, jrn);
-                                    density_matrix[ilmn][jlmn] = occ * cprj[irn] * cprj[jrn];
-                                } // jrn
-                            } // emm_j
+                            int const ilmn = sho_tools::lmn_index(numax, ell, emm, irn);
+                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {
+                                int const jlmn = sho_tools::lmn_index(numax, ell, emm, jrn);
+                                density_matrix[ilmn][jlmn] = occ/(2*ell + 1.) * cprj[irn] * cprj[jrn];
+                            } // jrn
                         } // irn
                     } // emm_i
-
                 } // ell too large
             } // occupied
         } // ics
@@ -2030,7 +2034,7 @@ namespace single_atom {
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
     {   double const Z = control::get("single_atom.test.Z", 29.); // default copper
         double const ion = control::get("single_atom.test.ion", 0.); // default neutral
-        if (echo > 1) printf("\n# Z = %d\n", Z);
+        if (echo > 1) printf("\n# Z = %g\n", Z);
         LiveAtom a(Z, numax, t2v, ion, -1, echo); // envoke constructor
     } // Z
     return 0;

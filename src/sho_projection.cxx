@@ -129,8 +129,8 @@ namespace sho_projection {
       std::vector<int> energy_ordered(nSHO, 0);
       std::vector<int> loop_ordered(nSHO, 0);
       sho_tools::construct_index_table(energy_ordered.data(), numax, sho_tools::order_zyx, loop_ordered.data());
-      std::vector<char> sho_label(nSHO*8, '\0');
-      sho_tools::construct_label_table(sho_label.data(), numax, sho_tools::order_Ezyx);
+//       std::vector<char[8]> sho_label(nSHO);
+//       sho_tools::construct_label_table(sho_label.data(), numax, sho_tools::order_Ezyx);
       
       sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
       

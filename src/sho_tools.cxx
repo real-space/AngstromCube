@@ -176,14 +176,14 @@ namespace sho_tools {
               int const nsho = is_emm_degenerate(order) ? nSHO_radial(numax) : nSHO(numax);
               std::vector<int_t> list(nsho, -1), inv_list(nsho, -1);
               stat += construct_index_table(list.data(), numax, order, inv_list.data(), echo);
-              std::vector<char> label(nsho*8, '\0');
+              std::vector<char[8]> label(nsho);
               stat += construct_label_table(label.data(), numax, order);
               if (echo > 7) printf("# %s numax=%i order_%s labels:  ",
                               __func__, numax, SHO_order2string(order).c_str());
               for(int ii = 0; ii < nsho; ++ii) {
                   assert( list[inv_list[ii]] == ii ); // check that the lists are inverse of each other
                   assert( inv_list[list[ii]] == ii ); // check that the lists are inverse of each other
-                  if (echo > 7) printf(" %s", &label[ii*8]);
+                  if (echo > 7) printf(" %s", label[ii]);
               } // ii
               if (echo > 7) printf("\n");
           } // numax

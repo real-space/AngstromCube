@@ -143,9 +143,12 @@ namespace sho_potential {
       
       std::vector<double> c_new(nc, 0.0); // get memory
 
-      view2D<char> labels(nc*(echo > 4), 8, '\0');
-      if (echo > 4) sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_zyx);
-      if (echo > 4) printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang, _Ang);
+      std::vector<char[8]> zyx_label;
+      if (echo > 4) {
+          printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang, _Ang);
+          zyx_label = std::vector<char[8]>(nc);
+          sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
+      } // echo
       int mzyx{0};
       for    (int mz = 0; mz <= numax; ++mz) {
         for  (int my = 0; my <= numax - mz; ++my) {
@@ -167,7 +170,7 @@ namespace sho_potential {
               }}} assert( nc == kzyx );
             }
 
-            if (echo > 4) printf("# %s %s old%9.1e =%9.3f new%9.1e =%9.3f\n", __func__, labels[mzyx], coeff[mzyx], coeff[mzyx], cc, cc);
+            if (echo > 4) printf("# %s %s old%9.1e =%9.3f new%9.1e =%9.3f\n", __func__, zyx_label[mzyx], coeff[mzyx], coeff[mzyx], cc, cc);
             c_new[mzyx] = cc; // write
             ++mzyx;
       }}} assert( nc == mzyx );
@@ -295,8 +298,9 @@ namespace sho_potential {
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
       
       
-      view3D<char> labels(1+numax_max, sho_tools::nSHO(numax_max), 8, '\0');
+      std::vector<std::vector<char[8]>> labels(1 + numax_max);
       for(int nu = 0; nu <= numax_max; ++nu) {
+          labels[nu] = std::vector<char[8]>(sho_tools::nSHO(nu));
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
 
@@ -347,7 +351,7 @@ namespace sho_potential {
                       for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
                           printf("# ai#%i aj#%i\n", ia, ja);
                           for(int ib = 0; ib < nb; ++ib) {
-                              printf("# %c ai#%i aj#%i %s ", i01?'V':'S', ia, ja, labels(numaxs[ia],ib));
+                              printf("# %c ai#%i aj#%i %s ", i01?'V':'S', ia, ja, labels[numaxs[ia]][ib]);
                               for(int jb = 0; jb < mb; ++jb) {
                                   double const elem = (i01 ? Vmat(ia,ja,ib,jb) : Smat(ia,ja,ib,jb)) 
                                                     / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
@@ -415,7 +419,7 @@ namespace sho_potential {
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
-                          printf("# V ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
+                          printf("# V ai#%i aj#%i %s ", ia, ja, labels[numaxs[ia]][ib]);
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.4f", Vmat[ib][jb]);
                           }   printf("\n");
@@ -484,7 +488,7 @@ namespace sho_potential {
                   // display matrix
                   for(int ib = 0; ib < nb; ++ib) {
                       if (echo > 0) {
-                          printf("# V ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
+                          printf("# V ai#%i aj#%i %s ", ia, ja, labels[numaxs[ia]][ib]);
                           for(int jb = 0; jb < mb; ++jb) {
                               printf("%8.4f", Vmat[ib][jb]);
                           }   printf("\n");
@@ -512,7 +516,7 @@ namespace sho_potential {
                   for(int ja = 0; ja < natoms; ++ja) {    int const mb = sho_tools::nSHO(numaxs[ja]);
                       if (echo > 1) printf("# ai#%i aj#%i\n", ia, ja);
                       for(int ib = 0; ib < nb; ++ib) {
-                          printf("# S ai#%i aj#%i %s ", ia, ja, labels(numaxs[ia],ib));
+                          printf("# S ai#%i aj#%i %s ", ia, ja, labels[numaxs[ia]][ib]);
                           for(int jb = 0; jb < mb; ++jb) {
 //                               printf("%8.4f", Smat(ia,ja,ib,jb) / std::sqrt(Smat(ia,ia,ib,ib)*Smat(ja,ja,jb,jb)));
                               printf("%8.4f", Smat(ia,ja,ib,jb)); // un-normalized, all diagonal elements are 1.0
