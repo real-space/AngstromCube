@@ -68,6 +68,8 @@ extern "C" {
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
+  char const c0s1v2_char[] = "csv?";  // 0:core, 1:semicore, 2:valence
+  char const c0s1v2_name[][8] = {"core", "semi", "valence"};  // 0:core, 1:semicore, 2:valence
 
   double constexpr Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
@@ -186,7 +188,7 @@ extern "C" {
 
       // general config
       int32_t atom_id; // global atom identifyer
-      float Z_core; // number of nucleons in the core
+      double Z_core; // number of nucleons in the core
       char label[16]; // label string
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
@@ -245,11 +247,11 @@ extern "C" {
   public:
 
     // constructor method:
-    LiveAtom(float const Z_nucleons
+    LiveAtom(double const Z_nucleons
             , int const nu_max=3
             , bool const transfer2valence=true // depending on transfer2valence results look
     // slightly different in the shape of smooth potentials but matrix elements are the same
-            , float const ionization=0
+            , double const ionization=0
             , int const global_atom_id=-1
             , int const echo=0 // logg level for this contructor method only
             ) : atom_id{global_atom_id} 
@@ -321,20 +323,35 @@ extern "C" {
 //            } // ir
 //         } // echo
 
+        std::vector<int8_t> c0s1v2(96, -1); // 0:core, 1:semicore, 2:valence
         std::vector<int8_t> as_valence(96, -1);
 
-        double const core_valence_separation = control::get("core.valence.separation", -2.0);
+        int const inl_core_hole = control::get("core.hole.index", -1.);;
+        double const core_hole_charge = std::min(std::max(0.0, control::get("core.hole.charge", 1.)), 1.0);
+        double core_hole_charge_used{0};
+
+        double csv_charge[] = {0, 0, 0};
+        
+        double const core_valence_separation  = control::get("core.valence.separation", -2.0);
+        double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
+        double const semi_valence_separation  = control::get("semicore.valence.separation", core_valence_separation);
+        if (core_semicore_separation > semi_valence_separation) {
+            warn("%s core.semicore.separation=%g may not be higher than semicore.valence.separation=%g, correct", 
+                 label, core_semicore_separation, semi_valence_separation);
+            core_semicore_separation = semi_valence_separation; // correct --> no semicore states possible
+        } // warning
         int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
         ncorestates = 20;
         true_core_waves = view3D<double>(2, ncorestates, nrt, 0.0); // get memory for the true radial wave functions and kinetic waves
         int constexpr SRA = 1;
         core_state = std::vector<core_level_t>(ncorestates);
         {
-            int ics = 0, jcs = -1; float n_electrons = Z_core - ionization;
-            for(int m = 0; m < 8; ++m) { // auxiliary number
-                int enn = (m + 1)/2;
-                for(int ell = m/2; ell >= 0; --ell) { // angular momentum character
-                    ++enn; // principal quantum number
+            int ics = 0, jcs = -1; 
+            double n_electrons = Z_core - ionization; // init number of electrons to be distributed
+            for(int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number
+                int enn = (nq_aux + 1)/2; // init principal quantum number
+                for(int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character
+                    ++enn; // update principal quantum number
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
                         auto &cs = core_state[ics]; // abbreviate
                         cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
@@ -346,44 +363,76 @@ extern "C" {
                         cs.energy = E;
 
                         int const inl = atom_core::nl_index(enn, ell);
-                        if (E > core_valence_separation) {
+                        if (E > semi_valence_separation) {
                             as_valence[inl] = ics; // mark as good for the valence band
+                            c0s1v2[inl] = 2; // mark as valence state
 //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
-                        } // move to the valence band
+                        } else // move to the valence band
+                        if (E > core_semicore_separation) {
+                            c0s1v2[inl] = 1; // mark as semicore state
+                        } else { // move to the semicore band
+                            c0s1v2[inl] = 0; // mark as core state
+                        } // stay in the core
 
                         cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         cs.enn = enn;
                         cs.ell = ell;
                         cs.emm = emm_Degenerate;
-                        float const max_occ = 2*(jj + 1);
                         cs.spin = spin_Degenerate;
-
-                        float const occ = std::min(std::max(0.f, n_electrons), max_occ);
+                        double const max_occ = 2*(jj + 1);
+                        double const core_hole = core_hole_charge*(inl_core_hole == inl);
+                        double const occ_no_core_hole = std::min(std::max(0., n_electrons), max_occ);
+                        double const occ = std::min(std::max(0., occ_no_core_hole - core_hole), max_occ) ;
+                        double const real_core_hole_charge = occ_no_core_hole - occ;
+                        if (real_core_hole_charge > 0) {
+                            core_hole_charge_used = real_core_hole_charge;
+                            if (echo > 1) printf("# %s use a core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
+                                                    label, inl, enn, ellchar[ell], real_core_hole_charge);
+                        } // core hole active
                         cs.occupation = occ;
                         if (occ > 0) {
-                            jcs = ics;
-                            if (echo > 0) printf("# %s %s %2d%c%6.1f E= %g %s\n", label, (as_valence[inl] < 0)?
-                                                 "core   ":"valence", enn, ellchar[ell], occ, E*eV,_eV);
+                            jcs = ics; // store the index of the highest occupied core state
+                            if (echo > 0) printf("# %s %s %2d%c%6.1f E= %g %s\n",
+                                                    label, c0s1v2_name[c0s1v2[inl]], enn, ellchar[ell], occ, E*eV,_eV);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
                             } else {
                                 if (transfer2valence) cs.occupation = -occ; // mark as valence state by negative occupations
                             } // not as valence
+                            csv_charge[c0s1v2[inl]] += occ;
                         } // occupied
                         if (cs.occupation > 0) {
                             double const norm = occ/dot_product(rg[TRU]->n, r2rho.data(), rg[TRU]->dr);
                             add_product(core_density[TRU].data(), rg[TRU]->n, r2rho.data(), norm);
                         } // occupied
-                        
+
                         n_electrons -= max_occ;
                         ++ics;
                     } // jj
                 } // ell
-            } // m
+            } // nq_aux
             ncorestates = jcs + 1; // correct the number of core states to those occupied
         } // core states
-        if (echo > 3) printf("# %s use a core.valence.separation at %g %s\n", label, core_valence_separation*eV,_eV);
+        double const total_n_electrons = csv_charge[0] + csv_charge[1] + csv_charge[2];
+        if (echo > 2) printf("# %s initial occupation with %g electrons: %g core, %g semi-core and %g valence electrons\n", 
+                                    label, total_n_electrons, csv_charge[0], csv_charge[1], csv_charge[2]);
+        
+        if ((inl_core_hole >= 0) && (std::abs(core_hole_charge_used - core_hole_charge) > 5e-16)) {
+            warn("%s core.hole.charge=%g requested in core.hole.index=%i but used %g electrons (diff %.1e)",
+                  label, core_hole_charge, inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
+        } // warning when deviates
 
+        if (echo > 3) {
+            if (core_semicore_separation >= semi_valence_separation) {
+                printf("# %s core.valence.separation at %g %s\n", label, core_valence_separation*eV,_eV);
+            } else {
+                printf("# %s core.semicore.separation at %g %s\n", label, core_semicore_separation*eV, _eV);
+                printf("# %s semicore.valence.separation at %g %s\n", label, semi_valence_separation*eV, _eV);
+            }
+        } // echo
+        
+        return;
+        
         scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
         scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
         if (echo > 2) printf("# %s initial core density has %g electrons\n", label, dot_product(rg[TRU]->n, core_density[TRU].data(), rg[TRU]->r2dr));
@@ -560,7 +609,7 @@ extern "C" {
     } // initialize_Gaunt
 
     void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[],
-            int const enn, int const ell, float const occ, double const energy, char const csv, int const ir_cut=-1) const {
+            int const enn, int const ell, float const occ, double const energy, int8_t const c0s1v2, int const ir_cut=-1) const {
         if (echo < 1) return; // this function only prints to the logg
         
         double stats[] = {0,0,0,0,0};
@@ -584,7 +633,7 @@ extern "C" {
         } // ir_cut
 
         printf("# %s %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
-               ('c' == csv)?"core   ":(('s' == csv)?"semi   ":"valence"), enn, ellchar[ell], occ, energy*eV,_eV, 
+               c0s1v2_name[c0s1v2], enn, ellchar[ell], occ, energy*eV,_eV, 
                stats[2]/stats[1]*Ang, std::sqrt(std::max(0., stats[3]/stats[1]))*Ang,_Ang, 
                stats[4]/stats[1]*eV,_eV, charge_outside/stats[1]);
     } // show_state_analysis
@@ -631,7 +680,7 @@ extern "C" {
             add_product(cs.wKin[TRU], nr, rg[TRU]->r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
 
             if (scal > 0) add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
-            show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, (scal > 0)?'c':'v', ir_cut[TRU]);
+            show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, 2*(scal < 0), ir_cut[TRU]);
         } // ics
 
         // report integrals
@@ -739,7 +788,7 @@ extern "C" {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 'v', ir_cut[TRU]);
+                show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 0, ir_cut[TRU]);
 
 
                 // idea: make this module flexible enough so it can load a potential and
@@ -1973,14 +2022,14 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test_LiveAtom(int const echo=9) {
-    int const numax = control::get("single_atom.test.numax", 3); // default 3: ssppdf
+    int const numax = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
     bool const t2v = (control::get("single_atom.test.transfer.to.valence", 0.) > 0); //
     if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    {   int const Z = control::get("single_atom.test.Z", 29); // default copper
-        float const ion = control::get("single_atom.test.ion", 0.); // default neutral
+    {   double const Z = control::get("single_atom.test.Z", 29.); // default copper
+        double const ion = control::get("single_atom.test.ion", 0.); // default neutral
         if (echo > 1) printf("\n# Z = %d\n", Z);
         LiveAtom a(Z, numax, t2v, ion, -1, echo); // envoke constructor
     } // Z

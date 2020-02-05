@@ -181,7 +181,7 @@ namespace scattering_test {
           nnodes = count_nodes(ir_stop + 1, gg); 
       } // NodeCount
       double constexpr one_over_pi = 1./constants::pi;
-      return (0.5 - one_over_pi*arcus_tangent(der, val));
+      return (nnodes + 0.5 - one_over_pi*arcus_tangent(der, val));
   } // generalized_node_count_SMT
 
   inline status_t logarithmic_derivative(
