@@ -224,6 +224,7 @@ extern "C" {
       double logder_energy_range[3]; // [start, increment, stop]
 
       // spin-resolved members
+      double csv_charge[3];
       std::vector<core_level_t> core_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       std::vector<double> core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
       std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor
@@ -328,7 +329,7 @@ extern "C" {
         double const core_hole_charge = std::min(std::max(0.0, control::get("core.hole.charge", 1.)), 1.0);
         double core_hole_charge_used{0};
 
-        double csv_charge[] = {0, 0, 0};
+        set(csv_charge, 3, 0.0);
         
         double const core_valence_separation  = control::get("core.valence.separation", -2.0);
         double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
@@ -1933,8 +1934,13 @@ extern "C" {
     
     radial_grid_t* get_smooth_radial_grid(int const echo=0) const { return rg[SMT]; }
 
+    template <char Q='t'> double get_number_of_electrons() const { return csv_charge[0] + csv_charge[1] + csv_charge[2]; }
+    
   }; // class LiveAtom
 
+    template <> double LiveAtom::get_number_of_electrons<'c'>() const { return csv_charge[0]; } // core
+    template <> double LiveAtom::get_number_of_electrons<'s'>() const { return csv_charge[1]; } // semicore
+    template <> double LiveAtom::get_number_of_electrons<'v'>() const { return csv_charge[2]; } // valence
 
 namespace single_atom {
 

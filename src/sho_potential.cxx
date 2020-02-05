@@ -185,19 +185,20 @@ namespace sho_potential {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_potential_elements(int const echo=5, char const *geofile="atoms.xyz") {
+  status_t test_potential_elements(int const echo=5) {
       status_t stat = 0;
       
 //       int dims[] = {86, 86, 102}; std::vector<double> vtot(754392, 1.0); // total smooth potential, constant at 1 Hartree
       
-      auto const filename = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
+      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
       if (1) { // scope: read in the potential from a file
-          std::ifstream infile(filename);
+          std::ifstream infile(vtotfile);
           int npt = 0; 
           if (!infile.is_open()) {
-              if (echo > 1) printf("# %s failed to open file %s\n",  __func__, filename);
+              if (echo > 1) printf("# %s failed to open file %s\n",  __func__, vtotfile);
               return 1; // failure
           }
           for(int d = 2; d >= 0; --d) {
@@ -214,7 +215,7 @@ namespace sho_potential {
               ++npt;
               vtot.push_back(val);
           } // while
-          if (echo > 3) printf("# %s use %i values from file %s\n", __func__, npt, filename);
+          if (echo > 3) printf("# %s use %i values from file %s\n", __func__, npt, vtotfile);
       } // scope
       
       double *xyzZ = nullptr;
@@ -222,9 +223,9 @@ namespace sho_potential {
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
       {
-          stat += geometry_analysis::read_xyz_file(&xyzZ, &natoms, geofile, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(&xyzZ, &natoms, geo_file, cell, bc, 0);
           if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geofile, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       }
       
       

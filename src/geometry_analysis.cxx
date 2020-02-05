@@ -10,15 +10,16 @@
 
 #include "geometry_analysis.hxx"
 
-#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, periodic_images
+#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, ::periodic_images
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
-#include "constants.hxx" // pi
+#include "constants.hxx" // ::pi
 #include "inline_tools.hxx" // required_bits
-#include "vector_math.hxx" // vec<n,T>
+#include "vector_math.hxx" // ::vec<n,T>
 #include "chemical_symbol.h" // element_symbols
 #include "recorded_warnings.hxx" // warn
 #include "simple_timer.hxx" // SimpleTimer
+#include "control.hxx" // ::get
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -692,13 +693,13 @@ namespace geometry_analysis {
     
     double *xyzZ = nullptr;
     int natoms = 0;
-    auto const filename = "atoms.xyz";
+    auto const geo_file = control::get("geometry.file", "atoms.xyz");
     double cell[3] = {0, 0, 0}; 
     int bc[3] = {-7, -7, -7};
-    status_t stat = read_xyz_file(&xyzZ, &natoms, filename, cell, bc, 0);
+    status_t stat = read_xyz_file(&xyzZ, &natoms, geo_file, cell, bc, 0);
     
     if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                             natoms, filename, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+                             natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
     { // SimpleTimer timer(__FILE__, __LINE__, "analysis");
         stat += analysis(xyzZ, natoms, cell, bc, echo);
     } // timer

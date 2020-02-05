@@ -78,7 +78,8 @@ namespace potential_generator {
       int na = 0;
       double cell[3];
       int bc[3];
-      stat += geometry_analysis::read_xyz_file(&xyzZ, &na, "atoms.xyz", cell, bc, echo);
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
+      stat += geometry_analysis::read_xyz_file(&xyzZ, &na, geo_file, cell, bc, echo);
 
       float ionization[na]; set(ionization, na, 0.f);
       if ((ion != 0.0) && (na > 1)) {
