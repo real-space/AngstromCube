@@ -57,8 +57,20 @@ namespace grid_operators {
       return stat;
   } // basic_test
 
+  status_t class_test(int const echo=9) {
+      status_t stat = 0;
+      int constexpr D0 = 1; // vectorization
+      int const dims[] = {12, 13, 14};
+      int const all = dims[0]*dims[1]*dims[2];
+      std::vector<double> psi(all, 1.0), Hpsi(all);
+      grid_operator_t<double, double, D0> op(dims);
+      stat += op.Hamiltonian(Hpsi.data(), psi.data());
+      return stat;
+  } // class_test
+  
   status_t all_tests(int const echo) {
     auto status = 0;
+    status += class_test(echo);
     status += basic_test(echo);
     return status;
   } // all_tests

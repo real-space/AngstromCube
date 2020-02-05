@@ -179,6 +179,8 @@ namespace finite_difference {
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
     public:
 
+//    finite_difference_t(void) {} // default constructor
+
       finite_difference_t(double const grid_spacing[3], 
                           int const boundary_condition[3], 
                           int const nneighbors[3]) {

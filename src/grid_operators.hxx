@@ -8,6 +8,7 @@ typedef int status_t;
 #include "real_space_grid.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::finite_difference_t<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
+#include "boundary_condition.hxx" // Isolated_Boundary
 
 namespace grid_operators {
 
@@ -177,12 +178,70 @@ namespace grid_operators {
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
   ) { return _grid_operator<real_t, real_fd_t, D0>(Spsi, psi, g, a, ai, 1, boundary_phase); }
   
+  
   //
   // idea: the identity operation of the Overlap operator could be implemented with a
   //       finite difference stencil that has nn[] = {0, -1, -1} (-1 means that there is no pass)
   //       because then, all three operators, Hamiltonian, Overlapping and Preconditioner share
   //       the same structure, whereas the latter has a FD-stencil with all positive coefficients
   //
+
+  template <typename real_t=double, typename real_fd_t=double, int D0=1>
+  class grid_operator_t 
+  {
+    public:
+      
+      grid_operator_t(int const dims[3], int const nprecond=1)
+      : grid(dims) { // constructor
+//           int const nprecond = control::get("conjugate_gradients.precond", 1.);
+        
+          auto const & g = grid;  // abbrev.
+          
+          std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
+          
+          std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
+          std::vector<atom_image::atom_image_t> ai(1); // atom_images
+          a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+          ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
+          // image position at the center, index=0 maps into list of sho_atoms
+          
+          int const bc[] = {Isolated_Boundary, Isolated_Boundary, Isolated_Boundary};
+          int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
+          
+          has_precond = (nprecond > 0);
+          int const nn_precond[] = {nprecond, nprecond, nprecond};
+          precond = finite_difference::finite_difference_t<real_t>(g.h, bc, nn_precond);
+          // this simple preconditioner is a diffusion stencil
+          for(int d = 0; d < 3; ++d) {
+              precond.c2nd[d][1] = 1/12.; 
+              precond.c2nd[d][0] = 1/6.;
+          } // d
+          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, bc, nn);
+          
+      } // constructor
+      
+      status_t Hamiltonian(real_t Hpsi[], real_t const psi[]) const {
+          return _grid_operator(Hpsi, psi, grid, atoms, images, 0, boundary_phase.data(), &kinetic, potential.data());
+      } // Hamiltonian
+
+      status_t Overlapping(real_t Spsi[], real_t const psi[]) const {
+          return _grid_operator<real_t, real_fd_t, D0>(Spsi, psi, grid, atoms, images, 1, boundary_phase.data());
+      } // Overlapping
+
+      status_t Conditioner(real_t Cpsi[], real_t const psi[]) const {
+          return _grid_operator(Cpsi, psi, grid, atoms, images, -1, boundary_phase.data(), precond);
+      } // Pre-Conditioner
+      
+    private:
+      bool has_precond;
+      finite_difference::finite_difference_t<real_fd_t> kinetic;
+      finite_difference::finite_difference_t<real_t> precond;
+      real_space_grid::grid_t<D0> grid;
+      std::vector<atom_image::sho_atom_t> atoms;
+      std::vector<atom_image::atom_image_t> images;
+      std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
+      std::vector<double> potential;
+  }; // class grid_operator_t
   
   status_t all_tests(int const echo=0);
 
