@@ -1,35 +1,33 @@
 #include <cstdio> // printf
-#include <cstdlib> // abs
-#include <cmath> // sqrt
+#include <cstdlib> // ?
+#include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
-#include <algorithm> // max
+#include <algorithm> // std::max
 
 #include "single_atom.hxx"
 
-#include "radial_grid.hxx" // create_default_radial_grid, destroy_radial_grid, dot_product
-#include "radial_eigensolver.hxx" // shooting_method
+#include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid, ::dot_product
+#include "radial_eigensolver.hxx" // ::shooting_method
 #include "radial_potential.hxx" // Hartree_potential
 #include "angular_grid.hxx" // ::transform, ::Lebedev_grid_size
-#include "radial_integrator.hxx" // integrate_outwards
+#include "radial_integrator.hxx" // ::integrate_outwards
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "inline_tools.hxx" // align<nbits>
-#include "sho_unitary.hxx" // Unitary_SHO_Transform<real_t>
+#include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 #include "solid_harmonics.hxx" // lm_index, Y00, Y00inv
-#include "atom_core.hxx" // initial_density, rad_pot, nl_index
-#include "sho_tools.hxx" // lnm_index, nSHO
-#include "sho_radial.hxx" // nSHO_radial
+#include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index, ::ellchar
+#include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
-#include "atom_core.hxx" // ::ellchar
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, core_level_t, valence_level_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
 #include "simple_math.hxx" // invert
 #include "simple_timer.hxx" // SimpleTimer
-#include "bessel_transform.hxx" // transform_to_r2_grid
-#include "scattering_test.hxx" // eigenstate_analysis, emm_average
-#include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
+#include "bessel_transform.hxx" // ::transform_to_r2_grid
+#include "scattering_test.hxx" // ::eigenstate_analysis, ::emm_average
+#include "linear_algebra.hxx" // ::linear_solve, ::generalized_eigenvalues
 #include "data_view.hxx" // view2D<T>, view3D<T>
-#include "control.hxx" // get
+#include "control.hxx" // ::get
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -359,7 +357,7 @@ extern "C" {
                         double E = atom_core::guess_energy(Z_core, enn);
                         std::vector<double> r2rho(nrt, 0.0);
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(),
-                                 enn, ell, E, cs.wave[TRU], r2rho.data());
+                                                    enn, ell, E, cs.wave[TRU], r2rho.data());
                         cs.energy = E;
 
                         int const inl = atom_core::nl_index(enn, ell);
@@ -438,7 +436,7 @@ extern "C" {
         
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
-        int const nln = sho_radial::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
+        int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         partial_waves[TRU] = view3D<double>(2, nln, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
         partial_waves[SMT] = view3D<double>(2, nln, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         partial_wave = std::vector<valence_level_t>(nln);
@@ -486,7 +484,7 @@ extern "C" {
                                 } // transfer2valence
                             } // ics
                         }
-                        if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
+                        if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], std::abs(vs.occupation), E*eV,_eV);
                     } // nrn < nn[ell]
                 } // nrn
             } // ell
@@ -632,7 +630,7 @@ extern "C" {
         } // ir_cut
 
         printf("# %s %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
-               c0s1v2_name[c0s1v2], enn, ellchar[ell], occ, energy*eV,_eV, 
+               c0s1v2_name[c0s1v2], enn, ellchar[ell], std::abs(occ), energy*eV,_eV, 
                stats[2]/stats[1]*Ang, std::sqrt(std::max(0., stats[3]/stats[1]))*Ang,_Ang, 
                stats[4]/stats[1]*eV,_eV, charge_outside/stats[1]);
     } // show_state_analysis
@@ -787,7 +785,7 @@ extern "C" {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 0, ir_cut[TRU]);
+                show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 2, ir_cut[TRU]);
 
 
                 // idea: make this module flexible enough so it can load a potential and
@@ -1078,7 +1076,7 @@ extern "C" {
     } // update_partial_waves
 
     void update_charge_deficit(int const echo=0) {
-        int const nln = sho_radial::nSHO_radial(numax);
+        int const nln = sho_tools::nSHO_radial(numax);
         { // scope: generate a vector true_norm such that
           // true_norm[iln]*charge_deficit[0][TRU][iln][jln]*true_norm[jln] is normalized to 1
             int const ts = TRU;
@@ -1322,7 +1320,7 @@ extern "C" {
 
     void update_full_density(view3D<double> const & density_tensor, int const echo=0) { // density tensor rho_{lm iln jln}
         int const nlm = pow2(1 + ellmax);
-        int const nln = sho_radial::nSHO_radial(numax);
+        int const nln = sho_tools::nSHO_radial(numax);
         // view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
 
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1552,7 +1550,7 @@ extern "C" {
     void update_matrix_elements(int const echo=0) {
         int const nlm = pow2(1 + ellmax);
         int const mlm = pow2(1 + numax);
-        int const nln = sho_radial::nSHO_radial(numax);
+        int const nln = sho_tools::nSHO_radial(numax);
         int const nSHO = sho_tools::nSHO(numax);
         int const nlmn = nSHO;
         initialize_Gaunt();
@@ -1897,7 +1895,7 @@ extern "C" {
         update_core_states(mixing, echo);
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
-        int const nln = sho_radial::nSHO_radial(numax);
+        int const nln = sho_tools::nSHO_radial(numax);
         view3D<double> aHSm(2, nln, nln, 0.0);
         check_spherical_matrix_elements(echo, aHSm); // check scattering properties for emm-averaged Hamiltonian elements
         int const nSHO = sho_tools::nSHO(numax);

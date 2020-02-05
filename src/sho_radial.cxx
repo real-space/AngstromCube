@@ -5,9 +5,10 @@
 
 #include "sho_radial.hxx"
 
-#include "constants.hxx" // sqrtpi
+#include "constants.hxx" // ::sqrtpi
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "inline_tools.hxx" // align<nbits>
+// #include "sho_tools.hxx" // ::nSHO_radial
 
 namespace sho_radial {
 
@@ -36,7 +37,7 @@ namespace sho_radial {
 
   int test_orthonormality(int const echo=1) {
       int const numax = 9;
-      int const n = nSHO_radial(numax);
+      int const n = (numax*(numax + 4) + 4)/4; // sho_tools::nSHO_radial(numax);
       if (echo > 1) printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
       
       double c[n][8]; // polynomial coefficients

@@ -4,18 +4,17 @@
 #include <cassert> // assert
 #include <cstdint> // uint8_t
 
-#include "radial_grid.hxx" // create_equidistant_radial_grid, find_grid_index
-#include "bessel_transform.hxx" // transform_s_function
-#include "finite_difference.hxx" // set_Laplacian_coefficients
-#include "sho_radial.hxx" // radial_eigenstates, radial_normalization, expand_poly, nSHO_radial
-#include "display_units.h" // eV, Ang
+#include "radial_grid.hxx" // ::create_equidistant_radial_grid, ::find_grid_index
+#include "bessel_transform.hxx" // ::transform_s_function
+#include "finite_difference.hxx" // ::set_Laplacian_coefficients
+#include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_tools.hxx" // align<nBits>
 #include "inline_math.hxx" // set
-#include "sho_tools.hxx" // nSHO
-#include "sho_radial.hxx" // nSHO_radial
-#include "radial_integrator.hxx" // integrate_outwards<SRA>
-#include "constants.hxx" // pi
-#include "linear_algebra.hxx" // linear_solve, generalized_eigenvalues
+#include "sho_tools.hxx" // ::nSHO, ::nSHO_radial
+#include "radial_integrator.hxx" // ::integrate_outwards<SRA>
+#include "constants.hxx" // ::pi
+#include "linear_algebra.hxx" // ::linear_solve, ::generalized_eigenvalues
 #include "data_view.hxx" // view2D
 
 #define DEBUG
@@ -49,7 +48,7 @@ namespace scattering_test {
       double const siginv = 1./sigma;
       double const sigma_m23 = std::sqrt(pow3(siginv));
       int const maxpoly = align<2>(1 + numax/2);
-      int const nln = sho_radial::nSHO_radial(numax);
+      int const nln = sho_tools::nSHO_radial(numax);
       view2D<double> poly(nln, maxpoly);
       std::vector<double> norm(nln, 0.0);
       std::vector<int> nrns(nln), ells(nln);
@@ -223,7 +222,7 @@ namespace scattering_test {
 
       auto linsolfail = std::vector<size_t>(1 + lmax, 0);
       
-      int const nln = sho_radial::nSHO_radial(numax);
+      int const nln = sho_tools::nSHO_radial(numax);
       int const stride = mr;
 
       if (echo > 9) printf("# %s nn = %d %d %d %d %d %d %d %d\n", __func__, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5], nn[6], nn[7]);
@@ -464,7 +463,7 @@ namespace scattering_test {
       view2D<double> Ovl_copy(nr, stride); // get memory
       std::vector<double> eigs(nr); // get memory
 
-      int const nln = sho_radial::nSHO_radial(numax);
+      int const nln = sho_tools::nSHO_radial(numax);
 
       // generate normalized SHO projectors
       view2D<double> rprj(nln, stride); // projector functions*r
@@ -574,7 +573,7 @@ namespace scattering_test {
   status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax, uint8_t const nn[], int const stride=-1) {
       int const echo = 1;
       if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
-      int const nln = sho_radial::nSHO_radial(numax);
+      int const nln = sho_tools::nSHO_radial(numax);
       int const nlmn = sho_tools::nSHO(numax);
       int const M_stride = (stride < 0) ? nlmn : stride;
       auto ln_list = std::vector<int>(nlmn, 0);
@@ -630,7 +629,7 @@ namespace scattering_test {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
       auto const rg = *radial_grid::create_default_radial_grid(0);
-      int const nln = sho_radial::nSHO_radial(lmax);
+      int const nln = sho_tools::nSHO_radial(lmax);
       std::vector<double> V(rg.n, 0.0);
       double const sigma = 1.0; // if the rmax ~= 10, lmax = 7, sigma <= 1.5, otherwise projectors leak out
       for(int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
