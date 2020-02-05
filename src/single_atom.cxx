@@ -1805,10 +1805,10 @@ extern "C" {
     void create_isolated_density_matrix(view2D<double> & density_matrix, 
           sho_tools::SHO_order_t & order, 
           view3D<double> const & aHSm, // atomic emm-degenrate matrix elements (h0s1, nln, nln)
-          int const echo=9) const {
+          int const echo=0) const {
         int const nSHO = sho_tools::nSHO(numax);
         order = sho_tools::order_lmn;
-        if (echo > -1) printf("# %s %s for an %d x %d density matrix in %s_order\n", label, __func__, nSHO, nSHO,
+        if (echo > 7) printf("# %s %s for an %d x %d density matrix in %s_order\n", label, __func__, nSHO, nSHO,
                                   sho_tools::SHO_order2string(order).c_str());
         std::vector<double> rwave(rg[SMT]->n, 0.0), ff(rg[SMT]->n);
         for(int ics = 0; ics < ncorestates; ++ics) {
@@ -1822,7 +1822,7 @@ extern "C" {
                     double cprj[8]; assert( nn[ell] <= 8 );
                     set(cprj, 8, 0.0); // clear
                     double const energy = core_state[ics].energy;
-                    if (echo > -1) printf("# %s %s found occ %g for %i%c-state at %g %s\n", 
+                    if (echo > 6) printf("# %s %s found occ %g for %i%c-state at %g %s\n", 
                                               label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
 #if 0        
                     int const iln_off = sho_tools::ln_index(numax, ell, 0);
@@ -1878,7 +1878,7 @@ extern "C" {
         } // ics
 
         // show the density matrix
-        if (echo > 1) {
+        if (echo > 7) {
             printf("# %s %s:\n", label, __func__);
             for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 printf("# %s dm %02i ", label, ilmn);
@@ -1903,7 +1903,7 @@ extern "C" {
         int const nSHO = sho_tools::nSHO(numax);
         view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
         auto dm_order = sho_tools::order_Ezyx;
-        if (1) create_isolated_density_matrix(density_matrix, dm_order, aHSm);
+        if (1) create_isolated_density_matrix(density_matrix, dm_order, aHSm, echo);
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory

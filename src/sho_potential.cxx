@@ -460,7 +460,7 @@ namespace sho_potential {
               int const numax_V = lmax;
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), numax_V, center[ia], sigma_V, vtot.data(), g, 0);
-              stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 9);
+              stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, echo);
               // now Vcoeff is in a representation w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
               
               int const nb = sho_tools::nSHO(numaxs[ia]);

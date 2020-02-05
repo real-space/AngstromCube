@@ -1,8 +1,8 @@
 #pragma once
 
 #ifndef NO_UNIT_TESTS
-  #include <cstdio> // printf
-  #include <cstdint> // int64_t, std::sprintf, uint8_t
+  #include <cstdio> // if (echo > 3) printf
+  #include <cstdint> // int64_t, std::sif (echo > 3) printf, uint8_t
   #include <string> // std::string
   #include <vector> // std::vector<T>
 
@@ -142,7 +142,7 @@ namespace shift_boundary {
       for(int ij = 0; ij < 3*4; ++ij) { amat[0][ij] = 0; bmat[0][ij] = 0; }
       double const alat = 4.1741; // e.g. Gold in hcp or fcc
       double const ahalf = 0.5 * alat;
-      printf("\n# structure = %s  lattice constant = %g %s\n", structure_name[structure - 1], alat*Ang, _Ang);
+      if (echo > 3) printf("\n# structure = %s  lattice constant = %g %s\n", structure_name[structure - 1], alat*Ang, _Ang);
       if (4 == structure) { // fcc
           amat[0][0] = 2*ahalf; amat[0][1] = ahalf;  amat[0][2] = 0;
           amat[1][0] = 0;       amat[1][1] = ahalf;  amat[1][2] = ahalf;
@@ -172,25 +172,34 @@ namespace shift_boundary {
                            - amat[i1][j2] * amat[i2][j1] )*detinv;
           } // j
       } // i
-
-      // show both matrices
-      for(int i = 0; i < 3; ++i) {
-          printf("#  bmat %c %8.3f%8.3f%8.3f   amat %8.3f%8.3f%8.3f\n",
-          i+120, bmat[i][0],bmat[i][1],bmat[i][2],   amat[i][0],amat[i][1],amat[i][2]);
-      } // i
-
+      
+      if (echo > 4) {
+          // show both matrices
+          for(int i = 0; i < 3; ++i) {
+              printf("#  bmat %c %8.3f%8.3f%8.3f   amat %8.3f%8.3f%8.3f\n", i+'x',
+                  bmat[i][0],bmat[i][1],bmat[i][2],   amat[i][0],amat[i][1],amat[i][2]);
+          } // i
+      } // echo
+      
       // check if product a*b and b*a are 3x3 unit matrices
+      double maxdev[] = {0, 0};
       for(int i = 0; i < 3; ++i) {
-        printf("# i=%i ", i);
+        if (echo > 6) printf("# i=%i ", i);
         for(int j = 0; j < 3; ++j) {
           double uij{0}, uji{0};
           for(int k = 0; k < 3; ++k) {
             uij += amat[i][k] * bmat[k][j];
             uji += bmat[i][k] * amat[k][j];
-          } printf("%8.3f%8.3f ", uji, uij);
-          // printf("%.1e %.1e ", uji - (i == j), uij - (i == j));
-        } printf("\n");
-      }
+          } // k - contraction index
+          maxdev[0] = std::max(maxdev[0], uij);
+          maxdev[1] = std::max(maxdev[1], uji);
+          if (echo > 6) printf("%8.3f%8.3f ", uji, uij);
+          if (echo > 8) printf("%.1e %.1e ", uji - (i == j), uij - (i == j));
+        } // j
+        if (echo > 6) printf("\n");
+      } // i
+      if (echo > 3) printf("# %s after inversion largest deviation is %.1e (a*b) and %.1e (b*a)\n", 
+                               __func__, maxdev[0], maxdev[1]);
 
       // test: set up periodic+shifted BC and diagonalize the free electron Hamiltonian
       // check that
@@ -219,7 +228,7 @@ namespace shift_boundary {
 #else // NO_UNIT_TESTS
 
     inline status_t all_tests(int const echo=3) {
-      if (echo > 0) printf("\n# %s: %s\n\n", __FILE__, __func__);
+      if (echo > 1) printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat{0};
       for(int structure = 1; structure <= 4; ++structure) {
           stat += test_plane_wave(echo, structure);
