@@ -64,7 +64,9 @@ namespace grid_operators {
       int const all = dims[0]*dims[1]*dims[2];
       std::vector<double> psi(all, 1.0), Hpsi(all);
       grid_operator_t<double, double, D0> op(dims);
-      stat += op.Hamiltonian(Hpsi.data(), psi.data());
+      stat += op.Hamiltonian(Hpsi.data(), psi.data(), echo);
+      stat += op.Overlapping(psi.data(), Hpsi.data(), echo);
+      stat += op.Conditioner(Hpsi.data(), psi.data(), echo);
       return stat;
   } // class_test
   

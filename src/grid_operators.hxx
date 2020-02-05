@@ -22,9 +22,8 @@ namespace grid_operators {
                         , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
                         , finite_difference::finite_difference_t<real_fd_t> const *fd=nullptr // finite difference [optional]
                         , double const *potential=nullptr // diagonal potential operator [optional]
-                        ) {
+                        , int const echo=0) {
       status_t stat = 0;
-      int constexpr echo = 0;
 
       if (fd) {
           stat += Laplacian(Hpsi, psi, g, *fd, -0.5); // -0.5: kinetic energy prefactor in Hartree units
@@ -49,58 +48,60 @@ namespace grid_operators {
 #if 1
       typedef vector_math::vec<D0,real_fd_t> temp_vec_t; // computation is performed in real_fd_t precision
 
-      int const na = a.size();
-      int const nai = ai.size();
-      assert(nai == na); // this simple version works only of there is one image per atom
-      for(int iai = 0; iai < nai; ++iai) { // warning: race condition on Hpsi if we parallelize this loop
-          int const ia = ai[iai].index();
-          assert(ia >= 0); assert(ia < na);
-          auto const atom_id = ai[iai].atom_id();
-          assert(atom_id == a[ia].atom_id()); // make sure the lists are linked correctly
+      if (h0s1 >= 0) {
+          int const na = a.size();
+          int const nai = ai.size();
+          assert(nai == na); // this simple version works only of there is one image per atom
+          for(int iai = 0; iai < nai; ++iai) { // warning: race condition on Hpsi if we parallelize this loop
+              int const ia = ai[iai].index();
+              assert(ia >= 0); assert(ia < na);
+              auto const atom_id = ai[iai].atom_id();
+              assert(atom_id == a[ia].atom_id()); // make sure the lists are linked correctly
 
-          int const numax = a[ia].numax();
-          int const ncoeff = sho_tools::nSHO(numax);
-          
-          std::vector<real_t>   image_coeff(ncoeff*D0, 0.0); // can we omit the initialization here?
-          std::vector<real_t> V_image_coeff(ncoeff*D0, 0.0);
+              int const numax = a[ia].numax();
+              int const ncoeff = sho_tools::nSHO(numax);
+              
+              std::vector<real_t>   image_coeff(ncoeff*D0, 0.0); // can we omit the initialization here?
+              std::vector<real_t> V_image_coeff(ncoeff*D0, 0.0);
 
-          stat += sho_projection::sho_project(image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma(), psi, g, echo_sho);
-          // warning: no k-dependent Bloch-factors in this version
-          if (echo > 7) printf("# %s Apply non-local projection for a#%i, status=%i\n", __func__, atom_id, stat);
+              stat += sho_projection::sho_project(image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma(), psi, g, echo_sho);
+              // warning: no k-dependent Bloch-factors in this version
+              if (echo > 7) printf("# %s Apply non-local projection for a#%i, status=%i\n", __func__, atom_id, stat);
 
-          { // scope: V_image_coeff = matrix * image_coeff
-              int const stride = a[ia].stride();
-              assert(stride >= ncoeff); // check internal consistency
-              auto *const mat = a[ia].get_matrix<real_fd_t>(h0s1);
-              // DGEMM-style matrix multiplication
-              for(int i = 0; i < ncoeff; ++i) {
-                  temp_vec_t ci(0.0);
-                  for(int j = 0; j < ncoeff; ++j) {
-                      auto const am = mat[i*stride + j];
-                      temp_vec_t const cj = &image_coeff[j*D0];
-                      ci += cj * am;
-                  } // j
-                  for(int i0 = 0; i0 < D0; ++i0) {
-                      V_image_coeff[i*D0 + i0] = ci[i0]; // implicit from real_fd_t to read_t
-                  } // i0 vectorization
-              } // i
-          } // scope
-          
-          if (echo > 8) { 
-              printf("\n# a#%i coefficients and H*coeff (vector length=%i):\n", atom_id, D0);
-              for(int i = 0; i < ncoeff; ++i) {
-                  printf("# i=%i", i);
-                  for(int i0 = 0; i0 < D0; ++i0) {
-                      printf("\t%g %g", image_coeff[i*D0 + i0], V_image_coeff[i*D0 + i0]);
-                  } // i0 vectorization
-                  printf("\n");
-              } // i
-          } // echo
+              { // scope: V_image_coeff = matrix * image_coeff
+                  int const stride = a[ia].stride();
+                  assert(stride >= ncoeff); // check internal consistency
+                  auto *const mat = a[ia].get_matrix<real_fd_t>(h0s1);
+                  // DGEMM-style matrix multiplication
+                  for(int i = 0; i < ncoeff; ++i) {
+                      temp_vec_t ci(0.0);
+                      for(int j = 0; j < ncoeff; ++j) {
+                          auto const am = mat[i*stride + j];
+                          temp_vec_t const cj = &image_coeff[j*D0];
+                          ci += cj * am;
+                      } // j
+                      for(int i0 = 0; i0 < D0; ++i0) {
+                          V_image_coeff[i*D0 + i0] = ci[i0]; // implicit from real_fd_t to read_t
+                      } // i0 vectorization
+                  } // i
+              } // scope
+              
+              if (echo > 8) { 
+                  printf("\n# a#%i coefficients and H*coeff (vector length=%i):\n", atom_id, D0);
+                  for(int i = 0; i < ncoeff; ++i) {
+                      printf("# i=%i", i);
+                      for(int i0 = 0; i0 < D0; ++i0) {
+                          printf("\t%g %g", image_coeff[i*D0 + i0], V_image_coeff[i*D0 + i0]);
+                      } // i0 vectorization
+                      printf("\n");
+                  } // i
+              } // echo
 
-          // warning: no k-dependent inverse Bloch-factors in this version
-          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma(), echo_sho);
-          if (echo > 7) printf("# %s Apply non-local %c addition for a#%i, status=%i\n", __func__, 'H'+h0s1, atom_id, stat);
-      } // iai
+              // warning: no k-dependent inverse Bloch-factors in this version
+              stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, ai[iai].get_pos(), a[ia].sigma(), echo_sho);
+              if (echo > 7) printf("# %s Apply non-local %c addition for a#%i, status=%i\n", __func__, 'H'+h0s1, atom_id, stat);
+          } // iai
+      } // h0s1 >= 0
 #else
       int const na = a.size();
       std::vector<double*> atom_coeff(na);
@@ -166,6 +167,7 @@ namespace grid_operators {
                           , finite_difference::finite_difference_t<real_fd_t> const &fd // finite difference
                           , double const potential[] // diagonal potential operator
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
+                          , int const echo=0
   ) { return _grid_operator(Hpsi, psi, g, a, ai, 0, boundary_phase, &fd, potential); }
 
   // Overlap operator
@@ -176,6 +178,7 @@ namespace grid_operators {
                           , std::vector<atom_image::sho_atom_t> const &a
                           , std::vector<atom_image::atom_image_t> const &ai
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
+                          , int const echo=0
   ) { return _grid_operator<real_t, real_fd_t, D0>(Spsi, psi, g, a, ai, 1, boundary_phase); }
   
   
@@ -199,10 +202,10 @@ namespace grid_operators {
           
           std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
           
-          std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
-          std::vector<atom_image::atom_image_t> ai(1); // atom_images
-          a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
-          ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
+          atoms  = std::vector<atom_image::sho_atom_t>(1); // sho_atoms
+          images = std::vector<atom_image::atom_image_t>(1); // atom_images
+          atoms[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+          images[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
           // image position at the center, index=0 maps into list of sho_atoms
           
           int const bc[] = {Isolated_Boundary, Isolated_Boundary, Isolated_Boundary};
@@ -220,16 +223,16 @@ namespace grid_operators {
           
       } // constructor
       
-      status_t Hamiltonian(real_t Hpsi[], real_t const psi[]) const {
-          return _grid_operator(Hpsi, psi, grid, atoms, images, 0, boundary_phase.data(), &kinetic, potential.data());
+      status_t Hamiltonian(real_t Hpsi[], real_t const psi[], int const echo=0) const {
+          return _grid_operator(Hpsi, psi, grid, atoms, images, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
       } // Hamiltonian
 
-      status_t Overlapping(real_t Spsi[], real_t const psi[]) const {
-          return _grid_operator<real_t, real_fd_t, D0>(Spsi, psi, grid, atoms, images, 1, boundary_phase.data());
+      status_t Overlapping(real_t Spsi[], real_t const psi[], int const echo=0) const {
+          return _grid_operator<real_t, real_fd_t, D0>(Spsi, psi, grid, atoms, images, 1, boundary_phase.data(), nullptr, nullptr, echo);
       } // Overlapping
 
-      status_t Conditioner(real_t Cpsi[], real_t const psi[]) const {
-          return _grid_operator(Cpsi, psi, grid, atoms, images, -1, boundary_phase.data(), precond);
+      status_t Conditioner(real_t Cpsi[], real_t const psi[], int const echo=0) const {
+          return _grid_operator(Cpsi, psi, grid, atoms, images, -1, boundary_phase.data(), &precond, nullptr, echo);
       } // Pre-Conditioner
       
     private:
