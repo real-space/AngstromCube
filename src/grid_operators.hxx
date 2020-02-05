@@ -85,9 +85,9 @@ namespace grid_operators {
                       } // i0 vectorization
                   } // i
               } // scope
-              
+
               if (echo > 8) { 
-                  printf("\n# a#%i coefficients and H*coeff (vector length=%i):\n", atom_id, D0);
+                  printf("\n# a#%i coefficients and %c*coeff (vector length=%i):\n", atom_id, h0s1+'H', D0);
                   for(int i = 0; i < ncoeff; ++i) {
                       printf("# i=%i", i);
                       for(int i0 = 0; i0 < D0; ++i0) {
@@ -194,17 +194,16 @@ namespace grid_operators {
   {
     public:
       
-      grid_operator_t(int const dims[3], int const nprecond=1)
-      : grid(dims) { // constructor
+      grid_operator_t(int const dims[3], int const natoms=1, int const nprecond=1)
+      : grid(dims), atoms(natoms) { // constructor
 //           int const nprecond = control::get("conjugate_gradients.precond", 1.);
         
           auto const & g = grid;  // abbrev.
           
           std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
           
-          atoms  = std::vector<atom_image::sho_atom_t>(1); // sho_atoms
-          images = std::vector<atom_image::atom_image_t>(1); // atom_images
-          atoms[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+          images = std::vector<atom_image::atom_image_t>(natoms); // atom_images
+          atoms [0] = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
           images[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
           // image position at the center, index=0 maps into list of sho_atoms
           

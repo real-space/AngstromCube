@@ -49,7 +49,7 @@ namespace atom_image {
       inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
 
       status_t set_matrix(double const values[], int const ncoeff, int const stride, int const h0s1=0) {
-          assert(0 == h0s1 || 1 == h0s1);
+          assert(0 == h0s1 || 1 == h0s1); // 0:hamiltonian H, 1:overlap S (or I, contains charge deficit)
           
           std::vector<int> reorder(_ncoeff, 0);
           sho_tools::construct_index_table(reorder.data(), _numax, sho_tools::order_zyx);
