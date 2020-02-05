@@ -203,7 +203,6 @@ namespace scattering_test {
 #endif
 
       if (echo > 1) printf("\n# %s %s %s lmax=%i\n", label, __FILE__, __func__, lmax); 
-      double const one_over_pi = 1./constants::pi;
       status_t stat{0};
       
       double const dE = std::max(1e-9, energy_range[1]);
@@ -255,13 +254,13 @@ namespace scattering_test {
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
               int const iln_off = sho_tools::ln_index(numax, ell, 0);
-              double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
-              int const n = nn[ell];
-              double deriv[8], value[8];
-              double gfp[96];
-              int nnodes[TRU_AND_SMT];
+//               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
+//               int const n = nn[ell];
+//               assert(n < 8);
+//               double deriv[8], value[8];
+//               double gfp[96];
+//               int nnodes[TRU_AND_SMT];
               
-              assert(n < 8);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
 #if 0                
                   status_t solving_status{0};
@@ -380,12 +379,13 @@ namespace scattering_test {
                       vg[ts] = value[0]; // value of the greater component at Rlog
                       dg[ts] = deriv[0]; // derivative
                   }
+                  double constexpr one_over_pi = 1./constants::pi;
                   double const gnc_old = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
 #endif                 
                   double const gnc = (TRU == ts)
                      ? generalized_node_count_TRU(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo)
                      : generalized_node_count_SMT(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
-                                                view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), n,
+                                                view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), nn[ell],
                                                 &aHm[iln_off*nln + iln_off],
                                                 &aSm[iln_off*nln + iln_off], nln, echo);
 #ifdef  _SELECTED_ENERGIES_LOGDER

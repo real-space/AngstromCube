@@ -1807,7 +1807,6 @@ extern "C" {
           view3D<double> const & aHSm, // atomic emm-degenrate matrix elements (h0s1, nln, nln)
           int const echo=9) const {
         int const nSHO = sho_tools::nSHO(numax);
-        int const nln = sho_tools::nSHO_radial(numax);
         order = sho_tools::order_lmn;
         if (echo > -1) printf("# %s %s for an %d x %d density matrix in %s_order\n", label, __func__, nSHO, nSHO,
                                   sho_tools::SHO_order2string(order).c_str());
@@ -1827,6 +1826,7 @@ extern "C" {
                                               label, __func__, occ, enn,ellchar[ell], energy*eV, _eV);
 #if 0        
                     int const iln_off = sho_tools::ln_index(numax, ell, 0);
+                    int const nln = sho_tools::nSHO_radial(numax);
                     double const *const aHm = aHSm[0].data() + iln_off*nln + iln_off;
                     double const *const aSm = aHSm[1].data() + iln_off*nln + iln_off;
                     // solve for the pseudo state at the energy of the eigenstate of the true spherical potential
@@ -1859,7 +1859,7 @@ extern "C" {
                     } // nrn
 #else
                     int const nrn = 0; 
-                    int const iln = sho_tools::ln_index(numax, ell, 0);
+                    int const iln = sho_tools::ln_index(numax, ell, nrn);
                     if (1 == nn[ell]) cprj[0] = true_norm[iln]; // if nn[ell] == 1, the partial wave #0 can coincides with the eigenstate
 #endif
                     
