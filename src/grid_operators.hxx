@@ -193,7 +193,7 @@ namespace grid_operators {
   class grid_operator_t 
   {
     public:
-      
+
       grid_operator_t(int const dims[3], int const natoms=1, int const nprecond=1)
       : grid(dims), atoms(natoms) { // constructor
 //           int const nprecond = control::get("conjugate_gradients.precond", 1.);

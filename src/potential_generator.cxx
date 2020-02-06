@@ -201,13 +201,16 @@ namespace potential_generator {
           if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n",  ia, qlm[ia][00]/Y00);
       } // ia
 
-      double Exc = 0, Edc = 0;
-      for(size_t i = 0; i < g.all(); ++i) {
-          Exc += rho[i]*exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
-          Edc += rho[i]*Vxc[i]; // double counting correction
-      } // i
-      Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
-      if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
+      { // scope: eval the XC potential
+          double Exc{0}, Edc{0};
+          for(size_t i = 0; i < g.all(); ++i) {
+              auto const exc_i = exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
+              Exc += rho[i]*exc_i;
+              Edc += rho[i]*Vxc[i]; // double counting correction
+          } // i
+          Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
+          if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
+      } // scope
 
       set(Ves.data(), g.all(), 0.0);
       set(cmp.data(), g.all(), 0.0);
