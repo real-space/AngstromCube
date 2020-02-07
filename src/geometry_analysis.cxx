@@ -17,7 +17,7 @@
 #include "inline_tools.hxx" // required_bits
 #include "vector_math.hxx" // ::vec<n,T>
 #include "chemical_symbol.h" // element_symbols
-#include "recorded_warnings.hxx" // warn
+#include "recorded_warnings.hxx" // warn, error
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get
 
@@ -169,6 +169,8 @@ namespace geometry_analysis {
                          double *cell, int *bc, int const echo) { // optionals
 
       std::ifstream infile(filename, std::ifstream::in);
+      if (infile.fail()) error("Unable to open file '%s' for reading coordinates", filename);
+
       int natoms = 0, linenumber = 2;
       infile >> natoms; // read the number of atoms
       std::string line;
@@ -273,52 +275,81 @@ namespace geometry_analysis {
   };
   
   
-  int constexpr MaxBP = 12; // maximum number of bond partners stored for later detailed analysis, 0:inactive
+  
+  template<typename real_t, typename int_t=short>
+  int print_summary(char string[], real_t values[], int_t const na, 
+                     double const grid_factor=1, double const display_factor=1, 
+                     char const mult_char='x', int const MaxBufferLen=-1) {
+      auto const string_start = string;
+      bool const no_length_check = (MaxBufferLen < 0);
+      int  const MaxEntryLen = 24;
+      
+      // sort the values
+      std::sort(values, values + na);
+      
+      std::vector<int_t> aint(na);
+      std::vector<int_t> acnt(na, 1); // init all counters as 1, will be modified later
+
+      // transfer counts to the last one in a sequence of same values  
+      for(int_t ia = 0; ia < na; ++ia) {
+          aint[ia] = (int_t)(values[ia]*grid_factor + 0.5); // integerize value
+          if (ia > 0) {
+              if (aint[ia - 1] == aint[ia]) { // values are the same on the integer grid
+                  acnt[ia] += acnt[ia - 1];
+                  acnt[ia - 1] = 0;
+              } // values are the same
+          } // not for value #0
+      } // ia
+
+      int nbytes{0};
+      
+      // write into the string
+      for(int_t ia = 0; ia <= na; ++ia) {
+          int_t  const count = acnt[ia];
+          double const value = aint[ia]*display_factor;
+          if (count > 0) {
+              if (no_length_check || ((string + MaxEntryLen) < (string_start + MaxBufferLen))) {
+                  int const nchars = (count < 2) ? std::sprintf(string, " %g", value):
+                             std::sprintf(string, " %g%c%d", value, mult_char, count);
+                  assert(nchars <= MaxEntryLen);
+                  nbytes += nchars;
+                  string += nchars;
+              } // there is still space in the string
+          } // count
+      } // ia
+      
+      return nbytes;
+  } // print_summary
+  
   
   template<typename real_t>
   void analyze_bond_structure(char* string, int const nb, real_t const (*bv)[4], float const Z) {
-      if (MaxBP < 1) return;
+      if (nb < 1) return;
 //    string += sprintf(string, " coordination=%d", nb);
-      char const multiplicity_b = '^';
-      char const multiplicity_a = '*';
+//       char const multiplicity_b = '^';
+//       char const multiplicity_a = '*';
       real_t constexpr Deg = 180/constants::pi; // Degrees
       real_t const Len1000 = Ang*1000; // 3 digits
-      real_t max_len2 = 0, min_len2 = 99;
-      real_t bond_length[MaxBP];
-      real_t bond_angle[(MaxBP*(MaxBP - 1))/2];
+//       real_t max_len2 = 0, min_len2 = 9e99;
+
+      std::vector<real_t> bond_length(nb);
       { // scope: compute all bond lengths
           for(int ib = 0; ib < nb; ++ib) {
               auto const d2i = pow2(bv[ib][0]) + pow2(bv[ib][1]) + pow2(bv[ib][2]);
-              max_len2 = std::max(max_len2, d2i);
-              min_len2 = std::min(min_len2, d2i);
+//               max_len2 = std::max(max_len2, d2i);
+//               min_len2 = std::min(min_len2, d2i);
               bond_length[ib] = std::sqrt(d2i);
 //            printf(" %.3f", bond_length[ib]*Ang);
           } // ib
       } // scope
-      std::sort(bond_length, bond_length + nb);
-      { // scope: display bond lengths
-      	  int last = -1, count = 1;
-          for(int ib = 0; ib <= nb; ++ib) {
-              int const now = (ib < nb) ? (int)(bond_length[ib]*Len1000 + 0.5f) : -1;
-              if (now == last) {
-                ++count;
-              } else {
-                  if (last > 0) { 
-                      string += sprintf(string, " %.3f", last*.001f);
-                      if (count > 1) string += sprintf(string, "%c%d", multiplicity_b, count);
-                      count = 1; // reset counter
-                  } // last > 0
-                  last = now;
-              } // now == last
-//            printf(" %.3f", last*0.001f);
-          } // ib
-      } // scope
 
-      string += sprintf(string, "  "); // some separator
-
-      int const na = (nb*(nb - 1))/2;
+      // show the minimum and maximum bond length
+//    string += sprintf(string, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
+      
+      int const na = (nb*(nb - 1))/2; // number of bond angles
+      std::vector<real_t> bond_angle(na);
       { // scope: compute all possible bond angles
-          int ia = 0;
+          int ia{0};
           for(int ib = 0; ib < nb; ++ib) {
               for(int jb = 0; jb < ib; ++jb) {
                   auto const dot = bv[jb][0]*bv[ib][0] + bv[jb][1]*bv[ib][1] + bv[jb][2]*bv[ib][2];
@@ -330,28 +361,63 @@ namespace geometry_analysis {
           } // ib
           assert(na == ia);
       } // scope
-      std::sort(bond_angle, bond_angle + na);
-      { // scope: display bond angles
-          int last = -1, count = 1;
-          for(int ia = 0; ia <= na; ++ia) {
-              int const now = (ia < na) ? (int)(bond_angle[ia]*Deg + 0.5f) : -1;
-              if (now == last) {
-                ++count;
-              } else {
-                  if (last > 0) {
-                      string += sprintf(string, " %d", last);
-                      if (count > 1) string += sprintf(string, "%c%d", multiplicity_a, count);
-                      count = 1; // reset counter
-                  } // last > 0
-                  last = now;
-              } // now == last
-          } // ia
-      } // scope
 
-      // show the minimum and maximum bond length
-//    string += sprintf(string, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
+      string += print_summary(string, bond_length.data(), nb, Len1000, .001, '^');
+      string += std::sprintf(string, "  "); // some separator
+      string += print_summary(string, bond_angle.data(), na, Deg, 1., '*');
+      
+//       std::sort(bond_length, bond_length + nb);
+//       { // scope: display bond lengths
+//           std::vector<short> bint(nb);
+//           std::vector<short> bcnt(nb, 1); // init all counters as 1, will be modified later
+//           for(int ib = 0; ib < nb; ++ib) {
+//               bint[ib] = (int)(bond_length[ib]*Len1000 + 0.5f);
+//               if (ib > 0) {
+//                   if (bint[ib - 1] == bint[ib]) { // values are the same on the integer grid
+//                       bcnt[ib] += bcnt[ib - 1];
+//                       bcnt[ib - 1] = 0;
+//                   } // values are the same
+//               } // not for bond #0
+//           } // ib
+// 
+//           // write into the string
+//           for(int ib = 0; ib <= nb; ++ib) {
+//               int const count = bcnt[ib];
+//               if (count > 0) {
+//                   string += sprintf(string, " %.3f", bint[ib]*.001f);
+//                   if (count > 1) string += sprintf(string, "%c%d", multiplicity_b, count);
+//               } // count
+//           } // ib
+//       } // scope
+
+      
+//       std::sort(bond_angle, bond_angle + na);
+//       { // scope: display bond angles
+//           std::vector<short> aint(na, -1);
+//           std::vector<short> acnt(na, 1); // init all counters as 1, will be modified later
+// 
+//           // transfer counts to the last one in a sequence of same values  
+//           for(int ia = 0; ia < na; ++ia) {
+//               aint[ia] = (int)(bond_angle[ia]*Deg + 0.5f); // integer-ized angle value
+//               if (ia > 0) {
+//                   if (aint[ia - 1] == aint[ia]) { // values are the same on the integer grid
+//                       acnt[ia] += acnt[ia - 1];
+//                       acnt[ia - 1] = 0;
+//                   } // values are the same
+//               } // not for angle #0
+//           } // ia
+// 
+//           // write into the string
+//           for(int ia = 0; ia <= na; ++ia) {
+//               int const count = acnt[ia];
+//               if (count > 0) {
+//                   string += sprintf(string, " %d", aint[ia]);
+//                   if (count > 1) string += sprintf(string, "%c%d", multiplicity_a, count);
+//               } // count
+//           } // ia
+//       } // scope
+
   } // analyze_bond_structure
-  
   
   
   status_t analysis(double const xyzZ[], index_t const natoms, 
@@ -367,10 +433,11 @@ namespace geometry_analysis {
       double const inv_bin_width = 1./bin_width;
       int const num_bins = (int)std::ceil(rcut*inv_bin_width); // 0:no histogram
 
+      int constexpr MaxBP = 16; // maximum number of bond partners stored for later detailed analysis, 0:inactive
       atom_image_index_t (*bond_partner)[MaxBP] = nullptr;
       index_t natoms_BP = 0;
       if (MaxBP > 0) {
-          natoms_BP = std::min(natoms, (index_t)1000); // limit the number of atoms for which the bonds are analyzed
+          natoms_BP = std::min(natoms, (index_t)2000); // limit the number of atoms for which the bonds are analyzed
           bond_partner = new atom_image_index_t[natoms][MaxBP]; // can become quite large
       } // MaxBP > 0
 

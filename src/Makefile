@@ -19,6 +19,7 @@ OBJ = \
 	bessel_transform.o \
 	real_space_grid.o \
 	potential_generator.o \
+	density_generator.o \
 	chemical_symbol.o \
 	fourier_poisson.o \
 	atom_core.o \

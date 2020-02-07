@@ -130,7 +130,7 @@ namespace sho_unitary {
                   stat += sho_tools::construct_index_table(inp_index.data(), nu_max, inp_order);
                   for(int i = 0; i < nSHO; ++i) {
                       ti[inp_index[i]] = inp[i]; // reorder to be energy ordered
-                      if (echo > 8) printf("# %s: inp[%s] = %g\n", __func__, inp_label[i], inp[i]);
+                      if (echo > 8) printf("# %s: inp[%s] = %g\n", __func__, &inp_label[i*8], inp[i]);
                   } // i
                   e_inp = ti.data();
               } // input is not energy ordered
@@ -159,8 +159,8 @@ namespace sho_unitary {
                       } // j
                       e_out[offset + i] = tmp;
                       if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__,
-                                      nu, e_inp_label[offset + i], e_inp[offset + i],
-                                          e_out_label[offset + i], e_out[offset + i]);
+                                      nu, &e_inp_label[(offset + i)*8], e_inp[offset + i],
+                                          &e_out_label[(offset + i)*8], e_out[offset + i]);
                   } // i
               } // nu
 
@@ -171,7 +171,7 @@ namespace sho_unitary {
                   stat += sho_tools::construct_index_table(out_index.data(), nu_max, out_order);
                   for(int i = 0; i < nSHO; ++i) {
                       out[i] = e_out[out_index[i]];
-                      if (echo > 8) printf("# %s: out[%s] = %g\n", __func__, out_label[i], out[i]);
+                      if (echo > 8) printf("# %s: out[%s] = %g\n", __func__, &out_label[i*8], out[i]);
                   } // i
               } // output is not energy ordered
 
