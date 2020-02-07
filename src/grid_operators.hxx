@@ -194,23 +194,22 @@ namespace grid_operators {
   {
     public:
 
-      grid_operator_t(int const dims[3], int const natoms=1, int const nprecond=1)
-      : grid(dims), atoms(natoms) { // constructor
+      grid_operator_t(int const dims[3], int const natoms=0, int const nprecond=0)
+      : grid(dims), atoms(natoms), has_precond(nprecond > 0) { // constructor
 //           int const nprecond = control::get("conjugate_gradients.precond", 1.);
-        
+
           auto const & g = grid;  // abbrev.
-          
+
           std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
           
           images = std::vector<atom_image::atom_image_t>(natoms); // atom_images
-          atoms [0] = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
-          images[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
+//           atoms [0] = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+//           images[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
           // image position at the center, index=0 maps into list of sho_atoms
           
           int const bc[] = {Isolated_Boundary, Isolated_Boundary, Isolated_Boundary};
           int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
           
-          has_precond = (nprecond > 0);
           int const nn_precond[] = {nprecond, nprecond, nprecond};
           precond = finite_difference::finite_difference_t<real_t>(g.h, bc, nn_precond);
           // this simple preconditioner is a diffusion stencil
@@ -235,14 +234,14 @@ namespace grid_operators {
       } // Pre-Conditioner
       
     private:
-      bool has_precond;
-      finite_difference::finite_difference_t<real_fd_t> kinetic;
-      finite_difference::finite_difference_t<real_t> precond;
       real_space_grid::grid_t<D0> grid;
       std::vector<atom_image::sho_atom_t> atoms;
       std::vector<atom_image::atom_image_t> images;
       std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
       std::vector<double> potential;
+      finite_difference::finite_difference_t<real_fd_t> kinetic;
+      finite_difference::finite_difference_t<real_t> precond;
+      bool has_precond;
   }; // class grid_operator_t
   
   status_t all_tests(int const echo=0);
