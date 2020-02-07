@@ -281,12 +281,15 @@ namespace geometry_analysis {
   template<typename real_t, typename int_t=short>
   int print_summary(char string[], // result
           real_t values[], int_t const na, // intput array (will be sorted on exit)
-          double const grid_factor=1, double const display_factor=1, char const mult_char='x', 
+          double const grid_factor=1, double const display_factor=1, 
+          char const mult_char='x', char const *fmt1=" %g",
           int const MaxBufferLen=-1, int const MaxEntryLen=24) {
       auto const string_start = string;
       bool const no_length_check = (MaxBufferLen < 0);
 
       std::sort(values, values + na);
+
+      char fmtn[16]; { int const nfc = std::sprintf(fmtn, "%s%c%%d", fmt1, mult_char); assert(nfc < 16); }
 
       std::vector<int_t> ivalues(na);
       std::vector<int_t> occurrence(na, 1); // init all counters as 1, will be modified later
@@ -309,8 +312,8 @@ namespace geometry_analysis {
           if (count > 0) {
               if (no_length_check || ((string + MaxEntryLen) < (string_start + MaxBufferLen))) {
                   // write into the string
-                  int const nchars = (count < 2) ? std::sprintf(string, " %g", value):
-                             std::sprintf(string, " %g%c%d", value, mult_char, count);
+                  int const nchars = (count < 2) ? std::sprintf(string, fmt1, value):
+                                            std::sprintf(string, fmtn, value, count);
                   assert( nchars <= MaxEntryLen );
                   nbytes += nchars;
                   string += nchars;
@@ -323,13 +326,11 @@ namespace geometry_analysis {
   
   template<typename real_t>
   void analyze_bond_structure(char* string, int const nb, real_t const bond_vectors[], float const Z) {
-      if (nb < 1) return;
+      string[0] = '\0'; if (nb < 1) return;
       view2D<real_t const> const bv(bond_vectors, 4); // wrap
 //    string += sprintf(string, " coordination=%d", nb);
 //       char const multiplicity_b = '^';
 //       char const multiplicity_a = '*';
-      real_t constexpr Deg = 180/constants::pi; // Degrees
-      real_t const Len1000 = Ang*1000; // 3 digits
 //       real_t max_len2 = 0, min_len2 = 9e99;
 
       std::vector<real_t> bond_length(nb);
@@ -363,9 +364,10 @@ namespace geometry_analysis {
           assert(na == ia);
       } // scope
 
-      string += print_summary(string, bond_length.data(), nb, Len1000, .001, '^');
+      real_t constexpr Deg = 180/constants::pi; // Degrees
+      string += print_summary(string, bond_length.data(), nb, Ang/.01, .01, '^', " %.2f"); // bin width 0.01 Ang
       string += std::sprintf(string, "  "); // some separator
-      string += print_summary(string, bond_angle.data(), na, Deg, 1., '*');
+      string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '*'); // bin width 2 degrees
       
   } // analyze_bond_structure
   
@@ -383,7 +385,7 @@ namespace geometry_analysis {
       double const inv_bin_width = 1./bin_width;
       int const num_bins = (int)std::ceil(rcut*inv_bin_width); // 0:no histogram
 
-      int constexpr MaxBP = 20; // maximum number of bond partners stored for later detailed analysis, 0:inactive
+      int constexpr MaxBP = 24; // maximum number of bond partners stored for later detailed analysis, 0:inactive
       std::vector<std::vector<atom_image_index_t>> bond_partner((MaxBP > 0)*natoms);
       index_t const natoms_BP = std::min(natoms, (index_t)2000); // limit the number of atoms for which the bonds are analyzed
 
@@ -689,13 +691,14 @@ namespace geometry_analysis {
       if (echo > 5) {
           // analyze local bond structure
           if (bond_partner.size() > 0) {
-              if (echo > 2) printf("# show a bond structure analysis\n");
-// #pragma omp parallel for         
+              if (echo > 2) printf("# show a bond structure analysis:\n"
+                                   "# bond lengths are in %s, angles in degree\n\n",_Ang);
+// #pragma omp parallel for
               for(index_t ia = 0; ia < natoms_BP; ++ia) {
                   int const cn = std::min((int)coordination_number[ia], MaxBP);
                   double const xyz_ia[3] = {xyzZ[ia][0], xyzZ[ia][1], xyzZ[ia][2]}; // load center coordinates
                   assert(cn == bond_partner[ia].size());
-                  view2D<float> coords(cn, 4, 0.0); // get memory
+                  view2D<float> coords(cn, 4, 0.0); // get memory, decide float or double for the bond structure analysis
                   for(int ip = 0; ip < cn; ++ip) {
                       auto const &partner = bond_partner[ia][ip];
                       auto const ja = partner.ia; assert(ja >= 0); 
@@ -706,7 +709,7 @@ namespace geometry_analysis {
                   } // ip
                   int const isi = ispecies[ia];
                   bond_partner[ia].clear(); // free memory
-                  char string_buffer[512];
+                  char string_buffer[2048];
                   analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[4][3]);
 // #pragma omp critical
                   if (echo > 4) printf("# a#%i %s %s\n", ia, Sy_of_species[isi], string_buffer); // no new line
