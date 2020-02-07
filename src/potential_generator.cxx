@@ -22,7 +22,7 @@
 #include "fourier_poisson.hxx" // ::fourier_solve
 #include "finite_difference.hxx" // ::Laplacian
 #include "geometry_analysis.hxx" // ::read_xyz_file
-#include "simple_timer.hxx" // SimpleTimer
+#include "simple_timer.hxx" // // SimpleTimer
 #include "control.hxx" // control::get
 #include "lossful_compression.hxx" // RDP_lossful_compression
 #include "debug_output.hxx" // dump_to_file
@@ -62,10 +62,10 @@ namespace potential_generator {
       return x;
   } // fold_back
   
-  status_t init(float const ion=0.f, int const echo=0) {
-      SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
-      status_t stat = 0;
-      double constexpr Y00 = solid_harmonics::Y00;
+  status_t init_geometry_and_grid(real_space_grid::grid_t<1> & g, double **coordinates_and_Z, 
+                                  int & natoms, int bc[3], int const echo=0) {
+      // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
+      status_t stat{0};
       
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
@@ -74,25 +74,17 @@ namespace potential_generator {
       // add XC and electrostatic potential and zero_potential contributions
       // project the total effective potential to each center using bessel_transforms
       // feed back spherical potential into single_atom
-      
-      double *xyzZ;
-      int na = 0;
-      double cell[3];
-      int bc[3];
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      stat += geometry_analysis::read_xyz_file(&xyzZ, &na, geo_file, cell, bc, echo);
 
-      float ionization[na]; set(ionization, na, 0.f);
-      if ((ion != 0.0) && (na > 1)) {
-          if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
-          ionization[0] = ion; ionization[na - 1] = -ionization[0];
-      } // ionized
+      natoms = 0;
+      double cell[3];
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
+      stat += geometry_analysis::read_xyz_file(coordinates_and_Z, &natoms, geo_file, cell, bc, echo);
 
       // choose the box large enough not to require any periodic images
       double const h1 = 0.2378; // works for GeSbTe with alat=6.04
       int const dims[3] = {n_grid_points(cell[0]/h1), n_grid_points(cell[1]/h1), n_grid_points(cell[2]/h1)};
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", dims[0],dims[1],dims[2]);
-      real_space_grid::grid_t<1> g(dims);
+      g = real_space_grid::grid_t<1>(dims);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
       if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
       if (echo > 1) printf("# cell is  %g %g %g  %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
@@ -104,26 +96,51 @@ namespace potential_generator {
           assert(std::abs(g.h[d]*g.dim(d) - cell[d]) < 1e-6);
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
       } // d
-      double const min_grid_spacing = std::min(std::min(g.h[0], g.h[1]), g.h[2]);
-
       
+      return stat;
+  } // init_geometry_and_grid
+  
+  status_t init(float const ion=0.f, int const echo=0) {
+    
+      double constexpr Y00 = solid_harmonics::Y00;
+
+      status_t stat{0};
+      
+      real_space_grid::grid_t<1> g;
+      double *coordinates_and_Z{nullptr};
+      int na{0};
+      int bc[3];
+      stat += init_geometry_and_grid(g, &coordinates_and_Z, na, bc, echo);
+
+      double cell[3];
+      for(int d = 0; d < 3; ++d) {
+          cell[d] = g.dim(d)*g.h[d];
+      } // d
+     
+      float ionization[na]; set(ionization, na, 0.f);
+      if ((ion != 0.0) && (na > 1)) {
+          if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
+          ionization[0] = ion; ionization[na - 1] = -ionization[0];
+      } // ionized
+      
+      view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap
       float Za[na]; // list of atomic numbers
       
+      view2D<double> center(na, 4); // get memory for a list of atomic centers
       if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
-      view2D<double> center(na, 4); // list of atomic centers
       for(int ia = 0; ia < na; ++ia) {
-          int const iZ = (int)std::round(xyzZ[ia*4 + 3]);
+          int const iZ = (int)std::round(xyzZ[ia][3]);
           char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
           if (echo > 4) printf("# %c%c   %15.9f %15.9f %15.9f\n", El[0],El[1],
-                          xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang);
-          Za[ia] = (float)xyzZ[ia*4 + 3]; // list of atomic numbers
+                          xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
+          Za[ia] = (float)xyzZ[ia][3]; // list of atomic numbers
           for(int d = 0; d < 3; ++d) {
-              center[ia][d] = fold_back(xyzZ[ia*4 + d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+              center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
           }   center[ia][3] = 0; // 4th component is not used
           if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
                                        center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
       } // ia
-      
+
       float const rcut = 32; // radial grids usually and at 9.45 Bohr
       
       double *periodic_images = nullptr;
@@ -153,7 +170,7 @@ namespace potential_generator {
 
   int const max_scf_iterations = control::get("potential_generator.max.scf", 3.);
   for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
-      SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
+      // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
       if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
       stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, rho_core, qlm);
@@ -364,7 +381,7 @@ namespace potential_generator {
       { // scope: compute the Laplacian using high-order finite-differences
           int const fd_nn[3] = {12, 12, 12}; // nearest neighbors in the finite-difference approximation
           finite_difference::finite_difference_t<double> fd(g.h, bc, fd_nn);
-          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
+          {   // SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
           } // timer
       } // scope
@@ -378,7 +395,7 @@ namespace potential_generator {
 //       values = Vtot; // analyze the total potential: Vxc + Ves
 
       for(int iptr = 0; iptr < 6; iptr += 5) { // only loop over the first 1 for electrostatics
-          SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
+          // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
           auto const values = value_pointers[iptr];
 
           // report extremal values of what is stored on the grid
@@ -386,7 +403,7 @@ namespace potential_generator {
 
           for(int ia = 0; ia < na; ++ia) {
     //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
-              float const dq = 1.f/16; int const nq = (int)(constants::pi/(min_grid_spacing*dq));
+              float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
               std::vector<double> qc(nq, 0.0);
 
 //            printf("\n\n# start bessel_projection:\n"); // DEBUG

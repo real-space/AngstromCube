@@ -22,6 +22,8 @@ namespace real_space_grid {
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
 
+      grid_t(void) : dims{0,0,0,1}, h{1,1,1}, inv_h{1,1,1} {}
+
       grid_t(int const dim[3], int const dim_outer=1) : h{1,1,1}, inv_h{1,1,1} {
           dims[0] = std::max(1, dim[0]); // x
           dims[1] = std::max(1, dim[1]); // y
@@ -58,8 +60,9 @@ namespace real_space_grid {
       inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
       inline int dim(int const d) const { assert(0 <= d); assert(d < 3); return dims[d]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
-      inline double get_grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; }
+//    inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // not used
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
+      inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
       
   }; // class grid_t
   
