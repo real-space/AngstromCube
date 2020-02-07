@@ -18,6 +18,7 @@
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
 #include "exchange_correlation.hxx" // lda_PZ81_kernel
 #include "boundary_condition.hxx" // ::periodic_images
+#include "data_view.hxx" // view2D<T>
 #include "fourier_poisson.hxx" // ::fourier_solve
 #include "finite_difference.hxx" // ::Laplacian
 #include "geometry_analysis.hxx" // ::read_xyz_file
@@ -40,7 +41,7 @@ namespace potential_generator {
   double constexpr Y00sq = pow2(solid_harmonics::Y00);
   
   double print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
-      double gmin = 9e9, gmax = -gmin, gsum = 0, gsum2 = 0;
+      double gmin{9e307}, gmax{-gmin}, gsum{0}, gsum2{0};
       for(size_t i = 0; i < all; ++i) {
           gmin = std::min(gmin, values[i]);
           gmax = std::max(gmax, values[i]);
@@ -107,9 +108,9 @@ namespace potential_generator {
 
       
       float Za[na]; // list of atomic numbers
-      auto const center = new double[na][4]; // list of atomic centers
       
       if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
+      view2D<double> center(na, 4); // list of atomic centers
       for(int ia = 0; ia < na; ++ia) {
           int const iZ = (int)std::round(xyzZ[ia*4 + 3]);
           char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
@@ -440,7 +441,6 @@ namespace potential_generator {
           delete[] vlm[ia];
           delete[] qlm[ia];
       } // ia
-      delete[] center;
 
       // generate a file which contains the full potential Vtot
       if (echo > 0) { char title[96];
