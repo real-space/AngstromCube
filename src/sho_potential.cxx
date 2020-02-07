@@ -14,12 +14,11 @@
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
 #include "real_space_grid.hxx" // ::grid_t<N>
-#include "sho_tools.hxx" // ::nSHO
+#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project, ::sho_add, ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
-#include "sho_overlap.hxx" // overlap::generate_product_tensor, 
-                           // overlap::generate_overlap_matrix, 
-                           // overlap::generate_potential_tensor
+#include "sho_overlap.hxx" // ::generate_product_tensor, ...
+       // sho_overlap::generate_overlap_matrix, ::generate_potential_tensor
 #include "data_view.hxx" // view2D<T>
 
 // #define FULL_DEBUG
@@ -143,10 +142,10 @@ namespace sho_potential {
       
       std::vector<double> c_new(nc, 0.0); // get memory
 
-      std::vector<char[8]> zyx_label;
+      view2D<char> zyx_label;
       if (echo > 4) {
           printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang, _Ang);
-          zyx_label = std::vector<char[8]>(nc);
+          zyx_label = view2D<char>(nc, 8);
           sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
       } // echo
       int mzyx{0};
@@ -299,9 +298,9 @@ namespace sho_potential {
       int numax_max = 0; for(int ia = 0; ia < natoms; ++ia) numax_max = std::max(numax_max, numaxs[ia]);
       
       
-      std::vector<std::vector<char[8]>> labels(1 + numax_max);
+      std::vector<view2D<char>> labels(1 + numax_max);
       for(int nu = 0; nu <= numax_max; ++nu) {
-          labels[nu] = std::vector<char[8]>(sho_tools::nSHO(nu));
+          labels[nu] = view2D<char>(sho_tools::nSHO(nu), 8);
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
 

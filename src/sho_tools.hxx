@@ -296,8 +296,8 @@ namespace sho_tools {
           return ( nSHO(numax) != ii );
   } // construct_index_table<order_zyx>
 
-  template <unsigned nChar> // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
-  inline status_t construct_label_table(char label[][nChar], int const numax, SHO_order_t const order, int const echo=1) {
+  template <unsigned nChar=8> // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
+  inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order, int const echo=1) {
       auto const ellchar = "spdfghijklmno";
       int ii{0};
       switch (order) {
@@ -308,7 +308,7 @@ namespace sho_tools {
               for(int y = 0; y <= numax - z; ++y) {
                   for(int x = 0; x <= numax - z - y; ++x) {
                       int const j = is_energy_ordered(order) ? Ezyx_index(x, y, z) : ii;
-                      std::sprintf(label[j], "%x%x%x", z, y, x);
+                      std::sprintf(&label[j*nChar], "%x%x%x", z, y, x);
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
@@ -325,7 +325,7 @@ namespace sho_tools {
                       if (order_Elnm == order) j = Elnm_index(l, n, m);
                       if (order_lnm == order)  j =  lnm_index(numax, l, n, m);
                       if (order_nlm == order)  j =  nlm_index(numax, n, l, m);
-                      std::sprintf(label[j], "%i%c%i", n, ellchar[l], m);
+                      std::sprintf(&label[j*nChar], "%i%c%i", n, ellchar[l], m);
                       ++ii;
           }}} // l m n
           assert(nSHO(numax) == ii);
@@ -341,7 +341,7 @@ namespace sho_tools {
                   if (order_nl == order) { j = nl_index(numax, n, l); } else
                   if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
                   assert( j >= 0 );
-                  std::sprintf(label[j], "%i%c", n, ellchar[l]);
+                  std::sprintf(&label[j*nChar], "%i%c", n, ellchar[l]);
                   ++ii;
           }} // l n
           assert(nSHO_radial(numax) == ii);

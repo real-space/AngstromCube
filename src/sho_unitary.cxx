@@ -2,24 +2,25 @@
 #include <cassert> // assert
 #include <cmath> // sqrt, pow, exp, sqrt
 #include <algorithm> // max, fill
-#include <fstream> // std::ifstream 
+#include <fstream> // std::ifstream
 #include <sstream> // std::istringstream
 #include <vector> // std::vector
 #include <numeric> // std::iota
 
-#include "inline_tools.hxx" // align
-#include "sho_tools.hxx" // n2HO
 #include "sho_unitary.hxx"
+
+#include "inline_tools.hxx" // align
+#include "sho_tools.hxx" // ::n2HO, ::order_*
 
 namespace sho_unitary {
 
-  template<typename real_t> 
+  template<typename real_t>
   real_t signed_sqrt(real_t const x) { return (x < 0)? -std::sqrt(-x) : std::sqrt(x); }
-  
-  template<typename real_t> 
-  status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high, 
+
+  template<typename real_t>
+  status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high,
                   char const filename[], int const echo) {
-      
+
       //
       // Expected File format:
       //    Each line has these 8 entries:
@@ -35,18 +36,18 @@ namespace sho_unitary {
       //                      only non-zero entries are given, nom != 0
       //
       //  if we want to squeeze it into a data-type, this would do
-      //  struct { uint8_t nx, ny, nz, _spare, ell, nrn; int16_t emm; 
+      //  struct { uint8_t nx, ny, nz, _spare, ell, nrn; int16_t emm;
       //           int64_t nom; uint64_t den; };
       //  this would support the index ranges up to numax=255
       std::ifstream infile(filename, std::ios_base::in);
       bool const file_is_nu_ordered = true;
-        
+
       int n_ignored = 0;
               std::string line;
               while (std::getline(infile, line))
               {
                   char const c0 = line[0];
-                  if ('#' != c0 && ' ' != c0 && '\n' != c0 && 0 != c0) { 
+                  if ('#' != c0 && ' ' != c0 && '\n' != c0 && 0 != c0) {
                       std::istringstream iss(line);
                       int nx, ny, nz, ell, emm, nrn;
                       int64_t nom, den;
@@ -62,7 +63,7 @@ namespace sho_unitary {
                       int const nu_xyz = sho_tools::get_nu(nx, ny, nz);
                       int const nu_rad = sho_tools::get_nu(ell, nrn);
                       if (nu_xyz != nu_rad) {
-                          printf("# off-block entry found in file <%s>: nx=%d ny=%d nz=%d (nu=%d)  ell=%d emm=%d nrn=%d (nu=%d)\n", 
+                          printf("# off-block entry found in file <%s>: nx=%d ny=%d nz=%d (nu=%d)  ell=%d emm=%d nrn=%d (nu=%d)\n",
                                  filename, nx, ny, nz, nu_xyz, ell, emm, nrn, nu_rad);
                           return 1; // error
                       } // nu matches
@@ -70,10 +71,10 @@ namespace sho_unitary {
                       nu_high = std::max(nu_high, nu);
                       if (nu > numax) {
                           ++n_ignored; // ignore the entry
-                          if (file_is_nu_ordered) return 0; // we can return already since the entries are nu-ordered, 
+                          if (file_is_nu_ordered) return 0; // we can return already since the entries are nu-ordered,
                                   // .. so we do not need to parse past the first nu which exceeds the searched range;
                       } else {
-                          int const nb = sho_tools::n2HO(nu); // dimension of block                   
+                          int const nb = sho_tools::n2HO(nu); // dimension of block
                           int const ioff = sho_tools::nSHO(nu - 1); // offset from previous blocks
                           u[nu][(nzyx - ioff)*nb + (nlnm - ioff)] = u_entry; // set the entry
                       } // nu in range
@@ -83,9 +84,9 @@ namespace sho_unitary {
         if (n_ignored && (echo > 2)) printf("# ignored %d lines in file <%s> reading up to nu=%d\n", n_ignored, filename, numax);
         return 0;
   } // read_unitary_matrix_from_file
-  
-  
-  
+
+
+
 
 #ifdef  NO_UNIT_TESTS
   template // explicit template instantiation
@@ -100,7 +101,8 @@ namespace sho_unitary {
   int test_loading(int const echo=1, int const numax=9) {
       Unitary_SHO_Transform<real_t> U(numax);
       auto const dev = U.test_unitarity(echo);
-      if (echo > 0) printf("# Unitary_SHO_Transform<real_%ld>.test_unitarity = %g\n", sizeof(real_t), dev);
+      if (echo > 0) printf("# Unitary_SHO_Transform<%s>.test_unitarity = %.1e\n", 
+                                  (8==sizeof(real_t))?"double":"float", dev);
       return (dev > 2e-7);
   } // test_loading
 
@@ -115,20 +117,19 @@ namespace sho_unitary {
   } // test_vector_transform
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    auto status{0};
     status += test_generation(echo);
     status += test_loading<float>(echo);
     status += test_loading<double>(echo);
     status += test_vector_transform(echo);
     return status;
   } // all_tests
-#endif // NO_UNIT_TESTS  
-  
+#endif // NO_UNIT_TESTS
+
 } // namespace sho_unitary
 
+#if 0
 
-#if 0  
-  
   status_t generate_unitary_transform(int const numax, int const echo=9) {
 //       int const mx = align<2>(1 + numax);
 
@@ -137,17 +138,17 @@ namespace sho_unitary {
       int xory[lmax + 1 + lmax][lx]; // xory[lmax + m][k] --> for m <  0: x^(|m|- k)*y^k if k even
                                      //                   --> for m >= 0: y^(|m|- k)*x^k if k odd
       for(int k = 0; k < (2*lmax + 1)*lx; ++k) xory[0][k] = 0; // clear
-      
+
       int Pl[lx][lx]; // generate (r^2 - u^2)^l
       for(int k = 0; k < lx*lx; ++k) Pl[0][k] = 0; // clear
-      
+
       int rxy2pl[lx][lx]; // generate (x^2 + y^2)^l
       for(int k = 0; k < lx*lx; ++k) rxy2pl[0][k] = 0; // clear
-      
+
       { // bnc-scope
           int bnc[lx]; bnc[0] = 1; for(int l = 1; l <= lmax; ++l) bnc[l] = 0; // init binomial coefficients
           for(int m = 0; m <= lmax; ++m) {
-              
+
               if (echo > 2) printf("# Pl l=%d  ", m);
               int j4 = 1;
               for(int k = 0; k <= m; ++k) {
@@ -161,7 +162,7 @@ namespace sho_unitary {
                   j4 = (j4 + 1) % 4; // mimique the behaviour of complex i^k
               } // k
               if (echo > 2) printf("\n");
-              
+
               // prepare bnc
               for(int k = m + 1; k > 0; --k) {
                   bnc[k] += bnc[k - 1];
@@ -172,8 +173,8 @@ namespace sho_unitary {
       } // bnc-scope
 
       if (echo > 2) printf("\n# (x^2 + y^2)^%d has highest coefficient %d\n", lmax, rxy2pl[lmax][lmax/2]);
-      
-      if (echo > 1) { 
+
+      if (echo > 1) {
           printf("\n\n");
           for(int m = -lmax; m <= lmax; ++m) {
               if (echo > 2) printf("# m=%3d   ", m);
@@ -185,10 +186,10 @@ namespace sho_unitary {
           } // m
           if (echo > 2) printf("\n\n");
       } // echo
-      
+
       int64_t Plm[lx][lx][2*lx]; // data-type needs to capture factorial(2*lmax)
       for(int k = 0; k < lx*lx*2*lx; ++k) Plm[0][0][k] = 0; // clear
-      
+
       for(int l = 0; l <= lmax; ++l) {
           int64_t poly[2*l + 1]; // polynomial in u
           for(int k = 0; k <= 2*l; ++k) poly[k] = 0; // clear
@@ -208,10 +209,7 @@ namespace sho_unitary {
           } // m
           for(int k = 0; k <= 2*l; ++k) assert(0 == poly[k]); // all coefficients of poly must vanish since we derive u^{2l} for 2l times
       } // l
-      
-      
-      
-      
+
   } // generate_unitary_transform
-  
+
 #endif

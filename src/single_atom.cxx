@@ -140,17 +140,16 @@ extern "C" {
     	, int const echo=0     // log output level
     ) {
         int const nr = rg->n;
-        auto const sig2inv = -.5/(sigma*sigma);
+        auto const sig2inv = .5/(sigma*sigma);
         if (echo > 0) printf("# sigma = %g\n", sigma);
-        std::vector<double> rlgauss(nr);
-        std::vector<double> rl(nr);
+        std::vector<double> rl(nr), rlgauss(nr);
         for(int ell = 0; ell <= lmax; ++ell) { // serial!
-            double norm = 0;
+            double norm{0};
             for(int ir = 0; ir < nr; ++ir) {
                 auto const r = rg->r[ir];
                 if (0 == ell) {
                     rl[ir] = 1; // start with r^0
-                    rlgauss[ir] = std::exp(sig2inv*r*r);
+                    rlgauss[ir] = std::exp(-sig2inv*r*r);
                 } else {
                     rl[ir]      *= r; // construct r^ell
                     rlgauss[ir] *= r; // construct r^ell*gaussian
@@ -182,7 +181,7 @@ extern "C" {
 
   class LiveAtom {
   public:
-      // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t
+      // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t (or some better name)
 
       // general config
       int32_t atom_id; // global atom identifyer
@@ -205,39 +204,38 @@ extern "C" {
       uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
       std::vector<valence_level_t> partial_wave;
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
-      std::vector<double> zero_potential; // PAW potential shape correction
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
-      view2D<double> projectors; // [nln][nr_smt] r*projectors
+      view2D<double> projectors; // [nln][nr_smt] r*projectors, depend only on sigma and numax
       view3D<double> partial_waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       std::vector<double> true_norm; // vector[nln] for display of partial wave results
       // end of energy-parameter-set dependent members
+      std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
 
       view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
-      int nspins; // 1 or 2 or 4, order: 0zxy
-
-      view2D<double> unitary_Ezyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
-
-      double logder_energy_range[3]; // [start, increment, stop]
+      int nspins; // 1 or 2 (order 0z) or 4 (order 0zxy)
 
       // spin-resolved members
       double csv_charge[3];
       std::vector<core_level_t> core_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       std::vector<double> core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
-      std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor
+      std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor, in use?
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
       std::vector<double> potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor, used for the generation of partial waves
 
-
       double core_charge_deficit; // in units of electrons
+
+      double logder_energy_range[3]; // [start, increment, stop]
+
+      view2D<double> unitary_Ezyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
-      // ToDo: check if all of these 4 lists are used
+      // ToDo: check if all of these 4 lists are used or can be replace but some sho_tool::???_index()
       std::vector<int16_t> ln_index_list;
       std::vector<int16_t> lm_index_list;
       std::vector<int16_t> lmn_begin;
@@ -1267,8 +1265,7 @@ extern "C" {
                 assert(maxdev < 1e-9);
             } // debugging
             
-        } else
-        if (sho_tools::order_lmn == order) {
+        } else if (sho_tools::order_lmn == order) {
             radial_density_matrix = view2D<double>(density_matrix.data(), density_matrix.stride()); // wrap
         }
 
@@ -1310,8 +1307,8 @@ extern "C" {
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
                     auto const rho_ij = density_tensor(lm,iln,jln);
-                    if (std::abs(rho_ij) > 1e-9)
-                        printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
+                    if (std::abs(rho_ij) > 1e-9) printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
+                                                           label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
                 } // jln
             } // iln
         } // lm
@@ -1356,7 +1353,7 @@ extern "C" {
         for(int ell = 0; ell <= ellmax_compensator; ++ell) {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
-                double rho_lm = 0;
+                double rho_lm{0};
                 for(int iln = 0; iln < nln; ++iln) {
                     for(int jln = 0; jln < nln; ++jln) {
                         double const rho_ij = density_tensor(lm,iln,jln);
@@ -1763,8 +1760,8 @@ extern "C" {
 
             if (echo > 4) {
                 printf("\n");
-                std::vector<char[4]> ln_labels(nln);
-                sho_tools::construct_label_table(ln_labels.data(), numax, sho_tools::order_ln);
+                view2D<char> ln_labels(nln, 4);
+                sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
                 for(int i01 = 0; i01 < 2; ++i01) {
                     auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
                     auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
@@ -2032,11 +2029,10 @@ namespace single_atom {
   int test_LiveAtom(int const echo=9) {
     int const numax = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
     bool const t2v = (control::get("single_atom.test.transfer.to.valence", 0.) > 0); //
-    if (echo > 0) printf("\n# %s: new struct LiveAtom has size %ld Byte\n\n", __FILE__, sizeof(LiveAtom));
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    {   double const Z = control::get("single_atom.test.Z", 29.); // default copper
+    {   double const Z   = control::get("single_atom.test.Z", 29.); // default copper
         double const ion = control::get("single_atom.test.ion", 0.); // default neutral
         if (echo > 1) printf("\n# Z = %g\n", Z);
         LiveAtom a(Z, numax, t2v, ion, -1, echo); // envoke constructor

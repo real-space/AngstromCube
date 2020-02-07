@@ -13,7 +13,7 @@ namespace sho_unitary {
   status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high,
                   char const filename[]="sho_unitary.dat", int const echo=7);
 
-  template<typename real_t> // typically real_t=double
+  template<typename real_t=double>
   class Unitary_SHO_Transform {
       public:
 
@@ -108,12 +108,12 @@ namespace sho_unitary {
               if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__,
                   sho_tools::SHO_order2string(inp_order).c_str(), sho_tools::SHO_order2string(out_order).c_str(), nu_max);
 
-              std::vector<char[8]> inp_label, e_inp_label, e_out_label, out_label;
+              std::vector<char> inp_label, e_inp_label, e_out_label, out_label;
               if (echo > 3) {
-                  inp_label   = std::vector<char[8]>(nSHO);
-                  e_inp_label = std::vector<char[8]>(nSHO);
-                  e_out_label = std::vector<char[8]>(nSHO);
-                  out_label   = std::vector<char[8]>(nSHO);
+                  inp_label   = std::vector<char>(nSHO*8);
+                  e_inp_label = std::vector<char>(nSHO*8);
+                  e_out_label = std::vector<char>(nSHO*8);
+                  out_label   = std::vector<char>(nSHO*8);
                   sho_tools::construct_label_table(inp_label.data(), nu_max, inp_order);
                   sho_tools::construct_label_table(out_label.data(), nu_max, out_order);
                   sho_tools::construct_label_table(e_out_label.data(), nu_max, c2r ? sho_tools::order_Elnm : sho_tools::order_Ezyx);

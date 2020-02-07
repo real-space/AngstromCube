@@ -220,6 +220,70 @@ namespace shift_boundary {
       //  --+-----------------+------+----------   |
       //                      |
 
+      // With Cartesian real space lattices, it is even simple
+      // to implement non-symmorphic symmetries like glide reflections
+      // as needed in HCP:
+// ### HCP: Layer structure ABABAB (while FCC has a layer structure ABCABC)
+// #
+// #  A--- ---B---A
+// #  |           |
+// #  | B   A   _ | a
+// #  |           |
+// #  A--- ---B---A
+// #    a sqrt 3
+// #        
+   // cell    1 sqrt3 c/a
+   // # from initially 4 atoms at the fractional coordinates
+   // Cd      0   0   0     A
+   // Cd      1:2 3:6 0     A
+   // Cd      1:2 1:6 1:2   B
+   // Cd      0   4:6 1:2   B
+
+   // # we come to 2 atoms with an xy=0.5 shift boundary
+// #  A--- -+ B   A
+// #  |     |     |
+// #  | B   A-----+
+// #  |     |     |
+// #  A--- -+ B   A  
+// #    a sqrt 3
+
+   // cell    1 sqrt.75 c/a        
+   // Cd      0   0   0     A
+   // Cd      1:2 1:6 1:2   B
+
+   // and with another symmetry enabler, we can reduce to one atom:
+   // cell    1 sqrt.75 c/a/2        
+   // if we have a glide reflection boundary (shift mirror) by 1/6:
+
+  //
+  //    |                        |
+  //  --+-------+----------------+-------+--
+  //            | 25  24  23  22  21  20 |
+  //            B 15  14  13  12  11  10 |
+  //            | 05  04  03  02  01  00 |       --> y-direction
+  //  --+-------+-------()-------+-------+--
+  //    | 00  01  02  03  04  05 |      
+  //    | 10  11  12  13  14  15 A
+  //    | 20  21  22  23  24  25 |             ^
+  //  --+-------+----------------+-------+--   | z-direction
+  //            |                        |
+  // so we reflect at the point marked by () in order to map A onto B    
+
+
+   // What do we need to simulate diamond structure with 1 atoms?
+        // diamond = FCC + basis, has inversion symmetry
+        // the FCC approach with Cartesian cells is
+        // cell (a, a/2, a/2)
+        // which can, with a mirror plane be reduced to (a/2, a/2, a/2), [also for the wave functions??]
+        // this reduction cannot be done for diamond, as 
+        // in one of the cubes, there is the second base atom body centered.
+        // however, if we reflect by a plane through atom #2 and rotate by pi around it,
+        // so the cell may be shaped (a, a/2, a/4)
+
+    // Probably, it is simpler to work on the lattice periodic part of
+    // a Bloch wave with a k-dependent operator instead of having only
+    // the boundary k-dependent and the Hamiltonian inside the bulk real.
+
       return stat;
     } // test_plane_wave
 

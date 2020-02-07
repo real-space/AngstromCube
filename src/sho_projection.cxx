@@ -5,6 +5,7 @@
 #include <vector> // std::vector<T>
 
 #include "sho_projection.hxx"
+
 #include "inline_math.hxx" // factorial<real_or_int_t>
 #include "solid_harmonics.hxx" // ::rlXlm
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
@@ -129,7 +130,7 @@ namespace sho_projection {
       std::vector<int> energy_ordered(nSHO, 0);
       std::vector<int> loop_ordered(nSHO, 0);
       sho_tools::construct_index_table(energy_ordered.data(), numax, sho_tools::order_zyx, loop_ordered.data());
-//       std::vector<char[8]> sho_label(nSHO);
+//       std::vector<char> sho_label(nSHO*8);
 //       sho_tools::construct_label_table(sho_label.data(), numax, sho_tools::order_Ezyx);
       
       sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
