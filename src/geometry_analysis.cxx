@@ -304,7 +304,7 @@ namespace geometry_analysis {
       int nbytes{0};
       
       // write into the string
-      for(int_t ia = 0; ia <= na; ++ia) {
+      for(int_t ia = 0; ia < na; ++ia) {
           int_t  const count = acnt[ia];
           double const value = aint[ia]*display_factor;
           if (count > 0) {
