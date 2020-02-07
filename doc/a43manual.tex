@@ -1,0 +1,193 @@
+\documentclass[oribibl]{llncs}
+
+\usepackage{units}
+\usepackage{psfrag} %% psfrac does not work with pdflatex
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{microtype}
+\usepackage{subfigure}
+\usepackage{todonotes} %% add [disable] to disable
+\usepackage{transparent}
+\usepackage{pgfplots}
+
+\usepackage{acronym} %% for abbreviations
+\acrodef{dft}[DFT]{density functional theory}
+\acrodef{sho}[SHO]{spherical harmonic oscillator}
+\acrodef{dos}[DoS]{density of states}
+\acrodef{ho}[HO]{harmonic oscillator}
+\acrodef{planewave}[PW]{plane wave}
+\acrodef{gridpoint}[GP]{grid point}
+\acrodef{paw}[PAW]{Projector Augmented Wave}
+
+
+\setlength{\tabcolsep}{6pt}
+
+\newcommand{\um}[1]{_{\mathrm{#1}}}
+\newcommand{\ttt}[1]{\texttt{#1}}
+\newcommand{\lmax}{\ell_{\mathrm{max}}}
+\newcommand{\ellm}{L}
+\newcommand{\nrn}{n_{\mathrm{r}}}
+\newcommand{\ket}[1]{\left| #1 \right\rangle}
+\newcommand{\bra}[1]{\left\langle #1 \right|}
+\newcommand{\braket}[2]{\left\langle \left. #1 \right| #2 \right\rangle}
+\newcommand{\braketop}[3]{\left\langle \left. #1 \right| #2 \left| #3 \right. \right\rangle}
+\newcommand{\codename}{A4cube}
+
+\begin{document}
+\pagestyle{plain}
+
+\title       {\codename{}}
+\titlerunning{\codename{}}
+
+\author{%
+  Paul F.~Baumeister\inst{1} % \and %
+}
+
+\institute{%
+  J\"{u}lich Supercomputing Centre, Forschungszentrum J\"{u}lich, 52425 J\"{u}lich, Germany
+%   \and Institute for Advanced Simulation, Forschungszentrum J\"{u}lich, 52425 J\"{u}lich, Germany
+}
+
+\maketitle
+
+\begin{figure*}
+	\centering
+	\includegraphics[width=3cm]{fig/aa3_logo_bold_no_helper_lines} %%
+\end{figure*}
+
+% ==============================================================================
+\begin{abstract}
+This is a user manual for everyone who is only interested in using
+this software.
+As far as possible, all aspects of programming are omitted here.
+However, some aspects related to the algorithms used will be touched.
+\end{abstract}
+% ==============================================================================
+
+
+\newpage
+% ==============================================================================
+\section{Introduction} \label{sec:intro}
+% ==============================================================================
+%
+Real-space grid based methods for \ac{dft}
+have proven to yield good parallelizability and the same level of
+accuracy as \ac{planewave} basis sets.
+% The latter aspect is in particular true for results converged
+% in terms of the number of \acp{planewave} compared to those converged
+% w.r.t.~the grid spacing.
+% However, real-space grid methods cannot be operated at very coarse
+% grid spacings due to unphysical interferences between the position
+% of atoms relative to the position of grid points.
+% This leads to relatively high cost prefactors (for time and space)
+% of the real-space methods compared to \ac{planewave} basis sets
+% when we want to do a fast but less accurate calcuation.
+% Furthermore, the iterative solver schemes applied in real-space
+% grid formalism often deteriorate in terms of their convergence
+% velocity when the number of grid points increases.
+% This is due to the limited width of the stencil compared to the 
+% global scale of the non-local solutions.
+% Therefore, convergence acceleration is crutial here.
+% In many situations, switching to a \ac{planewave} representation
+% is a viable option for an efficient preconditioner as
+% \acp{planewave} contain the full non-locality.
+% Then again, \acp{planewave} destroy the parallelizability
+% to some extend.
+% The approach investigated in this project is a small basis of atom-centered
+% localized orbitals.
+% This basis is not meant to produce as accurate results as \acp{gridpoint} or \acp{planewave}
+% or to feature a advantageous convergence w.r.t.~costs
+% but to be simple and cheap in its construction (low number of control parameters)
+% and to produce approximately right physics already at small basis sets.
+% If in addition we can define an efficient transformation between
+% representations in
+% the small localized basis set and grid-based representations
+% this basis can be used to accelerate
+% the congerence of a real-space grid-based method.
+
+% ==============================================================================
+\section{Spherical Harmonic Oscillator} \label{sec:sho}
+% ==============================================================================
+%
+The quantum-mechanical \ac{ho} has the Hamiltonian
+\begin{equation}
+  \hat H^{[1D]}_{\sigma} = -\frac{\partial_x^2}{2} + \frac{x^2}{2 \sigma^4} \text{.}
+  \label{eqn:HO-Hamiltonian}
+\end{equation}
+Hartree atomic units are used throughout this document.
+Here, $\sigma$ is a lengthscale parameter that also fixes the scale of the eigenenergies
+\begin{equation}
+  E^{[1D]}_{n}(\sigma) = \sigma^{-2} \left( n + \frac 12 \right) \text{.}
+  \label{eqn:HO-eigenenergy}
+\end{equation}
+The \ac{ho} eigenfunctions are
+\begin{equation}
+  \psi^{[1D]}_{n}(x) = H_n(x/\sigma) \cdot \exp\left( -\frac{x^2}{2 \sigma^2} \right) 
+  \label{eqn:HO-eigenfunction}
+\end{equation}
+with the Hermite polynomials $H_n$.
+\todo[inline]{add normalization constants}
+
+The eigenfunctions of the quantum-mechanical 
+three-dimensional isotropic harmonic oscillator 
+- in the following we will refer to it as \ac{sho} -
+can be written as Cartesian product of three
+\ac{ho} eigenfunctions
+\begin{equation}
+  \hat H^{[3D]}_{\sigma} = -\frac{\vec \nabla^2}{2} + \frac{\vec r^2}{2 \sigma^{4}} 
+  \label{eqn:SHO-Hamiltonian}
+\end{equation}
+has the solutions
+\begin{equation}
+  \psi^{[3D]}_{n_x n_y n_z}(x,y,z) = \psi^{[1D]}_{n_x}(x/\sigma) 
+                               \cdot \psi^{[1D]}_{n_y}(y/\sigma) 
+                               \cdot \psi^{[1D]}_{n_z}(z/\sigma) 
+  \label{eqn:SHO-eigenfunction}
+\end{equation}
+and the eigenenergies
+\begin{equation}
+  E^{[3D]}_{n_x n_y n_z}(\sigma) = \sigma^{-2} \left( n_x + n_y + n_z + \frac 32 \right) 
+  \label{eqn:SHO-eigenenergy}
+\end{equation}
+
+Furthermore, the \ac{sho} can be solved in spherical coordinates 
+exploiting its spherical symmetry.
+This leads to the quantum numbers $\nrn, \ell$ and $m$
+and the eigenstates
+\begin{equation}
+  \psi_{\nrn \ell m}(r,\vartheta,\varphi) = R_{\nrn \ell}(r/\sigma) 
+                               \cdot Y_{\ell m}(\vartheta,\varphi)
+  \label{eqn:SHO-eigenfunction-radial}
+\end{equation}
+with the radial function
+\begin{equation}
+  R_{\nrn \ell}(r) = r^\ell \cdot L^{(\ell + \frac 12)}_{\nrn}(r^2) \cdot \exp(-\frac{r^2}2)
+  \label{eqn:SHO-radial-eigenfunction}
+\end{equation}
+where $L_n^{(\alpha)}$ stands for the associated Laguerre polynomials.
+\todo[inline]{add normalization constants}
+
+In the code, spherical harmonics $Y_{\ell m}$ usually appear in their representation
+$X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $m$ and -$m$.
+\todo[inline]{cite Homeier}
+
+\begin{figure}
+	%%% how to generate this plot: 
+	%%% ./aa3 -t hermite_polynomial. +verbosity=10
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/hermite_gauss_functions} %%
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \label{fig:hermite_gauss_function}
+  \caption{
+  Hermite-Gauss functions up to $n\um{max} = 5$.
+  }
+\end{figure}
+
+% ==============================================================================
+\bibliographystyle{splncs03} \bibliography{literature}
+% ==============================================================================
+
+\end{document}
