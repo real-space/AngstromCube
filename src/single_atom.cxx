@@ -608,30 +608,21 @@ extern "C" {
             int const enn, int const ell, float const occ, double const energy, int8_t const c0s1v2, int const ir_cut=-1) const {
         if (echo < 1) return; // this function only prints to the logg
         
-        double stats[] = {0,0,0,0,0};
+        double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
         for(int ir = 0; ir < rg->n; ++ir) {
             double const rho_wf = pow2(wave[ir]);
             double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv = rg->rinv[ir];
-            stats[0] += dV;
-            stats[1] += rho_wf*dV;
-            stats[2] += rho_wf*r*dV;
-            stats[3] += rho_wf*r*r*dV;
-            stats[4] += rho_wf*r_inv*dV; // Coulomb integral without -Z
+            q    += rho_wf*dV; // charge
+            qr   += rho_wf*r*dV; // for <r>
+            qr2  += rho_wf*r*r*dV; // for variance
+            qrm1 += rho_wf*r_inv*dV; // Coulomb integral without -Z
+            qout += rho_wf*dV*(ir >= ir_cut);
         } // ir
-
-        double charge_outside{0};
-        if (ir_cut >= 0) {
-            for(int ir = ir_cut; ir < rg->n; ++ir) {
-                double const rho_wf = pow2(wave[ir]);
-                double const dV = rg->r2dr[ir];
-                charge_outside += rho_wf*dV;
-            } // ir
-        } // ir_cut
+        double const qinv = (q > 0) ? 1./q : 0;
 
         printf("# %s %s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
                c0s1v2_name[c0s1v2], enn, ellchar[ell], std::abs(occ), energy*eV,_eV, 
-               stats[2]/stats[1]*Ang, std::sqrt(std::max(0., stats[3]/stats[1]))*Ang,_Ang, 
-               stats[4]/stats[1]*eV,_eV, charge_outside/stats[1]);
+               qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, qout*qinv);
     } // show_state_analysis
 
     status_t pseudize_spherical_density(double smooth_density[], double const true_density[]
