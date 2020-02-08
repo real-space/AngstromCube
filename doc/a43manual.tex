@@ -13,12 +13,20 @@
 
 \usepackage{acronym} %% for abbreviations
 \acrodef{dft}[DFT]{density functional theory}
+\acrodef{xc}[XC]{exchange-correlation}
 \acrodef{sho}[SHO]{spherical harmonic oscillator}
 \acrodef{dos}[DoS]{density of states}
 \acrodef{ho}[HO]{harmonic oscillator}
-\acrodef{planewave}[PW]{plane wave}
-\acrodef{gridpoint}[GP]{grid point}
+\acrodef{pw}[PW]{plane wave}
+\acrodef{gp}[GP]{grid point}
+\acrodef{ae}[AE]{all-electron}
 \acrodef{paw}[PAW]{Projector Augmented Wave}
+
+\acrodef{cpu}[CPU]{central processing unit}
+\acrodef{gpu}[GPU]{graphical processing unit}
+\acrodef{hpc}[HPC]{high performance computing}
+\acrodef{omp}[OpenMP]{OpenMP}
+\acrodef{mpi}[MPI]{message passing interface}
 
 
 \setlength{\tabcolsep}{6pt}
@@ -37,7 +45,7 @@
 \begin{document}
 \pagestyle{plain}
 
-\title       {\codename{}}
+\title       {\codename{} - User Manual}
 \titlerunning{\codename{}}
 
 \author{%
@@ -58,133 +66,294 @@
 
 % ==============================================================================
 \begin{abstract}
-This is a user manual for everyone who is only interested in using
+This is a user manual for everyone who is interested in using
 this software.
 As far as possible, all aspects of programming are omitted here.
-However, some aspects related to the algorithms used will be touched.
+However, some aspects related to the algorithms that the applications 
+makes use of will need be covered in order to explain the handling.
 \end{abstract}
 % ==============================================================================
 
+\section*{How to read this document?}
+\todo[inline]{Write}
 
 \newpage
 % ==============================================================================
 \section{Introduction} \label{sec:intro}
 % ==============================================================================
 %
+\subsection{Density Functional Theory}
+\codename{} is an implementation for performing calculations in the framework of \ac{dft}.
+A fair number of books and vast number of articles in the scientific 
+literature is about \ac{dft}, therefore, we will only give a breif recap 
+of the very basics needed to understand what kind of physics can be
+simulated with \codename{} and also, where the limitations of predictive power
+are.
+
+\ac{dft} is a ground state method, this means that in principle we have to
+assume zero Kelvin. However, you will see later that for special situations 
+finite temperatures are applied (to smear out the Fermi-Dirac distribution).
+The underlying Hohenberg-Kohn theorem tells us, that we can derive some 
+ground state properties of the system once we have found the correct density.
+In order to find the density, Kohn and Sham introduced single-particle wave functions $\Psi_i$, which are eigenstates of an effective single-particle Hamiltonian $\hat H$.
+With a little simplification, we can write the total electron density
+\begin{equation}
+	n(\vec r) = \sum_i^{\mathrm{occ}} \left| \Psi_i(\vec r) \right|^2
+	\label{eqn:simplified_density_generation}
+\end{equation} 
+As a function or functional of the density $n(\vec r)$, we can construct
+an effective potential $V\um{eff}(\vec r)$ entering the Hamiltonian
+including 
+\begin{itemize}
+  \item the attractive Coulomb potential of the atomic nuclei,
+  \item a repulsive Hartree potential from electrostatic 
+  		interaction of an electron with the density,
+  \item a contribution accounting for exchange and electronic correlation
+  \item and potential external fields.
+\end{itemize}
+
+\subsection{The Exchange-Correlation Functional}
+The true many-body wave function for a system with electrons (as being Fermions)
+is anti-symmetric under exchange of two particles. 
+This implies that there e.g.~a two electrons wave function $\Psi(\vec r_1,\vec r_2)$ must be zero whenever $\vec r_1 \rightarrow \vec r_2$ in order to obey
+the anti-symmetry constraint.
+This lowers the repulsion energy of a real two-electrons system compared to a
+system of independent charged particles.
+In \ac{dft} the construction of independent single-particle states is an approximation that requires to model the exchange interaction.
+
+Furthermore, there are correlation effects of true many-body electron systems
+which also cannot be easily captured in standard \ac{dft}.
+Both together are modelled in the contribution $V\um{xc}(\vec r)$ 
+to the total effective potential and a corresponding energy density $\epsilon\um{xc}$ for the evaluation of a total energy.
+
+Different parametrizations of the \ac{xc} functional are available.
+This application focusses onto the three classes of local (non-orbital dependent) functionals: 
+\begin{itemize} 
+	\item Local (Spin) Density Approximations, LDA/LSDA, 
+	\item Generalized Gradient Approximations, GGA
+	\item Meta-GGAs
+\end{itemize}
+LDAs generate $V(\vec r)$ only from the value of $n(\vec r)$, 
+hence the name \emph{local}. 
+GGAs include some gradients of the density, $|\vec \nabla n(\vec r)|$.
+Still, the spatial argument $\vec r$ is the same but thinking for example
+in terms of finite-difference derivatives on a grid, 
+a little non-local character of GGAs becomes visible.
+Finally, meta-GGAs incorporate information about the kinetic energy density.
+In analogy to eq.~(\ref{eqn:simplified_density_generation}), the kinetic energy density $\tau$ can be found by
+\begin{equation}
+	\tau(\vec r) = \frac{\hbar^2}{2m_e} \sum_i^{\mathrm{occ}} \braketop{ \Psi_i } {\vec \nabla^2 } { \Psi_i } 
+	\label{eqn:simplified_kinetic_energy_density_generation}
+\end{equation}
+where we introduced Dirac's \emph{bra-ket} notation.
+Currently, only the LSDA Perdew-Zunger'81 \ttt{PZ81} is implemented 
+but we intent to interface \ttt{libxc} with access to most existing functional.
+\todo[inline]{Implement LIBXC, reference for LIBXC}
+
+
+\subsection{Atomic Units, Input and Output}
+Internally the code makes use of atomic Hartree units:
+\begin{equation}
+	\hbar = m_e = e = 1
+\end{equation}
+as reduces the number of non-trivial factors in many equations.
+This means that the unit of length is Bohr = \unit[0.529177]{\AA}
+and the unit of energy is called Hartree = \unit[27,2114]{$e$V}.
+However, we can change the length and energy units used for output.
+\todo[inline]{Change only at compile time possible. Make them runtime-configurable}
+Input length units are \AA as this is most convenient for molecular structure viewers
+(\ttt{VESTA}, \ttt{jmol}, etc.)
+
+Experimental parts of the code may not support all the unit conversion
+factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the logg files.
+Most standard functionality, however, supports unit conversion so that logg files
+show \ttt{eV} or \ttt{Ryd} and \ttt{Ang}$ = \AA$ or \ttt{nm}, depending on the users choice.
+\todo[inline]{Keywords to change it?}
+
+
+\section{How to get started}
+
+\subsection{Getting the Code}
+\codename{} will be public domain software under the MIT license
+and will available to clone or download at \ttt{github.com}. 
+\todo[inline]{get GitHub account}
+\todo[inline]{Add MIT license header}
+
+\subsection{Building the Application} \label{sec:compiling}
+A \ttt{Makefile} is contained in the program package that works with current GNU compilers, e.g.~\ttt{g++ 7.4.0}.
+%% and \ttt{nvcc from CUDA 10}
+
+The application, while being written in C++, relies a lot onto plane old data types, i.e.~classes without constructors or destructors as known from C-structs.
+Furthermore, it makes use of generic programming in the form of template
+mainly used to maintain a single functions supporting different precision (\ttt{float} or\ttt{double}), difference vector lengths and in some situations different physics. This helps to keep the code maintainable.
+
+\section{Basic Handling}
+\codename{} comes as a single executable named \ttt{aa3} which
+offers many functions accessible by options. Type \ttt{./aa3 -h}
+to get a first help function":
+\begin{verbatim}
+Usage ./aa3 [OPTION]
+   -h, -H      	This help message
+   -t <module> 	Test module
+   +<var>=<val>	Modify variable environment
+\end{verbatim}
+
+An important functionality after building the application (see section \ref{sec:compiling}) is to run a self test of the available modules.
+In order to get a list of all modules, 
+use \ttt{ls *.hxx} in the \ttt{src/}-directory.
+Pass the name of the module to run its self test like this
+\begin{verbatim}
+./aa3 -t geometry_analysis.
+\end{verbatim}
+Mind that we need to skip the file suffix \ttt{hxx} or \ttt{cxx} but not the dot.
+We can also run all module tests, however, for this we might want to reduce
+the amount of output to \ttt{stdout}. For this, we use the variable environment
+which couples to the command line interface:
+\begin{verbatim}
+./aa3 +verbosity=1 -t
+\end{verbatim}
+The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently.
+However, there is a ground rule that higher \ttt{verbosity} means more output
+and \ttt{verbosity=0} suppresses output except for fatal errors.
+
+\subsection{Try a first structure}
+Make sure there is an \ttt{.xyz} file and run
+\begin{verbatim}
+./aa3 +verbosity=4 -t geometry_analysis. +geometry.file=molecule.xyz
+\end{verbatim}
+in order to check if your geometry looks ok. Look out for warnings.
+There will be a summary of all warnings launched during the execution at the end of the logg.
+If we are free of severe warnings, continue with the next step:
+Let's say we have Aluminum in our system, the run:
+\begin{verbatim}
+./aa3 +verbosity=3 -t single_atom. +single_atom.test.Z=13
+\end{verbatim}
+
+\codename{} will the try to access a database of initial atomic potentials
+(full spherically, spin-degenerate) which are stored in \ttt{pot/Zeff.}$Z$
+where $Z$ is a 3-digit integer atomic number.
+\todo[inline]{make the path to pot/ dynamic}
+You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{xc} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
+If the loading fails because of a missing file, you can bootstrap it:
+\begin{verbatim}
+./aa3 +verbosity=2 -t atom_core. +atom_core.test.Z=13
+\end{verbatim}
+or if the entire database was lost,
+\begin{verbatim}
+./aa3 +verbosity=0 -t atom_core. +atom_core.test.Z=1 +atom_core.test.Z.end=99
+\end{verbatim}
+
+Now, run the \ttt{single\_atom.} test for each of the elements in the system to see if there are warnings before you continue like this
+\begin{verbatim}
+./aa3 +verbosity=3 -t potential_generator. +geometry.file=molecule.xyz
+\end{verbatim}
+\todo[inline]{we have not yet defined a functionality of main! only tests so far}
+
+For the advanced user, we recommend to inspect the logarithmic derivatives by
+\begin{verbatim}
+./aa3 +verbosity=7 -t single_atom. +single_atom.test.Z=13 +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
+\end{verbatim}
+The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
+
+
+\subsection{Parallel Computing}
+Currently, some parts of \codename{} support shared memory parallelism 
+via \ttt{omp} threads on the \ac{cpu}.
+In order to target current \ac{hpc} systems 
+the goal is to incorporate the \ac{mpi} (\ttt{MPI}) 
+for inter-node communication 
+and \ttt{CUDA} for \ac{gpu} acceleration.
+\todo[inline]{MPI parallelize}
+\todo[inline]{Import CUDA finite-difference from ReSpawN}
+\todo[inline]{Import CUDA sho-transform from ReSpawN}
+\todo[inline]{Import CUDA tfqmr from tfQMRgpu}
+
+Please consult with your \ac{hpc} system administrator for support
+about how to control the different levels of parallelism.
+
+\section{Representation of Wave Functions}
+
+Kohn-Sham eigenstates have very different character depending on their energy level: core states, valence states and depending on the species also semicore states.
+\subsubsection{Treatment of Core States}
+Core states are very low in energy and strongly bound 
+to the atomic core. 
+Their spatial extent is so strongly localized 
+in the vicinity of the atomic nucleus 
+that they feel almost exclusively the strong attractive 
+(effective because screened) Coulomb potential of the core. 
+This can be approximated fairly well as a spherically symmetric potential.
+with a singularity at its origin.
+The eigenstates show a clear $\ell$-character, 
+i.e.~$s$, $p$, $d$ or even $f$ states can be found.
+Technically, the solutions are found on a 1D radial grid,
+where also relativistic effects can be treated properly.
+The energy is well defined and degenerate with respect to
+the magnetic quantum number $m$.
+
+\subsubsection{Treatment of Semicore States}
+Semicore states are high-lying core states
+but energy-wise below the valence band.
+Their wave function tail can extend beyond half a nearest neighbor atom distance.
+In a tight-binding picture, the hoppings to the neighboring atom are still small
+but the non-sphericality of the potential becomes important.
+The $m$-degeneracy of the energy (found for core states) breaks 
+and crystal field splittings or even bands with small dispersion can be observed.
+\todo[inline]{Implement semicores}
+It is planned to implement semicore states with a separate energy window
+and either tight-binding like derived from atomic orbitals 
+(eigenfunctions of the spherically averaged potential) 
+or with a full \ac{PAW} treatment as follows for the valence states.
+
+\subsubsection{Treatment of Valence States}
+Valence states are high in energy, by definition up to the Fermi
+energy, are delocalized over several atoms and form bands and bonds.
+They are particularly difficult to describe because of the 
+inhomgeneiety of features:
+Valence states exhibit relatively slow oscillations 
+in the space between atoms (interstitial space) but close to the atomic nuclei,
+their structure resembles that of high-lying core states.
+In particular projected radial coordinates, we can find up to $6$ nodes
+(7$s$-bands) with the distance between the nodes becoming smaller
+the closer we move towards the core.
+These rapid oscillations are difficult to represent
+on the same footing that gets the behaviour in the interstitial regions correct. 
+We will review some the most common approaches:
+
+Local orbital methods use radial eigenfunctions 
+of the spherically averaged atomic potential as atom-centered basis functions.
+This captures the behaviour in the core region well
+but shows a slow and not systematic convergence behaviour in the interstitial region. 
+An advantage is that atomic orbital basis sets can be rather small
+and localized which casts the Hamiltonian into a block-sparse matrix operator with small block dimensions ($~ 30$).
+The drawback is that the description in the interstitial region determines the
+quality of description for bandstructures, bonds and forces.
+
+LAPW (Linearized Augmented Plane Wave) methods take the best of two worlds:
+In order to construct efficient basis functions, 
+they assume a spherical potential inside an atomic sphere (solutions are radial)
+and a constant potential inside the interstitial region (solutions are plane waves). On the boundary spheres between the two regions, the basis function components need to be matched.
+Due to the \ac{pw}-character, the basis functions are fully delocalized and the
+Hamiltonian becomes dense.
+
+Using \ac{pw}s as a basis for the entire space shifts the problem to the representation of the valence wave function in the core region.
+The \ac{paw} method is a successful generalization of the family of pseudopotential methods with allows a full-potential access.
+A pseudopotential replaces the true deep full potential in the core region
+by some potential which can be represented with a finite number of \ac{pw}s
+and approximates the scattering properties (phase shifts) in the typical energy
+range of valence states.
+In most cases the construction of such a potential only succeeds in the form of
+a non-local potential.
+
 Real-space grid based methods for \ac{dft}
-have proven to yield good parallelizability and the same level of
-accuracy as \ac{planewave} basis sets.
-% The latter aspect is in particular true for results converged
-% in terms of the number of \acp{planewave} compared to those converged
-% w.r.t.~the grid spacing.
-% However, real-space grid methods cannot be operated at very coarse
-% grid spacings due to unphysical interferences between the position
-% of atoms relative to the position of grid points.
-% This leads to relatively high cost prefactors (for time and space)
-% of the real-space methods compared to \ac{planewave} basis sets
-% when we want to do a fast but less accurate calcuation.
-% Furthermore, the iterative solver schemes applied in real-space
-% grid formalism often deteriorate in terms of their convergence
-% velocity when the number of grid points increases.
-% This is due to the limited width of the stencil compared to the 
-% global scale of the non-local solutions.
-% Therefore, convergence acceleration is crutial here.
-% In many situations, switching to a \ac{planewave} representation
-% is a viable option for an efficient preconditioner as
-% \acp{planewave} contain the full non-locality.
-% Then again, \acp{planewave} destroy the parallelizability
-% to some extend.
-% The approach investigated in this project is a small basis of atom-centered
-% localized orbitals.
-% This basis is not meant to produce as accurate results as \acp{gridpoint} or \acp{planewave}
-% or to feature a advantageous convergence w.r.t.~costs
-% but to be simple and cheap in its construction (low number of control parameters)
-% and to produce approximately right physics already at small basis sets.
-% If in addition we can define an efficient transformation between
-% representations in
-% the small localized basis set and grid-based representations
-% this basis can be used to accelerate
-% the congerence of a real-space grid-based method.
+feature an improved scalablity on massively parallel \ac{hpc} systems at the same level of accuracy as \ac{pw} basis sets. 
+The \ac{paw} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which does not involve Fourier transforms when applied to a wave function.
 
-% ==============================================================================
-\section{Spherical Harmonic Oscillator} \label{sec:sho}
-% ==============================================================================
-%
-The quantum-mechanical \ac{ho} has the Hamiltonian
-\begin{equation}
-  \hat H^{[1D]}_{\sigma} = -\frac{\partial_x^2}{2} + \frac{x^2}{2 \sigma^4} \text{.}
-  \label{eqn:HO-Hamiltonian}
-\end{equation}
-Hartree atomic units are used throughout this document.
-Here, $\sigma$ is a lengthscale parameter that also fixes the scale of the eigenenergies
-\begin{equation}
-  E^{[1D]}_{n}(\sigma) = \sigma^{-2} \left( n + \frac 12 \right) \text{.}
-  \label{eqn:HO-eigenenergy}
-\end{equation}
-The \ac{ho} eigenfunctions are
-\begin{equation}
-  \psi^{[1D]}_{n}(x) = H_n(x/\sigma) \cdot \exp\left( -\frac{x^2}{2 \sigma^2} \right) 
-  \label{eqn:HO-eigenfunction}
-\end{equation}
-with the Hermite polynomials $H_n$.
-\todo[inline]{add normalization constants}
 
-The eigenfunctions of the quantum-mechanical 
-three-dimensional isotropic harmonic oscillator 
-- in the following we will refer to it as \ac{sho} -
-can be written as Cartesian product of three
-\ac{ho} eigenfunctions
-\begin{equation}
-  \hat H^{[3D]}_{\sigma} = -\frac{\vec \nabla^2}{2} + \frac{\vec r^2}{2 \sigma^{4}} 
-  \label{eqn:SHO-Hamiltonian}
-\end{equation}
-has the solutions
-\begin{equation}
-  \psi^{[3D]}_{n_x n_y n_z}(x,y,z) = \psi^{[1D]}_{n_x}(x/\sigma) 
-                               \cdot \psi^{[1D]}_{n_y}(y/\sigma) 
-                               \cdot \psi^{[1D]}_{n_z}(z/\sigma) 
-  \label{eqn:SHO-eigenfunction}
-\end{equation}
-and the eigenenergies
-\begin{equation}
-  E^{[3D]}_{n_x n_y n_z}(\sigma) = \sigma^{-2} \left( n_x + n_y + n_z + \frac 32 \right) 
-  \label{eqn:SHO-eigenenergy}
-\end{equation}
+\codename{} implements Cartesian real-space grids 
+in combination with a revision of the \ac{paw} method (revPAW) suitable for
+a reduced memory capacity consumption and lower memory bandwidth requirements.
+%% ToDo: cite Baumeister, Tsukamoto, PASC19
 
-Furthermore, the \ac{sho} can be solved in spherical coordinates 
-exploiting its spherical symmetry.
-This leads to the quantum numbers $\nrn, \ell$ and $m$
-and the eigenstates
-\begin{equation}
-  \psi_{\nrn \ell m}(r,\vartheta,\varphi) = R_{\nrn \ell}(r/\sigma) 
-                               \cdot Y_{\ell m}(\vartheta,\varphi)
-  \label{eqn:SHO-eigenfunction-radial}
-\end{equation}
-with the radial function
-\begin{equation}
-  R_{\nrn \ell}(r) = r^\ell \cdot L^{(\ell + \frac 12)}_{\nrn}(r^2) \cdot \exp(-\frac{r^2}2)
-  \label{eqn:SHO-radial-eigenfunction}
-\end{equation}
-where $L_n^{(\alpha)}$ stands for the associated Laguerre polynomials.
-\todo[inline]{add normalization constants}
-
-In the code, spherical harmonics $Y_{\ell m}$ usually appear in their representation
-$X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $m$ and -$m$.
-\todo[inline]{cite Homeier}
-
-\begin{figure}
-	%%% how to generate this plot: 
-	%%% ./aa3 -t hermite_polynomial. +verbosity=10
-  \begin{minipage}[c]{.990\textwidth}
-	\includegraphics[width=\textwidth]{fig/hermite_gauss_functions} %%
-  \end{minipage}\hfill
-  \begin{minipage}[c]{.009\textwidth}
-  \end{minipage}
-  \label{fig:hermite_gauss_function}
-  \caption{
-  Hermite-Gauss functions up to $n\um{max} = 5$.
-  }
-\end{figure}
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
