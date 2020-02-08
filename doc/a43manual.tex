@@ -249,6 +249,13 @@ Now, run the \ttt{single\_atom.} test for each of the elements in the system to 
 \end{verbatim}
 \todo[inline]{we have not yet defined a functionality of main! only tests so far}
 
+For the advanced user, we recommend to inspect the logarithmic derivatives by
+\begin{verbatim}
+./aa3 +verbosity=7 -t single_atom. +single_atom.test.Z=13 +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
+\end{verbatim}
+The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
+
+
 \subsection{Parallel Computing}
 Currently, some parts of \codename{} support shared memory parallelism 
 via \ttt{omp} threads on the \ac{cpu}.
@@ -303,18 +310,49 @@ energy, are delocalized over several atoms and form bands and bonds.
 They are particularly difficult to describe because of the 
 inhomgeneiety of features:
 Valence states exhibit relatively slow oscillations 
-in the space between two atoms but close to the atomic nuclei,
+in the space between atoms (interstitial space) but close to the atomic nuclei,
 their structure resembles that of high-lying core states.
 In particular projected radial coordinates, we can find up to $6$ nodes
 (7$s$-bands) with the distance between the nodes becoming smaller
 the closer we move towards the core.
+These rapid oscillations are difficult to represent
+on the same footing that gets the behaviour in the interstitial regions correct. 
+We will review some the most common approaches:
 
+Local orbital methods use radial eigenfunctions 
+of the spherically averaged atomic potential as atom-centered basis functions.
+This captures the behaviour in the core region well
+but shows a slow and not systematic convergence behaviour in the interstitial region. 
+An advantage is that atomic orbital basis sets can be rather small
+and localized which casts the Hamiltonian into a block-sparse matrix operator with small block dimensions ($~ 30$).
+The drawback is that the description in the interstitial region determines the
+quality of description for bandstructures, bonds and forces.
 
-\end{itemize}
+LAPW (Linearized Augmented Plane Wave) methods take the best of two worlds:
+In order to construct efficient basis functions, 
+they assume a spherical potential inside an atomic sphere (solutions are radial)
+and a constant potential inside the interstitial region (solutions are plane waves). On the boundary spheres between the two regions, the basis function components need to be matched.
+Due to the \ac{pw}-character, the basis functions are fully delocalized and the
+Hamiltonian becomes dense.
+
+Using \ac{pw}s as a basis for the entire space shifts the problem to the representation of the valence wave function in the core region.
+The \ac{paw} method is a successful generalization of the family of pseudopotential methods with allows a full-potential access.
+A pseudopotential replaces the true deep full potential in the core region
+by some potential which can be represented with a finite number of \ac{pw}s
+and approximates the scattering properties (phase shifts) in the typical energy
+range of valence states.
+In most cases the construction of such a potential only succeeds in the form of
+a non-local potential.
 
 Real-space grid based methods for \ac{dft}
-have proven to yield good parallelizability and the same level of
-accuracy as \ac{pw} basis sets.
+feature an improved scalablity on massively parallel \ac{hpc} systems at the same level of accuracy as \ac{pw} basis sets. 
+The \ac{paw} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which does not involve Fourier transforms when applied to a wave function.
+
+
+\codename{} implements Cartesian real-space grids 
+in combination with a revision of the \ac{paw} method (revPAW) suitable for
+a reduced memory capacity consumption and lower memory bandwidth requirements.
+%% ToDo: cite Baumeister, Tsukamoto, PASC19
 
 
 % ==============================================================================
