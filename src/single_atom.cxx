@@ -1940,10 +1940,12 @@ namespace single_atom {
       if (echo == -9) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
 
       static LiveAtom **a=nullptr;
+      static int natoms_init=0;
 
       if (nullptr == a) {
 //        SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
           a = new LiveAtom*[na];
+          natoms_init = na;
           int  const default_numax = 3;
           bool const transfer2valence = false;
           for(int ia = 0; ia < na; ++ia) {
@@ -1957,6 +1959,8 @@ namespace single_atom {
           } // ia
           delete[] a; a = nullptr;
       } // cleanup
+
+      assert(std::abs(na) == natoms_init); // must always be called with the same na or -na for cleanup
 
       for(int ia = 0; ia < na; ++ia) {
 
@@ -2040,3 +2044,15 @@ namespace single_atom {
 #endif // NO_UNIT_TESTS
 
 } // namespace single_atom
+
+
+#define LIVE_ATOM_AS_LIBRARY
+#ifdef  LIVE_ATOM_AS_LIBRARY
+  // C and Fortran interface
+  extern "C" {
+      #include <cstdint> // or <stdint.h> in C
+      #define SINGLE_ATOM_SOURCE    
+        #include "single_atom.h"
+      #undef  SINGLE_ATOM_SOURCE
+  } // extern "C"
+#endif
