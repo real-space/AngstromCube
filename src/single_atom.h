@@ -35,12 +35,31 @@
 		- start wave functions, reduced by r^ell, double[6][4096]
 
 	In order to control soft switches (control::get()) in single_atom,
-	we need a handle to set soft switches using control::cli()
+	we need a handle to set soft switches using control::set()
 
 */
 
 
+
 #define fortran_callable(NAME) void live_atom_##NAME##_
+
+/*
+	Example for inclusion in Fortran: 
+		integer(kind=4), parameter :: na = 2
+		integer(kind=4) :: status
+		real(kind=8) :: quantity(na)
+		external _live_atom_get_some_quantity ! optional
+		call _live_atom_get_some_quantity(na, quantity, status)
+		if (status /= 0) stop 'ERROR'
+		write(*,*) quantity
+
+	A note on equivalent types:
+		integer(kind=4)   	int32_t
+		integer(kind=1)		int8_t
+ 		real(kind=8)   		double
+ 		character(len=*)    char[] 
+ 	Mind that strings are not null-terminated in Fortran
+*/
 
 	// creates name _live_atom_initialize_ in single_atom.o
 	fortran_callable(initialize)(int32_t const *na 
@@ -84,7 +103,20 @@
 #else
 	;
 #endif	
-	 
+
+	fortran_callable(set_env)(char const *varname
+		, char const *newvalue
+		, int32_t *status)
+#ifndef	SINGLE_ATOM_HEADER_ONLY
+	{
+		printf("# set environment variable for LiveAtoms  %s = %s\n", 
+												varname, newvalue);
+		control::set(varname, newvalue);
+		fflush(stdout);
+	} // _live_atom_set_env_
+#else
+	;
+#endif
 
 	fortran_callable(get_core_density)(int32_t const *na
 		, double rhoc[] // layout [na][4096]

@@ -20,10 +20,26 @@ template <typename real_t> inline char const * real_t_name(); // provide no impl
 template <> inline char const * real_t_name<double>() { return "double"; }
 template <> inline char const * real_t_name<float> () { return "float"; }
 
-// template<typename T> 
-// T** inline rectangular_array(size_t const n1, size_t const n0) {
-//     auto const mem = new T[n1*n0];
-//     auto const ptr = new (T*)[n1];
-//     for(int i1 = 0; i1 < n1; ++i1) ptr[i1] = &mem[i1*n0]; 
-//     return ptr;
-// } // rectangular_array --- difficult to clean up
+namespace inline_tools {
+
+	uint64_t constexpr inline eightchars(char const string[8]) { return *((uint64_t*)string); }
+	void inline eightchars(char string[8], uint64_t const c8) { *((uint64_t*)string) = c8; }
+
+#ifdef  NO_UNIT_TESTS
+	status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+#else // NO_UNIT_TESTS
+
+ 	status_t inline test_eightchars(int const echo=1) {
+	    return (eightchars("01234567") != 0x3736353433323130);
+  	} // test_eightchars
+
+ 	status_t inline all_tests(int const echo=2) {
+    	status_t stat{0};
+    	stat += test_eightchars(echo);
+	    return stat;
+  	} // all_tests
+
+#endif // NO_UNIT_TESTS
+
+} // namespace inline_tools
+

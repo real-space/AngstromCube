@@ -39,6 +39,7 @@ typedef int status_t;
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
+#include "inline_tools.hxx" // ::all_tests
 #include "simple_timer.hxx" // ::all_tests
 #include "simple_math.hxx" // ::all_tests
 #include "sho_overlap.hxx" // ::all_tests
@@ -96,6 +97,7 @@ typedef int status_t;
           module_test("vector_layout.",             vector_layout::all_tests);
           module_test("sho_potential.",             sho_potential::all_tests);
           module_test("angular_grid.",               angular_grid::all_tests);
+          module_test("inline_tools.",               inline_tools::all_tests);
           module_test("simple_timer.",               simple_timer::all_tests);
           module_test("simple_math.",                 simple_math::all_tests);
           module_test("sho_overlap.",                 sho_overlap::all_tests);
