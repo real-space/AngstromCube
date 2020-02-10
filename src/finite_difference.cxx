@@ -2,11 +2,12 @@
 #include <cassert> // assert
 #include <cmath> // std::abs
 #include <algorithm> // std::copy
+#include <vector> // std::vector<T>
 
 #include "finite_difference.hxx"
 
-#include "real_space_grid.hxx" // grid_t
-#include "constants.hxx" // pi
+#include "real_space_grid.hxx" // ::grid_t
+#include "constants.hxx" // ::pi
 #include "recorded_warnings.hxx" // ::clear_warnings
 
 // #define FULL_DEBUG
@@ -76,12 +77,29 @@ namespace finite_difference {
       return stat;
   } // test_Laplacian
 
+  status_t test_dispersion(int const echo=9) {
+      if (echo < 7) return 0; // this function is only plotting
+      for(int nn = 1; nn < 14; ++nn) {
+          finite_difference_t<double> const fd(1, 0, nn);
+          printf("\n## dispersion for nn=%d\n", nn);
+          for(int ik = 0; ik <= 100; ++ik) {
+              double const k =  .01 * constants::pi * ik;
+              double E_k = -0.5*fd.c2nd[0][0];
+              for(int j = 1; j <= nn; ++j) {
+                  E_k -= std::cos(k*j) * fd.c2nd[0][j];
+              } // j
+              printf("%g %g\n", k, E_k); // in Hartree
+          } // ik
+      } // nn
+      return 0;
+  } // test_dispersion
   
   status_t all_tests(int const echo) {
     auto status = 0;
     status += test_coefficients<double>(echo);
     status += test_coefficients<float>(echo);
     status += test_create_and_destroy(echo);
+    status += test_dispersion(echo);
     status += test_Laplacian<double>(echo);
     recorded_warnings::clear_warnings(); // clear
     return status;
