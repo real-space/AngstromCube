@@ -225,14 +225,11 @@ namespace vector_math {
       for (int i=0; i<N; i++) temp += v[i] * w[i]; // missing conjugate for complex!
       return temp;
     }
-    vec(const T* v) {                                           // Copy constructor (raw pointer)
-      for (int i=0; i<N; i++) data[i] = v[i];
-    }
     template<typename TT>
     vec(const TT* v) {                                           // Copy constructor (raw pointer of other type)
       for (int i=0; i<N; i++) data[i] = v[i];
     }
 
-  };
+  }; // class vec<N,T>q
 
 } // namespace vector_math

@@ -679,26 +679,34 @@ namespace sho_overlap {
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     { // scope: lattice structure
-        int const structure = control::get("overlap.crystal.structure", 4); // 1:sc, 2:bcc, default:fcc 
+        auto const structure_abbrev = control::get("overlap.crystal.structure", "fcc"); // choice{sc, bcc, fcc}
+        char const structure = structure_abbrev[0]; // only the 1st char counts
+        if (echo > 1) printf("# %s %s (%c)\n", __func__, structure_abbrev, structure);
+        assert('s' == structure || 'b' == structure || 'f' == structure);
         double const recip = (2*constants::pi)/a0;
         for(int dir = 0; dir < 3; ++dir) {
-            if (1 == structure) { // simple-cubic
+            if ('s' == structure) { // simple-cubic
                 cv[dir] = 0; cv[dir][dir] = a0;
                 bv[dir] = 0; bv[dir][dir] = recip; // sc
             } else {
-                int8_t const cell_bcc[3][3] = { {0,1,1},  {1,0,1},  {1,1,0}}; // bcc
-                int8_t const cell_fcc[3][3] = {{-1,1,1}, {1,-1,1}, {1,1,-1}}; // fcc
-                if (2 == structure) { // body-centered-cubic
-                    cv[dir] = cell_bcc[dir];
-                    bv[dir] = cell_fcc[dir];
-                } else { // face-centered-cubic
-                    cv[dir] = cell_fcc[dir];
-                    bv[dir] = cell_bcc[dir];
-                }
-                cv[dir] *= (a0*.5);
-                bv[dir] *= (recip);
+                bool const bcc = ('b' == structure); // body-centered cubic
+                cv[dir] = .5*a0; cv[dir][dir] *= bcc ? 0 : -1;
+                bv[dir] = recip; bv[dir][dir] *= bcc ? -1 : 0;
             }
+            if (echo > 4) printf("# cell %8.3f%8.3f%8.3f %s \treci %8.3f%8.3f%8.3f a.u.\n",
+              cv[dir][0]*Ang, cv[dir][1]*Ang, cv[dir][2]*Ang,_Ang,  bv[dir][0], bv[dir][1], bv[dir][2]);
         } // dir
+        if (echo > 7) {
+            printf("\n");
+            for(int i = 0; i < 3; ++i) {
+                printf("# cell * recip  ");
+                for(int j = 0; j < 3; ++j) printf(" %g", dot(cv[i], bv[j])/(2*constants::pi));
+                printf("  recip * cell\t");
+                for(int j = 0; j < 3; ++j) printf(" %g", dot(bv[i], cv[j])/(2*constants::pi));
+                printf("\n");
+            } // i
+            printf("\n");
+        } // echo
     } // scope
 
     double shortest_bond2 = 9e99;
@@ -1131,7 +1139,7 @@ namespace sho_overlap {
     stat += moment_normalization(imat.data(), imat.stride(), 1.0, echo);
     if (echo < 4) return stat;
     for(int i = 0; i < m; ++i) {
-        printf("%c# %s %i ", (0 == i)?'\n':'\0', __func__, i);
+        printf("%s# %s %i ", (0 == i)?"\n":"", __func__, i);
 //         for(int j = i & 1; j < m; j += 2) // only even/odd terms
         for(int j = 0; j < m; ++j) { // only even/odd terms
             printf(" %g", imat(i,j));
