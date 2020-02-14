@@ -697,7 +697,7 @@ namespace sho_overlap {
               cv[dir][0]*Ang, cv[dir][1]*Ang, cv[dir][2]*Ang,_Ang,  bv[dir][0], bv[dir][1], bv[dir][2]);
         } // dir
         if (echo > 7) {
-            printf("\n");
+            printf("\n# check that cell times reciprocal basis are a unit matrix\n");
             for(int i = 0; i < 3; ++i) {
                 printf("# cell * recip  ");
                 for(int j = 0; j < 3; ++j) printf(" %g", dot(cv[i], bv[j])/(2*constants::pi));

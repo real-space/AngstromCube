@@ -300,14 +300,15 @@ We will assume a Cartesian uniform grid here.
 Then, viable options would be
 \begin{itemize}
 %
-\item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically. This may lead to a large cost prefactor.
+\item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically. 
+This may lead to a large cost prefactor but scales linearly due to the localization of $\chi$s.
 %
 \item for each pair $(a,a')$ which is not too distant
 compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
 at the common center and do the product and integral there. Still costly.
 %
 \item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{sho} basis. 
-Then, we can insert a completeness relation:
+Then, we can insert a completeness relation: %%  (truncation of unity?)
 \begin{equation}
  \braketop{ \chi_{a\vec n} }{ \hat V }{ \chi_{a'\vec n'} } = \sum_{\vec n''}
  \braketop{ \chi_{a\vec n} }{ \hat V }{ \chi_{a\vec n''} } \braket{ \chi_{a\vec n''} }{ \chi_{a'\vec n'} }
@@ -447,7 +448,7 @@ As a test of the quality of \ac{sho} functions as a basis
 we diagonalize the Laplacian operator that represents the
 Hamiltonian.
 We analyzed the three highly symmetric, cubic lattice structures with a single basis atom,
-SC, BCC and FCC, funding that the overlap matrix can become singular at certain points of
+SC, BCC and FCC, finding that the overlap matrix can become singular at certain points of
 the reciprocal space, see fig.~\ref{fig:overlap_lowest_eig}.
 %
 \begin{figure}
