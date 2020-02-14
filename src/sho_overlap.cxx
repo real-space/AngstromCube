@@ -670,16 +670,17 @@ namespace sho_overlap {
                   int const*, double*, complex_t*, int const*, double*, int*);
   } // LAPACK
  
-  status_t test_simple_crystal(int const echo=3, float const a0=8) {
+  status_t test_simple_crystal(int const echo=3) {
+    double const a0 = control::get("sho_overlap.lattice.constant", 8.0);
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int const numax = control::get("overlap.numax", 4);
+    int const numax = control::get("sho_overlap.crystal.numax", 4);
     int const ncut = numax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     { // scope: lattice structure
-        auto const structure_abbrev = control::get("overlap.crystal.structure", "fcc"); // choice{sc, bcc, fcc}
+        auto const structure_abbrev = control::get("sho_overlap.crystal.structure", "fcc"); // choice{sc, bcc, fcc}
         char const structure = structure_abbrev[0]; // only the 1st char counts
         if (echo > 1) printf("# %s %s (%c)\n", __func__, structure_abbrev, structure);
         assert('s' == structure || 'b' == structure || 'f' == structure);
@@ -770,9 +771,9 @@ namespace sho_overlap {
         } // scope
     } // echo
     
-    bool const DoS = control::get("overlap.test.DoS", 0.); // 1: density of states, 0: bandstructure
-    bool const Ref = control::get("overlap.test.Ref", 0.); // 1: compute the analytically known spectrum 
-                                                           //      of the free electron gas as reference
+    bool const DoS = control::get("sho_overlap.test.DoS", 0.); // 1: density of states, 0: bandstructure
+    bool const Ref = control::get("sho_overlap.test.Ref", 0.); // 1: compute the analytically known spectrum 
+                                                               //      of the free electron gas as reference
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
     if (echo > 2) printf("# assume at most %d periodic images up to %.3f Bohr\n", max_npi, dmax);
@@ -854,7 +855,7 @@ namespace sho_overlap {
     if (DoS) { 
         dos.assign(num_bins, 0); // allocate and clear
         // create a k-point set with weights
-        int const nkp_sampling = control::get("overlap.kmesh.sampling", 2); // this is N, use a 2N x 2N x 2N k-point set
+        int const nkp_sampling = control::get("sho_overlap.kmesh.sampling", 2); // this is N, use a 2N x 2N x 2N k-point set
         double const inv_kp_sampling = 0.5/nkp_sampling;
         double w8sum{0};
         double const weight = 1;
@@ -871,7 +872,7 @@ namespace sho_overlap {
         if (echo > 1) printf("# %ld k-points in the irriducible Brillouin zone, weight sum = %g\n", kps.size(), w8sum);
     } else {
         int const nedges = 6;
-        float const sampling_density = control::get("overlap.kpath.sampling", 1./32);
+        float const sampling_density = control::get("sho_overlap.kpath.sampling", 1./32);
         double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
         float path_progress{0};
         for(int edge = 0; edge < nedges; ++edge) {
@@ -962,6 +963,8 @@ namespace sho_overlap {
                 // get the eigenvalues of the overlap operator only
                 zheev_(&jobv, &uplo, &n3D, ovl_mat.data(), &n3D, 
                        eigvals.data(), work.data(), &lwork, rwork.data(), &info);
+//                 info = linear_algebra::eigenvalues(n3D, 
+//                               lap_mat.data(), lap_mat.stride(), eigvals.data());
 #if 0
                 // DEBUG
                 if (0 == info && eigvals[0] < .00315) {
@@ -975,6 +978,9 @@ namespace sho_overlap {
             } else { // overlap_eigvals
               
                 // solve generalized eigenvalue problem lap_mat*X == diag*ovl_mat*X
+//                 info = linear_algebra::generalized_eigenvalues(n3D, 
+//                               lap_mat.data(), lap_mat.stride(), 
+//                               ovl_mat.data(), ovl_mat.stride(), eigvals.data());
                 int const itype = 1;
                 zhegv_(&itype, &jobz, &uplo, &n3D, lap_mat.data(), &n3D, ovl_mat.data(), &n3D, 
                        eigvals.data(), work.data(), &lwork, rwork.data(), &info);
@@ -1051,7 +1057,7 @@ namespace sho_overlap {
         } // echo
         if (ibin_out_of_range > 0 && echo > 1) printf("# Warning: %d bin entries were out of range!\n", ibin_out_of_range);
     } // DoS
-    
+
     if (echo > 1) printf("# diagonalized %d x %d Hamiltonian for %ld k-points\n", n3D, n3D, kps.size());
 
     if (diagonalization_failed > 0) {
