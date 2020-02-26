@@ -188,11 +188,11 @@ Furthermore, it makes use of generic programming in the form of template
 mainly used to maintain a single functions supporting different precision (\ttt{float} or\ttt{double}), difference vector lengths and in some situations different physics. This helps to keep the code maintainable.
 
 \section{Basic Handling}
-\codename{} comes as a single executable named \ttt{aa3} which
-offers many functions accessible by options. Type \ttt{./aa3 -h}
+\codename{} comes as a single executable named \ttt{a43} which
+offers many functions accessible by options. Type \ttt{./a43 -h}
 to get a first help function":
 \begin{verbatim}
-Usage ./aa3 [OPTION]
+Usage ./a43 [OPTION]
    -h, -H      	This help message
    -t <module> 	Test module
    +<var>=<val>	Modify variable environment
@@ -203,14 +203,14 @@ In order to get a list of all modules,
 use \ttt{ls *.hxx} in the \ttt{src/}-directory.
 Pass the name of the module to run its self test like this
 \begin{verbatim}
-./aa3 -t geometry_analysis.
+./a43 -t geometry_analysis.
 \end{verbatim}
 Mind that we need to skip the file suffix \ttt{hxx} or \ttt{cxx} but not the dot.
 We can also run all module tests, however, for this we might want to reduce
 the amount of output to \ttt{stdout}. For this, we use the variable environment
 which couples to the command line interface:
 \begin{verbatim}
-./aa3 +verbosity=1 -t
+./a43 +verbosity=1 -t
 \end{verbatim}
 The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently.
 However, there is a ground rule that higher \ttt{verbosity} means more output
@@ -219,14 +219,14 @@ and \ttt{verbosity=0} suppresses output except for fatal errors.
 \subsection{Try a first structure}
 Make sure there is an \ttt{.xyz} file and run
 \begin{verbatim}
-./aa3 +verbosity=4 -t geometry_analysis. +geometry.file=molecule.xyz
+./a43 +verbosity=4 -t geometry_analysis. +geometry.file=molecule.xyz
 \end{verbatim}
 in order to check if your geometry looks ok. Look out for warnings.
 There will be a summary of all warnings launched during the execution at the end of the logg.
 If we are free of severe warnings, continue with the next step:
 Let's say we have Aluminum in our system, the run:
 \begin{verbatim}
-./aa3 +verbosity=3 -t single_atom. +single_atom.test.Z=13
+./a43 +verbosity=3 -t single_atom. +single_atom.test.Z=13
 \end{verbatim}
 
 \codename{} will the try to access a database of initial atomic potentials
@@ -236,22 +236,22 @@ where $Z$ is a 3-digit integer atomic number.
 You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{xc} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
 If the loading fails because of a missing file, you can bootstrap it:
 \begin{verbatim}
-./aa3 +verbosity=2 -t atom_core. +atom_core.test.Z=13
+./a43 +verbosity=2 -t atom_core. +atom_core.test.Z=13
 \end{verbatim}
 or if the entire database was lost,
 \begin{verbatim}
-./aa3 +verbosity=0 -t atom_core. +atom_core.test.Z=1 +atom_core.test.Z.end=99
+./a43 +verbosity=0 -t atom_core. +atom_core.test.Z=1 +atom_core.test.Z.end=99
 \end{verbatim}
 
 Now, run the \ttt{single\_atom.} test for each of the elements in the system to see if there are warnings before you continue like this
 \begin{verbatim}
-./aa3 +verbosity=3 -t potential_generator. +geometry.file=molecule.xyz
+./a43 +verbosity=3 -t potential_generator. +geometry.file=molecule.xyz
 \end{verbatim}
 \todo[inline]{we have not yet defined a functionality of main! only tests so far}
 
 For the advanced user, we recommend to inspect the logarithmic derivatives by
 \begin{verbatim}
-./aa3 +verbosity=7 -t single_atom. +single_atom.test.Z=13 +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
+./a43 +verbosity=7 -t single_atom. +single_atom.test.Z=13 +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
 \end{verbatim}
 The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
 
