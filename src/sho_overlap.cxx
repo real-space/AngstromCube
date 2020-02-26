@@ -146,17 +146,17 @@ namespace sho_overlap {
                                 int const nmax,
                                 real_t const x_shift) {
     
-      auto const c_old = new real_t[nmax];
+      std::vector<real_t> c_old(nmax);
       for(int k = 0; k < nmax; ++k) {
           c_old[k] = c[k]; // get a work copy
       } // k
 
-      double kfactorial = 1; // init kfactorial with 0! == 1
+      double kfactorial{1}; // init kfactorial with 0! == 1
       for(int k = 0; k < nmax; ++k) { // loop MUST run forward from 0
 
           // evaluate the value of d^k p(x) / d x^k at x=x_shift
           real_t val = 0;
-          {   real_t xsp = 1; // x_shift^p
+          {   real_t xsp{1}; // x_shift^p
               for(int p = 0; p < nmax - k; ++p) { // we only need to run up to nmax-k as the degree of the input poly is decreased with every k
                   val += xsp * c_old[p];
                   xsp *= x_shift; // update x_shift^p for the next p-iteration
@@ -173,7 +173,6 @@ namespace sho_overlap {
 
           kfactorial *= (k + 1); // update kfactorial for the next k-iteration
       } // k
-      delete[] c_old;
   } // shift_polynomial_centers
   
   
@@ -198,23 +197,22 @@ namespace sho_overlap {
       auto const k0 = .5/(s0*s0), k1 = .5/(s1*s1);
       auto const denom = 1./(k0 + k1);
       auto const sigma = std::sqrt(denom);
-
-      auto const sh0 =  distance*k1*denom;
-      auto const H0s = new real_t[n0]; // H0 shifted by sh0
-      shift_polynomial_centers(H0s, H0, n0, sh0);
-
-      auto const sh1 = -distance*k0*denom;
-      auto const H1s = new real_t[n1]; // H1 shifted by sh1
-      shift_polynomial_centers(H1s, H1, n1, sh1);
-
+      
       int const n = n0 + n1;
-      auto const h0xh1 = new real_t[n]; // product of H0s and H1s
-      multiply(h0xh1, n, H0s, n0, H1s, n1);
-      delete[] H0s;
-      delete[] H1s;
-      auto const result = integrate(h0xh1, n, sigma, moment) * std::exp(-k0*sh0*sh0 -k1*sh1*sh1);
-      delete[] h0xh1;
-      return result;
+      std::vector<real_t> h0xh1(n); // product of H0s and H1s
+
+      if (0 == distance) {
+          multiply(h0xh1.data(), n, H0, n0, H1, n1);
+          return integrate(h0xh1.data(), n, sigma, moment);
+      } // distance zero
+      
+      auto const sh0 =  distance*k1*denom;
+      auto const sh1 = -distance*k0*denom;
+      std::vector<real_t> h0s(n0), h1s(n1); // H0 shifted by sh0 and H1 shifted by sh1
+      shift_polynomial_centers(h0s.data(), H0, n0, sh0);
+      shift_polynomial_centers(h1s.data(), H1, n1, sh1);
+      multiply(h0xh1.data(), n, h0s.data(), n0, h1s.data(), n1);
+      return integrate(h0xh1.data(), n, sigma, moment) * std::exp(-k0*sh0*sh0 -k1*sh1*sh1);
   } // overlap_of_two_Hermite_Gauss_functions
 
   template<int ncut, typename real_t>
@@ -421,8 +419,7 @@ namespace sho_overlap {
   
   status_t moment_normalization(double matrix[], int const M // matrix layout [M][M]
                     , double const sigma, int const echo) {
-    // uses overlap_of_poly_times_Gauss_with_pure_powers(real_t const p[], int const n0, double const s0, int const moment);
-    // and LAPACK for inversion
+    // uses LAPACK for inversion although the matrix is already in upper triangular shape
     if (M < 1) return 0;
     view2D<double> mat2D(matrix, M); // wrapper for result, assume data layout [M][M]
     int constexpr check = 1;
@@ -467,28 +464,14 @@ namespace sho_overlap {
     } // check
     return stat;
   } // moment_normalization
-  
-  
-  template<typename real_t>
-  status_t generate_overlap_matrix(real_t matrix[], // matrix layout [][n0]
-                     double const distance,
-                     int const n0, int const n1, 
-                     double const sigma0,   // =1
-                     double const sigma1) { // =1
-    return moment_tensor(matrix, distance, n0, n1, sigma0, sigma1, 0);
-  } // generate_overlap_matrix
-
-  template // explicit template instantiation
-  status_t generate_overlap_matrix(double matrix[], double const distance, int const n0, int const n1,
-                                   double const sigma0, double const sigma1);
-
-  template // explicit template instantiation
-  status_t generate_product_tensor(double tensor[], int const n, double const sigma,
-                                   double const sigma0, double const sigma1);
 
   template // explicit template instantiation
   status_t moment_tensor(double tensor[], double const distance, int const n0, int const n1,
                          double const sigma0, double const sigma1, int const maxmoment);
+  
+  template // explicit template instantiation
+  status_t generate_product_tensor(double tensor[], int const n, double const sigma,
+                                   double const sigma0, double const sigma1);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
