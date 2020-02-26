@@ -5,7 +5,7 @@ ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
 
 THISMACHINE := $(shell hostname)
 
-EXECUTABLE = aa3
+EXECUTABLE = a43
 all: ${EXECUTABLE}
 
 OBJ = \

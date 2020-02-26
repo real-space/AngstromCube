@@ -102,8 +102,12 @@ With a little simplification, we can write the total electron density
 	\label{eqn:simplified_density_generation}
 \end{equation} 
 As a function or functional of the density $n(\vec r)$, we can construct
-an effective potential $V\um{eff}(\vec r)$ entering the Hamiltonian
-including 
+a local effective potential entering the Hamiltonian
+\begin{equation}
+	\hat H\um{Kohn-Sham} = \frac{\left( \imath \hbar \vec \nabla \right)^2}{2 m_e} + V\um{eff}(\vec r)
+	\label{eqn:Kohn-Sham_Hamiltonian_no_spin}
+\end{equation} 
+where $V\um{eff}(\vec r)$ includes
 \begin{itemize}
   \item the attractive Coulomb potential of the atomic nuclei,
   \item a repulsive Hartree potential from electrostatic 
@@ -157,17 +161,17 @@ Internally the code makes use of atomic Hartree units:
 	\hbar = m_e = e = 1
 \end{equation}
 as reduces the number of non-trivial factors in many equations.
-This means that the unit of length is Bohr = \unit[0.529177]{\AA}
-and the unit of energy is called Hartree = \unit[27,2114]{$e$V}.
+This means that the unit of length is Bohr = \unit[0.529177]{\AA{}}
+and the unit of energy is called Hartree = \unit[27.2114]{$e$V}.
 However, we can change the length and energy units used for output.
 \todo[inline]{Change only at compile time possible. Make them runtime-configurable}
-Input length units are \AA as this is most convenient for molecular structure viewers
+Input length units are \AA{} as this is most convenient for molecular structure viewers
 (\ttt{VESTA}, \ttt{jmol}, etc.)
 
 Experimental parts of the code may not support all the unit conversion
 factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the logg files.
 Most standard functionality, however, supports unit conversion so that logg files
-show \ttt{eV} or \ttt{Ryd} and \ttt{Ang}$ = \AA$ or \ttt{nm}, depending on the users choice.
+show \ttt{eV} or \ttt{Ryd} and \ttt{Ang}$ = $\AA{} or \ttt{nm}, depending on the users choice.
 \todo[inline]{Keywords to change it?}
 
 
@@ -302,7 +306,7 @@ and crystal field splittings or even bands with small dispersion can be observed
 It is planned to implement semicore states with a separate energy window
 and either tight-binding like derived from atomic orbitals 
 (eigenfunctions of the spherically averaged potential) 
-or with a full \ac{PAW} treatment as follows for the valence states.
+or with a full \ac{paw} treatment as follows for the valence states.
 
 \subsubsection{Treatment of Valence States}
 Valence states are high in energy, by definition up to the Fermi
