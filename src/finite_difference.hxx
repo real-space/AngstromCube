@@ -208,6 +208,15 @@ namespace finite_difference {
               }
           } // spatial direction d
       } // constructor
+      
+      double prepare_Jacobi_stencil() { // modifies the coefficients c2nd[][]
+          double diag{0};
+          for(int d = 0; d < 3; ++d) {
+              diag += c2nd[d][0];
+              c2nd[d][0] = 0; // clear diagonal elements
+          } // d
+          return diag;
+      } // prepare_Jacobi_stencil
 
   }; // class finite_difference_t
   

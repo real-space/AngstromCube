@@ -380,10 +380,34 @@ namespace potential_generator {
 
       { // scope: compute the Laplacian using high-order finite-differences
           int const fd_nn[3] = {12, 12, 12}; // nearest neighbors in the finite-difference approximation
-          finite_difference::finite_difference_t<double> fd(g.h, bc, fd_nn);
-          {   // SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
+          finite_difference::finite_difference_t<double> const fd(g.h, bc, fd_nn);
+          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
+              // Laplace_Ves should match rho
           } // timer
+          
+          // Jacobi solver for the Poisson equation: try if Ves is already the solution
+          // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A
+
+          if (1) {   
+              // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
+              finite_difference::finite_difference_t<double> fdj(g.h, bc, fd_nn);
+              double const diagonal = fdj.prepare_Jacobi_stencil();
+              double const inverse_diagonal = -4*constants::pi/diagonal;
+              auto & Ves_copy = Ves;
+              std::vector<double> jac_work(g.all());
+              for(int k = 0; k < 3; ++k) {
+                  double const *x_k = Ves_copy.data(); // read from x_k
+                  double      *Tx_k = jac_work.data();
+                  double     *x_kp1 = Ves_copy.data();
+                  stat += finite_difference::Laplacian(Tx_k, x_k, g, fdj, -.25/constants::pi);
+                  for(size_t i = 0; i < g.all(); ++i) {
+                      x_kp1[i] = inverse_diagonal*(rho[i] - Tx_k[i]);
+                  } // i
+                  if (echo > 1) { printf("# Jacobi iteration %i: Ves grid stats:", k); print_stats(x_kp1, g.all(), g.dV()); }
+              } // k
+          } // Jacobi solver
+          
       } // scope
 
       double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
@@ -394,7 +418,7 @@ namespace potential_generator {
 //       values = Vxc; // analyze the xc potential
 //       values = Vtot; // analyze the total potential: Vxc + Ves
 
-      for(int iptr = 0; iptr < 6; iptr += 5) { // only loop over the first 1 for electrostatics
+      for(int iptr = 0; iptr < 1; iptr += 1) { // only loop over the first 1 for electrostatics
           // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
           auto const values = value_pointers[iptr];
 
