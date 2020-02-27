@@ -386,25 +386,35 @@ namespace potential_generator {
               // Laplace_Ves should match rho
           } // timer
           
-          // Jacobi solver for the Poisson equation: try if Ves is already the solution
-          // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A
 
-          if (1) {   
+          if (1) {
+              // Jacobi solver for the Poisson equation: try if Ves is already the solution
+              // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A
+            
               // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
               finite_difference::finite_difference_t<double> fdj(g.h, bc, fd_nn);
-              double const diagonal = fdj.prepare_Jacobi_stencil();
-              double const inverse_diagonal = -4*constants::pi/diagonal;
+              fdj.scale_coefficients(-.25/constants::pi);
+              double const diagonal = fdj.clear_diagonal_elements();
+              double const inverse_diagonal = 1/diagonal;
               auto & Ves_copy = Ves;
               std::vector<double> jac_work(g.all());
               for(int k = 0; k < 3; ++k) {
                   double const *x_k = Ves_copy.data(); // read from x_k
                   double      *Tx_k = jac_work.data();
                   double     *x_kp1 = Ves_copy.data();
-                  stat += finite_difference::Laplacian(Tx_k, x_k, g, fdj, -.25/constants::pi);
+                  stat += finite_difference::Laplacian(Tx_k, x_k, g, fdj);
+                  double res_a{0}, res_2{0};
                   for(size_t i = 0; i < g.all(); ++i) {
-                      x_kp1[i] = inverse_diagonal*(rho[i] - Tx_k[i]);
+                      double const new_value = inverse_diagonal*(rho[i] - Tx_k[i]);
+                      res_a += std::abs(x_kp1[i] - new_value);
+                      res_2 +=     pow2(x_kp1[i] - new_value);
+                      x_kp1[i] = new_value;
                   } // i
-                  if (echo > 1) { printf("# Jacobi iteration %i: Ves grid stats:", k); print_stats(x_kp1, g.all(), g.dV()); }
+                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
+                  if (echo > 1) {
+                      printf("# Jacobi iteration %i: residuals abs %.2e rms %.2e\n", k, res_a, res_2);
+                      if (echo > 9) { printf("# it%i Ves grid stats:", k); print_stats(x_kp1, g.all(), g.dV()); }
+                  } // echo
               } // k
           } // Jacobi solver
           
