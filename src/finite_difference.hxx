@@ -208,7 +208,26 @@ namespace finite_difference {
               }
           } // spatial direction d
       } // constructor
+      
+      double clear_diagonal_elements() { // modifies the coefficients c2nd[][]
+          double diag{0};
+          for(int d = 0; d < 3; ++d) {
+              diag += c2nd[d][0];
+              c2nd[d][0] = 0; // clear diagonal elements
+          } // d
+          return diag;
+      } // clear_diagonal_elements
 
+      void scale_coefficients(double const f[3]) {
+          for(int d = 0; d < 3; ++d) {
+              for(int i = 0; i < nnArraySize; ++i) {
+                  c2nd[d][i] = f[d] * c2nd[d][i];
+              } // i
+          } // d
+      } // scale_coefficients
+      
+      void scale_coefficients(double const f) { double const f3[] = {f, f, f}; scale_coefficients(f3); }
+      
   }; // class finite_difference_t
   
   
