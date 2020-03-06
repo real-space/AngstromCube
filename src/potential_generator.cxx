@@ -383,13 +383,21 @@ namespace potential_generator {
           finite_difference::finite_difference_t<double> const fd(g.h, bc, fd_nn);
           {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
-              // Laplace_Ves should match rho
+              { // Laplace_Ves should match rho
+                  double res_a{0}, res_2{0};
+                  for(size_t i = 0; i < g.all(); ++i) {
+                      res_a += std::abs(Laplace_Ves[i] - rho[i]);
+                      res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
+                  } // i
+                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
+                  if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
+              }
           } // timer
           
 
           if (1) {
               // Jacobi solver for the Poisson equation: try if Ves is already the solution
-              // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A
+              // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
             
               // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
               finite_difference::finite_difference_t<double> fdj(g.h, bc, fd_nn);
@@ -403,11 +411,12 @@ namespace potential_generator {
                   double      *Tx_k = jac_work.data();
                   double     *x_kp1 = Ves_copy.data();
                   stat += finite_difference::Laplacian(Tx_k, x_k, g, fdj);
-                  double res_a{0}, res_2{0};
+                  double res_a{0}, res_2{0}; // internal change between x_{k} and x_{k+1}
                   for(size_t i = 0; i < g.all(); ++i) {
+                      double const old_value = x_k[i];
                       double const new_value = inverse_diagonal*(rho[i] - Tx_k[i]);
-                      res_a += std::abs(x_kp1[i] - new_value);
-                      res_2 +=     pow2(x_kp1[i] - new_value);
+                      res_a += std::abs(new_value - old_value);
+                      res_2 +=     pow2(new_value - old_value);
                       x_kp1[i] = new_value;
                   } // i
                   res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
@@ -417,6 +426,20 @@ namespace potential_generator {
                   } // echo
               } // k
           } // Jacobi solver
+          
+          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference onto Jacobi solution", echo);
+              stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
+              { // Laplace_Ves should match rho
+                  double res_a{0}, res_2{0};
+                  for(size_t i = 0; i < g.all(); ++i) {
+                      res_a += std::abs(Laplace_Ves[i] - rho[i]);
+                      res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
+                  } // i
+                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
+                  if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
+              }
+          } // timer
+          
           
       } // scope
 
