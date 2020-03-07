@@ -52,7 +52,7 @@
 
 \begin{figure*}
 	\centering
-	\includegraphics[width=3cm]{fig/aa3_logo_bold_no_helper_lines} %%
+	\includegraphics[width=3cm]{fig/a43_logo_bold_no_helper_lines} %%
 \end{figure*}
 
 % ==============================================================================
@@ -170,7 +170,7 @@ $X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $
 
 \begin{figure}
 	%%% how to generate this plot: 
-	%%% ./aa3 -t hermite_polynomial. +verbosity=10
+	%%% ./a43 -t hermite_polynomial. +verbosity=10
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/hermite_gauss_functions} %%
   \end{minipage}\hfill
@@ -261,7 +261,7 @@ Mind that no approximations are required here.
 %
 \begin{figure}
 	%%% how to generate this plot:
-	%%% make -j && ./aa3 -t sho_overlap. +verbosity=9 | grep 'test_Hermite_Gauss_overlap' | sed -e 's/# test_Hermite_Gauss_overlap  distance=//g'
+	%%% make -j && ./a43 -t sho_overlap. +verbosity=9 | grep 'test_Hermite_Gauss_overlap' | sed -e 's/# test_Hermite_Gauss_overlap  distance=//g'
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/overlap_1D} %%
   \end{minipage}\hfill
@@ -782,7 +782,7 @@ In order to reproduce the exact total effective potential outside
 \begin{figure}
    %%% how to reproduce this:
    %%% git key 9f115f160f63d6cf7df64cf60de547293d8d5ca6 
-   %%% make -j && ./aa3 -t spherical_atoms. +verbosity=11  +single_atom.echo=6 > out
+   %%% make -j && ./a43 -t spherical_atoms. +verbosity=11  +single_atom.echo=6 > out
    %%% and rune once again with
    %%% manipulated prefactor (e.g. insert 0 instead of Y00 in spherical_atoms.cxx:343)
   \begin{minipage}[c]{.990\textwidth}
