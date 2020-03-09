@@ -1512,7 +1512,7 @@ extern "C" {
             if (echo > 5) printf("# %s zero potential statistics = %g %g %g %s\n",
                         label, Vint/vol*eV, r1Vint/(vol*r_cut)*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
                 // these numbers should be small since they indicate that V_bar is localized inside the sphere
-                // and how much V_smt deviates from V_tru ouside the sphere
+                // and how much V_smt deviates from V_tru outside the sphere
         } // pseudization successful
         if (echo > 5) printf("# %s zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
             label, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT]->n - 1]*df, _eV);

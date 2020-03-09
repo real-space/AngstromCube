@@ -23,6 +23,7 @@
 
 \setlength{\tabcolsep}{6pt}
 
+\newcommand{\m}[1]{{\mathrm{#1}}}
 \newcommand{\um}[1]{_{\mathrm{#1}}}
 \newcommand{\ttt}[1]{\texttt{#1}}
 \newcommand{\lmax}{\ell_{\mathrm{max}}}
@@ -832,7 +833,7 @@ we can probe the value and derivatives of the potential at the nuclear site, $V\
 however, in order to avoid egg-box effects we
 probe by a projection to the charge compensator shape:
 $$ v^a_{\ell m} = \int d^3 \vec r \  \hat g_{\ell m}(\vec r) \tilde V\um{es}(\vec r) $$
-See fig.~\ref{fig:multipole-shifts} for an example.
+See fig.~\ref{fig:_} for an example.
 
 \begin{figure}
   %% how to generate this plot:
@@ -1007,7 +1008,121 @@ the radial L2-normalization is given by
 See \ttt{sho\_projection::radial\_L2\_prefactor} for an implementation of $f_{L2}$ as a function of $\ell$.
 However, we need the (L1-)normalization described above, so we introduce a proper re-scaling factor.
 
+\clearpage
 
+\section{Implementation of the PAW formalism} \label{sec:paw-theory}
+%
+Various ways of implementing the \ac{paw} formalism can be found in the literature.
+While all of these should formally lead to the same results,
+their rates of convergence and the complexity of implementation may differ.
+For example Kang \emph{et al.}~ \cite{Kang2016}
+follows closely to the descriptions of GPAW \cite{Rostgaard-paw-note}
+where the expressions for the total energy and Hamiltonian are derived
+in terms of many precomputed single terms.
+For instance the atom-centered corrections to the total energy
+involve a rank-4 tensor that reads
+\begin{equation}
+	\iint \m dr \ \m dr' \   \frac{ \phi_i(r) \phi_j(r) \phi_k(r') \phi_l(r') }{\vec r - \vec r'}
+\end{equation}
+and a similar but negative contribution with $\tilde \phi$ instead of $\phi$.
+
+As in usual \ac{paw} implementations partial waves are constant 
+and only read from files at initialization, this way of implementing \ac{paw}
+is a good choice when it comes to clarity of the formalism.
+As we intent to let core states relax and partial waves adopt
+to the chemical environment,
+an alternative way is outlined in the following sections.
+But first, a short review of the \ac{paw} method is given.
+
+\subsection{PAW method}
+%
+\subsubsection{Total energy}
+%
+The total energy consists of smooth contributions ($\tilde{\phantom{x}}$) from the 3D basis
+representing the entire simulation volume and corrections from the atomic spheres
+which are evaluated on radial grids.
+\begin{align}
+	E\um{tot} &= \tilde E + \sum_a \left( E^a - \tilde E^a \right) \\
+	\tilde E  &= \tilde T\um{valence} + E\um{xc}[\tilde n] + E\um{es}[\tilde\varrho] + \braket{\tilde n\um{valence}}{\bar V}
+\end{align}
+where $\tilde T$ denotes the kinetic energy of the smooth parts of the occupied Kohn-Sham eigenstates.
+$\tilde n$ is the smooth valence density $\tilde n\um{valence}$ plus smooth core density contributions $\tilde n^a\um{c}$
+and $\tilde\varrho$ is a smooth charge density that includes compensation charges $\tilde g_{\ell m}^a$
+that make up for the charge deficit and smear out the core charge such that it is in total neutral
+for a system with equal number of electrons and protons.
+$\bar{V}$ is the sum of all \emph{zero}-potential contributions $\bar v^a$ localized inside
+each augmentation sphere. The notation $\braket{\cdot}{\cdot}$ has been used here to 
+abbreviate a spatial integral.
+
+The electrostatic contribution is quadratic in the augmentation density $\tilde\varrho$, 
+i.e.~
+\begin{align}
+E\um{es}[\tilde\varrho] &= \frac{1}{2} \braket{\tilde\varrho}{V\um{es}[\tilde\varrho]}
+\end{align}
+where we can exploit that the 3D Poisson equation $\Delta V\um{es}[\tilde\varrho](\vec r) = -4\pi\tilde\varrho(\vec r)$ only needs to be solved once.
+
+The atom-centered corrections to the total energy read
+\begin{align*}
+  E^a &= T^a\um{core} + \sum_{ij} \rho^a_{ij} \braketop{\phi^a_i}{\hat T}{\phi^a_j} \\
+      &+ E\um{xc}[n^a] \\
+      &+ \frac{1}{2} \braketop{ n^a }{ \frac{1}{\vec r - \vec r'} }{ n^a } - Z^a \braket{ n^a }{ \frac{1}{r} } 
+      \label{eqn:total-energy-true-atom-corrections}
+\end{align*}
+So we can label the term as kinetic energy of the core electrons, 
+kinetic energy of the true valence partial waves,
+exchange-correlation energy of the true atom-centered density,
+Hartree and Coulomb energy of the atom-centered density.
+
+For the smooth corrections, we find
+\begin{align*}
+  \tilde E^a &= \sum_{ij} \rho^a_{ij} \braketop{\tilde\phi^a_i}{\hat T}{\tilde\phi^a_j} \\
+      &+ E\um{xc}[\tilde n^a] \\
+      &+ \frac{1}{2} \braketop{ \tilde\varrho^a }{ \frac{1}{\vec r - \vec r'} }{ \tilde\varrho^a } \\
+      &+ \braket{ \tilde n^a\um{valence} }{ \bar v^a } 
+\end{align*}
+The labels differ slightly from those in eq.~(\ref{eqn:total-energy-true-atom-corrections}):
+kinetic energy of the smooth valence partial waves,
+exchange-correlation energy of the smooth atom-centered density,
+electrostatic energy of the atom-centered augmented density.
+Furthermore, there is a correction term that accounts for the zero-potential.
+
+\subsubsection{Hamiltonian}
+%
+The Hamiltonian is found by variation of the total energy w.r.t.~$\tilde \Psi(\vec r)$
+and, applying the chain rule, 
+by variation of the atom-centered energy contributions w.r.t.~$\rho^a_{ij}$.
+%
+The Hamiltonian reads
+\begin{align}
+  \hat H &= \hat T + \tilde V\um{eff}(\vec r) + \sum_a \left( H^a_{ij} - \tilde H^a_{ij} \right)\ket{p^a_i}\bra{p^a_j}
+\end{align}
+where the local effective potential consists of the following
+\begin{align}
+  \tilde V\um{eff}(\vec r) = V\um{es}[\tilde\varrho](\vec r) + V\um{xc}[\tilde n](\vec r) + \bar V(\vec r)
+\end{align}
+The localized zero-potentials are $\bar V(\vec r) = \sum_a \bar v^a(\vec r - \vec R^a)$.
+The non-local contributions read
+\begin{align}
+	H^a_{ij} &= \braketop{ \phi^a_i }{ \hat T }{ \phi^a_j } \\
+	         &+ \braketop{ \phi^a_i }{ V\um{xc}[n^a] + V\um{es}[n^a] - \frac{Z^a}{r} }{ \phi^a_j } 
+	         \label{eqn:hamiltonian-true-atom-potential-part} \\
+	\tilde H^a_{ij} &= \braketop{ \tilde\phi^a_i }{ \hat T }{ \tilde\phi^a_j } \\
+	         &+ \braketop{ \tilde\phi^a_i }{ V\um{xc}[\tilde n^a] + V\um{es}[\tilde\varrho^a] - \bar v^a(r) }{ \tilde\phi^a_j }
+	         \label{eqn:hamiltonian-smooth-atom-potential-part}
+\end{align}
+Due to the non-linearity of $V\um{xc}$ the evaluation of atom-centered potential matrix elements
+(eq.~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}))
+can only be performed numerically.
+Implementations like GPAW \cite{GPAW,Rostgaard-paw-note} and ACE-Molecule \cite{Kang2016}
+decompose the linear and quadratic contributions of $\rho^a_{ij}$ with precomputed tensors
+which are constant over the course of the calculation, even when updating the atomic position.
+If, however, we let the core state relax, the core density changes
+and we can construct a new true reference potential from which we generate new partial waves.
+Then the approach of evaluating eq.~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}) numerically does not lead to extra costs.
+Note that during the construction of electrostatic potentials inside the augmentations sphere, 
+i.e.~$V\um{es}[n^a] - Z^a/r$ and $V\um{es}[\tilde\varrho^a]$, the boundary conditions must match between
+the two and also with the electrostatic potential on the 3D grid, $V\um{es}[\tilde\varrho]$.
+This is achieved with the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$.
 
 
 % ==============================================================================
