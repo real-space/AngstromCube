@@ -361,6 +361,11 @@ namespace atom_core {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n",
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
 
+              printf("# %s  Z=%g  E_kin= %.9f E_xc= %.9f E_es= %.9f %s\n", __func__, Z, 
+                      energies[E_kin]*eV, energies[E_exc]*eV, energies[E_est]*eV, _eV);
+              printf("# %s  Z=%g  E_Coulomb= %.9f E_Hartree= %.9f %s\n", __func__, Z, 
+                      energies[E_Cou]*eV, energies[E_Htr]*eV, _eV);
+
               store_Zeff_to_file(rV_old, g.r, g.n, Z, "pot/Zeff", -1);
 
               if (echo > 1) {
