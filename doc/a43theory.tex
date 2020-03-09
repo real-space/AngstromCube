@@ -19,6 +19,7 @@
 \acrodef{planewave}[PW]{plane wave}
 \acrodef{gridpoint}[GP]{grid point}
 \acrodef{paw}[PAW]{Projector Augmented Wave}
+\acrodef{xc}[XC]{exchange-correlation}
 
 
 \setlength{\tabcolsep}{6pt}
@@ -1062,24 +1063,25 @@ E\um{es}[\tilde\varrho] &= \frac{1}{2} \braket{\tilde\varrho}{V\um{es}[\tilde\va
 where we can exploit that the 3D Poisson equation $\Delta V\um{es}[\tilde\varrho](\vec r) = -4\pi\tilde\varrho(\vec r)$ only needs to be solved once.
 
 The atom-centered corrections to the total energy read
-\begin{align*}
+\begin{align}
   E^a &= T^a\um{core} + \sum_{ij} \rho^a_{ij} \braketop{\phi^a_i}{\hat T}{\phi^a_j} \\
       &+ E\um{xc}[n^a] \\
-      &+ \frac{1}{2} \braketop{ n^a }{ \frac{1}{\vec r - \vec r'} }{ n^a } - Z^a \braket{ n^a }{ \frac{1}{r} } 
+      &+ \frac{1}{2} \braket{ n^a }{ V\um{es}[n^a] } - Z^a \braket{ n^a }{ \frac{1}{r} } 
       \label{eqn:total-energy-true-atom-corrections}
-\end{align*}
+\end{align}
 So we can label the term as kinetic energy of the core electrons, 
 kinetic energy of the true valence partial waves,
 exchange-correlation energy of the true atom-centered density,
 Hartree and Coulomb energy of the atom-centered density.
 
 For the smooth corrections, we find
-\begin{align*}
+\begin{align}
   \tilde E^a &= \sum_{ij} \rho^a_{ij} \braketop{\tilde\phi^a_i}{\hat T}{\tilde\phi^a_j} \\
       &+ E\um{xc}[\tilde n^a] \\
-      &+ \frac{1}{2} \braketop{ \tilde\varrho^a }{ \frac{1}{\vec r - \vec r'} }{ \tilde\varrho^a } \\
+      &+ \frac{1}{2} \braket{ \tilde\varrho^a }{ V\um{es}[\tilde\varrho^a]      }
+      \label{trm:electrostatic-energy-smooth-atom-correction} \\
       &+ \braket{ \tilde n^a\um{valence} }{ \bar v^a } 
-\end{align*}
+\end{align}
 The labels differ slightly from those in eq.~(\ref{eqn:total-energy-true-atom-corrections}):
 kinetic energy of the smooth valence partial waves,
 exchange-correlation energy of the smooth atom-centered density,
@@ -1094,7 +1096,8 @@ by variation of the atom-centered energy contributions w.r.t.~$\rho^a_{ij}$.
 %
 The Hamiltonian reads
 \begin{align}
-  \hat H &= \hat T + \tilde V\um{eff}(\vec r) + \sum_a \left( H^a_{ij} - \tilde H^a_{ij} \right)\ket{p^a_i}\bra{p^a_j}
+  \hat H &= \hat T + \tilde V\um{eff}(\vec r) + \sum_{aij} \ket{p^a_i} \left( H^a_{ij} - \tilde H^a_{ij} \right)
+  \bra{p^a_j}
 \end{align}
 where the local effective potential consists of the following
 \begin{align}
@@ -1111,19 +1114,42 @@ The non-local contributions read
 	         \label{eqn:hamiltonian-smooth-atom-potential-part}
 \end{align}
 Due to the non-linearity of $V\um{xc}$ the evaluation of atom-centered potential matrix elements
-(eq.~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}))
+(term~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}))
 can only be performed numerically.
 Implementations like GPAW \cite{GPAW,Rostgaard-paw-note} and ACE-Molecule \cite{Kang2016}
 decompose the linear and quadratic contributions of $\rho^a_{ij}$ with precomputed tensors
 which are constant over the course of the calculation, even when updating the atomic position.
 If, however, we let the core state relax, the core density changes
 and we can construct a new true reference potential from which we generate new partial waves.
-Then the approach of evaluating eq.~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}) numerically does not lead to extra costs.
+Then the approach of evaluating the terms~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}) numerically does not lead to extra costs.
 Note that during the construction of electrostatic potentials inside the augmentations sphere, 
-i.e.~$V\um{es}[n^a - Z^a delta]$ and $V\um{es}[\tilde\varrho^a]$, the boundary conditions must match between
+i.e.~$V\um{es}[n^a - Z^a \delta]$ and $V\um{es}[\tilde\varrho^a]$, the boundary conditions on the augmentation sphere must match between
 the two and also with the electrostatic potential on the 3D grid, $V\um{es}[\tilde\varrho]$.
-This is achieved with the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$.
+This is achieved using the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$.
 
+The \emph{intelligent zero} inserted to make the local potential smoother inside the augmentation sphere
+leads to the term $\bar v^a$. In fact, the electrostatic potential will feature smooth but deep potential well
+at the position of the nucleus. $\bar v^a$ is chosen to fill the well.
+Different from other implementations of \ac{paw} we added only the contribution of the valence density
+with $\bar V$ to the total energy and subtracted it in the atom corrections.
+The reason behind this is that there will be tails of the core densities
+of neighboring atoms that give contributions which are not cancelled in the atom-centered treatment.
+A similar error might appear from the \ac{xc} contribution.
+
+
+In the evaluation of $E\um{es}[\tilde\varrho]$, 
+we find that $\tilde\varrho(\vec r)$ is relatively smooth in the interstitial region
+and has mostly strong negative value inside the augmentation sphere. 
+The negative values represent the smeared out proton density.
+The resulting $V\um{es}(\vec r)$ also has large negative values in the augmentation region.
+Hence, the augmentation region leads to a large positive contribution to the
+electrostatic energy with does not change, except when atoms move.
+It should be investigated if the electrostatic total energy contribution should
+better be evaluated as
+\begin{align}
+  E\um{es} = \frac{1}{2} \braket{ \tilde n }{ V\um{es}[\tilde\varrho] } 
+\end{align}
+with corresponding change in the atom-centered correction term~(\ref{trm:electrostatic-energy-smooth-atom-correction}).
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
