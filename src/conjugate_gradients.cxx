@@ -7,7 +7,6 @@
 #include "conjugate_gradients.hxx"
 
 #include "real_space_grid.hxx" // ::grid_t
-#include "grid_operators.hxx" // ::grid_Hamiltonian, ::grid_Overlapping
 #include "grid_operators.hxx" // ::grid_operator_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::generalized_eigval
@@ -135,21 +134,21 @@ namespace conjugate_gradients {
 
       // get memory for single vectors:
       int const nsinglevectors = 4 + (use_precond?1:0) + (use_cg?1:0) + (use_overlap?3:0);
-      if (echo > 8) printf("# %s allocate %.3f MByte for %d single vectors functions\n", 
+      if (echo > 8) printf("# %s allocate %.3f MByte for %d single vectors\n", 
                               __func__, nsinglevectors*nv*1e-6*sizeof(real_t), nsinglevectors);
       view2D<real_t> mem(nsinglevectors, nv, 0.0);
       int imem{0};
       auto const Hs=mem[imem++], Hcon=mem[imem++], grd=mem[imem++], dir=mem[imem++], // always these 4
-                Pgrd=use_precond ? mem[imem++] : grd,
+                Pgrd=use_precond  ? mem[imem++] : grd,
                 SPgrd=use_overlap ? mem[imem++] : Pgrd,
-                con =use_cg ? mem[imem++] : Pgrd,
-                Scon=use_overlap ? mem[imem++] : con,
-                Sdir=use_overlap ? mem[imem++] : dir;
+                con=use_cg        ? mem[imem++] : Pgrd,
+                Scon=use_overlap  ? mem[imem++] : con,
+                Sdir=use_overlap  ? mem[imem++] : dir;
       if (echo > 9) printf("# CG vectors: Hs=%p, Hcon=%p, grd=%p, dir=%p, \n#   Pgrd=%p, SPgrd=%p, con=%p, Scon=%p, Sdir=%p\n",
           (void*)Hs, (void*)Hcon, (void*)grd, (void*)dir, (void*)Pgrd, (void*)SPgrd, (void*)con, (void*)Scon, (void*)Sdir);
       if (echo > 8 && nsinglevectors > imem) printf("# %s only needed %d of %d single vectors\n", __func__, imem, nsinglevectors);
       assert(nsinglevectors >= imem);
-      
+
       std::vector<double> energy(nbands, 0.0), residual(nbands, 9.9e99);
 
       int const num_outer_iterations = control::get("conjugate_gradients.num.outer.iterations", 1.);
@@ -162,10 +161,8 @@ namespace conjugate_gradients {
               
               assert( 1 == D0 );
               // apply Hamiltonian and Overlap operator
-// //            stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
 //            stat += op.Hamiltonian(Hs, s[ib], echo);
               if (use_overlap) {
-//                   stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
                   stat += op.Overlapping(Ss[ib], s[ib], echo);
               } else assert(Ss[ib] == s[ib]);
 
@@ -204,10 +201,8 @@ namespace conjugate_gradients {
                   if (0 == (iiter - 1) % restart_every_n_iterations) restart = true;
                   if (restart) {
                       // apply Hamiltonian and Overlap operator
-//                       stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
                       stat += op.Hamiltonian(Hs, s[ib], echo);
                       if (use_overlap) {
-//                           stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
                           stat += op.Overlapping(Ss[ib], s[ib], echo);
                       } else assert(Ss[ib] == s[ib]);
 
@@ -228,7 +223,7 @@ namespace conjugate_gradients {
                   if (echo > 7) printf("# norm^2 (no S) of gradient %.e\n", inner_product(nv, grd, grd, g.dV()));
 
                   if (use_precond) {
-                      assert(0); // ToDo implement preconditioner here!
+                      op.Conditioner(Pgrd, grd, echo);
                   } else assert(Pgrd == grd);
 
                   for(int iortho = 0; iortho < northo[1]; ++iortho) {
@@ -242,7 +237,6 @@ namespace conjugate_gradients {
 
                   // apply Overlap operator
                   if (use_overlap) {
-//                       stat += grid_operators::grid_Overlapping(SPgrd, Pgrd, g, a, ai);
                       stat += op.Overlapping(SPgrd, Pgrd, echo);
                   } else assert(SPgrd == Pgrd);
                   
@@ -296,13 +290,11 @@ namespace conjugate_gradients {
                           if (1) {
                               scale(Scon, nv, cf); 
                           } else { // alternatively we can recompute it from S*con?
-//                               stat += grid_operators::grid_Overlapping(Scon, con, g, a, ai);
                               stat += op.Overlapping(Scon, con, echo);
                           }
                       } else assert(Scon == con);
 
                       // apply Hamiltonian
-//                       stat += grid_operators::grid_Hamiltonian(Hcon, con, g, a, ai, kinetic, potential.data());
                       stat += op.Hamiltonian(Hcon, con, echo);
                       
                       double    const sHs = energy[ib];
@@ -339,11 +331,7 @@ namespace conjugate_gradients {
               print("Eigenvalues of outer iteration #%i", outer_iteration), '#', 0);
       } // outer iterations
 
-      if (eigenvalues) {
-          for(int ib = 0; ib < nbands; ++ib) {
-              eigenvalues[ib] = energy[ib];
-          } // ib
-      } // export eigenvalues
+      if (eigenvalues) set(eigenvalues, nbands, energy.data()); // export eigenvalues
       
       return stat;
   } // eigensolve

@@ -24,6 +24,7 @@ typedef int status_t;
 #include "density_generator.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
+#include "poisson_gradient.hxx" // ::all_tests
 #include "scattering_test.hxx" // ::all_tests
 #include "real_space_grid.hxx" // ::all_tests
 #include "davidson_solver.hxx" // ::all_tests
@@ -82,6 +83,7 @@ typedef int status_t;
           module_test("density_generator.",     density_generator::all_tests);
           module_test("radial_potential.",       radial_potential::all_tests);
           module_test("bessel_transform.",       bessel_transform::all_tests);
+          module_test("poisson_gradient.",       poisson_gradient::all_tests);
           module_test("scattering_test.",         scattering_test::all_tests);
           module_test("real_space_grid.",         real_space_grid::all_tests);
           module_test("davidson_solver.",         davidson_solver::all_tests);
