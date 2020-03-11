@@ -18,8 +18,6 @@
 #include "atom_image.hxx" // ::sho_atom_t, ::atom_image_t
 #include "display_units.h" // eV, _eV
 
-  #include <cstdarg> // 
-  #include <utility> // std::forward
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -39,6 +37,9 @@
 #else
     #define debug(print)
 #endif
+
+  #include <cstdarg> // Args
+  #include <utility> // std::forward
 
   template <class... Args>
   char const * print(char const *const fmt, Args &&... args) {
