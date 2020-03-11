@@ -114,20 +114,6 @@ namespace conjugate_gradients {
       if (echo > 0) printf("# start CG (onto %d bands)\n", nbands);
 
       auto const & g = op.get_grid();
-
-//       prepare the Hamiltonian and Overlapping
-//       std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential
-//       std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
-//       std::vector<atom_image::atom_image_t> ai(1); // atom_images
-//       a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
-//       ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); // image position at the center, index=0 maps into list of sho_atoms
-//       int const nprecond = control::get("conjugate_gradients.precond", 0.); 
-//       bool const use_overlap = (control::get("conjugate_gradients.overlap", 1.) > 0);
-//       bool const use_precond = (nprecond > 0);
-//       assert(!use_precond); // ToDo: implement preconditioner
-//       int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8}, nn_precond[] = {nprecond, nprecond, nprecond};
-//       finite_difference::finite_difference_t<double> kinetic(g.h, bc, nn), precond(g.h, bc, nn_precond);
-//       for(int d = 0; d < 3; ++d) { precond.c2nd[d][1] = 1/12.; precond.c2nd[d][0] = 1/6.; } // preconditioner is a diffusion stencil
       bool const use_overlap = op.use_overlap();
       bool const use_precond = op.use_precond();
       
@@ -425,7 +411,7 @@ namespace conjugate_gradients {
   status_t all_tests(int const echo) {
     status_t stat{0};
     stat += test_solver<double>(echo);
-    stat += test_solver<float>(echo); // test complation and convergence
+//     stat += test_solver<float>(echo); // test complation and convergence
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS

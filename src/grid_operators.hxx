@@ -26,14 +26,12 @@ namespace grid_operators {
       status_t stat = 0;
 
       if (fd) {
-          stat += Laplacian(Hpsi, psi, g, *fd, -0.5); // -0.5: kinetic energy prefactor in Hartree units
+          stat += Laplacian(Hpsi, psi, g, *fd); // prefactor -0.5 moved into fd-coefficients
           if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
       } else {
           set(Hpsi, g.all(), real_t(0)); // clear
       } // fd
 
-//    typedef vector_math::vec<D0,real_t> real_vec_t;
-      
       size_t const nzyx = g.dim(2) * g.dim(1) * g.dim(0);
       if (echo > 8) printf("# %s Apply %s operator\n", __func__, potential ? "potential" : "unity");
       for(size_t izyx = 0; izyx < nzyx; ++izyx) {
@@ -200,7 +198,7 @@ namespace grid_operators {
 
           auto const & g = grid;  // abbrev.
 
-          std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
+          potential = std::vector<double>(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
           
           images = std::vector<atom_image::atom_image_t>(natoms); // atom_images
 //           atoms [0] = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
@@ -214,10 +212,11 @@ namespace grid_operators {
           precond = finite_difference::finite_difference_t<real_t>(g.h, bc, nn_precond);
           // this simple preconditioner is a diffusion stencil
           for(int d = 0; d < 3; ++d) {
-              precond.c2nd[d][1] = 1/12.; 
-              precond.c2nd[d][0] = 1/6.;
+              precond.c2nd[d][1] = 1/12.;
+              precond.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions
           } // d
           kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, bc, nn);
+          kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
 
       } // constructor
 
@@ -235,13 +234,13 @@ namespace grid_operators {
       
     
     private:
+      real_space_grid::grid_t<D0> grid;
       std::vector<atom_image::sho_atom_t> atoms;
       std::vector<atom_image::atom_image_t> images;
       std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
       std::vector<double> potential;
       finite_difference::finite_difference_t<real_fd_t> kinetic;
       finite_difference::finite_difference_t<real_t> precond;
-      real_space_grid::grid_t<D0> grid;
       bool has_precond;
       bool has_overlap;
     public:
