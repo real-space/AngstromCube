@@ -53,9 +53,26 @@ namespace fourier_poisson {
       status = DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
       delete[] imag2;
       return status;
-#else
-      return -1; // error
-#endif      
+#else // not defined HAS_no_MKL
+#ifdef HAS_FFTW
+      static int64_t ng3_last = 0;
+      static rfftwnd_plan plan_f, plan_b;
+      static std::complex<double>* cw3 = nullptr;
+      auto const ng3 = ng[0] + (((int64_t)ng[1]) << 21) + (((int64_t)ng[2]) << 42);
+      if (ng3 != ng3_last) {
+          plan_f = rfftw3d_create_plan(3, ng, FFTW_FORWARD, 0);
+          plan_b = rfftw3d_create_plan(3, ng, FFTW_BACKWARD, 0);
+          ng3_last = ng3;
+      }
+      if ('f' == direction) { // forward
+          // rfftw3d_one_real_to_complex(plan_f, in, out);
+      } else {
+          // rfftw3d_one_complex_to_real(plan_b, out, in);
+      }
+      return 0;
+#endif // defined HAS_FFTW
+      return -1; // error, no FFT library available
+#endif // defined HAS_no_MKL     
   } // fft_MKL
   
   
@@ -108,16 +125,6 @@ namespace fourier_poisson {
       return stat;
   } // fourier_solve
 
-  
-  status_t fourier_solve_MKL(double x[] // (out) solution of Laplace*x == b
-                        , double const b[] // right hand side b
-                        , int const ng[3] // grid numbers
-                        , double const bravais[3][4] // unit cell extend
-                        ) {
-
-
-      return 0;
-  } // fourier_solve_MKL
 
 #ifdef  NO_UNIT_TESTS
   template // explicit template instantiation

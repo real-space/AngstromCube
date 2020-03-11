@@ -39,6 +39,11 @@ namespace real_space_grid {
           }
       } // constructor
 
+      grid_t(int const d0, int const d1, int const d2, int const dim_outer=1) {
+         int const dim[3] = {d0, d1, d2};
+         grid_t(dim, dim_outer);
+      } // constructor
+
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (debug) printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",

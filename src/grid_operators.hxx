@@ -194,8 +194,8 @@ namespace grid_operators {
   {
     public:
 
-      grid_operator_t(int const dims[3], int const natoms=0, int const nprecond=0)
-      : grid(dims), atoms(natoms), has_precond(nprecond > 0) { // constructor
+      grid_operator_t(real_space_grid::grid_t<D0> const & rsg, int const natoms=0, int const nprecond=0)
+      : grid(rsg), atoms(natoms), has_precond(nprecond > 0), has_overlap(false) { // constructor
 //           int const nprecond = control::get("conjugate_gradients.precond", 1.);
 
           auto const & g = grid;  // abbrev.
@@ -218,9 +218,9 @@ namespace grid_operators {
               precond.c2nd[d][0] = 1/6.;
           } // d
           kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, bc, nn);
-          
+
       } // constructor
-      
+
       status_t Hamiltonian(real_t Hpsi[], real_t const psi[], int const echo=0) const {
           return _grid_operator(Hpsi, psi, grid, atoms, images, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
       } // Hamiltonian
@@ -233,15 +233,18 @@ namespace grid_operators {
           return _grid_operator(Cpsi, psi, grid, atoms, images, -1, boundary_phase.data(), &precond, nullptr, echo);
       } // Pre-Conditioner
       
+    
     private:
-      real_space_grid::grid_t<D0> grid;
       std::vector<atom_image::sho_atom_t> atoms;
       std::vector<atom_image::atom_image_t> images;
       std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
       std::vector<double> potential;
       finite_difference::finite_difference_t<real_fd_t> kinetic;
       finite_difference::finite_difference_t<real_t> precond;
+    public:
+      real_space_grid::grid_t<D0> grid;
       bool has_precond;
+      bool has_overlap;
   }; // class grid_operator_t
   
   status_t all_tests(int const echo=0);

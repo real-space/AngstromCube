@@ -8,12 +8,14 @@
 
 #include "real_space_grid.hxx" // ::grid_t
 #include "grid_operators.hxx" // ::grid_Hamiltonian, ::grid_Overlapping
+#include "grid_operators.hxx" // ::grid_operator_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::generalized_eigval
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // set
 #include "inline_tools.hxx" // real_t_name<real_t>
 #include "simple_math.hxx" // ::random<T>
+#include "atom_image.hxx" // ::sho_atom_t, ::atom_image_t
 #include "display_units.h" // eV, _eV
 
   #include <cstdarg> // 
@@ -98,7 +100,8 @@ namespace conjugate_gradients {
   template<typename real_t, int D0> // D0: vectorization
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
-    , real_space_grid::grid_t<D0> const & g // grid descriptor
+//     , real_space_grid::grid_t<D0> const & g // grid descriptor
+    , grid_operators::grid_operator_t<real_t,real_t,D0> const & op // grid operator descriptor
     , int const echo=9 // log output level
     , float const threshold=1e-8f
     , double *eigenvalues=nullptr // export results
@@ -110,6 +113,7 @@ namespace conjugate_gradients {
       
       if (echo > 0) printf("# start CG (onto %d bands)\n", nbands);
 
+      auto const & g = op.grid;
 
       // prepare the Hamiltonian and Overlapping
       std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential
@@ -399,9 +403,11 @@ namespace conjugate_gradients {
           if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
 
+      grid_operators::grid_operator_t<real_t,real_t,D0> op(g);
+      
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat += eigensolve(psi.data(), nbands, g, echo);
+          stat += eigensolve(psi.data(), nbands, op, echo);
       } // it
       return stat;
   } // test_solver

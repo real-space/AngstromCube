@@ -1125,7 +1125,7 @@ Then the approach of evaluating the terms~(\ref{eqn:hamiltonian-true-atom-potent
 Note that during the construction of electrostatic potentials inside the augmentations sphere, 
 i.e.~$V\um{es}[n^a - Z^a \delta]$ and $V\um{es}[\tilde\varrho^a]$, the boundary conditions on the augmentation sphere must match between
 the two and also with the electrostatic potential on the 3D grid, $V\um{es}[\tilde\varrho]$.
-This is achieved using the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$.
+This is achieved comparing the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$.
 
 The \emph{intelligent zero} inserted to make the local potential smoother inside the augmentation sphere
 leads to the term $\bar v^a$. In fact, the electrostatic potential will feature smooth but deep potential well
@@ -1150,6 +1150,11 @@ better be evaluated as
   E\um{es} = \frac{1}{2} \braket{ \tilde n }{ V\um{es}[\tilde\varrho] } 
 \end{align}
 with corresponding change in the atom-centered correction term~(\ref{trm:electrostatic-energy-smooth-atom-correction}).
+This is along the line of evaluating the nuclear repulsion energy
+\begin{align}
+  E_{ZZ} = \frac{1}{2} \sum_{i, j \neq i} \frac{Z_i Z_j}{|\vec R_i - \vec R_j|}
+\end{align}
+where also the case $j = i$ is excluded (although due to a divergent expression).
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}

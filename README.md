@@ -5,7 +5,7 @@
     PAW, in particular revPAW
     (see Paul F. Baumeister, Shigeru Tsukamoto, proceedings of PASC19)
     
-![AAcube logo](https://gitlab.version.fz-juelich.de/pbaum/aa3/blob/devel/doc/fig/aa3_logo_bold.png)
+![AAcube logo](https://gitlab.version.fz-juelich.de/pbaum/a43/blob/devel/doc/fig/a43_logo_bold.png)
 
 **Name**
     The name refers to a cube with edge length 1 Angstrom

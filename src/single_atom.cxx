@@ -1384,7 +1384,7 @@ extern "C" {
     void update_full_potential(float const mixing, double const ves_multipole[], int const echo=0) {
         int const nlm = pow2(1 + ellmax);
         int const npt = angular_grid::Lebedev_grid_size(ellmax);
-        auto vlm = new double[nlm];
+        std::vector<double> vlm(nlm, 0.0);
         for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts]->n;
             auto const mr = full_density[ts].stride();
@@ -1413,11 +1413,13 @@ extern "C" {
                 // transform back to lm-index
                 assert(full_potential[ts].stride() == mr);
                 angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax, true);
-                { // scope: transform also the exchange-correlation energy
+                { // scope: transform also the exchange-correlation energy density
                     view2D<double> exc_lm(nlm, mr);
                     angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax, true);
-                    if ((echo > 7) && (SMT == ts)) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
+                    if (SMT == ts) {
+                        if (echo > 7) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
                                                             label, full_potential[SMT][00][0]*Y00*eV,_eV);
+                    } // SMT only
                     if (echo > 5) {
                         auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                         printf("# %s double counting correction  in %s 00 channel %.12g %s\n",
@@ -1437,25 +1439,23 @@ extern "C" {
             radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
 
             if (SMT == ts) {
-                add_or_project_compensators<1>(Ves, vlm, ellmax_compensator, rg[SMT], sigma_compensator); // project Ves to compensators
+                add_or_project_compensators<1>(Ves, vlm.data(), ellmax_compensator, rg[SMT], sigma_compensator); // project Ves to compensators
                 if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
-                // this seems to high by a factor sqrt(4*pi), ToDo: find out why
-//                 scale(vlm, nlm, Y00);
 
-                // but the solution of the 3D problem found that these integrals should be v_lm, therefore
+                // but the solution of the 3D problem found that these integrals should be ves_multipole, therefore
                 if (nullptr == ves_multipole) {
-                    set(vlm, nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
+                    set(vlm.data(), nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
                 } else {
                     if (echo > 6) printf("# %s v_00 found %g but expected %g %s\n", label, vlm[0]*Y00*eV, ves_multipole[0]*Y00*eV,_eV);
-                    scale(vlm, nlm, -1.); add_product(vlm, nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
+                    scale(vlm.data(), nlm, -1.); add_product(vlm.data(), nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
                 } // no ves_multipole given
             } // smooth only
 
-            if (echo > 7) {
-                if (SMT == ts) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
-            }
+            if (SMT == ts) {
+                if (echo > 7) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
+            } // SMT only
 
-            add_or_project_compensators<2>(Ves, vlm, ellmax_compensator, rg[ts], sigma_compensator);
+            add_or_project_compensators<2>(Ves, vlm.data(), ellmax_compensator, rg[ts], sigma_compensator);
 
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
                 double v_[1];
@@ -1474,6 +1474,10 @@ extern "C" {
             } else {
                 if (echo > 8) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n",
                                 label, Ves[00][1]*(rg[TRU]->r[1])*Y00, -Z_core);
+                if (echo > 5) {
+                      auto const Enuc = -Z_core*dot_product(nr, full_density[TRU][00], rg[ts]->rdr)*Y00inv;
+                      printf("# %s Coulomb energy is %.15g %s\n", label, Enuc*eV, _eV);
+                } // echo
             } // ts
 
             add_product(full_potential[ts].data(), nlm*mr, Ves.data(), 1.0); // add the electrostatic potential, scale_factor=1.0
@@ -1683,7 +1687,7 @@ extern "C" {
         transform_SHO(    overlap.data(),     overlap.stride(),     overlap_lmn.data(),     overlap_lmn.stride(), false);
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
-
+      
         if (echo > 1) {
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                        label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
@@ -1900,7 +1904,7 @@ extern "C" {
 
     // ==============
     // between update_density and update_potential we need to
-    // export qlm_compensator, solve 3D electrostatic problem, return here with ves_multipoles
+    // export qlm_compensator, solve the 3D electrostatic problem, return here with ves_multipoles
     // ==============
 
     void update_potential(float const mixing, double const ves_multipoles[], int const echo=0) {
