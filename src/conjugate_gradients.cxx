@@ -101,7 +101,6 @@ namespace conjugate_gradients {
   template<typename real_t, int D0> // D0: vectorization
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
-//     , real_space_grid::grid_t<D0> const & g // grid descriptor
     , grid_operators::grid_operator_t<real_t,real_t,D0> const & op // grid operator descriptor
     , int const echo=9 // log output level
     , float const threshold=1e-8f
@@ -114,22 +113,24 @@ namespace conjugate_gradients {
       
       if (echo > 0) printf("# start CG (onto %d bands)\n", nbands);
 
-      auto const & g = op.grid;
+      auto const & g = op.get_grid();
 
-      // prepare the Hamiltonian and Overlapping
-      std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential
-      std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
-      std::vector<atom_image::atom_image_t> ai(1); // atom_images
-      a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
-      ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); // image position at the center, index=0 maps into list of sho_atoms
-      int const nprecond = control::get("conjugate_gradients.precond", 0.); 
-      bool const use_overlap = (control::get("conjugate_gradients.overlap", 1.) > 0);
-      bool const use_precond = (nprecond > 0);
-      assert(!use_precond); // ToDo: implement preconditioner
-      int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8}, nn_precond[] = {nprecond, nprecond, nprecond};
-      finite_difference::finite_difference_t<double> kinetic(g.h, bc, nn), precond(g.h, bc, nn_precond);
-      for(int d = 0; d < 3; ++d) { precond.c2nd[d][1] = 1/12.; precond.c2nd[d][0] = 1/6.; } // preconditioner is a diffusion stencil
-
+//       prepare the Hamiltonian and Overlapping
+//       std::vector<double> potential(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential
+//       std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
+//       std::vector<atom_image::atom_image_t> ai(1); // atom_images
+//       a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+//       ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); // image position at the center, index=0 maps into list of sho_atoms
+//       int const nprecond = control::get("conjugate_gradients.precond", 0.); 
+//       bool const use_overlap = (control::get("conjugate_gradients.overlap", 1.) > 0);
+//       bool const use_precond = (nprecond > 0);
+//       assert(!use_precond); // ToDo: implement preconditioner
+//       int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8}, nn_precond[] = {nprecond, nprecond, nprecond};
+//       finite_difference::finite_difference_t<double> kinetic(g.h, bc, nn), precond(g.h, bc, nn_precond);
+//       for(int d = 0; d < 3; ++d) { precond.c2nd[d][1] = 1/12.; precond.c2nd[d][0] = 1/6.; } // preconditioner is a diffusion stencil
+      bool const use_overlap = op.use_overlap();
+      bool const use_precond = op.use_precond();
+      
       int const cg0sd1 = control::get("conjugate_gradients.steepest.descent", 0.); // 1:steepest descent, 0:conjugate gradients
       bool const use_cg = (0 == cg0sd1);
       
@@ -175,9 +176,11 @@ namespace conjugate_gradients {
               
               assert( 1 == D0 );
               // apply Hamiltonian and Overlap operator
-//            stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
+// //            stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
+//            stat += op.Hamiltonian(Hs, s[ib], echo);
               if (use_overlap) {
-                  stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
+//                   stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
+                  stat += op.Overlapping(Ss[ib], s[ib], echo);
               } else assert(Ss[ib] == s[ib]);
 
               for(int iortho = 0; iortho < northo[0]; ++iortho) {
@@ -215,9 +218,11 @@ namespace conjugate_gradients {
                   if (0 == (iiter - 1) % restart_every_n_iterations) restart = true;
                   if (restart) {
                       // apply Hamiltonian and Overlap operator
-                      stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
+//                       stat += grid_operators::grid_Hamiltonian(Hs, s[ib], g, a, ai, kinetic, potential.data());
+                      stat += op.Hamiltonian(Hs, s[ib], echo);
                       if (use_overlap) {
-                          stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
+//                           stat += grid_operators::grid_Overlapping(Ss[ib], s[ib], g, a, ai);
+                          stat += op.Overlapping(Ss[ib], s[ib], echo);
                       } else assert(Ss[ib] == s[ib]);
 
                       set( dir, nv, real_t(0)); // clear search direction
@@ -251,7 +256,8 @@ namespace conjugate_gradients {
 
                   // apply Overlap operator
                   if (use_overlap) {
-                      stat += grid_operators::grid_Overlapping(SPgrd, Pgrd, g, a, ai);
+//                       stat += grid_operators::grid_Overlapping(SPgrd, Pgrd, g, a, ai);
+                      stat += op.Overlapping(SPgrd, Pgrd, echo);
                   } else assert(SPgrd == Pgrd);
                   
                   double const res_new = inner_product(nv, Pgrd, SPgrd, g.dV());
@@ -304,12 +310,14 @@ namespace conjugate_gradients {
                           if (1) {
                               scale(Scon, nv, cf); 
                           } else { // alternatively we can recompute it from S*con?
-                              stat += grid_operators::grid_Overlapping(Scon, con, g, a, ai);
+//                               stat += grid_operators::grid_Overlapping(Scon, con, g, a, ai);
+                              stat += op.Overlapping(Scon, con, echo);
                           }
                       } else assert(Scon == con);
 
                       // apply Hamiltonian
-                      stat += grid_operators::grid_Hamiltonian(Hcon, con, g, a, ai, kinetic, potential.data());
+//                       stat += grid_operators::grid_Hamiltonian(Hcon, con, g, a, ai, kinetic, potential.data());
+                      stat += op.Hamiltonian(Hcon, con, echo);
                       
                       double    const sHs = energy[ib];
                       complex_t const sHc = inner_product(nv, s[ib], Hcon, g.dV()); // must be complex_t
@@ -404,8 +412,9 @@ namespace conjugate_gradients {
           if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
 
-      grid_operators::grid_operator_t<real_t,real_t,D0> op(g);
-      
+      // construct Hamiltonian and Overlap operator
+      grid_operators::grid_operator_t<real_t,real_t,D0> op(g); 
+
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
           stat += eigensolve(psi.data(), nbands, op, echo);

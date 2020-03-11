@@ -195,7 +195,7 @@ namespace grid_operators {
     public:
 
       grid_operator_t(real_space_grid::grid_t<D0> const & rsg, int const natoms=0, int const nprecond=0)
-      : grid(rsg), atoms(natoms), has_precond(nprecond > 0), has_overlap(false) { // constructor
+      : grid(rsg), atoms(natoms), has_precond(nprecond > 0), has_overlap(true) { // constructor
 //           int const nprecond = control::get("conjugate_gradients.precond", 1.);
 
           auto const & g = grid;  // abbrev.
@@ -241,10 +241,13 @@ namespace grid_operators {
       std::vector<double> potential;
       finite_difference::finite_difference_t<real_fd_t> kinetic;
       finite_difference::finite_difference_t<real_t> precond;
-    public:
       real_space_grid::grid_t<D0> grid;
       bool has_precond;
       bool has_overlap;
+    public:
+      real_space_grid::grid_t<D0> const & get_grid() const { return grid; }
+      bool use_precond() const { return has_precond; }
+      bool use_overlap() const { return has_overlap; }
   }; // class grid_operator_t
   
   status_t all_tests(int const echo=0);
