@@ -184,6 +184,19 @@ namespace finite_difference {
       finite_difference_t(double const grid_spacing[3], 
                           int const boundary_condition[3], 
                           int const nneighbors[3]) {
+          init(grid_spacing, boundary_condition, nneighbors);
+      } // constructor
+
+      finite_difference_t(double const h=1, int const bc=1, int const nn=4) {
+          int const bcs[3] = {bc, bc, bc};
+          int const nns[3] = {nn, nn, nn};
+          double const hgs[3] = {h, h, h};
+          init(hgs, bcs, nns);
+      } // isotropic constructor
+      
+      void init(double const grid_spacing[3], 
+                          int const boundary_condition[3], 
+                          int const nneighbors[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               h[d] = grid_spacing[d];
@@ -194,14 +207,7 @@ namespace finite_difference {
                                   nneighbors[d], nn[d], 'x'+d);
               }
           } // spatial direction d
-      } // constructor
-
-      finite_difference_t(double const h=1, int const bc=1, int const nn=4) {
-          int const bcs[3] = {bc, bc, bc};
-          int const nns[3] = {nn, nn, nn};
-          double const hgs[3] = {h, h, h};
-          finite_difference_t(hgs, bcs, nns);
-      } // isotropic constructor
+      } // init
       
       double clear_diagonal_elements() { // modifies the coefficients c2nd[][]
           double diag{0};
@@ -222,7 +228,7 @@ namespace finite_difference {
       
       void scale_coefficients(double const f) { double const f3[] = {f, f, f}; scale_coefficients(f3); }
       
-      inline bool all_boundary_conditions_periodic() const {  // ToDo: move to grid descriptor
+      inline bool all_boundary_conditions_periodic() const {  // ToDo: move all BC-related stuff to grid descriptor
           return (Periodic_Boundary == bc[0][0])
               && (Periodic_Boundary == bc[1][0])
               && (Periodic_Boundary == bc[2][0]); };

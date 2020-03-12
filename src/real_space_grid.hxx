@@ -24,10 +24,11 @@ namespace real_space_grid {
 
       grid_t(void) : dims{0,0,0,1}, h{1,1,1}, inv_h{1,1,1} {}
 
-      grid_t(int const dim[3], int const dim_outer=1) : h{1,1,1}, inv_h{1,1,1} {
-          dims[0] = std::max(1, dim[0]); // x
-          dims[1] = std::max(1, dim[1]); // y
-          dims[2] = std::max(1, dim[2]); // z
+      grid_t(int const d0, int const d1, int const d2, int const dim_outer=1)
+       : h{1,1,1}, inv_h{1,1,1} {
+          dims[0] = std::max(1, d0); // x
+          dims[1] = std::max(1, d1); // y
+          dims[2] = std::max(1, d2); // z
           dims[3] = std::max(1, dim_outer);
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (nnumbers > 0) {
@@ -39,10 +40,7 @@ namespace real_space_grid {
           }
       } // constructor
 
-      grid_t(int const d0, int const d1, int const d2, int const dim_outer=1) {
-         int const dim[3] = {d0, d1, d2};
-         grid_t(dim, dim_outer);
-      } // constructor
+      grid_t(int const dim[3], int const dim_outer=1) : grid_t(dim[0], dim[1], dim[2], dim_outer) {} // delegating contructor
 
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;

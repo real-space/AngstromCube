@@ -21,13 +21,13 @@ int dump_to_file(
         fprintf(f, "# %s\n", title);
     } // title
 
-    for(auto i = 0; i < N; i++) {
+    for(int i = 0; i < N; i++) {
         if (nullptr != x_axis) {
             fprintf(f, "%g ", x_axis[i]);
         } else {
             fprintf(f, "%d ", i);
         } // x_axis given
-        for(auto j = 0; j < M; ++j) {
+        for(int j = 0; j < M; ++j) {
             fprintf(f, "%g ", y_data[i*Stride + j]);
         } // j
         fprintf(f, "\n"); // new line

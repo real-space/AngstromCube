@@ -17,6 +17,7 @@ typedef int status_t;
 #include "spherical_harmonics.hxx" // ::all_tests
 #include "conjugate_gradients.hxx" // ::all_tests
 #include "potential_generator.hxx" // ::all_tests
+#include "fermi_distribution.hxx" // ::all_tests
 #include "radial_eigensolver.hxx" // ::all_tests
 #include "boundary_condition.hxx" // ::all_tests
 #include "radial_integrator.hxx" // ::all_tests
@@ -78,6 +79,7 @@ typedef int status_t;
           module_test("potential_generator.", potential_generator::all_tests);
           module_test("radial_eigensolver.",   radial_eigensolver::all_tests);
           module_test("boundary_condition.",   boundary_condition::all_tests);
+          module_test("fermi_distribution.",   fermi_distribution::all_tests);
           module_test("radial_integrator.",     radial_integrator::all_tests);
           module_test("geometry_analysis.",     geometry_analysis::all_tests);
           module_test("density_generator.",     density_generator::all_tests);
