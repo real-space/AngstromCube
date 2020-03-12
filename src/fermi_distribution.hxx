@@ -27,11 +27,11 @@ namespace fermi_distribution {
   } // FermiDirac
 
   template<typename real_t>
-  FermiDirac_derivative(real_t const x) {
+  real_t FermiDirac_broadening(real_t const x) {
       real_t der;
       FermiDirac(x, &der);
-      return der;
-  } // FermiDirac_derivative
+      return -der;
+  } // FermiDirac_broadening
 
   template<typename real_t>
   double count_electrons(int const n, real_t const energies[], 
@@ -134,7 +134,7 @@ namespace fermi_distribution {
           double dos{0}, ddos{0};
           for(int i = 0; i < n; ++i) {
               auto const ei = energies[i] - eF;
-              dos -= FermiDirac_derivative((e - ei)*kTinv);
+              dos += FermiDirac_broadening((e - ei)*kTinv);
           } // i
           printf("%g %g %g\n", e*eV, dos*kTinv*per_eV, ddos);
           integral += dos*FermiDirac(e*kTinv);
