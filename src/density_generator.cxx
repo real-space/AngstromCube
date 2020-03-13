@@ -16,6 +16,7 @@
 #include "control.hxx" // control::get
 #include "recorded_warnings.hxx" // warn, error
 #include "data_view.hxx" // view3D<T>
+#include "grid_operators.hxx" // ::get_atom_coeffs
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -34,23 +35,33 @@ namespace density_generator {
       return gsum*dV;
   } // print_stats // ToDo: move somewhere, where potential_generator and this module can access it
 
-  template<typename real_t, int const D0=1>
+  template<typename real_t, typename real_fd_t=double, int const D0=1>
   status_t density(real_t const eigenfunctions[]
-      , real_space_grid::grid_t<D0> const & g
+      , grid_operators::grid_operator_t<real_t,real_fd_t,D0> const & op
       , int const nbands=1, int const nkpoints=1
       , int const echo=0) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
 
       if (nullptr == eigenfunctions) { warn("eigenfunctions received are nullptr"); return -1; }
+
+      auto const g = op.get_grid();
       
       std::vector<double> rho_valence(g.all(), 0.0);
       if (echo > 3) printf("# %s assume %d bands and %d k-points\n", __func__, nbands, nkpoints);
       if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d Cartesian grid\n", 
                               __func__, g.dim('x'), g.dim('y'), g.dim('z'));
       
-      view3D<real_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
+      int const na = op.get_natoms();
+      double** atom_coeff = new double*[na];
+      for(int ia = 0; ia < na; ++ia) {
+            int const numax = op.get_numax(ia);
+            int const ncoeff = sho_tools::nSHO(numax);
+            atom_coeff[ia] = new double[ncoeff*D0];
+      } // ia
       
+      view3D<real_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
+
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
           double const kpoint_weight = 1; // depends on ikpoint
@@ -66,6 +77,11 @@ namespace density_generator {
                   for(size_t izyx = 0; izyx < g.all(); ++izyx) { // parallel
                       rho_valence[izyx] += weight_nk * pow2(psi_nk[izyx]);
                   } // izyx
+                  
+                  op.get_atom_coeffs(atom_coeff, psi_nk, echo);
+                  for(int ia = 0; ia < na; ++ia) {
+                      // add to the atomic density matrix, ToDo
+                  } // ia
               } // weight is positive
           } // iband
       } // ikpoint
@@ -83,11 +99,11 @@ namespace density_generator {
 #else // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
-      int const dims[] = {4, 5, 6};
-      real_space_grid::grid_t<1> g(dims);
+      real_space_grid::grid_t<1> g(4, 5, 6);
+      grid_operators::grid_operator_t<float,double,1> op(g);
       std::vector<float> wave(g.all());
       std::iota(wave.begin(), wave.end(), 0);
-      return density<float,1>(wave.data(), g, 1, 1, echo);
+      return density(wave.data(), op, 1, 1, echo);
   } // test_init
 
   status_t all_tests(int const echo) {
