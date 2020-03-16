@@ -17,7 +17,7 @@ OBJ = \
 	conjugate_gradients.o \
 	geometry_analysis.o \
 	bessel_transform.o \
-	poisson_gradient.o \
+	iterative_poisson.o \
 	real_space_grid.o \
 	potential_generator.o \
 	density_generator.o \

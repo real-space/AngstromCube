@@ -1113,28 +1113,29 @@ The non-local contributions read
 	         &+ \braketop{ \tilde\phi^a_i }{ V\um{xc}[\tilde n^a] + V\um{es}[\tilde\varrho^a] - \bar v^a(r) }{ \tilde\phi^a_j }
 	         \label{eqn:hamiltonian-smooth-atom-potential-part}
 \end{align}
-Due to the non-linearity of $V\um{xc}$ the evaluation of atom-centered potential matrix elements
+Due to the non-linearity of $V\um{xc}$ the evaluation of the \ac{xc} parts of atom-centered potential matrix elements
 (term~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}))
 can only be performed numerically.
 Implementations like GPAW \cite{GPAW,Rostgaard-paw-note} and ACE-Molecule \cite{Kang2016}
 decompose the linear and quadratic contributions of $\rho^a_{ij}$ with precomputed tensors
 which are constant over the course of the calculation, even when updating the atomic position.
-If, however, we let the core state relax, the core density changes
+If, however, we let the core state relax, the core density changes slightly in every SCF iteration
 and we can construct a new true reference potential from which we generate new partial waves.
-Then the approach of evaluating the terms~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}) numerically does not lead to extra costs.
-Note that during the construction of electrostatic potentials inside the augmentations sphere, 
+Then the approach of evaluating the entire terms~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}) numerically does not lead to modest extra costs, 
+in fact, only the solution of the electrostatic problem in radial representation. 
+Note that during the construction of electrostatic potentials inside the augmentations sphere,
 i.e.~$V\um{es}[n^a - Z^a \delta]$ and $V\um{es}[\tilde\varrho^a]$, the boundary conditions on the augmentation sphere must match between
 the two and also with the electrostatic potential on the 3D grid, $V\um{es}[\tilde\varrho]$.
-This is achieved comparing the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$.
+This is achieved comparing the projection coefficients $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho]}$ to $\braket{\hat g^a_{\ell m}}{V\um{es}[\tilde\varrho^a]}$ and adding correcting multipole shifts to $V\um{es}[\tilde\varrho^a]$ and $V\um{es}[n^a - Z^a\delta]$.
 
 The \emph{intelligent zero} inserted to make the local potential smoother inside the augmentation sphere
-leads to the term $\bar v^a$. In fact, the electrostatic potential will feature smooth but deep potential well
+leads to the term $\bar v^a$. In fact, the electrostatic potential will feature a smooth but deep potential well
 at the position of the nucleus. $\bar v^a$ is chosen to fill the well.
-Different from other implementations of \ac{paw} we added only the contribution of the valence density
-with $\bar V$ to the total energy and subtracted it in the atom corrections.
-The reason behind this is that there will be tails of the core densities
+Different from other implementations of \ac{paw} we add only the contribution of the valence density
+with $\bar V$ to the total energy and subtract it in the atom corrections.
+The reason behind this is that there will be tails of the core densities $n^{a'}\um{c}$
 of neighboring atoms that give contributions which are not cancelled in the atom-centered treatment.
-A similar error might appear from the \ac{xc} contribution.
+A similar error in the total energy might appear from the \ac{xc} contribution.
 
 
 In the evaluation of $E\um{es}[\tilde\varrho]$, 
