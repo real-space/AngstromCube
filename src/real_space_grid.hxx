@@ -59,6 +59,7 @@ namespace real_space_grid {
           } // i3
           return stat;
       } // set
+
       
       inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
       inline int dim(int const d) const { assert(0 <= d); assert(d < 3); return dims[d]; }

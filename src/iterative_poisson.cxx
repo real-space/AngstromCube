@@ -50,11 +50,11 @@ namespace iterative_poisson {
   double scalar_product(real_t const v[], real_t const w[], size_t const n) { return dot_product(n, v, w); }
 
   template<typename real_t>
-  status_t solve(real_t x[] // result to -Laplace(x)/(4*pi) == b
-                , real_t const b[] // inhomogeneous part b
+  status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
+                , real_t const b[] // right hand side b
                 , real_space_grid::grid_t<1> g // grid descriptor
                 , float const threshold=3e-8 // convergence criterion
-                , double *residual=nullptr // residual that was reached
+                , float *residual=nullptr // residual that was reached
                 , int const maxiter=999 // maximum number of iterations 
                 , int const miniter=0   // minimum number of iterations
                 , int restart=4096 // number of iterations before restrat, 1:steepest descent

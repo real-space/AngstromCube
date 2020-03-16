@@ -63,8 +63,11 @@ namespace boundary_condition {
         case 'p': case '1':
             if (echo > 0) printf("# interpret \"%s\" as periodic boundary condition\n", string);
             return Periodic_Boundary; break;
-        case 'i': case '0': 
+        case 'i': case '0':
             if (echo > 0) printf("# interpret \"%s\" as isolated boundary condition\n", string);
+            return Isolated_Boundary; break;
+        case 'm': case '-':
+            if (echo > 0) printf("# interpret \"%s\" as mirror boundary condition\n", string);
             return Isolated_Boundary; break;
         default :
             if (echo > 0) printf("# cannot interpret \"%s\" as boundary condition\n", string);
