@@ -2,14 +2,19 @@
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <algorithm> // std::swap<T>
-#include <cmath> // std::sin
+#include <cmath> // std::sqrt
 
 #include "iterative_poisson.hxx"
 
 #include "real_space_grid.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, dot_product
-#include "finite_difference.hxx" // ::finite_difference_t 
+#include "finite_difference.hxx" // ::finite_difference_t
+
+#include "real_space_grid.hxx" // ::bessel_projection
+#include "radial_grid.hxx" // ::radial_grid_t, ::create_equidistant_radial_grid
+#include "constants.hxx" // ::pi
+#include "bessel_transform.hxx" // ::transform_s_function
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -53,7 +58,7 @@ namespace iterative_poisson {
                 , int const maxiter=999 // maximum number of iterations 
                 , int const miniter=0   // minimum number of iterations
                 , int restart=4096 // number of iterations before restrat, 1:steepest descent
-                , int const echo=9 // log level
+                , int const echo=0 // log level
                 ) {
         
     restart = std::max(1, restart);
@@ -65,7 +70,7 @@ namespace iterative_poisson {
     
     int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8};
     finite_difference::finite_difference_t<real_t> fd(g.h, bc, nn);
-    fd.scale_coefficients(-1./(4*constants::pi)); // electrostatics prefactor
+    fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor
     
     double const cell_volume = nall*g.dV();
     double const threshold2 = cell_volume * pow2(threshold);
@@ -222,16 +227,33 @@ namespace iterative_poisson {
       view2D<real_t> xb(2, ng*ng*ng, 0.0);
       auto const x = xb[0], b = xb[1];
       double integral{0};
+      double const cnt[3] = {.5*ng, .5*ng, .5*ng};
       for(int iz = 0; iz < ng; ++iz) {
       for(int iy = 0; iy < ng; ++iy) {
       for(int ix = 0; ix < ng; ++ix) {
           size_t const izyx = ix + ng*(iy + ng*iz);
-          double const rho = std::exp(-.125*(pow2(ix - .5*ng) + pow2(iy - .5*ng) + pow2(iz - .5*ng)));
+          double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
+          double const rho = std::exp(-.125*r2) - 8*std::exp(-.5*r2);
           b[izyx] = rho;
           integral += rho;
       }}} // ix iy iz
       if (echo > 2) printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
+      
       stat = solve(x, b, g);
+      
+      if (echo > 8) { // get a radial representation through Bessel transform
+          float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
+          auto const rg = *radial_grid::create_equidistant_radial_grid(150, 15.);
+          std::vector<real_t> q_coeff(nq, 0.0), f_radial(rg.n, 0.0);
+          for(int i01 = 0; i01 < 2; ++i01) {
+              real_space_grid::bessel_projection(q_coeff.data(), nq, dq, xb[i01], g, cnt);
+              bessel_transform::transform_s_function(f_radial.data(), q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
+              printf("\n## r, %s (a.u.)\n", i01?"density":"V_electrostatic");
+              for(int ir = 0; ir < rg.n; ++ir) {
+                  printf("%g %g\n", rg.r[ir], f_radial[ir]);
+              } // ir
+          } // i01
+      } // echo
       return stat;
   } // test_solver
 
