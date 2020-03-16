@@ -20,7 +20,7 @@
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
 #include "fourier_poisson.hxx" // ::fourier_solve
-#include "iterative_poisson.hxx" // ::solve
+#include "iterative_poisson.hxx" // ::solve, ::solve_multiprecision
 #include "finite_difference.hxx" // ::Laplacian
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "simple_timer.hxx" // // SimpleTimer
@@ -283,7 +283,7 @@ namespace potential_generator {
               stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
           } else {
               if (echo > 2) printf("# solve electrostatic potential iteratively\n");
-              stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
+              stat += iterative_poisson::solve_multiprecision(Ves.data(), rho.data(), g, echo);
           } // es_solver_method
 
           // test the potential in real space, find ves_multipoles
