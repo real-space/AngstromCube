@@ -9,6 +9,7 @@
 #include "real_space_grid.hxx" // ::grid_t
 #include "constants.hxx" // ::pi
 #include "recorded_warnings.hxx" // ::clear_warnings
+#include "boundary_condition.hxx" // Periodic_Boundary
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -52,13 +53,13 @@ namespace finite_difference {
   template<typename real_t>
   status_t test_Laplacian(int const echo=3) {
       status_t stat = 0;
-      int const bc[3] = {1,1,1}; // periodic
       double const h[3] = {1,1,1};
       for(int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
-          finite_difference_t<real_t> fd(h, bc, nn);
+          finite_difference_t<real_t> fd(h, nn);
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
           real_space_grid::grid_t<1> g(dims);
+          g.set_boundary_conditions(Periodic_Boundary);
           double const k = (1 + dir)*2*constants::pi/g.dim(dir);
           auto const values = new real_t[g.all()];
           for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
@@ -80,7 +81,7 @@ namespace finite_difference {
   status_t test_dispersion(int const echo=9) {
       if (echo < 7) return 0; // this function is only plotting
       for(int nn = 1; nn < 14; ++nn) {
-          finite_difference_t<double> const fd(1, 0, nn);
+          finite_difference_t<double> const fd(1, nn);
           printf("\n## dispersion for nn=%d\n", nn);
           for(int ik = 0; ik <= 100; ++ik) {
               double const k =  .01 * constants::pi * ik;

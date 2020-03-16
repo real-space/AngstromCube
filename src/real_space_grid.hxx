@@ -24,10 +24,10 @@ namespace real_space_grid {
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
 
-      grid_t(void) : dims{0,0,0,1}, h{1,1,1}, inv_h{1,1,1} {}
+      grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {}
 
       grid_t(int const d0, int const d1, int const d2, int const dim_outer=1)
-       : h{1,1,1}, inv_h{1,1,1} {
+       : bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {
           dims[0] = std::max(1, d0); // x
           dims[1] = std::max(1, d1); // y
           dims[2] = std::max(1, d2); // z
@@ -62,7 +62,7 @@ namespace real_space_grid {
           return stat;
       } // set
       
-      status_t set_boundary_condition(int const bcx, 
+      status_t set_boundary_conditions(int const bcx, 
                       int const bcy=Invalid_Boundary, 
                       int const bcz=Invalid_Boundary) {
           bc[0] = bcx;
@@ -70,7 +70,7 @@ namespace real_space_grid {
           bc[2] = (bcz == Invalid_Boundary) ? bcx : bcz;
           return  (bcx == Invalid_Boundary);
       } // set
-      
+
       inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
       inline int dim(int const d) const { assert(0 <= d); assert(d < 3); return dims[d]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
@@ -78,7 +78,12 @@ namespace real_space_grid {
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
       inline int boundary_condition(int const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
-
+      inline int const * boundary_conditions() const { return bc; }
+      inline bool all_boundary_conditions_periodic() const {  // ToDo: move all BC-related stuff to grid descriptor
+          return (Periodic_Boundary == bc[0])
+              && (Periodic_Boundary == bc[1])
+              && (Periodic_Boundary == bc[2]); };
+  
   }; // class grid_t
   
   

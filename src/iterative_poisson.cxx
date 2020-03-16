@@ -53,14 +53,14 @@ namespace iterative_poisson {
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
                 , real_space_grid::grid_t<1> g // grid descriptor
-                , float const threshold=3e-8 // convergence criterion
-                , float *residual=nullptr // residual that was reached
-                , int const maxiter=999 // maximum number of iterations 
-                , int const miniter=0   // minimum number of iterations
-                , int restart=4096 // number of iterations before restrat, 1:steepest descent
-                , int const echo=0 // log level
+                , int const echo // =0 // log level
+                , float const threshold // =3e-8 // convergence criterion
+                , float *residual // =nullptr // residual that was reached
+                , int const maxiter // =999 // maximum number of iterations 
+                , int const miniter // =0   // minimum number of iterations
+                , int restart // =4096 // number of iterations before restrat, 1:steepest descent
                 ) {
-        
+
     restart = std::max(1, restart);
     
     size_t const nall = size_t(g.dim(2))*size_t(g.dim(1))*size_t(g.dim(0));
@@ -68,10 +68,10 @@ namespace iterative_poisson {
     view2D<real_t> mem(5, nall, 0.0); // get memory
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=mem[4];    
     
-    int const bc[] = {0, 0, 0}, nn[] = {8, 8, 8};
-    finite_difference::finite_difference_t<real_t> fd(g.h, bc, nn);
+    int const nn[] = {8, 8, 8};
+    finite_difference::finite_difference_t<real_t> fd(g.h, nn);
     fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor
-    
+
     double const cell_volume = nall*g.dV();
     double const threshold2 = cell_volume * pow2(threshold);
 
@@ -101,7 +101,7 @@ namespace iterative_poisson {
     ist = finite_difference::Laplacian(ax, x, g, fd);
     if (ist) error("CG_solve: Laplacian failed!");
 
-    dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
+    // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
     
     // |r> = |b> - A|x> = |b> - |Ax>
     set(r, nall, b); add_product(r, nall, ax, real_t(-1));
@@ -148,7 +148,7 @@ namespace iterative_poisson {
 //       !============================================================
 //       ! special treatment of completely periodic case
 //       !============================================================
-      if (fd.all_boundary_conditions_periodic()) {
+      if (g.all_boundary_conditions_periodic()) {
           double const xnorm = norm1(x, nall)/nall; // g.comm
 //        xnorm = xnorm/real( g%ng_all(1)*g%ng_all(2)*g%ng_all(3) )
           // subtract the average potential
@@ -190,8 +190,9 @@ namespace iterative_poisson {
           add_product(p, nall, z, real_t(1));
       }
 
-      if (echo > 7) printf("# %s it=%i alfa=%g beta=%g res=%.1e E=%.15f\n", __FILE__, 
-        it, alpha, beta, std::sqrt(res2/cell_volume), scalar_product(x, b, nall));
+      if (echo > 9) printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
+      if (echo > 7) printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
+          std::sqrt(res2/cell_volume), scalar_product(x, b, nall) * g.dV());
 
       // rz_old = rz_new
       rz_old = rz_new;
@@ -215,6 +216,11 @@ namespace iterative_poisson {
     return ist;
   } // solve
 
+  
+//   template<> // explicit template instanciation
+//   status_t solve(double x[], double const b[], real_space_grid::grid_t<1> g
+//                 , int const echo, float const threshold, float *residual
+//                 , int const maxiter, int const miniter, int restart);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -239,7 +245,7 @@ namespace iterative_poisson {
       }}} // ix iy iz
       if (echo > 2) printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
       
-      stat = solve(x, b, g);
+      stat = solve(x, b, g, echo);
       
       if (echo > 8) { // get a radial representation through Bessel transform
           float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));

@@ -20,6 +20,7 @@
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
 #include "fourier_poisson.hxx" // ::fourier_solve
+#include "iterative_poisson.hxx" // ::solve
 #include "finite_difference.hxx" // ::Laplacian
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "simple_timer.hxx" // // SimpleTimer
@@ -63,7 +64,7 @@ namespace potential_generator {
   } // fold_back
   
   status_t init_geometry_and_grid(real_space_grid::grid_t<1> & g, double **coordinates_and_Z, 
-                                  int & natoms, int bc[3], int const echo=0) {
+                                  int & natoms, int const echo=0) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
       
@@ -78,6 +79,7 @@ namespace potential_generator {
       natoms = 0;
       double cell[3];
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
+      int bc[3];
       stat += geometry_analysis::read_xyz_file(coordinates_and_Z, &natoms, geo_file, cell, bc, echo);
 
       // choose the box large enough not to require any periodic images
@@ -85,6 +87,7 @@ namespace potential_generator {
       int const dims[3] = {n_grid_points(cell[0]/h1), n_grid_points(cell[1]/h1), n_grid_points(cell[2]/h1)};
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", dims[0],dims[1],dims[2]);
       g = real_space_grid::grid_t<1>(dims);
+      g.set_boundary_conditions(bc[0], bc[1], bc[2]);
       g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
       if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
       if (echo > 1) printf("# cell is  %g %g %g  %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
@@ -109,8 +112,7 @@ namespace potential_generator {
       real_space_grid::grid_t<1> g;
       double *coordinates_and_Z{nullptr};
       int na{0};
-      int bc[3];
-      stat += init_geometry_and_grid(g, &coordinates_and_Z, na, bc, echo);
+      stat += init_geometry_and_grid(g, &coordinates_and_Z, na, echo);
 
       double cell[3];
       for(int d = 0; d < 3; ++d) {
@@ -144,9 +146,9 @@ namespace potential_generator {
       float const rcut = 32; // radial grids usually and at 9.45 Bohr
       
       double *periodic_images = nullptr;
-      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images, cell, bc, rcut, echo);
+      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images, cell, g.boundary_conditions(), rcut, echo);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-      
+
       double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       double *zero_pot[na]; // smooth zero_potential on r2-grids, nr2=2^12 points, ar2=16.f
       radial_grid_t *rg[na]; // smooth radial grid descriptors
@@ -162,11 +164,13 @@ namespace potential_generator {
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
       std::vector<double> Laplace_Ves(g.all());
-      std::vector<double>         Ves(g.all());
+      std::vector<double>         Ves(g.all(), 0.0);
       std::vector<double>         cmp(g.all());
       std::vector<double>         rho(g.all());
       std::vector<double>        Vtot(g.all());
       std::vector<double>         Vxc(g.all());
+      
+      char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative"); // can also be fourier
 
   int const max_scf_iterations = control::get("potential_generator.max.scf", 3.);
   for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
@@ -230,7 +234,6 @@ namespace potential_generator {
           if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
       } // scope
 
-      set(Ves.data(), g.all(), 0.0);
       set(cmp.data(), g.all(), 0.0);
       { // scope
           for(int ia = 0; ia < na; ++ia) {
@@ -268,17 +271,20 @@ namespace potential_generator {
               print_stats(rho.data(), g.all(), g.dV());
           } // echo
 
-          {
+          if ('f' == es_solver_method) {
               int ng[3]; double reci[3][4]; 
               for(int d = 0; d < 3; ++d) { 
                   ng[d] = g.dim(d);
                   set(reci[d], 4, 0.0);
                   reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
               } // d
-          
+
               // solve the Poisson equation
               stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
-          }
+          } else {
+              if (echo > 2) printf("# solve electrostatic potential iteratively\n");
+              stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
+          } // es_solver_method
 
           // test the potential in real space, find ves_multipoles
           for(int ia = 0; ia < na; ++ia) {
@@ -379,8 +385,8 @@ namespace potential_generator {
 //   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
       { // scope: compute the Laplacian using high-order finite-differences
-          int const fd_nn[3] = {12, 12, 12}; // nearest neighbors in the finite-difference approximation
-          finite_difference::finite_difference_t<double> const fd(g.h, bc, fd_nn);
+          int const fd_nn[3] = {8, 8, 8}; // nearest neighbors in the finite-difference approximation
+          finite_difference::finite_difference_t<double> const fd(g.h, fd_nn);
           {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
               { // Laplace_Ves should match rho
@@ -400,7 +406,7 @@ namespace potential_generator {
               // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
             
               // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
-              finite_difference::finite_difference_t<double> fdj(g.h, bc, fd_nn);
+              finite_difference::finite_difference_t<double> fdj(g.h, fd_nn);
               fdj.scale_coefficients(-.25/constants::pi);
               double const diagonal = fdj.clear_diagonal_elements();
               double const inverse_diagonal = 1/diagonal;

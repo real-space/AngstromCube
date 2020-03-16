@@ -253,17 +253,18 @@ namespace grid_operators {
 //           images[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
           // image position at the center, index=0 maps into list of sho_atoms
           
-          int const bc[] = {Isolated_Boundary, Isolated_Boundary, Isolated_Boundary};
           int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
           
-          int const nn_precond[] = {nprecond, nprecond, nprecond};
-          precond = finite_difference::finite_difference_t<real_t>(g.h, bc, nn_precond);
           // this simple preconditioner is a diffusion stencil
+          int const nn_precond[] = {nprecond, nprecond, nprecond};
+          precond = finite_difference::finite_difference_t<real_t>(g.h, nn_precond);
           for(int d = 0; d < 3; ++d) {
               precond.c2nd[d][1] = 1/12.;
               precond.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions
           } // d
-          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, bc, nn);
+          
+          // the kinetic energy operator
+          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, nn);
           kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
 
       } // constructor

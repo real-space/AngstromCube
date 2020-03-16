@@ -173,34 +173,25 @@ namespace finite_difference {
   template<typename real_t> // real_t: coefficient may be float or double
   class finite_difference_t {
     public:
-      int bc[3][2]; // boundary conditions, lower and upper WHY HERE?
-      double h[3]; // grid spacings
-      int nn[3]; // number of FD neighbors
+      double    h[3]; // grid spacings
+      int      nn[3]; // number of FD neighbors
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
     public:
 
-//    finite_difference_t(void) {} // default constructor
-
-      finite_difference_t(double const grid_spacing[3], 
-                          int const boundary_condition[3], 
-                          int const nneighbors[3]) {
-          init(grid_spacing, boundary_condition, nneighbors);
+      finite_difference_t(double const grid_spacing[3], int const nneighbors[3]) {
+          init(grid_spacing, nneighbors);
       } // constructor
 
-      finite_difference_t(double const h=1, int const bc=1, int const nn=4) {
-          int const bcs[3] = {bc, bc, bc};
+      finite_difference_t(double const h=1, int const nn=4) {
           int const nns[3] = {nn, nn, nn};
           double const hgs[3] = {h, h, h};
-          init(hgs, bcs, nns);
+          init(hgs, nns);
       } // isotropic constructor
       
-      void init(double const grid_spacing[3], 
-                          int const boundary_condition[3], 
-                          int const nneighbors[3]) {
+      void init(double const grid_spacing[3], int const nneighbors[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               h[d] = grid_spacing[d];
-              bc[d][0] = bc[d][1] = boundary_condition[d]; // 1:periodic, 0:open, -1:mirror
               nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h[d], 'x'+d);
               if (nn[d] < nneighbors[d]) {
                   warn("In finite_difference_t requested nn=%i but use nn=%i for %c-direction", 
@@ -228,13 +219,7 @@ namespace finite_difference {
       
       void scale_coefficients(double const f) { double const f3[] = {f, f, f}; scale_coefficients(f3); }
       
-      inline bool all_boundary_conditions_periodic() const {  // ToDo: move all BC-related stuff to grid descriptor
-          return (Periodic_Boundary == bc[0][0])
-              && (Periodic_Boundary == bc[1][0])
-              && (Periodic_Boundary == bc[2][0]); };
-      
   }; // class finite_difference_t
-  
   
   template <typename real_out_t, // result is stored in this precision 
             typename real_in_t, // input comes in this precision
@@ -246,30 +231,36 @@ namespace finite_difference {
       int const n16 = nnArraySize; // max number of finite difference neighbors
       int* list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
       for(int d = 0; d < 3; ++d) {
-          int const n = g.dim(d);
+          int const bc = g.boundary_condition(d);
+          int const n  = g.dim(d);
           int const nf = fd.nn[d];
           int const nh = n16 + n + n16; // number including largest halos
           list[d] = new int[nh]; // get memory
           for(int i = 0; i < nh; ++i) list[d][i] = -1; // init as non-existing
           for(int i = 0; i < n; ++i) list[d][n16 + i] = i; // itself
+
           // lower boundary
-          if (Periodic_Boundary == fd.bc[d][0]) { // periodic BC
+          if (Periodic_Boundary == bc) { // periodic BC
               for(int i = n16 - nf; i < n16; ++i) list[d][i] = n + i - n16; // wrap around
-          } else if (Mirrored_Boundary == fd.bc[d][0]) { // mirror BC
+          } else if (Mirrored_Boundary == bc) { // mirror BC
               for(int i = n16 - nf; i < n16; ++i) list[d][i] = n16 - 1 - i; // wrap around and mirror
           } // else open BC, list[:] = -1
-          if (Periodic_Boundary == fd.bc[d][1]) { // periodic BC
+          
+          // upper boundary
+          if (Periodic_Boundary == bc) { // periodic BC
               for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = i; // wrap around
-          } else if (Mirrored_Boundary == fd.bc[d][1]) { // mirror BC
+          } else if (Mirrored_Boundary == bc) { // mirror BC
               for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = n - 1 - i; // wrap around and mirror
           } // else open BC, list[:] = -1
-          if (0) { // DEBUG
+  
+          if (0) { // DEBUG: show indirection list
               printf("# indirection list for %c  ", 120+d);
               for(int i = n16 - nf; i < n16 + n + nf; ++i) {
                   if ((n16 == i) || (n16 + n) == i) printf(" |");
                   printf(" %i", list[d][i]);
               }   printf("\n");
           } // show indirection list
+
       } // spatial direction d
 
       real_fd_t const scale_factor = factor;
