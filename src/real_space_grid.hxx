@@ -8,6 +8,7 @@
 #include "inline_math.hxx" // set, scale
 #include "bessel_transform.hxx" // Bessel_j0
 #include "recorded_warnings.hxx" // warn
+#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, Mirrored_Boundary, Invalid_Boundary
 
 typedef int status_t;
 
@@ -19,6 +20,7 @@ namespace real_space_grid {
   class grid_t {
   private:
       uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
+      int bc[3]; // boundary conditions
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
 
@@ -59,7 +61,15 @@ namespace real_space_grid {
           } // i3
           return stat;
       } // set
-
+      
+      status_t set_boundary_condition(int const bcx, 
+                      int const bcy=Invalid_Boundary, 
+                      int const bcz=Invalid_Boundary) {
+          bc[0] = bcx;
+          bc[1] = (bcy == Invalid_Boundary) ? bcx : bcy;
+          bc[2] = (bcz == Invalid_Boundary) ? bcx : bcz;
+          return  (bcx == Invalid_Boundary);
+      } // set
       
       inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
       inline int dim(int const d) const { assert(0 <= d); assert(d < 3); return dims[d]; }
@@ -67,7 +77,8 @@ namespace real_space_grid {
 //    inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // not used
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
-      
+      inline int boundary_condition(int const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
+
   }; // class grid_t
   
   
