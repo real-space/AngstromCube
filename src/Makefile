@@ -1,3 +1,4 @@
+SYSTEM ?= zam044
 
 ## Check whether CUDA compiler is available
 ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
@@ -19,23 +20,23 @@ OBJ = \
 	bessel_transform.o \
 	iterative_poisson.o \
 	real_space_grid.o \
+	davidson_solver.o \
+	grid_operators.o \
+	finite_difference.o \
+	recorded_warnings.o \
 	potential_generator.o \
 	density_generator.o \
 	chemical_symbol.o \
 	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
-	sho_potential.o \
 	sho_overlap.o \
-	angular_grid.o \
+	sho_potential.o \
+	sho_projection.o \
+	sho_radial.o \
 	sho_tools.o \
 	sho_unitary.o \
-	davidson_solver.o \
-	grid_operators.o \
-	sho_radial.o \
-	sho_projection.o \
-	finite_difference.o \
-	recorded_warnings.o \
+	angular_grid.o \
 	control.o \
 	main.o
 
@@ -68,6 +69,10 @@ ERRFLAGS =
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
 # FEAFLAGS += -D NO_UNIT_TESTS ## for production
+
+## include also code which is not meant for release,
+## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
+FEAFLAGS += -D DEVEL 
 
 # normal mode
 # OPTFLAGS = -Ofast 

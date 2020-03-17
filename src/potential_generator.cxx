@@ -1,4 +1,4 @@
-#include <cstdio> // printf
+#include <cstdio> // printf, std::sprintf
 #include <cassert> // assert
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
@@ -12,15 +12,15 @@
 #include "constants.hxx" // ::sqrtpi, ::pi
 #include "solid_harmonics.hxx" // ::Y00
 #include "real_space_grid.hxx" // ::grid_t, ::add_function
-#include "radial_grid.h" // ::radial_grid_t
+#include "radial_grid.hxx" // ::radial_grid_t
 #include "chemical_symbol.h" // element_symbols
 #include "single_atom.hxx" // ::update
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
-#include "exchange_correlation.hxx" // lda_PZ81_kernel
+#include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
 #include "fourier_poisson.hxx" // ::fourier_solve
-#include "iterative_poisson.hxx" // ::solve, ::solve_multiprecision
+#include "iterative_poisson.hxx" // ::solve
 #include "finite_difference.hxx" // ::Laplacian
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "simple_timer.hxx" // // SimpleTimer
@@ -74,31 +74,29 @@ namespace potential_generator {
       // envoke exchange_correlation and fourier_poisson
       // add XC and electrostatic potential and zero_potential contributions
       // project the total effective potential to each center using bessel_transforms
-      // feed back spherical potential into single_atom
+      // feed back potential shifts into single_atom
 
       natoms = 0;
       double cell[3];
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      int bc[3];
+      int bc[3]; // boundary conditions
       stat += geometry_analysis::read_xyz_file(coordinates_and_Z, &natoms, geo_file, cell, bc, echo);
 
-      // choose the box large enough not to require any periodic images
-      double const h1 = 0.2378; // works for GeSbTe with alat=6.04
-      int const dims[3] = {n_grid_points(cell[0]/h1), n_grid_points(cell[1]/h1), n_grid_points(cell[2]/h1)};
-      if (echo > 1) printf("# use  %d x %d x %d  grid points\n", dims[0],dims[1],dims[2]);
-      g = real_space_grid::grid_t<1>(dims);
+      double const h = control::get("potential_generator.grid.spacing", 0.2378); // works for GeSbTe with alat=6.04
+      g = real_space_grid::grid_t<1>(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
+      if (echo > 1) printf("# use  %d x %d x %d  grid points\n", g.dim(0), g.dim(1), g.dim(2));
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
-      g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
-      if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang,g.h[1]*Ang,g.h[2]*Ang,_Ang);
-      if (echo > 1) printf("# cell is  %g %g %g  %s\n", g.h[0]*g.dim(0)*Ang,g.h[1]*g.dim(1)*Ang,g.h[2]*g.dim(2)*Ang,_Ang);
+      g.set_grid_spacing(cell[0]/g.dim(0), cell[1]/g.dim(1), cell[2]/g.dim(2));
+      if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       for(int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g.dim(d) - cell[d]) >= 1e-6) {
               warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
-                     'x'+d, g.dim(d), g.h[d]*Ang, cell[d]*Ang, _Ang);
+                             'x'+d, g.dim(d), g.h[d]*Ang, cell[d]*Ang, _Ang);
           }
-          assert(std::abs(g.h[d]*g.dim(d) - cell[d]) < 1e-6);
+          cell[d] = g.h[d]*g.dim(d);
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
       } // d
+      if (echo > 1) printf("# cell is  %g %g %g  %s\n", cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang);
       
       return stat;
   } // init_geometry_and_grid
@@ -106,56 +104,62 @@ namespace potential_generator {
   status_t init(float const ion=0.f, int const echo=0) {
     
       double constexpr Y00 = solid_harmonics::Y00;
+      double constexpr Y00inv = solid_harmonics::Y00inv;
 
       status_t stat{0};
       
-      real_space_grid::grid_t<1> g;
-      double *coordinates_and_Z{nullptr};
       int na{0};
+      double *coordinates_and_Z{nullptr};
+      real_space_grid::grid_t<1> g;
       stat += init_geometry_and_grid(g, &coordinates_and_Z, na, echo);
 
-      double cell[3];
-      for(int d = 0; d < 3; ++d) {
-          cell[d] = g.dim(d)*g.h[d];
-      } // d
+      double const cell[3] = {g.dim(0)*g.h[0], g.dim(1)*g.h[1], g.dim(2)*g.h[2]};
      
-      float ionization[na]; set(ionization, na, 0.f);
+      std::vector<float> ionization(na, 0.f);
       if ((ion != 0.0) && (na > 1)) {
           if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
           ionization[0] = ion; ionization[na - 1] = -ionization[0];
       } // ionized
       
-      view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap
-      float Za[na]; // list of atomic numbers
-      
-      view2D<double> center(na, 4); // get memory for a list of atomic centers
-      if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
-      for(int ia = 0; ia < na; ++ia) {
-          int const iZ = (int)std::round(xyzZ[ia][3]);
-          char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
-          if (echo > 4) printf("# %c%c   %15.9f %15.9f %15.9f\n", El[0],El[1],
-                          xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
-          Za[ia] = (float)xyzZ[ia][3]; // list of atomic numbers
-          for(int d = 0; d < 3; ++d) {
-              center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
-          }   center[ia][3] = 0; // 4th component is not used
-          if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
-                                       center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
-      } // ia
+      std::vector<float> Za(na, 0.f); // list of atomic numbers
+      view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
+      { // scope: prepare atomic coordinates
+          view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
+          if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
+          for(int ia = 0; ia < na; ++ia) {
+              int const iZ = (int)std::round(xyzZ[ia][3]);
+              char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
+              if (echo > 4) printf("# %c%c   %15.9f %15.9f %15.9f\n", El[0],El[1],
+                              xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
+              Za[ia] = (float)xyzZ[ia][3]; // list of atomic numbers
+              for(int d = 0; d < 3; ++d) {
+                  center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+              }   center[ia][3] = 0; // 4th component is not used
+              if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
+                                          center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
+          } // ia
+          delete[] coordinates_and_Z;
+      } // scope
 
       float const rcut = 32; // radial grids usually and at 9.45 Bohr
       
-      double *periodic_images = nullptr;
-      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images, cell, g.boundary_conditions(), rcut, echo);
+      double *periodic_images_ptr{nullptr};
+      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+      view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
 
-      double *rho_core[na]; // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
-      double *zero_pot[na]; // smooth zero_potential on r2-grids, nr2=2^12 points, ar2=16.f
-      radial_grid_t *rg[na]; // smooth radial grid descriptors
-      double sigma_cmp[na]; //
-      double *qlm[na]; int lmax_qlm[na];
-      double *vlm[na]; int lmax_vlm[na];
-      stat += single_atom::update(na, Za, ionization, rg, sigma_cmp, nullptr, nullptr, nullptr, lmax_vlm, lmax_qlm);
+      std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
+      std::vector<double*> rho_core(na, nullptr); // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
+      std::vector<double*> zero_pot(na, nullptr); // smooth zero_potential on r2-grids, nr2=2^12 points, ar2=16.f
+      std::vector<double> sigma_cmp(na, 1.); //
+      std::vector<double*> qlm(na, nullptr); 
+      std::vector<double*> vlm(na, nullptr); 
+      std::vector<int> lmax_qlm(na, -1);
+      std::vector<int> lmax_vlm(na, -1);
+
+      // for each atom get radial grid, sigma, lmax
+      stat += single_atom::update(na, Za.data(), ionization.data(), rg.data(), sigma_cmp.data(), nullptr, nullptr, nullptr, lmax_vlm.data(), lmax_qlm.data());
+      
       for(int ia = 0; ia < na; ++ia) {
           vlm[ia] = new double[pow2(1 + lmax_vlm[ia])];
           qlm[ia] = new double[pow2(1 + lmax_qlm[ia])];
@@ -163,229 +167,230 @@ namespace potential_generator {
 
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
+#ifdef DEVEL
       std::vector<double> Laplace_Ves(g.all());
-      std::vector<double>         Ves(g.all(), 0.0);
-      std::vector<double>         cmp(g.all());
-      std::vector<double>         rho(g.all());
-      std::vector<double>        Vtot(g.all());
-      std::vector<double>         Vxc(g.all());
+#endif
+      std::vector<double>  rho(g.all());
+      std::vector<double>  Vxc(g.all());
+      std::vector<double>  cmp(g.all());
+      std::vector<double>  Ves(g.all(), 0.0);
+      std::vector<double> Vtot(g.all());
       
-      char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative"); // can also be fourier
+      char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative"); // can also be "fourier"
 
-  int const max_scf_iterations = control::get("potential_generator.max.scf", 3.);
-  for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
-      // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
-      if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
+      int const max_scf_iterations = control::get("potential_generator.max.scf", 3.);
+      for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
+          // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
+          if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
-      stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, rho_core, qlm);
+          stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, rho_core.data(), qlm.data());
 
-      set(rho.data(), g.all(), 0.0); // clear
-      for(int ia = 0; ia < na; ++ia) {
-          // ToDo: these parameters are silently assumed for the r2-grid of rho_core
-          int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-          double const r2cut = pow2(rg[ia]->rmax), r2inv = 1./r2cut;
-          if (echo > 6) {
-              printf("\n## Real-space smooth core density for atom #%d:\n", ia);
-              for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  double const r2 = ir2/ar2, r = std::sqrt(r2);
-                  printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
-              }   printf("\n\n");
-          } // echo
-
-          if (1) {
-              for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  double const r2 = ir2/ar2;
-                  rho_core[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
-              } // irs
-          } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
-
-          if (echo > 6) {
-              printf("\n## masked real-space smooth core density for atom #%d:\n", ia);
-              for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  double const r2 = ir2/ar2, r = std::sqrt(r2);
-                  printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
-              }   printf("\n\n");
-          } // echo
-
-          double q_added = 0;
-          for(int ii = 0; ii < n_periodic_images; ++ii) {
-              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-              double q_added_image = 0;
-              stat += real_space_grid::add_function(rho.data(), g, &q_added_image, rho_core[ia], nr2, ar2, cnt, Y00sq);
-//               if (echo > 7) printf("# %g electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
-              q_added += q_added_image;
-          } // periodic images
-          if (echo > 1) {
-              printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
-              print_stats(rho.data(), g.all(), g.dV());
-          } // echo
-          if (echo > 3) printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
-          if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n",  ia, qlm[ia][00]/Y00);
-      } // ia
-
-      { // scope: eval the XC potential
-          double Exc{0}, Edc{0};
-          for(size_t i = 0; i < g.all(); ++i) {
-              auto const exc_i = exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
-              Exc += rho[i]*exc_i;
-              Edc += rho[i]*Vxc[i]; // double counting correction
-          } // i
-          Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
-          if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
-      } // scope
-
-      set(cmp.data(), g.all(), 0.0);
-      { // scope
+          set(rho.data(), g.all(), 0.0); // clear density
+          
+          // add contributions from smooth core densities
           for(int ia = 0; ia < na; ++ia) {
-              if (echo > 6) printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][00]);
-              double const sigma = sigma_cmp[ia];
-              int    const ellmax = lmax_qlm[ia];
-              std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
-              double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma)); // warning! only gets 00 correct
-              if (0) { // old method, works only for the monopole
-                  // normalizing prefactor: 4 pi int dr r^2 exp(-r2/(2 sigma^2)) = sigma^3 \sqrt{8*pi^3}, only for lm=00
-                  set(coeff.data(), 1, qlm[ia], prefactor); // copy only monopole moment, ToDo
-              } else {
-                  if (echo > 6) printf("# theoretical value for atom #%d coeff[000] = %g\n", ia, qlm[ia][00]*prefactor);
-                  stat += sho_projection::denormalize_electrostatics(coeff.data(), qlm[ia], ellmax, sigma, unitary, echo);
-              }
-              if (echo > 7) printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
-              for(int ii = 0; ii < n_periodic_images; ++ii) {
-                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                  stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
-              } // periodic images
-
-              if (echo > 1) {
-                  // report extremal values of the density on the grid
-                  printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][00]/Y00, ia);
-                  print_stats(cmp.data(), g.all(), g.dV());
+              // ToDo: these parameters are silently assumed for the r2-grid of rho_core
+              int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
+#ifdef DEVEL
+              if (echo > 6) {
+                  printf("\n## Real-space smooth core density for atom #%d:\n", ia);
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2, r = std::sqrt(r2);
+                      printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
+                  }   printf("\n\n");
               } // echo
-              
-          } // ia
-          
-          
-          // add compensators cmp to rho
-          add_product(rho.data(), g.all(), cmp.data(), 1.);
-          if (echo > 1) {
-              printf("\n# augmented charge density grid stats:");
-              print_stats(rho.data(), g.all(), g.dV());
-          } // echo
-
-          if ('f' == es_solver_method) {
-              int ng[3]; double reci[3][4]; 
-              for(int d = 0; d < 3; ++d) { 
-                  ng[d] = g.dim(d);
-                  set(reci[d], 4, 0.0);
-                  reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
-              } // d
-
-              // solve the Poisson equation
-              stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
-          } else {
-              if (echo > 2) printf("# solve electrostatic potential iteratively\n");
-              stat += iterative_poisson::solve_multiprecision(Ves.data(), rho.data(), g, echo);
-          } // es_solver_method
-
-          // test the potential in real space, find ves_multipoles
-          for(int ia = 0; ia < na; ++ia) {
-              double const sigma = sigma_cmp[ia];
-              int    const ellmax = lmax_vlm[ia];
-              int const nc = sho_tools::nSHO(ellmax);
-              std::vector<double> coeff(nc, 0.0);
+#endif
+              if (0) { // moved this masking into the Bessel filtering
+                  double const r2cut = pow2(rg[ia]->rmax)*1.1, r2inv = 1./r2cut;
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2;
+                      rho_core[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+                  } // ir2
+              } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
+#ifdef DEVEL
+              if (echo > 6) {
+                  printf("\n## masked real-space smooth core density for atom #%d:\n", ia);
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2, r = std::sqrt(r2);
+                      printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
+                  }   printf("\n\n");
+              } // echo
+#endif
+              double q_added = 0;
               for(int ii = 0; ii < n_periodic_images; ++ii) {
-                  std::vector<double> coeff_image(nc, 0.0);
-                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-                  stat += sho_projection::sho_project(coeff_image.data(), ellmax, cnt, sigma, Ves.data(), g, 0);
-                  add_product(coeff.data(), nc, coeff_image.data(), 1.0); // need phase factors? no since we only test the electrostatic
+                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+                  double q_added_image = 0;
+                  stat += real_space_grid::add_function(rho.data(), g, &q_added_image, rho_core[ia], nr2, ar2, cnt, Y00sq);
+    //               if (echo > 7) printf("# %g electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
+                  q_added += q_added_image;
               } // periodic images
-              // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
+#ifdef DEVEL       
+              if (echo > 1) {
+                  printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
+                  print_stats(rho.data(), g.all(), g.dV());
+              } // echo
+#endif
+              if (echo > 3) printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
+              if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, qlm[ia][00]*Y00inv);
+          } // ia
 
-              if (0) { // old method, works only for the monopole
-                  set(vlm[ia], pow2(1 + ellmax), 0.0);
-                  double const prefactor = 1./(Y00*pow3(std::sqrt(2*constants::pi)*sigma));
-                  vlm[ia][00] = prefactor*coeff[00]; // only monopole
+          { // scope: eval the XC potential and energy
+              double Exc{0}, Edc{0};
+              for(size_t i = 0; i < g.all(); ++i) {
+                  auto const exc_i = exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
+                  Exc += rho[i]*exc_i;
+                  Edc += rho[i]*Vxc[i]; // double counting correction
+              } // i
+              Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
+              if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
+          } // scope
+
+          set(cmp.data(), g.all(), 0.0); // init compensation charge density
+          { // scope: solve the Poisson equation
+            
+              // add compensation charges cmp
+              for(int ia = 0; ia < na; ++ia) {
+                  if (echo > 6) printf("# 00 compensator charge for atom #%d is %g\n", ia, qlm[ia][00]*Y00inv);
+                  double const sigma = sigma_cmp[ia];
+                  int    const ellmax = lmax_qlm[ia];
+                  std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
+                  stat += sho_projection::denormalize_electrostatics(coeff.data(), qlm[ia], ellmax, sigma, unitary, echo);
+                  if (echo > 7) printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
+                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+                      stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
+                  } // periodic images
+#ifdef DEVEL
+                  if (echo > 1) {
+                      // report extremal values of the density on the grid
+                      printf("# after adding %g electrons compensator density for atom #%d:", qlm[ia][00]*Y00inv, ia);
+                      print_stats(cmp.data(), g.all(), g.dV());
+                  } // echo
+#endif
+              } // ia
+              
+              // add compensators cmp to rho
+              add_product(rho.data(), g.all(), cmp.data(), 1.);
+              if (echo > 1) {
+                  printf("\n# augmented charge density grid stats:");
+                  print_stats(rho.data(), g.all(), g.dV());
+              } // echo
+
+              if ('f' == es_solver_method) {
+                  int ng[3]; double reci[3][4]; 
+                  for(int d = 0; d < 3; ++d) { 
+                      ng[d] = g.dim(d);
+                      set(reci[d], 4, 0.0);
+                      reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
+                  } // d
+
+                  // solve the Poisson equation using a Fast Fourier Transform
+                  stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
               } else {
+                  if (echo > 2) printf("# solve electrostatic potential iteratively\n");
+                  stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
+              } // es_solver_method
+
+              // test the potential in real space, find ves_multipoles
+              for(int ia = 0; ia < na; ++ia) {
+                  double const sigma = sigma_cmp[ia];
+                  int    const ellmax = lmax_vlm[ia];
+                  int const nc = sho_tools::nSHO(ellmax);
+                  std::vector<double> coeff(nc, 0.0);
+                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                      std::vector<double> coeff_image(nc, 0.0);
+                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+                      stat += sho_projection::sho_project(coeff_image.data(), ellmax, cnt, sigma, Ves.data(), g, 0);
+                      add_product(coeff.data(), nc, coeff_image.data(), 1.0); // need phase factors? no since we only test the electrostatic
+                  } // periodic images
+                  // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
+
                   stat += sho_projection::renormalize_electrostatics(vlm[ia], coeff.data(), ellmax, sigma, unitary, echo);
-              }
+                  #ifdef DEVEL
+                  if (echo > 3) {
+                      printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
+                      int const ellmax_show = std::min(ellmax, 2);
+                      for(int ell = 1; ell <= ellmax_show; ++ell) {
+                          printf("# potential projection for atom #%d v_%im =", ia, ell);
+                          double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
+                          for(int emm = -ell; emm <= ell; ++emm) {
+                              int const lm = sho_tools::lm_index(ell, emm);
+                              printf(" %.6f", vlm[ia][lm]*unitfactor);
+                          } // emm
+                          printf(" %s %s^%i\n", _eV, _Ang, -ell);
+                      } // ell
+                  } // echo
+                  #endif // DEVEL
+              } // ia
 
               if (echo > 3) {
-                  printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
-                  int const ellmax_show = std::min(ellmax, 2);
-                  for(int ell = 1; ell <= ellmax_show; ++ell) {
-                      printf("# potential projection for atom #%d v_%im =", ia, ell);
-                      double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
-                      for(int emm = -ell; emm <= ell; ++emm) {
-                          int const lm = sho_tools::lm_index(ell, emm);
-                          printf(" %.6f", vlm[ia][lm]*unitfactor);
-                      } // emm
-                      printf(" %s %s^%i\n", _eV, _Ang, -ell);
-                  } // ell
+                  double const Ees = 0.5*dot_product(g.all(), rho.data(), Ves.data())*g.dV();
+                  printf("# inner product between rho and Ves = %g %s\n", 2*Ees*eV,_eV);
               } // echo
-              
-          } // ia
-          if (echo > 3) printf("# inner product between cmp and Ves = %g %s\n", dot_product(g.all(), cmp.data(), Ves.data())*g.dV()*eV,_eV);
+          } // scope
 
-      } // scope
+          // communicate vlm to the atoms, get zero_potential
+          stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, vlm.data(), nullptr, nullptr, zero_pot.data());
 
-      stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, vlm, nullptr, nullptr, zero_pot);
+          set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
-      set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
-      
-      if (echo > 1) {
-          printf("\n# Total effective potential (before adding zero_potentials) grid stats:");
-          print_stats(Vtot.data(), g.all(), g.dV());
-      } // echo
-      
-      // now also add the zero_potential to Vtot
-                  
-      for(int ia = 0; ia < na; ++ia) {
-          // ToDo: these parameters are silently assumed for the r2-grid of zero_pot
-          int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-          double const r2cut = pow2(rg[ia]->rmax), r2inv = 1./r2cut;
-          if (echo > 6) {
-              printf("\n## zero-potential for atom #%d:\n", ia);
-              for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  double const r2 = ir2/ar2, r = std::sqrt(r2);
-                  printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
-              }   printf("\n\n");
-          } // echo
-
-          if (1) {
-              for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  double const r2 = ir2/ar2;
-                  zero_pot[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
-              } // irs
-          } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
-
-          if (echo > 6) {
-              printf("\n## Masked zero-potential for atom #%d:\n", ia);
-              for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                  double const r2 = ir2/ar2, r = std::sqrt(r2);
-                  printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
-              }   printf("\n\n");
+          if (echo > 1) {
+              printf("\n# Total effective potential (before adding zero_potentials)");
+              print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
           
-          for(int ii = 0; ii < n_periodic_images; ++ii) {
-              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
-              double dummy = 0;
-              stat += real_space_grid::add_function(Vtot.data(), g, &dummy, zero_pot[ia], nr2, ar2, cnt, Y00);
-          } // periodic images
+          // now also add the zero_potential to Vtot
+                      
+          for(int ia = 0; ia < na; ++ia) {
+              // ToDo: these parameters are silently assumed for the r2-grid of zero_pot
+              int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
+#ifdef DEVEL
+              if (echo > 6) {
+                  printf("\n## zero-potential for atom #%d:\n", ia);
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2, r = std::sqrt(r2);
+                      printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
+                  }   printf("\n\n");
+              } // echo
+#endif
+              if (0) { // moved this masking into the Bessel filtering
+                  double const r2cut = pow2(rg[ia]->rmax)*1.1, r2inv = 1./r2cut;
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2;
+                      zero_pot[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+                  } // ir2
+              } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
+#ifdef DEVEL
+              if (echo > 6) {
+                  printf("\n## Masked zero-potential for atom #%d:\n", ia);
+                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                      double const r2 = ir2/ar2, r = std::sqrt(r2);
+                      printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
+                  }   printf("\n\n");
+              } // echo
+#endif
+              for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+                  double dummy = 0;
+                  stat += real_space_grid::add_function(Vtot.data(), g, &dummy, zero_pot[ia], nr2, ar2, cnt, Y00);
+              } // periodic images
 
-      } // ia
-      
-      if (echo > 1) {
-          printf("\n# Total effective potential  (after adding zero_potentials) grid stats:");
-          print_stats(Vtot.data(), g.all(), g.dV());
-      } // echo
-      
-  } // scf_iteration
-  
+          } // ia
+          
+          if (echo > 1) {
+              printf("\n# Total effective potential  (after adding zero_potentials)");
+              print_stats(Vtot.data(), g.all(), g.dV());
+          } // echo
+          
+      } // scf_iteration
+
+#ifdef DEVEL 
 //   return 1; // warning! no cleanup has been run
   
 //   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
       { // scope: compute the Laplacian using high-order finite-differences
-          int const fd_nn[3] = {8, 8, 8}; // nearest neighbors in the finite-difference approximation
+          int const fd_nn[3] = {8, 8, 8}; // numbers of nearest neighbors in the finite-difference approximation
           finite_difference::finite_difference_t<double> const fd(g.h, fd_nn);
           {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
@@ -401,7 +406,7 @@ namespace potential_generator {
           } // timer
           
 
-          if (1) {
+          if (0) {
               // Jacobi solver for the Poisson equation: try if Ves is already the solution
               // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
             
@@ -431,24 +436,26 @@ namespace potential_generator {
                       if (echo > 9) { printf("# it%i Ves grid stats:", k); print_stats(x_kp1, g.all(), g.dV()); }
                   } // echo
               } // k
-          } // Jacobi solver
           
-          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference onto Jacobi solution", echo);
-              stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
-              { // Laplace_Ves should match rho
-                  double res_a{0}, res_2{0};
-                  for(size_t i = 0; i < g.all(); ++i) {
-                      res_a += std::abs(Laplace_Ves[i] - rho[i]);
-                      res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
-                  } // i
-                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
-                  if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
-              }
-          } // timer
+              {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference onto Jacobi solution", echo);
+                  stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
+                  { // Laplace_Ves should match rho
+                      double res_a{0}, res_2{0};
+                      for(size_t i = 0; i < g.all(); ++i) {
+                          res_a += std::abs(Laplace_Ves[i] - rho[i]);
+                          res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
+                      } // i
+                      res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
+                      if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
+                  }
+              } // timer
+          } // Jacobi solver
           
           
       } // scope
 
+      return 1; // warning! no cleanup has been run
+            
       double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
 //       values = Ves; // analyze the electrostatic potential
 //       values = rho; // analyze the augmented density
@@ -473,7 +480,7 @@ namespace potential_generator {
               {
                   std::vector<double> qc_image(nq, 0.0);
                   for(int ii = 0; ii < n_periodic_images; ++ii) {
-                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, &periodic_images[4*ii], 1.0);
+                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += real_space_grid::bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
                       add_product(qc.data(), nq, qc_image.data(), 1.0);
                   } // ii
@@ -515,20 +522,25 @@ namespace potential_generator {
           } // ia
       
       } // iptr loop for different quantities represented on the grid.
-      
-      for(int ia = 0; ia < na; ++ia) {
-          delete[] rho_core[ia]; // has been allocated in single_atom::update()
-          delete[] vlm[ia];
-          delete[] qlm[ia];
-      } // ia
+
 
       // generate a file which contains the full potential Vtot
       if (echo > 0) { char title[96];
-          sprintf(title, "%i x %i x %i", g.dim(2), g.dim(1), g.dim(0));
+          std::sprintf(title, "%i x %i x %i", g.dim(2), g.dim(1), g.dim(0));
           dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
       } // unless all output is suppressed
 
-      stat += single_atom::update(-na); // cleanup
+#endif // DEVEL
+
+      for(int ia = 0; ia < na; ++ia) {
+          delete[] rho_core[ia]; // has been allocated in single_atom::update()
+          delete[] zero_pot[ia]; // has been allocated in single_atom::update()
+          delete[] vlm[ia];
+          delete[] qlm[ia];
+      } // ia
+      delete[] periodic_images_ptr;
+
+      stat += single_atom::update(-na); // memory cleanup
       return stat;
   } // init
 

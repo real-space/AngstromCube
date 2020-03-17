@@ -1921,7 +1921,24 @@ extern "C" {
         auto const &qnt_vector = ('c' == what) ?  core_density[SMT] :  zero_potential;
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
                         label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
-        return bessel_transform::transform_to_r2_grid(qnt, ar2, nr2, qnt_vector.data(), *rg[SMT], echo);
+
+        // divide input by mask function
+        std::vector<double> inp(rg[SMT]->n);
+        double const r2cut = pow2(rg[SMT]->rmax)*1.1, r2inv = 1./r2cut;
+        for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+            double const r2 = pow2(rg[SMT]->r[ir]);
+            inp[ir] = qnt_vector[ir] / pow8(1. - pow8(r2*r2inv));
+        } // ir
+ 
+        auto const stat = bessel_transform::transform_to_r2_grid(qnt, ar2, nr2, inp.data(), *rg[SMT], echo);
+        
+        // multiply output by mask function
+        for(int ir2 = 0; ir2 < nr2; ++ir2) {
+            double const r2 = ir2/ar2;
+            qnt[ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+        } // ir2
+        
+        return stat;
     } // get_smooth_spherical_quantity
     
     radial_grid_t* get_smooth_radial_grid(int const echo=0) const { return rg[SMT]; }

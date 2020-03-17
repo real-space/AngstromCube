@@ -3,6 +3,7 @@
 #include <vector> // std::vector<T>
 #include <algorithm> // std::swap<T>
 #include <cmath> // std::sqrt
+#include <type_traits> // std::is_same
 
 #include "iterative_poisson.hxx"
 
@@ -59,14 +60,29 @@ namespace iterative_poisson {
                 , int const maxiter // =999 // maximum number of iterations 
                 , int const miniter // =0   // minimum number of iterations
                 , int restart // =4096 // number of iterations before restrat, 1:steepest descent
+                , char const mixed_precision // use mixed precision as preconditioner
                 ) {
 
     restart = std::max(1, restart);
     
     size_t const nall = size_t(g.dim(2))*size_t(g.dim(1))*size_t(g.dim(0));
     
-    view2D<real_t> mem(5, nall, 0.0); // get memory
-    auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=mem[4];    
+    if (std::is_same<real_t, double>::value) {
+        if ('m' == mixed_precision) {
+            view2D<float> xb(2, nall, 0.0); // get memory
+            auto const x32 = xb[0], b32 = xb[1];
+            set(b32, nall, b); // convert to float
+            set(x32, nall, x); // convert to float
+            if (echo > 5) printf("# %s solve in <float> precision first\n", __FILE__);
+            solve(x32, b32, g, echo + 1, threshold, residual, maxiter >> 4, miniter, restart);
+            set(x, nall, x32); // convert to double
+        } // mixed precision
+    } // real_t==double
+
+    bool const use_precond = false;
+    
+    view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
+    auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
     
     int const nn[] = {8, 8, 8};
     finite_difference::finite_difference_t<real_t> fd(g.h, nn);
@@ -103,6 +119,11 @@ namespace iterative_poisson {
 
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
     
+    if (g.all_boundary_conditions_periodic()) {
+        double const bnorm = norm1(b, nall)/nall * g.dV(); // g.comm
+        if (echo > 8) printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
+    } // all_boundary_conditions_periodic
+
     // |r> = |b> - A|x> = |b> - |Ax>
     set(r, nall, b); add_product(r, nall, ax, real_t(-1));
 
@@ -112,9 +133,10 @@ namespace iterative_poisson {
     if (echo > 8) printf("# %s start residual=%.1e\n", __FILE__, res_start);
 
     // |z> = |Pr> = P|r>
+    if (use_precond) {
 //     ist = Precon_Nf4( g, r, z )
 //     if( ist /= 0 ) stop 'CG_solve: Precon_Nf4 failed!'
-    set(z, nall, r); // Preconditioner == unity
+    } else assert(z == r);
 
     // rz_old = <r|z>
     double rz_old = scalar_product(r, z, nall) * g.dV(); // g.comm 
@@ -127,80 +149,81 @@ namespace iterative_poisson {
     // number of iterations is less then maxiter?
     bool run = (it < maxiter);
     while (run) {
-      ++it;
+        ++it;
 //       !--------------------------------------
 //       ! begin of the CG iteration
 //       !--------------------------------------
 
-      // |ap> = A|p>
-      ist = finite_difference::Laplacian(ap, p, g, fd);
-      if (ist) error("CG_solve: Laplacian failed!");
+        // |ap> = A|p>
+        ist = finite_difference::Laplacian(ap, p, g, fd);
+        if (ist) error("CG_solve: Laplacian failed!");
 
-      double const pAp = scalar_product(p, ap, nall) * g.dV(); // g.comm
+        double const pAp = scalar_product(p, ap, nall) * g.dV(); // g.comm
 
-      double constexpr RZ_TINY = 1e-14;
-      // alpha = rz_old / pAp
-      double const alpha = (std::abs(pAp) < RZ_TINY) ? RZ_TINY : rz_old / pAp;
+        double constexpr RZ_TINY = 1e-14;
+        // alpha = rz_old / pAp
+        double const alpha = (std::abs(pAp) < RZ_TINY) ? RZ_TINY : rz_old / pAp;
 
-      // |x> = |x> + alpha |p>
-      add_product(x, nall, p, real_t(alpha));
+        // |x> = |x> + alpha |p>
+        add_product(x, nall, p, real_t(alpha));
 
 //       !============================================================
 //       ! special treatment of completely periodic case
 //       !============================================================
-      if (g.all_boundary_conditions_periodic()) {
-          double const xnorm = norm1(x, nall)/nall; // g.comm
-//        xnorm = xnorm/real( g%ng_all(1)*g%ng_all(2)*g%ng_all(3) )
-          // subtract the average potential
-          for(size_t i{0}; i < nall; ++i) x[i] -= xnorm;
-      } // 3 periodic BCs
+        if (g.all_boundary_conditions_periodic()) {
+            double const xnorm = norm1(x, nall)/nall; // g.comm
+  //        xnorm = xnorm/real( g%ng_all(1)*g%ng_all(2)*g%ng_all(3) )
+            // subtract the average potential
+            for(size_t i{0}; i < nall; ++i) x[i] -= xnorm;
+        } // 3 periodic BCs
 //       !============================================================
 
-      if (0 == it % restart) {
-          // |Ax> = A|x>
-          ist = finite_difference::Laplacian(ax, x, g, fd);
-          if (ist) error("CG_solve: Laplace failed!")
-          // |r> = |b> - A|x> = |b> - |ax>
-          set(r, nall, b); add_product(r, nall, ax, real_t(-1));
-      } else {
-          // |r> = |r> - alpha |ap>
-          add_product(r, nall, ap, real_t(-alpha));
-      } // restart?
+        if (0 == it % restart) {
+            // |Ax> = A|x>
+            ist = finite_difference::Laplacian(ax, x, g, fd);
+            if (ist) error("CG_solve: Laplace failed!")
+            // |r> = |b> - A|x> = |b> - |ax>
+            set(r, nall, b); add_product(r, nall, ax, real_t(-1));
+        } else {
+            // |r> = |r> - alpha |ap>
+            add_product(r, nall, ap, real_t(-alpha));
+        } // restart?
 
-      // res = <r|r>
-      res2 = norm2(r, nall) * g.dV(); // g.comm
+        // res = <r|r>
+        res2 = norm2(r, nall) * g.dV(); // g.comm
 
-      // |z> = |Pr> = P|r>
+        // |z> = |Pr> = P|r>
+        if (use_precond) {
 //       ist = Precon_Nf4( g, r, z )
 //       if( ist /= 0 ) stop 'CG_solve: Precon_Nf4 failed!'
-      set(z, nall, r);
+        } else assert(z == r);
 
-      // rz_new = <r|z>
-      double const rz_new = scalar_product(r, z, nall) * g.dV(); // g.comm
+        // rz_new = <r|z>
+        double const rz_new = scalar_product(r, z, nall) * g.dV(); // g.comm
 
-      double constexpr RS_TINY = 1e-10;
-      // beta = rz_new / rz_old
-      double beta = rz_new / rz_old;
-      if (rz_old < RS_TINY) {
-          beta = 0;
-          set(p, nall, z);
-      } else {
-          // |p> = |z> + beta |p>
-          scale(p, nall, real_t(beta));
-          add_product(p, nall, z, real_t(1));
-      }
+        double constexpr RS_TINY = 1e-10;
+        // beta = rz_new / rz_old
+        double beta = rz_new / rz_old;
+        if (rz_old < RS_TINY) {
+            beta = 0;
+            set(p, nall, z);
+        } else {
+            // |p> = |z> + beta |p>
+            scale(p, nall, real_t(beta));
+            add_product(p, nall, z, real_t(1));
+        }
 
-      if (echo > 9) printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
-      if (echo > 7) printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
-          std::sqrt(res2/cell_volume), scalar_product(x, b, nall) * g.dV());
+        if (echo > 9) printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
+        if (echo > 7) printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
+            std::sqrt(res2/cell_volume), scalar_product(x, b, nall) * g.dV());
 
-      // rz_old = rz_new
-      rz_old = rz_new;
+        // rz_old = rz_new
+        rz_old = rz_new;
 
-      // decide if we continue to iterate
-      run = (res2 > threshold2); // residual fell below threshold ?
-      run = run && (it < maxiter); // maximum number of steps exceeded ?
-      run = run || (it < miniter); // minimum number of steps not reached ?
+        // decide if we continue to iterate
+        run = (res2 > threshold2); // residual fell below threshold ?
+        run = run || (it < miniter); // minimum number of steps not reached ?
+        run = run && (it < maxiter); // maximum number of steps exceeded ?
 //       !--------------------------------------
 //       ! end of the CG iteration
 //       !--------------------------------------
@@ -212,15 +235,10 @@ namespace iterative_poisson {
     // show the result
     if (echo > 2) printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", __FILE__,
         res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)");
-    
-    return ist;
-  } // solve
+    if (echo > 5) printf("# %s inner product <x|b> = %.15f\n", __FILE__, scalar_product(x, b, nall) * g.dV());
 
-  
-//   template<> // explicit template instanciation
-//   status_t solve(double x[], double const b[], real_space_grid::grid_t<1> g
-//                 , int const echo, float const threshold, float *residual
-//                 , int const maxiter, int const miniter, int restart);
+    return (res > threshold);
+  } // solve
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
