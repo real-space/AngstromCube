@@ -955,7 +955,7 @@ at affordable costs~\cite{BaumeisterTsukamotoPASC19}.
 
 \subsection{Normalization}
 In the factorizable representation, one could infer L2-normalization of each 1D projector. 
-However, this involves serveral \ttt{sqrt}-operations and divisions which can be avoided
+However, this involves several \ttt{sqrt}-operations and divisions which can be avoided
 by applying scaling factors such as normalizations in
 after the projection or in advance of the addition operation.
 The recursive definition of the Hermite polyomials is
@@ -1008,6 +1008,35 @@ the radial L2-normalization is given by
 \end{align}
 See \ttt{sho\_projection::radial\_L2\_prefactor} for an implementation of $f_{L2}$ as a function of $\ell$.
 However, we need the (L1-)normalization described above, so we introduce a proper re-scaling factor.
+
+\subsection{Masks for localized functions}
+%
+Certain functions other than the projectors 
+need to be brought to the Cartesian grid.
+This is in particular 
+the smooth core density $\tilde n\um{c}(|\vec r - \vec R^a|)$ and 
+the localized zero-potential  $\bar v^a(|\vec r - \vec R^a|)$.
+The transfer happens using \ttt{real\_space\_grid::add\_function}
+which requires an $r^2$-grid, i.e.~$r_i = \sqrt{i/a_{r^2}}$ and
+the lower index $i$ needed for linear interpolation is found as
+$$ i = \lfloor a_{r^2} r^2 \rfloor $$
+A typical value for $a_{r^2}$ is $16.0$
+
+\begin{figure} [ht]
+  \centering
+  %% how to generate this plot: ~/runfort zam044:~/Codes/a43/doc/fig/plot/mask.F90
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/polynomial_mask_function} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \caption{Mask function applied after Bessel filtering.
+  For $r < R$, the mask (black solid line) follows $(1 - (r/R)^{16})^8$ 
+  and connects smoothly to zero at $R$, in this illustration $R = 10$.
+  The first 9 grid points of an $r^2$-grid with $a_{r^2}=16$ are shown with a + mark.
+  } \label{fig:mask_function}
+\end{figure}
+
 
 \clearpage
 

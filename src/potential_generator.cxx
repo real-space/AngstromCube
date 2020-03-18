@@ -344,31 +344,6 @@ namespace potential_generator {
           for(int ia = 0; ia < na; ++ia) {
               // ToDo: these parameters are silently assumed for the r2-grid of zero_pot
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-#ifdef DEVEL
-              if (echo > 6) {
-                  printf("\n## zero-potential for atom #%d:\n", ia);
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2, r = std::sqrt(r2);
-                      printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
-                  }   printf("\n\n");
-              } // echo
-#endif
-              if (0) { // moved this masking into the Bessel filtering
-                  double const r2cut = pow2(rg[ia]->rmax)*1.1, r2inv = 1./r2cut;
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2;
-                      zero_pot[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
-                  } // ir2
-              } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
-#ifdef DEVEL
-              if (echo > 6) {
-                  printf("\n## Masked zero-potential for atom #%d:\n", ia);
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2, r = std::sqrt(r2);
-                      printf("%g %g\n", r, zero_pot[ia][ir2]*Y00);
-                  }   printf("\n\n");
-              } // echo
-#endif
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                   double dummy = 0;

@@ -1921,6 +1921,15 @@ extern "C" {
         auto const &qnt_vector = ('c' == what) ?  core_density[SMT] :  zero_potential;
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
                         label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
+#ifdef DEVEL
+        double const Y00s = Y00*(('c' == what) ? Y00 : 1); // Y00 for zero_pot and Y00^2 for rho_core
+        if (echo > 8) {
+            printf("\n## %s for atom #%d (before filtering):\n", qnt_name, atom_id);
+            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                printf("%g %g\n", rg[SMT]->r[ir], qnt_vector[ir]*Y00s);
+            }   printf("\n\n");
+        } // echo
+#endif
 
         // divide input by mask function
         std::vector<double> inp(rg[SMT]->n);
@@ -1929,15 +1938,22 @@ extern "C" {
             double const r2 = pow2(rg[SMT]->r[ir]);
             inp[ir] = qnt_vector[ir] / pow8(1. - pow8(r2*r2inv));
         } // ir
- 
+
         auto const stat = bessel_transform::transform_to_r2_grid(qnt, ar2, nr2, inp.data(), *rg[SMT], echo);
-        
+
         // multiply output by mask function
         for(int ir2 = 0; ir2 < nr2; ++ir2) {
             double const r2 = ir2/ar2;
             qnt[ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
         } // ir2
-        
+#ifdef DEVEL
+        if (echo > 8) {
+            printf("\n## %s for atom #%d  (after filtering):\n", qnt_name, atom_id);
+            for(int ir2 = 0; ir2 < nr2; ++ir2) {
+                printf("%g %g\n", std::sqrt(ir2/ar2), qnt[ir2]*Y00s);
+            }   printf("\n\n");
+        } // echo
+#endif
         return stat;
     } // get_smooth_spherical_quantity
     
