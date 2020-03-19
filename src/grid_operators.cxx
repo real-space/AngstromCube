@@ -48,23 +48,22 @@ namespace grid_operators {
       std::vector<double> psi(2*g.all(), 1.0);
       std::vector<double> potential(dims[2]*dims[1]*dims[0], 0.5);
       std::vector<atom_image::sho_atom_t> a(1);
-      std::vector<atom_image::atom_image_t> ai(1);
-      a[0]  = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999
-      ai[0] = atom_image::atom_image_t(dims[0]*g.h[0]/2, dims[1]*g.h[1]/2, dims[2]*g.h[2]/2, 999, 0);
+      a[0] = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999
+      double const apos[] = {0,0,0};
+      a[0].set_image_positions(apos);
       finite_difference::finite_difference_t<double> kinetic(g.h, nn);
       kinetic.scale_coefficients(-0.5);
-      stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, ai, kinetic, potential.data());
-      stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a, ai);
+      stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, kinetic, potential.data());
+      stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a);
       return stat;
   } // basic_test
 
   status_t class_test(int const echo=9) {
       status_t stat = 0;
-      int constexpr D0 = 1; // vectorization
       int const dims[] = {12, 13, 14};
       int const all = dims[0]*dims[1]*dims[2];
       std::vector<double> psi(all, 1.0), Hpsi(all);
-      grid_operator_t<double, double, D0> op(dims);
+      grid_operator_t<double> op(dims);
       stat += op.Hamiltonian(Hpsi.data(), psi.data(), echo);
       stat += op.Overlapping(psi.data(), Hpsi.data(), echo);
       stat += op.Conditioner(Hpsi.data(), psi.data(), echo);

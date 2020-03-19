@@ -16,21 +16,23 @@ namespace atom_image {
 
       atom_image_t(void) {} // default constructor
       atom_image_t(double const x, double const y, double const z, 
-                   int32_t const atom_id, int32_t const index=-1)
-          : _atom_id(atom_id), _index(index) 
-      {
+                   int32_t const atom_id=-1, 
+                   int const ix=-128, int const iy=-128, int const iz=-128, int const Zi=-128)
+          : _atom_id(atom_id) {
           _pos[0] = x; _pos[1] = y; _pos[2] = z;
+          _index[0] = ix; _index[1] = iy; _index[2] = iz; _index[3] = Zi;
       } // constructor
 
-      double const * get_pos() const { return _pos; };
-      double get_pos(int const d) const { assert(0 <= d); assert(d < 3); return _pos[d]; };
-      int32_t index()   const { return _index; }
+      double const * pos() const { return _pos; }
+      double pos(int const d) const { assert(0 <= d); assert(d < 3); return _pos[d]; }
       int32_t atom_id() const { return _atom_id; }
+      int8_t const * index() const { return _index; }
+      int index(int const d) const { assert(0 <= d); assert(d < 4); return _index[d]; }
 
     private:
       double  _pos[3];      // real space positions of the atomic image
       int32_t _atom_id{-1}; // global atom identifyer
-      int32_t _index{-1};   // flexible index, e.g. for local atom counting
+      int8_t  _index[4];    // flexible indices, e.g. for phases
   }; // class atom_image_t
 
   
@@ -86,13 +88,32 @@ namespace atom_image {
                   _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j
           } // i
-          return (ncoeff != _ncoeff); // report missmatch
+          return (ncoeff != _ncoeff); // report mismatch
       } // set_matrix
+
+      status_t set_image_positions(double const atom_position[3], int const nimages=1, double const *periodic_positions=nullptr) {
+          if (nullptr == periodic_positions) {
+              _images.resize(1);
+              _images[0] = atom_image_t(atom_position[0], atom_position[1], atom_position[2], _atom_id, 0,0,0);
+              return (nimages - 1); // return inconsistency if nullptr==periodic_positions && 1!=nimages
+          } // nullptr
+          _images.resize(nimages);
+          for(int ii = 0; ii < nimages; ++ii) {
+              double p[3];
+              for(int d = 0; d < 3; ++d) {
+                  p[d] = atom_position[d] + periodic_positions[4*ii + d];
+              } // d
+              _images[ii] = atom_image_t(p[0], p[1], p[2], _atom_id, 0,0,0);
+          } // ii
+          return 0;
+      } // set_image_positions
 
       int32_t atom_id() const { return _atom_id; }
       int     numax()   const { return _numax; }
       double  sigma()   const { return _sigma; }
       int     stride()  const { return _stride; }
+      int     nimages() const { return _images.size(); }
+      double const * pos(int const ii=0) const { assert(ii >= 0); assert(ii < _images.size()); return _images[ii].pos(); }
 
     private:
       double  _sigma{1.};
@@ -103,6 +124,8 @@ namespace atom_image {
       std::vector<float>  _matrix32; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
       int32_t _ncoeff{0};
       int32_t _stride{0};
+      
+      std::vector<atom_image_t> _images;
   }; // class sho_atom_t
   
       template <> // specialization for real_t=double
@@ -117,9 +140,14 @@ namespace atom_image {
           return &_matrix32[h0s1*_ncoeff*_stride];
       } // get_matrix
 
-  
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+#else // NO_UNIT_TESTS
+
   inline status_t all_tests(int const echo=0) {
-      return (3*8 + 2*4 != sizeof(atom_image_t)); // make sure that this struct has 32 Byte
+      return (3*8 + 4 + 4*1 != sizeof(atom_image_t)); // make sure that this struct has 32 Byte
   } // all_tests
+
+#endif // NO_UNIT_TESTS
 
 } // namespace atom_image

@@ -185,7 +185,7 @@ typedef int status_t;
           // stringify the value of a macro, two expansion levels needed
           #define macro2string(a) stringify(a)
           #define stringify(b) #b
-          printf("# provenance: git commit " macro2string(_GIT_KEY) "\n\n");
+          printf("# git checkout " macro2string(_GIT_KEY) "\n\n");
           #undef  stringify
           #undef  macro2string
 #endif

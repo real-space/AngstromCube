@@ -9,12 +9,12 @@ typedef int status_t;
   int constexpr Periodic_Boundary =  1;
   int constexpr Isolated_Boundary =  0;
   int constexpr Mirrored_Boundary = -1;
-  int constexpr Invalid_Boundary = -9;
+  int constexpr Invalid_Boundary  = -9;
   
 namespace boundary_condition {
 
   inline int periodic_images(double **ipos, double const cell[3], // orthorhombic cell parameters
-                             int const bc[3], double const rcut, int const echo=0) {
+                             int const bc[3], float const rcut, int const echo=0) {
       auto const cell_diagonal2 = pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]) + pow2(rcut);
       int ni_xyz[3], ni_max = 1;
       for(int d = 0; d < 3; ++d) {

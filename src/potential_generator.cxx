@@ -141,7 +141,7 @@ namespace potential_generator {
           delete[] coordinates_and_Z;
       } // scope
 
-      float const rcut = 32; // radial grids usually and at 9.45 Bohr
+      float const rcut = 32; // radial grids usually end at 9.45 Bohr
       
       double *periodic_images_ptr{nullptr};
       int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
@@ -306,7 +306,7 @@ namespace potential_generator {
                   // SHO-projectors are brought to the grid unnormalized, i.e. p_{000}(0) = 1.0 and p_{200}(0) = -.5
 
                   stat += sho_projection::renormalize_electrostatics(vlm[ia], coeff.data(), ellmax, sigma, unitary, echo);
-                  #ifdef DEVEL
+#ifdef DEVEL
                   if (echo > 3) {
                       printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, vlm[ia][00]*Y00*eV,_eV);
                       int const ellmax_show = std::min(ellmax, 2);
@@ -320,7 +320,7 @@ namespace potential_generator {
                           printf(" %s %s^%i\n", _eV, _Ang, -ell);
                       } // ell
                   } // echo
-                  #endif // DEVEL
+#endif // DEVEL
               } // ia
 
               if (echo > 3) {
@@ -432,12 +432,12 @@ namespace potential_generator {
       return 1; // warning! no cleanup has been run
             
       double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
-//       values = Ves; // analyze the electrostatic potential
-//       values = rho; // analyze the augmented density
-//       values = Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
-//       values = cmp; // analyze only the compensator density
-//       values = Vxc; // analyze the xc potential
-//       values = Vtot; // analyze the total potential: Vxc + Ves
+      //     Ves; // analyze the electrostatic potential
+      //     rho; // analyze the augmented density
+      //     Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
+      //     cmp; // analyze only the compensator density
+      //     Vxc; // analyze the xc potential
+      //     Vtot; // analyze the total potential: Vxc + Ves
 
       for(int iptr = 0; iptr < 1; iptr += 1) { // only loop over the first 1 for electrostatics
           // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
