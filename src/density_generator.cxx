@@ -54,12 +54,12 @@ namespace density_generator {
                               __func__, g.dim('x'), g.dim('y'), g.dim('z'));
       
       int const na = op.get_natoms();
-      std::vector<double*> atom_coeff(na, nullptr);
+      std::vector<real_t*> atom_coeff(na, nullptr);
       std::vector<double*> atom_rho(na, nullptr); // atomic density matrix
       for(int ia = 0; ia < na; ++ia) {
           int const numax = op.get_numax(ia);
           int const ncoeff = sho_tools::nSHO(numax);
-          atom_coeff[ia] = new double[ncoeff*D0];
+          atom_coeff[ia] = new real_t[ncoeff*D0];
           atom_rho[ia] = new double[ncoeff*ncoeff];
           set(atom_rho[ia], ncoeff*ncoeff, 0.0); // init clear
       } // ia
@@ -90,13 +90,13 @@ namespace density_generator {
                       int const ncoeff = sho_tools::nSHO(numax);
                       // add to the atomic density matrix, ToDo
                       for(int i = 0; i < ncoeff; ++i) {
-                          auto const c_i = atom_coeff[ia][i*D0 + 0];
+                          auto const c_i = atom_coeff[ia][i*D0 + 0]; // needs a conjugate
 #ifdef DEVEL
                           if (echo > 9) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %g\n", ikpoint, iband, ia, i, c_i);
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {
                               auto const c_j = atom_coeff[ia][j*D0 + 0];
-                              atom_rho[ia][i*ncoeff + j] += weight_nk * c_i * c_j; 
+                              atom_rho[ia][i*ncoeff + j] += weight_nk * c_i * c_j;
                           } // j
                       } // i
                   } // ia

@@ -23,7 +23,7 @@ namespace grid_operators {
                         , finite_difference::finite_difference_t<real_fd_t> const *fd=nullptr // finite difference [optional]
                         , double const *potential=nullptr // diagonal potential operator [optional]
                         , int const echo=0
-                        , double** atomic_projection_coefficients=nullptr
+                        , real_t** atomic_projection_coefficients=nullptr
                          ) {
       status_t stat = 0;
 
@@ -141,7 +141,7 @@ namespace grid_operators {
               for(int ia = 0; ia < na; ++ia) {
                   int const numax = a[ia].numax();
                   int const ncoeff = sho_tools::nSHO(numax);
-                  set(atomic_projection_coefficients[ia], ncoeff*D0, atom_coeff[ia].data()); // export, convert to double
+                  set(atomic_projection_coefficients[ia], ncoeff*D0, atom_coeff[ia].data()); // export
               } // ia
           } // atomic_projection_coefficients
                   
@@ -219,7 +219,7 @@ namespace grid_operators {
 
   // Overlap operator
   template<typename real_t, int D0=1>
-  status_t get_atom_coeffs(double** atom_coeffs // result
+  status_t get_atom_coeffs(real_t** atom_coeffs // result
                           , real_t const psi[] // input wave functions
                           , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
                           , std::vector<atom_image::sho_atom_t> const &a
@@ -286,7 +286,7 @@ namespace grid_operators {
           return _grid_operator(Cpsi, psi, grid, atoms, images, -1, boundary_phase.data(), &precond, nullptr, echo);
       } // Pre-Conditioner
 
-      status_t get_atom_coeffs(double** atom_coeffs, real_t const psi[], int const echo=0) const {
+      status_t get_atom_coeffs(real_t** atom_coeffs, real_t const psi[], int const echo=0) const {
           return _grid_operator<real_t, real_fd_t, D0>(nullptr, psi, grid, atoms, images, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
