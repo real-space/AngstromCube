@@ -49,7 +49,7 @@ namespace grid_operators {
       std::vector<double> potential(dims[2]*dims[1]*dims[0], 0.5);
       std::vector<atom_image::sho_atom_t> a(1);
       std::vector<atom_image::atom_image_t> ai(1);
-      a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+      a[0]  = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999
       ai[0] = atom_image::atom_image_t(dims[0]*g.h[0]/2, dims[1]*g.h[1]/2, dims[2]*g.h[2]/2, 999, 0);
       finite_difference::finite_difference_t<double> kinetic(g.h, nn);
       kinetic.scale_coefficients(-0.5);

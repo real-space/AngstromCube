@@ -14,12 +14,13 @@ namespace atom_image {
   class atom_image_t {
     public:
 
-      atom_image_t() {} // default constructor
+      atom_image_t(void) {} // default constructor
       atom_image_t(double const x, double const y, double const z, 
-                  int32_t const atom_id, int32_t const index=-1)
-          : _atom_id(atom_id), _index(index) {
+                   int32_t const atom_id, int32_t const index=-1)
+          : _atom_id(atom_id), _index(index) 
+      {
           _pos[0] = x; _pos[1] = y; _pos[2] = z;
-      } // contructor
+      } // constructor
 
       double const * get_pos() const { return _pos; };
       double get_pos(int const d) const { assert(0 <= d); assert(d < 3); return _pos[d]; };
@@ -35,10 +36,12 @@ namespace atom_image {
   
   class sho_atom_t { // an atom with SHO-projectors
     public:
-      sho_atom_t() : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor
-
-      sho_atom_t(int const numax, double const sigma, int32_t const atom_id) 
-        : _sigma(sigma), _numax(numax), _atom_id(atom_id) {
+      
+      sho_atom_t(void) : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor
+      sho_atom_t(double const sigma, int const numax, int32_t const atom_id) 
+          : _sigma(sigma), _numax(numax), _atom_id(atom_id)
+      {
+          assert(sigma > 0);
           _ncoeff = sho_tools::nSHO(_numax);
           _stride = align<2>(_ncoeff);
           _matrix64 = std::vector<double>(2*_ncoeff*_stride, 0.0);
@@ -48,8 +51,10 @@ namespace atom_image {
       template <typename real_t> 
       inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
 
-      status_t set_matrix(double const values[], int const ncoeff, int const stride, int const h0s1=0) {
+      status_t set_matrix(double const values[], // data layout values[ncoeff][stride]
+                          int const ncoeff, int const stride, int const h0s1=0) {
           assert(0 == h0s1 || 1 == h0s1); // 0:hamiltonian H, 1:overlap S (or I, contains charge deficit)
+          assert(ncoeff <= stride);
           
           std::vector<int> reorder(_ncoeff, 0);
           sho_tools::construct_index_table(reorder.data(), _numax, sho_tools::order_zyx);

@@ -112,7 +112,7 @@ namespace davidson_solver {
 
       std::vector<atom_image::sho_atom_t> a(1); // sho_atoms
       std::vector<atom_image::atom_image_t> ai(1); // atom_images
-      a[0]  = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
+      a[0]  = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999
       ai[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); // image position at the center, index=0 maps into list of sho_atoms
 
       int const nn[] = {8, 8, 8};

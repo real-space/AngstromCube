@@ -247,11 +247,16 @@ namespace grid_operators {
           auto const & g = grid;  // abbrev.
 
           potential = std::vector<double>(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
-          
+         
           images = std::vector<atom_image::atom_image_t>(natoms); // atom_images
-//           atoms [0] = atom_image::sho_atom_t(3, 0.5, 999); // numax=3, sigma=0.5, atom_id=999
-//           images[0] = atom_image::atom_image_t(g.dim(0)*g.h[0]/2, g.dim(1)*g.h[1]/2, g.dim(2)*g.h[2]/2, 999, 0); 
-          // image position at the center, index=0 maps into list of sho_atoms
+          for(int ia = 0; ia < natoms; ++ia) {
+              int const global_atom_id = ia;
+              int const index = ia;
+              int const numax = 1; // s and p only (for test)
+              double const sigma = 1.;
+              atoms[ia]  = atom_image::sho_atom_t(sigma, numax, global_atom_id);
+              images[ia] = atom_image::atom_image_t(0,0,0, global_atom_id, index);
+          } // ia
           
           int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
           

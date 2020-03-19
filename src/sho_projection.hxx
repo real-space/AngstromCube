@@ -27,7 +27,8 @@ namespace sho_projection {
                      , real_t values[] // grid array, result if adding
                      , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4) { //
-      double const rcut = truncation_radius(sigma, numax);
+      auto const rcut = truncation_radius(sigma, numax);
+      assert(sigma > 0);
       double const sigma_inv = 1./sigma;
       // determine the limitations of the projection domain
       int off[3], end[3], num[3];
@@ -40,7 +41,7 @@ namespace sho_projection {
           if (echo > 9) printf("# limits for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
           num[dir] = std::max(0, end[dir] - off[dir]);
       } // dir
-      long const nvolume = num[0] * num[1] * num[2];
+      auto const nvolume = (size_t(num[0]) * num[1]) * num[2];
       if ((nvolume < 1) && (echo < 7)) return 0; // no range
       if (echo > 2) printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n", 
                            (0 == PROJECT0_OR_ADD1)?"project":"add", off[0], end[0], off[1], end[1], off[2], end[2],
