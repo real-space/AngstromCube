@@ -53,40 +53,50 @@ namespace multi_grid {
           assert(nb < ng);
           double const rowref = 1; // each row sum must be equal to 1
           std::vector<double> colsum(ng, 0.0);
-          double const colref = double(nb)/ng; // each column sum must be nb/ng
+          double const b_over_g = nb/double(ng);
+          double const colref = b_over_g; // each column sum must be nb/ng
           double rowdev{0};
           for(int ib = 0; ib < nb; ++ib) {
-              double const b0 = ib/double(nb); // start of b-compartment
-              double const b1 = (ib + 1)/double(nb); // end of b-compartment
-              if (echo > 4) printf("# %c row%4i  ", 'x'+d, ib);
+              if (echo > 8) printf("# %c row%4i  ", 'x'+d, ib);
               double rowsum{0};
               for(int ig = 0; ig < ng; ++ig) {
-                  double const g0 = ig/double(ng); // start of g-compartment
-                  double const g1 = (ig + 1)/double(ng); // end of g-compartment
                   // overlap between a grid compartment of length L/ng starting at ig*L/ng
                   // with a grid compartment of length L/n2 starting at i2*L/n2
                   //            |  0  |  1  |  2  |  3  |  4  |   g
                   //            |    0    |    1    |    2    |   b
                   // (the cell length L falls out of the equation)
-                  double const gb0 = std::max(g0, b0);
-                  double const gb1 = std::min(g1, b1);
-                  double const ovl = std::max(0.0, gb1 - gb0)*nb;
+                  double const start = std::max((ig - 0)*b_over_g, double(ib - 0));
+                  double const end   = std::min((ig + 1)*b_over_g, double(ib + 1));
+                  double const ovl = std::max(0.0, end - start);
                   if (ovl > 0) {
-                      if (echo > 4) printf("  %i %g", ig, ovl); // show only non-zero matrix entries (with their column index) 
+                      if (echo > 8) printf("  %i %g", ig, ovl); // show only non-zero matrix entries (with their column index) 
                       rowsum += ovl;
                       colsum[ig] += ovl;
                   } // ovl non-zero
+                  // thid way to restrict requires no MPI communication across the outer boundaries, 
+                  // only communication between inner boundaries and onwership redistribution.
+                  // Ownership redistribution becomes necessary since at some point,
+                  // the communication times are larger than processing.
+                  // Or there might be a finit-difference stencil with nn > 1,
+                  // then, there is a natural limit of how few grid points per process elements
+                  // can be operatored. Then, we should redistribute to less process elements.
+                  // finally solving on the master only for the coarsest level.
               } // id
-              if (echo > 4) printf(" sum=%g dev=%.1e\n", rowsum, rowsum - rowref);
+              if (echo > 8) printf(" sum=%g dev=%.1e\n", rowsum, rowsum - rowref);
               rowdev = std::max(rowdev, std::abs(rowsum - rowref));
           } // ib
           double coldev{0}; // column deviation
           for(int ig = 0; ig < ng; ++ig) {
               coldev = std::max(coldev, std::abs(colsum[ig] - colref));
           } // ig
-          if (echo > 3) printf("# %c-direction largest deviation = %.1e (row) and %.1e (col)\n\n", 'x'+d, rowdev, coldev);
+          if (echo > 6) printf("# %c-direction largest deviation = %.1e (row) and %.1e (col)\n\n", 'x'+d, rowdev, coldev);
           stat += (coldev > 1e-14) + (rowdev > 1e-14);
       } // d
+      
+      // in some cases only two coefficients per row are non-zero
+      // (in particular the case of power of 2: coefficients are 0.5 0.5)
+      // in general, there are up to three non-zero coefficients.
+      
       return stat;
   } // analyze_grid_sizes
   
