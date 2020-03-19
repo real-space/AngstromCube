@@ -43,6 +43,7 @@ namespace multi_grid {
   inline status_t analyze_grid_sizes(
             real_space_grid::grid_t<D0> const & g // coarse grid where the Kohn-Sham equation is typically solved
           , int const echo=0) {
+      status_t stat{0};
       for(int d = 0; d < 3; ++d) {
           unsigned const ng = g.dim(d);
           unsigned const k = nearest_binary_power(ng);
@@ -55,22 +56,23 @@ namespace multi_grid {
           double const colref = double(nb)/ng; // each column sum must be nb/ng
           double rowdev{0};
           for(int ib = 0; ib < nb; ++ib) {
-              double const b0 = ib/double(nb);
-              double const b1 = (ib + 1)/double(nb);
+              double const b0 = ib/double(nb); // start of b-compartment
+              double const b1 = (ib + 1)/double(nb); // end of b-compartment
               if (echo > 4) printf("# %c row%4i  ", 'x'+d, ib);
               double rowsum{0};
               for(int ig = 0; ig < ng; ++ig) {
-                  double const g0 = ig/double(ng);
-                  double const g1 = (ig + 1)/double(ng);
+                  double const g0 = ig/double(ng); // start of g-compartment
+                  double const g1 = (ig + 1)/double(ng); // end of g-compartment
                   // overlap between a grid compartment of length L/ng starting at ig*L/ng
                   // with a grid compartment of length L/n2 starting at i2*L/n2
                   //            |  0  |  1  |  2  |  3  |  4  |   g
                   //            |    0    |    1    |    2    |   b
+                  // (the cell length L falls out of the equation)
                   double const gb0 = std::max(g0, b0);
                   double const gb1 = std::min(g1, b1);
                   double const ovl = std::max(0.0, gb1 - gb0)*nb;
                   if (ovl > 0) {
-                      if (echo > 4) printf("  %i %g", ig, ovl);
+                      if (echo > 4) printf("  %i %g", ig, ovl); // show only non-zero matrix entries (with their column index) 
                       rowsum += ovl;
                       colsum[ig] += ovl;
                   } // ovl non-zero
@@ -83,9 +85,9 @@ namespace multi_grid {
               coldev = std::max(coldev, std::abs(colsum[ig] - colref));
           } // ig
           if (echo > 3) printf("# %c-direction largest deviation = %.1e (row) and %.1e (col)\n\n", 'x'+d, rowdev, coldev);
-          
+          stat += (coldev > 1e-14) + (rowdev > 1e-14);
       } // d
-      return 0; // success
+      return stat;
   } // analyze_grid_sizes
   
 
