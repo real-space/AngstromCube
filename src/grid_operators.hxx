@@ -31,7 +31,7 @@ namespace grid_operators {
 
       if (Hpsi) {
           if (fd) {
-              stat += Laplacian(Hpsi, psi, g, *fd); // prefactor -0.5 moved into fd-coefficients
+              stat += finite_difference::Laplacian(Hpsi, psi, g, *fd); // prefactor -0.5 moved into fd-coefficients
               if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
           } else {
               set(Hpsi, g.all(), real_t(0)); // clear
@@ -166,7 +166,7 @@ namespace grid_operators {
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
                           , int const echo=0
   ) { return _grid_operator<real_t, real_t, D0>(nullptr, psi, g, a, 0, boundary_phase, nullptr, nullptr, 0, atom_coeffs); }
-  
+
   //
   // idea: the identity operation of the Overlap operator could be implemented with a
   //       finite difference stencil that has nn[] = {0, -1, -1} (-1 means that there is no pass)
@@ -185,7 +185,13 @@ namespace grid_operators {
 
           auto const & g = grid;  // abbrev.
 
-          potential = std::vector<double>(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // flat effective local potential, zero everywhere
+          // the kinetic energy operator
+          int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
+          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, nn);
+          kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
+
+          // the local effective potential
+          potential = std::vector<double>(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // init as zero everywhere
 
           int constexpr echo = 2;
           float const rcut = 18; // sho_projection usually ends at 9*sigma
@@ -205,20 +211,14 @@ namespace grid_operators {
               // ToDo: need to set atomic Hamiltonian and charge deficit matrices
           } // ia
           delete[] periodic_image_positions;
-
-          int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
           
-          // this simple preconditioner is a diffusion stencil
+          // this simple grid-based preconditioner is a diffusion stencil
           int const nn_precond[] = {nprecond, nprecond, nprecond};
           preconditioner = finite_difference::finite_difference_t<real_t>(g.h, nn_precond);
           for(int d = 0; d < 3; ++d) {
               preconditioner.c2nd[d][1] = 1/12.;
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
           } // d
-          
-          // the kinetic energy operator
-          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, nn);
-          kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
 
       } // constructor
 
