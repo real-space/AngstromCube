@@ -4,6 +4,9 @@ SYSTEM ?= zam044
 ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
 #ENABLEGPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
 
+# For reproducability compile the git key (hash) into the code
+GITKEY=$(shell git log | head -1 | sed -e 's/commit //g')
+
 THISMACHINE := $(shell hostname)
 
 EXECUTABLE = a43
@@ -66,8 +69,10 @@ INC = -I/usr/local/cuda/include
 
 
 ERRFLAGS =
+FEAFLAGS =
+FEAFLAGS += -D_GIT_KEY=$(GITKEY) 
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
-FEAFLAGS = ###-fopenmp -fno-omit-frame-pointer
+FEAFLAGS += ###-fopenmp -fno-omit-frame-pointer
 # FEAFLAGS += -D NO_UNIT_TESTS ## for production
 
 ## include also code which is not meant for release,

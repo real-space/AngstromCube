@@ -176,11 +176,19 @@ typedef int status_t;
           }
       } // iarg
       int const echo = control::get("verbosity", 3.); // define default verbosity here
-      if (echo > 0) { 
+      if (echo > 0) {
           printf("\n#");
           for(int iarg = 0; iarg < argc; ++iarg) {
               printf(" %s", argv[iarg]); // repeat the command line arguments
-          }   printf("\n\n");
+          }   printf("\n");
+#ifdef _GIT_KEY
+          // stringify the value of a macro, two expansion levels needed
+          #define macro2string(a) stringify(a)
+          #define stringify(b) #b
+          printf("# provenance: git commit " macro2string(_GIT_KEY) "\n\n");
+          #undef  stringify
+          #undef  macro2string
+#endif
       } // echo
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);

@@ -1,21 +1,21 @@
 #include <cstdio> // printf
-#include <cmath> // cos, abs, sqrt
+#include <cmath> // std::cos, std::abs, std::sqrt
 #include <cassert> // assert
-#include <algorithm> // fill
-
-#include "fourier_poisson.hxx"
+#include <algorithm> // std::fill
+#include <vector> // std::vector<T>
 
 #ifndef HAS_no_MKL
-  #include "mkl_dfti.h" // Intel(c) Math Kernel Library, discrete Fourier transform interface
+  #include <type_traits> // std::is_same
+  #include "mkl_dfti.h" // Dfti* (discrete Fourier transform interface of the Intel(c) Math Kernel Library)
 #endif
 
 #ifdef HAS_FFTW
 extern "C" {
-  #include "fftw.h" // fftw_plan, fftw_plan_dft_r2r_3d(int n0, int n1, int n2, double *in, double *out, 
-                    //    fftw_r2r_kind kind0, fftw_r2r_kind kind1, fftw_r2r_kind kind2, unsigned flags)
-                    //    FFTW_REDFT00
+  #include "fftw.h" // fftw_plan, fftw_plan_dft_r2r_3d
 }
 #endif
+
+#include "fourier_poisson.hxx"
 
 #include "constants.hxx" // pi
 #include "inline_tools.hxx" // align
@@ -42,35 +42,27 @@ namespace fourier_poisson {
       status = DftiSetValue(my_desc_handle, DFTI_COMPLEX_STORAGE, DFTI_REAL_REAL);
       status = DftiSetValue(my_desc_handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE);
       status = DftiCommitDescriptor(my_desc_handle);
-      auto imag2 = new real_t[ngall];
+      std::vector<real_t> imag2(ngall, 0.0);
       if ('f' == direction) { // forward
-          std::fill(imag2, imag2 + ngall, 0); // assume that array in is real, so its imaginary part (here imag2) is zero
           status = DftiComputeForward (my_desc_handle, (void*)in, (void*)imag2, (void*)out, (void*)imag); // perform the forward FFT
       } else {
           // in the backtransform we are not interested in the imaginary part of the output, so the content of imag2 is ignored
           status = DftiComputeBackward(my_desc_handle, (void*)in, (void*)imag, (void*)out, (void*)imag2); // perform the forward FFT
       }
-      status = DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
-      delete[] imag2;
+      DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
       return status;
 #else // not defined HAS_no_MKL
+
 #ifdef HAS_FFTW
-      static int64_t ng3_last = 0;
-      static rfftwnd_plan plan_f, plan_b;
-      static std::complex<double>* cw3 = nullptr;
-      auto const ng3 = ng[0] + (((int64_t)ng[1]) << 21) + (((int64_t)ng[2]) << 42);
-      if (ng3 != ng3_last) {
-          plan_f = rfftw3d_create_plan(3, ng, FFTW_FORWARD, 0);
-          plan_b = rfftw3d_create_plan(3, ng, FFTW_BACKWARD, 0);
-          ng3_last = ng3;
-      }
-      if ('f' == direction) { // forward
-          // rfftw3d_one_real_to_complex(plan_f, in, out);
-      } else {
-          // rfftw3d_one_complex_to_real(plan_b, out, in);
-      }
-      return 0;
+      if (std::is_same<real_t, double>::value) {
+          auto const plan = fftw_plan_r2r_3d(ng[2], ng[1], ng[0], in, out, 0, 0, 0, FFTW_ESTIMATE);
+          if (nullptr == plan) return __LINE__; // error
+          fftw_execute_dft(plan, in, out);
+          fftw_destroy_plan(plan);
+          return 0;
+      } // real_t == double
 #endif // defined HAS_FFTW
+
       return -1; // error, no FFT library available
 #endif // defined HAS_no_MKL     
   } // fft_MKL
@@ -84,10 +76,10 @@ namespace fourier_poisson {
                        , double const factor
                        , int const echo) {
       
-      size_t const ng_all = 1ul * ng[0] * ng[1] * ng[2];
+      size_t const ng_all = size_t(ng[0]) * ng[1] * ng[2];
       auto const mg_all = align<3>(ng_all); // aligned to 8 real_t numbers
-      auto const x_Re = new real_t[2*mg_all]; // get memory
-      auto const x_Im = x_Re + mg_all; // point to the second half of that array
+      std::vector<real_t> mem(2*mg_all); // get memory     
+      auto const x_Re = mem.data(), x_Im = mem.data() + mg_all; // point to the second half of that array
 
       status_t stat = 0;
       stat += fft_MKL(x_Re, x_Im, b, ng); // transform b into reciprocal space
@@ -118,10 +110,9 @@ namespace fourier_poisson {
               } // j0
           } // j1
       } // j2
-      
+
       stat += fft_MKL(x, x_Im, x_Re, ng, 'b'); // transform solution x back into real-space
 
-      delete[] x_Re; // deallocates x_Re and also x_Im
       return stat;
   } // fourier_solve
 
@@ -205,10 +196,8 @@ namespace fourier_poisson {
           if (0 == i01) {
               stat += fourier_solve(V, rho, ng, mat);
               charge = q/ngall;
-              if (echo > 2) printf("# charge in cell %g %g\n", q, charge);
-          } else {
-              if (echo > 2) printf("# charge in cell %g %g\n", q, charge);
-          }
+          } // first time
+          if (echo > 2) printf("# charge in cell %g %g\n", q, charge);
       } // i01
       if (echo > 4) printf("\n# radial density and 1/r Coulomb potential\n");
       double const dr = 1./8.;

@@ -116,7 +116,7 @@ namespace real_space_grid {
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
       assert(hcoeff > 0);
-      set(added, D0, (real_t)0); // clear
+      set(added, D0, real_t(0)); // clear
       size_t modified = 0, out_of_range = 0;
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;

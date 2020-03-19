@@ -10,6 +10,7 @@
 
 #include "constants.hxx" // ::pi
 #include "display_units.h" // Ang, _Ang
+#include "inline_math.hxx" // set
 
 typedef int status_t;
 
@@ -137,35 +138,40 @@ namespace shift_boundary {
 
     inline status_t test_plane_wave(int const echo=9, int const structure=4) {
       status_t stat{0};
-      char const structure_name[][4] = {"sc ","bcc","hcp","fcc"};
-      double amat[3][4], bmat[3][4];
-      for(int ij = 0; ij < 3*4; ++ij) { amat[0][ij] = 0; bmat[0][ij] = 0; }
+      char const structure_name[][4] = {"sc\0","bcc","hcp","fcc"};
+      double amat[3][4]; set(amat[0], 3*4, 0.0);
       double const alat = 4.1741; // e.g. Gold in hcp or fcc
       double const ahalf = 0.5 * alat;
       if (echo > 3) printf("\n# structure = %s  lattice constant = %g %s\n", structure_name[structure - 1], alat*Ang, _Ang);
       if (4 == structure) { // fcc
-          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;  amat[0][2] = 0;
-          amat[1][0] = 0;       amat[1][1] = ahalf;  amat[1][2] = ahalf;
-          amat[2][0] = 0;       amat[2][1] = 0;      amat[2][2] = ahalf;
+          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;   amat[0][2] = 0;
+          amat[1][0] = 0;       amat[1][1] = ahalf;   amat[1][2] = ahalf;
+          amat[2][0] = 0;       amat[2][1] = 0;       amat[2][2] = ahalf;
       } else
       if (3 == structure) { // hex in xy-direction, c/a for hcp
           double const s34 = std::sqrt(.75), s83=std::sqrt(8/3.);
-          double const ann = ahalf*std::sqrt(2.); // nearest neighbor bond length as in fcc
-          amat[0][0] = ann; amat[0][1] = ann*0.5;
-          amat[1][0] = 0;   amat[1][1] = ann*s34;
+          double const ann = ahalf*std::sqrt(2.); // nearest neighbor bond length, same as in fcc
+          amat[0][0] = ann;     amat[0][1] = ann*0.5;
+          amat[1][0] = 0;       amat[1][1] = ann*s34;
                                                       amat[2][2] = ann*s83;
       } else
       if (2 == structure) { // bcc
-          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;    amat[0][2] = 0;
-          amat[1][0] = 0;       amat[1][1] = 2*ahalf;  amat[1][2] = ahalf;
-          amat[2][0] = 0;       amat[2][1] = 0;        amat[2][2] = ahalf;
+          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;   amat[0][2] = 0;
+          amat[1][0] = 0;       amat[1][1] = 2*ahalf; amat[1][2] = ahalf;
+          amat[2][0] = 0;       amat[2][1] = 0;       amat[2][2] = ahalf;
       } else
       if (1 == structure) { // sc
           for(int d = 0; d < 3; ++d) amat[d][d] = 2*ahalf;
-      } // fcc
-
+      } else {
+          if (echo > 0) printf("\n# %s no such structure, key= %i\n", __func__, structure);
+          return -1; // error, no such structure
+      } // switch(structure)
+        
+      double bmat[3][4]; set(bmat[0], 3*4, 0.0);
       // invert amat to find bmat
-      double const detinv = 1./(amat[0][0]*amat[1][1]*amat[2][2]);
+      double const cell_volume = amat[0][0]*amat[1][1]*amat[2][2];
+      if (echo > 4) printf("# cell volume %g %s^3\n", cell_volume*pow3(Ang), _Ang);
+      double const detinv = 1./cell_volume;
       for(int i = 0; i < 3; ++i) {     int const i1 = (i + 1)%3, i2 = (i + 2)%3;
           for(int j = 0; j < 3; ++j) { int const j1 = (j + 1)%3, j2 = (j + 2)%3;
               bmat[j][i] = ( amat[i1][j1] * amat[i2][j2]
@@ -191,8 +197,8 @@ namespace shift_boundary {
             uij += amat[i][k] * bmat[k][j];
             uji += bmat[i][k] * amat[k][j];
           } // k - contraction index
-          maxdev[0] = std::max(maxdev[0], uij);
-          maxdev[1] = std::max(maxdev[1], uji);
+          maxdev[0] = std::max(maxdev[0], std::abs(uij - (i == j)));
+          maxdev[1] = std::max(maxdev[1], std::abs(uji - (i == j)));
           if (echo > 6) printf("%8.3f%8.3f ", uji, uij);
           if (echo > 8) printf("%.1e %.1e ", uji - (i == j), uij - (i == j));
         } // j
