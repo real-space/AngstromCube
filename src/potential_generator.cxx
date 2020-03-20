@@ -178,7 +178,7 @@ namespace potential_generator {
       
       char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative"); // can also be "fourier"
 
-      int const max_scf_iterations = control::get("potential_generator.max.scf", 3.);
+      int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);

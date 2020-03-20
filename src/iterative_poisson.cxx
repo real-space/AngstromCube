@@ -17,28 +17,8 @@
 #include "constants.hxx" // ::pi
 #include "bessel_transform.hxx" // ::transform_s_function
 
-// #define FULL_DEBUG
-#define DEBUG
-
-#ifdef  DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif
-
-#ifdef FULL_DEBUG
-    #define full_debug(print) print
-#else
-    #define full_debug(print)
-#endif
-
-#ifdef DEBUG
-    #define debug(print) print
-#else
-    #define debug(print)
-#endif
-
 namespace iterative_poisson {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
-
   
   template<typename real_t>
   double norm2(real_t const v[], size_t const n) { double s{0}; for(size_t i{0}; i < n; ++i) { s += pow2(v[i]); } return s; }
@@ -79,7 +59,8 @@ namespace iterative_poisson {
         } // mixed precision
     } // real_t==double
 
-    bool const use_precond = true;
+    int const nn_precond = 0;
+    bool const use_precond = (nn_precond > 0);
     
     view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
@@ -87,22 +68,24 @@ namespace iterative_poisson {
     finite_difference::finite_difference_t<real_t> fd(g.h, 8);
     fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor
 
-    finite_difference::finite_difference_t<real_t> precond(g.h, 4);
+    finite_difference::finite_difference_t<real_t> precond(g.h, nn_precond);
     if (use_precond) {
+        auto const nn = precond.nearest_neighbors();
         double nrm{0};
         for(int d = 0; d < 3; ++d) {
-            for(int i = 0; i < precond.nearest_neighbors(d); ++i) {
+            for(int i = 0; i < nn[d]; ++i) {
                 precond.c2nd[d][i] = std::abs(precond.c2nd[d][i]);
                 nrm += precond.c2nd[d][i] * (1 + (i > 0));
             } // i
         } // d
         nrm = 1./nrm;
         for(int d = 0; d < 3; ++d) {
-            for(int i = 0; i < precond.nearest_neighbors(d); ++i) {
+            for(int i = 0; i < nn[d]; ++i) {
                 precond.c2nd[d][i] *= nrm;
             } // i
         } // d
-        if (echo > 6) printf("# %s use a diffusion preconditioner\n", __FILE__);
+        if (echo > 6) printf("# %s use a diffusion preconditioner with %d %d %d neighbors\n", 
+                                __FILE__, nn[0], nn[1], nn[2]);
     } // use_precond
     
     double const cell_volume = nall*g.dV();
