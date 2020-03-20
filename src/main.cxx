@@ -26,6 +26,7 @@
 #include "iterative_poisson.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
+#include "parallel_domains.hxx" // ::all_tests
 #include "scattering_test.hxx" // ::all_tests
 #include "real_space_grid.hxx" // ::all_tests
 #include "davidson_solver.hxx" // ::all_tests
@@ -87,6 +88,7 @@
           module_test("radial_potential.",       radial_potential::all_tests);
           module_test("iterative_poisson.",     iterative_poisson::all_tests);
           module_test("bessel_transform.",       bessel_transform::all_tests);
+          module_test("parallel_domains.",       parallel_domains::all_tests);
           module_test("scattering_test.",         scattering_test::all_tests);
           module_test("real_space_grid.",         real_space_grid::all_tests);
           module_test("davidson_solver.",         davidson_solver::all_tests);
