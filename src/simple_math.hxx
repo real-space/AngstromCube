@@ -242,9 +242,9 @@ namespace simple_math {
   
   inline status_t all_tests(int const echo=2) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    auto status = 0;
-    status += std::abs(test_invert<float>(echo));
-    status += std::abs(test_invert<double>(echo));
+    status_t status(0);
+    status += std::abs(int(test_invert<float>(echo)));
+    status += std::abs(int(test_invert<double>(echo)));
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

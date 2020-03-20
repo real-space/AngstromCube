@@ -355,7 +355,7 @@ namespace angular_grid {
 
 
   template<typename real_t>
-  status_t create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo) {
+  int create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo) {
 
     int nc[8] = {0,0,0,0, 0,0,0,0}; // init
     int m = 0; // init
@@ -1930,7 +1930,7 @@ cTeXit '. ', '' ! full stop and an extra empty line
       } // ell
       if (echo > 2) printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %.1e\n", __func__, ellmax, dev_all);
       delete[] xyzw;
-      if (echo > 0 && stat) printf("# %s: %i grid generations failed!\n", __func__, stat);
+      if (echo > 0 && stat) printf("# %s: %i grid generations failed!\n", __func__, int(stat));
       return stat;
   } // test_orthogonality
 

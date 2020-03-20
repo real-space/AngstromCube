@@ -137,7 +137,7 @@ namespace spherical_harmonics {
 
   inline status_t all_tests(int const echo=3) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    auto status = 0;
+    status_t status(0);
     if (echo > 0) printf("\n# %s    no test implemented!\n\n", __FILE__);
     return status;
   } // all_tests

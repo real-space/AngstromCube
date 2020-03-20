@@ -144,7 +144,7 @@ namespace control {
   } // test_precision
   
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_control(echo);
     status += test_precision(echo);
     return status;

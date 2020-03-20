@@ -317,15 +317,15 @@ namespace chemical_symbol {
           if ((echo > 3) && (stat > 0)) printf("# %s %s failed for case Z=%i, run code generation again!\n", __FILE__, __func__, Z);
           status += (0 != stat);
       } // Z
-      if ((echo > 0) && (status > 0)) printf("# %s %s failed for %i cases, run code generation again!\n", __FILE__, __func__, status);
+      if ((echo > 0) && (status > 0)) printf("# %s %s failed for %i cases, run code generation again!\n", __FILE__, __func__, int(status));
       return status;
   } // test_consistency
   
   status_t all_tests(int const echo) {
-    auto status = 0;
-    status += std::abs(test_decoding_14bit(echo));
-    status += std::abs(test_decoding(echo));
-    status += std::abs(test_consistency(echo));
+    status_t status(0);
+    status += std::abs(int(test_decoding_14bit(echo)));
+    status += std::abs(int(test_decoding(echo)));
+    status += std::abs(int(test_consistency(echo)));
     return status;
   } // all_tests
 

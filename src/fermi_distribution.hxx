@@ -174,7 +174,7 @@ namespace fermi_distribution {
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-      auto status = 0;
+      status_t status(0);
       status += test_integration(echo);
       status += test_bisection(echo);
       return status;

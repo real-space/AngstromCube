@@ -219,7 +219,7 @@ namespace atom_core {
 
       int icyc{0};
       { // start scope
-          bool loading_failed = (0 != read_Zeff_from_file(rV_old, g, Z, "pot/Zeff", -1));
+          bool loading_failed = (0 != int(read_Zeff_from_file(rV_old, g, Z, "pot/Zeff", -1)));
           full_debug(dump_to_file("rV_loaded.dat", g.n, rV_old, g.r));
 
           if (Z != std::round(Z))
@@ -227,7 +227,7 @@ namespace atom_core {
           if (loading_failed) {
               if (Z != std::round(Z)) {
                   // maybe loading failed because there is no file for non-integer core charges
-                  loading_failed = (0 != read_Zeff_from_file(rV_old, g, std::round(Z), "pot/Zeff", -1));
+                  loading_failed = (0 != int(read_Zeff_from_file(rV_old, g, std::round(Z), "pot/Zeff", -1)));
               }
               if (loading_failed) {
                 // use guess density if loading failed
@@ -256,7 +256,7 @@ namespace atom_core {
                           previous_eigenvalues[i] = orb[i].E; // copy
                           auto const stat = radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho);
                           if (stat) {
-                              printf("# %s  Z=%g  failed solving for %d%c, status = %d\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), stat);
+                              printf("# %s  Z=%g  failed solving for %d%c, status = %d\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), int(stat));
                               return stat;
                           } // failed
                           if (echo > 6) {

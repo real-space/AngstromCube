@@ -122,7 +122,7 @@
 #undef    module_test
       } // testing scope
 
-      int status = 0;
+      status_t status(0);
       if (run.size() < 1) { // nothing has been tested
           if (echo > 0) printf("# ERROR: test for '%s' not found!\n", module);
           status = -1;
@@ -130,11 +130,11 @@
           if (echo > 0) printf("\n\n#%3ld modules have been tested:\n", run.size());
           for(auto r : run) {
               auto const stat = r.second;
-              if (echo > 0) printf("#    module= %-24s status= %i\n", r.first.c_str(), stat);
-              status += std::abs(stat);
+              if (echo > 0) printf("#    module= %-24s status= %i\n", r.first.c_str(), int(stat));
+              status += std::abs(int(stat));
           } // r
           if (echo > 0) {
-              printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), status);
+              printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), int(status));
               if (status > 0) printf("# Warning! At least one module test failed!\n");
           } // echo
       } // something has been tested

@@ -1,16 +1,15 @@
 #include <vector> // std::vector
 #include <cstdio> // printf
-// #include <math.h> // C_PI
 #include <cassert> // assert
 
 #include "radial_potential.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // create_exponential_radial_grid
+#include "radial_grid.hxx" // ::create_exponential_radial_grid
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "solid_harmonics.hxx" // lm_index
-#include "constants.hxx" // pi
+#include "solid_harmonics.hxx" // ::lm_index
+#include "constants.hxx" // ::pi
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -113,7 +112,7 @@ namespace radial_potential {
   } // test_radial_potential
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_radial_potential(echo, *radial_grid::create_exponential_radial_grid(512));
     return status;
   } // all_tests

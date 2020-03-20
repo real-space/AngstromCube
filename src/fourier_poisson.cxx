@@ -168,8 +168,8 @@ namespace fourier_poisson {
       delete[] rs_back;
       delete[] ft;
       delete[] rs;
-      if (echo > 1) printf("# %s: status = %i\n\n", __func__, status_fft + status_inv);
-      return status_fft + status_inv;
+      if (echo > 1) printf("# %s: status = %i\n\n", __func__, int(status_fft) + int(status_inv));
+      return int(status_fft) + int(status_inv);
   } // test_fft
 
   int test_FFT_Poisson_solver(int const echo=3) {
@@ -220,7 +220,7 @@ namespace fourier_poisson {
   } // test_FFT_Poisson_solver
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_fft<float>(echo);
     status += test_fft<double>(echo);
     status += test_FFT_Poisson_solver(echo);

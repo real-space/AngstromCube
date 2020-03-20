@@ -9,7 +9,7 @@
 
 #include "exchange_correlation.hxx"
 
-#include "constants.hxx" // pi
+#include "constants.hxx" // ::pi
 #include "inline_math.hxx" // pow2
 
 
@@ -84,7 +84,7 @@ namespace exchange_correlation {
   } // test_PZ81_potential
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_PZ81_potential(echo);
     return status;
   } // all_tests

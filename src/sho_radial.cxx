@@ -95,7 +95,7 @@ namespace sho_radial {
   } // test_orthonormality
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_orthonormality(echo);
     return status;
   } // all_tests

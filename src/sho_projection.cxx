@@ -175,7 +175,7 @@ namespace sho_projection {
   } // test_renormalize_electrostatics
   
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_renormalize_electrostatics(echo);
     status += test_L2_orthogonality<double>(echo); // takes a while
 //     status += test_L2_orthogonality<float>(echo);

@@ -92,7 +92,7 @@ namespace boundary_condition {
 
   inline status_t all_tests(int const echo=7) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    auto status = 0;
+    status_t status(0);
     status += test_periodic_images(echo);
     return status;
   } // all_tests

@@ -74,7 +74,7 @@ namespace real_space_grid {
   } // test_add_function
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_create_and_destroy(echo);
     status += test_add_function(echo);
     return status;

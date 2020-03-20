@@ -516,7 +516,7 @@ extern "C" {
         unitary_Ezyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
         {   sho_unitary::Unitary_SHO_Transform<double> const u(numax);
             auto const stat = u.construct_dense_matrix(unitary_Ezyx_lmn.data(), numax, nSHO, sho_tools::order_Ezyx, sho_tools::order_lmn);
-            assert(0 == stat);
+            assert(0 == int(stat));
         } // scope to fill unitary
 
         int const mlm = pow2(1 + numax);
@@ -600,7 +600,7 @@ extern "C" {
     status_t initialize_Gaunt() {
       if (gaunt_init) return 0; // success
       auto const stat = angular_grid::create_numerical_Gaunt<6>(gaunt);
-      gaunt_init = (0 == stat);
+      gaunt_init = (0 == int(stat));
       return stat;
     } // initialize_Gaunt
 
@@ -632,7 +632,7 @@ extern "C" {
 
         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
         // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
-        if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", label, stat);
+        if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", label, int(stat));
 
         if (echo > 8) { // plot the densities
             printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
@@ -885,7 +885,7 @@ extern "C" {
                             double lowest_eigenvalue = 0;
                             auto const info = minimize_curvature(n, Ekin, Olap, &lowest_eigenvalue);
                             if (info) {
-                                printf("# %s generalized eigenvalue problem failed info=%i\n", label, info);
+                                printf("# %s generalized eigenvalue problem failed info=%i\n", label, int(info));
                             } else {
                                 set(evec.data(), n, Ekin[0]);
                                 if (echo > 6) {
@@ -1493,7 +1493,7 @@ extern "C" {
                     label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][00][ir_cut[TRU]]*df, _eV);
         auto const stat = pseudize_function(V_smt.data(), rg[SMT], ir_cut[SMT], 2);
         if (stat) {
-            if (echo > 0) printf("# %s matching procedure for the potential parabola failed! info = %d\n", label, stat);
+            if (echo > 0) printf("# %s matching procedure for the potential parabola failed! info = %d\n", label, int(stat));
         } else {
 //             if (echo > -1) printf("# local smooth zero_potential:\n");
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {

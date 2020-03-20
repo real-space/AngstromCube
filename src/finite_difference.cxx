@@ -96,7 +96,7 @@ namespace finite_difference {
   } // test_dispersion
   
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_coefficients<double>(echo);
     status += test_coefficients<float>(echo);
     status += test_create_and_destroy(echo);

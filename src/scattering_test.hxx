@@ -516,7 +516,7 @@ namespace scattering_test {
           { // scope: diagonalize
               // solve the generalized eigenvalue problem
               auto const info = linear_algebra::generalized_eigenvalues(nr, Ham.data(), Ham.stride(), Ovl.data(), Ovl.stride(), eigs.data());
-              if (0 == info) {
+              if (0 == int(info)) {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
                   if (echo > 1) {
@@ -546,7 +546,7 @@ namespace scattering_test {
                   } // echo
                   
               } else { // info
-                  if (echo > 2) printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, info);
+                  if (echo > 2) printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
                   
                   // diagonalize Ovl_copy, standard eigenvalue problem
                   linear_algebra::eigenvalues(nr, Ovl_copy.data(), Ovl_copy.stride(), eigs.data());
@@ -641,7 +641,7 @@ namespace scattering_test {
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-      auto status = 0;
+      status_t status(0);
       status += test_eigenstate_analysis(echo);
       return status;
   } // all_tests

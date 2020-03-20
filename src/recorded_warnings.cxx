@@ -171,7 +171,7 @@ namespace recorded_warnings {
   } // test_overwriting
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_create_and_destroy(echo);
     status += test_preprocessor_macro(echo);
     status += test_overwriting(echo);

@@ -18,7 +18,7 @@ namespace angular_grid {
   int Lebedev_grid_size(int const ellmax, int const echo=0);
 
   template<typename real_t>
-  status_t create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo=0);
+  int create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo=0);
 
   status_t all_tests(int const echo=0);
 

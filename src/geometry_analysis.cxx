@@ -3,9 +3,9 @@
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
 #include <cstdint> // uint8_t
-#include <fstream>
-#include <sstream>
-#include <string>
+#include <fstream> // std::fstream
+#include <sstream> // std::sstream
+#include <string> // std::string
 #include <vector> // std::vector<T>
 
 #include "geometry_analysis.hxx"
@@ -751,7 +751,7 @@ namespace geometry_analysis {
   } // test_analysis
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_analysis(echo);
     return status;
   } // all_tests

@@ -71,7 +71,7 @@ namespace grid_operators {
   } // class_test
   
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += class_test(echo);
     status += basic_test(echo);
     return status;

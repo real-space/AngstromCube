@@ -167,7 +167,7 @@ namespace radial_eigensolver {
     float const Z,
     int const echo=7) { // number of protons in the nucleus
 
-    status_t status = 0;
+    status_t status(0);
     auto const ellchar = "spdfghijkl";
     auto rV = std::vector<double>(g.n, -Z); // fill all potential values with r*V(r) == -Z
     auto const rf = new double[g.n];
@@ -176,7 +176,7 @@ namespace radial_eigensolver {
       for(auto enn = 1; enn <= 9; ++enn) {
         for(auto ell = 0; ell < enn; ++ell) {
           double E = -.5*pow2(Z/enn); // guess energy for hydrogen like atoms
-          status += abs(shooting_method(sra, g, rV.data(), enn, ell, E, rf));
+          status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf)));
           if (echo > 1) printf("%2d%c energy for Z = %.3f found at E = %.12f %s\n", enn, ellchar[ell], Z, E*eV, _eV);
 #ifdef  DEBUG
           { char filename[32]; sprintf(filename, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
@@ -191,7 +191,7 @@ namespace radial_eigensolver {
   
   
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100, echo);
     return status;
   } // all_tests

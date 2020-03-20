@@ -193,7 +193,7 @@ namespace sho_tools {
   } // test_index_table_construction
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_radial_indices(echo);
     status += test_Cartesian_indices(echo);
     status += test_energy_ordered_indices(echo);

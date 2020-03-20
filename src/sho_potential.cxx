@@ -541,7 +541,7 @@ namespace sho_potential {
   } // test_potential_elements
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     status += test_potential_elements(echo); // expensive
     return status;
   } // all_tests

@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstdio> // printf, std::sprintf
 #include <cassert> // assert
 // #include <cmath> // std::min, std::max
-// #include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t
 

@@ -124,7 +124,7 @@ namespace radial_grid {
   } // test_create_and_destroy
 
   status_t all_tests(int const echo) {
-      auto status = 0;
+      status_t status(0);
       status += test_create_and_destroy(echo);
       return status;
   } // all_tests

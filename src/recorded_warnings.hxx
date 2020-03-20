@@ -2,7 +2,8 @@
 
 #include "status.hxx" // status_t
 
-#include <cstdio> // std::sprintf
+#include <cstdio> // fprintf, std::sprintf
+#include <utility> // std::forward
 
 #define warn(...) std::sprintf(recorded_warnings::_new_warning(__FILE__, __LINE__, __func__), __VA_ARGS__); 
 
@@ -18,7 +19,7 @@ namespace recorded_warnings {
   template <class... Args>
   void _print_error_message(FILE* os, char const *srcfile, int const srcline, Args &&... args) {
         fprintf(os, "\n\n# Error in %s:%i Message:\n#   ", srcfile, srcline);
-        fprintf(os, std::forward<Args>(args)...); 
+        fprintf(os, std::forward<Args>(args)...);
         fprintf(os, "\n\n");
         fflush(os);
   } // _print_error_message

@@ -595,7 +595,7 @@ int integrate_outwards( // return the number of nodes
   } // test_inhomogeneous
 
   status_t all_tests(int const echo) {
-    auto status = 0;
+    status_t status(0);
     auto const g = radial_grid::create_exponential_radial_grid(512);
 //  status += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), 1);
 //  status += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), 1);
