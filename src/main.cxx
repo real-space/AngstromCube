@@ -9,7 +9,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::cli
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 #include "recorded_warnings.hxx" // ::all_tests
 #include "finite_difference.hxx" // ::all_tests

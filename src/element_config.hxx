@@ -11,7 +11,7 @@
 
 // #define FULL_DEBUG
 // #define DEBUG
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace element_config {
   

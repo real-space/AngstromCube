@@ -12,7 +12,7 @@
 #include "display_units.h" // Ang, _Ang
 #include "inline_math.hxx" // set
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace shift_boundary {
   // A shift boundary condition is helpful for Cartesian methods:

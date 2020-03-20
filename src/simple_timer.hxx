@@ -3,7 +3,7 @@
 #include <chrono>
 #include <cstring> // strcpy
 
-  typedef int status_t;
+  #include "status.hxx" // status_t
 
   class SimpleTimer {
     // This timer object prints the time elapsed between construction and destruction 

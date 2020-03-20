@@ -7,7 +7,7 @@
 #include "boundary_condition.hxx" // *_Boundary
 #include "recorded_warnings.hxx" // warn
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace finite_difference {
 

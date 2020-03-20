@@ -6,7 +6,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "constants.hxx" // pi
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace bessel_transform {
   

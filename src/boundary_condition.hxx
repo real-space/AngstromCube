@@ -4,7 +4,7 @@
 #include <cmath> // std::ceil
 #include "inline_math.hxx"
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
   int constexpr Periodic_Boundary =  1;
   int constexpr Isolated_Boundary =  0;

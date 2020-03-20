@@ -3,7 +3,7 @@
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 #include "sho_tools.hxx" // sho_tools::nSHO, sho_tools::get_nu, sho_tools::order_zyx
 #include "real_space_grid.hxx" // real_space_grid::grid_t<D0>

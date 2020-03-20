@@ -6,7 +6,7 @@
 #include <algorithm> // std::fill
 #include <utility> // std::move
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 // #define debug_printf(...) printf(__VA_ARGS__)  
 #define debug_printf(...)

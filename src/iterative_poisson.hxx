@@ -2,7 +2,7 @@
 
 #include "real_space_grid.hxx" // ::grid_t
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace iterative_poisson {
 

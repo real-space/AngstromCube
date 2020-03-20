@@ -1,6 +1,6 @@
 #pragma once
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace conjugate_gradients {
 

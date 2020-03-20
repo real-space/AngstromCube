@@ -4,7 +4,7 @@
 #include <cstdint> // int64_t, std::sprintf, uint8_t
 #include <string> // std::string
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 #include "inline_math.hxx" // pow2, pow3
 

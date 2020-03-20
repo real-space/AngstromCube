@@ -5,7 +5,7 @@
 
 #include "sho_tools.hxx" // ::SHO_order_t, ...
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace sho_unitary {
 

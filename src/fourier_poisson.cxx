@@ -44,10 +44,10 @@ namespace fourier_poisson {
       status = DftiCommitDescriptor(my_desc_handle);
       std::vector<real_t> imag2(ngall, 0.0);
       if ('f' == direction) { // forward
-          status = DftiComputeForward (my_desc_handle, (void*)in, (void*)imag2, (void*)out, (void*)imag); // perform the forward FFT
+          status = DftiComputeForward (my_desc_handle, (void*)in, (void*)imag2.data(), (void*)out, (void*)imag); // perform the forward FFT
       } else {
           // in the backtransform we are not interested in the imaginary part of the output, so the content of imag2 is ignored
-          status = DftiComputeBackward(my_desc_handle, (void*)in, (void*)imag, (void*)out, (void*)imag2); // perform the forward FFT
+          status = DftiComputeBackward(my_desc_handle, (void*)in, (void*)imag, (void*)out, (void*)imag2.data()); // perform the forward FFT
       }
       DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
       return status;

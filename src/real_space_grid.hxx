@@ -10,7 +10,7 @@
 #include "recorded_warnings.hxx" // warn
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, Mirrored_Boundary, Invalid_Boundary
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace real_space_grid {
   

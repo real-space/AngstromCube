@@ -1,4 +1,3 @@
-// #include <vector> // std::vector
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cmath> // std::sqrt, std::pow, std::exp, std::abs, std::sqrt, std::round
@@ -40,9 +39,6 @@
 #else
     #define debug(print)
 #endif
-
-typedef int status_t;
-
 
 namespace atom_core {
 

@@ -2,7 +2,7 @@
 
 #include <cstdint> // int8_t
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace chemical_symbol {
 

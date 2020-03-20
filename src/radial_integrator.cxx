@@ -32,8 +32,6 @@
     #define debug(print)
 #endif
 
-typedef int status_t;
-
 namespace radial_integrator {
   // integrates the radial SRA equation inwards and outwards,
   // accepts Z_effective(r) instead of a spherical potential V(r) or r*V(r)

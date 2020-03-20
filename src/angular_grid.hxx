@@ -4,7 +4,7 @@
 #include "gaunt_entry.h" // gaunt_entry_t
 #include <vector> // std::vector
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace angular_grid {
 

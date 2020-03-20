@@ -2,7 +2,7 @@
 
 #include <random> // std::random_device, std::mt19937
 
-typedef int status_t;
+#include "status.hxx" // status_t
   
 namespace simple_math {
 

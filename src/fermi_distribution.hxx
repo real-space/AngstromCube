@@ -10,7 +10,7 @@
 #include "display_units.h" // eV, _eV
 #include "recorded_warnings.hxx" // warn
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace fermi_distribution {
   
@@ -102,8 +102,9 @@ namespace fermi_distribution {
       eF = 0.5*(e[0] + e[1]);
       double DoS_at_eF;
       auto const nem = count_electrons(n, energies, eF, kTinv, nullptr, &DoS_at_eF, occupations);
+      if (echo > 6) printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, nem); 
       if (res > 1e-9) {
-          warn("Fermi level converge only to %.1e electrons in %d iterations", res, iter); 
+          warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res, iter); 
       } else {
           if (echo > 3) printf("# %s Fermi energy at %g %s has %g states\n", __func__, eF*eV, _eV, DoS_at_eF);
       }

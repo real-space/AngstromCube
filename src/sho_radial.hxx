@@ -4,7 +4,7 @@
 
 #include "constants.hxx" // sqrtpi
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace sho_radial {
 

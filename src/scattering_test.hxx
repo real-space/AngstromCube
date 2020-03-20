@@ -22,7 +22,7 @@
   #include "debug_output.hxx" // here
 #endif
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace scattering_test {
 

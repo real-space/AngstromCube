@@ -3,7 +3,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace radial_integrator {
 

@@ -5,11 +5,10 @@
 #include <algorithm> // min, max
 
 #include "radial_grid.hxx"
-#include "inline_tools.hxx" // align
-
 #include "radial_grid.h" // radial_grid_t
 
-typedef int status_t;
+#include "inline_tools.hxx" // align
+
 
 namespace radial_grid {
 

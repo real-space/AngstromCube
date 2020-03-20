@@ -7,7 +7,7 @@
 #include "inline_tools.hxx" // align<N_bits>
 #include "sho_projection.hxx" // ::sho_prefactor
 
-typedef int status_t;
+#include "status.hxx" // status_t
 
 namespace atom_image {
   
