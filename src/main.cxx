@@ -143,7 +143,7 @@
 
 
   int main(int const argc, char const *argv[]) {
-      status_t stat = 0;
+      status_t stat(0);
       char const *test_unit = nullptr;
       bool run_tests = false;
       if (argc < 2) { 
@@ -197,5 +197,5 @@
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
-      return stat;
+      return int(stat);
   } // main
