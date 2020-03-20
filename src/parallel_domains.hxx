@@ -9,7 +9,7 @@
 namespace parallel_domains {
   
   template <int D0=1>
-  inline status_t decompose_grid(unsigned const ng, int const echo=0, unsigned const min_ng_per_pe=4) {
+  inline status_t decompose_grid(unsigned const ng, int const echo=0, int const min_ng_per_pe=4) {
       status_t stat{0};
       for(int npe = 1; npe <= ng + 9; ++npe) {
           for(int bc = 0; bc <= 1; ++bc) { // 0:isolated, 1:periodic
@@ -20,16 +20,18 @@ namespace parallel_domains {
               if (1) {
                   // get a good load balance like this
                   ng_less = ng/npe; // floor by integer divide
+//                ng_less = std::max(ng_less, min_ng_per_pe); // should come in here, ToDo
                   ng_more = ng_less + 1;
                   /**
                   *  Solve
                   *    g_< p_< + g_> p_> = G
                   *  while
-                  *        p_< + p_> = P
+                  *        p_< + p_> + p_0 = P
                   *  so
                   *    g_< (P - p_>) + g_> p_> = G
                   *  reads
                   *    p_> = (G - g_< P)/(g_> - g_<)
+                  *  if p_0 == 0
                   */
                   np_more = (ng - ng_less*npe);
                   np_less = npe - np_more;
@@ -47,8 +49,8 @@ namespace parallel_domains {
               } // method
               int const np_lowr = np_more - np_uppr;
               
-              int const gs[] = {ng_more, ng_less, ng_more};
-              int const ps[] = {np_lowr, np_less, np_uppr};
+              int const gs[] = {ng_more, ng_less, ng_more, 0};
+              int const ps[] = {np_lowr, np_less, np_uppr, np_zero};
               int gxp[3];
               char dec_str[3][16];
               for(int i = 0; i < 3; ++i) {
@@ -62,8 +64,8 @@ namespace parallel_domains {
               if (echo > 7) printf("# parallelize %d grid points as %s + %s + %s with %d process elements (BC=%s)\n", 
                           ng, dec_str[0], dec_str[1], dec_str[2], npe, bc?"periodic":"isolated");
               
+#ifdef DEBUG
               // check that this distribution routine works correctly
-#ifdef DEBUG              
               assert(ng == ng_more*np_lowr + ng_less*np_less + ng_more*np_uppr);
               assert(npe == np_lowr + np_less + np_uppr);
               assert(npe == np_more + np_less);
