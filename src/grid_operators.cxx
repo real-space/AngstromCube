@@ -43,7 +43,7 @@ namespace grid_operators {
   status_t basic_test(int const echo=9) {
       status_t stat = 0;
       int constexpr D0 = 2; // vectorization
-      int const dims[] = {12, 13, 14}, nn[] = {8, 8, 8};
+      int const dims[] = {12, 13, 14};
       real_space_grid::grid_t<D0> g(dims);
       std::vector<double> psi(2*g.all(), 1.0);
       std::vector<double> potential(dims[2]*dims[1]*dims[0], 0.5);
@@ -51,7 +51,7 @@ namespace grid_operators {
       a[0] = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999
       double const apos[] = {0,0,0};
       a[0].set_image_positions(apos);
-      finite_difference::finite_difference_t<double> kinetic(g.h, nn);
+      finite_difference::finite_difference_t<double> kinetic(g.h, 8);
       kinetic.scale_coefficients(-0.5);
       stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, kinetic, potential.data());
       stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a);

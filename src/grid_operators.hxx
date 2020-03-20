@@ -179,15 +179,14 @@ namespace grid_operators {
   {
     public:
 
-      grid_operator_t(real_space_grid::grid_t<D0> const & rsg, int const natoms=0, int const nprecond=1)
-      : grid(rsg), has_precond(nprecond > 0), has_overlap(true) { // constructor
-//           int const nprecond = control::get("conjugate_gradients.precond", 1.);
+      grid_operator_t(real_space_grid::grid_t<D0> const & rsg, int const natoms=0, int const nn_precond=1)
+      : grid(rsg), has_precond(nn_precond > 0), has_overlap(true) { // constructor
+//           int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
           auto const & g = grid;  // abbrev.
 
           // the kinetic energy operator
-          int const nn[] = {8, 8, 8}; // half-order of finite difference stencil for kinetic energy
-          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, nn);
+          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, 8);
           kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
 
           // the local effective potential
@@ -213,7 +212,6 @@ namespace grid_operators {
           delete[] periodic_image_positions;
           
           // this simple grid-based preconditioner is a diffusion stencil
-          int const nn_precond[] = {nprecond, nprecond, nprecond};
           preconditioner = finite_difference::finite_difference_t<real_t>(g.h, nn_precond);
           for(int d = 0; d < 3; ++d) {
               preconditioner.c2nd[d][1] = 1/12.;

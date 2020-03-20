@@ -173,29 +173,35 @@ namespace finite_difference {
   template<typename real_t> // real_t: coefficient may be float or double
   class finite_difference_t {
     public:
-      double    h[3]; // grid spacings
-      int      nn[3]; // number of FD neighbors
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
+    private:
+//     public:
+      int8_t _nn[3]; // number of FD neighbors
     public:
 
       finite_difference_t(double const grid_spacing[3], int const nneighbors[3]) {
           init(grid_spacing, nneighbors);
-      } // constructor
+      } // preferred constructor
 
+      finite_difference_t(double const grid_spacing[3], int const nn=4) {
+          int const nns[3] = {nn, nn, nn};
+          init(grid_spacing, nns);
+      } // isotropic nn constructor
+      
       finite_difference_t(double const h=1, int const nn=4) {
           int const nns[3] = {nn, nn, nn};
           double const hgs[3] = {h, h, h};
           init(hgs, nns);
-      } // isotropic constructor
+      } // isotropic constructor, default constructor
       
       void init(double const grid_spacing[3], int const nneighbors[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
-              h[d] = grid_spacing[d];
-              nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h[d], 'x'+d);
-              if (nn[d] < nneighbors[d]) {
+              double const h = grid_spacing[d];
+              _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h, 'x'+d);
+              if (_nn[d] < nneighbors[d]) {
                   warn("In finite_difference_t requested nn=%i but use nn=%i for %c-direction", 
-                                  nneighbors[d], nn[d], 'x'+d);
+                                  nneighbors[d], _nn[d], 'x'+d);
               }
           } // spatial direction d
       } // init
@@ -219,6 +225,10 @@ namespace finite_difference {
       
       void scale_coefficients(double const f) { double const f3[] = {f, f, f}; scale_coefficients(f3); }
       
+      int8_t const * nearest_neighbors() const { return _nn; }
+      int nearest_neighbors(int const d) const { assert(d >= 0); assert(d < 3); return _nn[d]; }
+      real_t * Laplace_coefficients(int const d) { assert(d >= 0); assert(d < 3); return c2nd[d]; }
+      
   }; // class finite_difference_t
   
   template <typename real_out_t, // result is stored in this precision 
@@ -233,7 +243,7 @@ namespace finite_difference {
       for(int d = 0; d < 3; ++d) {
           int const bc = g.boundary_condition(d);
           int const n  = g.dim(d);
-          int const nf = fd.nn[d];
+          int const nf = fd.nearest_neighbors(d);
           int const nh = n16 + n + n16; // number including largest halos
           list[d] = new int[nh]; // get memory
           for(int i = 0; i < nh; ++i) list[d][i] = -1; // init as non-existing
@@ -275,9 +285,10 @@ namespace finite_difference {
                   } // i0
 
                   for(int ddir = 0; ddir < 3; ++ddir) {
+                      int const nf = fd.nearest_neighbors(ddir);
                       int zyx[3] = {x, y, z};
                       int const i_center = zyx[ddir];
-                      for(int jmi = -fd.nn[ddir]; jmi <= fd.nn[ddir]; ++jmi) {
+                      for(int jmi = -nf; jmi <= nf; ++jmi) {
                           int const j = i_center + jmi;
                           int const index = list[ddir][n16 + j];
                           if (index >= 0) {

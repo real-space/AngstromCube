@@ -191,31 +191,7 @@ namespace potential_generator {
           for(int ia = 0; ia < na; ++ia) {
               // ToDo: these parameters are silently assumed for the r2-grid of rho_core
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-#ifdef DEVEL
-              if (echo > 6) {
-                  printf("\n## Real-space smooth core density for atom #%d:\n", ia);
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2, r = std::sqrt(r2);
-                      printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
-                  }   printf("\n\n");
-              } // echo
-#endif
-              if (0) { // moved this masking into the Bessel filtering
-                  double const r2cut = pow2(rg[ia]->rmax)*1.1, r2inv = 1./r2cut;
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2;
-                      rho_core[ia][ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
-                  } // ir2
-              } // mask out the high frequency oscillations that appear from Bessel transfer to the r2-grid
-#ifdef DEVEL
-              if (echo > 6) {
-                  printf("\n## masked real-space smooth core density for atom #%d:\n", ia);
-                  for(int ir2 = 0; ir2 < nr2; ++ir2) {
-                      double const r2 = ir2/ar2, r = std::sqrt(r2);
-                      printf("%g %g\n", r, rho_core[ia][ir2]*Y00sq);
-                  }   printf("\n\n");
-              } // echo
-#endif
+
               double q_added = 0;
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
@@ -229,9 +205,9 @@ namespace potential_generator {
                   printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
                   print_stats(rho.data(), g.all(), g.dV());
               } // echo
-#endif
               if (echo > 3) printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
               if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, qlm[ia][00]*Y00inv);
+#endif
           } // ia
 
           { // scope: eval the XC potential and energy
@@ -365,8 +341,7 @@ namespace potential_generator {
 //   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
       { // scope: compute the Laplacian using high-order finite-differences
-          int const fd_nn[3] = {8, 8, 8}; // numbers of nearest neighbors in the finite-difference approximation
-          finite_difference::finite_difference_t<double> const fd(g.h, fd_nn);
+          finite_difference::finite_difference_t<double> const fd(g.h, 8);
           {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
               stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
               { // Laplace_Ves should match rho
@@ -386,7 +361,7 @@ namespace potential_generator {
               // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
             
               // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
-              finite_difference::finite_difference_t<double> fdj(g.h, fd_nn);
+              finite_difference::finite_difference_t<double> fdj(g.h, 8);
               fdj.scale_coefficients(-.25/constants::pi);
               double const diagonal = fdj.clear_diagonal_elements();
               double const inverse_diagonal = 1/diagonal;

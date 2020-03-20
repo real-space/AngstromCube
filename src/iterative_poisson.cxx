@@ -79,18 +79,37 @@ namespace iterative_poisson {
         } // mixed precision
     } // real_t==double
 
-    bool const use_precond = false;
+    bool const use_precond = true;
     
     view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
     
-    int const nn[] = {8, 8, 8};
-    finite_difference::finite_difference_t<real_t> fd(g.h, nn);
+    finite_difference::finite_difference_t<real_t> fd(g.h, 8);
     fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor
 
+    finite_difference::finite_difference_t<real_t> precond(g.h, 4);
+    if (use_precond) {
+        double nrm{0};
+        for(int d = 0; d < 3; ++d) {
+            for(int i = 0; i < precond.nearest_neighbors(d); ++i) {
+                precond.c2nd[d][i] = std::abs(precond.c2nd[d][i]);
+                nrm += precond.c2nd[d][i] * (1 + (i > 0));
+            } // i
+        } // d
+        nrm = 1./nrm;
+        for(int d = 0; d < 3; ++d) {
+            for(int i = 0; i < precond.nearest_neighbors(d); ++i) {
+                precond.c2nd[d][i] *= nrm;
+            } // i
+        } // d
+        if (echo > 6) printf("# %s use a diffusion preconditioner\n", __FILE__);
+    } // use_precond
+    
     double const cell_volume = nall*g.dV();
     double const threshold2 = cell_volume * pow2(threshold);
+    double constexpr RZ_TINY = 1e-14, RS_TINY = 1e-10;
 
+    
 //     ! |Ax> = A|x>
 //     ! |r> = |b> - |Ax>
 //     ! |z> = P|r>
@@ -134,8 +153,8 @@ namespace iterative_poisson {
 
     // |z> = |Pr> = P|r>
     if (use_precond) {
-//     ist = Precon_Nf4( g, r, z )
-//     if( ist /= 0 ) stop 'CG_solve: Precon_Nf4 failed!'
+        ist = finite_difference::Laplacian(z, r, g, precond);
+        if (ist) error("CG_solve: Preconditioner failed!");
     } else assert(z == r);
 
     // rz_old = <r|z>
@@ -160,7 +179,6 @@ namespace iterative_poisson {
 
         double const pAp = scalar_product(p, ap, nall) * g.dV(); // g.comm
 
-        double constexpr RZ_TINY = 1e-14;
         // alpha = rz_old / pAp
         double const alpha = (std::abs(pAp) < RZ_TINY) ? RZ_TINY : rz_old / pAp;
 
@@ -194,14 +212,13 @@ namespace iterative_poisson {
 
         // |z> = |Pr> = P|r>
         if (use_precond) {
-//       ist = Precon_Nf4( g, r, z )
-//       if( ist /= 0 ) stop 'CG_solve: Precon_Nf4 failed!'
+            ist = finite_difference::Laplacian(z, r, g, precond);
+            if (ist) error("CG_solve: Preconditioner failed!");
         } else assert(z == r);
 
         // rz_new = <r|z>
         double const rz_new = scalar_product(r, z, nall) * g.dV(); // g.comm
 
-        double constexpr RS_TINY = 1e-10;
         // beta = rz_new / rz_old
         double beta = rz_new / rz_old;
         if (rz_old < RS_TINY) {
@@ -211,7 +228,7 @@ namespace iterative_poisson {
             // |p> = |z> + beta |p>
             scale(p, nall, real_t(beta));
             add_product(p, nall, z, real_t(1));
-        }
+        } // rz_old < tiny
 
         if (echo > 9) printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
         if (echo > 7) printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
