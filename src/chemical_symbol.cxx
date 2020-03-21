@@ -13,12 +13,13 @@ namespace chemical_symbol {
   inline int8_t mod128(int_t const Z) { return static_cast<int8_t>(Z & 127); } // Z % (2^7)
 
   // public:
-  status_t get(int const Z, char* Sy) {
+  status_t get(char* Sy, int const Z, char const blank) {
       if (nullptr == Sy) return 2; // error code 2: result pointer is null
       auto const z7 = mod128(Z);
       Sy[0] = element_symbols[2*z7 + 0];
       char const y = element_symbols[2*z7 + 1];
-      if (' ' == y) { Sy[1] = 0; } else { Sy[1] = y; Sy[2] = 0; }
+      Sy[1] = (' ' == y) ? blank : y;
+      Sy[2] = 0; // null-termination
       return ((Z < 0) || (Z > 127)); // error code 1: out of bounds error
   } // get
 
