@@ -282,17 +282,18 @@ namespace grid_operators {
       a.resize(na);
       for(int ia = 0; ia < na; ++ia) {
           double const *pos =             & xyzZins[ia*stride + 0];
-          int const Zi = ((int)std::round(  xyzZins[ia*stride + 3])) & 127;
+          double const Z =                  xyzZins[ia*stride + 3];
           int32_t const atom_id = int32_t(  xyzZins[ia*stride + 4]);
           int const numax = (int)std::round(xyzZins[ia*stride + 5]);
           double const sigma =              xyzZins[ia*stride + 6];
           assert(sigma > 0);
+          int const Zi = std::round(Z);
           a[ia] = atom_image::sho_atom_t(sigma, numax, atom_id, pos, Zi);
           if (n_periodic_images > 1) {
               a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions);
           } // more than one periodic image
           char Symbol[4] = {0,0,0,0};
-          stat += chemical_symbol::get(Symbol, Zi);
+          stat += chemical_symbol::get(Symbol, Z);
           if (echo > 3) printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
               Symbol, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
           

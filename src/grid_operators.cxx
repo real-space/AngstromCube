@@ -7,31 +7,6 @@
 #include "real_space_grid.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::finite_difference_t, ::Laplacian
 #include "atom_image.hxx" // ::atom_image_t, ::sho_atom_t
-#include "inline_math.hxx" // set
-#include "sho_projection.hxx" // ::sho_project, ::sho_add
-#include "sho_tools.hxx" // ::nSHO
-
-// #include "display_units.h" // eV, _eV, Ang, _Ang
-
-// #define FULL_DEBUG
-#define DEBUG
-
-#ifdef  DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif
-
-#ifdef FULL_DEBUG
-    #define full_debug(print) print 
-#else
-    #define full_debug(print)
-#endif
-
-#ifdef DEBUG
-    #define debug(print) print 
-#else
-    #define debug(print)
-#endif
-
 
 namespace grid_operators {
   // setup of the real-space grid-based Hamiltonian and overlap operator
@@ -74,8 +49,9 @@ namespace grid_operators {
       status_t stat(0);
       real_space_grid::grid_t<1> g(36, 25, 24);
       std::vector<atom_image::sho_atom_t> a;
-      double const xyzZinso[] = {.1, .2, -4,  13,  767, 3, 1.5, 9e9,
-                                -.1, .2,  3,  15,  757, 4, 1.7, 8e8};
+      //                          x   y   z    Z     id nu sigma dummy
+      double const xyzZinso[] = {.1, .2, -4,  13.0,  767, 3, 1.5, 9e9,
+                                -.1, .2,  3,  15.1,  757, 4, 1.7, 8e8};
       stat += list_of_atoms(a, xyzZinso, 2, 8, g, echo);
       std::vector<double> psi(g.all(), 1.0), Hpsi(g.all());
       grid_operator_t<double> op(g, a);
