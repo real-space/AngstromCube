@@ -1961,6 +1961,8 @@ extern "C" {
 
     template <char Q='t'> double get_number_of_electrons() const { return csv_charge[0] + csv_charge[1] + csv_charge[2]; }
     
+    int const get_numax() const { return numax; }
+    
   }; // class LiveAtom
 
     template <> double LiveAtom::get_number_of_electrons<'c'>() const { return csv_charge[0]; } // core
@@ -1969,9 +1971,10 @@ extern "C" {
 
 namespace single_atom {
 
-  status_t update(int const na, float const *Za, float const *ion,
-                  radial_grid_t **rg, double *sigma_cmp,
-                  double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm, double **zero_pot) {
+  status_t update(int const na, float const *Za, float const *ion
+                 , radial_grid_t **rg, int const *numax, double *sigma_cmp
+                 , double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm
+                 , double **zero_pot, double **atom_mat) {
 
       static int echo = -9;
       if (echo == -9) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
@@ -1983,10 +1986,11 @@ namespace single_atom {
 //        SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
           a = new LiveAtom*[na];
           natoms_init = na;
-          int  const default_numax = 3;
           bool const transfer2valence = false;
           for(int ia = 0; ia < na; ++ia) {
-              a[ia] = new LiveAtom(Za[ia], default_numax, transfer2valence, ion[ia], ia, echo);
+              int const numax_ia = (numax)? numax[ia] : 3;
+              a[ia] = new LiveAtom(Za[ia], numax_ia, transfer2valence, ion[ia], ia, echo);
+              assert(a[ia]->get_numax() == numax_ia);
           } // ia
       } // a has not been initialized
 
@@ -2026,6 +2030,16 @@ namespace single_atom {
 
           if (nullptr != lmax_vlm) lmax_vlm[ia] = a[ia]->ellmax;
           if (nullptr != lmax_qlm) lmax_qlm[ia] = a[ia]->ellmax_compensator;
+
+          if (nullptr != atom_mat) {
+              int const numax_ia = a[ia]->get_numax();
+              int const ncoeff = sho_tools::nSHO(numax_ia);
+              assert(nullptr != atom_mat[ia]);
+              for(int i = 0; i < ncoeff; ++i) {
+                  set(&atom_mat[ia][(0*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->hamiltonian[i]);
+                  set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);
+              } // i
+          } // atom_mat
 
       } // ia
 

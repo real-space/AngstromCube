@@ -65,6 +65,7 @@
 	fortran_callable(initialize)(int32_t const *na 
 		, double const Z_core[]
 		, int32_t const atom_id[]
+		, int32_t const numax[]
 		, double const sigma[]
 		, double const rcut[]
 		, int8_t const nn[][8]
@@ -87,7 +88,7 @@
 			sigma_cmp[ia] = rcut[ia]*convert_rcut_to_sigma_cmp;
 		} // ia
 		*status = single_atom::update(*na, Za.data(), ion.data(), nullptr, 
-			sigma_cmp.data(), nullptr, nullptr, nullptr, lmax_vlm, lmax_qlm);
+			numax, sigma_cmp.data(), nullptr, nullptr, nullptr, lmax_vlm, lmax_qlm);
 		int const numax_max = 3; // should come out of update
 		*stride = align<2>(sho_tools::nSHO(numax_max));
 		for(int ia = 0; ia < *na; ++ia) {

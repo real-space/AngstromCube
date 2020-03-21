@@ -154,13 +154,19 @@ namespace potential_generator {
       std::vector<double> sigma_cmp(na, 1.); //
       std::vector<double*> qlm(na, nullptr); 
       std::vector<double*> vlm(na, nullptr); 
+      std::vector<int> numax(na, 3);
+      std::vector<double*> atom_matrices(na, nullptr);
       std::vector<int> lmax_qlm(na, -1);
       std::vector<int> lmax_vlm(na, -1);
 
       // for each atom get radial grid, sigma, lmax
-      stat += single_atom::update(na, Za.data(), ionization.data(), rg.data(), sigma_cmp.data(), nullptr, nullptr, nullptr, lmax_vlm.data(), lmax_qlm.data());
+      stat += single_atom::update(na, 
+          Za.data(), ionization.data(), rg.data(), numax.data(), sigma_cmp.data(),
+          nullptr, nullptr, nullptr, lmax_vlm.data(), lmax_qlm.data(), nullptr, nullptr);
       
       for(int ia = 0; ia < na; ++ia) {
+          int const ncoeff = sho_tools::nSHO(numax[ia]);
+          atom_matrices[ia] = new double[2*ncoeff*ncoeff];
           vlm[ia] = new double[pow2(1 + lmax_vlm[ia])];
           qlm[ia] = new double[pow2(1 + lmax_qlm[ia])];
       } // ia
@@ -183,7 +189,7 @@ namespace potential_generator {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
-          stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, rho_core.data(), qlm.data());
+          stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, rho_core.data(), qlm.data());
 
           set(rho.data(), g.all(), 0.0); // clear density
           
@@ -305,8 +311,9 @@ namespace potential_generator {
               } // echo
           } // scope
 
-          // communicate vlm to the atoms, get zero_potential
-          stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, vlm.data(), nullptr, nullptr, zero_pot.data());
+          // communicate vlm to the atoms, get zero_potential, atom-centered Hamiltonian and overlap
+          stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,  
+                                vlm.data(), nullptr, nullptr, zero_pot.data(), atom_matrices.data());
 
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
@@ -332,6 +339,24 @@ namespace potential_generator {
               printf("\n# Total effective potential  (after adding zero_potentials)");
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
+          
+          // now solve the Kohn-Sham equation with the given Hamiltonian
+          for(int ia = 0; ia < na; ++ia) {
+              if (echo > 6) {
+                  int const ncoeff = sho_tools::nSHO(numax[ia]);
+                  printf("\n# atom-centered %dx%d Hamiltonian (%s) for atom index %i\n", 
+                          ncoeff, ncoeff, _eV, ia);
+                  for(int i = 0; i < ncoeff; ++i) {
+                      printf("#%3i  ", i);
+                      for(int j = 0; j < ncoeff; ++j) {
+                          printf(" %.9g", atom_matrices[ia][i*ncoeff + j]*eV);
+                      }   printf("\n");
+                  } // i
+              } // echo
+          } // ia
+          
+          // generate a new density from the eigenstates 
+          // with occupation numbers from eigenenergies
           
       } // scf_iteration
 
