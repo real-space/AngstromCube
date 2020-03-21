@@ -11,6 +11,9 @@
 #include "boundary_condition.hxx" // ::periodic_images
 #include "recorded_warnings.hxx" // error
 
+#include "chemical_symbol.hxx" // ::get
+#include "display_units.h" // Ang, _Ang
+
 #define DEBUG
 
 namespace grid_operators {
@@ -27,7 +30,7 @@ namespace grid_operators {
                         , int const echo=0
                         , real_t** atomic_projection_coefficients=nullptr
                          ) {
-      status_t stat = 0;
+      status_t stat(0);
 
       if (Hpsi) {
           if (fd) {
@@ -177,40 +180,24 @@ namespace grid_operators {
   template <typename real_t, typename real_fd_t=double, int D0=1>
   class grid_operator_t
   {
-    public:
-
-      grid_operator_t(real_space_grid::grid_t<D0> const & rsg, int const natoms=0, int const nn_precond=1)
-      : grid(rsg), has_precond(nn_precond > 0), has_overlap(true) { // constructor
+    private:
+      void _constructor(real_space_grid::grid_t<D0> const & g // real space grid descriptor
+               , double const *local_potential // may be nullptr
+               , int const nn_precond
+               , int const nn_kinetic=8) {
+        
 //           int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
-          auto const & g = grid;  // abbrev.
-
           // the kinetic energy operator
-          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, 8);
+          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, nn_kinetic);
           kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
 
           // the local effective potential
-          potential = std::vector<double>(g.dim(2)*g.dim(1)*g.dim(0), 0.0); // init as zero everywhere
+          potential = std::vector<double>(g.all(), 0.0); // init as zero everywhere
+          if (nullptr != local_potential) {
+              set(potential.data(), g.all(), local_potential); // copy data in
+          } // local potential given
 
-          int constexpr echo = 2;
-          float const rcut = 18; // sho_projection usually ends at 9*sigma
-          double const cell[] = {g.dim(0)*g.h[0], g.dim(1)*g.h[1], g.dim(2)*g.h[2]};
-          double *periodic_image_positions{nullptr};
-          int const n_periodic_images = boundary_condition::periodic_images(&periodic_image_positions, cell, g.boundary_conditions(), rcut, echo);
-          if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-
-          atoms = std::vector<atom_image::sho_atom_t>(natoms);
-          for(int ia = 0; ia < natoms; ++ia) {
-              int const global_atom_id = ia;
-              int const numax = 1; // s and p only (for test)
-              double const sigma = 1.;
-              atoms[ia] = atom_image::sho_atom_t(sigma, numax, global_atom_id);
-              double const atom_pos[] = {0,0,0}; // ToDo: atomic positions need to come in from an external source
-              atoms[ia].set_image_positions(atom_pos, n_periodic_images, periodic_image_positions);
-              // ToDo: need to set atomic Hamiltonian and charge deficit matrices
-          } // ia
-          delete[] periodic_image_positions;
-          
           // this simple grid-based preconditioner is a diffusion stencil
           preconditioner = finite_difference::finite_difference_t<real_t>(g.h, nn_precond);
           for(int d = 0; d < 3; ++d) {
@@ -218,7 +205,24 @@ namespace grid_operators {
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
           } // d
 
-      } // constructor
+      } // _constructor
+      
+    public:
+
+      grid_operator_t(real_space_grid::grid_t<D0> const & g // real space grid descriptor
+                      , std::vector<atom_image::sho_atom_t> const & a // is moved to atoms
+                      , double const *local_potential=nullptr // effective local potential
+                      , int const nn_precond=1) // range of the preconditioner
+          : grid(g), atoms(a), has_precond(nn_precond > 0), has_overlap(true) {
+          _constructor(grid, local_potential, nn_precond);
+      } // constructor with atoms
+
+      grid_operator_t(real_space_grid::grid_t<D0> const & g // real space grid descriptor
+                      , double const *local_potential=nullptr // effective local potential
+                      , int const nn_precond=1) // range of the preconditioner
+          : grid(g), atoms(0), has_precond(nn_precond > 0), has_overlap(true) {
+          _constructor(grid, local_potential, nn_precond);
+      } // constructor without atoms
 
       status_t Hamiltonian(real_t Hpsi[], real_t const psi[], int const echo=0) const {
           return _grid_operator(Hpsi, psi, grid, atoms, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
@@ -253,6 +257,58 @@ namespace grid_operators {
       int  get_numax(int const ia) const { return atoms[ia].numax(); }
   }; // class grid_operator_t
   
+  
+  
+  
+  // prepare the sho_atoms in grid_operator_t
+  template <int D0=1> // vectorization 
+  status_t list_of_atoms(std::vector<atom_image::sho_atom_t> & a
+                       , double const xyzZins[] // data layout [na][8]
+                       , int const na // number of atoms
+                       , int const stride // typically stride=8
+                       , real_space_grid::grid_t<D0> const & g // actually we need cell info here, not grid
+                       , int const echo=9
+                       , double const **atom_matrices=nullptr
+                       , float const rcut=18 // sho_projection usually ends at 9*sigma
+                        ) {
+      status_t stat(0);
+
+      double const cell[] = {g.dim(0)*g.h[0], g.dim(1)*g.h[1], g.dim(2)*g.h[2]};
+      double *periodic_image_positions{nullptr};
+      int const n_periodic_images = boundary_condition::periodic_images(
+            &periodic_image_positions, cell, g.boundary_conditions(), rcut, echo);
+      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+
+      a.resize(na);
+      for(int ia = 0; ia < na; ++ia) {
+          double const *pos =             & xyzZins[ia*stride + 0];
+          int const Zi = ((int)std::round(  xyzZins[ia*stride + 3])) & 127;
+          int32_t const atom_id = int32_t(  xyzZins[ia*stride + 4]);
+          int const numax = (int)std::round(xyzZins[ia*stride + 5]);
+          double const sigma =              xyzZins[ia*stride + 6];
+          assert(sigma > 0);
+          a[ia] = atom_image::sho_atom_t(sigma, numax, atom_id, pos, Zi);
+          if (n_periodic_images > 1) {
+              a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions);
+          } // more than one periodic image
+          char Symbol[4] = {0,0,0,0};
+          stat += chemical_symbol::get(Zi, Symbol);
+          if (echo > 3) printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
+              Symbol, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
+          
+          if (atom_matrices) {
+              // set atomic Hamiltonian and charge deficit matrices
+              int const ncoeff = sho_tools::nSHO(numax);
+              for(int h0s1 = 0; h0s1 <= 1; ++h0s1) {
+                  stat += a[ia].set_matrix(&atom_matrices[ia][h0s1*ncoeff*ncoeff], ncoeff, ncoeff, h0s1);
+              } // 0:Hamiltonian and 1:overlap/charge deficit
+          } // atom_matrices != nullptr
+      } // ia
+      delete[] periodic_image_positions;
+      if (nullptr == atom_matrices) warn("Atom-centered matrices were not set");
+      return stat;
+  } // list_of_atoms
+ 
   status_t all_tests(int const echo=0);
 
 } // namespace grid_operators

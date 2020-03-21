@@ -41,7 +41,7 @@ namespace grid_operators {
 #else // NO_UNIT_TESTS
 
   status_t basic_test(int const echo=9) {
-      status_t stat = 0;
+      status_t stat(0);
       int constexpr D0 = 2; // vectorization
       int const dims[] = {12, 13, 14};
       real_space_grid::grid_t<D0> g(dims);
@@ -59,7 +59,7 @@ namespace grid_operators {
   } // basic_test
 
   status_t class_test(int const echo=9) {
-      status_t stat = 0;
+      status_t stat(0);
       int const dims[] = {12, 13, 14};
       int const all = dims[0]*dims[1]*dims[2];
       std::vector<double> psi(all, 1.0), Hpsi(all);
@@ -69,11 +69,27 @@ namespace grid_operators {
       stat += op.Conditioner(Hpsi.data(), psi.data(), echo);
       return stat;
   } // class_test
+
+  status_t class_with_atoms_test(int const echo=9) {
+      status_t stat(0);
+      real_space_grid::grid_t<1> g(36, 25, 24);
+      std::vector<atom_image::sho_atom_t> a;
+      double const xyzZinso[] = {.1, .2, -4,  13,  767, 3, 1.5, 9e9,
+                                -.1, .2,  3,  15,  757, 4, 1.7, 8e8};
+      stat += list_of_atoms(a, xyzZinso, 2, 8, g, echo);
+      std::vector<double> psi(g.all(), 1.0), Hpsi(g.all());
+      grid_operator_t<double> op(g, a);
+      stat += op.Hamiltonian(Hpsi.data(), psi.data(), echo);
+      stat += op.Overlapping(psi.data(), Hpsi.data(), echo);
+      stat += op.Conditioner(Hpsi.data(), psi.data(), echo);
+      return stat;
+  } // class_with_atoms_test
   
   status_t all_tests(int const echo) {
     status_t status(0);
     status += class_test(echo);
     status += basic_test(echo);
+    status += class_with_atoms_test(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

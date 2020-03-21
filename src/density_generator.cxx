@@ -137,7 +137,7 @@ namespace density_generator {
 
   status_t test_init(int const echo=3) {
       real_space_grid::grid_t<1> g(4, 5, 6);
-      grid_operators::grid_operator_t<float,double,1> op(g, 1);
+      grid_operators::grid_operator_t<float,double,1> op(g, nullptr, 1);
       std::vector<float> wave(g.all());
       std::iota(wave.begin(), wave.end(), 0);
       return density(wave.data(), op, 1, 1, echo);

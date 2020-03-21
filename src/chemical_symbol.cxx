@@ -17,11 +17,11 @@ namespace chemical_symbol {
       if (nullptr == Sy) return 2; // error code 2: result pointer is null
       auto const z7 = mod128(Z);
       Sy[0] = element_symbols[2*z7 + 0];
-      char const y = element_symbols[2*z7 + 0];
-      if (' ' == y) { Sy[1] = y; Sy[2] = 0; } else { Sy[1] = 0; }
+      char const y = element_symbols[2*z7 + 1];
+      if (' ' == y) { Sy[1] = 0; } else { Sy[1] = y; Sy[2] = 0; }
       return ((Z < 0) || (Z > 127)); // error code 1: out of bounds error
   } // get
-  
+
   int8_t map(char const y, char const ys[], int8_t const Zs[]) {
       int i = 0;
       for( ; 0 != ys[i]; ++i) {

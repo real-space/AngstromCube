@@ -177,24 +177,8 @@ namespace finite_difference {
     private:
 //     public:
       int8_t _nn[3]; // number of FD neighbors
-    public:
-
-      finite_difference_t(double const grid_spacing[3], int const nneighbors[3]) {
-          init(grid_spacing, nneighbors);
-      } // preferred constructor
-
-      finite_difference_t(double const grid_spacing[3], int const nn=4) {
-          int const nns[3] = {nn, nn, nn};
-          init(grid_spacing, nns);
-      } // isotropic nn constructor
       
-      finite_difference_t(double const h=1, int const nn=4) {
-          int const nns[3] = {nn, nn, nn};
-          double const hgs[3] = {h, h, h};
-          init(hgs, nns);
-      } // isotropic constructor, default constructor
-      
-      void init(double const grid_spacing[3], int const nneighbors[3]) {
+      void _constructor(double const grid_spacing[3], int const nneighbors[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               double const h = grid_spacing[d];
@@ -204,8 +188,25 @@ namespace finite_difference {
                                   nneighbors[d], _nn[d], 'x'+d);
               }
           } // spatial direction d
-      } // init
+      } // _constructor
       
+    public:
+
+      finite_difference_t(double const grid_spacing[3], int const nneighbors[3]) {
+          _constructor(grid_spacing, nneighbors);
+      } // preferred constructor
+
+      finite_difference_t(double const grid_spacing[3], int const nn=4) {
+          int const nns[3] = {nn, nn, nn};
+          _constructor(grid_spacing, nns);
+      } // isotropic nn constructor
+
+      finite_difference_t(double const h=1, int const nn=4) {
+          double const hgs[3] = {h, h, h};
+          int const nns[3] = {nn, nn, nn};
+          _constructor(hgs, nns);
+      } // isotropic constructor, default constructor
+
       double clear_diagonal_elements() { // modifies the coefficients c2nd[][]
           double diag{0};
           for(int d = 0; d < 3; ++d) {

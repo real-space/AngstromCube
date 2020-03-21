@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint> // int32_t
+#include <cstdint> // int32_t, int8_t
 #include <cstdio> // printf
 #include <vector> // std::vector<T>
 #include "sho_tools.hxx" // ::nSHO, ::construct_index_table, ::order_zyx
@@ -11,7 +11,8 @@
 
 namespace atom_image {
   
-  class atom_image_t {
+  class atom_image_t 
+  {
     public:
 
       atom_image_t(void) {} // default constructor
@@ -35,19 +36,24 @@ namespace atom_image {
       int8_t  _index[4];    // flexible indices, e.g. for phases
   }; // class atom_image_t
 
-  
-  class sho_atom_t { // an atom with SHO-projectors
+
+  class sho_atom_t // an atom with SHO-projectors
+  { 
     public:
       
       sho_atom_t(void) : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor
-      sho_atom_t(double const sigma, int const numax, int32_t const atom_id) 
-          : _sigma(sigma), _numax(numax), _atom_id(atom_id)
-      {
+      sho_atom_t(double const sigma, int const numax, 
+                 int32_t const atom_id, double const *pos=nullptr, int8_t const Zi=-128)
+          : _sigma(sigma), _numax(numax), _atom_id(atom_id), _images(0) {
           assert(sigma > 0);
           _ncoeff = sho_tools::nSHO(_numax);
           _stride = align<2>(_ncoeff);
           _matrix64 = std::vector<double>(2*_ncoeff*_stride, 0.0);
           _matrix32 = std::vector<float> (2*_ncoeff*_stride, 0.0);
+          if (pos) {
+              _images.resize(1); // only the one base image
+              _images[0] = atom_image::atom_image_t(pos[0], pos[1], pos[2], atom_id, 0,0,0, Zi);
+          } // pos
       } // constructor
 
       template <typename real_t> 
