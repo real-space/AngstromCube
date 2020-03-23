@@ -52,7 +52,7 @@ namespace finite_difference {
 
   template<typename real_t>
   status_t test_Laplacian(int const echo=3) {
-      status_t stat = 0;
+      status_t stat(0);
       double const h[3] = {1,1,1};
       for(int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions

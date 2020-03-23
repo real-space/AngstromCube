@@ -199,10 +199,10 @@ namespace multi_grid {
   status_t interpolate3D(real_t out[], real_space_grid::grid_t<D0> const & go
                , real_in_t const in[], real_space_grid::grid_t<D0> const & gi) {
       status_t stat(0);
-      for(char d = 'x'; d  <= 'z'; ++d) {
+      for(int d = 0; d < 3; ++d) {
           assert(go.boundary_condition(d) == gi.boundary_condition(d));
       } // d
-      
+
       size_t const nyx = gi('y')*gi('x');
       view2D<real_t> txy(go('z'), nyx); // interpolated in z-direction
       stat += linear_interpolation(txy.data(), go('z'), 

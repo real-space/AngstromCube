@@ -47,7 +47,7 @@ namespace real_space_grid {
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
           if (debug) printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
-              D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
+                                      D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
       } // destructor
 
       status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
@@ -62,9 +62,9 @@ namespace real_space_grid {
           return stat;
       } // set
       
-      status_t set_boundary_conditions(int const bcx, 
-                      int const bcy=Invalid_Boundary, 
-                      int const bcz=Invalid_Boundary) {
+      status_t set_boundary_conditions(int const bcx
+                     , int const bcy=Invalid_Boundary 
+                     , int const bcz=Invalid_Boundary) {
           bc[0] = bcx;
           bc[1] = (bcy == Invalid_Boundary) ? bcx : bcy;
           bc[2] = (bcz == Invalid_Boundary) ? bcx : bcz;
@@ -72,21 +72,17 @@ namespace real_space_grid {
       } // set
 
       inline int operator[] (int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
-      inline int operator() (char const c) const { return ('w' == (c | 32)) ? D0 : dims[(c | 32) - 120]; }
-//       inline int dim(char const c) const { return ('w' == (c | 32)) ? D0 : dims[(c | 32) - 120]; }
-//       inline int dim(int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
+      inline int operator() (char const c) const { assert('x' <= (c|32)); assert((c|32) <= 'z'); return dims[(c|32) - 120]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
-//    inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // not used
-      inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
+      inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // so far not used
+      inline double const * grid_spacings() const { return h; } // so far not used
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
-      inline int boundary_condition(int const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
-      inline int boundary_condition(char const c) const { return boundary_condition((c | 32) - 120); }
+      inline size_t all() const { return (((size_t(dims[3]) * dims[2]) * dims[1]) * dims[0]) * D0; }
+      inline int boundary_condition(int  const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
+      inline int boundary_condition(char const c) const { return boundary_condition((c|32) - 120); }
       inline int const * boundary_conditions() const { return bc; }
-      inline bool all_boundary_conditions_periodic() const {  // ToDo: move all BC-related stuff to grid descriptor
-          return (Periodic_Boundary == bc[0])
-              && (Periodic_Boundary == bc[1])
-              && (Periodic_Boundary == bc[2]); };
-  
+      inline bool all_boundary_conditions_periodic() const { return (Periodic_Boundary == bc[0]) && 
+                                    (Periodic_Boundary == bc[1]) && (Periodic_Boundary == bc[2]); };
   }; // class grid_t
   
   
@@ -97,8 +93,7 @@ namespace real_space_grid {
                         double const center[3]=nullptr, double const factor=1, float const rcut=-1) {
   // Add a spherically symmetric regular function to the grid.
   // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
-      status_t stat = 0;
-      assert(D0 == g('w'));
+      status_t stat(0);
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
       double const r2cut = cutoff ? rcut*rcut : (ncoeff - 1)/hcoeff;
@@ -164,7 +159,6 @@ namespace real_space_grid {
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
                 real_t const values[], grid_t<D0> const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
-      assert(D0 == g('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
       double const r2cut = cutoff ? rcut*rcut : 100.; // stop at 10 Bohr
