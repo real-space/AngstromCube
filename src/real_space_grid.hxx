@@ -72,12 +72,13 @@ namespace real_space_grid {
       } // set
 
       inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
-      inline int dim(int const d) const { assert(0 <= d); assert(d < 3); return dims[d]; }
+      inline int dim(int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
 //    inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // not used
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
       inline int boundary_condition(int const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
+      inline int boundary_condition(char const xyz) const { return boundary_condition((xyz | 32) - 120); }
       inline int const * boundary_conditions() const { return bc; }
       inline bool all_boundary_conditions_periodic() const {  // ToDo: move all BC-related stuff to grid descriptor
           return (Periodic_Boundary == bc[0])
