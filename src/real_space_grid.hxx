@@ -164,20 +164,20 @@ namespace real_space_grid {
       double const r2cut = cutoff ? rcut*rcut : 100.; // stop at 10 Bohr
       int imn[3], imx[3];
       size_t nwindow = 1;
-      for(int i3 = 0; i3 < 3; ++i3) {
-          int const M = g[i3] - 1; // highest index
+      for(int d = 0; d < 3; ++d) {
+          int const M = g[d] - 1; // highest index
           if (cutoff) {
-              imn[i3] = std::max(0, (int)std::floor((c[i3] - rcut)*g.inv_h[i3]));
-              imx[i3] = std::min(M, (int)std::ceil ((c[i3] + rcut)*g.inv_h[i3]));
+              imn[d] = std::max(0, (int)std::floor((c[d] - rcut)*g.inv_h[d]));
+              imx[d] = std::min(M, (int)std::ceil ((c[d] + rcut)*g.inv_h[d]));
           } else {
-              imn[i3] = 0;
-              imx[i3] = M;
+              imn[d] = 0;
+              imx[d] = M;
           } // cutoff
 #ifdef  DEBUG
-          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+i3, imx[i3] + 1 - imn[i3], imn[i3], imx[i3]);
+          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
 #endif
-          nwindow *= std::max(0, imx[i3] + 1 - imn[i3]);
-      } // i3
+          nwindow *= std::max(0, imx[d] + 1 - imn[d]);
+      } // d
       set(q_coeff, nq*D0, (real_t)0); // clear
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
