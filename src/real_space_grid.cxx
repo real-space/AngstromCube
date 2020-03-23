@@ -31,9 +31,9 @@ namespace real_space_grid {
       int const dims[] = {32, 31, 30};
       grid_t<1> g(dims);
       g.set_grid_spacing(0.333);
-      double const cnt[] = {g.dim('x')*.42*g.h[0], 
-                            g.dim('y')*.51*g.h[1], 
-                            g.dim('z')*.60*g.h[2]}; // center is slightly shifted from exact grid point positions
+      double const cnt[] = {g[0]*.42*g.h[0], 
+                            g[1]*.51*g.h[1], 
+                            g[2]*.60*g.h[2]}; // center is slightly shifted from exact grid point positions
       int const nr2 = 1 << 11;
       double r2c[nr2], rad_integral = 0;
       float const rcut = 4;
@@ -54,10 +54,10 @@ namespace real_space_grid {
       add_function(values, g, &added, r2c, nr2, inv_hr2, cnt);
       if (echo > 6) printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
       double xyz_integral = 0;
-      for(        int iz = 0; iz < g.dim('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
-          for(    int iy = 0; iy < g.dim('y'); ++iy) {  double const vy = iy*g.h[1] - cnt[1];
-              for(int ix = 0; ix < g.dim('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
-                  auto const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+      for(        int iz = 0; iz < g('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
+          for(    int iy = 0; iy < g('y'); ++iy) {  double const vy = iy*g.h[1] - cnt[1];
+              for(int ix = 0; ix < g('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
+                  auto const ixyz = (iz*g('y') + iy)*g('x') + ix;
                   auto const val = values[ixyz];
                   if (0 != val) {
                       if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r

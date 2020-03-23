@@ -52,7 +52,7 @@ namespace density_generator {
       std::vector<double> rho_valence(g.all(), 0.0);
       if (echo > 3) printf("# %s assume %d bands and %d k-points\n", __func__, nbands, nkpoints);
       if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d Cartesian grid\n", 
-                              __func__, g.dim('x'), g.dim('y'), g.dim('z'));
+                              __func__, g('x'), g('y'), g('z'));
       
       int const na = op.get_natoms();
       std::vector<real_t*> atom_coeff(na, nullptr);

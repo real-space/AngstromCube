@@ -71,14 +71,16 @@ namespace real_space_grid {
           return  (bcx == Invalid_Boundary);
       } // set
 
-      inline int dim(char const xyz) const { return ('w' == (xyz | 32)) ? D0 : dims[(xyz | 32) - 120]; }
-      inline int dim(int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
+      inline int operator[] (int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
+      inline int operator() (char const c) const { return ('w' == (c | 32)) ? D0 : dims[(c | 32) - 120]; }
+//       inline int dim(char const c) const { return ('w' == (c | 32)) ? D0 : dims[(c | 32) - 120]; }
+//       inline int dim(int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
 //    inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // not used
       inline size_t all() const { return dims[3] * dims[2] * dims[1] * dims[0] * D0; }
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
       inline int boundary_condition(int const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
-      inline int boundary_condition(char const xyz) const { return boundary_condition((xyz | 32) - 120); }
+      inline int boundary_condition(char const c) const { return boundary_condition((c | 32) - 120); }
       inline int const * boundary_conditions() const { return bc; }
       inline bool all_boundary_conditions_periodic() const {  // ToDo: move all BC-related stuff to grid descriptor
           return (Periodic_Boundary == bc[0])
@@ -96,14 +98,14 @@ namespace real_space_grid {
   // Add a spherically symmetric regular function to the grid.
   // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
       status_t stat = 0;
-      assert(D0 == g.dim('w'));
+      assert(D0 == g('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
       double const r2cut = cutoff ? rcut*rcut : (ncoeff - 1)/hcoeff;
       int imn[3], imx[3];
       size_t nwindow = 1;
       for(int d = 0; d < 3; ++d) {
-          int const M = g.dim(d) - 1; // highest index
+          int const M = g[d] - 1; // highest index
           if (cutoff) {
               imn[d] = std::max(0, (int)std::floor((c[d] - rcut)*g.inv_h[d]));
               imx[d] = std::min(M, (int)std::ceil ((c[d] + rcut)*g.inv_h[d]));
@@ -125,7 +127,7 @@ namespace real_space_grid {
                   for(int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
                       double const r2 = vz2 + vy2 + vx2;
                       if (r2 < r2cut) {
-                          int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+                          int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           int const ir2 = (int)(hcoeff*r2);
                           if (ir2 < ncoeff) {
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
@@ -150,7 +152,7 @@ namespace real_space_grid {
       scale(added, D0, g.dV()); // volume integral
 #ifdef  DEBUG
       printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
-              __func__, modified*1e-3, nwindow*1e-3, g.dim('x')*g.dim('y')*g.dim('z')*1e-3); // show stats
+              __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3); // show stats
 #endif
       if (out_of_range > 0) {
           stat += 0 < warn("Found %ld entries out of range of the radial function!\n", out_of_range);
@@ -162,14 +164,14 @@ namespace real_space_grid {
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
                 real_t const values[], grid_t<D0> const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
-      assert(D0 == g.dim('w'));
+      assert(D0 == g('w'));
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
       double const r2cut = cutoff ? rcut*rcut : 100.; // stop at 10 Bohr
       int imn[3], imx[3];
       size_t nwindow = 1;
       for(int i3 = 0; i3 < 3; ++i3) {
-          int const M = g.dim(i3) - 1; // highest index
+          int const M = g[i3] - 1; // highest index
           if (cutoff) {
               imn[i3] = std::max(0, (int)std::floor((c[i3] - rcut)*g.inv_h[i3]));
               imx[i3] = std::min(M, (int)std::ceil ((c[i3] + rcut)*g.inv_h[i3]));
@@ -189,7 +191,7 @@ namespace real_space_grid {
                   for(int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
                       double const r2 = vz2 + vy2 + vx2;
                       if (r2 < r2cut) {
-                          int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+                          int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           double const r = std::sqrt(r2);
 //                           printf("%g %g\n", r, values[ixyz*D0 + 0]); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {

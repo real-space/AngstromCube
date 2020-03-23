@@ -40,7 +40,7 @@ namespace grid_operators {
               set(Hpsi, g.all(), real_t(0)); // clear
           } // fd
 
-          size_t const nzyx = g.dim(2) * g.dim(1) * g.dim(0);
+          size_t const nzyx = g[2] * g[1] * g[0];
           if (echo > 8) printf("# %s Apply %s operator\n", __func__, potential ? "potential" : "unity");
           for(size_t izyx = 0; izyx < nzyx; ++izyx) {
               real_fd_t const V = potential ? potential[izyx] : real_fd_t(1); // apply potential or the unity operation of the overlap operator
@@ -273,7 +273,7 @@ namespace grid_operators {
                         ) {
       status_t stat(0);
 
-      double const cell[] = {g.dim(0)*g.h[0], g.dim(1)*g.h[1], g.dim(2)*g.h[2]};
+      double const cell[] = {g[0]*g.h[0], g[0]*g.h[1], g[2]*g.h[2]};
       double *periodic_image_positions{nullptr};
       int const n_periodic_images = boundary_condition::periodic_images(
             &periodic_image_positions, cell, g.boundary_conditions(), rcut, echo);
@@ -296,7 +296,7 @@ namespace grid_operators {
           stat += chemical_symbol::get(Symbol, Z);
           if (echo > 3) printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
               Symbol, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
-          
+
           if (atom_matrices) {
               // set atomic Hamiltonian and charge deficit matrices
               int const ncoeff = sho_tools::nSHO(numax);

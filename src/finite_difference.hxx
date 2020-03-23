@@ -242,8 +242,8 @@ namespace finite_difference {
       int const n16 = nnArraySize; // max number of finite difference neighbors
       int* list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
       for(int d = 0; d < 3; ++d) {
+          int const n  = g[d];
           int const bc = g.boundary_condition(d);
-          int const n  = g.dim(d);
           int const nf = fd.nearest_neighbors(d);
           int const nh = n16 + n + n16; // number including largest halos
           list[d] = new int[nh]; // get memory
@@ -275,10 +275,10 @@ namespace finite_difference {
       } // spatial direction d
 
       real_fd_t const scale_factor = factor;
-      for(int z = 0; z < g.dim('z'); ++z) {
-          for(int y = 0; y < g.dim('y'); ++y) {
-              for(int x = 0; x < g.dim('x'); ++x) {
-                  int const i_zyx = (z*g.dim('y') + y)*g.dim('x') + x;
+      for(int z = 0; z < g('z'); ++z) {
+          for(int y = 0; y < g('y'); ++y) {
+              for(int x = 0; x < g('x'); ++x) {
+                  int const i_zyx = (z*g('y') + y)*g('x') + x;
                   
                   real_fd_t t[D0];
                   for(int i0 = 0; i0 < D0; ++i0) { // vectorization
@@ -294,7 +294,7 @@ namespace finite_difference {
                           int const index = list[ddir][n16 + j];
                           if (index >= 0) {
                               zyx[ddir] = index;
-                              int const zyx_prime = (zyx[2]*g.dim('y') + zyx[1])*g.dim('x') + zyx[0];
+                              int const zyx_prime = (zyx[2]*g('y') + zyx[1])*g('x') + zyx[0];
                               auto const coeff = fd.c2nd[ddir][std::abs(jmi)];
                               for(int i0 = 0; i0 < D0; ++i0) { // vectorization
                                   t[i0] += in[zyx_prime*D0 + i0] * coeff;

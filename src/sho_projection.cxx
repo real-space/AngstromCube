@@ -47,7 +47,7 @@ namespace sho_projection {
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
       if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
-      double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
+      double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
       auto const icoeff = new uint8_t[nSHO][4];
       { // scope
@@ -124,7 +124,7 @@ namespace sho_projection {
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
       if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
-      double const pos[] = {g.dim('x')*.52*g.h[0], g.dim('y')*.51*g.h[1], g.dim('z')*.50*g.h[2]};
+      double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
       
       std::vector<int> energy_ordered(nSHO, 0);
@@ -146,10 +146,10 @@ namespace sho_projection {
 
           { // scope: construct non-decaying solid harmonics on the grid r^ell*X_{ell m}
               double v[3], xlm[64]; assert( numax < 8 ); // sufficient up to lmax=7
-              for(        int iz = 0; iz < g.dim('z'); ++iz) { v[2] = iz*g.h[2] - pos[2];
-                  for(    int iy = 0; iy < g.dim('y'); ++iy) { v[1] = iy*g.h[1] - pos[1];
-                      for(int ix = 0; ix < g.dim('x'); ++ix) { v[0] = ix*g.h[0] - pos[0];
-                          int const ixyz = (iz*g.dim('y') + iy)*g.dim('x') + ix;
+              for(        int iz = 0; iz < g('z'); ++iz) { v[2] = iz*g.h[2] - pos[2];
+                  for(    int iy = 0; iy < g('y'); ++iy) { v[1] = iy*g.h[1] - pos[1];
+                      for(int ix = 0; ix < g('x'); ++ix) { v[0] = ix*g.h[0] - pos[0];
+                          int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           solid_harmonics::rlXlm(xlm, numax, v);
                           values[ixyz] = xlm[lm];
 //                        if (00 == lm) printf(" %g", values[ixyz]); // found 0.282095 == 1/sqrt(4*pi)

@@ -45,7 +45,7 @@ namespace iterative_poisson {
 
     restart = std::max(1, restart);
     
-    size_t const nall = size_t(g.dim(2))*size_t(g.dim(1))*size_t(g.dim(0));
+    size_t const nall = size_t(g[2])*size_t(g[1])*size_t(g[0]);
     
     if (std::is_same<real_t, double>::value) {
         if ('m' == mixed_precision) {
@@ -262,7 +262,7 @@ namespace iterative_poisson {
           integral += rho;
       }}} // ix iy iz
       if (echo > 2) printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
-      
+
       stat = solve(x, b, g, echo);
       
       if (echo > 8) { // get a radial representation through Bessel transform

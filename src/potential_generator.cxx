@@ -84,16 +84,16 @@ namespace potential_generator {
 
       double const h = control::get("potential_generator.grid.spacing", 0.2378); // works for GeSbTe with alat=6.04
       g = real_space_grid::grid_t<1>(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
-      if (echo > 1) printf("# use  %d x %d x %d  grid points\n", g.dim(0), g.dim(1), g.dim(2));
+      if (echo > 1) printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
-      g.set_grid_spacing(cell[0]/g.dim(0), cell[1]/g.dim(1), cell[2]/g.dim(2));
+      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       for(int d = 0; d < 3; ++d) {
-          if (std::abs(g.h[d]*g.dim(d) - cell[d]) >= 1e-6) {
+          if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
               warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
-                             'x'+d, g.dim(d), g.h[d]*Ang, cell[d]*Ang, _Ang);
+                             'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
           }
-          cell[d] = g.h[d]*g.dim(d);
+          cell[d] = g.h[d]*g[d];
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
       } // d
       if (echo > 1) printf("# cell is  %g %g %g  %s\n", cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang);
@@ -113,7 +113,7 @@ namespace potential_generator {
       real_space_grid::grid_t<1> g;
       stat += init_geometry_and_grid(g, &coordinates_and_Z, na, echo);
 
-      double const cell[3] = {g.dim(0)*g.h[0], g.dim(1)*g.h[1], g.dim(2)*g.h[2]};
+      double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
       std::vector<float> ionization(na, 0.f);
       if ((ion != 0.0) && (na > 1)) {
@@ -133,7 +133,7 @@ namespace potential_generator {
                               xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
               Za[ia] = (float)xyzZ[ia][3]; // list of atomic numbers
               for(int d = 0; d < 3; ++d) {
-                  center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g.dim(d) - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+                  center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center[ia][3] = 0; // 4th component is not used
               if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
                                           center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
@@ -261,7 +261,7 @@ namespace potential_generator {
               if ('f' == es_solver_method) {
                   int ng[3]; double reci[3][4]; 
                   for(int d = 0; d < 3; ++d) { 
-                      ng[d] = g.dim(d);
+                      ng[d] = g[d];
                       set(reci[d], 4, 0.0);
                       reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
                   } // d
@@ -501,7 +501,7 @@ namespace potential_generator {
 
       // generate a file which contains the full potential Vtot
       if (echo > 0) { char title[96];
-          std::sprintf(title, "%i x %i x %i", g.dim(2), g.dim(1), g.dim(0));
+          std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
           dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
       } // unless all output is suppressed
 

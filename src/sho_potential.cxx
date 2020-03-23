@@ -229,12 +229,12 @@ namespace sho_potential {
 //    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
 
       real_space_grid::grid_t<1> g(dims);
-      g.set_grid_spacing(cell[0]/dims[0], cell[1]/dims[1], cell[2]/dims[2]);
+      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
-      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g.dim(0)*Ang, g.h[1]*g.dim(1)*Ang, g.h[2]*g.dim(2)*Ang, _Ang);
-      double const central_pos[] = {.5*(g.dim(0) - 1)*g.h[0],
-                                    .5*(g.dim(1) - 1)*g.h[1], 
-                                    .5*(g.dim(2) - 1)*g.h[2]};
+      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
+      double const central_pos[] = {.5*(g[0] - 1)*g.h[0],
+                                    .5*(g[1] - 1)*g.h[1], 
+                                    .5*(g[2] - 1)*g.h[2]};
 
       auto const center = new double[natoms][4]; // list of atomic centers
       for(int ia = 0; ia < natoms; ++ia) {
@@ -244,10 +244,10 @@ namespace sho_potential {
       } // ia
 
       if (0) { // scope: artificial linear potentials (other than constants)
-          for        (int iz = 0; iz < dims[2]; ++iz) {   auto const z = iz*g.h[2] - central_pos[2];
-              for    (int iy = 0; iy < dims[1]; ++iy) {   auto const y = iy*g.h[1] - central_pos[1];
-                  for(int ix = 0; ix < dims[0]; ++ix) {   auto const x = ix*g.h[0] - central_pos[0];
-                      int const izyx = (iz*dims[1] + iy)*dims[0] + ix;
+          for        (int iz = 0; iz < g[2]; ++iz) {   auto const z = iz*g.h[2] - central_pos[2];
+              for    (int iy = 0; iy < g[1]; ++iy) {   auto const y = iy*g.h[1] - central_pos[1];
+                  for(int ix = 0; ix < g[0]; ++ix) {   auto const x = ix*g.h[0] - central_pos[0];
+                      int const izyx = (iz*g[1] + iy)*g[0] + ix;
 //                    vtot[izyx] = 1.0 + x*.100 + y*.010 + z*.001;  // case 1xyz
 //                    vtot[izyx] = 1.0 + z*.100 + y*.010 + x*.001;  // case 1zyx
 //                    vtot[izyx] = 1.0 + y*.100 + z*.010 + x*.001;   // case 1yzx

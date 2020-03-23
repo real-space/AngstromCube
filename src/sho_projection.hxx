@@ -37,7 +37,7 @@ namespace sho_projection {
           end[dir] = std::ceil((center[dir] + rcut)*g.inv_h[dir]);
           if (echo > 9) printf("# prelim for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
           off[dir] = std::max(off[dir], 0); // lower
-          end[dir] = std::min(end[dir], g.dim(dir)); // upper boundary
+          end[dir] = std::min(end[dir], g[dir]); // upper boundary
           if (echo > 9) printf("# limits for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
           num[dir] = std::max(0, end[dir] - off[dir]);
       } // dir
@@ -71,7 +71,7 @@ namespace sho_projection {
       for(        int iz = 0; iz < num[2]; ++iz) {
           for(    int iy = 0; iy < num[1]; ++iy) {
               for(int ix = 0; ix < num[0]; ++ix) {
-                  int const ixyz = ((iz + off[2])*g.dim('y') + (iy + off[1]))*g.dim('x') + (ix + off[0]);
+                  int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
                   
                   real_t val[D0];
                   for(int i0 = 0; i0 < D0; ++i0) {

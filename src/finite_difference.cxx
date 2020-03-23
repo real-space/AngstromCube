@@ -60,13 +60,13 @@ namespace finite_difference {
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
           real_space_grid::grid_t<1> g(dims);
           g.set_boundary_conditions(Periodic_Boundary);
-          double const k = (1 + dir)*2*constants::pi/g.dim(dir);
+          double const k = (1 + dir)*2*constants::pi/g[dir];
           auto const values = new real_t[g.all()];
           for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
           real_t* out = new real_t[g.all()];
           stat += Laplacian(out, values, g, fd);
           if (echo > 5) printf("\n# in, out, ref values:\n");
-          double dev = 0;
+          double dev{0};
           for(size_t i = 0; i < g.all(); ++i) {
               double const ref = -k*k*values[i];
               if (echo > 5) printf("%ld %g %g %g\n", i, values[i], out[i], ref);
