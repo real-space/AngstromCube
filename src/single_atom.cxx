@@ -346,10 +346,10 @@ extern "C" {
             int ics = 0, jcs = -1; 
             double n_electrons = Z_core - ionization; // init number of electrons to be distributed
             for(int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number
-                int enn = (nq_aux + 1)/2; // init principal quantum number
-                for(int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character
+                int enn = (nq_aux + 1)/2; // init principal quantum number n
+                for(int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character l
                     ++enn; // update principal quantum number
-                    for(int jj = 2*ell; jj >= 2*ell; jj -= 2) {
+                    for(int jj = 2*ell; jj >= 2*ell; jj -= 2) { // total angular momentum j
                         auto &cs = core_state[ics]; // abbreviate
                         cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                         cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave

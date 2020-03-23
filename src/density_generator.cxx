@@ -3,6 +3,7 @@
 #include <numeric> // std::iota
 #include <cmath> // std::floor
 #include <vector> // std::vector<T>
+#include <complex> // std::norm
 
 #include "density_generator.hxx"
 
@@ -80,7 +81,7 @@ namespace density_generator {
               if (weight_nk > 0) {
 // #pragma omp for
                   for(size_t izyx = 0; izyx < g.all(); ++izyx) { // parallel
-                      rho_valence[izyx] += weight_nk * pow2(psi_nk[izyx]);
+                      rho_valence[izyx] += weight_nk * std::norm(psi_nk[izyx]);
                   } // izyx
                   
                   // construct the atomic density matrix atom_rho

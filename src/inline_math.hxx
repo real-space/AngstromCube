@@ -13,8 +13,8 @@
   template<typename T> inline T constexpr pow4(T const x) { return pow2(pow2(x)); }
   template<typename T> inline T constexpr pow8(T const x) { return pow2(pow4(x)); }
 
-  template<typename real_t> 
-  inline real_t intpow(real_t const x, unsigned const nexp) {
+  template<typename real_t> inline 
+  real_t intpow(real_t const x, unsigned const nexp) {
       // power function using recursive doubling, only non-negative powers possible
       unsigned n = nexp;
       real_t xbin = x, xpow = (real_t)1;
@@ -27,55 +27,55 @@
   } // intpow
 
 
-  template<unsigned Step=1> 
-  inline double constexpr factorial(unsigned const n) {
+  template<unsigned Step=1> inline
+  double constexpr factorial(unsigned const n) {
       return (n > 1)? factorial<Step>(n - Step)*((double)n) : 1;
   } // factorial n! for Step=1 and double_factorial n!! for Step=2
 
-  template<typename real_t>
-  void inline set(real_t y[], size_t const n, real_t const a) {
+  template<typename real_t> inline
+  void set(real_t y[], size_t const n, real_t const a) {
       for(size_t i = 0; i < n; ++i) y[i] = a;
   } // set
 
-  template<typename real_t, typename real_a_t>
-  void inline set(real_t y[], size_t const n, real_a_t const a[], real_t const f=1) {
+  template<typename real_t, typename real_a_t> inline
+  void set(real_t y[], size_t const n, real_a_t const a[], real_t const f=1) {
       for(size_t i = 0; i < n; ++i) y[i] = a[i]*f;
   } // set
 
-  template<typename real_t, typename real_a_t>
-  void inline scale(real_t y[], size_t const n, real_a_t const a[], real_t const f=1) {
+  template<typename real_t, typename real_a_t> inline
+  void scale(real_t y[], size_t const n, real_a_t const a[], real_t const f=1) {
       for(size_t i = 0; i < n; ++i) y[i] *= a[i]*f;
   } // scale
 
-  template<typename real_t>
-  void inline scale(real_t y[], size_t const n, real_t const f) {
+  template<typename real_t> inline
+  void scale(real_t y[], size_t const n, real_t const f) {
       // no default value for f here, as scaling with 1.0 has no effect
       for(size_t i = 0; i < n; ++i) y[i] *= f;
   } // scale
 
-  template<typename real_t, typename real_a_t, typename real_b_t>
-  void inline product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_t const f=1) {
+  template<typename real_t, typename real_a_t, typename real_b_t> inline
+  void product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_t const f=1) {
       for(size_t i = 0; i < n; ++i) y[i] = a[i]*b[i]*f;
   } // product
 
-  template<typename real_t, typename real_a_t, typename real_b_t, typename real_c_t>
-  void inline product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_c_t const c[], real_t const f=1) {
+  template<typename real_t, typename real_a_t, typename real_b_t, typename real_c_t> inline
+  void product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_c_t const c[], real_t const f=1) {
       for(size_t i = 0; i < n; ++i) y[i] = a[i]*b[i]*c[i]*f;
   } // product
 
-  template<typename real_t, typename real_a_t>
-  void inline add_product(real_t y[], size_t const n, real_a_t const a[], real_t const f) {
+  template<typename real_t, typename real_a_t> inline
+  void add_product(real_t y[], size_t const n, real_a_t const a[], real_t const f) {
       // no default value for f here, otherwise the name add_product is missleading!
       for(size_t i = 0; i < n; ++i) y[i] += a[i]*f;
   } // add_product == axpy-type
 
-  template<typename real_t, typename real_a_t, typename real_b_t>
-  void inline add_product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_t const f=1) {
+  template<typename real_t, typename real_a_t, typename real_b_t> inline
+  void add_product(real_t y[], size_t const n, real_a_t const a[], real_b_t const b[], real_t const f=1) {
       for(size_t i = 0; i < n; ++i) y[i] += a[i]*b[i]*f;
   } // add_product
 
-  template<typename real_t, typename real_a_t>
-  double inline dot_product(size_t const n, real_t const bra[], real_a_t const ket[]) {
+  template<typename real_t, typename real_a_t> inline
+  double dot_product(size_t const n, real_t const bra[], real_a_t const ket[]) {
       double dot = 0;
       for(size_t i = 0; i < n; ++i) {
           dot += bra[i]*ket[i];
@@ -83,8 +83,8 @@
       return dot;
   } // dot_product
 
-  template<typename real_t, typename real_a_t, typename real_b_t>
-  double inline dot_product(size_t const n, real_t const bra[], real_a_t const ket[], real_b_t const metric[]) {
+  template<typename real_t, typename real_a_t, typename real_b_t> inline
+  double dot_product(size_t const n, real_t const bra[], real_a_t const ket[], real_b_t const metric[]) {
       double dot = 0;
       for(size_t i = 0; i < n; ++i) {
           dot += bra[i]*metric[i]*ket[i];

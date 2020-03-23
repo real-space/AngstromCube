@@ -4,6 +4,9 @@
 #include <vector> // std::vector<T>
 
 #include "real_space_grid.hxx" // ::grid_t
+#include "data_view.hxx" // view2D<T>
+#include "inline_math.hxx" // set, add_product, dot_product
+#include "constants.hxx" // ::pi
 
 #include "status.hxx" // status_t
 
@@ -100,11 +103,123 @@ namespace multi_grid {
       return stat;
   } // analyze_grid_sizes
   
+  
+  template <typename real_t, typename real_in_t>
+  status_t restrict_to_any_grid(real_t out[], unsigned const go
+                      , real_in_t const in[], unsigned const gi
+                      , int const stride=1, int const bc=0) {
+      if (go < 1) return 0; // early return
+      if (gi < 1) return 0; // early return
+      
+      view2D<real_t> target(out, stride); // wrap
+      view2D<real_in_t const> source(in, stride); // wrap
+      
+      double const ratio = go/double(gi);
+      for(int io = 0; io < go; ++io) {
+          real_t w8s[4] = {0,0,0,0};
+          int        iis[4];
+          int nw8 = 0;
+          for(int ii = 0; ii < gi; ++ii) {
+              double const start = std::max((ii - 0)*ratio, double(io - 0));
+              double const end   = std::min((ii + 1)*ratio, double(io + 1));
+              double const w8 = std::max(0.0, end - start);
+              if (w8 > 0) {
+                  assert(nw8 < 4);
+                  w8s[nw8] = w8;
+                  iis[nw8] = ii;
+                  ++nw8;
+              } // non-zero
+          } // ii
+          assert(std::abs((w8s[0] + w8s[1] + w8s[2] + w8s[3]) - 1) < 1e-6);
+          set(target[io], stride, 0.0);
+          for(int iw8 = 0; iw8 < nw8; ++iw8) {
+              int const ii = iis[iw8];
+              add_product(target[io], stride, source[ii], w8s[iw8]);
+          } // iw8
+      } // io
+      
+  } // restrict_to_any_grid
+  
+  template <typename real_t, typename real_in_t>
+  status_t linear_interpolation(real_t out[], unsigned const go
+                      , real_in_t const in[], unsigned const gi
+                      , int const stride=1, int const bc=0) {
+      if (go < 1) return 0; // early return
+      if (gi < 1) return 0; // early return
+      
+      // linear interpolation between two grids with the same alignment.
+      //            |  0  |  1  |  2  |  3  |  4  |    out
+      //       -1   |    0    |    1    |    2    |    3    in
+      
+      view2D<real_t> target(out, stride); // wrap
+      view2D<real_in_t const> source(in, stride); // wrap
+      view2D<real_in_t> buffer(2, stride, 0.0); // lower and upper halo buffer extending in-array
+      if (bc) {
+          set(buffer[1], stride, source[0]);      // fill location #3  with element #0 
+          set(buffer[0], stride, source[gi - 1]); // fill location #-1 with element #2 
+      } // periodic boundary condition
+      
+      double const ratio = gi/double(go);
+      for(int io = 0; io < go; ++io) {
+          double const p = (io + 0.5)*ratio + 0.5;
+          int const ii = int(p); // index of the upper grid point on the in-array
+          double const wu = p - ii; // upper weight onto [ii]
+          double const wl = 1 - wu; // lower weight onto [ii - 1]
+          printf("# io=%i p=%g ii=%i w8s %g %g\n", io, p, ii, wl, wu); // DEBUG
+          assert(std::abs((wl + wu) - 1) < 1e-6);
+          if (0 == ii) {
+              set(        target[io], stride, buffer[0], wl);
+              add_product(target[io], stride, source[ii], wu);
+          } else {
+              set(        target[io], stride, source[ii - 1], wl);
+              add_product(target[io], stride, (ii < gi) ? source[ii] : buffer[1], wu);
+          } // ii > 0
+      } // io
+//       fflush(stdout); exit(42);
+  } // linear_interpolation
+  
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
+  inline status_t test_transfer(int const echo=0) {
+      if (echo < 1) return 0;
+      status_t stat(0);
+      int const ng = 32;
+      std::vector<double> input_c(ng), result_c(ng), result_cdc(ng);
+      std::vector<int> dense_grids{ng, (5*ng)/3, 2*ng}; // numbers of dense grid points
+      for(auto mg : dense_grids) {
+          std::vector<double> result_d(mg), input_d(mg);
+          printf("\n## ik T (%s: interpolate from grid=%d to grid=%d)\n", __func__, ng, mg); // legend
+          for(int ik = 1; ik < 3; ++ik) {
+              double const ki = (2*constants::pi*ik)/ng;
+              for(int ig = 0; ig < ng; ++ig) {
+                  input_c[ig] = std::cos(ki*(ig + 0.5));
+              } // ig
+              
+              stat += linear_interpolation(result_d.data(), mg, input_c.data(), ng, 1, 1);
+              
+              printf("\n## x interpolate(cos(x)) cos(x) [n=%d m=%d k=%i]\n", ng, mg, ik);
+              double const kj = (2*constants::pi*ik)/mg;
+              for(int jg = 0; jg < mg; ++jg) {
+                  input_d[jg] = std::cos(kj*(jg + 0.5));
+                  printf("%g %g %g\n", (jg + 0.5)/mg, result_d[jg], input_d[jg]);
+              } // jg
+              
+              stat += restrict_to_any_grid(result_c.data(), ng, input_d.data(), mg, 1, 1);
+              stat += restrict_to_any_grid(result_cdc.data(), ng, result_d.data(), mg, 1, 1);
+
+              printf("\n## x cos(x) restrict(interpolate(cos(x))) [n=%d m=%d k=%i]\n", ng, mg, ik);
+              for(int ig = 0; ig < ng; ++ig) {
+                  printf("%g %g %g %g\n", (ig + 0.5)/ng, result_c[ig], result_cdc[ig], input_c[ig]);
+              } // ig
+              
+          } // ik
+      } // gn
+      return 0;
+  } // test_transfer
+  
   inline status_t test_analysis(int const echo=0) {
       real_space_grid::grid_t<1> g(63, 64, 65);
       return analyze_grid_sizes(g, echo);
@@ -112,8 +227,9 @@ namespace multi_grid {
 
   inline status_t all_tests(int const echo=0) { 
       status_t stat{0};
-      stat += test_analysis(echo);
-      return stat; 
+//       stat += test_analysis(echo);
+      stat += test_transfer(echo);
+      return stat;
   } // all_tests
   
 #endif // NO_UNIT_TESTS
