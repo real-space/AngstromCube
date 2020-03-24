@@ -101,9 +101,9 @@ namespace conjugate_gradients {
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
     , grid_operators::grid_operator_t<real_t,real_t,D0> const & op // grid operator descriptor
-    , int const echo=9 // log output level
-    , float const threshold=1e-8f
-    , double *eigenvalues=nullptr // export results
+    , int const echo// =9 // log output level
+    , float const threshold // =1e-8f
+    , double *eigenvalues //=nullptr // export results
   ) {
       status_t stat = 0;
       int const maxiter = control::get("conjugate_gradients.max.iter", 32);
@@ -335,6 +335,16 @@ namespace conjugate_gradients {
       
       return stat;
   } // eigensolve
+  
+  template // explicit template instantiation
+  status_t eigensolve<double,1>(double eigenstates[], int const nbands
+    , grid_operators::grid_operator_t<double,double,1> const & op
+    , int const echo, float const threshold, double *eigenvalues);
+
+  template // explicit template instantiation
+  status_t eigensolve<float,1>(float eigenstates[], int const nbands
+    , grid_operators::grid_operator_t<float,float,1> const & op
+    , int const echo, float const threshold, double *eigenvalues);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

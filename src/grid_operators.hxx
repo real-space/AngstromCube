@@ -263,12 +263,12 @@ namespace grid_operators {
   // prepare the sho_atoms for grid_operator_t
   template <int D0=1> // vectorization 
   status_t list_of_atoms(std::vector<atom_image::sho_atom_t> & a
-                       , double const xyzZins[] // data layout [na][8]
+                       , double const xyzZins[] // data layout [na][8], collection of different quantities
                        , int const na // number of atoms
                        , int const stride // typically stride=8
-                       , real_space_grid::grid_t<D0> const & g // actually we need cell info here, not grid
+                       , real_space_grid::grid_t<D0> const & g // actually we need cell info here, not grid, so the <D0> templating could be dropped
                        , int const echo=9
-                       , double const **atom_matrices=nullptr
+                       , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
                        , float const rcut=18 // sho_projection usually ends at 9*sigma
                         ) {
       status_t stat(0);

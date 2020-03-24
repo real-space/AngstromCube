@@ -3,11 +3,14 @@
 #include <cmath> // std::min, std::max
 #include <vector> // std::vector<T>
 
+#ifndef NO_UNIT_TESTS
+  #include <numeric> // std::iota
+  #include "constants.hxx" // ::pi
+#endif
+
 #include "real_space_grid.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, add_product, dot_product
-#include "constants.hxx" // ::pi
-
 #include "status.hxx" // status_t
 
 namespace multi_grid {
@@ -35,8 +38,8 @@ namespace multi_grid {
           and prolong with linear interpolation.
           Both operations need some data-exchange.
    */
-  
-  unsigned nearest_binary_power(unsigned const ng) {
+
+  inline unsigned nearest_binary_power(unsigned const ng) {
       int k{0};
       while(ng > (1ull << (k + 1))) ++k;
       return k;

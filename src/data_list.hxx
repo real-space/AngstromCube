@@ -1,0 +1,71 @@
+#pragma once
+
+#include <cstdio> // printf
+#include <cassert> // assert
+#include <cstdint> // uint32_t
+
+#include "status.hxx" // status_t
+
+#define debug_printf(...) printf(__VA_ARGS__)  
+// #define debug_printf(...)
+
+template<typename T>
+class data_list
+{
+private:
+  std::vector<T> _data;
+  std::vector<T*> _ptrs;
+  std::vector<uint32_t> _m;
+  uint32_t _n;
+  uint32_t _max_m;
+  size_t _mem;
+public:
+  
+  template<typename int_t>
+  data_list(uint32_t const n, int_t const ms[], T const init_value={0}) 
+      : _ptrs(n, nullptr), _m(n), _n(n), _max_m(0), _mem(0) {
+      size_t num{0};
+      for(uint32_t i = 0; i < n; ++i) {
+          auto const m = uint32_t(std::max(ms[i], 0));
+          _m[i] = m;
+          _max_m = std::max(_max_m, m);
+          num += _m[i];
+      } // i
+      _mem = num*sizeof(T);
+      debug_printf("# data_list() constructor tries to allocate %.3f MByte\n", _mem*1e-6);
+      _data = std::vector<T>(num, init_value);
+      num = 0;
+      for(uint32_t i = 0; i < n; ++i) {
+          _ptrs[i] = &_data[num];
+          num += _m[i];
+      } // i
+      assert(num*sizeof(T) == _mem); // consistency check
+  } // constructor
+
+  ~data_list() {
+      debug_printf("# ~data_list() destructor tries to free %.3f MByte\n", _mem*1e-6);
+  } // destructor
+
+  data_list(data_list<T> && rhs) = delete; // move constructor
+  data_list(data_list<T> const & rhs) = delete; // copy constructor
+  data_list& operator= (data_list<T> && rhs) = delete;  // move assignment
+  data_list& operator= (data_list<T> const & rhs) = delete; // move assignment
+
+  // access operators
+  T const & operator () (size_t const i, size_t const j) const { return _ptrs[i][j]; } // (i,j)
+  T       & operator () (size_t const i, size_t const j)       { return _ptrs[i][j]; } // (i,j)
+
+  T const & at(size_t const i1, size_t const i0) const { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+  T       & at(size_t const i1, size_t const i0)       { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+
+  T* operator[] (size_t const i) const { assert(i < _n); return _ptrs[i]; }
+
+  // member access functions
+  T const ** data() const { return _ptrs.data(); }
+  T **   get_data()       { return _ptrs.data(); }
+
+  uint32_t nrows() const { return _n; } // number of rows
+  uint32_t mcols() const { return _max_m; } // max. number of cols
+  uint32_t const * m() const { return _m.data(); } // numbers of cols
+
+}; // data_list

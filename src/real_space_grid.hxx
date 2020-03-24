@@ -61,7 +61,8 @@ namespace real_space_grid {
           } // i3
           return stat;
       } // set
-      
+
+      status_t set_boundary_conditions(int const bc3[3]) { set(bc, 3, bc3); return 0; }
       status_t set_boundary_conditions(int const bcx
                      , int const bcy=Invalid_Boundary 
                      , int const bcz=Invalid_Boundary) {
