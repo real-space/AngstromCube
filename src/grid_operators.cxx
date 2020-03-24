@@ -23,7 +23,7 @@ namespace grid_operators {
       std::vector<double> psi(2*g.all(), 1.0);
       std::vector<double> potential(dims[2]*dims[1]*dims[0], 0.5);
       std::vector<atom_image::sho_atom_t> a(1);
-      a[0] = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999
+      a[0] = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999, no position given!
       double const apos[] = {0,0,0};
       a[0].set_image_positions(apos);
       finite_difference::finite_difference_t<double> kinetic(g.h, 8);

@@ -260,7 +260,7 @@ namespace grid_operators {
   
   
   
-  // prepare the sho_atoms in grid_operator_t
+  // prepare the sho_atoms for grid_operator_t
   template <int D0=1> // vectorization 
   status_t list_of_atoms(std::vector<atom_image::sho_atom_t> & a
                        , double const xyzZins[] // data layout [na][8]

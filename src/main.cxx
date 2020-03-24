@@ -58,7 +58,7 @@
 #include "data_view.hxx" // ::all_tests
 #include "control.hxx" // ::all_tests
 
-  status_t run_unit_tests(char const *module, int const echo=0) 
+  status_t run_unit_tests(char const *module=nullptr, int const echo=0) 
   {
       bool const all = (nullptr == module);
       auto const m = std::string(all ? "" : module);
@@ -141,11 +141,34 @@
       return status;
   } // run_unit_tests
 
+  
+  int show_help(char const *executable) {
+      printf("Usage %s [OPTION]\n"
+        "   --help          [-h]\tThis help message\n"
+        "   --test <module> [-t]\tTest module\n"
+        "   --verbose       [-v]\tIncrement verbosity level\n"
+        "   +<var>=<val>        \tModify variable environment\n"
+        "\n", executable);
+      return 0;
+  } // show_help
 
+  int show_version(char const *executable="#") {
+#ifdef _GIT_KEY
+      // stringify the value of a macro, two expansion levels needed
+      #define macro2string(a) stringify(a)
+      #define stringify(b) #b
+      printf("%s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
+      #undef  stringify
+      #undef  cro2string
+#endif
+      return 0;
+  } // show_version
+  
   int main(int const argc, char const *argv[]) {
       status_t stat(0);
       char const *test_unit = nullptr;
-      bool run_tests = false;
+      int run_tests{0};
+      int verbosity{3}; // set low
       if (argc < 2) { 
           printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
           return -1;
@@ -153,47 +176,57 @@
       for(int iarg = 1; iarg < argc; ++iarg) {
           char const ci0 = *argv[iarg]; // char #0 of command line argument #1
           if ('-' == ci0) {
+              // options (short or long)
               char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #1
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
+              if ('-' == ci1) {
+                  // long option versions
+                  std::string option(argv[iarg] + 2); // remove two '-' in front
+                  if ("help" == option) {
+                      return show_help(argv[0]);
+                  } else 
+                  if ("version" == option) {
+                      return show_version(argv[0]);
+                  } else 
+                  if ("verbose" == option) {
+                      verbosity = 6; // set high
+                  } else
+                  if ("test" == option) {
+                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1]; // the name of the unit to be tested
+                  } else {
+                      warn("# ignored unknown command line long option %s", option.c_str());
+                      ++stat; // error
+                  } // option
+              } else
               if ('h' == (ci1 | IgnoreCase)) {
-                  printf("Usage %s [OPTION]\n", argv[0]);
-                  printf("   -h, -H      \tThis help message\n"
-                         "   -t <module> \tTest module\n"
-                         "   +<var>=<val>\tModify variable environment\n"
-                         "\n");
-                  return 0;
-              } else if ('t' == (ci1 | IgnoreCase)) {
-                  run_tests = true;
-                  if (argc > iarg + 1) test_unit = argv[iarg + 1]; // the name of the unit to be tested
+                  return show_help(argv[0]);
+              } else
+              if ('v' == (ci1 | IgnoreCase)) {
+                  ++verbosity; verbosity += 3*('V' == ci1); // increment by 'V':4, 'v':1
+              } else
+              if ('t' == (ci1 | IgnoreCase)) {
+                  ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1]; // the name of the unit to be tested
               } else {
-                  warn("# ignored unknown command line option %c%c", ci0, ci1);
+                  warn("# ignored unknown command line short option %c%c", ci0, ci1);
                   ++stat; // error
               } // help or test
-          } // '-'
-          else
+          } else
           if ('+' == ci0) {
               stat += control::cli(argv[iarg] + 1); // start after the '+' char
-          } // '+'
-          else 
+          } else
           if (argv[iarg] != test_unit) {
               warn("# ignored command line argument %s", argv[iarg]);
           }
       } // iarg
-      int const echo = control::get("verbosity", 3.); // define default verbosity here
+      int const echo = control::get("verbosity", double(verbosity)); // define default verbosity here
       if (echo > 0) {
           printf("\n#");
           for(int iarg = 0; iarg < argc; ++iarg) {
               printf(" %s", argv[iarg]); // repeat the command line arguments
           }   printf("\n");
-#ifdef _GIT_KEY
-          // stringify the value of a macro, two expansion levels needed
-          #define macro2string(a) stringify(a)
-          #define stringify(b) #b
-          printf("# git checkout " macro2string(_GIT_KEY) "\n\n");
-          #undef  stringify
-          #undef  macro2string
-#endif
       } // echo
+      if (echo > 0) show_version();
+      if (echo > 0) printf("\n# verbosity = %d\n", echo);
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
