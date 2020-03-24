@@ -6,9 +6,10 @@
 #include "grid_operators.hxx" // ::grid_operator_t
 #include "sho_tools.hxx" // ::nSHO
 #include "data_view.hxx" // view3D<T>
+#include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<real_t*> with new constructions
 
 namespace density_generator {
-  
+
   // ToDo: move somewhere, where potential_generator and this module can access it  
   inline double print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
       double gmin{9e307}, gmax{-gmin}, gsum{0}, gsum2{0};
@@ -107,7 +108,6 @@ namespace density_generator {
           } // echo
 #endif // DEVEL
           delete[] atom_coeff[ia];
-          delete[] atom_rho[ia];
       } // ia
 
       return stat;

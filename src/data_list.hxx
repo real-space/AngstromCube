@@ -3,27 +3,27 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // uint32_t
+#include <vector> // std::vector<T>
+#include <algorithm> // std::fill
 
-#include "status.hxx" // status_t
-
-#define debug_printf(...) printf(__VA_ARGS__)  
+// #define debug_printf(...) printf(__VA_ARGS__)  
 // #define debug_printf(...)
 
 template<typename T>
-class data_list
+class data_list // a container for matrices with a variable number of columns per row
 {
 private:
   std::vector<T> _data;
   std::vector<T*> _ptrs;
   std::vector<uint32_t> _m;
+  size_t _mem;
   uint32_t _n;
   uint32_t _max_m;
-  size_t _mem;
 public:
-  
+
   template<typename int_t>
   data_list(uint32_t const n, int_t const ms[], T const init_value={0}) 
-      : _ptrs(n, nullptr), _m(n), _n(n), _max_m(0), _mem(0) {
+      : _ptrs(n, nullptr), _m(n), _mem(0), _n(n), _max_m(0) {
       size_t num{0};
       for(uint32_t i = 0; i < n; ++i) {
           auto const m = uint32_t(std::max(ms[i], 0));
@@ -55,8 +55,8 @@ public:
   T const & operator () (size_t const i, size_t const j) const { return _ptrs[i][j]; } // (i,j)
   T       & operator () (size_t const i, size_t const j)       { return _ptrs[i][j]; } // (i,j)
 
-  T const & at(size_t const i1, size_t const i0) const { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
-  T       & at(size_t const i1, size_t const i0)       { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+  T const & at(size_t const i, size_t const j) const { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+  T       & at(size_t const i, size_t const j)       { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
 
   T* operator[] (size_t const i) const { assert(i < _n); return _ptrs[i]; }
 
@@ -67,5 +67,6 @@ public:
   uint32_t nrows() const { return _n; } // number of rows
   uint32_t mcols() const { return _max_m; } // max. number of cols
   uint32_t const * m() const { return _m.data(); } // numbers of cols
+  size_t fill(T const value={0}) { std::fill(_data.begin(), _data.end(), value); } // set value
 
 }; // data_list

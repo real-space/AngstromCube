@@ -29,11 +29,14 @@
 #include "debug_output.hxx" // dump_to_file
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
+// ToDo: restructure: move this into a separate compilation unit
 #include "atom_image.hxx"// ::sho_atom_t
 #include "grid_operators.hxx" // ::grid_operator_t, ::list_of_atoms
 #include "conjugate_gradients.hxx" // ::eigensolve
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
 #include "density_generator.hxx" // ::density
+
+#include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -347,7 +350,7 @@ namespace potential_generator {
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
 
-          std::vector<double> rhov_new(g.all()); // new
+          std::vector<double> rhov_new(g.all(), 0.0); // new valence density
           // now solve the Kohn-Sham equation with the given Hamiltonian
           {
               for(int ia = 0; ia < na; ++ia) {
