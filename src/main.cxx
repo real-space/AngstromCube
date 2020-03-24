@@ -141,13 +141,12 @@
       return status;
   } // run_unit_tests
 
-  
   int show_help(char const *executable) {
       printf("Usage %s [OPTION]\n"
-        "   --help          [-h]\tThis help message\n"
-        "   --test <module> [-t]\tTest module\n"
-        "   --verbose       [-v]\tIncrement verbosity level\n"
-        "   +<var>=<val>        \tModify variable environment\n"
+        "   --help           [-h]\tThis help message\n"
+        "   --test <module.> [-t]\tTest module\n"
+        "   --verbose        [-v]\tIncrement verbosity level\n"
+        "   +<name>=<value>      \tModify variable environment\n"
         "\n", executable);
       return 0;
   } // show_help
@@ -166,21 +165,24 @@
   
   int main(int const argc, char const *argv[]) {
       status_t stat(0);
-      char const *test_unit = nullptr;
+      char const *test_unit = nullptr; // the name of the unit to be tested
       int run_tests{0};
       int verbosity{3}; // set low
-      if (argc < 2) { 
+      if (argc < 2) {
           printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
           return -1;
       } // no argument passed to executable
       for(int iarg = 1; iarg < argc; ++iarg) {
+          assert(nullptr != argv[iarg]);
           char const ci0 = *argv[iarg]; // char #0 of command line argument #1
           if ('-' == ci0) {
+
               // options (short or long)
               char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #1
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
-                  // long option versions
+
+                  // long options
                   std::string option(argv[iarg] + 2); // remove two '-' in front
                   if ("help" == option) {
                       return show_help(argv[0]);
@@ -192,31 +194,36 @@
                       verbosity = 6; // set high
                   } else
                   if ("test" == option) {
-                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1]; // the name of the unit to be tested
+                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
                   } else {
-                      warn("# ignored unknown command line long option %s", option.c_str());
-                      ++stat; // error
+                      ++stat; warn("# ignored unknown command line option --%s", option.c_str());
                   } // option
-              } else
-              if ('h' == (ci1 | IgnoreCase)) {
-                  return show_help(argv[0]);
-              } else
-              if ('v' == (ci1 | IgnoreCase)) {
-                  ++verbosity; verbosity += 3*('V' == ci1); // increment by 'V':4, 'v':1
-              } else
-              if ('t' == (ci1 | IgnoreCase)) {
-                  ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1]; // the name of the unit to be tested
-              } else {
-                  warn("# ignored unknown command line short option %c%c", ci0, ci1);
-                  ++stat; // error
-              } // help or test
-          } else
+
+              } else { // ci1
+
+                  // short options
+                  if ('h' == (ci1 | IgnoreCase)) {
+                      return show_help(argv[0]);
+                  } else
+                  if ('v' == (ci1 | IgnoreCase)) {
+                      ++verbosity; verbosity += 3*('V' == ci1); // increment by 'V':4, 'v':1
+                  } else
+                  if ('t' == (ci1 | IgnoreCase)) {
+                      ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
+                  } else {
+                      ++stat; warn("# ignored unknown command line option -%c", ci1);
+                  } // ci1
+
+              } // ci1
+
+          } else // ci0
           if ('+' == ci0) {
               stat += control::cli(argv[iarg] + 1); // start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
-              warn("# ignored command line argument %s", argv[iarg]);
-          }
+              ++stat; warn("# ignored command line argument \'%s\'", argv[iarg]);
+          } // ci0
+
       } // iarg
       int const echo = control::get("verbosity", double(verbosity)); // define default verbosity here
       if (echo > 0) {
