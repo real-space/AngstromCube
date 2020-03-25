@@ -196,10 +196,10 @@ namespace potential_generator {
               num(3,ia) = 2*pow2(ncoeff);         // aHm
           } // ia
           // get memory in the form of data_list containers
-          DL_qlm = std::move(data_list<double>(na, num[0], 0.0));
-          DL_vlm = std::move(data_list<double>(na, num[1], 0.0));
-          DL_aDm = std::move(data_list<double>(na, num[2], 0.0));
-          DL_aHm = std::move(data_list<double>(na, num[3], 0.0));
+          DL_qlm = data_list<double>(na, num[0], 0.0);
+          DL_vlm = data_list<double>(na, num[1], 0.0);
+          DL_aDm = data_list<double>(na, num[2], 0.0);
+          DL_aHm = data_list<double>(na, num[3], 0.0);
       } // scope
 
       for(int ia = 0; ia < na; ++ia) {
