@@ -28,7 +28,7 @@
 #include "debug_output.hxx" // dump_to_file
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
-// #define OLD_SINGLE_ATOM_UPDATE_INTERFACE
+#define OLD_SINGLE_ATOM_UPDATE_INTERFACE
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
   #include "single_atom.hxx" // ::update
 #else
@@ -149,7 +149,7 @@ namespace potential_generator {
                   center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center[ia][3] = 0; // 4th component is not used
               if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
-                                          center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
+                                           center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
           } // ia
       } // scope
 
@@ -163,14 +163,14 @@ namespace potential_generator {
       std::vector<double*> rho_core(na, nullptr); // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       std::vector<double*> zero_pot(na, nullptr); // smooth zero_potential on r2-grids, nr2=2^12 points, ar2=16.f
       std::vector<double> sigma_cmp(na, 1.); //
-      std::vector<double*> qlm(na, nullptr); 
-      std::vector<double*> vlm(na, nullptr); 
-      std::vector<int> numax(na, 3);
+      std::vector<double*> qlm(na, nullptr);
+      std::vector<double*> vlm(na, nullptr);
       std::vector<double*> atom_matrices(na, nullptr);
+      std::vector<int> numax(na, 3);
       std::vector<int> lmax_qlm(na, -1);
       std::vector<int> lmax_vlm(na, -1);
 
-      // for each atom get radial grid, sigma, lmax
+      // for each atom get sigma, lmax
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
       stat += single_atom::update(na,
           Za.data(), ionization.data(), nullptr, numax.data(), sigma_cmp.data(),
@@ -178,10 +178,30 @@ namespace potential_generator {
 #else
       std::vector<double> Za_double(na); set(Za_double.data(), na, Za.data());
       stat += single_atom::atom_update("initialize", na, Za_double.data(), numax.data(), ionization.data());
-//       error("Need to implement single_atom::atom_update()");
+      stat += single_atom::atom_update("l_max qlm" , na, 0, lmax_qlm.data());
+      stat += single_atom::atom_update("l_max vlm" , na, 1, lmax_vlm.data());
 #endif
-      
-      
+
+      data_list<double> DL_qlm;
+      data_list<double> DL_vlm;
+      data_list<double> DL_aDm;
+      data_list<double> DL_aHm;
+      if (1) { // scope: set up data_list items
+          view2D<int32_t> num(4, na, 0);
+          for(int ia = 0; ia < na; ++ia) {
+              num(0,ia) = pow2(1 + lmax_qlm[ia]); // qlm
+              num(1,ia) = pow2(1 + lmax_vlm[ia]); // vlm
+              int const ncoeff = sho_tools::nSHO(numax[ia]);
+              num(2,ia) =   pow2(ncoeff);         // aDm
+              num(3,ia) = 2*pow2(ncoeff);         // aHm
+          } // ia
+          // get memory in the form of data_list containers
+          DL_qlm = std::move(data_list<double>(na, num[0], 0.0));
+          DL_vlm = std::move(data_list<double>(na, num[1], 0.0));
+          DL_aDm = std::move(data_list<double>(na, num[2], 0.0));
+          DL_aHm = std::move(data_list<double>(na, num[3], 0.0));
+      } // scope
+
       for(int ia = 0; ia < na; ++ia) {
           int const ncoeff = sho_tools::nSHO(numax[ia]);
           atom_matrices[ia] = new double[2*ncoeff*ncoeff];
@@ -213,6 +233,8 @@ namespace potential_generator {
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, rho_core.data(), qlm.data());
 #else
+          // make sure that the rho_cores are allocated
+          // make sure that the qlm are allocated
           error("Need to implement single_atom::atom_update()");
 #endif
 
@@ -345,6 +367,9 @@ namespace potential_generator {
           stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,  
                                 vlm.data(), nullptr, nullptr, zero_pot.data(), atom_matrices.data());
 #else
+          // make sure that the vlm are allocated
+          // make sure that the atom_matrices are allocated
+          // make sure that the zero_potentials are allocated
           error("Need to implement single_atom::atom_update()");
 #endif
 
@@ -609,8 +634,8 @@ namespace potential_generator {
 
 
       // generate a file which contains the full potential Vtot
-      if (echo > 0) { char title[96];
-          std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
+      if (echo > 0) {
+          char title[96]; std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
           dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
       } // unless all output is suppressed
 

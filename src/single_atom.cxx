@@ -2094,12 +2094,14 @@ namespace single_atom {
 
       static std::vector<LiveAtom*> a; // this function may not be templated!!
       static int echo = -9;
-      if (-9  == echo) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
+      if (-9 == echo) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
 
-      assert(what); // may never be nullptr
+      assert(what); // should never be nullptr
       char const how = what[0] | 32; // first char, to lowercase
-      
-      auto const fun = string2long("abcdef");
+      if (echo > 4) printf("\n# %s %s what=\"%s\" --> \'%c\'\n\n", __FILE__, __func__, what, how);
+
+   
+//       auto const fun = string2long("abcdef");
 
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
@@ -2217,12 +2219,12 @@ namespace single_atom {
           } 
           break;
 
-          case 'l': // interface usage: atom_update("l_max potential", natoms, dp=null, lmax);
-                    // interface usage: atom_update("l_max charges",   natoms, dp= ~0 , lmax);
+          case 'l': // interface usage: atom_update("l_max qlm", natoms, dp=null, lmax);
+                    // interface usage: atom_update("l_max vlm", natoms, dp= ~0 , lmax);
           {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
-                  lmax[ia] = dp ? a[ia]->ellmax_compensator : a[ia]->ellmax;
+                  lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
               } // ia
               assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           } 
