@@ -72,21 +72,21 @@ public:
 
 
   // access operators
-  T const & operator () (size_t const i, size_t const j) const { return _ptrs[i][j]; } // (i,j)
-  T       & operator () (size_t const i, size_t const j)       { return _ptrs[i][j]; } // (i,j)
+  T const & operator () (uint32_t const i, uint32_t const j) const { return _ptrs[i][j]; } // (i,j)
+  T       & operator () (uint32_t const i, uint32_t const j)       { return _ptrs[i][j]; } // (i,j)
 
-  T const & at(size_t const i, size_t const j) const { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
-  T       & at(size_t const i, size_t const j)       { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+  T const & at(uint32_t const i, uint32_t const j) const { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
+  T       & at(uint32_t const i, uint32_t const j)       { assert(i < _n); assert(j < _m[i]); return _ptrs[i][j]; }
 
-  T* operator[] (size_t const i) const { assert(i < _n); return _ptrs[i]; }
+  T* operator[] (uint32_t const i) const { assert(i < _n); return _ptrs[i]; }
 
   // member access functions
-  T const ** data() const { return _ptrs.data(); }
-  T **   get_data()       { return _ptrs.data(); }
+  T const *const * data() const { return _ptrs.data(); }
+  T** data() { return _ptrs.data(); }
 
   uint32_t nrows() const { return _n; } // number of rows
   uint32_t mcols() const { return _max_m; } // max. number of cols
   uint32_t const * m() const { return _m.data(); } // numbers of cols
-  size_t fill(T const value={0}) { std::fill(_data.begin(), _data.end(), value); } // set value
+  size_t fill(T const value={0}) { std::fill(_data.begin(), _data.end(), value); return _data.size(); } // set value
 
 }; // data_list

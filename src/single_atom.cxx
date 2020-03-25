@@ -1998,9 +1998,9 @@ extern "C" {
 namespace single_atom {
 
   status_t update(int const na, float const *Za, float const *ion
-                 , radial_grid_t **rg, int const *numax, double *sigma_cmp
-                 , double **rho, double **qlm, double **vlm, int *lmax_vlm, int *lmax_qlm
-                 , double **zero_pot, double **atom_mat) {
+                 , radial_grid_t* *rg, int const *numax, double *sigma_cmp
+                 , double* *rho, double **qlm, double* *vlm, int *lmax_vlm, int *lmax_qlm
+                 , double* *zero_pot, double* *atom_mat) {
 
       static int echo = -9;
       if (echo == -9) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
@@ -2028,15 +2028,17 @@ namespace single_atom {
 
           if (nullptr != rho) {
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-              if (nullptr != rho[ia]) delete[] rho[ia];
-              rho[ia] = new double[nr2];
+//               if (nullptr != rho[ia]) delete[] rho[ia];
+//               rho[ia] = new double[nr2];
+              assert(nullptr != rho[ia]); // must be allocated to right size beforehand
               a[ia]->get_smooth_spherical_quantity(rho[ia], ar2, nr2, 'c');
           } // get the smooth core densities
 
           if (nullptr != zero_pot) {
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-              if (nullptr != zero_pot[ia]) delete[] zero_pot[ia];
-              zero_pot[ia] = new double[nr2];
+//               if (nullptr != zero_pot[ia]) delete[] zero_pot[ia];
+//               zero_pot[ia] = new double[nr2];
+              assert(nullptr != zero_pot[ia]); // must be allocated to right size beforehand
               a[ia]->get_smooth_spherical_quantity(zero_pot[ia], ar2, nr2, 'V');
           } // get the zero_potential
 
@@ -2078,16 +2080,25 @@ namespace single_atom {
   } // update
 
   inline uint64_t constexpr string2long(char const *s) {
-      uint64_t i64{0};
+      uint64_t ui64{0};
       if (nullptr != s) {
-          #define instr(n,__more__) if (s[n]) { i64 |= (uint64_t(s[n]) << (8*n)); __more__ }
+          #define instr(n,__more__) if (s[n]) { ui64 |= (uint64_t(s[n]) << (8*n)); __more__ }
           instr(0,instr(1,instr(2,instr(3,instr(4,instr(5,instr(6,instr(7,;))))))))
           #undef  instr
       } // s is a valid pointer
-      return i64;
+      return ui64;
   } // string2long
-  
-  
+
+  inline uint32_t constexpr string2int(char const *s) {
+      uint32_t ui32{0};
+      if (nullptr != s) {
+          #define instr(n,__more__) if (s[n]) { ui32 |= (uint32_t(s[n]) << (8*n)); __more__ }
+          instr(0,instr(1,instr(2,instr(3,;))))
+          #undef  instr
+      } // s is a valid pointer
+      return ui32;
+  } // string2int
+
   // simplified interface compared to update
   status_t atom_update(char const *what, int na,
               double *dp, int32_t *ip, float *fp, double **dpp) {
@@ -2140,9 +2151,9 @@ namespace single_atom {
           } 
           break;
 
-          case 'c': // interface usage: atom_update("core density",    natoms, nullptr, nr2=2^12, ar2=16.f, qnt=rho_c);
-          case 'v': // interface usage: atom_update("valence density", natoms, nullptr, nr2=2^12, ar2=16.f, qnt=rho_v);
-          case 'z': // interface usage: atom_update("zero potential",  natoms, nullptr, nr2=2^12, ar2=16.f, qnt=v_bar);
+          case 'c': // interface usage: atom_update("core density",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
+          case 'v': // interface usage: atom_update("valence density", natoms, null, nr2=2^12, ar2=16.f, qnt=rho_v);
+          case 'z': // interface usage: atom_update("zero potential",  natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
               for(int ia = 0; ia < a.size(); ++ia) {
@@ -2240,14 +2251,14 @@ namespace single_atom {
           } 
           break;
           
-          case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, nullptr, nelements, nullptr, atom_mat);
+          case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, null, nelements, null, atom_mat);
           {
               double *const *const atom_mat = dpp; assert(nullptr != atom_mat);
               for(int ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_mat[ia]);
                   int const numax = a[ia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
-                  int const const h1hs2 = ip ? ip[ia]/(ncoeff*ncoeff) : 2;
+                  int const h1hs2 = ip ? ip[ia]/(ncoeff*ncoeff) : 2;
                   for(int i = 0; i < ncoeff; ++i) {
                       if (h1hs2 > 1)
                       set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);
