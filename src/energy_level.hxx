@@ -10,13 +10,13 @@
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves
       double* wKin[Pseudo]; // kinetic energy operator onto r*wave
       double energy; // energy level in Hartree atomic units
-      float occupation; // occupation number
+      double occupation; // occupation number
       enn_QN_t enn; // main quantum_number
       ell_QN_t ell; // angular momentum quantum_number
       emm_QN_t emm; // usually emm == emm_Degenerate
       spin_QN_t spin; // usually spin == spin_Degenerate
       enn_QN_t nrn[Pseudo]; // number of radial nodes
-  };
+  }; // struct energy_level
 
   typedef struct energy_level<TRU_ONLY> core_level_t;
   typedef struct energy_level<TRU_AND_SMT> valence_level_t;

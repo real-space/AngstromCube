@@ -130,7 +130,7 @@ CCFLAGS  = -std=gnu99 ${FLAGS}
 # P100
 CUFLAGS  = -std=c++11 ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
 CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,${FLAGS})
-CXXFLAGS = -std=c++11 ${FLAGS}
+CXXFLAGS = -std=c++14 ${FLAGS}
 
 
 DEP=$(OBJ:%.o=%.d)

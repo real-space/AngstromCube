@@ -1,20 +1,20 @@
 #include <cstdio> // printf
-#include <cstdlib> // ?
 #include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
 #include <algorithm> // std::max
 
 #include "single_atom.hxx"
 
+#include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid, ::dot_product
 #include "radial_eigensolver.hxx" // ::shooting_method
 #include "radial_potential.hxx" // Hartree_potential
 #include "angular_grid.hxx" // ::transform, ::Lebedev_grid_size
 #include "radial_integrator.hxx" // ::integrate_outwards
-#include "exchange_correlation.hxx" // lda_PZ81_kernel
+#include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 #include "inline_tools.hxx" // align<nbits>
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
-#include "solid_harmonics.hxx" // lm_index, Y00, Y00inv
+#include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index, ::ellchar
 #include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
@@ -228,6 +228,7 @@ extern "C" {
       std::vector<double> potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor, used for the generation of partial waves
 
       double core_charge_deficit; // in units of electrons
+      double spherical_valence_charge_deficit; // in units of electrons
 
       double logder_energy_range[3]; // [start, increment, stop]
 
@@ -304,6 +305,7 @@ extern "C" {
             // spherically symmetric quantities:
             core_density[ts] = std::vector<double>(nr, 0.0); // get memory
             potential[ts]    = std::vector<double>(nr, 0.0); // get memory
+            spherical_valence_density[ts] = std::vector<double>(nr, 0.0); // get memory
             // quantities with lm-resolution:
             int const mr = align<2>(nr);
             full_density[ts]   = view2D<double>(nlm, mr, 0.0); // get memory
@@ -398,9 +400,10 @@ extern "C" {
                             } // not as valence
                             csv_charge[c0s1v2[inl]] += occ;
                         } // occupied
-                        if (cs.occupation > 0) {
+                        if (occ > 0) {
                             double const norm = occ/dot_product(rg[TRU]->n, r2rho.data(), rg[TRU]->dr);
-                            add_product(core_density[TRU].data(), rg[TRU]->n, r2rho.data(), norm);
+                            auto const density = (c0s1v2[inl] > 0) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
+                            add_product(density, rg[TRU]->n, r2rho.data(), norm);
                         } // occupied
 
                         n_electrons -= max_occ;
@@ -432,6 +435,11 @@ extern "C" {
         scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
         if (echo > 2) printf("# %s initial core density has %g electrons\n", 
                                 label, dot_product(rg[TRU]->n, core_density[TRU].data(), rg[TRU]->r2dr));
+
+        scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
+        scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
+        if (echo > 2) printf("# %s initial valence density has %g electrons\n", 
+                                label, dot_product(rg[TRU]->n, spherical_valence_density[TRU].data(), rg[TRU]->r2dr));
         
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
@@ -538,6 +546,12 @@ extern "C" {
             if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
             pseudize_function(potential[SMT].data(), rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
         }
+        
+        {   // construct an initial valence density
+            spherical_valence_charge_deficit = pseudize_spherical_density(
+                spherical_valence_density[SMT].data(), 
+                spherical_valence_density[TRU].data(), "valence", echo);
+        }
 
         int const maxit_scf = control::get("single_atom.init.scf.maxit", 1.);
         float const mixing = 0.5f;
@@ -554,17 +568,23 @@ extern "C" {
         if (false && (echo > 0)) {
             printf("\n## %s spherical parts: r, "
             "Zeff_tru(r), Zeff_smt(r)"
-            ", r^2*rho_tru(r), r^2*rho_smt(r)"
+            ", r^2*rho_tot_tru(r), r^2*rho_tot_smt(r)"
+            ", r^2*rho_cor_tru(r), r^2*rho_cor_smt(r)"
+            ", r^2*rho_val_tru(r), r^2*rho_val_smt(r)"
             ", zero_potential(r) in Ha"
             ":\n", label);
             for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
                 auto const r = rg[SMT]->r[ir];
-                printf("%g %g %g %g %g %g\n", r
+                printf("%g %g %g %g %g %g %g %g %g %g\n", r
 //                         , -full_potential[TRU][00][ir + nr_diff]*Y00*r // for comparison, should be the same as Z_eff(r)
                         , -potential[TRU][ir + nr_diff] // Z_eff(r)
                         , -potential[SMT][ir] //    \tilde Z_eff(r)
+                        , (core_density[TRU][ir + nr_diff] + spherical_valence_density[TRU][ir + nr_diff])*r*r*Y00*Y00
+                        , (core_density[SMT][ir] + spherical_valence_density[SMT][ir])*r*r*Y00*Y00
                         , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
                         , core_density[SMT][ir]*r*r*Y00*Y00
+                        , spherical_valence_density[TRU][ir + nr_diff]*r*r*Y00*Y00
+                        , spherical_valence_density[SMT][ir]*r*r*Y00*Y00
                         , zero_potential[ir]*Y00 // not converted to eV
                       );
             } // ir
@@ -625,14 +645,14 @@ extern "C" {
                qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, qout*qinv);
     } // show_state_analysis
 
-    status_t pseudize_spherical_density(double smooth_density[], double const true_density[]
+    double pseudize_spherical_density(double smooth_density[], double const true_density[]
                                     , char const *quantity="core", int const echo=0) const {
         int const nrs = rg[SMT]->n;
         set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
 
         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
         // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
-        if (stat && (echo > 0)) printf("# %s Matching procedure for the smooth core density failed! info = %d\n", label, int(stat));
+        if (stat) warn("%s Matching procedure for the smooth %s density failed! info = %d", label, quantity, int(stat));
 
         if (echo > 8) { // plot the densities
             printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
@@ -640,9 +660,15 @@ extern "C" {
                 printf("%g %g %g\n", rg[SMT]->r[ir], smooth_density[ir], true_density[ir + nr_diff]);
             }   printf("\n\n");
         } // plot
-        return stat;
+        
+        // report integrals
+        auto const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU].data());
+        auto const smt_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT].data());
+        double const charge_deficit = tru_charge - smt_charge;
+        if (echo > 1) printf("# %s true and smooth %s density have %g and %g electrons\n", label, quantity, tru_charge, smt_charge);
+
+        return charge_deficit;
     } // pseudize_spherical_density
-    
     
     void update_core_states(float const mixing, int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
@@ -658,7 +684,7 @@ extern "C" {
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
-            nelectrons += std::max(0.f, cs.occupation);
+            nelectrons += std::max(0.0, cs.occupation);
             // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
             // and normalize the core level wave function to one
             scale(cs.wave[TRU], nr, rg[TRU]->rinv, norm_factor);
@@ -697,13 +723,13 @@ extern "C" {
         if (echo > 0) printf("# %s core density change %g e (rms %g e) energy change %g %s\n", label,
             core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
 
-        pseudize_spherical_density(core_density[SMT].data(), core_density[TRU].data(), "core", echo - 1); 
+        core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), core_density[TRU].data(), "core", echo - 1); 
 
-        // report integrals
-        auto const tru_core_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU].data());
-        auto const smt_core_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT].data());
-        core_charge_deficit = tru_core_charge - smt_core_charge;
-        if (echo > 1) printf("# %s true and smooth core density have %g and %g electrons\n", label, tru_core_charge, smt_core_charge);
+//         report integrals
+//         auto const tru_core_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU].data());
+//         auto const smt_core_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT].data());
+//         core_charge_deficit = tru_core_charge - smt_core_charge;
+//         if (echo > 1) printf("# %s true and smooth core density have %g and %g electrons\n", label, tru_core_charge, smt_core_charge);
 
     } // update_core_states
 
@@ -1913,18 +1939,17 @@ extern "C" {
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
-    template <char what>
     status_t get_smooth_spherical_quantity(double qnt[] // result array: function on an r2-grid
         , float const ar2, int const nr2 // r2-grid parameters
-        , int const echo=1) const { // logg level
-        char const *qnt_name   = ('c' == what) ? "core_density"     : "zero_potential";
-        auto const &qnt_vector = ('c' == what) ?  core_density[SMT] :  zero_potential;
+        , char const what, int const echo=1) const { // logg level
+        char const *qnt_name   = ('c' == what) ? "core_density"     : (('V' == what) ? "zero_potential" : "valence_density");
+        auto const &qnt_vector = ('c' == what) ?  core_density[SMT] : (('V' == what) ?  zero_potential  : spherical_valence_density[SMT]);
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
                         label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
 #ifdef DEVEL
         double const Y00s = Y00*(('c' == what) ? Y00 : 1); // Y00 for zero_pot and Y00^2 for rho_core
         if (echo > 8) {
-            printf("\n## %s for atom #%d (before filtering):\n", qnt_name, atom_id);
+            printf("\n## %s %s before filtering:\n", label, qnt_name);
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 printf("%g %g\n", rg[SMT]->r[ir], qnt_vector[ir]*Y00s);
             }   printf("\n\n");
@@ -1946,9 +1971,10 @@ extern "C" {
             double const r2 = ir2/ar2;
             qnt[ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
         } // ir2
+
 #ifdef DEVEL
         if (echo > 8) {
-            printf("\n## %s for atom #%d  (after filtering):\n", qnt_name, atom_id);
+            printf("\n## %s %s  after filtering:\n", label, qnt_name);
             for(int ir2 = 0; ir2 < nr2; ++ir2) {
                 printf("%g %g\n", std::sqrt(ir2/ar2), qnt[ir2]*Y00s);
             }   printf("\n\n");
@@ -1984,6 +2010,8 @@ namespace single_atom {
 
       if (nullptr == a) {
 //        SimpleTimer timer(__FILE__, __LINE__, "LiveAtom-constructor");
+          assert(Za);  // may not be nullptr
+          assert(ion); // may not be nullptr
           a = new LiveAtom*[na];
           natoms_init = na;
           bool const transfer2valence = false;
@@ -1994,27 +2022,22 @@ namespace single_atom {
           } // ia
       } // a has not been initialized
 
-      if (na < 0) {
-          for(int ia = 0; ia < -na; ++ia) {
-              a[ia]->~LiveAtom(); // envoke destructor
-          } // ia
-          delete[] a; a = nullptr;
-      } // cleanup
-
       assert(std::abs(na) == natoms_init); // must always be called with the same na or -na for cleanup
 
       for(int ia = 0; ia < na; ++ia) {
 
           if (nullptr != rho) {
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
+              if (nullptr != rho[ia]) delete[] rho[ia];
               rho[ia] = new double[nr2];
-              a[ia]->get_smooth_spherical_quantity<'c'>(rho[ia], ar2, nr2);
+              a[ia]->get_smooth_spherical_quantity(rho[ia], ar2, nr2, 'c');
           } // get the smooth core densities
 
           if (nullptr != zero_pot) {
               int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
+              if (nullptr != zero_pot[ia]) delete[] zero_pot[ia];
               zero_pot[ia] = new double[nr2];
-              a[ia]->get_smooth_spherical_quantity<'V'>(zero_pot[ia], ar2, nr2);
+              a[ia]->get_smooth_spherical_quantity(zero_pot[ia], ar2, nr2, 'V');
           } // get the zero_potential
 
           if (nullptr != rg) rg[ia] = a[ia]->get_smooth_radial_grid(); // pointers to smooth radial grids
@@ -2042,10 +2065,204 @@ namespace single_atom {
           } // atom_mat
 
       } // ia
+      
+      if (na < 0) {
+          for(int ia = 0; ia < -na; ++ia) {
+              a[ia]->~LiveAtom(); // envoke destructor
+          } // ia
+          delete[] a; a = nullptr;
+          natoms_init = 0; // reset
+      } // memory cleanup
 
       return 0;
   } // update
 
+  inline uint64_t constexpr string2long(char const *s) {
+      uint64_t i64{0};
+      if (nullptr != s) {
+          #define instr(n,__more__) if (s[n]) { i64 |= (uint64_t(s[n]) << (8*n)); __more__ }
+          instr(0,instr(1,instr(2,instr(3,instr(4,instr(5,instr(6,instr(7,;))))))))
+          #undef  instr
+      } // s is a valid pointer
+      return i64;
+  } // string2long
+  
+  
+  // simplified interface compared to update
+  status_t atom_update(char const *what, int na, double *dp=nullptr, 
+              int32_t *ip=nullptr, float *fp=nullptr, double **dpp=nullptr) {
+
+      static std::vector<LiveAtom*> a; // this function may not be templated!!
+      static int echo = -9;
+      if (-9  == echo) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
+
+      assert(what); // may never be nullptr
+      char const how = what[0] | 32; // first char, to lowercase
+      
+      auto const fun = string2long("abcdef");
+
+      float constexpr ar2_default = 16.f;
+      int   constexpr nr2_default = 1 << 12;
+      int   constexpr numax_default = 3;
+      bool  constexpr transfer2valence = false;
+      float constexpr mix_rho_default = .5f;
+      float constexpr mix_pot_default = .5f;
+      
+      status_t stat(0);
+
+      switch (how) {
+        
+          case 'i': // interface usage: atom_update("initialize", natoms, Za, numax=3, ion=0);
+          {
+              double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
+              a.resize(na);
+              int const echo_init = control::get("single_atom.init.echo", 0.); // log-level for the LiveAtom constructor
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  int    const numax = (ip) ? ip[ia] : numax_default;
+                  float  const ion   = (fp) ? fp[ia] : 0;
+                  a[ia] = new LiveAtom(Za[ia], numax, transfer2valence, ion, ia, echo_init);
+                  stat += (a[ia]->get_numax() != numax);
+              } // ia
+              if (nullptr != dpp) warn("please initialize without a 6th argument");
+          } 
+          break;
+
+          case 'm': // interface usage: atom_update("memory cleanup", natoms);
+          {
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  a[ia]->~LiveAtom(); // envoke destructor
+              } // ia
+              a.clear();
+              na = a.size(); // fulfill consistency check
+              assert(!dp); assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+
+          case 'c': // interface usage: atom_update("core density",    natoms, nullptr, nr2=2^12, ar2=16.f, qnt=rho_c);
+          case 'v': // interface usage: atom_update("valence density", natoms, nullptr, nr2=2^12, ar2=16.f, qnt=rho_v);
+          case 'z': // interface usage: atom_update("zero potential",  natoms, nullptr, nr2=2^12, ar2=16.f, qnt=v_bar);
+          {
+              double *const *const qnt = dpp; assert(nullptr != qnt);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  assert(nullptr != qnt[ia]);
+                  int   const nr2 = ip ? ip[ia] : nr2_default;
+                  float const ar2 = fp ? fp[ia] : ar2_default;
+                  stat += a[ia]->get_smooth_spherical_quantity(qnt[ia], ar2, nr2, how);
+              } // ia
+              if (nullptr != dp) warn("please use \'%s\'-interface with nullptr as 3rd argument", what);
+          } 
+          break;
+
+          case 'r': // interface usage: atom_update("radial grid", na, null, null, null, dpp=rg_ptr);
+          {
+              assert(nullptr != dpp);
+              for(int ia = 0; ia < a.size(); ++ia) {
+#ifdef  DEVEL
+                  dpp[ia] = reinterpret_cast<double*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
+#else
+                  dpp[ia] = nullptr;
+                  stat = -1;
+                  warn("# %s %s only available with -D DEVEL", __func__, what);
+#endif
+              } // ia
+              assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+
+          case 's': // interface usage: atom_update("sigma compensator", natoms, sigma);
+          {
+              double *const sigma = dp; assert(nullptr != sigma);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  sigma[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
+              } // ia
+              assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+
+          case 'u': // interface usage: atom_update("update", natoms, null, null, mix={mix_pot, mix_rho}, vlm);
+          {
+              double const *const *const vlm = dpp; assert(nullptr != vlm);
+              float const *const mix = fp; // nullptr == fp is okay
+              float const mix_pot = mix ? mix[0] : mix_pot_default;
+              float const mix_rho = mix ? mix[1] : mix_rho_default;
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  a[ia]->update_potential(mix_pot, vlm[ia], echo); // set electrostatic multipole shifts
+                  a[ia]->update_density(mix_rho, echo);
+              } // ia
+              assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
+          } 
+          break;
+
+          case 'a': // interface usage: atom_update("atomic density matrix", natoms, null, null, null, atom_rho);
+          {
+              double const *const *const atom_rho = dpp; assert(nullptr != atom_rho);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  assert(nullptr != atom_rho[ia]);
+                  // ToDo: set the atomic density matrices of LiveAtoms a[ia]
+              } // ia
+              warn("Atomic density matrices are ignored!");
+              stat = 1;
+              assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+              
+          case 'q': // interface usage: atom_update("q_lm charges", natoms, null, null, null, qlm);
+          {
+              double *const *const qlm = dpp; assert(nullptr != qlm);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  int const nlm = pow2(1 + a[ia]->ellmax_compensator);
+                  set(qlm[ia], nlm, a[ia]->qlm_compensator.data()); // copy compensator multipoles
+              } // ia
+              assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+                  
+          case 'l': // interface usage: atom_update("l_max potential", natoms, dp=null, lmax);
+                    // interface usage: atom_update("l_max charges",   natoms, dp= ~0 , lmax);
+          {
+              int32_t *const lmax = ip; assert(nullptr != lmax);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  lmax[ia] = dp ? a[ia]->ellmax_compensator : a[ia]->ellmax;
+              } // ia
+              assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+
+          case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, nullptr, nelements, nullptr, atom_mat);
+          {
+              double *const *const atom_mat = dpp; assert(nullptr != atom_mat);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  assert(nullptr != atom_mat[ia]);
+                  int const numax = a[ia]->get_numax();
+                  int const ncoeff = sho_tools::nSHO(numax);
+                  int const const h1hs2 = ip ? ip[ia]/(ncoeff*ncoeff) : 2;
+                  for(int i = 0; i < ncoeff; ++i) {
+                      if (h1hs2 > 1)
+                      set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);
+                      set(&atom_mat[ia][(0*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->hamiltonian[i]);
+                  } // i
+              } // ia
+              assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+            
+          default:
+          {
+              if (echo > 0) printf("# %s first argument \'%s\' undefined, no action!\n", __func__, what);
+              stat = how;
+          } 
+          break;
+
+      } // switch(how)
+
+      if (a.size() != na) {
+          if (echo > 0) printf("# %s inconsistency detected: internally %ld atoms active by n=%d\n",
+          __func__, a.size(), na);
+      } // inconsistency
+      
+      return stat;
+  } // atom_update
+  
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

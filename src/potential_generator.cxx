@@ -190,7 +190,7 @@ namespace potential_generator {
       std::vector<double>  Ves(g.all(), 0.0);
       std::vector<double> Vtot(g.all());
       
-      char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative"); // can also be "fourier"
+      char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative") | 32; // can also be "fourier"
 
       std::vector<double> rho_valence(g.all(), 0.0);
       
@@ -269,18 +269,22 @@ namespace potential_generator {
               } // echo
 
               if ('f' == es_solver_method) {
+                  // solve the Poisson equation using a Fast Fourier Transform
                   int ng[3]; double reci[3][4]; 
                   for(int d = 0; d < 3; ++d) { 
                       ng[d] = g[d];
                       set(reci[d], 4, 0.0);
                       reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
                   } // d
-
-                  // solve the Poisson equation using a Fast Fourier Transform
                   stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
-              } else {
+                  
+              } else if ('n' == es_solver_method) { // "none"
+                  warn("Poisson solver=none may lead to unphysical results!"); 
+                  
+              } else { // default
                   if (echo > 2) printf("# solve electrostatic potential iteratively\n");
                   stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
+                  
               } // es_solver_method
 
               // test the potential in real space, find ves_multipoles
