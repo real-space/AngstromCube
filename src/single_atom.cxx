@@ -2089,8 +2089,8 @@ namespace single_atom {
   
   
   // simplified interface compared to update
-  status_t atom_update(char const *what, int na, double *dp=nullptr, 
-              int32_t *ip=nullptr, float *fp=nullptr, double **dpp=nullptr) {
+  status_t atom_update(char const *what, int na,
+              double *dp, int32_t *ip, float *fp, double **dpp) {
 
       static std::vector<LiveAtom*> a; // this function may not be templated!!
       static int echo = -9;
@@ -2216,7 +2216,7 @@ namespace single_atom {
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           } 
           break;
-                  
+
           case 'l': // interface usage: atom_update("l_max potential", natoms, dp=null, lmax);
                     // interface usage: atom_update("l_max charges",   natoms, dp= ~0 , lmax);
           {
@@ -2228,6 +2228,16 @@ namespace single_atom {
           } 
           break;
 
+          case 'n': // interface usage: atom_update("numax", natoms, null, numax);
+          {
+              int32_t *const numax = ip; assert(nullptr != numax);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  numax[ia] = a[ia]->get_numax();
+              } // ia
+              assert(!dp); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+          
           case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, nullptr, nelements, nullptr, atom_mat);
           {
               double *const *const atom_mat = dpp; assert(nullptr != atom_mat);

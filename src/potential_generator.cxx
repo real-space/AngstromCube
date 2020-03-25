@@ -14,7 +14,6 @@
 #include "real_space_grid.hxx" // ::grid_t, ::add_function
 #include "radial_grid.hxx" // ::radial_grid_t
 #include "chemical_symbol.h" // element_symbols
-#include "single_atom.hxx" // ::update
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 #include "boundary_condition.hxx" // ::periodic_images
@@ -29,6 +28,13 @@
 #include "debug_output.hxx" // dump_to_file
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
+// #define OLD_SINGLE_ATOM_UPDATE_INTERFACE
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
+  #include "single_atom.hxx" // ::update
+#else
+  #include "single_atom.hxx" // ::atom_update
+#endif
+
 // ToDo: restructure: move this into a separate compilation unit
 #include "atom_image.hxx"// ::sho_atom_t
 #include "grid_operators.hxx" // ::grid_operator_t, ::list_of_atoms
@@ -38,8 +44,6 @@
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 
-// #define FULL_DEBUG
-// #define DEBUG
 
 namespace potential_generator {
   // this module makes a DFT calculation based on atoms
@@ -156,7 +160,6 @@ namespace potential_generator {
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
       view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
 
-      std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
       std::vector<double*> rho_core(na, nullptr); // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
       std::vector<double*> zero_pot(na, nullptr); // smooth zero_potential on r2-grids, nr2=2^12 points, ar2=16.f
       std::vector<double> sigma_cmp(na, 1.); //
@@ -168,9 +171,16 @@ namespace potential_generator {
       std::vector<int> lmax_vlm(na, -1);
 
       // for each atom get radial grid, sigma, lmax
-      stat += single_atom::update(na, 
-          Za.data(), ionization.data(), rg.data(), numax.data(), sigma_cmp.data(),
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
+      stat += single_atom::update(na,
+          Za.data(), ionization.data(), nullptr, numax.data(), sigma_cmp.data(),
           nullptr, nullptr, nullptr, lmax_vlm.data(), lmax_qlm.data(), nullptr, nullptr);
+#else
+      std::vector<double> Za_double(na); set(Za_double.data(), na, Za.data());
+      stat += single_atom::atom_update("initialize", na, Za_double.data(), numax.data(), ionization.data());
+//       error("Need to implement single_atom::atom_update()");
+#endif
+      
       
       for(int ia = 0; ia < na; ++ia) {
           int const ncoeff = sho_tools::nSHO(numax[ia]);
@@ -200,7 +210,11 @@ namespace potential_generator {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, rho_core.data(), qlm.data());
+#else
+          error("Need to implement single_atom::atom_update()");
+#endif
 
           set(rho.data(), g.all(), rho_valence.data());
           
@@ -327,8 +341,12 @@ namespace potential_generator {
           } // scope
 
           // communicate vlm to the atoms, get zero_potential, atom-centered Hamiltonian and overlap
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr,  
                                 vlm.data(), nullptr, nullptr, zero_pot.data(), atom_matrices.data());
+#else
+          error("Need to implement single_atom::atom_update()");
+#endif
 
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
@@ -443,7 +461,7 @@ namespace potential_generator {
           
       } // scf_iteration
 
-#ifdef DEVEL 
+#ifdef DEVEL
 //   return 1; // warning! no cleanup has been run
   
 //   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
@@ -512,8 +530,16 @@ namespace potential_generator {
           
       } // scope
 
-      return 1; // warning! no cleanup has been run
-            
+//       return 1; // warning! no cleanup has been run
+
+
+      std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
+      stat += single_atom::update(na, 0, 0, rg.data()); // get pointers
+#else
+      stat += single_atom::atom_update("radial grids", na, 0, 0, 0, reinterpret_cast<double**>(rg.data()));
+#endif
+
       double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
       //     Ves; // analyze the electrostatic potential
       //     rho; // analyze the augmented density
@@ -599,7 +625,11 @@ namespace potential_generator {
       delete[] periodic_images_ptr;
       delete[] coordinates_and_Z;
 
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
       stat += single_atom::update(-na); // memory cleanup
+#else
+      stat += single_atom::atom_update("memory cleanup", na);
+#endif
       return stat;
   } // init
 

@@ -18,7 +18,7 @@ namespace recorded_warnings {
 
   template <class... Args>
   void _print_error_message(FILE* os, char const *srcfile, int const srcline, Args &&... args) {
-        fprintf(os, "\n\n# Error in %s:%i Message:\n#   ", srcfile, srcline);
+        fprintf(os, "\n\n# Error in %s:%i  Message:\n#   ", srcfile, srcline);
         fprintf(os, std::forward<Args>(args)...);
         fprintf(os, "\n\n");
         fflush(os);
