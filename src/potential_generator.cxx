@@ -190,7 +190,8 @@ namespace potential_generator {
       std::vector<double>  Ves(g.all(), 0.0);
       std::vector<double> Vtot(g.all());
       
-      char const es_solver_method = *control::get("potential_generator.electrostatic.solver", "iterative") | 32; // can also be "fourier"
+      char const *es_solver_name = control::get("electrostatic.solver", "iterative"); // {"fourier", "iterative", "none"}
+      char const es_solver_method = *es_solver_name | 32; // should be one of {'f', 'i', 'n'}
 
       std::vector<double> rho_valence(g.all(), 0.0);
       
@@ -279,10 +280,10 @@ namespace potential_generator {
                   stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
                   
               } else if ('n' == es_solver_method) { // "none"
-                  warn("Poisson solver=none may lead to unphysical results!"); 
-                  
+                  warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
+
               } else { // default
-                  if (echo > 2) printf("# solve electrostatic potential iteratively\n");
+                  if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
                   stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
                   
               } // es_solver_method
