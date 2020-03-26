@@ -392,7 +392,7 @@ extern "C" {
                         cs.occupation = occ;
                         if (occ > 0) {
                             jcs = ics; // store the index of the highest occupied core state
-                            if (echo > 0) printf("# %s %s %2d%c%6.1f E= %g %s\n",
+                            if (echo > 0) printf("# %s %s %2d%c%6.1f E=%16.6f %s\n",
                                                     label, c0s1v2_name[c0s1v2[inl]], enn, ellchar[ell], occ, E*eV,_eV);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, int(enn_core_ell[ell]));
@@ -492,7 +492,7 @@ extern "C" {
                                 } // transfer2valence
                             } // ics
                         }
-                        if (echo > 0) printf("# %s valence %2d%c%6.1f E = %g %s\n", label, enn, ellchar[ell], std::abs(vs.occupation), E*eV,_eV);
+                        if (echo > 0) printf("# %s valence %2d%c%6.1f E=%16.6f %s\n", label, enn, ellchar[ell], std::abs(vs.occupation), E*eV,_eV);
                     } // nrn < nn[ell]
                 } // nrn
             } // ell
@@ -551,7 +551,7 @@ extern "C" {
         {   // construct an initial valence density
             spherical_valence_charge_deficit = pseudize_spherical_density(
                 spherical_valence_density[SMT].data(), 
-                spherical_valence_density[TRU].data(), "valence", echo);
+                spherical_valence_density[TRU].data(), "spherical valence", echo);
         }
 
         int const maxit_scf = control::get("single_atom.init.scf.maxit", 1.);
@@ -664,8 +664,8 @@ extern "C" {
         } // plot
         
         // report integrals
-        auto const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU].data());
-        auto const smt_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT].data());
+        auto const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, true_density);
+        auto const smt_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, smooth_density);
         double const charge_deficit = tru_charge - smt_charge;
         if (echo > 1) printf("# %s true and smooth %s density have %g and %g electrons\n", label, quantity, tru_charge, smt_charge);
 
@@ -742,7 +742,7 @@ extern "C" {
         core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), 
                               core_density[TRU].data(), "core", echo - 1); 
         spherical_valence_charge_deficit = pseudize_spherical_density(spherical_valence_density[SMT].data(),
-                              spherical_valence_density[TRU].data(), "spherical valence", echo - 3); 
+                              spherical_valence_density[TRU].data(), "spherical valence", echo - 1); 
     } // update_core_states
 
     void update_partial_waves(int const echo=0) {
