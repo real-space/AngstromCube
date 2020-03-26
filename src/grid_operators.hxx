@@ -293,7 +293,7 @@ namespace grid_operators {
               a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions);
           } // more than one periodic image
           char Symbol[4] = {0,0,0,0};
-          stat += chemical_symbol::get(Symbol, Z);
+          chemical_symbol::get(Symbol, Z);
           if (echo > 3) printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
               Symbol, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
 

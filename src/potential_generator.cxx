@@ -13,7 +13,7 @@
 #include "solid_harmonics.hxx" // ::Y00
 #include "real_space_grid.hxx" // ::grid_t, ::add_function
 #include "radial_grid.hxx" // ::radial_grid_t
-#include "chemical_symbol.h" // element_symbols
+#include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 #include "boundary_condition.hxx" // ::periodic_images
@@ -177,18 +177,28 @@ namespace potential_generator {
           if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
           ionization[0] = ion; ionization[na - 1] = -ionization[0];
       } // ionized
+
       
-      std::vector<float> Za(na, 0.f); // list of atomic numbers
+      float const rcut = 32; // radial grids usually end at 9.45 Bohr
+      double *periodic_images_ptr{nullptr};
+      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
+      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+      view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
+
+      
+      std::vector<double> Za(na);      // list of atomic numbers
+      std::vector<float> Za_float(na); // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
           view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
           if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
           for(int ia = 0; ia < na; ++ia) {
-              int const iZ = (int)std::round(xyzZ[ia][3]);
-              char const *El = &(element_symbols[2*iZ]); // warning, this is not a null-determined C-string
-              if (echo > 4) printf("# %c%c   %15.9f %15.9f %15.9f\n", El[0],El[1],
+              double const Z = xyzZ[ia][3];
+              char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
+              if (echo > 4) printf("# %s  %15.9f %15.9f %15.9f\n", Symbol,
                               xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
-              Za[ia] = (float)xyzZ[ia][3]; // list of atomic numbers
+              Za_float[ia] = float(Z); // list of atomic numbers
+              Za[ia] = Za_float[ia]; // for consistency between new and old interface version
               for(int d = 0; d < 3; ++d) {
                   center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center[ia][3] = 0; // 4th component is not used
@@ -197,13 +207,6 @@ namespace potential_generator {
           } // ia
       } // scope
 
-      float const rcut = 32; // radial grids usually end at 9.45 Bohr
-      
-      double *periodic_images_ptr{nullptr};
-      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
-      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-      view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
-      
       std::vector<double>  sigma_cmp(na, 1.); //
       std::vector<int32_t> numax(na, 3);
       std::vector<int32_t> lmax_qlm(na, -1);
@@ -211,13 +214,12 @@ namespace potential_generator {
 
       // for each atom get sigma, lmax
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-      stat += single_atom::update(na, Za.data(), ionization.data(), 0, numax.data(), 
+      stat += single_atom::update(na, Za_float.data(), ionization.data(), 0, numax.data(), 
                        sigma_cmp.data(), 0, 0, 0, lmax_vlm.data(), lmax_qlm.data()
                        , (double**)1 // set transfer2valence=false
                        );
 #else
-      std::vector<double> Za_double(na); set(Za_double.data(), na, Za.data());
-      stat += single_atom::atom_update("initialize", na, Za_double.data(), numax.data(), ionization.data()
+      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data()
                 , (double**)1 // set transfer2valence=false
                 );
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
