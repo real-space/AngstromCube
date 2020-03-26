@@ -134,7 +134,7 @@ namespace potential_generator {
 #ifdef DEVEL
               if (echo > 11) {
                   printf("\n## r, %s of atom #%i\n", quantity, ia);
-                  print_compressed(r2_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
+                  print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
               } // echo
 #endif
               double q_added{0};

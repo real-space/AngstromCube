@@ -6,6 +6,7 @@
 
 // #include "status.hxx" // status_t
 
+namespace radial_r2grid {
 
     template <typename real_t=float>
     std::vector<real_t> r2_axis(int const nr2, float const ar2=1) {
@@ -35,9 +36,7 @@ private:
     uint32_t _nr2;
 }; // class radial_r2grid_t
 #endif
-
-// namespace radial_r2grid {
  
 //   status_t all_tests(int const echo=0);
   
-// } // namespace radial_r2grid
+} // namespace radial_r2grid
