@@ -112,8 +112,8 @@ namespace scattering_test {
       , double gg[], double ff[] // work arrays, greater and smaller component
       , int const ir_stop // radius where to stop
       , int const echo=0) {
-    
-      if (echo > 8) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
+
+      if (echo > 9) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
       int nnodes{0}; if (NodeCount) nnodes = count_nodes(ir_stop + 1, gg);
@@ -214,7 +214,7 @@ namespace scattering_test {
       if (echo > 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                 label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
 #endif
-      
+
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
       int const mr = align<2>(rg[TRU]->n);
       std::vector<double> gg(mr), ff(mr); // greater and smaller component, TRU grid
@@ -253,137 +253,10 @@ namespace scattering_test {
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
               int const iln_off = sho_tools::ln_index(numax, ell, 0);
-//               double dg[TRU_AND_SMT], vg[TRU_AND_SMT];
-//               int const n = nn[ell];
-//               assert(n < 8);
-//               double deriv[8], value[8];
-//               double gfp[96];
-//               int nnodes[TRU_AND_SMT];
-              
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-#if 0                
-                  status_t solving_status{0};
-                  for(int jrn = 0; jrn <= n*ts; ++jrn) {
-                      bool const inhomgeneous = ((SMT == ts) && (jrn > 0));
-//                       printf("# find %s %shomgeneous solution for ell=%i E=%g %s\n", (TRU == ts)?"true":"smooth",
-//                              (inhomgeneous)?"in":"", ell, energy*eV,_eV); // DEBUG
-                      int const nrn = jrn - 1, iln = iln_off + nrn;
-                      double const *const rp = inhomgeneous ? rprj[iln] : nullptr;
-                      deriv[jrn] = find_outwards_solution(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], rp);
-                      
-                      nnodes[TRU] = 0;
-                      if ((TRU == ts) && node_count) {
-                          nnodes[TRU] = count_nodes(ir_stop[TRU] + 1, gg.data());
-                          set(rtru.data(), ir_stop[TRU] + 1, gg.data());
-                      }
-                      value[jrn] = gg[ir_stop[ts]]; // value of the greater component at Rlog
-                      if (SMT == ts) {
-                          if (node_count) set(rphi[jrn], ir_stop[SMT] + 1, gg.data()); // store radial solution
-                          for(int krn = 0; krn < n; ++krn) {
-                              // compute the inner products of the projectors rprj with the solution gg
-                              int const jln = iln_off + krn;
-                              gfp[jrn*n + krn] = dot_product(ir_stop[SMT] + 1, rprj[jln], gg.data(), rg[SMT]->dr);
-                              if (echo > 8) printf("# scattering solution for ell=%i E=%g %s <%i|%i> %g\n", 
-                                                          ell, energy*eV,_eV, jrn, 1+krn, gfp[jrn*n + krn]);
-                          } // krn
-
-                          if (echo > 99) {
-                              printf("\n## %shomogeneous scattering solution for ell=%i E=%g %s (r,phi):\n", 
-                                    (jrn)?"in":"", ell, energy*eV,_eV);
-                              for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
-                                  auto const r = rg[SMT]->r[ir];
-                                  printf("%g %g %g %g\n", r, gg[ir], (energy*r - rV[SMT][ir])*gg[ir], (jrn > 0) ? rprj[iln][ir] : 0);
-                              }   printf("\n\n");
-                          } // echo
-                          
-                      } // SMT == ts
-                  } // jrn
-
-                  if ((SMT == ts) && n > 0) {
-                      int const n0 = 1 + n;
-                      double mat2[99], mat[99], x[9];
-                      set(mat, n0*n0, 0.0); // clear
-                      for(int i = 0; i < n0; ++i) {
-                          mat[i*n0 + i] = 1.0; // unity matrix
-                      } // i
-                      for(int irn = 0; irn < n; ++irn) {
-                          for(int jrn = 0; jrn < n0; ++jrn) {
-                              for(int krn = 0; krn < n; ++krn) {
-                                  mat[jrn*n0 + (1 + irn)] += gfp[jrn*n + krn] * ( aHm[(irn + iln_off)*nln + (krn + iln_off)]
-                                                                       - energy * aSm[(irn + iln_off)*nln + (krn + iln_off)] );
-                              } // krn
-                          } // jrn
-                      } // irn
-                      set(x, 1 + n, 0.0); // clear
-                      x[0] = 1.0;
-
-                      set(mat2, n0*n0, mat); // copy
-                      solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
-                      stat += solving_status;
-                      nnodes[SMT] = 0;
-                      if (0 == solving_status) {
-
-                          if (echo > 8) { // show the problem
-                              for(int i = 0; i < n0; ++i) {
-                                  printf("# scattering_test mat[%i] ", i);
-                                  for(int j = 0; j < n0; ++j) {
-                                      printf("\t%g", mat2[i*n0 + j]);
-                                  } // j
-                                  printf(" \t x[%i] = %g", i, x[i]);
-                                  if (i > 0) {
-                                      printf(" \t HmES[%i] ", i);
-                                      for(int j = 0; j < n; ++j) printf("\t%g", aHm[(i-1 + iln_off)*nln + (j + iln_off)] 
-                                                                     - energy * aSm[(i-1 + iln_off)*nln + (j + iln_off)]);
-                                  } // i > 0
-                                  printf("\n");
-                              } // i
-                          } // echo
-                          
-                          if (echo > 7) { // scope: verify
-                              printf("# scattering_test linear solve test: ");
-                              for(int i = 0; i < n0; ++i) {
-                                  double bi = 0; for(int j = 0; j < n0; ++j) bi += x[j]*mat2[j*n0 + i];
-                                  printf(" %g", bi);
-                              }   printf("\n");
-                          } // scope
-
-                          if (node_count) {
-                              scale(rphi[0], ir_stop[SMT] + 1, x[0]); // scale the homogeneous solution with x[0] (which is usually == 1)
-                              if (echo > 9) printf("# scattering solution for ell=%i E=%g %s coefficients %g", ell, energy*eV,_eV, x[0]);
-                              auto const rsmt = rphi[0];
-                              for(int i = 1; i < n0; ++i) {
-                                  if (echo > 9) printf(" %g", x[i]);
-                                  add_product(rsmt, ir_stop[SMT] + 1, rphi[i], x[i]); // add inhom. solutions
-                              } // i
-                              if (echo > 9) printf("\n");
-                              nnodes[SMT] = count_nodes(ir_stop[SMT] + 1, rsmt);
-                              if (echo > 9) {
-                                  auto const scal = rtru[ir_stop[TRU]]/rsmt[ir_stop[SMT]]; // match in value at end point
-                                  auto const s = 1./std::sqrt(dot_product(ir_stop[TRU] + 1, rtru.data(), rtru.data(), rg[TRU]->dr)); // normalize
-                                  printf("\n## scattering solution for ell=%i E=%g %s (r,tru,smt,diff):\n", ell, energy*eV,_eV);
-                                  for(int ir = 1; ir <= ir_stop[SMT]; ++ir) {
-                                      printf("%g\t%g %g %g\n", rg[SMT]->r[ir], s*rtru[ir + nr_diff] , rsmt[ir]*scal*s, 
-                                                                                (rtru[ir + nr_diff] - rsmt[ir]*scal)*s);
-//                                    printf("\t%g %g\n", rV[TRU][ir + nr_diff], rV[SMT][ir]); // compare potentials
-                                  }   printf("\n\n");
-                              } // echo
-                          } // node_count
-                          vg[SMT] = dot_product(n0, x, value); // value of the greater component at Rlog
-                          dg[SMT] = dot_product(n0, x, deriv); // derivative
-                      } else {
-                          ++linsolfail[ell];
-                          stat = 1; // error
-                      }
-                  } else { // SMT == ts
-                      vg[ts] = value[0]; // value of the greater component at Rlog
-                      dg[ts] = deriv[0]; // derivative
-                  }
-                  double constexpr one_over_pi = 1./constants::pi;
-                  double const gnc_old = (0 == solving_status)*(node_count*nnodes[ts] + 0.5 - one_over_pi*arcus_tangent(dg[ts], vg[ts]));
-#endif                 
-                  double const gnc = (TRU == ts)
-                     ? generalized_node_count_TRU(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo)
-                     : generalized_node_count_SMT(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
+                  double const gnc = (TRU == ts) ?
+                     generalized_node_count_TRU(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo) :
+                     generalized_node_count_SMT(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), nn[ell],
                                                 &aHm[iln_off*nln + iln_off],
                                                 &aSm[iln_off*nln + iln_off], nln, echo);

@@ -330,7 +330,7 @@ extern "C" {
         double core_hole_charge_used{0};
 
         set(csv_charge, 3, 0.0);
-        
+
         double const core_valence_separation  = control::get("core.valence.separation", -2.0);
         double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
         double const semi_valence_separation  = control::get("semicore.valence.separation", core_valence_separation);
@@ -339,7 +339,7 @@ extern "C" {
                  label, core_semicore_separation, semi_valence_separation);
             core_semicore_separation = semi_valence_separation; // correct --> no semicore states possible
         } // warning
-        int enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
+        int8_t enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0};
         ncorestates = 20;
         true_core_waves = view3D<double>(2, ncorestates, nrt, 0.0); // get memory for the true radial wave functions and kinetic waves
         int constexpr SRA = 1;
@@ -394,7 +394,7 @@ extern "C" {
                             if (echo > 0) printf("# %s %s %2d%c%6.1f E= %g %s\n",
                                                     label, c0s1v2_name[c0s1v2[inl]], enn, ellchar[ell], occ, E*eV,_eV);
                             if (as_valence[inl] < 0) {
-                                enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]);
+                                enn_core_ell[ell] = std::max(enn, int(enn_core_ell[ell]));
                             } else {
                                 if (transfer2valence) cs.occupation = -occ; // mark as valence state by negative occupations
                             } // not as valence
@@ -440,7 +440,7 @@ extern "C" {
         scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
         if (echo > 2) printf("# %s initial valence density has %g electrons\n", 
                                 label, dot_product(rg[TRU]->n, spherical_valence_density[TRU].data(), rg[TRU]->r2dr));
-        
+
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
@@ -456,7 +456,7 @@ extern "C" {
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     assert(iln < nln);
                     auto &vs = partial_wave[iln]; // abbreviate
-                    int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
+                    int const enn = std::max(ell + 1, int(enn_core_ell[ell]) + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                     vs.nrn[SMT] = nrn;
@@ -677,6 +677,7 @@ extern "C" {
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
         std::vector<double> new_r2core_density(nr, 0.0);
+        std::vector<double> new_r2valence_density(nr, 0.0);
         double nelectrons{0};
         for(int ics = 0; ics < ncorestates; ++ics) {
             auto & cs = core_state[ics]; // abbreviate
@@ -693,7 +694,11 @@ extern "C" {
             product(cs.wKin[TRU], nr, potential[TRU].data(), cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
             add_product(cs.wKin[TRU], nr, rg[TRU]->r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
 
-            if (scal > 0) add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
+            if (scal > 0) {
+                add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
+            } else if (scal < 0) {
+                add_product(new_r2valence_density.data(), nr, r2rho.data(), -scal);
+            }
             show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, 2*(scal < 0), ir_cut[TRU]);
         } // ics
 
@@ -714,7 +719,9 @@ extern "C" {
 
         double core_density_change{0}, core_density_change2{0}, core_nuclear_energy{0};
         for(int ir = 0; ir < nr; ++ir) {
-            auto const new_rho = new_r2core_density[ir]*pow2(rg[TRU]->rinv[ir]); // *r^{-2}
+            double const r2inv = pow2(rg[TRU]->rinv[ir]);
+            auto const new_rho = new_r2core_density[ir]*r2inv; // *r^{-2}
+            spherical_valence_density[TRU][ir] = new_r2valence_density[ir]*r2inv; // *r^{-2}
             core_density_change  += std::abs(new_rho - core_density[TRU][ir])*rg[TRU]->r2dr[ir];
             core_density_change2 +=     pow2(new_rho - core_density[TRU][ir])*rg[TRU]->r2dr[ir];
             core_nuclear_energy  +=         (new_rho - core_density[TRU][ir])*rg[TRU]->rdr[ir]; // Coulomb integral change
@@ -725,13 +732,8 @@ extern "C" {
             core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
 
         core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), core_density[TRU].data(), "core", echo - 1); 
-
-//         report integrals
-//         auto const tru_core_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, core_density[TRU].data());
-//         auto const smt_core_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, core_density[SMT].data());
-//         core_charge_deficit = tru_core_charge - smt_core_charge;
-//         if (echo > 1) printf("# %s true and smooth core density have %g and %g electrons\n", label, tru_core_charge, smt_core_charge);
-
+        spherical_valence_charge_deficit = pseudize_spherical_density(spherical_valence_density[SMT].data(),
+                                                                      spherical_valence_density[TRU].data(), "spherical valence", echo - 3); 
     } // update_core_states
 
     void update_partial_waves(int const echo=0) {
@@ -870,7 +872,7 @@ extern "C" {
                     } // krn
 
                     std::vector<double> evec(n, 0.0);
-                    evec[nrn] = 1.0;    // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                    evec[nrn] = 1.0;       // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
                     if (true && (n > 1)) { // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
                         view2D<double> Ekin(     3*n , n);
                         view2D<double> Olap(Ekin[1*n], n);

@@ -33,7 +33,7 @@
 #endif
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
-#define OLD_SINGLE_ATOM_UPDATE_INTERFACE
+// #define OLD_SINGLE_ATOM_UPDATE_INTERFACE
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
   #include "single_atom.hxx" // ::update
 #else
@@ -269,14 +269,15 @@ namespace potential_generator {
       char const *init_val_rho_name = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
       if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", init_val_rho_name);
       if ('a' == init_val_rho_name[0]) {
+          auto & atom_rhov = atom_rhoc; // temporarily use the existing allocation
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-          stat += single_atom::update(na, 0, 0, 0, numax.data(), 0, atom_rhoc.data()); // get spherical_valence_density
+          stat += single_atom::update(na, 0, 0, 0, numax.data(), 0, atom_rhov.data()); // get spherical_valence_density
 #else
-          stat += single_atom::atom_update("valence densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
+          stat += single_atom::atom_update("valence densities", na, 0, nr2.data(), ar2.data(), atom_rhov.data());
 #endif
-          // add contributions from smooth core densities
+          // add smooth spherical atom-centered valence densities
           stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
-                                center, n_periodic_images, periodic_images, atom_rhoc.data(),
+                                center, n_periodic_images, periodic_images, atom_rhov.data(),
                                 echo, echo, Y00sq, "smooth atomic valence density");
       } else
       if ('n' == init_val_rho_name[0]) {
