@@ -269,7 +269,7 @@ namespace potential_generator {
       char const *init_val_rho_name = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
       if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", init_val_rho_name);
       if ('a' == init_val_rho_name[0]) {
-          auto & atom_rhov = atom_rhoc; // temporarily use the existing allocation
+          auto & atom_rhov = atom_rhoc; // temporarily rename the existing allocation
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, 0, 0, 0, numax.data(), 0, atom_rhov.data()); // get spherical_valence_density
 #else
@@ -279,6 +279,7 @@ namespace potential_generator {
           stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhov.data(),
                                 echo, echo, Y00sq, "smooth atomic valence density");
+
       } else
       if ('n' == init_val_rho_name[0]) {
           warn("initial.valence.density = none may cause problems");
@@ -409,7 +410,7 @@ namespace potential_generator {
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, 0, 0, 0, 0, 0, 0, 0, atom_vlm.data(), 0, 0, atom_vbar.data(), atom_mat.data());
 #else
-          float mixing_ratio[] = {.49, .51}; // {potential, density}
+          float mixing_ratio[] = {.5, .5}; // {potential, density}
           stat += single_atom::atom_update("update", na, 0, 0, mixing_ratio, atom_vlm.data());
           stat += single_atom::atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
           stat += single_atom::atom_update("zero potentials", na, 0, nr2.data(), ar2.data(), atom_vbar.data());

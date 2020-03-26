@@ -27,6 +27,7 @@
 #include "scattering_test.hxx" // ::eigenstate_analysis, ::emm_average
 #include "linear_algebra.hxx" // ::linear_solve, ::generalized_eigenvalues
 #include "data_view.hxx" // view2D<T>, view3D<T>
+#include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
 
 // #define FULL_DEBUG
@@ -679,6 +680,13 @@ extern "C" {
         std::vector<double> new_r2core_density(nr, 0.0);
         std::vector<double> new_r2valence_density(nr, 0.0);
         double nelectrons{0};
+#ifdef DEVEL
+        if (echo > 7) {
+            printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
+            printf("\n## %s %s: r, -Zeff(r)\n", label, __func__);
+            print_compressed(rg[TRU]->r, potential[TRU].data(), rg[TRU]->n);
+        } // echo
+#endif
         for(int ics = 0; ics < ncorestates; ++ics) {
             auto & cs = core_state[ics]; // abbreviate
             int constexpr SRA = 1;
@@ -704,12 +712,12 @@ extern "C" {
 
         // report integrals
         auto const old_core_charge = dot_product(nr, rg[TRU]->r2dr, core_density[TRU].data());
-        auto const new_core_charge = dot_product(nr, rg[TRU]->dr, new_r2core_density.data());
-        if (echo > 0) printf("# %s expect a core density with %g electrons\n", label, nelectrons);
-        if (echo > 0) printf("# %s previous core density has %g electrons\n", label, old_core_charge);
-        if (echo > 0) printf("# %s new core density has %g electrons\n",      label, new_core_charge);
-        double mix_new = mixing, mix_old = 1 - mixing;
-        // can we rescale the mixing coefficients such that the desired number of core electrons comes out?
+        auto const new_core_charge = dot_product(nr, rg[TRU]->dr,  new_r2core_density.data());
+        if (echo > 0) printf("# %s previous core density has %g electrons, expected %g\n"
+                             "# %s new core density has %g electrons\n", label, 
+                             old_core_charge, nelectrons, label, new_core_charge);
+        double mix_new = mixing, mix_old = 1 - mix_new;
+        // rescale the mixing coefficients such that the desired number of core electrons comes out
         auto const mixed_charge = mix_old*old_core_charge + mix_new*new_core_charge;
         if (mixed_charge != 0) {
             auto const rescale = nelectrons/mixed_charge;
@@ -731,9 +739,10 @@ extern "C" {
         if (echo > 0) printf("# %s core density change %g e (rms %g e) energy change %g %s\n", label,
             core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
 
-        core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), core_density[TRU].data(), "core", echo - 1); 
+        core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), 
+                              core_density[TRU].data(), "core", echo - 1); 
         spherical_valence_charge_deficit = pseudize_spherical_density(spherical_valence_density[SMT].data(),
-                                                                      spherical_valence_density[TRU].data(), "spherical valence", echo - 3); 
+                              spherical_valence_density[TRU].data(), "spherical valence", echo - 3); 
     } // update_core_states
 
     void update_partial_waves(int const echo=0) {
