@@ -289,40 +289,13 @@ namespace potential_generator {
           set(rho.data(), g.all(), rho_valence.data());
           
           // add contributions from smooth core densities
-#if 0          
-          for(int ia = 0; ia < na; ++ia) {
-#ifdef DEVEL
-              if (echo > 11) {
-                  printf("\n## r, smooth core density of atom #%i\n", ia);
-                  print_compressed(r2_axis(nr2[ia], ar2[ia]).data(), atom_rhoc[ia], nr2[ia]);
-              } // echo
-#endif          
-              double q_added = 0;
-              for(int ii = 0; ii < n_periodic_images; ++ii) {
-                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-                  double q_added_image = 0;
-                  stat += real_space_grid::add_function(rho.data(), g, &q_added_image, atom_rhoc[ia], nr2[ia], ar2[ia], cnt, Y00sq);
-//                if (echo > 7) printf("# %g electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
-                  q_added += q_added_image;
-              } // periodic images
-#ifdef DEVEL
-              if (echo > 1) {
-                  printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
-                  print_stats(rho.data(), g.all(), g.dV());
-              } // echo
-              if (echo > 3) printf("# added smooth core charge for atom #%d is  %g electrons\n", ia, q_added);
-              if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
-#endif
-          } // ia
-#else
           stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, echo, Y00sq, "smooth core density");
-    #ifdef DEVEL
+#ifdef DEVEL
           for(int ia = 0; ia < na; ++ia) {
               if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
           } // ia
-    #endif
 #endif
 
           { // scope: eval the XC potential and energy
@@ -441,7 +414,7 @@ namespace potential_generator {
           } // echo
 
           // now also add the zero potential to Vtot
-
+#if 0          
           for(int ia = 0; ia < na; ++ia) {
 #ifdef DEVEL
               if (echo > 11) {
@@ -454,6 +427,11 @@ namespace potential_generator {
                   stat += real_space_grid::add_function(Vtot.data(), g, &dummy, atom_vbar[ia], nr2[ia], ar2[ia], cnt, Y00);
               } // ii periodic images
           } // ia
+#else
+          stat += add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
+                                center, n_periodic_images, periodic_images, atom_vbar.data(),
+                                echo, 0, Y00, "zero potential");
+#endif
 
           if (echo > 1) {
               printf("\n# Total effective potential  (after adding zero potentials)");
