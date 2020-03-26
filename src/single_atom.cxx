@@ -402,7 +402,7 @@ extern "C" {
                         } // occupied
                         if (occ > 0) {
                             double const norm = occ/dot_product(rg[TRU]->n, r2rho.data(), rg[TRU]->dr);
-                            auto const density = (c0s1v2[inl] > 0) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
+                            auto const  density = (c0s1v2[inl] > 0) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
                             add_product(density, rg[TRU]->n, r2rho.data(), norm);
                         } // occupied
 
@@ -573,19 +573,20 @@ extern "C" {
             ", r^2*rho_val_tru(r), r^2*rho_val_smt(r)"
             ", zero_potential(r) in Ha"
             ":\n", label);
-            for(int ir = 0; ir < rg[SMT]->n; ir += 1) {
-                auto const r = rg[SMT]->r[ir];
+            for(int irs = 0; irs < rg[SMT]->n; irs += 1) {
+                int const irt = irs + nr_diff;
+                auto const r = rg[SMT]->r[irs], r2 = pow2(r);
                 printf("%g %g %g %g %g %g %g %g %g %g\n", r
-//                         , -full_potential[TRU][00][ir + nr_diff]*Y00*r // for comparison, should be the same as Z_eff(r)
-                        , -potential[TRU][ir + nr_diff] // Z_eff(r)
-                        , -potential[SMT][ir] //    \tilde Z_eff(r)
-                        , (core_density[TRU][ir + nr_diff] + spherical_valence_density[TRU][ir + nr_diff])*r*r*Y00*Y00
-                        , (core_density[SMT][ir] + spherical_valence_density[SMT][ir])*r*r*Y00*Y00
-                        , core_density[TRU][ir + nr_diff]*r*r*Y00*Y00
-                        , core_density[SMT][ir]*r*r*Y00*Y00
-                        , spherical_valence_density[TRU][ir + nr_diff]*r*r*Y00*Y00
-                        , spherical_valence_density[SMT][ir]*r*r*Y00*Y00
-                        , zero_potential[ir]*Y00 // not converted to eV
+//                         , -full_potential[TRU][00][irt]*Y00*r // for comparison, should be the same as Z_eff(r)
+                        , -potential[TRU][irt] // Z_eff(r)
+                        , -potential[SMT][irs] // \tilde Z_eff(r)
+                        , (core_density[TRU][irt] + spherical_valence_density[TRU][irt])*r2*Y00*Y00
+                        , (core_density[SMT][irs] + spherical_valence_density[SMT][irs])*r2*Y00*Y00
+                        , core_density[TRU][irt]*r2*Y00*Y00
+                        , core_density[SMT][irs]*r2*Y00*Y00
+                        , spherical_valence_density[TRU][irt]*r2*Y00*Y00
+                        , spherical_valence_density[SMT][irs]*r2*Y00*Y00
+                        , zero_potential[irs]*Y00 // not converted to eV
                       );
             } // ir
             printf("\n\n");
@@ -2161,7 +2162,7 @@ namespace single_atom {
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
       int   constexpr numax_default = 3;
-      bool  constexpr transfer2valence = false;
+      bool  constexpr transfer2valence = false; // ToDo: switch this on!
       float constexpr mix_rho_default = .5f;
       float constexpr mix_pot_default = .5f;
       

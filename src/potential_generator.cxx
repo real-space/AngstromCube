@@ -24,8 +24,13 @@
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "simple_timer.hxx" // // SimpleTimer
 #include "control.hxx" // control::get
-#include "lossful_compression.hxx" // RDP_lossful_compression
-#include "debug_output.hxx" // dump_to_file
+
+#ifdef DEVEL
+    #include "lossful_compression.hxx" // RDP_lossful_compression
+    #include "debug_output.hxx" // dump_to_file
+    #include "radial_r2grid.hxx" // radial_r2grid_t
+    #include "radial_r2grid.hxx" // r2_axis
+#endif
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
 // #define OLD_SINGLE_ATOM_UPDATE_INTERFACE
@@ -66,6 +71,16 @@ namespace potential_generator {
       return gsum*dV;
   } // print_stats
 
+  template <typename real_x_t, typename real_y_t>
+  void print_compressed(real_x_t const x[], real_y_t const y[], int const n, float const thr=1e-6) { 
+      auto const mask = RDP_lossful_compression(x, y, n, thr);
+      for(int i = 0; i < n; ++i) {
+          if (mask[i]) printf("%g %g\n", x[i], y[i]);
+      } // i
+      printf("\n");
+  } // print_compressed
+ 
+  
 //   inline int n_grid_points(double const suggest) { return (int)align<1>((int)std::ceil(suggest)); }
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
@@ -235,6 +250,12 @@ namespace potential_generator {
           
           // add contributions from smooth core densities
           for(int ia = 0; ia < na; ++ia) {
+#ifdef DEVEL
+              if (echo > 11) {
+                  printf("\n## r, smooth core density of atom #%i\n", ia);
+                  print_compressed(r2_axis(nr2[ia], ar2[ia]).data(), atom_rhoc[ia], nr2[ia]);
+              } // echo
+#endif          
               double q_added = 0;
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
@@ -243,7 +264,7 @@ namespace potential_generator {
 //                if (echo > 7) printf("# %g electrons smooth core density of atom #%d added for image #%i\n", q_added_image, ia, ii);
                   q_added += q_added_image;
               } // periodic images
-#ifdef DEVEL       
+#ifdef DEVEL
               if (echo > 1) {
                   printf("# after adding %g electrons smooth core density of atom #%d:", q_added, ia);
                   print_stats(rho.data(), g.all(), g.dV());
@@ -280,8 +301,7 @@ namespace potential_generator {
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
                   } // periodic images
 #ifdef DEVEL
-                  if (echo > 1) {
-                      // report extremal values of the density on the grid
+                  if (echo > 1) { // report extremal values of the density on the grid
                       printf("# after adding %g electrons compensator density for atom #%d:", atom_qlm[ia][00]*Y00inv, ia);
                       print_stats(cmp.data(), g.all(), g.dV());
                   } // echo
@@ -361,18 +381,6 @@ namespace potential_generator {
           stat += single_atom::atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
           stat += single_atom::atom_update("zero potential", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
 #endif
-
-#ifdef DEVEL
-          if (echo > 19) {
-              for(int ia = 0; ia < na; ++ia) {
-                  printf("\n## r, zero_potential of atom #%i\n", ia);
-                  for(int ir2 = 0; ir2 < nr2[ia]; ++ir2) {
-                      double const r = std::sqrt(ir2/ar2[ia]); // r^2-grid
-                      printf("%g %g\n", r, atom_vbar[ia][ir2]);
-                  } // ir2
-              } // ia
-          } // echo
-#endif          
           
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
@@ -384,6 +392,12 @@ namespace potential_generator {
           // now also add the zero potential to Vtot
 
           for(int ia = 0; ia < na; ++ia) {
+#ifdef DEVEL
+              if (echo > 11) {
+                  printf("\n## r, zero_potential of atom #%i\n", ia);
+                  print_compressed(r2_axis(nr2[ia], ar2[ia]).data(), atom_vbar[ia], nr2[ia]);
+              } // echo
+#endif          
               for(int ii = 0; ii < n_periodic_images; ++ii) {
                   double dummy = 0, cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                   stat += real_space_grid::add_function(Vtot.data(), g, &dummy, atom_vbar[ia], nr2[ia], ar2[ia], cnt, Y00);
@@ -612,18 +626,20 @@ namespace potential_generator {
                   std::vector<double> rs(rg[ia]->n);
                   bessel_transform::transform_s_function(rs.data(), qc.data(), *rg[ia], nq, dq, true); // transform back to real-space again
                   printf("\n## Real-space projection for atom #%d:\n", ia);
-                  {   auto const mask = RDP_lossful_compression(rg[ia]->r, rs.data(), rg[ia]->n);
-                      for(int ir = 0; ir < rg[ia]->n; ++ir) {
-                          if (mask[ir]) printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
-                      }   printf("\n\n");
-                  } // scope: RDP-mask
+//                   {   auto const mask = RDP_lossful_compression(rg[ia]->r, rs.data(), rg[ia]->n);
+//                       for(int ir = 0; ir < rg[ia]->n; ++ir) {
+//                           if (mask[ir]) printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
+//                       }   printf("\n\n");
+//                   } // scope: RDP-mask
+                  print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
 
                   if ((values == rho.data()) || (values == Laplace_Ves.data())) {
                       bessel_transform::transform_s_function(rs.data(), qcq2.data(), *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
                       printf("\n## Hartree potential computed by Bessel transform for atom #%d:\n", ia);
-                      for(int ir = 0; ir < rg[ia]->n; ++ir) {
-                          printf("%g %g\n", rg[ia]->r[ir], rs[ir]); 
-                      }   printf("\n\n");
+//                       for(int ir = 0; ir < rg[ia]->n; ++ir) {
+//                           printf("%g %g\n", rg[ia]->r[ir], rs[ir]); 
+//                       }   printf("\n\n");
+                      print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
                   } // density
               } // echo
           } // ia
