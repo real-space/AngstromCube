@@ -85,7 +85,7 @@ namespace potential_generator {
       // get the spherical core_density and bring it to the 3D grid
       // get the ell=0 compensator charge and add it to the 3D grid
       // envoke exchange_correlation and fourier_poisson
-      // add XC and electrostatic potential and atom_vbarential contributions
+      // add XC and electrostatic potential and zero potential contributions
       // project the total effective potential to each center using bessel_transforms
       // feed back potential shifts into single_atom
 
@@ -159,12 +159,6 @@ namespace potential_generator {
       int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
       view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
-
-//       std::vector<double*> atom_rhoc(na, nullptr); // smooth core densities on r2-grids, nr2=2^12 points, ar2=16.f
-//       std::vector<double*> atom_vbar(na, nullptr); // smooth zero potential on r2-grids, nr2=2^12 points, ar2=16.f
-//       std::vector<double*> atom_qlm(na, nullptr);
-//       std::vector<double*> atom_vlm(na, nullptr);
-//       std::vector<double*> atom_matrices(na, nullptr);
       
       std::vector<double>  sigma_cmp(na, 1.); //
       std::vector<int32_t> numax(na, 3);
@@ -178,9 +172,9 @@ namespace potential_generator {
 #else
       std::vector<double> Za_double(na); set(Za_double.data(), na, Za.data());
       stat += single_atom::atom_update("initialize", na, Za_double.data(), numax.data(), ionization.data());
-      stat += single_atom::atom_update("l_max qlm",  na, nullptr,    lmax_qlm.data());
-      stat += single_atom::atom_update("l_max vlm",  na, (double*)1, lmax_vlm.data());
-      stat += single_atom::atom_update("sigma_cmp",  na, sigma_cmp.data());
+      stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
+      stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
+      stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
 #endif
 
       data_list<double> atom_qlm;
@@ -206,15 +200,8 @@ namespace potential_generator {
       // the r^2-grid is used to bring radial quantities to a Cartesian grid
       std::vector<int32_t> nr2(na, 1 << 12); // 4096
       std::vector<float>   ar2(na, 16.f); // with nr2 == 4096 rcut = 15.998 Bohr
-      data_list<double> atom_vbar(na, nr2.data(), 0.0); // atom_vbarentials
+      data_list<double> atom_vbar(na, nr2.data(), 0.0); // zero potentials
       data_list<double> atom_rhoc(na, nr2.data(), 0.0); // core_densities
-
-//       for(int ia = 0; ia < na; ++ia) {
-//           int const ncoeff = sho_tools::nSHO(numax[ia]);
-//           atom_matrices[ia] = new double[2*ncoeff*ncoeff];
-//           vlm[ia] = new double[pow2(1 + lmax_vlm[ia])];
-//           qlm[ia] = new double[pow2(1 + lmax_qlm[ia])];
-//       } // ia
 
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
@@ -226,7 +213,7 @@ namespace potential_generator {
       std::vector<double>  cmp(g.all());
       std::vector<double>  Ves(g.all(), 0.0);
       std::vector<double> Vtot(g.all());
-      
+
       char const *es_solver_name = control::get("electrostatic.solver", "iterative"); // {"fourier", "iterative", "none"}
       char const es_solver_method = *es_solver_name | 32; // should be one of {'f', 'i', 'n'}
 
@@ -300,7 +287,7 @@ namespace potential_generator {
                   } // echo
 #endif
               } // ia
-              
+
               // add compensators cmp to rho
               add_product(rho.data(), g.all(), cmp.data(), 1.);
               if (echo > 1) {
@@ -317,14 +304,14 @@ namespace potential_generator {
                       reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
                   } // d
                   stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
-                  
+
               } else if ('n' == es_solver_method) { // "none"
                   warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
 
               } else { // default
                   if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
                   stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
-                  
+
               } // es_solver_method
 
               // test the potential in real space, find ves_multipoles
@@ -365,7 +352,7 @@ namespace potential_generator {
               } // echo
           } // scope
 
-          // communicate vlm to the atoms, get atom_vbarential, atom-centered Hamiltonian and overlap
+          // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, 0, 0, 0, 0, 0, 0, 0, atom_vlm.data(), 0, 0, atom_vbar.data(), atom_mat.data());
 #else
@@ -375,14 +362,26 @@ namespace potential_generator {
           stat += single_atom::atom_update("zero potential", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
 #endif
 
+#ifdef DEVEL
+          if (echo > 19) {
+              for(int ia = 0; ia < na; ++ia) {
+                  printf("\n## r, zero_potential of atom #%i\n", ia);
+                  for(int ir2 = 0; ir2 < nr2[ia]; ++ir2) {
+                      double const r = std::sqrt(ir2/ar2[ia]); // r^2-grid
+                      printf("%g %g\n", r, atom_vbar[ia][ir2]);
+                  } // ir2
+              } // ia
+          } // echo
+#endif          
+          
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
           if (echo > 1) {
-              printf("\n# Total effective potential (before adding atom_vbarentials)");
+              printf("\n# Total effective potential (before adding zero potentials)");
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
-          
-          // now also add the atom_vbarential to Vtot
+
+          // now also add the zero potential to Vtot
 
           for(int ia = 0; ia < na; ++ia) {
               for(int ii = 0; ii < n_periodic_images; ++ii) {
@@ -390,14 +389,14 @@ namespace potential_generator {
                   stat += real_space_grid::add_function(Vtot.data(), g, &dummy, atom_vbar[ia], nr2[ia], ar2[ia], cnt, Y00);
               } // ii periodic images
           } // ia
-          
+
           if (echo > 1) {
-              printf("\n# Total effective potential  (after adding atom_vbarentials)");
+              printf("\n# Total effective potential  (after adding zero potentials)");
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
 
           std::vector<double> rhov_new(g.all(), 0.0); // new valence density
-          
+
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               for(int ia = 0; ia < na; ++ia) {
                   if (echo > 6) {
@@ -456,7 +455,7 @@ namespace potential_generator {
 
               auto const KS_solver_method = control::get("eigensolver", "cg");
               for(int ikpoint = 0; ikpoint < 1; ++ikpoint) { // ToDo: implement k-points
-              
+
                   // solve the Kohn-Sham equation using various solvers
                   if ('c' == KS_solver_method[0]) { // "cg" or "conjugate_gradients"
                       // need start wave-functions, ToDo
@@ -470,14 +469,14 @@ namespace potential_generator {
 
                   // add to density
                   stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
-                  
+
               } // ikpoint
 
               // generate a new density from the eigenstates
               // with occupation numbers from eigenenergies
-              
+
               stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
-              
+
               // ToDo: density mixing
 
           } // scope: Kohn-Sham
@@ -504,12 +503,12 @@ namespace potential_generator {
                   if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
               }
           } // timer
-          
+
 
           if (0) {
               // Jacobi solver for the Poisson equation: try if Ves is already the solution
               // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
-            
+
               // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
               finite_difference::finite_difference_t<double> fdj(g.h, 8);
               fdj.scale_coefficients(-.25/constants::pi);
@@ -536,7 +535,7 @@ namespace potential_generator {
                       if (echo > 9) { printf("# it%i Ves grid stats:", k); print_stats(x_kp1, g.all(), g.dV()); }
                   } // echo
               } // k
-          
+
               {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference onto Jacobi solution", echo);
                   stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
                   { // Laplace_Ves should match rho
@@ -628,7 +627,7 @@ namespace potential_generator {
                   } // density
               } // echo
           } // ia
-      
+
       } // iptr loop for different quantities represented on the grid.
 
 
@@ -651,7 +650,7 @@ namespace potential_generator {
       return stat;
   } // init
 
- 
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS

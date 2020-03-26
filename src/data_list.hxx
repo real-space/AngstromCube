@@ -81,7 +81,7 @@ public:
   T* operator[] (uint32_t const i) const { assert(i < _n); return _ptrs[i]; }
 
   // member access functions
-  T const *const * data() const { return _ptrs.data(); }
+  T const *const * data() const { return _ptrs.data(); } // read-only
   T** data() { return _ptrs.data(); }
 
   uint32_t nrows() const { return _n; } // number of rows

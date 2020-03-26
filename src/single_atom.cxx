@@ -1942,8 +1942,8 @@ extern "C" {
     status_t get_smooth_spherical_quantity(double qnt[] // result array: function on an r2-grid
         , float const ar2, int const nr2 // r2-grid parameters
         , char const what, int const echo=1) const { // logg level
-        char const *qnt_name   = ('c' == what) ? "core_density"     : (('V' == what) ? "zero_potential" : "valence_density");
-        auto const &qnt_vector = ('c' == what) ?  core_density[SMT] : (('V' == what) ?  zero_potential  : spherical_valence_density[SMT]);
+        char const *qnt_name   = ('c' == what) ? "core_density"     : (('z' == what) ? "zero_potential" : "valence_density");
+        auto const &qnt_vector = ('c' == what) ?  core_density[SMT] : (('z' == what) ?  zero_potential  : spherical_valence_density[SMT]);
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
                         label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
 #ifdef DEVEL
@@ -2024,22 +2024,19 @@ namespace single_atom {
 
       assert(std::abs(na) == natoms_init); // must always be called with the same na or -na for cleanup
 
+      int const nr2 = 1 << 12; float const ar2 = 16.f; // r^2-grid, rcut = 15.998 Bohr
+      
       for(int ia = 0; ia < na; ++ia) {
 
           if (nullptr != rho) {
-              int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-//               if (nullptr != rho[ia]) delete[] rho[ia];
-//               rho[ia] = new double[nr2];
               assert(nullptr != rho[ia]); // must be allocated to right size beforehand
-              a[ia]->get_smooth_spherical_quantity(rho[ia], ar2, nr2, 'c');
+              a[ia]->get_smooth_spherical_quantity(rho[ia], ar2, nr2, numax ? 'v' : 'c');
+              // if we have numax != nullptr in the call we get spherical_valence_density 
           } // get the smooth core densities
 
           if (nullptr != zero_pot) {
-              int const nr2 = 1 << 12; float const ar2 = 16.f; // rcut = 15.998 Bohr
-//               if (nullptr != zero_pot[ia]) delete[] zero_pot[ia];
-//               zero_pot[ia] = new double[nr2];
               assert(nullptr != zero_pot[ia]); // must be allocated to right size beforehand
-              a[ia]->get_smooth_spherical_quantity(zero_pot[ia], ar2, nr2, 'V');
+              a[ia]->get_smooth_spherical_quantity(zero_pot[ia], ar2, nr2, 'z');
           } // get the zero_potential
 
           if (nullptr != rg) rg[ia] = a[ia]->get_smooth_radial_grid(); // pointers to smooth radial grids
@@ -2079,7 +2076,14 @@ namespace single_atom {
       return 0;
   } // update
 
-  inline uint64_t constexpr string2long(char const *s) {
+  // instead of having a switch only onto  the first char of a string (as in atom_update),
+  // we could use a switch onto int or long with these functions
+  
+// #define __IS_A_CXX14_COMPILER__
+
+  inline uint64_t constexpr string2long(char const s[8]) {
+#ifdef  __IS_A_CXX14_COMPILER__
+      // this version allows also null-delimited strings shorter than 8 chars
       uint64_t ui64{0};
       if (nullptr != s) {
           #define instr(n,__more__) if (s[n]) { ui64 |= (uint64_t(s[n]) << (8*n)); __more__ }
@@ -2087,9 +2091,20 @@ namespace single_atom {
           #undef  instr
       } // s is a valid pointer
       return ui64;
+#else
+      return s[0] | (uint64_t(s[1]) <<  8)
+                  | (uint64_t(s[2]) << 16) 
+                  | (uint64_t(s[3]) << 24)
+                  | (uint64_t(s[4]) << 32)
+                  | (uint64_t(s[5]) << 40)
+                  | (uint64_t(s[6]) << 48)
+                  | (uint64_t(s[7]) << 56);
+#endif      
   } // string2long
 
-  inline uint32_t constexpr string2int(char const *s) {
+  inline uint32_t constexpr string2int(char const s[4]) {
+#ifdef  __IS_A_CXX14_COMPILER__
+      // this version allows also null-delimited strings shorter than 4 chars
       uint32_t ui32{0};
       if (nullptr != s) {
           #define instr(n,__more__) if (s[n]) { ui32 |= (uint32_t(s[n]) << (8*n)); __more__ }
@@ -2097,7 +2112,39 @@ namespace single_atom {
           #undef  instr
       } // s is a valid pointer
       return ui32;
+#else
+      return s[0] | (uint32_t(s[1]) <<  8) 
+                  | (uint32_t(s[2]) << 16) 
+                  | (uint32_t(s[3]) << 24);
+#endif
   } // string2int
+  
+  // from https://hbfs.wordpress.com/2017/01/10/strings-in-c-switchcase-statements/
+  inline uint64_t constexpr __mix_hash_(char const m, uint64_t const s) { return ((s << 7) + ~(s >> 3)) + ~m; }
+  inline uint64_t constexpr string2hash(char const * m) { return (*m) ? __mix_hash_(*m, string2hash(m + 1)) : 0; }
+
+  status_t test_string_switch(char const *what, int const echo=0) {
+      #define str2int string2hash
+      switch ( str2int(what) ) {
+          case str2int("initialize"):
+          case str2int("memory cleanup"):
+          case str2int("lmax qlm"):
+          case str2int("lmax vlm"): // does not work with uint32_t
+          case str2int("sigma cmp"):
+          case str2int("core densities"):
+          case str2int("qlm charges"):
+          case str2int("update"): // needs a trailing ' ' if str2int==string2long
+          case str2int("hamiltonian"):
+          case str2int("zero potential"):
+          case str2int("radial grids"):
+            if (echo > 0) printf("# %s found selector what=\"%s\".\n", __func__, what);
+          break; default:
+            if (echo > 0) printf("# %s unknown selector what=\"%s\"!\n", __func__, what);
+            return 1; // error
+      } // switch (what)
+      #undef  str2int
+      return 0; // no error
+  } // test_string_switch
 
   // simplified interface compared to update
   status_t atom_update(char const *what, int na,
@@ -2111,9 +2158,6 @@ namespace single_atom {
       char const how = what[0] | 32; // first char, to lowercase
       if (echo > 4) printf("\n# %s %s what=\"%s\" --> \'%c\'\n\n", __FILE__, __func__, what, how);
 
-   
-//       auto const fun = string2long("abcdef");
-
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
       int   constexpr numax_default = 3;
@@ -2122,6 +2166,7 @@ namespace single_atom {
       float constexpr mix_pot_default = .5f;
       
       status_t stat(0);
+      stat = test_string_switch(what, echo);
 
       switch (how) {
         
@@ -2166,7 +2211,7 @@ namespace single_atom {
           } 
           break;
 
-          case 'r': // interface usage: atom_update("radial grid", na, null, null, null, dpp=rg_ptr);
+          case 'r': // interface usage: atom_update("radial grid", na, null, null, null, (double**)rg_ptr);
           {
               assert(nullptr != dpp);
               for(int ia = 0; ia < a.size(); ++ia) {
@@ -2230,8 +2275,8 @@ namespace single_atom {
           } 
           break;
 
-          case 'l': // interface usage: atom_update("l_max qlm", natoms, dp=null, lmax);
-                    // interface usage: atom_update("l_max vlm", natoms, dp= ~0 , lmax);
+          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, lmax);
+                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , lmax);
           {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
