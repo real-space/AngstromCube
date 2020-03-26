@@ -26,14 +26,14 @@
 #include "control.hxx" // control::get
 
 #ifdef DEVEL
-    #include "lossful_compression.hxx" // RDP_lossful_compression
+    #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file
     #include "radial_r2grid.hxx" // radial_r2grid_t
     #include "radial_r2grid.hxx" // r2_axis
 #endif
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
-// #define OLD_SINGLE_ATOM_UPDATE_INTERFACE
+#define OLD_SINGLE_ATOM_UPDATE_INTERFACE
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
   #include "single_atom.hxx" // ::update
 #else
@@ -57,8 +57,6 @@ namespace potential_generator {
   // their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
   
-  double constexpr Y00sq = pow2(solid_harmonics::Y00);
-  
   double print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
       double gmin{9e307}, gmax{-gmin}, gsum{0}, gsum2{0};
       for(size_t i = 0; i < all; ++i) {
@@ -70,16 +68,6 @@ namespace potential_generator {
       printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*dV, gsum/all);
       return gsum*dV;
   } // print_stats
-
-  template <typename real_x_t, typename real_y_t>
-  void print_compressed(real_x_t const x[], real_y_t const y[], int const n, float const thr=1e-6) { 
-      auto const mask = RDP_lossful_compression(x, y, n, thr);
-      for(int i = 0; i < n; ++i) {
-          if (mask[i]) printf("%g %g\n", x[i], y[i]);
-      } // i
-      printf("\n");
-  } // print_compressed
- 
   
 //   inline int n_grid_points(double const suggest) { return (int)align<1>((int)std::ceil(suggest)); }
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
@@ -173,6 +161,7 @@ namespace potential_generator {
     
       double constexpr Y00 = solid_harmonics::Y00;
       double constexpr Y00inv = solid_harmonics::Y00inv;
+      double constexpr Y00sq = pow2(solid_harmonics::Y00);
 
       status_t stat{0};
       
@@ -223,10 +212,14 @@ namespace potential_generator {
       // for each atom get sigma, lmax
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
       stat += single_atom::update(na, Za.data(), ionization.data(), 0, numax.data(), 
-                       sigma_cmp.data(), 0, 0, 0, lmax_vlm.data(), lmax_qlm.data());
+                       sigma_cmp.data(), 0, 0, 0, lmax_vlm.data(), lmax_qlm.data()
+                       , (double**)1 // set transfer2valence=false
+                       );
 #else
       std::vector<double> Za_double(na); set(Za_double.data(), na, Za.data());
-      stat += single_atom::atom_update("initialize", na, Za_double.data(), numax.data(), ionization.data());
+      stat += single_atom::atom_update("initialize", na, Za_double.data(), numax.data(), ionization.data()
+                , (double**)1 // set transfer2valence=false
+                );
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
@@ -273,7 +266,23 @@ namespace potential_generator {
       char const es_solver_method = *es_solver_name | 32; // should be one of {'f', 'i', 'n'}
 
       std::vector<double> rho_valence(g.all(), 0.0);
-      
+      char const *init_val_rho_name = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
+      if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", init_val_rho_name);
+      if ('a' == init_val_rho_name[0]) {
+#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
+          stat += single_atom::update(na, 0, 0, 0, numax.data(), 0, atom_rhoc.data()); // get spherical_valence_density
+#else
+          stat += single_atom::atom_update("valence densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
+#endif
+          // add contributions from smooth core densities
+          stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
+                                center, n_periodic_images, periodic_images, atom_rhoc.data(),
+                                echo, echo, Y00sq, "smooth atomic valence density");
+      } else
+      if ('n' == init_val_rho_name[0]) {
+          warn("initial.valence.density = none may cause problems");
+      } // switch
+
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
@@ -286,17 +295,17 @@ namespace potential_generator {
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 #endif
 
+          if (echo > 4) { // report extremal values of the valence density on the grid
+              printf("# valence density in iteration #%i:", scf_iteration);
+              print_stats(rho_valence.data(), g.all(), g.dV());
+          } // echo
+          
           set(rho.data(), g.all(), rho_valence.data());
           
           // add contributions from smooth core densities
           stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, echo, Y00sq, "smooth core density");
-#ifdef DEVEL
-          for(int ia = 0; ia < na; ++ia) {
-              if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
-          } // ia
-#endif
 
           { // scope: eval the XC potential and energy
               double Exc{0}, Edc{0};
@@ -314,12 +323,11 @@ namespace potential_generator {
             
               // add compensation charges cmp
               for(int ia = 0; ia < na; ++ia) {
-                  if (echo > 6) printf("# 00 compensator charge for atom #%d is %g\n", ia, atom_qlm[ia][00]*Y00inv);
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
                   std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
-                  if (echo > 7) printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
+//                if (echo > 7) printf("# before SHO-adding compensators for atom #%d coeff[000] = %g\n", ia, coeff[0]);
                   for(int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
@@ -403,9 +411,9 @@ namespace potential_generator {
           float mixing_ratio[] = {.49, .51}; // {potential, density}
           stat += single_atom::atom_update("update", na, 0, 0, mixing_ratio, atom_vlm.data());
           stat += single_atom::atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
-          stat += single_atom::atom_update("zero potential", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
+          stat += single_atom::atom_update("zero potentials", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
 #endif
-          
+
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
           if (echo > 1) {
@@ -413,31 +421,22 @@ namespace potential_generator {
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
 
-          // now also add the zero potential to Vtot
-#if 0          
-          for(int ia = 0; ia < na; ++ia) {
-#ifdef DEVEL
-              if (echo > 11) {
-                  printf("\n## r, zero_potential of atom #%i\n", ia);
-                  print_compressed(r2_axis(nr2[ia], ar2[ia]).data(), atom_vbar[ia], nr2[ia]);
-              } // echo
-#endif          
-              for(int ii = 0; ii < n_periodic_images; ++ii) {
-                  double dummy = 0, cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-                  stat += real_space_grid::add_function(Vtot.data(), g, &dummy, atom_vbar[ia], nr2[ia], ar2[ia], cnt, Y00);
-              } // ii periodic images
-          } // ia
-#else
+          // now also add the zero potential vbar to Vtot
           stat += add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
-#endif
 
           if (echo > 1) {
               printf("\n# Total effective potential  (after adding zero potentials)");
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
 
+         
+          /**  
+           *  Potential generation done
+           */
+
+          
           std::vector<double> rhov_new(g.all(), 0.0); // new valence density
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian

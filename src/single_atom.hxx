@@ -9,10 +9,10 @@
 namespace single_atom {
 
   status_t update(int const na, float const *Za=nullptr, float const *ion=nullptr,
-                  radial_grid_t* *rg=nullptr, int const *numax=nullptr, double *sigma_cmp=nullptr,
-                  double* *rho=nullptr, double* *qlm=nullptr, double* *vlm=nullptr,
-                  int *lmax=nullptr, int *lmax_cmp=nullptr, double* *zero_pot=nullptr,
-                  double* *atom_mat=nullptr);
+                  radial_grid_t** rg=nullptr, int const *numax=nullptr, double *sigma_cmp=nullptr,
+                  double** rho=nullptr, double** qlm=nullptr, double** vlm=nullptr,
+                  int *lmax=nullptr, int *lmax_cmp=nullptr, double** zero_pot=nullptr,
+                  double**atom_mat=nullptr);
 
   status_t atom_update(
       char const *what,     // decide, what to import or export, only 1st char relevant (w)

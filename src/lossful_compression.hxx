@@ -2,6 +2,7 @@
 
 #include <cassert> // assert
 #include <vector> // std::vector<T>
+#include <cstdio> // std::fprintf, stdout, FILE
 
   template<typename real_t, typename y_real_t>
   int RamerDouglasPeucker(std::vector<bool> & active
@@ -83,3 +84,12 @@
       RamerDouglasPeucker(mask, x, y, n, 0, epsilon);
       return mask;
   } // RDP_lossful_compression
+
+  template <typename real_t, typename real_y_t>
+  void print_compressed(real_t const x[], real_y_t const y[], int const n, float const epsilon=1e-6, FILE* os=stdout) {
+      auto const mask = RDP_lossful_compression(x, y, n, epsilon);
+      for(int i = 0; i < n; ++i) {
+          if (mask[i]) std::fprintf(os, "%g %g\n", x[i], y[i]);
+      } // i
+      std::fprintf(os, "\n");
+  } // print_compressed

@@ -56,7 +56,7 @@ extern "C" {
 
   status_t minimize_curvature(int const n, view2D<double> & A, view2D<double> & B, double* lowest=nullptr) {
       // solve a generalized eigenvalue problem
-      auto eigs = std::vector<double>(n);
+      std::vector<double> eigs(n);
       auto const info = linear_algebra::generalized_eigenvalues(n, A.data(), A.stride(),
                                                                    B.data(), B.stride(), eigs.data());
       if (lowest) *lowest = eigs[0];
@@ -1947,6 +1947,7 @@ extern "C" {
         auto const &qnt_vector = ('c' == what) ?  core_density[SMT] : (('z' == what) ?  zero_potential  : spherical_valence_density[SMT]);
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
                         label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
+        double const minval = ('z' == what) ? -9e307 : 0.0; // zero potential may be negative, densities should not
 #ifdef DEVEL
         double const Y00s = Y00*(('c' == what) ? Y00 : 1); // Y00 for zero_pot and Y00^2 for rho_core
         if (echo > 8) {
@@ -1962,7 +1963,8 @@ extern "C" {
         double const r2cut = pow2(rg[SMT]->rmax)*1.1, r2inv = 1./r2cut;
         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
             double const r2 = pow2(rg[SMT]->r[ir]);
-            inp[ir] = qnt_vector[ir] / pow8(1. - pow8(r2*r2inv));
+            auto const mask = pow8(1. - pow8(r2*r2inv));
+            inp[ir] = qnt_vector[ir] / mask;
         } // ir
 
         auto const stat = bessel_transform::transform_to_r2_grid(qnt, ar2, nr2, inp.data(), *rg[SMT], echo);
@@ -1970,7 +1972,8 @@ extern "C" {
         // multiply output by mask function
         for(int ir2 = 0; ir2 < nr2; ++ir2) {
             double const r2 = ir2/ar2;
-            qnt[ir2] *= (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+            auto const mask = (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
+            qnt[ir2] = std::max(minval, qnt[ir2]) * mask;
         } // ir2
 
 #ifdef DEVEL
@@ -1999,9 +2002,9 @@ extern "C" {
 namespace single_atom {
 
   status_t update(int const na, float const *Za, float const *ion
-                 , radial_grid_t* *rg, int const *numax, double *sigma_cmp
-                 , double* *rho, double **qlm, double* *vlm, int *lmax_vlm, int *lmax_qlm
-                 , double* *zero_pot, double* *atom_mat) {
+                 , radial_grid_t** rg, int const *numax, double *sigma_cmp
+                 , double** rho, double** qlm, double** vlm, int *lmax_vlm, int *lmax_qlm
+                 , double** zero_pot, double** atom_mat) {
 
       static int echo = -9;
       if (echo == -9) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
@@ -2015,7 +2018,7 @@ namespace single_atom {
           assert(ion); // may not be nullptr
           a = new LiveAtom*[na];
           natoms_init = na;
-          bool const transfer2valence = false;
+          bool const transfer2valence = (nullptr == zero_pot); zero_pot = nullptr; // control
           for(int ia = 0; ia < na; ++ia) {
               int const numax_ia = (numax)? numax[ia] : 3;
               a[ia] = new LiveAtom(Za[ia], numax_ia, transfer2valence, ion[ia], ia, echo);
@@ -2133,10 +2136,11 @@ namespace single_atom {
           case str2int("lmax vlm"): // does not work with uint32_t
           case str2int("sigma cmp"):
           case str2int("core densities"):
+          case str2int("valence densities"):
           case str2int("qlm charges"):
           case str2int("update"): // needs a trailing ' ' if str2int==string2long
           case str2int("hamiltonian"):
-          case str2int("zero potential"):
+          case str2int("zero potentials"):
           case str2int("radial grids"):
             if (echo > 0) printf("# %s found selector what=\"%s\".\n", __func__, what);
           break; default:
@@ -2162,7 +2166,6 @@ namespace single_atom {
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
       int   constexpr numax_default = 3;
-      bool  constexpr transfer2valence = false; // ToDo: switch this on!
       float constexpr mix_rho_default = .5f;
       float constexpr mix_pot_default = .5f;
       
@@ -2175,6 +2178,7 @@ namespace single_atom {
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
+              bool const transfer2valence = (nullptr == dpp); // control
               int const echo_init = control::get("single_atom.init.echo", 0.); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
                   int    const numax = (ip) ? ip[ia] : numax_default;
@@ -2182,7 +2186,6 @@ namespace single_atom {
                   a[ia] = new LiveAtom(Za[ia], numax, transfer2valence, ion, ia, echo_init);
                   stat += (a[ia]->get_numax() != numax);
               } // ia
-              if (nullptr != dpp) warn("please initialize without a 6th argument");
           } 
           break;
 
@@ -2197,9 +2200,9 @@ namespace single_atom {
           } 
           break;
 
-          case 'c': // interface usage: atom_update("core density",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
-          case 'v': // interface usage: atom_update("valence density", natoms, null, nr2=2^12, ar2=16.f, qnt=rho_v);
-          case 'z': // interface usage: atom_update("zero potential",  natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
+          case 'c': // interface usage: atom_update("core densities",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
+          case 'v': // interface usage: atom_update("valence densities", natoms, null, nr2=2^12, ar2=16.f, qnt=rho_v);
+          case 'z': // interface usage: atom_update("zero potentials",  natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
               for(int ia = 0; ia < a.size(); ++ia) {

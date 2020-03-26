@@ -53,7 +53,7 @@ namespace boundary_condition {
           } // iy
       } // iz
       *ipos = pos;
-      if (echo > 1) printf("# %s: found %d images\n", __func__, ni);
+      if (echo > 1) printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
       return ni;
   } // periodic_images
   
