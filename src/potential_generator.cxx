@@ -129,6 +129,46 @@ namespace potential_generator {
       return stat;
   } // init_geometry_and_grid
   
+  
+  status_t add_smooth_quantities(double values[] // add to this function on a 3D grid
+                , real_space_grid::grid_t<1> const & g 
+                , int const na, int32_t const nr2[], float const ar2[]
+                , view2D<double> const & center
+                , int const n_periodic_images, view2D<double> const & periodic_images
+                , double const *const *const atom_qnt
+                , int const echo=0, int const echo_q=0
+                , double const factor=1
+                , char const *quantity="smooth quantity") {
+
+          status_t stat(0);
+          // add contributions from smooth core densities
+          for(int ia = 0; ia < na; ++ia) {
+#ifdef DEVEL
+              if (echo > 11) {
+                  printf("\n## r, %s of atom #%i\n", quantity, ia);
+                  print_compressed(r2_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
+              } // echo
+#endif
+              double q_added{0};
+              for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+                  double q_added_image = 0;
+                  stat += real_space_grid::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
+                  if (echo_q > 11) printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
+                  q_added += q_added_image;
+              } // periodic images
+#ifdef DEVEL
+              if (echo_q > 0) {
+                  printf("# after adding %g electrons %s of atom #%d:", q_added, quantity, ia);
+                  print_stats(values, g.all(), g.dV());
+              } // echo
+              if (echo_q > 3) printf("# added %s for atom #%d is  %g electrons\n", quantity, ia, q_added);
+//            if (echo_q > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
+#endif
+          } // ia
+          return stat;
+  } // add_smooth_quantities
+  
   status_t init(float const ion=0.f, int const echo=0) {
     
       double constexpr Y00 = solid_harmonics::Y00;
@@ -249,6 +289,7 @@ namespace potential_generator {
           set(rho.data(), g.all(), rho_valence.data());
           
           // add contributions from smooth core densities
+#if 0          
           for(int ia = 0; ia < na; ++ia) {
 #ifdef DEVEL
               if (echo > 11) {
@@ -273,6 +314,16 @@ namespace potential_generator {
               if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
 #endif
           } // ia
+#else
+          stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
+                                center, n_periodic_images, periodic_images, atom_rhoc.data(),
+                                echo, echo, Y00sq, "smooth core density");
+    #ifdef DEVEL
+          for(int ia = 0; ia < na; ++ia) {
+              if (echo > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
+          } // ia
+    #endif
+#endif
 
           { // scope: eval the XC potential and energy
               double Exc{0}, Edc{0};
