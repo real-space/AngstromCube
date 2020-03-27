@@ -1,5 +1,6 @@
 #include <cstdint> // uint64_t
 #include <string> // std::string
+#include <cstring> // std::strrchr
 #include <cstdio> // printf, sprintf
 #include <cassert> // assert
 #include <map> // std::map
@@ -13,7 +14,7 @@ namespace recorded_warnings {
       uint64_t hash = 5381;
       char const *c = string;
       while (*c != 0) {
-         hash = hash * 33 + (*c);
+         hash = hash * 33 + uint64_t(*c);
          ++c;
       } // while
       return hash;
@@ -31,17 +32,19 @@ namespace recorded_warnings {
       std::string source_file_name_;
       std::string function_name_;
       uint64_t    times_overwritten_;
+      uint32_t    times_printed_;
       uint32_t    source_file_line_;
-      // ToDo: we can include the time of last overwrite
+      // ToDo: we can include the time of last overwrite, but then, log files differ between two executions
   public:
       static const int DefaultMessageLength = 400;
 
       WarningRecord(char const *file, int const line, char const *func=nullptr, 
-                  int const message_length=DefaultMessageLength)
+                    int const message_length=DefaultMessageLength)
         : source_file_name_(file)
         , function_name_(func)
         , times_overwritten_(0)   
-        , source_file_line_(line) 
+        , times_printed_(0)
+        , source_file_line_(line)
       {
           hash_ = combined_hash(file, line);
           message_ = new char[message_length];
@@ -66,29 +69,30 @@ namespace recorded_warnings {
       char const* get_functionname(void) const { return function_name_.c_str(); }
       int get_sourceline(void) const { return source_file_line_; }
       size_t get_times(void) const { return times_overwritten_; }
-
+      int get_times_printed(void) const { return times_printed_; }
+      void increment_times_printed(void) { ++times_printed_; }
   
   }; // class WarningRecord
 
 
 
-  char* manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
+  char* _manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
     if (echo > 6) printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
                       __FILE__, __LINE__, __func__, file, line, echo);
 
     static std::map<uint64_t,WarningRecord> map_;
-
     if (line < 1) { // line numbers created by the preprocessor start from 1
-
         assert('?' == file[0]); // make sure that we want special functionality
+        
         if (0 == line) {
-            // show_warnings has been called
-            if (echo > 1) {
+            // show_warnings() has been called
+            if (echo > 0) {
                 auto const nw = map_.size();
-                if ((echo < 3) || (nw < 1)) { // only give a summary of how many
+                if ((echo < 3) || (nw < 1)) { 
+                    // only give a summary of how many
                     printf("# %ld warnings have been recorded.\n", nw);
                 } else {
-                    printf("# %s: %ld recorded warnings:\n", __func__, nw);
+                    printf("\n#\n# recorded %ld warnings:\n", nw);
                     size_t total_count = 0;
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
@@ -98,12 +102,12 @@ namespace recorded_warnings {
                             n_times, w.get_message_pointer());
                         total_count += n_times;
                     } // w
-                    if (nw > 0) printf("# %s: %ld warnings in total\n", __func__, total_count);
+                    if (nw > 0) printf("# %ld warnings in total\n", total_count);
                 } // summary
             } // echo
         } else {
-            // clear_warnings has been called
-            if (echo > 1) printf("# %s: clear all %ld entries from records\n", __func__, map_.size());
+            // clear_warnings() has been called
+            if (echo > 1) printf("# clear all %ld warnings from records\n", map_.size());
             map_.clear();
         }
         return nullptr;
@@ -111,36 +115,62 @@ namespace recorded_warnings {
     } else { // special functions
 
         // regular usage with file and line
-        auto const hash = combined_hash(file, line);
+        char const * has_slash = std::strrchr(file, '/');
+        char const * short_file = has_slash ? (has_slash + 1) : file;
+        // path name to source file was removed
+        auto const hash = combined_hash(short_file, line);
         auto const search = map_.find(hash);
+        WarningRecord * w{nullptr};
         if (map_.end() != search) {
             if (echo > 1) printf("# %s: found entry for hash %16lx\n", __func__, hash);
-            return search->second.get_message();
+            w = & search->second;
         } else {
             if (echo > 1) printf("# %s: insert new entry for hash %16lx\n", __func__, hash);
-            auto const iit = map_.insert({hash, WarningRecord(file, line, func)});
-            // if (success) {
-            return iit.first->second.get_message();
-            // } else {
-                // if (echo > 1) printf("# %s: failed, return new 256 chars\n", __func__);
-                // return new char[256];
-            // }
+            auto const iit = map_.insert({hash, WarningRecord(short_file, line, func)});
+            w = & iit.first->second;
         } // found
 
+        // output the warning to stdout and stderr when encountered the 1st time, otherwise,
+        // we could have a segfault later and do not know where that could be coming from
+        
+        // configuration:
+        bool const WarningsToLog = true;
+        bool const WarningsToErr = true;
+        int  const SilenceAfterSimilarWarnings = 2;
+        
+        int const times_printed = w->get_times_printed();
+        auto const msg = w->get_message();
+        
+        if (times_printed < std::abs(SilenceAfterSimilarWarnings)) {
+            if (WarningsToLog) {
+                std::fprintf(stdout, "# Warning: %s\n", msg);
+                // inform about the silencing
+                if (times_printed == SilenceAfterSimilarWarnings) {
+                    std::fprintf(stdout, "# This warning will not be shown again!\n");
+                }
+            } // WarningsToLog
+            if (WarningsToErr) {
+                std::fprintf(stderr, "%s:%d Warning(\"%s\")\n", w->get_sourcefile(), w->get_sourceline(), msg);
+            } // WarningsToErr
+            if (WarningsToLog) std::fprintf(stdout, "\n"); // give more optical weight to the warning lines
+            w->increment_times_printed();
+        } // print to stdout and stderr
+        
+        return msg;
     } // special functions
 
-  } // manage_warnings
+  } // _manage_warnings
 
   char* _new_warning(char const *file, int const line, char const *func=nullptr) {
-      return manage_warnings(file, line, func);
+      return _manage_warnings(file, line, func);
   } // _new_warning
 
   status_t show_warnings(int const echo) {
-      return (nullptr != manage_warnings("?",  0, nullptr, echo));
+      return (nullptr != _manage_warnings("?",  0, nullptr, echo));
   } // show_warnings
 
   status_t clear_warnings(int const echo) {
-      return (nullptr != manage_warnings("?", -1, nullptr, echo));
+      return (nullptr != _manage_warnings("?", -1, nullptr, echo));
   } // clear_warnings
 
 

@@ -4,6 +4,7 @@
 #include <cmath> // std::ceil, std::sqrt
 #include <cstdint> // int8_t
 #include "inline_math.hxx"
+#include "recorded_warnings.hxx" // warn
 
 #include "status.hxx" // status_t
 
@@ -24,9 +25,10 @@ namespace boundary_condition {
       auto const cell_diagonal2 = pow2(rcut)
                                 + pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]);
       int ni_xyz[3], ni_max{1};
+      if (rcut < 0) warn("A negative cutoff radius leads to only one image! rcut = %g a.u.", rcut);
       for(int d = 0; d < 3; ++d) {
           if (Periodic_Boundary == bc[d]) {
-              ni_xyz[d] = int(std::ceil(rcut/cell[d]));
+              ni_xyz[d] = std::max(0, int(std::ceil(rcut/cell[d])));
               assert(ni_xyz[d] <= 127); // warning: int8_t has range [-128, 127]
               ni_max *= (ni_xyz[d] + 1 + ni_xyz[d]);
           } else {
@@ -34,11 +36,13 @@ namespace boundary_condition {
               ni_xyz[d] = 0;
           } // periodic
       } // d
-      if (echo > 5) printf("# %s: check %d x %d x %d = %d images\n",
+      if (echo > 5) printf("# %s: check %d x %d x %d = %d images max.\n",
           __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
       auto const pos = new double[ni_max*4];
       auto const idx = new int8_t[ni_max*4];
-      for(int d = 0; d < 4; ++d) pos[d] = 0; // zero image
+      for(int d = 0; d < 4; ++d) {
+          pos[0*4 + d] = 0; // zero-th image/original position
+      } // d
       int ni = 1;
       for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {
           for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {
@@ -47,21 +51,26 @@ namespace boundary_condition {
                   auto const py = iy*cell[1];
                   auto const pz = iz*cell[2];
                   auto const d2 = pow2(px) + pow2(py) + pow2(pz);
-                  char mark;
-                  if (d2 > 0) { // exclude the origin (because we want the original image as index #0)
-                      if (d2 < cell_diagonal2) {
+#ifdef DEVEL
+                  char mark{' '};
+#endif                  
+                  if (d2 < cell_diagonal2) {
+                      if (d2 > 0) { // exclude the origin (because we want the original image as index #0)
                           pos[ni*4 + 0] = px;
                           pos[ni*4 + 1] = py;
                           pos[ni*4 + 2] = pz;
-                          pos[ni*4 + 3] = std::sqrt(d2); // distance
+                          pos[ni*4 + 3] = d2; // distance^2 - no use
+                          // the indices are important for the Bloch-phases
                           idx[ni*4 + 0] = ix;
                           idx[ni*4 + 1] = iy;
                           idx[ni*4 + 2] = iz;
-                          idx[ni*4 + 3] = 0;
-                          ++ni;
-                              mark = 'x';
-                      } else  mark = ' ';
-                  } else      mark = 'o';
+                          idx[ni*4 + 3] =  0; // no use
+                          ++ni; // count the number of images inside
+#ifdef DEVEL
+                          mark = 'o'; } else { mark = 'x';
+#endif
+                      } // d2 > 0
+                  } // d2 < cell_diagonal2
 #ifdef DEVEL
                   if (echo > 6) {
                       if (ix == -ni_xyz[0]) {
@@ -75,7 +84,7 @@ namespace boundary_condition {
               } // ix
           } // iy
       } // iz
-      *ipos = pos;
+      *ipos = pos; // export array of periodic positions
       if (nullptr != iidx) { *iidx = idx; } else { delete[] idx; } // export or release
       if (echo > 1) printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
       return ni;
@@ -86,13 +95,13 @@ namespace boundary_condition {
       switch (first | 32) { // ignore case with | 32
         case 'p': case '1':
             if (echo > 0) printf("# interpret \"%s\" as periodic boundary condition\n", string);
-            return Periodic_Boundary; break;
+            return Periodic_Boundary;
         case 'i': case '0':
             if (echo > 0) printf("# interpret \"%s\" as isolated boundary condition\n", string);
-            return Isolated_Boundary; break;
+            return Isolated_Boundary;
         case 'm': case '-':
             if (echo > 0) printf("# interpret \"%s\" as mirror boundary condition\n", string);
-            return Isolated_Boundary; break;
+            return Mirrored_Boundary;
         default :
             if (echo > 0) printf("# cannot interpret \"%s\" as boundary condition\n", string);
             return Invalid_Boundary;
@@ -105,20 +114,24 @@ namespace boundary_condition {
 
   inline status_t test_periodic_images(int const echo=7) {
       if (echo > 2) printf("\n# %s %s \n", __FILE__, __func__);
-      double const cell[] = {1,2,3}, rcut = 6;
+      double const cell[] = {1,2,3}; //, rcut = -6.f;
       int const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
-      double *ipos = nullptr;
-      int const nai = periodic_images(&ipos, cell, bc, rcut, echo);
-      delete[] ipos;
+      double *ipos{nullptr};
+      int8_t *iidx{nullptr};
+      for(int k = 0; k < 5; ++k) { float const rcut = -k;
+      auto const nai = periodic_images(&ipos, cell, bc, rcut, echo, &iidx);
       if (echo > 2) printf("# found %d images\n", nai);
+      delete[] ipos;
+      delete[] iidx;
+      } // k
       return 0;
   } // test_periodic_images
 
   inline status_t all_tests(int const echo=7) {
-    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t status(0);
-    status += test_periodic_images(echo);
-    return status;
+      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      status_t status(0);
+      status += test_periodic_images(echo);
+      return status;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  
