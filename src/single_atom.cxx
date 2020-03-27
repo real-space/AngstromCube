@@ -1700,7 +1700,7 @@ extern "C" {
 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+                  (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
             if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
@@ -1713,7 +1713,7 @@ extern "C" {
                 } // ts
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-                  (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
+                  (rg, rV, sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         } // scope
@@ -1819,21 +1819,21 @@ extern "C" {
 
             if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-              (*rg[SMT], Vsmt.data(), sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+              (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         if (1) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-              (rg, rV, sigma, (int)numax + 1, nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
+              (rg, rV, sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
         } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
     } // check_spherical_matrix_elements
 
     void create_isolated_density_matrix(view2D<double> & density_matrix, 
           sho_tools::SHO_order_t & order, 
-          view3D<double> const & aHSm, // atomic emm-degenrate matrix elements (h0s1, nln, nln)
+          view3D<double> const & aHSm, // atomic emm-degenerate matrix elements (h0s1, nln, nln)
           int const echo=0) const {
         int const nSHO = sho_tools::nSHO(numax);
         order = sho_tools::order_lmn;
@@ -1889,7 +1889,11 @@ extern "C" {
 #else
                     int const nrn = 0; 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
-                    if (1 == nn[ell]) cprj[0] = true_norm[iln]; // if nn[ell] == 1, the partial wave #0 can coincides with the eigenstate
+                    if (1 == nn[ell]) {
+                          cprj[0] = true_norm[iln]; // if nn[ell] == 1, the partial wave #0 can coincides with the eigenstate
+                    } else {
+                        warn("Unable to represent %c-states with nn > 1", ellchar[ell], nn[ell]);
+                    }
 #endif
                     
                     // now set the density_matrix in order_lmn

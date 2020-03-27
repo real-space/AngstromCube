@@ -1186,6 +1186,66 @@ This is along the line of evaluating the nuclear repulsion energy
 \end{align}
 where also the case $j = i$ is excluded (although due to a divergent expression).
 
+%% Some thoughts on the single_atom module
+%% in isolation, we so far have the possibility not to transfer the
+%% occupation numbers from the core to the valence band.
+%% With all states treated as core state we get the same results
+%% as the module atom_core, 
+%% 			in fact, we could consider to make single atom
+%% 			so versatile as to replace atom_core...
+%% Now for the full DFT calculation, we typically need a start
+%% density. Currently, potential_generator and the single_atom::[atom_update]
+%% interface support the setup of a superposition of spherical atom centered
+%% valence densities which are generated from the occupation numbers marked as
+%% valence. If we have this spherical_valence_density, we need to account for
+%% its charge deficit in the qlm's to get the system neutral.
+%% or, we could have a rough number be integrating the r^2-grid
+%% the computing the 3D spatial integral and adding to q_00 
+
+%% maybe, we can also incorporate the spherical_valence_density
+%% into the workflow of computing a reference atom energy.
+%% The reference atom energy is subtracted from the all-electron total energy
+%% in order to work with smaller numbers.
+%% We have to see if we need to confine the spherical potential artificially
+%% e.g. in the situation of ionization with additional electrons.
+%% The reference calculation would have 
+%% 		a) the same potential as the all-electron calculation but then, 
+%%         potential and density do not belong to each other. 
+%% 		b) each have their own potential
+
+%% -t atom_core.
+%% # scf_atom  Z=29  E_tot= -1651.876238543 Ha
+%% # scf_atom  Z=29  E_kin= 1675.060063566 E_xc= -64.646370807 E_es= -3262.289931302 Ha
+%% # scf_atom  Z=29  E_Coulomb= -3974.589211915 E_Hartree= 712.299280613 Ha
+
+%% # scf_atom  Z=111  E_tot= -44246.825520079 Ha
+%% # scf_atom  Z=111  E_kin= 52503.526768673 E_xc= -632.297804761 E_es= -96118.054483991 Ha
+%% # scf_atom  Z=111  E_Coulomb= -112339.247198631 E_Hartree= 16221.192714640 Ha
+
+%% # scf_atom  Z=120  converged in 5 iterations to res=0.0e+00, E_tot= -54020.644039128 Ha
+%% # scf_atom  Z=120  E_kin= 65862.495581050 E_xc= -724.329328545 E_es= -119158.810291632 Ha
+%% # scf_atom  Z=120  E_Coulomb= -138447.053311611 E_Hartree= 19288.243019978 Ha
+
+%                  energies[E_eig] = eigenvalue_sum;
+%                  energies[E_kin] = energies[E_eig] - energies[E_Htr]*2
+%                                  - energies[E_Cou] - energies[E_vxc]; // total kinetic energy
+%                  energies[E_est] = energies[E_Htr] + energies[E_Cou]; // total electrostatic energy
+%                  energies[E_tot] = energies[E_eig] - energies[E_Htr]
+%                                  + energies[E_exc] - energies[E_vxc]; // total energy
+
+% eigenvalue_sum = \sum_n f_n \epsilon_n
+% energies[E_Htr] = 1/2 \int (4\pi) r dr r*V_es[n] n(r)
+% energies[E_Cou] =  -Z \int (4\pi) r dr n(r)
+
+%% In any case, huge energy contributions stem from the core.
+%% In the open situation with an extended valence density,
+%% and partial waves which are not based on eigenstates (i.e. arbitrary energy parameters)
+%% we cannot compute a total energy for the single atom.
+%% We could try to find, for each ell (and spin)-channel separately,
+%% valence occupation numbers such that the charge inside the augmentation
+%% sphere is the same. This would then give us an atomic reference density 
+%% which should cancel most of the strong energy contributions
+
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
 % ==============================================================================

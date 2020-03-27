@@ -292,9 +292,7 @@ namespace grid_operators {
           assert(sigma > 0);
           int const Zi = std::round(Z);
           a[ia] = atom_image::sho_atom_t(sigma, numax, atom_id, pos, Zi);
-          if (n_periodic_images > 1) {
-              a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions, image_indices);
-          } // more than one periodic image
+          a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions, image_indices);
           
           char Symbol[4]; chemical_symbol::get(Symbol, Z);
           if (echo > 3) printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
