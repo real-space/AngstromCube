@@ -3,6 +3,8 @@
 #include <cmath> // std::min, std::max
 #include <vector> // std::vector<T>
 
+#include <algorithm> // std::minmax_element
+
 #ifndef NO_UNIT_TESTS
   #include <numeric> // std::iota
   #include "constants.hxx" // ::pi
@@ -64,6 +66,7 @@ namespace multi_grid {
   status_t restrict_to_any_grid(real_t out[], unsigned const go
                       , real_in_t const in[], unsigned const gi
                       , size_t const stride=1, int const bc=0
+                      , int const echo=0 // log-level
                       , bool const use_special_version_for_2x=true) {
       if (go < 1) return go; // early return
       if (gi < 1) return gi; // early return
@@ -71,7 +74,7 @@ namespace multi_grid {
       view2D<real_t> target(out, stride); // wrap
       view2D<real_in_t const> source(in, stride); // wrap
       
-      if ((2*go == gi) && use_special_version_for_2x) {
+      if (use_special_version_for_2x && (2*go == gi)) {
           real_t const w8 = 0.5;
           for(int io = 0; io < go; ++io) {
               set(        target[io], stride, source[2*io + 0], w8);
@@ -165,36 +168,62 @@ namespace multi_grid {
       return 0;
   } // linear_interpolation
   
+  template <typename real_t>
+  void print_min_max(real_t const *const begin, real_t const *const end
+        , int const echo=0, char const *title="<array>", char const *unit="") {
+#ifdef DEVEL
+      if (echo < 1) return;
+      auto const mm = std::minmax_element(begin, end);
+      printf("# %24s in range [%g, %g] %s\n", title, *mm.first, *mm.second, unit);
+#endif
+  } // print_min_max
+
   // now 3D functions:
   template <typename real_t, typename real_in_t=real_t, int D0=1>
   status_t restrict3D(real_t out[], real_space_grid::grid_t<D0> const & go
-            , real_in_t const in[], real_space_grid::grid_t<D0> const & gi) {
+            , real_in_t const in[], real_space_grid::grid_t<D0> const & gi
+            , int const echo=0) { // log-level
       status_t stat(0);
-      for(char d = 'x'; d  <= 'z'; ++d) {
-          assert(go(d) < gi(d));
-          assert(go.boundary_condition(d) == gi.boundary_condition(d));
-      } // d
-      
+
+      { // scope: checks
+          int bc[3];
+          for(char d = 'x'; d  <= 'z'; ++d) {
+              assert(go(d) < gi(d));
+              bc[d-120] = gi.boundary_condition(d);
+              assert(go.boundary_condition(d) == bc[d-120]);
+              if (echo > 0) printf("# %s in %c-direction from %d to %d grid points, boundary condition %d\n", 
+                                      __func__, d, gi(d), go(d), bc[d-120]);
+          } // d
+      } // scope
+
+      print_min_max(in, in + gi.all(), echo, "input");
+
       size_t const nyx = gi('y')*gi('x');
       view2D<real_t> txy(go('z'), nyx); // restricted in z-direction
       stat += restrict_to_any_grid(txy.data(), go('z'), 
-                                           in, gi('z'), nyx, gi.boundary_condition('z'));
+                                           in, gi('z'), nyx, gi.boundary_condition('z'), echo);
       
+      print_min_max(txy.data(), txy.data() + go('z')*nyx, echo, "z-restricted");
+
       size_t const nx = gi('x');
       view2D<real_t> ty(go('z'), go('y')*nx); // restricted in y-direction
       for(int z = 0; z < go('z'); ++z) {
           stat += restrict_to_any_grid(ty[z], go('y'),
-                                      txy[z], gi('y'), nx, gi.boundary_condition('y'));
+                                      txy[z], gi('y'), nx, gi.boundary_condition('y'), echo);
       } // z
       
+      print_min_max(ty.data(), ty.data() + go('z')*go('y')*nx, echo, "zy-restricted");
+
       view3D<real_t> t(out, go('y'), go('x')); // wrap
       for(int z = 0; z < go('z'); ++z) {
           for(int y = 0; y < go('y'); ++y) {
               stat += restrict_to_any_grid(t(z,y), go('x'),
-                                            ty[z], gi('x'), 1, gi.boundary_condition('x'));
+                                     ty[z] + y*nx, gi('x'), 1, gi.boundary_condition('x'), echo);
           } // y
       } // z
       
+      print_min_max(out, out + go.all(), echo, "output");
+
       return stat;
   } // restrict3D
 

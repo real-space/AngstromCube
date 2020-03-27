@@ -466,9 +466,9 @@ namespace potential_generator {
 
               // restrict the local effective potential to the coarse grid
               std::vector<double> Veff(gc.all());
-              multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g);
+              multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, echo);
               if (echo > 1) {
-                  printf("\n# Total effective potential (restricted to coarse grid)");
+                  printf("\n# Total effective potential  (restricted to coarse grid)   ");
                   print_stats(Veff.data(), gc.all(), gc.dV());
               } // echo
 
@@ -531,10 +531,11 @@ namespace potential_generator {
       } // scf_iteration
 
 #ifdef DEVEL
-//   return 1; // warning! no cleanup has been run
-  
-//   printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
+//    return 1; // warning! no cleanup has been run
+//    printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
+      int const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.0));
+      if (verify_Poisson)
       { // scope: compute the Laplacian using high-order finite-differences
           finite_difference::finite_difference_t<double> const fd(g.h, 8);
           {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
@@ -596,94 +597,91 @@ namespace potential_generator {
               } // timer
           } // Jacobi solver
           
-          
       } // scope
 
-//       return 1; // warning! no cleanup has been run
+      int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.0));
+      if (use_Bessel_projection) 
+      { // scope: use a Bessel projection around each atom position to compare 3D and radial quantities
+        
 
-
-      std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
+          std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-      stat += single_atom::update(na, 0, 0, rg.data()); // get pointers
+          stat += single_atom::update(na, 0, 0, rg.data()); // get pointers
 #else
-      stat += single_atom::atom_update("radial grids", na, 0, 0, 0, reinterpret_cast<double**>(rg.data()));
+          stat += single_atom::atom_update("radial grids", na, 0, 0, 0, reinterpret_cast<double**>(rg.data()));
 #endif
 
-      double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
-      //     Ves; // analyze the electrostatic potential
-      //     rho; // analyze the augmented density
-      //     Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
-      //     cmp; // analyze only the compensator density
-      //     Vxc; // analyze the xc potential
-      //     Vtot; // analyze the total potential: Vxc + Ves
+          double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
+          //     Ves; // analyze the electrostatic potential
+          //     rho; // analyze the augmented density
+          //     Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
+          //     cmp; // analyze only the compensator density
+          //     Vxc; // analyze the xc potential
+          //     Vtot; // analyze the total potential: Vxc + Ves
 
-      for(int iptr = 0; iptr < 1; iptr += 1) { // only loop over the first 1 for electrostatics
-          // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
-          auto const values = value_pointers[iptr];
+          for(int iptr = 0; iptr < 1; iptr += 1) { // only loop over the first 1 for electrostatics
+              // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
+              auto const values = value_pointers[iptr];
 
-          // report extremal values of what is stored on the grid
-          if (echo > 1) { printf("\n# real-space grid stats:"); print_stats(values, g.all(), g.dV()); }
+              // report extremal values of what is stored on the grid
+              if (echo > 1) { printf("\n# real-space grid stats:"); print_stats(values, g.all(), g.dV()); }
 
-          for(int ia = 0; ia < na; ++ia) {
-    //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
-              float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
-              std::vector<double> qc(nq, 0.0);
+              for(int ia = 0; ia < na; ++ia) {
+        //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
+                  float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
+                  std::vector<double> qc(nq, 0.0);
 
-//            printf("\n\n# start bessel_projection:\n"); // DEBUG
-              {
-                  std::vector<double> qc_image(nq, 0.0);
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
-                      double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-                      stat += real_space_grid::bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
-                      add_product(qc.data(), nq, qc_image.data(), 1.0);
-                  } // ii
-              }
-//            printf("\n# end bessel_projection.\n\n"); // DEBUG
+    //            printf("\n\n# start bessel_projection:\n"); // DEBUG
+                  {
+                      std::vector<double> qc_image(nq, 0.0);
+                      for(int ii = 0; ii < n_periodic_images; ++ii) {
+                          double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+                          stat += real_space_grid::bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
+                          add_product(qc.data(), nq, qc_image.data(), 1.0);
+                      } // ii
+                  }
+    //            printf("\n# end bessel_projection.\n\n"); // DEBUG
 
-              scale(qc.data(), nq, pow2(solid_harmonics::Y00));
-              
-              std::vector<double> qcq2(nq, 0.0);
-              for(int iq = 1; iq < nq; ++iq) {
-                  qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
-              } // iq
-    
-//               if (echo > 6) {
-//                   printf("\n## Bessel coeff for atom #%d:\n", ia);
-//                   for(int iq = 0; iq < nq; ++iq) {
-//                       printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
-//                   }   printf("\n\n");
-//               } // echo
+                  scale(qc.data(), nq, pow2(solid_harmonics::Y00));
+                  
+                  std::vector<double> qcq2(nq, 0.0);
+                  for(int iq = 1; iq < nq; ++iq) {
+                      qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
+                  } // iq
+        
+                  if (echo > 66) {
+                      printf("\n## Bessel coeff for atom #%d:\n", ia);
+                      for(int iq = 0; iq < nq; ++iq) {
+                          printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
+                      }   printf("\n\n");
+                  } // echo
 
-              if (echo > 3) {
-                  std::vector<double> rs(rg[ia]->n);
-                  bessel_transform::transform_s_function(rs.data(), qc.data(), *rg[ia], nq, dq, true); // transform back to real-space again
-                  printf("\n## Real-space projection for atom #%d:\n", ia);
-//                   {   auto const mask = RDP_lossful_compression(rg[ia]->r, rs.data(), rg[ia]->n);
-//                       for(int ir = 0; ir < rg[ia]->n; ++ir) {
-//                           if (mask[ir]) printf("%g %g\n", rg[ia]->r[ir], rs[ir]);
-//                       }   printf("\n\n");
-//                   } // scope: RDP-mask
-                  print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
-
-                  if ((values == rho.data()) || (values == Laplace_Ves.data())) {
-                      bessel_transform::transform_s_function(rs.data(), qcq2.data(), *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
-                      printf("\n## Hartree potential computed by Bessel transform for atom #%d:\n", ia);
-//                       for(int ir = 0; ir < rg[ia]->n; ++ir) {
-//                           printf("%g %g\n", rg[ia]->r[ir], rs[ir]); 
-//                       }   printf("\n\n");
+                  if (echo > 3) {
+                      std::vector<double> rs(rg[ia]->n);
+                      bessel_transform::transform_s_function(rs.data(), qc.data(), *rg[ia], nq, dq, true); // transform back to real-space again
+                      printf("\n## Real-space projection for atom #%d:\n", ia);
                       print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
-                  } // density
-              } // echo
-          } // ia
 
-      } // iptr loop for different quantities represented on the grid.
+                      if ((values == rho.data()) || (values == Laplace_Ves.data())) {
+                          bessel_transform::transform_s_function(rs.data(), qcq2.data(), *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
+                          printf("\n## Hartree potential computed by Bessel transform for atom #%d:\n", ia);
+                          print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
+                      } // density
+                  } // echo
+              } // ia
 
+          } // iptr loop for different quantities represented on the grid.
 
-      // generate a file which contains the full potential Vtot
-      if (echo > 0) {
-          char title[96]; std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
-          dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
-      } // unless all output is suppressed
+      } // scope Bessel
+
+      int const export_Vtot = int(control::get("potential_generator.export.vtot", 1.));
+      if (export_Vtot) {
+          // generate a file which contains the full potential Vtot
+          if (echo > 0) {
+              char title[96]; std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
+              dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
+          } // unless all output is suppressed
+      } // export_Vtot
 
 #endif // DEVEL
 

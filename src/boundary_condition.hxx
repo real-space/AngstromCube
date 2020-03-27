@@ -114,16 +114,14 @@ namespace boundary_condition {
 
   inline status_t test_periodic_images(int const echo=7) {
       if (echo > 2) printf("\n# %s %s \n", __FILE__, __func__);
-      double const cell[] = {1,2,3}; //, rcut = -6.f;
+      double const cell[] = {1,2,3}, rcut = 6.f;
       int const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
       double *ipos{nullptr};
       int8_t *iidx{nullptr};
-      for(int k = 0; k < 5; ++k) { float const rcut = -k;
       auto const nai = periodic_images(&ipos, cell, bc, rcut, echo, &iidx);
       if (echo > 2) printf("# found %d images\n", nai);
       delete[] ipos;
       delete[] iidx;
-      } // k
       return 0;
   } // test_periodic_images
 
