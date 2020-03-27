@@ -1,7 +1,8 @@
 #pragma once
 
 #include <cstdio> // printf
-#include <cmath> // std::ceil
+#include <cmath> // std::ceil, std::sqrt
+#include <cstdint> // int8_t
 #include "inline_math.hxx"
 
 #include "status.hxx" // status_t
@@ -13,24 +14,34 @@
   
 namespace boundary_condition {
 
-  inline int periodic_images(double **ipos, double const cell[3], // orthorhombic cell parameters
-                             int const bc[3], float const rcut, int const echo=0) {
-      auto const cell_diagonal2 = pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]) + pow2(rcut);
-      int ni_xyz[3], ni_max = 1;
+  inline int periodic_images(double **ipos // pointer to array of periodic positions [4*n]
+                           , double const cell[3] // orthorhombic cell parameters
+                           , int const bc[3] // boundary condition selectors
+                           , float const rcut // truncation radius
+                           , int const echo=0 // log-level
+                           , int8_t **iidx=nullptr // pointer to array of indices [4*n]
+                            ) { // log-level
+      auto const cell_diagonal2 = pow2(rcut)
+                                + pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]);
+      int ni_xyz[3], ni_max{1};
       for(int d = 0; d < 3; ++d) {
-          ni_xyz[d] = 0;
           if (Periodic_Boundary == bc[d]) {
-              ni_xyz[d] = (int)std::ceil(rcut/cell[d]);
+              ni_xyz[d] = int(std::ceil(rcut/cell[d]));
+              assert(ni_xyz[d] <= 127); // warning: int8_t has range [-128, 127]
+              ni_max *= (ni_xyz[d] + 1 + ni_xyz[d]);
+          } else {
+              // other boundary conditions, e.g. isolated
+              ni_xyz[d] = 0;
           } // periodic
-          ni_max *= (ni_xyz[d] + 1 + ni_xyz[d]);
       } // d
-      if (echo > 5) printf("# check %d x %d x %d = %d images\n", 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
+      if (echo > 5) printf("# %s: check %d x %d x %d = %d images\n",
+          __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
       auto const pos = new double[ni_max*4];
+      auto const idx = new int8_t[ni_max*4];
       for(int d = 0; d < 4; ++d) pos[d] = 0; // zero image
       int ni = 1;
       for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {
           for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {
-              if (echo > 6) printf("#   ");
               for (int ix = -ni_xyz[0]; ix <= ni_xyz[0]; ++ix) {
                   auto const px = ix*cell[0];
                   auto const py = iy*cell[1];
@@ -42,17 +53,30 @@ namespace boundary_condition {
                           pos[ni*4 + 0] = px;
                           pos[ni*4 + 1] = py;
                           pos[ni*4 + 2] = pz;
-                          pos[ni*4 + 3] = 0;
+                          pos[ni*4 + 3] = std::sqrt(d2); // distance
+                          idx[ni*4 + 0] = ix;
+                          idx[ni*4 + 1] = iy;
+                          idx[ni*4 + 2] = iz;
+                          idx[ni*4 + 3] = 0;
                           ++ni;
                               mark = 'x';
                       } else  mark = ' ';
                   } else      mark = 'o';
-                  if (echo > 6) printf("%c", mark);
+#ifdef DEVEL
+                  if (echo > 6) {
+                      if (ix == -ni_xyz[0]) {
+                          if (iy == -ni_xyz[1]) printf("# %s z=%i\n", __func__, iz);
+                          printf("#%4i  | ", iy); // before first x
+                      } // first x
+                      printf("%c", mark);
+                      if (ix == ni_xyz[0]) printf(" |\n"); // after last x
+                  } // echo
+#endif
               } // ix
-              if (echo > 6) printf("\n");
           } // iy
       } // iz
       *ipos = pos;
+      if (nullptr != iidx) { *iidx = idx; } else { delete[] idx; } // export or release
       if (echo > 1) printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
       return ni;
   } // periodic_images

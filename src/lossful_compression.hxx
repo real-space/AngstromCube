@@ -19,6 +19,7 @@
     double const x_dist = x_list[pl] - x0;
     double const y_dist = y_list[pl] - y0;
     double const det = x_dist*x_dist + y_dist*y_dist;
+    if (det <= 0) return -1; // failed
     double const det_inv = 1./det;
 
     for(int i = p0 + 1; i < pl; ++i) { // loop over all points in between
@@ -28,13 +29,13 @@
             // solve
             //    p0x + s0*x_dist == pix + si*y_dist == 0
             //    p0y + s0*y_dist == piy - si*x_dist == 0
-            // for s, t:
+            // for s0, si:
             //    / x_dist   -y_dist \   / s0 \     / pix - p0x \
             //    |                  | * |    |  == |           |
             //    \ y_dist    x_dist /   \ si /     \ piy - p0y /
             //
             // solution: adjoint matrix divided by determinant
-            //    / s0 \     / x_dist    y_dist \   / pix - p0x \     1
+            //    / s0 \     /  x_dist   y_dist \   / pix - p0x \     1
             //    |    |  == |                  | * |           |  * ----
             //    \ si /     \ -y_dist   x_dist /   \ piy - p0y /    det
             */
