@@ -4,6 +4,7 @@
 #include <cstdio> // printf, sprintf
 #include <cassert> // assert
 #include <map> // std::map
+#include <utility> // std::pair<T1,T1>, std::make_pair
 
 #include "recorded_warnings.hxx"
 
@@ -25,7 +26,8 @@ namespace recorded_warnings {
       return (simple_string_hash(file) << LineBits) | (line & ((1ul << LineBits) - 1));
   } // combinded_hash
 
-  class WarningRecord {
+  class WarningRecord 
+  {
   private:
       char*     message_;
       uint64_t  hash_;
@@ -76,7 +78,7 @@ namespace recorded_warnings {
 
 
 
-  char* _manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
+  std::pair<char*,int> _manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
     if (echo > 6) printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
                       __FILE__, __LINE__, __func__, file, line, echo);
 
@@ -110,17 +112,18 @@ namespace recorded_warnings {
             if (echo > 1) printf("# clear all %ld warnings from records\n", map_.size());
             map_.clear();
         }
-        return nullptr;
+        return std::make_pair(nullptr, 0);
 
     } else { // special functions
-
+      
         // regular usage with file and line
-        char const * has_slash = std::strrchr(file, '/');
-        char const * short_file = has_slash ? (has_slash + 1) : file;
-        // path name to source file was removed
+      
+        // remove path name to source file
+        auto const short_file = after_last_slash(file);
         auto const hash = combined_hash(short_file, line);
+        
+        WarningRecord *w;
         auto const search = map_.find(hash);
-        WarningRecord * w{nullptr};
         if (map_.end() != search) {
             if (echo > 1) printf("# %s: found entry for hash %16lx\n", __func__, hash);
             w = & search->second;
@@ -134,43 +137,35 @@ namespace recorded_warnings {
         // we could have a segfault later and do not know where that could be coming from
         
         // configuration:
-        bool const WarningsToLog = true;
-        bool const WarningsToErr = true;
-        int  const SilenceAfterSimilarWarnings = 2;
-        
+        int const MaxWarningsToErr =  1; // show max M warnings in stderr, negative means all
+        int const MaxWarningsToLog =  3; // show max |M| warnings in stdout, negative
+                // values suppress the "# This warning will not be shown again!" info
+
+        int flags{0};
         int const times_printed = w->get_times_printed();
-        auto const msg = w->get_message();
+        if (times_printed < std::abs(MaxWarningsToLog)) {
+            flags |= 1; // 1: message to stdout
+            if (times_printed == MaxWarningsToLog - 1) 
+                flags |= 4; // "# This warning will not be shown again!"
+        } // print to stdout
+        if ((MaxWarningsToErr < 0) || (times_printed < MaxWarningsToErr)) flags |= 2; // 2: message to stderr
+        if (flags) w->increment_times_printed(); // will print message to stdout or stderr
         
-        if (times_printed < std::abs(SilenceAfterSimilarWarnings)) {
-            if (WarningsToLog) {
-                std::fprintf(stdout, "# Warning: %s\n", msg);
-                // inform about the silencing
-                if (times_printed == SilenceAfterSimilarWarnings) {
-                    std::fprintf(stdout, "# This warning will not be shown again!\n");
-                }
-            } // WarningsToLog
-            if (WarningsToErr) {
-                std::fprintf(stderr, "%s:%d Warning(\"%s\")\n", w->get_sourcefile(), w->get_sourceline(), msg);
-            } // WarningsToErr
-            if (WarningsToLog) std::fprintf(stdout, "\n"); // give more optical weight to the warning lines
-            w->increment_times_printed();
-        } // print to stdout and stderr
-        
-        return msg;
+        return std::make_pair(w->get_message(), flags);
     } // special functions
 
   } // _manage_warnings
 
-  char* _new_warning(char const *file, int const line, char const *func=nullptr) {
+  std::pair<char*,int> _new_warning(char const *file, int const line, char const *func=nullptr) {
       return _manage_warnings(file, line, func);
   } // _new_warning
 
   status_t show_warnings(int const echo) {
-      return (nullptr != _manage_warnings("?",  0, nullptr, echo));
+      return (nullptr != _manage_warnings("?",  0, nullptr, echo).first);
   } // show_warnings
 
   status_t clear_warnings(int const echo) {
-      return (nullptr != _manage_warnings("?", -1, nullptr, echo));
+      return (nullptr != _manage_warnings("?", -1, nullptr, echo).first);
   } // clear_warnings
 
 
