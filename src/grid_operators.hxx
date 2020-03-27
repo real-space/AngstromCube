@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint> // int8_t
+
 #include "status.hxx" // status_t
 
 #include "grid_operators.hxx"
@@ -275,8 +277,9 @@ namespace grid_operators {
 
       double const cell[] = {g[0]*g.h[0], g[0]*g.h[1], g[2]*g.h[2]};
       double *periodic_image_positions{nullptr};
+      int8_t *image_indices{nullptr};
       int const n_periodic_images = boundary_condition::periodic_images(
-            &periodic_image_positions, cell, g.boundary_conditions(), rcut, echo);
+            &periodic_image_positions, cell, g.boundary_conditions(), rcut, echo, &image_indices);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       a.resize(na);
@@ -290,7 +293,7 @@ namespace grid_operators {
           int const Zi = std::round(Z);
           a[ia] = atom_image::sho_atom_t(sigma, numax, atom_id, pos, Zi);
           if (n_periodic_images > 1) {
-              a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions);
+              a[ia].set_image_positions(pos, n_periodic_images, periodic_image_positions, image_indices);
           } // more than one periodic image
           
           char Symbol[4]; chemical_symbol::get(Symbol, Z);

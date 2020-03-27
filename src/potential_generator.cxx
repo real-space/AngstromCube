@@ -256,7 +256,7 @@ namespace potential_generator {
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
 #ifdef DEVEL
-      std::vector<double> Laplace_Ves(g.all());
+      std::vector<double> Laplace_Ves(g.all(), 0.0);
 #endif
       std::vector<double>  rho(g.all());
       std::vector<double>  Vxc(g.all());
@@ -347,7 +347,7 @@ namespace potential_generator {
               // add compensators cmp to rho
               add_product(rho.data(), g.all(), cmp.data(), 1.);
               if (echo > 1) {
-                  printf("\n# augmented charge density grid stats:");
+                  printf("\n# augmented charge density:");
                   print_stats(rho.data(), g.all(), g.dV());
               } // echo
 
@@ -444,35 +444,34 @@ namespace potential_generator {
           std::vector<double> rhov_new(g.all(), 0.0); // new valence density
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
+#ifdef DEVEL
               for(int ia = 0; ia < na; ++ia) {
                   if (echo > 6) {
                       double const *const aHm = atom_mat[ia];
-                      int const ncoeff = sho_tools::nSHO(numax[ia]);
-                      printf("\n# atom-centered %dx%d Hamiltonian (%s) for atom index %i\n", 
-                                            ncoeff, ncoeff, _eV, ia);
-                      for(int i = 0; i < ncoeff; ++i) {
+                      int const n = sho_tools::nSHO(numax[ia]);
+                      printf("\n# atom-centered %dx%d Hamiltonian (%s) for atom index #%i\n", n, n, _eV, ia);
+                      for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
-                          for(int j = 0; j < ncoeff; ++j) {
-                              printf(" %.9g", aHm[i*ncoeff + j]*eV);
+                          for(int j = 0; j < n; ++j) {
+                              printf(" %.3f", aHm[i*n + j]*eV);
                           }   printf("\n");
                       } // i
                   } // echo
               } // ia
-
+#endif
               // create a coarse grid descriptor
-              real_space_grid::grid_t<1> gc(g[0]/2, g[1]/2, g[2]/2);
-              gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]);
+              real_space_grid::grid_t<1> gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
+              gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
               gc.set_boundary_conditions(g.boundary_conditions());
 
               // restrict the local effective potential to the coarse grid
               std::vector<double> Veff(gc.all());
-              multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, echo);
+              multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, 0); // mute
               if (echo > 1) {
                   printf("\n# Total effective potential  (restricted to coarse grid)   ");
                   print_stats(Veff.data(), gc.all(), gc.dV());
               } // echo
 
-              std::vector<atom_image::sho_atom_t> a;
               view2D<double> xyzZinso(na, 8);
               for(int ia = 0; ia < na; ++ia) {
                   set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
@@ -481,6 +480,7 @@ namespace potential_generator {
                   xyzZinso[ia][6] = .55; // sigma, ToDo: get sigma_prj from LiveAtom
                   xyzZinso[ia][7] = 0;   // __not_used__
               } // ia
+              std::vector<atom_image::sho_atom_t> a;
               stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, 8, gc, echo, atom_mat.data());
               
               // construct grid-based Hamiltonian and overlap operator descriptor
@@ -579,7 +579,7 @@ namespace potential_generator {
                   res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
                   if (echo > 1) {
                       printf("# Jacobi iteration %i: residuals abs %.2e rms %.2e\n", k, res_a, res_2);
-                      if (echo > 9) { printf("# it%i Ves grid stats:", k); print_stats(x_kp1, g.all(), g.dV()); }
+                      if (echo > 9) { printf("# it%i Ves:", k); print_stats(x_kp1, g.all(), g.dV()); }
                   } // echo
               } // k
 
@@ -624,32 +624,30 @@ namespace potential_generator {
               auto const values = value_pointers[iptr];
 
               // report extremal values of what is stored on the grid
-              if (echo > 1) { printf("\n# real-space grid stats:"); print_stats(values, g.all(), g.dV()); }
+              if (echo > 1) { printf("\n# real-space:"); print_stats(values, g.all(), g.dV()); }
 
               for(int ia = 0; ia < na; ++ia) {
         //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
                   float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
                   std::vector<double> qc(nq, 0.0);
 
-    //            printf("\n\n# start bessel_projection:\n"); // DEBUG
-                  {
+                  { // scope: Bessel core
                       std::vector<double> qc_image(nq, 0.0);
                       for(int ii = 0; ii < n_periodic_images; ++ii) {
                           double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                           stat += real_space_grid::bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
                           add_product(qc.data(), nq, qc_image.data(), 1.0);
                       } // ii
-                  }
-    //            printf("\n# end bessel_projection.\n\n"); // DEBUG
+                  } // scope
 
-                  scale(qc.data(), nq, pow2(solid_harmonics::Y00));
+                  scale(qc.data(), nq, Y00sq);
                   
                   std::vector<double> qcq2(nq, 0.0);
                   for(int iq = 1; iq < nq; ++iq) {
                       qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
                   } // iq
         
-                  if (echo > 66) {
+                  if (echo > 9) {
                       printf("\n## Bessel coeff for atom #%d:\n", ia);
                       for(int iq = 0; iq < nq; ++iq) {
                           printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
