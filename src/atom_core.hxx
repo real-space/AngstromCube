@@ -11,11 +11,11 @@ namespace atom_core {
 
   status_t scf_atom(
       radial_grid_t const &g, // radial grid descriptor
-      float const Z, // atomic number
+      double const Z, // atomic number
       int const echo=0); // log output level
 
-  status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, float const Z,
-                   char const name[]="Zeff", float const factor=1, int const echo=0);
+  status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, double const Z,
+                   char const name[]="Zeff", double const factor=1, int const echo=0);
 
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0);
 

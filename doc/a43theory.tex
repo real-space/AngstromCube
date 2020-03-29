@@ -1244,7 +1244,33 @@ where also the case $j = i$ is excluded (although due to a divergent expression)
 %% We could try to find, for each ell (and spin)-channel separately,
 %% valence occupation numbers such that the charge inside the augmentation
 %% sphere is the same. This would then give us an atomic reference density 
-%% which should cancel most of the strong energy contributions
+%% which should cancel most of the strong energy contributions.
+%% Do we know the ell-resolved charge inside the sphere?
+%% Yes, sum the diagonal values of the atomic density matrix that 
+%% have the same spin, needs renormalization.
+%% Then, we can construct an eigenvalue sum with the newly found
+%% occupation numbers f_n and the eigenvalues \epsilon_n of the spherical valence states.
+%% For the Hartree energy, we can form the integral between the spherical component
+%% of the true electrostatic potential and the new density. How about the shifts?
+%% The Coulomb energy is only a function of the new density.
+%% Restrict the integrals to the sphere and reduce the eigenvalue sum by the part
+%% of charge inside the sphere.
+%% How about the XC contributions?
+
+%% Alternative (simple):
+%% we run -t atom_core. +atom_core.test.Z=0 +atom_core.test.Z.inc=1 +atom_core.test.Z.end=120
+%% (actually, we could go up to 121 here)
+%% and fit, the converged E_tot values:
+% E_tot = a0 * Z^a1
+%	a0 = -0.345969
+%	a1 = 2.49667
+%
+%Chi-square: 1.1103e+06
+%Correlation coefficient: 0.999984
+%Theil U coefficent: 0.00443971
+%%
+%% We could do the same to all components of the total energy ...
+
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
