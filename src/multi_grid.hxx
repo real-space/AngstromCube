@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio> // printf
 #include <cmath> // std::min, std::max
 #include <vector> // std::vector<T>
 
@@ -8,6 +9,8 @@
 #ifndef NO_UNIT_TESTS
   #include <numeric> // std::iota
   #include "constants.hxx" // ::pi
+  #include "simple_math.hxx" // ::random
+  #include "debug_output.hxx" // dump_to_file
 #endif
 
 #include "real_space_grid.hxx" // ::grid_t
@@ -84,7 +87,7 @@ namespace multi_grid {
 
       } else { // use_special_version_for_2x
           assert(go <= gi); 
-          if(go == gi) warn("restriction is a copy operation for %d gri points", go);
+          if(go == gi) warn("restriction is a copy operation for %d grid points", go);
           
           // any other grid number ratio
           double const ratio = go/double(gi);
@@ -132,7 +135,7 @@ namespace multi_grid {
           set(buffer[0], stride, source[gi - 1]); // fill location #-1 with element #2 
       } // periodic boundary condition
 
-      if (echo > 2) printf("# %s from %d to %d grid points (inner dim %d)\n", __func__, gi, go, stride);
+      if (echo > 2) printf("# %s from %d to %d grid points (inner dim %ld)\n", __func__, gi, go, stride);
       
       if ((go == 2*gi) && use_special_version_for_2x) {
           real_t const w14 = 0.25, w34 = 0.75;
@@ -380,12 +383,132 @@ namespace multi_grid {
       stat += interpolate3D(in.data(), gi, out.data(), go);
       return stat;
   } // test_restrict_interpolate
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  // toy model for testing the V_cycle structure, operator A = stencil{1, -2, 1}
+  template <typename real_t>
+  inline double jacobi(real_t x[], real_t r[], real_t const b[], unsigned const k, double const h) {
+      // solve A*x == b on a 2^k-grid
+      size_t const g = 1ul << k;
+      double const c0inv = -.5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
+      
+      double norm2{0};
+      real_t x_prev = x[g - 1]; // init
+      for(int i = 0; i < g; ++i) {
+          real_t const xi = x[i];
+          real_t const x_next = x[(i + 1) % g];
+          
+          real_t const Lx = b[i] - c1*x_prev - c1*x_next;
+          x[i] = c0inv*Lx; // new solution, Jacobi update formula
+          r[i] = c0*xi - Lx; // residual vector r = A*x - b
+          
+          norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
+          x_prev = xi; // loop-carried dependency!
+      } // i
+      
+      return norm2/g;
+  } // jacobi
+
+  template <typename real_t>
+  inline status_t V_cycle(real_t x[], real_t const b[], unsigned const k, int const echo=0, double const h=1
+                         , short const nu1=7, short const nu2=7) {
+      std::vector<char> tabs((echo > 0)*4*k + 1, ' '); tabs[(echo > 0)*4*k] = 0;
+      if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
+      status_t stat(0);
+
+      size_t const g = 1ul << k; // number of grid points
+      std::vector<real_t> r_vec(g); // get memory
+      auto const r = r_vec.data(); // residual vector
+
+      {   double rn{-1};
+          for(int i = 0; i < nu1; ++i) {
+              rn = jacobi(x, r, b, k, h);
+              if (echo > 9) printf("# %s %s level = %i  pre-smoothing step %i residual norm %g\n", __func__, tabs.data(), k, i, rn);
+          } // pre-smoothing
+          if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu1, rn);
+      }
+      
+      if (k > 1) {
+          size_t const gc = 1ul << (k - 1);
+          if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
+          std::vector<real_t> uc(gc, 0.f), rc(gc);
+          double const hc = 2*h; // coarser grid spacing
+
+          stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true);
+
+          stat += V_cycle(uc.data(), rc.data(), k-1, echo, hc); // recursive invocation
+          
+          stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true);
+          
+          for(int i = 0; i < g; ++i) x[i] -= r[i];
+      } // coarsen
+      
+      { // scope: subtract average (necessary if all boundary_conditions are periodic)
+          double avg{0}; for(int i = 0; i < g; ++i) { avg += x[i]; }
+          avg /= g;      for(int i = 0; i < g; ++i) { x[i] -= avg; }
+      } // scope: subtract average
+
+      {   double rn{-1};
+          for(int i = 0; i < nu2; ++i) {
+              rn = jacobi(x, r, b, k, h);
+              if (echo > 9) printf("# %s %s level = %i post-smoothing step %i residual norm %g\n", __func__, tabs.data(), k, i, rn);
+          } // post-smoothing
+          if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu2, rn);
+      }
+
+      if (echo > 0) printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
+      return stat;
+  } // V_cycle
+  
+  template <typename real_t>
+  inline status_t test_V_cycle(int const echo=0) {
+      unsigned const k = 12;
+      size_t const g = 1ul << k;
+      std::vector<real_t> x(g, 0.f), b(g, 0.f);
+      double avg{0};
+      for(int i = 0; i < g; ++i) {
+          b[i] = simple_math::random(-1.f, 1.f); // always get the random values in float, so they are the same for float and double versions
+          avg += b[i];
+      } // i
+      avg /= g; for(int i = 0; i < g; ++i) { b[i] -= avg; } // make b charge neutral
+
+      if (echo > 0) printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
+      auto const stat = V_cycle(x.data(), b.data(), k, echo);
+
+      double norm2{0};
+      FILE* f = (echo > 9) ? fopen("multi_grid.out.V_cycle.dat", "w") : nullptr;
+      if (f) fprintf(f, "## index i, solution x[i], Ax[i], residual r[i], right hand side b[i] for i < %ld\n", g);
+      for(int i = 0; i < g; ++i) {
+          auto const Ax = x[(i - 1) % g] + x[(i + 1) % g] - 2*x[i]; // simplest 1D finite-difference Laplacian
+          auto const res = Ax - b[i];
+          norm2 += res*res;
+          if (f) fprintf(f, "%i %g %g %g %g\n", i, x[i], Ax, res, b[i]);
+      } // i
+      if (f) fclose(f);
+      if (echo > 1) printf("# %s residual %.2e\n", __func__, norm2/g);
+      return stat;
+  } // test_V_cycle
   
   inline status_t all_tests(int const echo=0) { 
       status_t stat{0};
-      stat += test_transfer(echo);
-      stat += test_analysis(echo);
-      stat += test_restrict_interpolate(echo);
+//       stat += test_transfer(echo);
+//       stat += test_analysis(echo);
+//       stat += test_restrict_interpolate(echo);
+      stat += test_V_cycle<double>(echo);
       return stat;
   } // all_tests
   
