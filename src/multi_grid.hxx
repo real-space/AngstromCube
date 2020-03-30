@@ -271,6 +271,45 @@ namespace multi_grid {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
+  inline int64_t grid_point_id(uint32_t const x, uint32_t const y, uint32_t const z) { 
+      int64_t id{0}; // 3D Morton number
+      for(int b = 0; b < 21; ++b) {
+          uint64_t const p = 1u << b; // probe bit #b
+          id |= ((x & p) << (2*b + 0)); // bit #b of x becomes bit #3b   of id
+          id |= ((y & p) << (2*b + 1)); // bit #b of y becomes bit #3b+1 of id
+          id |= ((z & p) << (2*b + 2)); // bit #b of z becomes bit #3b+2 of id
+      } // b
+      return id;
+  } // grid_point_id
+
+  inline status_t grid_point_xyz(int32_t & x, int32_t & y, int32_t & z, int64_t const id) {
+      if (id < 0) { x = -1; y = -1; z = -1; return -1; }
+      x = 0; y = 0; z = 0;
+      int64_t const one = 1;
+      for(int b = 0; b < 21; ++b) {
+          x |= ((id & (one << (3*b + 0))) >> (2*b + 0));
+          y |= ((id & (one << (3*b + 1))) >> (2*b + 1));
+          z |= ((id & (one << (3*b + 2))) >> (2*b + 2));
+      } // b
+      return 0;
+  } // grid_point_xyz
+  
+  inline status_t test_Morton_indices(int const echo=0) {
+      status_t stat(0);
+      for(int n = 0; n < 99; ++n) {
+          uint32_t xyz[3]; for(int d = 0; d < 3; ++d) xyz[d] = simple_math::random(0, 9999);
+          int32_t abc[3];
+          auto const id = grid_point_id(xyz[0], xyz[1], xyz[2]);
+          stat += grid_point_xyz(abc[0], abc[1], abc[2], id);
+          for(int d = 0; d < 3; ++d) stat += (abc[d] != xyz[d]);
+          if (echo > 9) printf("# %s %5d %5d %5d --> %ld --> %5d %5d %5d\n",
+              __func__, xyz[0], xyz[1], xyz[2], id, abc[0], abc[1], abc[2]);
+      } // n
+      return stat;
+  } // test_Morton_indices
+  
+
+
   inline status_t check_general_restrict(unsigned const ng, int const echo=0, char const dir='?') {
       unsigned const k = nearest_binary_power(ng);
       unsigned const nb = 1ull << k;
@@ -415,7 +454,7 @@ namespace multi_grid {
           real_t const Lx = b[i] - c1*x_prev - c1*x_next;
           x[i] = c0inv*Lx; // new solution, Jacobi update formula
           r[i] = c0*xi - Lx; // residual vector r = A*x - b
-          
+
           norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
           x_prev = xi; // loop-carried dependency!
       } // i
@@ -427,7 +466,7 @@ namespace multi_grid {
   inline status_t V_cycle(real_t x[], real_t const b[], unsigned const k, int const echo=0, double const h=1
                          , short const nu1=7, short const nu2=7) {
       std::vector<char> tabs((echo > 0)*4*k + 1, ' '); tabs[(echo > 0)*4*k] = 0;
-      if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
+//    if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
       status_t stat(0);
 
       size_t const g = 1ul << k; // number of grid points
@@ -441,10 +480,10 @@ namespace multi_grid {
           } // pre-smoothing
           if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu1, rn);
       }
-      
+
       if (k > 1) {
           size_t const gc = 1ul << (k - 1);
-          if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
+//        if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
           std::vector<real_t> uc(gc, 0.f), rc(gc);
           double const hc = 2*h; // coarser grid spacing
 
@@ -456,7 +495,7 @@ namespace multi_grid {
           
           for(int i = 0; i < g; ++i) x[i] -= r[i];
       } // coarsen
-      
+
       { // scope: subtract average (necessary if all boundary_conditions are periodic)
           double avg{0}; for(int i = 0; i < g; ++i) { avg += x[i]; }
           avg /= g;      for(int i = 0; i < g; ++i) { x[i] -= avg; }
@@ -470,7 +509,7 @@ namespace multi_grid {
           if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu2, rn);
       }
 
-      if (echo > 0) printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
+//    if (echo > 0) printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
       return stat;
   } // V_cycle
   
@@ -508,6 +547,7 @@ namespace multi_grid {
 //       stat += test_transfer(echo);
 //       stat += test_analysis(echo);
 //       stat += test_restrict_interpolate(echo);
+      stat += test_Morton_indices(echo);
       stat += test_V_cycle<double>(echo);
       return stat;
   } // all_tests
