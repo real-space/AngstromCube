@@ -271,7 +271,10 @@ namespace multi_grid {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  inline int64_t grid_point_id(uint32_t const x, uint32_t const y, uint32_t const z) { 
+  inline int64_t grid_point_id(uint32_t const x, uint32_t const y, uint32_t const z) {
+      assert(x < (1 << 21)); 
+      assert(y < (1 << 21)); 
+      assert(z < (1 << 21));
       int64_t id{0}; // 3D Morton number
       for(int b = 0; b < 21; ++b) {
           uint64_t const p = 1u << b; // probe bit #b
@@ -305,10 +308,11 @@ namespace multi_grid {
           if (echo > 9) printf("# %s %5d %5d %5d --> %ld --> %5d %5d %5d\n",
               __func__, xyz[0], xyz[1], xyz[2], id, abc[0], abc[1], abc[2]);
       } // n
+      int32_t abc[3];
+      stat += (grid_point_xyz(abc[0], abc[1], abc[2], -9) != -1);
+      stat +=   (abc[0] != -1) + (abc[1] != -1) + (abc[2] != -1);
       return stat;
   } // test_Morton_indices
-  
-
 
   inline status_t check_general_restrict(unsigned const ng, int const echo=0, char const dir='?') {
       unsigned const k = nearest_binary_power(ng);
@@ -443,6 +447,7 @@ namespace multi_grid {
   inline double jacobi(real_t x[], real_t r[], real_t const b[], unsigned const k, double const h) {
       // solve A*x == b on a 2^k-grid
       size_t const g = 1ul << k;
+      // 2nd order finite-difference stencil: [1/h^2  -2/h^2  1/h^2]
       double const c0inv = -.5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
       
       double norm2{0};
@@ -451,9 +456,11 @@ namespace multi_grid {
           real_t const xi = x[i];
           real_t const x_next = x[(i + 1) % g];
           
-          real_t const Lx = b[i] - c1*x_prev - c1*x_next;
-          x[i] = c0inv*Lx; // new solution, Jacobi update formula
-          r[i] = c0*xi - Lx; // residual vector r = A*x - b
+          double const Lx = c1*x_prev + c1*x_next;
+          double const Dx = c0*xi;
+          double const Ax = Lx + Dx;
+          x[i] = c0inv*(b[i] - Lx); // new solution, Jacobi update formula
+          r[i] = Ax - b[i]; // residual vector r = A*x - b
 
           norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
           x_prev = xi; // loop-carried dependency!
@@ -463,9 +470,11 @@ namespace multi_grid {
   } // jacobi
 
   template <typename real_t>
-  inline status_t V_cycle(real_t x[], real_t const b[], unsigned const k, int const echo=0, double const h=1
-                         , short const nu1=7, short const nu2=7) {
-      std::vector<char> tabs((echo > 0)*4*k + 1, ' '); tabs[(echo > 0)*4*k] = 0;
+  inline status_t V_cycle(real_t x[], real_t const b[], unsigned const k
+                          , double const h=1, int const echo=0
+                          , short const nu1=7, short const nu2=3) {
+
+      std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
 //    if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
       status_t stat(0);
 
@@ -481,30 +490,32 @@ namespace multi_grid {
           if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu1, rn);
       }
 
-      if (k > 1) {
+      if (k > 3) {
           size_t const gc = 1ul << (k - 1);
 //        if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
           std::vector<real_t> uc(gc, 0.f), rc(gc);
           double const hc = 2*h; // coarser grid spacing
 
-          stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true);
+          stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true); // restriction
 
-          stat += V_cycle(uc.data(), rc.data(), k-1, echo, hc); // recursive invocation
-          
-          stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true);
-          
+          stat += V_cycle(uc.data(), rc.data(), k - 1, hc, echo); // recursive invocation
+
+          stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
+
           for(int i = 0; i < g; ++i) x[i] -= r[i];
       } // coarsen
 
-      { // scope: subtract average (necessary if all boundary_conditions are periodic)
-          double avg{0}; for(int i = 0; i < g; ++i) { avg += x[i]; }
-          avg /= g;      for(int i = 0; i < g; ++i) { x[i] -= avg; }
-      } // scope: subtract average
 
       {   double rn{-1};
           for(int i = 0; i < nu2; ++i) {
               rn = jacobi(x, r, b, k, h);
               if (echo > 9) printf("# %s %s level = %i post-smoothing step %i residual norm %g\n", __func__, tabs.data(), k, i, rn);
+              
+              { // scope: subtract average (necessary if all boundary_conditions are periodic)
+                  double avg{0}; for(int i = 0; i < g; ++i) { avg += x[i]; }
+                  avg /= g;      for(int i = 0; i < g; ++i) { x[i] -= avg; }
+              } // scope: subtract average
+              
           } // post-smoothing
           if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu2, rn);
       }
@@ -515,7 +526,7 @@ namespace multi_grid {
   
   template <typename real_t>
   inline status_t test_V_cycle(int const echo=0) {
-      unsigned const k = 12;
+      unsigned const k = 9;
       size_t const g = 1ul << k;
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
@@ -526,14 +537,15 @@ namespace multi_grid {
       avg /= g; for(int i = 0; i < g; ++i) { b[i] -= avg; } // make b charge neutral
 
       if (echo > 0) printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
-      auto const stat = V_cycle(x.data(), b.data(), k, echo);
+      double const h = 1;
+      auto const stat = V_cycle(x.data(), b.data(), k, h, echo);
 
-      double norm2{0};
+      double norm2{0}; double const hm2 = 1./(h*h);
       FILE* f = (echo > 9) ? fopen("multi_grid.out.V_cycle.dat", "w") : nullptr;
       if (f) fprintf(f, "## index i, solution x[i], Ax[i], residual r[i], right hand side b[i] for i < %ld\n", g);
       for(int i = 0; i < g; ++i) {
-          auto const Ax = x[(i - 1) % g] + x[(i + 1) % g] - 2*x[i]; // simplest 1D finite-difference Laplacian
-          auto const res = Ax - b[i];
+          double const Ax = (x[(i - 1) % g] - 2*x[i] + x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
+          double const res = Ax - b[i];
           norm2 += res*res;
           if (f) fprintf(f, "%i %g %g %g %g\n", i, x[i], Ax, res, b[i]);
       } // i
