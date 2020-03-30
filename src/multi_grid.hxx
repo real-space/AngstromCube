@@ -83,6 +83,8 @@ namespace multi_grid {
           // printf("\n# %s specialized for m==2*n\n", __func__);
 
       } else { // use_special_version_for_2x
+          assert(go <= gi); 
+          if(go == gi) warn("restriction is a copy operation for %d gri points", go);
           
           // any other grid number ratio
           double const ratio = go/double(gi);
@@ -117,10 +119,11 @@ namespace multi_grid {
   status_t linear_interpolation(real_t out[], unsigned const go
                       , real_in_t const in[], unsigned const gi
                       , size_t const stride=1, int const bc=0
+                      , int const echo=0 // log-level
                       , bool const use_special_version_for_2x=true) {
       if (go < 1) return go; // early return
       if (gi < 1) return gi; // early return
-      
+
       view2D<real_t> target(out, stride); // wrap
       view2D<real_in_t const> source(in, stride); // wrap
       view2D<real_in_t> buffer(2, stride, 0.0); // lower and upper halo buffer extending in-array
@@ -129,6 +132,8 @@ namespace multi_grid {
           set(buffer[0], stride, source[gi - 1]); // fill location #-1 with element #2 
       } // periodic boundary condition
 
+      if (echo > 2) printf("# %s from %d to %d grid points (inner dim %d)\n", __func__, gi, go, stride);
+      
       if ((go == 2*gi) && use_special_version_for_2x) {
           real_t const w14 = 0.25, w34 = 0.75;
           // linear interpolation from a grid to a 2x denser grid
@@ -199,29 +204,29 @@ namespace multi_grid {
       print_min_max(in, in + gi.all(), echo, "input");
 
       size_t const nyx = gi('y')*gi('x');
-      view2D<real_t> txy(go('z'), nyx); // restricted in z-direction
-      stat += restrict_to_any_grid(txy.data(), go('z'), 
-                                           in, gi('z'), nyx, gi.boundary_condition('z'), echo);
+      view2D<real_t> tz(go('z'), nyx); // get memory
+      stat += restrict_to_any_grid(tz.data(), go('z'), 
+                                          in, gi('z'), nyx, gi.boundary_condition('z'), echo);
       
-      print_min_max(txy.data(), txy.data() + go('z')*nyx, echo, "z-restricted");
+      print_min_max(tz.data(), tz.data() + go('z')*nyx, echo, "z-restricted");
 
       size_t const nx = gi('x');
-      view2D<real_t> ty(go('z'), go('y')*nx); // restricted in y-direction
+      view2D<real_t> ty(go('z'), go('y')*nx); // get memory
       for(int z = 0; z < go('z'); ++z) {
           stat += restrict_to_any_grid(ty[z], go('y'),
-                                      txy[z], gi('y'), nx, gi.boundary_condition('y'), echo);
+                                       tz[z], gi('y'), nx, gi.boundary_condition('y'), echo*(z == 0));
       } // z
       
       print_min_max(ty.data(), ty.data() + go('z')*go('y')*nx, echo, "zy-restricted");
 
-      view3D<real_t> t(out, go('y'), go('x')); // wrap
+      view3D<real_t> tx(out, go('y'), go('x')); // wrap
       for(int z = 0; z < go('z'); ++z) {
           for(int y = 0; y < go('y'); ++y) {
-              stat += restrict_to_any_grid(t(z,y), go('x'),
-                                     ty[z] + y*nx, gi('x'), 1, gi.boundary_condition('x'), echo);
+              stat += restrict_to_any_grid(tx(z,y), go('x'),
+                                      ty[z] + y*nx, gi('x'), 1, gi.boundary_condition('x'), echo*(z == 0)*(y == 0));
           } // y
       } // z
-      
+
       print_min_max(out, out + go.all(), echo, "output");
 
       return stat;
@@ -229,32 +234,32 @@ namespace multi_grid {
 
   template <typename real_t, typename real_in_t=real_t, int D0=1>
   status_t interpolate3D(real_t out[], real_space_grid::grid_t<D0> const & go
-               , real_in_t const in[], real_space_grid::grid_t<D0> const & gi) {
+               , real_in_t const in[], real_space_grid::grid_t<D0> const & gi, int const echo=0) {
       status_t stat(0);
       for(int d = 0; d < 3; ++d) {
           assert(go.boundary_condition(d) == gi.boundary_condition(d));
       } // d
 
-      size_t const nyx = gi('y')*gi('x');
-      view2D<real_t> txy(go('z'), nyx); // interpolated in z-direction
-      stat += linear_interpolation(txy.data(), go('z'), 
-                                           in, gi('z'), nyx, gi.boundary_condition('z'));
-      
-      size_t const nx = gi('x');
-      view2D<real_t> ty(go('z'), go('y')*nx); // interpolated in y-direction
-      for(int z = 0; z < go('z'); ++z) {
-          stat += linear_interpolation(ty[z], go('y'),
-                                      txy[z], gi('y'), nx, gi.boundary_condition('y'));
-      } // z
-      
-      view3D<real_t> t(out, go('y'), go('x')); // wrap
-      for(int z = 0; z < go('z'); ++z) {
-          for(int y = 0; y < go('y'); ++y) {
-              stat += linear_interpolation(t(z,y), go('x'),
-                                            ty[z], gi('x'), 1, gi.boundary_condition('x'));
+      view3D<real_in_t const> ti(in, gi('y'), gi('x')); // wrap
+      view3D<real_t>     tx(gi('z'), gi('y'), go('x')); // get memory
+      for(int z = 0; z < gi('z'); ++z) {
+          for(int y = 0; y < gi('y'); ++y) {
+              stat += linear_interpolation(tx(z,y), go('x'),
+                                           ti(z,y), gi('x'), 1, gi.boundary_condition('x'), echo*(z == 0)*(y == 0));
           } // y
       } // z
 
+      size_t const nx = go('x');
+      view2D<real_t> ty(go('z'), go('y')*nx); // get memory
+      for(int z = 0; z < go('z'); ++z) {
+          stat += linear_interpolation(ty[z], go('y'),
+                                     tx(z,0), gi('y'), nx, gi.boundary_condition('y'), echo*(z == 0));
+      } // z
+
+      size_t const nyx = go('y')*go('x');
+      stat += linear_interpolation(out, go('z'),
+                             ty.data(), gi('z'), nyx, gi.boundary_condition('z'), echo);
+      
       return stat;
   } // interpolate3D
   
@@ -365,22 +370,6 @@ namespace multi_grid {
       } // direction
       return stat + analyze_grid_sizes(g, echo);
   } // test_analysis
-
-//   template<typename real_t> inline
-//   double linear_regression(double fit[4], real_t const data[]
-//       , real_space_grid::grid_t<1> const & g) {
-//       set(fit, 4, 0.0); // clear
-//       double dev{0};
-//       for(int z = 0; z < g('z'); ++z) {
-//           for(int y = 0; y < g('y'); ++y) {
-//               for(int x = 0; x < g('x'); ++x) {
-//                   int const izyx = x + g('x')*(y + g('y')*z); 
-//                   dev += std::abs(data[izyx] - (izyx + 0.5));
-//               } // x
-//           } // y
-//       } // z
-//       return dev;
-//   } // linear_regression
   
   inline status_t test_restrict_interpolate(int const echo=0) {
       status_t stat(0);
@@ -388,13 +377,6 @@ namespace multi_grid {
       std::vector<float> in(gi.all()), out(go.all());
       std::iota(in.begin(), in.end(), .5f);
       stat += restrict3D(out.data(), go, in.data(), gi);
-//       for(int zyx = 0; zyx < go.all(); ++zyx) printf(" %g", out[zyx]);
-//       {   double i[4], o[4];
-//           double const dev_i = linear_regression(i, in.data(), gi);
-//           double const dev_o = linear_regression(o, out.data(), go);
-//           if (echo > 5) printf("# %s restriction: %g %g  x: %g %g  y: %g %g  z: %g %g  dev: %g %g\n",
-//                       __func__, i[0],o[0], i[1],o[1], i[2],o[2], i[3],o[3], dev_i, dev_o);
-//       }
       stat += interpolate3D(in.data(), gi, out.data(), go);
       return stat;
   } // test_restrict_interpolate

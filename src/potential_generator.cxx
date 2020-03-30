@@ -472,6 +472,19 @@ namespace potential_generator {
                   print_stats(Veff.data(), gc.all(), gc.dV());
               } // echo
 
+              
+#ifdef DEVEL
+              if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
+                // in order to test the interpolation routine
+                  std::vector<double> v_dcd(g.all(), 0.0);
+                  multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
+                  if (echo > 1) {
+                      printf("\n# Total effective potential (interpolated to dense grid)   ");
+                      print_stats(v_dcd.data(), g.all(), g.dV());
+                  } // echo
+              } // scope
+#endif
+              
               view2D<double> xyzZinso(na, 8);
               for(int ia = 0; ia < na; ++ia) {
                   set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
