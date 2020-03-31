@@ -440,7 +440,17 @@ namespace multi_grid {
   
   
   
-  
+  template <typename real_t>
+  inline double print_solutions(real_t const x[], real_t const r[], real_t const b[], size_t const g, double const h, int const echo=0, FILE* f=stdout) {
+      if (echo > 0) fprintf(f, "\n## %s i, x[i], residual[i], rhs[i]  for i < %ld\n", __func__, g);
+      double norm2{0};
+      for(int i = 0; i < g; ++i) {
+          if (echo > 0) fprintf(f, "%g %g %g %g\n", i*h, x[i], r[i], b[i]);
+          norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
+      } // i
+      if (echo > 0) fprintf(f, "%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
+      return norm2/g;
+  } // print_solutions
   
   // toy model for testing the V_cycle structure, operator A = stencil {1, -2, 1}/h^2
   template <typename real_t>
@@ -449,24 +459,30 @@ namespace multi_grid {
       // using a 2nd order finite-difference stencil: [1/h^2  -2/h^2  1/h^2]
       double const c0inv = -.5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
  
-      if (echo > 19) printf("\n## %s i, x[i], residual[i], rhs[i]  for i < %ld\n", __func__, g);
-      double norm2{0};
+      double norm2{0}, avg{0};
       real_t x_prev = x[g - 1]; // init
       for(int i = 0; i < g; ++i) {
           real_t const xi = x[i];
           real_t const x_next = x[(i + 1) % g];
           
-          double const Lx = c1*x_prev + c1*x_next;
-          double const Dx = c0*xi;
-          double const Ax = Lx + Dx;
+          double const Lx = c1*x_prev + c1*x_next; // off-diagonal terms
+          double const Dx = c0*xi; // diagonal term
+          double const Ax = Lx + Dx; // A*x
+          x_prev = xi; // loop-carried dependency!
+          
           x[i] = c0inv*(b[i] - Lx); // new solution, Jacobi update formula
-          r[i] = Ax - b[i]; // residual vector r = A*x - b
+          r[i] = b[i] - Ax; // residual vector r = A*x - b
 
           norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
-          x_prev = xi; // loop-carried dependency!
-          if (echo > 19) printf("%g %g %g %g\n", i*h, x[i], r[i], b[i]);
+          avg   += x[i]; // accumulate the average of the new solution x
       } // i
-      if (echo > 19) printf("%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
+
+      { // scope: subtract average (necessary if all boundary_conditions are periodic)
+          avg /= g;
+          for(int i = 0; i < g; ++i) {
+              x[i] -= avg;
+          } // i
+      } // scope: subtract average
 
       return norm2/g;
   } // jacobi
@@ -478,7 +494,7 @@ namespace multi_grid {
                           , double const h=1 // grid spacing
                           , char const scheme='V' // scheme in {'V','W','N'}
                           , int const echo=0 // log-level
-                          , short const nu_pre=3, short const nu_post=3) { // pre- and post-smoothing Jacobi steps
+                          , short const nu_pre=2, short const nu_post=2) { // pre- and post-smoothing Jacobi steps
 
       std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
 //    if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
@@ -488,17 +504,17 @@ namespace multi_grid {
       std::vector<real_t> r_vec(g, 0.0); // get memory
       auto const r = r_vec.data(); // residual vector
 
-      int constexpr min_level = 0;
+      int constexpr min_level = 2;
 
       if ('N' != scheme) {
           double rn{-1};
           for(int i = 0; i < nu_pre; ++i) {
-              rn = jacobi(x, r, b, g, h, echo);
+              rn = jacobi(x, r, b, g, h);
               if (echo > 9) printf("# %s %s level = %i  pre-smoothing step %i of %d residual norm %g\n", __func__, tabs.data(), k, i, nu_pre, rn);
           } // pre-smoothing
+          if (echo > 19) print_solutions(x, r, b, g, h, echo);
           if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu_pre, rn);
       } // pre-smoothing
-
       
       if (k > min_level) {
           size_t const gc = 1ul << (k - 1);
@@ -514,21 +530,15 @@ namespace multi_grid {
           real_t *const x_or_r = ('N' == scheme) ? x : r;
           stat += linear_interpolation(x_or_r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
 
-          if ('N' != scheme) { for(int i = 0; i < g; ++i) { x[i] -= r[i]; } }
+          if ('N' != scheme) { for(int i = 0; i < g; ++i) { x[i] += r[i]; } }
       } // coarsen
 
-      
       if (1) {   
           double rn{-1};
           for(int i = 0; i < nu_post; ++i) {
-              rn = jacobi(x, r, b, g, h, echo);
+              rn = jacobi(x, r, b, g, h);
               if (echo > 9) printf("# %s %s level = %i post-smoothing step %i of %d residual norm %g\n", __func__, tabs.data(), k, i, nu_post, rn);
-              
-              { // scope: subtract average (necessary if all boundary_conditions are periodic)
-                  double avg{0}; for(int i = 0; i < g; ++i) { avg += x[i]; }
-                  avg /= g;      for(int i = 0; i < g; ++i) { x[i] -= avg; }
-              } // scope: subtract average
-              
+              if (echo > 19) print_solutions(x, r, b, g, h, echo);
           } // post-smoothing
           if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu_post, rn);
       } // post-smoothing
@@ -539,21 +549,22 @@ namespace multi_grid {
   
   template <typename real_t>
   inline status_t test_V_cycle(int const echo=0) {
-      unsigned const k = control::get("multi_grid.test.levels", 6.);
-      short const nu_pre  = control::get("multi_grid.test.pre.jacobi", 3.);
-      short const nu_post = control::get("multi_grid.test.post.jacobi", 3.);
+      unsigned const k = control::get("multi_grid.test.levels", 10.);
+      short const nu_pre  = control::get("multi_grid.test.pre.jacobi",  2.);
+      short const nu_post = control::get("multi_grid.test.post.jacobi", 2.);
       char const scheme = *control::get("multi_grid.test.scheme", "V");
       size_t const g = 1ul << k;
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
       for(int i = 0; i < g; ++i) {
-          b[i] = simple_math::random(-1.f, 1.f); // always get the random values in float, so they are the same for float and double versions
+//        b[i] = simple_math::random(-1.f, 1.f); // always get the random values in float, so they are the same for float and double versions
+          b[i] = std::sin(i*2*constants::pi/g);
           avg += b[i];
       } // i
       avg /= g; for(int i = 0; i < g; ++i) { b[i] -= avg; } // make b charge neutral
 
       if (echo > 0) printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
-      double const h = 1;
+      double const h = 1./g;
       auto const stat = V_cycle(x.data(), b.data(), k, h, scheme, echo, nu_pre, nu_post);
 
       double norm2{0}; double const hm2 = 1./(h*h);
@@ -561,11 +572,11 @@ namespace multi_grid {
       if (f) fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
       for(int i = 0; i < g; ++i) {
           double const Ax = (x[(i - 1) % g] - 2*x[i] + x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
-          double const res = Ax - b[i];
+          double const res = b[i] - Ax;
           norm2 += res*res;
           if (f) fprintf(f, "%g %g %g %g %g\n", i*h, x[i], res, b[i], Ax);
       } // i
-      if (f) fclose(f);
+      if (f && (f != stdout)) fclose(f);
       if (echo > 1) printf("# %s residual %.2e\n", __func__, norm2/g);
       return stat;
   } // test_V_cycle
