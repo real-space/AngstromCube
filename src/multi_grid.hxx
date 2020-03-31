@@ -442,14 +442,14 @@ namespace multi_grid {
   
   
   
-  // toy model for testing the V_cycle structure, operator A = stencil{1, -2, 1}
+  // toy model for testing the V_cycle structure, operator A = stencil {1, -2, 1}/h^2
   template <typename real_t>
-  inline double jacobi(real_t x[], real_t r[], real_t const b[], unsigned const k, double const h) {
-      // solve A*x == b on a 2^k-grid
-      size_t const g = 1ul << k;
-      // 2nd order finite-difference stencil: [1/h^2  -2/h^2  1/h^2]
+  inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g, double const h, int const echo=0) {
+      // solve A*x == b on a g grid points
+      // using a 2nd order finite-difference stencil: [1/h^2  -2/h^2  1/h^2]
       double const c0inv = -.5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
-      
+ 
+      if (echo > 19) printf("\n## %s i, x[i], residual[i], rhs[i]  for i < %ld\n", __func__, g);
       double norm2{0};
       real_t x_prev = x[g - 1]; // init
       for(int i = 0; i < g; ++i) {
@@ -464,52 +464,65 @@ namespace multi_grid {
 
           norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
           x_prev = xi; // loop-carried dependency!
+          if (echo > 19) printf("%g %g %g %g\n", i*h, x[i], r[i], b[i]);
       } // i
-      
+      if (echo > 19) printf("%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
+
       return norm2/g;
   } // jacobi
 
   template <typename real_t>
-  inline status_t V_cycle(real_t x[], real_t const b[], unsigned const k
-                          , double const h=1, int const echo=0
-                          , short const nu1=7, short const nu2=3) {
+  inline status_t V_cycle(real_t x[] // solution
+                          , real_t const b[] // right hand side
+                          , unsigned const k // level
+                          , double const h=1 // grid spacing
+                          , char const scheme='V' // scheme in {'V','W','N'}
+                          , int const echo=0 // log-level
+                          , short const nu_pre=3, short const nu_post=3) { // pre- and post-smoothing Jacobi steps
 
       std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
 //    if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
       status_t stat(0);
 
       size_t const g = 1ul << k; // number of grid points
-      std::vector<real_t> r_vec(g); // get memory
+      std::vector<real_t> r_vec(g, 0.0); // get memory
       auto const r = r_vec.data(); // residual vector
 
-      {   double rn{-1};
-          for(int i = 0; i < nu1; ++i) {
-              rn = jacobi(x, r, b, k, h);
-              if (echo > 9) printf("# %s %s level = %i  pre-smoothing step %i residual norm %g\n", __func__, tabs.data(), k, i, rn);
-          } // pre-smoothing
-          if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu1, rn);
-      }
+      int constexpr min_level = 0;
 
-      if (k > 3) {
+      if ('N' != scheme) {
+          double rn{-1};
+          for(int i = 0; i < nu_pre; ++i) {
+              rn = jacobi(x, r, b, g, h, echo);
+              if (echo > 9) printf("# %s %s level = %i  pre-smoothing step %i of %d residual norm %g\n", __func__, tabs.data(), k, i, nu_pre, rn);
+          } // pre-smoothing
+          if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu_pre, rn);
+      } // pre-smoothing
+
+      
+      if (k > min_level) {
           size_t const gc = 1ul << (k - 1);
 //        if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
           std::vector<real_t> uc(gc, 0.f), rc(gc);
           double const hc = 2*h; // coarser grid spacing
 
-          stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true); // restriction
+          real_t const *const b_or_r = ('N' == scheme) ? b : r;
+          stat += restrict_to_any_grid(rc.data(), gc, b_or_r, g, 1, 1, 0, true); // restriction
 
-          stat += V_cycle(uc.data(), rc.data(), k - 1, hc, echo); // recursive invocation
+          stat += V_cycle(uc.data(), rc.data(), k - 1, hc, scheme, echo, nu_pre, nu_post); // recursive invocation
 
-          stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
+          real_t *const x_or_r = ('N' == scheme) ? x : r;
+          stat += linear_interpolation(x_or_r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
 
-          for(int i = 0; i < g; ++i) x[i] -= r[i];
+          if ('N' != scheme) { for(int i = 0; i < g; ++i) { x[i] -= r[i]; } }
       } // coarsen
 
-
-      {   double rn{-1};
-          for(int i = 0; i < nu2; ++i) {
-              rn = jacobi(x, r, b, k, h);
-              if (echo > 9) printf("# %s %s level = %i post-smoothing step %i residual norm %g\n", __func__, tabs.data(), k, i, rn);
+      
+      if (1) {   
+          double rn{-1};
+          for(int i = 0; i < nu_post; ++i) {
+              rn = jacobi(x, r, b, g, h, echo);
+              if (echo > 9) printf("# %s %s level = %i post-smoothing step %i of %d residual norm %g\n", __func__, tabs.data(), k, i, nu_post, rn);
               
               { // scope: subtract average (necessary if all boundary_conditions are periodic)
                   double avg{0}; for(int i = 0; i < g; ++i) { avg += x[i]; }
@@ -517,8 +530,8 @@ namespace multi_grid {
               } // scope: subtract average
               
           } // post-smoothing
-          if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu2, rn);
-      }
+          if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2e\n", __func__, tabs.data(), k, nu_post, rn);
+      } // post-smoothing
 
 //    if (echo > 0) printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
       return stat;
@@ -526,7 +539,10 @@ namespace multi_grid {
   
   template <typename real_t>
   inline status_t test_V_cycle(int const echo=0) {
-      unsigned const k = 9;
+      unsigned const k = control::get("multi_grid.test.levels", 6.);
+      short const nu_pre  = control::get("multi_grid.test.pre.jacobi", 3.);
+      short const nu_post = control::get("multi_grid.test.post.jacobi", 3.);
+      char const scheme = *control::get("multi_grid.test.scheme", "V");
       size_t const g = 1ul << k;
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
@@ -538,29 +554,30 @@ namespace multi_grid {
 
       if (echo > 0) printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
       double const h = 1;
-      auto const stat = V_cycle(x.data(), b.data(), k, h, echo);
+      auto const stat = V_cycle(x.data(), b.data(), k, h, scheme, echo, nu_pre, nu_post);
 
       double norm2{0}; double const hm2 = 1./(h*h);
-      FILE* f = (echo > 9) ? fopen("multi_grid.out.V_cycle.dat", "w") : nullptr;
-      if (f) fprintf(f, "## index i, solution x[i], Ax[i], residual r[i], right hand side b[i] for i < %ld\n", g);
+      FILE* f = (echo > 5) ? ( (echo > 9) ? stdout : fopen("multi_grid.out.V_cycle.dat", "w") ) : nullptr;
+      if (f) fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
       for(int i = 0; i < g; ++i) {
           double const Ax = (x[(i - 1) % g] - 2*x[i] + x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
           double const res = Ax - b[i];
           norm2 += res*res;
-          if (f) fprintf(f, "%i %g %g %g %g\n", i, x[i], Ax, res, b[i]);
+          if (f) fprintf(f, "%g %g %g %g %g\n", i*h, x[i], res, b[i], Ax);
       } // i
       if (f) fclose(f);
       if (echo > 1) printf("# %s residual %.2e\n", __func__, norm2/g);
       return stat;
   } // test_V_cycle
-  
-  inline status_t all_tests(int const echo=0) { 
-      status_t stat{0};
-//       stat += test_transfer(echo);
-//       stat += test_analysis(echo);
-//       stat += test_restrict_interpolate(echo);
-      stat += test_Morton_indices(echo);
-      stat += test_V_cycle<double>(echo);
+
+  inline status_t all_tests(int const echo=0) {
+      int n{0}; int const t = control::get("multi_grid.select.test", 1.); // -1:all
+      status_t stat(0);
+      if (t & (1 << n++)) stat += test_V_cycle<double>(echo);
+      if (t & (1 << n++)) stat += test_transfer(echo);
+      if (t & (1 << n++)) stat += test_analysis(echo);
+      if (t & (1 << n++)) stat += test_restrict_interpolate(echo);
+      if (t & (1 << n++)) stat += test_Morton_indices(echo);
       return stat;
   } // all_tests
   
