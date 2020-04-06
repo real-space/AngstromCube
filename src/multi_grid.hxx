@@ -454,7 +454,8 @@ namespace multi_grid {
   
   // toy model for testing the V_cycle structure, operator A = stencil {1, -2, 1}/h^2
   template <typename real_t>
-  inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g, double const h, int const echo=0) {
+  inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g
+      , double const h=1, int const echo=0, float const omega=.5) {
       // solve A*x == b on a g grid points
       // using a 2nd order finite-difference stencil: [1/h^2  -2/h^2  1/h^2]
       double const c0inv = -.5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
@@ -469,8 +470,9 @@ namespace multi_grid {
           double const Dx = c0*xi; // diagonal term
           double const Ax = Lx + Dx; // A*x
           x_prev = xi; // loop-carried dependency!
-          
-          x[i] = c0inv*(b[i] - Lx); // new solution, Jacobi update formula
+
+          double const xi_new = c0inv*(b[i] - Lx); // new solution, Jacobi update formula
+          x[i] += omega*(xi_new - x[i]);
           r[i] = b[i] - Ax; // residual vector r = A*x - b
 
           norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2
@@ -492,7 +494,7 @@ namespace multi_grid {
                           , real_t const b[] // right hand side
                           , unsigned const k // level
                           , double const h=1 // grid spacing
-                          , char const scheme='V' // scheme in {'V','W','N'}
+                          , char const scheme='V' // scheme in {'V','N'}, ToDo:'W'
                           , int const echo=0 // log-level
                           , short const nu_pre=2, short const nu_post=2) { // pre- and post-smoothing Jacobi steps
 
@@ -549,16 +551,20 @@ namespace multi_grid {
   
   template <typename real_t>
   inline status_t test_V_cycle(int const echo=0) {
-      unsigned const k = control::get("multi_grid.test.levels", 10.);
+      unsigned const k    = control::get("multi_grid.test.levels", 10.);
       short const nu_pre  = control::get("multi_grid.test.pre.jacobi",  2.);
       short const nu_post = control::get("multi_grid.test.post.jacobi", 2.);
-      char const scheme = *control::get("multi_grid.test.scheme", "V");
+      char const scheme  = *control::get("multi_grid.test.scheme", "V");
+      char const rhs     = *control::get("multi_grid.test.rhs", "random"); // r:random, s:sin(x*2pi/L)
       size_t const g = 1ul << k;
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
       for(int i = 0; i < g; ++i) {
-//        b[i] = simple_math::random(-1.f, 1.f); // always get the random values in float, so they are the same for float and double versions
-          b[i] = std::sin(i*2*constants::pi/g);
+          if ('s' == rhs | 32) {
+              b[i] = std::sin(i*2*constants::pi/g);
+          } else {
+              b[i] = simple_math::random(-1.f, 1.f); // always get the random values in float, so they are the same for float and double versions
+          }
           avg += b[i];
       } // i
       avg /= g; for(int i = 0; i < g; ++i) { b[i] -= avg; } // make b charge neutral

@@ -7,7 +7,7 @@
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
-#include "control.hxx" // ::cli
+#include "control.hxx" // ::command_line_interface
 
 #include "status.hxx" // status_t
 
@@ -158,7 +158,7 @@
       #define stringify(b) #b
       printf("%s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
       #undef  stringify
-      #undef  cro2string
+      #undef  macro2string
 #endif
       return 0;
   } // show_version
@@ -218,7 +218,7 @@
 
           } else // ci0
           if ('+' == ci0) {
-              stat += control::cli(argv[iarg] + 1); // start after the '+' char
+              stat += control::command_line_interface(argv[iarg] + 1); // start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
               ++stat; warn("# ignored command line argument \'%s\'", argv[iarg]);

@@ -55,7 +55,7 @@ namespace control {
       return _manage_variables(name, value, echo);
   } // set
 
-  status_t cli(char const *statement, int const echo) {
+  status_t command_line_interface(char const *statement, int const echo) {
       auto const equal = find_equal_sign(statement);
       if (nullptr != equal) {
           auto const equal_char = equal - statement;
@@ -71,7 +71,7 @@ namespace control {
           warn("# ignored statement \"%s\", maybe missing \'=\'", statement);
           return 1; // error, no '=' sign given
       }
-  } // cli
+  } // command_line_interface
   
   char const* get(char const *name, char const *default_value, int const echo) {
       auto const value = _manage_variables(name, nullptr, echo);
@@ -101,7 +101,7 @@ namespace control {
 
   status_t test_control(int const echo=9) {
     if (echo > 1) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t stat = 0;
+    status_t stat(0);
     // manage_variables("a", "5"); // set
     // auto const five = manage_variables("a"); // get
     // if (echo > 1) printf("# a = %s\n", five);
@@ -109,7 +109,7 @@ namespace control {
     // if (echo > 1) printf("# b = %s (%p)\n", defined, defined);
 
     set("a", "5");
-    cli("a=6");
+    command_line_interface("a=6");
     auto const a = get("a", "defaultA");
     if (echo > 1) printf("# a = %s\n", a);
 
@@ -130,7 +130,7 @@ namespace control {
     // check if there are rounding errors arising from the 
     //    ASCII representation of double precision numbers
     if (echo > 2) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t stat = 0;
+    status_t stat(0);
     auto const nmax = 100;
     double d = .2;
     for(int i = 0; i < nmax; ++i) {
