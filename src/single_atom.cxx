@@ -1936,7 +1936,7 @@ extern "C" {
         int const nSHO = sho_tools::nSHO(numax);
         view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
         auto dm_order = sho_tools::order_Ezyx;
-        if (1) create_isolated_density_matrix(density_matrix, dm_order, aHSm, echo);
+        if (0) create_isolated_density_matrix(density_matrix, dm_order, aHSm, echo);
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
@@ -2216,17 +2216,19 @@ namespace single_atom {
           break;
 
           case 'c': // interface usage: atom_update("core densities",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
-          case 'v': // interface usage: atom_update("valence densities", natoms, null, nr2=2^12, ar2=16.f, qnt=rho_v);
-          case 'z': // interface usage: atom_update("zero potentials",  natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
+          case 'v': // interface usage: atom_update("valence densities", natoms, q_00, nr2=2^12, ar2=16.f, qnt=rho_v);
+          case 'z': // interface usage: atom_update("zero potentials",   natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
+              if ('v' == how) assert(nullptr != dp);
               for(int ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != qnt[ia]);
                   int   const nr2 = ip ? ip[ia] : nr2_default;
                   float const ar2 = fp ? fp[ia] : ar2_default;
                   stat += a[ia]->get_smooth_spherical_quantity(qnt[ia], ar2, nr2, how);
+                  if ('v' == how) dp[ia] = a[ia]->spherical_valence_charge_deficit;
               } // ia
-              if (nullptr != dp) warn("please use \'%s\'-interface with nullptr as 3rd argument", what);
+              if ('v' != how && nullptr != dp) warn("please use \'%s\'-interface with nullptr as 3rd argument", what);
           } 
           break;
 

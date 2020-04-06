@@ -220,7 +220,7 @@ namespace potential_generator {
                        );
 #else
       stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data()
-                , (double**)1 // set transfer2valence=false
+                , (double**)0 // set transfer2valence= 0:true, 1:false
                 );
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
@@ -267,15 +267,17 @@ namespace potential_generator {
       char const *es_solver_name = control::get("electrostatic.solver", "iterative"); // {"fourier", "iterative", "none"}
       char const es_solver_method = *es_solver_name | 32; // should be one of {'f', 'i', 'n'}
 
+      std::vector<double> q00_valence;
       std::vector<double> rho_valence(g.all(), 0.0);
       char const *init_val_rho_name = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
       if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", init_val_rho_name);
       if ('a' == init_val_rho_name[0]) {
           auto & atom_rhov = atom_rhoc; // temporarily rename the existing allocation
+          q00_valence.resize(na);
 #ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
           stat += single_atom::update(na, 0, 0, 0, numax.data(), 0, atom_rhov.data()); // get spherical_valence_density
 #else
-          stat += single_atom::atom_update("valence densities", na, 0, nr2.data(), ar2.data(), atom_rhov.data());
+          stat += single_atom::atom_update("valence densities", na, q00_valence.data(), nr2.data(), ar2.data(), atom_rhov.data());
 #endif
           // add smooth spherical atom-centered valence densities
           stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
@@ -327,6 +329,10 @@ namespace potential_generator {
             
               // add compensation charges cmp
               for(int ia = 0; ia < na; ++ia) {
+                  if (q00_valence.size() == na) { 
+                      atom_qlm[ia][00] += Y00*q00_valence[ia]; // add the valence charge deficit from the initial rhov
+                      if (echo > -1) printf("# add %.6f electrons valence charge deficit of atom #%i\n", q00_valence[ia], ia);
+                  } // q00_valence
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
                   std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
@@ -343,6 +349,7 @@ namespace potential_generator {
                   } // echo
 #endif
               } // ia
+              q00_valence.clear(); // only in the 1st iteration
 
               // add compensators cmp to rho
               add_product(rho.data(), g.all(), cmp.data(), 1.);
