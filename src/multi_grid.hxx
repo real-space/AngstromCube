@@ -459,7 +459,7 @@ namespace multi_grid {
       return norm2/g;
   } // get_resiual_norm
   
-  // toy model for testing the V_cycle structure, operator A = stencil {1, -2, 1}/h^2
+  // toy model for testing the mg_cycle structure, operator A = stencil {1, -2, 1}/h^2
   template <typename real_t>
   inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g
       , double const h=1, int const echo=0, float const omega=.5) {
@@ -495,9 +495,62 @@ namespace multi_grid {
 
       return norm2/g;
   } // jacobi
+  
+  template <typename real_t>
+  inline status_t smoothen(real_t x[] // preliminary solution
+                    , real_t r[] // residual
+                    , real_t const b[] // right hand side
+                    , size_t const g // number of grid points
+                    , double const h // grid spacing
+                    , unsigned const maxiter // max. number of iterations
+                    , int const echo=0 // log-level
+                    , char const *which=""
+                    , float const tol=0) {
+      int iter;
+      double rn{1}; // residual norm
+      for(iter = 0; iter < maxiter && rn > tol; ++iter) {
+          rn = jacobi(x, r, b, g, h);
+          if (echo > 9) printf("# %s %ssmoothing step %i (of max %d) residual norm %g\n", __func__, which, iter, maxiter, std::log10(rn));
+//           if (echo > 29) get_residual_norm(r, x, b, g, h, stdout);
+      } // iter
+//       rn = get_residual_norm(r, x, b, g, h, (echo > 19)?stdout:0);
+      if (echo > 0) printf("# %s %d %ssmoothing steps residual norm %.1f\n", __func__, iter, which, std::log10(rn));
+      return 0;
+  } // smoothen
 
   template <typename real_t>
-  inline status_t V_cycle(real_t x[] // solution
+  inline status_t exact_solve(real_t x[] // preliminary solution
+                    , real_t const b[] // right hand side
+                    , size_t const g // number of grid points
+                    , double const h // grid spacing
+                    , int const echo=0) { // log-level
+      if (1 == g) {
+          x[0] = 0; // exact solution of a periodic electrostatic potential
+      } else
+      if (2 == g) {
+          // solve A*x == b on a g grid points using a 2nd order finite-difference
+          // stencil: [-1/h^2  2/h^2  -1/h^2] with folded back c1-coefficients:
+          // double const c0 = 2./(h*h), c1 = -.5*c0;
+          /*        / c0 2*c1 \ / x[0] \    / b[0] \ */
+          /* solve  |         | |      | == |      | */
+          /*        \ 2*c1 c0 / \ x[1] /    \ b[1] / */
+          // under the constraint that x[0] = -x[1] (and b[0] = -b[1]) and knowing that 2*c1 = -c0
+          // so :  c0*(x[0] - x[1]) == b[0]
+          // and: -c0*(x[0] - x[1]) == b[1]
+          double const c0inv = .5*(h*h);
+          double const db = b[1] - b[0];
+          double const dx = .5*c0inv*db;
+          x[0] = -.5*dx; x[1] = .5*dx;
+          if (echo > -1) printf("# %s h=%g b= %g %g, x= %g %g\n", __func__, h, b[0],b[1], x[0],x[1]);
+      } else {
+          return 1; // only these two exact solvers implemented!
+      }
+      return 0;
+  } // exact_solve
+
+  
+  template <typename real_t>
+  inline status_t mg_cycle(real_t x[] // solution
                         , real_t const b[] // right hand side
                         , unsigned const k // level
                         , double const h=1 // grid spacing
@@ -513,49 +566,48 @@ namespace multi_grid {
       std::vector<real_t> r_vec(g, 0.0); // get memory
       auto const r = r_vec.data(); // residual vector
 
-      int const min_level = control::get("multi_grid.test.min.level", 1.);
-
-      if (1) {
-          for(int i = 0; i < nu_pre; ++i) {
-              double const rn = jacobi(x, r, b, g, h);
-              if (echo > 9) printf("# %s %s level = %i  pre-smoothing step %i of %d residual norm %g\n", __func__, tabs.data(), k, i, nu_pre, std::log10(rn));
-              if (echo > 29) get_residual_norm(r, x, b, g, h, stdout);
-          } // pre-smoothing
-          double const rn = get_residual_norm(r, x, b, g, h, (echo > 19)?stdout:0);
-          if (echo > 0) printf("# %s %s level = %i after %i  pre-smoothing steps residual norm %.1f\n", __func__, tabs.data(), k, nu_pre, std::log10(rn));
-      } // pre-smoothing
+      int const min_level = control::get("multi_grid.test.min.level", 1.); // 1:only 2 grid points
 
       if (k > min_level) {
+
+          stat += smoothen(x, r, b, g, h, nu_pre, echo, " pre-");
+          
           size_t const gc = 1ul << (k - 1);
 //        if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
           std::vector<real_t> uc(gc, real_t(0)), rc(gc);
           double const hc = 2*h; // coarser grid spacing
+          
+          for (char vw = 'V'; vw <= scheme; ++vw) {
 
-          stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true); // restriction
+              stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true); // restriction
 
-          stat += V_cycle(uc.data(), rc.data(), k - 1, hc, scheme, echo - 1, nu_pre, nu_post); // recursive invocation
+              stat += mg_cycle(uc.data(), rc.data(), k - 1, hc, scheme, echo, nu_pre, nu_post); // recursive invocation
 
-          stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
+              stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
 
-          for(int i = 0; i < g; ++i) { x[i] += r[i]; }
-      } // coarsen
+              for(int i = 0; i < g; ++i) { x[i] += r[i]; }
 
-      if (1) {   
-          for(int i = 0; i < nu_post; ++i) {
-              double const rn = jacobi(x, r, b, g, h);
-              if (echo > 9) printf("# %s %s level = %i post-smoothing step %i of %d residual norm %g\n", __func__, tabs.data(), k, i, nu_post, std::log10(rn));
-              if (echo > 29) get_residual_norm(r, x, b, g, h, stdout);
-          } // post-smoothing
-          double const rn = get_residual_norm(r, x, b, g, h, (echo > 19)?stdout:0);
-          if (echo > 0) printf("# %s %s level = %i after %i post-smoothing steps residual norm %.2f\n", __func__, tabs.data(), k, nu_post, std::log10(rn));
-      } // post-smoothing
+              stat += smoothen(x, r, b, g, h, nu_post, echo, "post-");
+
+          } // vw
+
+      } else { // k > min_level
+
+          // exact solver can be plugged in here
+          if (2 == g) {
+              stat += exact_solve(x, b, g, h, echo);
+          } else {
+              stat += smoothen(x, r, b, g, h, 999, echo, "solve-", 1e-21);
+          }
+        
+      } // k > min_level
 
 //    if (echo > 0) printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
       return stat;
-  } // V_cycle
-  
+  } // mg_cycle
+
   template <typename real_t>
-  inline status_t test_V_cycle(int const echo=0) {
+  inline status_t test_mg_cycle(int const echo=0) {
       status_t stat(0);
       unsigned const k    = control::get("multi_grid.test.levels", 10.);
       short const nu_pre  = control::get("multi_grid.test.pre.jacobi",  2.);
@@ -581,11 +633,11 @@ namespace multi_grid {
       double const h = 1./g;
       
       for(int it = 0; it < nit; ++it) {
-          stat += V_cycle(x.data(), b.data(), k, h, scheme, echo, nu_pre, nu_post);
+          stat += mg_cycle(x.data(), b.data(), k, h, scheme, echo, nu_pre, nu_post);
       } // it
 
       double norm2{0}; double const hm2 = 1./(h*h);
-      FILE* f = (echo > 5) ? ( (echo > 9) ? stdout : fopen("multi_grid.out.V_cycle.dat", "w") ) : nullptr;
+      FILE* f = (echo > 5) ? ( (echo > 9) ? stdout : fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
       if (f) fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
       for(int i = 0; i < g; ++i) {
           double const Ax = (-x[(i - 1 + g) % g] + 2*x[i] -x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
@@ -596,12 +648,12 @@ namespace multi_grid {
       if (f && (f != stdout)) fclose(f);
       if (echo > 1) printf("# %s residual %.3f\n", __func__, std::log10(norm2/g));
       return stat;
-  } // test_V_cycle
+  } // test_mg_cycle
 
   inline status_t all_tests(int const echo=0) {
       int n{0}; int const t = control::get("multi_grid.select.test", 1.); // -1:all
       status_t stat(0);
-      if (t & (1 << n++)) stat += test_V_cycle<double>(echo);
+      if (t & (1 << n++)) stat += test_mg_cycle<double>(echo);
       if (t & (1 << n++)) stat += test_transfer(echo);
       if (t & (1 << n++)) stat += test_analysis(echo);
       if (t & (1 << n++)) stat += test_restrict_interpolate(echo);
