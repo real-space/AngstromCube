@@ -554,24 +554,27 @@ namespace potential_generator {
 //    return 1; // warning! no cleanup has been run
 //    printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
-      int const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.0));
+      int const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.));
       if (verify_Poisson)
       { // scope: compute the Laplacian using high-order finite-differences
-          finite_difference::finite_difference_t<double> const fd(g.h, 8);
-          {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
-              stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
-              { // Laplace_Ves should match rho
-                  double res_a{0}, res_2{0};
-                  for(size_t i = 0; i < g.all(); ++i) {
-                      res_a += std::abs(Laplace_Ves[i] - rho[i]);
-                      res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
-                  } // i
-                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
-                  if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
-              }
-          } // timer
 
+          for(int nfd = 1; nfd < verify_Poisson; ++nfd) {
+              finite_difference::finite_difference_t<double> const fd(g.h, nfd);
+              {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
+                  stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
+                  { // Laplace_Ves should match rho
+                      double res_a{0}, res_2{0};
+                      for(size_t i = 0; i < g.all(); ++i) {
+                          res_a += std::abs(Laplace_Ves[i] - rho[i]);
+                          res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
+                      } // i
+                      res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
+                      if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
+                  }
+              } // timer
+          } // nfd
 
+#if 0
           if (0) {
               // Jacobi solver for the Poisson equation: try if Ves is already the solution
               // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
@@ -616,7 +619,8 @@ namespace potential_generator {
                   }
               } // timer
           } // Jacobi solver
-          
+#endif        
+
       } // scope
 
       int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.0));

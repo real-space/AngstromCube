@@ -66,7 +66,7 @@ namespace iterative_poisson {
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
     
     finite_difference::finite_difference_t<real_t> fd(g.h, 8);
-    fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor
+    fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor in Hartree atomic units
 
     finite_difference::finite_difference_t<real_t> precond(g.h, nn_precond);
     if (use_precond) {

@@ -462,7 +462,7 @@ namespace multi_grid {
   // toy model for testing the mg_cycle structure, operator A = stencil {1, -2, 1}/h^2
   template <typename real_t>
   inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g
-      , double const h=1, int const echo=0, float const omega=.666) {
+      , double const h=1, int const echo=0, float const omega=.666666) {
       // solve A*x == b on a g grid points
       // using a 2nd order finite-difference stencil: [-1/h^2  2/h^2  -1/h^2]
       double const c0inv = .5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
@@ -491,7 +491,9 @@ namespace multi_grid {
           xavg /= g; ravg /= g;
           for(int i = 0; i < g; ++i) {
               x[i] -= xavg;
-              r[i] -= ravg; // ToDo: try this out!
+              r[i] -= ravg; // in MG methods, the residual vector is used as rhs b on the next coarser level.
+                            // since there, the same problem A*x==b is solved with the same boundary condition,
+                            // we have to fulfill the physical constraint that b is charge neutral again.
           } // i
       } // scope: subtract average
 

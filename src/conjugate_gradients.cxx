@@ -16,7 +16,7 @@
 #include "simple_math.hxx" // ::random<T>
 #include "atom_image.hxx" // ::sho_atom_t, ::atom_image_t
 #include "display_units.h" // eV, _eV
-
+#include "recorded_warnings.hxx" // warn
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -180,7 +180,7 @@ namespace conjugate_gradients {
                   auto const snorm = inner_product(nv, s[ib], Ss[ib], g.dV());
                   if (echo > 7) printf("# norm^2 of band #%i is %g\n", ib, snorm);
                   if (snorm < 1e-12) {
-                      printf("\n# CG failed for band #%i\n\n", ib); // ToDo: convert to a warning!
+                      warn("CG failed for band #%i", ib);
                       return 1;
                   }
                   real_t const snrm = 1./std::sqrt(snorm);
