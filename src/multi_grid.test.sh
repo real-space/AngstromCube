@@ -6,7 +6,7 @@ make -j && \
         +multi_grid.test.scheme=V \
         +multi_grid.test.pre.jacobi=2 \
         +multi_grid.test.post.jacobi=2 \
-        +multi_grid.test.levels=7 \
+        +multi_grid.test.levels=15 \
         +multi_grid.test.min.level=1 \
         +multi_grid.test.iterations=25 \
         +multi_grid.test.rhs=sine \
