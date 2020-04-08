@@ -26,6 +26,24 @@ extern "C" {
 
 namespace fourier_poisson {
 
+//   template<typename real_t>
+//   status_t naive_Fourier_transform(
+//                    real_t out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
+//                  , real_t imag[] // imaginary part of in when backward, imaginary part of out when forward
+//                  , real_t const in[] // (in) indexing in[(iz*ng[1] + iy)*ng[0] + ix]
+//                  , int const ng[3] // grid numbers
+//                  , char const direction='f' // in the case of backward, the representations are swapped
+//                   ) {
+//       for(int i2 = 0; i2 < ng[2]; ++i2) {
+//           for(int i1 = 0; i1 < ng[1]; ++i1) {
+//               for(int i0 = 0; i0 < ng[0]; ++i0) {
+//                   
+//               } // i0
+//           } // i1
+//       } // i2
+//   } // naive_Fourier_transform
+  
+  
   template<typename real_t>
   status_t fft_MKL(real_t out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
                  , real_t imag[] // imaginary part of in when backward, imaginary part of out when forward
@@ -63,7 +81,7 @@ namespace fourier_poisson {
       } // real_t == double
 #endif // defined HAS_FFTW
 
-      return -1; // error, no FFT library available
+      return -1;
 #endif // defined HAS_no_MKL     
   } // fft_MKL
   

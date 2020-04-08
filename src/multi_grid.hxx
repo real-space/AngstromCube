@@ -1,4 +1,4 @@
-#pragma once
+ #pragma once
 
 #include <cstdio> // printf
 #include <cmath> // std::min, std::max
@@ -462,12 +462,12 @@ namespace multi_grid {
   // toy model for testing the mg_cycle structure, operator A = stencil {1, -2, 1}/h^2
   template <typename real_t>
   inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g
-      , double const h=1, int const echo=0, float const omega=.5) {
+      , double const h=1, int const echo=0, float const omega=.666) {
       // solve A*x == b on a g grid points
       // using a 2nd order finite-difference stencil: [-1/h^2  2/h^2  -1/h^2]
       double const c0inv = .5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
 
-      double norm2{0}, avg{0};
+      double norm2{0}, xavg{0}, ravg{0};
       real_t x_prev = x[g - 1]; // init
       for(int i = 0; i < g; ++i) {
           real_t const xi = x[i];
@@ -483,13 +483,15 @@ namespace multi_grid {
           r[i] = b[i] - Ax; // residual vector r = A*x - b
 
           norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2 belonging to the input solution x (NOT TO THE OUTPUT)
-          avg   += x[i]; // accumulate the average of the new solution x
+          xavg  += x[i]; // accumulate the average of the new solution x
+          ravg  += r[i]; // accumulate the average of the residual r
       } // i
 
       { // scope: subtract average (necessary if all boundary_conditions are periodic)
-          avg /= g;
+          xavg /= g; ravg /= g;
           for(int i = 0; i < g; ++i) {
-              x[i] -= avg;
+              x[i] -= xavg;
+              r[i] -= ravg; // ToDo: try this out!
           } // i
       } // scope: subtract average
 
@@ -505,16 +507,17 @@ namespace multi_grid {
                     , unsigned const maxiter // max. number of iterations
                     , int const echo=0 // log-level
                     , char const *which=""
-                    , float const tol=0) {
+                    , float const tol=0
+                    , int const level=0) { // for display
       int iter;
       double rn{1}; // residual norm
       for(iter = 0; iter < maxiter && rn > tol; ++iter) {
           rn = jacobi(x, r, b, g, h);
-          if (echo > 9) printf("# %s %ssmoothing step %i (of max %d) residual norm %g\n", __func__, which, iter, maxiter, std::log10(rn));
+          if (echo > 9) printf("# %s level=%i %ssmoothing step %i (of max %d) residual norm %g\n", __func__, level, which, iter, maxiter, std::log10(rn));
 //           if (echo > 29) get_residual_norm(r, x, b, g, h, stdout);
       } // iter
 //       rn = get_residual_norm(r, x, b, g, h, (echo > 19)?stdout:0);
-      if (echo > 0) printf("# %s %d %ssmoothing steps residual norm %.1f\n", __func__, iter, which, std::log10(rn));
+      if (echo > 0) printf("# %s level=%i %d %ssmoothing steps residual norm %.1f\n", __func__, level, iter, which, std::log10(rn));
       return 0;
   } // smoothen
 
@@ -554,7 +557,7 @@ namespace multi_grid {
                         , real_t const b[] // right hand side
                         , unsigned const k // level
                         , double const h=1 // grid spacing
-                        , char const scheme='V' // scheme in {'V','W','F'}
+                        , char const scheme='V' // scheme in {'V','W'}
                         , int const echo=0 // log-level
                         , short const nu_pre=2, short const nu_post=2) { // pre- and post-smoothing Jacobi steps
 
@@ -570,7 +573,7 @@ namespace multi_grid {
 
       if (k > min_level) {
 
-          stat += smoothen(x, r, b, g, h, nu_pre, echo, " pre-");
+          stat += smoothen(x, r, b, g, h, nu_pre, echo, " pre-", 0, k);
           
           size_t const gc = 1ul << (k - 1);
 //        if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
@@ -587,7 +590,7 @@ namespace multi_grid {
 
               for(int i = 0; i < g; ++i) { x[i] += r[i]; }
 
-              stat += smoothen(x, r, b, g, h, nu_post, echo, "post-");
+              stat += smoothen(x, r, b, g, h, nu_post, echo, "post-", 0, k);
 
           } // vw
 
