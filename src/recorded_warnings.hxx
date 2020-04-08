@@ -4,6 +4,7 @@
 
 #include <cstdio> // printf, std::fprintf, std::sprintf, stdout, stderr, std::fflush
 #include <utility> // std::forward, std::pair<T1,T1>
+#include <cstring> // std::strrchr
 
 namespace recorded_warnings {
 
