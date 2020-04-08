@@ -11,8 +11,8 @@ make -j && \
         +multi_grid.test.iterations=25 \
         +multi_grid.test.rhs=sine \
         +verbosity=8 \
-#         | grep ' smoothen level=7 2 post' \
-#         | awk '{ print $9 }'
+        | grep ' smoothen level=7 2 post' \
+        | awk '{ print $9 }'
 
 # exit
 # 

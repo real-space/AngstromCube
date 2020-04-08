@@ -569,7 +569,7 @@ namespace potential_generator {
                           res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
                       } // i
                       res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
-                      if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
+                      if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e (FD-order=%i)\n", res_a, res_2, nfd);
                   }
               } // timer
           } // nfd

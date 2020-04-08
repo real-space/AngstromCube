@@ -466,6 +466,7 @@ namespace multi_grid {
       // solve A*x == b on a g grid points
       // using a 2nd order finite-difference stencil: [-1/h^2  2/h^2  -1/h^2]
       double const c0inv = .5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
+      double const omega_c0inv = omega*c0inv;
 
       double norm2{0}, xavg{0}, ravg{0};
       real_t x_prev = x[g - 1]; // init
@@ -473,18 +474,17 @@ namespace multi_grid {
           real_t const xi = x[i];
           real_t const x_next = x[(i + 1) % g];
           
-          double const Lx = c1*x_prev + c1*x_next; // off-diagonal terms
-          double const Dx = c0*xi; // diagonal term
-          double const Ax = Lx + Dx; // A*x
+          double const Ax = c1*x_prev + c0*xi + c1*x_next; // A*x
+          double const ri = b[i] - Ax; // residual vector r = b - A*x
+          x[i] = xi + omega_c0inv*ri; // new solution, Jacobi update formula
+          r[i] = ri; 
+
           x_prev = xi; // loop-carried dependency!
 
-          double const xi_new = c0inv*(b[i] - Lx); // new solution, Jacobi update formula
-          x[i] += omega*(xi_new - x[i]);
-          r[i] = b[i] - Ax; // residual vector r = A*x - b
-
-          norm2 += r[i]*r[i]; // accumulate residual norm ||r||_2 belonging to the input solution x (NOT TO THE OUTPUT)
-          xavg  += x[i]; // accumulate the average of the new solution x
-          ravg  += r[i]; // accumulate the average of the residual r
+          // accumulate
+          norm2 += ri*ri; // residual norm ||r||_2 belonging to the input solution x (NOT TO THE OUTPUT)
+          xavg  += x[i]; // the average of the new solution x
+          ravg  += ri; // the average of the residual r
       } // i
 
       { // scope: subtract average (necessary if all boundary_conditions are periodic)
@@ -625,7 +625,7 @@ namespace multi_grid {
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
       for(int i = 0; i < g; ++i) {
-          if ('s' == rhs | 32) {
+          if ('s' == (rhs | 32)) {
               b[i] = std::sin(i*2*constants::pi/g);
           } else {
               b[i] = simple_math::random(-1.f, 1.f); // always get the random values in float, so they are the same for float and double versions
