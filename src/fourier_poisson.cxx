@@ -3,9 +3,9 @@
 #include <cassert> // assert
 #include <algorithm> // std::fill
 #include <vector> // std::vector<T>
+#include <type_traits> // std::is_same
 
 #ifndef HAS_no_MKL
-  #include <type_traits> // std::is_same
   #include "mkl_dfti.h" // Dfti* (discrete Fourier transform interface of the Intel(c) Math Kernel Library)
 #endif
 
@@ -24,24 +24,60 @@ extern "C" {
 
 #define call(x) { auto const error_status = (x); if (error_status) return error_status; }
 
+extern "C" {
+   // BLAS interface to matrix matrix multiplication
+  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
+              const double*, const int*, const double*, const int*, const double*, double*, const int*);
+} // extern "C"
+
 namespace fourier_poisson {
 
-//   template<typename real_t>
-//   status_t naive_Fourier_transform(
-//                    real_t out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
-//                  , real_t imag[] // imaginary part of in when backward, imaginary part of out when forward
-//                  , real_t const in[] // (in) indexing in[(iz*ng[1] + iy)*ng[0] + ix]
-//                  , int const ng[3] // grid numbers
-//                  , char const direction='f' // in the case of backward, the representations are swapped
-//                   ) {
-//       for(int i2 = 0; i2 < ng[2]; ++i2) {
-//           for(int i1 = 0; i1 < ng[1]; ++i1) {
-//               for(int i0 = 0; i0 < ng[0]; ++i0) {
-//                   
-//               } // i0
-//           } // i1
-//       } // i2
-//   } // naive_Fourier_transform
+  template<typename real_t>
+  status_t naive_Fourier_transform(
+                   real_t out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
+                 , real_t imag[] // imaginary part of in when backward, imaginary part of out when forward
+                 , real_t const in[] // (in) indexing in[(iz*ng[1] + iy)*ng[0] + ix]
+                 , int const ng[3] // grid numbers
+                 , char const direction='f' // in the case of backward, the representations are swapped
+                  ) {
+      if (!std::is_same<real_t, double>::value) { return -1; }
+      
+      static double*  kernel[3] = {0, 0, 0};
+      static unsigned number[3] = {0, 0, 0};
+      // check and prepare transformation matrices
+      for(int d = 0; d < 3; ++d) {
+          int const n = std::max(1, ng[d]);
+          if (n != number[d]) {
+              double const k = 2*constants::pi/n;
+              double const scal = 1;
+              auto & t = kernel[d];
+              if (nullptr != t) delete[] t;
+              t = new double[n*n]; // this memory is not freed at the end
+              for(int i = 0; i < n; ++i) {
+                  t[i*n] = scal; // j == 0: cos == 1, sin == 0 (not included)
+                  for(int j = 1; j < n/2; ++j) {
+                      t[i*n + j] = scal * std::cos(k*i*j);
+                  } // j cos
+                  for(int j = 1; j < (n - 1)/2; ++j) {
+                      t[i*n + j] = scal * std::sin(k*i*j); // WRONG!
+                  } // j - Fourier space mode
+              } // i - real space position
+              number[d] == n;
+          } // number differs
+      } // d
+      
+      if ('f' == direction) { // forward
+          // contract_ix tmp_x[iz,iy,jx] =    in[iz,iy,ix] * tx[ix,jx]
+          // contract_iy tmp_y[iz,jy,jx] = tmp_x[iz,iy,jx] * ty[iy,jy]
+          // contract_iz   out[jz,jy,jx] = tmp_y[iz,jy,jx] * tz[iz,jz]
+      } else {
+          // contract_iz tmp_z[iz,jy,jx] =    in[jz,jy,jx] * tz[iz,jz]^*
+          // contract_iy tmp_y[iz,iy,jx] = tmp_z[iz,jy,jx] * ty[iy,jy]^*
+          // contract_ix   out[iz,iy,ix] = tmp_y[iz,iy,jx] * tx[ix,jx]^*
+      } // forward
+      
+      return -1; // this implementation is most probably wrong
+  } // naive_Fourier_transform
   
   
   template<typename real_t>
@@ -110,7 +146,7 @@ namespace fourier_poisson {
       typedef vector_math::vec<3,double> vec3;
       vec3 rec[3]; for(int d = 0; d < 3; ++d) rec[d] = reci[d];
 
-      int const nh[3] = {ng[0]/2, ng[1]/2, ng[2]/2};
+      int const nh[] = {ng[0]/2, ng[1]/2, ng[2]/2};
 
       for(int j2 = 0; j2 < ng[2]; ++j2) {         int const k2 = j2 - (j2 > nh[2])*ng[2]; vec3 const vec2   = rec[2]*k2;
           for(int j1 = 0; j1 < ng[1]; ++j1) {     int const k1 = j1 - (j1 > nh[1])*ng[1]; vec3 const vec21  = rec[1]*k1 + vec2;

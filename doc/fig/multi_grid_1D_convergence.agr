@@ -5,11 +5,11 @@
 @page scroll 5%
 @page inout 5%
 @link page off
-@map font 0 to "Times-Roman", "Times-Roman"
+@map font 4 to "Times-Roman", "Times-Roman"
 @map font 1 to "Times-Italic", "Times-Italic"
 @map font 2 to "Times-Bold", "Times-Bold"
 @map font 3 to "Times-BoldItalic", "Times-BoldItalic"
-@map font 4 to "Helvetica", "Helvetica"
+@map font 0 to "Helvetica", "Helvetica"
 @map font 5 to "Helvetica-Oblique", "Helvetica-Oblique"
 @map font 6 to "Helvetica-Bold", "Helvetica-Bold"
 @map font 7 to "Helvetica-BoldOblique", "Helvetica-BoldOblique"
@@ -22,7 +22,7 @@
 @map color 0 to (255, 255, 255), "white"
 @map color 1 to (0, 0, 0), "black"
 @map color 2 to (255, 0, 0), "red"
-@map color 3 to (0, 255, 0), "green"
+@map color 3 to (0, 139, 0), "green"
 @map color 4 to (0, 0, 255), "blue"
 @map color 5 to (255, 255, 0), "yellow"
 @map color 6 to (188, 143, 143), "brown"
@@ -38,12 +38,12 @@
 @reference date 0
 @date wrap off
 @date wrap year 1950
-@default linewidth 1.0
+@default linewidth 2.0
 @default linestyle 1
 @default color 1
 @default pattern 1
 @default font 0
-@default char size 1.000000
+@default char size 1.500000
 @default symbol size 1.000000
 @default sformat "%.8g"
 @background color 0
@@ -53,41 +53,41 @@
 @timestamp color 1
 @timestamp rot 0
 @timestamp font 0
-@timestamp char size 1.000000
+@timestamp char size 1.500000
 @timestamp def "Wed Apr  8 15:55:30 2020"
 @r0 off
 @link r0 to g0
 @r0 type above
 @r0 linestyle 1
-@r0 linewidth 1.0
+@r0 linewidth 2.0
 @r0 color 1
 @r0 line 0, 0, 0, 0
 @r1 off
 @link r1 to g0
 @r1 type above
 @r1 linestyle 1
-@r1 linewidth 1.0
+@r1 linewidth 2.0
 @r1 color 1
 @r1 line 0, 0, 0, 0
 @r2 off
 @link r2 to g0
 @r2 type above
 @r2 linestyle 1
-@r2 linewidth 1.0
+@r2 linewidth 2.0
 @r2 color 1
 @r2 line 0, 0, 0, 0
 @r3 off
 @link r3 to g0
 @r3 type above
 @r3 linestyle 1
-@r3 linewidth 1.0
+@r3 linewidth 2.0
 @r3 color 1
 @r3 line 0, 0, 0, 0
 @r4 off
 @link r4 to g0
 @r4 type above
 @r4 linestyle 1
-@r4 linewidth 1.0
+@r4 linewidth 2.0
 @r4 color 1
 @r4 line 0, 0, 0, 0
 @g0 on
@@ -123,11 +123,11 @@
 @    xaxis  bar on
 @    xaxis  bar color 1
 @    xaxis  bar linestyle 1
-@    xaxis  bar linewidth 1.0
+@    xaxis  bar linewidth 2.0
 @    xaxis  label "Iterations"
 @    xaxis  label layout para
 @    xaxis  label place auto
-@    xaxis  label char size 1.000000
+@    xaxis  label char size 1.500000
 @    xaxis  label font 0
 @    xaxis  label color 1
 @    xaxis  label place normal
@@ -139,11 +139,11 @@
 @    xaxis  tick in
 @    xaxis  tick major size 1.000000
 @    xaxis  tick major color 1
-@    xaxis  tick major linewidth 1.0
+@    xaxis  tick major linewidth 2.0
 @    xaxis  tick major linestyle 1
 @    xaxis  tick major grid off
 @    xaxis  tick minor color 1
-@    xaxis  tick minor linewidth 1.0
+@    xaxis  tick minor linewidth 2.0
 @    xaxis  tick minor linestyle 1
 @    xaxis  tick minor grid off
 @    xaxis  tick minor size 0.500000
@@ -163,7 +163,7 @@
 @    xaxis  ticklabel start 0.000000
 @    xaxis  ticklabel stop type auto
 @    xaxis  ticklabel stop 0.000000
-@    xaxis  ticklabel char size 1.000000
+@    xaxis  ticklabel char size 1.500000
 @    xaxis  ticklabel font 0
 @    xaxis  ticklabel color 1
 @    xaxis  tick place both
@@ -174,11 +174,11 @@
 @    yaxis  bar on
 @    yaxis  bar color 1
 @    yaxis  bar linestyle 1
-@    yaxis  bar linewidth 1.0
+@    yaxis  bar linewidth 2.0
 @    yaxis  label "Log\s10\N(Residual Norm)"
 @    yaxis  label layout para
 @    yaxis  label place auto
-@    yaxis  label char size 1.000000
+@    yaxis  label char size 1.500000
 @    yaxis  label font 0
 @    yaxis  label color 1
 @    yaxis  label place normal
@@ -190,11 +190,11 @@
 @    yaxis  tick out
 @    yaxis  tick major size 1.000000
 @    yaxis  tick major color 1
-@    yaxis  tick major linewidth 1.0
+@    yaxis  tick major linewidth 2.0
 @    yaxis  tick major linestyle 1
 @    yaxis  tick major grid off
 @    yaxis  tick minor color 1
-@    yaxis  tick minor linewidth 1.0
+@    yaxis  tick minor linewidth 2.0
 @    yaxis  tick minor linestyle 1
 @    yaxis  tick minor grid off
 @    yaxis  tick minor size 0.500000
@@ -214,7 +214,7 @@
 @    yaxis  ticklabel start 0.000000
 @    yaxis  ticklabel stop type auto
 @    yaxis  ticklabel stop 0.000000
-@    yaxis  ticklabel char size 1.000000
+@    yaxis  ticklabel char size 1.500000
 @    yaxis  ticklabel font 0
 @    yaxis  ticklabel color 1
 @    yaxis  tick place both
@@ -226,12 +226,12 @@
 @    legend 0.85, 0.8
 @    legend box color 1
 @    legend box pattern 1
-@    legend box linewidth 1.0
+@    legend box linewidth 2.0
 @    legend box linestyle 0
 @    legend box fill color 0
 @    legend box fill pattern 0
 @    legend font 0
-@    legend char size 1.000000
+@    legend char size 1.500000
 @    legend color 1
 @    legend length 4
 @    legend vgap 1
@@ -239,7 +239,7 @@
 @    legend invert false
 @    frame type 0
 @    frame linestyle 1
-@    frame linewidth 1.0
+@    frame linewidth 2.0
 @    frame color 1
 @    frame pattern 1
 @    frame background color 0
@@ -250,9 +250,9 @@
 @    s0 symbol size 1.000000
 @    s0 symbol color 1
 @    s0 symbol pattern 1
-@    s0 symbol fill color 1
-@    s0 symbol fill pattern 0
-@    s0 symbol linewidth 1.0
+@    s0 symbol fill color 0
+@    s0 symbol fill pattern 1
+@    s0 symbol linewidth 2.0
 @    s0 symbol linestyle 1
 @    s0 symbol char 65
 @    s0 symbol char font 0
@@ -271,7 +271,7 @@
 @    s0 fill pattern 1
 @    s0 avalue off
 @    s0 avalue type 2
-@    s0 avalue char size 1.000000
+@    s0 avalue char size 1.500000
 @    s0 avalue font 0
 @    s0 avalue color 1
 @    s0 avalue rot 0
@@ -285,13 +285,13 @@
 @    s0 errorbar color 1
 @    s0 errorbar pattern 1
 @    s0 errorbar size 1.000000
-@    s0 errorbar linewidth 1.0
+@    s0 errorbar linewidth 2.0
 @    s0 errorbar linestyle 1
-@    s0 errorbar riser linewidth 1.0
+@    s0 errorbar riser linewidth 2.0
 @    s0 errorbar riser linestyle 1
 @    s0 errorbar riser clip off
 @    s0 errorbar riser clip length 0.100000
-@    s0 comment "mg.out"
+@    s0 comment "git log 2a4ac30b1abf36651a693c539d2c4ffa72fc00da generated by multi_grid.test.sh"
 @    s0 legend  ""
 @    s1 hidden false
 @    s1 type xy
@@ -299,9 +299,9 @@
 @    s1 symbol size 1.000000
 @    s1 symbol color 1
 @    s1 symbol pattern 1
-@    s1 symbol fill color 1
-@    s1 symbol fill pattern 0
-@    s1 symbol linewidth 1.0
+@    s1 symbol fill color 0
+@    s1 symbol fill pattern 1
+@    s1 symbol linewidth 2.0
 @    s1 symbol linestyle 1
 @    s1 symbol char 65
 @    s1 symbol char font 0
@@ -320,7 +320,7 @@
 @    s1 fill pattern 1
 @    s1 avalue off
 @    s1 avalue type 2
-@    s1 avalue char size 1.000000
+@    s1 avalue char size 1.500000
 @    s1 avalue font 0
 @    s1 avalue color 1
 @    s1 avalue rot 0
@@ -334,9 +334,9 @@
 @    s1 errorbar color 1
 @    s1 errorbar pattern 1
 @    s1 errorbar size 1.000000
-@    s1 errorbar linewidth 1.0
+@    s1 errorbar linewidth 2.0
 @    s1 errorbar linestyle 1
-@    s1 errorbar riser linewidth 1.0
+@    s1 errorbar riser linewidth 2.0
 @    s1 errorbar riser linestyle 1
 @    s1 errorbar riser clip off
 @    s1 errorbar riser clip length 0.100000
@@ -348,9 +348,9 @@
 @    s2 symbol size 1.000000
 @    s2 symbol color 11
 @    s2 symbol pattern 1
-@    s2 symbol fill color 11
-@    s2 symbol fill pattern 0
-@    s2 symbol linewidth 1.0
+@    s2 symbol fill color 01
+@    s2 symbol fill pattern 1
+@    s2 symbol linewidth 2.0
 @    s2 symbol linestyle 1
 @    s2 symbol char 65
 @    s2 symbol char font 0
@@ -369,7 +369,7 @@
 @    s2 fill pattern 1
 @    s2 avalue off
 @    s2 avalue type 2
-@    s2 avalue char size 1.000000
+@    s2 avalue char size 1.500000
 @    s2 avalue font 0
 @    s2 avalue color 1
 @    s2 avalue rot 0
@@ -383,9 +383,9 @@
 @    s2 errorbar color 11
 @    s2 errorbar pattern 1
 @    s2 errorbar size 1.000000
-@    s2 errorbar linewidth 1.0
+@    s2 errorbar linewidth 2.0
 @    s2 errorbar linestyle 1
-@    s2 errorbar riser linewidth 1.0
+@    s2 errorbar riser linewidth 2.0
 @    s2 errorbar riser linestyle 1
 @    s2 errorbar riser clip off
 @    s2 errorbar riser clip length 0.100000
@@ -397,9 +397,9 @@
 @    s3 symbol size 1.000000
 @    s3 symbol color 1
 @    s3 symbol pattern 1
-@    s3 symbol fill color 1
-@    s3 symbol fill pattern 0
-@    s3 symbol linewidth 1.0
+@    s3 symbol fill color 0
+@    s3 symbol fill pattern 1
+@    s3 symbol linewidth 2.0
 @    s3 symbol linestyle 1
 @    s3 symbol char 65
 @    s3 symbol char font 0
@@ -418,7 +418,7 @@
 @    s3 fill pattern 1
 @    s3 avalue off
 @    s3 avalue type 2
-@    s3 avalue char size 1.000000
+@    s3 avalue char size 1.500000
 @    s3 avalue font 0
 @    s3 avalue color 1
 @    s3 avalue rot 0
@@ -432,9 +432,9 @@
 @    s3 errorbar color 1
 @    s3 errorbar pattern 1
 @    s3 errorbar size 1.000000
-@    s3 errorbar linewidth 1.0
+@    s3 errorbar linewidth 2.0
 @    s3 errorbar linestyle 1
-@    s3 errorbar riser linewidth 1.0
+@    s3 errorbar riser linewidth 2.0
 @    s3 errorbar riser linestyle 1
 @    s3 errorbar riser clip off
 @    s3 errorbar riser clip length 0.100000
@@ -446,9 +446,9 @@
 @    s4 symbol size 1.000000
 @    s4 symbol color 1
 @    s4 symbol pattern 1
-@    s4 symbol fill color 1
-@    s4 symbol fill pattern 0
-@    s4 symbol linewidth 1.0
+@    s4 symbol fill color 0
+@    s4 symbol fill pattern 1
+@    s4 symbol linewidth 2.0
 @    s4 symbol linestyle 1
 @    s4 symbol char 65
 @    s4 symbol char font 0
@@ -467,7 +467,7 @@
 @    s4 fill pattern 1
 @    s4 avalue off
 @    s4 avalue type 2
-@    s4 avalue char size 1.000000
+@    s4 avalue char size 1.500000
 @    s4 avalue font 0
 @    s4 avalue color 1
 @    s4 avalue rot 0
@@ -481,9 +481,9 @@
 @    s4 errorbar color 1
 @    s4 errorbar pattern 1
 @    s4 errorbar size 1.000000
-@    s4 errorbar linewidth 1.0
+@    s4 errorbar linewidth 2.0
 @    s4 errorbar linestyle 1
-@    s4 errorbar riser linewidth 1.0
+@    s4 errorbar riser linewidth 2.0
 @    s4 errorbar riser linestyle 1
 @    s4 errorbar riser clip off
 @    s4 errorbar riser clip length 0.100000
@@ -495,9 +495,9 @@
 @    s5 symbol size 1.000000
 @    s5 symbol color 1
 @    s5 symbol pattern 1
-@    s5 symbol fill color 1
-@    s5 symbol fill pattern 0
-@    s5 symbol linewidth 1.0
+@    s5 symbol fill color 0
+@    s5 symbol fill pattern 1
+@    s5 symbol linewidth 2.0
 @    s5 symbol linestyle 1
 @    s5 symbol char 65
 @    s5 symbol char font 0
@@ -516,7 +516,7 @@
 @    s5 fill pattern 1
 @    s5 avalue off
 @    s5 avalue type 2
-@    s5 avalue char size 1.000000
+@    s5 avalue char size 1.500000
 @    s5 avalue font 0
 @    s5 avalue color 1
 @    s5 avalue rot 0
@@ -530,9 +530,9 @@
 @    s5 errorbar color 1
 @    s5 errorbar pattern 1
 @    s5 errorbar size 1.000000
-@    s5 errorbar linewidth 1.0
+@    s5 errorbar linewidth 2.0
 @    s5 errorbar linestyle 1
-@    s5 errorbar riser linewidth 1.0
+@    s5 errorbar riser linewidth 2.0
 @    s5 errorbar riser linestyle 1
 @    s5 errorbar riser clip off
 @    s5 errorbar riser clip length 0.100000
@@ -544,9 +544,9 @@
 @    s6 symbol size 1.000000
 @    s6 symbol color 1
 @    s6 symbol pattern 1
-@    s6 symbol fill color 1
-@    s6 symbol fill pattern 0
-@    s6 symbol linewidth 1.0
+@    s6 symbol fill color 0
+@    s6 symbol fill pattern 1
+@    s6 symbol linewidth 2.0
 @    s6 symbol linestyle 1
 @    s6 symbol char 65
 @    s6 symbol char font 0
@@ -565,7 +565,7 @@
 @    s6 fill pattern 1
 @    s6 avalue off
 @    s6 avalue type 2
-@    s6 avalue char size 1.000000
+@    s6 avalue char size 1.500000
 @    s6 avalue font 0
 @    s6 avalue color 1
 @    s6 avalue rot 0
@@ -579,9 +579,9 @@
 @    s6 errorbar color 1
 @    s6 errorbar pattern 1
 @    s6 errorbar size 1.000000
-@    s6 errorbar linewidth 1.0
+@    s6 errorbar linewidth 2.0
 @    s6 errorbar linestyle 1
-@    s6 errorbar riser linewidth 1.0
+@    s6 errorbar riser linewidth 2.0
 @    s6 errorbar riser linestyle 1
 @    s6 errorbar riser clip off
 @    s6 errorbar riser clip length 0.100000
@@ -593,9 +593,9 @@
 @    s7 symbol size 1.000000
 @    s7 symbol color 6
 @    s7 symbol pattern 1
-@    s7 symbol fill color 6
-@    s7 symbol fill pattern 0
-@    s7 symbol linewidth 1.0
+@    s7 symbol fill color 0
+@    s7 symbol fill pattern 1
+@    s7 symbol linewidth 2.0
 @    s7 symbol linestyle 1
 @    s7 symbol char 65
 @    s7 symbol char font 0
@@ -614,7 +614,7 @@
 @    s7 fill pattern 1
 @    s7 avalue off
 @    s7 avalue type 2
-@    s7 avalue char size 1.000000
+@    s7 avalue char size 1.500000
 @    s7 avalue font 0
 @    s7 avalue color 1
 @    s7 avalue rot 0
@@ -628,9 +628,9 @@
 @    s7 errorbar color 6
 @    s7 errorbar pattern 1
 @    s7 errorbar size 1.000000
-@    s7 errorbar linewidth 1.0
+@    s7 errorbar linewidth 2.0
 @    s7 errorbar linestyle 1
-@    s7 errorbar riser linewidth 1.0
+@    s7 errorbar riser linewidth 2.0
 @    s7 errorbar riser linestyle 1
 @    s7 errorbar riser clip off
 @    s7 errorbar riser clip length 0.100000
@@ -642,9 +642,9 @@
 @    s8 symbol size 1.000000
 @    s8 symbol color 1
 @    s8 symbol pattern 1
-@    s8 symbol fill color 1
-@    s8 symbol fill pattern 0
-@    s8 symbol linewidth 1.0
+@    s8 symbol fill color 0
+@    s8 symbol fill pattern 1
+@    s8 symbol linewidth 2.0
 @    s8 symbol linestyle 1
 @    s8 symbol char 65
 @    s8 symbol char font 0
@@ -663,7 +663,7 @@
 @    s8 fill pattern 1
 @    s8 avalue off
 @    s8 avalue type 2
-@    s8 avalue char size 1.000000
+@    s8 avalue char size 1.500000
 @    s8 avalue font 0
 @    s8 avalue color 1
 @    s8 avalue rot 0
@@ -677,9 +677,9 @@
 @    s8 errorbar color 1
 @    s8 errorbar pattern 1
 @    s8 errorbar size 1.000000
-@    s8 errorbar linewidth 1.0
+@    s8 errorbar linewidth 2.0
 @    s8 errorbar linestyle 1
-@    s8 errorbar riser linewidth 1.0
+@    s8 errorbar riser linewidth 2.0
 @    s8 errorbar riser linestyle 1
 @    s8 errorbar riser clip off
 @    s8 errorbar riser clip length 0.100000
@@ -691,9 +691,9 @@
 @    s9 symbol size 1.000000
 @    s9 symbol color 1
 @    s9 symbol pattern 1
-@    s9 symbol fill color 1
-@    s9 symbol fill pattern 0
-@    s9 symbol linewidth 1.0
+@    s9 symbol fill color 0
+@    s9 symbol fill pattern 1
+@    s9 symbol linewidth 2.0
 @    s9 symbol linestyle 1
 @    s9 symbol char 65
 @    s9 symbol char font 0
@@ -712,7 +712,7 @@
 @    s9 fill pattern 1
 @    s9 avalue off
 @    s9 avalue type 2
-@    s9 avalue char size 1.000000
+@    s9 avalue char size 1.500000
 @    s9 avalue font 0
 @    s9 avalue color 1
 @    s9 avalue rot 0
@@ -726,9 +726,9 @@
 @    s9 errorbar color 1
 @    s9 errorbar pattern 1
 @    s9 errorbar size 1.000000
-@    s9 errorbar linewidth 1.0
+@    s9 errorbar linewidth 2.0
 @    s9 errorbar linestyle 1
-@    s9 errorbar riser linewidth 1.0
+@    s9 errorbar riser linewidth 2.0
 @    s9 errorbar riser linestyle 1
 @    s9 errorbar riser clip off
 @    s9 errorbar riser clip length 0.100000
@@ -740,9 +740,9 @@
 @    s10 symbol size 1.000000
 @    s10 symbol color 1
 @    s10 symbol pattern 1
-@    s10 symbol fill color 1
-@    s10 symbol fill pattern 0
-@    s10 symbol linewidth 1.0
+@    s10 symbol fill color 0
+@    s10 symbol fill pattern 1
+@    s10 symbol linewidth 2.0
 @    s10 symbol linestyle 1
 @    s10 symbol char 65
 @    s10 symbol char font 0
@@ -761,7 +761,7 @@
 @    s10 fill pattern 1
 @    s10 avalue off
 @    s10 avalue type 2
-@    s10 avalue char size 1.000000
+@    s10 avalue char size 1.500000
 @    s10 avalue font 0
 @    s10 avalue color 1
 @    s10 avalue rot 0
@@ -775,9 +775,9 @@
 @    s10 errorbar color 1
 @    s10 errorbar pattern 1
 @    s10 errorbar size 1.000000
-@    s10 errorbar linewidth 1.0
+@    s10 errorbar linewidth 2.0
 @    s10 errorbar linestyle 1
-@    s10 errorbar riser linewidth 1.0
+@    s10 errorbar riser linewidth 2.0
 @    s10 errorbar riser linestyle 1
 @    s10 errorbar riser clip off
 @    s10 errorbar riser clip length 0.100000
@@ -789,9 +789,9 @@
 @    s11 symbol size 1.000000
 @    s11 symbol color 1
 @    s11 symbol pattern 1
-@    s11 symbol fill color 1
-@    s11 symbol fill pattern 0
-@    s11 symbol linewidth 1.0
+@    s11 symbol fill color 0
+@    s11 symbol fill pattern 1
+@    s11 symbol linewidth 2.0
 @    s11 symbol linestyle 1
 @    s11 symbol char 65
 @    s11 symbol char font 0
@@ -810,7 +810,7 @@
 @    s11 fill pattern 1
 @    s11 avalue off
 @    s11 avalue type 2
-@    s11 avalue char size 1.000000
+@    s11 avalue char size 1.500000
 @    s11 avalue font 0
 @    s11 avalue color 1
 @    s11 avalue rot 0
@@ -824,9 +824,9 @@
 @    s11 errorbar color 1
 @    s11 errorbar pattern 1
 @    s11 errorbar size 1.000000
-@    s11 errorbar linewidth 1.0
+@    s11 errorbar linewidth 2.0
 @    s11 errorbar linestyle 1
-@    s11 errorbar riser linewidth 1.0
+@    s11 errorbar riser linewidth 2.0
 @    s11 errorbar riser linestyle 1
 @    s11 errorbar riser clip off
 @    s11 errorbar riser clip length 0.100000
@@ -838,9 +838,9 @@
 @    s12 symbol size 1.000000
 @    s12 symbol color 2
 @    s12 symbol pattern 1
-@    s12 symbol fill color 2
-@    s12 symbol fill pattern 0
-@    s12 symbol linewidth 1.0
+@    s12 symbol fill color 0
+@    s12 symbol fill pattern 1
+@    s12 symbol linewidth 2.0
 @    s12 symbol linestyle 1
 @    s12 symbol char 65
 @    s12 symbol char font 0
@@ -859,7 +859,7 @@
 @    s12 fill pattern 1
 @    s12 avalue off
 @    s12 avalue type 2
-@    s12 avalue char size 1.000000
+@    s12 avalue char size 1.500000
 @    s12 avalue font 0
 @    s12 avalue color 1
 @    s12 avalue rot 0
@@ -873,9 +873,9 @@
 @    s12 errorbar color 2
 @    s12 errorbar pattern 1
 @    s12 errorbar size 1.000000
-@    s12 errorbar linewidth 1.0
+@    s12 errorbar linewidth 2.0
 @    s12 errorbar linestyle 1
-@    s12 errorbar riser linewidth 1.0
+@    s12 errorbar riser linewidth 2.0
 @    s12 errorbar riser linestyle 1
 @    s12 errorbar riser clip off
 @    s12 errorbar riser clip length 0.100000
@@ -887,9 +887,9 @@
 @    s13 symbol size 1.000000
 @    s13 symbol color 1
 @    s13 symbol pattern 1
-@    s13 symbol fill color 1
-@    s13 symbol fill pattern 0
-@    s13 symbol linewidth 1.0
+@    s13 symbol fill color 0
+@    s13 symbol fill pattern 1
+@    s13 symbol linewidth 2.0
 @    s13 symbol linestyle 1
 @    s13 symbol char 65
 @    s13 symbol char font 0
@@ -908,7 +908,7 @@
 @    s13 fill pattern 1
 @    s13 avalue off
 @    s13 avalue type 2
-@    s13 avalue char size 1.000000
+@    s13 avalue char size 1.500000
 @    s13 avalue font 0
 @    s13 avalue color 1
 @    s13 avalue rot 0
@@ -922,9 +922,9 @@
 @    s13 errorbar color 1
 @    s13 errorbar pattern 1
 @    s13 errorbar size 1.000000
-@    s13 errorbar linewidth 1.0
+@    s13 errorbar linewidth 2.0
 @    s13 errorbar linestyle 1
-@    s13 errorbar riser linewidth 1.0
+@    s13 errorbar riser linewidth 2.0
 @    s13 errorbar riser linestyle 1
 @    s13 errorbar riser clip off
 @    s13 errorbar riser clip length 0.100000
@@ -936,9 +936,9 @@
 @    s14 symbol size 1.000000
 @    s14 symbol color 1
 @    s14 symbol pattern 1
-@    s14 symbol fill color 1
-@    s14 symbol fill pattern 0
-@    s14 symbol linewidth 1.0
+@    s14 symbol fill color 0
+@    s14 symbol fill pattern 1
+@    s14 symbol linewidth 2.0
 @    s14 symbol linestyle 1
 @    s14 symbol char 65
 @    s14 symbol char font 0
@@ -957,7 +957,7 @@
 @    s14 fill pattern 1
 @    s14 avalue off
 @    s14 avalue type 2
-@    s14 avalue char size 1.000000
+@    s14 avalue char size 1.500000
 @    s14 avalue font 0
 @    s14 avalue color 1
 @    s14 avalue rot 0
@@ -971,9 +971,9 @@
 @    s14 errorbar color 1
 @    s14 errorbar pattern 1
 @    s14 errorbar size 1.000000
-@    s14 errorbar linewidth 1.0
+@    s14 errorbar linewidth 2.0
 @    s14 errorbar linestyle 1
-@    s14 errorbar riser linewidth 1.0
+@    s14 errorbar riser linewidth 2.0
 @    s14 errorbar riser linestyle 1
 @    s14 errorbar riser clip off
 @    s14 errorbar riser clip length 0.100000
@@ -985,9 +985,9 @@
 @    s15 symbol size 1.000000
 @    s15 symbol color 1
 @    s15 symbol pattern 1
-@    s15 symbol fill color 1
-@    s15 symbol fill pattern 0
-@    s15 symbol linewidth 1.0
+@    s15 symbol fill color 0
+@    s15 symbol fill pattern 1
+@    s15 symbol linewidth 2.0
 @    s15 symbol linestyle 1
 @    s15 symbol char 65
 @    s15 symbol char font 0
@@ -1006,7 +1006,7 @@
 @    s15 fill pattern 1
 @    s15 avalue off
 @    s15 avalue type 2
-@    s15 avalue char size 1.000000
+@    s15 avalue char size 1.500000
 @    s15 avalue font 0
 @    s15 avalue color 1
 @    s15 avalue rot 0
@@ -1020,9 +1020,9 @@
 @    s15 errorbar color 1
 @    s15 errorbar pattern 1
 @    s15 errorbar size 1.000000
-@    s15 errorbar linewidth 1.0
+@    s15 errorbar linewidth 2.0
 @    s15 errorbar linestyle 1
-@    s15 errorbar riser linewidth 1.0
+@    s15 errorbar riser linewidth 2.0
 @    s15 errorbar riser linestyle 1
 @    s15 errorbar riser clip off
 @    s15 errorbar riser clip length 0.100000
@@ -1034,9 +1034,9 @@
 @    s16 symbol size 1.000000
 @    s16 symbol color 1
 @    s16 symbol pattern 1
-@    s16 symbol fill color 1
-@    s16 symbol fill pattern 0
-@    s16 symbol linewidth 1.0
+@    s16 symbol fill color 0
+@    s16 symbol fill pattern 1
+@    s16 symbol linewidth 2.0
 @    s16 symbol linestyle 1
 @    s16 symbol char 65
 @    s16 symbol char font 0
@@ -1055,7 +1055,7 @@
 @    s16 fill pattern 1
 @    s16 avalue off
 @    s16 avalue type 2
-@    s16 avalue char size 1.000000
+@    s16 avalue char size 1.500000
 @    s16 avalue font 0
 @    s16 avalue color 1
 @    s16 avalue rot 0
@@ -1069,9 +1069,9 @@
 @    s16 errorbar color 1
 @    s16 errorbar pattern 1
 @    s16 errorbar size 1.000000
-@    s16 errorbar linewidth 1.0
+@    s16 errorbar linewidth 2.0
 @    s16 errorbar linestyle 1
-@    s16 errorbar riser linewidth 1.0
+@    s16 errorbar riser linewidth 2.0
 @    s16 errorbar riser linestyle 1
 @    s16 errorbar riser clip off
 @    s16 errorbar riser clip length 0.100000
@@ -1083,9 +1083,9 @@
 @    s17 symbol size 1.000000
 @    s17 symbol color 4
 @    s17 symbol pattern 1
-@    s17 symbol fill color 4
-@    s17 symbol fill pattern 0
-@    s17 symbol linewidth 1.0
+@    s17 symbol fill color 0
+@    s17 symbol fill pattern 1
+@    s17 symbol linewidth 2.0
 @    s17 symbol linestyle 1
 @    s17 symbol char 65
 @    s17 symbol char font 0
@@ -1104,7 +1104,7 @@
 @    s17 fill pattern 1
 @    s17 avalue off
 @    s17 avalue type 2
-@    s17 avalue char size 1.000000
+@    s17 avalue char size 1.500000
 @    s17 avalue font 0
 @    s17 avalue color 1
 @    s17 avalue rot 0
@@ -1118,9 +1118,9 @@
 @    s17 errorbar color 4
 @    s17 errorbar pattern 1
 @    s17 errorbar size 1.000000
-@    s17 errorbar linewidth 1.0
+@    s17 errorbar linewidth 2.0
 @    s17 errorbar linestyle 1
-@    s17 errorbar riser linewidth 1.0
+@    s17 errorbar riser linewidth 2.0
 @    s17 errorbar riser linestyle 1
 @    s17 errorbar riser clip off
 @    s17 errorbar riser clip length 0.100000
