@@ -3,6 +3,7 @@
 #include <cstdio> // printf
 #include <cmath> // std::min, std::max
 #include <vector> // std::vector<T>
+#include <cstdint> // uint32_t
 
 #include <algorithm> // std::minmax_element
 
@@ -11,6 +12,7 @@
   #include "constants.hxx" // ::pi
   #include "simple_math.hxx" // ::random
   #include "debug_output.hxx" // dump_to_file
+  #include "control.hxx" // ::get
 #endif
 
 #include "real_space_grid.hxx" // ::grid_t
@@ -53,6 +55,7 @@ namespace multi_grid {
   template <int D0=1>
   inline status_t analyze_grid_sizes(
             real_space_grid::grid_t<D0> const & g // coarse grid where the Kohn-Sham equation is typically solved
+          , uint32_t *n_coarse
           , int const echo=0) {
       status_t stat{0};
       for(int d = 0; d < 3; ++d) {
@@ -61,6 +64,7 @@ namespace multi_grid {
           unsigned const nb = 1ull << k;
           if (echo > 2) printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", 'x'+d, ng, nb, k);
           assert(nb < ng);
+          if (n_coarse) n_coarse[d] = nb;
       } // d
       return stat;
   } // analyze_grid_sizes
@@ -414,7 +418,7 @@ namespace multi_grid {
       for(char dir = 'x'; dir <= 'z'; ++dir) {
           stat += check_general_restrict(g(dir), echo, dir);
       } // direction
-      return stat + analyze_grid_sizes(g, echo);
+      return stat + analyze_grid_sizes(g, nullptr, echo);
   } // test_analysis
   
   inline status_t test_restrict_interpolate(int const echo=0) {
@@ -563,7 +567,7 @@ namespace multi_grid {
                         , int const echo=0 // log-level
                         , short const nu_pre=2, short const nu_post=2) { // pre- and post-smoothing Jacobi steps
 
-      std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
+//    std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
 //    if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
       status_t stat(0);
 
@@ -590,7 +594,7 @@ namespace multi_grid {
 
               stat += linear_interpolation(r, g, uc.data(), gc, 1, 1, 0, true); // prolongation
 
-              for(int i = 0; i < g; ++i) { x[i] += r[i]; }
+              add_product(x, g, r, real_t(1));
 
               stat += smoothen(x, r, b, g, h, nu_post, echo, "post-", 0, k);
 

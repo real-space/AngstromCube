@@ -42,7 +42,8 @@ namespace real_space_grid {
           }
       } // constructor
 
-      grid_t(int const dim[3], int const dim_outer=1) : grid_t(dim[0], dim[1], dim[2], dim_outer) {} // delegating contructor
+      template<typename int_t>
+      grid_t(int_t const dim[3], int const dim_outer=1) : grid_t(dim[0], dim[1], dim[2], dim_outer) {} // delegating contructor
 
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;

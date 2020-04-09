@@ -171,40 +171,41 @@ namespace finite_difference {
 
   
   template<typename real_t> // real_t: coefficient may be float or double
-  class finite_difference_t {
+  class stencil_t {
     public:
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
     private:
 //     public:
       int8_t _nn[3]; // number of FD neighbors
       
-      void _constructor(double const grid_spacing[3], int const nneighbors[3]) {
+      void _constructor(double const grid_spacing[3], int const nneighbors[3], double const scale_factor) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               double const h = grid_spacing[d];
               _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h, 'x'+d);
               if (_nn[d] < nneighbors[d]) {
-                  warn("In finite_difference_t requested nn=%i but use nn=%i for %c-direction", 
+                  warn("In stencil_t requested nn=%i but use nn=%i for %c-direction", 
                                   nneighbors[d], _nn[d], 'x'+d);
               }
           } // spatial direction d
+          scale_coefficients(scale_factor);
       } // _constructor
       
     public:
 
-      finite_difference_t(double const grid_spacing[3], int const nneighbors[3]) {
-          _constructor(grid_spacing, nneighbors);
+      stencil_t(double const grid_spacing[3], int const nneighbors[3], double const scale_factor=1) {
+          _constructor(grid_spacing, nneighbors, scale_factor);
       } // preferred constructor
 
-      finite_difference_t(double const grid_spacing[3], int const nn=4) {
+      stencil_t(double const grid_spacing[3], int const nn=4, double const scale_factor=1) {
           int const nns[3] = {nn, nn, nn};
-          _constructor(grid_spacing, nns);
+          _constructor(grid_spacing, nns, scale_factor);
       } // isotropic nn constructor
 
-      finite_difference_t(double const h=1, int const nn=4) {
+      stencil_t(double const h=1, int const nn=4, double const scale_factor=1) {
           double const hgs[3] = {h, h, h};
           int const nns[3] = {nn, nn, nn};
-          _constructor(hgs, nns);
+          _constructor(hgs, nns, scale_factor);
       } // isotropic constructor, default constructor
 
       double clear_diagonal_elements() { // modifies the coefficients c2nd[][]
@@ -216,28 +217,29 @@ namespace finite_difference {
           return diag;
       } // clear_diagonal_elements
 
+  private:
       void scale_coefficients(double const f[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) {
-                  c2nd[d][i] = f[d] * c2nd[d][i];
+                  c2nd[d][i] *= f[d];
               } // i
           } // d
       } // scale_coefficients
       
       void scale_coefficients(double const f) { double const f3[] = {f, f, f}; scale_coefficients(f3); }
-      
+  public:
       int8_t const * nearest_neighbors() const { return _nn; }
       int nearest_neighbors(int const d) const { assert(d >= 0); assert(d < 3); return _nn[d]; }
       real_t * Laplace_coefficients(int const d) { assert(d >= 0); assert(d < 3); return c2nd[d]; }
       
-  }; // class finite_difference_t
-  
+  }; // class stencil_t
+
   template <typename real_out_t, // result is stored in this precision 
             typename real_in_t, // input comes in this precision
             typename real_fd_t, // computations are executed in this precision
             int D0=1> // vectorization
-  status_t Laplacian(real_out_t out[], real_in_t const in[], real_space_grid::grid_t<D0> const &g, 
-                     finite_difference_t<real_fd_t> const &fd, double const factor=1) {
+  status_t apply(real_out_t out[], real_in_t const in[], real_space_grid::grid_t<D0> const &g, 
+                     stencil_t<real_fd_t> const &fd, double const factor=1) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors
       int* list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
@@ -315,8 +317,7 @@ namespace finite_difference {
           delete[] list[d];
       } // d
       return 0; // success
-  } // Laplacian
-  
+  } // apply
   
   status_t all_tests(int const echo=0);
 

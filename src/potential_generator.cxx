@@ -20,7 +20,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "fourier_poisson.hxx" // ::fourier_solve
 #include "iterative_poisson.hxx" // ::solve
-#include "finite_difference.hxx" // ::Laplacian
+#include "finite_difference.hxx" // ::stencil_t, ::derive
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "simple_timer.hxx" // // SimpleTimer
 #include "control.hxx" // control::get
@@ -559,9 +559,9 @@ namespace potential_generator {
       { // scope: compute the Laplacian using high-order finite-differences
 
           for(int nfd = 1; nfd < verify_Poisson; ++nfd) {
-              finite_difference::finite_difference_t<double> const fd(g.h, nfd);
+              finite_difference::stencil_t<double> const fd(g.h, nfd, -.25/constants::pi);
               {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
-                  stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
+                  stat += finite_difference::apply(Laplace_Ves.data(), Ves.data(), g, fd);
                   { // Laplace_Ves should match rho
                       double res_a{0}, res_2{0};
                       for(size_t i = 0; i < g.all(); ++i) {
@@ -580,8 +580,7 @@ namespace potential_generator {
               // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
 
               // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
-              finite_difference::finite_difference_t<double> fdj(g.h, 8);
-              fdj.scale_coefficients(-.25/constants::pi);
+              finite_difference::stencil_t<double> fdj(g.h, 8, -.25/constants::pi);
               double const diagonal = fdj.clear_diagonal_elements();
               double const inverse_diagonal = 1/diagonal;
               auto & Ves_copy = Ves;
@@ -590,7 +589,7 @@ namespace potential_generator {
                   double const *x_k = Ves_copy.data(); // read from x_k
                   double      *Tx_k = jac_work.data();
                   double     *x_kp1 = Ves_copy.data();
-                  stat += finite_difference::Laplacian(Tx_k, x_k, g, fdj);
+                  stat += finite_difference::apply(Tx_k, x_k, g, fdj);
                   double res_a{0}, res_2{0}; // internal change between x_{k} and x_{k+1}
                   for(size_t i = 0; i < g.all(); ++i) {
                       double const old_value = x_k[i];
@@ -607,7 +606,7 @@ namespace potential_generator {
               } // k
 
               {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference onto Jacobi solution", echo);
-                  stat += finite_difference::Laplacian(Laplace_Ves.data(), Ves.data(), g, fd, -.25/constants::pi);
+                  stat += finite_difference::apply(Laplace_Ves.data(), Ves.data(), g, fd);
                   { // Laplace_Ves should match rho
                       double res_a{0}, res_2{0};
                       for(size_t i = 0; i < g.all(); ++i) {

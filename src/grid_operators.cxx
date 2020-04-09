@@ -5,7 +5,7 @@
 #include "grid_operators.hxx"
 
 #include "real_space_grid.hxx" // ::grid_t
-#include "finite_difference.hxx" // ::finite_difference_t, ::Laplacian
+#include "finite_difference.hxx" // ::stencil_t, ::derive
 #include "atom_image.hxx" // ::atom_image_t, ::sho_atom_t
 
 namespace grid_operators {
@@ -26,8 +26,7 @@ namespace grid_operators {
       a[0] = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999, no position given!
       double const apos[] = {0,0,0};
       a[0].set_image_positions(apos);
-      finite_difference::finite_difference_t<double> kinetic(g.h, 8);
-      kinetic.scale_coefficients(-0.5);
+      finite_difference::stencil_t<double> kinetic(g.h, 8, -0.5);
       stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, kinetic, potential.data());
       stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a);
       return stat;

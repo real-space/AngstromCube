@@ -44,9 +44,9 @@ namespace finite_difference {
   } // test_coefficients
 
   status_t test_create_and_destroy(int const echo=9) {
-      auto const f = new finite_difference_t<float>();
-      f->~finite_difference_t();
-      finite_difference_t<double> d;
+      auto const f = new stencil_t<float>();
+      f->~stencil_t();
+      stencil_t<double> d;
       return 0;
   } // test_create_and_destroy
 
@@ -56,15 +56,15 @@ namespace finite_difference {
       double const h[3] = {1,1,1};
       for(int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
-          finite_difference_t<real_t> fd(h, nn);
+          stencil_t<real_t> Laplacian(h, nn);
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
           real_space_grid::grid_t<1> g(dims);
           g.set_boundary_conditions(Periodic_Boundary);
           double const k = (1 + dir)*2*constants::pi/g[dir];
           auto const values = new real_t[g.all()];
           for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
-          real_t* out = new real_t[g.all()];
-          stat += Laplacian(out, values, g, fd);
+          std::vector<real_t> out(g.all());
+          stat += finite_difference::apply(out.data(), values, g, Laplacian);
           if (echo > 5) printf("\n# in, out, ref values:\n");
           double dev{0};
           for(size_t i = 0; i < g.all(); ++i) {
@@ -81,7 +81,7 @@ namespace finite_difference {
   status_t test_dispersion(int const echo=9) {
       if (echo < 7) return 0; // this function is only plotting
       for(int nn = 1; nn < 14; ++nn) {
-          finite_difference_t<double> const fd(1, nn);
+          stencil_t<double> const fd(1.0, nn);
           printf("\n## dispersion for nn=%d\n", nn);
           for(int ik = 0; ik <= 100; ++ik) {
               double const k =  .01 * constants::pi * ik;

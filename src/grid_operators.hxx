@@ -8,7 +8,7 @@
 
 #include "atom_image.hxx" // ::sho_atom_t
 #include "real_space_grid.hxx" // ::grid_t
-#include "finite_difference.hxx" // ::finite_difference_t<real_t>
+#include "finite_difference.hxx" // ::stencil_t<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
 #include "boundary_condition.hxx" // ::periodic_images
 #include "recorded_warnings.hxx" // error
@@ -27,7 +27,7 @@ namespace grid_operators {
                         , std::vector<atom_image::sho_atom_t> const &a // atoms
                         , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
                         , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
-                        , finite_difference::finite_difference_t<real_fd_t> const *fd=nullptr // finite difference [optional]
+                        , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
                         , double const *potential=nullptr // diagonal potential operator [optional]
                         , int const echo=0
                         , real_t** atomic_projection_coefficients=nullptr
@@ -35,12 +35,12 @@ namespace grid_operators {
       status_t stat(0);
 
       if (Hpsi) {
-          if (fd) {
-              stat += finite_difference::Laplacian(Hpsi, psi, g, *fd); // prefactor -0.5 moved into fd-coefficients
+          if (kinetic) {
+              stat += finite_difference::apply(Hpsi, psi, g, *kinetic); // prefactor -0.5 moved into finite-difference-coefficients
               if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
           } else {
               set(Hpsi, g.all(), real_t(0)); // clear
-          } // fd
+          } // kinetic
 
           size_t const nzyx = g[2] * g[1] * g[0];
           if (echo > 8) printf("# %s Apply %s operator\n", __func__, potential ? "potential" : "unity");
@@ -146,7 +146,7 @@ namespace grid_operators {
                           , real_t const psi[] // input wave functions
                           , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
                           , std::vector<atom_image::sho_atom_t> const &a
-                          , finite_difference::finite_difference_t<real_fd_t> const &fd // finite difference
+                          , finite_difference::stencil_t<real_fd_t> const &fd // finite difference
                           , double const potential[] // diagonal potential operator
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
                           , int const echo=0
@@ -191,8 +191,8 @@ namespace grid_operators {
 //           int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
           // the kinetic energy operator
-          kinetic = finite_difference::finite_difference_t<real_fd_t>(g.h, nn_kinetic);
-          kinetic.scale_coefficients(-0.5); // prefactor of the kinetic energy in Hartree atomic units
+          kinetic = finite_difference::stencil_t<real_fd_t>(g.h, nn_kinetic, -0.5); 
+          // -0.5: prefactor of the kinetic energy in Hartree atomic units
 
           // the local effective potential
           potential = std::vector<double>(g.all(), 0.0); // init as zero everywhere
@@ -201,7 +201,7 @@ namespace grid_operators {
           } // local potential given
 
           // this simple grid-based preconditioner is a diffusion stencil
-          preconditioner = finite_difference::finite_difference_t<real_t>(g.h, nn_precond);
+          preconditioner = finite_difference::stencil_t<real_t>(g.h, std::min(1, nn_precond));
           for(int d = 0; d < 3; ++d) {
               preconditioner.c2nd[d][1] = 1/12.;
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
@@ -247,8 +247,8 @@ namespace grid_operators {
       std::vector<atom_image::sho_atom_t> atoms;
       std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
       std::vector<double> potential;
-      finite_difference::finite_difference_t<real_fd_t> kinetic;
-      finite_difference::finite_difference_t<real_t> preconditioner;
+      finite_difference::stencil_t<real_fd_t> kinetic;
+      finite_difference::stencil_t<real_t> preconditioner;
       bool has_precond;
       bool has_overlap;
     public:

@@ -11,6 +11,7 @@
 
 #include "status.hxx" // status_t
 
+#ifndef NO_UNIT_TESTS
 #include "recorded_warnings.hxx" // ::all_tests
 #include "finite_difference.hxx" // ::all_tests
 #include "hermite_polynomial.hxx" // ::all_tests
@@ -140,11 +141,20 @@
       } // something has been tested
       return status;
   } // run_unit_tests
+#else
+  status_t run_unit_tests(char const *m=nullptr, int const echo=0) {
+      error("version was compiled with -D NO_UNIT_TESTS");
+      return -1;
+  } // run_unit_tests
+#endif
 
   int show_help(char const *executable) {
       printf("Usage %s [OPTION]\n"
         "   --help           [-h]\tThis help message\n"
+        "   --version            \tShow version number\n"
+#ifndef  NO_UNIT_TESTS
         "   --test <module.> [-t]\tTest module\n"
+#endif
         "   --verbose        [-v]\tIncrement verbosity level\n"
         "   +<name>=<value>      \tModify variable environment\n"
         "\n", executable);

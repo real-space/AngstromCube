@@ -10,16 +10,21 @@
 #include "real_space_grid.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, dot_product
-#include "finite_difference.hxx" // ::finite_difference_t
-
-#include "real_space_grid.hxx" // ::bessel_projection
-#include "radial_grid.hxx" // ::radial_grid_t, ::create_equidistant_radial_grid
+#include "finite_difference.hxx" // ::stencil_t
 #include "constants.hxx" // ::pi
-#include "bessel_transform.hxx" // ::transform_s_function
+#include "multi_grid.hxx" // ::restrict3D, ::interpolate3D, ::analyze_grid_sizes
+
+#ifndef NO_UNIT_TESTS
+  #include "real_space_grid.hxx" // ::bessel_projection
+  #include "radial_grid.hxx" // ::radial_grid_t, ::create_equidistant_radial_grid
+  #include "bessel_transform.hxx" // ::transform_s_function
+#endif
 
 namespace iterative_poisson {
-  // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
+  // solve the Poisson equation iteratively using the conjugate gradients method
   
+  double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
+
   template<typename real_t>
   double norm2(real_t const v[], size_t const n) { double s{0}; for(size_t i{0}; i < n; ++i) { s += pow2(v[i]); } return s; }
 //   { return dot_product(n, v, v); }
@@ -30,10 +35,73 @@ namespace iterative_poisson {
   template<typename real_t>
   double scalar_product(real_t const v[], real_t const w[], size_t const n) { return dot_product(n, v, w); }
 
+  
+  template<typename real_t>
+  double multi_grid_smoothen( real_t x[] // on entry x, on exit a slightly better to A*x == b
+                            , real_t r[] // on exit r == b - A*x
+                            , real_t const b[] // right hand side
+                            , real_space_grid::grid_t<1> const &g
+                            , int const echo=0) {
+      size_t const n = g.all();
+      finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // lowest order FD stencil
+      double const c0 = A.c2nd[0][0] + A.c2nd[1][0] + A.c2nd[2][0]; // diagonal element
+      double const omega = 2/3.; // Jacobi damping
+
+      finite_difference::apply(r, x, g, A); // r = A*x
+      add_product(r, n, b, real_t(-1)); // now r = A*x - b
+      add_product(x, n, r, real_t(omega/c0));
+      scale(r, n, real_t(-1)); // now r = b - A*x
+      return norm2(r);
+  } // multi_grid_cycle
+  
+  template<typename real_t>
+  status_t multi_grid_cycle(real_t x[] // to Laplace(x)/(-4*pi) == b
+                            , real_t const b[] //
+                            , real_space_grid::grid_t<1> const &g
+                            , unsigned const n_pre=2
+                            , unsigned const n_post=2
+                            , int const echo=0) {
+      status_t stat(0);
+      std::vector<real_t> residual_vector(g.all()); auto const r = residual_vector.data(); // bare pointer
+    
+      for(int p = 0; p < n_pre; ++p) {
+          auto const rn = multi_grid_smoothen(x, r, b, g);
+          if (echo > 0) printf("# %s  pre-smoothen step %i residual norm %.1e\n", __func__, p, rn);
+      } // p
+
+      if ((g[0] > 2) && (g[1] > 2) && (g[2] > 2)) {
+          uint32_t ngc[3];
+          stat += multi_grid::analyze_grid_sizes(g, ngc); // find the next coarser grid
+          real_space_grid::grid_t<1> gc(ngc);
+          gc.set_boundary_conditions(g.boundary_conditions());
+          gc.set_grid_spacing(g[0]*g.h[0]/ngc[0], g[1]*g.h[1]/ngc[1], g[2]*g.h[2]/ngc[2]);
+          std::vector<real_t> rc(gc.all()), uc(gc.all(), real_t(0));
+          stat += multi_grid::restrict3D(rc, gc, r, g, echo);
+          stat += multi_grid_cycle(uc, rc, gc, 2, 2, echo - 1);
+          stat += multi_grid::interpolate3D(r, g, uc, gc, echo);
+          add_product(x, g.all(), r, real_t(1));
+      } // coarsen
+
+      for(int p = 0; p < n_post; ++p) {
+          auto const rn = multi_grid_smoothen(x, r, b, g);
+          if (echo > 0) printf("# %s post-smoothen step %i residual norm %.1e\n", __func__, p, rn);
+      } // p
+      
+      return stat;
+  } // multi_grid_cycle
+  
+  template<typename real_t>
+  status_t multi_grid_precond(real_t x[] // to Laplace(x)/(-4*pi) == b
+                            , real_t const b[] //
+                            , real_space_grid::grid_t<1> const &g
+                            , int const echo=0) {
+      return multi_grid_cycle(x, b, g, 0, 0, echo); // 0, 0 means do not smoothen on the finest level
+  } // multi_grid_precond
+  
   template<typename real_t>
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
-                , real_space_grid::grid_t<1> g // grid descriptor
+                , real_space_grid::grid_t<1> const &g // grid descriptor
                 , int const echo // =0 // log level
                 , float const threshold // =3e-8 // convergence criterion
                 , float *residual // =nullptr // residual that was reached
@@ -59,17 +127,17 @@ namespace iterative_poisson {
         } // mixed precision
     } // real_t==double
 
-    int const nn_precond = 0;
-    bool const use_precond = (nn_precond > 0);
+    int const nn_precond = 0; // 0:none, >0:stencil, <0:multi_grid
+    bool const use_precond = (0 != nn_precond);
     
     view2D<real_t> mem(4 + use_precond, nall, 0.0); // get memory
     auto const r=mem[0], p=mem[1], ax=mem[2], ap=mem[3], z=use_precond?mem[4]:r;    
     
-    finite_difference::finite_difference_t<real_t> fd(g.h, 8);
-    fd.scale_coefficients(-.25/constants::pi); // electrostatics prefactor in Hartree atomic units
-
-    finite_difference::finite_difference_t<real_t> precond(g.h, nn_precond);
-    if (use_precond) {
+    finite_difference::stencil_t<real_t> const Laplacian(g.h, 8, m1over4pi); // 8: use a 17-point stencil
+    
+    finite_difference::stencil_t<real_t> precond;
+    if (nn_precond > 0) {
+        precond = finite_difference::stencil_t<real_t>(g.h, nn_precond);
         auto const nn = precond.nearest_neighbors();
         double nrm{0};
         for(int d = 0; d < 3; ++d) {
@@ -116,7 +184,7 @@ namespace iterative_poisson {
     status_t ist{0};
 
     // |Ax> := A|x>
-    ist = finite_difference::Laplacian(ax, x, g, fd);
+    ist = finite_difference::apply(ax, x, g, Laplacian);
     if (ist) error("CG_solve: Laplacian failed!");
 
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
@@ -136,7 +204,7 @@ namespace iterative_poisson {
 
     // |z> = |Pr> = P|r>
     if (use_precond) {
-        ist = finite_difference::Laplacian(z, r, g, precond);
+        ist = finite_difference::apply(z, r, g, precond);
         if (ist) error("CG_solve: Preconditioner failed!");
     } else assert(z == r);
 
@@ -157,7 +225,7 @@ namespace iterative_poisson {
 //       !--------------------------------------
 
         // |ap> = A|p>
-        ist = finite_difference::Laplacian(ap, p, g, fd);
+        ist = finite_difference::apply(ap, p, g, Laplacian);
         if (ist) error("CG_solve: Laplacian failed!");
 
         double const pAp = scalar_product(p, ap, nall) * g.dV(); // g.comm
@@ -181,7 +249,7 @@ namespace iterative_poisson {
 
         if (0 == it % restart) {
             // |Ax> = A|x>
-            ist = finite_difference::Laplacian(ax, x, g, fd);
+            ist = finite_difference::apply(ax, x, g, Laplacian);
             if (ist) error("CG_solve: Laplace failed!")
             // |r> = |b> - A|x> = |b> - |ax>
             set(r, nall, b); add_product(r, nall, ax, real_t(-1));
@@ -195,7 +263,7 @@ namespace iterative_poisson {
 
         // |z> = |Pr> = P|r>
         if (use_precond) {
-            ist = finite_difference::Laplacian(z, r, g, precond);
+            ist = finite_difference::apply(z, r, g, precond);
             if (ist) error("CG_solve: Preconditioner failed!");
         } else assert(z == r);
 
@@ -241,9 +309,14 @@ namespace iterative_poisson {
   } // solve
 
 #ifdef  NO_UNIT_TESTS
+  template // explicit template instantiation
+  status_t solve(double x[], double const b[], real_space_grid::grid_t<1> const &g // grid descriptor
+                , int const echo, float const threshold, float *residual, int const maxiter
+                , int const miniter, int restart, char const mixed_precision);
+
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
-  
+
   template <typename real_t>
   status_t test_solver(int const echo=9, int const ng=24) {
       status_t stat{0};
@@ -284,7 +357,7 @@ namespace iterative_poisson {
   status_t all_tests(int const echo) {
     status_t stat{0};
     stat += test_solver<double>(echo);
-    stat += test_solver<float>(echo); // test complation and convergence
+    stat += test_solver<float>(echo); // test compilation and convergence for float
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS
