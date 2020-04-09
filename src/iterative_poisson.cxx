@@ -43,16 +43,17 @@ namespace iterative_poisson {
                             , real_space_grid::grid_t<1> const &g
                             , int const echo=0) {
       size_t const n = g.all();
-      finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // lowest order FD stencil
+      finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // 1:lowest order FD stencil
       double const c0 = A.c2nd[0][0] + A.c2nd[1][0] + A.c2nd[2][0]; // diagonal element
       double const omega = 2/3.; // Jacobi damping
 
+      // Jacobi update method
       finite_difference::apply(r, x, g, A); // r = A*x
       add_product(r, n, b, real_t(-1)); // now r = A*x - b
       add_product(x, n, r, real_t(omega/c0));
       scale(r, n, real_t(-1)); // now r = b - A*x
-      return norm2(r);
-  } // multi_grid_cycle
+      return norm2(r, n);
+  } // multi_grid_smoothen
   
   template<typename real_t>
   status_t multi_grid_cycle(real_t x[] // to Laplace(x)/(-4*pi) == b
@@ -61,6 +62,7 @@ namespace iterative_poisson {
                             , unsigned const n_pre=2
                             , unsigned const n_post=2
                             , int const echo=0) {
+      // multi-grid V-cycle
       status_t stat(0);
       std::vector<real_t> residual_vector(g.all()); auto const r = residual_vector.data(); // bare pointer
     
@@ -69,24 +71,24 @@ namespace iterative_poisson {
           if (echo > 0) printf("# %s  pre-smoothen step %i residual norm %.1e\n", __func__, p, rn);
       } // p
 
-      if ((g[0] > 2) && (g[1] > 2) && (g[2] > 2)) {
+      if ((g[0] > 2) || (g[1] > 2) || (g[2] > 2)) {
           uint32_t ngc[3];
-          stat += multi_grid::analyze_grid_sizes(g, ngc); // find the next coarser grid
+          stat += multi_grid::analyze_grid_sizes(g, ngc); // find the next coarser 2^k grid
           real_space_grid::grid_t<1> gc(ngc);
           gc.set_boundary_conditions(g.boundary_conditions());
           gc.set_grid_spacing(g[0]*g.h[0]/ngc[0], g[1]*g.h[1]/ngc[1], g[2]*g.h[2]/ngc[2]);
           std::vector<real_t> rc(gc.all()), uc(gc.all(), real_t(0));
-          stat += multi_grid::restrict3D(rc, gc, r, g, echo);
-          stat += multi_grid_cycle(uc, rc, gc, 2, 2, echo - 1);
-          stat += multi_grid::interpolate3D(r, g, uc, gc, echo);
-          add_product(x, g.all(), r, real_t(1));
+          stat += multi_grid::restrict3D(rc.data(), gc, r, g, echo);
+          stat += multi_grid_cycle(uc.data(), rc.data(), gc, 2, 2, echo - 1); // recursive invokation
+          stat += multi_grid::interpolate3D(r, g, uc.data(), gc, echo);
+          add_product(x, g.all(), r, real_t(1)); // correct x
       } // coarsen
 
       for(int p = 0; p < n_post; ++p) {
           auto const rn = multi_grid_smoothen(x, r, b, g);
           if (echo > 0) printf("# %s post-smoothen step %i residual norm %.1e\n", __func__, p, rn);
       } // p
-      
+
       return stat;
   } // multi_grid_cycle
   
@@ -204,7 +206,8 @@ namespace iterative_poisson {
 
     // |z> = |Pr> = P|r>
     if (use_precond) {
-        ist = finite_difference::apply(z, r, g, precond);
+        ist = (nn_precond > 0) ? finite_difference::apply(z, r, g, precond) 
+                               : multi_grid_precond(z, r, g, echo);
         if (ist) error("CG_solve: Preconditioner failed!");
     } else assert(z == r);
 
@@ -263,7 +266,8 @@ namespace iterative_poisson {
 
         // |z> = |Pr> = P|r>
         if (use_precond) {
-            ist = finite_difference::apply(z, r, g, precond);
+            ist = (nn_precond > 0) ? finite_difference::apply(z, r, g, precond) 
+                                   : multi_grid_precond(z, r, g, echo);
             if (ist) error("CG_solve: Preconditioner failed!");
         } else assert(z == r);
 
