@@ -7,7 +7,7 @@
 #include "grid_operators.hxx"
 
 #include "atom_image.hxx" // ::sho_atom_t
-#include "real_space_grid.hxx" // ::grid_t
+#include "real_space.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::stencil_t<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
 #include "boundary_condition.hxx" // ::periodic_images
@@ -23,7 +23,7 @@ namespace grid_operators {
   template<typename real_t, typename real_fd_t, int D0=1>
   status_t _grid_operator(real_t Hpsi[] // result
                         , real_t const psi[] // input wave functions
-                        , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                        , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
                         , std::vector<atom_image::sho_atom_t> const &a // atoms
                         , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
                         , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
@@ -144,7 +144,7 @@ namespace grid_operators {
   template<typename real_t, typename real_fd_t=double, int D0=1>
   status_t grid_Hamiltonian(real_t Hpsi[] // result
                           , real_t const psi[] // input wave functions
-                          , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
                           , std::vector<atom_image::sho_atom_t> const &a
                           , finite_difference::stencil_t<real_fd_t> const &fd // finite difference
                           , double const potential[] // diagonal potential operator
@@ -156,7 +156,7 @@ namespace grid_operators {
   template<typename real_t, typename real_fd_t=double, int D0=1>
   status_t grid_Overlapping(real_t Spsi[] // result
                           , real_t const psi[] // input wave functions
-                          , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
                           , std::vector<atom_image::sho_atom_t> const &a
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
                           , int const echo=0
@@ -166,7 +166,7 @@ namespace grid_operators {
   template<typename real_t, int D0=1>
   status_t get_atom_coeffs(real_t** atom_coeffs // result
                           , real_t const psi[] // input wave functions
-                          , real_space_grid::grid_t<D0> const &g // 3D Cartesian grid descriptor
+                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
                           , std::vector<atom_image::sho_atom_t> const &a
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
                           , int const echo=0
@@ -183,7 +183,7 @@ namespace grid_operators {
   class grid_operator_t
   {
     private:
-      void _constructor(real_space_grid::grid_t<D0> const & g // real space grid descriptor
+      void _constructor(real_space::grid_t<D0> const & g // real space grid descriptor
                , double const *local_potential // may be nullptr
                , int const nn_precond
                , int const nn_kinetic=8) {
@@ -211,7 +211,7 @@ namespace grid_operators {
       
     public:
 
-      grid_operator_t(real_space_grid::grid_t<D0> const & g // real space grid descriptor
+      grid_operator_t(real_space::grid_t<D0> const & g // real space grid descriptor
                       , std::vector<atom_image::sho_atom_t> const & a // is moved to atoms
                       , double const *local_potential=nullptr // effective local potential
                       , int const nn_precond=1) // range of the preconditioner
@@ -219,7 +219,7 @@ namespace grid_operators {
           _constructor(grid, local_potential, nn_precond);
       } // constructor with atoms
 
-      grid_operator_t(real_space_grid::grid_t<D0> const & g // real space grid descriptor
+      grid_operator_t(real_space::grid_t<D0> const & g // real space grid descriptor
                       , double const *local_potential=nullptr // effective local potential
                       , int const nn_precond=1) // range of the preconditioner
           : grid(g), atoms(0), has_precond(nn_precond > 0), has_overlap(true) {
@@ -243,7 +243,7 @@ namespace grid_operators {
       } // get_atom_coeffs
 
     private:
-      real_space_grid::grid_t<D0> grid;
+      real_space::grid_t<D0> grid;
       std::vector<atom_image::sho_atom_t> atoms;
       std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
       std::vector<double> potential;
@@ -252,7 +252,7 @@ namespace grid_operators {
       bool has_precond;
       bool has_overlap;
     public:
-      real_space_grid::grid_t<D0> const & get_grid() const { return grid; }
+      real_space::grid_t<D0> const & get_grid() const { return grid; }
       bool use_precond() const { return has_precond; }
       bool use_overlap() const { return has_overlap; }
       int  get_natoms()  const { return atoms.size(); }
@@ -268,7 +268,7 @@ namespace grid_operators {
                        , double const xyzZins[] // data layout [na][8], collection of different quantities
                        , int const na // number of atoms
                        , int const stride // typically stride=8
-                       , real_space_grid::grid_t<D0> const & g // actually we need cell info here, not grid, so the <D0> templating could be dropped
+                       , real_space::grid_t<D0> const & g // actually we need cell info here, not grid, so the <D0> templating could be dropped
                        , int const echo=9
                        , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
                        , float const rcut=18 // sho_projection usually ends at 9*sigma

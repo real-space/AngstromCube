@@ -15,7 +15,7 @@
   #include "control.hxx" // ::get
 #endif
 
-#include "real_space_grid.hxx" // ::grid_t
+#include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
 #include "inline_math.hxx" // set, add_product, dot_product
 #include "status.hxx" // status_t
@@ -54,7 +54,7 @@ namespace multi_grid {
   
   template <int D0=1>
   inline status_t analyze_grid_sizes(
-            real_space_grid::grid_t<D0> const & g // coarse grid where the Kohn-Sham equation is typically solved
+            real_space::grid_t<D0> const & g // coarse grid where the Kohn-Sham equation is typically solved
           , uint32_t *n_coarse
           , int const echo=0) {
       status_t stat{0};
@@ -192,8 +192,8 @@ namespace multi_grid {
 
   // now 3D functions:
   template <typename real_t, typename real_in_t=real_t, int D0=1>
-  status_t restrict3D(real_t out[], real_space_grid::grid_t<D0> const & go
-            , real_in_t const in[], real_space_grid::grid_t<D0> const & gi
+  status_t restrict3D(real_t out[], real_space::grid_t<D0> const & go
+            , real_in_t const in[], real_space::grid_t<D0> const & gi
             , int const echo=0) { // log-level
       status_t stat(0);
 
@@ -240,8 +240,8 @@ namespace multi_grid {
   } // restrict3D
 
   template <typename real_t, typename real_in_t=real_t, int D0=1>
-  status_t interpolate3D(real_t out[], real_space_grid::grid_t<D0> const & go
-               , real_in_t const in[], real_space_grid::grid_t<D0> const & gi, int const echo=0) {
+  status_t interpolate3D(real_t out[], real_space::grid_t<D0> const & go
+               , real_in_t const in[], real_space::grid_t<D0> const & gi, int const echo=0) {
       status_t stat(0);
       for(int d = 0; d < 3; ++d) {
           assert(go.boundary_condition(d) == gi.boundary_condition(d));
@@ -414,7 +414,7 @@ namespace multi_grid {
   
   inline status_t test_analysis(int const echo=0) {
       status_t stat(0);
-      real_space_grid::grid_t<1> g(63, 64, 65);
+      real_space::grid_t<1> g(63, 64, 65);
       for(char dir = 'x'; dir <= 'z'; ++dir) {
           stat += check_general_restrict(g(dir), echo, dir);
       } // direction
@@ -423,7 +423,7 @@ namespace multi_grid {
   
   inline status_t test_restrict_interpolate(int const echo=0) {
       status_t stat(0);
-      real_space_grid::grid_t<1> gi(15, 16, 17), go(8, 8, 16);
+      real_space::grid_t<1> gi(15, 16, 17), go(8, 8, 16);
       std::vector<float> in(gi.all()), out(go.all());
       std::iota(in.begin(), in.end(), .5f);
       stat += restrict3D(out.data(), go, in.data(), gi);

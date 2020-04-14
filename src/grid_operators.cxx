@@ -4,7 +4,7 @@
  
 #include "grid_operators.hxx"
 
-#include "real_space_grid.hxx" // ::grid_t
+#include "real_space.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::stencil_t, ::derive
 #include "atom_image.hxx" // ::atom_image_t, ::sho_atom_t
 
@@ -19,7 +19,7 @@ namespace grid_operators {
       status_t stat(0);
       int constexpr D0 = 2; // vectorization
       int const dims[] = {12, 13, 14};
-      real_space_grid::grid_t<D0> g(dims);
+      real_space::grid_t<D0> g(dims);
       std::vector<double> psi(2*g.all(), 1.0);
       std::vector<double> potential(dims[2]*dims[1]*dims[0], 0.5);
       std::vector<atom_image::sho_atom_t> a(1);
@@ -46,7 +46,7 @@ namespace grid_operators {
 
   status_t class_with_atoms_test(int const echo=9) {
       status_t stat(0);
-      real_space_grid::grid_t<1> g(36, 25, 24);
+      real_space::grid_t<1> g(36, 25, 24);
       std::vector<atom_image::sho_atom_t> a;
       //                          x   y   z    Z     id nu sigma dummy
       double const xyzZinso[] = {.1, .2, -4,  13.0,  767, 3, 1.5, 9e9,

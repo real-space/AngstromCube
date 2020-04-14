@@ -3,7 +3,7 @@
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
 
-#include "real_space_grid.hxx" // grid_t<D0>
+#include "real_space.hxx" // grid_t<D0>
 #include "boundary_condition.hxx" // *_Boundary
 #include "recorded_warnings.hxx" // warn
 
@@ -238,7 +238,7 @@ namespace finite_difference {
             typename real_in_t, // input comes in this precision
             typename real_fd_t, // computations are executed in this precision
             int D0=1> // vectorization
-  status_t apply(real_out_t out[], real_in_t const in[], real_space_grid::grid_t<D0> const &g, 
+  status_t apply(real_out_t out[], real_in_t const in[], real_space::grid_t<D0> const &g, 
                      stencil_t<real_fd_t> const &fd, double const factor=1) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors

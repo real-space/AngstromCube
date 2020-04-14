@@ -22,7 +22,7 @@ OBJ = \
 	geometry_analysis.o \
 	bessel_transform.o \
 	iterative_poisson.o \
-	real_space_grid.o \
+	real_space.o \
 	davidson_solver.o \
 	grid_operators.o \
 	finite_difference.o \

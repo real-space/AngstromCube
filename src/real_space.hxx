@@ -12,7 +12,7 @@
 
 #include "status.hxx" // status_t
 
-namespace real_space_grid {
+namespace real_space {
   
   int constexpr debug = 0;
 
@@ -211,4 +211,4 @@ namespace real_space_grid {
   
   status_t all_tests(int const echo=0);
 
-} // namespace real_space_grid
+} // namespace real_space

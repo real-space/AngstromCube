@@ -6,7 +6,7 @@
 #include "status.hxx" // status_t
 
 #include "sho_tools.hxx" // sho_tools::nSHO, sho_tools::get_nu, sho_tools::order_zyx
-#include "real_space_grid.hxx" // real_space_grid::grid_t<D0>
+#include "real_space.hxx" // real_space::grid_t<D0>
 #include "hermite_polynomial.hxx" // hermite_polys
 #include "inline_math.hxx" // pow3, factorial<T>
 #include "constants.hxx" // sqrtpi
@@ -25,7 +25,7 @@ namespace sho_projection {
                      , double const center[3] // where
                      , double const sigma
                      , real_t values[] // grid array, result if adding
-                     , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                     , real_space::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4) { //
       auto const rcut = truncation_radius(sigma, numax);
       assert(sigma > 0);
@@ -123,7 +123,7 @@ namespace sho_projection {
                      , double const center[3] // where
                      , double const sigma
                      , real_t const values[] // input, grid array
-                     , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                     , real_space::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
       return _sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
   } // sho_project
@@ -131,7 +131,7 @@ namespace sho_projection {
   // wrapper function
   template<typename real_t, int D0>
   status_t sho_add(real_t values[] // result gets modified, grid array
-                 , real_space_grid::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                 , real_space::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
                  , real_t const coeff[] // input, coefficients are zyx-ordered
                  , int const numax // how many
                  , double const center[3] // where

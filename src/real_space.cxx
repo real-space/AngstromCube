@@ -3,7 +3,7 @@
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
 
-#include "real_space_grid.hxx"
+#include "real_space.hxx"
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "constants.hxx" // pi
@@ -11,7 +11,7 @@
 // #define FULL_DEBUG
 // #define DEBUG
 
-namespace real_space_grid {
+namespace real_space {
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -81,4 +81,4 @@ namespace real_space_grid {
   } // all_tests
 #endif // NO_UNIT_TESTS
 
-} // namespace real_space_grid
+} // namespace real_space

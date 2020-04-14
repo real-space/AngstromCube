@@ -5,7 +5,7 @@
 
 #include "density_generator.hxx"
 
-#include "real_space_grid.hxx" // ::grid_t
+#include "real_space.hxx" // ::grid_t
 #include "grid_operators.hxx" // ::grid_operator_t
 
 namespace density_generator {
@@ -15,7 +15,7 @@ namespace density_generator {
 #else // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
-      real_space_grid::grid_t<1> const g(4, 5, 6);
+      real_space::grid_t<1> const g(4, 5, 6);
       grid_operators::grid_operator_t<float,double,1> const op(g);
       std::vector<float> wave(g.all());
       std::vector<double> rho(g.all());

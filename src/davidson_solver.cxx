@@ -6,7 +6,7 @@
 
 #include "davidson_solver.hxx"
 
-#include "real_space_grid.hxx" // ::grid_t
+#include "real_space.hxx" // ::grid_t
 #include "grid_operators.hxx" // ::grid_Hamiltonian, ::grid_Overlapping
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::generalized_eigval
@@ -219,7 +219,7 @@ namespace davidson_solver {
       //                           3*(pi/8.78)**2      = 0.192 (found)
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
-      real_space_grid::grid_t<D0> g(8, 8, 8);
+      real_space::grid_t<D0> g(8, 8, 8);
       std::vector<real_t> psi(nbands*g.all(), 0.0);
 
       int const swm = control::get("davidson_solver.start.waves", 0.);

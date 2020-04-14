@@ -43,7 +43,7 @@ namespace sho_projection {
   status_t test_L2_orthogonality(int const echo=2, int const numax=5, double const sigma=1.05) {
       if (echo > 0) printf("\n# %s<%s>\n", __func__, (8 == sizeof(real_t))?"double":"float");
       int const dims[] = {42, 41, 40};
-      real_space_grid::grid_t<1> g(dims);
+      real_space::grid_t<1> g(dims);
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
       if (echo > 1) printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
@@ -119,7 +119,7 @@ namespace sho_projection {
       double const sigma = 1.0;
       if (echo > 0) printf("\n# %s with sigma = %g\n", __func__, sigma);
       int const dims[] = {42, 41, 40};
-      real_space_grid::grid_t<1> g(dims);
+      real_space::grid_t<1> g(dims);
       typedef double real_t;
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
