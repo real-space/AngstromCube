@@ -1712,34 +1712,6 @@ namespace angular_grid {
     return m;
   } // create_Lebedev_grid
 
-
-
-#if 0
-// def USE_LaTeX
-cTeXit '', '%%%'+__FILE__+'line='-__LINE__,''
-cTeXit '', 'For the setup of the angular grid with $'-m-'$ points on the unit sphere'
-
-  if(nc(0) == 1) then
-cTeXit ', a single point was used' !, ' instead of an angular grid'
-  endif ! nc
-
-  if(nc(1) == 1) then ; i = 1
-cTeXit ', an angular sub-grid with $'-nPoints(i)-'$ points', &
-cTeX   ' according to the scheme of Lebedev \emph{et al.} \cite{Lebedev'-CiteLebedevYear(i)-'} was added'
-  endif ! nc
-
-  do i = 2, 6
-    if(nc(i) == 1) then
-cTeXit ', an angular sub-grid with $'-nPoints(i)-'$ points', &
-cTeX   ' according to the scheme of Lebedev \cite{Lebedev'-CiteLebedevYear(i)-'} was added'
-    elseif(nc(i) > 1) then
-cTeXit ','+nc(i)+'angular sub-grids with $'-nPoints(i)-'$ points each', &
-cTeX   ' according to the scheme of Lebedev \cite{Lebedev'-CiteLebedevYear(i)-'} were added'
-    endif ! nc
-  enddo ! i
-cTeXit '. ', '' ! full stop and an extra empty line
-#endif
-
 // interface documentation for gen_ohN()
 //   int gen_ohN(int ncode[], // (inout) count how many times this icode was used
 //              real_t const w8, // (in) weight

@@ -468,8 +468,8 @@ namespace iterative_poisson {
 #ifdef  NO_UNIT_TESTS
   template // explicit template instantiation
   status_t solve(double x[], double const b[], real_space::grid_t<1> const &g // grid descriptor
-                , int const echo, float const threshold, float *residual, int const maxiter
-                , int const miniter, int restart, char const mixed_precision);
+                , char const method, int const echo, float const threshold
+                , float *residual, int const maxiter, int const miniter, int restart);
 
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS

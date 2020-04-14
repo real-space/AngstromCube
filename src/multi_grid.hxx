@@ -272,7 +272,7 @@ namespace multi_grid {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t inline all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
   inline int64_t grid_point_id(uint32_t const x, uint32_t const y, uint32_t const z) {

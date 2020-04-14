@@ -2,15 +2,22 @@
 
 partial_preprocessor=~/Codes/cppp/cppp
 
-defs="-D NO_UNIT_TESTS"\
-"-D _VIEW2D_HAS_PARENTHESIS -D _VIEW3D_HAS_PARENTHESIS"\
-"-D _VIEW3D_HAS_PARENTHESIS_2ARGS -D _VIEW3D_HAS_INDEXING"\
-"-D _VIEW4D_HAS_PARENTHESIS -D _VIEW4D_HAS_PARENTHESIS_3ARGS"\
-"-D _VIEW4D_HAS_INDEXING"
+defs=""\
+" -D NO_UNIT_TESTS"\
+" -D _VIEW2D_HAS_PARENTHESIS"\
+" -D _VIEW3D_HAS_PARENTHESIS"\
+" -D _VIEW3D_HAS_PARENTHESIS_2ARGS"\
+" -D _VIEW3D_HAS_INDEXING"\
+" -D _VIEW4D_HAS_PARENTHESIS"\
+" -D _VIEW4D_HAS_PARENTHESIS_3ARGS"\
+" -D _VIEW4D_HAS_INDEXING"
 
-undefs="-U DEBUG -U FULL_DEBUG -U DEVEL"\
-"-U OLD_SINGLE_ATOM_UPDATE_INTERFACE"\
-"-U LARGE_GRIDS"
+undefs=""\
+" -U DEBUG"\
+" -U FULL_DEBUG"\
+" -U DEVEL"\
+" -U OLD_SINGLE_ATOM_UPDATE_INTERFACE"\
+" -U LARGE_GRIDS"
 
 echo "Generation of a release version,"
 echo "  apply the partial preprocessor"
@@ -19,11 +26,14 @@ echo "      $defs"
 echo "  and the following undefs"
 echo "      $undefs"
 
-source_dir=./
-target_dir=$1
+target_dir=../release
 
-cp $source_dir/Makefile $target_dir
-for xxFile in `ls $source_dir/*.*xx`
+cp Makefile $target_dir
+### maybe some modifications of the FEATUREFLAGS in the Makefile 
+### will be necessary
+
+for xxFile in `ls *.*xx *.h`
 do
-    $partial_preprocessor $defs $undefs $xxFile > $target_dir/$xxFile
+  # echo "$partial_preprocessor $defs $undefs $xxFile $target_dir"
+    $partial_preprocessor $defs $undefs $xxFile $target_dir
 done
