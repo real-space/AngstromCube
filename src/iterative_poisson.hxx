@@ -10,13 +10,13 @@ namespace iterative_poisson {
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
                 , real_space::grid_t<1> const &g // grid descriptor
+                , char const method='M' // solver method M:multi-grid, c:conjugate-gradient, s:steepest-descent
                 , int const echo=0 // log level
                 , float const threshold=3e-8 // convergence criterion
                 , float *residual=nullptr // residual that was reached
                 , int const maxiter=199 // maximum number of iterations 
                 , int const miniter=3  // minimum number of iterations
                 , int restart=4096 // number of iterations before restart, 1:steepest descent
-                , char const mixed_precision='m'
                 );
   
   status_t all_tests(int const echo=0);

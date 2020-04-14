@@ -264,7 +264,7 @@ namespace potential_generator {
       std::vector<double>  Ves(g.all(), 0.0);
       std::vector<double> Vtot(g.all());
 
-      char const *es_solver_name = control::get("electrostatic.solver", "iterative"); // {"fourier", "iterative", "none"}
+      char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name | 32; // should be one of {'f', 'i', 'n'}
 
       std::vector<double> q00_valence;
@@ -368,12 +368,29 @@ namespace potential_generator {
                   } // d
                   stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
 
+              } else if ('M' == es_solver_method) { // "Multi-grid"
+                
+                  // create a denser grid descriptor
+                  real_space::grid_t<1> gd(g[0]*2, g[1]*2, g[2]*2);
+                  if (echo > 2) printf("# electrostatic.solver = %s is a multi-grid solver"
+                          " on a %d x %d x %d grid\n", es_solver_name, gd[0], gd[1], gd[2]);
+                  gd.set_grid_spacing(g.h[0]/2, g.h[1]/2, g.h[2]/2);
+                  gd.set_boundary_conditions(g.boundary_conditions());
+
+                  std::vector<double> Ves_dense(gd.all()), rho_dense(gd.all());
+                  multi_grid::interpolate3D(rho_dense.data(), gd, rho.data(), g, echo);
+                  
+                  iterative_poisson::solve(Ves_dense.data(), rho_dense.data(), gd, 'M', echo);
+                  
+                  // restrict the electrostatic potential to grid g
+                  multi_grid::restrict3D(Ves.data(), g, Ves_dense.data(), gd, echo);
+
               } else if ('n' == es_solver_method) { // "none"
                   warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
 
               } else { // default
                   if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
-                  stat += iterative_poisson::solve(Ves.data(), rho.data(), g, echo);
+                  stat += iterative_poisson::solve(Ves.data(), rho.data(), g, es_solver_method, echo);
 
               } // es_solver_method
 

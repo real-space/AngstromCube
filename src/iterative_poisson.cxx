@@ -165,11 +165,12 @@ namespace iterative_poisson {
   } // multi_grid_exact
   
   template<typename real_t>
-  status_t multi_grid_cycle(real_t x[] // to Laplace(x)/(-4*pi) == b
+  status_t multi_grid_cycle(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
                             , real_space::grid_t<1> const &g
                             , int const echo=0
                             , bool const as_solver=true
+                            , float *residual=nullptr
                             , unsigned const n_pre=2
                             , unsigned const n_post=2
                             , float const tol2=1e-18) {
@@ -181,7 +182,7 @@ namespace iterative_poisson {
       
       std::vector<real_t> residual_vector(g.all()); // get memory
       auto const r = residual_vector.data();
-      real_t const *rd;
+      real_t const *rd = r;
 
       if (as_solver) {
           float rn2{9e9}; // residual 2-norm
@@ -190,7 +191,6 @@ namespace iterative_poisson {
               if (echo > 19) printf("# %s %s  pre-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
           } // p
           if (echo > 0) printf("# %s %s  pre-smoothen to residual norm %.1e\n", __func__, label, rn2);
-          rd = r;
       } else {
           rd = b;
           if (echo > 0) printf("# %s %s            input residual norm %.1e\n", __func__, label, norm2(rd, g.all()));
@@ -203,7 +203,7 @@ namespace iterative_poisson {
       gc.set_grid_spacing(g[0]*g.h[0]/ngc[0], g[1]*g.h[1]/ngc[1], g[2]*g.h[2]/ngc[2]);
       std::vector<real_t> rc(gc.all()), uc(gc.all(), real_t(0)); // two quantites on the coarse grid
       stat += multi_grid::restrict3D(rc.data(), gc, rd, g, 0); // mute
-      stat += multi_grid_cycle(uc.data(), rc.data(), gc, echo - 1, true, n_pre, n_post, tol2); // recursive invokation
+      stat += multi_grid_cycle(uc.data(), rc.data(), gc, echo - 1, true, nullptr, n_pre, n_post, tol2); // recursive invokation
       stat += multi_grid::interpolate3D(r, g, uc.data(), gc, 0); // mute
       add_product(x, g.all(), r, real_t(1)); // correct x
 
@@ -214,10 +214,31 @@ namespace iterative_poisson {
               if (echo > 19) printf("# %s %s post-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
           } // p
           if (echo > 0) printf("# %s %s post-smoothen to residual norm %.1e\n", __func__, label, rn2);
+          if (residual) *residual = std::sqrt(rn2*g.dV()); // in units of the density
       } // n_post > 0
 
       return stat;
   } // multi_grid_cycle
+
+  template<typename real_t>
+  status_t multi_grid_solve(real_t x[] // one exit solution to Laplace(x)/(-4*pi) == b
+                , real_t const b[] //
+                , real_space::grid_t<1> const &g
+                , int const echo // =0 // log level
+                , float const threshold=3e-8 // convergence criterion
+                , float *residual=nullptr
+                , int const maxiter=99 // maximum number of iterations
+  ) {
+      status_t stat(0);
+      float res{9e9};
+      for(int iter = 0; iter < maxiter && res > threshold; ++iter) {
+//        if (echo > 0) printf("# %s iteration #%i\n", __func__, iter);
+          stat += multi_grid_cycle(x, b, g, echo, true, &res); // 'V'-cycle
+          if (echo > 0) printf("# %s iteration #%i residual = %.1e a.u.\n", __func__, iter, res);
+      } // iter
+      if (residual) *residual = res;
+      return stat;
+  } // multi_grid_solve
   
   template<typename real_t>
   status_t multi_grid_precond(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
@@ -231,27 +252,29 @@ namespace iterative_poisson {
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
                 , real_space::grid_t<1> const &g // grid descriptor
+                , char const method // use mixed precision as preconditioner
                 , int const echo // =0 // log level
                 , float const threshold // =3e-8 // convergence criterion
                 , float *residual // =nullptr // residual that was reached
                 , int const maxiter // =999 // maximum number of iterations 
                 , int const miniter // =0   // minimum number of iterations
-                , int restart // =4096 // number of iterations before restrat, 1:steepest descent
-                , char const mixed_precision // use mixed precision as preconditioner
+                , int restart // =4096 // number of iterations before restart, 1:steepest descent
                 ) {
 
-    restart = std::max(1, restart);
+    if ('m' == (method | 32)) return multi_grid_solve(x, b, g, echo, threshold, residual, maxiter);
+
+    restart = ('s' == method) ? 1 : std::max(1, restart);
     
     size_t const nall = size_t(g[2])*size_t(g[1])*size_t(g[0]);
     
     if (std::is_same<real_t, double>::value) {
-        if ('m' == mixed_precision) {
+        if ('x' == method) {
             view2D<float> xb(2, nall, 0.0); // get memory
             auto const x32 = xb[0], b32 = xb[1];
             set(b32, nall, b); // convert to float
             set(x32, nall, x); // convert to float
             if (echo > 5) printf("# %s solve in <float> precision first\n", __FILE__);
-            solve(x32, b32, g, echo + 1, threshold, residual, maxiter >> 4, miniter, restart);
+            solve(x32, b32, g, method, echo + 1, threshold, residual, maxiter >> 4, miniter, restart);
             set(x, nall, x32); // convert to double
         } // mixed precision
     } // real_t==double
