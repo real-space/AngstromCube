@@ -58,9 +58,14 @@
 #include "atom_core.hxx" // ::all_tests
 #include "data_view.hxx" // ::all_tests
 #include "control.hxx" // ::all_tests
+#endif
 
-  status_t run_unit_tests(char const *module=nullptr, int const echo=0) 
-  {
+  status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
+      status_t status(0);
+#ifdef  NO_UNIT_TESTS
+      error("version was compiled with -D NO_UNIT_TESTS");
+      status = -1;
+#else
       bool const all = (nullptr == module);
       auto const m = std::string(all ? "" : module);
       if (all) { if (echo > 0) printf("\n# run all tests!\n\n"); } 
@@ -123,7 +128,6 @@
 #undef    module_test
       } // testing scope
 
-      status_t status(0);
       if (run.size() < 1) { // nothing has been tested
           if (echo > 0) printf("# ERROR: test for '%s' not found!\n", module);
           status = -1;
@@ -139,14 +143,9 @@
               if (status > 0) printf("# Warning! At least one module test failed!\n");
           } // echo
       } // something has been tested
+#endif
       return status;
   } // run_unit_tests
-#else
-  status_t run_unit_tests(char const *m=nullptr, int const echo=0) {
-      error("version was compiled with -D NO_UNIT_TESTS");
-      return -1;
-  } // run_unit_tests
-#endif
 
   int show_help(char const *executable) {
       printf("Usage %s [OPTION]\n"

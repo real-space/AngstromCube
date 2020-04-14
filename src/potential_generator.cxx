@@ -84,14 +84,6 @@ namespace potential_generator {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
       
-      // compute the self-consistent solution of a single_atom, all states in the core
-      // get the spherical core_density and bring it to the 3D grid
-      // get the ell=0 compensator charge and add it to the 3D grid
-      // envoke exchange_correlation and fourier_poisson
-      // add XC and electrostatic potential and zero potential contributions
-      // project the total effective potential to each center using bessel_transforms
-      // feed back potential shifts into single_atom
-
       natoms = 0;
       double cell[3];
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
@@ -159,6 +151,14 @@ namespace potential_generator {
   
   status_t init(float const ion=0.f, int const echo=0) {
     
+      // compute the self-consistent solution of a single_atom, all states in the core
+      // get the spherical core_density and bring it to the 3D grid
+      // get the ell=0 compensator charge and add it to the 3D grid
+      // envoke exchange_correlation and fourier_poisson
+      // add XC and electrostatic potential and zero potential contributions
+      // project the total effective potential to each center using bessel_transforms
+      // feed back potential shifts into single_atom
+
       double constexpr Y00 = solid_harmonics::Y00;
       double constexpr Y00inv = solid_harmonics::Y00inv;
       double constexpr Y00sq = pow2(solid_harmonics::Y00);

@@ -44,7 +44,7 @@ OBJ = \
 	main.o
 
 ifdef ENABLEGPU
-	OBJ += GPUdrivers.o
+	OBJ += gpu_drivers.o
 endif
 
 
