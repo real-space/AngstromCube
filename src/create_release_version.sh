@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+### from https://www.muppetlabs.com/~breadbox/software/cppp.html
 partial_preprocessor=~/Codes/cppp/cppp
 
 defs=""\
