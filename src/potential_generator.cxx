@@ -265,7 +265,7 @@ namespace potential_generator {
       std::vector<double> Vtot(g.all());
 
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
-      char const es_solver_method = *es_solver_name | 32; // should be one of {'f', 'i', 'n'}
+      char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
 
       std::vector<double> q00_valence;
       std::vector<double> rho_valence(g.all(), 0.0);
@@ -358,7 +358,7 @@ namespace potential_generator {
                   print_stats(rho.data(), g.all(), g.dV());
               } // echo
 
-              if ('f' == es_solver_method) {
+              if ('f' == (es_solver_method | 32)) { // "fft", "fourier" 
                   // solve the Poisson equation using a Fast Fourier Transform
                   int ng[3]; double reci[3][4]; 
                   for(int d = 0; d < 3; ++d) { 
@@ -368,7 +368,7 @@ namespace potential_generator {
                   } // d
                   stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
 
-              } else if ('M' == es_solver_method) { // "Multi-grid"
+              } else if ('M' == es_solver_method) { // "Multi-grid" (upper case!)
                 
                   // create a denser grid descriptor
                   real_space::grid_t<1> gd(g[0]*2, g[1]*2, g[2]*2);
@@ -385,7 +385,7 @@ namespace potential_generator {
                   // restrict the electrostatic potential to grid g
                   multi_grid::restrict3D(Ves.data(), g, Ves_dense.data(), gd, echo);
 
-              } else if ('n' == es_solver_method) { // "none"
+              } else if ('n' == (es_solver_method | 32)) { // "none"
                   warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
 
               } else { // default
