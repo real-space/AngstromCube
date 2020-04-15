@@ -36,6 +36,16 @@ namespace iterative_poisson {
   template<typename real_t>
   double scalar_product(real_t const v[], real_t const w[], size_t const n) { return dot_product(n, v, w); }
 
+  // Multi-grid method relies on a short range stencil [1 -2 1]
+  // in order to speed this up, the analysis of the grid sizes could
+  // run beforehand and be stored in a linked list (or vector) of grid descriptors
+  // then, at the very bottom, the exactl solution use linear_solve (A*x == b),
+  // which an explicit operator A (which currently is contructed every time) which could be replaced 
+  // by a matrix multiplication with A^{-1} --> faster than solving
+  // A only depends on boundary_conditions, grid point numbers and grid spacings.
+  // then, we can also in advance decide if we have to use the general restrict3D and interpolate3D
+  // methods which are xyz --> Xyz --> XYz --> XYZ or specific interpolations routines
+  // that do it in one step (e.g. for the case when all 3 grid dimensions are divisible by 2)
   
   template<typename real_t>
   double multi_grid_smoothen( real_t x[] // on entry x, on exit a slightly better to A*x == b

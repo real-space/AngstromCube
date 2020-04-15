@@ -358,6 +358,7 @@ namespace potential_generator {
                   print_stats(rho.data(), g.all(), g.dV());
               } // echo
 
+              // solve the Poisson equation: Laplace Ves == -4 pi rho
               if ('f' == (es_solver_method | 32)) { // "fft", "fourier" 
                   // solve the Poisson equation using a Fast Fourier Transform
                   int ng[3]; double reci[3][4]; 
@@ -471,13 +472,13 @@ namespace potential_generator {
 #ifdef DEVEL
               for(int ia = 0; ia < na; ++ia) {
                   if (echo > 6) {
-                      double const *const aHm = atom_mat[ia];
                       int const n = sho_tools::nSHO(numax[ia]);
+                      view2D<double const> const aHm(atom_mat[ia], n);
                       printf("\n# atom-centered %dx%d Hamiltonian (%s) for atom index #%i\n", n, n, _eV, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {
-                              printf(" %.3f", aHm[i*n + j]*eV);
+                              printf(" %.3f", aHm(i,j)*eV);
                           }   printf("\n");
                       } // i
                   } // echo
@@ -495,7 +496,6 @@ namespace potential_generator {
                   printf("\n# Total effective potential  (restricted to coarse grid)   ");
                   print_stats(Veff.data(), gc.all(), gc.dV());
               } // echo
-
               
 #ifdef DEVEL
               if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
@@ -508,7 +508,8 @@ namespace potential_generator {
                   } // echo
               } // scope
 #endif
-              
+
+              // create a list of atoms
               view2D<double> xyzZinso(na, 8);
               for(int ia = 0; ia < na; ++ia) {
                   set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
@@ -524,17 +525,27 @@ namespace potential_generator {
               grid_operators::grid_operator_t<double> op(gc, a, Veff.data());
 
               std::vector<double> rho_valence_new(gc.all(), 0.0); // new valence density
-              std::vector<double*> atom_rho(na, nullptr); // atomic density matrix
+              std::vector<int> ncoeff_squared(na), ncoeff_a(na);
               for(int ia = 0; ia < na; ++ia) {
                   int const numax = op.get_numax(ia);
                   int const ncoeff = sho_tools::nSHO(numax);
-                  atom_rho[ia] = new double[ncoeff*ncoeff];
-                  set(atom_rho[ia], ncoeff*ncoeff, 0.0); // init clear
+                  ncoeff_a[ia] = ncoeff;
+                  ncoeff_squared[ia] = pow2(ncoeff);
               } // ia
+              data_list<double> atom_rho(na, ncoeff_squared.data(), 0.0); // atomic density matrices
 
               int const nbands = 8;
-              view2D<double> waves(nbands, gc.all());
-              view2D<double> energies(1, nbands);
+              view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
+              { // scope: generate start waves from atomic orbitals
+                  data_list<double> single_atomic_orbital(na, ncoeff_a.data(), 0.0);
+                  for(int iband = 0; iband < nbands; ++iband) {
+                      int const ia = iband >> 2, io = iband & 3; // which atom? which orbital?
+                      single_atomic_orbital[ia][io] = 1;
+                      op.get_start_waves(waves[iband], single_atomic_orbital.data(), echo);
+                      single_atomic_orbital[ia][io] = 0;
+                  } // iband
+              } // scope
+              view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
 
               auto const KS_solver_method = control::get("eigensolver", "cg");
               for(int ikpoint = 0; ikpoint < 1; ++ikpoint) { // ToDo: implement k-points
@@ -544,7 +555,7 @@ namespace potential_generator {
                       // need start wave-functions, ToDo
                       stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
                   } else
-                  if ('d' == KS_solver_method[0]) { // "dav" or "davidson"
+                  if ('d' == KS_solver_method[0]) { // "davidson"
                       ++stat; error("eigensolver method \'davidson\' needs to be implemented");
                   } else {
                       ++stat; error("unknown eigensolver method \'%s\'", KS_solver_method);
@@ -591,52 +602,6 @@ namespace potential_generator {
               } // timer
           } // nfd
 
-#if 0
-          if (0) {
-              // Jacobi solver for the Poisson equation: try if Ves is already the solution
-              // Problem A*x == f    Jacobi update:  x_{k+1} = D^{-1}(f - T*x_{k}) where D+T==A and D is diagonal
-
-              // SimpleTimer timer(__FILE__, __LINE__, "Jacobi solver", echo);
-              finite_difference::stencil_t<double> fdj(g.h, 8, -.25/constants::pi);
-              double const diagonal = fdj.clear_diagonal_elements();
-              double const inverse_diagonal = 1/diagonal;
-              auto & Ves_copy = Ves;
-              std::vector<double> jac_work(g.all());
-              for(int k = 0; k < 3; ++k) {
-                  double const *x_k = Ves_copy.data(); // read from x_k
-                  double      *Tx_k = jac_work.data();
-                  double     *x_kp1 = Ves_copy.data();
-                  stat += finite_difference::apply(Tx_k, x_k, g, fdj);
-                  double res_a{0}, res_2{0}; // internal change between x_{k} and x_{k+1}
-                  for(size_t i = 0; i < g.all(); ++i) {
-                      double const old_value = x_k[i];
-                      double const new_value = inverse_diagonal*(rho[i] - Tx_k[i]);
-                      res_a += std::abs(new_value - old_value);
-                      res_2 +=     pow2(new_value - old_value);
-                      x_kp1[i] = new_value;
-                  } // i
-                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
-                  if (echo > 1) {
-                      printf("# Jacobi iteration %i: residuals abs %.2e rms %.2e\n", k, res_a, res_2);
-                      if (echo > 9) { printf("# it%i Ves:", k); print_stats(x_kp1, g.all(), g.dV()); }
-                  } // echo
-              } // k
-
-              {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference onto Jacobi solution", echo);
-                  stat += finite_difference::apply(Laplace_Ves.data(), Ves.data(), g, fd);
-                  { // Laplace_Ves should match rho
-                      double res_a{0}, res_2{0};
-                      for(size_t i = 0; i < g.all(); ++i) {
-                          res_a += std::abs(Laplace_Ves[i] - rho[i]);
-                          res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
-                      } // i
-                      res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
-                      if (echo > 1) printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e\n", res_a, res_2);
-                  }
-              } // timer
-          } // Jacobi solver
-#endif        
-
       } // scope
 
       int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.0));
@@ -667,8 +632,7 @@ namespace potential_generator {
               if (echo > 1) { printf("\n# real-space:"); print_stats(values, g.all(), g.dV()); }
 
               for(int ia = 0; ia < na; ++ia) {
-        //           int const nq = 200; float const dq = 1.f/16; // --> 199/16 = 12.4375 sqrt(Rydberg) =~= pi/(0.25 Bohr)
-                  float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
+                  float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
                   std::vector<double> qc(nq, 0.0);
 
                   { // scope: Bessel core
