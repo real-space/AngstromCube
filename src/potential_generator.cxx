@@ -250,8 +250,8 @@ namespace potential_generator {
       // the r^2-grid is used to bring radial quantities to a Cartesian grid
       std::vector<int32_t> nr2(na, 1 << 12); // 4096
       std::vector<float>   ar2(na, 16.f); // with nr2 == 4096 rcut = 15.998 Bohr
-      data_list<double> atom_vbar(na, nr2.data(), 0.0); // zero potentials
-      data_list<double> atom_rhoc(na, nr2.data(), 0.0); // core_densities
+      data_list<double> atom_vbar(nr2, 0.0); // zero potentials
+      data_list<double> atom_rhoc(nr2, 0.0); // core_densities
 
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
@@ -522,7 +522,7 @@ namespace potential_generator {
               stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, 8, gc, echo, atom_mat.data());
               
               // construct grid-based Hamiltonian and overlap operator descriptor
-              grid_operators::grid_operator_t<double> op(gc, a, Veff.data());
+              grid_operators::grid_operator_t<double> const op(gc, a, Veff.data());
 
               std::vector<double> rho_valence_new(gc.all(), 0.0); // new valence density
               std::vector<int> ncoeff_squared(na), ncoeff_a(na);
@@ -532,12 +532,12 @@ namespace potential_generator {
                   ncoeff_a[ia] = ncoeff;
                   ncoeff_squared[ia] = pow2(ncoeff);
               } // ia
-              data_list<double> atom_rho(na, ncoeff_squared.data(), 0.0); // atomic density matrices
+              data_list<double> atom_rho(ncoeff_squared, 0.0); // atomic density matrices
 
               int const nbands = 8;
               view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
               { // scope: generate start waves from atomic orbitals
-                  data_list<double> single_atomic_orbital(na, ncoeff_a.data(), 0.0);
+                  data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
                   for(int iband = 0; iband < nbands; ++iband) {
                       int const ia = iband >> 2, io = iband & 3; // which atom? which orbital?
                       single_atomic_orbital[ia][io] = 1;

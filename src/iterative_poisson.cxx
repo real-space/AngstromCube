@@ -40,8 +40,8 @@ namespace iterative_poisson {
   // in order to speed this up, the analysis of the grid sizes could
   // run beforehand and be stored in a linked list (or vector) of grid descriptors
   // then, at the very bottom, the exactl solution use linear_solve (A*x == b),
-  // which an explicit operator A (which currently is contructed every time) which could be replaced 
-  // by a matrix multiplication with A^{-1} --> faster than solving
+  // which an explicit operator A (which currently is constructed every time again) 
+  // this could be replaced by a matrix multiplication with A^{-1} --> faster than solving
   // A only depends on boundary_conditions, grid point numbers and grid spacings.
   // then, we can also in advance decide if we have to use the general restrict3D and interpolate3D
   // methods which are xyz --> Xyz --> XYz --> XYZ or specific interpolations routines
@@ -200,10 +200,10 @@ namespace iterative_poisson {
               rn2 = multi_grid_smoothen(x, r, b, g);
               if (echo > 19) printf("# %s %s  pre-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
           } // p
-          if (echo > 0) printf("# %s %s  pre-smoothen to residual norm %.1e\n", __func__, label, rn2);
+          if (echo > 6) printf("# %s %s  pre-smoothen to residual norm %.1e\n", __func__, label, rn2);
       } else {
           rd = b;
-          if (echo > 0) printf("# %s %s            input residual norm %.1e\n", __func__, label, norm2(rd, g.all()));
+          if (echo > 5) printf("# %s %s            input residual norm %.1e\n", __func__, label, norm2(rd, g.all()));
       } // n pre > 0
 
       uint32_t ngc[3];
@@ -213,7 +213,7 @@ namespace iterative_poisson {
       gc.set_grid_spacing(g[0]*g.h[0]/ngc[0], g[1]*g.h[1]/ngc[1], g[2]*g.h[2]/ngc[2]);
       std::vector<real_t> rc(gc.all()), uc(gc.all(), real_t(0)); // two quantites on the coarse grid
       stat += multi_grid::restrict3D(rc.data(), gc, rd, g, 0); // mute
-      stat += multi_grid_cycle(uc.data(), rc.data(), gc, echo - 1, true, nullptr, n_pre, n_post, tol2); // recursive invokation
+      stat += multi_grid_cycle(uc.data(), rc.data(), gc, echo - 2, true, nullptr, n_pre, n_post, tol2); // recursive invokation
       stat += multi_grid::interpolate3D(r, g, uc.data(), gc, 0); // mute
       add_product(x, g.all(), r, real_t(1)); // correct x
 
@@ -223,7 +223,7 @@ namespace iterative_poisson {
               rn2 = multi_grid_smoothen(x, r, b, g);
               if (echo > 19) printf("# %s %s post-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
           } // p
-          if (echo > 0) printf("# %s %s post-smoothen to residual norm %.1e\n", __func__, label, rn2);
+          if (echo > 5) printf("# %s %s post-smoothen to residual norm %.1e\n", __func__, label, rn2);
           if (residual) *residual = std::sqrt(rn2*g.dV()); // in units of the density
       } // n_post > 0
 
@@ -243,7 +243,7 @@ namespace iterative_poisson {
       float res{9e9};
       for(int iter = 0; iter < maxiter && res > threshold; ++iter) {
 //        if (echo > 0) printf("# %s iteration #%i\n", __func__, iter);
-          stat += multi_grid_cycle(x, b, g, echo, true, &res); // 'V'-cycle
+          stat += multi_grid_cycle(x, b, g, echo - 2, true, &res); // 'V'-cycle
           if (echo > 0) printf("# %s iteration #%i residual = %.1e a.u.\n", __func__, iter, res);
       } // iter
       if (residual) *residual = res;
