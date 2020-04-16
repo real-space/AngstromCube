@@ -90,7 +90,8 @@ namespace atom_image {
           for(int i = 0; i < nc; ++i) {
               for(int j = 0; j < nc; ++j) {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
-                  _matrix64[ij] = rescale[i] * values[reorder[i]*stride + reorder[j]] * rescale[j];
+                  int const ij_reordered = reorder[i]*stride + reorder[j];
+                  _matrix64[ij] = rescale[i] * values[ij_reordered] * rescale[j];
                   _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j
           } // i

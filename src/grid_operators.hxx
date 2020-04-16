@@ -159,50 +159,6 @@ namespace grid_operators {
       return stat;
   } // _grid_operator
 
-#if 0
-  // Hamiltonian
-  template<typename real_t, typename real_fd_t=double, int D0=1>
-  status_t grid_Hamiltonian(real_t Hpsi[] // result
-                          , real_t const psi[] // input wave functions
-                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
-                          , std::vector<atom_image::sho_atom_t> const &a
-                          , finite_difference::stencil_t<real_fd_t> const &fd // finite difference
-                          , double const potential[] // diagonal potential operator
-                          , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
-                          , int const echo=0
-  ) { return _grid_operator(Hpsi, psi, g, a, 0, boundary_phase, &fd, potential); }
-
-  // Overlap operator
-  template<typename real_t, typename real_fd_t=double, int D0=1>
-  status_t grid_Overlapping(real_t Spsi[] // result
-                          , real_t const psi[] // input wave functions
-                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
-                          , std::vector<atom_image::sho_atom_t> const &a
-                          , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
-                          , int const echo=0
-  ) { return _grid_operator<real_t, real_fd_t, D0>(Spsi, psi, g, a, 1, boundary_phase); }
-
-  // Projection onto localized basis
-  template<typename real_t, int D0=1>
-  status_t get_atom_coeffs(real_t** atom_coeffs // result
-                          , real_t const psi[] // input wave functions
-                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
-                          , std::vector<atom_image::sho_atom_t> const &a
-                          , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
-                          , int const echo=0
-  ) { return _grid_operator<real_t, real_t, D0>(nullptr, psi, g, a, 0, boundary_phase, nullptr, nullptr, 0, atom_coeffs); }
-
-  // Start wave functions
-  template<typename real_t, int D0=1>
-  status_t get_start_waves(real_t psi0[] // result
-                          , real_t const *const *atom_coeffs // input
-                          , real_space::grid_t<D0> const &g // 3D Cartesian grid descriptor
-                          , std::vector<atom_image::sho_atom_t> const &a
-                          , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
-                          , int const echo=0
-  ) { return _grid_operator<real_t, real_t, D0>(psi0, nullptr, g, a, 0, boundary_phase, nullptr, nullptr, 0, 0, atom_coeffs); }
-#endif
-
   //
   // idea: the identity operation of the Overlap operator could be implemented with a
   //       finite difference stencil that has nn[] = {0, -1, -1} (-1 means that there is no pass)
@@ -319,11 +275,11 @@ namespace grid_operators {
 
       a.resize(na);
       for(int ia = 0; ia < na; ++ia) {
-          double const *pos =             & xyzZins[ia*stride + 0];
-          double const Z =                  xyzZins[ia*stride + 3];
-          int32_t const atom_id = int32_t(  xyzZins[ia*stride + 4]);
-          int const numax = (int)std::round(xyzZins[ia*stride + 5]);
-          double const sigma =              xyzZins[ia*stride + 6];
+          double const *pos =            & xyzZins[ia*stride + 0];
+          double const Z =                 xyzZins[ia*stride + 3];
+          int32_t const atom_id = int32_t( xyzZins[ia*stride + 4]);
+          int const numax = int(std::round(xyzZins[ia*stride + 5]));
+          double const sigma =             xyzZins[ia*stride + 6];
           assert(sigma > 0);
           int const Zi = std::round(Z);
           a[ia] = atom_image::sho_atom_t(sigma, numax, atom_id, pos, Zi);

@@ -338,12 +338,12 @@ namespace conjugate_gradients {
   
   template // explicit template instantiation
   status_t eigensolve<double,1>(double eigenstates[], int const nbands
-    , grid_operators::grid_operator_t<double,double,1> const & op
+    , grid_operators::grid_operator_t<double,double,1> const &op
     , int const echo, float const threshold, double *eigenvalues);
 
   template // explicit template instantiation
   status_t eigensolve<float,1>(float eigenstates[], int const nbands
-    , grid_operators::grid_operator_t<float,float,1> const & op
+    , grid_operators::grid_operator_t<float,float,1> const &op
     , int const echo, float const threshold, double *eigenvalues);
 
 #ifdef  NO_UNIT_TESTS
@@ -352,7 +352,7 @@ namespace conjugate_gradients {
   
   template <typename real_t>
   status_t test_solver(int const echo=9) {
-      int const nbands = std::min(8, (int)control::get("conjugate_gradients.test.num.bands", 4));
+      int const nbands = std::min(8, int(control::get("conjugate_gradients.test.num.bands", 4)));
       if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, real_t_name<real_t>(), nbands);
       status_t stat{0};
       int constexpr D0 = 1; // 1: no vectorization
