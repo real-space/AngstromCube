@@ -175,7 +175,6 @@ namespace finite_difference {
     public:
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative
     private:
-//     public:
       int8_t _nn[3]; // number of FD neighbors
       
       void _constructor(double const grid_spacing[3], int const nneighbors[3], double const scale_factor) {

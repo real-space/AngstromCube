@@ -107,6 +107,14 @@ namespace grid_operators {
                   V_atom_coeff[ia] = std::vector<real_t>(ncoeff*D0, 0.0);
               
                   if (atomic_addition_coefficients) {
+#ifdef DEVEL
+                      if (echo > -1) {
+                          printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
+                          for(int ic = 0; ic < ncoeff; ++ic) {
+                              printf(" %g", atomic_addition_coefficients[ia][ic*D0 + 0]); // show only the 1st vector entry
+                          }   printf("\n");
+                      } // echo
+#endif
                       set(V_atom_coeff[ia].data(), ncoeff*D0, atomic_addition_coefficients[ia]); // import
                   } else {
 
@@ -135,8 +143,8 @@ namespace grid_operators {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
                           real_t const inv_Bloch_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
                           std::vector<real_t> V_image_coeff(ncoeff*D0);
-                          scale(V_image_coeff.data(), ncoeff*D0, V_atom_coeff[ia].data(), inv_Bloch_factor);
-                      
+                          set(V_image_coeff.data(), ncoeff*D0, V_atom_coeff[ia].data(), inv_Bloch_factor);
+
                           stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma(), echo_sho);
                       } // ii
                   } else {
@@ -151,6 +159,7 @@ namespace grid_operators {
       return stat;
   } // _grid_operator
 
+#if 0
   // Hamiltonian
   template<typename real_t, typename real_fd_t=double, int D0=1>
   status_t grid_Hamiltonian(real_t Hpsi[] // result
@@ -192,6 +201,7 @@ namespace grid_operators {
                           , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
                           , int const echo=0
   ) { return _grid_operator<real_t, real_t, D0>(psi0, nullptr, g, a, 0, boundary_phase, nullptr, nullptr, 0, 0, atom_coeffs); }
+#endif
 
   //
   // idea: the identity operation of the Overlap operator could be implemented with a

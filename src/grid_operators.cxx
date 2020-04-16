@@ -27,8 +27,9 @@ namespace grid_operators {
       double const apos[] = {0,0,0};
       a[0].set_image_positions(apos);
       finite_difference::stencil_t<double> kinetic(g.h, 8, -0.5);
-      stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, kinetic, potential.data());
-      stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a);
+//       // decativated: interfaces deprecated, use op.Hamiltonian in the future!
+//       stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, kinetic, potential.data());
+//       stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a);
       return stat;
   } // basic_test
 

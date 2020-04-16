@@ -186,8 +186,8 @@ namespace potential_generator {
       view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
 
       
-      std::vector<double> Za(na);      // list of atomic numbers
-      std::vector<float> Za_float(na); // list of atomic numbers
+      std::vector<double> Za(na);       // list of atomic numbers
+      std::vector<float>  Za_float(na); // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
           view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
@@ -207,7 +207,7 @@ namespace potential_generator {
           } // ia
       } // scope
 
-      std::vector<double>  sigma_cmp(na, 1.); //
+      std::vector<double>  sigma_cmp(na, 1.);
       std::vector<int32_t> numax(na, 3);
       std::vector<int32_t> lmax_qlm(na, -1);
       std::vector<int32_t> lmax_vlm(na, -1);
@@ -539,10 +539,12 @@ namespace potential_generator {
               { // scope: generate start waves from atomic orbitals
                   data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
                   for(int iband = 0; iband < nbands; ++iband) {
-                      int const ia = iband >> 2, io = iband & 3; // which atom? which orbital?
-                      single_atomic_orbital[ia][io] = 1;
+                      int const ia = iband % na, io = iband / na; // which atom? which orbital?
+                      int const isho = io; // sho_tools:: ToDo
+                      single_atomic_orbital[ia][isho] = 1;
                       op.get_start_waves(waves[iband], single_atomic_orbital.data(), echo);
-                      single_atomic_orbital[ia][io] = 0;
+                      print_stats(waves[iband], gc.all(), gc.dV());
+                      single_atomic_orbital[ia][isho] = 0;
                   } // iband
               } // scope
               view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
