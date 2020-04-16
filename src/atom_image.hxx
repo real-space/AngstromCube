@@ -79,7 +79,7 @@ namespace atom_image {
                       } // x
                   } // y
               } // z
-          } // rescale because projector functions used in a fast SHO-transform are not normalized, coule be moved out
+          } // rescale because projector functions used in a fast SHO-transform are not normalized, could be moved out
 
           for(int ij = 0; ij < _ncoeff*_stride; ++ij) {
               _matrix64[h0s1*_ncoeff*_stride + ij] = 0; // clear

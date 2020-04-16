@@ -7,6 +7,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::stencil_t, ::derive
 #include "atom_image.hxx" // ::atom_image_t, ::sho_atom_t
+#include "sho_projection.hxx" // ::sho_prefactor
 
 namespace grid_operators {
   // setup of the real-space grid-based Hamiltonian and overlap operator
@@ -33,6 +34,43 @@ namespace grid_operators {
       return stat;
   } // basic_test
 
+  
+  status_t projector_normalization_test(int const echo=9) {
+      status_t stat(0);
+      real_space::grid_t<1> g(32, 32, 32); // grid spacings = {1,1,1} by default
+      int const numax = 3;
+      double const sigma = 2.0;
+      std::vector<atom_image::sho_atom_t> a;
+      //                          x   y   z   Z   id   numax  sigma
+      double const xyzZinso[] = {16, 16, 16, 7.5, 747, numax, sigma};
+      stat += list_of_atoms(a, xyzZinso, 1, 7, g, echo);
+      int const ncoeff = sho_tools::nSHO(numax);
+      std::vector<double> psi(g.all(), 0.0), a_vec(ncoeff, 0.0), p_vec(ncoeff);
+      auto const a_coeff = a_vec.data();
+      auto       p_coeff = p_vec.data();
+      grid_operator_t<double> op(g, a);
+      double const f2 = pow2(sho_projection::sho_prefactor(0, 0, 0, sigma));
+      double dev{0};
+      for(int ic = 0; ic < ncoeff; ++ic) {
+          set(psi.data(), g.all(), 0.0);
+          a_coeff[ic] = 1;
+          stat += op.get_start_waves(psi.data(), &a_coeff, echo);
+          stat += op.get_atom_coeffs(&p_coeff, psi.data(), echo);
+          if (echo > 5) printf("# %s%3i  ", __func__, ic);
+          for(int jc = 0; jc < ncoeff; ++jc) {
+              if (ic == jc) { 
+                  if (echo > 5) printf(" %7.3f", p_coeff[jc]*f2);
+              } else {
+                  dev = std::max(dev, std::abs(p_coeff[jc]*f2));
+              }
+          } // jc
+          if (echo > 5) printf("\n");
+          a_coeff[ic] = 0;
+      } // ic
+      if (echo > 2) printf("# %s: largest deviation is %.1e\n", __func__, dev);
+      return stat + (dev > 3e-14);
+  } // projector_normalization_test
+  
   status_t class_test(int const echo=9) {
       status_t stat(0);
       int const dims[] = {12, 13, 14};
@@ -66,6 +104,7 @@ namespace grid_operators {
     status += class_test(echo);
     status += basic_test(echo);
     status += class_with_atoms_test(echo);
+    status += projector_normalization_test(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

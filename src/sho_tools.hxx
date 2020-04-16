@@ -296,6 +296,26 @@ namespace sho_tools {
           return ( nSHO(numax) != ii );
   } // construct_index_table<order_zyx>
 
+  template<SHO_order_t order> inline
+  status_t construct_index_table(uint8_t idx[][4], int const numax, int const echo=0); // provide no implementation for the general case
+  
+  template<> inline // template specialization
+  status_t construct_index_table<order_Ezyx>(uint8_t idx[][4], int const numax, int const echo) {
+          int ii{0};
+          for(int z = 0; z <= numax; ++z) {
+              for(int y = 0; y <= numax - z; ++y) {
+                  for(int x = 0; x <= numax - z - y; ++x) {
+                      assert( zyx_index(numax, x, y, z) == ii );
+                      ++ii;
+                      int const jj = Ezyx_index(x, y, z);
+                      idx[jj][0] = x;
+                      idx[jj][1] = y;
+                      idx[jj][2] = z;
+                      idx[jj][3] = get_nu(x, y, z);
+          }}} // x y z
+          return ( nSHO(numax) != ii );
+  } // construct_index_table<order_Ezyx>
+
   template <unsigned nChar=8> // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
   inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order, int const echo=1) {
       auto const ellchar = "spdfghijklmno";

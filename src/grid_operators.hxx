@@ -108,7 +108,7 @@ namespace grid_operators {
               
                   if (atomic_addition_coefficients) {
 #ifdef DEVEL
-                      if (echo > -1) {
+                      if (echo > 19) {
                           printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
                           for(int ic = 0; ic < ncoeff; ++ic) {
                               printf(" %g", atomic_addition_coefficients[ia][ic*D0 + 0]); // show only the 1st vector entry

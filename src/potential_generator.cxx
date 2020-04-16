@@ -537,14 +537,18 @@ namespace potential_generator {
               int const nbands = 8;
               view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
               { // scope: generate start waves from atomic orbitals
+                  uint8_t qn[20][4]; // quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
+                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3);
                   data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
                   for(int iband = 0; iband < nbands; ++iband) {
                       int const ia = iband % na, io = iband / na; // which atom? which orbital?
-                      int const isho = io; // sho_tools:: ToDo
+                      if (echo > 7) printf("# %s initialize band #%i as atomic orbital %x%x%x of atom #%i\n", 
+                                              __func__, iband, qn[io][0], qn[io][1], qn[io][2], ia);
+                      int const isho = sho_tools::zyx_index(op.get_numax(ia), qn[io][0], qn[io][1], qn[io][2]);
                       single_atomic_orbital[ia][isho] = 1;
                       op.get_start_waves(waves[iband], single_atomic_orbital.data(), echo);
-                      print_stats(waves[iband], gc.all(), gc.dV());
                       single_atomic_orbital[ia][isho] = 0;
+//                    print_stats(waves[iband], gc.all(), gc.dV());
                   } // iband
               } // scope
               view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
