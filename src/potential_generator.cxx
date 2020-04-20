@@ -33,12 +33,7 @@
 #endif
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
-// #define OLD_SINGLE_ATOM_UPDATE_INTERFACE
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-  #include "single_atom.hxx" // ::update
-#else
-  #include "single_atom.hxx" // ::atom_update
-#endif
+#include "single_atom.hxx" // ::atom_update
 
 // ToDo: restructure: move this into a separate compilation unit
 #include "atom_image.hxx"// ::sho_atom_t
@@ -187,7 +182,6 @@ namespace potential_generator {
 
       
       std::vector<double> Za(na);       // list of atomic numbers
-      std::vector<float>  Za_float(na); // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
           view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
@@ -197,8 +191,7 @@ namespace potential_generator {
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
               if (echo > 4) printf("# %s  %15.9f %15.9f %15.9f\n", Symbol,
                               xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
-              Za_float[ia] = float(Z); // list of atomic numbers
-              Za[ia] = Za_float[ia]; // for consistency between new and old interface version
+              Za[ia] = Z;
               for(int d = 0; d < 3; ++d) {
                   center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center[ia][3] = 0; // 4th component is not used
@@ -213,19 +206,10 @@ namespace potential_generator {
       std::vector<int32_t> lmax_vlm(na, -1);
 
       // for each atom get sigma, lmax
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-      stat += single_atom::update(na, Za_float.data(), ionization.data(), 0, numax.data(), 
-                       sigma_cmp.data(), 0, 0, 0, lmax_vlm.data(), lmax_qlm.data()
-                       , (double**)1 // set transfer2valence=false
-                       );
-#else
-      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data()
-                , (double**)0 // set transfer2valence= 0:true, 1:false
-                );
+      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data());
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
-#endif
 
       data_list<double> atom_qlm;
       data_list<double> atom_vlm;
@@ -274,11 +258,7 @@ namespace potential_generator {
       if ('a' == init_val_rho_name[0]) {
           auto & atom_rhov = atom_rhoc; // temporarily rename the existing allocation
           q00_valence.resize(na);
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-          stat += single_atom::update(na, 0, 0, 0, numax.data(), 0, atom_rhov.data()); // get spherical_valence_density
-#else
           stat += single_atom::atom_update("valence densities", na, q00_valence.data(), nr2.data(), ar2.data(), atom_rhov.data());
-#endif
           // add smooth spherical atom-centered valence densities
           stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhov.data(),
@@ -294,12 +274,8 @@ namespace potential_generator {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n#\n# %s  SCF-Iteration #%d:\n#\n\n", __FILE__, scf_iteration);
 
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-          stat += single_atom::update(na, 0, 0, 0, 0, 0, atom_rhoc.data(), atom_qlm.data());
-#else
           stat += single_atom::atom_update("core densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
-#endif
 
           if (echo > 4) { // report extremal values of the valence density on the grid
               printf("# valence density in iteration #%i:", scf_iteration);
@@ -434,14 +410,10 @@ namespace potential_generator {
           } // scope
 
           // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-          stat += single_atom::update(na, 0, 0, 0, 0, 0, 0, 0, atom_vlm.data(), 0, 0, atom_vbar.data(), atom_mat.data());
-#else
           float mixing_ratio[] = {.5, .5}; // {potential, density}
           stat += single_atom::atom_update("update", na, 0, 0, mixing_ratio, atom_vlm.data());
           stat += single_atom::atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
           stat += single_atom::atom_update("zero potentials", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
-#endif
 
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
@@ -616,11 +588,7 @@ namespace potential_generator {
         
 
           std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-          stat += single_atom::update(na, 0, 0, rg.data()); // get pointers
-#else
           stat += single_atom::atom_update("radial grids", na, 0, 0, 0, reinterpret_cast<double**>(rg.data()));
-#endif
 
           double* const value_pointers[] = {Ves.data(), rho.data(), Laplace_Ves.data(), cmp.data(), Vxc.data(), Vtot.data()};
           //     Ves; // analyze the electrostatic potential
@@ -696,11 +664,7 @@ namespace potential_generator {
       delete[] periodic_images_ptr;
       delete[] coordinates_and_Z;
 
-#ifdef  OLD_SINGLE_ATOM_UPDATE_INTERFACE
-      stat += single_atom::update(-na); // memory cleanup
-#else
       stat += single_atom::atom_update("memory cleanup", na);
-#endif
       return stat;
   } // init
 

@@ -213,7 +213,7 @@ namespace davidson_solver {
   status_t test_solver(int const echo=9) {
       status_t stat{0};
       int constexpr D0 = 1; // 1: no vectorization
-      int const nbands = std::min(8, (int)control::get("davidson_solver.num.bands", 4));
+      int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
       //                           3*(pi/8.78)**2      = 0.192 (found)
