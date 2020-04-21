@@ -13,7 +13,7 @@
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
-#include "real_space.hxx" // ::grid_t<N>
+#include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project, ::sho_add, ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
@@ -228,7 +228,7 @@ namespace sho_potential {
       
 //    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
 
-      real_space::grid_t<1> g(dims);
+      real_space::grid_t g(dims);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);

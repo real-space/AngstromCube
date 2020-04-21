@@ -23,9 +23,9 @@ namespace density_generator {
       return gsum*dV;
   } // print_stats
 
-  template<typename real_t, typename real_fd_t=double, int const D0=1>
+  template<typename real_t, typename real_fd_t=double>
   status_t density(double rho[], double *const *const atom_rho, real_t const eigenfunctions[]
-      , grid_operators::grid_operator_t<real_t,real_fd_t,D0> const & op
+      , grid_operators::grid_operator_t<real_t,real_fd_t> const & op
       , int const nbands=1, int const nkpoints=1
       , int const echo=0) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
@@ -44,9 +44,8 @@ namespace density_generator {
       for(int ia = 0; ia < na; ++ia) {
           int const numax = op.get_numax(ia);
           int const ncoeff = sho_tools::nSHO(numax);
-          atom_coeff[ia] = new real_t[ncoeff*D0];
+          atom_coeff[ia] = new real_t[ncoeff];
       } // ia
-      assert(1 == D0); // vectorization is not implemented in all parts
 
       view3D<real_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
 
@@ -73,12 +72,12 @@ namespace density_generator {
                       int const ncoeff = sho_tools::nSHO(numax);
                       // add to the atomic density matrix, ToDo
                       for(int i = 0; i < ncoeff; ++i) {
-                          auto const c_i = atom_coeff[ia][i*D0 + 0]; // needs a conjugate
+                          auto const c_i = atom_coeff[ia][i]; // needs a conjugate
 #ifdef DEVEL
                           if (echo > 9) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %g\n", ikpoint, iband, ia, i, c_i);
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {
-                              auto const c_j = atom_coeff[ia][j*D0 + 0];
+                              auto const c_j = atom_coeff[ia][j];
                               atom_rho[ia][i*ncoeff + j] += weight_nk * c_i * c_j;
                           } // j
                       } // i

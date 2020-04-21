@@ -19,13 +19,13 @@ namespace sho_projection {
   template<typename real_t>
   inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
   
-  template<typename real_t, int D0, int PROJECT0_OR_ADD1>
+  template<typename real_t, int PROJECT0_OR_ADD1>
   status_t _sho_project_or_add(real_t coeff[] // result if projecting, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
                      , real_t values[] // grid array, result if adding
-                     , real_space::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                     , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4) { //
       auto const rcut = truncation_radius(sigma, numax);
       assert(sigma > 0);
@@ -66,31 +66,26 @@ namespace sho_projection {
       } // dir
    
       int const nSHO = sho_tools::nSHO(numax);
-      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO*D0, real_t(0));
+      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, real_t(0));
 
       for(        int iz = 0; iz < num[2]; ++iz) {
           for(    int iy = 0; iy < num[1]; ++iy) {
               for(int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
                   
-                  real_t val[D0];
-                  for(int i0 = 0; i0 < D0; ++i0) {
-                      val[i0] = values[ixyz*D0 + i0];
-                  } // i0 vectorization
+                  real_t val = values[ixyz];
                   if (true) {
-//                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val[0]); // plot function value vs r
+//                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO{0};
                       for(int nz = 0; nz <= numax; ++nz) {                    auto const H1d_z = H1d[2][iz*M + nz];
                           for(int ny = 0; ny <= numax - nz; ++ny) {           auto const H1d_y = H1d[1][iy*M + ny];
                               for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const H1d_x = H1d[0][ix*M + nx];
                                   auto const H3d = H1d_z * H1d_y * H1d_x;
-                                  for(int i0 = 0; i0 < D0; ++i0) {
-                                      if (1 == PROJECT0_OR_ADD1) {
-                                          val[i0] += coeff[iSHO*D0 + i0] * H3d; // here, the addition happens                                          
-                                      } else {
-                                          coeff[iSHO*D0 + i0] += val[i0] * H3d; // here, the projection happens                                          
-                                      }
-                                  } // i0 vectorization
+                                  if (1 == PROJECT0_OR_ADD1) {
+                                      val += coeff[iSHO] * H3d; // here, the addition happens                                          
+                                  } else {
+                                      coeff[iSHO] += val * H3d; // here, the projection happens                                          
+                                  }
                                   ++iSHO;
                               } // nx
                           } // ny
@@ -98,9 +93,7 @@ namespace sho_projection {
                       assert( nSHO == iSHO );
                   } // true
                   if (1 == PROJECT0_OR_ADD1) {
-                      for(int i0 = 0; i0 < D0; ++i0) {
-                          values[ixyz*D0 + i0] = val[i0];
-                      } // i0 vectorization
+                      values[ixyz] = val;
                   } // write back (add)
                   
               } // ix
@@ -117,27 +110,27 @@ namespace sho_projection {
   
 
   // wrapper function
-  template<typename real_t, int D0>
+  template<typename real_t>
   status_t sho_project(real_t coeff[] // result, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
                      , real_t const values[] // input, grid array
-                     , real_space::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                     , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
-      return _sho_project_or_add<real_t,D0,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
+      return _sho_project_or_add<real_t,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
   } // sho_project
 
   // wrapper function
-  template<typename real_t, int D0>
+  template<typename real_t>
   status_t sho_add(real_t values[] // result gets modified, grid array
-                 , real_space::grid_t<D0> const &g // grid descriptor, assume that g is a Cartesian grid
+                 , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                  , real_t const coeff[] // input, coefficients are zyx-ordered
                  , int const numax // how many
                  , double const center[3] // where
                  , double const sigma
                  , int const echo=0) { //
-      return _sho_project_or_add<real_t,D0,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
+      return _sho_project_or_add<real_t,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
 
 

@@ -19,17 +19,15 @@ namespace real_space {
 
   status_t test_create_and_destroy(int const echo=9) {
       int const dims[] = {10, 20, 30};
-      auto gp = new grid_t<1>(dims); // construct
+      auto gp = new grid_t(dims); // construct
       gp->~grid_t(); // explicity call the destructor
-      int const d1ms[] = {15, 20, 25};
-      grid_t<4> g(d1ms); // construct vectorized, destruction automatically
       return 0;
   } // test_create_and_destroy
 
   status_t test_add_function(int const echo=9) {
       if (echo > 0) printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
-      grid_t<1> g(dims);
+      grid_t g(dims);
       g.set_grid_spacing(0.333);
       double const cnt[] = {g[0]*.42*g.h[0], 
                             g[1]*.51*g.h[1], 

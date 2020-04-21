@@ -16,7 +16,6 @@ namespace real_space {
   
   int constexpr debug = 0;
 
-  template<int D0> // D0: inner dimension, vector length
   class grid_t {
   private:
       uint32_t dims[4]; // 0,1,2:real-space grid dimensions, 3:outer dim
@@ -32,13 +31,13 @@ namespace real_space {
           dims[1] = std::max(1, d1); // y
           dims[2] = std::max(1, d2); // z
           dims[3] = std::max(1, dim_outer);
-          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
+          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0];
           if (nnumbers > 0) {
-              if (debug) printf("# grid with %d * %d x %d x %d * %d = %.6f M numbers\n", 
-                  D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
+              if (debug) printf("# grid with %d x %d x %d * %d = %.6f M numbers\n", 
+                  dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
           } else {
-              if (debug) printf("# grid invalid: <D0=%d> dims={%d, %d, %d,  %d}\n",
-                      D0, dims[0], dims[1], dims[2], dims[3]);
+              if (debug) printf("# grid invalid: dims={%d, %d, %d,  %d}\n",
+                      dims[0], dims[1], dims[2], dims[3]);
           }
       } // constructor
 
@@ -46,9 +45,9 @@ namespace real_space {
       grid_t(int_t const dim[3], int const dim_outer=1) : grid_t(dim[0], dim[1], dim[2], dim_outer) {} // delegating contructor
 
       ~grid_t() {
-          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0] * D0;
-          if (debug) printf("# release a grid with %d * %d x %d x %d * %d = %.6f M numbers\n",
-                                      D0, dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
+          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0];
+          if (debug) printf("# release a grid with %d x %d x %d * %d = %.6f M numbers\n",
+                                      dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
       } // destructor
 
       status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
@@ -79,7 +78,7 @@ namespace real_space {
       inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // so far not used
       inline double const * grid_spacings() const { return h; } // so far not used
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }
-      inline size_t all() const { return (((size_t(dims[3]) * dims[2]) * dims[1]) * dims[0]) * D0; }
+      inline size_t all() const { return ((size_t(dims[3]) * dims[2]) * dims[1]) * dims[0]; }
       inline int boundary_condition(int  const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
       inline int boundary_condition(char const c) const { return boundary_condition((c|32) - 120); }
       inline int const * boundary_conditions() const { return bc; }
@@ -89,8 +88,8 @@ namespace real_space {
   
   
   
-  template<typename real_t, int D0> // inner dimension
-  status_t add_function(real_t values[], grid_t<D0> const &g, real_t added[], //
+  template<typename real_t> // inner dimension
+  status_t add_function(real_t values[], grid_t const &g, real_t *added, //
                         double const r2coeff[], int const ncoeff, float const hcoeff,
                         double const center[3]=nullptr, double const factor=1, float const rcut=-1) {
   // Add a spherically symmetric regular function to the grid.
@@ -116,7 +115,7 @@ namespace real_space {
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
       assert(hcoeff > 0);
-      set(added, D0, real_t(0)); // clear
+      real_t added_charge{0}; // clear
       size_t modified = 0, out_of_range = 0;
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
@@ -129,16 +128,14 @@ namespace real_space {
                           if (ir2 < ncoeff) {
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
                               int const ir2p1 = ir2 + 1;
-                              for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  auto const value_to_add = (r2coeff[ir2*D0 + i0]*(1 - w8)
-                                     + ((ir2p1 < ncoeff) ? r2coeff[ir2p1*D0 + i0] : 0)*w8);
-                                  values[ixyz*D0 + i0] += factor*value_to_add;
-                                  added[i0]            += factor*value_to_add;
+                                  auto const value_to_add = (r2coeff[ir2]*(1 - w8)
+                                      + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
+                                  values[ixyz] += factor*value_to_add;
+                                  added_charge  += factor*value_to_add;
 #if 0
 //       printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
 //        printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
 #endif
-                              } // i0
                               ++modified;
                           } else ++out_of_range;
                       } // inside rcut
@@ -146,7 +143,7 @@ namespace real_space {
               } // rcut for (y,z)
           } // iy
       } // iz
-      scale(added, D0, g.dV()); // volume integral
+      *added = added_charge * g.dV(); // volume integral
 #ifdef  DEBUG
       printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
               __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3); // show stats
@@ -157,9 +154,9 @@ namespace real_space {
       return stat;
   } // add_function
 
-  template<typename real_t, int D0> // D0:inner dimension
+  template<typename real_t>
   status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
-                real_t const values[], grid_t<D0> const &g, double const center[3]=nullptr, 
+                real_t const values[], grid_t const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       bool const cutoff = (rcut >= 0); // negative values mean that we do not need a cutoff
@@ -180,7 +177,7 @@ namespace real_space {
 #endif
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
-      set(q_coeff, nq*D0, (real_t)0); // clear
+      set(q_coeff, nq, real_t(0)); // clear
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
@@ -189,14 +186,12 @@ namespace real_space {
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           double const r = std::sqrt(r2);
-//                           printf("%g %g\n", r, values[ixyz*D0 + 0]); // DEBUG
+//                           printf("%g %g\n", r, values[ixyz]); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               double const x = q*r;
                               double const j0 = bessel_transform::Bessel_j0(x);
-                              for(int i0 = 0; i0 < D0; ++i0) { // vectorize
-                                  q_coeff[iq*D0 + i0] += values[ixyz*D0 + i0] * j0;
-                              } // i0
+                              q_coeff[iq] += values[ixyz] * j0;
                           } // iq
                       } // inside rcut
                   } // ix
@@ -205,10 +200,10 @@ namespace real_space {
           } // iy
       } // iz
       double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
-      scale(q_coeff, nq*D0, (real_t)(g.dV()*factor*sqrt2pi)); // volume element, external factor, Bessel transform factor
+      scale(q_coeff, nq, real_t(g.dV()*factor*sqrt2pi)); // volume element, external factor, Bessel transform factor
       return 0; // success
   } // bessel_projection
-  
+
   status_t all_tests(int const echo=0);
 
 } // namespace real_space

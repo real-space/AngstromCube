@@ -74,7 +74,7 @@ namespace potential_generator {
       return x;
   } // fold_back
   
-  status_t init_geometry_and_grid(real_space::grid_t<1> & g, double **coordinates_and_Z, 
+  status_t init_geometry_and_grid(real_space::grid_t & g, double **coordinates_and_Z, 
                                   int & natoms, int const echo=0) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
@@ -86,7 +86,7 @@ namespace potential_generator {
       stat += geometry_analysis::read_xyz_file(coordinates_and_Z, &natoms, geo_file, cell, bc, echo);
 
       double const h = control::get("potential_generator.grid.spacing", 0.2378); // works for GeSbTe with alat=6.04
-      g = real_space::grid_t<1>(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
+      g = real_space::grid_t(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
@@ -106,7 +106,7 @@ namespace potential_generator {
   
   
   status_t add_smooth_quantities(double values[] // add to this function on a 3D grid
-                , real_space::grid_t<1> const & g 
+                , real_space::grid_t const & g 
                 , int const na, int32_t const nr2[], float const ar2[]
                 , view2D<double> const & center
                 , int const n_periodic_images, view2D<double> const & periodic_images
@@ -162,7 +162,7 @@ namespace potential_generator {
       
       int na{0};
       double *coordinates_and_Z{nullptr};
-      real_space::grid_t<1> g;
+      real_space::grid_t g;
       stat += init_geometry_and_grid(g, &coordinates_and_Z, na, echo);
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
@@ -348,7 +348,7 @@ namespace potential_generator {
               } else if ('M' == es_solver_method) { // "Multi-grid" (upper case!)
                 
                   // create a denser grid descriptor
-                  real_space::grid_t<1> gd(g[0]*2, g[1]*2, g[2]*2);
+                  real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
                   if (echo > 2) printf("# electrostatic.solver = %s is a multi-grid solver"
                           " on a %d x %d x %d grid\n", es_solver_name, gd[0], gd[1], gd[2]);
                   gd.set_grid_spacing(g.h[0]/2, g.h[1]/2, g.h[2]/2);
@@ -457,7 +457,7 @@ namespace potential_generator {
               } // ia
 #endif
               // create a coarse grid descriptor
-              real_space::grid_t<1> gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
+              real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
               gc.set_boundary_conditions(g.boundary_conditions());
 

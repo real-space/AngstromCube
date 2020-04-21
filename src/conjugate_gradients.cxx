@@ -50,14 +50,14 @@
 namespace conjugate_gradients {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
 
-  template<typename real_t, int D0=1> // D0: vectorization
+  template<typename real_t>
   double inner_product(size_t const ndof
-                   , real_t const bra[] // assumed shape [nstates/D0][ndof][D0]
-                   , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
+                   , real_t const bra[] // assumed shape [ndof]
+                   , real_t const ket[] // assumed shape [ndof]
                    , double const factor=1) {
               double tmp = 0;
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += bra[dof*D0] * ket[dof*D0];
+                  tmp += bra[dof] * ket[dof];
               } // dof
               return tmp*factor; // init
   } // inner_product
@@ -97,10 +97,10 @@ namespace conjugate_gradients {
       return gamma;
   } // submatrix2x2
   
-  template<typename real_t, int D0> // D0: vectorization
+  template<typename real_t>
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
-    , grid_operators::grid_operator_t<real_t,real_t,D0> const & op // grid operator descriptor
+    , grid_operators::grid_operator_t<real_t,real_t> const & op // grid operator descriptor
     , int const echo// =9 // log output level
     , float const threshold // =1e-8f
     , double *eigenvalues //=nullptr // export results
@@ -118,7 +118,7 @@ namespace conjugate_gradients {
       
       int const cg0sd1 = control::get("conjugate_gradients.steepest.descent", 0.); // 1:steepest descent, 0:conjugate gradients
       bool const use_cg = (0 == cg0sd1);
-      
+
       int const nv = g.all();
       view2D<real_t> s(eigenstates, nv); // set wrapper
       
@@ -158,8 +158,6 @@ namespace conjugate_gradients {
           for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
               if (echo > 5) printf("# start CG for band #%i\n", ib);
 
-              
-              assert( 1 == D0 );
               // apply Hamiltonian and Overlap operator
 //            stat += op.Hamiltonian(Hs, s[ib], echo);
               if (use_overlap) {
@@ -337,13 +335,13 @@ namespace conjugate_gradients {
   } // eigensolve
   
   template // explicit template instantiation
-  status_t eigensolve<double,1>(double eigenstates[], int const nbands
-    , grid_operators::grid_operator_t<double,double,1> const &op
+  status_t eigensolve<double>(double eigenstates[], int const nbands
+    , grid_operators::grid_operator_t<double,double> const &op
     , int const echo, float const threshold, double *eigenvalues);
 
   template // explicit template instantiation
-  status_t eigensolve<float,1>(float eigenstates[], int const nbands
-    , grid_operators::grid_operator_t<float,float,1> const &op
+  status_t eigensolve<float>(float eigenstates[], int const nbands
+    , grid_operators::grid_operator_t<float,float> const &op
     , int const echo, float const threshold, double *eigenvalues);
 
 #ifdef  NO_UNIT_TESTS
@@ -355,14 +353,13 @@ namespace conjugate_gradients {
       int const nbands = std::min(8, int(control::get("conjugate_gradients.test.num.bands", 4)));
       if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, real_t_name<real_t>(), nbands);
       status_t stat{0};
-      int constexpr D0 = 1; // 1: no vectorization
       int const dims[] = {8, 8, 8};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
       //                           3*(pi/8.78)**2      = 0.192 (found)
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
-      real_space::grid_t<D0> g(dims);
+      real_space::grid_t g(dims);
       std::vector<real_t> psi(nbands*g.all(), 0.0);
 
       char const swm = *control::get("conjugate_gradients.test.start.waves", "a"); // 'a':good, 'r':random
@@ -397,7 +394,7 @@ namespace conjugate_gradients {
       }
 
       // construct Hamiltonian and Overlap operator
-      grid_operators::grid_operator_t<real_t,real_t,D0> op(g); 
+      grid_operators::grid_operator_t<real_t,real_t> op(g); 
 
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {

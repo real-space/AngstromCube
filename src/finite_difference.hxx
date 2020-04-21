@@ -3,7 +3,7 @@
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
 
-#include "real_space.hxx" // grid_t<D0>
+#include "real_space.hxx" // grid_t
 #include "boundary_condition.hxx" // *_Boundary
 #include "recorded_warnings.hxx" // warn
 
@@ -235,9 +235,8 @@ namespace finite_difference {
 
   template <typename real_out_t, // result is stored in this precision 
             typename real_in_t, // input comes in this precision
-            typename real_fd_t, // computations are executed in this precision
-            int D0=1> // vectorization
-  status_t apply(real_out_t out[], real_in_t const in[], real_space::grid_t<D0> const &g, 
+            typename real_fd_t> // computations are executed in this precision
+  status_t apply(real_out_t out[], real_in_t const in[], real_space::grid_t const &g, 
                      stencil_t<real_fd_t> const &fd, double const factor=1) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors
@@ -281,10 +280,7 @@ namespace finite_difference {
               for(int x = 0; x < g('x'); ++x) {
                   int const i_zyx = (z*g('y') + y)*g('x') + x;
                   
-                  real_fd_t t[D0];
-                  for(int i0 = 0; i0 < D0; ++i0) { // vectorization
-                      t[i0] = 0; // init result
-                  } // i0
+                  real_fd_t t(0); // init result
 
                   for(int ddir = 0; ddir < 3; ++ddir) {
                       int const nf = fd.nearest_neighbors(ddir);
@@ -297,24 +293,18 @@ namespace finite_difference {
                               zyx[ddir] = index;
                               int const zyx_prime = (zyx[2]*g('y') + zyx[1])*g('x') + zyx[0];
                               auto const coeff = fd.c2nd[ddir][std::abs(jmi)];
-                              for(int i0 = 0; i0 < D0; ++i0) { // vectorization
-                                  t[i0] += in[zyx_prime*D0 + i0] * coeff;
-                              } // i0
+                              t += in[zyx_prime] * coeff;
                           } // index exists
                       } // jmi
                   } // ddir direction of the derivative
 
-                  for(int i0 = 0; i0 < D0; ++i0) { // vectorization
-                      out[i_zyx*D0 + i0] = t[i0] * scale_factor; // store
-                  } // i0
+                  out[i_zyx] = t * scale_factor; // store
 
               } // x
           } // y
       } // z
 
-      for(int d = 0; d < 3; ++d) {
-          delete[] list[d];
-      } // d
+      for(int d = 0; d < 3; ++d) delete[] list[d];
       return 0; // success
   } // apply
   

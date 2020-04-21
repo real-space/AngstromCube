@@ -51,7 +51,7 @@ namespace iterative_poisson {
   double multi_grid_smoothen( real_t x[] // on entry x, on exit a slightly better to A*x == b
                             , real_t r[] // on exit r == b - A*x
                             , real_t const b[] // right hand side
-                            , real_space::grid_t<1> const &g
+                            , real_space::grid_t const &g
                             , int const echo=0) {
       size_t const n = g.all();
       finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // 1:lowest order FD stencil
@@ -74,11 +74,11 @@ namespace iterative_poisson {
       return norm2(r, n);
   } // multi_grid_smoothen
   
-  inline int multi_grid_level_number(real_space::grid_t<1> const &g) {
+  inline int multi_grid_level_number(real_space::grid_t const &g) {
       return int(std::ceil(std::log2(std::max(std::max(g[0], g[1]), g[2]))));
   } // multi_grid_level_number
       
-  void multi_grid_level_label(char *label, real_space::grid_t<1> const &g) {
+  void multi_grid_level_label(char *label, real_space::grid_t const &g) {
       auto const lev = multi_grid_level_number(g);
       auto lab{label};
       for(int l = 0; l < 2*lev; ++l) *(lab++) = ' '; // indent two spaces per level to indicate the V-cyle visually in the log-output
@@ -88,7 +88,7 @@ namespace iterative_poisson {
   template<typename real_t>
   status_t multi_grid_exact(real_t x[] // on entry x, on exit a slightly better to A*x == b
                   , real_t const b[] // right hand side
-                  , real_space::grid_t<1> const &g
+                  , real_space::grid_t const &g
                   , int const echo=0) {
       int const n = g.all();
       if (n > 8) return -1; // larger exact solutions not implemented
@@ -177,7 +177,7 @@ namespace iterative_poisson {
   template<typename real_t>
   status_t multi_grid_cycle(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
-                            , real_space::grid_t<1> const &g
+                            , real_space::grid_t const &g
                             , int const echo=0
                             , bool const as_solver=true
                             , float *residual=nullptr
@@ -208,7 +208,7 @@ namespace iterative_poisson {
 
       uint32_t ngc[3];
       stat += multi_grid::analyze_grid_sizes(g, ngc); // find the next coarser 2^k grid
-      real_space::grid_t<1> gc(ngc);
+      real_space::grid_t gc(ngc);
       gc.set_boundary_conditions(g.boundary_conditions());
       gc.set_grid_spacing(g[0]*g.h[0]/ngc[0], g[1]*g.h[1]/ngc[1], g[2]*g.h[2]/ngc[2]);
       std::vector<real_t> rc(gc.all()), uc(gc.all(), real_t(0)); // two quantites on the coarse grid
@@ -233,7 +233,7 @@ namespace iterative_poisson {
   template<typename real_t>
   status_t multi_grid_solve(real_t x[] // one exit solution to Laplace(x)/(-4*pi) == b
                 , real_t const b[] //
-                , real_space::grid_t<1> const &g
+                , real_space::grid_t const &g
                 , int const echo // =0 // log level
                 , float const threshold=3e-8 // convergence criterion
                 , float *residual=nullptr
@@ -253,7 +253,7 @@ namespace iterative_poisson {
   template<typename real_t>
   status_t multi_grid_precond(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
-                            , real_space::grid_t<1> const &g
+                            , real_space::grid_t const &g
                             , int const echo=0) {
       return multi_grid_cycle(x, b, g, echo, false);
   } // multi_grid_precond
@@ -261,7 +261,7 @@ namespace iterative_poisson {
   template<typename real_t>
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
-                , real_space::grid_t<1> const &g // grid descriptor
+                , real_space::grid_t const &g // grid descriptor
                 , char const method // use mixed precision as preconditioner
                 , int const echo // =0 // log level
                 , float const threshold // =3e-8 // convergence criterion
@@ -477,7 +477,7 @@ namespace iterative_poisson {
 
 #ifdef  NO_UNIT_TESTS
   template // explicit template instantiation
-  status_t solve(double x[], double const b[], real_space::grid_t<1> const &g // grid descriptor
+  status_t solve(double x[], double const b[], real_space::grid_t const &g // grid descriptor
                 , char const method, int const echo, float const threshold
                 , float *residual, int const maxiter, int const miniter, int restart);
 
@@ -487,7 +487,7 @@ namespace iterative_poisson {
   template <typename real_t>
   status_t test_solver(int const echo=9, int const ng=24) {
       status_t stat{0};
-      real_space::grid_t<1> g(ng, ng, ng);
+      real_space::grid_t g(ng, ng, ng);
       view2D<real_t> xb(2, ng*ng*ng, 0.0);
       auto const x = xb[0], b = xb[1];
       double integral{0};

@@ -5,10 +5,10 @@
 
 namespace conjugate_gradients {
 
-  template<typename real_t, int D0> // D0: vectorization
+  template<typename real_t>
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
-    , grid_operators::grid_operator_t<real_t,real_t,D0> const & op // grid operator descriptor
+    , grid_operators::grid_operator_t<real_t,real_t> const & op // grid operator descriptor
     , int const echo=9 // log output level
     , float const threshold=1e-8f
     , double *eigenvalues=nullptr); // export results

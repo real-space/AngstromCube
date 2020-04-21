@@ -52,9 +52,8 @@ namespace multi_grid {
       return k;
   } // nearest_binary_power
   
-  template <int D0=1>
   inline status_t analyze_grid_sizes(
-            real_space::grid_t<D0> const & g // coarse grid where the Kohn-Sham equation is typically solved
+            real_space::grid_t const & g // coarse grid where the Kohn-Sham equation is typically solved
           , uint32_t *n_coarse
           , int const echo=0) {
       status_t stat{0};
@@ -91,8 +90,8 @@ namespace multi_grid {
 
       } else { // use_special_version_for_2x
           assert(go <= gi); 
-          if(go == gi) warn("restriction is a copy operation for %d grid points", go);
-          
+          if (go == gi) warn("restriction is a copy operation for %d grid points", go);
+
           // any other grid number ratio
           double const ratio = go/double(gi);
           for(int io = 0; io < go; ++io) {
@@ -191,9 +190,9 @@ namespace multi_grid {
   } // print_min_max
 
   // now 3D functions:
-  template <typename real_t, typename real_in_t=real_t, int D0=1>
-  status_t restrict3D(real_t out[], real_space::grid_t<D0> const & go
-            , real_in_t const in[], real_space::grid_t<D0> const & gi
+  template <typename real_t, typename real_in_t=real_t>
+  status_t restrict3D(real_t out[], real_space::grid_t const & go
+            , real_in_t const in[], real_space::grid_t const & gi
             , int const echo=0) { // log-level
       status_t stat(0);
 
@@ -239,9 +238,9 @@ namespace multi_grid {
       return stat;
   } // restrict3D
 
-  template <typename real_t, typename real_in_t=real_t, int D0=1>
-  status_t interpolate3D(real_t out[], real_space::grid_t<D0> const & go
-               , real_in_t const in[], real_space::grid_t<D0> const & gi, int const echo=0) {
+  template <typename real_t, typename real_in_t=real_t>
+  status_t interpolate3D(real_t out[], real_space::grid_t const & go
+               , real_in_t const in[], real_space::grid_t const & gi, int const echo=0) {
       status_t stat(0);
       for(int d = 0; d < 3; ++d) {
           assert(go.boundary_condition(d) == gi.boundary_condition(d));
@@ -414,7 +413,7 @@ namespace multi_grid {
   
   inline status_t test_analysis(int const echo=0) {
       status_t stat(0);
-      real_space::grid_t<1> g(63, 64, 65);
+      real_space::grid_t g(63, 64, 65);
       for(char dir = 'x'; dir <= 'z'; ++dir) {
           stat += check_general_restrict(g(dir), echo, dir);
       } // direction
@@ -423,7 +422,7 @@ namespace multi_grid {
   
   inline status_t test_restrict_interpolate(int const echo=0) {
       status_t stat(0);
-      real_space::grid_t<1> gi(15, 16, 17), go(8, 8, 16);
+      real_space::grid_t gi(15, 16, 17), go(8, 8, 16);
       std::vector<float> in(gi.all()), out(go.all());
       std::iota(in.begin(), in.end(), .5f);
       stat += restrict3D(out.data(), go, in.data(), gi);
@@ -660,7 +659,7 @@ namespace multi_grid {
   } // test_mg_cycle
 
   inline status_t all_tests(int const echo=0) {
-      int n{0}; int const t = control::get("multi_grid.select.test", 1.); // -1:all
+      int n{0}; int const t = control::get("multi_grid.select.test", -1.); // -1:all
       status_t stat(0);
       if (t & (1 << n++)) stat += test_mg_cycle<double>(echo);
       if (t & (1 << n++)) stat += test_transfer(echo);

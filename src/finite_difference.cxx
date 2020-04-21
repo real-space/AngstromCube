@@ -58,7 +58,7 @@ namespace finite_difference {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           stencil_t<real_t> Laplacian(h, nn);
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
-          real_space::grid_t<1> g(dims);
+          real_space::grid_t g(dims);
           g.set_boundary_conditions(Periodic_Boundary);
           double const k = (1 + dir)*2*constants::pi/g[dir];
           auto const values = new real_t[g.all()];

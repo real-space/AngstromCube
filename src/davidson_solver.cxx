@@ -37,22 +37,22 @@
 namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
 
-  template<typename real_t, int D0> // D0: vectorization
+  template<typename real_t>
   void inner_products(real_t s[] // result <bra|ket> [nstates][nstates]
                    , int const stride // same stride assumed for both, bra and ket
                    , size_t const ndof
-                   , real_t const bra[] // assumed shape [nstates/D0][ndof][D0]
+                   , real_t const bra[] // assumed shape [nstates][ndof]
                    , int const nstates  // number of bra states
-                   , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
+                   , real_t const ket[] // assumed shape [nstates][ndof]
                    , int const mstates  // number of ket states
                    , real_t const factor=1) {
       assert(stride >= mstates);
-      for(int istate = 0; istate < nstates; ++istate) {     int const ivec = istate/D0, i0 = istate % D0;
-          for(int jstate = 0; jstate < mstates; ++jstate) { int const jvec = jstate/D0, j0 = jstate % D0;
+      for(int istate = 0; istate < nstates; ++istate) {
+          for(int jstate = 0; jstate < mstates; ++jstate) {
               real_t tmp = 0;
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += bra[(ivec*ndof + dof)*D0 + i0]
-                       * ket[(jvec*ndof + dof)*D0 + j0];
+                  tmp += bra[istate*ndof + dof]
+                       * ket[jstate*ndof + dof];
               } // dof
               s[istate*stride + jstate] = tmp*factor; // init
           } // jstate
@@ -60,17 +60,17 @@ namespace davidson_solver {
   } // inner_products
 
 
-  template<typename real_t, int D0> // D0: vectorization
+  template<typename real_t>
   void vector_norm2s(real_t s[] // result <ket|ket> [mstates]
                    , size_t const ndof
-                   , real_t const ket[] // assumed shape [nstates/D0][ndof][D0]
+                   , real_t const ket[] // assumed shape [nstates][ndof]
                    , int const mstates  // number of ket states
                    , real_t const factor=1) {
-      for(int jstate = 0; jstate < mstates; ++jstate) {     int const jvec = jstate/D0, j0 = jstate % D0;
+      for(int jstate = 0; jstate < mstates; ++jstate) {
           real_t tmp = 0;
           for(size_t dof = 0; dof < ndof; ++dof) {
-              tmp += ket[(jvec*ndof + dof)*D0 + j0]
-                   * ket[(jvec*ndof + dof)*D0 + j0];
+              tmp += ket[jstate*ndof + dof]
+                   * ket[jstate*ndof + dof];
           } // dof
           s[jstate] = tmp*factor; // init
       } // jstate
@@ -88,10 +88,10 @@ namespace davidson_solver {
       }   printf("\n");
   } // show_matrix
 
-  template<typename real_t, typename real_fd_t=real_t, int D0=1> // D0: vectorization
+  template<typename real_t, typename real_fd_t=real_t>
   status_t solve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
-    , grid_operators::grid_operator_t<real_t,real_fd_t,D0> const & op
+    , grid_operators::grid_operator_t<real_t,real_fd_t> const & op
     , int const echo=9 // log output level
   ) {
       status_t stat = 0;
@@ -126,14 +126,13 @@ namespace davidson_solver {
 
           // apply Hamiltonian and Overlap operator
           for(int istate = 0; istate < sub_space; ++istate) {
-              assert( 1 == D0 );
               stat += op.Hamiltonian(hpsi[istate], psi[istate], op_echo);
               stat += op.Overlapping(spsi[istate], psi[istate], op_echo);
           } // istate
 
           // compute matrix representation in the sub_space
-          inner_products<real_t,D0>(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
-          inner_products<real_t,D0>(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
+          inner_products<real_t>(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
+          inner_products<real_t>(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
 
           if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
@@ -156,7 +155,6 @@ namespace davidson_solver {
 
               // apply Hamiltonian and Overlap operator again
               for(int istate = 0; istate < sub_space; ++istate) {
-                  assert( 1 == D0 );
                   stat += op.Hamiltonian(hpsi[istate], epsi[istate], op_echo);
                   stat += op.Overlapping(spsi[istate], epsi[istate], op_echo);
               } // istate
@@ -168,7 +166,7 @@ namespace davidson_solver {
               } // i
 
               int new_bands{0};
-              vector_norm2s<real_t,D0>(residual_norm2s.data(), ndof, epsi[nbands], nbands);
+              vector_norm2s<real_t>(residual_norm2s.data(), ndof, epsi[nbands], nbands);
               {
                   for(int ires = 0; ires < nbands; ++ires) { // serial, loop-carried dependency in new_bands
                       if (residual_norm2s[ires] > threshold2) {
@@ -212,14 +210,13 @@ namespace davidson_solver {
   template <typename real_t>
   status_t test_solver(int const echo=9) {
       status_t stat{0};
-      int constexpr D0 = 1; // 1: no vectorization
       int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
       //                           3*(pi/8.78)**2      = 0.192 (found)
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
-      real_space::grid_t<D0> g(8, 8, 8);
+      real_space::grid_t g(8, 8, 8);
       std::vector<real_t> psi(nbands*g.all(), 0.0);
 
       int const swm = control::get("davidson_solver.start.waves", 0.);
