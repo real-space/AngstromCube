@@ -394,7 +394,7 @@ namespace conjugate_gradients {
       }
 
       // construct Hamiltonian and Overlap operator
-      grid_operators::grid_operator_t<real_t,real_t> op(g); 
+      grid_operators::grid_operator_t<real_t,real_t> const op(g); 
 
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
@@ -406,7 +406,7 @@ namespace conjugate_gradients {
   status_t all_tests(int const echo) {
     status_t stat{0};
     stat += test_solver<double>(echo);
-//     stat += test_solver<float>(echo); // test complation and convergence
+    stat += test_solver<float>(echo); // test complation and convergence
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS
