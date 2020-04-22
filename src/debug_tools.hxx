@@ -17,7 +17,7 @@ namespace debug_tools {
     int const M=1, // number of columns to fill
     char const *title=nullptr, // title (only for display to log)
     int const echo=0) // report writing to stdout, 0: suppress report
-{
+  {
       assert(M <= Stride);
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {
@@ -26,22 +26,34 @@ namespace debug_tools {
       } // failed to open
 
       std::string line; // read ASCII file line-by-line
-      std::getline(infile, line); // comment line --> display
-      if (echo > 3) printf("# %s:1 reads \'%s\'.", filename, line.c_str());
+      unsigned linenumber = 1;
       int ix = 0;
       while (std::getline(infile, line)) {
-          std::istringstream iss(line);
-          double x{0};
-          iss >> x;
-          for (int iy = 0; iy < M; ++iy) {
-              double y{0};
-              iss >> y;
-              if (ix < N) y_data[ix*Stride + iy] = y;
-          } // iy
-          ++ix;
+          char const *line_ptr = line.c_str();
+          char const c0 = line_ptr ? *line_ptr : '\0';
+          switch (c0) {
+              case '#': {
+                  if (echo > 3) printf("# %s:%d reads \'%s\'.\n", filename, linenumber, line.c_str());
+              } break;
+              case ' ': case '\n': case '\t': case '\0': {
+                  if (echo > 9) printf("# %s:%d reads \'%s\'.\n", filename, linenumber, line.c_str());
+              } break;
+              default: {
+                  std::istringstream iss(line);
+                  double x{0};
+                  iss >> x;
+                  for (int iy = 0; iy < M; ++iy) {
+                      double y{0};
+                      iss >> y;
+                      if (ix < N) y_data[ix*Stride + iy] = y;
+                  } // iy
+                  ++ix;
+              } // default
+          } // switch
+          ++linenumber;
       } // while
-      if (echo > 3) printf("# %d x %d (of %d) data entries%s%s read from file %s.\n", 
-                              N, M, Stride, title?" for":"", title, filename);
+      if (echo > 3) printf("# %d (of %d) x %d (of %d) data entries%s%s read from file %s.\n", 
+                              ix, N, M, Stride, title?" for ":"", title, filename);
       return ix - N; // 0 if number of lines + 1 matched the expected number of rows
   } // read_from_file
 

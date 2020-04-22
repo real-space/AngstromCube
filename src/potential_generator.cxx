@@ -383,9 +383,9 @@ namespace potential_generator {
               } // es_solver_method
               } // timer
 
-#ifdef DEVEL      
+#ifdef DEVEL
               { // scope: export electrostatic potential to ASCII file
-                  auto const Ves_out_filename = control::get("electrostatic.potential.from.file", "");
+                  auto const Ves_out_filename = control::get("electrostatic.potential.to.file", "");
                   if (*Ves_out_filename) stat += dump_to_file(Ves_out_filename, g.all(), Ves.data(), nullptr, 1, 1, "electrostatic potential", echo);
               } // scope
 #endif
@@ -428,6 +428,10 @@ namespace potential_generator {
               } // echo
           } // scope
 
+#ifdef DEVEL
+//        exit(__LINE__);
+#endif
+          
           // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
           float mixing_ratio[] = {.5, .5}; // {potential, density}
           stat += single_atom::atom_update("update", na, 0, 0, mixing_ratio, atom_vlm.data());

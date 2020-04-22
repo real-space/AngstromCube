@@ -1,5 +1,7 @@
 **AAcube**
-    
+
+*This README is only about the code base, please refer to ../README.md for the entire application*
+  
 AAcube code base is structured as follows:
 There is at max one namespace per file.
 Each namespace offers the function
@@ -11,7 +13,6 @@ The executable shows a simple help when called with `-h`.
 
 Output to *stdout* should always depend on the `echo`-levels so it can be turned off completely.
 Warnings printed to stdout, to stderr, recorded in memory and summarized at the programs end 
-(and when dying from fatal errors, ToDo)
 
 All log output to *stdout* should start a line with `# ` and, if the information is about 
 a specific atom, followed by some atom identifier label.
