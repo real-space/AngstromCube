@@ -28,6 +28,7 @@
 #ifdef DEVEL
     #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file
+    #include "debug_tools.hxx" // ::read_from_file
     #include "radial_r2grid.hxx" // radial_r2grid_t
     #include "radial_r2grid.hxx" // r2_axis
 #endif
@@ -366,14 +367,29 @@ namespace potential_generator {
 
               } else if ('n' == (es_solver_method | 32)) { // "none"
                   warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
-
+                  
+              } else if ('l' == (es_solver_method | 32)) { // "load"
+#ifdef DEVEL                  
+                  auto const Ves_in_filename = control::get("electrostatic.potential.from.file", "v_es.dat");
+                  auto const nerrors = debug_tools::read_from_file(Ves.data(), Ves_in_filename, g.all(), 1, 1, "electrostatic potential", echo);
+                  if (nerrors) warn("electrostatic.solver = %s from file %s had %d errors", es_solver_name, Ves_in_filename, nerrors); 
+#else
+                  warn("electrostatic.solver = %s failed!", es_solver_name); 
+#endif                  
               } else { // default
                   if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
                   stat += iterative_poisson::solve(Ves.data(), rho.data(), g, es_solver_method, echo);
 
               } // es_solver_method
               } // timer
-              
+
+#ifdef DEVEL      
+              { // scope: export electrostatic potential to ASCII file
+                  auto const Ves_out_filename = control::get("electrostatic.potential.from.file", "");
+                  if (*Ves_out_filename) stat += dump_to_file(Ves_out_filename, g.all(), Ves.data(), nullptr, 1, 1, "electrostatic potential", echo);
+              } // scope
+#endif
+
               // test the potential in real space, find ves_multipoles
               for(int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];

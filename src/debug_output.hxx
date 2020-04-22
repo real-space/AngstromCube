@@ -17,9 +17,7 @@ int dump_to_file(
         return 1;
     } // failed to open
 
-    if (nullptr != title) {
-        fprintf(f, "# %s\n", title);
-    } // title
+    fprintf(f, "# %s\n", title); // print this line also if title==nullptr
 
     for(int i = 0; i < N; i++) {
         if (nullptr != x_axis) {
