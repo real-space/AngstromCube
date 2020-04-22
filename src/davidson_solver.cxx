@@ -38,12 +38,12 @@ namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
 
   template<typename real_t>
-  void inner_products(double s[] // result <bra|ket> [nstates][nstates]
+  void inner_products(double s[] // result <bra|ket> [nstates][mstates]
                    , int const stride // same stride assumed for both, bra and ket
                    , size_t const ndof
                    , real_t const bra[] // assumed shape [nstates][ndof]
                    , int const nstates  // number of bra states
-                   , real_t const ket[] // assumed shape [nstates][ndof]
+                   , real_t const ket[] // assumed shape [mstates][ndof]
                    , int const mstates  // number of ket states
                    , double const factor=1) {
       assert(stride >= mstates);
@@ -66,12 +66,14 @@ namespace davidson_solver {
                    , size_t const ndof
                    , real_t const ket[] // assumed shape [nstates][ndof]
                    , int const mstates  // number of ket states
+                   , real_t const *bra=nullptr
                    , double const factor=1) {
       for(int jstate = 0; jstate < mstates; ++jstate) {
           auto const ket_ptr = &ket[jstate*ndof];
+          auto const bra_ptr = bra ? &bra[jstate*ndof] : ket_ptr;
           double tmp = 0;
           for(size_t dof = 0; dof < ndof; ++dof) {
-              tmp += pow2(ket_ptr[dof]);
+              tmp += bra_ptr[dof] * ket_ptr[dof];
           } // dof
           s[jstate] = tmp*factor; // init
       } // jstate
@@ -128,6 +130,7 @@ namespace davidson_solver {
       view2D<real_t> hpsi(max_space, ndof, 0.0);
       view2D<real_t> spsi(max_space, ndof, 0.0);
       view2D<real_t> epsi(max_space, ndof, 0.0); // new eigenfunctions
+      view2D<real_t> sepsi(       1, ndof, 0.0);
       
       set(psi.data(), nbands*ndof, waves); // copy nbands initial wave functions into psi
 
@@ -149,83 +152,90 @@ namespace davidson_solver {
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
 
           auto const info = linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigval.data());
-          if (info) warn("generalized eigenvalue problem returned INFO=%i", info);
-          stat += info;
-          auto const & eigvec = Hmt;
-          if (echo > 8) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
-          // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
+          if (info) {
+              warn("generalized eigenvalue problem returned INFO=%i", info);
+              stat += info;
+          } else {
+              auto const & eigvec = Hmt;
+              if (echo > 8) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
+              // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 
-          // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
-          for(int i = 0; i < sub_space; ++i) {
-              set(epsi[i], ndof, real_t(0));
-              for(int j = 0; j < sub_space; ++j) {
-                  add_product(epsi[i], ndof, psi[j], real_t(eigvec[i][j]));
-              } // j
-          } // i
+              // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
+              for(int i = 0; i < sub_space; ++i) {
+                  set(epsi[i], ndof, real_t(0));
+                  for(int j = 0; j < sub_space; ++j) {
+                      add_product(epsi[i], ndof, psi[j], real_t(eigvec(i,j)));
+                  } // j
+              } // i
+              std::swap(psi, epsi); // pointer swap instead of deep copy
 
-          std::swap(psi, epsi); // pointer swap instead of deep copy
+              if (sub_space < max_space) {
+
+                  // apply Hamiltonian and Overlap operator again
+                  bool const with_overlap = true;
+                  for(int i = 0; i < sub_space; ++i) {
+                      stat += op.Hamiltonian(hpsi[i], psi[i], op_echo);
+                      set(epsi[i], ndof, hpsi[i]);
+                      stat += op.Overlapping(spsi[i], psi[i], op_echo);
+                      add_product(epsi[i], ndof, spsi[i], real_t(-eigval[i]));
+                      
+                      if (with_overlap) stat += op.Overlapping(spsi[i], epsi[i], op_echo);
+                  } // i
+                  vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
+                                       with_overlap ? spsi.data() : nullptr, g.dV());
+
+                  std::vector<double> res_norm2_sort(sub_space);              
+                  set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
+                  std::sort(res_norm2_sort.begin(), res_norm2_sort.end()); // sort
+
+                  // now select the threshold epsi with the largest residual and add them to the basis
+                  int const max_bands = max_space - sub_space; // not more than this many
+                  int new_bands{0};
+                  double thres2{9e99};
+                  for(int i = 0; i < sub_space; ++i) {
+                      auto const rn2 = res_norm2_sort[sub_space - 1 - i]; // reverse as we seek for the largest residuals
+                      if (rn2 > threshold2) {
+                          if (new_bands < max_bands) {
+                              ++new_bands;
+                              thres2 = std::min(thres2, rn2);
+                          }
+                      } //
+                  } // i
+                  int const add_bands = new_bands;
+                  if (echo > 0) printf("# Davidson: add %d residual vectors with norm2 above %.3e\n", add_bands, thres2);
+
+                  std::vector<short> indices(add_bands);
+                  int new_band{0};
+                  if (echo > 0) printf("# Davidson: add residual vectors: ");
+                  for(int i = 0; i < sub_space; ++i) {
+                      auto const rn2 = residual_norm2s[i];
+                      if (rn2 >= thres2) {
+                          if (new_band < max_bands) {
+                              indices[new_band] = i;
+                              if (echo > 0) printf(" %i", i);
+                              ++new_band;
+                          }
+                      } //
+                  } // i
+                  if (echo > 0) printf("\n");
+                  if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
+
+                  for(int i = 0; i < add_bands; ++i) {
+                      int const j = indices[i];
+                      int const ii = sub_space + i;
+                      real_t const f = 1./std::sqrt(residual_norm2s[j]);
+                      set(psi[ii], ndof, epsi[j], f); // and normalize
+                  } // i
+
+                  sub_space += add_bands; // increase the subspace size by the number of non-vanishing residual vectors
+
+                  // ToDo: make sure that we run at least one more iteration at the increase function space size
+                  niter = iteration + 2;
+              } else { // if the space can grow
+                  niter = iteration; // stop
+              }
           
-          if (sub_space < max_space) {
-
-              // apply Hamiltonian and Overlap operator again
-              for(int i = 0; i < sub_space; ++i) {
-                  stat += op.Hamiltonian(hpsi[i], psi[i], op_echo);
-                  set(epsi[i], ndof, hpsi[i]); 
-                  stat += op.Overlapping(spsi[i], psi[i], op_echo);
-                  add_product(epsi[i], ndof, spsi[i], real_t(-eigval[i]));
-              } // i
-              vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space); // this norm2 is disregarding the overlap operator, problem?
-
-              std::vector<double> res_norm2_sort(sub_space);              
-              set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
-              std::sort(res_norm2_sort.begin(), res_norm2_sort.end()); // sort
-
-              // now select the threshold epsi with the largest residual and add them to the basis
-              int const max_bands = max_space - sub_space; // not more than this many
-              int new_bands{0};
-              double thres2{9e99};
-              for(int i = 0; i < sub_space; ++i) {
-                  auto const rn2 = res_norm2_sort[sub_space - 1 - i]; // reverse as we seek for the largest residuals
-                  if (rn2 > threshold2) {
-                      if (new_bands < max_bands) {
-                          ++new_bands;
-                          thres2 = std::min(thres2, rn2);
-                      }
-                  } //
-              } // i
-              int const add_bands = new_bands;
-              if (echo > 0) printf("# Davidson: add %d residual vectors with norm2 above %.3e\n", add_bands, thres2);
-
-              std::vector<short> indices(add_bands);
-              int new_band{0};
-              if (echo > 0) printf("# Davidson: add residual vectors: ");
-              for(int i = 0; i < sub_space; ++i) {
-                  auto const rn2 = residual_norm2s[i];
-                  if (rn2 >= thres2) {
-                      if (new_band < max_bands) {
-                          indices[new_band] = i;
-                          if (echo > 0) printf(" %i", i);
-                          ++new_band;
-                      }
-                  } //
-              } // i
-              if (echo > 0) printf("\n");
-              if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
-
-              for(int i = 0; i < add_bands; ++i) {
-                  int const j = indices[i];
-                  int const ii = sub_space + i;
-                  real_t const f = 1./std::sqrt(residual_norm2s[j]);
-                  set(psi[ii], ndof, epsi[j], f); // and normalize
-              } // i
-
-              sub_space += add_bands; // increase the subspace size by the number of non-vanishing residual vectors
-
-              // ToDo: make sure that we run at least one more iteration at the increase function space size
-              niter = iteration + 2;
-          } else { // if the space can grow
-              niter = iteration; // stop
-          }
+          } // info
 
       } // iteration
 
