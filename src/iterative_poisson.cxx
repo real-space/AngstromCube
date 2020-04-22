@@ -271,24 +271,27 @@ namespace iterative_poisson {
                 , int restart // =4096 // number of iterations before restart, 1:steepest descent
                 ) {
 
-    if ('m' == (method | 32)) return multi_grid_solve(x, b, g, echo, threshold, residual, maxiter);
+    size_t const nall = size_t(g[2])*size_t(g[1])*size_t(g[0]);
 
+    status_t ist{0};
+    
     restart = ('s' == method) ? 1 : std::max(1, restart);
     
-    size_t const nall = size_t(g[2])*size_t(g[1])*size_t(g[0]);
-    
     if (std::is_same<real_t, double>::value) {
-        if ('x' == method) {
-            view2D<float> xb(2, nall, 0.0); // get memory
-            auto const x32 = xb[0], b32 = xb[1];
-            set(b32, nall, b); // convert to float
-            set(x32, nall, x); // convert to float
-            if (echo > 5) printf("# %s solve in <float> precision first\n", __FILE__);
-            solve(x32, b32, g, method, echo + 1, threshold, residual, maxiter >> 4, miniter, restart);
-            set(x, nall, x32); // convert to double
-        } // mixed precision
+        view2D<float> xb(2, nall, 0.0); // get memory
+        auto const x32 = xb[0], b32 = xb[1];
+        set(b32, nall, b); // convert to float
+        set(x32, nall, x); // convert to float
+        if (echo > 5) printf("# %s solve in <float> precision first\n", __FILE__);
+        ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter >> 4, miniter, restart);
+        if (echo > 5) printf("# %s switch back to <double> precision\n", __FILE__);
+        set(x, nall, x32); // convert to double
     } // real_t==double
 
+    if ('m' == (method | 32)) {
+        return ist + multi_grid_solve(x, b, g, echo, threshold, residual, maxiter);
+    }
+    
     int const nn_precond = -1; // 0:none, >0:stencil, <0:multi_grid
     bool const use_precond = (0 != nn_precond);
     
@@ -346,7 +349,6 @@ namespace iterative_poisson {
 //     !   |p> = |z> + beta |p>
 //     !   it = it+1
 
-    status_t ist{0};
 
     // |Ax> := A|x>
     ist = finite_difference::apply(ax, x, g, Laplacian);

@@ -7,7 +7,7 @@
 #include "davidson_solver.hxx"
 
 #include "real_space.hxx" // ::grid_t
-#include "grid_operators.hxx" // ::grid_Hamiltonian, ::grid_Overlapping
+#include "grid_operators.hxx" // ::grid_operator_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::generalized_eigval
 #include "control.hxx" // ::get
@@ -48,11 +48,12 @@ namespace davidson_solver {
                    , real_t const factor=1) {
       assert(stride >= mstates);
       for(int istate = 0; istate < nstates; ++istate) {
+          auto const bra_ptr = &bra[istate*ndof];
           for(int jstate = 0; jstate < mstates; ++jstate) {
+              auto const ket_ptr = &ket[jstate*ndof];
               real_t tmp = 0;
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += bra[istate*ndof + dof]
-                       * ket[jstate*ndof + dof];
+                  tmp += bra_ptr[dof] * ket_ptr[dof];
               } // dof
               s[istate*stride + jstate] = tmp*factor; // init
           } // jstate
@@ -67,10 +68,10 @@ namespace davidson_solver {
                    , int const mstates  // number of ket states
                    , real_t const factor=1) {
       for(int jstate = 0; jstate < mstates; ++jstate) {
+          auto const ket_ptr = &ket[jstate*ndof];
           real_t tmp = 0;
           for(size_t dof = 0; dof < ndof; ++dof) {
-              tmp += ket[jstate*ndof + dof]
-                   * ket[jstate*ndof + dof];
+              tmp += pow2(ket_ptr[dof]);
           } // dof
           s[jstate] = tmp*factor; // init
       } // jstate
@@ -88,18 +89,20 @@ namespace davidson_solver {
       }   printf("\n");
   } // show_matrix
 
-  template<typename real_t, typename real_fd_t=real_t>
-  status_t solve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+  template<typename real_t, typename real_fd_t>
+  status_t eigensolve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , int const nbands // number of bands
-    , grid_operators::grid_operator_t<real_t,real_fd_t> const & op
-    , int const echo=9 // log output level
+    , grid_operators::grid_operator_t<real_t,real_fd_t> const &op
+    , int const echo // =0 log output level
+    , int const mbasis // =2
+    , unsigned const niterations // =2
   ) {
+//    int const mbasis = 2; // control::get("davidson.basis.multiplier", 2);
       status_t stat = 0;
       
       auto const g = op.get_grid();
       
       size_t const ndof = size_t(g[0]) * size_t(g[1]) * size_t(g[2]);
-      int const mbasis = 2; // control::get("davidson.basis.multiplier", 2);
       if (echo > 0) printf("# start Davidson (subspace size up to %i x %i bands)\n", mbasis, nbands);
 
       double const threshold2 = 1e-8;
@@ -121,7 +124,7 @@ namespace davidson_solver {
       std::vector<real_t> residual_norm2s(nbands);
       std::vector<int> band_index(nbands);
 
-      for(int iteration = 0; iteration < 2; ++iteration) {
+      for(unsigned iteration = 0; iteration < niterations; ++iteration) {
           if (echo > 0) printf("# Davidson iteration %i\n", iteration);
 
           // apply Hamiltonian and Overlap operator
@@ -151,7 +154,8 @@ namespace davidson_solver {
           } // i
 
 
-          if (iteration < 1) { // only in the first iteration
+//        if (iteration < 1) 
+          if (0) { // only in the first iteration
 
               // apply Hamiltonian and Overlap operator again
               for(int istate = 0; istate < sub_space; ++istate) {
@@ -201,9 +205,11 @@ namespace davidson_solver {
       if (echo > 4) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
 
       return stat;
-  } // solve
+  } // eigensolve
 
 #ifdef  NO_UNIT_TESTS
+  // maybe explicit template instanciations needed here, ToDo
+  
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
@@ -254,7 +260,7 @@ namespace davidson_solver {
 
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat += solve(psi.data(), nbands, op, echo);
+          stat += eigensolve(psi.data(), nbands, op, echo);
       } // it
       return stat;
   } // test_solver

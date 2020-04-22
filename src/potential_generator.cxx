@@ -39,6 +39,7 @@
 #include "atom_image.hxx"// ::sho_atom_t
 #include "grid_operators.hxx" // ::grid_operator_t, ::list_of_atoms
 #include "conjugate_gradients.hxx" // ::eigensolve
+#include "davidson_solver.hxx" // ::rotate, ::eigensolve
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
 #include "density_generator.hxx" // ::density
 
@@ -334,6 +335,7 @@ namespace potential_generator {
                   print_stats(rho.data(), g.all(), g.dV());
               } // echo
 
+              { SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
               // solve the Poisson equation: Laplace Ves == -4 pi rho
               if ('f' == (es_solver_method | 32)) { // "fft", "fourier" 
                   // solve the Poisson equation using a Fast Fourier Transform
@@ -370,7 +372,8 @@ namespace potential_generator {
                   stat += iterative_poisson::solve(Ves.data(), rho.data(), g, es_solver_method, echo);
 
               } // es_solver_method
-
+              } // timer
+              
               // test the potential in real space, find ves_multipoles
               for(int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
@@ -530,7 +533,7 @@ namespace potential_generator {
 
                   // solve the Kohn-Sham equation using various solvers
                   if ('c' == KS_solver_method[0]) { // "cg" or "conjugate_gradients"
-                      // need start wave-functions, ToDo
+                      stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
                       stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
                   } else
                   if ('d' == KS_solver_method[0]) { // "davidson"
