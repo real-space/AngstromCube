@@ -106,11 +106,11 @@ namespace conjugate_gradients {
     , double *eigenvalues //=nullptr // export results
   ) {
       status_t stat = 0;
-      int const maxiter = control::get("conjugate_gradients.max.iter", 32);
+      int const maxiter = control::get("conjugate_gradients.max.iter", 132);
       int const restart_every_n_iterations = std::max(1, 4);
       typedef real_t complex_t;
       
-      if (echo > 0) printf("# start CG (onto %d bands)\n", nbands);
+      if (echo > 0) printf("# start CG onto %d bands\n", nbands);
 
       auto const & g = op.get_grid();
       bool const use_overlap = op.use_overlap();
@@ -294,7 +294,7 @@ namespace conjugate_gradients {
 
                       // apply Hamiltonian
                       stat += op.Hamiltonian(Hcon, con, echo);
-                      
+
                       double    const sHs = energy[ib];
                       complex_t const sHc = inner_product(nv, s[ib], Hcon, g.dV()); // must be complex_t
                       double    const cHc = inner_product(nv,   con, Hcon, g.dV());

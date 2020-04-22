@@ -1,7 +1,7 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <algorithm> // std::swap<T>
+#include <algorithm> // std::swap<T>, std::sort
 #include <cmath> // std::sin
 
 #include "davidson_solver.hxx"
@@ -38,20 +38,20 @@ namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
 
   template<typename real_t>
-  void inner_products(real_t s[] // result <bra|ket> [nstates][nstates]
+  void inner_products(double s[] // result <bra|ket> [nstates][nstates]
                    , int const stride // same stride assumed for both, bra and ket
                    , size_t const ndof
                    , real_t const bra[] // assumed shape [nstates][ndof]
                    , int const nstates  // number of bra states
                    , real_t const ket[] // assumed shape [nstates][ndof]
                    , int const mstates  // number of ket states
-                   , real_t const factor=1) {
+                   , double const factor=1) {
       assert(stride >= mstates);
       for(int istate = 0; istate < nstates; ++istate) {
           auto const bra_ptr = &bra[istate*ndof];
           for(int jstate = 0; jstate < mstates; ++jstate) {
               auto const ket_ptr = &ket[jstate*ndof];
-              real_t tmp = 0;
+              double tmp = 0;
               for(size_t dof = 0; dof < ndof; ++dof) {
                   tmp += bra_ptr[dof] * ket_ptr[dof];
               } // dof
@@ -62,14 +62,14 @@ namespace davidson_solver {
 
 
   template<typename real_t>
-  void vector_norm2s(real_t s[] // result <ket|ket> [mstates]
+  void vector_norm2s(double s[] // result <ket|ket> [mstates]
                    , size_t const ndof
                    , real_t const ket[] // assumed shape [nstates][ndof]
                    , int const mstates  // number of ket states
-                   , real_t const factor=1) {
+                   , double const factor=1) {
       for(int jstate = 0; jstate < mstates; ++jstate) {
           auto const ket_ptr = &ket[jstate*ndof];
-          real_t tmp = 0;
+          double tmp = 0;
           for(size_t dof = 0; dof < ndof; ++dof) {
               tmp += pow2(ket_ptr[dof]);
           } // dof
@@ -79,8 +79,13 @@ namespace davidson_solver {
 
 
   template<typename real_t>
-  void show_matrix(real_t const mat, int const stride, int const n, int const m, char const *name=nullptr) {
-      printf("\n# %s=%s%c", (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
+  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr) {
+      if (n < 1) return;
+      if (1 == n) {
+          printf("# Vector=%s  ", name);
+      } else {
+          printf("\n# %dx%d Matrix=%s\n", n, m, name);
+      }
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
@@ -94,37 +99,40 @@ namespace davidson_solver {
     , int const nbands // number of bands
     , grid_operators::grid_operator_t<real_t,real_fd_t> const &op
     , int const echo // =0 log output level
-    , int const mbasis // =2
+    , float const mbasis // =2
     , unsigned const niterations // =2
   ) {
-//    int const mbasis = 2; // control::get("davidson.basis.multiplier", 2);
+//    float const mbasis = 2; // control::get("davidson.basis.multiplier", 2.0);
       status_t stat = 0;
+      if (nbands < 1) return 0;
       
       auto const g = op.get_grid();
       
       size_t const ndof = size_t(g[0]) * size_t(g[1]) * size_t(g[2]);
-      if (echo > 0) printf("# start Davidson (subspace size up to %i x %i bands)\n", mbasis, nbands);
-
-      double const threshold2 = 1e-8;
-
-      int const op_echo = echo - 6;
       
-      int const max_space = mbasis*nbands;
+      int const max_space = int(std::ceil(mbasis*nbands));
       int       sub_space = nbands; // init with the waves from the input
+      if (echo > 0) printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
 
-      view3D<real_t> matrices(2, max_space, max_space);
+      double const threshold2 = 1e-8; // do not add residual vectors with a norm2 smaller than this
+
+      int const op_echo = echo - 16;
+      
+
+      view3D<double> matrices(2, max_space, max_space);
       auto Hmt = matrices[0], Ovl = matrices[1];
+      std::vector<double> eigval(max_space);
+      std::vector<double> residual_norm2s(max_space);
       
       view2D<real_t>  psi(max_space, ndof, 0.0);
-      set(psi.data(), nbands*ndof, waves); // copy nbands initial wave functions
       view2D<real_t> hpsi(max_space, ndof, 0.0);
       view2D<real_t> spsi(max_space, ndof, 0.0);
       view2D<real_t> epsi(max_space, ndof, 0.0); // new eigenfunctions
-      std::vector<real_t> eigval(max_space);
-      std::vector<real_t> residual_norm2s(nbands);
-      std::vector<int> band_index(nbands);
+      
+      set(psi.data(), nbands*ndof, waves); // copy nbands initial wave functions into psi
 
-      for(unsigned iteration = 0; iteration < niterations; ++iteration) {
+      unsigned niter = niterations;
+      for(unsigned iteration = 0; iteration < niter; ++iteration) {
           if (echo > 0) printf("# Davidson iteration %i\n", iteration);
 
           // apply Hamiltonian and Overlap operator
@@ -134,75 +142,98 @@ namespace davidson_solver {
           } // istate
 
           // compute matrix representation in the sub_space
-          inner_products<real_t>(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
-          inner_products<real_t>(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
+          inner_products(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
+          inner_products(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
 
           if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
 
-          stat += linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigval.data());
+          auto const info = linear_algebra::generalized_eigenvalues(sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride(), eigval.data());
+          if (info) warn("generalized eigenvalue problem returned INFO=%i", info);
+          stat += info;
           auto const & eigvec = Hmt;
-          if (echo > 8) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
+          if (echo > 8) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
           // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 
           // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
           for(int i = 0; i < sub_space; ++i) {
               set(epsi[i], ndof, real_t(0));
               for(int j = 0; j < sub_space; ++j) {
-                  add_product(epsi[i], ndof, psi[j], eigvec[i][j]);
+                  add_product(epsi[i], ndof, psi[j], real_t(eigvec[i][j]));
               } // j
           } // i
 
-
-//        if (iteration < 1) 
-          if (0) { // only in the first iteration
+          std::swap(psi, epsi); // pointer swap instead of deep copy
+          
+          if (sub_space < max_space) {
 
               // apply Hamiltonian and Overlap operator again
-              for(int istate = 0; istate < sub_space; ++istate) {
-                  stat += op.Hamiltonian(hpsi[istate], epsi[istate], op_echo);
-                  stat += op.Overlapping(spsi[istate], epsi[istate], op_echo);
-              } // istate
+              for(int i = 0; i < sub_space; ++i) {
+                  stat += op.Hamiltonian(hpsi[i], psi[i], op_echo);
+                  set(epsi[i], ndof, hpsi[i]); 
+                  stat += op.Overlapping(spsi[i], psi[i], op_echo);
+                  add_product(epsi[i], ndof, spsi[i], real_t(-eigval[i]));
+              } // i
+              vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space); // this norm2 is disregarding the overlap operator, problem?
 
-              // now compute the residual vectors and add them to the basis [ToDo: if their norm is not too small]
-              for(int i = 0; i < nbands; ++i) {
-                  int const ii = i + nbands;
-                  set(epsi[ii], ndof, hpsi[i]); add_product(epsi[ii], ndof, spsi[i], -eigval[i]);
+              std::vector<double> res_norm2_sort(sub_space);              
+              set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
+              std::sort(res_norm2_sort.begin(), res_norm2_sort.end()); // sort
+
+              // now select the threshold epsi with the largest residual and add them to the basis
+              int const max_bands = max_space - sub_space; // not more than this many
+              int new_bands{0};
+              double thres2{9e99};
+              for(int i = 0; i < sub_space; ++i) {
+                  auto const rn2 = res_norm2_sort[sub_space - 1 - i]; // reverse as we seek for the largest residuals
+                  if (rn2 > threshold2) {
+                      if (new_bands < max_bands) {
+                          ++new_bands;
+                          thres2 = std::min(thres2, rn2);
+                      }
+                  } //
+              } // i
+              int const add_bands = new_bands;
+              if (echo > 0) printf("# Davidson: add %d residual vectors with norm2 above %.3e\n", add_bands, thres2);
+
+              std::vector<short> indices(add_bands);
+              int new_band{0};
+              if (echo > 0) printf("# Davidson: add residual vectors: ");
+              for(int i = 0; i < sub_space; ++i) {
+                  auto const rn2 = residual_norm2s[i];
+                  if (rn2 >= thres2) {
+                      if (new_band < max_bands) {
+                          indices[new_band] = i;
+                          if (echo > 0) printf(" %i", i);
+                          ++new_band;
+                      }
+                  } //
+              } // i
+              if (echo > 0) printf("\n");
+              if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
+
+              for(int i = 0; i < add_bands; ++i) {
+                  int const j = indices[i];
+                  int const ii = sub_space + i;
+                  real_t const f = 1./std::sqrt(residual_norm2s[j]);
+                  set(psi[ii], ndof, epsi[j], f); // and normalize
               } // i
 
-              int new_bands{0};
-              vector_norm2s<real_t>(residual_norm2s.data(), ndof, epsi[nbands], nbands);
-              {
-                  for(int ires = 0; ires < nbands; ++ires) { // serial, loop-carried dependency in new_bands
-                      if (residual_norm2s[ires] > threshold2) {
-                          band_index[new_bands] = ires;
-                          ++new_bands;
-                      }
-                  } // ires
-              }
+              sub_space += add_bands; // increase the subspace size by the number of non-vanishing residual vectors
 
-              // re-pack the new residuals
-              for(int ires = 0; ires < new_bands; ++ires) { // serial due to RAW dependencies
-                  int const itarget = nbands + ires;
-                  int const isource = nbands + band_index[ires];
-                  if (itarget < isource) {
-                      set(epsi[itarget], ndof, epsi[isource]);
-                  } else stat += (itarget > isource); // errors
-              } // ires
-
-              sub_space += new_bands; // increase the subspace size by the number of non-vanishing residual vectors
-
-              if (new_bands < nbands) { printf("# add %i residuals\n", new_bands); exit(__LINE__); }
-
-          } // not in the second iteration
-
-          std::swap(psi, epsi); // pointer swap instead of deep copy
+              // ToDo: make sure that we run at least one more iteration at the increase function space size
+              niter = iteration + 2;
+          } else { // if the space can grow
+              niter = iteration; // stop
+          }
 
       } // iteration
 
       set(waves, nbands*ndof, psi.data()); // copy result wave functions back
-      // ToDo: export last set of nbands eigenvalues
+      
+      // ToDo: export last set of nbands eigenvalues on request
 
-      if (echo > 4) show_matrix(eigval.data(), sub_space, 1, sub_space, "Eigenvalues");
+      if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
 
       return stat;
   } // eigensolve

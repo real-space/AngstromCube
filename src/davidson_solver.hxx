@@ -11,9 +11,9 @@ namespace davidson_solver {
     , int const nbands // number of bands
     , grid_operators::grid_operator_t<real_t,real_fd_t> const &op
     , int const echo=0 // log output level
-    , int const mbasis=2 // factor enlarging the space of trial functions
-    , unsigned const niterations=2 // number of Davidson iterations
-  ); 
+    , float const mbasis=2 // factor enlarging the space of trial functions
+    , unsigned const niterations=9 // number of Davidson iterations
+  );
 
   template<typename real_t, typename real_fd_t=real_t> inline
   status_t rotate(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions

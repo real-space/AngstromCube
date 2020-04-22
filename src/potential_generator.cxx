@@ -548,18 +548,18 @@ namespace potential_generator {
               } // scope
               view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
 
-              auto const KS_solver_method = control::get("eigensolver", "cg");
+              auto const eigensolver_method = control::get("eigensolver", "cg");
               for(int ikpoint = 0; ikpoint < 1; ++ikpoint) { // ToDo: implement k-points
 
                   // solve the Kohn-Sham equation using various solvers
-                  if ('c' == KS_solver_method[0]) { // "cg" or "conjugate_gradients"
+                  if ('c' == eigensolver_method[0]) { // "cg" or "conjugate_gradients"
                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
                       stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
                   } else
-                  if ('d' == KS_solver_method[0]) { // "davidson"
-                      ++stat; error("eigensolver method \'davidson\' needs to be implemented");
+                  if ('d' == eigensolver_method[0]) { // "davidson"
+                      stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
                   } else {
-                      ++stat; error("unknown eigensolver method \'%s\'", KS_solver_method);
+                      ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);
                   }
 
                   // add to density
