@@ -16,6 +16,9 @@
 #include "constants.hxx" // ::pi
 #include "linear_algebra.hxx" // ::linear_solve, ::generalized_eigenvalues
 #include "data_view.hxx" // view2D
+#ifdef DEVEL
+    #include "control.hxx" // ::get // ToDo: remove this again
+#endif
 
 #define DEBUG
 #ifdef  DEBUG
@@ -343,7 +346,7 @@ namespace scattering_test {
       // preparation for the projector functions
       stat += expand_sho_projectors(rprj.data(), rprj.stride(), g, sigma, numax, 1, echo);
 
-      int const nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
+      int constexpr nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
       if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", __FILE__, __func__, nFD); 
 
@@ -372,17 +375,24 @@ namespace scattering_test {
           view2D<double const> rprj1((ln_off < nln)?(rprj[ln_off] + 1):nullptr, rprj.stride()); 
           // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
+          int const ell_no_cd = // ToDo: remove this again
+#ifdef DEVEL
+                                int(control::get("single_atom.test.ell_no_cd", -1.)); // fudge factor // ToDo: remove this again
+#else
+                                -1; // ToDo: remove this again
+#endif
           // add the non-local dyadic operators to the Hamiltonian and overlap
           for(int ir = 0; ir < nr; ++ir) {
               for(int jr = 0; jr < nr; ++jr) {
                   for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                       for(int mrn = 0; mrn < nn[ell]; ++mrn) {
                           Ham[ir][jr] += rprj1[nrn][ir] * aHm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
-                          Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
+                          Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr * (ell > ell_no_cd);
                       } // mrn
                   } // nrn
               } // jr
           } // ir
+          if (ell <= ell_no_cd) printf("# %s: overlap elements are set to zero for ell=%i!\n", __func__, ell); // ToDo: remove this again
 
           set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
 
@@ -405,13 +415,13 @@ namespace scattering_test {
                       for(int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
                           if (echo > 8) {
-                              printf("\n## %s %s ell=%i eigenvalue %.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
+                              printf("\n## %s %s ell=%i eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
                               for(int ir = 0; ir < nr; ++ir) {
                                   printf("%g %g\n", g.r[ir + 1], evec[iev][ir]);
                               }   printf("\n\n");
                           } // echo
 
-                          printf("# %s projection analysis for ell=%i eigenvalue (#%i) %.6f %s  coefficients ", label, ell, iev, eigs[iev]*eV, _eV);
+                          printf("# %s projection analysis for ell=%i eigenvalue (#%i)%10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
                           for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                               printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
                           }   printf("\n");

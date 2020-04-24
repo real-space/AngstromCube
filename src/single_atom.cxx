@@ -291,7 +291,7 @@ extern "C" {
         r_match = 9*sigma;
         set(nn, 1+ELLMAX+2, uint8_t(0));
         if (echo > 0) printf("# %s numbers of projectors ", label);
-        int const nn_limiter = control::get("single_atom.nn.limit", 9);
+        int const nn_limiter = control::get("single_atom.nn.limit", 2);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
             nn[ell] = std::min((int)nn[ell], nn_limiter); // take a smaller numer of partial waves
@@ -762,7 +762,7 @@ extern "C" {
                                label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
 
         if (echo > 9) { printf("\n## %s show the local potentials (r, r*Vtru, r*Vsmt):\n", label);
-            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+            for(int ir = 1; ir < rg[SMT]->n; ++ir) {
                 printf("%g %g %g\n", rg[SMT]->r[ir], potential[TRU][ir + nr_diff], potential[SMT][ir]);
             }   printf("\n\n");
         } // echo
@@ -860,10 +860,10 @@ extern "C" {
                             } // ir
 
                             // now visually check that the matching of value and derivative of rphi is ok.
-                            if (echo > 9) {
+                            if (echo > 19) {
                                 printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
                                         label, ell, nrn, krn-1);
-                                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                                for(int ir = 1; ir < rg[SMT]->n; ++ir) {
                                     printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir],
                                         vs.wave[TRU][ir + nr_diff], rphi[krn][ir],
                                         vs.wKin[TRU][ir + nr_diff], Tphi[krn][ir]);
@@ -880,63 +880,101 @@ extern "C" {
                         } // krn > 0
                     } // krn
 
+                    char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
+                    char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                    char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
+                    
+                    char const method = minimize_radial_curvature;
+                    
                     std::vector<double> evec(n, 0.0);
-                    evec[nrn] = 1.0;       // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-                    if (true && (n > 1)) { // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
-                        view2D<double> Ekin(     3*n , n);
-                        view2D<double> Olap(Ekin[1*n], n);
-                        view2D<double> Vkin(Ekin[2*n], n);
-                        int const nr_max = ir_match[SMT];
-                        for(int krn = 0; krn < n; ++krn) {
-                            for(int jrn = 0; jrn < n; ++jrn) {
-                                // definition of Tphi contains factor *r
-                                Ekin[krn][jrn] = dot_product(nr_max, Tphi[1 + krn], rphi[1 + jrn], rg[SMT]->rdr);
-                                Olap[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->r2dr);
-                                Vkin[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->dr)
-                                                 * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
-                                // minimize only the radial kinetic energy
-                                Ekin[krn][jrn] -= Vkin[krn][jrn]; // subtract the angular part, suggested by Morian Sonnet
-                            } // jrn
-                        } // krn
-
-                        // symmetrize
-                        for(int krn = 0; krn < n; ++krn) {
-                            for(int jrn = 0; jrn < krn; ++jrn) { // triangular loop
-                                symmetrize(Ekin[krn][jrn], Ekin[jrn][krn]);
-                                symmetrize(Olap[krn][jrn], Olap[jrn][krn]);
-                            } // jrn
-                        } // krn
-
-                        if (echo > 7) {
-//                          printf("\n");
+                    evec[nrn] = 1.0; // this is everything that needs to be done for method=='e' 
+                    if (n > 1) {
+                        
+                        if (method == minimize_radial_curvature) { 
+                            view2D<double> Ekin(     3*n , n);
+                            view2D<double> Olap(Ekin[1*n], n);
+                            view2D<double> Vkin(Ekin[2*n], n);
+                            int const nr_max = ir_match[SMT];
                             for(int krn = 0; krn < n; ++krn) {
-                                printf("# %s curvature|overlap for i=%i ", label, krn);
                                 for(int jrn = 0; jrn < n; ++jrn) {
-                                    printf(" %g|%g", Ekin[krn][jrn], Olap[krn][jrn]);
+                                    // definition of Tphi contains factor *r
+                                    Ekin[krn][jrn] = dot_product(nr_max, Tphi[1 + krn], rphi[1 + jrn], rg[SMT]->rdr);
+                                    Olap[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->r2dr);
+                                    Vkin[krn][jrn] = dot_product(nr_max, rphi[1 + krn], rphi[1 + jrn], rg[SMT]->dr)
+                                                    * 0.5*(ell*(ell + 1)); // kinetic energy in angular direction, Hartree units
+                                    // minimize only the radial kinetic energy
+                                    Ekin[krn][jrn] -= Vkin[krn][jrn]; // subtract the angular part, suggested by Morian Sonnet
                                 } // jrn
-                                printf("\n");
                             } // krn
-//                          printf("\n");
-                        } // echo
 
-                        { // scope: minimize the radial curvature of the smooth partial wave
-                            double lowest_eigenvalue = 0;
-                            auto const info = minimize_curvature(n, Ekin, Olap, &lowest_eigenvalue);
-                            if (info) {
-                                printf("# %s generalized eigenvalue problem failed info=%i\n", label, int(info));
-                            } else {
-                                set(evec.data(), n, Ekin[0]);
-                                if (echo > 6) {
-                                    printf("# %s lowest eigenvalue %g %s", label, lowest_eigenvalue*eV, _eV);
-                                    if (echo > 8) {
-                                        printf(", coefficients"); for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin[0][krn]);
-                                    } // high echo
+                            // symmetrize
+                            for(int krn = 0; krn < n; ++krn) {
+                                for(int jrn = 0; jrn < krn; ++jrn) { // triangular loop
+                                    symmetrize(Ekin[krn][jrn], Ekin[jrn][krn]);
+                                    symmetrize(Olap[krn][jrn], Olap[jrn][krn]);
+                                } // jrn
+                            } // krn
+
+                            if (echo > 7) {
+    //                          printf("\n");
+                                for(int krn = 0; krn < n; ++krn) {
+                                    printf("# %s curvature|overlap for i=%i ", label, krn);
+                                    for(int jrn = 0; jrn < n; ++jrn) {
+                                        printf(" %g|%g", Ekin[krn][jrn], Olap[krn][jrn]);
+                                    } // jrn
                                     printf("\n");
-                                } // echo
-                            } // info
-                        } // scope
+                                } // krn
+    //                          printf("\n");
+                            } // echo
 
-                    } // minimize radial kinetic energy of partial wave
+                            { // scope: minimize the radial curvature of the smooth partial wave
+                                double lowest_eigenvalue = 0;
+                                auto const info = minimize_curvature(n, Ekin, Olap, &lowest_eigenvalue);
+                                if (info) {
+                                    printf("# %s generalized eigenvalue problem failed info=%i\n", label, int(info));
+                                } else {
+                                    set(evec.data(), n, Ekin[0]);
+                                    if (echo > 6) {
+                                        printf("# %s lowest eigenvalue of the radial curvature is %g %s", label, lowest_eigenvalue*eV, _eV);
+                                        if (echo > 8) {
+                                            printf(", coefficients"); for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin[0][krn]);
+                                        } // high echo
+                                        printf("\n");
+                                    } // echo
+                                } // info
+                            } // scope
+
+                        } else 
+                        if (method == orthogonalize_second) {
+                         
+                            if (nrn > 0) { // only the second
+                                assert(1 == nrn); // we do not know how to treat a 3rd wave yet
+                                
+                                // minimize the matrix element <Psi_1|p_0>
+                                double c[2];
+                                for(int krn = 0; krn < 2; ++krn) {
+                                    c[krn] = dot_product(nr, rphi[1 + krn], projectors_ell[0], rg[SMT]->rdr);
+                                } // krn
+                                // now find the angle phi such that cos(phi)*c[1] + sin(phi)*c[0] is zero;
+#if 0
+                                for (int iang = -18; iang <= 18; ++iang) {
+                                    double const angle = iang * constants::pi / 18;
+                                    double const ovl10 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
+                                    printf("# method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g\n", angle, ovl10);
+                                } // iang
+#endif
+                                double const angle = std::atan2(-c[1], c[0]);
+                                evec[0] = std::sin(angle);
+                                evec[1] = std::cos(angle);
+                                {
+                                    double const ovl10 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
+                                    if (echo > 8) printf("# method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n", angle, ovl10, evec[0], evec[1]);
+                                }
+                                
+                            } // if nrn > 0
+
+                        } // method
+                    } // n > 1 more than one partial wave
 
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
@@ -980,8 +1018,8 @@ extern "C" {
                 if (echo > 4) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
-                            printf("# %s %c-projector <#%d|#%d> = %i + %g  sigma=%g %s\n", label, ellchar[ell], nrn, krn,
-                                (nrn == krn), dot_product(nr, projectors_ell[nrn], projectors_ell[krn], rg[SMT]->dr) - (nrn==krn), sigma*Ang,_Ang);
+                            printf("# %s %c-projector <#%d|#%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell], nrn, krn,
+                                (nrn == krn), dot_product(nr, projectors_ell[nrn], projectors_ell[krn], rg[SMT]->dr) - (nrn == krn), sigma*Ang,_Ang);
                         } // krn
                     } // nrn
                 } // echo
@@ -1124,7 +1162,7 @@ extern "C" {
             std::vector<double> wave_r2rl_dr(nr);
             if (echo > 4) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
             for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
-                bool const echo_l = (echo > 4 + 2*(ell > 0));
+                bool const echo_l = (echo > 4 + 4*(ell > 0));
                 if (echo_l) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
                 if (ell > 0) scale(rl.data(), nr, rg[ts]->r); // create r^{\ell}
                 for(int iln = 0; iln < nln; ++iln) {
