@@ -382,6 +382,7 @@ namespace scattering_test {
                                 -1; // ToDo: remove this again
 #endif
           // add the non-local dyadic operators to the Hamiltonian and overlap
+          double projector_norm[8] = {0,0,0,0,0,0,0,0};
           for(int ir = 0; ir < nr; ++ir) {
               for(int jr = 0; jr < nr; ++jr) {
                   for(int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -391,12 +392,23 @@ namespace scattering_test {
                       } // mrn
                   } // nrn
               } // jr
+              for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                  projector_norm[nrn] += pow2(rprj1[nrn][ir]) * dr; 
+              } // nrn
           } // ir
           if (ell <= ell_no_cd) printf("# %s: overlap elements are set to zero for ell=%i!\n", __func__, ell); // ToDo: remove this again
+
+          if (echo > 19) { // debug
+              printf("# %s: projector norm of ell=%i is ", __func__, ell);
+              for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                  printf(" %g", projector_norm[nrn]);
+              }   printf("\n");
+          } // echo
 
           set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
 
           { // scope: diagonalize
+              bool diagonalize_overlap_matrix = true; // true:always, false:if GEP fails (GEP=generalized eigenvalue problem)
               // solve the generalized eigenvalue problem
               auto const info = linear_algebra::generalized_eigenvalues(nr, Ham.data(), Ham.stride(), Ovl.data(), Ovl.stride(), eigs.data());
               if (0 == int(info)) {
@@ -430,7 +442,11 @@ namespace scattering_test {
                   
               } else { // info
                   if (echo > 2) printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
-                  
+                  diagonalize_overlap_matrix = true;
+                  ++stat;
+              }
+
+              if (diagonalize_overlap_matrix) {
                   // diagonalize Ovl_copy, standard eigenvalue problem
                   linear_algebra::eigenvalues(nr, Ovl_copy.data(), Ovl_copy.stride(), eigs.data());
                   if (eigs[0] <= 0) { // warn
@@ -442,7 +458,6 @@ namespace scattering_test {
                           printf(" %g", eigs[iev]);
                       }   printf("\n");
                   } // echo
-                  ++stat;
               } // info
           } // scope: diagonalize
 

@@ -633,11 +633,11 @@ extern "C" {
         double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
         for(int ir = 0; ir < rg->n; ++ir) {
             double const rho_wf = pow2(wave[ir]);
-            double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv = rg->rinv[ir];
+            double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv_dV = rg->rdr[ir];
             q    += rho_wf*dV; // charge
             qr   += rho_wf*r*dV; // for <r>
             qr2  += rho_wf*r*r*dV; // for variance
-            qrm1 += rho_wf*r_inv*dV; // Coulomb integral without -Z
+            qrm1 += rho_wf*r_inv_dV; // Coulomb integral without -Z
             qout += rho_wf*dV*(ir >= ir_cut);
         } // ir
         double const qinv = (q > 0) ? 1./q : 0;
@@ -884,7 +884,7 @@ extern "C" {
                     char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
                     char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
                     
-                    char const method = minimize_radial_curvature;
+                    char const method = *control::get("single_atom.partial.wave.method", "2");
                     
                     std::vector<double> evec(n, 0.0);
                     evec[nrn] = 1.0; // this is everything that needs to be done for method=='e' 
@@ -1098,11 +1098,7 @@ extern "C" {
                         for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
                             if (1) { // usual
                                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                                    auto &aij = kinetic_energy(ts,iln,jln);
-                                    auto &aji = kinetic_energy(ts,jln,iln);
-                                    auto const avg = 0.5*(aij + aji);
-                                    aij = avg;
-                                    aji = avg;
+                                    symmetrize(kinetic_energy(ts,iln,jln), kinetic_energy(ts,jln,iln));
                                 } // ts
                             } else {
                                 // actually we do not need to symmetrize each contribution kinetic_energy[ts]
