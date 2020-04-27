@@ -784,7 +784,7 @@ extern "C" {
     //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
                 set(vs.wave[TRU], nr, 0.0); // clear
 
-                if (true) {
+                if (0 == nrn) {
                     // solve for a true valence eigenstate
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
                     if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n",
@@ -1058,7 +1058,7 @@ extern "C" {
                             add_product(partial_wave[iln].wKin[ts], nrts, waves[1][krn], inv[nrn][krn]);
                         } // krn
                     } // nrn
-                } // ts - tru and smt
+                } // ts in {tru, smt}
 
                 // check again the overlap, seems ok
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
@@ -1822,6 +1822,21 @@ extern "C" {
                         int const iln = sho_tools::ln_index(numax, ell, nrn);
                         ells[iln] = ell;
                     } // nrn
+                    
+                    if (1 == nn[ell]) {
+                        int const iln = sho_tools::ln_index(numax, ell, 0);
+                        if (overlap_ln[iln][iln] < -0.9) warn("charge deficit for ell=%i critical! %g", ell, overlap_ln[iln][iln]);
+                    } else if (nn[ell] > 1) {
+                        int const iln = sho_tools::ln_index(numax, ell, 0);
+                        auto const a = overlap_ln[iln][iln];
+                        auto const b = overlap_ln[iln][iln + 1];
+                        auto const d = overlap_ln[iln + 1][iln + 1];
+                        auto const split = std::sqrt(pow2(a - d) + 4*pow2(b));
+                        auto const upper = 0.5*(a + d + split);
+                        auto const lower = 0.5*(a + d - split);
+                        if (lower < -0.9) warn("eigenvalues of charge deficit matrix for ell=%i critical! %g and %g", ell, lower, upper);
+                    }
+                    
                 } // ell
             }
 
@@ -1839,9 +1854,35 @@ extern "C" {
                         }   printf("\n");
                     }   printf("\n");
                 } // i01
+
+                printf("\n# %s without true_norm scaling:\n", label);
+                for(int i01 = 0; i01 < 2; ++i01) {
+                    auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
+                    auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
+                    for(int iln = 0; iln < nln; ++iln) {
+                        printf("# %s spherical %s %s ", label, ln_labels[iln], label_qn);
+                        for(int jln = 0; jln < nln; ++jln) {
+                            printf(" %g", (ells[iln] == ells[jln]) ? input_ln[iln][jln] : 0);
+                        }   printf("\n");
+                    }   printf("\n");
+                } // i01
+              
             } // echo
+            
         } // 1
 
+#if 0        
+#ifdef NEVER
+                    if (echo > 1) printf("\n# %s %s multiply the true_norm factor to hamiltonian_ln and overlap_ln\n", label, __func__);
+                    for(int iln = 0; iln < nln; ++iln) {
+                        for(int jln = 0; jln < nln; ++jln) {
+                            hamiltonian_ln(iln,jln) *= true_norm[iln]*true_norm[jln];
+                            overlap_ln    (iln,jln) *= true_norm[iln]*true_norm[jln];
+                        } // ilm
+                    } // iln
+#endif
+#endif
+        
         if (1) {
             double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
             auto Vsmt = std::vector<double>(rg[SMT]->n, 0);

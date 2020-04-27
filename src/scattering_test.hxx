@@ -405,6 +405,15 @@ namespace scattering_test {
               }   printf("\n");
           } // echo
 
+          if (echo > -1) { // debug
+              printf("# %s: charge deficits for ell=%i are ", __func__, ell);
+              for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                  for(int mrn = 0; mrn < nn[ell]; ++mrn) {
+                      printf(" %g", aSm_ell[nrn][mrn]);
+                  } // mrn
+              }   printf("\n");
+          } // echo
+          
           set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
 
           { // scope: diagonalize
