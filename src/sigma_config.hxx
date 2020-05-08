@@ -145,7 +145,7 @@ namespace sigma_config {
         std::snprintf(element_Sy, 15, "element_%s");
         auto const config = control::get(element_Sy, default_config(iZ));
 
-        if (echo > 0) printf("# for Z=%g use %s=\"%s\"\n", Z, element_Sy, config);
+        if (echo > 3) printf("# for Z=%g use %s=\"%s\"\n", Z, element_Sy, config);
         // now convert config into an element_t
         auto e = new element_t;
         
@@ -173,7 +173,7 @@ namespace sigma_config {
         char const * string{config};
         char c0{*string};
         while(c0) {
-//          if (echo > 0) printf("# start from '%s'\n", string); fflush(stdout);
+//          if (echo > 0) printf("# start from '%s'\n", string);
           
             assert(iword < mwords);
           
@@ -185,7 +185,7 @@ namespace sigma_config {
             bool try_numeric{false};
             char const cn = *string;
             auto const enn = char2enn(cn);
-//                 if (echo > 0) printf("# found enn=%i in '%s'\n", enn, string); fflush(stdout);
+//                 if (echo > 0) printf("# found enn=%i in '%s'\n", enn, string);
             if (enn > 0 && enn <= 9) {
                 char const cl = *(string + 1);
                 auto const ell = char2ell(cl);
@@ -195,7 +195,7 @@ namespace sigma_config {
                     
                     char const cm = *(string + 2);
                     int const mrn = ('*'== cm); // max radial nodes
-                    if (echo > 0) printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm); fflush(stdout);
+                    if (echo > 9) printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
                     mrns[iword] = mrn;
 // later
 //                         e->nn[ell] += (1 + mrn);
@@ -206,13 +206,13 @@ namespace sigma_config {
                 }
             } else { // enn is valid principal quantum number
                 try_numeric = (-9 == enn);
-                if (!try_numeric && echo > 0) printf("# found special '%s'\n", string); fflush(stdout);
+                if (!try_numeric && echo > 8) printf("# found special '%s'\n", string);
             }
             enns[iword] = enn;
 
             if (try_numeric) {
                 double const value = std::atof(string);
-                if (echo > 0) printf("# found numeric value %g in '%s'\n", value, string); fflush(stdout);
+                if (echo > 8) printf("# found numeric value %g in '%s'\n", value, string);
                 values[iword] = value; // store
                 enns[iword] = -9; // -9:numeric
             } // try_numeric
@@ -228,13 +228,13 @@ namespace sigma_config {
             }
         } // while;
         int const nwords = iword; // how many words were in the string
-        if (echo > 0) printf("# process %d words\n", nwords); fflush(stdout);
+        if (echo > 8) printf("# process %d words\n", nwords);
         
         int constexpr max_enn = 9, max_inl = (max_enn*(max_enn + 1))/2;
         double occ[max_inl][2];
         for (int inl = 0; inl < max_inl; ++inl) { occ[inl][0] = occ[inl][1] = 0; }
 
-        if (echo > 0) {
+        if (echo > 8) {
             // repeat what was just parsed
             char const special[] = "_|sZV";
             printf("# repeat config string '");
@@ -250,21 +250,6 @@ namespace sigma_config {
             } // iword
             printf("'\n");
         } // echo
-        
-        
-        typedef enum {
-            ExpectOrbital = 1,
-            ExpectDownOcc = 2,
-            ExpectUpOcc = 3,
-            ExpectRadius = -1,
-            ExpectSigma = -2,
-            ExpectZcore = -3,
-            ExpectMethod = -4 // not supported
-        } parse_state_t;
-        
-        parse_state_t state{ExpectOrbital};
-       
-//         int8_t enn{0}, ell{-1}, nrn{-1};
   
         double stack[4] = {0, 0, 0, 0};
         int nstack{0};
@@ -273,24 +258,24 @@ namespace sigma_config {
         for(int iword = nwords - 1; iword >= 0; --iword) {
             int8_t const enn = enns[iword];
             if (-9 == enn) {
-//                 if (echo > 0) printf("# nstack=%i push\n", nstack); fflush(stdout);
+//                 if (echo > 0) printf("# nstack=%i push\n", nstack);
                 stack[nstack++] = values[iword]; // push to the stack
-//                 if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]); fflush(stdout);
+//                 if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
             } else {
                 double value{0};
                 if (nstack > 0) {
-//                     if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]); fflush(stdout);
+//                     if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
                     value = stack[--nstack]; // pop the stack
-//                     if (echo > 0) printf("# nstack=%i popped\n", nstack); fflush(stdout);
+//                     if (echo > 0) printf("# nstack=%i popped\n", nstack);
                 }
                 if (enn > 0) { // orbital
                     int const ell = ells[iword];
                     int const inl = ell + (enn*(enn-1))/2; assert(ell < enn);
                     if (nstack > 0) {
                         occ[inl][0] = value;
-//                         if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]); fflush(stdout);
+//                         if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
                         value = stack[--nstack]; // pop the stack a 2nd time
-//                         if (echo > 0) printf("# nstack=%i popped\n", nstack); fflush(stdout);
+//                         if (echo > 0) printf("# nstack=%i popped\n", nstack);
                         occ[inl][1] = value;
                     } else {
                         occ[inl][0] = .5*value;
@@ -306,20 +291,20 @@ namespace sigma_config {
                             occ[inl][spin] = 2*ell + 1;
                         }
                     } // spin
-                    if (echo > 0) printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occ[inl][0], occ[inl][1], inl); fflush(stdout);
+                    if (echo > 9) printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occ[inl][0], occ[inl][1], inl);
                     if (ell < 8) e->nn[ell] += 1 + mrns[iword];
                     if (ell < 4) e->ncmx[ell] = enn - 1;
                 } else if (-1 == enn) {
                     e->rcut = value;     
-                    if (echo > 0) printf("# found cutoff radius rcut = %g\n", e->rcut); fflush(stdout);
+                    if (echo > 9) printf("# found cutoff radius rcut = %g\n", e->rcut);
                     if(e->rcut <= 0) warn("rcut must be positive but found rcut=%g", e->rcut);
                 } else if (-2 == enn) {  
                     e->sigma = value;
-                    if (echo > 0) printf("# found projector spread sigma = %g\n", e->sigma); fflush(stdout);
+                    if (echo > 9) printf("# found projector spread sigma = %g\n", e->sigma);
                     if(e->sigma <= 0) warn("sigma must be positive but found sigma=%g", e->sigma);
                 } else if (-3 == enn) {  
                     e->Z = value;
-                    if (echo > 0) printf("# found core charge Z = %g\n", e->Z); fflush(stdout);
+                    if (echo > 9) printf("# found core charge Z = %g\n", e->Z);
                     if(e->Z >= 128) warn("some routine may not be prepared for Z = %g >= 128", e->Z);
                 }
             }
@@ -328,7 +313,7 @@ namespace sigma_config {
         
         
         // fill the core
-        if (echo > 0) printf("# fill the core up to enn = %d %d %d %d for s,p,d,f\n", e->ncmx[0], e->ncmx[1], e->ncmx[2], e->ncmx[3]); fflush(stdout);
+        if (echo > 6) printf("# fill the core up to enn = %d %d %d %d for s,p,d,f\n", e->ncmx[0], e->ncmx[1], e->ncmx[2], e->ncmx[3]);
         for (int ell = 0; ell < 4; ++ell) {
             for(int enn = ell + 1; enn <= e->ncmx[ell]; ++enn) {
                 int const inl = ell + (enn*(enn-1))/2; assert(ell < enn);
@@ -342,9 +327,9 @@ namespace sigma_config {
             nce -= std::min(0.0, occ[inl][0]) + std::min(0.0, occ[inl][1]);
         } // inl
         double const nelectrons = nve + nce;
-        if (echo > 0) printf("# found %g = %g core + %g valence electrons and Z = %g\n", nelectrons, nce, nve, e->Z); fflush(stdout);
+        if (echo > 4) printf("# found %g = %g core + %g valence electrons and Z = %g\n", nelectrons, nce, nve, e->Z);
 
-        if (echo > 0) {
+        if (echo > 4) {
             printf("# PAW setup for %s (Z=%g) uses", symbol, e->Z);
             for(int ell = 0; ell < 8; ++ell) {
                 printf(" %d", e->nn[ell]);
@@ -364,7 +349,7 @@ namespace sigma_config {
   inline status_t test_86(int const echo=0) {
       for (int iZ = 86; iZ > 0; --iZ) {
           if (std::abs(iZ - 64) >= 7) {
-              if (echo > 0) printf("\n");
+              if (echo > 4) printf("\n");
               auto const e = get(iZ, echo);
           } // without 58 through 70
       } // iZ
