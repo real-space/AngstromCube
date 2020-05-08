@@ -1,8 +1,8 @@
 #include <vector> // std::vector
 #include <cstdio> // printf
-#include <cstdlib> // abs
-#include <cmath> // sqrt, pow
-#include <algorithm> // min, max
+#include <cstdlib> // std::abs
+#include <cmath> // std::sqrt, std::pow
+#include <algorithm> // std::min, std::max
 
 #include "radial_integrator.hxx"
 
@@ -42,7 +42,7 @@ namespace radial_integrator {
     auto const aa = -std::max(Z, 1.f)/c0;
 
     // gf[G:F] = (sum_{i=0}^{10} ps[i][G:F] * r^(i+s))
-    double const s = sqrt(llp1 + 1 - aa*aa);
+    double const s = std::sqrt(llp1 + 1 - aa*aa);
 
     auto const bb = llp1 - aa*aa;
     auto const p21 = V0mE/c0;
@@ -77,7 +77,7 @@ namespace radial_integrator {
             gg = gg*r + ps[ip][G];
             ff = ff*r + ps[ip][F];
         } // ip
-        auto const r_power = pow(r, rpow);
+        auto const r_power = std::pow(r, rpow);
         gg *= r_power;
         ff *= r_power;
   } // power_series_by_Horner_scheme
@@ -126,13 +126,14 @@ namespace radial_integrator {
 
     template <int SRA>
     void sra(float const llp1, double const rV, double const E, double const r, double const dr, double s[][2]) {
-        double const m0 = 1; // the rest mass of the electron
+        double constexpr m0 = 1; // the rest mass of the electron
         double const Ekin = E - rV/r; // = (E - (V_Hxc(r) - e^2*Z/r)) kinetic energy
         
         // double const c0 = 137.0359895; // speed of light
+        double constexpr c0m2 = 5.325136192159324e-05; // 1/c0^2
         double const mrel = m0 * ((0 == SRA) ? 1 :
-              ((2 == SRA) ? (1 + 0.5*Ekin*5.325136192159324e-05)    // approximation for sqrt(1 + Ekin/(m0 c0^2))
-                          : sqrt(1 + Ekin*5.325136192159324e-05))); // fully relativistic mass
+              ((2 == SRA) ?      (1 + 0.5*Ekin*c0m2)    // approximation for sqrt(1 + Ekin/(m0 c0^2))
+                          : std::sqrt(1 + Ekin*c0m2))); // fully relativistic mass
         s[0][0] = dr/r;      // 1/r
         s[0][1] = dr*mrel;   // m(r)
         s[1][0] = dr*(llp1/(mrel*r*r) - 2*Ekin); // 2W with m(r)

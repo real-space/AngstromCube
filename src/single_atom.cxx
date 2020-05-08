@@ -68,7 +68,7 @@ extern "C" {
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
   char const c0s1v2_char[] = "csv?";  // 0:core, 1:semicore, 2:valence
-  char const c0s1v2_name[][8] = {"core", "semi", "valence"};  // 0:core, 1:semicore, 2:valence
+  char const c0s1v2_name[][8] = {"core   ", "semi   ", "valence"};  // 0:core, 1:semicore, 2:valence
 
   double constexpr Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
@@ -157,7 +157,7 @@ extern "C" {
                 }
                 norm += rlgauss[ir] * rl[ir] * rg->r2dr[ir];
                 if (echo > 8) printf("# ell=%i norm=%g ir=%i rlgauss=%g rl=%g r2dr=%g\n",
-                						ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
+                                        ell, norm, ir, rlgauss[ir], rl[ir], rg->r2dr[ir]);
             } // ir
             if (echo > 1) printf("# ell=%i norm=%g nr=%i\n", ell, norm, nr);
             assert(norm > 0);
@@ -186,7 +186,7 @@ extern "C" {
 
       // general config
       int32_t atom_id; // global atom identifyer
-      double Z_core; // number of nucleons in the core
+      double Z_core; // number of protons in the core
       char label[16]; // label string
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
@@ -246,7 +246,7 @@ extern "C" {
   public:
 
     // constructor method:
-    LiveAtom(double const Z_nucleons
+    LiveAtom(double const Z_protons
             , int const nu_max=3
             , bool const transfer2valence=true // depending on transfer2valence results look
     // slightly different in the shape of smooth potentials but matrix elements are the same
@@ -254,12 +254,12 @@ extern "C" {
             , int const global_atom_id=-1
             , int const echo=0 // logg level for this contructor method only
             ) : atom_id{global_atom_id} 
-              , Z_core{Z_nucleons}
+              , Z_core{Z_protons}
               , gaunt_init{false}
         { // constructor
 
         if (atom_id >= 0) { sprintf(label, "a#%d", atom_id); } else { label[0]=0; }
-        if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g nucleons, ionization=%g\n", label, Z_core, ionization);
+        if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
 
@@ -689,7 +689,7 @@ extern "C" {
 #endif
         for(int ics = 0; ics < ncorestates; ++ics) {
             auto & cs = core_state[ics]; // abbreviate
-            int constexpr SRA = 1;
+            int constexpr SRA = 1; // 1:scalar relativistic approximation
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
@@ -766,6 +766,9 @@ extern "C" {
                 printf("%g %g %g\n", rg[SMT]->r[ir], potential[TRU][ir + nr_diff], potential[SMT][ir]);
             }   printf("\n\n");
         } // echo
+        
+        double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
+        bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.0) > 0);
 
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing valence states
@@ -774,8 +777,9 @@ extern "C" {
 
             view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view
 
+            
             int const n = nn[ell];
-            for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
+            for(int nrn_ = 0; nrn_ < n; ++nrn_) { int const nrn = nrn_; // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto & vs = partial_wave[iln]; // abbreviate
                 int constexpr SRA = 1;
@@ -784,6 +788,7 @@ extern "C" {
     //          radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU], ell, vs.energy, vs.wave[TRU], small_component);
                 set(vs.wave[TRU], nr, 0.0); // clear
 
+                bool normalize = true, orthogonalize = false;
                 if (0 == nrn) {
                     // solve for a true valence eigenstate
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
@@ -791,20 +796,55 @@ extern "C" {
                                           label, __func__, vs.enn, atom_core::ellchar(ell), vs.energy*eV,_eV);
                 } else {
                     assert(nrn > 0);
-                    vs.energy = partial_wave[iln - 1].energy + 1.0; // copy energy from lower state and add 1.0 Hartree
-                    int nnodes = 0;
-                    // integrate outwards
-                    radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
+                    
+                    if (use_energy_derivative) {
+                        // choose Psi_1 as energy derivative:
+                        // solve inhomogeneous equation (H - E) Psi_1 = Psi_0
+                        vs.energy = partial_wave[iln - 1].energy; // same energy parameter as for Psi_0
+                        std::vector<double> ff(rg[TRU]->n), inh(rg[TRU]->n);
+                        product(inh.data(), rg[TRU]->n, partial_wave[iln - 1].wave[TRU], rg[TRU]->r);
+                        double dg;
+                        if (echo > -1) printf("# %s for ell=%i use energy derivative at E= %g %s\n", label, ell, vs.energy*eV, _eV);
+                        radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU].data(), ell, vs.energy,
+                                                                   vs.wave[TRU], ff.data(), -1, &dg, inh.data());
+                        // and T Psi_1 = (E - V) Psi_1 + Psi_0 for the kinetic part later
+                        normalize = false;
+                        orthogonalize = true;
+
+                    } else {
+                        vs.energy = partial_wave[iln - 1].energy + excited_energy; // copy energy from lower state and add 1.0 Hartree typically
+                        int nnodes = 0;
+                        // integrate outwards
+                        radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
+                        
+                    } // how to construct a second tru partial wave?
+                    
                 } // bound state?
 
+                if (nrn > 0 && orthogonalize) {
+                        auto const psi0 = partial_wave[iln - 1].wave[TRU];
+                        double const d = dot_product(nr, vs.wave[TRU], psi0, rg[TRU]->rdr);
+                        double const d2 = dot_product(nr, psi0, psi0, rg[TRU]->r2dr);
+                        double const p = -d/d2; // projection part
+                        if (echo > -1) printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
+                        add_product(vs.wave[TRU], nr, psi0, rg[TRU]->r, p);
+                }
+                
                 // normalize the partial waves
-                auto const norm_wf2 = dot_product(nr, r2rho.data(), rg[TRU]->dr);
-                auto const norm_factor = 1./std::sqrt(norm_wf2);
-                scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
+                {   double norm_factor = 1;
+                    if (normalize) {
+                        auto const norm_wf2 = dot_product(nr, r2rho.data(), rg[TRU]->dr);
+                        norm_factor = 1./std::sqrt(norm_wf2);
+                    }
+                    scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
+                }
 
                 // create wKin for the computation of the kinetic energy density
                 product(vs.wKin[TRU], nr, potential[TRU].data(), vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
                 add_product(vs.wKin[TRU], nr, rg[TRU]->r, vs.wave[TRU], vs.energy); // now wKin = r*(E - V(r))*wave(r)
+                if (use_energy_derivative && nrn > 0) {
+                    add_product(vs.wKin[TRU], nr, rg[TRU]->r, partial_wave[iln - 1].wave[TRU]); // now wKin = r*(E - V(r))*wave(r) + r*psi0
+                }
 
 //                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho.data(), rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
 //                 auto const work = r2rho.data();
@@ -820,6 +860,7 @@ extern "C" {
                 //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
 
                 { // scope: generate smooth partial waves from projectors, revPAW scheme
+                    assert(ir_match[TRU] > 0);
                     int const stride = align<2>(rg[SMT]->n);
                     view2D<double> rphi(1 + n, stride);
                     view2D<double> Tphi(1 + n, stride);
@@ -831,7 +872,14 @@ extern "C" {
                     int constexpr HOM = 0;
                     for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
-                        auto const projector = (krn > HOM) ? projectors_ell[krn - 1] : nullptr;
+                        auto projector = (krn > HOM) ? projectors_ell[krn - 1] : nullptr;
+                        std::vector<double> rhs;
+                        if (use_energy_derivative && nrn > 0 && krn > HOM) {
+                            rhs = std::vector<double>(stride);
+                            product(rhs.data(), rg[SMT]->n, rg[SMT]->r, partial_wave[iln - 1].wave[SMT]); // r*phi_0
+                            projector = rhs.data(); // use as inhomogeneiety
+                            // comment: this will be 2x the same solution, for krn==1 and krn==2, code results from a quick fix
+                        }
                         double dg; // derivative at end point, not used
 
                         // solve inhomgeneous equation and match true wave in value and derivative
@@ -851,13 +899,26 @@ extern "C" {
                             add_product(rphi[krn], rg[SMT]->n, rphi[HOM], c_hom);
 
                             auto const scal = vgtru / (vginh + c_hom*vghom); // match not only in logder but also in value
-                            scale(rphi[krn], rg[SMT]->n, rg[SMT]->rinv, scal); // and divide by r
+                            scale(rphi[krn], rg[SMT]->n, rg[SMT]->rinv, scal); // scale and divide by r
                             // ToDo: extrapolate lowest point?
 
-                            // Tphi = projector + (E - V)*phi
-                            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                                Tphi[krn][ir] = scal*projector[ir] + (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn][ir];
-                            } // ir
+                            if (use_energy_derivative && nrn > 0) {
+                                // (T + V - E) phi_0 = linear combinartion of projectors
+                                // (T + V - E) phi_1 = phi_0 
+                                // --> T phi_1 = (E - V) phi_1 + phi_0
+                                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                                    Tphi[krn][ir] = (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn][ir] + scal*rhs[ir];
+                                } // ir
+                                // ToDo: check these equations and normalization factors
+                                if (echo > -1) printf("# %s generate Tphi with inhomogeneiety\n", label);
+                                // seems like the tails of TRU and SMT wave and wKin are deviating slightly beyond r_match
+                               
+                            } else {
+                                // Tphi = (E - V)*phi + projector
+                                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                                    Tphi[krn][ir] = (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn][ir] + scal*projector[ir];
+                                } // ir
+                            }
 
                             // now visually check that the matching of value and derivative of rphi is ok.
                             if (echo > 19) {
@@ -883,9 +944,10 @@ extern "C" {
                     char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
                     char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
                     char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
+                    char const orthogonalize_first = '1';       // ToDo
                     
-                    char const method = *control::get("single_atom.partial.wave.method", "2");
-                    
+                    char const method = *control::get("single_atom.partial.wave.method", "1");
+
                     std::vector<double> evec(n, 0.0);
                     evec[nrn] = 1.0; // this is everything that needs to be done for method=='e' 
                     if (n > 1) {
@@ -944,7 +1006,7 @@ extern "C" {
                                 } // info
                             } // scope
 
-                        } else 
+                        } else // method
                         if (method == orthogonalize_second) {
                          
                             if (nrn > 0) { // only the second
@@ -969,6 +1031,27 @@ extern "C" {
                                 {
                                     double const ovl10 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
                                     if (echo > 8) printf("# method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n", angle, ovl10, evec[0], evec[1]);
+                                }
+                                
+                            } // if nrn > 0
+
+                        } else // method
+                        if (method == orthogonalize_first) {
+                         
+                            if (0 == nrn) { // only the first
+                                
+                                // minimize the matrix element <Psi_0|p_1>
+                                double c[2];
+                                for(int krn = 0; krn < 2; ++krn) {
+                                    c[krn] = dot_product(nr, rphi[1 + krn], projectors_ell[1], rg[SMT]->rdr);
+                                } // krn
+                                // now find the angle phi such that cos(phi)*c[1] + sin(phi)*c[0] is zero;
+                                double const angle = std::atan2(-c[1], c[0]);
+                                evec[0] = std::sin(angle);
+                                evec[1] = std::cos(angle);
+                                {
+                                    double const ovl01 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
+                                    if (echo > -1) printf("# method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", angle, ovl01, evec[0], evec[1]);
                                 }
                                 
                             } // if nrn > 0
@@ -1015,7 +1098,7 @@ extern "C" {
                 // int const stride = align<2>(rg[SMT]->n);
                 int const msub = (1 + numax/2); // max. size of the subspace
 
-                if (echo > 4) { // show normalization and orthogonality of projectors
+                if (echo > 14) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell], nrn, krn,
@@ -1054,6 +1137,7 @@ extern "C" {
                         set(partial_wave[iln].wave[ts], nrts, 0.0); // clear
                         set(partial_wave[iln].wKin[ts], nrts, 0.0); // clear
                         for(int krn = 0; krn < n; ++krn) {
+                            if (ts == TRU && echo > -1) printf("# %s create orthogonalized partial wave #%i with %g * wave #%i\n", label, nrn, inv[nrn][krn], krn);
                             add_product(partial_wave[iln].wave[ts], nrts, waves[0][krn], inv[nrn][krn]);
                             add_product(partial_wave[iln].wKin[ts], nrts, waves[1][krn], inv[nrn][krn]);
                         } // krn
@@ -1088,7 +1172,7 @@ extern "C" {
                     for(int j = 0; j < n; ++j) {
                         auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
                         auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
-                        if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
+                        if (echo > 19) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
@@ -1126,7 +1210,7 @@ extern "C" {
                     for(int j = 0; j < n; ++j) {
                         auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
                         auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
-                        if (echo > 0) printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
+                        if (echo > 19) printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
@@ -1822,20 +1906,23 @@ extern "C" {
                         int const iln = sho_tools::ln_index(numax, ell, nrn);
                         ells[iln] = ell;
                     } // nrn
-                    
+
+                    double lower{0}, upper{0};
                     if (1 == nn[ell]) {
                         int const iln = sho_tools::ln_index(numax, ell, 0);
-                        if (overlap_ln[iln][iln] < -0.9) warn("charge deficit for ell=%i critical! %g", ell, overlap_ln[iln][iln]);
+                        lower = overlap_ln[iln][iln];
                     } else if (nn[ell] > 1) {
                         int const iln = sho_tools::ln_index(numax, ell, 0);
+                        // get eigenvalues of the 2x2 matrix [a,b]
+                        //                                   [c,d] with c==b (symmetric)
                         auto const a = overlap_ln[iln][iln];
                         auto const b = overlap_ln[iln][iln + 1];
                         auto const d = overlap_ln[iln + 1][iln + 1];
                         auto const split = std::sqrt(pow2(a - d) + 4*pow2(b));
-                        auto const upper = 0.5*(a + d + split);
-                        auto const lower = 0.5*(a + d - split);
-                        if (lower < -0.9) warn("eigenvalues of charge deficit matrix for ell=%i critical! %g and %g", ell, lower, upper);
+                        upper = 0.5*(a + d + split);
+                        lower = 0.5*(a + d - split);
                     }
+                    if (lower < -0.9) warn("eigenvalues of charge deficit matrix for ell=%i critical! %g and %g", ell, lower, upper);
                     
                 } // ell
             }
