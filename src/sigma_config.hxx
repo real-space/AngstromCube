@@ -35,16 +35,16 @@ namespace sigma_config {
         switch (iZ) {
             case  1: return "1s* 1 0 2p | 0.9 sigma .247";                              // H   
             case  2: return "1s* 2 2p | 1.5 sigma .48";                                 // He  
-            case  3: return "2s* 1 0 2p 1e-99 | 2.0 sigma .6";                          // Li  
-            case  4: return "2s* 2 2p 1e-99 0 | 1.5 sigma .45";                         // Be  
+            case  3: return "2s* 1 0 2p 2e-99 | 2.0 sigma .6";                          // Li  
+            case  4: return "2s* 2 2p 2e-99 0 | 1.5 sigma .45";                         // Be  
             case  5: return "2s* 2 2p* 1 0 3d | 1.2 sigma .45";                         // B   
             case  6: return "2s* 2 2p* 2 0 3d | 1.2 sigma .43";                         // C   
             case  7: return "2s* 2 2p* 3 0 3d | 1.0 sigma .33";                         // N   
             case  8: return "2s* 2 2p* 3 1 3d | 1.13 sigma .297";                       // O   
             case  9: return "2s* 2 2p* 3 2 3d | 1.2 sigma .323";                        // F   
             case 10: return "2s* 2 2p* 6 3d | 1.8 sigma .564";                          // Ne  
-            case 11: return "3s* 1 0 2p 6 3p 1e-99 3d | 2.27 sigma .69";                // Na  
-            case 12: return "2s 2 3s 2 2p 6 3p 1e-99 3d | 1.96 sigma .41";              // Mg  
+            case 11: return "3s* 1 0 2p 6 3p 2e-99 3d | 2.27 sigma .69";                // Na  
+            case 12: return "2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 sigma .41";              // Mg  
             case 13: return "3s* 2 3p* 1 0 3d | 2.05 sigma .645";                       // Al  
             case 14: return "3s* 2 3p* 2 0 3d | 2.0 sigma .643";                        // Si  
             case 15: return "3s* 2 3p* 3 0 3d | 1.8 sigma .512";                        // P   
@@ -53,16 +53,16 @@ namespace sigma_config {
             case 18: return "3s* 2 3p* 6 3d | 1.6 sigma .546";                          // Ar  
             case 19: return "3s 2 4s 1 0 3p* 6 3d | 1.77 sigma .47";                    // K   
             case 20: return "3s 2 4s 2 3p* 6 3d | 1.77 sigma .487";                     // Ca  
-            case 21: return "3s 2 4s 2 3p 6 4p 1e-99 3d* 1 0 | 2.32 sigma .58";         // Sc  
-            case 22: return "3s 2 4s 2 3p 6 4p 1e-99 3d* 2 0 | 2.0 sigma .58";          // Ti  
-            case 23: return "3s 2 4s 2 3p 6 4p 1e-99 3d* 3 0 | 2.4 sigma .56";          // V   
-            case 24: return "4s* 1 0 4p* 1e-99 3d* 5 0 | 2.1 sigma .667";               // Cr  
-            case 25: return "3s 2 4s 2 3p 6 4p 1e-99 3d* 5 0 | 2.41 sigma .554";        // Mn  
-            case 26: return "4s* 2 4p* 1e-99 3d* 5 1 | 2.0 sigma .65";                  // Fe  
-            case 27: return "4s* 2 4p* 1e-99 3d* 5 2 | 1.9 sigma .608";                 // Co  
-            case 28: return "4s* 2 3p 6 4p 1e-99 3d* 5 3 | 2.15 sigma .48";             // Ni  
-            case 29: return "4s* 1 0 4p* 1e-99 3d* 10 | 2.0 sigma .61";                 // Cu  
-            case 30: return "4s* 1 1 4p* 1e-99 3d* 10 | 2.23 sigma .577";               // Zn  
+            case 21: return "3s 2 4s 2 3p 6 4p 2e-99 3d* 1 0 | 2.32 sigma .58";         // Sc  
+            case 22: return "3s 2 4s 2 3p 6 4p 2e-99 3d* 2 0 | 2.0 sigma .58";          // Ti  
+            case 23: return "3s 2 4s 2 3p 6 4p 2e-99 3d* 3 0 | 2.4 sigma .56";          // V   
+            case 24: return "4s* 1 0 4p* 2e-99 3d* 5 0 | 2.1 sigma .667";               // Cr  
+            case 25: return "3s 2 4s 2 3p 6 4p 2e-99 3d* 5 0 | 2.41 sigma .554";        // Mn  
+            case 26: return "4s* 2 4p* 2e-99 3d* 5 1 | 2.0 sigma .65";                  // Fe  
+            case 27: return "4s* 2 4p* 2e-99 3d* 5 2 | 1.9 sigma .608";                 // Co  
+            case 28: return "4s* 2 3p 6 4p 2e-99 3d* 5 3 | 2.15 sigma .48";             // Ni  
+            case 29: return "4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma .61";                 // Cu  
+            case 30: return "4s* 1 1 4p* 2e-99 3d* 10 | 2.23 sigma .577";               // Zn  
             case 31: return "4s* 2 4p* 1 0 4d | 2.2 sigma .686";                        // Ga  
             case 32: return "4s* 2 4p* 2 0 4d | 1.9 sigma .606";                        // Ge  
             case 33: return "4s* 2 4p* 3 0 4d | 2.0 sigma .62";                         // As  
@@ -71,16 +71,16 @@ namespace sigma_config {
             case 36: return "4s* 2 4p* 6 4d | 2.2 sigma .61";                           // Kr 
             case 37: return "4s 2 5s 1 0 4p* 6 4d | 2.3 sigma .78";                     // Rb 
             case 38: return "4s 2 5s 2 4p* 6 4d | 2.37 sigma .666";                     // Sr
-            case 39: return "4s 2 5s 2 4p 6 5p 1e-99 4d* 1 0 | 2.43 sigma .6";          // Y 
-            case 40: return "4s 2 5s 2 4p 6 5p 1e-99 4d* 2 0 | 2.35 sigma .58";         // Zr
-            case 41: return "4s 2 5s 1 0 4p 6 5p 1e-99 4d* 4 0 | 2.35 sigma .59";       // Nb
-            case 42: return "4s 2 5s 1 0 4p 6 5p 1e-99 4d* 5 0 | 2.34 sigma .585";      // Mo
-            case 43: return "4s 2 5s 1 0 4p 6 5p 1e-99 4d* 5 1 | 2.4 sigma .58";        // Tc
-            case 44: return "4s 2 5s 1 0 4p 6 5p 1e-99 4d* 5 2 | 2.37 sigma .571";      // Ru
-            case 45: return "5s* 1 0 4p 6 5p 1e-99 4d* 5 3 | 2.35 sigma .58";           // Rh
-            case 46: return "5s* 1e-99 0 4p 6 5p 1e-99 4d* 10 | 2.32 sigma .585";       // Pd
-            case 47: return "5s* 1 0 4p 6 5p 1e-99 4d* 10 | 2.23 sigma .57";            // Ag
-            case 48: return "5s* 1 1 5p* 1e-99 4d* 10 | 2.2 sigma .563";                // Cd 
+            case 39: return "4s 2 5s 2 4p 6 5p 2e-99 4d* 1 0 | 2.43 sigma .6";          // Y 
+            case 40: return "4s 2 5s 2 4p 6 5p 2e-99 4d* 2 0 | 2.35 sigma .58";         // Zr
+            case 41: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 4 0 | 2.35 sigma .59";       // Nb
+            case 42: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 5 0 | 2.34 sigma .585";      // Mo
+            case 43: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 5 1 | 2.4 sigma .58";        // Tc
+            case 44: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 5 2 | 2.37 sigma .571";      // Ru
+            case 45: return "5s* 1 0 4p 6 5p 2e-99 4d* 5 3 | 2.35 sigma .58";           // Rh
+            case 46: return "5s* 2e-99 0 4p 6 5p 2e-99 4d* 10 | 2.32 sigma .585";       // Pd
+            case 47: return "5s* 1 0 4p 6 5p 2e-99 4d* 10 | 2.23 sigma .57";            // Ag
+            case 48: return "5s* 1 1 5p* 2e-99 4d* 10 | 2.2 sigma .563";                // Cd 
             case 49: return "5s* 2 5p* 1 0 4d* 10 | 2.17 sigma .565";                   // In 
             case 50: return "5s* 2 5p* 2 0 4d* 10 | 2.24 sigma .585";                   // Sn
             case 51: return "5s* 2 5p* 3 0 4d* 10 | 2.18 sigma .57";                    // Sb
@@ -105,16 +105,16 @@ namespace sigma_config {
             case 69: return "5s 2 6s 2 5p* 6 5d* 0 4f 7 6 | 2. sigma .6";               // Tm
             case 70: return "5s 2 6s 2 5p* 6 5d* 0 4f 7 7 | 2. sigma .6";               // Yb
 #endif
-            case 71: return "5s 2 6s 2 5p 6 6p 1e-99 5d* 1 0 | 2.4 sigma .6";           // Lu  
-            case 72: return "5s 2 6s 2 5p 6 6p 1e-99 5d* 2 0 | 2.47 sigma .6077";       // Hf  
-            case 73: return "5s 2 6s 2 5p 6 6p 1e-99 5d* 3 0 | 2.47 sigma .6";          // Ta  
-            case 74: return "5s 2 6s 2 5p 6 6p 1e-99 5d* 4 0 | 2.32 sigma .62";         // W   
-            case 75: return "6s* 2 5p 6 6p 1e-99 5d* 5 0 | 2.47 sigma .63";             // Re  
-            case 76: return "6s* 2 5p 6 6p 1e-99 5d* 5 1 | 2.35 sigma .58";             // Os  
-            case 77: return "6s* 2 5p 6 6p 1e-99 5d* 5 2 | 2.43 sigma .62";             // Ir  
-            case 78: return "6s* 1 0 5p 6 6p 1e-99 5d* 5 4 | 2.47 sigma .59";           // Pt  
-            case 79: return "6s* 1 0 6p* 1e-99 5d* 10 | 2.5 sigma .667";                // Au  
-            case 80: return "6s* 2 5p 6 6p 1e-99 5d* 10 | 2.44 sigma .59";              // Hg  
+            case 71: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 1 0 | 2.4 sigma .6";           // Lu  
+            case 72: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 2 0 | 2.47 sigma .6077";       // Hf  
+            case 73: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 3 0 | 2.47 sigma .6";          // Ta  
+            case 74: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 4 0 | 2.32 sigma .62";         // W   
+            case 75: return "6s* 2 5p 6 6p 2e-99 5d* 5 0 | 2.47 sigma .63";             // Re  
+            case 76: return "6s* 2 5p 6 6p 2e-99 5d* 5 1 | 2.35 sigma .58";             // Os  
+            case 77: return "6s* 2 5p 6 6p 2e-99 5d* 5 2 | 2.43 sigma .62";             // Ir  
+            case 78: return "6s* 1 0 5p 6 6p 2e-99 5d* 5 4 | 2.47 sigma .59";           // Pt  
+            case 79: return "6s* 1 0 6p* 2e-99 5d* 10 | 2.5 sigma .667";                // Au  
+            case 80: return "6s* 2 5p 6 6p 2e-99 5d* 10 | 2.44 sigma .59";              // Hg  
             case 81: return "6s* 2 6p* 1 0 5d* 10 | 2.25 sigma .567";                   // Tl  
             case 82: return "6s* 2 6p* 2 0 5d* 10 | 2.3 sigma .59";                     // Pb  
             case 83: return "6s* 2 6p* 3 0 5d* 10 | 2.41 sigma .605";                   // Bi  
@@ -162,7 +162,7 @@ namespace sigma_config {
             case 124: return "8s 2 7p 6 6d 10 6f 5g 4 0 | 2. sigma .5";                 // u4
             case 125: return "8s 2 8p 7d 6f 5g 5 0 | 2. sigma .5";                      // u5
             case 126: return "8s 2 8p 7d 6f 5g 6 0 | 2. sigma .5";                      // u6
-            case 127: return "1s -1 | 1.0 sigma .25 Z -1";                              // e
+            case 127: return "1s -1 | 1.0 sigma .25 Z= -1";                             // e
             case   0: return "1s | 1.0 sigma .25";                                      // __
 #endif
             default:
@@ -175,14 +175,17 @@ namespace sigma_config {
     int8_t constexpr KeyNumeric = -9, KeyRcut = -1, KeySigma = -2, KeyZcore = -3, KeyMethod = -4, KeyWarn = -5, KeyIgnore = 0;
     
     inline int8_t char2ell(char const c) {
-        switch (c | 32) { // ignore if uppercase or lowercase
-            case ' ': case '\0': case '\t': case '\n': return -1; // not a valid ell-character
-            case 'e': case '.': return KeyNumeric; // used for exponential numeric values, otherwise "1e-99" would be an orbital with unphysical ell
-            case '0': case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9': return KeyNumeric;
+        switch (c) {
             case 's': return 0;
             case 'p': return 1;
             case 'd': return 2;
-            default : return (c | 32) - 'c'; // 'f' -> 3, 'g' -> 4, ...
+            case 'f': return 3;
+            case 'g': return 4;
+            case 'h': return 5;
+            case 'i': return 6;
+            case 'j': return 7;
+            case 'k': return 8;
+            default : return -1; // invalid ell-character
         } // switch
     } // char2ell
 
@@ -259,12 +262,12 @@ namespace sigma_config {
                 auto const ell = char2ell(cl);
                 if (ell >= 0) {
                     if (ell >= enn) error("unphysical ell=%i >= enn=%i in '%s'!", ell, enn, string);
-                    ells[iword] = ell;
+                    ells[iword] = ell; // store
 
                     char const cm = *(string + 2);
                     int const mrn = ('*'== cm); // max radial nodes
                     if (echo > 9) printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
-                    mrns[iword] = mrn;
+                    mrns[iword] = mrn; // store
                     
                 } else { // ell is a valid angular momentum quantum number
                     try_numeric = true;
@@ -273,7 +276,7 @@ namespace sigma_config {
                 try_numeric = (KeyNumeric == enn);
                 if (!try_numeric && echo > 8) printf("# found special '%s'\n", string);
             }
-            enns[iword] = enn;
+            enns[iword] = enn; // store
 
             if (try_numeric) {
                 double const value = std::atof(string);
@@ -284,9 +287,10 @@ namespace sigma_config {
 
             ++iword;
             
-            auto const next_blank = std::strchr(string, ' '); // forward to the next word, ToDo: how does it react to double blank?
+            auto const next_blank = std::strchr(string, ' '); // forward to the next word, ToDo: how does it react to \t?
             if (next_blank) {
-                string = next_blank + 1;
+                string = next_blank;
+                while(*string == ' ') ++string; // forward to the next non-blank
                 c0 = *string;
             } else {
                 c0 = 0; // stop the while loop
@@ -301,14 +305,16 @@ namespace sigma_config {
 
         if (echo > 8) {
             // repeat what was just parsed
-            char const special[] = "_|sZV";
+            char const special[] = "_|sZVW";
             printf("# repeat config string '");
             for (int iword = 0; iword < nwords; ++iword) {
                 int8_t const enn = enns[iword];
-                if (enn > 0) {
+                if (enn > 0) { // orbital
                     printf("%i%c%s ", enn, ellchar[ells[iword]], mrns[iword]?"*":"");
                 } else if (KeyNumeric == enn) {
                     printf("%g ", values[iword]);
+                } else if (KeyIgnore == enn) {
+                    // do not print anything
                 } else {
                     printf("%c ", special[-enn]);
                 }
@@ -326,6 +332,13 @@ namespace sigma_config {
 //                 if (echo > 0) printf("# nstack=%i push\n", nstack);
                 stack[nstack++] = values[iword]; // push to the stack
 //                 if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
+            } else if (KeyMethod == enn) {
+                warn("method specifier in config string for %s ignored : %s", symbol, config);
+            } else if (KeyWarn == enn) {
+                warn("config string for %s may be experimental: %s", symbol, config);
+            } else if (KeyIgnore == enn) {
+                // do not modify the stack!
+                if (echo > 6) printf("# white spaces are ignored for Z = %g\n", e->Z);
             } else {
                 double value{0};
                 if (nstack > 0) {
@@ -372,10 +385,6 @@ namespace sigma_config {
                     e->Z = value;
                     if (echo > 9) printf("# found core charge Z = %g\n", e->Z);
                     if(e->Z >= 128) warn("some routine may not be prepared for Z = %g >= 128", e->Z);
-                } else if (KeyMethod == enn) {  
-                    warn("method specifier in config string for %s ignored : %s", symbol, config);
-                } else if (KeyWarn == enn) {
-                    warn("config string for %s may be experimental: %s", symbol, config);
                 }
             }
         } // iword
