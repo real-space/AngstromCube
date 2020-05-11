@@ -30,6 +30,7 @@ OBJ = \
 	potential_generator.o \
 	density_generator.o \
 	chemical_symbol.o \
+	sigma_config.o \
 	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
