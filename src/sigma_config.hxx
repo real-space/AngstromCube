@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint> // int8_t
+#include <cstdint> // int8_t, uint8_t
 
 #include "status.hxx" // status_t
 
@@ -10,10 +10,10 @@ namespace sigma_config {
         double  Z;
         double  rcut;
         double  sigma;
-        double  q_core_hole;
+        double  q_core_hole[2];
         uint8_t nn[8];
         int8_t  ncmx[4];
-        int8_t  iln_core_hole;
+        int8_t  inl_core_hole;
     } element_t;
 
     element_t & get(double const Zcore, int const echo=0);
