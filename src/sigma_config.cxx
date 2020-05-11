@@ -186,7 +186,6 @@ namespace sigma_config {
             case 's': case 'S': return KeySigma;
             case 'Z': case 'z': return KeyZcore;
             case 'V': case 'v': return KeyMethod;
-            case 'H': case 'h': return KeyHole;
             case 'W': case 'w': return KeyWarn;
             case '0': case '.': case '-': return KeyNumeric; // numeric reading
             default : return c - '0'; // orbital
@@ -255,7 +254,7 @@ namespace sigma_config {
                     if (ell >= enn) error("unphysical ell=%i >= enn=%i in '%s'!", ell, enn, string);
 
                     char const cm = *(string + 2);
-                    if ((cm | 32) == 'h') key = KeyHole; // core hole
+                    if ((cm | 32) == 'h') key = KeyHole; // core hole, modify key
                     int const mrn = ('*' == cm); // max radial nodes
                     if (echo > 9) printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
                     enns[iword] = enn; // store
@@ -365,8 +364,7 @@ namespace sigma_config {
                     } // spin
                     if (echo > 9) printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occs[0], occs[1], inl);
                     if (key > KeyIgnore) { // orbital
-                        set(occ[inl], 2, occs);
-                        occ[inl][1] = occs[1];
+                        set(occ[inl], 2, occs); // set valence occupation numbers positive
                         if (ell < 8) e->nn[ell] += 1 + mrns[iword];
                         if (ell < 4) e->ncmx[ell] = enn - 1;
                     } else if (key == KeyHole) {
@@ -384,7 +382,7 @@ namespace sigma_config {
                     if(e->sigma <= 0) warn("sigma must be positive but found sigma=%g", e->sigma);
                 } else if (KeyZcore == key) {  
                     e->Z = value;
-                    if (echo > 9) printf("# found core charge Z = %g\n", e->Z);
+                    if (echo > 9) printf("# found core charge Z = %g for %s\n", e->Z, symbol);
                     if(e->Z >= 120) warn("some routine may not be prepared for Z = %g >= 120", e->Z);
                 }
             }
@@ -407,7 +405,7 @@ namespace sigma_config {
             int const inl = e->inl_core_hole;
             if (inl >= 0) {
                 if (echo > 2) printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e->q_core_hole[0], e->q_core_hole[1]);
-                occ[inl][0] += e->q_core_hole[0];
+                occ[inl][0] += e->q_core_hole[0]; // add because core occupation numbers are negative
                 occ[inl][1] += e->q_core_hole[1];
             } // inl valid
         } // scope
