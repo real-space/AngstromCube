@@ -24,8 +24,8 @@ char const element_symbols[] =
 "FrRa"                          // 7s 87--88
 "AcThPaU NpPuAmCmBkCfEsFmMdNo"  // 5f 89--102 Actinides
 "LrRfDbSgBhHsMtDsRgCn"          // 6d 103--112
-"utuqupuhusuo"                  // 7p 113--118
-"unud"                          // 8s 119--120
+"NhFlMcLvTsOg"                  // 7p 113--118
+"ueu0"                          // 8s 119--120
 "u1u2u3u4u5u6e ";               //    121--127 user defined
  // 2 3 4 5 6 7
 
