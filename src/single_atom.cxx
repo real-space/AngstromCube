@@ -769,7 +769,12 @@ extern "C" {
         
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
         bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.0) > 0);
-
+        double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9e9);
+        bool const use_energy_parameter = (energy_parameter > -9e9);
+        if (use_energy_parameter) {
+            if (echo > 5) printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
+        } // use_energy_parameter
+        
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing valence states
 
@@ -791,9 +796,16 @@ extern "C" {
                 bool normalize = true, orthogonalize = false;
                 if (0 == nrn) {
                     // solve for a true valence eigenstate
-                    radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
-                    if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n",
-                                          label, __func__, vs.enn, atom_core::ellchar(ell), vs.energy*eV,_eV);
+                    if (use_energy_parameter) {
+                        vs.energy = energy_parameter;
+                        int nnodes{0};
+                        // integrate outwards
+                        radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
+                    } else {
+                        radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
+                        if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n",
+                                              label, __func__, vs.enn, atom_core::ellchar(ell), vs.energy*eV,_eV);
+                    } // use_energy_parameter
                 } else {
                     assert(nrn > 0);
                     
@@ -812,11 +824,10 @@ extern "C" {
                         orthogonalize = true;
 
                     } else {
-                        vs.energy = partial_wave[iln - 1].energy + excited_energy; // copy energy from lower state and add 1.0 Hartree typically
-                        int nnodes = 0;
+                        vs.energy = use_energy_parameter ? partial_wave[iln - 1].energy : energy_parameter + excited_energy;
+                        int nnodes{0};
                         // integrate outwards
                         radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
-                        
                     } // how to construct a second tru partial wave?
                     
                 } // bound state?
@@ -1931,16 +1942,19 @@ extern "C" {
                 printf("\n");
                 view2D<char> ln_labels(nln, 4);
                 sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
-                for(int i01 = 0; i01 < 2; ++i01) {
-                    auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
-                    auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
-                    for(int iln = 0; iln < nln; ++iln) {
-                        printf("# %s spherical %s %s ", label, ln_labels[iln], label_qn);
-                        for(int jln = 0; jln < nln; ++jln) {
-                            printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln[iln][jln]*true_norm[jln] : 0);
+                if (0) {
+                    printf("\n# %s with true_norm scaling:\n", label);
+                    for(int i01 = 0; i01 < 2; ++i01) {
+                        auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
+                        auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
+                        for(int iln = 0; iln < nln; ++iln) {
+                            printf("# %s spherical %s %s ", label, ln_labels[iln], label_qn);
+                            for(int jln = 0; jln < nln; ++jln) {
+                                printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln[iln][jln]*true_norm[jln] : 0);
+                            }   printf("\n");
                         }   printf("\n");
-                    }   printf("\n");
-                } // i01
+                    } // i01
+                } // never
 
                 printf("\n# %s without true_norm scaling:\n", label);
                 for(int i01 = 0; i01 < 2; ++i01) {
@@ -1953,7 +1967,7 @@ extern "C" {
                         }   printf("\n");
                     }   printf("\n");
                 } // i01
-              
+
             } // echo
             
         } // 1
