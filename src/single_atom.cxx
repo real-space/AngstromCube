@@ -29,6 +29,7 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
+#include "sigma_config.hxx" // ::get, element_t
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -67,7 +68,7 @@ extern "C" {
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
-  char const c0s1v2_char[] = "csv?";  // 0:core, 1:semicore, 2:valence
+//  char const c0s1v2_char[] = "csv?";  // 0:core, 1:semicore, 2:valence   (((unused)))
   char const c0s1v2_name[][8] = {"core   ", "semi   ", "valence"};  // 0:core, 1:semicore, 2:valence
 
   double constexpr Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
@@ -200,8 +201,8 @@ extern "C" {
       double r_cut; // classical augmentation radius for potential and core density
       int ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
       float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
-      ell_QN_t numax; // limit of the SHO projector quantum numbers
-      double  sigma, sigma_inv; // spread of the SHO projectors and its inverse
+      int8_t numax; // limit of the SHO projector quantum numbers
+      double sigma, sigma_inv; // spread of the SHO projectors and its inverse
       uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
       std::vector<valence_level_t> partial_wave;
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
@@ -276,24 +277,59 @@ extern "C" {
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
 
-        numax = nu_max; // 3; // 3:up to f-projectors
+        set(nn, 1+ELLMAX+2, uint8_t(0)); // clear
+        if (control::get("single_atom.from.sigma.config", 0.) > 0) {
+            if (echo > 0) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
+            auto const ec = sigma_config::get(Z_core, echo);
+            if (echo > 0) printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
+//             typedef struct {
+//                 double  Z;
+//                 double  rcut;
+//                 double  sigma;
+//                 double  q_core_hole[2]; // ignored
+//                 uint8_t nn[8];
+//                 int8_t  ncmx[4]; // ignored
+//                 int8_t  inl_core_hole; // ignored
+//             } element_t;
+
+            if (ec.Z != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_core, ec.Z);
+            Z_core = ec.Z;
+            sigma = std::abs(ec.sigma);
+            r_cut = std::abs(ec.rcut);
+            // get numax from nn[]
+            numax = -1;
+            for(int ell = 0; ell < 8; ++ell) {
+                if (ec.nn[ell] > 0) {
+                    nn[ell] = ec.nn[ell];
+                    int const numaxmin = 2*nn[ell] - 2 + ell; // this is the minimum numax that we need to get ec.nn[ell]
+                    numax = std::max(int(numax), numaxmin);
+                } // nn > 0
+            } // ell
+
+        } else {
+            // defaults:
+            r_cut = 2.0; // Bohr
+            sigma = 0.61; // Bohr, spread for projectors (Cu)
+            numax = nu_max; // 3; // 3:up to f-projectors
+            // get nn[] from numax
+            for(int ell = 0; ell <= ELLMAX; ++ell) {
+                nn[ell] = std::max(0, (numax + 2 - ell)/2);
+            } // ell
+
+        } // initialize from sigma_config
+        
         if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
-        ellmax = 2*numax; // can be smaller than 2*numax
+        ellmax = 2*numax; // could be smaller than 2*numax
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
-        ellmax_compensator = std::min(4, (int)ellmax);
+        ellmax_compensator = std::min(4, int(ellmax));
         if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
-        r_cut = 2.0; // Bohr
+
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
-        sigma_compensator = 1.5*r_cut/std::sqrt(20.); // Bohr
-//      sigma_compensator *= 3; // 3x as large as usually taken in GPAW, much smoother
-        sigma = 0.61; // Bohr, spread for projectors (Cu)
         sigma_inv = 1./sigma;
         r_match = 9*sigma;
-        set(nn, 1+ELLMAX+2, uint8_t(0));
         if (echo > 0) printf("# %s numbers of projectors ", label);
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
-            nn[ell] = std::max(0, (numax + 2 - ell)/2);
             nn[ell] = std::min(int(nn[ell]), nn_limiter); // take a smaller numer of partial waves
             if (echo > 0) printf(" %d", nn[ell]);
         } // ell
@@ -769,7 +805,7 @@ extern "C" {
         
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
         bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.0) > 0);
-        double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9e9);
+        double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
         bool const use_energy_parameter = (energy_parameter > -9e9);
         if (use_energy_parameter) {
             if (echo > 5) printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
@@ -824,7 +860,8 @@ extern "C" {
                         orthogonalize = true;
 
                     } else {
-                        vs.energy = use_energy_parameter ? partial_wave[iln - 1].energy : energy_parameter + excited_energy;
+                        vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + excited_energy;
+                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a higher partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                         int nnodes{0};
                         // integrate outwards
                         radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
