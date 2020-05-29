@@ -294,7 +294,7 @@ extern "C" {
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
         for(int ell = 0; ell <= ELLMAX; ++ell) {
             nn[ell] = std::max(0, (numax + 2 - ell)/2);
-            nn[ell] = std::min((int)nn[ell], nn_limiter); // take a smaller numer of partial waves
+            nn[ell] = std::min(int(nn[ell]), nn_limiter); // take a smaller numer of partial waves
             if (echo > 0) printf(" %d", nn[ell]);
         } // ell
         if (echo > 0) printf("\n");
@@ -866,6 +866,11 @@ extern "C" {
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 2, ir_cut[TRU]);
 
+//                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
+//                 if (prelim_waves & (1 << ell)) {
+//                     if (echo > -1) printf("# %s for ell=%i create a smooth partial wave by pseudization of the true partial wave\n", label, ell);
+//                 } // preliminary partial waves
+                
 
                 // idea: make this module flexible enough so it can load a potential and
                 //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
@@ -1232,6 +1237,8 @@ extern "C" {
 
     } // update_partial_waves
 
+    
+    
     void update_charge_deficit(int const echo=0) {
         int const nln = sho_tools::nSHO_radial(numax);
         { // scope: generate a vector true_norm such that

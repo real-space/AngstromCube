@@ -214,7 +214,7 @@ namespace scattering_test {
       double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
 #else
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
-      if (echo > 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+      if (echo > 0 && nen >= 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                 label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
 #endif
 
