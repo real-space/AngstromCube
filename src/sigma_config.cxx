@@ -162,7 +162,7 @@ namespace sigma_config {
     
     int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
       KeyMethod = -4, KeyHole = -5, KeyWarn = -6, KeyUndef = -8, KeyNumeric = -9;
-    char constexpr Key2Char[] = "_|sZVhW Un"; // negative keys needed
+    char constexpr Key2Char[] = "_|sZVhW?Un"; // negative keys needed: [-key]
     
     inline int8_t char2ell(char const c) {
         switch (c) {
@@ -172,7 +172,7 @@ namespace sigma_config {
             case 'f': return 3;
             case 'g': return 4;
             case 'h': return 5;
-            case 'i': return 6;
+            case 'i': return 6; // ToDo: according to chemistry standards, character 'i' should not be used!
             case 'j': return 7;
             case 'k': return 8;
             default : return -1; // invalid ell-character
@@ -188,7 +188,7 @@ namespace sigma_config {
             case 'V': case 'v': return KeyMethod;
             case 'W': case 'w': return KeyWarn;
             case '0': case '.': case '-': return KeyNumeric; // numeric reading
-            default : return c - '0'; // orbital
+            default : return c - '0'; // enn quantum number of an orbital
         } // switch
     } // char2key
     

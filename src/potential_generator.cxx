@@ -208,7 +208,7 @@ namespace potential_generator {
       std::vector<int32_t> lmax_vlm(na, -1);
 
       // for each atom get sigma, lmax
-      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data());
+      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());

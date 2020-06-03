@@ -224,6 +224,7 @@ extern "C" {
       double csv_charge[3];
       std::vector<core_level_t> core_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       std::vector<double> core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
+      float mix_spherical_valence_density; // 1.f: use the spherical valence density only, 0.f: use the valence density from partial waves, mixtures possible.
       std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor, in use?
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
@@ -249,13 +250,13 @@ extern "C" {
     // constructor method:
     LiveAtom(double const Z_protons
             , int const nu_max=3
-            , bool const transfer2valence=true // depending on transfer2valence results look
-    // slightly different in the shape of smooth potentials but matrix elements are the same
+            , bool const atomic_valence_density=false
             , double const ionization=0
             , int const global_atom_id=-1
             , int const echo=0 // logg level for this contructor method only
             ) : atom_id{global_atom_id} 
               , Z_core{Z_protons}
+              , mix_spherical_valence_density{atomic_valence_density ? 1.f : 0.f}
               , gaunt_init{false}
         { // constructor
 
@@ -392,11 +393,13 @@ extern "C" {
                         auto &cs = core_state[ics]; // abbreviate
                         cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                         cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
-                        double E = atom_core::guess_energy(Z_core, enn);
+                        
                         std::vector<double> r2rho(nrt, 0.0);
+                        double E = atom_core::guess_energy(Z_core, enn); // init with a guess
+                        // solve the eigenvalue problem with a spherical potential
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(),
                                                     enn, ell, E, cs.wave[TRU], r2rho.data());
-                        cs.energy = E;
+                        cs.energy = E; // store
 
                         int const inl = atom_core::nl_index(enn, ell);
                         if (E > semi_valence_separation) {
@@ -433,14 +436,19 @@ extern "C" {
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, int(enn_core_ell[ell]));
                             } else {
-                                if (transfer2valence) cs.occupation = -occ; // mark as valence state by negative occupations
+                                cs.occupation = -occ; // mark as valence state by negative occupations
                             } // not as valence
                             csv_charge[c0s1v2[inl]] += occ;
                         } // occupied
                         if (occ > 0) {
-                            double const norm = occ/dot_product(rg[TRU]->n, r2rho.data(), rg[TRU]->dr);
-                            auto const  density = (c0s1v2[inl] > 0) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
-                            add_product(density, rg[TRU]->n, r2rho.data(), norm);
+                            double const has_norm = dot_product(rg[TRU]->n, r2rho.data(), rg[TRU]->dr);
+                            if (has_norm > 0) {
+                                double const norm = occ/has_norm;
+                                auto const density = (c0s1v2[inl] > 1) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
+                                add_product(density, rg[TRU]->n, r2rho.data(), norm);
+                            } else {
+                                warn("%s %i%c-state cannot be normalized! integral=%g", label, enn, ellchar[ell], has_norm);
+                            } // can be normalized
                         } // occupied
 
                         n_electrons -= max_occ;
@@ -519,13 +527,10 @@ extern "C" {
                             int const ics = as_valence[inl];
     //                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                             if (ics >= 0) { // atomic eigenstate was marked as valence
-                                if (transfer2valence) {
-                                    auto const occ = -core_state[ics].occupation; //
-                                    vs.occupation = occ;
-//                                  core_state[ics].occupation = 0;
-                                    if (occ > 0) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
-                                            " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
-                                } // transfer2valence
+                                auto const occ = -core_state[ics].occupation; //
+                                vs.occupation = occ;
+                                if (occ > 0) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
+                                        " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
                             } // ics
                         }
                         if (echo > 0) printf("# %s valence %2d%c%6.1f E=%16.6f %s\n", label, enn, ellchar[ell], std::abs(vs.occupation), E*eV,_eV);
@@ -715,7 +720,7 @@ extern "C" {
         std::vector<double> r2rho(nr);
         std::vector<double> new_r2core_density(nr, 0.0);
         std::vector<double> new_r2valence_density(nr, 0.0);
-        double nelectrons{0};
+        double nelectrons[] = {0, 0}; // core, valence
 #ifdef DEVEL
         if (echo > 7) {
             printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
@@ -730,7 +735,6 @@ extern "C" {
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*cs.occupation; // scaling factor for the density contribution of this state
-            nelectrons += std::max(0.0, cs.occupation);
             // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
             // and normalize the core level wave function to one
             scale(cs.wave[TRU], nr, rg[TRU]->rinv, norm_factor);
@@ -740,23 +744,41 @@ extern "C" {
 
             if (scal > 0) {
                 add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
+                nelectrons[0] += std::max(0.0, std::abs(cs.occupation));
             } else if (scal < 0) {
                 add_product(new_r2valence_density.data(), nr, r2rho.data(), -scal);
+                nelectrons[1] += std::max(0.0, std::abs(cs.occupation));
             }
             show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, 2*(scal < 0), ir_cut[TRU]);
         } // ics
 
         // report integrals
-        auto const old_core_charge = dot_product(nr, rg[TRU]->r2dr, core_density[TRU].data());
-        auto const new_core_charge = dot_product(nr, rg[TRU]->dr,  new_r2core_density.data());
-        if (echo > 0) printf("# %s previous core density has %g electrons, expected %g\n"
+        double old_charge[2], new_charge[2];
+        old_charge[0] = dot_product(nr, rg[TRU]->r2dr, core_density[TRU].data());
+        new_charge[0] = dot_product(nr, rg[TRU]->dr,  new_r2core_density.data());
+        if (echo > 2) printf("# %s previous core density has %g electrons, expected %g\n"
                              "# %s new core density has %g electrons\n", label, 
-                             old_core_charge, nelectrons, label, new_core_charge);
+                             old_charge[0], nelectrons[0], label, new_charge[0]);
+        
+        // spherical valence density is not mixed, changes are 100% accepted
+        old_charge[1] = dot_product(nr, rg[TRU]->r2dr, spherical_valence_density[TRU].data());
+        new_charge[1] = dot_product(nr, rg[TRU]->dr,  new_r2valence_density.data());
+        if (echo > 4) printf("# %s previous spherical valence density has %g electrons, expected %g\n"
+                             "# %s new spherical valence density has %g electrons\n", label, 
+                             old_charge[1], nelectrons[1], label, new_charge[1]);
+        product(spherical_valence_density[TRU].data(), nr, new_r2valence_density.data(), rg[TRU]->rinv);
+        scale  (spherical_valence_density[TRU].data(), nr, rg[TRU]->rinv);
+        // check again
+        if (mix_spherical_valence_density != 0) {
+            auto const new_q = dot_product(nr, rg[TRU]->r2dr,  spherical_valence_density[TRU].data());
+            if (echo > 4) printf("# %s new spherical valence density has %g electrons\n", label, new_q);
+        } // use spherical_valence_density
+        
         double mix_new = mixing, mix_old = 1 - mix_new;
         // rescale the mixing coefficients such that the desired number of core electrons comes out
-        auto const mixed_charge = mix_old*old_core_charge + mix_new*new_core_charge;
+        auto const mixed_charge = mix_old*old_charge[0] + mix_new*new_charge[0];
         if (mixed_charge != 0) {
-            auto const rescale = nelectrons/mixed_charge;
+            auto const rescale = nelectrons[0]/mixed_charge;
             mix_old *= rescale;
             mix_new *= rescale;
         } // rescale
@@ -812,12 +834,11 @@ extern "C" {
         } // use_energy_parameter
         
         for(int ell = 0; ell <= numax; ++ell) {
-            int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing valence states
+            int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
 
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell);
 
             view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view
-
             
             int const n = nn[ell];
             for(int nrn_ = 0; nrn_ < n; ++nrn_) { int const nrn = nrn_; // smooth number or radial nodes
@@ -835,7 +856,7 @@ extern "C" {
                     if (use_energy_parameter) {
                         vs.energy = energy_parameter;
                         int nnodes{0};
-                        // integrate outwards
+                        // integrate outwards homogeneously
                         radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
                     } else {
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
@@ -844,7 +865,7 @@ extern "C" {
                     } // use_energy_parameter
                 } else {
                     assert(nrn > 0);
-                    
+
                     if (use_energy_derivative) {
                         // choose Psi_1 as energy derivative:
                         // solve inhomogeneous equation (H - E) Psi_1 = Psi_0
@@ -860,10 +881,10 @@ extern "C" {
                         orthogonalize = true;
 
                     } else {
-                        vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + excited_energy;
+                        vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + nrn*excited_energy;
                         if (echo > -1) printf("# %s for ell=%i nrn=%i use a higher partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                         int nnodes{0};
-                        // integrate outwards
+                        // integrate outwards homogeneously
                         radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
                     } // how to construct a second tru partial wave?
                     
@@ -876,23 +897,23 @@ extern "C" {
                         double const p = -d/d2; // projection part
                         if (echo > -1) printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
                         add_product(vs.wave[TRU], nr, psi0, rg[TRU]->r, p);
-                }
+                } // orthogonalize
                 
-                // normalize the partial waves
+                // scope: normalize the partial waves
                 {   double norm_factor = 1;
                     if (normalize) {
                         auto const norm_wf2 = dot_product(nr, r2rho.data(), rg[TRU]->dr);
                         norm_factor = 1./std::sqrt(norm_wf2);
                     }
                     scale(vs.wave[TRU], nr, rg[TRU]->rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
-                }
+                } // scope
 
                 // create wKin for the computation of the kinetic energy density
                 product(vs.wKin[TRU], nr, potential[TRU].data(), vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
                 add_product(vs.wKin[TRU], nr, rg[TRU]->r, vs.wave[TRU], vs.energy); // now wKin = r*(E - V(r))*wave(r)
                 if (use_energy_derivative && nrn > 0) {
                     add_product(vs.wKin[TRU], nr, rg[TRU]->r, partial_wave[iln - 1].wave[TRU]); // now wKin = r*(E - V(r))*wave(r) + r*psi0
-                }
+                } // kinetic energy wave in the case of energy derivative has an extra term
 
 //                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho.data(), rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
 //                 auto const work = r2rho.data();
@@ -1283,7 +1304,7 @@ extern "C" {
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
-                if (1) {
+                if (0) {
                     auto const wave_i = partial_wave[iln].wave[ts];
                     auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
                     true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
@@ -1523,6 +1544,7 @@ extern "C" {
         int const nln = sho_tools::nSHO_radial(numax);
         // view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
 
+        double const mix_valence_density = 1.0 - mix_spherical_valence_density; // fraction of valence density from partial waves
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             size_t const nr = rg[ts]->n;
             assert(full_density[ts].stride() >= nr);
@@ -1531,20 +1553,26 @@ extern "C" {
                 if (00 == lm) {
                     set(full_density[ts][lm], nr, core_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
                     if (echo > 0) printf("# %s %s density has %g electrons after adding the core density\n", label,
-                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
+                        (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
+                    if (mix_spherical_valence_density > 0) {
+                        add_product(full_density[ts][lm], nr, spherical_valence_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
+                        if (echo > 0) printf("# %s %s density has %g electrons after adding the spherical valence density\n", label,
+                            (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
+                    } // use spherical_valence_density
                 } // 00 == lm
-                for(int iln = 0; iln < nln; ++iln) {
-                    auto const wave_i = partial_wave[iln].wave[ts];
-                    assert(nullptr != wave_i);
-                    for(int jln = 0; jln < nln; ++jln) {
-                        auto const wave_j = partial_wave[jln].wave[ts];
-                        assert(nullptr != wave_j);
-                        double const rho_ij = density_tensor(lm,iln,jln);
-//                         if (std::abs(rho_ij) > 1e-9)
-//                             printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
-                        add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
-                    } // jln
-                } // iln
+                if (mix_valence_density > 0) {
+                    for(int iln = 0; iln < nln; ++iln) {
+                        auto const wave_i = partial_wave[iln].wave[ts];
+                        assert(nullptr != wave_i);
+                        for(int jln = 0; jln < nln; ++jln) {
+                            auto const wave_j = partial_wave[jln].wave[ts];
+                            assert(nullptr != wave_j);
+                            double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
+//                          if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
+                            add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
+                        } // jln
+                    } // iln
+                } // mix_valence_density
             } // lm
             if (echo > 0) printf("# %s %s density has %g electrons after adding the valence density\n",  label,
                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][00], rg[ts]->r2dr)*Y00inv);
@@ -1572,7 +1600,7 @@ extern "C" {
         } // ell
 
         // account for Z protons in the nucleus and the missing charge in the smooth core density
-        qlm_compensator[0] += Y00*(core_charge_deficit - Z_core);
+        qlm_compensator[0] += Y00*(core_charge_deficit - Z_core + mix_spherical_valence_density*spherical_valence_charge_deficit);
         if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]*Y00inv);
 
         { // scope: construct the augmented density
@@ -1836,7 +1864,7 @@ extern "C" {
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
                 printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_index_list[jlmn];
-                    printf(" %g", true_norm[iln]*true_norm[jln]*overlap_lmn[ilmn][jlmn]);
+                    printf(" %g", true_norm[iln]*overlap_lmn[ilmn][jlmn]*true_norm[jln]);
                 }   printf("\n");
             } // ilmn
         } // echo
@@ -1849,12 +1877,12 @@ extern "C" {
                 auto const & input_lmn = i01 ?  overlap_lmn :  hamiltonian_lmn;
                 auto const   label_inp = i01 ? "overlap"    : "hamiltonian"   ;
                 auto const & result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
-                scattering_test::emm_average(result_ln.data(), input_lmn.data(), (int)numax, nn);
+                scattering_test::emm_average(result_ln.data(), input_lmn.data(), int(numax), nn);
                 if (echo > 4) {
                     for(int iln = 0; iln < nln; ++iln) {
                         printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
                         for(int jln = 0; jln < nln; ++jln) {
-                            printf(" %11.6f", true_norm[iln]*true_norm[jln]*result_ln[iln][jln]);
+                            printf(" %11.6f", true_norm[iln]*result_ln[iln][jln]*true_norm[jln]);
                         }   printf("\n");
                     }   printf("\n");
                 } // echo
@@ -1921,7 +1949,7 @@ extern "C" {
         // as the spherical part of the full potential
         int const nln = sho_tools::nSHO_radial(numax);
 
-        view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // emm1-emm2-degenerate, no emm0-dependency
+        view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // fully emm-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
             std::vector<double> wave_pot_r2dr(nr); // temporary product of partial wave, potential and metric
@@ -1937,7 +1965,6 @@ extern "C" {
         } // ts: true and smooth
 
 
-        // view2D<double> hamiltonian_ln(nln, nln), overlap_ln(nln, nln); // get memory
         auto hamiltonian_ln = aHSm[0], overlap_ln = aHSm[1];
         { // scope
             for(int iln = 0; iln < nln; ++iln) {
@@ -2334,12 +2361,12 @@ namespace single_atom {
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
-              bool const transfer2valence = (nullptr == dpp); // control
+              bool const atomic_valence_density = (nullptr != dpp); // control
               int const echo_init = control::get("single_atom.init.echo", 0.); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
                   int    const numax = (ip) ? ip[ia] : numax_default;
                   float  const ion   = (fp) ? fp[ia] : 0;
-                  a[ia] = new LiveAtom(Za[ia], numax, transfer2valence, ion, ia, echo_init);
+                  a[ia] = new LiveAtom(Za[ia], numax, atomic_valence_density, ion, ia, echo_init);
                   stat += (a[ia]->get_numax() != numax);
               } // ia
           } 
@@ -2521,14 +2548,14 @@ namespace single_atom {
 
   int test_LiveAtom(int const echo=9) {
     int const numax = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
-    bool const t2v = (control::get("single_atom.test.transfer.to.valence", 0.) > 0); //
+    bool const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
     {   double const Z   = control::get("single_atom.test.Z", 29.); // default copper
         double const ion = control::get("single_atom.test.ion", 0.); // default neutral
         if (echo > 1) printf("\n# Z = %g\n", Z);
-        LiveAtom a(Z, numax, t2v, ion, -1, echo); // envoke constructor
+        LiveAtom a(Z, numax, avd, ion, -1, echo); // envoke constructor
     } // Z
     return 0;
   } // test_LiveAtom

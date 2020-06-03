@@ -209,14 +209,7 @@ namespace scattering_test {
       
       double const dE = std::max(1e-9, energy_range[1]);
 
-#ifdef  _SELECTED_ENERGIES_LOGDER
-      int const nen = 6;
-      double const energy_list[nen] = {-0.221950, 0.047733, -0.045238,  0.120905, -0.359751,  0.181009};
-#else
       int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
-      if (echo > 0 && nen >= 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
-                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
-#endif
 
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
       int const mr = align<2>(rg[TRU]->n);
@@ -243,15 +236,13 @@ namespace scattering_test {
       if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
+      if (echo > 0 && nen >= 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
+      
       for(int ien = 0; ien <= nen; ++ien) {
-#ifdef  _SELECTED_ENERGIES_LOGDER
-          auto const energy = energy_list[ien];
-          if (echo > 0) printf("# %s energy = ", __func__);
-#else
           auto const energy = energy_range[0] + ien*dE;
-#endif
 //        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
-          
+
           if (echo > 0) printf("%.6f", energy*eV);
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
@@ -263,34 +254,20 @@ namespace scattering_test {
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), nn[ell],
                                                 &aHm[iln_off*nln + iln_off],
                                                 &aSm[iln_off*nln + iln_off], nln, echo);
-#ifdef  _SELECTED_ENERGIES_LOGDER
-                  if (echo > 0) printf("# %cL(ell=%i) =", ts?'~':' ', ell);
-#endif
-//                here;
                   if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', gnc);
-#ifdef  _SELECTED_ENERGIES_LOGDER
-                  if (echo > 0) printf("\n");
-#endif
               } // ts
 //            if (echo > 0) printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
-
-#ifdef  _SELECTED_ENERGIES_LOGDER
-              printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG
-#endif
 
           } // ell
           if (echo > 0) printf("\n");
       } // ien
-      
+
       for(int ell = 0; ell <= lmax; ++ell) {
           if (linsolfail[ell]) {
               printf("# %s %s linear solve failed %ld times for ell=%i\n", label, __func__, linsolfail[ell], ell);
           } // fail
       } // ell
-      
-#ifdef  _SELECTED_ENERGIES_LOGDER
-//       printf("\n\n\n# EXIT at %s line %i \n\n", __FILE__, __LINE__); exit(__LINE__); // DEBUG
-#endif
+
       return stat;
   } // logarithmic_derivative
   
