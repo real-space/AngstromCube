@@ -36,7 +36,7 @@ namespace atom_core {
       char constexpr special_ellchars[] = "spd";
       if (ell < 0) return '?';
       if (ell < 3) return special_ellchars[ell];
-      return 99 + ell; // "fghijk ..."
+      return 99 + ell; // "fghijk ..." // ToDo: actually 'i' does not belong in here
   } // ellchar
   
   status_t all_tests(int const echo=0);

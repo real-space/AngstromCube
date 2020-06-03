@@ -448,7 +448,7 @@ namespace atom_core {
       for(int enn = 1; enn < 9; ++enn) { // principal quantum number of an atom
           for(int ell = 0; ell < enn; ++ell) { // angular momentum quantum number
               int const nl = nl_index(enn, ell);
-              if ((inl != nl) || (echo > 8)) printf("# %s: %s n=%d l=%d nl_index %d %d\n", __FILE__, __func__, enn, ell, inl, nl);
+              if ((inl != nl) || (echo > 8)) printf("# %s: %s n=%d l=%d (%d%c) nl_index %d %d\n", __FILE__, __func__, enn, ell, enn, ellchar(ell), inl, nl);
               assert(inl == nl);
               ++inl;
           } // ell

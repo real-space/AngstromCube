@@ -7,6 +7,7 @@
 namespace sigma_config {
 
     typedef struct {
+        double  occ[32][2]; // occupation numbers up nl-index 31 (8f-orbital)
         double  Z;
         double  rcut;
         double  sigma;

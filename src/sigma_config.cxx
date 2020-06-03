@@ -31,8 +31,9 @@ namespace sigma_config {
             case  8: return "2s* 2 2p* 3 1 3d | 1.13 sigma .297";                       // O   
             case  9: return "2s* 2 2p* 3 2 3d | 1.2 sigma .323";                        // F   
             case 10: return "2s* 2 2p* 6 3d | 1.8 sigma .564";                          // Ne  
-            case 11: return "3s* 1 0 2p 6 3p 2e-99 3d | 2.27 sigma .69";                // Na  
-            case 12: return "2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 sigma .41";              // Mg  
+            case 11: return "3s* 1 0 2p 6 3p 2e-99 3d | 2.27 sigma .69";                // Na
+            case 12: return "3s* 2 3p 2e-99 3d | 1.96 sigma .41";                       // Mg (2 e)
+//          case 12: return "2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 sigma .41";              // Mg (10 e)
             case 13: return "3s* 2 3p* 1 0 3d | 2.05 sigma .645";                       // Al  
             case 14: return "3s* 2 3p* 2 0 3d | 2.0 sigma .643";                        // Si  
             case 15: return "3s* 2 3p* 3 0 3d | 1.8 sigma .512";                        // P   
@@ -50,7 +51,7 @@ namespace sigma_config {
             case 27: return "4s* 2 4p* 2e-99 3d* 5 2 | 1.9 sigma .608";                 // Co  
             case 28: return "4s* 2 3p 6 4p 2e-99 3d* 5 3 | 2.15 sigma .48";             // Ni  
             case 29: return "4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma .61";                 // Cu  
-            case 30: return "4s* 1 1 4p* 2e-99 3d* 10 | 2.23 sigma .577";               // Zn  
+            case 30: return "4s* 2 4p* 2e-99 3d* 10 | 2.23 sigma .577";                 // Zn  
             case 31: return "4s* 2 4p* 1 0 4d | 2.2 sigma .686";                        // Ga  
             case 32: return "4s* 2 4p* 2 0 4d | 1.9 sigma .606";                        // Ge  
             case 33: return "4s* 2 4p* 3 0 4d | 2.0 sigma .62";                         // As  
@@ -68,7 +69,7 @@ namespace sigma_config {
             case 45: return "5s* 1 0 4p 6 5p 2e-99 4d* 5 3 | 2.35 sigma .58";           // Rh
             case 46: return "5s* 2e-99 0 4p 6 5p 2e-99 4d* 10 | 2.32 sigma .585";       // Pd
             case 47: return "5s* 1 0 4p 6 5p 2e-99 4d* 10 | 2.23 sigma .57";            // Ag
-            case 48: return "5s* 1 1 5p* 2e-99 4d* 10 | 2.2 sigma .563";                // Cd 
+            case 48: return "5s* 2 5p* 2e-99 4d* 10 | 2.2 sigma .563";                  // Cd 
             case 49: return "5s* 2 5p* 1 0 4d* 10 | 2.17 sigma .565";                   // In 
             case 50: return "5s* 2 5p* 2 0 4d* 10 | 2.24 sigma .585";                   // Sn
             case 51: return "5s* 2 5p* 3 0 4d* 10 | 2.18 sigma .57";                    // Sb
@@ -410,16 +411,22 @@ namespace sigma_config {
             } // inl valid
         } // scope
 
-        double nve{0}, nce{0}; // number of valence and core electrons
+        double nve{0}, nce{0}, ncv{0}; // number of valence and core electrons, others?
         for(int inl = 0; inl < max_inl; ++inl) {
             nve += std::max(0.0, occ[inl][0]) + std::max(0.0, occ[inl][1]);
             nce -= std::min(0.0, occ[inl][0]) + std::min(0.0, occ[inl][1]);
+            if (inl < 32) {
+                set(e->occ[inl], 2, occ[inl]);
+            } else {
+                ncv += std::abs(occ[inl][0]) + std::abs(occ[inl][1]);
+            } // inl < 32
         } // inl
         double const nelectrons = nve + nce;
         if (echo > 4) printf("# found %g = %g core + %g valence electrons and Z = %g\n", nelectrons, nce, nve, e->Z);
+        if (ncv) warn("lost %g electrons for Z = %g\n", ncv, e->Z);
 
         if (echo > 4) {
-            printf("# PAW setup for %s (Z=%g) uses", symbol, e->Z);
+            printf("# PAW setup for %s (Z=%g) suggests", symbol, e->Z);
             for(int ell = 0; ell < 8; ++ell) {
                 printf(" %d", e->nn[ell]);
             } // ell
