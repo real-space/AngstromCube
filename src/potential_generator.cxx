@@ -504,18 +504,24 @@ namespace potential_generator {
               } // scope
 #endif
 
+
               // create a list of atoms
               view2D<double> xyzZinso(na, 8);
-              for(int ia = 0; ia < na; ++ia) {
-                  set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
-                  xyzZinso[ia][4] = ia;  // global_atom_id
-                  xyzZinso[ia][5] = 3;   // numax
-                  xyzZinso[ia][6] = .55; // sigma, ToDo: get sigma_prj from LiveAtom
-                  xyzZinso[ia][7] = 0;   // __not_used__
-              } // ia
+              {
+                  std::vector<int32_t> numax_a(na, 3);
+                  std::vector<double>  sigma_a(na, .5);
+                  stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
+                  for(int ia = 0; ia < na; ++ia) {
+                      set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
+                      xyzZinso[ia][4] = ia;  // global_atom_id
+                      xyzZinso[ia][5] = numax_a[ia];
+                      xyzZinso[ia][6] = sigma_a[ia];
+                      xyzZinso[ia][7] = 0;   // __not_used__
+                  } // ia
+              }
               std::vector<atom_image::sho_atom_t> a;
               stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, 8, gc, echo, atom_mat.data());
-              
+
               // construct grid-based Hamiltonian and overlap operator descriptor
               grid_operators::grid_operator_t<double> const op(gc, a, Veff.data());
 

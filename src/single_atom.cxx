@@ -1130,7 +1130,7 @@ extern "C" {
                                 evec[1] = std::cos(angle);
                                 {
                                     double const ovl10 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
-                                    if (echo > 8) printf("# method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n", angle, ovl10, evec[0], evec[1]);
+                                    if (echo > 8) printf("# %s method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n", label, angle, ovl10, evec[0], evec[1]);
                                 }
                                 
                             } // if nrn > 0
@@ -2449,6 +2449,18 @@ namespace single_atom {
                   sigma[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
               } // ia
               assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
+          } 
+          break;
+
+          case 'p': // interface usage: atom_update("projectors", natoms, sigma);
+          {
+              double  *const sigma = dp; assert(nullptr != sigma);
+              int32_t *const numax = ip; assert(nullptr != numax);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  sigma[ia] = a[ia]->sigma; // spreads of the projectors // ToDo: use a getter function
+                  numax[ia] = a[ia]->numax; //  number of SHO-projectors // ToDo: use a getter function
+              } // ia
+              assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           } 
           break;
 
