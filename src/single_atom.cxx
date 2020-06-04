@@ -281,6 +281,8 @@ extern "C" {
         set(custom_occ, 32, 0.0);
         set(nn, 1+ELLMAX+2, uint8_t(0)); // clear
         bool const custom_config = (control::get("single_atom.from.sigma.config", 0.) > 0);
+        int const nn_limiter = control::get("single_atom.nn.limit", 2);
+        
         if (custom_config) {
             if (echo > 0) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec = sigma_config::get(Z_core, echo);
@@ -303,7 +305,7 @@ extern "C" {
             numax = -1;
             for(int ell = 0; ell < 8; ++ell) {
                 if (ec.nn[ell] > 0) {
-                    nn[ell] = ec.nn[ell];
+                    nn[ell] = std::min(int(ec.nn[ell]), nn_limiter); // take a smaller numer of partial waves
                     int const numaxmin = 2*nn[ell] - 2 + ell; // this is the minimum numax that we need to get ec.nn[ell]
                     numax = std::max(int(numax), numaxmin);
                 } // nn > 0
@@ -319,7 +321,8 @@ extern "C" {
             numax = nu_max; // 3; // 3:up to f-projectors
             // get nn[] from numax
             for(int ell = 0; ell <= ELLMAX; ++ell) {
-                nn[ell] = std::max(0, (numax + 2 - ell)/2);
+                nn[ell] = std::max(0, (numax + 2 - ell)/2); // suggest
+                nn[ell] = std::min(int(nn[ell]), nn_limiter); // take a smaller numer of partial waves
             } // ell
 
         } // initialize from sigma_config
@@ -333,13 +336,13 @@ extern "C" {
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
         sigma_inv = 1./sigma;
         r_match = 9*sigma;
-        if (echo > 0) printf("# %s numbers of projectors ", label);
-        int const nn_limiter = control::get("single_atom.nn.limit", 2);
-        for(int ell = 0; ell <= ELLMAX; ++ell) {
-            nn[ell] = std::min(int(nn[ell]), nn_limiter); // take a smaller numer of partial waves
-            if (echo > 0) printf(" %d", nn[ell]);
-        } // ell
-        if (echo > 0) printf("\n");
+        
+        if (echo > 0) {
+            printf("# %s numbers of projectors ", label);
+            for(int ell = 0; ell <= ELLMAX; ++ell) {
+                printf(" %d", nn[ell]);
+            }   printf("\n");
+        } // echo
 
 
         int const nlm = pow2(1 + ellmax);
@@ -355,7 +358,9 @@ extern "C" {
             full_potential[ts] = view2D<double>(nlm, mr, 0.0); // get memory
         } // true and smooth
 
-        atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo);
+        auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo);
+        if (load_stat) error("loading of potential file failed for Z=%g", Z_core);
+          
 
 //         // show the loaded Zeff(r)
 //         if (echo > 0) {

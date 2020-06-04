@@ -125,9 +125,9 @@ echo -n "# using sigma_config    " > $out
 date     >> $out
 echo " " >> $out
 
-for Z in {120..120}; do
+for Z in {117..117}; do
   ## either make a separate out file for each Z
-  out_Z=single_atom.out.$Z.states
+  out_Z=single_atom.out.$Z.conf.new
   echo -n "# using sigma_config    " > $out_Z
   date >> $out_Z
   ## or concat all into the global out file
@@ -142,7 +142,7 @@ for Z in {120..120}; do
         +single_atom.partial.wave.energy=1.0 \
         +single_atom.test.atomic.valence.density=1 \
         +single_atom.from.sigma.config=1 \
-        +logder.start=-2 +logder.stop=1 +logder.step=.01 \
+        +logder.start=-2 +logder.stop=1 +logder.step=.001 \
         +single_atom.nn.limit=1 \
         +show.state.diagram=-1 \
         >> $out_Z

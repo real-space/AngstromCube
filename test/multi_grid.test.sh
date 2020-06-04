@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 
-echo -n "# " ## comment out the output of make, e.g. "make: Nothing to be done for `all'."
+#!/usr/bin/env bash
+
+(cd ../src/ && make -j)
+exe=../src/a43
+
 n=15
-make -j &&
 ./a43 -t multi_grid. \
         +multi_grid.test.scheme=V \
         +multi_grid.test.pre.jacobi=2 \
@@ -16,7 +19,6 @@ make -j &&
         | awk '{ print $9 }' >> mg.out
 done
 
-# make -j
 # for n in {3..20} 
 # do
 # echo >> mg.out
