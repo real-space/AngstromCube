@@ -2,7 +2,7 @@
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 
-  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2, TRU_ONLY=1;
+  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
 
   // ToDo: write a class with constructors and destructors to handle the memory for *wave
   template<int Pseudo> // Pseudo: see description at instanciation
@@ -19,5 +19,5 @@
       int8_t c0s1v2; // 0:core, 1:semicore, 2:valence, -1:undefined
   }; // struct energy_level
 
-  typedef struct energy_level<TRU_ONLY> core_level_t; // Pseudo=1: spherical states, e.g. core states
+  typedef struct energy_level<1> core_level_t; // Pseudo=1: spherical states, e.g. core states, only a TRU wave is stored
   typedef struct energy_level<TRU_AND_SMT> valence_level_t; // Pseudo=2: states with a smooth conterpart, e.g. partial waves describing valence states

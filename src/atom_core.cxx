@@ -43,10 +43,10 @@
 namespace atom_core {
 
   typedef struct {
+      double E; // energy
       float occ; // occupation number
       enn_QN_t enn; // principal quantum number
       ell_QN_t ell; // angular momentum
-      double E; // energy
   } orbital_t;
 
   enum energy_contributions {
@@ -388,6 +388,45 @@ namespace atom_core {
           } // unoccupied
       } // i
 #endif
+
+      int const show_state_diagram = int(control::get("show.state.diagram", 0.0)); // 0:do not show, 1:show
+      if (show_state_diagram) {
+          float state_diagram[30][4]; // [inl][start,end,energy,spare]
+          for(int inl = 0; inl < 30; ++inl) { 
+              state_diagram[inl][0] = 0; // start
+              state_diagram[inl][1] = 0; // end
+              state_diagram[inl][2] = -1e5;
+          } // inl
+
+          for(int i = 0; i <= imax; ++i) {
+              if (orb[i].occ > 0) {
+                  radial_eigensolver::shooting_method(sra, g, rV_old.data(), orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho.data());
+                  double const norm = dot_product(g.n, r2rho.data(), g.dr);
+                  assert(norm > 0);
+                  scale(r2rho.data(), g.n, 1./norm);
+                  int const inl = atom_core::nl_index(orb[i].enn, orb[i].ell);
+                  // find the radius where the state starts (95%) and where it ends (95%) such that 90% are inside that range
+                  double q{0}; int ir{1};
+                  while (q < .05) { q += r2rho[ir]*g.dr[ir]; ++ir; }
+                  state_diagram[inl][0] = g.r[ir];
+                  q = 0; ir = g.n;
+                  while (q < .05) { --ir; q += r2rho[ir]*g.dr[ir]; }
+                  state_diagram[inl][1] = g.r[ir];
+                  state_diagram[inl][2] = orb[i].E;
+              } // occupied
+          } // i, orbitals
+
+          printf("## state diagram for Z=%g in %s (sqrt on radius, log10 on energies)\n", Z, _eV);
+          for(int inl = 0; inl < 30; ++inl) {
+              printf("%g %g\n%g %g\n\n", std::sqrt(state_diagram[inl][0]*Ang), -std::log10(-state_diagram[inl][2]*eV), 
+                                         std::sqrt(state_diagram[inl][1]*Ang), -std::log10(-state_diagram[inl][2]*eV)); // energy level
+          } // inl
+          printf("## potential state diagram for Z=%g in %s\n", Z, _eV);
+          for(int ir = 1; ir < g.n; ++ir) {
+              double const pot = rV_old[ir]*g.rinv[ir];
+              if (pot > -1e5 && pot < 0) printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
+          } // ir
+      } // show_state_diagram
 
       return (res > THRESHOLD);
   } // scf_atom

@@ -125,9 +125,9 @@ echo -n "# using sigma_config    " > $out
 date     >> $out
 echo " " >> $out
 
-for Z in {1..120}; do
+for Z in {120..120}; do
   ## either make a separate out file for each Z
-  out_Z=single_atom.out.$Z.2conf
+  out_Z=single_atom.out.$Z.states
   echo -n "# using sigma_config    " > $out_Z
   date >> $out_Z
   ## or concat all into the global out file
@@ -143,7 +143,8 @@ for Z in {1..120}; do
         +single_atom.test.atomic.valence.density=1 \
         +single_atom.from.sigma.config=1 \
         +logder.start=-2 +logder.stop=1 +logder.step=.01 \
-        +single_atom.nn.limit=2 \
+        +single_atom.nn.limit=1 \
+        +show.state.diagram=-1 \
         >> $out_Z
 done
 ## We find stability execept for ell=2 of Z=7--9 and ell=0 of Z=80,84--92,117--120

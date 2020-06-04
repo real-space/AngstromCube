@@ -15,7 +15,7 @@
 #include "inline_tools.hxx" // align<nbits>
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
-#include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index, ::ellchar
+#include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
 #include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, core_level_t, valence_level_t
@@ -179,7 +179,6 @@ extern "C" {
             } // emm
         } // ell
     } // add_or_project_compensators
-
 
   class LiveAtom {
   public:
@@ -376,6 +375,13 @@ extern "C" {
 
         set(csv_charge, 3, 0.0); // clear numbers of electrons for core, semicore and valence, respectively
 
+#ifdef HAS_STATE_DIAGRAM
+        // atom_core. can also generate the same state diagram so we could delete this here to make this constructor less complex
+        int const show_state_diagram = int(control::get("show.state.diagram", 0.0)); // 0:do not show, 1:show, -1: show and exit
+        float state_diagram[30][4]; // [inl][start,end,energy,spare]
+        for(int inl = 0; inl < 30; ++inl) { state_diagram[inl][0] = 0; state_diagram[inl][1] = 0; state_diagram[inl][2] = -1e5; }
+#endif
+
         double const core_valence_separation  = control::get("core.valence.separation", -2.0);
         double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
         double const semi_valence_separation  = control::get("semicore.valence.separation", core_valence_separation);
@@ -467,9 +473,23 @@ extern "C" {
                                 double const norm = occ/has_norm;
                                 auto const density = (2 == cs.c0s1v2) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
                                 add_product(density, rg[TRU]->n, r2rho.data(), norm);
+#ifdef HAS_STATE_DIAGRAM
+                                if (show_state_diagram) {
+                                    // find the radius where the state starts (95%) and where it ends (95%) such that 90% are inside that range
+                                    scale(r2rho.data(), rg[TRU]->n, 1./has_norm);
+                                    double q{0}; int ir{1};
+                                    while (q < .05) { q += r2rho[ir]*rg[TRU]->dr[ir]; ++ir; }
+                                    state_diagram[inl][0] = rg[TRU]->r[ir];
+                                    q = 0; ir = rg[TRU]->n;
+                                    while (q < .05) { --ir; q += r2rho[ir]*rg[TRU]->dr[ir]; }
+                                    state_diagram[inl][1] = rg[TRU]->r[ir];
+                                    state_diagram[inl][2] = E;
+                                } // show_state_diagram
+#endif
                             } else {
                                 warn("%s %i%c-state cannot be normalized! integral=%g", label, enn, ellchar[ell], has_norm);
                             } // can be normalized
+                            
                         } // occupied
 
                         n_electrons -= occ; // subtract as many electrons as have been assigned to this orbital
@@ -480,6 +500,22 @@ extern "C" {
             ncorestates = highest_occupied_core_state_index + 1; // correct the number of core states to those occupied
             core_state.resize(ncorestates); // destruct unused core states
         } // core states
+
+#ifdef HAS_STATE_DIAGRAM
+        if (show_state_diagram) {
+            printf("## state diagram for Z=%g in %s\n", Z_core, _eV);
+            for(int inl = 0; inl < 30; ++inl) {
+                printf("%g %g\n%g %g\n\n", std::sqrt(state_diagram[inl][0]*Ang), -std::log10(-state_diagram[inl][2]*eV), 
+                                           std::sqrt(state_diagram[inl][1]*Ang), -std::log10(-state_diagram[inl][2]*eV)); // energy level
+            } // inl
+            printf("## potential state diagram for Z=%g in %s\n", Z_core, _eV);
+            for(int ir = 1; ir < rg[TRU]->n; ++ir) {
+                double const pot = potential[TRU][ir]*rg[TRU]->rinv[ir];
+                if (pot > -1e5 && pot < 0) printf("%g %g\n", std::sqrt(rg[TRU]->r[ir]*Ang), -std::log10(-pot*eV));
+            } // ir
+            if (-1 == show_state_diagram) { warn("Exit after plotting state diagram!"); exit(0); }
+        } // show_state_diagram
+#endif
 
         double const total_n_electrons = csv_charge[0] + csv_charge[1] + csv_charge[2];
         if (echo > 2) printf("# %s initial occupation with %g electrons: %g core, %g semi-core and %g valence electrons\n", 
@@ -527,7 +563,7 @@ extern "C" {
                     int const enn = std::max(ell + 1, int(enn_core_ell[ell]) + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
-                    vs.nrn[SMT] = nrn;
+                    vs.nrn[SMT] = nrn; // number of radial nodes in the smooth wave
                     vs.occupation = 0;
                     vs.enn = enn;
                     vs.ell = ell;
@@ -829,6 +865,53 @@ extern "C" {
                               spherical_valence_density[TRU].data(), "spherical valence", echo - 1); 
     } // update_core_states
 
+    void update_energy_parameters(int const echo=0) {
+        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+
+        double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
+        bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.0) > 0);
+        double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
+        bool const use_energy_parameter = (energy_parameter > -9e9);
+        if (use_energy_parameter) {
+            if (echo > 5) printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
+        } // use_energy_parameter
+
+        double previous_ell_energy{0};
+        for(int ell = 0; ell <= numax; ++ell) {
+            int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
+            int const n = nn[ell];
+            for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
+
+                if (0 == nrn) {
+                    // solve for a true valence eigenstate
+                    if (use_energy_parameter) {
+                        vs.energy = energy_parameter;
+                    } else {
+                        // find the eigenenergy of the TRU spherical potential
+                        int constexpr SRA = 1;
+                        radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
+                        if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n",
+                                              label, __func__, vs.enn, ellchar[ell], vs.energy*eV,_eV);
+                    } // use_energy_parameter
+                } else {
+                    assert(nrn > 0);
+
+                    if (use_energy_derivative) {
+                        vs.energy = partial_wave[iln - 1].energy; // same energy parameter as for nrn=0
+                    } else {
+                        vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + nrn*excited_energy;
+                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a higher partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    } // how to construct a second tru partial wave?
+
+                } // bound state?
+                
+            } // nrn
+        } // ell
+        
+    } // update_energy_parameters
+    
     void update_partial_waves(int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
@@ -869,7 +952,7 @@ extern "C" {
             int const n = nn[ell];
             for(int nrn_ = 0; nrn_ < n; ++nrn_) { int const nrn = nrn_; // smooth number or radial nodes
                 int const iln = ln_off + nrn;
-                auto & vs = partial_wave[iln]; // abbreviate
+                auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
                 int constexpr SRA = 1;
 
                 // solve for a true partial wave
@@ -887,7 +970,7 @@ extern "C" {
                     } else {
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
                         if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n",
-                                              label, __func__, vs.enn, atom_core::ellchar(ell), vs.energy*eV,_eV);
+                                              label, __func__, vs.enn, ellchar[ell], vs.energy*eV,_eV);
                     } // use_energy_parameter
                 } else {
                     assert(nrn > 0);
@@ -1796,7 +1879,7 @@ extern "C" {
         if (0) { // scope: test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
             std::vector<double> rho4pi(rg[TRU]->n);
             set(rho4pi.data(), rg[TRU]->n, full_density[TRU][00], Y00inv);
-            printf("\n# WARNING: use rad_pot to construct the r*V_tru(r)\n\n");
+            printf("\n# WARNING: use rad_pot to construct the r*V_tru(r) [for DEBUGGING]\n\n");
             atom_core::rad_pot(potential[TRU].data(), *rg[TRU], rho4pi.data(), Z_core);
         } // scope
 
@@ -2201,6 +2284,7 @@ extern "C" {
     void update_density(float const mixing, int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
         update_core_states(mixing, echo);
+        update_energy_parameters(echo);
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
         int const nln = sho_tools::nSHO_radial(numax);
