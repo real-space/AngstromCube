@@ -6,6 +6,7 @@
 #include "sho_tools.hxx" // ::SHO_order_t, ...
 
 #include "status.hxx" // status_t
+#include "recorded_warnings.hxx" // warn
 
 namespace sho_unitary {
 
@@ -37,9 +38,11 @@ namespace sho_unitary {
                           u_[nu][ib*nb + ib] = 1; // diagonal
                       } // ib
                   } // nu
-                  printf("# Warning: I/O failed, Unitary_SHO_Transform was initialized as unit operator!\n");
+                  warn("I/O failed with status=%i, Unitary_SHO_Transform was initialized as unit operator!\n", int(stat));
               } // stat
-              if (highest_nu < numax_) printf("# Warning: file for Unitary_SHO_Transform did not provide enough elements!\n");
+              if (highest_nu < numax_) {
+                  warn("file for Unitary_SHO_Transform provided elements oly up to numax=%d, requested %d\n", highest_nu, numax_);
+              } // warn
           } // constructor
 
           ~Unitary_SHO_Transform() {

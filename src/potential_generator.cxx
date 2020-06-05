@@ -203,12 +203,15 @@ namespace potential_generator {
       } // scope
 
       std::vector<double>  sigma_cmp(na, 1.);
-      std::vector<int32_t> numax(na, 3);
+      std::vector<int32_t> numax(na, -1); // init with 0 projectors
       std::vector<int32_t> lmax_qlm(na, -1);
       std::vector<int32_t> lmax_vlm(na, -1);
 
       // for each atom get sigma, lmax
-      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
+      status_t stat1;
+      stat1 = single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
+      if (stat1) warn("single_atom::atom_update('initialize', ...) returned status %i", int(stat1));
+      stat += stat1;
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
@@ -469,7 +472,7 @@ namespace potential_generator {
                   if (echo > 6) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
-                      printf("\n# atom-centered %dx%d Hamiltonian (%s) for atom index #%i\n", n, n, _eV, ia);
+                      printf("\n# atom-centered %dx%d Hamiltonian (in %s) for atom index #%i\n", n, n, _eV, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {

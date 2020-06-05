@@ -541,12 +541,12 @@ extern "C" {
         } // echo
         
         scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
-        scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
+        scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces   r*rho --> reduce to   rho
         if (echo > 2) printf("# %s initial core density has %g electrons\n", 
                                 label, dot_product(rg[TRU]->n, core_density[TRU].data(), rg[TRU]->r2dr));
 
         scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
-        scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to   rho
+        scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces   r*rho --> reduce to   rho
         if (echo > 2) printf("# %s initial valence density has %g electrons\n", 
                                 label, dot_product(rg[TRU]->n, spherical_valence_density[TRU].data(), rg[TRU]->r2dr));
 
@@ -594,7 +594,7 @@ extern "C" {
                             if (ics >= 0) { // atomic eigenstate was marked as valence
                                 double const occ = core_state[ics].occupation; //
                                 vs.occupation = occ;
-                                if (occ > 0) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
+                                if (occ > 0 && echo > 3) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
                                         " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
                             } // ics
                         }
@@ -938,7 +938,7 @@ extern "C" {
                 printf("%g %g %g\n", rg[SMT]->r[ir], potential[TRU][ir + nr_diff], potential[SMT][ir]);
             }   printf("\n\n");
         } // echo
-        
+
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
         bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.0) > 0);
         double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
@@ -1322,7 +1322,7 @@ extern "C" {
                         set(partial_wave[iln].wave[ts], nrts, 0.0); // clear
                         set(partial_wave[iln].wKin[ts], nrts, 0.0); // clear
                         for(int krn = 0; krn < n; ++krn) {
-                            if (ts == TRU && echo > -1) printf("# %s create orthogonalized partial wave #%i with %g * wave #%i\n", label, nrn, inv[nrn][krn], krn);
+                            if (ts == TRU && echo > 3) printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n", label, ellchar[ell], nrn, inv[nrn][krn], krn);
                             add_product(partial_wave[iln].wave[ts], nrts, waves[0][krn], inv[nrn][krn]);
                             add_product(partial_wave[iln].wKin[ts], nrts, waves[1][krn], inv[nrn][krn]);
                         } // krn
@@ -2435,6 +2435,7 @@ namespace single_atom {
           case str2int("sigma cmp"):
           case str2int("core densities"):
           case str2int("valence densities"):
+          case str2int("projectors"):
           case str2int("qlm charges"):
           case str2int("update"): // needs a trailing ' ' if str2int==string2long
           case str2int("hamiltonian"):
@@ -2450,7 +2451,7 @@ namespace single_atom {
   } // test_string_switch
 
   // simplified interface compared to update
-  status_t atom_update(char const *what, int na,
+  status_t atom_update(char const *what, int const natoms,
               double *dp, int32_t *ip, float *fp, double **dpp) {
 
       static std::vector<LiveAtom*> a; // this function may not be templated!!
@@ -2467,22 +2468,23 @@ namespace single_atom {
       float constexpr mix_rho_default = .5f;
       float constexpr mix_pot_default = .5f;
       
+      int na{natoms};
+      
       status_t stat(0);
       stat = test_string_switch(what, echo);
 
       switch (how) {
         
-          case 'i': // interface usage: atom_update("initialize", natoms, Za, numax=3, ion=0);
+          case 'i': // interface usage: atom_update("initialize", natoms, Za[], numax[], ion[]=0);
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
               bool const atomic_valence_density = (nullptr != dpp); // control
               int const echo_init = control::get("single_atom.init.echo", 0.); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
-                  int    const numax = (ip) ? ip[ia] : numax_default;
-                  float  const ion   = (fp) ? fp[ia] : 0;
-                  a[ia] = new LiveAtom(Za[ia], numax, atomic_valence_density, ion, ia, echo_init);
-                  stat += (a[ia]->get_numax() != numax);
+                  float const ion = (fp) ? fp[ia] : 0;
+                  a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_init);
+                  if(ip) ip[ia] = a[ia]->get_numax(); // export numax
               } // ia
           } 
           break;
@@ -2515,7 +2517,7 @@ namespace single_atom {
           } 
           break;
 
-          case 'r': // interface usage: atom_update("radial grid", na, null, null, null, (double**)rg_ptr);
+          case 'r': // interface usage: atom_update("radial grid", natoms, null, null, null, (double**)rg_ptr);
           {
               assert(nullptr != dpp);
               for(int ia = 0; ia < a.size(); ++ia) {
@@ -2644,6 +2646,7 @@ namespace single_atom {
           __func__, a.size(), na);
       } // inconsistency
       
+      if (stat) warn("what='%s' returns status = %i", what, int(stat));
       return stat;
   } // atom_update
   

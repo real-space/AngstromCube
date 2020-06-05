@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-#!/usr/bin/env bash
-
 (cd ../src/ && make -j)
 exe=../src/a43
 

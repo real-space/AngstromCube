@@ -23,7 +23,17 @@ exe=../src/a43
 
 $exe +verbosity=7 \
     -test potential_generator. \
-        +electrostatic.solver=load \
-        +electrostatic.potential.from.file=v_es.fft.dat \
         +eigensolver=davidson \
-        > potential_generator.out.load.dav
+        +electrostatic.solver=load \
+        +electrostatic.potential.from.file=v_es.mg.dat \
+        +single_atom.from.sigma.config=1 \
+        +single_atom.partial.wave.energy.derivative=0 \
+        +single_atom.nn.limit=1 \
+        > potential_generator.out.dav
+        
+#         +electrostatic.solver=load \
+#         +electrostatic.potential.from.file=v_es.fft.dat \
+#         +electrostatic.solver=load \
+#         +electrostatic.potential.from.file=v_es.mg.dat \
+#         +electrostatic.solver=mg \
+#         +electrostatic.potential.to.file=v_es.mg.dat \
