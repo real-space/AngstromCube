@@ -883,8 +883,7 @@ extern "C" {
 
         double previous_ell_energy{0};
         for(int ell = 0; ell <= numax; ++ell) {
-            int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
-            int const n = nn[ell];
+//          int const n = nn[ell];
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
@@ -907,7 +906,7 @@ extern "C" {
                         vs.energy = partial_wave[iln - 1].energy; // same energy parameter as for nrn=0
                     } else {
                         vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + nrn*excited_energy;
-                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a higher partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a second partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                     } // how to construct a second tru partial wave?
 
                 } // bound state?
@@ -996,7 +995,7 @@ extern "C" {
 
                     } else {
                         vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + nrn*excited_energy;
-                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a higher partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a second partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                         int nnodes{0};
                         // integrate outwards homogeneously
                         radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
@@ -1068,8 +1067,8 @@ extern "C" {
                             projector = rhs.data(); // use as inhomogeneiety
                             // comment: this will be 2x the same solution, for krn==1 and krn==2, code results from a quick fix
                         }
-                        double dg; // derivative at end point, not used
 
+                        double dg; // derivative at end point
                         // solve inhomgeneous equation and match true wave in value and derivative
                         radial_integrator::integrate_outwards<SRA>(*rg[SMT], potential[SMT].data(), ell, vs.energy,
                                                                   rphi[krn], ff.data(), -1, &dg, projector);
@@ -1098,7 +1097,7 @@ extern "C" {
                                     Tphi[krn][ir] = (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn][ir] + scal*rhs[ir];
                                 } // ir
                                 // ToDo: check these equations and normalization factors
-                                if (echo > -1) printf("# %s generate Tphi with inhomogeneiety\n", label);
+                                if (echo > 1) printf("# %s generate Tphi with inhomogeneiety\n", label);
                                 // seems like the tails of TRU and SMT wave and wKin are deviating slightly beyond r_match
 
                             } else {
@@ -1110,11 +1109,11 @@ extern "C" {
 
                             // now visually check that the matching of value and derivative of rphi is ok.
                             if (echo > 19) {
-                                printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
+                                printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, prj, rTphi_tru, rTphi_smt):\n",
                                         label, ell, nrn, krn-1);
                                 for(int ir = 1; ir < rg[SMT]->n; ++ir) {
                                     printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir],
-                                        vs.wave[TRU][ir + nr_diff], rphi[krn][ir],
+                                        vs.wave[TRU][ir + nr_diff], rphi[krn][ir], projector_ell[krn][ir]*rg[SMT]->rinv[ir],
                                         vs.wKin[TRU][ir + nr_diff], Tphi[krn][ir]);
                                 } // ir
                                 printf("\n\n");
@@ -1246,6 +1245,7 @@ extern "C" {
 
                         } // method
                     } // n > 1 more than one partial wave
+                    if (method == energy_ordering) assert(1 == evec[nrn]);
 
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
@@ -1257,8 +1257,7 @@ extern "C" {
                         add_product(vs.wKin[SMT], rg[SMT]->n, Tphi[1 + krn], coeff);
                     } // krn
 
-                    // ToDo: now check that the matching of value and derivative of wave and wKin are ok.
-                    if (echo > 9) {
+                    if (echo > 19) {
                         printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
                                 label, ell, nrn);
                         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -1277,13 +1276,12 @@ extern "C" {
             } // nrn
 
 
-
             { // scope: establish dual orthgonality with [SHO] projectors
                 int const nr = rg[SMT]->n; //, mr = align<2>(nr);
                 // int const stride = align<2>(rg[SMT]->n);
                 int const msub = (1 + numax/2); // max. size of the subspace
 
-                if (echo > 14) { // show normalization and orthogonality of projectors
+                if (echo > 24) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
                             printf("# %s %c-projector <#%d|#%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell], nrn, krn,
@@ -1329,7 +1327,7 @@ extern "C" {
                     } // nrn
                 } // ts in {tru, smt}
 
-                // check again the overlap, seems ok
+                // check the overlap again, seems ok
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
                     auto const wave = partial_wave[iln].wave[SMT];
@@ -1339,6 +1337,20 @@ extern "C" {
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
                 } // nrn
+                    
+                if (echo > 15) {
+                    for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
+                        auto const & vs = partial_wave[ln_off + nrn];
+                        printf("\n## %s show orthogonalized partial %c-waves for nrn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
+                                label, ellchar[ell], nrn);
+                        for(int ir = 1; ir < rg[SMT]->n; ++ir) {
+                            printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir],
+                                vs.wave[TRU][ir + nr_diff], vs.wave[SMT][ir],
+                                vs.wKin[TRU][ir + nr_diff], vs.wKin[SMT][ir]);
+                        } // ir
+                        printf("\n\n");
+                    } // nrn
+                } // echo
 
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1346,8 +1358,8 @@ extern "C" {
                     for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                         for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
                             kinetic_energy(ts,iln,jln) = dot_product(nr_cut,
-                            	partial_wave[iln].wKin[ts],
-                              partial_wave[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
+                                partial_wave[iln].wKin[ts],
+                                partial_wave[jln].wave[ts], rg[ts]->rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
                         } // j
                     } // i
                 } // ts
@@ -1433,7 +1445,7 @@ extern "C" {
                 if (echo_l) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
                 if (ell > 0) scale(rl.data(), nr, rg[ts]->r); // create r^{\ell}
                 for(int iln = 0; iln < nln; ++iln) {
-                    if (echo_l) printf("# %s iln = %d ", label, iln);
+                    if (echo_l) printf("# %s %s iln = %d ", label, ts?"smt":"tru", iln);
                     auto const wave_i = partial_wave[iln].wave[ts];
                     product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                     for(int jln = 0; jln < nln; ++jln) {
