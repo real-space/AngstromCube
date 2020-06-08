@@ -335,7 +335,6 @@ extern "C" {
 
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
         sigma_inv = 1./sigma;
-        r_match = 9*sigma;
         
         if (echo > 0) {
             printf("# %s numbers of projectors ", label);
@@ -925,6 +924,7 @@ extern "C" {
         view2D<double> tphi(nln, align<2>(rg[TRU]->n), 0.0); // get memory for r*phi_tru
         view2D<double> sphi(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*phi_smt
         view2D<double> rprj(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*projector
+        view2D<double> skin(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*T*phi_smt
         view2D<double> prj_sho(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*projector
         
         double occ_ell[12]; set(occ_ell, 12, 0.0);
@@ -957,23 +957,25 @@ extern "C" {
                     ckin[k - 1] = 0.5*( ell*(ell + 1) - (ell + 2*k)*(ell + 1 + 2*k) )*coeff[k];
                 } // k
                 
-                if (echo > 1) printf("\n## %s classical method for %c%i: r, smooth r*wave, smooth r*Twave, true r*wave, projector\n", label, ellchar[ell], nrn);
+                if (echo > 19) printf("\n## %s classical method for %c%i: r, smooth r*wave, smooth r*Twave, true r*wave, projector:\n", label, ellchar[ell], nrn);
                 // expand kinetic wave up to r_cut
                 for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
                     double const r = rg[SMT]->r[ir], r2 = pow2(r), rl1 = intpow(r, ell + 1);
                     rkin[ir] = rl1*(ckin[0] + r2*(ckin[1] + r2*ckin[2])); // expand polynomial
                     // construct the preliminary projector functions accoding to Bloechls scheme
                     rprj[iln][ir] = rkin[ir] + (potential[SMT][ir]*rg[SMT]->rinv[ir] - vs.energy)*sphi[iln][ir];
-                    if (echo > 1) printf("%g %g %g %g %g\n", r, sphi[iln][ir], rkin[ir], tphi[iln][ir + nr_diff], rprj[iln][ir]*rg[SMT]->rinv[ir]);
+                    if (echo > 19) printf("%g %g %g %g %g\n", r, sphi[iln][ir], rkin[ir], tphi[iln][ir + nr_diff], rprj[iln][ir]*rg[SMT]->rinv[ir]);
                 } // ir
-                if (echo > 1) printf("\n## %s classical method for %c%i: r, smooth r*wave, smooth r*Twave, true r*wave\n", label, ellchar[ell], nrn);
+                if (echo > 19) printf("\n## %s classical method for %c%i: r, smooth r*wave, smooth r*Twave, true r*wave:\n", label, ellchar[ell], nrn);
                 // beyond the cutoff radius, ^T sphi should math ^T tphi
                 for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
                     int const ir_tru = ir + nr_diff;
                     rkin[ir] = (vs.energy - potential[TRU][ir_tru]*rg[SMT]->rinv[ir])*tphi[iln][ir_tru];
-                    if (echo > 1) printf("%g %g %g %g\n", rg[SMT]->r[ir], sphi[iln][ir], rkin[ir], tphi[iln][ir + nr_diff]);
+                    if (echo > 19) printf("%g %g %g %g\n", rg[SMT]->r[ir], sphi[iln][ir], rkin[ir], tphi[iln][ir + nr_diff]);
                 } // ir
-                if (echo > 1) printf("\n\n");
+                if (echo > 19) printf("\n\n");
+                
+                set(skin[iln], rg[SMT]->n, rkin.data()); // store for later usage (sugestion of a potential shape)
                 
                 // check that the two functions match smoothly at r_cut, seems ok
                 //
@@ -987,11 +989,12 @@ extern "C" {
         } // ell
 
         double sig = 0.75*sigma_old; // initialize, start lower than the suggested sigma
-        
+
         int const scan_sigma = control::get("single_atom.scan.sigma", 199.);
+        std::vector<double> best_projector_coeff(nln, 0.0);
         double best_weighted_quality{-1}, sigma_opt{-1};
         int best_weighted_quality_at_iter{-1};
-        // to optimize, we need to define a derivative w.r.t. sigma and use a Newton method or bisection to find its zero.
+        // to optimize efficiently we need to define a derivative w.r.t. sigma and use a Newton method or bisection to find its zero.
         for(int iter = 0; iter < scan_sigma; ++iter) {
             int const nr = ir_cut[SMT];
 
@@ -1002,43 +1005,72 @@ extern "C" {
             
             scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), *rg[SMT], sig, numax, 0, echo/2);
             
+            std::vector<double> projector_coeff(nln, 0.0);
+            
             double weighted_quality{0};
             for(int ell = 0; ell <= numax; ++ell) {
                 double quality_ell{0};
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     double const denom_sho = dot_product(nr, prj_sho[iln], prj_sho[iln], rg[SMT]->r2dr); // should be close to 1.0
-                    double const denom_new = dot_product(nr, rprj[iln], rprj[iln], rg[SMT]->dr);
-//                  if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_new);
-                    if (denom_sho*denom_new > 0) {
+                    double const denom_num = dot_product(nr, rprj[iln], rprj[iln], rg[SMT]->dr); // norm^2 of numerically given projectors
+//                  if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
+                    if (denom_sho*denom_num > 0) {
                         double const inner = dot_product(nr, rprj[iln], prj_sho[iln], rg[SMT]->rdr);
-                        double const quality = pow2(inner) / (denom_sho*denom_new);
-                        if (echo > 1) printf("# %s in iteration %i quality for %c%i with sigma= %g %s is %g\n", label, iter, ellchar[ell], nrn, sig*Ang, _Ang, quality);
+                        double const quality = pow2(inner) / (denom_sho*denom_num);
+                        if (echo > 13) printf("# %s in iteration %i quality for %c%i with sigma= %g %s is %g\n", label, iter, ellchar[ell], nrn, sig*Ang, _Ang, quality);
                         quality_ell += quality/nn[ell];
+                        projector_coeff[iln] = inner / std::sqrt(denom_sho); // if nn[ell] > 1, we want to know the ratio of c1/c0
                     } else {
-                        if (echo > 1) printf("# %s in iteration %i failed to normalize %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_new);
+                        if (echo > 1) printf("# %s in iteration %i failed to normalize %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
                     }
                 } // nrn
-                if (echo > 1) printf("# %s in iteration %i quality for %c-channel with sigma= %g %s is %g\n", label, iter, ellchar[ell], sig*Ang, _Ang, quality_ell);
+                if (echo > 11) printf("# %s in iteration %i quality for %c-channel with sigma= %g %s is %g\n", label, iter, ellchar[ell], sig*Ang, _Ang, quality_ell);
                 weighted_quality += occ_ell[ell]*quality_ell;
             } // ell
-            if (echo > 1) printf("# %s in iteration %i weighted quality with sigma= %g %s is %g\n", label, iter, sig*Ang, _Ang, weighted_quality);
+            if (echo > 9) printf("# %s in iteration %i weighted quality with sigma= %g %s is %g\n", label, iter, sig*Ang, _Ang, weighted_quality);
             
-            if (echo > 1) printf("\n# %s in iteration %i suggest new sigma= %g %s\n", label, iter, sig*Ang, _Ang);
+            if (echo > 9) printf("\n# %s in iteration %i suggest new sigma= %g %s\n", label, iter, sig*Ang, _Ang);
             if (weighted_quality > best_weighted_quality) {
                 best_weighted_quality = weighted_quality;
                 best_weighted_quality_at_iter = iter;
+                set(best_projector_coeff.data(), nln, projector_coeff.data());
                 sigma_opt = sig; // store
             } // store the best result
 
         } // iterate for optimization
         // the upper limit for the weighted quality is the number of valence electrons
-        if (echo > 1) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g\n\n", label, sigma_opt*Ang, _Ang, best_weighted_quality, total_occ);
+        if (echo > 5) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g\n\n", label, sigma_opt*Ang, _Ang, best_weighted_quality, total_occ);
         if (sigma_opt == sig || 0 == best_weighted_quality_at_iter) {
             warn("%s optimal sigma is at the end of the analyzed range!", label);
         } // border
         
-        if (echo > 1) printf("# %s optimize sigma from %g to %g %s\n", label, sigma_old*Ang, sigma_opt*Ang, _Ang);
+        
+        
+        int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
+        if (suggest_vloc > -1) {
+            // if we dictate the shape of the projectors
+            scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), *rg[SMT], sigma_opt, numax, 1, echo/2); // r*projector
+            // and we want the shape of the true partial wave given by sphi[ell nrn=0]
+            int const ell = suggest_vloc;
+            assert(ell <= numax);
+            int const iln = sho_tools::ln_index(numax, ell, 0); // nrn=0
+            // then the local potential can be found from the inversion:
+            //  ~V(r) = E + ( ~p(r) - ^T ~phi(r) )/~phi(r)  
+            // where we need to respect the duality: < ~p | ~phi > = 1 which fixes the scaling
+            double const duality = 1./dot_product(rg[SMT]->n, prj_sho[iln], sphi[iln], rg[SMT]->dr);
+            if (echo > 0) printf("\n## %s suggested local potential for ell=%i (%c) and currently used potential (Bohr, Ha, Ha):\n", label, ell, ellchar[ell]);
+            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                double const denom = (std::abs(sphi[iln][ir]) < 1e-6) ? 1 : sphi[iln][ir];
+                double const pot = partial_wave[iln].energy + ( prj_sho[iln][ir]*duality - skin[iln][ir] ) / denom;
+                if (echo > 0) printf("%g %g %g\n", rg[SMT]->r[ir],  pot, potential[SMT][ir]*rg[SMT]->rinv[ir]);
+            } // ir
+            if (echo > 0) printf("\n\n");
+            
+        } // suggest local potential shape
+        
+        
+        if (echo > 3) printf("# %s optimize sigma from %g to %g %s\n", label, sigma_old*Ang, sigma_opt*Ang, _Ang);
         return sigma_opt; // use the optimized sigma from here on
         
     } // update_sigma
@@ -1055,7 +1087,7 @@ extern "C" {
         // ToDo: projectors only depend on sigma, numax and the radial grid --> move this to the contructor
         scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], sigma, numax, 1, echo/2);
 
-
+        r_match = 9*sigma;
         int const ir_match[] = {radial_grid::find_grid_index(*rg[TRU], r_match),
                                 radial_grid::find_grid_index(*rg[SMT], r_match)};
         if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n",
