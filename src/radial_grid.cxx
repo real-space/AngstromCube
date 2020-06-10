@@ -116,18 +116,33 @@ namespace radial_grid {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  int test_create_and_destroy(int const echo=9) {
+  status_t test_create_and_destroy(int const echo=9) {
       if (echo > 0) printf("\n# %s: \n", __func__);
       auto g = create_exponential_radial_grid(1 << 11);
       destroy_radial_grid(g);
       return 0;
   } // test_create_and_destroy
 
+  status_t test_exp_grid(int const echo=3) {
+      if (echo > 0) printf("\n# %s: \n", __func__);
+      int const n = 1 << 11;
+      auto g = create_exponential_radial_grid(n);
+      if (echo > 9) {
+          printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s): r, dr, 1/r\n", 
+                    n, default_anisotropy, g->rmax*1.0, " Bohr");
+          for(int ir = 0; ir < g->n; ++ir) {
+              if (echo > 11 || ir < 3 || ir > g->n - 4) printf("%g %g %g\n", g->r[ir], g->dr[ir], g->rinv[ir]);
+          } // ir
+      } // echo
+      return 0;
+  } // test_exp_grid
+
   status_t all_tests(int const echo) {
       status_t status(0);
       status += test_create_and_destroy(echo);
+      status += test_exp_grid(echo);
       return status;
   } // all_tests
 #endif // NO_UNIT_TESTS
-  
+
 } // namespace radial_grid

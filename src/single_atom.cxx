@@ -180,6 +180,57 @@ extern "C" {
         } // ell
     } // add_or_project_compensators
 
+    
+    template <typename real_t>
+    status_t Lagrange_derivatives(unsigned const n, real_t const y[], double const x[], double const at_x0
+                        , double *value_x0, double *deriv1st, double *deriv2nd) { // zeroth, first and second derivative at x0
+        double d0{0}, d1{0}, d2{0};
+        //
+        //  L(x) = sum_j y_j                                                           prod_{m!=j}             (x - x_m)/(x_j - x_m)
+        //
+        //  L'(x) = sum_j y_j sum_{k!=j} 1/(x_j - x_k)                                 prod_{m!=j, m!=k}       (x - x_m)/(x_j - x_m)
+        //
+        //  L''(x) = sum_j y_j sum_{k!=j} 1/(x_j - x_k) sum_{l!=j, l!=k} 1/(x_j - x_l) prod_{m!=j, m!=k, m!=l} (x - x_m)/(x_j - x_m)
+        
+        for (int j = 0; j < n; ++j) {
+            double d0j{1}, d1j{0}, d2j{0};
+            for (int k = 0; k < n; ++k) {
+                if (k != j) {
+                    if (std::abs(x[j] - x[k]) < 1e-9*std::max(std::abs(x[j]), std::abs(x[j]))) return 1; // status instable
+                    double d1l{1}, d2l{0};
+                    for (int l = 0; l < n; ++l) {
+                        if (l != j && l != k) {
+                            
+                            double d2m{1};
+                            for (int m = 0; m < n; ++m) {
+                                if (m != j && m != k && m != l) {
+                                    d2m *= (at_x0 - x[m])/(x[j] - x[m]);
+                                } // exclude
+                            } // m
+                            
+                            d1l *= (at_x0 - x[l])/(x[j] - x[l]);
+                            d2l += d2m/(x[j] - x[l]);
+                        } // exclude
+                    } // l
+                    
+                    d0j *= (at_x0 - x[k])/(x[j] - x[k]);
+                    d1j += d1l/(x[j] - x[k]);
+                    d2j += d2l/(x[j] - x[k]);
+                } // exclude
+            } // k
+            d0 += d0j * y[j];
+            d1 += d1j * y[j];
+            d2 += d2j * y[j];
+        } // j
+        
+        if(value_x0) *value_x0 = d0;
+        if(deriv1st) *deriv1st = d1;
+        if(deriv2nd) *deriv2nd = d2;
+        
+        return 0; // success
+    } // Lagrange_derivatives
+   
+    
   class LiveAtom {
   public:
       // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t (or some better name)
@@ -647,11 +698,12 @@ extern "C" {
             label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
 
 
-        {   // construct initial smooth spherical potential
-            set(potential[SMT].data(), rg[SMT]->n, potential[TRU].data() + nr_diff); // copy the tail of the spherical part of r*V_tru(r)
-            if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
-            pseudize_function(potential[SMT].data(), rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
-        }
+//         {   // construct initial smooth spherical potential
+//             set(potential[SMT].data(), rg[SMT]->n, potential[TRU].data() + nr_diff); // copy the tail of the spherical part of r*V_tru(r)
+//             if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
+//             pseudize_function(potential[SMT].data(), rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
+//         }
+        pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
         
         {   // construct an initial valence density
             spherical_valence_charge_deficit = pseudize_spherical_density(
@@ -1040,11 +1092,11 @@ extern "C" {
 
         } // iterate for optimization
         // the upper limit for the weighted quality is the number of valence electrons
-        if (echo > 5) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g\n\n", label, sigma_opt*Ang, _Ang, best_weighted_quality, total_occ);
+        if (echo > 5) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g, %.1f %%\n\n", label, sigma_opt*Ang, _Ang, 
+                                  best_weighted_quality, total_occ, best_weighted_quality*100/std::max(1., total_occ));
         if (sigma_opt == sig || 0 == best_weighted_quality_at_iter) {
             warn("%s optimal sigma is at the end of the analyzed range!", label);
         } // border
-        
         
         
         int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
@@ -1066,15 +1118,137 @@ extern "C" {
                 if (echo > 0) printf("%g %g %g\n", rg[SMT]->r[ir],  pot, potential[SMT][ir]*rg[SMT]->rinv[ir]);
             } // ir
             if (echo > 0) printf("\n\n");
-            
-        } // suggest local potential shape
-        
+            error("terminate after task single_atom.suggest.local.potential=%i", suggest_vloc);
+        } // suggest smooth local potential shape
         
         if (echo > 3) printf("# %s optimize sigma from %g to %g %s\n", label, sigma_old*Ang, sigma_opt*Ang, _Ang);
         return sigma_opt; // use the optimized sigma from here on
         
     } // update_sigma
-    
+        
+    template <int rpow>
+    status_t pseudize_local_potential(double V_smt[], double const V_tru[], int const echo=0, double const df=1) { // df=display_factor
+        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+        status_t stat(0);
+        double const r_cut = rg[TRU]->r[ir_cut[TRU]];
+        auto const method = control::get("single_atom.local.potential.method", "parabola");
+        if ('p' == *method) { // construct initial smooth spherical potential
+            set(V_smt, rg[SMT]->n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
+            if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
+            stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2, rpow); // replace by a parabola
+            if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
+                           label, r_cut*Ang, _Ang, V_tru[ir_cut[TRU]]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
+        } else {
+            assert(rpow == rpow*rpow); // rpow either 0 or 1
+            // construct a Lagrange polynomial of controllable order to fit r*V_true(r) around r_cut
+            int const ir0 = ir_cut[TRU];
+            double const x0 = rg[TRU]->r[ir0];
+            double xi[32], yi[32];
+            yi[0] = V_tru[ir0]*(rpow ? 1 : x0); // r_cut*V(r_cut)
+            xi[0] = rg[TRU]->r[ir0] - x0;  // expand around r_cut
+            for (int order = 1; order < 16; ++order) {
+                {
+                    int const ir = ir0 + order; assert(ir < rg[TRU]->n);
+                    int const i = 2*order - 1;
+                    yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU]->r[ir]);
+                    xi[i] = rg[TRU]->r[ir] - x0;
+                }
+                {
+                    int const ir = ir0 - order; assert(ir >= 0);
+                    int const i = 2*order;
+                    yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU]->r[ir]);
+                    xi[i] = rg[TRU]->r[ir] - x0;
+                }
+            } // order
+#ifdef DEVEL
+            if (echo > 22) {
+                printf("\n## Lagrange-N, reference-value, Lagrange(rcut), dLagrange/dr, d^2Lagrange/dr^2, status:\n");
+                for (int order = 1; order < 16; ++order) {
+                    unsigned const Lagrange_order = 2*order + 1;
+                    {
+                        double d0{0}, d1{0}, d2{0};
+                        auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
+                        printf("%d %.15f %.15f %.15f %.15f %i\n", Lagrange_order, V_tru[ir0], d0, d1, d2, int(stat));
+                    }
+                } // order
+            } // echo
+            
+            if (echo > 27 && 1 == rpow) {
+                for (int order = 1; order < 16; ++order) {
+                    unsigned const Lagrange_order = 2*order + 1;
+                    printf("\n\n## r, r*V_true(r), Lagrange_fit(N=%d), dLagrange/dr, d^2Lagrange/dr^2, status:\n", Lagrange_order);
+                    for(int ir = 0; ir < rg[TRU]->n; ++ir) {
+                        double d0{0}, d1{0}, d2{0};
+                        auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, rg[TRU]->r[ir] - x0, &d0, &d1, &d2);
+                        printf("%g %g %g %g %g %i\n", rg[TRU]->r[ir], V_tru[ir], d0, d1, d2, int(stat));
+                    } // ir
+                    printf("\n\n");
+                } // order
+            } // echo
+#endif        
+            // Fit a V_s*sin(r*k_s) + r*V_0 to r*V(r) at r_cut, fulfil three equations:
+            //  (r*V(r))  |r=r_cut  = d0 =  V_s*sin(r_cut*k_s) + r_cut*V_0
+            //  (r*V(r))' |r=r_rcut = d1 =  V_s*cos(r_cut*k_s)*k_s  +  V_0
+            //  (r*V(r))''|r=r_rcut = d2 = -V_s*sin(r_cut*k_s)*k_s^2
+            //
+            //  with d0 < 0, d1 > 0, d2 < 0 and r_cut*k_s constrained to (2*pi, 2.5*pi)
+            unsigned const Lagrange_order = 1 + 2*std::min(std::max(1, int(control::get("single_atom.lagrange.derivative", 7.))), 15);
+            double d0{0}, d1{0}, d2{0};
+            stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
+            if (echo > 7) printf("# %s use %d points, value=%g derivative=%g second=%g status=%i\n", label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
+            
+            if (d1 <= 0) warn("positive potential slope for sinc-fit expected but found %g", d1);
+            if (d2 >  0) warn("negative potential curvature for sinc-fit expected but found %g", d2);
+            
+            double k_s{2.25*constants::pi/r_cut}, k_s_prev{0}; // initial guess
+            double V_s, V_0;
+            int const max_iter = 999;
+            int iterations_needed{0};
+            for (int iter = max_iter; (std::abs(k_s - k_s_prev) > 1e-15) && (iter > 0); --iter) {
+                k_s_prev = k_s;
+                double const sin = std::sin(k_s*r_cut);
+                double const cos = std::cos(k_s*r_cut);
+                V_s = d2/(-k_s*k_s*sin);
+                V_0 = d1 - V_s*k_s*cos;
+                double const d0_new = V_s*sin + r_cut*V_0;
+                if (echo > 27) printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", label, iter, V_s, k_s, V_0, d0, d0 - d0_new);
+                k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
+                ++iterations_needed;
+            } // while
+            if (iterations_needed >= max_iter) warn("sinc-fit did not converge!");
+            if (k_s*r_cut <= 2*constants::pi || k_s*r_cut >= 2.5*constants::pi) {
+                warn("sinc-fit failed!, k_s*r_cut=%g not in (2pi, 2.5pi)", k_s*r_cut);
+            } // out of target range
+
+            if (echo > 5) printf("# %s match local potential to sinc function at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
+                           label, r_cut*Ang, _Ang, yi[0]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
+
+            if (echo > 3) printf("# %s smooth potential value of sinc-fit at origin is %g %s\n", label, (V_s*k_s + V_0)*df*eV, _eV);
+            
+            // now modify the smooth local potential
+            for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
+                double const r = rg[SMT]->r[ir];
+                V_smt[ir] = (V_s*sin(r*k_s) + r*V_0)*(rpow ? 1 : rg[SMT]->rinv[ir]); // set values to the fitted sinc-function
+            } // ir
+            for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
+                V_smt[ir] = V_tru[ir + nr_diff]; // copy the tail
+            } // ir
+
+        } // method
+#ifdef DEVEL
+        if (echo > 11) {
+            printf("\n\n## %s r in %s, r*V_tru(r), r*V_smt(r) in %s%s:\n", __func__, _Ang, _Ang, _eV);
+            auto const factors = df*eV*Ang;
+            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                double const r = rg[SMT]->r[ir], r_pow = rpow ? 1 : r;
+                printf("%g %g %g\n", r*Ang, r_pow*V_tru[ir + nr_diff]*factors, r_pow*V_smt[ir]*factors);
+            } // ir
+            printf("\n\n");
+        } // echo
+#endif
+        return stat;
+    } // pseudize_local_potential
+
     
     void update_partial_waves(int const echo=0) {
         sigma = update_sigma(echo); // change member variable with optimized sigma
@@ -1100,7 +1274,7 @@ extern "C" {
         } // echo
 
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
-        bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.0) > 0);
+        bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.) > 0);
         double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
         bool const use_energy_parameter = (energy_parameter > -9e9);
         if (use_energy_parameter) {
@@ -1377,7 +1551,7 @@ extern "C" {
                                 evec[0] = std::sin(angle);
                                 evec[1] = std::cos(angle);
                                 {
-                                    double const ovl10 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
+                                    double const ovl10 = evec[0]*c[0] + evec[1]*c[1];
                                     if (echo > 8) printf("# %s method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n", label, angle, ovl10, evec[0], evec[1]);
                                 }
                                 
@@ -1398,7 +1572,7 @@ extern "C" {
                                 evec[0] = std::sin(angle);
                                 evec[1] = std::cos(angle);
                                 {
-                                    double const ovl01 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
+                                    double const ovl01 = evec[0]*c[0] + evec[1]*c[1];
                                     if (echo > -1) printf("# method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", angle, ovl01, evec[0], evec[1]);
                                 }
                                 
@@ -2009,14 +2183,17 @@ extern "C" {
 
         // construct the zero_potential V_bar
         std::vector<double> V_smt(rg[SMT]->n);
-        set(V_smt.data(), rg[SMT]->n, full_potential[TRU][00] + nr_diff); // copy the tail of the spherical part of the true potential
         set(zero_potential.data(), rg[SMT]->n, 0.0); // init zero
+        
+//         set(V_smt.data(), rg[SMT]->n, full_potential[TRU][00] + nr_diff); // copy the tail of the spherical part of the true potential
         auto const df = Y00*eV; assert(df > 0); // display factor
-        if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
-                    label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][00][ir_cut[TRU]]*df, _eV);
-        auto const stat = pseudize_function(V_smt.data(), rg[SMT], ir_cut[SMT], 2);
+//         if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
+//                     label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][00][ir_cut[TRU]]*df, _eV);
+//         auto const stat = pseudize_function(V_smt.data(), rg[SMT], ir_cut[SMT], 2);
+        auto const stat = pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], echo, Y00); // <0> indicates that these arrays hold V(r) (not r*V(r))
+
         if (stat) {
-            if (echo > 0) printf("# %s matching procedure for the potential parabola failed! info = %d\n", label, int(stat));
+            if (echo > 0) printf("# %s matching procedure for the local potential failed! status= %d\n", label, int(stat));
         } else {
 //             if (echo > -1) printf("# local smooth zero_potential:\n");
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -2024,7 +2201,7 @@ extern "C" {
 //                 if (echo > -1) printf("%g %g\n", rg[SMT]->r[ir], zero_potential[ir]*Y00);
             } // ir
 //             if (echo > -1) printf("\n\n");
-            if (echo > 5) printf("# %s potential parabola: V_smt(0) = %g, V_smt(R_cut) = %g %s\n",
+            if (echo > 5) printf("# %s smooth potential: V_smt(0) = %g, V_smt(R_cut) = %g %s\n",
                                   label, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
             // analyze the zero potential
             double vol = 0, Vint = 0, r1Vint = 0, r2Vint = 0;

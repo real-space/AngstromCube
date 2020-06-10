@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 
 ### this is a run script that makes sure that the binary is up to date with the sources before running the executable
+exe=../src/a43
+echo "#" $exe "$@"
 
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
-(cd ../src/ && make -j)
-exe=../src/a43
-
-echo "#" $exe "$@"
-$exe "$@"
+(cd ../src/ && make -j) && $exe "$@"

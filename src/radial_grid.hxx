@@ -7,11 +7,13 @@
 #include "status.hxx" // status_t
 
 namespace radial_grid {
+
+  float constexpr default_anisotropy = 0.01;
   
   radial_grid_t* create_exponential_radial_grid( // returns a pointer to a new radial grid descriptor
       int const npoints, // number of grid points
       float const Rmax=9.45, // [optional] largest radius
-      float const anisotropy=.015); // [optional] anisotropy parameter
+      float const anisotropy=default_anisotropy); // [optional] anisotropy parameter
 
   radial_grid_t* create_equidistant_radial_grid(int const npoints, float const Rmax=9.45);
   
