@@ -392,7 +392,13 @@ namespace sigma_config {
         
         
         // fill the core
-        if (echo > 6) printf("# fill the core up to enn = %d %d %d %d for s,p,d,f\n", e->ncmx[0], e->ncmx[1], e->ncmx[2], e->ncmx[3]);
+        if (echo > 6) {
+            printf("# fill the core up to enn =");
+            for(int ell = 0; ell < 4; ++ell) {
+                printf(" %d", e->ncmx[ell]*(e->ncmx[ell] > ell)); // show zeros if there are no core electrons
+            } // ell
+            printf(" for s,p,d,f\n");
+        } // echo
         for (int ell = 0; ell < 4; ++ell) {
             for(int enn = ell + 1; enn <= e->ncmx[ell]; ++enn) {
                 int const inl = ell + (enn*(enn-1))/2; assert(ell < enn);

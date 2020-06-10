@@ -1221,7 +1221,7 @@ extern "C" {
             } // out of target range
 
             if (echo > 5) printf("# %s match local potential to sinc function at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
-                           label, r_cut*Ang, _Ang, yi[0]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
+                           label, r_cut*Ang, _Ang, yi[0]/r_cut*df*eV, _eV);
 
             if (echo > 3) printf("# %s smooth potential value of sinc-fit at origin is %g %s\n", label, (V_s*k_s + V_0)*df*eV, _eV);
             
