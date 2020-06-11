@@ -95,10 +95,12 @@ namespace simple_math {
     return 0; // not implemented (n > 4) or impossible (n < 1)
   } // determinant
 
+  float constexpr threshold = 1e-30;
+  
   template<typename real_t>
   real_t invert1x1(real_t inv[], int const is, real_t const a[], int const as=1) {
     auto const det = determinant(1, a, as);
-    if (std::abs(det) < 1e-16) return 0;
+    if (std::abs(det) < threshold) return 0;
     auto const inv_det = real_t(1)/det;
     inv[0*is + 0] = inv_det;
     return det;
@@ -107,7 +109,7 @@ namespace simple_math {
   template<typename real_t>
   real_t invert2x2(real_t inv[], int const is, real_t const a[], int const as=2) {
     auto const det = determinant(2, a, as);
-    if (std::abs(det) < 1e-16) return 0;
+    if (std::abs(det) < threshold) return 0;
     auto const inv_det = 1/det;
     inv[0*is + 0] =   a[1*as + 1]*inv_det;
     inv[0*is + 1] = - a[0*as + 1]*inv_det;
@@ -119,7 +121,7 @@ namespace simple_math {
   template<typename real_t>
   real_t invert3x3(real_t inv[], int const is, real_t const a[], int const as=3) {
     auto const det = determinant(3, a, as);
-    if (std::abs(det) < 1e-16) return 0;
+    if (std::abs(det) < threshold) return 0;
     auto const inv_det = real_t(1)/det;
     for(int i = 0; i < 3; ++i) {      int const i1 = (i + 1)%3, i2 = (i + 2)%3;
         for(int j = 0; j < 3; ++j) {  int const j1 = (j + 1)%3, j2 = (j + 2)%3;
@@ -143,7 +145,7 @@ namespace simple_math {
   template<typename real_t>
   real_t invert4x4(real_t inv[], int const is, real_t const a[], int const as=4) {
     auto const det = determinant(4, a, as);
-    if (std::abs(det) < 1e-16) return 0;
+    if (std::abs(det) < threshold) return 0;
     auto const inv_det = real_t(1)/det;
     for(int j = 0; j < 4; ++j) {
 	    int const j0 = 0 + (0 >= j), j1 = 1 + (1 >= j), j2 = 2 + (2 >= j);

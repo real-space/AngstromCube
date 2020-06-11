@@ -201,7 +201,7 @@ namespace sigma_config {
         std::snprintf(element_Sy, 15, "element_%s", symbol);
         auto const config = control::get(element_Sy, default_config(iZ));
 
-        if (echo > 3) printf("# for Z=%g use configuration %s=\"%s\"\n", Zcore, element_Sy, config);
+        if (echo > 3) printf("# for Z=%g use configuration +%s=\"%s\"\n", Zcore, element_Sy, config);
         // now convert config into an element_t
         auto e = new element_t;
         

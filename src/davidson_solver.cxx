@@ -249,7 +249,7 @@ namespace davidson_solver {
   } // eigensolve
 
 #ifdef  NO_UNIT_TESTS
-  // maybe explicit template instanciations needed here, ToDo
+  // maybe explicit template instantiations needed here, ToDo
   
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
