@@ -304,7 +304,7 @@ extern "C" {
             , int const nu_max=3
             , bool const atomic_valence_density=false
             , double const ionization=0
-            , int const global_atom_id=-1
+            , int32_t const global_atom_id=-1
             , int const echo=0 // logg level for this constructor method only
             ) : atom_id{global_atom_id} 
               , Z_core{Z_protons}
@@ -687,12 +687,6 @@ extern "C" {
         if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
             label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
 
-
-//         {   // construct initial smooth spherical potential
-//             set(potential[SMT].data(), rg[SMT]->n, potential[TRU].data() + nr_diff); // copy the tail of the spherical part of r*V_tru(r)
-//             if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
-//             pseudize_function(potential[SMT].data(), rg[SMT], ir_cut[SMT], 2, 1); // replace by a parabola
-//         }
         pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
         
         {   // construct an initial valence density
@@ -702,7 +696,8 @@ extern "C" {
         }
 
         int const maxit_scf = control::get("single_atom.init.scf.maxit", 1.);
-        float const mixing = 0.5f;
+        float const mixing = 0.25f; // this controls the percentage of the full_potential ...
+          // ... that is taken to relax the spherical potential from which core states and partial wave are computed
 
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# %s SCF-iteration %d\n\n", label, scf);
@@ -902,7 +897,7 @@ extern "C" {
             core_density[TRU][ir] = mix_new*new_rho + mix_old*core_density[TRU][ir];
         } // ir
         core_nuclear_energy *= -Z_core;
-        if (echo > 0) printf("# %s core density change %g e (rms %g e) energy change %g %s\n", label,
+        if (echo > 0) printf("# %s core density change %g e (rms %g e) bare Coulomb energy change %g %s\n", label,
             core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
 
         core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), 
@@ -1207,32 +1202,32 @@ extern "C" {
                 assert ('_' != c);
                 if ('e' == c) {
                     // energy parameter, vs.energy has already been set earlier
-                    if (echo > -1) printf("# %s for ell=%i nrn=%i the partial wave is constructed at energy parameter E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at energy parameter E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                 } else
                 if ('d' == c) {
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
-                    if (echo > -1) printf("# %s for ell=%i nrn=%i use an energy derivative as partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use an energy derivative as partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
 
                 } else
                 if ('*' == c) {
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy + partial_wave_energy_split[ell];
-                    if (echo > -1) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                 
                 } else
                 if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
-                    if (echo > -1) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
 
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
                     int constexpr SRA = 1;
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
-                    if (echo > -1) printf("# %s for ell=%i nrn=%i use a partial wave at E=%g %s, the %i%c-eigenvalue\n",
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E=%g %s, the %i%c-eigenvalue\n",
                                           label, ell, nrn, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
                 }
                 if (0 == nrn) previous_ell_energy = vs.energy;
@@ -1245,7 +1240,7 @@ extern "C" {
         int const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.));
         if (optimize_sigma) sigma = update_sigma(echo); // change member variable to optimized sigma
         
-        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+        if (echo > 2) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
@@ -1267,14 +1262,6 @@ extern "C" {
             } // ir
             printf("\n\n");
         } // echo
-
-//         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher
-//         bool const use_energy_derivative = (control::get("single_atom.partial.wave.energy.derivative", 1.) > 0);
-//         double const energy_parameter  = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
-//         bool const use_energy_parameter = (energy_parameter > -9e9);
-//         if (use_energy_parameter) {
-//             if (echo > 5) printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
-//         } // use_energy_parameter
         
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
@@ -1293,46 +1280,6 @@ extern "C" {
 
                 bool normalize = true, orthogonalize = false;
                 bool const use_energy_derivative = ('d' == partial_wave_char[iln]);
-#if 0                
-                if (0 == nrn) {
-                    // solve for a true valence eigenstate
-                    if (use_energy_parameter) {
-                        vs.energy = energy_parameter;
-                        int nnodes{0};
-                        // integrate outwards homogeneously
-                        radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
-                    } else {
-                        radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU], r2rho.data());
-                        if (echo > 7) printf("# %s %s found a true %i%c-eigenstate of the spherical potential at E=%g %s\n",
-                                              label, __func__, vs.enn, ellchar[ell], vs.energy*eV,_eV);
-                    } // use_energy_parameter
-                } else {
-                    assert(nrn > 0);
-
-                    if (use_energy_derivative) {
-                        // choose Psi_1 as energy derivative:
-                        // solve inhomogeneous equation (H - E) Psi_1 = Psi_0
-                        vs.energy = partial_wave[iln - 1].energy; // same energy parameter as for Psi_0
-                        std::vector<double> ff(rg[TRU]->n), inh(rg[TRU]->n);
-                        product(inh.data(), rg[TRU]->n, partial_wave[iln - 1].wave[TRU], rg[TRU]->r);
-                        double dg;
-                        if (echo > -1) printf("# %s for ell=%i use energy derivative at E= %g %s\n", label, ell, vs.energy*eV, _eV);
-                        radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU].data(), ell, vs.energy,
-                                                                   vs.wave[TRU], ff.data(), -1, &dg, inh.data());
-                        // and T Psi_1 = (E - V) Psi_1 + Psi_0 for the kinetic part later
-                        normalize = false;
-                        orthogonalize = true;
-
-                    } else {
-                        vs.energy = (use_energy_parameter ? energy_parameter : partial_wave[iln - 1].energy) + nrn*excited_energy;
-                        if (echo > -1) printf("# %s for ell=%i nrn=%i use a second partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
-                        int nnodes{0};
-                        // integrate outwards homogeneously
-                        radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
-                    } // how to construct a second tru partial wave?
-                    
-                } // bound state?
-#else
                 if (use_energy_derivative) {
                     // choose Psi_1 as energy derivative:
                     // solve inhomogeneous equation (H - E) Psi_1 = Psi_0
@@ -1340,7 +1287,7 @@ extern "C" {
                     std::vector<double> ff(rg[TRU]->n), inh(rg[TRU]->n);
                     product(inh.data(), rg[TRU]->n, partial_wave[iln - 1].wave[TRU], rg[TRU]->r);
                     double dg;
-                    if (echo > -1) printf("# %s for ell=%i use energy derivative at E= %g %s\n", label, ell, vs.energy*eV, _eV);
+                    if (echo > 1) printf("# %s for ell=%i use energy derivative at E= %g %s\n", label, ell, vs.energy*eV, _eV);
                     radial_integrator::integrate_outwards<SRA>(*rg[TRU], potential[TRU].data(), ell, vs.energy,
                                                                 vs.wave[TRU], ff.data(), -1, &dg, inh.data());
                     // and T Psi_1 = (E - V) Psi_1 + Psi_0 for the kinetic part later
@@ -1351,14 +1298,13 @@ extern "C" {
                     // integrate outwards homogeneously
                     radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
                 } // use_energy_derivative
-#endif
 
                 if (nrn > 0 && orthogonalize) {
                         auto const psi0 = partial_wave[iln - 1].wave[TRU];
                         double const d = dot_product(nr, vs.wave[TRU], psi0, rg[TRU]->rdr);
                         double const d2 = dot_product(nr, psi0, psi0, rg[TRU]->r2dr);
                         double const p = -d/d2; // projection part
-                        if (echo > -1) printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
+                        if (echo > 1) printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
                         add_product(vs.wave[TRU], nr, psi0, rg[TRU]->r, p);
                 } // orthogonalize
                 
@@ -1389,7 +1335,7 @@ extern "C" {
 
 //                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
 //                 if (prelim_waves & (1 << ell)) {
-//                     if (echo > -1) printf("# %s for ell=%i create a smooth partial wave by pseudization of the true partial wave\n", label, ell);
+//                     if (echo > 1) printf("# %s for ell=%i create a smooth partial wave by pseudization of the true partial wave\n", label, ell);
 //                 } // preliminary partial waves
                 
 
@@ -1588,7 +1534,7 @@ extern "C" {
                                 evec[1] = std::cos(angle);
                                 {
                                     double const ovl01 = evec[0]*c[0] + evec[1]*c[1];
-                                    if (echo > -1) printf("# method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", angle, ovl01, evec[0], evec[1]);
+                                    if (echo > 1) printf("# method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", angle, ovl01, evec[0], evec[1]);
                                 }
                                 
                             } // if nrn > 0
@@ -2215,12 +2161,12 @@ extern "C" {
         if (stat) {
             if (echo > 0) printf("# %s matching procedure for the local potential failed! status= %d\n", label, int(stat));
         } else {
-//             if (echo > -1) printf("# local smooth zero_potential:\n");
+//             if (echo > 1) printf("# local smooth zero_potential:\n");
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 zero_potential[ir] = V_smt[ir] - full_potential[SMT][00][ir];
-//                 if (echo > -1) printf("%g %g\n", rg[SMT]->r[ir], zero_potential[ir]*Y00);
+//                 if (echo > 1) printf("%g %g\n", rg[SMT]->r[ir], zero_potential[ir]*Y00);
             } // ir
-//             if (echo > -1) printf("\n\n");
+//             if (echo > 1) printf("\n\n");
             if (echo > 5) printf("# %s smooth potential: V_smt(0) = %g, V_smt(R_cut) = %g %s\n",
                                   label, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
             // analyze the zero potential
@@ -2266,9 +2212,9 @@ extern "C" {
         int const nln = sho_tools::nSHO_radial(numax);
         int const nSHO = sho_tools::nSHO(numax);
         int const nlmn = nSHO;
-        initialize_Gaunt();
+        initialize_Gaunt(); // make sure the Gaunt tensor is precomputed
 
-        // first generate the matrix elemnts in the valence basis
+        // first generate the matrix elements in the valence basis
         //    overlap[iln][jln] and potential_lm[iln][jln]
         // then, generate the matrix elements in the radial representation
         //    overlap[ilmn][jlmn] and hamiltonian[ilmn][jlmn]
@@ -2277,7 +2223,17 @@ extern "C" {
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
         //    overlap[iSHO][jSHO] and hamiltonian[iSHO][jSHO]
 
-        view4D<double> potential_ln(nlm, TRU_AND_SMT, nln, nln); // get memory, // emm1-emm2-degenerate
+        if (echo > 19) {
+            printf("\n\n## %s compare potentials (Bohr, Ha, Ha, Ha, Ha) r, r*V_tru[00](r), r*V_smt[00](r), r*V_tru(r), r*V_smt(r):\n", label);
+            for(int ir = 1; ir < rg[SMT]->n; ++ir) {
+                double const r = rg[SMT]->r[ir];
+                printf("%g %g %g %g %g\n", r, r*full_potential[TRU][00][ir + nr_diff]*Y00,
+                    r*full_potential[SMT][00][ir]*Y00, potential[TRU][ir + nr_diff], potential[SMT][ir]);
+            } // ir
+            printf("\n\n");
+        } // echo
+
+        view4D<double> potential_ln(nlm, TRU_AND_SMT, nln, nln, 0.0); // get memory, // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
             std::vector<double> wave_pot_r2dr(nr);
@@ -2297,10 +2253,9 @@ extern "C" {
             } // ell
         } // ts: true and smooth
 
-        view2D<double> hamiltonian_lmn(nlmn, nlmn); // get memory
-        view2D<double> overlap_lmn(nlmn, nlmn);
-        set(hamiltonian_lmn, nlmn, 0.0); // clear
-        set(overlap_lmn,     nlmn, 0.0); // clear
+        view2D<double> hamiltonian_lmn(nlmn, nlmn, 0.0); // get memory
+        view2D<double>     overlap_lmn(nlmn, nlmn, 0.0);
+
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
             if (00 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
@@ -2327,8 +2282,8 @@ extern "C" {
             int const ilm = lm_index_list[ilmn];
             if (echo > 7) printf("# %s hamiltonian elements for ilmn=%3i  ", label, ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                int const jlm = lm_index_list[jlmn];
                 int const jln = ln_index_list[jlmn];
+                int const jlm = lm_index_list[jlmn];
                 if (ilm == jlm) {
                     hamiltonian_lmn[ilmn][jlmn] += ( kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln) );
                     overlap_lmn[ilmn][jlmn] =
@@ -2407,8 +2362,8 @@ extern "C" {
         transform_SHO(    overlap.data(),     overlap.stride(),     overlap_lmn.data(),     overlap_lmn.stride(), false);
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
-      
-        if (echo > 1) {
+
+        if (echo > 8) {
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                        label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
