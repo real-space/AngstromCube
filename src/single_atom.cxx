@@ -609,7 +609,6 @@ extern "C" {
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), enn, ell, E, vs.wave[TRU]);
                         vs.energy = E;
 
-
                         {
                             int const ics = as_valence[inl]; // index of the corresponding spherical state
     //                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
@@ -622,17 +621,20 @@ extern "C" {
                         }
                         if (echo > 0) printf("# %s valence %2d%c%6.1f E=%16.6f %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
 
-                        partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
                             partial_wave_char[iln] = 'e';
                         } else
-                        if (nrn > 0) {
-                            partial_wave_char[iln] = (energy_derivative == partial_wave_energy_split[ell]) ? 'd' : '*';
-                        } else
-                        if (occ <= 0) {
-                            partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
+                        if (occ > 0) {
+                            partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
+                        } else {
+                            if (nrn > 0) {
+                                partial_wave_char[iln] = (energy_derivative == partial_wave_energy_split[ell]) ? 'd' : '*';
+                            } else {
+                                if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0");
+                                if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
+                            }
                         }
 
                     } else { // nrn < nn[ell]
