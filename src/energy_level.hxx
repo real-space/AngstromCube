@@ -19,5 +19,5 @@
       int8_t c0s1v2; // 0:core, 1:semicore, 2:valence, -1:undefined
   }; // struct energy_level
 
-  typedef struct energy_level<1> core_level_t; // Pseudo=1: spherical states, e.g. core states, only a TRU wave is stored
-  typedef struct energy_level<TRU_AND_SMT> valence_level_t; // Pseudo=2: states with a smooth conterpart, e.g. partial waves describing valence states
+  typedef struct energy_level<1> spherical_orbital_t; // Pseudo=1: spherical states, e.g. core states, only a TRU wave is stored
+  typedef struct energy_level<TRU_AND_SMT> partial_wave_t; // Pseudo=2: states with a smooth conterpart, e.g. partial waves describing valence states

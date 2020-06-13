@@ -1,3 +1,9 @@
+#ifndef DEVEL
+/*
+ *  Make sure to modify this file in the development branch
+ */
+#endif
+
 #include <cstdio> // printf
 #include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
@@ -18,7 +24,7 @@
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
 #include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
-#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, core_level_t, valence_level_t
+#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, spherical_orbital_t, partial_wave_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
 #include "simple_math.hxx" // invert
@@ -136,7 +142,7 @@ extern "C" {
     void add_or_project_compensators(
     	  view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
     	, double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
-    	, int const lmax	   // cutoff for anuular momentum expansion
+    	, int const lmax	   // cutoff for angular momentum expansion
     	, radial_grid_t const *rg // radial grid despriptor
     	, double const sigma   // spread_compensator
     	, int const echo=0     // log output level
@@ -254,7 +260,7 @@ extern "C" {
       int8_t numax; // limit of the SHO projector quantum numbers
       double sigma, sigma_inv; // spread of the SHO projectors and its inverse
       uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
-      std::vector<valence_level_t> partial_wave;
+      std::vector<partial_wave_t> partial_wave;
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
@@ -272,7 +278,7 @@ extern "C" {
 
       // spin-resolved members
       double csv_charge[3];
-      std::vector<core_level_t> core_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
+      std::vector<spherical_orbital_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       std::vector<double> core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
       float mix_spherical_valence_density; // 1.f: use the spherical valence density only, 0.f: use the valence density from partial waves, mixtures possible.
       std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor, in use?
@@ -302,7 +308,7 @@ extern "C" {
     // constructor method:
     LiveAtom(double const Z_protons
             , int const nu_max=3
-            , bool const atomic_valence_density=false
+            , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
             , double const ionization=0
             , int32_t const global_atom_id=-1
             , int const echo=0 // logg level for this constructor method only
@@ -333,10 +339,10 @@ extern "C" {
         double custom_occ[32];
         set(custom_occ, 32, 0.0);
         set(nn, 1+ELLMAX+2, uint8_t(0)); // clear
-        char const custom_config = *(control::get("single_atom.from.sigma.config", "0"));
+        bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
-        
-        if ('1' == custom_config) {
+
+        if (custom_config) {
             if (echo > 0) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec = sigma_config::get(Z_core, echo);
             if (echo > 0) printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
@@ -349,7 +355,7 @@ extern "C" {
             numax = -1;
             for(int ell = 0; ell < 8; ++ell) {
                 if (ec.nn[ell] > 0) {
-                    nn[ell] = std::min(int(ec.nn[ell]), nn_limiter); // take a smaller numer of partial waves
+                    nn[ell] = std::min(int(ec.nn[ell]), nn_limiter); // take a smaller number of partial waves
                     int const numaxmin = 2*nn[ell] - 2 + ell; // this is the minimum numax that we need to get ec.nn[ell]
                     numax = std::max(int(numax), numaxmin);
                 } // nn > 0
@@ -359,7 +365,7 @@ extern "C" {
             } // inl
 
         } else {
-            // defaults:
+            // single_atom.config=auto
             r_cut = 2.0; // Bohr
             sigma = 0.61; // Bohr, spread for projectors (Cu)
             numax = nu_max; // 3; // 3:up to f-projectors
@@ -404,14 +410,15 @@ extern "C" {
         auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo);
         if (load_stat) error("loading of potential file failed for Z=%g", Z_core);
           
-
-//         // show the loaded Zeff(r)
-//         if (echo > 0) {
-//            printf("\n## loaded Z_eff(r) function:\n");
-//            for(int ir = 0; ir < rg[TRU]->n; ++ir) {
-//                printf("%.15g %.15g\n", rg[TRU]->r[ir], -potential[TRU][ir]);
-//            } // ir
-//         } // echo
+#ifdef DEVEL
+        // show the loaded Zeff(r)
+        if (echo > 33) {
+           printf("\n## loaded Z_eff(r) function:\n");
+           for(int ir = 0; ir < rg[TRU]->n; ++ir) {
+               printf("%.15g %.15g\n", rg[TRU]->r[ir], -potential[TRU][ir]);
+           } // ir
+        } // echo
+#endif
 
         std::vector<int8_t> as_valence(96, -1);
         int8_t enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; // enn-QN of the highest occupied core level
@@ -434,10 +441,10 @@ extern "C" {
         ncorestates = 20; // maximum number
         true_core_waves = view3D<double>(2, ncorestates, nrt, 0.0); // get memory for the true radial wave functions and kinetic waves
         int constexpr SRA = 1;
-        core_state = std::vector<core_level_t>(ncorestates);
+        spherical_state = std::vector<spherical_orbital_t>(ncorestates);
         {
             for(int ics = 0; ics < ncorestates; ++ics) {
-                core_state[ics].c0s1v2 = -1; // -1:undefined
+                spherical_state[ics].c0s1v2 = -1; // -1:undefined
             } // ics
             
             int ics = 0, highest_occupied_core_state_index = -1; 
@@ -447,7 +454,7 @@ extern "C" {
                 for(int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character l
                     ++enn; // update principal quantum number
                     for(int jj = 2*ell; jj >= 2*ell; jj -= 2) { // total angular momentum j
-                        auto &cs = core_state[ics]; // abbreviate
+                        auto & cs = spherical_state[ics]; // abbreviate (former "core" state) 
                         cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                         cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
                         
@@ -526,7 +533,7 @@ extern "C" {
                 } // ell
             } // nq_aux
             ncorestates = highest_occupied_core_state_index + 1; // correct the number of core states to those occupied
-            core_state.resize(ncorestates); // destruct unused core states
+            spherical_state.resize(ncorestates); // destruct unused core states
         } // core states
 
         double const total_n_electrons = csv_charge[0] + csv_charge[1] + csv_charge[2];
@@ -563,9 +570,13 @@ extern "C" {
         partial_waves[TRU] = view3D<double>(2, nln, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
         partial_waves[SMT] = view3D<double>(2, nln, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         
-        set(partial_wave_char, 32, '\0'); 
+        set(partial_wave_char, 32, '\0'); // init partial wave characteristic
+        
         double constexpr energy_derivative = -8.0;
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher, special function for -8.0:energy derivative
+#ifndef DEVEL
+        if (energy_derivative == excited_energy) warn("energy derivative for partial wave only with -D DEVEL");
+#endif
         set(partial_wave_energy_split, 8, excited_energy);
         
         double const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
@@ -574,16 +585,14 @@ extern "C" {
             if (echo > 5) printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
         } // use_energy_parameter
 
-        partial_wave = std::vector<valence_level_t>(nln);
+        partial_wave = std::vector<partial_wave_t>(nln);
         {
-//          if (echo > 0) printf("# valence "); // no new line, compact list follows
             for(int ell = 0; ell <= numax; ++ell) {
-//              for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                 for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     assert(iln < nln);
-                    auto &vs = partial_wave[iln]; // abbreviate
+                    auto & vs = partial_wave[iln]; // abbreviate (former "valence" state)
                     int const enn = std::max(ell + 1, int(enn_core_ell[ell]) + 1) + nrn;
 //                  if (echo > 0) printf(" %d%c", enn, ellchar[ell]);
                     vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
@@ -601,7 +610,7 @@ extern "C" {
                     vs.wKin[SMT] = partial_waves[SMT](1,iln); // the smooth kinetic energy
                     vs.wKin[TRU] = partial_waves[TRU](1,iln); // the true kinetic energy
 
-                    int const inl = atom_core::nl_index(enn, ell);
+                    int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
                     double occ{custom_occ[inl]};
                     if (nrn < nn[ell]) {
                         double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
@@ -611,36 +620,41 @@ extern "C" {
 
                         {
                             int const ics = as_valence[inl]; // index of the corresponding spherical state
-    //                      printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
+//                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                             if (ics >= 0) { // atomic eigenstate was marked as valence
-                                occ = core_state[ics].occupation; //
+                                occ = spherical_state[ics].occupation; //
                                 vs.occupation = occ;
                                 if (occ > 0 && echo > 3) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
                                         " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
                             } // ics
                         }
                         if (echo > 0) printf("# %s valence %2d%c%6.1f E=%16.6f %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
-
                         
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
                             partial_wave_char[iln] = 'e';
-                        } else
+                        } else // use_energy_parameter
                         if (occ > 0) {
                             partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
-                        } else {
+                        } else { // occ > 0
                             if (nrn > 0) {
-                                partial_wave_char[iln] = (energy_derivative == partial_wave_energy_split[ell]) ? 'd' : '*';
-                            } else {
+                                partial_wave_char[iln] = '*';
+#ifdef DEVEL
+                                if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
+#endif
+                                if ('*' == partial_wave_char[iln] && std::abs(partial_wave_energy_split[ell]) < 1e-3) {
+                                    warn("%s partial wave energy split for ell=%i is small (%g %s)",
+                                        label, ell, partial_wave_energy_split[ell]*eV, _eV);
+                                } // |dE| small
+                            } else { // nrn > 0
                                 if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0");
                                 if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
-                            }
-                        }
+                            } // nrn > 0
+                        } // occ > 0
 
                     } else { // nrn < nn[ell]
-                        partial_wave_char[iln] = '_'; // 'd':energy derivative, 'e': energy parameter, '1', '2', ... for eigenstates, '_':not used
-                    }
-                    
+                        partial_wave_char[iln] = '_';
+                    } // nrn < nn[ell]
 
                 } // nrn
             } // ell
@@ -671,10 +685,11 @@ extern "C" {
         overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
         unitary_Ezyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
-        {   sho_unitary::Unitary_SHO_Transform<double> const u(numax);
+        { // scope: fill the Unitary_SHO_Transform with values from a file
+            sho_unitary::Unitary_SHO_Transform<double> const u(numax);
             auto const stat = u.construct_dense_matrix(unitary_Ezyx_lmn.data(), numax, nSHO, sho_tools::order_Ezyx, sho_tools::order_lmn);
             assert(0 == int(stat));
-        } // scope to fill unitary
+        } // scope
 
         int const mlm = pow2(1 + numax);
         ln_index_list.resize(nSHO);
@@ -684,7 +699,7 @@ extern "C" {
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), echo);
 
         logder_energy_range[0] = control::get("logder.start", -2.0);
-        logder_energy_range[1] = control::get("logder.step",  1e-2); // ToDo: these should be moved to the main function
+        logder_energy_range[1] = control::get("logder.step",  1e-2); // ToDo: these getter calls should be moved to the main function
         logder_energy_range[2] = control::get("logder.stop",   1.0);
         if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
             label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
@@ -693,7 +708,7 @@ extern "C" {
         
         {   // construct an initial valence density
             spherical_valence_charge_deficit = pseudize_spherical_density(
-                spherical_valence_density[SMT].data(), 
+                spherical_valence_density[SMT].data(),
                 spherical_valence_density[TRU].data(), "spherical valence", echo);
         }
 
@@ -709,6 +724,7 @@ extern "C" {
             update_potential(mixing, ves_multipoles, echo);
         } // self-consistency iterations
 
+#ifdef DEVEL
         // show the smooth and true potential
         if (false && (echo > 0)) {
             printf("\n## %s spherical parts: r, "
@@ -745,7 +761,7 @@ extern "C" {
                 auto const f = r; // scale with r? scale with Y00?
                 printf("%g ", r);
                 for(int ics = 0; ics < ncorestates; ++ics) {
-                    printf("   %g", core_state[ics].wave[TRU][ir + nr_diff]*f);
+                    printf("   %g", spherical_state[ics].wave[TRU][ir + nr_diff]*f);
                 } // ics
                 for(int iln = 0; iln < nln; ++iln) {
                     printf("   %g %g", partial_wave[iln].wave[TRU][ir + nr_diff]*f
@@ -755,7 +771,7 @@ extern "C" {
             } // ir
             printf("\n\n\n\n");
         } // echo
-
+#endif
     } // constructor
 
     ~LiveAtom() { // destructor
@@ -764,10 +780,10 @@ extern "C" {
     } // destructor
 
     status_t initialize_Gaunt() {
-      if (gaunt_init) return 0; // success
-      auto const stat = angular_grid::create_numerical_Gaunt<6>(gaunt);
-      gaunt_init = (0 == int(stat));
-      return stat;
+        if (gaunt_init) return 0; // success
+        auto const stat = angular_grid::create_numerical_Gaunt<6>(gaunt);
+        gaunt_init = (0 == int(stat));
+        return stat;
     } // initialize_Gaunt
 
     void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[],
@@ -816,7 +832,7 @@ extern "C" {
         return charge_deficit;
     } // pseudize_spherical_density
     
-    void update_core_states(float const mixing, int const echo=0) {
+    void update_spherical_states(float const mixing, int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
@@ -831,9 +847,9 @@ extern "C" {
             print_compressed(rg[TRU]->r, potential[TRU].data(), rg[TRU]->n);
         } // echo
 #endif
-        for(int ics = 0; ics < ncorestates; ++ics) {
-            auto & cs = core_state[ics]; // abbreviate
-            int constexpr SRA = 1; // 1:scalar relativistic approximation
+        int constexpr SRA = 1; // 1:scalar relativistic approximation
+        for(int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2core_density, +:new_r2valence_density)
+            auto & cs = spherical_state[ics]; // abbreviate
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
@@ -906,11 +922,12 @@ extern "C" {
                               core_density[TRU].data(), "core", echo - 1); 
         spherical_valence_charge_deficit = pseudize_spherical_density(spherical_valence_density[SMT].data(),
                               spherical_valence_density[TRU].data(), "spherical valence", echo - 1); 
-    } // update_core_states
+    } // update_spherical_states
 
+#ifdef DEVEL
     double update_sigma(int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
-        
+
         double const sigma_old = sigma;
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
@@ -1066,7 +1083,8 @@ extern "C" {
         return sigma_opt; // use the optimized sigma from here on
         
     } // update_sigma
-        
+#endif
+
     template <int rpow>
     status_t pseudize_local_potential(double V_smt[], double const V_tru[], int const echo=0, double const df=1) { // df=display_factor
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
@@ -1192,8 +1210,8 @@ extern "C" {
 
     
     void update_energy_parameters(int const echo=0) {
-        if (echo > 1) printf("\n# %s %s Z=%g chars=\"%s\"\n", label, __func__, Z_core, partial_wave_char);
-        
+        if (echo > 1) printf("\n# %s %s Z=%g partial wave characteristics=\"%s\"\n", label, __func__, Z_core, partial_wave_char);
+
         double previous_ell_energy{0};
         for(int ell = 0; ell <= numax; ++ell) { // loop runs serial, loop-carried dependency on previous_ell_energy
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
@@ -1206,12 +1224,15 @@ extern "C" {
                     // energy parameter, vs.energy has already been set earlier
                     if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at energy parameter E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
                 } else
-                if ('d' == c) {
+                if ('D' == c) {
+#ifdef DEVEL                  
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
                     if (echo > 3) printf("# %s for ell=%i nrn=%i use an energy derivative as partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
-
+#else
+                    error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
+#endif
                 } else
                 if ('*' == c) {
                     assert(nrn > 0);
@@ -1222,14 +1243,14 @@ extern "C" {
                 if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, copy %c-energy\n", label, ell, nrn, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
 
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
                     int constexpr SRA = 1;
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E=%g %s, the %i%c-eigenvalue\n",
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, the %i%c-eigenvalue\n",
                                           label, ell, nrn, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
                 }
                 if (0 == nrn) previous_ell_energy = vs.energy;
@@ -1239,8 +1260,15 @@ extern "C" {
     } // update_energy_parameters
     
     void update_partial_waves(int const echo=0) {
-        int const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.));
-        if (optimize_sigma) sigma = update_sigma(echo); // change member variable to optimized sigma
+        int const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.)); // 0:no, 1:use optimize, -1:optimize and display only
+#ifdef DEVEL
+        if (optimize_sigma) {
+            auto const sigma_opt = update_sigma(echo); // run optimization
+            if (optimize_sigma > 0) sigma = sigma_opt; // change member variable to optimized sigma
+        }
+#else
+        warn("single_atom.optimize.sigma active only with -D DEVEL");
+#endif
         
         if (echo > 2) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
@@ -1256,7 +1284,7 @@ extern "C" {
                                 radial_grid::find_grid_index(*rg[SMT], r_match)};
         if (echo > 3) printf("# %s matching radius %g %s at radial indices %i and %i\n",
                                label, r_match*Ang, _Ang, ir_match[TRU], ir_match[SMT]);
-
+#ifdef DEVEL
         if (echo > 9) {
             printf("\n## %s show the local potentials (r, r*Vtru, r*Vsmt):\n", label);
             for(int ir = 1; ir < rg[SMT]->n; ++ir) {
@@ -1264,7 +1292,8 @@ extern "C" {
             } // ir
             printf("\n\n");
         } // echo
-        
+#endif
+
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
 
@@ -1280,6 +1309,9 @@ extern "C" {
 
                 set(vs.wave[TRU], nr, 0.0); // clear
 
+#ifndef DEVEL
+                bool const normalize = true;
+#else
                 bool normalize = true, orthogonalize = false;
                 bool const use_energy_derivative = ('d' == partial_wave_char[iln]);
                 if (use_energy_derivative) {
@@ -1295,12 +1327,15 @@ extern "C" {
                     // and T Psi_1 = (E - V) Psi_1 + Psi_0 for the kinetic part later
                     normalize = false;
                     orthogonalize = true;
-                } else {
+                } else
+#endif
+                {
                     int nnodes{0};
-                    // integrate outwards homogeneously
+                    // integrate SRA equation (^T + V(r) - E) phi(r) = 0 outwards homogeneously
                     radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, vs.energy, nnodes, vs.wave[TRU], r2rho.data());
-                } // use_energy_derivative
+                }
 
+#ifdef DEVEL
                 if (nrn > 0 && orthogonalize) {
                         auto const psi0 = partial_wave[iln - 1].wave[TRU];
                         double const d = dot_product(nr, vs.wave[TRU], psi0, rg[TRU]->rdr);
@@ -1309,7 +1344,7 @@ extern "C" {
                         if (echo > 1) printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
                         add_product(vs.wave[TRU], nr, psi0, rg[TRU]->r, p);
                 } // orthogonalize
-                
+#endif
                 // scope: divide by r and normalize the partial waves
                 {   double norm_factor{1};
                     if (normalize) {
@@ -1322,10 +1357,11 @@ extern "C" {
                 // create wKin for the computation of the kinetic energy density
                 product(vs.wKin[TRU], nr, potential[TRU].data(), vs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
                 add_product(vs.wKin[TRU], nr, rg[TRU]->r, vs.wave[TRU], vs.energy); // now wKin = r*(E - V(r))*wave(r)
+#ifdef DEVEL
                 if (use_energy_derivative && nrn > 0) {
                     add_product(vs.wKin[TRU], nr, rg[TRU]->r, partial_wave[iln - 1].wave[TRU]); // now wKin = r*(E - V(r))*wave(r) + r*psi0
                 } // kinetic energy wave in the case of energy derivative has an extra term
-
+#endif
 //                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho.data(), rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
 //                 auto const work = r2rho.data();
 //                 scale(work, nr, potential[TRU].data());
@@ -1358,6 +1394,7 @@ extern "C" {
                     for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
                         auto projector = (krn > HOM) ? projectors_ell[krn - 1] : nullptr;
+#ifdef DEVEL
                         std::vector<double> rhs;
                         if (use_energy_derivative && nrn > 0 && krn > HOM) {
                             rhs = std::vector<double>(stride);
@@ -1365,6 +1402,7 @@ extern "C" {
                             projector = rhs.data(); // use as inhomogeneiety
                             // comment: this will be 2x the same solution, for krn==1 and krn==2, code results from a quick fix
                         }
+#endif
 
                         double dg; // derivative at end point
                         // solve inhomgeneous equation and match true wave in value and derivative
@@ -1387,6 +1425,7 @@ extern "C" {
                             scale(rphi[krn], rg[SMT]->n, rg[SMT]->rinv, scal); // scale and divide by r
                             // ToDo: extrapolate lowest point?
 
+#ifdef DEVEL
                             if (use_energy_derivative && nrn > 0) {
                                 // (T + V - E) phi_0 = linear combinartion of projectors
                                 // (T + V - E) phi_1 = phi_0 
@@ -1398,7 +1437,9 @@ extern "C" {
                                 if (echo > 1) printf("# %s generate Tphi with inhomogeneiety\n", label);
                                 // seems like the tails of TRU and SMT wave and wKin are deviating slightly beyond r_match
 
-                            } else {
+                            } else 
+#endif                          
+                            {
                                 // Tphi = (E - V)*phi + projector
                                 for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                                     Tphi[krn][ir] = (vs.energy*rg[SMT]->r[ir] - potential[SMT][ir])*rphi[krn][ir] + scal*projector[ir];
@@ -1428,10 +1469,11 @@ extern "C" {
 
                     char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
                     char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+                    char const method = *control::get("single_atom.partial.wave.method", "m");
+#ifdef DEVEL
                     char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
                     char const orthogonalize_first = '1';       // ToDo
-                    
-                    char const method = *control::get("single_atom.partial.wave.method", "m");
+#endif                    
 
                     std::vector<double> evec(n, 0.0);
                     evec[nrn] = 1.0; // this is everything that needs to be done for method=='e' 
@@ -1492,6 +1534,7 @@ extern "C" {
                             } // scope
 
                         } else // method
+#ifdef DEVEL
                         if (method == orthogonalize_second) {
                          
                             if (nrn > 0) { // only the second
@@ -1541,9 +1584,12 @@ extern "C" {
                                 
                             } // if nrn > 0
 
-                        } // method
+                        } else // method
+#endif                          
+                        if (method == energy_ordering) {
+                            assert(1 == evec[nrn]);
+                        }
                     } // n > 1 more than one partial wave
-                    if (method == energy_ordering) assert(1 == evec[nrn]);
 
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
@@ -1566,10 +1612,7 @@ extern "C" {
                         printf("\n\n");
                     } // echo
 
-//                  if (echo > 8) { printf("# fflush(stdout) in line %i\n", __LINE__ + 1); fflush(stdout); }
-
                 } // scope
-
 
             } // nrn
 
@@ -1579,6 +1622,7 @@ extern "C" {
                 // int const stride = align<2>(rg[SMT]->n);
                 int const msub = (1 + numax/2); // max. size of the subspace
 
+#ifdef DEVEL                
                 if (echo > 24) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
@@ -1587,14 +1631,15 @@ extern "C" {
                         } // krn
                     } // nrn
                 } // echo
-
+#endif
+                
                 view2D<double> ovl(msub, msub); // get memory
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
                     auto const wave = partial_wave[iln].wave[SMT];
                     for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
                         ovl[nrn][krn] = dot_product(nr, wave, projectors_ell[krn], rg[SMT]->rdr);
-                        if (echo > 2) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n",
+                        if (echo > 4) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n",
                                                label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
                     } // krn
                 } // nrn
@@ -1625,22 +1670,24 @@ extern "C" {
                     } // nrn
                 } // ts in {tru, smt}
 
+#ifdef DEVEL                
                 if (n > 0) { // scope: check the overlap again
+                    view2D<double> ovl_new(msub, msub); // get memory
                     double dev{0}; // largest deviations from unity
                     for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                         int const iln = ln_off + nrn;
                         auto const wave = partial_wave[iln].wave[SMT];
                         for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
-                            ovl[nrn][krn] = dot_product(nr, wave, projectors_ell[krn], rg[SMT]->rdr);
+                            ovl_new[nrn][krn] = dot_product(nr, wave, projectors_ell[krn], rg[SMT]->rdr);
                             if (echo > 7) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n",
-                                                  label, ellchar[ell], nrn, ellchar[ell], krn, ovl[nrn][krn]);
-                            dev = std::max(dev, std::abs(ovl[nrn][krn] - (nrn == krn)));
+                                                  label, ellchar[ell], nrn, ellchar[ell], krn, ovl_new[nrn][krn]);
+                            dev = std::max(dev, std::abs(ovl_new[nrn][krn] - (nrn == krn)));
                         } // krn
                     } // nrn
                     if (echo > 2) printf("# %s after orthogonalization <partial waves|projectors> deviates max. %.1e from unity matrix\n", label, dev);
                     if (dev > 1e-12) warn("%s duality violated, deviates %g from unity", label, dev);
                 } // scope
-
+                
                 if (echo > 15) {
                     for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                         auto const & vs = partial_wave[ln_off + nrn];
@@ -1654,6 +1701,7 @@ extern "C" {
                         printf("\n\n");
                     } // nrn
                 } // echo
+#endif
 
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -1667,6 +1715,7 @@ extern "C" {
                     } // i
                 } // ts
 
+#ifdef DEVEL       
                 // display
                 for(int i = 0; i < n; ++i) {
                     for(int j = 0; j < n; ++j) {
@@ -1676,6 +1725,7 @@ extern "C" {
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
+#endif
 
                 if (1) { // symmetrize the kinetic energy tensor
                     for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
@@ -1705,6 +1755,7 @@ extern "C" {
                     } // i
                 } // symmetrization active?
 
+#ifdef DEVEL                
                 // display
                 for(int i = 0; i < n; ++i) {
                     for(int j = 0; j < n; ++j) {
@@ -1714,6 +1765,7 @@ extern "C" {
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
+#endif               
 
             } // scope: establish dual orthgonality with [SHO] projectors
 
@@ -1784,7 +1836,8 @@ extern "C" {
             } // emm
         } // ell
 
-        if (echo > 3) {
+#ifdef DEVEL        
+        if (echo > 3) { // display
             printf("# %s ln_index_list ", label);
             for(int i = 0; i < sho_tools::nSHO(numax); ++i) {
                 printf(" %i", ln_index_list[i]);
@@ -1798,7 +1851,7 @@ extern "C" {
                 }
             }   printf("\n");
         } // echo
-
+#endif
     } // get_valence_mapping
 
 
@@ -1867,6 +1920,7 @@ extern "C" {
 
         } // in_Cartesian
 
+#ifdef DEVEL        
 // now using BLAS            ToDo!
 //         void dgemm_(const char* tA, const char* tB, const int* M, const int* N, const int* K, const double* alpha,
 //               const double* A, const int* sA, const double* B, const int* sB, const double* beta, double* C, const int* sC);
@@ -1874,7 +1928,7 @@ extern "C" {
 
 //         dgemm_(&tn, &nn, &N, &N, &N, &alpha, uni.data(), &N, in, &in_stride, &beta, tmp, &N);
 //         dgemm_(&nn, &nt, &N, &N, &N, &alpha, tmp, &N, uni.data(), &N, &beta, out, &out_stride);
-
+#endif
     } // transform_SHO
 
     void get_rho_tensor(view3D<double> & density_tensor
@@ -1914,10 +1968,14 @@ extern "C" {
                 assert(maxdev < 1e-9);
             } // debugging
             
-        } else if (sho_tools::order_lmn == order) {
+        } else 
+        if (sho_tools::order_lmn == order) {
             radial_density_matrix = view2D<double>(density_matrix.data(), density_matrix.stride()); // wrap
+        } else { 
+            error("%s should be in either order_Ezyx or order_lmn", label);
         }
 
+#ifdef DEVEL        
         if (0) {
             printf("# %s Radial density matrix\n", label);
             for(int i = 0; i < nSHO; ++i) {
@@ -1926,7 +1984,7 @@ extern "C" {
                 }   printf("\n");
             }   printf("\n");
         } // plot
-
+#endif
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix[il_1m_1n_1][jl_2m_2n_2]
@@ -1942,15 +2000,17 @@ extern "C" {
                     for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
                         density_tensor(lm,iln,jln) += G * radial_density_matrix[ilmn][jlmn];
-
+#ifdef DEVEL
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
 //                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij*Y00inv, lm, iln, jln);
+#endif                        
                     } // jlmn
                 } // ilmn
             } // limits
         } // gnt
 
+#ifdef DEVEL        
 #ifdef FULL_DEBUG
         for(int lm = 0; lm < nlm; ++lm) {
             for(int iln = 0; iln < nln; ++iln) {
@@ -1961,6 +2021,7 @@ extern "C" {
                 } // jln
             } // iln
         } // lm
+#endif
 #endif
     } // get_rho_tensor
 
@@ -1978,11 +2039,11 @@ extern "C" {
             for(int lm = 0; lm < nlm; ++lm) {
                 if (00 == lm) {
                     set(full_density[ts][lm], nr, core_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
-                    if (echo > 0) printf("# %s %s density has %g electrons after adding the core density\n", label,
+                    if (echo > 1) printf("# %s %s density has %g electrons after adding the core density\n", label,
                         (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
                     if (mix_spherical_valence_density > 0) {
                         add_product(full_density[ts][lm], nr, spherical_valence_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
-                        if (echo > 0) printf("# %s %s density has %g electrons after adding the spherical valence density\n", label,
+                        if (echo > 1) printf("# %s %s density has %g electrons after adding the spherical valence density\n", label,
                             (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
                     } // use spherical_valence_density
                 } // 00 == lm
@@ -2000,7 +2061,7 @@ extern "C" {
                     } // iln
                 } // mix_valence_density
             } // lm
-            if (echo > 0) printf("# %s %s density has %g electrons after adding the valence density\n",  label,
+            if (echo > 1) printf("# %s %s density has %g electrons after adding the valence density\n",  label,
                     (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][00], rg[ts]->r2dr)*Y00inv);
 
         } // true and smooth
@@ -2037,10 +2098,10 @@ extern "C" {
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), ellmax_compensator, rg[SMT], sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density[00]); // only aug_density[00==lm]
-            if (echo > 5) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge*Y00inv); // this value should be small
+            if (echo > 2) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge*Y00inv); // this value should be small
 
             double const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, full_density[TRU][00]); // only full_density[0==lm]
-            if (echo > 5) printf("# %s true density has %g electrons\n", label, tru_charge*Y00inv); // this value should be of the order of Z
+            if (echo > 3) printf("# %s true density has %g electrons\n", label, tru_charge*Y00inv); // this value should be of the order of Z
         } // scope
 
     } // update_full_density
@@ -2067,7 +2128,7 @@ extern "C" {
                                                           label, full_density[ts][00][0]*Y00);
                 angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax, false);
                 // envoke the exchange-correlation potential (acts in place)
-    //          printf("# envoke the exchange-correlation on angular grid\n");
+//              if (echo > 7) printf("# envoke the exchange-correlation on angular grid\n");
                 for(size_t ip = 0; ip < npt*mr; ++ip) {
                     double const rho = rho_on_grid[ip];
                     double vxc = 0, exc = 0;
@@ -2153,13 +2214,8 @@ extern "C" {
         std::vector<double> V_smt(rg[SMT]->n);
         set(zero_potential.data(), rg[SMT]->n, 0.0); // init zero
         
-//         set(V_smt.data(), rg[SMT]->n, full_potential[TRU][00] + nr_diff); // copy the tail of the spherical part of the true potential
         auto const df = Y00*eV; assert(df > 0); // display factor
-//         if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
-//                     label, rg[SMT]->r[ir_cut[SMT]]*Ang, _Ang, full_potential[TRU][00][ir_cut[TRU]]*df, _eV);
-//         auto const stat = pseudize_function(V_smt.data(), rg[SMT], ir_cut[SMT], 2);
         auto const stat = pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], echo, Y00); // <0> indicates that these arrays hold V(r) (not r*V(r))
-
         if (stat) {
             if (echo > 0) printf("# %s matching procedure for the local potential failed! status= %d\n", label, int(stat));
         } else {
@@ -2224,7 +2280,7 @@ extern "C" {
         //            + sum_lm Gaunt_{lm ilm jlm} * potential_{lm iln jln}
         // then, transform the matrix elements into the Cartesian representation using sho_unitary
         //    overlap[iSHO][jSHO] and hamiltonian[iSHO][jSHO]
-
+#ifdef DEVEL
         if (echo > 19) {
             printf("\n\n## %s compare potentials (Bohr, Ha, Ha, Ha, Ha) r, r*V_tru[00](r), r*V_smt[00](r), r*V_tru(r), r*V_smt(r):\n", label);
             for(int ir = 1; ir < rg[SMT]->n; ++ir) {
@@ -2234,7 +2290,7 @@ extern "C" {
             } // ir
             printf("\n\n");
         } // echo
-
+#endif
         view4D<double> potential_ln(nlm, TRU_AND_SMT, nln, nln, 0.0); // get memory, // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
@@ -2297,7 +2353,8 @@ extern "C" {
             if ((echo > 7)) printf("\n");
         } // ilmn
 
-        if (echo > 8) {
+#ifdef DEVEL
+        if (echo > 8) { // display
             printf("\n# %s lmn-based Overlap elements:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
                 printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
@@ -2306,8 +2363,8 @@ extern "C" {
                 }   printf("\n");
             } // ilmn
         } // echo
-
-        if (1) { // scope: check if averaging over emm gives back the same operators
+        
+        if (1) { // scope: check if averaging over emm gives back the same operators in the case of a spherical potential
 
             view2D<double> hamiltonian_ln(nln, nln); // get memory
             view2D<double>     overlap_ln(nln, nln); // get memory
@@ -2356,6 +2413,7 @@ extern "C" {
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
         } // scope
+#endif
 
         set(hamiltonian, nSHO, 0.0); // clear
         set(overlap,     nSHO, 0.0); // clear
@@ -2364,8 +2422,8 @@ extern "C" {
         transform_SHO(    overlap.data(),     overlap.stride(),     overlap_lmn.data(),     overlap_lmn.stride(), false);
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
-
-        if (echo > 8) {
+#ifdef DEVEL
+        if (echo > 8) { // display
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                        label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
@@ -2377,6 +2435,7 @@ extern "C" {
                 printf("\n");
             } // iSHO
         } // echo
+#endif
 
     } // update_matrix_elements
 
@@ -2387,7 +2446,7 @@ extern "C" {
         // as the spherical part of the full potential
         int const nln = sho_tools::nSHO_radial(numax);
 
-        view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // fully emm-degenerate
+        view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // fully emm-degenerate potential matrix elements
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
             std::vector<double> wave_pot_r2dr(nr); // temporary product of partial wave, potential and metric
@@ -2401,7 +2460,6 @@ extern "C" {
                 } // jln
             } // iln
         } // ts: true and smooth
-
 
         auto hamiltonian_ln = aHSm[0], overlap_ln = aHSm[1];
         { // scope
@@ -2418,9 +2476,10 @@ extern "C" {
             } // iln
         } // scope
 
-        if (1) { // show atomic matrix elements
+        bool const check_overlap_eigenvalues = true;
+        if (check_overlap_eigenvalues) {
             std::vector<int8_t> ells(nln, -1);
-            {
+            { // scope:
                 for(int ell = 0; ell <= numax; ++ell) {
                     for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                         int const iln = sho_tools::ln_index(numax, ell, nrn);
@@ -2441,6 +2500,7 @@ extern "C" {
                         auto const split = std::sqrt(pow2(a - d) + 4*pow2(b));
                         upper = 0.5*(a + d + split);
                         lower = 0.5*(a + d - split);
+                        if (nn[ell] > 2 && echo > 0) printf("# %s overlap matrix eigenvalues only checked for the 2x2 sub matrix!"); 
                     }
                     if (lower <= -1.) { 
                         warn("%s eigenvalues of charge deficit matrix for ell=%i instable! %g and %g", label, ell, lower, upper);
@@ -2448,9 +2508,10 @@ extern "C" {
                         warn("%s eigenvalues of charge deficit matrix for ell=%i critical! %g and %g", label, ell, lower, upper);
                     }
                 } // ell
-            }
+            } // scope
 
-            if (echo > 4) {
+#ifdef DEVEL
+            if (echo > 4) { // display
                 printf("\n");
                 view2D<char> ln_labels(nln, 4);
                 sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
@@ -2466,7 +2527,7 @@ extern "C" {
                             }   printf("\n");
                         }   printf("\n");
                     } // i01
-                } // never
+                } // 0
 
                 printf("\n# %s without true_norm scaling:\n", label);
                 for(int i01 = 0; i01 < 2; ++i01) {
@@ -2481,21 +2542,9 @@ extern "C" {
                 } // i01
 
             } // echo
-            
-        } // 1
+#endif            
+        } // check_overlap_eigenvalues
 
-#if 0        
-#ifdef NEVER
-                    if (echo > 1) printf("\n# %s %s multiply the true_norm factor to hamiltonian_ln and overlap_ln\n", label, __func__);
-                    for(int iln = 0; iln < nln; ++iln) {
-                        for(int jln = 0; jln < nln; ++jln) {
-                            hamiltonian_ln(iln,jln) *= true_norm[iln]*true_norm[jln];
-                            overlap_ln    (iln,jln) *= true_norm[iln]*true_norm[jln];
-                        } // ilm
-                    } // iln
-#endif
-#endif
-        
         if (1) {
             double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
             auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
@@ -2508,20 +2557,24 @@ extern "C" {
             if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
-        } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
+        } else {
+            if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
+        }
 
         if (1) {
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, rV, sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
-        } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
+        } else {
+            if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
+        }
 
     } // check_spherical_matrix_elements
 
     void update_density(float const mixing, int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
-        update_core_states(mixing, echo);
+        update_spherical_states(mixing, echo);
         update_energy_parameters(echo);
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
@@ -2888,12 +2941,13 @@ namespace single_atom {
 #else // NO_UNIT_TESTS
 
   status_t test_compensator_normalization(int const echo=5) {
+      double maxdev{0};
+#ifdef DEVEL
       if (echo > 1) printf("\n# %s: %s\n", __FILE__, __func__);
       auto const rg = radial_grid::create_exponential_radial_grid(512, 2.0);
       int const nr = rg->n, lmax = 0, nlm = pow2(1 + lmax);
       std::vector<double> qlm(nlm, 0.0);
       view2D<double> cmp(1, nr);
-      double maxdev{0};
       for(double sigma = 0.5; sigma < 2.25; sigma *= 1.1) {
           set(qlm.data(), nlm, 0.0); qlm[0] = 1.0;
           set(cmp, 1, 0.0); // clear
@@ -2905,6 +2959,7 @@ namespace single_atom {
           if (echo > 4) printf("# %s: for sigma = %g is 1 + %.1e\n", __func__, sigma, qlm[0] - 1);
       } // sigma
       if (echo > 2) printf("# %s: largest deviation is %.1e\n", __func__, maxdev);
+#endif
       return (maxdev > 1e-15);
   } // test_compensator_normalization
 

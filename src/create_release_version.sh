@@ -4,7 +4,6 @@
 partial_preprocessor=~/Codes/cppp/cppp
 
 defs=""\
-" -D NO_UNIT_TESTS"\
 " -D _VIEW2D_HAS_PARENTHESIS"\
 " -D _VIEW3D_HAS_PARENTHESIS"\
 " -D _VIEW3D_HAS_PARENTHESIS_2ARGS"\
@@ -13,7 +12,10 @@ defs=""\
 " -D _VIEW4D_HAS_PARENTHESIS_3ARGS"\
 " -D _VIEW4D_HAS_INDEXING"
 
+### hint: when moving a flag from defs to undefs, make sure to change -D to -U
+
 undefs=""\
+" -U NO_UNIT_TESTS"\
 " -U DEBUG"\
 " -U FULL_DEBUG"\
 " -U DEVEL"\
@@ -29,8 +31,9 @@ echo "      $undefs"
 
 target_dir=../release
 
-cp Makefile $target_dir
-### maybe some modifications of the FEATUREFLAGS in the Makefile 
+### delete the line that activates -D DEVEL in the development Makefile
+sed '/DEVEL/d' Makefile > $target_dir/Makefile
+### maybe some additional modifications of the FEATUREFLAGS in the Makefile 
 ### will be necessary
 
 for xxFile in `ls *.*xx *.h`

@@ -62,7 +62,7 @@ namespace fourier_poisson {
                       t[i*n + j] = scal * std::sin(k*i*j); // WRONG!
                   } // j - Fourier space mode
               } // i - real space position
-              number[d] == n;
+              number[d] = n;
           } // number differs
       } // d
       

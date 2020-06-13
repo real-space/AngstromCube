@@ -116,29 +116,23 @@ exe=../src/a43
 # grep '#  logarithmic_derivative check ' $out -A1 > single_atom.out.logder 
 
 
-for Z in {1..10}; do
+for Z in {1..120}; do
   ## a separate out file for each Z
   out_Z=single_atom.out.$Z.try
   echo -n "# using sigma_config    " > $out_Z
   date >> $out_Z
 
   echo "# Z = $Z" ## show progress in terminal
-  $exe +verbosity=17 \
+  $exe +verbosity=7 \
     -test single_atom. \
-        +smooth.radial.grid.from=0 \
         +single_atom.test.Z=$Z \
-        +single_atom.partial.wave.energy.derivative=0 \
-        +single_atom.partial.wave.energy=0 \
-        +single_atom.partial.wave.method=e \
+        +single_atom.config=custom \
         +single_atom.test.atomic.valence.density=1 \
-        +single_atom.from.sigma.config=1 \
         +single_atom.nn.limit=2 \
         +logder.start=-2 +logder.stop=-3 +logder.step=.001 \
         >> $out_Z
 done
-### seems like the eigenvalues of the charge deficit for ell=0 are always -1 and some positive value up to Z <= 86 and for Z=119,120
-
-
+### when the energy difference =0 it seems like the eigenvalues of the charge deficit for ell=0 are always -1 and some positive value up to Z <= 86 and for Z=119,120
 
 exit
 
