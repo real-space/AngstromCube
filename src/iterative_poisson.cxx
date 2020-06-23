@@ -487,46 +487,47 @@ namespace iterative_poisson {
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
-  status_t test_solver(int const echo=9, int const ng=24) {
-      status_t stat{0};
-      real_space::grid_t g(ng, ng, ng);
+  status_t test_solver(int const echo=9, int const ng=32) {
+      real_space::grid_t g(ng, ng, ng); // grid spacing = 1.0, by default all boundary conditions isolated
+      g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
       view2D<real_t> xb(2, ng*ng*ng, 0.0);
       auto const x = xb[0], b = xb[1];
-      double integral{0};
       double const cnt[3] = {.5*ng, .5*ng, .5*ng};
+      double integral{0};
       for(int iz = 0; iz < ng; ++iz) {
       for(int iy = 0; iy < ng; ++iy) {
       for(int ix = 0; ix < ng; ++ix) {
           size_t const izyx = ix + ng*(iy + ng*iz);
           double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
-          double const rho = std::exp(-.125*r2) - 8*std::exp(-.5*r2);
+          double const rho = std::exp(-.125*r2) - (8 - 1.28414e-7)*std::exp(-.5*r2);
           b[izyx] = rho;
           integral += rho;
       }}} // ix iy iz
       if (echo > 2) printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
 
-      stat = solve(x, b, g, echo);
-      
+      float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
+      status_t const stat = solve(x, b, g, 'M', echo, threshold); // method=M:multi_grid
+
       if (echo > 8) { // get a radial representation through Bessel transform
-          float const dq = 1.f/16; int const nq = (int)(constants::pi/(g.smallest_grid_spacing()*dq));
+          float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
           auto const rg = *radial_grid::create_equidistant_radial_grid(150, 15.);
-          std::vector<real_t> q_coeff(nq, 0.0), f_radial(rg.n, 0.0);
-          for(int i01 = 0; i01 < 2; ++i01) {
-              real_space::bessel_projection(q_coeff.data(), nq, dq, xb[i01], g, cnt);
+          std::vector<double> q_coeff(nq, 0.0), f_radial(rg.n, 0.0);
+          for(int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
+              real_space::bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
               bessel_transform::transform_s_function(f_radial.data(), q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
-              printf("\n## r, %s (a.u.)\n", i01?"density":"V_electrostatic");
+              printf("\n## r, %s (a.u.)\n", x0b1?"density":"electrostatic potential");
               for(int ir = 0; ir < rg.n; ++ir) {
                   printf("%g %g\n", rg.r[ir], f_radial[ir]);
-              } // ir
-          } // i01
+              }   printf("\n\n");
+          } // x0b1
       } // echo
       return stat;
   } // test_solver
 
   status_t all_tests(int const echo) {
-    status_t stat{0};
-    stat += test_solver<double>(echo);
-    stat += test_solver<float>(echo); // test compilation and convergence for float
+    status_t stat(0);
+    stat += test_solver<double>(echo); // instantiation for both, double and float
+    stat += test_solver<float>(echo);  // compilation and convergence tests
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS

@@ -243,8 +243,8 @@ namespace conjugate_gradients {
 
                   residual[ib] = std::abs(res_new); // store
                   if (echo > 6) {
-                      if (last_printf_line == __LINE__) printf("\r"); last_printf_line = __LINE__; 
-                      // next printf will overwrite the last line when output to terminal
+                      if (last_printf_line == __LINE__) printf("\r"); else last_printf_line = __LINE__; 
+                      // prepending '\r' means that the next printf will overwrite the last line when outputting to terminal
                       printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i", 
                                 ib, energy[ib]*eV, _eV, (energy[ib] - prev_energy)*eV, residual[ib], iiter);
                       fflush(stdout);

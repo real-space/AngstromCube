@@ -155,7 +155,7 @@ namespace real_space {
   } // add_function
 
   template<typename real_t>
-  status_t bessel_projection(real_t q_coeff[], int const nq, float const dq,
+  status_t bessel_projection(double q_coeff[], int const nq, float const dq,
                 real_t const values[], grid_t const &g, double const center[3]=nullptr, 
                 float const rcut=-1, double const factor=1) {
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
@@ -177,7 +177,7 @@ namespace real_space {
 #endif
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
-      set(q_coeff, nq, real_t(0)); // clear
+      set(q_coeff, nq, 0.0); // clear
       for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
@@ -186,12 +186,13 @@ namespace real_space {
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           double const r = std::sqrt(r2);
-//                           printf("%g %g\n", r, values[ixyz]); // DEBUG
+                          double const val = double(values[ixyz]);
+//                           printf("%g %g\n", r, val); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               double const x = q*r;
                               double const j0 = bessel_transform::Bessel_j0(x);
-                              q_coeff[iq] += values[ixyz] * j0;
+                              q_coeff[iq] += val * j0;
                           } // iq
                       } // inside rcut
                   } // ix
@@ -200,7 +201,7 @@ namespace real_space {
           } // iy
       } // iz
       double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
-      scale(q_coeff, nq, real_t(g.dV()*factor*sqrt2pi)); // volume element, external factor, Bessel transform factor
+      scale(q_coeff, nq, g.dV()*factor*sqrt2pi); // volume element, external factor, Bessel transform factor
       return 0; // success
   } // bessel_projection
 

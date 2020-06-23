@@ -205,7 +205,7 @@ namespace scattering_test {
 #endif
 
       if (echo > 1) printf("\n# %s %s %s lmax=%i\n", label, __FILE__, __func__, lmax); 
-      status_t stat{0};
+      status_t stat(0);
       
       double const dE = std::max(1e-9, energy_range[1]);
 
@@ -288,7 +288,7 @@ namespace scattering_test {
               , char const *label=""
               , int const echo=2
     ) {
-      status_t stat = 0;
+      status_t stat(0);
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) printf("\n# %s %s %s dr=%g nr=%i rmax=%g %s\n", label, __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
