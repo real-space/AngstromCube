@@ -156,7 +156,7 @@ namespace conjugate_gradients {
           if (echo > 4) printf("# CG start outer iteration #%i\n", outer_iteration);
 
           for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
-              if (echo > 5) printf("# start CG for band #%i\n", ib);
+              if (echo > 8) printf("# start CG for band #%i\n", ib);
 
               // apply Hamiltonian and Overlap operator
 //            stat += op.Hamiltonian(Hs, s[ib], echo);
@@ -191,6 +191,7 @@ namespace conjugate_gradients {
               double res_old{1};
               double prev_energy{0};
               bool restart{true};
+              int last_printf_line{-1};
 
               int it_converged = 0;
               for(int iiter = 1; (iiter <= maxiter) && (0 == it_converged); ++iiter) {
@@ -241,8 +242,13 @@ namespace conjugate_gradients {
                   if (echo > 7) printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", res_new);
 
                   residual[ib] = std::abs(res_new); // store
-                  if (echo > 6) printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i\n", 
-                                      ib, energy[ib]*eV, _eV, (energy[ib] - prev_energy)*eV, residual[ib], iiter);
+                  if (echo > 6) {
+                      if (last_printf_line == __LINE__) printf("\r"); last_printf_line = __LINE__; 
+                      // next printf will overwrite the last line when output to terminal
+                      printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i", 
+                                ib, energy[ib]*eV, _eV, (energy[ib] - prev_energy)*eV, residual[ib], iiter);
+                      fflush(stdout);
+                  } // echo
                   prev_energy = energy[ib];
 
                   if (use_cg) { // operations specific for the conjugate gradients method
@@ -318,10 +324,13 @@ namespace conjugate_gradients {
                   energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
               } // evaluate only the energy so the display is correct
               
-              if (echo > 4) printf("# CG energy of band #%i is %.9g %s, residual %.1e %s in %d iterations\n", 
+              if (echo > 4) {
+                  if (last_printf_line > 0) printf("\r");
+                  printf("# CG energy of band #%i is %.9g %s, residual %.1e %s in %d iterations                \n", 
                                 ib, energy[ib]*eV, _eV, residual[ib],
                                 it_converged ? "converged" : "reached", 
                                 it_converged ? std::abs(it_converged) : maxiter);
+              } // echo
           } // ib
 
           if (echo > 4) show_matrix(energy.data(), nbands, 1, nbands, 

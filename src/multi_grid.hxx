@@ -124,16 +124,16 @@ namespace multi_grid {
   template <typename real_t, typename real_in_t>
   status_t linear_interpolation(real_t out[], unsigned const go
                       , real_in_t const in[], unsigned const gi
-                      , size_t const stride=1, int const bc=0
+                      , size_t const stride=1, int const periodic=0
                       , int const echo=0 // log-level
                       , bool const use_special_version_for_2x=true) {
       if (go < 1) return go; // early return
       if (gi < 1) return gi; // early return
 
       view2D<real_t> target(out, stride); // wrap
-      view2D<real_in_t const> source(in, stride); // wrap
-      view2D<real_in_t> buffer(2, stride, 0.0); // lower and upper halo buffer extending in-array
-      if (bc) {
+      view2D<real_in_t const> source(in, stride); // wrap: source(a,b) --> in[a*stride + b]
+      view2D<real_in_t> buffer(2, stride, 0.0); // get memory lower and upper halo buffer extending in-array
+      if (periodic) {
           set(buffer[1], stride, source[0]);      // fill location #3  with element #0 
           set(buffer[0], stride, source[gi - 1]); // fill location #-1 with element #2 
       } // periodic boundary condition
@@ -256,8 +256,8 @@ namespace multi_grid {
       } // z
 
       size_t const nx = go('x');
-      view2D<real_t> ty(go('z'), go('y')*nx); // get memory
-      for(int z = 0; z < go('z'); ++z) {
+      view2D<real_t> ty(gi('z'), go('y')*nx); // get memory
+      for(int z = 0; z < gi('z'); ++z) {
           stat += linear_interpolation(ty[z], go('y'),
                                      tx(z,0), gi('y'), nx, gi.boundary_condition('y'), echo*(z == 0));
       } // z

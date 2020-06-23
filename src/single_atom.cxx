@@ -1158,7 +1158,7 @@ extern "C" {
             unsigned const Lagrange_order = 1 + 2*std::min(std::max(1, int(control::get("single_atom.lagrange.derivative", 7.))), 15);
             double d0{0}, d1{0}, d2{0};
             stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-            if (echo > 7) printf("# %s use %d points, value=%g derivative=%g second=%g status=%i\n", label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
+            if (echo > 7) printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
             
             if (d1 <= 0) warn("positive potential slope for sinc-fit expected but found %g", d1);
             if (d2 >  0) warn("negative potential curvature for sinc-fit expected but found %g", d2);
@@ -1455,7 +1455,7 @@ extern "C" {
                                 printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, prj, rTphi_tru, rTphi_smt):\n",
                                         label, ell, nrn, krn-1);
                                 for(int ir = 1; ir < rg[SMT]->n; ++ir) {
-                                    printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir],
+                                    printf("%g  %g %g  %g  %g %g\n", rg[SMT]->r[ir],
                                         vs.wave[TRU][ir + nr_diff], rphi[krn][ir], projectors_ell[krn][ir]*rg[SMT]->rinv[ir],
                                         vs.wKin[TRU][ir + nr_diff], Tphi[krn][ir]);
                                 } // ir
@@ -2494,7 +2494,8 @@ extern "C" {
                     if (1 == nn[ell]) {
                         int const iln = sho_tools::ln_index(numax, ell, 0);
                         lower = overlap_ln[iln][iln];
-                    } else if (nn[ell] > 1) {
+                    } else if (2 >= nn[ell]) {
+                        if (nn[ell] > 2 && echo > 0) printf("# %s overlap matrix eigenvalues only checked for the 2x2 sub matrix!", label); 
                         int const iln = sho_tools::ln_index(numax, ell, 0);
                         // get eigenvalues of the 2x2 matrix [a,b]
                         //                                   [c,d] with c==b (symmetric)
@@ -2504,8 +2505,10 @@ extern "C" {
                         auto const split = std::sqrt(pow2(a - d) + 4*pow2(b));
                         upper = 0.5*(a + d + split);
                         lower = 0.5*(a + d - split);
-                        if (nn[ell] > 2 && echo > 0) printf("# %s overlap matrix eigenvalues only checked for the 2x2 sub matrix!"); 
-                    }
+                    } else { 
+                        assert(0 == nn[ell]); // sanity check
+                    } // nn[ell]
+                    
                     if (lower <= -1.) { 
                         warn("%s eigenvalues of charge deficit matrix for ell=%i instable! %g and %g", label, ell, lower, upper);
                     } else if (lower < -0.9) {

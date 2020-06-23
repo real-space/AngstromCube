@@ -21,15 +21,16 @@ exe=../src/a43
 #   done
 # done
 
-$exe +verbosity=17 \
+$exe +verbosity=7 \
     -test potential_generator. \
         +eigensolver=cg \
         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
         +electrostatic.solver=mg \
         -v
+        
+#         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.fft.dat \
 #         > potential_generator.out.cg
 #         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
 
 #         +electrostatic.solver=mg +electrostatic.potential.to.file=v_es.mg.dat \
-#         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.fft.dat \
