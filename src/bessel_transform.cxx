@@ -46,7 +46,7 @@ namespace bessel_transform {
       }   if (echo > 5) printf("\n\n");
       if (echo > 2) printf("# %s after filtering with cutoff %g sqRyd deviation is %.1e (abs) or %.1e (L2)\n",
                               __func__, qcut, dev[1]/dev[0], std::sqrt(dev[2]/dev[0]));
-      return (dev[1]/dev[0] > 2e-16);
+      return (dev[1]/dev[0] > 5e-15);
   } // test_Gaussian
 
   status_t test_r2grid(int const echo=9) {
