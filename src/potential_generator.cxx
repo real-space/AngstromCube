@@ -191,14 +191,15 @@ namespace potential_generator {
           for(int ia = 0; ia < na; ++ia) {
               double const Z = xyzZ[ia][3];
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
-              if (echo > 4) printf("# %s  %15.9f %15.9f %15.9f\n", Symbol,
+              if (echo > 4) printf("# %s  %15.9f %15.9f %15.9f", Symbol,
                               xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
               Za[ia] = Z;
               for(int d = 0; d < 3; ++d) {
                   center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center[ia][3] = 0; // 4th component is not used
-              if (echo > 1) printf("# relative%12.3f%16.3f%16.3f\n", center[ia][0]*g.inv_h[0],
+              if (echo > 1) printf("  relative%12.3f%16.3f%16.3f", center[ia][0]*g.inv_h[0],
                                            center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
+              if (echo > 4) printf("\n");
           } // ia
       } // scope
 
@@ -507,7 +508,6 @@ namespace potential_generator {
               } // scope
 #endif
 
-
               // create a list of atoms
               view2D<double> xyzZinso(na, 8);
               {
@@ -538,14 +538,15 @@ namespace potential_generator {
               } // ia
               data_list<double> atom_rho(ncoeff_squared, 0.0); // atomic density matrices
 
-              int const nbands = 8;
+              int const nbands = 4*na; // s- and p-states
               view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
               { // scope: generate start waves from atomic orbitals
                   uint8_t qn[20][4]; // quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                   sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3);
                   data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
                   for(int iband = 0; iband < nbands; ++iband) {
-                      int const ia = iband % na, io = iband / na; // which atom? which orbital?
+                      int const ia = iband % na; // which atom?
+                      int const io = iband / na; // which orbital?
                       if (echo > 7) printf("# %s initialize band #%i as atomic orbital %x%x%x of atom #%i\n", 
                                               __func__, iband, qn[io][0], qn[io][1], qn[io][2], ia);
                       int const isho = sho_tools::zyx_index(op.get_numax(ia), qn[io][0], qn[io][1], qn[io][2]);
@@ -555,6 +556,7 @@ namespace potential_generator {
 //                    print_stats(waves[iband], gc.all(), gc.dV());
                   } // iband
               } // scope
+
               view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
 
               auto const eigensolver_method = control::get("eigensolver", "cg");
@@ -564,12 +566,13 @@ namespace potential_generator {
                   if ('c' == eigensolver_method[0]) { // "cg" or "conjugate_gradients"
                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
                       stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
-                  } else
+                      stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
+                  } else 
                   if ('d' == eigensolver_method[0]) { // "davidson"
                       stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
                   } else {
                       ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);
-                  }
+                  } // eigensolver_method
 
                   // add to density
                   stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
@@ -589,6 +592,7 @@ namespace potential_generator {
       } // scf_iteration
 
 #ifdef DEVEL
+
 //    return 1; // warning! no cleanup has been run
 //    printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 

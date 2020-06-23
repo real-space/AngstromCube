@@ -580,6 +580,7 @@ extern "C" {
         set(partial_wave_energy_split, 8, excited_energy);
         
         double const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
+        int const previous_energy_parameter = control::get("single_atom.previous.energy.parameter", 0.0); // bit array, -1:all, 0:none, 2:p, 6:p+d, 14:p+d+f, ...
         bool const use_energy_parameter = (energy_parameter > -9e9);
         if (use_energy_parameter) {
             if (echo > 5) printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
@@ -604,11 +605,10 @@ extern "C" {
                     vs.spin = spin_Degenerate;
                     vs.c0s1v2 = 2; // 2:valence state
                     
-
-                    vs.wave[SMT] = partial_waves[SMT](0,iln); // the smooth radial function
-                    vs.wave[TRU] = partial_waves[TRU](0,iln); // the true radial function
-                    vs.wKin[SMT] = partial_waves[SMT](1,iln); // the smooth kinetic energy
-                    vs.wKin[TRU] = partial_waves[TRU](1,iln); // the true kinetic energy
+                    for(int ts = TRU; ts <= SMT; ++ts) {
+                        vs.wave[ts] = partial_waves[ts](0,iln); // pointer for the {true, smooth} radial function
+                        vs.wKin[ts] = partial_waves[ts](1,iln); // pointer for the {true, smooth} kinetic energy
+                    } // ts
 
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
                     double occ{custom_occ[inl]};
@@ -630,12 +630,13 @@ extern "C" {
                         }
                         if (echo > 0) printf("# %s valence %2d%c%6.1f E=%16.6f %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
                         
+                        partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
                             partial_wave_char[iln] = 'e';
                         } else // use_energy_parameter
                         if (occ > 0) {
-                            partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
+                            // leave eigenstate, see above
                         } else { // occ > 0
                             if (nrn > 0) {
                                 partial_wave_char[iln] = '*';
@@ -646,9 +647,12 @@ extern "C" {
                                     warn("%s partial wave energy split for ell=%i is small (%g %s)",
                                         label, ell, partial_wave_energy_split[ell]*eV, _eV);
                                 } // |dE| small
-                            } else { // nrn > 0
+                            } else 
+                            if (previous_energy_parameter & (1 << ell)) { // nrn > 0
                                 if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0");
                                 if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
+                            } else {
+                                // leave eigenstate, see above
                             } // nrn > 0
                         } // occ > 0
 
@@ -660,12 +664,12 @@ extern "C" {
             } // ell
         } // valence states
 
-        nr_diff = rg[TRU]->n - rg[SMT]->n;
+        nr_diff = rg[TRU]->n - rg[SMT]->n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
         ir_cut[SMT] = radial_grid::find_grid_index(*rg[SMT], r_cut);
         ir_cut[TRU] = ir_cut[SMT] + nr_diff;
         if (echo > 0) printf("# %s pseudize the core density at r[%i or %i] = %.6f, requested %.3f %s\n",
                           label, ir_cut[TRU], ir_cut[SMT], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
-        assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal
+        assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
 
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
         aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
@@ -787,7 +791,7 @@ extern "C" {
     } // initialize_Gaunt
 
     void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[],
-            int const enn, int const ell, float const occ, double const energy, int8_t const c0s1v2, int const ir_cut=-1) const {
+            char const enn, int const ell, float const occ, double const energy, int8_t const c0s1v2, int const ir_cut=-1) const {
         if (echo < 1) return; // this function only prints to the logg
         
         double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
@@ -802,7 +806,7 @@ extern "C" {
         } // ir
         double const qinv = (q > 0) ? 1./q : 0;
 
-        printf("# %s %-9s %2d%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
+        printf("# %s %-9s  %c%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
                c0s1v2_name[c0s1v2], enn, ellchar[ell], std::abs(occ), energy*eV,_eV, 
                qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, qout*qinv);
     } // show_state_analysis
@@ -870,7 +874,7 @@ extern "C" {
                     nelectrons[1] += std::max(0.0, std::abs(cs.occupation));
                 } else error("%s spherical semicore density not implemented!", label); 
             } // scal > 0
-            show_state_analysis(echo, rg[TRU], cs.wave[TRU], cs.enn, cs.ell, cs.occupation, cs.energy, cs.c0s1v2, ir_cut[TRU]);
+            show_state_analysis(echo, rg[TRU], cs.wave[TRU], '0' + cs.enn, cs.ell, cs.occupation, cs.energy, cs.c0s1v2, ir_cut[TRU]);
         } // ics
 
         // report integrals
@@ -1369,7 +1373,7 @@ extern "C" {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, rg[TRU], vs.wave[TRU], vs.enn, ell, vs.occupation, vs.energy, 2, ir_cut[TRU]);
+                show_state_analysis(echo, rg[TRU], vs.wave[TRU], partial_wave_char[iln], ell, vs.occupation, vs.energy, 2, ir_cut[TRU]);
 
 //                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
 //                 if (prelim_waves & (1 << ell)) {
@@ -2979,8 +2983,8 @@ namespace single_atom {
 
   status_t all_tests(int const echo) {
     status_t stat{0};
-    stat += test_compensator_normalization(echo);
     stat += test_LiveAtom(echo);
+    stat += test_compensator_normalization(echo);
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS

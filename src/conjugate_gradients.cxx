@@ -190,8 +190,7 @@ namespace conjugate_gradients {
               
               double res_old{1};
               double prev_energy{0};
-              
-              bool restart = true;
+              bool restart{true};
 
               int it_converged = 0;
               for(int iiter = 1; (iiter <= maxiter) && (0 == it_converged); ++iiter) {
@@ -242,8 +241,8 @@ namespace conjugate_gradients {
                   if (echo > 7) printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", res_new);
 
                   residual[ib] = std::abs(res_new); // store
-                  if (echo > 6) printf("# CG band #%i energy change %g %s residual %.2e in iteration #%i\n", 
-                                         ib, (energy[ib] - prev_energy)*eV, _eV, residual[ib], iiter);
+                  if (echo > 6) printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i\n", 
+                                      ib, energy[ib]*eV, _eV, (energy[ib] - prev_energy)*eV, residual[ib], iiter);
                   prev_energy = energy[ib];
 
                   if (use_cg) { // operations specific for the conjugate gradients method

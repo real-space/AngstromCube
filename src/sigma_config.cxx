@@ -18,7 +18,7 @@ namespace sigma_config {
 
 #define EXPERIMENTAL
 
-    char const * default_config(unsigned const iZ) {
+    char const * default_config(unsigned const iZ) { // compiled into the code
 
         switch (iZ) {
             case  1: return "1s* 1 0 2p | 0.9 sigma .247";                              // H   
@@ -194,7 +194,7 @@ namespace sigma_config {
     } // char2key
     
 
-    element_t& get(double const Zcore, int const echo) {
+    element_t & get(double const Zcore, int const echo) {
         
         char symbol[4], element_Sy[16];
         int const iZ = chemical_symbol::get(symbol, Zcore);
