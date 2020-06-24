@@ -2078,8 +2078,7 @@ extern "C" {
                 for(int iln = 0; iln < nln; ++iln) {
                     for(int jln = 0; jln < nln; ++jln) {
                         double const rho_ij = density_tensor(lm,iln,jln);
-                        if (std::abs(rho_ij) > 1e-9)
-                            printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
+                        if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
                         rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                            - charge_deficit(ell,SMT,iln,jln) );
                     } // jln
@@ -2258,6 +2257,9 @@ extern "C" {
             scale(potential[ts].data(), rg[ts]->n, 1. - mixing);
             add_product(potential[ts].data(), rg[ts]->n, full_potential[ts][00], rg[ts]->r, Y00*mixing);
         } // ts true and smooth
+
+        // fix the true potential at the origin r=0
+        potential[TRU][0] = -Z_core; // r*V(r) is finite due to V(r) diverging to -infinity
 
         if (0) { // scope: test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
             std::vector<double> rho4pi(rg[TRU]->n);
@@ -2509,11 +2511,11 @@ extern "C" {
                         assert(0 == nn[ell]); // sanity check
                     } // nn[ell]
                     
-                    if (lower <= -1.) { 
-                        warn("%s eigenvalues of charge deficit matrix for ell=%i instable! %g and %g", label, ell, lower, upper);
-                    } else if (lower < -0.9) {
-                        warn("%s eigenvalues of charge deficit matrix for ell=%i critical! %g and %g", label, ell, lower, upper);
-                    }
+                    if (nn[ell] > 0 && lower <= -0.9) {
+                        auto const classification = (lower <= -1) ? "instable" : "critical";
+                        warn("%s eigenvalues of charge deficit matrix for ell=%i %s! %g and %g", label, ell, classification, lower, upper);
+                    } // warning
+                    
                 } // ell
             } // scope
 
@@ -2748,7 +2750,7 @@ namespace single_atom {
 
       static std::vector<LiveAtom*> a; // this function may not be templated!!
       static int echo = -9;
-      if (-9 == echo) echo = control::get("single_atom.echo", 0.); // initialize only on the 1st call to update()
+      if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to update()
 
       assert(what); // should never be nullptr
       char const how = what[0] | 32; // first char, to lowercase
@@ -2772,7 +2774,7 @@ namespace single_atom {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
               bool const atomic_valence_density = (nullptr != dpp); // control
-              int const echo_init = control::get("single_atom.init.echo", 0.); // log-level for the LiveAtom constructor
+              int const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_init);

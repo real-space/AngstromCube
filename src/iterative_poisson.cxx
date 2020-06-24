@@ -19,6 +19,7 @@
   #include "real_space.hxx" // ::bessel_projection
   #include "radial_grid.hxx" // ::radial_grid_t, ::create_equidistant_radial_grid
   #include "bessel_transform.hxx" // ::transform_s_function
+  #include "radial_potential.hxx" // ::Hartree_potential
 #endif
 
 namespace iterative_poisson {
@@ -492,6 +493,7 @@ namespace iterative_poisson {
       g.set_boundary_conditions(1); // all boundary conditions periodic, ToDo: fails for isolated BCs
       view2D<real_t> xb(2, ng*ng*ng, 0.0);
       auto const x = xb[0], b = xb[1];
+      double constexpr c1 = 1, a1=.125, c2 = -8 + 1.28414e-7, a2=.5;
       double const cnt[3] = {.5*ng, .5*ng, .5*ng};
       double integral{0};
       for(int iz = 0; iz < ng; ++iz) {
@@ -499,7 +501,7 @@ namespace iterative_poisson {
       for(int ix = 0; ix < ng; ++ix) {
           size_t const izyx = ix + ng*(iy + ng*iz);
           double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
-          double const rho = std::exp(-.125*r2) - (8 - 1.28414e-7)*std::exp(-.5*r2);
+          double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
           b[izyx] = rho;
           integral += rho;
       }}} // ix iy iz
@@ -509,17 +511,30 @@ namespace iterative_poisson {
       status_t const stat = solve(x, b, g, 'M', echo, threshold); // method=M:multi_grid
 
       if (echo > 8) { // get a radial representation through Bessel transform
-          float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
           auto const rg = *radial_grid::create_equidistant_radial_grid(150, 15.);
-          std::vector<double> q_coeff(nq, 0.0), f_radial(rg.n, 0.0);
-          for(int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
-              real_space::bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
-              bessel_transform::transform_s_function(f_radial.data(), q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
-              printf("\n## r, %s (a.u.)\n", x0b1?"density":"electrostatic potential");
-              for(int ir = 0; ir < rg.n; ++ir) {
-                  printf("%g %g\n", rg.r[ir], f_radial[ir]);
-              }   printf("\n\n");
-          } // x0b1
+
+          view2D<double> f_ref(2, rg.n, 0.0); // 0:x, 1:b
+          for(int ir = 0; ir < rg.n; ++ir) {
+              double const r2 = pow2(rg.r[ir]);
+              f_ref(1,ir) = 4*constants::pi*(c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
+          } // ir
+          radial_potential::Hartree_potential(f_ref[0], rg, f_ref[1], rg.n, 0); // compute the Hartree potential by radial integration
+
+          view2D<double> f_prj(2, rg.n, 0.0); // 0:x, 1:b
+          { // scope: Bessel-transform x and b
+              float const dq = 1.f/16; // spacing in reciprocal space
+              int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
+              std::vector<double> q_coeff(nq, 0.0);
+              for(int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
+                  real_space::bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
+                  bessel_transform::transform_s_function(f_prj[x0b1], q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
+              } // x0b1
+          } // scope
+
+          printf("\n## r, Ves, Ves_ref, rho, rho_ref (all in a.u.)\n");
+          for(int ir = 0; ir < rg.n; ++ir) {
+              printf("%g %g %g %g %g\n", rg.r[ir], f_prj(0,ir), f_ref(0,ir), f_prj(1,ir), f_ref(1,ir));
+          }   printf("\n\n");
       } // echo
       return stat;
   } // test_solver

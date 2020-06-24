@@ -37,15 +37,15 @@
     #define debug(print)
 #endif
 
-  #include <cstdarg> // Args
-  #include <utility> // std::forward
-
-  template <class... Args>
-  char const * print(char const *const fmt, Args &&... args) {
-      static char line[256]; // warning, this static field makes this function NOT threadsafe!
-      std::sprintf(line, fmt, std::forward<Args>(args)... );
-      return line;
-  } // print
+//   #include <cstdarg> // Args
+//   #include <utility> // std::forward
+// 
+//   template <class... Args>
+//   char const * print(char const *const fmt, Args &&... args) {
+//       static char line[256]; // warning, this static field makes this function NOT threadsafe!
+//       std::sprintf(line, fmt, std::forward<Args>(args)... );
+//       return line;
+//   } // print
 
 namespace conjugate_gradients {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
@@ -65,7 +65,7 @@ namespace conjugate_gradients {
   template<typename real_t>
   void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr
       , char const initchar='#', char const final_newline='\n') {
-      printf("%c# %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
+      printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
@@ -333,8 +333,11 @@ namespace conjugate_gradients {
               } // echo
           } // ib
 
-          if (echo > 4) show_matrix(energy.data(), nbands, 1, nbands, 
-              print("Eigenvalues of outer iteration #%i", outer_iteration), '#', 0);
+          if (echo > 4) {
+              char label[64]; std::snprintf(label, 64, "Eigenvalues of outer iteration #%i", outer_iteration);
+              show_matrix(energy.data(), nbands, 1, nbands, label, '#', 0);
+          } // echo
+
       } // outer iterations
 
       if (eigenvalues) set(eigenvalues, nbands, energy.data()); // export eigenvalues

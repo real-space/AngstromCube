@@ -204,12 +204,15 @@ namespace scattering_test {
                 int const echo = echo_level + 10; // turn a lot of output on
 #endif
 
-      if (echo > 1) printf("\n# %s %s %s lmax=%i\n", label, __FILE__, __func__, lmax); 
       status_t stat(0);
       
       double const dE = std::max(1e-9, energy_range[1]);
+      int const nen = int(std::ceil((energy_range[2] - energy_range[0])/dE));
+      
+      if (echo > 1) printf("\n# %s %s energy range from %g to %g in %d steps of %g %s, lmax=%d\n", 
+                  label, __func__, energy_range[0]*eV, energy_range[2]*eV, nen, dE*eV, _eV, lmax);
 
-      int const nen = (int)std::ceil((energy_range[2] - energy_range[0])/dE);
+      if (nen < 0) return stat; // empty range
 
       int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
       int const mr = align<2>(rg[TRU]->n);
@@ -217,7 +220,7 @@ namespace scattering_test {
       int ir_stop[TRU_AND_SMT];
 
       auto linsolfail = std::vector<size_t>(1 + lmax, 0);
-      
+
       int const nln = sho_tools::nSHO_radial(numax);
       int const stride = mr;
 
@@ -236,7 +239,7 @@ namespace scattering_test {
       if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
-      if (echo > 0 && nen >= 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+      if (echo > 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                 label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
       
       for(int ien = 0; ien <= nen; ++ien) {
