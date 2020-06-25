@@ -3,6 +3,7 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // uint8_t
+#include <cmath> // std::copysign
 
 #include "radial_grid.hxx" // ::create_equidistant_radial_grid, ::find_grid_index
 #include "bessel_transform.hxx" // ::transform_s_function
@@ -31,6 +32,8 @@ namespace scattering_test {
 
   int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
 
+  auto const ellchar = "spdfghijklmno"; // ToDo: by convention 'i' is not the proper char for ell=6
+  
   template<typename real_t>
   inline real_t arcus_tangent(real_t const nom, real_t const den) {
       return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
@@ -170,7 +173,10 @@ namespace scattering_test {
               } // jrn
           } // irn
           auto const solving_status = linear_algebra::linear_solve(n0, mat, n0, x, n0);
-          if (solving_status) return 0; // failed
+          if (solving_status) {
+              warn("linear solve failed for E= %g %s", energy*eV, _eV);
+              return 0; // failed
+          } // solving_status is non-zero
       } // n > 0
       double const val = dot_product(n0, x, value); // value of the greater component at Rlog
       double const der = dot_product(n0, x, deriv); // derivative
@@ -197,16 +203,16 @@ namespace scattering_test {
               , double const aSm[] // non-local overlap matrix elements
               , double const energy_range[3] // {lower, step, upper}
               , char const *label=""
-              , int const echo=2
+              , int const echo=2 // log-level
               , float const Rlog_over_sigma=6) {
 
       status_t stat(0);
       
-      double const dE = std::max(1e-9, energy_range[1]);
+      double const dE = std::copysign(std::max(1e-9, std::abs(energy_range[1])), energy_range[1]);
       int const nen = int(std::ceil((energy_range[2] - energy_range[0])/dE));
-      
-      if (echo > 1) printf("\n# %s %s energy range from %g to %g in %d steps of %g %s, lmax=%d\n", 
-                  label, __func__, energy_range[0]*eV, energy_range[2]*eV, nen, dE*eV, _eV, lmax);
+
+      if (echo > 1) printf("\n# %s %s energy range from %g to %g %s in %d steps of %g %s, lmax=%d\n", 
+                  label, __func__, energy_range[0]*eV, energy_range[2]*eV, _eV, nen, dE*eV, _eV, lmax);
 
       if (nen < 0) return stat; // empty range
 
@@ -215,7 +221,7 @@ namespace scattering_test {
       std::vector<double> gg(mr), ff(mr); // greater and smaller component, TRU grid
       int ir_stop[TRU_AND_SMT];
 
-      auto linsolfail = std::vector<size_t>(1 + lmax, 0);
+//    auto linsolfail = std::vector<size_t>(1 + lmax, 0);
 
       int const nln = sho_tools::nSHO_radial(numax);
       int const stride = mr;
@@ -235,14 +241,12 @@ namespace scattering_test {
       if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
-      if (echo > 0) printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
-                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
-      
+      view3D<float> gncs(1 + nen, 1 + lmax, TRU_AND_SMT);
       for(int ien = 0; ien <= nen; ++ien) {
           auto const energy = energy_range[0] + ien*dE;
 //        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
 
-          if (echo > 0) printf("%.6f", energy*eV);
+          if (echo > 22) printf("%.6f", energy*eV);
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
               int const iln_off = sho_tools::ln_index(numax, ell, 0);
@@ -253,20 +257,71 @@ namespace scattering_test {
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), nn[ell],
                                                 &aHm[iln_off*nln + iln_off],
                                                 &aSm[iln_off*nln + iln_off], nln, echo);
-                  if (echo > 0) printf("%c%.6f", (ts)?' ':'\t', gnc);
+                  gncs(ien,ell,ts) = gnc;
+                  if (echo > 22) printf("%c%.6f", (ts)?' ':'\t', gnc);
               } // ts
 //            if (echo > 0) printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
 
           } // ell
-          if (echo > 0) printf("\n");
+          if (echo > 22) printf("\n");
       } // ien
 
-      for(int ell = 0; ell <= lmax; ++ell) {
-          if (linsolfail[ell]) {
-              printf("# %s %s linear solve failed %ld times for ell=%i\n", label, __func__, linsolfail[ell], ell);
-          } // fail
-      } // ell
+//       for(int ell = 0; ell <= lmax; ++ell) {
+//           if (linsolfail[ell]) {
+//               printf("# %s %s linear solve failed %ld times for ell=%i\n", label, __func__, linsolfail[ell], ell);
+//           } // fail
+//       } // ell
 
+      if (echo > 2) { // display logarithmic derivatives or generalized node counts
+          printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
+          for(int ien = 0; ien <= nen; ++ien) {
+              auto const energy = energy_range[0] + ien*dE;
+              printf("%.6f", energy*eV);
+              for(int ell = 0; ell <= lmax; ++ell) { // ell-loop
+                  printf("\t%.6f %.6f", gncs(ien,ell,TRU), gncs(ien,ell,SMT));
+              } // ell
+              printf("\n");
+          } // ien
+          printf("\n\n");
+      } // echo
+
+      // analyze and show a compressed summary
+      if (echo > 0) { // show summary
+          if (dE > 0) {
+              printf("\n# %s logarithmic_derivative summary between %.3f and %.3f %s, dE= %.1f m%s\n", 
+                          label, energy_range[0]*eV, energy_range[2]*eV, _eV, dE*1000*eV, _eV);
+              int constexpr mres = 8;
+              double at_energy[TRU_AND_SMT][mres];
+              for(int ell = 0; ell <= lmax; ++ell) {
+                  char more{0}; // will be set to '+' if there are more than mres
+                  int nres[TRU_AND_SMT] = {0, 0}; // number of resonances stored
+                  for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                      set(at_energy[ts], mres, 0.0); // clear
+                      printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
+                      float prev_gnc{-9};
+                      for(int ien = 1; ien <= nen; ++ien) {
+                          float const gnc = gncs(ien,ell,ts);
+                          if (gnc < prev_gnc) { // possible resonance
+                              auto const energy = energy_range[0] + (ien - .5)*dE;
+                              printf("\t%.3f", energy*eV);
+                              if (nres[ts] < mres) { at_energy[ts][nres[ts]++] = energy; } else { more = '+'; }
+                          } // not increasing
+                          prev_gnc = gnc;
+                      } // ien
+                      printf(" %s\n", _eV);
+                  } // ts
+                  printf("# %s %c-resonance differences", label, ellchar[ell]);
+                  for(int ires = 0; ires < std::min(nres[TRU], nres[SMT]); ++ires) {
+                      printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
+                  } // ires
+                  printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"  
+              } // ell
+          } else { // dE > 0
+              printf("# %s logarithmic_derivative summary needs a positive logder.step, found %g %s\n\n", label, dE*eV, _eV);
+          } // dE > 0
+      } // echo
+      
       return stat;
   } // logarithmic_derivative
   

@@ -71,6 +71,7 @@ INC = -I/usr/local/cuda/include
 
 ERRFLAGS =
 FEAFLAGS =
+# FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY) 
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS += ###-fopenmp -fno-omit-frame-pointer

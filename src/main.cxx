@@ -7,6 +7,7 @@
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
+#include "unit_system.hxx" // ::set_input_units, ::set_output_units
 #include "control.hxx" // ::command_line_interface
 
 #include "status.hxx" // status_t
@@ -46,6 +47,7 @@
 #include "inline_tools.hxx" // ::all_tests
 #include "simple_timer.hxx" // ::all_tests
 #include "sigma_config.hxx" // ::all_tests
+#include "unit_system.hxx" // ::all_tests
 #include "simple_math.hxx" // ::all_tests
 #include "sho_overlap.hxx" // ::all_tests
 #include "radial_grid.hxx" // ::all_tests
@@ -60,6 +62,15 @@
 #include "atom_core.hxx" // ::all_tests
 #include "data_view.hxx" // ::all_tests
 #include "control.hxx" // ::all_tests
+#endif
+
+
+#ifndef _Output_Units_Fixed
+      #include "display_units.h" // extern definitions
+      // global variables
+      double eV  = 1; char const *_eV = "";  // dynamic energy unit
+      double Ang = 1; char const *_Ang = ""; // dynamic length unit
+      // end global variables
 #endif
 
   status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
@@ -115,6 +126,7 @@
 //           module_test("pseudo_tools.",               pseudo_tools::all_tests);
           module_test("simple_timer.",               simple_timer::all_tests);
           module_test("sigma_config.",               sigma_config::all_tests);
+          module_test("unit_system.",                 unit_system::all_tests);
           module_test("simple_math.",                 simple_math::all_tests);
           module_test("sho_overlap.",                 sho_overlap::all_tests);
           module_test("radial_grid.",                 radial_grid::all_tests);
@@ -247,6 +259,10 @@
       } // echo
       if (echo > 0) show_version();
       if (echo > 0) printf("\n# verbosity = %d\n", echo);
+      stat += unit_system::set_output_units(control::get("output.energy.unit", "Ha"),
+                                            control::get("output.length.unit", "Bohr"));
+//       stat += unit_system::set_input_units (control::get( "input.energy.unit", "Ha"),
+//                                             control::get( "input.length.unit", "Bohr"));
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);

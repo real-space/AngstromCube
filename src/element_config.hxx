@@ -27,7 +27,7 @@ namespace element_config {
   inline status_t test_show_all_elements(int const echo=2) {
       if (echo > 0) printf("# %s:  %s\n", __FILE__, __func__);
       float iocc[32];
-      char const ellchar[] = "spdfghi";
+      char const ellchar[] = "spdfghi"; // ToDo: by convention 'i' is not the proper char for ell=6
     
       for(int spin = 1; spin >= 0; --spin) {
           if (echo > 1 + spin) {
