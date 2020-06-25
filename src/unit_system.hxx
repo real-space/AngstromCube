@@ -26,7 +26,6 @@ namespace unit_system {
   } // energy_unit
 
   double constexpr nano_meter = .052917724924; // conversion factor from Bohr to nm
-// double constexpr Angstrom = 10*nano_meter;
   
   char constexpr _nano_meter[] = "nm"; // nanometer length unit
   char constexpr _Angstrom[] = "Ang"; // Angstrom length unit

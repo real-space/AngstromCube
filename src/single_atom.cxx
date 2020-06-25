@@ -26,6 +26,7 @@
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, spherical_orbital_t, partial_wave_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
+#include "unit_system.hxx" // ::energy_unit
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
 #include "simple_math.hxx" // invert
 #include "simple_timer.hxx" // SimpleTimer
@@ -430,12 +431,12 @@ extern "C" {
 
         set(csv_charge, 3, 0.0); // clear numbers of electrons for core, semicore and valence, respectively
 
-        double const core_valence_separation  = control::get("core.valence.separation", -2.0);
+        double const core_valence_separation  = control::get("core.valence.separation", -2.0); // in Hartree always
         double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
         double const semi_valence_separation  = control::get("semicore.valence.separation", core_valence_separation);
         if (core_semicore_separation > semi_valence_separation) {
-            warn("%s core.semicore.separation=%g may not be higher than semicore.valence.separation=%g, correct", 
-                 label, core_semicore_separation, semi_valence_separation);
+            warn("%s core.semicore.separation=%g may not be higher than semicore.valence.separation=%g %s, correct for it", 
+                 label, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
             core_semicore_separation = semi_valence_separation; // correct --> no semicore states possible
         } // warning
         ncorestates = 20; // maximum number
@@ -702,11 +703,19 @@ extern "C" {
         lmn_end.resize(mlm);
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), echo);
 
-        logder_energy_range[0] = control::get("logder.start", -2.0);
-        logder_energy_range[1] = control::get("logder.step",  1e-2); // ToDo: these getter calls should be moved to the main function
-        logder_energy_range[2] = control::get("logder.stop",   1.0);
-        if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
-            label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV,_eV);
+        { // scope: specify the range of the logarithmic derivative analysis
+            auto const logder_energy_unit_name = control::get("logder.unit", "Ha");
+            char const *_eu;
+            auto const eu = unit_system::energy_unit(logder_energy_unit_name, &_eu);
+            auto const in_eu = 1./eu;
+            logder_energy_range[0] = control::get("logder.start", -2.0*eu)*in_eu;
+            logder_energy_range[1] = control::get("logder.step",  1e-2*eu)*in_eu; // ToDo: these getter calls should be moved to the main function
+            logder_energy_range[2] = control::get("logder.stop",   1.0*eu)*in_eu;
+            if (echo > 3) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
+                label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV, _eV);
+            if (echo > 4) printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
+                label, logder_energy_range[0]*eu, logder_energy_range[1]*eu, logder_energy_range[2]*eu, _eu);
+        } // scope
 
         pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
         

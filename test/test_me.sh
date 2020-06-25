@@ -13,7 +13,7 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \
        +single_atom.nn.limit=2 \
-       +logder.start=-2.5 +logder.step=.0003675 +logder.stop=1 \
+       +logder.start=-66 +logder.step=.01 +logder.stop=33 +logder.unit=eV \
        +single_atom.init.scf.maxit=1 \
        +single_atom.optimize.sigma=-1 \
        +element_H="1s* 1 0 2p 2e-99 | 0.9 sigma .623" \

@@ -212,7 +212,7 @@ namespace scattering_test {
       int const nen = int(std::ceil((energy_range[2] - energy_range[0])/dE));
 
       if (echo > 1) printf("\n# %s %s energy range from %g to %g %s in %d steps of %g %s, lmax=%d\n", 
-                  label, __func__, energy_range[0]*eV, energy_range[2]*eV, _eV, nen, dE*eV, _eV, lmax);
+          label, __func__, energy_range[0]*eV, energy_range[2]*eV, _eV, 1 + nen, dE*eV, _eV, lmax);
 
       if (nen < 0) return stat; // empty range
 
@@ -220,8 +220,6 @@ namespace scattering_test {
       int const mr = align<2>(rg[TRU]->n);
       std::vector<double> gg(mr), ff(mr); // greater and smaller component, TRU grid
       int ir_stop[TRU_AND_SMT];
-
-//    auto linsolfail = std::vector<size_t>(1 + lmax, 0);
 
       int const nln = sho_tools::nSHO_radial(numax);
       int const stride = mr;
@@ -266,26 +264,6 @@ namespace scattering_test {
           if (echo > 22) printf("\n");
       } // ien
 
-//       for(int ell = 0; ell <= lmax; ++ell) {
-//           if (linsolfail[ell]) {
-//               printf("# %s %s linear solve failed %ld times for ell=%i\n", label, __func__, linsolfail[ell], ell);
-//           } // fail
-//       } // ell
-
-      if (echo > 2) { // display logarithmic derivatives or generalized node counts
-          printf("\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
-                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
-          for(int ien = 0; ien <= nen; ++ien) {
-              auto const energy = energy_range[0] + ien*dE;
-              printf("%.6f", energy*eV);
-              for(int ell = 0; ell <= lmax; ++ell) { // ell-loop
-                  printf("\t%.6f %.6f", gncs(ien,ell,TRU), gncs(ien,ell,SMT));
-              } // ell
-              printf("\n");
-          } // ien
-          printf("\n\n");
-      } // echo
-
       // analyze and show a compressed summary
       if (echo > 0) { // show summary
           if (dE > 0) {
@@ -320,6 +298,20 @@ namespace scattering_test {
           } else { // dE > 0
               printf("# %s logarithmic_derivative summary needs a positive logder.step, found %g %s\n\n", label, dE*eV, _eV);
           } // dE > 0
+      } // echo
+      
+      if (echo > 2) { // display logarithmic derivatives or generalized node counts
+          printf("\n\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+                label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
+          for(int ien = 0; ien <= nen; ++ien) {
+              auto const energy = energy_range[0] + ien*dE;
+              printf("%.6f", energy*eV);
+              for(int ell = 0; ell <= lmax; ++ell) { // ell-loop
+                  printf("\t%.6f %.6f", gncs(ien,ell,TRU), gncs(ien,ell,SMT));
+              } // ell
+              printf("\n");
+          } // ien
+          printf("\n\n");
       } // echo
       
       return stat;
