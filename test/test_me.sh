@@ -8,7 +8,7 @@ Z=2
 
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
 (cd ../src/ && make -j) && \
-  $exe +verbosity=7  \
+  $exe +verbosity=3  \
   -test single_atom. \
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \

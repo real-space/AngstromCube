@@ -265,42 +265,58 @@ namespace scattering_test {
       } // ien
 
       // analyze and show a compressed summary
-      if (echo > 0) { // show summary
+      if (echo > 1) { // show summary
           if (dE > 0) {
-              printf("\n# %s logarithmic_derivative summary between %.3f and %.3f %s, dE= %.1f m%s\n", 
-                          label, energy_range[0]*eV, energy_range[2]*eV, _eV, dE*1000*eV, _eV);
+              if (echo > 2) printf("\n# %s logder at %.3f %s, summary for %.3f to %.3f %s, dE= %.1f m%s\n",
+                  label, Rlog*Ang, _Ang, energy_range[0]*eV, energy_range[2]*eV, _eV, dE*1000*eV, _eV);
               int constexpr mres = 8;
               double at_energy[TRU_AND_SMT][mres];
+              double max_abs_diff{0}, max_diff{0}; int ell_max_diff{-1}; // check the lowest resonances only
               for(int ell = 0; ell <= lmax; ++ell) {
                   char more{0}; // will be set to '+' if there are more than mres
                   int nres[TRU_AND_SMT] = {0, 0}; // number of resonances stored
                   for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                       set(at_energy[ts], mres, 0.0); // clear
-                      printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
+                      if (echo > 3) printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
                       float prev_gnc{-9};
                       for(int ien = 1; ien <= nen; ++ien) {
                           float const gnc = gncs(ien,ell,ts);
                           if (gnc < prev_gnc) { // possible resonance
                               auto const energy = energy_range[0] + (ien - .5)*dE;
-                              printf("\t%.3f", energy*eV);
+                              if (echo > 3) printf("\t%.3f", energy*eV);
                               if (nres[ts] < mres) { at_energy[ts][nres[ts]++] = energy; } else { more = '+'; }
                           } // not increasing
                           prev_gnc = gnc;
                       } // ien
-                      printf(" %s\n", _eV);
+                      if (echo > 3) printf(" %s\n", _eV);
                   } // ts
-                  printf("# %s %c-resonance differences", label, ellchar[ell]);
-                  for(int ires = 0; ires < std::min(nres[TRU], nres[SMT]); ++ires) {
-                      printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
-                  } // ires
-                  printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"  
+                  double const res_diff = at_energy[SMT][0] - at_energy[TRU][0]; // check the lowest resonance only
+                  if (std::abs(res_diff) > max_abs_diff) {
+                      ell_max_diff = ell;
+                      max_diff = res_diff;
+                      max_abs_diff = std::abs(res_diff);
+                  } // new maximum found
+                  if (echo > 2) {
+                      printf("# %s %c-resonance differences", label, ellchar[ell]);
+                      for(int ires = 0; ires < std::min(nres[TRU], nres[SMT]); ++ires) {
+                          printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
+                      } // ires
+                      printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
+                      fflush(stdout);
+                  } // echo
               } // ell
+
+              if (ell_max_diff >= 0) { // now the most useful summary line:
+                  printf("# %s absolute largest logder difference is %g %s = %d * %g m%s found in %c-channel\n\n",
+                      label, max_diff*eV, _eV, int(std::round(max_diff/dE)), dE*1000*eV, _eV, ellchar[ell_max_diff]);
+              } // ell valid
+
           } else { // dE > 0
               printf("# %s logarithmic_derivative summary needs a positive logder.step, found %g %s\n\n", label, dE*eV, _eV);
           } // dE > 0
       } // echo
-      
-      if (echo > 2) { // display logarithmic derivatives or generalized node counts
+
+      if (echo > 5) { // display logarithmic derivatives or generalized node counts
           printf("\n\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                 label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
           for(int ien = 0; ien <= nen; ++ien) {
@@ -465,10 +481,12 @@ namespace scattering_test {
                               }   printf("\n\n");
                           } // echo
 
-                          printf("# %s projection analysis for ell=%i eigenvalue (#%i)%10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
-                          for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                              printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
-                          }   printf("\n");
+                          if (echo > 5) {
+                              printf("# %s projection analysis for ell=%i eigenvalue (#%i)%10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
+                              for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                                  printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
+                              }   printf("\n");
+                          } // echo
                       } // iev
                   } // echo
                   
@@ -484,7 +502,7 @@ namespace scattering_test {
                   if (eigs[0] <= 0) { // warn
                       if (echo > 0) printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
                   } // overlap matrix is not positive definite
-                  if (echo > 1) {
+                  if (echo > 6) {
                       printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
                       for(int iev = 0; iev < 8; ++iev) {
                           printf(" %g", eigs[iev]);
