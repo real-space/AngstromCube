@@ -197,12 +197,8 @@ namespace scattering_test {
               , double const aSm[] // non-local overlap matrix elements
               , double const energy_range[3] // {lower, step, upper}
               , char const *label=""
-#ifndef  _SELECTED_ENERGIES_LOGDER
-              , int const echo=2) {
-#else
-              , int const echo_level=2) {
-                int const echo = echo_level + 10; // turn a lot of output on
-#endif
+              , int const echo=2
+              , float const Rlog_over_sigma=6) {
 
       status_t stat(0);
       
@@ -234,7 +230,7 @@ namespace scattering_test {
       // preparation for the projector functions
       stat += expand_sho_projectors(rprj.data(), rprj.stride(), *rg[SMT], sigma, numax, 1, 0);
       
-      ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], 9*sigma), rg[SMT]->n - 2);
+      ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], Rlog_over_sigma*sigma), rg[SMT]->n - 2);
       double const Rlog = rg[SMT]->r[ir_stop[SMT]];
       if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
