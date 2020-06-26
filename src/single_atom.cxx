@@ -4,7 +4,7 @@
  */
 #endif
 
-#include <cstdio> // printf
+#include <cstdio> // printf, std::snprintf
 #include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
 #include <algorithm> // std::max
@@ -273,6 +273,7 @@ extern "C" {
       std::vector<double> true_norm; // vector[nln] for display of partial wave results
       // end of energy-parameter-set dependent members
       std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
+      view2D<double> density_matrix; // atomic density matrix [nSHO][nSHO]
 
       view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
@@ -310,18 +311,22 @@ extern "C" {
     // constructor method:
     LiveAtom(double const Z_protons
             , int const nu_max=3
-            , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
+            , float const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
             , double const ionization=0
             , int32_t const global_atom_id=-1
             , int const echo=0 // logg level for this constructor method only
             ) : atom_id{global_atom_id} 
               , Z_core{Z_protons}
-              , mix_spherical_valence_density{atomic_valence_density ? 1.f : 0.f}
+              , mix_spherical_valence_density{std::min(std::max(0.f, atomic_valence_density), 1.f)}
               , gaunt_init{false}
         { // constructor
 
-        char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
-        if (atom_id >= 0) { sprintf(label, "%s#%d", chem_symbol, atom_id); } else { label[0]=0; }
+        if (atom_id >= 0) { 
+            char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
+            std::snprintf(label, 16, "%s#%d", chem_symbol, atom_id); 
+        } else { 
+            label[0] = '\0';
+        }
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
@@ -688,6 +693,7 @@ extern "C" {
         int const nSHO = sho_tools::nSHO(numax);
         int const matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
         if (echo > 0) printf("# %s matrix size for hamiltonian and overlap: dim = %d, stride = %d\n", label, nSHO, matrix_stride);
+        density_matrix = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
         hamiltonian = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
         overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
@@ -1947,8 +1953,10 @@ extern "C" {
     } // transform_SHO
 
     void get_rho_tensor(view3D<double> & density_tensor
-        , view2D<double> const & density_matrix, sho_tools::SHO_order_t const order=sho_tools::order_Ezyx
+        , view2D<double> const & density_matrix
+        , sho_tools::SHO_order_t const order=sho_tools::order_Ezyx
         , int const echo=0) {
+      
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
         assert(stride >= nSHO);
@@ -1960,15 +1968,15 @@ extern "C" {
         int const mlm = pow2(1 + numax);
 
         view2D<double> radial_density_matrix;
-        
+
         if (sho_tools::order_Ezyx == order) {
             // now transform the density_matrix[izyx][jzyx]
             //     into a radial_density_matrix[ilmn][jlmn]
             //     using the unitary transform from left and right
-            radial_density_matrix = view2D<double>(nSHO, stride);
+            radial_density_matrix = view2D<double>(nSHO, stride); // get memory
             transform_SHO(radial_density_matrix.data(), stride,
                   density_matrix.data(), density_matrix.stride(), true);
-            
+#ifdef DEVEL
             if (0) { // debugging
                 view2D<double> check_matrix(nSHO, nSHO);
                 transform_SHO(check_matrix.data(), check_matrix.stride(),
@@ -1982,20 +1990,19 @@ extern "C" {
                 printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, maxdev);
                 assert(maxdev < 1e-9);
             } // debugging
-            
-        } else 
-        if (sho_tools::order_lmn == order) {
+#endif
+        } else if (sho_tools::order_lmn == order) {
             radial_density_matrix = view2D<double>(density_matrix.data(), density_matrix.stride()); // wrap
-        } else { 
+        } else {
             error("%s should be in either order_Ezyx or order_lmn", label);
-        }
+        } // order
 
 #ifdef DEVEL        
         if (0) {
             printf("# %s Radial density matrix\n", label);
             for(int i = 0; i < nSHO; ++i) {
                 for(int j = 0; j < nSHO; ++j) {
-                    printf("\t%.1f", radial_density_matrix[i][j]);
+                    printf("\t%.1f", radial_density_matrix(i,j));
                 }   printf("\n");
             }   printf("\n");
         } // plot
@@ -2601,11 +2608,9 @@ extern "C" {
         int const nln = sho_tools::nSHO_radial(numax);
         view3D<double> aHSm(2, nln, nln, 0.0);
         check_spherical_matrix_elements(echo, aHSm); // check scattering properties for emm-averaged Hamiltonian elements
-        int const nSHO = sho_tools::nSHO(numax);
-        view2D<double> density_matrix(nSHO, nSHO, 0.0); // get memory
-        auto dm_order = sho_tools::order_Ezyx;
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
+        auto dm_order{sho_tools::order_Ezyx};
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
         get_rho_tensor(rho_tensor, density_matrix, dm_order, echo);
         update_full_density(rho_tensor, echo);
@@ -2745,6 +2750,7 @@ namespace single_atom {
           case str2int("update"): // needs a trailing ' ' if str2int==string2long
           case str2int("hamiltonian"):
           case str2int("zero potentials"):
+          case str2int("atomic density matrices"):
           case str2int("radial grids"):
             if (echo > 0) printf("# %s found selector what=\"%s\".\n", __func__, what);
           break; default:
@@ -2763,8 +2769,9 @@ namespace single_atom {
       static int echo = -9;
       if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to update()
 
-      assert(what); // should never be nullptr
-      char const how = what[0] | 32; // first char, to lowercase
+      if (nullptr == what) return -1;
+      
+      char const how = what[0] | 32; // first char, convert to lowercase
       if (echo > 4) printf("\n# %s %s what=\"%s\" --> \'%c\'\n\n", __FILE__, __func__, what, how);
 
       float constexpr ar2_default = 16.f;
@@ -2780,18 +2787,18 @@ namespace single_atom {
 
       switch (how) {
         
-          case 'i': // interface usage: atom_update("initialize", natoms, Za[], numax[], ion[]=0);
+          case 'i': // interface usage: atom_update("initialize", natoms, Za[], numax[], ion[]=0, dpp=null);
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
-              bool const atomic_valence_density = (nullptr != dpp); // control
+              float const atomic_valence_density = (nullptr != dpp); // global control for all atoms, can only be 0 or 1
               int const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_init);
                   if(ip) ip[ia] = a[ia]->get_numax(); // export numax
               } // ia
-          } 
+          }
           break;
 
           case 'm': // interface usage: atom_update("memory cleanup", natoms);
@@ -2800,9 +2807,9 @@ namespace single_atom {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
               a.clear();
-              na = a.size(); // fulfill consistency check
+              na = a.size(); // fulfill consistency check at the end
               assert(!dp); assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
 
           case 'c': // interface usage: atom_update("core densities",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
@@ -2819,7 +2826,7 @@ namespace single_atom {
                   if ('v' == how) dp[ia] = a[ia]->spherical_valence_charge_deficit;
               } // ia
               if ('v' != how && nullptr != dp) warn("please use \'%s\'-interface with nullptr as 3rd argument", what);
-          } 
+          }
           break;
 
           case 'r': // interface usage: atom_update("radial grid", natoms, null, null, null, (double**)rg_ptr);
@@ -2837,7 +2844,7 @@ namespace single_atom {
               warn("%s only available with -D DEVEL", what);
 #endif
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
 
           case 's': // interface usage: atom_update("sigma compensator", natoms, sigma);
@@ -2847,7 +2854,7 @@ namespace single_atom {
                   sigma[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
               } // ia
               assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
 
           case 'p': // interface usage: atom_update("projectors", natoms, sigma);
@@ -2859,7 +2866,7 @@ namespace single_atom {
                   numax[ia] = a[ia]->numax; //  number of SHO-projectors // ToDo: use a getter function
               } // ia
               assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
 
           case 'u': // interface usage: atom_update("update", natoms, null, null, mix={mix_pot, mix_rho}, vlm);
@@ -2873,7 +2880,7 @@ namespace single_atom {
                   a[ia]->update_density(mix_rho, echo);
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
 
           case 'a': // interface usage: atom_update("atomic density matrix", natoms, null, null, null, atom_rho);
@@ -2881,12 +2888,14 @@ namespace single_atom {
               double const *const *const atom_rho = dpp; assert(nullptr != atom_rho);
               for(int ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_rho[ia]);
-                  // ToDo: set the atomic density matrices of LiveAtoms a[ia]
+                  int const numax = a[ia]->get_numax();
+                  int const ncoeff = sho_tools::nSHO(numax);
+                  for(int i = 0; i < ncoeff; ++i) {
+                      set(a[ia]->density_matrix[i], ncoeff, &atom_rho[ia][i*ncoeff + 0]);
+                  } // i
               } // ia
-              warn("Atomic density matrices are ignored!");
-              stat = 1;
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
               
           case 'q': // interface usage: atom_update("q_lm charges", natoms, null, null, null, qlm);
@@ -2897,18 +2906,20 @@ namespace single_atom {
                   set(qlm[ia], nlm, a[ia]->qlm_compensator.data()); // copy compensator multipoles
               } // ia
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
 
-          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, lmax);
-                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , lmax);
+          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, lmax, mix_spherical=null);
+                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , lmax, mix_spherical=null);
           {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
+                  // fine control the mix_spherical_valence_density atom-resolved and any float in [0, 1]
+                  if (fp) a[ia]->mix_spherical_valence_density = std::min(std::max(0.f, fp[ia]), 1.f);
               } // ia
-              assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
-          } 
+              assert(!dpp); // last argument must be nullptr (by default)
+          }
           break;
 
           case 'n': // interface usage: atom_update("numax", natoms, null, numax);
@@ -2918,7 +2929,7 @@ namespace single_atom {
                   numax[ia] = a[ia]->get_numax();
               } // ia
               assert(!dp); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
           
           case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, null, nelements, null, atom_mat);
@@ -2936,23 +2947,19 @@ namespace single_atom {
                   } // i
               } // ia
               assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)
-          } 
+          }
           break;
             
           default:
           {
               if (echo > 0) printf("# %s first argument \'%s\' undefined, no action!\n", __func__, what);
               stat = how;
-          } 
+          }
           break;
 
       } // switch(how)
 
-      if (a.size() != na) {
-          if (echo > 0) printf("# %s inconsistency detected: internally %ld atoms active by n=%d\n",
-          __func__, a.size(), na);
-      } // inconsistency
-      
+      if (a.size() != na) warn("inconsistency: internally %ld atoms active but natoms=%d", a.size(), na);
       if (stat) warn("what='%s' returns status = %i", what, int(stat));
       return stat;
   } // atom_update
@@ -2987,7 +2994,7 @@ namespace single_atom {
 
   int test_LiveAtom(int const echo=9) {
     int const numax = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
-    bool const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
+    float const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");

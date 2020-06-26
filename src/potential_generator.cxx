@@ -575,17 +575,22 @@ namespace potential_generator {
               view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
 
               auto const eigensolver_method = control::get("eigensolver", "cg");
-              int const nkpoints = int(control::get("number.of.kpoints", 1.)); // currently these are just repetitions of the solver
+              int const nkpoints = 1;
+              int const nrepeat = int(control::get("repeat.eigensolver", 1.)); // repetitions of the solver
               for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
 
                   // solve the Kohn-Sham equation using various solvers
                   if ('c' == eigensolver_method[0]) { // "cg" or "conjugate_gradients"
                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
-                      stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
-//                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
+                      for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                          stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
+                          stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
+                      } // irepeat
                   } else
                   if ('d' == eigensolver_method[0]) { // "davidson"
-                      stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
+                      for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                          stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
+                      } // irepeat
                   } else 
                   if ('n' == eigensolver_method[0]) { // "none"
                       warn("eigensolver method \'%s\' generates no new valence density", eigensolver_method);
@@ -594,7 +599,7 @@ namespace potential_generator {
                   } // eigensolver_method
 
                   // add to density
-//                stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
+                  stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
 
               } // ikpoint
 
@@ -604,6 +609,8 @@ namespace potential_generator {
               stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
 
               // ToDo: density mixing
+              
+              stat += single_atom::atom_update("atomic density matrices", na, 0, 0, 0, atom_rho.data());              
 
           } // scope: Kohn-Sham
           
@@ -721,6 +728,7 @@ namespace potential_generator {
       delete[] coordinates_and_Z;
 
       stat += single_atom::atom_update("memory cleanup", na);
+
       return stat;
   } // init
 
@@ -730,7 +738,7 @@ namespace potential_generator {
 #else // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
-      float const ion = control::get("potential_generator.test.ion", 0.0);
+      float const ion = control::get("potential_generator.test.ion", 0.);
       return init(ion, echo); // ionization of Al-P dimer by -ion electrons
   } // test_init
 

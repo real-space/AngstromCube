@@ -83,7 +83,7 @@ public:
 #endif
 
   T* operator[] (size_t const i1) const {
-    if    ((i1 < _n1) || (DimUnknown == _n1)) {} else printf("# i1=%i n1=%d\n");
+    if    ((i1 < _n1) || (DimUnknown == _n1)) {} else printf("# i1=%li n1=%ld\n", i1, _n1);
     assert((i1 < _n1) || (DimUnknown == _n1)); 
     return &_data[i1*_n0]; } // []
 

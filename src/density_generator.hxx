@@ -24,7 +24,9 @@ namespace density_generator {
   } // print_stats
 
   template<typename real_t, typename real_fd_t=double>
-  status_t density(double rho[], double *const *const atom_rho, real_t const eigenfunctions[]
+  status_t density(double rho[]        // result density on Cartesian grid
+      , double *const *const atom_rho  // result atomic density matrices
+      , real_t const eigenfunctions[]
       , grid_operators::grid_operator_t<real_t,real_fd_t> const & op
       , int const nbands=1, int const nkpoints=1
       , int const echo=0) {
@@ -38,7 +40,7 @@ namespace density_generator {
       if (echo > 3) printf("# %s assume %d bands and %d k-points\n", __func__, nbands, nkpoints);
       if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d Cartesian grid\n", 
                               __func__, g('x'), g('y'), g('z'));
-      
+
       int const na = op.get_natoms();
       std::vector<real_t*> atom_coeff(na, nullptr);
       for(int ia = 0; ia < na; ++ia) {
@@ -101,7 +103,7 @@ namespace density_generator {
               for(int i = 0; i < ncoeff; ++i) {
                   printf("\n# ");
                   for(int j = 0; j < ncoeff; ++j) {
-                      printf(" %.9g", atom_rho[ia][i*ncoeff + j]);
+                      printf("%12.4e", atom_rho[ia][i*ncoeff + j]);
                   } // j
               }   printf("\n");
           } // echo
