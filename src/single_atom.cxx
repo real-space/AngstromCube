@@ -2915,7 +2915,7 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
-                  // fine control the mix_spherical_valence_density atom-resolved and any float in [0, 1]
+                  // fine control the mix_spherical_valence_density atom-resolved and any float in [0, 1], ToDo: is atom-resolved a good idea?
                   if (fp) a[ia]->mix_spherical_valence_density = std::min(std::max(0.f, fp[ia]), 1.f);
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)

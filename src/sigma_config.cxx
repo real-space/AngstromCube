@@ -196,8 +196,7 @@ namespace sigma_config {
 
     element_t & get(double const Zcore, int const echo) {
         
-        using char4_t = char[4] ;
-        char4_t symbol;
+        char symbol[4];
         int const iZ = chemical_symbol::get(symbol, Zcore);
         char element_Sy[16];
         std::snprintf(element_Sy, 15, "element_%s", symbol);

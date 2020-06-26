@@ -202,7 +202,7 @@ namespace potential_generator {
                   center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center[ia][3] = 0; // 4th component is not used
               if (echo > 1) printf("  relative%12.3f%16.3f%16.3f", center[ia][0]*g.inv_h[0],
-                                           center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
+                                         center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
               if (echo > 4) printf("\n");
           } // ia
       } // scope
@@ -259,7 +259,7 @@ namespace potential_generator {
       std::vector<double> rho_valence(g.all(), 0.0);
       char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
       if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", initial_valence_density_method);
-      if ('a' == initial_valence_density_method[0]) {
+      if ('a' == *initial_valence_density_method) { // atomic
           auto & atom_rhov = atom_rhoc; // temporarily rename the existing allocation
           q00_valence.resize(na); // charge deficits of the spherical valence densities
           stat += single_atom::atom_update("valence densities", na, q00_valence.data(), nr2.data(), ar2.data(), atom_rhov.data());
@@ -268,14 +268,14 @@ namespace potential_generator {
                                 center, n_periodic_images, periodic_images, atom_rhov.data(),
                                 echo, echo, Y00sq, "smooth atomic valence density");
 
-      } else if ('l' == initial_valence_density_method[0]) {
+      } else if ('l' == *initial_valence_density_method) { // load
           error("initial.valence.density = load has not been implemented yet");
-      } else if ('n' == initial_valence_density_method[0]) {
+      } else if ('n' == *initial_valence_density_method) { // none
           warn("initial.valence.density = none may cause problems");
       } else {
           warn("initial.valence.density = %s is unknown, valence density is zero", initial_valence_density_method);
       } // switch
-      
+
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);

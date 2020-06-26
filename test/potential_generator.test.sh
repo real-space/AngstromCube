@@ -23,7 +23,7 @@ exe=../src/a43
 
 $exe +verbosity=9 \
     -test potential_generator. \
-        +eigensolver=cg +conjugate_gradients.max.iter=2 \
+        +eigensolver=cg +conjugate_gradients.max.iter=12 \
         +repeat.eigensolver=9 \
         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
