@@ -582,8 +582,8 @@ namespace potential_generator {
                   if ('c' == eigensolver_method[0]) { // "cg" or "conjugate_gradients"
                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
                       stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
-                      stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
-                  } else 
+//                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
+                  } else
                   if ('d' == eigensolver_method[0]) { // "davidson"
                       stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
                   } else 
@@ -594,7 +594,7 @@ namespace potential_generator {
                   } // eigensolver_method
 
                   // add to density
-                  stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
+//                stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
 
               } // ikpoint
 
