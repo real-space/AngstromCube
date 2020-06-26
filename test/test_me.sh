@@ -38,10 +38,11 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
        +element_Rb="4s 2 5s 1 0 4p* 6 4d | 2.3 sigma 1." \
        +element_u0="7s 2 8s 2 7p 6 8p 2e-99 6d 10 6f 2e-99 | 3. sigma .9" \
        +single_atom.local.potential.method=sinc \
-       +output.length.unit=Ang \
-       +output.energy.unit=eV \
-      > single_atom.$Z.sinc.eV-Ang
+      > single_atom.$Z.sinc
 
+#        +element_He="1s 2 2s 2e-99 2p 3d 2e-99 | 1.5 sigma .75" \
+#        +output.length.unit=Ang \
+#        +output.energy.unit=eV \
 ##       +logder.stop=-9 \
 ## +logder.start=-1 +logder.step=.0001 +logder.stop=0
 #        +logder.start=-2.5 +logder.step=.0001 +logder.stop=.5 \

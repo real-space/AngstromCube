@@ -552,7 +552,8 @@ namespace potential_generator {
               } // ia
               data_list<double> atom_rho(ncoeff_squared, 0.0); // atomic density matrices
 
-              int const nbands = 4*na; // s- and p-states
+              int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // s- and p-states
+              int const nbands = nbands_per_atom*na;
               view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
               { // scope: generate start waves from atomic orbitals
                   uint8_t qn[20][4]; // quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
@@ -574,7 +575,8 @@ namespace potential_generator {
               view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
 
               auto const eigensolver_method = control::get("eigensolver", "cg");
-              for(int ikpoint = 0; ikpoint < 1; ++ikpoint) { // ToDo: implement k-points
+              int const nkpoints = int(control::get("number.of.kpoints", 1.)); // currently these are just repetitions of the solver
+              for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
 
                   // solve the Kohn-Sham equation using various solvers
                   if ('c' == eigensolver_method[0]) { // "cg" or "conjugate_gradients"
