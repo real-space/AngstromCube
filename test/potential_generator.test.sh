@@ -24,18 +24,19 @@ exe=../src/a43
 $exe +verbosity=9 \
     -test potential_generator. \
         +eigensolver=dav +number.of.kpoints=999 \
+        +electrostatic.solver=mg \
         +element_He="1s* 2 2p | 1.5 sigma .75" \
         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
-        +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
         +potential_generator.use.bessel.projection=5 \
         +single_atom.local.potential.method=sinc \
         +single_atom.init.echo=5 \
         +single_atom.echo=5 \
         +logder.start=2 +logder.stop=1 \
-        +bands.per.atom=10 \
+        +bands.per.atom=4 \
         > potential_generator.out
 
+#         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
 #         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.fft.dat \
 #         +electrostatic.solver=mg \
 #         +electrostatic.potential.to.file=v_es.mg.dat \

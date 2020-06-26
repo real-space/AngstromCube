@@ -28,7 +28,7 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "unit_system.hxx" // ::energy_unit
 #include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow
-#include "simple_math.hxx" // invert
+#include "simple_math.hxx" // ::invert
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // ::transform_to_r2_grid
 #include "scattering_test.hxx" // ::eigenstate_analysis, ::emm_average
@@ -36,6 +36,7 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
+#include "chemical_symbol.hxx" // ::get
 #include "sigma_config.hxx" // ::get, element_t
 
 // #define FULL_DEBUG
@@ -319,7 +320,8 @@ extern "C" {
               , gaunt_init{false}
         { // constructor
 
-        if (atom_id >= 0) { sprintf(label, "a#%d", atom_id); } else { label[0]=0; }
+        char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
+        if (atom_id >= 0) { sprintf(label, "%s#%d", chem_symbol, atom_id); } else { label[0]=0; }
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
@@ -650,7 +652,7 @@ extern "C" {
                                 } // |dE| small
                             } else 
                             if (previous_energy_parameter & (1 << ell)) { // nrn > 0
-                                if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0");
+                                if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0", label);
                                 if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
                             } else {
                                 // leave eigenstate, see above
@@ -1068,8 +1070,8 @@ extern "C" {
         if (sigma_opt == sig || 0 == best_weighted_quality_at_iter) {
             warn("%s optimal sigma is at the end of the analyzed range!", label);
         } // border
-        
-        
+
+
         int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
         if (suggest_vloc > -1) {
             // if we dictate the shape of the projectors
@@ -1169,8 +1171,8 @@ extern "C" {
             stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
             if (echo > 7) printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
             
-            if (d1 <= 0) warn("positive potential slope for sinc-fit expected but found %g", d1);
-            if (d2 >  0) warn("negative potential curvature for sinc-fit expected but found %g", d2);
+            if (d1 <= 0) warn("%s positive potential slope for sinc-fit expected but found %g", label, d1);
+            if (d2 >  0) warn("%s negative potential curvature for sinc-fit expected but found %g", label, d2);
             
             double k_s{2.25*constants::pi/r_cut}, k_s_prev{0}; // initial guess
             double V_s, V_0;
@@ -1187,9 +1189,9 @@ extern "C" {
                 k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
                 ++iterations_needed;
             } // while
-            if (iterations_needed >= max_iter) warn("sinc-fit did not converge!");
+            if (iterations_needed >= max_iter) warn("%s sinc-fit did not converge!", label);
             if (k_s*r_cut <= 2*constants::pi || k_s*r_cut >= 2.5*constants::pi) {
-                warn("sinc-fit failed!, k_s*r_cut=%g not in (2pi, 2.5pi)", k_s*r_cut);
+                warn("%s sinc-fit failed!, k_s*r_cut=%g not in (2pi, 2.5pi)", label, k_s*r_cut);
             } // out of target range
 
             if (echo > 5) printf("# %s match local potential to sinc function at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
@@ -2828,10 +2830,12 @@ namespace single_atom {
                   dpp[ia] = reinterpret_cast<double*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
 #else
                   dpp[ia] = nullptr;
-                  stat = -1;
-                  warn("# %s %s only available with -D DEVEL", __func__, what);
 #endif
               } // ia
+#ifndef DEVEL
+              stat = -1;
+              warn("%s only available with -D DEVEL", what);
+#endif
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           } 
           break;
