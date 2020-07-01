@@ -277,18 +277,23 @@ namespace scattering_test {
                   int nres[TRU_AND_SMT] = {0, 0}; // number of resonances stored
                   for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                       set(at_energy[ts], mres, 0.0); // clear
-                      if (echo > 3) printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
                       float prev_gnc{-9};
                       for(int ien = 1; ien <= nen; ++ien) {
                           float const gnc = gncs(ien,ell,ts);
                           if (gnc < prev_gnc) { // possible resonance
                               auto const energy = energy_range[0] + (ien - .5)*dE;
-                              if (echo > 3) printf("\t%.3f", energy*eV);
                               if (nres[ts] < mres) { at_energy[ts][nres[ts]++] = energy; } else { more = '+'; }
                           } // not increasing
                           prev_gnc = gnc;
                       } // ien
-                      if (echo > 3) printf(" %s\n", _eV);
+                      int const nshow = nres[ts];
+                      if (nshow > 0 && echo > 3) {
+                          printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
+                          for(int ires = 0; ires < nshow; ++ires) {
+                              printf("\t%.3f", at_energy[ts][ires]*eV);
+                          } // ires
+                          printf(" %s\n", _eV);
+                      } // echo
                   } // ts
                   double const res_diff = at_energy[SMT][0] - at_energy[TRU][0]; // check the lowest resonance only
                   if (std::abs(res_diff) > max_abs_diff) {
@@ -296,9 +301,10 @@ namespace scattering_test {
                       max_diff = res_diff;
                       max_abs_diff = std::abs(res_diff);
                   } // new maximum found
-                  if (echo > 2) {
+                  int const ndiff = std::min(nres[TRU], nres[SMT]);
+                  if (ndiff > 0 && echo > 2) {
                       printf("# %s %c-resonance differences", label, ellchar[ell]);
-                      for(int ires = 0; ires < std::min(nres[TRU], nres[SMT]); ++ires) {
+                      for(int ires = 0; ires < ndiff; ++ires) {
                           printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
                       } // ires
                       printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
@@ -414,12 +420,6 @@ namespace scattering_test {
           view2D<double const> rprj1((ln_off < nln)?(rprj[ln_off] + 1):nullptr, rprj.stride()); 
           // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
-          int const ell_no_cd = // ToDo: remove this again
-#ifdef DEVEL
-                                int(control::get("single_atom.test.ell_no_cd", -1.)); // fudge factor // ToDo: remove this again
-#else
-                                -1; // ToDo: remove this again
-#endif
           // add the non-local dyadic operators to the Hamiltonian and overlap
           double projector_norm[8] = {0,0,0,0,0,0,0,0};
           for(int ir = 0; ir < nr; ++ir) {
@@ -427,7 +427,7 @@ namespace scattering_test {
                   for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                       for(int mrn = 0; mrn < nn[ell]; ++mrn) {
                           Ham[ir][jr] += rprj1[nrn][ir] * aHm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
-                          Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr * (ell > ell_no_cd);
+                          Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
                       } // mrn
                   } // nrn
               } // jr
@@ -435,8 +435,8 @@ namespace scattering_test {
                   projector_norm[nrn] += pow2(rprj1[nrn][ir]) * dr; 
               } // nrn
           } // ir
-          if (ell <= ell_no_cd) printf("# %s: overlap elements are set to zero for ell=%i!\n", __func__, ell); // ToDo: remove this again
 
+#ifdef DEVEL
           if (echo > 19) { // debug
               printf("# %s: projector norm of ell=%i is ", __func__, ell);
               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -444,7 +444,7 @@ namespace scattering_test {
               }   printf("\n");
           } // echo
 
-          if (nn[ell] > 0 && echo > 3) { // debug
+          if (nn[ell] > 0 && echo > 9) { // debug
               printf("# %s: charge deficits for ell=%i are ", __func__, ell);
               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                   for(int mrn = nrn; mrn < nn[ell]; ++mrn) { // triangular loop
@@ -452,7 +452,7 @@ namespace scattering_test {
                   } // mrn
               }   printf("\n");
           } // echo
-          
+#endif
           set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
 
           { // scope: diagonalize
@@ -463,7 +463,7 @@ namespace scattering_test {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
                   if (echo > 1) {
-                      printf("# %s lowest eigenvalues for ell=%i  ", label, ell);
+                      printf("# %s lowest %c-eigenvalues ", label, ellchar[ell]);
                       for(int iev = 0; iev < nev; ++iev) {
                           printf("  %.6f", eigs[iev]*eV);
                       }   printf("  %s\n", _eV);
@@ -474,14 +474,14 @@ namespace scattering_test {
                       view2D<double> evec(Ham.data(), Ham.stride()); // eigenvectors are stored in the memory space that was used to input the Hamiltonian
                       for(int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
-                          if (echo > 8) {
+                          if (echo > 9) {
                               printf("\n## %s %s ell=%i eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
                               for(int ir = 0; ir < nr; ++ir) {
                                   printf("%g %g\n", g.r[ir + 1], evec[iev][ir]);
                               }   printf("\n\n");
                           } // echo
 
-                          if (echo > 5) {
+                          if (echo > 7) {
                               printf("# %s projection analysis for ell=%i eigenvalue (#%i)%10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
                               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                                   printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
@@ -502,7 +502,7 @@ namespace scattering_test {
                   if (eigs[0] <= 0) { // warn
                       if (echo > 0) printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
                   } // overlap matrix is not positive definite
-                  if (echo > 6) {
+                  if (echo > 8) {
                       printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
                       for(int iev = 0; iev < 8; ++iev) {
                           printf(" %g", eigs[iev]);
