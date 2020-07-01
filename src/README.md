@@ -1,4 +1,4 @@
-**AAcube**
+**A4cube**
 
 *This README is only about the code base, please refer to ../README.md for the entire application*
   
