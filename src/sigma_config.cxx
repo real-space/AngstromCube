@@ -204,22 +204,22 @@ namespace sigma_config {
 
         if (echo > 3) printf("# for Z=%g use configuration +%s=\"%s\"\n", Zcore, element_Sy, config);
         // now convert config into an element_t
-        auto e = new element_t;
+        auto & e = *(new element_t);
         
         double const Z = ((iZ + 1) & 127) - 1;
-        e->Z = Z;
-        e->rcut = 2.;
-        e->sigma = .5;
-        e->q_core_hole[0] = 0;
-        e->q_core_hole[1] = 0;
-        e->inl_core_hole = -1;
-        set(e->nn, 8, uint8_t(0));
-        e->ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
-        e->ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
-        e->ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
-        e->ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
+        e.Z = Z;
+        e.rcut = 2.;
+        e.sigma = .5;
+        e.q_core_hole[0] = 0;
+        e.q_core_hole[1] = 0;
+        e.inl_core_hole = -1;
+        set(e.nn, 8, uint8_t(0));
+        e.ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
+        e.ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
+        e.ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
+        e.ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
 
-        if (nullptr == config) return *e;
+        if (nullptr == config) return e;
 
         int constexpr mwords = 32;
         double values[mwords];
@@ -331,7 +331,7 @@ namespace sigma_config {
                 warn("config string for %s may be experimental: %s", symbol, config);
             } else if (KeyIgnore == key) {
                 // do not modify the stack!
-                if (echo > 6) printf("# white spaces are ignored for Z = %g\n", e->Z);
+                if (echo > 6) printf("# white spaces are ignored for Z = %g\n", e.Z);
             } else {
                 double value{0};
                 if (nstack > 0) {
@@ -355,7 +355,7 @@ namespace sigma_config {
                     }
                     // checks for the boundaries of occupation numbers
                     for (int spin = 0; spin < 2; ++spin) {
-                        if (occs[spin] < 0 && e->Z > 0) {
+                        if (occs[spin] < 0 && e.Z > 0) {
                             warn("found a negative occupation number %g in the %s-%i%c orbital", occs[spin], symbol, enn, ellchar[ell]);
                             occs[spin] = 0;
                         }
@@ -367,25 +367,25 @@ namespace sigma_config {
                     if (echo > 9) printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occs[0], occs[1], inl);
                     if (key > KeyIgnore) { // orbital
                         set(occ[inl], 2, occs); // set valence occupation numbers positive
-                        if (ell < 8) e->nn[ell] += 1 + mrns[iword];
-                        if (ell < 4) e->ncmx[ell] = enn - 1;
+                        if (ell < 8) e.nn[ell] += 1 + mrns[iword];
+                        if (ell < 4) e.ncmx[ell] = enn - 1;
                     } else if (key == KeyHole) {
-                        set(e->q_core_hole, 2, occs);
-                        e->inl_core_hole = inl;
+                        set(e.q_core_hole, 2, occs);
+                        e.inl_core_hole = inl;
                         if (echo > 2) printf("# found a %i%c-core hole of charges = %g %g in %s\n", enn,ellchar[ell], occs[0],occs[1], symbol);
                     } else assert(false); // should not occur
                 } else if (KeyRcut == key) {
-                    e->rcut = value;     
-                    if (echo > 9) printf("# found cutoff radius rcut = %g\n", e->rcut);
-                    if(e->rcut <= 0) warn("rcut must be positive but found rcut=%g", e->rcut);
+                    e.rcut = value;     
+                    if (echo > 9) printf("# found cutoff radius rcut = %g\n", e.rcut);
+                    if(e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
                 } else if (KeySigma == key) {  
-                    e->sigma = value;
-                    if (echo > 9) printf("# found projector spread sigma = %g\n", e->sigma);
-                    if(e->sigma <= 0) warn("sigma must be positive but found sigma=%g", e->sigma);
+                    e.sigma = value;
+                    if (echo > 9) printf("# found projector spread sigma = %g\n", e.sigma);
+                    if(e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
                 } else if (KeyZcore == key) {  
-                    e->Z = value;
-                    if (echo > 9) printf("# found core charge Z = %g for %s\n", e->Z, symbol);
-                    if(e->Z >= 120) warn("some routine may not be prepared for Z = %g >= 120", e->Z);
+                    e.Z = value;
+                    if (echo > 9) printf("# found core charge Z = %g for %s\n", e.Z, symbol);
+                    if(e.Z >= 120) warn("some routine may not be prepared for Z = %g >= 120", e.Z);
                 }
             }
         } // iword
@@ -396,12 +396,12 @@ namespace sigma_config {
         if (echo > 6) {
             printf("# fill the core up to enn =");
             for(int ell = 0; ell < 4; ++ell) {
-                printf(" %d", e->ncmx[ell]*(e->ncmx[ell] > ell)); // show zeros if there are no core electrons
+                printf(" %d", e.ncmx[ell]*(e.ncmx[ell] > ell)); // show zeros if there are no core electrons
             } // ell
             printf(" for s,p,d,f\n");
         } // echo
         for (int ell = 0; ell < 4; ++ell) {
-            for(int enn = ell + 1; enn <= e->ncmx[ell]; ++enn) {
+            for(int enn = ell + 1; enn <= e.ncmx[ell]; ++enn) {
                 int const inl = ell + (enn*(enn-1))/2; assert(ell < enn);
                 for(int spin = 0; spin < 2; ++spin) {
                     if (occ[inl][spin] <= 0) occ[inl][spin] = -(2*ell + 1); // negative occupation numbers indicate core electrons
@@ -410,11 +410,11 @@ namespace sigma_config {
         } // ell
 
         { // scope: introduce a core hole
-            int const inl = e->inl_core_hole;
+            int const inl = e.inl_core_hole;
             if (inl >= 0) {
-                if (echo > 2) printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e->q_core_hole[0], e->q_core_hole[1]);
-                occ[inl][0] += e->q_core_hole[0]; // add because core occupation numbers are negative
-                occ[inl][1] += e->q_core_hole[1];
+                if (echo > 2) printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e.q_core_hole[0], e.q_core_hole[1]);
+                occ[inl][0] += e.q_core_hole[0]; // add because core occupation numbers are negative
+                occ[inl][1] += e.q_core_hole[1];
             } // inl valid
         } // scope
 
@@ -423,26 +423,26 @@ namespace sigma_config {
             nve += std::max(0.0, occ[inl][0]) + std::max(0.0, occ[inl][1]);
             nce -= std::min(0.0, occ[inl][0]) + std::min(0.0, occ[inl][1]);
             if (inl < 32) {
-                set(e->occ[inl], 2, occ[inl]);
+                set(e.occ[inl], 2, occ[inl]);
             } else {
                 ncv += std::abs(occ[inl][0]) + std::abs(occ[inl][1]);
             } // inl < 32
         } // inl
         double const nelectrons = nve + nce;
-        if (echo > 4) printf("# found %g = %g core + %g valence electrons and Z = %g\n", nelectrons, nce, nve, e->Z);
-        if (ncv) warn("lost %g electrons for Z = %g\n", ncv, e->Z);
+        if (echo > 4) printf("# found %g = %g core + %g valence electrons and Z = %g\n", nelectrons, nce, nve, e.Z);
+        if (ncv) warn("lost %g electrons for Z = %g\n", ncv, e.Z);
 
         if (echo > 4) {
-            printf("# PAW setup for %s (Z=%g) suggests", symbol, e->Z);
+            printf("# PAW setup for %s (Z=%g) suggests", symbol, e.Z);
             for(int ell = 0; ell < 8; ++ell) {
-                printf(" %d", e->nn[ell]);
+                printf(" %d", e.nn[ell]);
             } // ell
             printf(" partial waves\n");
         } // echo
         
-        if (std::abs(nelectrons - e->Z) > 1e-12 && e->Z > 0) warn("PAW setup for %s (Z=%g) is charged with %g electrons", symbol, e->Z, nelectrons - e->Z);
+        if (std::abs(nelectrons - e.Z) > 1e-12 && e.Z > 0) warn("PAW setup for %s (Z=%g) is charged with %g electrons", symbol, e.Z, nelectrons - e.Z);
         
-        return *e;
+        return e;
     } // get
 
 #ifdef  NO_UNIT_TESTS

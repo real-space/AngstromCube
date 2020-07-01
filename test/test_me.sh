@@ -4,11 +4,11 @@
 exe=../src/a43
 echo "#" $exe "$@"
 
-Z=2
+Z=29
 
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
 (cd ../src/ && make -j) && \
-  $exe +verbosity=3  \
+  $exe +verbosity=7  \
   -test single_atom. \
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \

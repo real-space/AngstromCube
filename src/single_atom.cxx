@@ -238,6 +238,32 @@ extern "C" {
         return 0; // success
     } // Lagrange_derivatives
    
+   
+    double show_state_analysis(int const echo, char const *label, radial_grid_t const *rg, double const wave[],
+            char const enn, int const ell, float const occ, double const energy, char const *csv_class, int const ir_cut) {
+        
+        double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
+        for(int ir = 0; ir < rg->n; ++ir) {
+            double const rho_wf = pow2(wave[ir]);
+            double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv_dV = rg->rdr[ir];
+            q    += rho_wf*dV; // charge
+            qr   += rho_wf*r*dV; // for <r>
+            qr2  += rho_wf*r*r*dV; // for variance
+            qrm1 += rho_wf*r_inv_dV; // Coulomb integral without -Z
+            qout += rho_wf*dV*(ir >= ir_cut);
+        } // ir
+        double const qinv = (q > 0) ? 1./q : 0;
+        double const charge_outside = qout*qinv;
+
+        if (echo > 0) printf("# %s %-9s  %c%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
+               csv_class, enn, ellchar[ell], occ, energy*eV,_eV, 
+               qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, charge_outside);
+
+        return charge_outside;
+    } // show_state_analysis
+    
+   
+   
     
   class LiveAtom {
   public:
@@ -321,11 +347,11 @@ extern "C" {
               , gaunt_init{false}
         { // constructor
 
-        if (atom_id >= 0) { 
-            char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
-            std::snprintf(label, 16, "%s#%d", chem_symbol, atom_id); 
-        } else { 
-            label[0] = '\0';
+        char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
+        if (atom_id >= 0) {
+            std::snprintf(label, 15, "%s#%d", chem_symbol, atom_id); 
+        } else {
+            std::snprintf(label, 15, "%s", chem_symbol); 
         }
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
@@ -350,6 +376,10 @@ extern "C" {
         bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
 
+        
+        int inl_core_hole{-1};
+        double core_hole_charge{0}, core_hole_charge_used{0};
+        
         if (custom_config) {
             if (echo > 0) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec = sigma_config::get(Z_core, echo);
@@ -374,14 +404,29 @@ extern "C" {
 
         } else {
             // single_atom.config=auto
-            r_cut = 2.0; // Bohr
-            sigma = 0.61; // Bohr, spread for projectors (Cu)
-            numax = nu_max; // 3; // 3:up to f-projectors
+            char Sy_config[32];
+            std::snprintf(Sy_config, 31, "%s_rcut", chem_symbol);
+            r_cut = control::get(Sy_config, 2.0); // in Bohr
+            
+            std::snprintf(Sy_config, 31, "%s_sigma", chem_symbol);
+            sigma = control::get(Sy_config, 0.5); // in Bohr, spread for projectors (Cu)
+            
+            std::snprintf(Sy_config, 31, "%s_numax", chem_symbol);
+            numax = int(control::get(Sy_config, double(nu_max)));
+            
             // get nn[] from numax
             for(int ell = 0; ell <= ELLMAX; ++ell) {
-                nn[ell] = std::max(0, (numax + 2 - ell)/2); // suggest
-                nn[ell] = std::min(int(nn[ell]), nn_limiter); // take a smaller numer of partial waves
+                int const nn_suggested = std::max(0, (numax + 2 - ell)/2); // suggest
+                nn[ell] = std::min(nn_suggested, nn_limiter); // take a smaller number of partial waves
             } // ell
+
+            std::snprintf(Sy_config, 31, "%s_core.hole.index", chem_symbol);
+            inl_core_hole = int(control::get(Sy_config, -1.));
+            if (inl_core_hole >= 0) {
+                std::snprintf(Sy_config, 31, "%s_core.hole.charge", chem_symbol);
+                double const core_hole_charge_input = control::get(Sy_config, 1.);
+                core_hole_charge = std::min(std::max(0.0, core_hole_charge_input), 1.0);
+            } // active
 
         } // initialize from sigma_config
         
@@ -431,9 +476,6 @@ extern "C" {
         std::vector<int8_t> as_valence(96, -1);
         int8_t enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; // enn-QN of the highest occupied core level
 
-        int const inl_core_hole = control::get("core.hole.index", -1.);;
-        double const core_hole_charge = std::min(std::max(0.0, control::get("core.hole.charge", 1.)), 1.0);
-        double core_hole_charge_used{0};
         
 
         set(csv_charge, 3, 0.0); // clear numbers of electrons for core, semicore and valence, respectively
@@ -446,17 +488,28 @@ extern "C" {
                  label, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
             core_semicore_separation = semi_valence_separation; // correct --> no semicore states possible
         } // warning
+
+        double const core_state_localization = control::get("core.state.localization", -1.); // in units of electrons, -1:inactive
+
+        nr_diff = rg[TRU]->n - rg[SMT]->n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
+        ir_cut[SMT] = radial_grid::find_grid_index(*rg[SMT], r_cut);
+        ir_cut[TRU] = ir_cut[SMT] + nr_diff;
+        if (echo > 0) printf("# %s pseudize the core density at r[%i or %i] = %.6f, requested %.3f %s\n",
+                          label, ir_cut[TRU], ir_cut[SMT], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
+        assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
+
+        
         ncorestates = 20; // maximum number
         true_core_waves = view3D<double>(2, ncorestates, nrt, 0.0); // get memory for the true radial wave functions and kinetic waves
         int constexpr SRA = 1;
         spherical_state = std::vector<spherical_orbital_t>(ncorestates);
-        {
+        { // scope: initialize the spherical states
             for(int ics = 0; ics < ncorestates; ++ics) {
                 spherical_state[ics].c0s1v2 = -1; // -1:undefined
             } // ics
             
             int ics = 0, highest_occupied_core_state_index = -1; 
-            double n_electrons = Z_core - ionization; // init number of electrons to be distributed
+            double n_electrons{Z_core - ionization}; // init number of electrons to be distributed
             for(int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number, allows Z up to 120
                 int enn = (nq_aux + 1)/2; // init principal quantum number n
                 for(int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character l
@@ -472,18 +525,31 @@ extern "C" {
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(),
                                                     enn, ell, E, cs.wave[TRU], r2rho.data());
                         cs.energy = E; // store eigenenergy of the spherical potential
+                        double const charge_outside = show_state_analysis(0, label, rg[TRU], cs.wave[TRU], '0' + enn, ell, 0.0, E, "?", ir_cut[TRU]);
 
                         int const inl = atom_core::nl_index(enn, ell);
                         int c0s1v2_auto{-1}; // -1:undefined
-                        if (E > semi_valence_separation) {
-                            c0s1v2_auto = 2; // mark as valence state
-//                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
-                        } else // move to the valence band
-                        if (E > core_semicore_separation) {
-                            c0s1v2_auto = 1; // mark as semicore state
-                        } else { // move to the semicore band
-                            c0s1v2_auto = 0; // mark as core state
-                        } // stay in the core
+                        if (core_state_localization > 0) {
+                            // criterion based on the charge outside the sphere
+                            if (charge_outside > core_state_localization) {
+                                c0s1v2_auto = 2; // mark as valence state
+    //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
+                            } else {
+                                c0s1v2_auto = 0; // mark as core state
+                            } // stay in the core
+                        } else {
+                            // energy criterions
+                            if (E > semi_valence_separation) {
+                                c0s1v2_auto = 2; // mark as valence state
+    //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
+                            } else // move to the valence band
+                            if (E > core_semicore_separation) {
+                                c0s1v2_auto = 1; // mark as semicore state
+                            } else { // move to the semicore band
+                                c0s1v2_auto = 0; // mark as core state
+                            } // stay in the core
+                        }
+                        
                         assert(c0s1v2_auto >= 0);
 
                         cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
@@ -498,12 +564,14 @@ extern "C" {
                         double const real_core_hole_charge = occ_no_core_hole - occ_auto;
                         if (real_core_hole_charge > 0) {
                             core_hole_charge_used = real_core_hole_charge;
-                            if (echo > 1) printf("# %s use a core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
-                                                    label, inl, enn, ellchar[ell], real_core_hole_charge);
+                            if (echo > 1) printf("# %s use a %s_core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
+                                                    label, chem_symbol, inl, enn, ellchar[ell], real_core_hole_charge);
                         } // core hole active
-                        
+
                         int const c0s1v2_cust = 2*(custom_occ[inl] > 0); // in custom_config, negative occupation numbers for core electrons, positive for valence
                         cs.c0s1v2 = custom_config ? c0s1v2_cust : c0s1v2_auto;
+                        
+                        if ((inl_core_hole == inl) && (cs.c0s1v2 != 0)) error("core holes only allowed in core states!");
 
                         if (2 == cs.c0s1v2) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
@@ -511,10 +579,12 @@ extern "C" {
                         cs.occupation = occ;
                         if (occ > 0) {
                           
-                            if ((c0s1v2_cust != c0s1v2_auto) && (echo > 4)) printf("# %s energy selectors suggest that %d%c is a %s-state but custom configuration says %s, use %s\n",
+                            if (c0s1v2_cust != c0s1v2_auto) {
+                                if (echo > 4) printf("# %s auto suggests that %d%c is a %s-state but custom configuration says %s, use %s\n",
                                     label, enn, ellchar[ell], c0s1v2_name[c0s1v2_auto], c0s1v2_name[c0s1v2_cust], c0s1v2_name[cs.c0s1v2]);
-                            // ToDo: find out if it would be better to look at the q_out (charge outside rcut) for each state instead of its energy.
-                          
+                                // ToDo: find out if it would be better to look at the q_out (charge outside rcut) for each state instead of its energy.
+                            }
+
                             highest_occupied_core_state_index = ics; // store the index of the highest occupied core state
                             if (echo > 0) printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
                                                     label, c0s1v2_name[cs.c0s1v2], enn, ellchar[ell], occ, cs.energy*eV,_eV);
@@ -542,7 +612,7 @@ extern "C" {
             } // nq_aux
             ncorestates = highest_occupied_core_state_index + 1; // correct the number of core states to those occupied
             spherical_state.resize(ncorestates); // destruct unused core states
-        } // core states
+        } // scope
 
         double const total_n_electrons = csv_charge[0] + csv_charge[1] + csv_charge[2];
         if (echo > 2) printf("# %s initial occupation with %g electrons: %g core, %g semi-core and %g valence electrons\n", 
@@ -672,13 +742,6 @@ extern "C" {
             } // ell
         } // valence states
 
-        nr_diff = rg[TRU]->n - rg[SMT]->n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
-        ir_cut[SMT] = radial_grid::find_grid_index(*rg[SMT], r_cut);
-        ir_cut[TRU] = ir_cut[SMT] + nr_diff;
-        if (echo > 0) printf("# %s pseudize the core density at r[%i or %i] = %.6f, requested %.3f %s\n",
-                          label, ir_cut[TRU], ir_cut[SMT], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
-        assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
-
         int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
         aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
         int const nlm_cmp = pow2(1 + ellmax_compensator);
@@ -807,27 +870,6 @@ extern "C" {
         return stat;
     } // initialize_Gaunt
 
-    void show_state_analysis(int const echo, radial_grid_t const *rg, double const wave[],
-            char const enn, int const ell, float const occ, double const energy, int8_t const c0s1v2, int const ir_cut=-1) const {
-        if (echo < 1) return; // this function only prints to the logg
-        
-        double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
-        for(int ir = 0; ir < rg->n; ++ir) {
-            double const rho_wf = pow2(wave[ir]);
-            double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv_dV = rg->rdr[ir];
-            q    += rho_wf*dV; // charge
-            qr   += rho_wf*r*dV; // for <r>
-            qr2  += rho_wf*r*r*dV; // for variance
-            qrm1 += rho_wf*r_inv_dV; // Coulomb integral without -Z
-            qout += rho_wf*dV*(ir >= ir_cut);
-        } // ir
-        double const qinv = (q > 0) ? 1./q : 0;
-
-        printf("# %s %-9s  %c%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
-               c0s1v2_name[c0s1v2], enn, ellchar[ell], std::abs(occ), energy*eV,_eV, 
-               qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, qout*qinv);
-    } // show_state_analysis
-
     double pseudize_spherical_density(double smooth_density[], double const true_density[]
                                     , char const *quantity="core", int const echo=0) const {
         int const nrs = rg[SMT]->n;
@@ -891,7 +933,7 @@ extern "C" {
                     nelectrons[1] += std::max(0.0, std::abs(cs.occupation));
                 } else error("%s spherical semicore density not implemented!", label); 
             } // scal > 0
-            show_state_analysis(echo, rg[TRU], cs.wave[TRU], '0' + cs.enn, cs.ell, cs.occupation, cs.energy, cs.c0s1v2, ir_cut[TRU]);
+            show_state_analysis(echo, label, rg[TRU], cs.wave[TRU], '0' + cs.enn, cs.ell, cs.occupation, cs.energy, c0s1v2_name[cs.c0s1v2], ir_cut[TRU]);
         } // ics
 
         // report integrals
@@ -1175,7 +1217,8 @@ extern "C" {
             unsigned const Lagrange_order = 1 + 2*std::min(std::max(1, int(control::get("single_atom.lagrange.derivative", 7.))), 15);
             double d0{0}, d1{0}, d2{0};
             stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-            if (echo > 7) printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
+            if (echo > 7) printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", 
+                                    label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
             
             if (d1 <= 0) warn("%s positive potential slope for sinc-fit expected but found %g", label, d1);
             if (d2 >  0) warn("%s negative potential curvature for sinc-fit expected but found %g", label, d2);
@@ -1243,14 +1286,16 @@ extern "C" {
                 assert ('_' != c);
                 if ('e' == c) {
                     // energy parameter, vs.energy has already been set earlier
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at energy parameter E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at energy parameter E= %g %s\n", 
+                                            label, ell, nrn, vs.energy*eV, _eV);
                 } else
                 if ('D' == c) {
 #ifdef DEVEL                  
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use an energy derivative as partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use an energy derivative as partial wave at E= %g %s\n", 
+                                            label, ell, nrn, vs.energy*eV, _eV);
 #else
                     error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
 #endif
@@ -1264,7 +1309,8 @@ extern "C" {
                 if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, copy %c-energy\n", label, ell, nrn, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
+                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, copy %c-energy\n", 
+                                        label, ell, nrn, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
 
                 } else {
                     assert(c == '0' + vs.enn);
@@ -1390,7 +1436,7 @@ extern "C" {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, rg[TRU], vs.wave[TRU], partial_wave_char[iln], ell, vs.occupation, vs.energy, 2, ir_cut[TRU]);
+                show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], partial_wave_char[iln], ell, vs.occupation, vs.energy, c0s1v2_name[2], ir_cut[TRU]);
 
 //                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
 //                 if (prelim_waves & (1 << ell)) {

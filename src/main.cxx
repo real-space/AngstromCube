@@ -26,6 +26,7 @@
 #include "geometry_analysis.hxx" // ::all_tests
 #include "density_generator.hxx" // ::all_tests
 #include "iterative_poisson.hxx" // ::all_tests
+// #include "sigma_autoconfig.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
 #include "parallel_domains.hxx" // ::all_tests
@@ -106,6 +107,7 @@
           module_test("density_generator.",     density_generator::all_tests);
           module_test("radial_potential.",       radial_potential::all_tests);
           module_test("iterative_poisson.",     iterative_poisson::all_tests);
+//           module_test("sigma_autoconfig.",       sigma_autoconfig::all_tests);
           module_test("bessel_transform.",       bessel_transform::all_tests);
           module_test("parallel_domains.",       parallel_domains::all_tests);
           module_test("scattering_test.",         scattering_test::all_tests);
