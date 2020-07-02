@@ -43,6 +43,7 @@
 #include "element_config.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
+#include "isolated_atom.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
 // #include "pseudo_tools.hxx" // ::all_tests
 #include "inline_tools.hxx" // ::all_tests
@@ -123,6 +124,7 @@
           module_test("element_config.",           element_config::all_tests);
           module_test("vector_layout.",             vector_layout::all_tests);
           module_test("sho_potential.",             sho_potential::all_tests);
+          module_test("isolated_atom.",             isolated_atom::all_tests);
           module_test("angular_grid.",               angular_grid::all_tests);
           module_test("inline_tools.",               inline_tools::all_tests);
 //           module_test("pseudo_tools.",               pseudo_tools::all_tests);

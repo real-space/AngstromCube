@@ -243,9 +243,6 @@ namespace potential_generator {
 
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
-#ifdef DEVEL
-      std::vector<double> Laplace_Ves(g.all(), 0.0);
-#endif
       std::vector<double>  rho(g.all());
       std::vector<double>  Vxc(g.all());
       std::vector<double>  cmp(g.all());
@@ -621,6 +618,8 @@ namespace potential_generator {
 
 //    return 1; // warning! no cleanup has been run
 //    printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
+
+      std::vector<double> Laplace_Ves(g.all(), 0.0);
 
       int const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.));
       if (verify_Poisson)

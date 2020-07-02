@@ -2807,13 +2807,12 @@ namespace single_atom {
       return 0; // no error
   } // test_string_switch
 
-  // simplified interface compared to update
   status_t atom_update(char const *what, int const natoms,
               double *dp, int32_t *ip, float *fp, double **dpp) {
 
-      static std::vector<LiveAtom*> a; // this function may not be templated!!
+      static std::vector<LiveAtom*> a; // internal state, so this function may not be templated!!
       static int echo = -9;
-      if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to update()
+      if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to atom_update()
 
       if (nullptr == what) return -1;
       
@@ -2877,15 +2876,12 @@ namespace single_atom {
 
           case 'r': // interface usage: atom_update("radial grid", natoms, null, null, null, (double**)rg_ptr);
           {
+#ifdef  DEVEL
               assert(nullptr != dpp);
               for(int ia = 0; ia < a.size(); ++ia) {
-#ifdef  DEVEL
                   dpp[ia] = reinterpret_cast<double*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
-#else
-                  dpp[ia] = nullptr;
-#endif
               } // ia
-#ifndef DEVEL
+#else
               stat = -1;
               warn("%s only available with -D DEVEL", what);
 #endif
@@ -2923,7 +2919,7 @@ namespace single_atom {
               float const mix_rho = mix ? mix[1] : mix_rho_default;
               for(int ia = 0; ia < a.size(); ++ia) {
                   a[ia]->update_potential(mix_pot, vlm[ia], echo); // set electrostatic multipole shifts
-                  a[ia]->update_density(mix_rho, echo);
+                  a[ia]->update_density(mix_rho, echo); // ToDo: split into mix_rho_core,mix_rho_semicore,mix_rho_valence
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
@@ -2961,8 +2957,8 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
-                  // fine control the mix_spherical_valence_density atom-resolved and any float in [0, 1], ToDo: is atom-resolved a good idea?
-                  if (fp) a[ia]->mix_spherical_valence_density = std::min(std::max(0.f, fp[ia]), 1.f);
+                  // fine control the mix_spherical_valence_density any float in [0, 1], NOT atom-resolved!
+                  if (fp) a[ia]->mix_spherical_valence_density = std::min(std::max(0.f, fp[0]), 1.f);
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)
           }
