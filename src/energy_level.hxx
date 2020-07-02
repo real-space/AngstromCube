@@ -16,7 +16,7 @@
       emm_QN_t emm; // usually emm == emm_Degenerate
       spin_QN_t spin; // usually spin == spin_Degenerate
       enn_QN_t nrn[Pseudo]; // number of radial nodes
-      int8_t c0s1v2; // 0:core, 1:semicore, 2:valence, -1:undefined
+      int8_t csv; // 0:core, 1:semicore, 2:valence, 3:undefined
   }; // struct energy_level
 
   typedef struct energy_level<1> spherical_orbital_t; // Pseudo=1: spherical states, e.g. core states, only a TRU wave is stored
