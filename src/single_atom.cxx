@@ -937,18 +937,13 @@ extern "C" {
         } // ics
 
         // report integrals
-        double old_charge[3], new_charge[3]; // can be moved into the csv loop and reduced from array to scalar
         for(int csv = 0; csv < 3; ++csv) {
-            old_charge[csv] = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
-            new_charge[csv] = dot_product(nr, rg[TRU]->dr, new_r2density[csv]);
-            if (echo > 2) printf("# %s previous %s density has %g electrons, expected %g\n"
-                                 "# %s new %s density has %g electrons\n",
-                                 label, c0s1v2_name[csv], old_charge[csv], nelectrons[csv], 
-                                 label, c0s1v2_name[csv], new_charge[csv]);
+            double const old_charge = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
+            double const new_charge = dot_product(nr, rg[TRU]->dr, new_r2density[csv]);
             
             double mix_new = mixing[csv], mix_old = 1.0 - mix_new;
             // rescale the mixing coefficients such that the desired number of electrons comes out
-            auto const mixed_charge = mix_old*old_charge[csv] + mix_new*new_charge[csv];
+            auto const mixed_charge = mix_old*old_charge + mix_new*new_charge;
             if (mixed_charge != 0) {
                 auto const rescale = nelectrons[csv]/mixed_charge;
                 mix_old *= rescale;
@@ -965,19 +960,28 @@ extern "C" {
                 nuclear_energy  +=         (new_rho - old_rho)*rg[TRU]->rdr[ir]; // Coulomb integral change
                 spherical_density[TRU](csv,ir) = mix_new*new_rho + mix_old*old_rho;
             } // ir
-            nuclear_energy *= -Z_core;
-#ifdef DEVEL         
-            if (true) { // check again
-                auto const new_q = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
-                if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, c0s1v2_name[csv], new_q);
-            } // debug
+            nuclear_energy *= -Z_core; // to get an energy estimate
+
+            int echo_pseudo{0};
+            if ((old_charge > 0) || (new_charge > 0)) {
+                if (echo > 2) printf("# %s previous %s density has %g electrons, expected %g\n"
+                                    "# %s new %s density has %g electrons\n",
+                                    label, c0s1v2_name[csv], old_charge, nelectrons[csv], 
+                                    label, c0s1v2_name[csv], new_charge);
+                echo_pseudo = echo - 1;
+#ifdef DEVEL
+                if (true) { // check again
+                    auto const new_q = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
+                    if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, c0s1v2_name[csv], new_q);
+                } // debug
 #endif
-            if (echo > 0) printf("# %s %s density change %g e (rms %g e) bare Coulomb energy change %g %s\n", 
-                label, c0s1v2_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
+                if (echo > 0) printf("# %s %s density change %g e (rms %g e) bare Coulomb energy change %g %s\n", 
+                    label, c0s1v2_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
+            } // output only for contributing densities
 
             spherical_charge_deficit[csv] = pseudize_spherical_density(
                 spherical_density[SMT][csv], 
-                spherical_density[TRU][csv], c0s1v2_name[csv], echo - 1); 
+                spherical_density[TRU][csv], c0s1v2_name[csv], echo_pseudo); 
         } // csv
 
     } // update_spherical_states
@@ -2103,7 +2107,7 @@ extern "C" {
                 if (00 == lm) {
                     // add spherical densities, in particular the core density
                     for(int csv = 0; csv < 3; ++csv) {
-                        if (take_spherical_density[csv] > 0) {
+                        if ((take_spherical_density[csv] > 0) && (csv_charge[csv] > 0)) {
                             add_product(full_density[ts][lm], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
                             // needs scaling with Y00 since core_density has a factor 4*pi
                             if (echo > 1) printf("# %s %s density has %g electrons after adding the spherical %s density\n",
@@ -2123,7 +2127,7 @@ extern "C" {
                     } // iln
                 } // mix_valence_density
             } // lm
-            if (echo > 1) printf("# %s %s density has %g electrons after adding the valence density\n",
+            if (echo > 1) printf("# %s %s density has %g electrons\n",
                       label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts]->r2dr)*Y00inv);
 
         } // true and smooth
