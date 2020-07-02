@@ -89,7 +89,7 @@ namespace scattering_test {
           if (echo > 8) printf("\n");
       } // ir
       if (echo > 8) printf("\n\n");
-      if (echo > 5) {
+      if (echo > 9) {
           printf("# projector normalizations are ");
           for(int iln = 0; iln < nln; ++iln) {
               printf(" %g", norm[iln]);

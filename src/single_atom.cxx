@@ -2286,7 +2286,7 @@ extern "C" {
                                 label, Ves(00,1)*(rg[TRU]->r[1])*Y00, -Z_core);
                 if (echo > 5) {
                       auto const Enuc = -Z_core*dot_product(nr, full_density[TRU][00], rg[ts]->rdr)*Y00inv;
-                      printf("# %s Coulomb energy is %.15g %s\n", label, Enuc*eV, _eV);
+                      printf("# %s unscreened Coulomb energy is %.15g %s\n", label, Enuc*eV, _eV);
                 } // echo
             } // ts
 
@@ -2809,6 +2809,7 @@ namespace single_atom {
           case str2int("core densities"):
           case str2int("valence densities"):
           case str2int("projectors"):
+          case str2int("energies"): // reserve for the export of atomic energy contributions
           case str2int("qlm charges"):
           case str2int("update"): // needs a trailing ' ' if str2int==string2long
           case str2int("hamiltonian"):
@@ -2971,7 +2972,7 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
-                  // fine control the take_spherical_density[core,semicore,valence] any float in [0, 1], NOT atom-resolved!
+                  // fine-control take_spherical_density[semicore,valence] any float in [0, 1], NOT atom-resolved! consumes fp[1] and fp[2]
                   if (fp) { for(int sv = 1; sv < 3; ++sv) { a[ia]->take_spherical_density[sv] = std::min(std::max(0.f, fp[sv]), 1.f); } }
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)
@@ -3006,6 +3007,14 @@ namespace single_atom {
           }
           break;
 
+          case 'e': // interface usage: atom_update("energies", natoms, null, null, null, atom_ene);
+          {
+              double *const *const atom_ene = dpp; assert(nullptr != atom_ene);
+              warn("atomic energy contributions have not been calculated!");
+              assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
+          }
+          break;
+          
           default:
           {
               if (echo > 0) printf("# %s first argument \'%s\' undefined, no action!\n", __func__, what);

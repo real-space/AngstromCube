@@ -309,7 +309,7 @@ namespace potential_generator {
             
               // add compensation charges cmp
               for(int ia = 0; ia < na; ++ia) {
-//                   if (q00_valence.size() == na) { 
+//                   if (q00_valence.size() == na) {
 //                       if (echo > -1) printf("# core charge deficit of atom #%i is %g electrons\n", atom_qlm[ia][00]*Y00inv, ia);
 //                       atom_qlm[ia][00] += Y00*q00_valence[ia]; // add the valence charge deficit from the initial rhov
 //                       if (echo > -1) printf("# add %.6f electrons valence charge deficit of atom #%i\n", q00_valence[ia], ia);
@@ -404,7 +404,7 @@ namespace potential_generator {
               } // scope
 #endif
 
-              // test the potential in real space, find ves_multipoles
+              // test the electrostatic potential in real space, find ves_multipoles
               for(int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_vlm[ia];
@@ -448,8 +448,8 @@ namespace potential_generator {
 #endif
           
           // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
-          float mixing_ratio[] = {.5, .5}; // {potential, density}
-          stat += single_atom::atom_update("update", na, 0, 0, mixing_ratio, atom_vlm.data());
+          float mixing_ratios[] = {.5, .5, .5, .5}; // {potential, core_density, semicore_density, valence_density}
+          stat += single_atom::atom_update("update", na, 0, 0, mixing_ratios, atom_vlm.data());
           stat += single_atom::atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
           stat += single_atom::atom_update("zero potentials", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
 
@@ -577,19 +577,19 @@ namespace potential_generator {
               for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
 
                   // solve the Kohn-Sham equation using various solvers
-                  if ('c' == eigensolver_method[0]) { // "cg" or "conjugate_gradients"
+                  if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
                       stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
                       for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                           stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
                           stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
                       } // irepeat
                   } else
-                  if ('d' == eigensolver_method[0]) { // "davidson"
+                  if ('d' == *eigensolver_method) { // "davidson"
                       for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                           stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
                       } // irepeat
                   } else 
-                  if ('n' == eigensolver_method[0]) { // "none"
+                  if ('n' == *eigensolver_method) { // "none"
                       warn("eigensolver method \'%s\' generates no new valence density", eigensolver_method);
                   } else {
                       ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);

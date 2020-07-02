@@ -4,7 +4,7 @@
 exe=../src/a43
 echo "#" $exe "$@"
 
-Z=29
+Z=1
 
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
 (cd ../src/ && make -j) && \
@@ -39,13 +39,13 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
        +logder.start=66 +logder.stop=33 \
        +single_atom.local.potential.method=sinc \
        +single_atom.init.scf.maxit=5 \
+       +output.energy.unit=eV \
       > single_atom.$Z.sinc
 
 #        +logder.start=-66 +logder.step=.1 +logder.stop=33 +logder.unit=eV \
 
 #        +element_He="1s 2 2s 2e-99 2p 3d 2e-99 | 1.5 sigma .75" \
 #        +output.length.unit=Ang \
-#        +output.energy.unit=eV \
 ##       +logder.stop=-9 \
 ## +logder.start=-1 +logder.step=.0001 +logder.stop=0
 #        +logder.start=-2.5 +logder.step=.0001 +logder.stop=.5 \
