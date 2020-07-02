@@ -76,8 +76,13 @@ extern "C" {
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
+  
+//   enum csv_t : uint16_t { core=0, semicore=1, valence=2 };
+  int constexpr core=0, semicore=1, valence=2, csv_undefined=3;
+
 //  char const c0s1v2_char[] = "csv?";  // 0:core, 1:semicore, 2:valence   (((unused)))
-  char const c0s1v2_name[][10] = {"core", "semicore", "valence"};  // 0:core, 1:semicore, 2:valence
+  char const c0s1v2_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
+  char const ts_name[][8] = {"true", "smooth"};  // TRU:true, SMT:smooth
 
   double constexpr Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
@@ -144,8 +149,8 @@ extern "C" {
     void add_or_project_compensators(
     	  view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
     	, double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
-    	, int const lmax	   // cutoff for angular momentum expansion
     	, radial_grid_t const *rg // radial grid despriptor
+    	, int const lmax	   // cutoff for angular momentum expansion
     	, double const sigma   // spread_compensator
     	, int const echo=0     // log output level
     ) {
@@ -308,15 +313,15 @@ extern "C" {
       // spin-resolved members
       double csv_charge[3];
       std::vector<spherical_orbital_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
-      std::vector<double> core_density[TRU_AND_SMT]; // spherical core density*4pi, no Y00 factor
-      float mix_spherical_valence_density; // 1.f: use the spherical valence density only, 0.f: use the valence density from partial waves, mixtures possible.
-      std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor, in use?
+      view2D<double> spherical_density[TRU_AND_SMT]; // spherical densities*4pi, no Y00 factor, for {core, semicore, valence}
+      double take_spherical_density[3]; // 1.f: use the spherical density only, 0.f: use the density from partial waves, mixtures possible.
+//       std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor, in use? 
+
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
       std::vector<double> potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor, used for the generation of partial waves
 
-      double core_charge_deficit; // in units of electrons
-      double spherical_valence_charge_deficit; // in units of electrons
+      double spherical_charge_deficit[3]; // in units of electrons
 
       double logder_energy_range[3]; // [start, increment, stop]
       char   partial_wave_char[32]; // [iln]
@@ -337,13 +342,12 @@ extern "C" {
     // constructor method:
     LiveAtom(double const Z_protons
             , int const nu_max=3
-            , float const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
+            , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
             , double const ionization=0
             , int32_t const global_atom_id=-1
             , int const echo=0 // logg level for this constructor method only
             ) : atom_id{global_atom_id} 
               , Z_core{Z_protons}
-              , mix_spherical_valence_density{std::min(std::max(0.f, atomic_valence_density), 1.f)}
               , gaunt_init{false}
         { // constructor
 
@@ -364,6 +368,11 @@ extern "C" {
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
         // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
+
+        
+        take_spherical_density[core] = 1; // must always be 1, since we can compute the core density only on the radial grid.
+        take_spherical_density[semicore] = 1;
+        take_spherical_density[valence] = atomic_valence_density ? 1 : 0;
 
         int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
                   nrs = align<2>(rg[SMT]->n);
@@ -451,9 +460,9 @@ extern "C" {
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = (TRU == ts)? nrt : nrs;
             // spherically symmetric quantities:
-            core_density[ts] = std::vector<double>(nr, 0.0); // get memory
-            potential[ts]    = std::vector<double>(nr, 0.0); // get memory
-            spherical_valence_density[ts] = std::vector<double>(nr, 0.0); // get memory
+            spherical_density[ts] = view2D<double>(3, nr, 0.0); // get memory
+//          spherical_valence_density[ts] = std::vector<double>(nr, 0.0); // get memory
+            potential[ts]                 = std::vector<double>(nr, 0.0); // get memory
             // quantities with lm-resolution:
             int const mr = align<2>(nr);
             full_density[ts]   = view2D<double>(nlm, mr, 0.0); // get memory
@@ -478,7 +487,7 @@ extern "C" {
 
         
 
-        set(csv_charge, 3, 0.0); // clear numbers of electrons for core, semicore and valence, respectively
+        set(csv_charge, 3, 0.0); // clear numbers of electrons for {core, semicore, valence}
 
         double const core_valence_separation  = control::get("core.valence.separation", -2.0); // in Hartree always
         double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
@@ -528,29 +537,29 @@ extern "C" {
                         double const charge_outside = show_state_analysis(0, label, rg[TRU], cs.wave[TRU], '0' + enn, ell, 0.0, E, "?", ir_cut[TRU]);
 
                         int const inl = atom_core::nl_index(enn, ell);
-                        int c0s1v2_auto{-1}; // -1:undefined
+                        int c0s1v2_auto{csv_undefined}; // init
                         if (core_state_localization > 0) {
                             // criterion based on the charge outside the sphere
                             if (charge_outside > core_state_localization) {
-                                c0s1v2_auto = 2; // mark as valence state
+                                c0s1v2_auto = valence; // mark as valence state
     //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                             } else {
-                                c0s1v2_auto = 0; // mark as core state
+                                c0s1v2_auto = core; // mark as core state
                             } // stay in the core
                         } else {
                             // energy criterions
                             if (E > semi_valence_separation) {
-                                c0s1v2_auto = 2; // mark as valence state
+                                c0s1v2_auto = valence; // mark as valence state
     //                          printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                             } else // move to the valence band
                             if (E > core_semicore_separation) {
-                                c0s1v2_auto = 1; // mark as semicore state
+                                c0s1v2_auto = semicore; // mark as semicore state
                             } else { // move to the semicore band
-                                c0s1v2_auto = 0; // mark as core state
+                                c0s1v2_auto = core; // mark as core state
                             } // stay in the core
                         }
                         
-                        assert(c0s1v2_auto >= 0);
+                        assert(c0s1v2_auto != csv_undefined);
 
                         cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         cs.enn = enn;
@@ -568,7 +577,7 @@ extern "C" {
                                                     label, chem_symbol, inl, enn, ellchar[ell], real_core_hole_charge);
                         } // core hole active
 
-                        int const c0s1v2_cust = 2*(custom_occ[inl] > 0); // in custom_config, negative occupation numbers for core electrons, positive for valence
+                        int const c0s1v2_cust = valence*(custom_occ[inl] > 0); // in custom_config, negative occupation numbers for core electrons, positive for valence
                         cs.c0s1v2 = custom_config ? c0s1v2_cust : c0s1v2_auto;
                         
                         if ((inl_core_hole == inl) && (cs.c0s1v2 != 0)) error("core holes only allowed in core states!");
@@ -597,8 +606,7 @@ extern "C" {
                             double const has_norm = dot_product(rg[TRU]->n, r2rho.data(), rg[TRU]->dr);
                             if (has_norm > 0) {
                                 double const norm = occ/has_norm;
-                                auto const density = (2 == cs.c0s1v2) ? spherical_valence_density[TRU].data() : core_density[TRU].data();
-                                add_product(density, rg[TRU]->n, r2rho.data(), norm);
+                                add_product(spherical_density[TRU][cs.c0s1v2], rg[TRU]->n, r2rho.data(), norm);
                             } else {
                                 warn("%s %i%c-state cannot be normalized! integral=%g", label, enn, ellchar[ell], has_norm);
                             } // can be normalized
@@ -614,16 +622,16 @@ extern "C" {
             spherical_state.resize(ncorestates); // destruct unused core states
         } // scope
 
-        double const total_n_electrons = csv_charge[0] + csv_charge[1] + csv_charge[2];
-        if (echo > 2) printf("# %s initial occupation with %g electrons: %g core, %g semi-core and %g valence electrons\n", 
-                                    label, total_n_electrons, csv_charge[0], csv_charge[1], csv_charge[2]);
+        double const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
+        if (echo > 2) printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
+                                    label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
         if ((inl_core_hole >= 0) && (std::abs(core_hole_charge_used - core_hole_charge) > 5e-16)) {
             warn("%s core.hole.charge=%g requested in core.hole.index=%i but used %g electrons (diff %.1e)",
                   label, core_hole_charge, inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
         } // warning when deviates
 
-        if (echo > 3) {
+        if (!custom_config && echo > 3) {
             if (core_semicore_separation >= semi_valence_separation) {
                 printf("# %s core.valence.separation at %g %s\n", label, core_valence_separation*eV,_eV);
             } else {
@@ -632,15 +640,12 @@ extern "C" {
             }
         } // echo
         
-        scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
-        scale(core_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces   r*rho --> reduce to   rho
-        if (echo > 2) printf("# %s initial core density has %g electrons\n", 
-                                label, dot_product(rg[TRU]->n, core_density[TRU].data(), rg[TRU]->r2dr));
-
-        scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
-        scale(spherical_valence_density[TRU].data(), rg[TRU]->n, rg[TRU]->rinv); // initial_density produces   r*rho --> reduce to   rho
-        if (echo > 2) printf("# %s initial valence density has %g electrons\n", 
-                                label, dot_product(rg[TRU]->n, spherical_valence_density[TRU].data(), rg[TRU]->r2dr));
+        for(int csv = 0; csv < 3; ++csv) {
+            scale(spherical_density[TRU][csv], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces r^2*rho --> reduce to r*rho
+            scale(spherical_density[TRU][csv], rg[TRU]->n, rg[TRU]->rinv); // initial_density produces   r*rho --> reduce to   rho
+            if (echo > 2) printf("# %s initial %s density has %g electrons\n", 
+                label, c0s1v2_name[csv], dot_product(rg[TRU]->n, spherical_density[TRU][csv], rg[TRU]->r2dr));
+        } // csv
 
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
@@ -790,22 +795,23 @@ extern "C" {
 
         pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
         
-        {   // construct an initial valence density
-            spherical_valence_charge_deficit = pseudize_spherical_density(
-                spherical_valence_density[SMT].data(),
-                spherical_valence_density[TRU].data(), "spherical valence", echo);
-        }
+        for(int csv = 0; csv < 3; ++csv) { // construct an initial smooth density
+            spherical_charge_deficit[csv] = pseudize_spherical_density(
+                spherical_density[SMT][csv],
+                spherical_density[TRU][csv], c0s1v2_name[csv], echo);
+        } // csv
 
         int const maxit_scf = control::get("single_atom.init.scf.maxit", 1.);
-        float const mixing = 0.25f; // this controls the percentage of the full_potential ...
+        float const potential_mixing = 0.25f; // this controls the percentage of the full_potential ...
           // ... that is taken to relax the spherical potential from which core states and partial wave are computed
+        float const density_mixing[3] = {.25, .25, .25}; // [csv]
 
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# %s SCF-iteration %d\n\n", label, scf);
 //             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
-            update_density(mixing, echo);
+            update_density(density_mixing, echo);
             double* const ves_multipoles = nullptr;
-            update_potential(mixing, ves_multipoles, echo);
+            update_potential(potential_mixing, ves_multipoles, echo);
         } // self-consistency iterations
 
 #ifdef DEVEL
@@ -821,16 +827,15 @@ extern "C" {
             for(int irs = 0; irs < rg[SMT]->n; irs += 1) {
                 int const irt = irs + nr_diff;
                 auto const r = rg[SMT]->r[irs], r2 = pow2(r);
+                auto const ct = spherical_density[TRU](core,irt)*r2*Y00*Y00;
+                auto const cs = spherical_density[SMT](core,irs)*r2*Y00*Y00;
+                auto const vt = spherical_density[TRU](valence,irt)*r2*Y00*Y00;
+                auto const vs = spherical_density[SMT](valence,irs)*r2*Y00*Y00;
                 printf("%g %g %g %g %g %g %g %g %g %g\n", r
 //                         , -full_potential[TRU][00][irt]*Y00*r // for comparison, should be the same as Z_eff(r)
                         , -potential[TRU][irt] // Z_eff(r)
                         , -potential[SMT][irs] // \tilde Z_eff(r)
-                        , (core_density[TRU][irt] + spherical_valence_density[TRU][irt])*r2*Y00*Y00
-                        , (core_density[SMT][irs] + spherical_valence_density[SMT][irs])*r2*Y00*Y00
-                        , core_density[TRU][irt]*r2*Y00*Y00
-                        , core_density[SMT][irs]*r2*Y00*Y00
-                        , spherical_valence_density[TRU][irt]*r2*Y00*Y00
-                        , spherical_valence_density[SMT][irs]*r2*Y00*Y00
+                        , ct + vt, cs + vs, ct, cs, vt, vs
                         , zero_potential[irs]*Y00 // not converted to eV
                       );
             } // ir
@@ -895,14 +900,13 @@ extern "C" {
         return charge_deficit;
     } // pseudize_spherical_density
     
-    void update_spherical_states(float const mixing, int const echo=0) {
+    void update_spherical_states(float const mixing[3], int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
-        std::vector<double> new_r2core_density(nr, 0.0);
-        std::vector<double> new_r2valence_density(nr, 0.0);
-        double nelectrons[] = {0, 0}; // core, valence
+        view2D<double> new_r2density(3, nr, 0.0); // new TRU densities for {core, semicore, valence}
+        double nelectrons[3] = {0, 0, 0}; // core, semicore, valence
 #ifdef DEVEL
         if (echo > 7) {
             printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
@@ -911,7 +915,7 @@ extern "C" {
         } // echo
 #endif
         int constexpr SRA = 1; // 1:scalar relativistic approximation
-        for(int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2core_density, +:new_r2valence_density)
+        for(int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate
             radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU]->dr);
@@ -925,66 +929,57 @@ extern "C" {
             add_product(cs.wKin[TRU], nr, rg[TRU]->r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
 
             if (scal > 0) {
-                if (0 == cs.c0s1v2) { // core state
-                    add_product(new_r2core_density.data(), nr, r2rho.data(), scal);
-                    nelectrons[0] += std::max(0.0, std::abs(cs.occupation));
-                } else if (2 == cs.c0s1v2) { // valence state
-                    add_product(new_r2valence_density.data(), nr, r2rho.data(), scal);
-                    nelectrons[1] += std::max(0.0, std::abs(cs.occupation));
-                } else error("%s spherical semicore density not implemented!", label); 
+                int const csv = cs.c0s1v2; assert(0 <= csv && csv <= 2); // {core, semicore, valence}
+                add_product(new_r2density[csv], nr, r2rho.data(), scal);
+                nelectrons[csv] += std::max(0.0, std::abs(cs.occupation));
             } // scal > 0
             show_state_analysis(echo, label, rg[TRU], cs.wave[TRU], '0' + cs.enn, cs.ell, cs.occupation, cs.energy, c0s1v2_name[cs.c0s1v2], ir_cut[TRU]);
         } // ics
 
         // report integrals
-        double old_charge[2], new_charge[2];
-        old_charge[0] = dot_product(nr, rg[TRU]->r2dr, core_density[TRU].data());
-        new_charge[0] = dot_product(nr, rg[TRU]->dr,  new_r2core_density.data());
-        if (echo > 2) printf("# %s previous core density has %g electrons, expected %g\n"
-                             "# %s new core density has %g electrons\n", label, 
-                             old_charge[0], nelectrons[0], label, new_charge[0]);
-        
-        // spherical valence density is not mixed, changes are 100% accepted
-        old_charge[1] = dot_product(nr, rg[TRU]->r2dr, spherical_valence_density[TRU].data());
-        new_charge[1] = dot_product(nr, rg[TRU]->dr,  new_r2valence_density.data());
-        if (echo > 4) printf("# %s previous spherical valence density has %g electrons, expected %g\n"
-                             "# %s new spherical valence density has %g electrons\n", label, 
-                             old_charge[1], nelectrons[1], label, new_charge[1]);
-        product(spherical_valence_density[TRU].data(), nr, new_r2valence_density.data(), rg[TRU]->rinv);
-        scale  (spherical_valence_density[TRU].data(), nr, rg[TRU]->rinv);
-        // check again
-        if (mix_spherical_valence_density != 0) {
-            auto const new_q = dot_product(nr, rg[TRU]->r2dr,  spherical_valence_density[TRU].data());
-            if (echo > 4) printf("# %s new spherical valence density has %g electrons\n", label, new_q);
-        } // use spherical_valence_density
-        
-        double mix_new = mixing, mix_old = 1 - mix_new;
-        // rescale the mixing coefficients such that the desired number of core electrons comes out
-        auto const mixed_charge = mix_old*old_charge[0] + mix_new*new_charge[0];
-        if (mixed_charge != 0) {
-            auto const rescale = nelectrons[0]/mixed_charge;
-            mix_old *= rescale;
-            mix_new *= rescale;
-        } // rescale
+        double old_charge[3], new_charge[3]; // can be moved into the csv loop and reduced from array to scalar
+        for(int csv = 0; csv < 3; ++csv) {
+            old_charge[csv] = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
+            new_charge[csv] = dot_product(nr, rg[TRU]->dr, new_r2density[csv]);
+            if (echo > 2) printf("# %s previous %s density has %g electrons, expected %g\n"
+                                 "# %s new %s density has %g electrons\n",
+                                 label, c0s1v2_name[csv], old_charge[csv], nelectrons[csv], 
+                                 label, c0s1v2_name[csv], new_charge[csv]);
+            
+            double mix_new = mixing[csv], mix_old = 1.0 - mix_new;
+            // rescale the mixing coefficients such that the desired number of electrons comes out
+            auto const mixed_charge = mix_old*old_charge[csv] + mix_new*new_charge[csv];
+            if (mixed_charge != 0) {
+                auto const rescale = nelectrons[csv]/mixed_charge;
+                mix_old *= rescale;
+                mix_new *= rescale;
+            } // rescale
 
-        double core_density_change{0}, core_density_change2{0}, core_nuclear_energy{0};
-        for(int ir = 0; ir < nr; ++ir) {
-            double const r2inv = pow2(rg[TRU]->rinv[ir]);
-            auto const new_rho = new_r2core_density[ir]*r2inv; // *r^{-2}
-            spherical_valence_density[TRU][ir] = new_r2valence_density[ir]*r2inv; // *r^{-2}
-            core_density_change  += std::abs(new_rho - core_density[TRU][ir])*rg[TRU]->r2dr[ir];
-            core_density_change2 +=     pow2(new_rho - core_density[TRU][ir])*rg[TRU]->r2dr[ir];
-            core_nuclear_energy  +=         (new_rho - core_density[TRU][ir])*rg[TRU]->rdr[ir]; // Coulomb integral change
-            core_density[TRU][ir] = mix_new*new_rho + mix_old*core_density[TRU][ir];
-        } // ir
-        core_nuclear_energy *= -Z_core;
-        if (echo > 0) printf("# %s core density change %g e (rms %g e) bare Coulomb energy change %g %s\n", label,
-            core_density_change, std::sqrt(std::max(0.0, core_density_change2)), core_nuclear_energy*eV,_eV);
+            double density_change{0}, density_change2{0}, nuclear_energy{0}; // some stats
+            for(int ir = 0; ir < nr; ++ir) {
+                double const r2inv = pow2(rg[TRU]->rinv[ir]);
+                auto const new_rho = new_r2density(csv,ir)*r2inv; // *r^{-2}
+                auto const old_rho = spherical_density[TRU](csv,ir);
+                density_change  += std::abs(new_rho - old_rho)*rg[TRU]->r2dr[ir];
+                density_change2 +=     pow2(new_rho - old_rho)*rg[TRU]->r2dr[ir];
+                nuclear_energy  +=         (new_rho - old_rho)*rg[TRU]->rdr[ir]; // Coulomb integral change
+                spherical_density[TRU](csv,ir) = mix_new*new_rho + mix_old*old_rho;
+            } // ir
+            nuclear_energy *= -Z_core;
+#ifdef DEVEL         
+            if (true) { // check again
+                auto const new_q = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
+                if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, c0s1v2_name[csv], new_q);
+            } // debug
+#endif
+            if (echo > 0) printf("# %s %s density change %g e (rms %g e) bare Coulomb energy change %g %s\n", 
+                label, c0s1v2_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
 
-        core_charge_deficit = pseudize_spherical_density(core_density[SMT].data(), 
-                              core_density[TRU].data(), "core", echo - 1); 
-        spherical_valence_charge_deficit = pseudize_spherical_density(spherical_valence_density[SMT].data(),
-                              spherical_valence_density[TRU].data(), "spherical valence", echo - 1); 
+            spherical_charge_deficit[csv] = pseudize_spherical_density(
+                spherical_density[SMT][csv], 
+                spherical_density[TRU][csv], c0s1v2_name[csv], echo - 1); 
+        } // csv
+
     } // update_spherical_states
 
 #ifdef DEVEL
@@ -1861,7 +1856,7 @@ extern "C" {
             int const nr = rg[ts]->n; // integrate over the full radial grid
             std::vector<double> rl(nr, 1.0); // init as r^0
             std::vector<double> wave_r2rl_dr(nr);
-            if (echo > 4) printf("\n# %s charges for %s partial waves\n", label, (TRU==ts)?"true":"smooth");
+            if (echo > 4) printf("\n# %s charges for %s partial waves\n", label, ts_name[ts]);
             for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
                 bool const echo_l = (echo > 4 + 4*(ell > 0));
                 if (echo_l) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
@@ -2099,29 +2094,28 @@ extern "C" {
         int const nln = sho_tools::nSHO_radial(numax);
         // view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
 
-        double const mix_valence_density = 1.0 - mix_spherical_valence_density; // fraction of valence density from partial waves
+        double const mix_valence_density = 1.0 - take_spherical_density[valence]; // fraction of valence density from partial waves
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             size_t const nr = rg[ts]->n;
             assert(full_density[ts].stride() >= nr);
             set(full_density[ts], nlm, 0.0); // clear
             for(int lm = 0; lm < nlm; ++lm) {
                 if (00 == lm) {
-                    set(full_density[ts][lm], nr, core_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
-                    if (echo > 1) printf("# %s %s density has %g electrons after adding the core density\n", label,
-                        (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
-                    if (mix_spherical_valence_density > 0) {
-                        add_product(full_density[ts][lm], nr, spherical_valence_density[ts].data(), Y00); // needs scaling with Y00 since core_density has a factor 4*pi
-                        if (echo > 1) printf("# %s %s density has %g electrons after adding the spherical valence density\n", label,
-                            (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv);
-                    } // use spherical_valence_density
+                    // add spherical densities, in particular the core density
+                    for(int csv = 0; csv < 3; ++csv) {
+                        if (take_spherical_density[csv] > 0) {
+                            add_product(full_density[ts][lm], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
+                            // needs scaling with Y00 since core_density has a factor 4*pi
+                            if (echo > 1) printf("# %s %s density has %g electrons after adding the spherical %s density\n",
+                                label, ts_name[ts], dot_product(nr, full_density[ts][lm], rg[ts]->r2dr)*Y00inv, c0s1v2_name[csv]);
+                        } // take
+                    } // spherical {core, semicore, valence} densities
                 } // 00 == lm
                 if (mix_valence_density > 0) {
                     for(int iln = 0; iln < nln; ++iln) {
-                        auto const wave_i = partial_wave[iln].wave[ts];
-                        assert(nullptr != wave_i);
+                        auto const wave_i = partial_wave[iln].wave[ts];         assert(nullptr != wave_i);
                         for(int jln = 0; jln < nln; ++jln) {
-                            auto const wave_j = partial_wave[jln].wave[ts];
-                            assert(nullptr != wave_j);
+                            auto const wave_j = partial_wave[jln].wave[ts];     assert(nullptr != wave_j);
                             double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
 //                          if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
                             add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
@@ -2129,8 +2123,8 @@ extern "C" {
                     } // iln
                 } // mix_valence_density
             } // lm
-            if (echo > 1) printf("# %s %s density has %g electrons after adding the valence density\n",  label,
-                    (TRU == ts)?"true":"smooth", dot_product(nr, full_density[ts][00], rg[ts]->r2dr)*Y00inv);
+            if (echo > 1) printf("# %s %s density has %g electrons after adding the valence density\n",
+                      label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts]->r2dr)*Y00inv);
 
         } // true and smooth
 
@@ -2139,22 +2133,26 @@ extern "C" {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
                 double rho_lm{0};
-                for(int iln = 0; iln < nln; ++iln) {
-                    for(int jln = 0; jln < nln; ++jln) {
-                        double const rho_ij = density_tensor(lm,iln,jln);
-                        if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
-                        rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
-                                           - charge_deficit(ell,SMT,iln,jln) );
-                    } // jln
-                } // iln
+                if (mix_valence_density > 0) {
+                    for(int iln = 0; iln < nln; ++iln) {
+                        for(int jln = 0; jln < nln; ++jln) {
+                            double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
+                            if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
+                            rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
+                                               - charge_deficit(ell,SMT,iln,jln) );
+                        } // jln
+                    } // iln
+                } // max_valence_density
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
                 qlm_compensator[lm] = rho_lm;
             } // emm
         } // ell
 
-        // account for Z protons in the nucleus and the missing charge in the smooth core density
-        qlm_compensator[0] += Y00*(core_charge_deficit - Z_core + mix_spherical_valence_density*spherical_valence_charge_deficit);
+        // account for Z protons in the nucleus and the missing charge in the spherical densities
+        assert(1 == take_spherical_density[core]); // must always be 1 since we can compute the core density only on the radial grid
+        double const spherical_charge_deficits = dot_product(3, spherical_charge_deficit, take_spherical_density);
+        qlm_compensator[0] += (spherical_charge_deficits - Z_core)*Y00;
         if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]*Y00inv);
 
         { // scope: construct the augmented density
@@ -2163,7 +2161,7 @@ extern "C" {
             assert(aug_density.stride() == mr);
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
-            add_or_project_compensators<0>(aug_density, qlm_compensator.data(), ellmax_compensator, rg[SMT], sigma_compensator);
+            add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_compensator, sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density[00]); // only aug_density[00==lm]
             if (echo > 2) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge*Y00inv); // this value should be small
 
@@ -2216,10 +2214,10 @@ extern "C" {
                     if (echo > 5) {
                         auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                         printf("# %s double counting correction  in %s 00 channel %.12g %s\n",
-                                  label, (TRU == ts)?"true":"smooth", Edc00*eV,_eV);
+                                  label, ts_name[ts], Edc00*eV,_eV);
                         auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                         printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n",
-                                  label, (TRU == ts)?"true":"smooth", Exc00*eV,_eV);
+                                  label, ts_name[ts], Exc00*eV,_eV);
                     } // echo
                 } // scope
             } // scope: quantities on the angular grid
@@ -2232,7 +2230,7 @@ extern "C" {
             radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
 
             if (SMT == ts) {
-                add_or_project_compensators<1>(Ves, vlm.data(), ellmax_compensator, rg[SMT], sigma_compensator); // project Ves to compensators
+                add_or_project_compensators<1>(Ves, vlm.data(), rg[SMT], ellmax_compensator, sigma_compensator); // project Ves to compensators
                 if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
 
                 // but the solution of the 3D problem found that these integrals should be ves_multipole, therefore
@@ -2248,11 +2246,11 @@ extern "C" {
                 if (echo > 7) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
             } // SMT only
 
-            add_or_project_compensators<2>(Ves, vlm.data(), ellmax_compensator, rg[ts], sigma_compensator);
+            add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_compensator, sigma_compensator);
 
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
                 double v_[1];
-                add_or_project_compensators<1>(Ves, v_, 0, rg[SMT], sigma_compensator); // project to compensators
+                add_or_project_compensators<1>(Ves, v_, rg[SMT], 0, sigma_compensator); // project to compensators
                 if (echo > 7) {
                     printf("# %s after correction v_00 is %g %s\n", label, v_[00]*Y00*eV,_eV);
                     printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves[00][0]*Y00*eV,_eV);
@@ -2645,9 +2643,9 @@ extern "C" {
 
     } // check_spherical_matrix_elements
 
-    void update_density(float const mixing, int const echo=0) {
+    void update_density(float const density_mixing[3], int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
-        update_spherical_states(mixing, echo);
+        update_spherical_states(density_mixing, echo);
         update_energy_parameters(echo);
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
@@ -2667,22 +2665,22 @@ extern "C" {
     // export qlm_compensator, solve the 3D electrostatic problem, return here with ves_multipoles
     // ==============
 
-    void update_potential(float const mixing, double const ves_multipoles[], int const echo=0) {
+    void update_potential(float const potential_mixing, double const ves_multipoles[], int const echo=0) {
         if (echo > 2) printf("\n# %s %s\n", label, __func__);
-        update_full_potential(mixing, ves_multipoles, echo);
+        update_full_potential(potential_mixing, ves_multipoles, echo);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
     status_t get_smooth_spherical_quantity(double qnt[] // result array: function on an r2-grid
         , float const ar2, int const nr2 // r2-grid parameters
         , char const what, int const echo=1) const { // logg level
-        char const *qnt_name   = ('c' == what) ? "core_density"     : (('z' == what) ? "zero_potential" : "valence_density");
-        auto const &qnt_vector = ('c' == what) ?  core_density[SMT] : (('z' == what) ?  zero_potential  : spherical_valence_density[SMT]);
+        char const *qnt_name   = ('c' == what) ? "core_density"               : (('z' == what) ? "zero_potential"       : "valence_density");
+        auto const *qnt_vector = ('c' == what) ? spherical_density[SMT][core] : (('z' == what) ?  zero_potential.data() : spherical_density[SMT][valence]);
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
-                        label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector.data(), (void*)rg[SMT]);
+                        label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector, (void*)rg[SMT]);
         double const minval = ('z' == what) ? -9e307 : 0.0; // zero potential may be negative, densities should not
 #ifdef DEVEL
-        double const Y00s = Y00*(('c' == what) ? Y00 : 1); // Y00 for zero_pot and Y00^2 for rho_core
+        double const Y00s = Y00*(('c' == what) ? Y00 : 1); // Y00 for zero_pot and Y00^2 for densities
         if (echo > 8) {
             printf("\n## %s %s before filtering:\n", label, qnt_name);
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -2722,15 +2720,15 @@ extern "C" {
     
     radial_grid_t* get_smooth_radial_grid(int const echo=0) const { return rg[SMT]; }
 
-    template <char Q='t'> double get_number_of_electrons() const { return csv_charge[0] + csv_charge[1] + csv_charge[2]; }
+    template <char Q='t'> double get_number_of_electrons() const { return csv_charge[core] + csv_charge[semicore] + csv_charge[valence]; }
     
     int const get_numax() const { return numax; }
     
   }; // class LiveAtom
 
-    template <> double LiveAtom::get_number_of_electrons<'c'>() const { return csv_charge[0]; } // core
-    template <> double LiveAtom::get_number_of_electrons<'s'>() const { return csv_charge[1]; } // semicore
-    template <> double LiveAtom::get_number_of_electrons<'v'>() const { return csv_charge[2]; } // valence
+    template <> double LiveAtom::get_number_of_electrons<'c'>() const { return csv_charge[core]; }
+    template <> double LiveAtom::get_number_of_electrons<'s'>() const { return csv_charge[semicore]; }
+    template <> double LiveAtom::get_number_of_electrons<'v'>() const { return csv_charge[valence]; }
 
 namespace single_atom {
 
@@ -2822,8 +2820,7 @@ namespace single_atom {
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
       int   constexpr numax_default = 3;
-      float constexpr mix_rho_default = .5f;
-      float constexpr mix_pot_default = .5f;
+      float const mix_rho_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
       
       int na{natoms};
       
@@ -2836,7 +2833,7 @@ namespace single_atom {
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
-              float const atomic_valence_density = (nullptr != dpp); // global control for all atoms, can only be 0 or 1
+              bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms, can only be 0 or 1
               int const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
@@ -2868,7 +2865,7 @@ namespace single_atom {
                   int   const nr2 = ip ? ip[ia] : nr2_default;
                   float const ar2 = fp ? fp[ia] : ar2_default;
                   stat += a[ia]->get_smooth_spherical_quantity(qnt[ia], ar2, nr2, how);
-                  if ('v' == how) dp[ia] = a[ia]->spherical_valence_charge_deficit;
+                  if ('v' == how) dp[ia] = a[ia]->spherical_charge_deficit[valence];
               } // ia
               if ('v' != how && nullptr != dp) warn("please use \'%s\'-interface with nullptr as 3rd argument", what);
           }
@@ -2911,15 +2908,13 @@ namespace single_atom {
           }
           break;
 
-          case 'u': // interface usage: atom_update("update", natoms, null, null, mix={mix_pot, mix_rho}, vlm);
+          case 'u': // interface usage: atom_update("update", natoms, null, null, mix={mix_pot, mix_rho[3]}, vlm);
           {
               double const *const *const vlm = dpp; assert(nullptr != vlm);
-              float const *const mix = fp; // nullptr == fp is okay
-              float const mix_pot = mix ? mix[0] : mix_pot_default;
-              float const mix_rho = mix ? mix[1] : mix_rho_default;
+              float const *mix = fp ? fp : mix_rho_defaults;
               for(int ia = 0; ia < a.size(); ++ia) {
-                  a[ia]->update_potential(mix_pot, vlm[ia], echo); // set electrostatic multipole shifts
-                  a[ia]->update_density(mix_rho, echo); // ToDo: split into mix_rho_core,mix_rho_semicore,mix_rho_valence
+                  a[ia]->update_potential(mix[0], vlm[ia], echo); // set electrostatic multipole shifts
+                  a[ia]->update_density(&mix[1], echo);
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
@@ -2957,8 +2952,8 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
-                  // fine control the mix_spherical_valence_density any float in [0, 1], NOT atom-resolved!
-                  if (fp) a[ia]->mix_spherical_valence_density = std::min(std::max(0.f, fp[0]), 1.f);
+                  // fine control the take_spherical_density[core,semicore,valence] any float in [0, 1], NOT atom-resolved!
+                  if (fp) { for(int sv = 1; sv < 3; ++sv) { a[ia]->take_spherical_density[sv] = std::min(std::max(0.f, fp[sv]), 1.f); } }
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)
           }
@@ -3022,10 +3017,10 @@ namespace single_atom {
       for(double sigma = 0.5; sigma < 2.25; sigma *= 1.1) {
           set(qlm.data(), nlm, 0.0); qlm[0] = 1.0;
           set(cmp, 1, 0.0); // clear
-          add_or_project_compensators<0>(cmp, qlm.data(), lmax, rg, sigma, 0); // add normalized compensator
-//        add_or_project_compensators<1>(cmp, qlm.data(), lmax, rg, sigma, 0); // project
+          add_or_project_compensators<0>(cmp, qlm.data(), rg, lmax, sigma, 0); // add normalized compensator
+//        add_or_project_compensators<1>(cmp, qlm.data(), rg, lmax, sigma, 0); // project
 //        if (echo > 0) printf("# %s: square-norm of normalized compensator with sigma = %g is %g\n", __func__, sigma, qlm[0]);
-          add_or_project_compensators<3>(cmp, qlm.data(), lmax, rg, sigma, 0); // test normalization
+          add_or_project_compensators<3>(cmp, qlm.data(), rg, lmax, sigma, 0); // test normalization
           maxdev = std::max(maxdev, std::abs(qlm[0] - 1.0));
           if (echo > 4) printf("# %s: for sigma = %g is 1 + %.1e\n", __func__, sigma, qlm[0] - 1);
       } // sigma
@@ -3036,7 +3031,7 @@ namespace single_atom {
 
   int test_LiveAtom(int const echo=9) {
     int const numax = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
-    float const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
+    bool const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
