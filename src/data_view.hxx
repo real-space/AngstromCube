@@ -11,6 +11,12 @@
 // #define debug_printf(...) printf(__VA_ARGS__)  
 #define debug_printf(...)
 
+#ifdef DEVEL
+  #ifndef NO_UNIT_TESTS
+    #include "simple_timer.hxx" // SimpleTimer
+  #endif
+#endif
+
 #define DimUnknown 0
 
 template<typename T>
@@ -377,11 +383,41 @@ inline int test_view3D(int const echo=9) {
     return 0;
 } // test_view3D
 
+  inline status_t test_bench_view2D(int const echo=1) {
+#ifdef DEVEL
+      if (echo < 1) return 0;
+      view2D<int> a(2, 2, 0);
+      int const nrep = 1e7; // int(control::get("data_view.bench.nrepeat", 2e7));
+      {   SimpleTimer t(__FILE__, __LINE__, "a[i][j]");
+          for(int irep = 0; irep < nrep; ++irep) {
+              a[1][1] = a[1][0];
+              a[1][0] = a[0][1];
+              a[0][1] = a[0][0];
+              a[0][0] = irep;
+          } // irep
+      } // timer
+      printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
+      fflush(stdout);
+      {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)");
+          for(int irep = 0; irep < nrep; ++irep) {
+              a(1,1) = a(1,0);
+              a(1,0) = a(0,1); // This version is 1.5x faster
+              a(0,1) = a(0,0);
+              a(0,0) = irep;
+          } // irep
+      } // timer
+      printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
+      fflush(stdout);
+#endif
+      return 0;
+  } // test_bench_view2D
+
 
 inline status_t all_tests(int const echo=0) {
     status_t status = 0;
     status += test_view2D(echo);
     status += test_view3D(echo);
+    status += test_bench_view2D(echo);
     return status;
 } // all_tests
 

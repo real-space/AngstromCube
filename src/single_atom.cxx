@@ -312,10 +312,9 @@ extern "C" {
 
       // spin-resolved members
       double csv_charge[3];
+      double take_spherical_density[3]; // 1.f: use the spherical density only, 0.f: use the density from partial waves, mixtures possible.
       std::vector<spherical_orbital_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       view2D<double> spherical_density[TRU_AND_SMT]; // spherical densities*4pi, no Y00 factor, for {core, semicore, valence}
-      double take_spherical_density[3]; // 1.f: use the spherical density only, 0.f: use the density from partial waves, mixtures possible.
-//       std::vector<double> spherical_valence_density[TRU_AND_SMT]; // spherical valence density*4pi, no Y00 factor, in use? 
 
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
       view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
@@ -325,7 +324,7 @@ extern "C" {
 
       double logder_energy_range[3]; // [start, increment, stop]
       char   partial_wave_char[32]; // [iln]
-      double partial_wave_energy_split[8]; // [ell]
+      double partial_wave_energy_split[1+ELLMAX]; // [ell]
 
       view2D<double> unitary_Ezyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
@@ -676,7 +675,7 @@ extern "C" {
 #ifndef DEVEL
         if (energy_derivative == excited_energy) warn("energy derivative for partial wave only with -D DEVEL");
 #endif
-        set(partial_wave_energy_split, 8, excited_energy);
+        set(partial_wave_energy_split, 1+ELLMAX, excited_energy);
         
         double const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
         int const previous_energy_parameter = control::get("single_atom.previous.energy.parameter", 0.0); // bit array, -1:all, 0:none, 2:p, 6:p+d, 14:p+d+f, ...
@@ -742,7 +741,7 @@ extern "C" {
 #ifdef DEVEL
                                 if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
 #endif
-                                if ('*' == partial_wave_char[iln] && std::abs(partial_wave_energy_split[ell]) < 1e-3) {
+                                if (('*' == partial_wave_char[iln]) && (std::abs(partial_wave_energy_split[ell]) < 1e-3)) {
                                     warn("%s partial wave energy split for ell=%i is small (%g %s)",
                                         label, ell, partial_wave_energy_split[ell]*eV, _eV);
                                 } // |dE| small
@@ -1942,10 +1941,10 @@ extern "C" {
                   bool const in_Cartesian, double const alpha=1) const {
 
         int const N = unitary_Ezyx_lmn.stride();
-        view2D<double const> uni(unitary_Ezyx_lmn.data(), N);
+        view2D<double const> uni(unitary_Ezyx_lmn.data(), N); // wrap
         view2D<double> tmp(N, N); // get memory
-        view2D<double const> inp(in, in_stride);
-        view2D<double> res(out, out_stride);
+        view2D<double const> inp(in, in_stride); // wrap
+        view2D<double> res(out, out_stride); // wrap
 
 //         double const beta = 0;
 //         char const nn = 'n', tn = in_Cartesian?'n':'t', nt = in_Cartesian?'t':'n';
@@ -1958,20 +1957,20 @@ extern "C" {
 
             for(int nC = 0; nC < N; ++nC) {
                 for(int mR = 0; mR < N; ++mR) {
-                    double tij = 0;
+                    double tij{0};
                     for(int kC = 0; kC < N; ++kC) {
-                        tij += inp[nC][kC] * uni[kC][mR]; // *u
+                        tij += inp(nC,kC) * uni(kC,mR); // *u
                     } // kC
-                    tmp[nC][mR] = alpha*tij;
+                    tmp(nC,mR) = alpha*tij;
                 } // mR
             } // nC
             for(int nR = 0; nR < N; ++nR) {
                 for(int mR = 0; mR < N; ++mR) {
-                    double tij = 0;
+                    double tij{0};
                     for(int kC = 0; kC < N; ++kC) {
-                        tij += uni[kC][nR] * tmp[kC][mR]; // u^T*
+                        tij += uni(kC,nR) * tmp(kC,mR); // u^T*
                     } // kC
-                    res[nR][mR] = alpha*tij;
+                    res(nR,mR) = alpha*tij;
                 } // mR
             } // nR
 
@@ -1983,20 +1982,20 @@ extern "C" {
 
             for(int nC = 0; nC < N; ++nC) {
                 for(int mR = 0; mR < N; ++mR) {
-                    double tij = 0;
+                    double tij{0};
                     for(int kR = 0; kR < N; ++kR) {
-                        tij += uni[nC][kR] * inp[kR][mR]; // u*
+                        tij += uni(nC,kR) * inp(kR,mR); // u*
                     } // kR
-                    tmp[nC][mR] = alpha*tij;
+                    tmp(nC,mR) = alpha*tij;
                 } // mR
             } // nC
             for(int nC = 0; nC < N; ++nC) {
                 for(int mC = 0; mC < N; ++mC) {
-                    double tij = 0;
+                    double tij{0};
                     for(int kR = 0; kR < N; ++kR) {
-                        tij += tmp[nC][kR] * uni[mC][kR]; // *u^T
+                        tij += tmp(nC,kR) * uni(mC,kR); // *u^T
                     } // kR
-                    res[nC][mC] = alpha*tij;
+                    res(nC,mC) = alpha*tij;
                 } // mC
             } // nC
 
@@ -3006,7 +3005,7 @@ namespace single_atom {
               assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)
           }
           break;
-            
+
           default:
           {
               if (echo > 0) printf("# %s first argument \'%s\' undefined, no action!\n", __func__, what);
@@ -3048,9 +3047,9 @@ namespace single_atom {
 #endif
       return (maxdev > 1e-15);
   } // test_compensator_normalization
-
+  
   int test_LiveAtom(int const echo=9) {
-    int const numax = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
+    int const numax = int(control::get("single_atom.test.numax", 3.)); // default 3: ssppdf
     bool const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
