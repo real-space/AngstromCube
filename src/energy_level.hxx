@@ -8,7 +8,7 @@
   template<int Pseudo> // Pseudo: see description at instanciation
   struct energy_level {
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves
-      double* wKin[Pseudo]; // kinetic energy operator onto r*wave
+      double* wKin[Pseudo]; // kinetic energy operator onto wave, r*T*wave
       double energy; // energy level in Hartree atomic units
       double occupation; // occupation number
       enn_QN_t enn; // main quantum_number

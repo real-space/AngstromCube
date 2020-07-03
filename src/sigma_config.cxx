@@ -193,6 +193,13 @@ namespace sigma_config {
         } // switch
     } // char2key
     
+    template<typename int_t>
+    inline void default_core_shells(int_t ncmx[4], double const Z) {
+        ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
+        ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
+        ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
+        ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
+    } // default_core_shells
 
     element_t & get(double const Zcore, int const echo) {
         
@@ -214,10 +221,7 @@ namespace sigma_config {
         e.q_core_hole[1] = 0;
         e.inl_core_hole = -1;
         set(e.nn, 8, uint8_t(0));
-        e.ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
-        e.ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
-        e.ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
-        e.ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
+        default_core_shells(e.ncmx, Z);
 
         if (nullptr == config) return e;
 
@@ -375,15 +379,16 @@ namespace sigma_config {
                         if (echo > 2) printf("# found a %i%c-core hole of charges = %g %g in %s\n", enn,ellchar[ell], occs[0],occs[1], symbol);
                     } else assert(false); // should not occur
                 } else if (KeyRcut == key) {
-                    e.rcut = value;     
+                    e.rcut = value;
                     if (echo > 9) printf("# found cutoff radius rcut = %g\n", e.rcut);
                     if(e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
                 } else if (KeySigma == key) {  
                     e.sigma = value;
                     if (echo > 9) printf("# found projector spread sigma = %g\n", e.sigma);
                     if(e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
-                } else if (KeyZcore == key) {  
+                } else if (KeyZcore == key) {
                     e.Z = value;
+                    default_core_shells(e.ncmx, e.Z); // adjust default core shells
                     if (echo > 9) printf("# found core charge Z = %g for %s\n", e.Z, symbol);
                     if(e.Z >= 120) warn("some routine may not be prepared for Z = %g >= 120", e.Z);
                 }

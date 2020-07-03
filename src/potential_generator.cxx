@@ -207,6 +207,28 @@ namespace potential_generator {
           } // ia
       } // scope
 
+
+      std::vector<double> rho_valence(g.all(), 0.0);
+     
+      char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
+      if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", initial_valence_density_method);
+      
+      auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero., never if 0
+      float take_atomic_valence_densities = {0};
+
+      if ('a' == *initial_valence_density_method) { // atomic
+          if (echo > 1) printf("# include spherical atomic valence densities in the smooth core densities\n");
+          take_atomic_valence_densities = 1; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
+          
+      } else if ('l' == *initial_valence_density_method) { // load
+          error("initial.valence.density = load has not been implemented yet");
+      } else if ('n' == *initial_valence_density_method) { // none
+          warn("initial.valence.density = none may cause problems");
+      } else {
+          warn("initial.valence.density = %s is unknown, valence density is zero", initial_valence_density_method);
+      } // switch
+      
+      
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
       std::vector<int32_t> numax(na, -1); // init with 0 projectors
       std::vector<int32_t> lmax_qlm(na, -1);
@@ -214,7 +236,7 @@ namespace potential_generator {
 
       // for each atom get sigma, lmax
       stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
-      stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data());
+      stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data(), &take_atomic_valence_densities);
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
 
@@ -252,33 +274,13 @@ namespace potential_generator {
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
 
-      std::vector<double> q00_valence;
-      std::vector<double> rho_valence(g.all(), 0.0);
-      char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
-      if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", initial_valence_density_method);
-      if ('a' == *initial_valence_density_method) { // atomic
-          auto & atom_rhov = atom_rhoc; // temporarily rename the existing allocation
-          q00_valence.resize(na); // charge deficits of the spherical valence densities
-          stat += single_atom::atom_update("valence densities", na, q00_valence.data(), nr2.data(), ar2.data(), atom_rhov.data());
-          // add smooth spherical atom-centered valence densities
-          stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
-                                center, n_periodic_images, periodic_images, atom_rhov.data(),
-                                echo, echo, Y00sq, "smooth atomic valence density");
-
-      } else if ('l' == *initial_valence_density_method) { // load
-          error("initial.valence.density = load has not been implemented yet");
-      } else if ('n' == *initial_valence_density_method) { // none
-          warn("initial.valence.density = none may cause problems");
-      } else {
-          warn("initial.valence.density = %s is unknown, valence density is zero", initial_valence_density_method);
-      } // switch
 
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", line, scf_iteration, line);
 
-          stat += single_atom::atom_update("core densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
+          stat += single_atom::atom_update("x densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
 
           if (echo > 4) { // report extremal values of the valence density on the grid
@@ -286,9 +288,9 @@ namespace potential_generator {
               print_stats(rho_valence.data(), g.all(), g.dV());
           } // echo
           
-          set(rho.data(), g.all(), rho_valence.data());
-          
-          // add contributions from smooth core densities
+          set(rho.data(), g.all(), rho_valence.data(), 1. - take_atomic_valence_densities);
+
+          // add contributions from smooth core densities, and optionally spherical valence densities
           stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, echo, Y00sq, "smooth core density");
@@ -306,14 +308,9 @@ namespace potential_generator {
 
           set(cmp.data(), g.all(), 0.0); // init compensation charge density
           { // scope: solve the Poisson equation
-            
+
               // add compensation charges cmp
               for(int ia = 0; ia < na; ++ia) {
-//                   if (q00_valence.size() == na) {
-//                       if (echo > -1) printf("# core charge deficit of atom #%i is %g electrons\n", atom_qlm[ia][00]*Y00inv, ia);
-//                       atom_qlm[ia][00] += Y00*q00_valence[ia]; // add the valence charge deficit from the initial rhov
-//                       if (echo > -1) printf("# add %.6f electrons valence charge deficit of atom #%i\n", q00_valence[ia], ia);
-//                   } // q00_valence
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
                   if (echo > -1) printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
@@ -331,7 +328,6 @@ namespace potential_generator {
                   } // echo
 #endif
               } // ia
-              q00_valence.clear(); // only in the 1st iteration
 
               // add compensators cmp to rho
               add_product(rho.data(), g.all(), cmp.data(), 1.);
@@ -480,8 +476,8 @@ namespace potential_generator {
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
 #ifdef DEVEL
-              for(int ia = 0; ia < na; ++ia) {
-                  if (echo > 6) {
+              if (echo > 16) {
+                  for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
                       printf("\n# atom-centered %dx%d Hamiltonian (in %s) for atom index #%i\n", n, n, _eV, ia);
@@ -491,8 +487,8 @@ namespace potential_generator {
                               printf(" %.3f", aHm(i,j)*eV);
                           }   printf("\n");
                       } // i
-                  } // echo
-              } // ia
+                  } // ia
+              } // echo
 #endif
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
@@ -506,7 +502,7 @@ namespace potential_generator {
                   printf("\n# Total effective potential  (restricted to coarse grid)   ");
                   print_stats(Veff.data(), gc.all(), gc.dV());
               } // echo
-              
+
 #ifdef DEVEL
               if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
                 // in order to test the interpolation routine
@@ -553,8 +549,8 @@ namespace potential_generator {
               int const nbands = nbands_per_atom*na;
               view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
               { // scope: generate start waves from atomic orbitals
-                  uint8_t qn[20][4]; // quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3);
+                  uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
+                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // nu-ordered, take 1, 4, 10 or 20
                   data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
                   for(int iband = 0; iband < nbands; ++iband) {
                       int const ia = iband % na; // which atom?
@@ -578,19 +574,19 @@ namespace potential_generator {
 
                   // solve the Kohn-Sham equation using various solvers
                   if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
-                      stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
+                      stat += davidson_solver::rotate(waves.data(), energies[ikpoint], nbands, op, echo);
                       for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                           stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
-                          stat += davidson_solver::rotate(waves.data(), nbands, op, echo);
+                          stat += davidson_solver::rotate(waves.data(), energies[ikpoint], nbands, op, echo);
                       } // irepeat
                   } else
                   if ('d' == *eigensolver_method) { // "davidson"
                       for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                          stat += davidson_solver::eigensolve(waves.data(), nbands, op, echo + 9);
+                          stat += davidson_solver::eigensolve(waves.data(), energies[ikpoint], nbands, op, echo + 9);
                       } // irepeat
                   } else 
                   if ('n' == *eigensolver_method) { // "none"
-                      warn("eigensolver method \'%s\' generates no new valence density", eigensolver_method);
+                      if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
                   } else {
                       ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);
                   } // eigensolver_method
@@ -611,6 +607,12 @@ namespace potential_generator {
 
           } // scope: Kohn-Sham
           
+          
+          if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
+              auto const progress = scf_iteration/spherical_valence_decay;
+              take_atomic_valence_densities = (progress >= 1) ? 0 : 2*pow3(progress) - 3*pow2(progress) + 1; // smooth transition function
+              stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
+          } // spherical_valence_decay
           
       } // scf_iteration
 

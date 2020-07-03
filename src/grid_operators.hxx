@@ -30,8 +30,8 @@ namespace grid_operators {
                         , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
                         , double const *potential=nullptr // diagonal potential operator [optional]
                         , int const echo=0
-                        , real_t** atomic_projection_coefficients=nullptr
-                        , real_t const *const *atomic_addition_coefficients=nullptr
+                        , real_t       *const *const atomic_projection_coefficients=nullptr
+                        , real_t const *const *const atomic_addition_coefficients=nullptr
                          ) {
       status_t stat(0);
 
@@ -219,11 +219,11 @@ namespace grid_operators {
           return _grid_operator(Cpsi, psi, grid, atoms, -1, boundary_phase.data(), &preconditioner, nullptr, echo);
       } // Pre-Conditioner
 
-      status_t get_atom_coeffs(real_t** atom_coeffs, real_t const psi[], int const echo=0) const {
+      status_t get_atom_coeffs(real_t *const *const atom_coeffs, real_t const psi[], int const echo=0) const {
           return _grid_operator<real_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
-      status_t get_start_waves(real_t psi0[], real_t const *const *atom_coeffs, int const echo=0) const {
+      status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, int const echo=0) const {
           return _grid_operator<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs);
       } // get_start_waves
 

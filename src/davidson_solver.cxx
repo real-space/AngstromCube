@@ -98,6 +98,7 @@ namespace davidson_solver {
 
   template<typename real_t, typename real_fd_t>
   status_t eigensolve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+    , double *const energies // export eigenenergies
     , int const nbands // number of bands
     , grid_operators::grid_operator_t<real_t,real_fd_t> const &op
     , int const echo // =0 log output level
@@ -234,14 +235,13 @@ namespace davidson_solver {
               } else { // if the space can grow
                   niter = iteration; // stop
               }
-          
+
           } // info
 
       } // iteration
 
-      set(waves, nbands*ndof, psi.data()); // copy result wave functions back
-      
-      // ToDo: export last set of nbands eigenvalues on request
+      set(waves, nbands*ndof, psi.data());  // copy result wave functions back
+      set(energies, nbands, eigval.data()); // export last set of nbands eigenvalues
 
       if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
 
@@ -265,6 +265,7 @@ namespace davidson_solver {
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
       real_space::grid_t g(8, 8, 8);
       std::vector<real_t> psi(nbands*g.all(), 0.0);
+      std::vector<double> energies(nbands, 0.0);
 
       int const swm = control::get("davidson_solver.start.waves", 0.);
       if (0 == swm) { // scope: create good start wave functions
@@ -301,7 +302,7 @@ namespace davidson_solver {
 
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat += eigensolve(psi.data(), nbands, op, echo);
+          stat += eigensolve(psi.data(), energies.data(), nbands, op, echo);
       } // it
       return stat;
   } // test_solver
@@ -309,6 +310,7 @@ namespace davidson_solver {
   status_t all_tests(int const echo) {
     status_t stat{0};
     stat += test_solver<double>(echo);
+    stat += test_solver<float>(echo);
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS

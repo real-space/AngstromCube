@@ -34,8 +34,7 @@ namespace radial_grid {
   } // set_derived_grid_quantities
 
   radial_grid_t* create_exponential_radial_grid(int const npoints,
-                   float const Rmax, float const anisotropy) // optional args
-  {
+                   float const Rmax, float const anisotropy) { // optional args
       double const R = std::max(std::abs(Rmax)*1., .945);
       double const d = std::min(std::max(1e-4, anisotropy*1.), .1);
       int const N = std::max(std::abs(npoints), 32);
@@ -57,8 +56,7 @@ namespace radial_grid {
       return g;
   } // create_exponential_radial_grid
 
-  radial_grid_t* create_equidistant_radial_grid(int const npoints, float const Rmax) 
-  {
+  radial_grid_t* create_equidistant_radial_grid(int const npoints, float const Rmax) {
       int const N = std::max(1, npoints);
       int const N_aligned = align<2>(N); // padded to multiples of 4
       auto const g = get_memory(N_aligned);    
@@ -76,8 +74,7 @@ namespace radial_grid {
   } // create_equidistant_radial_grid
   
   
-  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min, int const echo)
-  {
+  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min, int const echo) {
       // find a suitable grid point to start from
       int ir = 0; while (tru.r[ir] < r_min) ++ir;
       if (echo > 3) printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);

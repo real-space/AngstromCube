@@ -64,15 +64,6 @@ extern "C" {
               const double*, const int*, const double*, const int*, const double*, double*, const int*);
 } // extern "C"
 
-  status_t minimize_curvature(int const n, view2D<double> & A, view2D<double> & B, double* lowest=nullptr) {
-      // solve a generalized eigenvalue problem
-      std::vector<double> eigs(n);
-      auto const info = linear_algebra::generalized_eigenvalues(n, A.data(), A.stride(),
-                                                                   B.data(), B.stride(), eigs.data());
-      if (lowest) *lowest = eigs[0];
-      return info;
-  } // minimize_curvature
-
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
@@ -89,6 +80,23 @@ extern "C" {
 
   template<typename real_t>
   inline void symmetrize(real_t &left, real_t &right) { left = (left + right)/2; right = left; }
+
+
+
+
+  status_t minimize_curvature(int const n, view2D<double> & A, view2D<double> & B, double* lowest=nullptr) {
+      // solve a generalized eigenvalue problem
+      std::vector<double> eigs(n);
+      auto const info = linear_algebra::generalized_eigenvalues(n, A.data(), A.stride(),
+                                                                   B.data(), B.stride(), eigs.data());
+      if (lowest) *lowest = eigs[0];
+      return info;
+  } // minimize_curvature
+
+
+
+
+    
 
   status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc,
               int const nmax=4, int const ell=0, double *coeff=nullptr) {
@@ -145,6 +153,14 @@ extern "C" {
 
 
 
+
+
+
+
+    
+
+
+
     template<int ADD0_or_PROJECT1>
     void add_or_project_compensators(
     	  view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
@@ -192,6 +208,14 @@ extern "C" {
             } // emm
         } // ell
     } // add_or_project_compensators
+
+
+
+
+
+
+
+    
 
     
     template <typename real_t>
@@ -244,6 +268,14 @@ extern "C" {
     } // Lagrange_derivatives
    
    
+
+
+
+
+
+
+    
+
     double show_state_analysis(int const echo, char const *label, radial_grid_t const *rg, double const wave[],
             char const enn, int const ell, float const occ, double const energy, char const *csv_class, int const ir_cut) {
         
@@ -269,6 +301,14 @@ extern "C" {
     
    
    
+
+
+
+
+
+
+    
+
     
   class LiveAtom {
   public:
@@ -336,6 +376,9 @@ extern "C" {
       std::vector<int16_t> lmn_begin;
       std::vector<int16_t> lmn_end;
 
+      
+      
+      
   public:
 
     // constructor method:
@@ -358,25 +401,10 @@ extern "C" {
         }
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
-        rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
-
-        if (0) { // flat copy, true and smooth quantities live on the same radial grid
-            rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
-        } else { // create a radial grid descriptor which has less points at the origin
-            auto const rc = control::get("smooth.radial.grid.from", 1e-4);
-            rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
-        } // use the same number of radial grid points for true and smooth quantities
-        // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
-
-        
         take_spherical_density[core] = 1; // must always be 1, since we can compute the core density only on the radial grid.
         take_spherical_density[semicore] = 1;
         take_spherical_density[valence] = atomic_valence_density ? 1 : 0;
 
-        int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
-                  nrs = align<2>(rg[SMT]->n);
-        if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
-        if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
 
         double custom_occ[32];
         set(custom_occ, 32, 0.0);
@@ -454,6 +482,25 @@ extern "C" {
             }   printf("\n");
         } // echo
 
+        
+        // now Z_core may not change any more
+        rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
+
+        if (0) { // flat copy, true and smooth quantities live on the same radial grid
+            rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
+        } else { // create a radial grid descriptor which has less points at the origin
+            auto const rc = control::get("smooth.radial.grid.from", 1e-4);
+            rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
+        } // use the same number of radial grid points for true and smooth quantities
+        // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
+
+        int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
+                  nrs = align<2>(rg[SMT]->n);
+        if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
+        if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
+        
+        
+        
 
         int const nlm = pow2(1 + ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -726,7 +773,7 @@ extern "C" {
                                         " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
                             } // ics
                         }
-                        if (echo > 0) printf("# %s valence %2d%c%6.1f E=%16.6f %s\n", label, enn, ellchar[ell], vs.occupation, E*eV,_eV);
+                        if (echo > 0) printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n", label, csv_name[valence], enn, ellchar[ell], vs.occupation, E*eV,_eV);
                         
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
@@ -878,10 +925,26 @@ extern "C" {
 #endif
     } // constructor
 
+
+
+
+
+
+
+    
+
     ~LiveAtom() { // destructor
         radial_grid::destroy_radial_grid(rg[TRU]);
         radial_grid::destroy_radial_grid(rg[SMT]);
     } // destructor
+
+
+
+
+
+
+
+    
 
     status_t initialize_Gaunt() {
         if (gaunt_init) return 0; // success
@@ -889,6 +952,14 @@ extern "C" {
         gaunt_init = (0 == int(stat));
         return stat;
     } // initialize_Gaunt
+
+
+
+
+
+
+
+    
 
     double pseudize_spherical_density(double smooth_density[], double const true_density[]
                                     , char const *quantity="core", int const echo=0) const {
@@ -914,6 +985,14 @@ extern "C" {
 
         return charge_deficit;
     } // pseudize_spherical_density
+
+
+
+
+
+
+
+    
     
     void update_spherical_states(float const mixing[3], int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
@@ -1000,6 +1079,14 @@ extern "C" {
         } // csv
 
     } // update_spherical_states
+
+
+
+
+
+
+
+    
 
 #ifdef DEVEL
     double update_sigma(int const echo=0) {
@@ -1162,6 +1249,14 @@ extern "C" {
     } // update_sigma
 #endif
 
+
+
+
+
+
+
+    
+
     template <int rpow>
     status_t pseudize_local_potential(double V_smt[], double const V_tru[], int const echo=0, double const df=1) { // df=display_factor
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
@@ -1286,6 +1381,12 @@ extern "C" {
         return stat;
     } // pseudize_local_potential
 
+
+
+
+
+
+
     
     void update_energy_parameters(int const echo=0) {
         if (echo > 1) printf("\n# %s %s Z=%g partial wave characteristics=\"%s\"\n", label, __func__, Z_core, partial_wave_char);
@@ -1339,7 +1440,18 @@ extern "C" {
         } // ell
         
     } // update_energy_parameters
-    
+
+
+
+
+
+
+
+
+
+
+
+
     void update_partial_waves(int const echo=0) {
         int const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.)); // 0:no, 1:use optimize, -1:optimize and display only
 #ifdef DEVEL
@@ -1450,7 +1562,7 @@ extern "C" {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], partial_wave_char[iln], ell, vs.occupation, vs.energy, csv_name[2], ir_cut[TRU]);
+                show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], partial_wave_char[iln], ell, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
 
 //                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
 //                 if (prelim_waves & (1 << ell)) {
@@ -2156,7 +2268,9 @@ extern "C" {
                     for(int iln = 0; iln < nln; ++iln) {
                         for(int jln = 0; jln < nln; ++jln) {
                             double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
+#ifdef FULL_DEBUG
                             if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
+#endif                       
                             rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                                - charge_deficit(ell,SMT,iln,jln) );
                         } // jln
@@ -2189,6 +2303,14 @@ extern "C" {
         } // scope
 
     } // update_full_density
+
+
+
+
+
+
+
+
 
 
     void update_full_potential(float const mixing, double const ves_multipole[], int const echo=0) {
@@ -2351,6 +2473,14 @@ extern "C" {
 
     } // update_full_potential
 
+
+
+
+
+
+
+
+
     void update_matrix_elements(int const echo=0) {
         int const nlm = pow2(1 + ellmax);
         int const mlm = pow2(1 + numax);
@@ -2377,7 +2507,8 @@ extern "C" {
             } // ir
             printf("\n\n");
         } // echo
-#endif
+#endif // DEVEL
+
         view4D<double> potential_ln(nlm, TRU_AND_SMT, nln, nln, 0.0); // get memory, // emm1-emm2-degenerate
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
@@ -2470,6 +2601,7 @@ extern "C" {
                 } // echo
             } // i01
 
+#ifdef NEVER
             if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
@@ -2498,9 +2630,10 @@ extern "C" {
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
                   (rg, rV, sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-
+#endif // NEVER
+            
         } // scope
-#endif
+#endif // DEVEL
 
         set(hamiltonian, nSHO, 0.0); // clear
         set(overlap,     nSHO, 0.0); // clear
@@ -2522,9 +2655,17 @@ extern "C" {
                 printf("\n");
             } // iSHO
         } // echo
-#endif
+#endif // DEVEL
 
     } // update_matrix_elements
+
+
+
+
+
+
+
+
 
 
     void check_spherical_matrix_elements(int const echo, view3D<double> & aHSm) const {
@@ -2662,6 +2803,14 @@ extern "C" {
 
     } // check_spherical_matrix_elements
 
+
+
+
+
+
+
+
+
     void update_density(float const density_mixing[3], int const echo=0) {
 //         if (echo > 2) printf("\n# %s\n", __func__);
         update_spherical_states(density_mixing, echo);
@@ -2690,11 +2839,31 @@ extern "C" {
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
+
+
+
+
+
+
+
+
     status_t get_smooth_spherical_quantity(double qnt[] // result array: function on an r2-grid
         , float const ar2, int const nr2 // r2-grid parameters
         , char const what, int const echo=1) const { // logg level
-        char const *qnt_name   = ('c' == what) ? "core_density"               : (('z' == what) ? "zero_potential"       : "valence_density");
-        auto const *qnt_vector = ('c' == what) ? spherical_density[SMT][core] : (('z' == what) ?  zero_potential.data() : spherical_density[SMT][valence]);
+        std::vector<double> mixed_spherical;
+        char   const *qnt_name{nullptr};   
+        double const *qnt_vector{nullptr};
+        if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data(); } else
+        if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core]; } else
+        if ('v' == what) { qnt_name = "valence_density"; qnt_vector = spherical_density[SMT][valence]; } else
+        {
+            mixed_spherical = std::vector<double>(rg[SMT]->n, 0.0);
+            for(int csv = 0; csv < 3; ++csv) {
+                add_product(mixed_spherical.data(), rg[SMT]->n, spherical_density[SMT][csv], take_spherical_density[csv]);
+            } // csv
+            qnt_name = "mixed_density"; qnt_vector = mixed_spherical.data();
+        }
+        
         if (echo > 8) printf("# %s call transform_to_r2_grid(%p, %.1f, %d, %s=%p, rg=%p)\n",
                         label, (void*)qnt, ar2, nr2, qnt_name, (void*)qnt_vector, (void*)rg[SMT]);
         double const minval = ('z' == what) ? -9e307 : 0.0; // zero potential may be negative, densities should not
@@ -2806,6 +2975,7 @@ namespace single_atom {
           case str2int("lmax qlm"):
           case str2int("lmax vlm"): // does not work with uint32_t
           case str2int("sigma cmp"):
+          case str2int("x densities"):
           case str2int("core densities"):
           case str2int("valence densities"):
           case str2int("projectors"):
@@ -2875,6 +3045,7 @@ namespace single_atom {
           break;
 
           case 'c': // interface usage: atom_update("core densities",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
+          case 'x': // interface usage: atom_update("x densities",       natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
           case 'v': // interface usage: atom_update("valence densities", natoms, q_00, nr2=2^12, ar2=16.f, qnt=rho_v);
           case 'z': // interface usage: atom_update("zero potentials",   natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
           {
@@ -2972,8 +3143,8 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
-                  // fine-control take_spherical_density[semicore,valence] any float in [0, 1], NOT atom-resolved! consumes fp[1] and fp[2]
-                  if (fp) { for(int sv = 1; sv < 3; ++sv) { a[ia]->take_spherical_density[sv] = std::min(std::max(0.f, fp[sv]), 1.f); } }
+                  // fine-control take_spherical_density[valence] any float in [0, 1], NOT atom-resolved! consumes only fp[0]
+                  if (fp) a[ia]->take_spherical_density[valence] = std::min(std::max(0.f, fp[0]), 1.f);
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)
           }
