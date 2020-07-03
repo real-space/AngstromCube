@@ -274,6 +274,67 @@ namespace potential_generator {
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
 
+      // prepare the eigenstates
+              // create a coarse grid descriptor
+              real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
+              gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
+              gc.set_boundary_conditions(g.boundary_conditions());
+      
+              // create a list of atoms
+              view2D<double> xyzZinso(na, 8);
+              {
+                  std::vector<int32_t> numax_a(na, 3);
+                  std::vector<double>  sigma_a(na, .5);
+                  stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
+                  for(int ia = 0; ia < na; ++ia) {
+                      set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
+                      xyzZinso[ia][4] = ia;  // global_atom_id
+                      xyzZinso[ia][5] = numax_a[ia];
+                      xyzZinso[ia][6] = sigma_a[ia];
+                      xyzZinso[ia][7] = 0;   // __not_used__
+                  } // i
+              }
+              std::vector<atom_image::sho_atom_t> a;
+              stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
+
+              // construct grid-based Hamiltonian and overlap operator descriptor
+              grid_operators::grid_operator_t<double> op(gc, a);
+
+              std::vector<int> ncoeff_squared(na), ncoeff_a(na);
+              for(int ia = 0; ia < na; ++ia) {
+                  int const ncoeff = sho_tools::nSHO(op.get_numax(ia));
+                  ncoeff_a[ia] = ncoeff;
+                  ncoeff_squared[ia] = pow2(ncoeff);
+              } // ia
+
+              int const nkpoints = 1;
+              int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // s- and p-states
+              int const nbands = nbands_per_atom*na;
+              view3D<double> psi(nkpoints, nbands, gc.all()); // Kohn-Sham states in double precision real
+              { // scope: generate start waves from atomic orbitals
+                  uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
+                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // nu-ordered, take 1, 4, 10 or 20
+                  data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
+                  for(int iband = 0; iband < nbands; ++iband) {
+                      int const ia = iband % na; // which atom?
+                      int const io = iband / na; // which orbital?
+                      if (echo > 7) printf("# %s initialize band #%i as atomic orbital %x%x%x of atom #%i\n", 
+                                              __func__, iband, qn[io][0], qn[io][1], qn[io][2], ia);
+                      int const isho = sho_tools::zyx_index(op.get_numax(ia), qn[io][0], qn[io][1], qn[io][2]);
+                      single_atomic_orbital[ia][isho] = 1;
+                      op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), echo);
+                      single_atomic_orbital[ia][isho] = 0;
+//                    print_stats(psi(0,iband), gc.all(), gc.dV());
+                  } // iband
+              } // scope
+
+              view2D<double> energies(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
+
+              auto const eigensolver_method = control::get("eigensolver", "cg");
+              int const nrepeat = int(control::get("repeat.eigensolver", 1.)); // repetitions of the solver
+      // eigenstates prepared
+      
+      
 
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
@@ -490,10 +551,6 @@ namespace potential_generator {
                   } // ia
               } // echo
 #endif
-              // create a coarse grid descriptor
-              real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
-              gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
-              gc.set_boundary_conditions(g.boundary_conditions());
 
               // restrict the local effective potential to the coarse grid
               std::vector<double> Veff(gc.all());
@@ -515,74 +572,26 @@ namespace potential_generator {
               } // scope
 #endif
 
-              // create a list of atoms
-              view2D<double> xyzZinso(na, 8);
-              {
-                  std::vector<int32_t> numax_a(na, 3);
-                  std::vector<double>  sigma_a(na, .5);
-                  stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
-                  for(int ia = 0; ia < na; ++ia) {
-                      set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
-                      xyzZinso[ia][4] = ia;  // global_atom_id
-                      xyzZinso[ia][5] = numax_a[ia];
-                      xyzZinso[ia][6] = sigma_a[ia];
-                      xyzZinso[ia][7] = 0;   // __not_used__
-                  } // ia
-              }
-              std::vector<atom_image::sho_atom_t> a;
-              stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, 8, gc, echo, atom_mat.data());
-
-              // construct grid-based Hamiltonian and overlap operator descriptor
-              grid_operators::grid_operator_t<double> const op(gc, a, Veff.data());
+              // copy the local potential and non-local atom matrices into the grid operator descriptor
+              op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo);
 
               std::vector<double> rho_valence_new(gc.all(), 0.0); // new valence density
-              std::vector<int> ncoeff_squared(na), ncoeff_a(na);
-              for(int ia = 0; ia < na; ++ia) {
-                  int const numax = op.get_numax(ia);
-                  int const ncoeff = sho_tools::nSHO(numax);
-                  ncoeff_a[ia] = ncoeff;
-                  ncoeff_squared[ia] = pow2(ncoeff);
-              } // ia
               data_list<double> atom_rho(ncoeff_squared, 0.0); // atomic density matrices
 
-              int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // s- and p-states
-              int const nbands = nbands_per_atom*na;
-              view2D<double> waves(nbands, gc.all()); // Kohn-Sham states
-              { // scope: generate start waves from atomic orbitals
-                  uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // nu-ordered, take 1, 4, 10 or 20
-                  data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
-                  for(int iband = 0; iband < nbands; ++iband) {
-                      int const ia = iband % na; // which atom?
-                      int const io = iband / na; // which orbital?
-                      if (echo > 7) printf("# %s initialize band #%i as atomic orbital %x%x%x of atom #%i\n", 
-                                              __func__, iband, qn[io][0], qn[io][1], qn[io][2], ia);
-                      int const isho = sho_tools::zyx_index(op.get_numax(ia), qn[io][0], qn[io][1], qn[io][2]);
-                      single_atomic_orbital[ia][isho] = 1;
-                      op.get_start_waves(waves[iband], single_atomic_orbital.data(), echo);
-                      single_atomic_orbital[ia][isho] = 0;
-//                    print_stats(waves[iband], gc.all(), gc.dV());
-                  } // iband
-              } // scope
-
-              view2D<double> energies(1, nbands); // Kohn-Sham eigenenergies
-
-              auto const eigensolver_method = control::get("eigensolver", "cg");
-              int const nkpoints = 1;
-              int const nrepeat = int(control::get("repeat.eigensolver", 1.)); // repetitions of the solver
               for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
+                  auto psi_k = psi[ikpoint];
 
                   // solve the Kohn-Sham equation using various solvers
                   if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
-                      stat += davidson_solver::rotate(waves.data(), energies[ikpoint], nbands, op, echo);
+                      stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                       for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                          stat += conjugate_gradients::eigensolve(waves.data(), nbands, op, echo, 1e-6, energies[ikpoint]);
-                          stat += davidson_solver::rotate(waves.data(), energies[ikpoint], nbands, op, echo);
+                          stat += conjugate_gradients::eigensolve(psi_k.data(), nbands, op, echo - 5, 1e-6, energies[ikpoint]);
+                          stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                       } // irepeat
                   } else
                   if ('d' == *eigensolver_method) { // "davidson"
                       for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                          stat += davidson_solver::eigensolve(waves.data(), energies[ikpoint], nbands, op, echo + 9);
+                          stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo + 9);
                       } // irepeat
                   } else 
                   if ('n' == *eigensolver_method) { // "none"
@@ -592,7 +601,7 @@ namespace potential_generator {
                   } // eigensolver_method
 
                   // add to density
-                  stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), waves.data(), op, nbands, 1, echo);
+                  stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), psi_k.data(), op, nbands, 1, echo);
 
               } // ikpoint
 

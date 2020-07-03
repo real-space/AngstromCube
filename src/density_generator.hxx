@@ -7,6 +7,7 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "data_view.hxx" // view3D<T>
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<real_t*> with new constructions
+#include "control.hxx" // ::get
 
 namespace density_generator {
 
@@ -51,13 +52,15 @@ namespace density_generator {
 
       view3D<real_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
 
+      auto const occupied_bands = int(control::get("occupied.bands", 0.)); // as long as the Fermi function is not in here
+      
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
           double const kpoint_weight = 1; // depends on ikpoint
           auto const psi_k = psi[ikpoint];
-          
+
           for(int iband = 0; iband < nbands; ++iband) {
-              double const band_occupation = 1; // depends on iband and ikpoint
+              double const band_occupation = 2*(iband < occupied_bands); // depends on iband and ikpoint
               double const weight_nk = band_occupation * kpoint_weight;
               auto const psi_nk = psi_k[iband];
               

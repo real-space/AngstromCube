@@ -49,7 +49,7 @@ namespace atom_image {
           _ncoeff = sho_tools::nSHO(_numax);
           _stride = align<2>(_ncoeff);
           _matrix64 = std::vector<double>(2*_ncoeff*_stride, 0.0);
-          _matrix32 = std::vector<float> (2*_ncoeff*_stride, 0.0);
+          _matrix32 = std::vector<float> (2*_ncoeff*_stride, 0.f);
           if (pos) {
               _images.resize(1); // only the one base image
               _images[0] = atom_image::atom_image_t(pos[0], pos[1], pos[2], atom_id, 0,0,0, Zi);
