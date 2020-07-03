@@ -9,8 +9,9 @@ $exe +verbosity=9 \
         +electrostatic.solver=mg +electrostatic.potential.to.file=v_es.mg.dat \
         +element_He="1s* 2 2p | 1.5 sigma .75" \
         +element_Ne="2s* 2 2p* 6 3d | 1.8 sigma .7" \
-        +element_Al="3s* 2 3p* 1.5 0 3d | 1.8 sigma 1.1 Z= 14" \
-         +element_P="3s* 2 3p* 2.5 0 3d | 1.8 sigma 1.1 Z= 14" \
+        +element_Al="3s* 2 3p* 2.0 0 3d | 1.8 sigma 1.1 Z= 14" \
+        +element_Si="3s* 2 3p* 2   0 3d | 1.8 sigma 1.1" \
+         +element_P="3s* 2 3p* 2.0 0 3d | 1.8 sigma 1.1 Z= 14" \
         +potential_generator.use.bessel.projection=0 \
         +single_atom.local.potential.method=sinc \
         +single_atom.init.echo=7 \

@@ -71,8 +71,8 @@ namespace potential_generator {
   inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
   
   inline double fold_back(double x, double const cell_extend) { 
-      while(x > 0.5*cell_extend) x -= cell_extend; 
-      while(x < -.5*cell_extend) x += cell_extend;
+      while(x >= 0.5*cell_extend) x -= cell_extend; 
+      while(x < -0.5*cell_extend) x += cell_extend;
       return x;
   } // fold_back
   
