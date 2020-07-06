@@ -86,7 +86,7 @@ namespace sho_projection {
                                   } else {
                                       coeff[iSHO] += val * H3d; // here, the projection happens                                          
                                   }
-                                  ++iSHO;
+                                  ++iSHO; // in sho_tools::zyx_order
                               } // nx
                           } // ny
                       } // nz
@@ -205,7 +205,7 @@ namespace sho_projection {
                              vzyx_nrm.data(), sho_tools::order_zyx, ellmax, 0);
 
       stat += renormalize_radial_coeff(vlm, vnlm.data(), ellmax, sigma);
-      
+
       return stat;
   } // renormalize_electrostatics
 

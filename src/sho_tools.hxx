@@ -318,7 +318,7 @@ namespace sho_tools {
 
   template <unsigned nChar=8> // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
   inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order, int const echo=1) {
-      auto const ellchar = "spdfghijklmno";
+      auto const ellchar = "spdfghijklmno"; // ToDo: 'i' should not be included by convention
       int ii{0};
       switch (order) {
         

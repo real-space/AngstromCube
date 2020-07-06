@@ -366,7 +366,7 @@ extern "C" {
       char   partial_wave_char[32]; // [iln]
       double partial_wave_energy_split[1+ELLMAX]; // [ell]
 
-      view2D<double> unitary_Ezyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
+      view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
@@ -827,10 +827,10 @@ extern "C" {
         hamiltonian = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
         overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
-        unitary_Ezyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
+        unitary_zyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
         { // scope: fill the Unitary_SHO_Transform with values from a file
             sho_unitary::Unitary_SHO_Transform<double> const u(numax);
-            auto const stat = u.construct_dense_matrix(unitary_Ezyx_lmn.data(), numax, nSHO, sho_tools::order_Ezyx, sho_tools::order_lmn);
+            auto const stat = u.construct_dense_matrix(unitary_zyx_lmn.data(), numax, nSHO, sho_tools::order_zyx, sho_tools::order_lmn);
             assert(0 == int(stat));
         } // scope
 
@@ -2052,8 +2052,8 @@ extern "C" {
                   double const in[], int const in_stride,
                   bool const in_Cartesian, double const alpha=1) const {
 
-        int const N = unitary_Ezyx_lmn.stride();
-        view2D<double const> uni(unitary_Ezyx_lmn.data(), N); // wrap
+        int const N = unitary_zyx_lmn.stride();
+        view2D<double const> uni(unitary_zyx_lmn.data(), N); // wrap
         view2D<double> tmp(N, N); // get memory
         view2D<double const> inp(in, in_stride); // wrap
         view2D<double> res(out, out_stride); // wrap
@@ -2126,7 +2126,7 @@ extern "C" {
 
     void get_rho_tensor(view3D<double> & density_tensor
         , view2D<double> const & density_matrix
-        , sho_tools::SHO_order_t const order=sho_tools::order_Ezyx
+        , sho_tools::SHO_order_t const order=sho_tools::order_zyx
         , int const echo=0) {
       
         int const nSHO = sho_tools::nSHO(numax);
@@ -2141,7 +2141,9 @@ extern "C" {
 
         view2D<double> radial_density_matrix;
 
-        if (sho_tools::order_Ezyx == order) {
+        if (sho_tools::order_zyx == order) {
+            // we need to transform from Cartesian to Radial first
+
             // now transform the density_matrix[izyx][jzyx]
             //     into a radial_density_matrix[ilmn][jlmn]
             //     using the unitary transform from left and right
@@ -2149,14 +2151,14 @@ extern "C" {
             transform_SHO(radial_density_matrix.data(), stride,
                   density_matrix.data(), density_matrix.stride(), true);
 #ifdef DEVEL
-            if (0) { // debugging
+            if (1) { // debugging
                 view2D<double> check_matrix(nSHO, nSHO);
                 transform_SHO(check_matrix.data(), check_matrix.stride(),
                               radial_density_matrix.data(), radial_density_matrix.stride(), false);
                 double maxdev{0};
                 for(int i = 0; i < nSHO; ++i) {
                     for(int j = 0; j < nSHO; ++j) {
-                          maxdev = std::max(maxdev, std::abs(check_matrix[i][j] - density_matrix[i][j]));
+                        maxdev = std::max(maxdev, std::abs(check_matrix(i,j) - density_matrix(i,j)));
                     } // j
                 } // i
                 printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, maxdev);
@@ -2166,22 +2168,28 @@ extern "C" {
         } else if (sho_tools::order_lmn == order) {
             radial_density_matrix = view2D<double>(density_matrix.data(), density_matrix.stride()); // wrap
         } else {
-            error("%s should be in either order_Ezyx or order_lmn", label);
+            error("%s should be in either order_zyx or order_lmn", label);
         } // order
 
-#ifdef DEVEL        
-        if (0) {
-            printf("# %s Radial density matrix\n", label);
+#ifdef DEVEL      
+        if (1) {
+            printf("# %s Radial density matrix in %s-order:\n", 
+                      label, SHO_order2string(sho_tools::order_lmn).c_str());
+            char labels[220*8];
+            sho_tools::construct_label_table(labels, numax, sho_tools::order_lmn);
             for(int i = 0; i < nSHO; ++i) {
+                printf("# %s %s\t", label, &labels[i*8]);
                 for(int j = 0; j < nSHO; ++j) {
-                    printf("\t%.1f", radial_density_matrix(i,j));
-                }   printf("\n");
-            }   printf("\n");
+                    printf("%8.3f", radial_density_matrix(i,j));
+                } // j
+                printf("\n");
+            } // i
+            printf("\n");
         } // plot
 #endif
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
-        //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix[il_1m_1n_1][jl_2m_2n_2]
+        //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
 
         set(density_tensor, nlm, 0.0); // clear
         for(auto gnt : gaunt) {
@@ -2193,7 +2201,7 @@ extern "C" {
                     int const iln = ln_index_list[ilmn];
                     for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
-                        density_tensor(lm,iln,jln) += G * radial_density_matrix[ilmn][jlmn];
+                        density_tensor(lm,iln,jln) += G * radial_density_matrix(ilmn,jlmn);
 #ifdef DEVEL
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
@@ -2259,34 +2267,39 @@ extern "C" {
 
         } // true and smooth
 
+        // determine the compensator charges
         int const nlm_cmp = pow2(1 + ellmax_compensator);
         for(int ell = 0; ell <= ellmax_compensator; ++ell) {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
-                double rho_lm{0};
-                if (mix_valence_density > 0) {
+                double rho_lm{0}, tru_lm{0}, smt_lm{0};
+                if (mix_valence_density > 0 || echo > 0)
                     for(int iln = 0; iln < nln; ++iln) {
                         for(int jln = 0; jln < nln; ++jln) {
-                            double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
+                            double const rho_ij = density_tensor(lm,iln,jln);
 #ifdef FULL_DEBUG
                             if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
 #endif                       
                             rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                                - charge_deficit(ell,SMT,iln,jln) );
+                            tru_lm += rho_ij *   charge_deficit(ell,TRU,iln,jln)  ;
+                            smt_lm += rho_ij *   charge_deficit(ell,SMT,iln,jln)  ;
                         } // jln
                     } // iln
-                } // max_valence_density
+                } // mix_valence_density
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
-                qlm_compensator[lm] = rho_lm;
+                qlm_compensator[lm] = rho_lm * mix_valence_density;
+                if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth, and %g deficit electrons\n", label, tru_lm, smt_lm, rho_lm);
+                
             } // emm
         } // ell
 
         // account for Z protons in the nucleus and the missing charge in the spherical densities
         assert(1 == take_spherical_density[core]); // must always be 1 since we can compute the core density only on the radial grid
         double const spherical_charge_deficits = dot_product(3, spherical_charge_deficit, take_spherical_density);
-        qlm_compensator[0] += (spherical_charge_deficits - Z_core)*Y00;
-        if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[0]*Y00inv);
+        qlm_compensator[00] += (spherical_charge_deficits - Z_core)*Y00;
+        if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[00]*Y00inv);
 
         { // scope: construct the augmented density
             int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
@@ -2822,9 +2835,8 @@ extern "C" {
         check_spherical_matrix_elements(echo, aHSm); // check scattering properties for emm-averaged Hamiltonian elements
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
-        auto dm_order{sho_tools::order_Ezyx};
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
-        get_rho_tensor(rho_tensor, density_matrix, dm_order, echo);
+        get_rho_tensor(rho_tensor, density_matrix, sho_tools::order_zyx, echo);
         update_full_density(rho_tensor, echo);
     } // update_density
 

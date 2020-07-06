@@ -4,7 +4,6 @@
 
   int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
 
-  // ToDo: write a class with constructors and destructors to handle the memory for *wave
   template<int Pseudo> // Pseudo: see description at instanciation
   struct energy_level {
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves

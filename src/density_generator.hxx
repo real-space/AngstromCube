@@ -52,7 +52,7 @@ namespace density_generator {
 
       view3D<real_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
 
-      auto const occupied_bands = int(control::get("occupied.bands", 0.)); // as long as the Fermi function is not in here
+      double const occupied_bands = control::get("occupied.bands", 0.); // as long as the Fermi function is not in here
       
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
@@ -60,7 +60,7 @@ namespace density_generator {
           auto const psi_k = psi[ikpoint];
 
           for(int iband = 0; iband < nbands; ++iband) {
-              double const band_occupation = 2*(iband < occupied_bands); // depends on iband and ikpoint
+              double const band_occupation = 2*std::min(std::max(0.0, occupied_bands - iband), 1.0); // depends on iband and ikpoint
               double const weight_nk = band_occupation * kpoint_weight;
               auto const psi_nk = psi_k[iband];
               
@@ -101,14 +101,18 @@ namespace density_generator {
       for(int ia = 0; ia < na; ++ia) {
 #ifdef DEVEL
           if (echo > 6) {
-              int ncoeff = sho_tools::nSHO(op.get_numax(ia));
-              printf("\n# show %d x %d density matrix for atom #%i", ncoeff, ncoeff, ia);
+              int const ncoeff = sho_tools::nSHO(op.get_numax(ia));
+              printf("\n# show %d x %d density matrix for atom #%i in %s-order\n", 
+                  ncoeff, ncoeff, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str());
+              char labels[220*8]; sho_tools::construct_label_table(labels, op.get_numax(ia), sho_tools::order_zyx);
               for(int i = 0; i < ncoeff; ++i) {
-                  printf("\n# ");
+                  printf("# %s\t", &labels[i*8]);
                   for(int j = 0; j < ncoeff; ++j) {
-                      printf("%12.4e", atom_rho[ia][i*ncoeff + j]);
+                      printf("%8.3f", atom_rho[ia][i*ncoeff + j]);
                   } // j
-              }   printf("\n");
+                  printf("\n");
+              } // i
+              printf("\n");
           } // echo
 #endif // DEVEL
           delete[] atom_coeff[ia];
