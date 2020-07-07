@@ -3,18 +3,20 @@
 exe=../src/a43
 
 ### simple cubic
-printf " 1 \n#cell 2 2 2 p p p\n" > atoms.xyz
-echo "Ne   0 0 0" >> atoms.xyz
+printf " 1 \n#cell 12 12 12 i i i\n" > atoms.xyz
+echo "Ar   0 0 0" >> atoms.xyz
 
 (cd ../src/ && make -j) && \
-$exe +verbosity=9 \
+$exe +verbosity=11 \
     -test potential_generator. \
-        +repeat.eigensolver=4 \
-        +eigensolver=cg +conjugate_gradients.max.iter=12 \
+        +repeat.eigensolver=1 \
+        +eigensolver=cg +conjugate_gradients.max.iter=2 \
         +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=mg +electrostatic.potential.to.file=v_es.mg.dat \
+        +electrostatic.solver=Bessel0 \
         +element_He="1s* 2 2p | 1.5 sigma .75" \
-        +element_Ne="2s* 2 2p* 6 3d | 1.8 sigma .7" \
+        +element_Ne="2s 2 2p 6 | 1.8 sigma .7" \
+        +element_Ar="3s* 2 3p* 6 3d | 1.6 sigma .8" \
+        +element_Xe="5s* 2 5p* 6 5d | 2.24 sigma .62" \
         +occupied.bands=4 \
         +element_B="2s* 2 2p 1 0 3d | 1.2 sigma .7" \
         +element_Al="3s* 2 3p* 1.1 0 3d | 1.8 sigma 1.1 Z= 14" \
@@ -25,14 +27,17 @@ $exe +verbosity=9 \
         +single_atom.echo=7 \
         +logder.start=2 +logder.stop=1 \
         +bands.per.atom=10 \
-        +potential_generator.max.scf=13 \
+        +potential_generator.max.scf=1 \
         +atomic.valence.decay=0 \
         > potential_generator.out
+
+#         +electrostatic.solver=mg +electrostatic.potential.to.file=v_es.mg.dat \
 
 #         +element_He="1s* 2 2p | 1.5 sigma .75" \
 #         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
 #         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.fft.dat \
 #         +electrostatic.solver=mg \
+#         +element_Ne="2s* 2 2p* 6 3d | 1.8 sigma .7" \
 
 
 ### Results:

@@ -25,6 +25,9 @@
 #include "simple_timer.hxx" // // SimpleTimer
 #include "control.hxx" // control::get
 
+#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
+#include "bessel_transform.hxx" // ::Bessel_j0
+
 #ifdef DEVEL
     #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file
@@ -145,6 +148,90 @@ namespace potential_generator {
           } // ia
           return stat;
   } // add_smooth_quantities
+
+  
+  
+  status_t Bessel_Poisson_solver(double *const Ves, real_space::grid_t const & g
+                            , double const *const rho, double const center[3]
+                            , int const echo=0) {
+      if (!g.all_boundary_conditions(Isolated_Boundary)) {
+          warn("Bessel Poisson solver requires 3 isolated boundary conditions");
+          return -1;
+      } // failed
+
+      status_t stat(0);
+        
+      // report extremal values of what is stored on the grid
+      if (echo > 1) {
+          printf("# real-space stats of input density:   ");
+          print_stats(rho, g.all(), g.dV());
+      } // echo
+      
+      float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
+      std::vector<double> qc(nq, 0.0);
+      stat += real_space::bessel_projection(qc.data(), nq, dq, rho, g, center);
+      scale(qc.data(), nq, pow2(solid_harmonics::Y00));
+
+      double const by4pi = .25/constants::pi;
+      std::vector<double> qcq2(nq, 0.0);
+      for(int iq = 1; iq < nq; ++iq) {
+          qcq2[iq] = 4*constants::pi * qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
+      } // iq
+
+      if (echo > 9) {
+          printf("\n## Bessel coeff of {density, Ves}:\n");
+          for(int iq = 0; iq < nq; ++iq) {
+              printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
+          }   printf("\n\n");
+      } // echo
+
+      double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
+
+      scale(  qc.data(), nq, sqrt2pi*dq);
+      scale(qcq2.data(), nq, sqrt2pi*dq);
+
+      // expand electrostatic potential onto grid
+      double rho_abs{0}, rho_squ{0}, rho_max{0};
+      for(int iz = 0; iz < g[2]; ++iz) {
+          double const z = iz*g.h[2] - center[2], z2 = z*z;
+          for(int iy = 0; iy < g[1]; ++iy) {
+              double const y = iy*g.h[1] - center[1], y2 = y*y; 
+              for(int ix = 0; ix < g[0]; ++ix) {
+                  double const x = ix*g.h[0] - center[0], x2 = x*x;
+                  double const r = std::sqrt(x2 + y2 + z2);
+                  int const izyx = (iz*g[1] + iy)*g[0] + ix;
+                  double ves_r{0}, rho_r{0};
+                  for(int iq = 0; iq < nq; ++iq) {
+                      double const q = iq*dq;
+                      double const bessel_kernel = bessel_transform::Bessel_j0(q*r) * q * q;
+                      ves_r += qcq2[iq]*bessel_kernel;
+                      rho_r +=   qc[iq]*bessel_kernel;
+                  } // iq
+                  Ves[izyx] = ves_r; // store
+                  // check how much the density deviates from a spherical density
+                  double const rho_dif = std::abs(rho[izyx] - rho_r);
+                  rho_max = std::max(rho_max, rho_dif);
+                  rho_abs += rho_dif;
+                  rho_squ += pow2(rho_dif);
+              } // ix
+          } // iy
+      } // iz
+      rho_abs *= g.dV();
+      rho_squ = std::sqrt(rho_squ*g.dV());
+
+      if (echo > 1) { 
+          printf("# real-space stats of output potential:"); 
+          print_stats(Ves, g.all(), g.dV());
+          printf("\n");
+      } // echo
+      
+      if (echo > 3) printf("# Bessel_Poisson density deviation from spherical: "
+          "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ); 
+      
+      return stat;
+   } // Bessel_Poisson_solver
+  
+  
   
   status_t init(float const ion=0.f, int const echo=0) {
     
@@ -338,7 +425,7 @@ namespace potential_generator {
 
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
-          // SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
+          SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", line, scf_iteration, line);
 
           stat += single_atom::atom_update("x densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
@@ -418,7 +505,6 @@ namespace potential_generator {
                       stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
                   } else if ('M' == es_solver_method) { // "Multi-grid" (upper case!)
 #ifdef DEVEL
-
                       // create a 2x denser grid descriptor
                       real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
                       if (echo > 2) printf("# electrostatic.solver = %s is a multi-grid solver"
@@ -434,7 +520,17 @@ namespace potential_generator {
                       // restrict the electrostatic potential to grid g
                       multi_grid::restrict3D(Ves.data(), g, Ves_dense.data(), gd, echo);
 #else
-                      warn("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
+                      error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
+#endif
+                  } else if ('B' == es_solver_method) { // "Bessel0" (upper case!)
+#ifdef DEVEL
+                      if (echo > 0) printf("# use a spherical Bessel solver for the Poisson equation\n");
+                      assert(1 == na); // must be exactly one atom
+                      auto const st = Bessel_Poisson_solver(Ves.data(), g, rho.data(), center[0], echo);
+                      if (st) warn("Bessel Poisson solver failed with status=%i", int(st));
+                      stat += st;
+#else
+                      error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
 #endif
                   } else if ('l' == (es_solver_method | 32)) { // "load"
 #ifdef DEVEL
@@ -442,7 +538,7 @@ namespace potential_generator {
                       auto const nerrors = debug_tools::read_from_file(Ves.data(), Ves_in_filename, g.all(), 1, 1, "electrostatic potential", echo);
                       if (nerrors) warn("electrostatic.solver = %s from file %s had %d errors", es_solver_name, Ves_in_filename, nerrors); 
 #else
-                      warn("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
+                      error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
 #endif
                   } else if ('n' == (es_solver_method | 32)) { // "none"
                       warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
@@ -450,8 +546,13 @@ namespace potential_generator {
                   } else { // default
                       if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
                       stat += iterative_poisson::solve(Ves.data(), rho.data(), g, es_solver_method, echo);
-
                   } // es_solver_method
+                  
+                  if (echo > 1) {
+                      printf("\n# electrostatic potential");
+                      print_stats(Ves.data(), g.all(), g.dV());
+                  } // echo
+                  
               } // scope
 
 #ifdef DEVEL
@@ -496,7 +597,7 @@ namespace potential_generator {
 
               if (echo > 3) {
                   double const Ees = 0.5*dot_product(g.all(), rho.data(), Ves.data())*g.dV();
-                  printf("# inner product between rho and Ves = %g %s\n", 2*Ees*eV,_eV);
+                  printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
               } // echo
           } // scope
 
@@ -536,6 +637,7 @@ namespace potential_generator {
           std::vector<double> rhov_new(g.all(), 0.0); // new valence density
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
+              SimpleTimer KS_timer(__FILE__, __LINE__, "Solve KS-equation", echo);
 #ifdef DEVEL
               if (echo > 16) {
                   for(int ia = 0; ia < na; ++ia) {
@@ -550,7 +652,7 @@ namespace potential_generator {
                       } // i
                   } // ia
               } // echo
-#endif
+#endif 
 
               // restrict the local effective potential to the coarse grid
               std::vector<double> Veff(gc.all());
@@ -615,7 +717,6 @@ namespace potential_generator {
               stat += single_atom::atom_update("atomic density matrices", na, 0, 0, 0, atom_rho.data());              
 
           } // scope: Kohn-Sham
-          
           
           if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
               auto const progress = scf_iteration/spherical_valence_decay;

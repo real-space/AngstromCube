@@ -489,13 +489,14 @@ extern "C" {
         if (0) { // flat copy, true and smooth quantities live on the same radial grid
             rg[SMT] = rg[TRU]; rg[SMT]->memory_owner = false; // avoid double free
         } else { // create a radial grid descriptor which has less points at the origin
-            auto const rc = control::get("smooth.radial.grid.from", 1e-4);
+            auto const rc = control::get("smooth.radial.grid.from", 1e-3);
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
         } // use the same number of radial grid points for true and smooth quantities
         // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
 
         int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
                   nrs = align<2>(rg[SMT]->n);
+        if (echo > 0) printf("# %s radial grid up to %g %s\n", label, rg[TRU]->rmax*Ang, _Ang);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
         
@@ -1342,12 +1343,12 @@ extern "C" {
                 double const cos = std::cos(k_s*r_cut);
                 V_s = d2/(-k_s*k_s*sin);
                 V_0 = d1 - V_s*k_s*cos;
-                double const d0_new = V_s*sin + r_cut*V_0;
+                double const d0_new = 0.5*d0 + 0.5*(V_s*sin + r_cut*V_0); // 50% mixing
                 if (echo > 27) printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", label, iter, V_s, k_s, V_0, d0, d0 - d0_new);
                 k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
                 ++iterations_needed;
             } // while
-            if (iterations_needed >= max_iter) warn("%s sinc-fit did not converge!", label);
+            if (iterations_needed >= max_iter) warn("%s sinc-fit did not converge in %d iterations!", label, iterations_needed);
             if (k_s*r_cut <= 2*constants::pi || k_s*r_cut >= 2.5*constants::pi) {
                 warn("%s sinc-fit failed!, k_s*r_cut=%g not in (2pi, 2.5pi)", label, k_s*r_cut);
             } // out of target range
@@ -2273,7 +2274,7 @@ extern "C" {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
                 double rho_lm{0}, tru_lm{0}, smt_lm{0};
-                if (mix_valence_density > 0 || echo > 0)
+                if (mix_valence_density > 0 || echo > 0) {
                     for(int iln = 0; iln < nln; ++iln) {
                         for(int jln = 0; jln < nln; ++jln) {
                             double const rho_ij = density_tensor(lm,iln,jln);
@@ -2365,14 +2366,25 @@ extern "C" {
                         if (echo > 7) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
                                                             label, full_potential[SMT](00,0)*Y00*eV,_eV);
                     } // SMT only
-                    if (echo > 5) {
-                        auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                        printf("# %s double counting correction  in %s 00 channel %.12g %s\n",
-                                  label, ts_name[ts], Edc00*eV,_eV);
-                        auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
-                        printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n",
-                                  label, ts_name[ts], Exc00*eV,_eV);
-                    } // echo
+                    auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                    if (echo > 5) printf("# %s double counting correction  in %s 00 channel %.12g %s\n",
+                                            label, ts_name[ts], Edc00*eV,_eV);
+                    auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
+                    if (echo > 5) printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n",
+                                            label, ts_name[ts], Exc00*eV,_eV);
+                    for(int ell = 1; ell <= ellmax; ++ell) {
+                        double Edc_L{0}, Exc_L{0};
+                        for(int emm = -ell; emm <= ell; ++emm) {
+                            int const ilm = sho_tools::lm_index(ell, emm);
+                            Edc_L += dot_product(nr, full_potential[ts][ilm], full_density[ts][ilm], rg[ts]->r2dr); // dot_product with diagonal metric
+                            Exc_L += dot_product(nr, exc_lm[ilm], full_density[ts][ilm], rg[ts]->r2dr); // dot_product with diagonal metric
+                        } // emm
+                        if (echo > 5 + ell) printf("# %s double counting correction  in %s ell=%i channel %.12g %s\n",
+                                        label, ts_name[ts], ell, Edc_L*eV,_eV);
+                        if (echo > 5 + ell) printf("# %s exchange-correlation energy in %s ell=%i channel %.12g %s\n",
+                                        label, ts_name[ts], ell, Exc_L*eV,_eV);
+                    } // ell
+                    
                 } // scope
             } // scope: quantities on the angular grid
 
@@ -2496,7 +2508,6 @@ extern "C" {
 
     void update_matrix_elements(int const echo=0) {
         int const nlm = pow2(1 + ellmax);
-        int const mlm = pow2(1 + numax);
         int const nln = sho_tools::nSHO_radial(numax);
         int const nSHO = sho_tools::nSHO(numax);
         int const nlmn = nSHO;
@@ -2545,6 +2556,7 @@ extern "C" {
         view2D<double> hamiltonian_lmn(nlmn, nlmn, 0.0); // get memory
         view2D<double>     overlap_lmn(nlmn, nlmn, 0.0);
 
+        int const mlm = pow2(1 + numax);
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
             if (00 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00

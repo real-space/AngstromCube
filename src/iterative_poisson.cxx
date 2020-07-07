@@ -14,6 +14,7 @@
 #include "constants.hxx" // ::pi
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D, ::analyze_grid_sizes
 #include "linear_algebra.hxx" // ::linear_solve
+#include "boundary_condition.hxx" // Periodic_Boundary
 
 #ifndef NO_UNIT_TESTS
   #include "real_space.hxx" // ::bessel_projection
@@ -64,7 +65,7 @@ namespace iterative_poisson {
       add_product(r, n, b, real_t(-1)); // now r = A*x - b
       add_product(x, n, r, real_t(-omega/c0));
       scale(r, n, real_t(-1)); // now r = b - A*x
-      if (g.all_boundary_conditions_periodic()) {
+      if (g.all_boundary_conditions(Periodic_Boundary)) {
           real_t const x_avg = norm1(x, n)/n;
           real_t const r_avg = norm1(r, n)/n;
           for(size_t i = 0; i < n; ++i) {
@@ -94,7 +95,7 @@ namespace iterative_poisson {
       int const n = g.all();
       if (n > 8) return -1; // larger exact solutions not implemented
       if (n < 1) return -1; // strange
-      int const peri = g.all_boundary_conditions_periodic() ? 1 : 0;
+      int const peri = g.all_boundary_conditions(Periodic_Boundary) ? 1 : 0;
 
       // construct the right hand side
       double b8[8]; // get memory
@@ -357,7 +358,7 @@ namespace iterative_poisson {
 
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
     
-    if (g.all_boundary_conditions_periodic()) {
+    if (g.all_boundary_conditions(Periodic_Boundary)) {
         double const bnorm = norm1(b, nall)/nall * g.dV(); // g.comm
         if (echo > 8) printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
     } // all_boundary_conditions_periodic
@@ -408,7 +409,7 @@ namespace iterative_poisson {
 //       !============================================================
 //       ! special treatment of completely periodic case
 //       !============================================================
-        if (g.all_boundary_conditions_periodic()) {
+        if (g.all_boundary_conditions(Periodic_Boundary)) {
             double const xnorm = norm1(x, nall)/nall; // g.comm
   //        xnorm = xnorm/real( g%ng_all(1)*g%ng_all(2)*g%ng_all(3) )
             // subtract the average potential

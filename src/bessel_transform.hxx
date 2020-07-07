@@ -14,13 +14,13 @@ namespace bessel_transform {
 
   template<typename real_t>
   status_t transform_s_function(real_t out[], // result
-                  real_t const in[], radial_grid_t const &g, int const n, 
+                  real_t const in[], radial_grid_t const &g, int const nq, 
                   double const dq=.125, bool const back=false, int const echo=3) {
-      if (echo > 8) printf("# %s(out=%p, in=%p, g=%p, n=%d, dq=%.3f, back=%d, echo=%d);\n",
-                           __func__, (void*)out, (void*)in, (void*)&g, n, dq, back, echo);
+      if (echo > 8) printf("# %s(out=%p, in=%p, g=%p, nq=%d, dq=%.3f, back=%d, echo=%d);\n",
+                           __func__, (void*)out, (void*)in, (void*)&g, nq, dq, back, echo);
       
-      auto const q_lin = new double[n];
-      for(int iq = 0; iq < n; ++iq) {
+      auto const q_lin = new double[nq];
+      for(int iq = 0; iq < nq; ++iq) {
           q_lin[iq] = iq*dq;
       } // iq
 
@@ -28,10 +28,10 @@ namespace bessel_transform {
       double *x_out, *x_in, *dx_in;
       if (back) {
           // from reciprocal space q to real-space r
-          n_in  = n;
+          n_in  = nq;
           x_in  = q_lin;
-          dx_in = new double[n];
-          product(dx_in, n, q_lin, q_lin, dq);
+          dx_in = new double[nq];
+          product(dx_in, nq, q_lin, q_lin, dq);
           n_out = g.n;
           x_out = g.r;
       } else {
@@ -39,7 +39,7 @@ namespace bessel_transform {
           n_in  = g.n;
           x_in  = g.r;
           dx_in = g.r2dr;
-          n_out = n;
+          n_out = nq;
           x_out = q_lin;
       } // back-transform ?
       if (echo > 8) printf("# %s    n_in=%d x_in=%p dx_in=%p n_out=%d x_out=%p\n",
@@ -47,7 +47,7 @@ namespace bessel_transform {
 
       double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
       for(int io = 0; io < n_out; ++io) {
-          double tmp = 0;
+          double tmp{0};
           for(int ii = 0; ii < n_in; ++ii) {
               double const qr = x_in[ii]*x_out[io];
               tmp += in[ii] * Bessel_j0(qr) * dx_in[ii];

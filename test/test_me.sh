@@ -4,7 +4,7 @@
 exe=../src/a43
 echo "#" $exe "$@"
 
-Z=1
+Z=18
 
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
 (cd ../src/ && make -j) && \
@@ -36,12 +36,13 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
        +element_Kr="4s* 2 4p* 6 4d | 2.2 sigma .9" \
        +element_Rb="4s 2 5s 1 0 4p* 6 4d | 2.3 sigma 1." \
        +element_u0="7s 2 8s 2 7p 6 8p 2e-99 6d 10 6f 2e-99 | 3. sigma .9" \
-       +logder.start=66 +logder.stop=33 \
+       +logder.start=-66 +logder.stop=33 +logder.step=.1 +logder.unit=eV \
        +single_atom.local.potential.method=sinc \
-       +single_atom.init.scf.maxit=5 \
-       +output.energy.unit=eV \
-      > single_atom.$Z.sinc
+       +single_atom.init.scf.maxit=1 \
+   > single_atom.out
+cp   single_atom.out single_atom.$Z.sinc
 
+#        +output.energy.unit=eV \
 #        +logder.start=-66 +logder.step=.1 +logder.stop=33 +logder.unit=eV \
 
 #        +element_He="1s 2 2s 2e-99 2p 3d 2e-99 | 1.5 sigma .75" \

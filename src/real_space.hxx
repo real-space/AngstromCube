@@ -82,8 +82,8 @@ namespace real_space {
       inline int boundary_condition(int  const d) const { assert(0 <= d); assert(d < 3); return bc[d]; }
       inline int boundary_condition(char const c) const { return boundary_condition((c|32) - 120); }
       inline int const * boundary_conditions() const { return bc; }
-      inline bool all_boundary_conditions_periodic() const { return (Periodic_Boundary == bc[0]) && 
-                                    (Periodic_Boundary == bc[1]) && (Periodic_Boundary == bc[2]); };
+      inline bool all_boundary_conditions(int const bc_ref=Periodic_Boundary) const { 
+                    return (bc_ref == bc[0]) && (bc_ref == bc[1]) && (bc_ref == bc[2]); };
   }; // class grid_t
   
   
