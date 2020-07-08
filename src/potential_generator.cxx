@@ -217,7 +217,7 @@ namespace potential_generator {
           } // iy
       } // iz
       rho_abs *= g.dV();
-      rho_squ = std::sqrt(rho_squ*g.dV());
+      rho_squ = std::sqrt(rho_squ)*g.dV();
 
       if (echo > 1) { 
           printf("# real-space stats of output potential:"); 
@@ -226,7 +226,23 @@ namespace potential_generator {
       } // echo
       
       if (echo > 3) printf("# Bessel_Poisson density deviation from spherical: "
-          "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ); 
+          "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ);
+      
+      if (echo > 8) {
+          printf("\n## Bessel_Poisson: r, Ves, rho (in a.u.):\n");
+          for(int ir = 0; ir < 999; ++ir) {
+              double const r = .01*ir;
+              double ves_r{0}, rho_r{0};
+              for(int iq = 0; iq < nq; ++iq) {
+                  double const q = iq*dq;
+                  double const bessel_kernel = bessel_transform::Bessel_j0(q*r) * q * q;
+                  ves_r += qcq2[iq]*bessel_kernel;
+                  rho_r +=   qc[iq]*bessel_kernel;
+              } // iq
+              printf("%g %g %g \n", r, ves_r, rho_r);
+          } // ir
+          printf("\n\n");
+      } // echo
       
       return stat;
    } // Bessel_Poisson_solver
@@ -352,24 +368,25 @@ namespace potential_generator {
 
       sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
-      std::vector<double>  rho(g.all());
-      std::vector<double>  Vxc(g.all());
-      std::vector<double>  cmp(g.all());
-      std::vector<double>  Ves(g.all(), 0.0);
-      std::vector<double> Vtot(g.all());
+      std::vector<double>  rho(g.all()); // [augmented] charge density
+      std::vector<double>  Vxc(g.all()); // exchange-correlation potential
+      std::vector<double>  cmp(g.all()); // compensation charge densities
+      std::vector<double>  Ves(g.all(), 0.0); // electrostatic potential
+      std::vector<double> Vtot(g.all()); // total effective potential
 
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
 
-      // prepare the eigenstates
+      // prepare for solving the Kohn-Sham equation
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
               gc.set_boundary_conditions(g.boundary_conditions());
-      
+
               // create a list of atoms
-              view2D<double> xyzZinso(na, 8);
-              {
+              std::vector<atom_image::sho_atom_t> a;
+              { // scope: collect information for projectors and construct a list of atoms
+                  view2D<double> xyzZinso(na, 8);
                   std::vector<int32_t> numax_a(na, 3);
                   std::vector<double>  sigma_a(na, .5);
                   stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
@@ -380,12 +397,12 @@ namespace potential_generator {
                       xyzZinso[ia][6] = sigma_a[ia];
                       xyzZinso[ia][7] = 0;   // __not_used__
                   } // i
-              }
-              std::vector<atom_image::sho_atom_t> a;
-              stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
+                  stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
+              } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
               grid_operators::grid_operator_t<double> op(gc, a);
+              // Mind that local potential and atom matrices are still unset!
 
               std::vector<int> ncoeff_squared(na), ncoeff_a(na);
               for(int ia = 0; ia < na; ++ia) {
@@ -419,7 +436,7 @@ namespace potential_generator {
 
               auto const eigensolver_method = control::get("eigensolver", "cg");
               int const nrepeat = int(control::get("repeat.eigensolver", 1.)); // repetitions of the solver
-      // eigenstates prepared
+      // KS solver prepared
       
       
 
@@ -795,14 +812,14 @@ namespace potential_generator {
                   scale(qc.data(), nq, Y00sq);
                   
                   std::vector<double> qcq2(nq, 0.0);
-                  for(int iq = 1; iq < nq; ++iq) {
+                  for(int iq = 1; iq < nq; ++iq) { // start from 1 to avoid the q=0 term
                       qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
                   } // iq
 
                   if (echo > 9) {
-                      printf("\n## Bessel coeff of %s for atom #%d:\n", value_names[iptr], ia);
+                      printf("\n# Bessel coeff of %s for atom #%d:\n", value_names[iptr], ia);
                       for(int iq = 0; iq < nq; ++iq) {
-                          printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
+                          printf("# %g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
                       }   printf("\n\n");
                   } // echo
 
@@ -810,12 +827,13 @@ namespace potential_generator {
                       std::vector<double> rs(rg[ia]->n);
                       bessel_transform::transform_s_function(rs.data(), qc.data(), *rg[ia], nq, dq, true); // transform back to real-space again
                       printf("\n## Real-space projection of %s for atom #%d:\n", value_names[iptr], ia);
-                      print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
+                      float const compression_threshold = 1e-4;
+                      print_compressed(rg[ia]->r, rs.data(), rg[ia]->n, compression_threshold);
 
                       if ((values == rho.data()) || (values == Laplace_Ves.data())) {
                           bessel_transform::transform_s_function(rs.data(), qcq2.data(), *rg[ia], nq, dq, true); // transform electrostatic solution to real-space
                           printf("\n## Electrostatics computed by Bessel transform of %s for atom #%d:\n", value_names[iptr], ia);
-                          print_compressed(rg[ia]->r, rs.data(), rg[ia]->n);
+                          print_compressed(rg[ia]->r, rs.data(), rg[ia]->n, compression_threshold);
                       } // density
                   } // echo
               } // ia

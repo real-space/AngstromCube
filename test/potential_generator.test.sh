@@ -20,7 +20,7 @@ $exe +verbosity=11 \
         +occupied.bands=4 \
         +element_B="2s* 2 2p 1 0 3d | 1.2 sigma .7" \
         +element_Al="3s* 2 3p* 1.1 0 3d | 1.8 sigma 1.1 Z= 14" \
-        +potential_generator.use.bessel.projection=0 \
+        +potential_generator.use.bessel.projection=5 \
         +single_atom.local.potential.method=sinc \
         +single_atom.init.echo=7 \
         +single_atom.init.scf.maxit=1 \
