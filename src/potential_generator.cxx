@@ -73,8 +73,9 @@ namespace potential_generator {
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
   
-  inline double fold_back(double x, double const cell_extend) { 
-      while(x >= 0.5*cell_extend) x -= cell_extend; 
+  inline double fold_back(double const position, double const cell_extend) { 
+      double x{position};
+      while(x >= 0.5*cell_extend) x -= cell_extend;
       while(x < -0.5*cell_extend) x += cell_extend;
       return x;
   } // fold_back
@@ -167,28 +168,26 @@ namespace potential_generator {
           print_stats(rho, g.all(), g.dV());
       } // echo
       
+      if (echo > 5) printf("# Bessel j0 projection around position %g %g %g %s\n",
+                              center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
       float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
       std::vector<double> qc(nq, 0.0);
       stat += real_space::bessel_projection(qc.data(), nq, dq, rho, g, center);
-      scale(qc.data(), nq, pow2(solid_harmonics::Y00));
+      qc[0] = 0; // stabilize charge neutrality, q=0-component must vanish
 
-      double const by4pi = .25/constants::pi;
-      std::vector<double> qcq2(nq, 0.0);
-      for(int iq = 1; iq < nq; ++iq) {
-          qcq2[iq] = 4*constants::pi * qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
-      } // iq
+      double const by4pi = .25/constants::pi; // 1/(4*pi)
 
-      if (echo > 9) {
+      if (echo > 19) {
           printf("\n## Bessel coeff of {density, Ves}:\n");
           for(int iq = 0; iq < nq; ++iq) {
-              printf("%g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
-          }   printf("\n\n");
+              double const q = iq*dq;
+              printf("%g %g %g\n", q, qc[iq]*by4pi, qc[iq]/(q*q + 1e-12));
+          } // iq
+          printf("\n\n");
       } // echo
 
       double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
-
-      scale(  qc.data(), nq, sqrt2pi*dq);
-      scale(qcq2.data(), nq, sqrt2pi*dq);
+      scale(qc.data(), nq, sqrt2pi*dq);
 
       // expand electrostatic potential onto grid
       double rho_abs{0}, rho_squ{0}, rho_max{0};
@@ -203,9 +202,9 @@ namespace potential_generator {
                   double ves_r{0}, rho_r{0};
                   for(int iq = 0; iq < nq; ++iq) {
                       double const q = iq*dq;
-                      double const bessel_kernel = bessel_transform::Bessel_j0(q*r) * q * q;
-                      ves_r += qcq2[iq]*bessel_kernel;
-                      rho_r +=   qc[iq]*bessel_kernel;
+                      double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
+                      ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
+                      rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
                   } // iq
                   Ves[izyx] = ves_r; // store
                   // check how much the density deviates from a spherical density
@@ -225,19 +224,19 @@ namespace potential_generator {
           printf("\n");
       } // echo
       
-      if (echo > 3) printf("# Bessel_Poisson density deviation from spherical: "
+      if (echo > 3) printf("# Bessel_Poisson deviation from a spherical density: "
           "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ);
-      
-      if (echo > 8) {
+
+      if (echo > 17) {
           printf("\n## Bessel_Poisson: r, Ves, rho (in a.u.):\n");
-          for(int ir = 0; ir < 999; ++ir) {
-              double const r = .01*ir;
+          for(int ir = 0; ir < 99; ++ir) {
+              double const r = .1*ir;
               double ves_r{0}, rho_r{0};
               for(int iq = 0; iq < nq; ++iq) {
                   double const q = iq*dq;
-                  double const bessel_kernel = bessel_transform::Bessel_j0(q*r) * q * q;
-                  ves_r += qcq2[iq]*bessel_kernel;
-                  rho_r +=   qc[iq]*bessel_kernel;
+                  double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
+                  ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
+                  rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
               } // iq
               printf("%g %g %g \n", r, ves_r, rho_r);
           } // ir
@@ -392,10 +391,10 @@ namespace potential_generator {
                   stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
                   for(int ia = 0; ia < na; ++ia) {
                       set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
-                      xyzZinso[ia][4] = ia;  // global_atom_id
-                      xyzZinso[ia][5] = numax_a[ia];
-                      xyzZinso[ia][6] = sigma_a[ia];
-                      xyzZinso[ia][7] = 0;   // __not_used__
+                      xyzZinso(ia,4) = ia;  // global_atom_id
+                      xyzZinso(ia,5) = numax_a[ia];
+                      xyzZinso(ia,6) = sigma_a[ia];
+                      xyzZinso(ia,7) = 0;   // __not_used__
                   } // i
                   stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
               } // scope
@@ -416,6 +415,7 @@ namespace potential_generator {
               int const nbands = nbands_per_atom*na;
               view3D<double> psi(nkpoints, nbands, gc.all()); // Kohn-Sham states in double precision real
               { // scope: generate start waves from atomic orbitals
+                  float const scale_sigmas = control::get("start.waves.scale.sigma", 5.); // how much more spread in the start waves compared to sigma_prj
                   uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                   sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // nu-ordered, take 1, 4, 10 or 20
                   data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
@@ -426,7 +426,7 @@ namespace potential_generator {
                                               __func__, iband, qn[io][0], qn[io][1], qn[io][2], ia);
                       int const isho = sho_tools::zyx_index(op.get_numax(ia), qn[io][0], qn[io][1], qn[io][2]);
                       single_atomic_orbital[ia][isho] = 1;
-                      op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), echo);
+                      op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
                       single_atomic_orbital[ia][isho] = 0;
 //                    print_stats(psi(0,iband), gc.all(), gc.dV());
                   } // iband
@@ -579,7 +579,7 @@ namespace potential_generator {
               } // scope
 #endif
 
-              // test the electrostatic potential in real space, find ves_multipoles
+              // probe the electrostatic potential in real space, find ves_multipoles
               for(int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_vlm[ia];
@@ -656,7 +656,7 @@ namespace potential_generator {
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "Solve KS-equation", echo);
 #ifdef DEVEL
-              if (echo > 16) {
+              if (echo > 6) {
                   for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
@@ -777,8 +777,12 @@ namespace potential_generator {
       { // scope: use a Bessel projection around each atom position to compare 3D and radial quantities
         
 
-          std::vector<radial_grid_t*> rg(na, nullptr); // pointers to smooth radial grid descriptors
-          stat += single_atom::atom_update("radial grids", na, 0, 0, 0, reinterpret_cast<double**>(rg.data()));
+          std::vector<radial_grid_t const*> rg(na, nullptr); // pointers to smooth radial grid descriptors
+          {   // break the interface to get the radial grid descriptors
+              auto const dcpp = reinterpret_cast<double const *const *>(rg.data());
+              auto const dpp  =       const_cast<double       *const *>(dcpp);
+              stat += single_atom::atom_update("radial grids", na, 0, 0, 0, dpp);
+          }
 
           double* const value_pointers[] = {Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(), Laplace_Ves.data()};
           char const *  value_names[] = {"Ves", "Vxc", "Vtot", "rho", "cmp", "LVes"};
@@ -816,7 +820,7 @@ namespace potential_generator {
                       qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
                   } // iq
 
-                  if (echo > 9) {
+                  if (echo > 11) {
                       printf("\n# Bessel coeff of %s for atom #%d:\n", value_names[iptr], ia);
                       for(int iq = 0; iq < nq; ++iq) {
                           printf("# %g %g %g\n", iq*dq, qc[iq], qcq2[iq]);

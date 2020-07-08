@@ -32,6 +32,7 @@ namespace grid_operators {
                         , int const echo=0
                         , real_t       *const *const atomic_projection_coefficients=nullptr
                         , real_t const *const *const atomic_addition_coefficients=nullptr
+                        , double const scale_sigmas=1 // only during addition (used for start wave functions)
                          ) {
       status_t stat(0);
 
@@ -139,10 +140,10 @@ namespace grid_operators {
                           std::vector<real_t> V_image_coeff(ncoeff);
                           set(V_image_coeff.data(), ncoeff, V_atom_coeff[ia].data(), inv_Bloch_factor);
 
-                          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma(), echo_sho);
+                          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma()*scale_sigmas, echo_sho);
                       } // ii
                   } else {
-                      stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma(), echo_sho);
+                      stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma()*scale_sigmas, echo_sho);
                   } // need images
                   
               } // ia
@@ -289,8 +290,8 @@ namespace grid_operators {
           return _grid_operator<real_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
-      status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, int const echo=0) const {
-          return _grid_operator<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs);
+      status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, float const scale_sigmas, int const echo=0) const {
+          return _grid_operator<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
       } // get_start_waves
 
       status_t set_potential(double const *local_potential=nullptr, size_t const ng=0, 

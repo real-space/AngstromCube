@@ -2283,15 +2283,15 @@ extern "C" {
 #endif                       
                             rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                                - charge_deficit(ell,SMT,iln,jln) );
-                            tru_lm += rho_ij *   charge_deficit(ell,TRU,iln,jln)  ;
-                            smt_lm += rho_ij *   charge_deficit(ell,SMT,iln,jln)  ;
+                            tru_lm += rho_ij *   charge_deficit(ell,TRU,iln,jln)  ; // only for display
+                            smt_lm += rho_ij *   charge_deficit(ell,SMT,iln,jln)  ; // only for display
                         } // jln
                     } // iln
                 } // mix_valence_density
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
                 qlm_compensator[lm] = rho_lm * mix_valence_density;
-                if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth, and %g deficit electrons\n", label, tru_lm, smt_lm, rho_lm);
+                if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm, smt_lm);
                 
             } // emm
         } // ell
@@ -2930,7 +2930,7 @@ extern "C" {
         return stat;
     } // get_smooth_spherical_quantity
     
-    radial_grid_t* get_smooth_radial_grid(int const echo=0) const { return rg[SMT]; }
+    radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return rg[SMT]; }
 
     template <char Q='t'> double get_number_of_electrons() const { return csv_charge[core] + csv_charge[semicore] + csv_charge[valence]; }
     
@@ -2991,7 +2991,7 @@ namespace single_atom {
   inline uint64_t constexpr __mix_hash_(char const m, uint64_t const s) { return ((s << 7) + ~(s >> 3)) + ~m; }
   inline uint64_t constexpr string2hash(char const * m) { return (*m) ? __mix_hash_(*m, string2hash(m + 1)) : 0; }
 
-  status_t test_string_switch(char const *what, int const echo=0) {
+  status_t test_string_switch(char const *const what, int const echo=0) {
       #define str2int string2hash
       switch ( str2int(what) ) {
           case str2int("initialize"):
@@ -3019,8 +3019,8 @@ namespace single_atom {
       return 0; // no error
   } // test_string_switch
 
-  status_t atom_update(char const *what, int const natoms,
-              double *dp, int32_t *ip, float *fp, double **dpp) {
+  status_t atom_update(char const *const what, int const natoms,
+              double *const dp, int32_t *const ip, float *const fp, double *const *const dpp) {
 
       static std::vector<LiveAtom*> a; // internal state, so this function may not be templated!!
       static int echo = -9;
@@ -3090,8 +3090,9 @@ namespace single_atom {
           {
 #ifdef  DEVEL
               assert(nullptr != dpp);
+              double const **const dnc = const_cast<double const**>(dpp);
               for(int ia = 0; ia < a.size(); ++ia) {
-                  dpp[ia] = reinterpret_cast<double*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
+                  dnc[ia] = reinterpret_cast<double const*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
               } // ia
 #else
               stat = -1;

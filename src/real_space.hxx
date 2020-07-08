@@ -55,7 +55,7 @@ namespace real_space {
           double const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
           for(int i3 = 0; i3 < 3; ++i3) {
               h[i3] = h3[i3]; // convert to double
-              if ((0.0 != h[i3]) && (h[i3] == h[i3])) {
+              if ((h[i3] > 0) && (h[i3] == h[i3])) {
                   inv_h[i3] = 1./h[i3]; // invert only here
               } else ++stat;
           } // i3
@@ -133,7 +133,7 @@ namespace real_space {
                                   values[ixyz] += factor*value_to_add;
                                   added_charge  += factor*value_to_add;
 #if 0
-//       printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
+//        printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
 //        printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
 #endif
                               ++modified;
@@ -187,7 +187,7 @@ namespace real_space {
                           int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           double const r = std::sqrt(r2);
                           double const val = double(values[ixyz]);
-//                           printf("%g %g\n", r, val); // DEBUG
+//                        printf("%g %g\n", r, val); // DEBUG
                           for(int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               double const x = q*r;
@@ -196,7 +196,7 @@ namespace real_space {
                           } // iq
                       } // inside rcut
                   } // ix
-//                   printf("\n"); // DEBUG
+//                printf("\n"); // DEBUG
               } // rcut for (y,z)
           } // iy
       } // iz

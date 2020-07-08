@@ -86,7 +86,7 @@ public:
 
   // member access functions
   T const *const * data() const { return _ptrs.data(); } // read-only
-  T** data() { return _ptrs.data(); }
+  T       *const * data()       { return _ptrs.data(); }
 
   uint32_t nrows() const { return _n; } // number of rows
   uint32_t mcols() const { return _max_m; } // max. number of cols

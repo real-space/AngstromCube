@@ -4,30 +4,33 @@ exe=../src/a43
 
 ### simple cubic
 printf " 1 \n#cell 12 12 12 i i i\n" > atoms.xyz
-echo "Ar   0 0 0" >> atoms.xyz
+echo "Xe   0 0 0" >> atoms.xyz
 
 (cd ../src/ && make -j) && \
 $exe +verbosity=11 \
     -test potential_generator. \
-        +repeat.eigensolver=1 \
-        +eigensolver=cg +conjugate_gradients.max.iter=2 \
+        +repeat.eigensolver=5 \
+        +eigensolver=cg +conjugate_gradients.max.iter=12 \
         +potential_generator.grid.spacing=0.251 \
         +electrostatic.solver=Bessel0 \
         +element_He="1s* 2 2p | 1.5 sigma .75" \
         +element_Ne="2s 2 2p 6 | 1.8 sigma .7" \
         +element_Ar="3s* 2 3p* 6 3d | 1.6 sigma .8" \
+        +element_Ar="3s 2 3p 6 | 1.6 sigma .8" \
         +element_Xe="5s* 2 5p* 6 5d | 2.24 sigma .62" \
+        +element_Xe="5s 2 5p 6 | 2.24 sigma .62" \
         +occupied.bands=4 \
         +element_B="2s* 2 2p 1 0 3d | 1.2 sigma .7" \
         +element_Al="3s* 2 3p* 1.1 0 3d | 1.8 sigma 1.1 Z= 14" \
         +potential_generator.use.bessel.projection=5 \
-        +single_atom.local.potential.method=sinc \
+        +single_atom.local.potential.method=parabola \
         +single_atom.init.echo=7 \
         +single_atom.init.scf.maxit=1 \
         +single_atom.echo=7 \
         +logder.start=2 +logder.stop=1 \
-        +bands.per.atom=10 \
-        +potential_generator.max.scf=1 \
+        +bands.per.atom=4 \
+        +potential_generator.max.scf=5 \
+        +start.waves.scale.sigma=9 \
         +atomic.valence.decay=0 \
         > potential_generator.out
 
@@ -46,6 +49,8 @@ $exe +verbosity=11 \
 ### He simple cubic at Gamma point: -0.664    0.298    1.092    1.094    1.100    1.173    1.181    2.524    2.528    2.533
 ### B="2s* 2 2p* 1 0 3d | 1.2 sigma .7" +occupied.bands=1.5    -0.266    0.535    0.538    0.538    0.954    1.276    1.276    1.722    1.756    1.756
 ### B="2s* 2 2p 1 0 3d | 1.2 sigma .7"  +occupied.bands=1.5    -0.265    0.829    0.846    0.846    0.954    1.285    1.285    1.944    2.009    2.009
+### Ar="3s 2 3p 6 | 1.6 sigma .8"                              -0.642   -0.140   -0.140   -0.140 (seems too high by .25 Ha)
+### Xe="5s 2 5p 6 | 2.24 sigma .62"                            -0.555   -0.234   -0.234   -0.234
 
 ### dipole in Si chain experiment:
 #

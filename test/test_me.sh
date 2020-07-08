@@ -26,7 +26,7 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
        +element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 sigma .41" \
        +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
        +element_S="3s* 2 3p* 3 1 3d | 1.7 sigma 1." \
-       +element_Ar="3s* 2 3p* 6 3d | 1.6 sigma .8" \
+       +element_Ar="3s 2 3p 6 | 1.6 sigma .8" \
        +element_K="3s 2 4s 1 0 3p* 6 3d | 1.77 sigma .8" \
        +element_Sc="3s 2 4s 2 3p 6 4p 2e-99 3d* 1 0 | 2.32 sigma .6" \
        +element_Cu="4s* 1 .99 4p* 2e-99 3d* 9.01 4f 2e-99 | 2.0 sigma .61" \
@@ -42,6 +42,7 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
    > single_atom.out
 cp   single_atom.out single_atom.$Z.sinc
 
+#        +element_Ar="3s* 2 3p* 6 3d | 1.6 sigma .8" \
 #        +output.energy.unit=eV \
 #        +logder.start=-66 +logder.step=.1 +logder.stop=33 +logder.unit=eV \
 
