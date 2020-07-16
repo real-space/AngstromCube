@@ -2,6 +2,34 @@
 
 exe=../src/a43
 
+### Al-P dimer
+printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p\n" > atoms.xyz
+echo "Al   0 0 -1.05835" >> atoms.xyz
+echo "P    0 0  1.05835" >> atoms.xyz
+
+(cd ../src/ && make -j) && \
+$exe +verbosity=11 \
+    -test potential_generator. \
+        +repeat.eigensolver=0 \
+        +eigensolver=cg +conjugate_gradients.max.iter=12 \
+        +potential_generator.grid.spacing=0.251 \
+        +electrostatic.solver=mg \
+        +occupied.bands=4 \
+        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
+         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
+        +single_atom.local.potential.method=parabola \
+        +single_atom.init.echo=7 \
+        +single_atom.init.scf.maxit=1 \
+        +single_atom.echo=3 \
+        +logder.start=2 +logder.stop=1 \
+        +bands.per.atom=4 \
+        +potential_generator.max.scf=1 \
+        +start.waves.scale.sigma=5 \
+        +atomic.valence.decay=0 \
+        > potential_generator.AlP.out
+
+exit
+
 ### simple cubic
 printf " 1 \n#cell 12 12 12 i i i\n" > atoms.xyz
 echo "Xe   0 0 0" >> atoms.xyz

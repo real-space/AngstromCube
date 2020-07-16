@@ -18,8 +18,8 @@
 #include "sho_projection.hxx" // ::sho_project, ::sho_add, ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
 #include "sho_overlap.hxx" // ::generate_product_tensor, ...
-       // sho_overlap::generate_overlap_matrix, ::generate_potential_tensor
-#include "data_view.hxx" // view2D<T>
+       // ::generate_overlap_matrix, ::generate_potential_tensor
+#include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -184,8 +184,6 @@ namespace sho_potential {
   status_t test_potential_elements(int const echo=5) {
       status_t stat = 0;
       
-//       int dims[] = {86, 86, 102}; std::vector<double> vtot(86*86*102, 1.0); // total smooth potential, constant at 1 Hartree
-      
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
       int dims[] = {0, 0, 0};
@@ -215,7 +213,7 @@ namespace sho_potential {
       } // scope
       
       double *xyzZ = nullptr;
-      int natoms = 0;
+      int natoms{0};
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
       {
@@ -293,7 +291,7 @@ namespace sho_potential {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       sigmas[0] *= 1.1; sigmas[natoms - 1] *= 0.9; // manipulate the spreads
       --numaxs[natoms - 1]; // manipulate the basis size
-      int numax_max = 0;
+      int numax_max{0};
       for(int ia = 0; ia < natoms; ++ia) {
           if (echo > 0) printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%g %s numax=%d\n", 
                 ia, xyzZ[ia*4 + 3], xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang, 
@@ -307,7 +305,7 @@ namespace sho_potential {
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
 
-      int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 to activate all
+      int const method = control::get("sho_potential.test.method", -1.); // bit-string, use method=7 or -1 to activate all
       if (1 & method) { // scope:
           if (echo > 2) printf("\n# %s Method=1\n", __func__);
           // Method 1) fully numerical -- cubically scaling, expensive
@@ -534,8 +532,8 @@ namespace sho_potential {
                   
           
           if (echo > 2) printf("\n# %s method=4 seems asymmetric!\n", __func__);
-      } // scope: Method 3
-     
+      } // scope: Method 4
+
       if (nullptr != xyzZ) delete[] xyzZ;
       return stat;
   } // test_potential_elements
