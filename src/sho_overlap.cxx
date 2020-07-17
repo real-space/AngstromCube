@@ -218,7 +218,7 @@ namespace sho_overlap {
   template<int ncut, typename real_t>
   status_t generate_density_tensor(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
       , int const echo=9, float const sigma_over_sigmap_squared=2) {
-    status_t stat{0};
+    status_t stat(0);
     // this structure can be used to describe the density generation
     // for the density we assume that it is sufficient to
     // represent the density in a SHO basis 
@@ -263,7 +263,7 @@ namespace sho_overlap {
   template<int ncut, typename real_t>
   status_t generate_density_or_potential_tensor(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
       , int const echo=9, float const sigma_over_sigmap_squared=2) { // 2:typical for density tensor
-    status_t stat{0};
+    status_t stat(0);
     // this structure can be used to describe the density generation
     // for the density we assume that it is sufficient to
     // represent the density in a SHO basis 
@@ -318,7 +318,7 @@ namespace sho_overlap {
   status_t generate_product_tensor_plain(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
       , double const sigma=2 // 2:typical for density tensor
       , double const sigma0=1, double const sigma1=1) {
-    status_t stat{0};
+    status_t stat(0);
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
     double const sigmapinv = 1./sigma;
@@ -355,7 +355,7 @@ namespace sho_overlap {
                     , double const sigma     // =2: typical for density tensor
                     , double const sigma0    // =1
                     , double const sigma1) { // =1
-    status_t stat{0};
+    status_t stat(0);
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
     double const sigmapinv = 1./sigma;
@@ -389,7 +389,7 @@ namespace sho_overlap {
   } // generate_product_tensor
 
   template<typename real_t>
-  status_t moment_tensor(real_t tensor[], // data layout [maxmoment + 1][n1][n0]
+  status_t moment_tensor(real_t tensor[], // data layout [1 + maxmoment][n1][n0]
                      double const distance,
                      int const n0, int const n1, 
                      double const sigma0,   // =1
@@ -1054,7 +1054,7 @@ namespace sho_overlap {
   } // test_simple_crystal
 
   status_t test_shifted_polynomial(int const echo=5) {
-      status_t stat{0};
+      status_t stat(0);
       int constexpr M = 8;
       double original[M], shifted[M];
       for(int it = 10; it-- > 0;) {
@@ -1076,7 +1076,7 @@ namespace sho_overlap {
   
   status_t test_pure_power_overlap(int const echo=1, int const numerical=999) {
     // show the overlap of the lowest 1D Hermite-Gauss functions with pure powers x^n
-    status_t stat{0};
+    status_t stat(0);
     int constexpr ncut = 8;
     view2D<double> H0(ncut, ncut);
 
@@ -1123,9 +1123,9 @@ namespace sho_overlap {
 
   
   status_t test_moment_normalization(int const echo=1, int const m=8, int const numerical=999) {
-    status_t stat{0};
+    status_t stat(0);
     view2D<double> imat(m, m, 0.0);
-    stat += moment_normalization(imat.data(), imat.stride(), 1.0, echo);
+    stat += moment_normalization(imat.data(), imat.stride(), 1.5, echo);
     if (echo < 4) return stat;
     for(int i = 0; i < m; ++i) {
         printf("%s# %s %i ", (0 == i)?"\n":"", __func__, i);
@@ -1141,7 +1141,7 @@ namespace sho_overlap {
   
   status_t all_tests(int const echo) {
     int n{0}; int const t = control::get("sho_overlap.select.test", -1.); // -1:all
-    status_t stat{0};
+    status_t stat(0);
     if (t & (1 << n++)) stat += test_moment_normalization(echo);
     if (t & (1 << n++)) stat += test_pure_power_overlap(echo);
     if (t & (1 << n++)) stat += test_shifted_polynomial(echo);

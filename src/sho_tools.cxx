@@ -192,6 +192,11 @@ namespace sho_tools {
       return stat;
   } // test_index_table_construction
 
+  status_t test_sizeof(int const echo=1) {
+      if (echo > 4) printf("\n# sizeof(SHO_index_t) = %d Byte\n", sizeof(SHO_index_t));
+      return 0;
+  } // test_sizeof
+
   status_t all_tests(int const echo) {
     status_t status(0);
     status += test_radial_indices(echo);
@@ -199,6 +204,7 @@ namespace sho_tools {
     status += test_energy_ordered_indices(echo);
     status += test_index_table_construction<int16_t>(echo);
     status += test_order_enum(echo);
+    status += test_sizeof(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

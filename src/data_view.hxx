@@ -295,11 +295,16 @@ public:
 #undef _access
 #endif
 
+#define _VIEW4D_HAS_PARENTHESIS_2ARGS
+#ifdef  _VIEW4D_HAS_PARENTHESIS_2ARGS
+  view2D<T> operator () (size_t const i3, size_t const i2) const {
+      return view2D<T>(_data + (i3*_n2 + i2)*_n1*_n0, _n0); }
+#endif
 
 #define _VIEW4D_HAS_INDEXING
 #ifdef  _VIEW4D_HAS_INDEXING
   view3D<T> operator[] (size_t const i3) const { return view3D<T>(_data + i3*_n2*_n1*_n0, _n1, _n0); } // [] returns a sub-array
-  // maybe sub-optimal as it creates a view2D object every time
+  // maybe sub-optimal as it creates a view3D object every time
 #endif
 
   T* data() const { return _data; }
