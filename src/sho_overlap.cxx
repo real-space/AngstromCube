@@ -106,7 +106,7 @@ namespace sho_overlap {
       } // n
 
       if (0 != normalize) {
-          double nfactorial = 1;
+          double nfactorial{1};
           for(int n = 0; n < ncut; ++n) {
               double const nrmf = normalize*std::sqrt(siginv/(constants::sqrtpi*nfactorial));
               for(int d = 0; d <= n; ++d) {
@@ -116,7 +116,7 @@ namespace sho_overlap {
           } // n
       } // normalize
 
-  } // prepare
+  } // prepare_centered_Hermite_polynomials
 
   
   template<typename real_t>
@@ -421,40 +421,50 @@ namespace sho_overlap {
                     , double const sigma, int const echo) {
     // uses LAPACK for inversion although the matrix is already in upper triangular shape
     if (M < 1) return 0;
-    view2D<double> mat2D(matrix, M); // wrapper for result, assume data layout [M][M]
+    view2D<double> mat1D(matrix, M); // wrapper for result, assume data layout [M][M]
     int constexpr check = 1;
     view2D<double> mcopy(check*M, M, 0.0); // get memory if check > 0
 
     view2D<double> H(M, M, 0.0); // polynomial coefficients
     double constexpr normalize = 0; // 1: L2-normalize Hermite polynomials with Gauss metric
-    prepare_centered_Hermite_polynomials(H.data(), M, 1./sigma, normalize);
+    prepare_centered_Hermite_polynomials(H.data(), H.stride(), 1./sigma, normalize);
     if (echo > 4) printf("\n# %s numax=%i sigma=%g %s\n", __func__, M - 1, sigma*Ang, _Ang);
     for(int n = 0; n < M; ++n) {
         if (echo > 4) printf("# %s n=%i ", __func__, n);
+#if 0        
         for(int moment = 0; moment <= n; ++moment) { // triangular loop
-            mat2D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
-            if (check > 0) mcopy(n,moment) = mat2D(n,moment); // store a copy
+            mat1D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
+            if (check > 0) mcopy(n,moment) = mat1D(n,moment); // store a copy
 //             if ((n & 1) == (moment & 1)) // pairity condition
-            if (echo > 4) printf(" %g", mat2D(n,moment));
+            if (echo > 4) printf(" %g", mat1D(n,moment));
         } // moment
         for(int moment = n + 1; moment < M; ++moment) { // triangular loop
-            mat2D(n,moment) = 0; // clear upper triangular matrix
+            mat1D(n,moment) = 0; // clear upper triangular matrix
         } // moments
+#else
+        for(int moment = 0; moment < M; ++moment) { // square loop
+            mat1D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
+            if (check > 0) mcopy(n,moment) = mat1D(n,moment); // store a copy
+//             if ((n & 1) == (moment & 1)) // pairity condition
+            if (echo > 4) printf(" %g", mat1D(n,moment));
+        } // moment
+#endif
         if (echo > 4) printf("\n");
     } // n = 1D HO quantum number
 
+#if 0    
     // now invert
-    auto const stat = linear_algebra::inverse(M, mat2D.data(), mat2D.stride());
-    if (stat) { warn("Maybe factorization failed!"); return stat; }
+    auto const stat = linear_algebra::inverse(M, mat1D.data(), mat1D.stride());
+    if (stat) { warn("Maybe factorization failed, status=%i", int(stat)); return stat; }
 
     if (check > 0) {
         double maxdev[] = {0, 0};
         for(int i = 0; i < M; ++i) {
             for(int j = 0; j < M; ++j) {
-                double pmm{0}, pnn{0}; // matrix element (i,j) of the product mat2D * mcopy
+                double pmm{0}, pnn{0}; // matrix element (i,j) of the product mat1D * mcopy
                 for(int k = 0; k < M; ++k) { // contract over n (for pmm) and over moments (for pnn)
-                    pmm += mat2D(i,k) * mcopy(k,j);
-                    pnn += mcopy(i,k) * mat2D(k,j);
+                    pmm += mat1D(i,k) * mcopy(k,j);
+                    pnn += mcopy(i,k) * mat1D(k,j);
                 } // k
                 maxdev[0] = std::max(maxdev[0], std::abs(pmm - (i == j)));
                 maxdev[1] = std::max(maxdev[1], std::abs(pnn - (i == j)));
@@ -462,9 +472,17 @@ namespace sho_overlap {
         } // i
         if (echo > 2) printf("# %s max deviation from unity is %.1e and %.1e\n", __func__, maxdev[0], maxdev[1]);
     } // check
+#else
+    warn("removed inversion of 1D matrix");
+    auto const stat = 1;
+#endif
     return stat;
   } // moment_normalization
 
+  
+  
+  
+  
   template // explicit template instantiation
   status_t moment_tensor(double tensor[], double const distance, int const n0, int const n1,
                          double const sigma0, double const sigma1, int const maxmoment);
@@ -473,6 +491,11 @@ namespace sho_overlap {
   status_t generate_product_tensor(double tensor[], int const n, double const sigma,
                                    double const sigma0, double const sigma1);
 
+  
+  
+  
+  
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
@@ -1086,7 +1109,7 @@ namespace sho_overlap {
         double const sigma = std::pow(1.1, isigma);
         if (echo > 3) printf("# %s sigma = %g\n", __func__, sigma);
         double constexpr normalize = 0;
-        prepare_centered_Hermite_polynomials(H0.data(), ncut, 1/sigma, normalize);
+        prepare_centered_Hermite_polynomials(H0.data(), H0.stride(), 1./sigma, normalize);
         for(int n = 0; n < ncut; ++n) {
             for(int moment = 0; moment < ncut; ++moment) { // pure powers x^m
                 double const ovl = overlap_of_poly_times_Gauss_with_pure_powers(H0[n], 1+n, sigma, moment);
@@ -1096,7 +1119,7 @@ namespace sho_overlap {
                     if (echo > 4) printf(" %.6f", ovl);
                     if (numerical > 0) {
                         double const dx = 9.0*sigma/numerical;
-                        double ovl_numerical = 0;
+                        double ovl_numerical{0};
                         for(int ix = -numerical; ix <= numerical; ++ix) {
                             double const x = ix*dx; // centered at zero
                             ovl_numerical += eval_poly(H0[n], 1+n, x) * std::exp(-0.5*pow2(x/sigma)) * std::pow(x, moment);
@@ -1113,7 +1136,7 @@ namespace sho_overlap {
             if (echo > 1) printf("\n");
         } // n
         maxreldevall = std::max(maxreldevall, maxreldev);
-        if (numerical > 0 && echo > 2) printf("# %s max relative deviation for sigma = %g is %.1e\n", __func__, sigma, maxreldev);
+        if (numerical > 0 && echo > 2) printf("# %s max relative deviation for sigma= %g is %.1e\n", __func__, sigma, maxreldev);
         if (echo > 5) printf("\n");
         stat += (maxreldev > 2e-10);
     } // isigma

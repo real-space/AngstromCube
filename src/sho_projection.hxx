@@ -61,7 +61,12 @@ namespace sho_projection {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
               hermite_polys(H1d[dir] + ii*M, x, numax);
-              if (echo > 5) { printf("%g\t", x); for(int nu = 0; nu <= numax; ++nu) printf("%12.6f", H1d[dir][ii*M + nu]); printf("\n"); }
+              if (echo > 5) {
+                  printf("%g\t", x);
+                  for(int nu = 0; nu <= numax; ++nu) {
+                      printf("%12.6f", H1d[dir][ii*M + nu]);
+                  }   printf("\n");
+              } // echo
           } // i
       } // dir
    

@@ -20,6 +20,7 @@
 #include "sho_overlap.hxx" // ::generate_product_tensor, ...
        // ::generate_overlap_matrix, ::generate_potential_tensor
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
+#include "linear_algebra.hxx" // ::inverse
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -134,8 +135,47 @@ namespace sho_potential {
       status_t stat = 0;
       int const nc = sho_tools::nSHO(numax);
       int const m = sho_tools::n1HO(numax);
-      view2D<double> inv1D(m, m, 0.0); // get memory
-      stat += sho_overlap::moment_normalization(inv1D.data(), inv1D.stride(), sigma, echo);
+//       view2D<double> inv1D(m, m, 0.0); // get memory
+//       stat += sho_overlap::moment_normalization(inv1D.data(), inv1D.stride(), sigma, echo + 9);
+      
+      view2D<double> inv3D(nc, nc, 0.0); // get memory
+      view2D<double> mat1D(m, m, 0.0); // get memory
+      stat += sho_overlap::moment_normalization(mat1D.data(), mat1D.stride(), sigma, echo + 99);
+      
+      view2D<double> mat3D_copy(nc, nc, 0.0); // get memory
+      {
+          view2D<double> mat3D(inv3D.data(), inv3D.stride()); // wrap
+          int mzyx{0}; // moments
+          for    (int mz = 0; mz <= numax; ++mz) {
+            for  (int my = 0; my <= numax - mz; ++my) {
+              for(int mx = 0; mx <= numax - mz - my; ++mx) {
+                
+                {
+                  // mat1D(n,m) = <H(n)|x^m>
+                  // a specialty of the result matrix mat1D is that only matrix elements 
+                  //    connecting even-even or odd-odd indices are non-zero
+                  //    ToDo: this could be exploited in the following pattern
+                  int kzyx{0}; // Hermite coefficients
+                  for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = mat1D(kz,mz);
+                    for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = mat1D(ky,my) * tz;
+                      for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = mat1D(kx,mx) * tyz;
+
+                        // despite the name
+                        mat3D(kzyx,mzyx) = txyz;
+                        mat3D_copy(kzyx,mzyx) = txyz;
+
+                        ++kzyx;
+                  }}} assert( nc == kzyx );
+                }
+
+                ++mzyx;
+          }}} assert( nc == mzyx );
+
+          // now invert the 3D matrix
+          auto const stat = linear_algebra::inverse(nc, mat3D.data(), mat3D.stride());
+          if (stat) { warn("Maybe factorization failed, status=%i", int(stat)); return stat; }
+          // inverse is stored in inv3D due o pointer overlap
+      }
 
       std::vector<double> c_new(nc, 0.0); // get memory
 
@@ -145,31 +185,58 @@ namespace sho_potential {
           zyx_label = view2D<char>(nc, 8);
           sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
       } // echo
-      int mzyx{0};
-      for    (int mz = 0; mz <= numax; ++mz) {
-        for  (int my = 0; my <= numax - mz; ++my) {
-          for(int mx = 0; mx <= numax - mz - my; ++mx) {
-            double cc{0};
-            
-            {
-              // a specialty of the result matrix inv1D is that only matrix elements 
-              //    connecting even-even or odd-odd indices are non-zero
-              //    ToDo: this could be exploited in the following pattern
-              int kzyx{0};
-              for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = inv1D(mz,kz);
-                for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = inv1D(my,ky) * tz;
-                  for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = inv1D(mx,kx) * tyz;
+      
+//       // factorized version
+//       int mzyx{0};
+//       for    (int mz = 0; mz <= numax; ++mz) {
+//         for  (int my = 0; my <= numax - mz; ++my) {
+//           for(int mx = 0; mx <= numax - mz - my; ++mx) {
+//             double cc{0};
+//             
+//             {
+//               a specialty of the result matrix inv1D is that only matrix elements 
+//                  connecting even-even or odd-odd indices are non-zero
+//                  ToDo: this could be exploited in the following pattern
+//               int kzyx{0};
+//               for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = inv1D(kz,mz);
+//                 for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = inv1D(ky,my) * tz;
+//                   for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = inv1D(kx,mx) * tyz;
+// 
+//                     cc += txyz * coeff[kzyx];
+//                     if (echo > 7) printf("# %s for %s add %s %g * %g = %g where %g = %g * %g * %g\n",
+//                         __func__, zyx_label[mzyx], zyx_label[kzyx], coeff[kzyx], txyz, txyz * coeff[kzyx], txyz, inv1D(mz,kz), inv1D(my,ky), inv1D(mx,kx));
+//                     
+//                     ++kzyx;
+//               }}} assert( nc == kzyx );
+//             }
+// 
+//             if (echo > 4) printf("# %s %s old%9.1e =%9.3f new%9.1e =%9.3f\n", __func__, zyx_label[mzyx], coeff[mzyx], coeff[mzyx], cc, cc);
+//             c_new[mzyx] = cc; // store
+//             ++mzyx;
+//       }}} assert( nc == mzyx );
 
-                    cc += txyz * coeff[kzyx];
-                    
-                    ++kzyx;
-              }}} assert( nc == kzyx );
-            }
+      // just a matrix-vector multiplication
+      for(int mzyx = 0; mzyx < nc; ++mzyx) {
+          double cc{0};
+          for(int kzyx = 0; kzyx < nc; ++kzyx) {
+              cc += inv3D(mzyx,kzyx) * coeff[kzyx];
+          } // kzyx
+          c_new[mzyx] = cc; // store
+      } // mzyx
+      
+      if (1) {
+          // check if the vector comes out again
+          double dev{0};
+          for(int kzyx = 0; kzyx < nc; ++kzyx) {
+              double cc{0};
+              for(int mzyx = 0; mzyx < nc; ++mzyx) {
+                  cc += mat3D_copy(kzyx,mzyx) * c_new[mzyx];
+              } // mzyx
+              dev = std::max(dev, std::abs(cc - coeff[kzyx]));
+          } // kzyx
+          if (echo > 4) printf("# %s dev %.1e\n", __func__, dev);
+      } // debug check
 
-            if (echo > 4) printf("# %s %s old%9.1e =%9.3f new%9.1e =%9.3f\n", __func__, zyx_label[mzyx], coeff[mzyx], coeff[mzyx], cc, cc);
-            c_new[mzyx] = cc; // write
-            ++mzyx;
-      }}} assert( nc == mzyx );
       if (echo > 4) printf("# %s\n\n", __func__);
 
       set(coeff, nc, c_new.data()); // copy the results back into the input array
@@ -423,16 +490,16 @@ namespace sho_potential {
                           for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7)
-                              printf("# V_coeff ai#%i aj#%i %s%16.6f before\n", ia, ja, labels[numax_V][mzyx], v);
+                                  printf("# V_coeff ai#%i aj#%i %s%16.6f before\n", ia, ja, labels[numax_V][mzyx], v);
                               ++mzyx;
-                          }
-                        }
-                      }
+                          } // mx
+                        } // my
+                      } // mz
                       printf("\n");
                       assert(Vcoeff.size() == mzyx);
                   } // echo
                   
-                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // mute
+                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, echo + 9);
                   // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
                   if (echo > 6) {
                       int mzyx{0};
@@ -442,11 +509,11 @@ namespace sho_potential {
                               auto const v = Vcoeff[mzyx];
                               if (mz + my + mz > clear_high_Vcoeff) Vcoeff[mzyx] = 0; // clear out high coefficients
                               if (ja <= ia && std::abs(v) > 5e-7)
-                              printf("# V_coeff ai#%i aj#%i %s%16.6f -->%16.6f\n", ia, ja, labels[numax_V][mzyx], v, Vcoeff[mzyx]);
+                                  printf("# V_coeff ai#%i aj#%i %s%16.6f -->%16.6f\n", ia, ja, labels[numax_V][mzyx], v, Vcoeff[mzyx]);
                               ++mzyx;
-                          }
-                        }
-                      }
+                          } // mx
+                        } // my
+                      } // mz
                       printf("\n");
                       assert(Vcoeff.size() == mzyx);
                   } // echo
@@ -471,7 +538,7 @@ namespace sho_potential {
               } // ja
           } // ia
         
-          if (echo > 2) printf("\n# %s method=2 seems symmetric!\n", __func__);
+          if (echo > 2) { printf("\n# %s method=2 seems symmetric!\n", __func__); fflush(stdout); }
           
           method_active[1][Between] = true; // computes only Vmat
       } // scope: Method 2
@@ -583,6 +650,7 @@ namespace sho_potential {
           for(int sv = 0; sv < 2; ++sv) {
               auto const sv_char = sv?'V':'S';
               if (echo > 7) printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
+              
               double max_abs_dev[] = {0, 0, 0};
               for(int ia = 0; ia < natoms; ++ia) {
                   int const nbi = sho_tools::nSHO(numaxs[ia]);
@@ -610,7 +678,16 @@ namespace sho_potential {
                       } // ib
                   } // ja
               } // ia
-              printf("\n# %c largest abs deviation is %g %g (pot=%03d)\n", sv_char, max_abs_dev[Between], max_abs_dev[Onsite], artificial_potential % 1000);
+              
+              if (method_active[sv][Numerical]) {
+                  for(int m = Numerical + 1; m < 3; ++m) { // method
+                      if (method_active[sv][m]) {
+                          printf("\n# %c largest abs deviation of %s to %s is %g (pot=%03d)\n",
+                              sv_char, method_name[sv][m], method_name[sv][Numerical], max_abs_dev[m], artificial_potential % 1000);
+                      } //
+                  } // method
+              } // if a numerical reference was given
+              
           } // sv
       } // echo
       
