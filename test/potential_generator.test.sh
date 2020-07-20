@@ -3,9 +3,9 @@
 exe=../src/a43
 
 ### Al-P dimer
-printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p\n" > atoms.xyz
-echo "Al   0 0 -1.05835" >> atoms.xyz
-echo "P    0 0  1.05835" >> atoms.xyz
+# printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p\n" > atoms.xyz
+# echo "Al   0 0 -1.05835" >> atoms.xyz
+# echo "P    0 0  1.05835" >> atoms.xyz
 
 (cd ../src/ && make -j) && \
 $exe +verbosity=11 \

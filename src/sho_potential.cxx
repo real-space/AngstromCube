@@ -15,10 +15,11 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
 #include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
-#include "sho_projection.hxx" // ::sho_project, ::sho_add, ::renormalize_coefficients
+#include "sho_projection.hxx" // ::sho_project, ::sho_add
+        // ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
 #include "sho_overlap.hxx" // ::generate_product_tensor, ...
-       // ::generate_overlap_matrix, ::generate_potential_tensor
+        // ::generate_overlap_matrix, ::generate_potential_tensor
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "linear_algebra.hxx" // ::inverse
 
@@ -42,18 +43,18 @@ namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
 
   template<typename real_t>
-  status_t generate_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_p Vcoeff[p] * t(p,j,i) 
-                            , view4D<real_t> const & t // input t(dir,p,j,i)
-                            , real_t const Vcoeff[], int const numax_p // expansion of the potential in x^{nx}*y^{ny}*z^{nz}
+  status_t generate_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_p Vcoeff[m] * t(m,j,i) 
+                            , view4D<real_t> const & t // input t(dir,m,j,i)
+                            , real_t const Vcoeff[], int const numax_m // expansion of the potential in x^{mx}*y^{my}*z^{mz}
                             , int const numax_i, int const numax_j
                             , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
       // can use different (dir01==1) tensors per direction or the same (dir01==0)
 
-      int pzyx{0}; // contraction index
-      for    (int pz = 0; pz <= numax_p;           ++pz) {
-        for  (int py = 0; py <= numax_p - pz;      ++py) {
-          for(int px = 0; px <= numax_p - pz - py; ++px) {
+      int mzyx{0}; // contraction index
+      for    (int mz = 0; mz <= numax_m;           ++mz) {
+        for  (int my = 0; my <= numax_m - mz;      ++my) {
+          for(int mx = 0; mx <= numax_m - mz - my; ++mx) {
 
             int izyx{0};
             for    (int iz = 0; iz <= numax_i;           ++iz) {
@@ -61,11 +62,11 @@ namespace sho_potential {
                 for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
                   int jzyx{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,pz,jz,iz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,py,jy,iy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(      0,px,jx,ix) * tyz;
+                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t(dir01*2,mz,jz,iz);
+                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t(dir01*1,my,jy,iy) * tz;
+                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t(      0,mx,jx,ix) * tyz;
 
-                        Vmat(izyx,jzyx) += Vcoeff[pzyx] * txyz;
+                        Vmat(izyx,jzyx) += Vcoeff[mzyx] * txyz;
 
                         ++jzyx;
                       } // jx
@@ -79,11 +80,11 @@ namespace sho_potential {
             } // iz
             assert( sho_tools::nSHO(numax_i) == izyx );
 
-            ++pzyx;
-          } // px
-        } // py
-      } // pz
-      assert( sho_tools::nSHO(numax_p) == pzyx );
+            ++mzyx;
+          } // mx
+        } // my
+      } // mz
+      assert( sho_tools::nSHO(numax_m) == mzyx );
     
       return 0;
   } // generate_potential_matrix
@@ -127,22 +128,21 @@ namespace sho_potential {
   } // multiply_potential_matrix
 
 
-  status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
-      return sho_projection::renormalize_coefficients(coeff, coeff, numax, sigma);
-  } // normalize_coefficients
+//   status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
+//       return sho_projection::renormalize_coefficients(coeff, coeff, numax, sigma);
+//   } // normalize_coefficients
 
   status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0) {
       status_t stat = 0;
       int const nc = sho_tools::nSHO(numax);
       int const m = sho_tools::n1HO(numax);
-//       view2D<double> inv1D(m, m, 0.0); // get memory
-//       stat += sho_overlap::moment_normalization(inv1D.data(), inv1D.stride(), sigma, echo + 9);
       
       view2D<double> inv3D(nc, nc, 0.0); // get memory
       view2D<double> mat1D(m, m, 0.0); // get memory
-      stat += sho_overlap::moment_normalization(mat1D.data(), mat1D.stride(), sigma, echo + 99);
-      
-      view2D<double> mat3D_copy(nc, nc, 0.0); // get memory
+      stat += sho_overlap::moment_normalization(mat1D.data(), mat1D.stride(), sigma, echo);
+
+      int constexpr debug_check = 1;
+      view2D<double> mat3D_copy(debug_check*nc, nc, 0.0); // get memory
       {
           view2D<double> mat3D(inv3D.data(), inv3D.stride()); // wrap
           int mzyx{0}; // moments
@@ -162,7 +162,7 @@ namespace sho_potential {
 
                         // despite the name
                         mat3D(kzyx,mzyx) = txyz;
-                        mat3D_copy(kzyx,mzyx) = txyz;
+                        if (debug_check) mat3D_copy(kzyx,mzyx) = txyz;
 
                         ++kzyx;
                   }}} assert( nc == kzyx );
@@ -185,35 +185,6 @@ namespace sho_potential {
           zyx_label = view2D<char>(nc, 8);
           sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
       } // echo
-      
-//       // factorized version
-//       int mzyx{0};
-//       for    (int mz = 0; mz <= numax; ++mz) {
-//         for  (int my = 0; my <= numax - mz; ++my) {
-//           for(int mx = 0; mx <= numax - mz - my; ++mx) {
-//             double cc{0};
-//             
-//             {
-//               a specialty of the result matrix inv1D is that only matrix elements 
-//                  connecting even-even or odd-odd indices are non-zero
-//                  ToDo: this could be exploited in the following pattern
-//               int kzyx{0};
-//               for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = inv1D(kz,mz);
-//                 for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = inv1D(ky,my) * tz;
-//                   for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = inv1D(kx,mx) * tyz;
-// 
-//                     cc += txyz * coeff[kzyx];
-//                     if (echo > 7) printf("# %s for %s add %s %g * %g = %g where %g = %g * %g * %g\n",
-//                         __func__, zyx_label[mzyx], zyx_label[kzyx], coeff[kzyx], txyz, txyz * coeff[kzyx], txyz, inv1D(mz,kz), inv1D(my,ky), inv1D(mx,kx));
-//                     
-//                     ++kzyx;
-//               }}} assert( nc == kzyx );
-//             }
-// 
-//             if (echo > 4) printf("# %s %s old%9.1e =%9.3f new%9.1e =%9.3f\n", __func__, zyx_label[mzyx], coeff[mzyx], coeff[mzyx], cc, cc);
-//             c_new[mzyx] = cc; // store
-//             ++mzyx;
-//       }}} assert( nc == mzyx );
 
       // just a matrix-vector multiplication
       for(int mzyx = 0; mzyx < nc; ++mzyx) {
@@ -224,8 +195,8 @@ namespace sho_potential {
           c_new[mzyx] = cc; // store
       } // mzyx
       
-      if (1) {
-          // check if the vector comes out again
+      if (debug_check) {
+          // check if the input vector comes out again
           double dev{0};
           for(int kzyx = 0; kzyx < nc; ++kzyx) {
               double cc{0};
@@ -234,12 +205,21 @@ namespace sho_potential {
               } // mzyx
               dev = std::max(dev, std::abs(cc - coeff[kzyx]));
           } // kzyx
-          if (echo > 4) printf("# %s dev %.1e\n", __func__, dev);
+          if (echo > 4) printf("# %s debug_check dev %.1e\n", __func__, dev);
       } // debug check
 
       if (echo > 4) printf("# %s\n\n", __func__);
 
       set(coeff, nc, c_new.data()); // copy the results back into the input array
+      
+      // Discussion:
+      // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)
+      // one could investigate if the factorization property stays
+      // but probably not because of the range of indices is not a cube but a tetrahedron.
+      // We could use a linear equation solver instead of matrix inverson,
+      // however, the inversion only needs to be done once per (sigma,numax)
+      // and also here the dependency on sigma can probably be moved out
+      
       return stat;
   } // normalize_potential_coefficients
   
@@ -310,21 +290,22 @@ namespace sho_potential {
 
       int const artificial_potential = int(control::get("sho_potential.test.artificial.potential", 0.));
       if (artificial_potential) { // scope: artificial linear potentials (other than constants)
-          int const px = (artificial_potential /   1) % 10;
-          int const py = (artificial_potential /  10) % 10;
-          int const pz = (artificial_potential / 100) % 10;
+          int const mx = (artificial_potential /   1) % 10;
+          int const my = (artificial_potential /  10) % 10;
+          int const mz = (artificial_potential / 100) % 10;
+          if (echo > 0) printf("# artificial potential x^%i y^%i z^%i\n", mx, my, mz);
           for(int iz = 0; iz < g[2]; ++iz) {
               auto const z = iz*g.h[2] - origin[2];
-              auto const zp = intpow(z, pz);
+              auto const zmz = intpow(z, mz);
               for(int iy = 0; iy < g[1]; ++iy) {
                   auto const y = iy*g.h[1] - origin[1];
-                  auto const yp = intpow(y, py);
+                  auto const ymy = intpow(y, my);
                   for(int ix = 0; ix < g[0]; ++ix) {
                       auto const x = ix*g.h[0] - origin[0];
-                      auto const xp = intpow(x, px);
+                      auto const xmx = intpow(x, mx);
                       
                       int const izyx = (iz*g[1] + iy)*g[0] + ix;
-                      vtot[izyx] = xp * yp * zp;
+                      vtot[izyx] = xmx * ymy * zmz;
 
                   } // ix
               } // iy
@@ -451,8 +432,6 @@ namespace sho_potential {
           auto & Vmat = SV_matrix[1][Between];
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           
-          int const clear_high_Vcoeff = int(control::get("sho_potential.test.clear.coeff", 999.));
-          
           for(int ia = 0; ia < natoms; ++ia) {
               for(int ja = 0; ja < natoms; ++ja) {
                   double const alpha_i = 1/pow2(sigmas[ia]);
@@ -467,7 +446,7 @@ namespace sho_potential {
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
                   if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
-                                            cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
+                                          cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
                   for(int d = 0; d < 3; ++d) {
                       cnt[d] += origin[d];
                   } // d
@@ -482,7 +461,11 @@ namespace sho_potential {
                   } // d
 
                   std::vector<double> Vcoeff(sho_tools::nSHO(numax_V), 0.0);
-                  sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0);
+                  sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0); // 0:mute
+                  
+                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // 0:mute
+                  // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
+#ifdef FULL_DEBUG                  
                   if (echo > 16) {
                       int mzyx{0};
                       for    (int mz = 0; mz <= numax_V; ++mz) {
@@ -490,7 +473,7 @@ namespace sho_potential {
                           for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7)
-                                  printf("# V_coeff ai#%i aj#%i %s%16.6f before\n", ia, ja, labels[numax_V][mzyx], v);
+                                  printf("# V_coeff ai#%i aj#%i %s%16.6f\n", ia, ja, labels[numax_V][mzyx], v);
                               ++mzyx;
                           } // mx
                         } // my
@@ -498,42 +481,24 @@ namespace sho_potential {
                       printf("\n");
                       assert(Vcoeff.size() == mzyx);
                   } // echo
-                  
-                  stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, echo + 9);
-                  // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
-                  if (echo > 6) {
-                      int mzyx{0};
-                      for    (int mz = 0; mz <= numax_V; ++mz) {
-                        for  (int my = 0; my <= numax_V - mz; ++my) {
-                          for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
-                              auto const v = Vcoeff[mzyx];
-                              if (mz + my + mz > clear_high_Vcoeff) Vcoeff[mzyx] = 0; // clear out high coefficients
-                              if (ja <= ia && std::abs(v) > 5e-7)
-                                  printf("# V_coeff ai#%i aj#%i %s%16.6f -->%16.6f\n", ia, ja, labels[numax_V][mzyx], v, Vcoeff[mzyx]);
-                              ++mzyx;
-                          } // mx
-                        } // my
-                      } // mz
-                      printf("\n");
-                      assert(Vcoeff.size() == mzyx);
-                  } // echo
+#endif
 
                   // use the expansion of the product of two Hermite Gauss functions into another one
-                  // Vmat(i,j) = sum_p Vcoeff[p] * t(p,j,i)
+                  // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
                   generate_potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
 
                   // display matrix
-                  int const nbi = sho_tools::nSHO(numaxs[ia]);
-                  int const nbj = sho_tools::nSHO(numaxs[ja]);
-                  for(int ib = 0; ib < nbi; ++ib) {
-                      if (echo > 19) {
+                  if (echo > 19) {
+                      int const nbi = sho_tools::nSHO(numaxs[ia]);
+                      int const nbj = sho_tools::nSHO(numaxs[ja]);
+                      for(int ib = 0; ib < nbi; ++ib) {
                           printf("# V ai#%i aj#%i %s ", ia, ja, labels[numaxs[ia]][ib]);
                           for(int jb = 0; jb < nbj; ++jb) {
                               printf("%8.4f", Vmat(ia,ja,ib,jb));
                           }   printf("\n");
-                      } // echo
-                  } // ib
+                      } // ib
+                  } // echo
                   
               } // ja
           } // ia
@@ -618,7 +583,7 @@ namespace sho_potential {
                           } // jb
                       } // ib
                   } // echo extra
-                  
+
               } // ja
           } // ia
 
@@ -664,7 +629,7 @@ namespace sho_potential {
                                   double abs_dev{0};
                                   for(int jb = 0; jb < nbj; ++jb) {
                                       auto const v = SV_matrix[sv][m](ia,ja,ib,jb);
-                                      printf("%8.4f", v);
+                                      printf(" %7.4f", v);
                                       auto const ref = method_active[sv][Numerical] ? SV_matrix[sv][Numerical](ia,ja,ib,jb) : 0;
                                       auto const d = v - ref;
                                       abs_dev = std::max(std::abs(d), abs_dev);
@@ -683,7 +648,7 @@ namespace sho_potential {
                   for(int m = Numerical + 1; m < 3; ++m) { // method
                       if (method_active[sv][m]) {
                           printf("\n# %c largest abs deviation of %s to %s is %g (pot=%03d)\n",
-                              sv_char, method_name[sv][m], method_name[sv][Numerical], max_abs_dev[m], artificial_potential % 1000);
+                              sv_char, method_name[sv][m], method_name[sv][Numerical], max_abs_dev[m], artificial_potential);
                       } //
                   } // method
               } // if a numerical reference was given

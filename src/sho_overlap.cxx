@@ -431,52 +431,16 @@ namespace sho_overlap {
     if (echo > 4) printf("\n# %s numax=%i sigma=%g %s\n", __func__, M - 1, sigma*Ang, _Ang);
     for(int n = 0; n < M; ++n) {
         if (echo > 4) printf("# %s n=%i ", __func__, n);
-#if 0        
-        for(int moment = 0; moment <= n; ++moment) { // triangular loop
-            mat1D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
-            if (check > 0) mcopy(n,moment) = mat1D(n,moment); // store a copy
-//             if ((n & 1) == (moment & 1)) // pairity condition
-            if (echo > 4) printf(" %g", mat1D(n,moment));
-        } // moment
-        for(int moment = n + 1; moment < M; ++moment) { // triangular loop
-            mat1D(n,moment) = 0; // clear upper triangular matrix
-        } // moments
-#else
         for(int moment = 0; moment < M; ++moment) { // square loop
             mat1D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
             if (check > 0) mcopy(n,moment) = mat1D(n,moment); // store a copy
-//             if ((n & 1) == (moment & 1)) // pairity condition
+//             if ((n & 1) == (moment & 1)) // pairity condition, ToDo: check if analytical parity improves it
             if (echo > 4) printf(" %g", mat1D(n,moment));
         } // moment
-#endif
         if (echo > 4) printf("\n");
     } // n = 1D HO quantum number
 
-#if 0    
-    // now invert
-    auto const stat = linear_algebra::inverse(M, mat1D.data(), mat1D.stride());
-    if (stat) { warn("Maybe factorization failed, status=%i", int(stat)); return stat; }
-
-    if (check > 0) {
-        double maxdev[] = {0, 0};
-        for(int i = 0; i < M; ++i) {
-            for(int j = 0; j < M; ++j) {
-                double pmm{0}, pnn{0}; // matrix element (i,j) of the product mat1D * mcopy
-                for(int k = 0; k < M; ++k) { // contract over n (for pmm) and over moments (for pnn)
-                    pmm += mat1D(i,k) * mcopy(k,j);
-                    pnn += mcopy(i,k) * mat1D(k,j);
-                } // k
-                maxdev[0] = std::max(maxdev[0], std::abs(pmm - (i == j)));
-                maxdev[1] = std::max(maxdev[1], std::abs(pnn - (i == j)));
-            } // j
-        } // i
-        if (echo > 2) printf("# %s max deviation from unity is %.1e and %.1e\n", __func__, maxdev[0], maxdev[1]);
-    } // check
-#else
-    warn("removed inversion of 1D matrix");
-    auto const stat = 1;
-#endif
-    return stat;
+    return 0;
   } // moment_normalization
 
   
@@ -1159,7 +1123,7 @@ namespace sho_overlap {
         printf("\n");
     } // i
     // ToDo: can we derive a recursion relation for the imat coefficients?
-    return stat;
+    return stat; // will always return 0 as we do not invert any longer
   } // test_moment_normalization
   
   status_t all_tests(int const echo) {

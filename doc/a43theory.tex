@@ -34,6 +34,7 @@
 \newcommand{\bra}[1]{\left\langle #1 \right|}
 \newcommand{\braket}[2]{\left\langle \left. #1 \right| #2 \right\rangle}
 \newcommand{\braketop}[3]{\left\langle \left. #1 \right| #2 \left| #3 \right. \right\rangle}
+\newcommand{\numax}{\nu\um{max}}
 
 \begin{document}
 \pagestyle{plain}
@@ -186,7 +187,7 @@ $X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $
 
 
 \subsection{SHO as a basis}
-An infinite set of all \ac{sho} eigenfunctions forms a basis of the 3D function space.
+An infinite set of all \ac{sho} eigenfunctions forms a basis of the function space over $\mathbb R^3$.
 Limiting the set by cut-off energy $E\um{cut} = \sigma^{-2} (\nu\um{max} + \frac 32)$
 creates a finite basis.
 If we create a union of finite bases centered at each atom $a$ in a \ac{dft} calculation 
@@ -198,6 +199,8 @@ we only need to choose a $\sigma$ and $\nu\um{max}$ for each atomic species.
   \label{eqn:localized-basis}
 \end{equation}
 See fig.~\ref{fig:HO-basis-on-2-atoms}.
+This union is, understandably non-orthogonal, in particular when the orbital centers
+are close enough so that the basis functions from neighboring centers gain an overlap.
 %
 \begin{figure}
   \begin{minipage}[c]{.58\textwidth}
@@ -236,7 +239,7 @@ Then the evaluation of matrix elements works as follows:
 
 \subsubsection{Overlap matrix elements}
 Basis functions $\chi$ centered at the same atom $a$ are orthogonal by construction
-so we only need to take care of their normalization.
+so we at most need to take care of their normalization.
 We assume that an atom is positioned at $\vec R_a = \{ X_a, Y_a, Z_a \}$ or $\{ X_{1a}, X_{2a}, X_{3a} \}$.
 For any pair of atoms $(a,a')$, we can compute the overlap element
 \begin{equation}
@@ -299,15 +302,16 @@ the matrix element that we obtain if we apply the second derivative to the right
 The non-linearity of the exchange-correlation potential in \ac{dft} usually
 leads to a representation of the local potential $V(x,y,z)$ on a real-space grid.
 We will assume a Cartesian uniform grid here.
-Then, viable options would be
+Then, viable options to evaluate the potential matrix elements would be
 \begin{itemize}
 %
 \item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically. 
 This may lead to a large cost prefactor but scales linearly due to the localization of $\chi$s.
+This method has been used to find reference values during development.
 %
 \item for each pair $(a,a')$ which is not too distant
 compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
-at the common center and do the product and integral there. Still costly.
+at the common center and perform the product and integral there.
 %
 \item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{sho} basis. 
 Then, we can insert a completeness relation: %%  (truncation of unity?)
@@ -323,7 +327,7 @@ Due to different convergence rates, the potential matrix $\hat V$ might not be s
 requiring symmetrization according to $\hat V\um{sym} = \frac 12 \left( \hat V + \hat V^\dagger \right)$.
 %
 \end{itemize}
-In the following, we will pursue the latter approach.
+In the following, we will pursue the second approach.
 
 Finally, non-local potentials are usually expressed as dyadic operators
 $\ket{\tilde p^a_i} D^a_{ij} \bra{\tilde p_j}$ with localized projector functions $\tilde p_i(\vec r)$
@@ -368,10 +372,10 @@ arising from basis functions local to an atom, c.f.~fig.~\ref{fig:plot_parabolas
   \label{fig:plot_parabolas}
   \caption{
 Schematic picture to illuminate the relation between the SHO basis configuration 
-used to describe densities (and maybe potentials)
+used to describe densities
 compared to the SHO basis for wave functions:
 If wave functions are expanded into a Hermite-Gauss basis with spread $\sigma$
-up to $n\um{max}$ (here, the $n\um{max} = 5$ function is shown in blue)
+up to $n\um{max}$ (here, the $n = 5$ function is shown in blue)
 the square of such a wave function leads to the function shown in purple:
 A Gaussian with spread $\sigma^{[\varrho]}$ times a polynomial with max.~degree $n\um{max}^{[\varrho]}$.
 This function can be exactly expanded by a Hermite-Gauss basis if
@@ -412,29 +416,44 @@ $2\sigma^2$ is defining the inverse of the \emph{mass}.
 In order to evaluate eq.~(\ref{eq:local_potential_matrix_element}) we
 expand $V(x,y,z)$ in 3D factorizable polynomials, i.e.
 \begin{equation}
-	V(x,y,z) = \sum_{p_x p_y p_z} V_{p_x p_y p_z} (x - X_c)^{p_x} (y - Y_c)^{p_y} (z - Z_c)^{p_z}
+	V(x,y,z) = \sum_{m_x m_y m_z} V_{m_x m_y m_z} (x - X_c)^{m_x} (y - Y_c)^{m_y} (z - Z_c)^{m_z}
 	                            \label{eq:local_potential_polynomial_expansion}
 \end{equation}
-The necessary expansion coefficients $V_{p_x p_y p_z}$ can be found by SHO-transform around the common center $c$.
-Then the evaluation of potential matrix elements requires only the tensors
+The necessary expansion coefficients $V_{m_x m_y m_z}$ can be found by SHO-transform around the common center $c$:
+\begin{equation}
+	V_{n_x n_y n_z}(\sigma) = \int \mathrm d^3 \vec r  \   V(x,y,z) H_{n_x}(x - X_c) H_{n_y}(y - Y_c) H_{n_z}(z - Z_c) 
+		\exp(-(\vec r - \vec R_c)^2/(2 \sigma^2))
+	                            \label{eq:local_potential_projection}
+\end{equation}
+Here, the quantum numbers $\vec n$ are limited by $n_x + n_y + n_z \leq \numax$.
+In order to find the coefficients $V_{m_x m_y m_z}$ we need to invert the kernel matrix connecting the two
+representations. The kernel matrix can be constructed from 1D matrices:
+%During the SHO tranform onto the local potential we need to take care of the normalizing prefactors:
+%Typically, L2-normalizations are multiplied to the SHO projection coefficients 
+%after the projection with unnormalized Hermite-Gauss functions.
+%However, here, proper L1-normalization requires the matrix inverse of 
+$$ f_{nm}(\sigma) = \sigma^m \int\limits_{-\infty}^{\infty} \mathrm dx \  H_{n}\left( \frac{x}{\sigma} \right) \  \exp\left( -\frac{x^2}{2\sigma^2} \right) \  \left(\frac{x}{\sigma}\right)^m $$
+%%% sho_overlap::moment_normalization
+%for $m \leq n$ which results in a triangular matrix that, in addition, 
+These 1D matrices feature an even-odd parity, 
+i.e.~matrix entries are only non-zero if both $m$ and $n$ are even or both are odd.
+The kernel matrix has to be expanded in 3D before inversion due to the truncation
+of indices. The set of linear equations to be solved reads:
+$$ \sum_{m_x m_y m_z}^{m_x + m_y + m_z \leq \numax} f_{n_x m_x} f_{n_y m_y} f_{n_z m_z} V_{m_x m_y m_z} = V_{n_x n_y n_z} $$
+
+\noindent
+Then the evaluation of potential matrix elements requires only the 1D tensors
 \begin{equation}
 	M_{pnn'}^{aa'[x]} = \int \mathrm d x  \  \psi_{n}(x - X_{a}) \  (x - X_{c})^{p} \  \psi_{n'}(x - X_{a'})
 	\label{eq:local_moment_matrix_elements}
 \end{equation}
-which only need to be re-computed when atoms update their positions.
+which only need to be re-computed when atoms update their positions
+and can be expressed as polynomials times Gaussians, i.e.~analytical functions of $\sigma_a, \sigma_{a'}$ and $X_a - X_{a'}$.
 The final expression for potential matrix elements between SHO basis function $(\vec n_a,\sigma_a)$ and $(\vec n_{a'},\sigma_{a'})$ reads
 \begin{equation}
 	\sum_{p_x p_y p_z} V_{p_x p_y p_z} \  M_{p_x n_x n'_x}^{aa'[x]} \  M_{p_y n_y n'_y}^{aa'[y]} \  M_{p_z n_z n'_z}^{aa'[z]}
 	\label{eq:local_moment_matrix_elements_from_tensors}
 \end{equation}
-During the SHO tranform onto the local potential we need to take care of the normalizing prefactors:
-Typically, L2-normalizations are multiplied to the SHO projection coefficients 
-after the projection with unnormalized Hermite-Gauss functions.
-However, here, proper L1-normalization requires the matrix inverse of 
-$$ f_{nm\sigma} = \int\limits_{-\infty}^{\infty} \mathrm dx \  H_{n}\left( \frac{x}{\sigma} \right) \  \exp\left( -\frac{x^2}{2\sigma^2} \right) \  x^m $$
-%%% sho_overlap::moment_normalization
-for $m \leq n$ which results in a triangular matrix that, in addition, features an even-odd parity, 
-i.e.~matrix entries are only non-zero if both $m$ and $n$ are even or both are odd.
 
 \section{Benchmark: Free Electron Gas}
 The dispersion relation of the free electron gas is know to be
@@ -588,7 +607,7 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
 A Poisson solver based on Fourier-transforms (FFT by Intel Math Kernel Library)
 is implemented to be able to exclude artifacts from e.g.~iterative Poisson solvers
 when developing other modules of the code. 
-It serves also as a reference so estimate the precision of other Poisson solvers
+It serves also as a reference to estimate the precision of other Poisson solvers
 as the treatment in reciprocal space is analytically exact.
 
 
