@@ -327,8 +327,10 @@ namespace sho_potential {
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
       
-      std::vector<view2D<char>> labels(1 + numax_max);
-      for(int nu = 0; nu <= numax_max; ++nu) {
+      auto const lmax = int(control::get("sho_potential.test.lmax", 2*numax_max)); // for Method4
+      
+      std::vector<view2D<char>> labels(1 + std::max(numax_max, lmax));
+      for(int nu = 0; nu <= std::max(numax_max, lmax); ++nu) {
           labels[nu] = view2D<char>(sho_tools::nSHO(nu), 8);
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
@@ -362,7 +364,7 @@ namespace sho_potential {
               for(int jb = 0; jb < nbj; ++jb) {
                   set(coeff.data(), nbj, 0.0); coeff[jb] = 1; // Kronecker-delta
                   set(basis.data(), g.all(), 0.0); // clear
-                  sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ja], center[ja], sigmas[ja], 0);
+                  stat += sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ja], center[ja], sigmas[ja], 0);
 
                   // multiply Vtot to the basis function
                   product(Vbasis.data(), basis.size(), basis.data(), vtot.data());
@@ -371,8 +373,8 @@ namespace sho_potential {
                       int const nbi = sho_tools::nSHO(numaxs[ia]);
                       std::vector<double> Scoeff(nbi, 0.0);
                       std::vector<double> Vcoeff(nbi, 0.0);
-                      sho_projection::sho_project(Scoeff.data(), numaxs[ia], center[ia], sigmas[ia],  basis.data(), g, 0);
-                      sho_projection::sho_project(Vcoeff.data(), numaxs[ia], center[ia], sigmas[ia], Vbasis.data(), g, 0);
+                      stat += sho_projection::sho_project(Scoeff.data(), numaxs[ia], center[ia], sigmas[ia],  basis.data(), g, 0);
+                      stat += sho_projection::sho_project(Vcoeff.data(), numaxs[ia], center[ia], sigmas[ia], Vbasis.data(), g, 0);
                       for(int ib = 0; ib < nbi; ++ib) {
                           Smat(ia,ja,ib,jb) = Scoeff[ib]; // copy result into large array
                           Vmat(ia,ja,ib,jb) = Vcoeff[ib]; // copy result into large array
@@ -438,12 +440,12 @@ namespace sho_potential {
                   view4D<double> t(3, sho_tools::n1HO(numax_V), nucut_j, nucut_i, 0.0);
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
-                      sho_overlap::moment_tensor(t[d].data(), distance, nucut_i, nucut_j, 
+                      stat += sho_overlap::moment_tensor(t[d].data(), distance, nucut_i, nucut_j, 
                                                                      sigmas[ia], sigmas[ja], numax_V);
                   } // d
 
                   std::vector<double> Vcoeff(sho_tools::nSHO(numax_V), 0.0);
-                  sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0); // 0:mute
+                  stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0); // 0:mute
                   
                   stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // 0:mute
                   // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
@@ -468,7 +470,7 @@ namespace sho_potential {
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
-                  generate_potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
+                  stat += generate_potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
                   
               } // ja
           } // ia
@@ -479,7 +481,6 @@ namespace sho_potential {
       } // scope: Method 2
 
       if (4 & method) { // scope:
-          auto const lmax = int(control::get("sho_potential.test.lmax", 2*numax_max)); // converge this?
           if (echo > 2) printf("\n# %s Method=4 lmax=%i\n", __func__, lmax);
           // Method 4) approximated
           //    for each atom expand the potential in a local SHO basis
@@ -494,8 +495,8 @@ namespace sho_potential {
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
 
           int const nucut = sho_tools::n1HO(lmax);
-          view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
-          sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
+//           view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
+//           stat += sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
           
           int const nc = sho_tools::nSHO(lmax);
           std::vector<double> Vcoeff(nc, 0.0);
@@ -525,13 +526,36 @@ namespace sho_potential {
               } // echo
 #endif
               
+//            int const numax_k = lmax;
               int const nbi = sho_tools::nSHO(numaxs[ia]);
               view2D<double> Vaux(nbi, nc, 0.0); // get memory for Vaux(i,k)
               // now compute local matrix elements <local basis_i|V|large aux. basis_k>
 
+              
+              view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
+              stat += sho_overlap::moment_tensor(t[0].data(), 0.0, nucut, nucut,
+                                                 sigmas[ia], sigmas[ia], numax_V);
+              
               // Vaux(i,k) = sum_p Vcoeff[m] * t(m,k,i)
               int constexpr isotropic = 0;
-              stat += generate_potential_matrix(Vaux, t, Vcoeff.data(), lmax, numaxs[ia], lmax, isotropic);
+              stat += generate_potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], lmax, isotropic);
+#ifdef DEVEL
+              if (echo > 17) {
+                  printf("\n# Vaux for the atom #%i:\n", ia);
+                  printf("# i-legend   ");
+                  for(int izyx = 0; izyx < nbi; ++izyx) {
+                      printf(" %-7s", labels[numaxs[ia]][izyx]);
+                  }   printf("\n");
+                  for(int kzyx = 0; kzyx < nc; ++kzyx) {
+                      printf("# Vaux %s  ", labels[lmax][kzyx]);
+                      for(int izyx = 0; izyx < nbi; ++izyx) {
+                          printf("%8.4f", Vaux(izyx,kzyx));
+                      } // i
+                      printf("\n");
+                  } // k
+                  printf("\n");
+              } // echo
+#endif
 
               for(int ja = 0; ja < natoms; ++ja) {
                   if (echo > 9) printf("# ai#%i aj#%i\n", ia, ja);
@@ -541,14 +565,27 @@ namespace sho_potential {
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
                       sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut, mucut, sigmas[ia], sigmas[ja]);
+#ifdef DEVEL
+                      if (echo > 19) {
+                          printf("\n# ovl for the %c-direction:\n", 'x' + d);
+                          for(int j = 0; j < mucut; ++j) {
+                              printf("# ovl n%c=%x  ", 'x' + d, j);
+                              for(int k = 0; k < nucut; ++k) {
+                                  printf("%8.4f", ovl(d,j,k));
+                              } // k
+                              printf("\n");
+                          } // j 
+                          printf("\n");
+                      } // echo
+#endif
                   } // d
 
                   int const nbj = sho_tools::nSHO(numaxs[ja]);
-                  view2D<double> Vmat(nbi, nbj, 0.0);
+                  view2D<double> Vmat_iaja(nbi, nbj, 0.0); // get memory and initialize
 
                   // matrix multiply Vaux with overlap operator
-                  // Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
-                  stat += multiply_potential_matrix(Vmat, ovl, Vaux, numaxs[ia], numaxs[ja], lmax);
+                  // Vmat_iaja(i,j) = sum_k Vaux(i,k) * ovl(j,k)
+                  stat += multiply_potential_matrix(Vmat_iaja, ovl, Vaux, numaxs[ia], numaxs[ja], lmax);
 
                   { // extra: create overlap matrix
                       std::vector<sho_tools::SHO_index_t> idx(nbi), jdx(nbj);
@@ -557,6 +594,7 @@ namespace sho_potential {
                       for(int ib = 0; ib < nbi; ++ib) {        auto const i = idx[ib].Cartesian;
                           for(int jb = 0; jb < nbj; ++jb) {    auto const j = jdx[jb].Cartesian;
                               Smat(ia,ja,ib,jb) = ovl(0,j.nx,i.nx) * ovl(1,j.ny,i.ny) * ovl(2,j.nz,i.nz);
+                              Vmat(ia,ja,ib,jb) = Vmat_iaja(ib,jb);
                           } // jb
                       } // ib
                   } // echo extra
