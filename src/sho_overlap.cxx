@@ -443,23 +443,22 @@ namespace sho_overlap {
     return 0;
   } // moment_normalization
 
-  
-  
-  
-  
+
+
+
+
   template // explicit template instantiation
   status_t moment_tensor(double tensor[], double const distance, int const n0, int const n1,
                          double const sigma0, double const sigma1, int const maxmoment);
-  
+
   template // explicit template instantiation
   status_t generate_product_tensor(double tensor[], int const n, double const sigma,
                                    double const sigma0, double const sigma1);
 
-  
-  
-  
-  
-  
+
+
+
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
@@ -482,7 +481,7 @@ namespace sho_overlap {
       } // d
       return val;
   } // eval
-  
+
   status_t test_Hermite_polynomials(int const echo=1, int const ncut=8, double const sigma=1) {
     // see if the first ncut Hermite polynomials are orthogonal and normalized
     view2D<double> H(ncut, ncut, 0.0);
@@ -641,32 +640,32 @@ namespace sho_overlap {
   } // LAPACK
  
   status_t test_simple_crystal(int const echo=3) {
-    double const a0 = control::get("sho_overlap.lattice.constant", 8.0);
+    auto const a0 = control::get("sho_overlap.lattice.constant", 8.0);
     if (echo > 0) printf("\n# %s\n", __func__);
     typedef vector_math::vec<3,double> vec3;
     typedef vector_math::vec<3,int>    vec3i;
-    int const numax = control::get("sho_overlap.crystal.numax", 4);
+    auto const numax = int(control::get("sho_overlap.crystal.numax", 4.));
     int const ncut = numax + 2;
     
     vec3 cv[3], bv[3]; // vectors of the cell and the Bravais matrix
     { // scope: lattice structure
-        auto const structure_abbrev = control::get("sho_overlap.crystal.structure", "fcc"); // choice{sc, bcc, fcc}
+        auto const structure_abbrev = control::get("sho_overlap.crystal.structure", "fcc"); // choice {sc, bcc, fcc}
         char const structure = structure_abbrev[0]; // only the 1st char counts
         if (echo > 1) printf("# %s %s (%c)\n", __func__, structure_abbrev, structure);
         assert('s' == structure || 'b' == structure || 'f' == structure);
         double const recip = (2*constants::pi)/a0;
-        for(int dir = 0; dir < 3; ++dir) {
+        for(int d = 0; d < 3; ++d) {
             if ('s' == structure) { // simple-cubic
-                cv[dir] = 0; cv[dir][dir] = a0;
-                bv[dir] = 0; bv[dir][dir] = recip; // sc
+                cv[d] = 0; cv[d][d] = a0;
+                bv[d] = 0; bv[d][d] = recip; // sc
             } else {
                 bool const bcc = ('b' == structure); // body-centered cubic
-                cv[dir] = .5*a0; cv[dir][dir] *= bcc ? 0 : -1;
-                bv[dir] = recip; bv[dir][dir] *= bcc ? -1 : 0;
+                cv[d] = .5*a0; cv[d][d] *= bcc ? 0 : -1;
+                bv[d] = recip; bv[d][d] *= bcc ? -1 : 0;
             }
             if (echo > 4) printf("# cell %8.3f%8.3f%8.3f %s \treci %8.3f%8.3f%8.3f a.u.\n",
-              cv[dir][0]*Ang, cv[dir][1]*Ang, cv[dir][2]*Ang,_Ang,  bv[dir][0], bv[dir][1], bv[dir][2]);
-        } // dir
+                cv[d][0]*Ang, cv[d][1]*Ang, cv[d][2]*Ang,_Ang,  bv[d][0], bv[d][1], bv[d][2]);
+        } // d
         if (echo > 7) {
             printf("\n# check that cell times reciprocal basis are a unit matrix\n");
             for(int i = 0; i < 3; ++i) {
@@ -678,7 +677,7 @@ namespace sho_overlap {
             } // i
             printf("\n");
         } // echo
-    } // scope
+    } // scope: lattice structure
 
     double shortest_bond2 = 9e99;
     for(int i3 = -1; i3 <= 1; ++i3) {
@@ -741,11 +740,11 @@ namespace sho_overlap {
         } // scope
     } // echo
     
-    bool const DoS = control::get("sho_overlap.test.DoS", 0.); // 1: density of states, 0: bandstructure
+    bool const DoS = (0 < control::get("sho_overlap.test.DoS", 0.)); // 1: density of states, 0: bandstructure
     if (DoS && echo > 3) printf("# compute density of states (DoS)\n");
-    bool const Ref = control::get("sho_overlap.test.Ref", 0.);
+    bool const Ref = (0 < control::get("sho_overlap.test.Ref", 0.));
     if (Ref && echo > 3) printf("# show free electron parabolas as reference\n");
-    int imx_ref = 9; if(Ref) imx_ref = control::get("sho_overlap.test.Ref.imx", 9.);
+    int imx_ref = 9; if(Ref) imx_ref = int(control::get("sho_overlap.test.Ref.imx", 9.));
 
     vec3i const imax = std::ceil(dmax/a0);
     int const max_npi = 16*imax[2]*imax[1]*imax[0];
@@ -827,7 +826,7 @@ namespace sho_overlap {
     if (DoS) { 
         dos.assign(num_bins, 0); // allocate and clear
         // create a k-point set with weights
-        int const nkp_sampling = control::get("sho_overlap.kmesh.sampling", 2); // this is N, use a 2N x 2N x 2N k-point set
+        auto const nkp_sampling = int(control::get("sho_overlap.kmesh.sampling", 2.)); // this is N, use a 2N x 2N x 2N k-point set
         double const inv_kp_sampling = 0.5/nkp_sampling;
         double w8sum{0};
         double const weight = 1;
@@ -845,7 +844,7 @@ namespace sho_overlap {
         double const w8scale = 1./w8sum; for(size_t ikp = 0; ikp < kps.size(); ++ikp) kps[ikp][3] *= w8scale; // rescale
     } else {
         int const nedges = 6;
-        double const sampling_density = control::get("sho_overlap.kpath.sampling", 1./32);
+        auto const sampling_density = control::get("sho_overlap.kpath.sampling", 1./32);
         double const kpath[nedges][3] = {{.0,.0,.0}, {.5,.0,.0}, {.5,.5,.0}, {.0,.0,.0}, {.5,.5,.5}, {.5,.5,.0}};
         double path_progress{0};
         for(int edge = 0; edge < nedges; ++edge) {
@@ -1065,7 +1064,8 @@ namespace sho_overlap {
     // show the overlap of the lowest 1D Hermite-Gauss functions with pure powers x^n
     status_t stat(0);
     int constexpr ncut = 8;
-    view2D<double> H0(ncut, ncut);
+    view2D<double> Hs(ncut, ncut);
+//  view2D<double> H1(ncut, ncut);
 
     double maxreldevall{0};
     for(int isigma = -3; isigma <= 3; ++isigma) {
@@ -1073,20 +1073,23 @@ namespace sho_overlap {
         double const sigma = std::pow(1.1, isigma);
         if (echo > 3) printf("# %s sigma = %g\n", __func__, sigma);
         double constexpr normalize = 0;
-        prepare_centered_Hermite_polynomials(H0.data(), H0.stride(), 1./sigma, normalize);
+        prepare_centered_Hermite_polynomials(Hs.data(), Hs.stride(), 1./sigma, normalize);
+//      prepare_centered_Hermite_polynomials(H1.data(), H1.stride(), 1., normalize);
         for(int n = 0; n < ncut; ++n) {
             for(int moment = 0; moment < ncut; ++moment) { // pure powers x^m
-                double const ovl = overlap_of_poly_times_Gauss_with_pure_powers(H0[n], 1+n, sigma, moment);
+                double const ovl  = overlap_of_poly_times_Gauss_with_pure_powers(Hs[n], 1+n, sigma, moment);
+//              double const ovl1 = overlap_of_poly_times_Gauss_with_pure_powers(H1[n], 1+n, 1.0, moment) * intpow(sigma, moment);
                 if ((n & 1) ^ (moment & 1)) {
                     assert( 0 == ovl ); // results must be zero if n and moment have different parity!
                 } else {
                     if (echo > 4) printf(" %.6f", ovl);
+//                  if (echo > 4) printf(" %.6f", ovl1); // ToDo: ovl1 seems to differ from ovl
                     if (numerical > 0) {
                         double const dx = 9.0*sigma/numerical;
                         double ovl_numerical{0};
                         for(int ix = -numerical; ix <= numerical; ++ix) {
                             double const x = ix*dx; // centered at zero
-                            ovl_numerical += eval_poly(H0[n], 1+n, x) * std::exp(-0.5*pow2(x/sigma)) * std::pow(x, moment);
+                            ovl_numerical += eval_poly(Hs[n], 1+n, x) * std::exp(-0.5*pow2(x/sigma)) * std::pow(x, moment);
                         } // ix
                         ovl_numerical *= dx;
                         if (echo > 5) printf(" %.6f", ovl_numerical);
@@ -1127,7 +1130,7 @@ namespace sho_overlap {
   } // test_moment_normalization
   
   status_t all_tests(int const echo) {
-    int n{0}; int const t = control::get("sho_overlap.select.test", -1.); // -1:all
+    int n{0}; auto const t = int(control::get("sho_overlap.select.test", -1.)); // -1:all
     status_t stat(0);
     if (t & (1 << n++)) stat += test_moment_normalization(echo);
     if (t & (1 << n++)) stat += test_pure_power_overlap(echo);
