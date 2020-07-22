@@ -334,14 +334,33 @@ For each pair of atoms
 (or, more precise for the periodic case, atomic image positions)
 $(a,a')$ compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
 at the common center and perform the product and integral there.
-The basis functions have polynomial degree up to $\numax_a$.
+We can limit ourselves to atom pairs which are not too distant.
+The basis functions have polynomial degree up to $\numax^{[a]}$.
 When the expansion of the polynomials is shifted to the common center
 the polynomial coefficients change, however, the maximum degree stays unaffected.
+The potential is expanded into a representation of moments $V_{m_x m_y m_z} x^{m_x} y^{m_y} z^{m_z}$ up to $m_x + m_y + m_z \leq \numax^{[V]} = \numax^{[a]} + \numax^{[a']}$.
 
 
 \subsubsection{Potential matrix elements by Method4}
+For each atom $a$, we expand the potential as in \ttt{Method2} but with the
+atomic position $\vec R_a$ as expansion center, much similar to
+the terms for $(a, a)$ in \ttt{Method2}.
+Here, we have to analyze closely what the best max.~order of potential expansion is.
+A candidate is $\numax^{[V]} = 2\numax^{[a]}$.
+The spread for the \ac{sho} projection of the local potential
+is $\sigma_V = \sigma_a/\sqrt{2}$.
+Alternatively, we could derive $\numax^{[V]}$ from the grid spacing used to represent $V(x,y,z)$ in relation to $\sigma_V$.
+Then, we introduce an auxiliary basis of \ac{sho} functions
+also centered at $\vec R^a$ and also with spread $\sigma_a$.
+From the triangle rules, the minimum necessary basis size
+is expected to be $\numax^{[V]} + \numax^{[a]} = 3\numax^{[a]}$.
+These operations are performed per atom $a$.
+For each atom $a'$ which is not too distant
+we contract the potential matrix with an overlap matrix between
+the \ac{sho} basis function on atom $a'$ and the (relatively large) auxiliary basis.
 
 
+\subsubsection{Other Hamiltonian matrix elements}
 Finally, non-local potentials are usually expressed as dyadic operators
 $\ket{\tilde p^a_i} D^a_{ij} \bra{\tilde p_j}$ with localized projector functions $\tilde p_i(\vec r)$
 centered at the atomic positions.

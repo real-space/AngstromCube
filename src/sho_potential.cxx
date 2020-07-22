@@ -326,20 +326,20 @@ namespace sho_potential {
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
       
-      auto const lmax = int(control::get("sho_potential.test.lmax", 2*numax_max)); // for Method4
+//    auto const lmax = int(control::get("sho_potential.test.lmax", 2*numax_max)); // for Method4
       
-      std::vector<view2D<char>> labels(1 + std::max(numax_max, lmax));
-      for(int nu = 0; nu <= std::max(numax_max, lmax); ++nu) {
+      std::vector<view2D<char>> labels(16);
+      for(int nu = 0; nu < 16; ++nu) {
           labels[nu] = view2D<char>(sho_tools::nSHO(nu), 8);
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
 
       auto const method = int(control::get("sho_potential.test.method", -1.)); // bit-string, use method=7 or -1 to activate all
       
-      int constexpr Numerical = 0, Between = 1, Onsite = 2;
+      int constexpr Numerical = 0, Between = 1, Onsite = 2, noReference = 3;
       view4D<double> SV_matrix[2][3]; // Numerical and Onsite (no extra Smat for Between)
-      char const method_name[2][3][16] = {{"numerical", "", "analytical"}, {"numerical", "between", "onsite"}};
-      bool method_active[2][3] = {{false, false, false}, {false, false, false}};
+      char const method_name[3][16] = {"numerical", "between", "onsite"};
+      bool method_active[4] = {false, false, false, false};
 
       int const mxb = sho_tools::nSHO(numax_max);
       
@@ -400,8 +400,7 @@ namespace sho_potential {
           
           if (echo > 2) printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
           
-          method_active[0][Numerical] = true;
-          method_active[1][Numerical] = true;
+          method_active[Numerical] = true;
       } // scope: Method 1
 
       if (2 & method) { // scope:
@@ -412,8 +411,10 @@ namespace sho_potential {
           //    and numax_V = numax_1 + numax_2 and determine the
           //    potential matrix elements using the tensor
           
+          auto & Smat = SV_matrix[0][Between];
           auto & Vmat = SV_matrix[1][Between];
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
+          Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           
           for(int ia = 0; ia < natoms; ++ia) {
               for(int ja = 0; ja < natoms; ++ja) {
@@ -470,17 +471,20 @@ namespace sho_potential {
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
                   stat += generate_potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
-                  
+                  double const one[1] = {1.};
+                  auto Smat_iaja = Smat(ia,ja);
+                  stat += generate_potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja]);
+
               } // ja
           } // ia
         
           if (echo > 2) { printf("\n# %s method=2 seems symmetric!\n", __func__); fflush(stdout); }
           
-          method_active[1][Between] = true; // computes only Vmat
+          method_active[Between] = true;
       } // scope: Method 2
 
       if (4 & method) { // scope:
-          if (echo > 2) printf("\n# %s Method=4 lmax=%i\n", __func__, lmax);
+          if (echo > 2) printf("\n# %s Method=4\n", __func__);
           // Method 4) approximated
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
@@ -493,59 +497,75 @@ namespace sho_potential {
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
 
-          int const nucut = sho_tools::n1HO(lmax);
-//           view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
-//           stat += sho_overlap::generate_product_tensor(t.data(), nucut); // sigmap=2, sigma0=1, sigma1=1
+          auto const coarsest_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
+          auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing);
+          auto const ekin = control::get("sho_potential.test.ekin", .03125); // specific for Method4
+          auto const kinetic_energy = ekin * highest_kinetic_energy;
+
+          if (echo > 3) printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
+              coarsest_grid_spacing*Ang, _Ang, highest_kinetic_energy*eV, _eV, kinetic_energy*eV, _eV, ekin*100);
           
-          int const nc = sho_tools::nSHO(lmax);
-          std::vector<double> Vcoeff(nc, 0.0);
           for(int ia = 0; ia < natoms; ++ia) {
-              set(Vcoeff.data(), nc, 0.0);
               double const sigma_V = sigmas[ia]*std::sqrt(.5);
-              int const numax_V = 2*numaxs[ia]; // ToDo: is this the best choice?
+//               int const numax_V = 3*numaxs[ia]; // ToDo: is this the best choice? Better:
+              // determine numax_V dynamically, depending on sigma_a and the grid spacing, (external parameter lmax is ignored)
+              int const numax_V = std::floor(kinetic_energy*pow2(sigmas[ia]) - 1.5);
+              if (echo > 5) printf("# atom #%i expand potential up to numax=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
+              if (echo > 5) fflush(stdout);
+              int const nbV = sho_tools::nSHO(numax_V);
+              std::vector<double> Vcoeff(nbV, 0.0);
+
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), numax_V, center[ia], sigma_V, vtot.data(), g, 0);
               stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // mute
               // now Vcoeff is in a representation w.r.t. powers of the Cartesian coords x^{mx}*y^{my}*z^{mz}
 #if 1
-              if (echo > 6) {
+              if (echo > 9) {
                   int mzyx{0};
                   for    (int mz = 0; mz <= numax_V; ++mz) {
                     for  (int my = 0; my <= numax_V - mz; ++my) {
                       for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
                           auto const v = Vcoeff[mzyx];
                           if (std::abs(v) > 5e-7) printf("# V_coeff ai#%i %x%x%x %16.6f\n", ia, mz,my,mx, v);
+//                        printf("#V_coeff_all %d %g ai#%i  %d %d %d\n", mz+my+mx, v, ia, mz,my,mx); // for plotting
                           ++mzyx;
                       } // mx
                     } // my
                   } // mz
                   printf("\n");
-//                   assert(Vcoeff.size() == mzyx);
+                  assert(Vcoeff.size() == mzyx);
               } // echo
 #endif
+      
+              // determine the size of the auxiliary basis
+              int const numax_k = numaxs[ia] + numax_V; // triangle rule
+              if (echo > 5) printf("# atom #%i auxiliary basis up to numax=%d with sigma=%g %s\n", ia, numax_k, sigmas[ia]*Ang, _Ang);
+              if (echo > 5) fflush(stdout);
               
-//            int const numax_k = lmax;
               int const nbi = sho_tools::nSHO(numaxs[ia]);
-              view2D<double> Vaux(nbi, nc, 0.0); // get memory for Vaux(i,k)
+              int const nbk = sho_tools::nSHO(numax_k);
+              view2D<double> Vaux(nbi, nbk, 0.0); // get memory for Vaux(i,k)
               // now compute local matrix elements <local basis_i|V|large aux. basis_k>
 
-              
-              view4D<double> t(1, 2*nucut, nucut, nucut, 0.0);
-              stat += sho_overlap::moment_tensor(t[0].data(), 0.0, nucut, nucut,
+              int const nucut_i = sho_tools::n1HO(numaxs[ia]);
+              int const nucut_k = sho_tools::n1HO(numax_k);
+              view4D<double> t(1, 1+numax_V, nucut_k, nucut_i, 0.0);
+              double constexpr distance = 0.0;
+              stat += sho_overlap::moment_tensor(t[0].data(), distance, nucut_i, nucut_k,
                                                  sigmas[ia], sigmas[ia], numax_V);
-              
+
               // Vaux(i,k) = sum_p Vcoeff[m] * t(m,k,i)
               int constexpr isotropic = 0;
-              stat += generate_potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], lmax, isotropic);
+              stat += generate_potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, isotropic);
 #ifdef DEVEL
               if (echo > 17) {
                   printf("\n# Vaux for the atom #%i:\n", ia);
                   printf("# i-legend   ");
                   for(int izyx = 0; izyx < nbi; ++izyx) {
-                      printf(" %-7s", labels[numaxs[ia]][izyx]);
+                      printf(" %-7s", (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][izyx]);
                   }   printf("\n");
-                  for(int kzyx = 0; kzyx < nc; ++kzyx) {
-                      printf("# Vaux %s  ", labels[lmax][kzyx]);
+                  for(int kzyx = 0; kzyx < nbk; ++kzyx) {
+                      printf("# Vaux %s  ", (numax_k > 15) ? "???" : labels[numax_k][kzyx]);
                       for(int izyx = 0; izyx < nbi; ++izyx) {
                           printf(" %7.4f", Vaux(izyx,kzyx));
                       } // i
@@ -558,17 +578,17 @@ namespace sho_potential {
               for(int ja = 0; ja < natoms; ++ja) {
                   if (echo > 9) printf("# ai#%i aj#%i\n", ia, ja);
 
-                  int const mucut = sho_tools::n1HO(numaxs[ja]);
-                  view3D<double> ovl(3, mucut, nucut); // get memory, index order (dir,j,k)
+                  int const nucut_j = sho_tools::n1HO(numaxs[ja]);
+                  view3D<double> ovl(3, nucut_j, nucut_k); // get memory, index order (dir,j,k)
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
-                      sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut, mucut, sigmas[ia], sigmas[ja]);
+                      sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut_k, nucut_j, sigmas[ia], sigmas[ja]);
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("\n# ovl for the %c-direction:\n", 'x' + d);
-                          for(int j = 0; j < mucut; ++j) {
+                          for(int j = 0; j < nucut_j; ++j) {
                               printf("# ovl n%c=%x  ", 'x' + d, j);
-                              for(int k = 0; k < nucut; ++k) {
+                              for(int k = 0; k < nucut_k; ++k) {
                                   printf("%8.4f", ovl(d,j,k));
                               } // k
                               printf("\n");
@@ -583,7 +603,7 @@ namespace sho_potential {
 
                   // matrix multiply Vaux with overlap operator
                   // Vmat_iaja(i,j) = sum_k Vaux(i,k) * ovl(j,k)
-                  stat += multiply_potential_matrix(Vmat_iaja, ovl, Vaux, numaxs[ia], numaxs[ja], lmax);
+                  stat += multiply_potential_matrix(Vmat_iaja, ovl, Vaux, numaxs[ia], numaxs[ja], numax_k);
 
                   { // extra: create overlap matrix
                       std::vector<sho_tools::SHO_index_t> idx(nbi), jdx(nbj);
@@ -601,8 +621,7 @@ namespace sho_potential {
           } // ia
           
           if (echo > 2) printf("\n# %s method=4 seems asymmetric!\n", __func__);
-          method_active[0][Onsite] = true;
-          method_active[1][Onsite] = true;
+          method_active[Onsite] = true;
       } // scope: Method 4
 
 
@@ -610,7 +629,13 @@ namespace sho_potential {
 
 
 
-
+      int ref_method[3] = {noReference, noReference, noReference}; method_active[noReference] = false;
+      if (method_active[Numerical]) {
+          if (method_active[Between]) ref_method[Between] = Numerical;
+          if (method_active[Onsite])  ref_method[Onsite]  = Numerical;
+      } else {
+          if (method_active[Between] && method_active[Onsite]) ref_method[Onsite] = Between;
+      }
 
       // now display all of these methods interleaved
       if (echo > 0) {
@@ -627,24 +652,25 @@ namespace sho_potential {
                       if (echo > 1) {
                           printf("\n# ai#%i aj#%i        ", ia, ja);
                           for(int jb = 0; jb < nbj; ++jb) {
-                              printf(" %-7s", labels[numaxs[ja]][jb]); // column legend
+                              printf(" %-7s", (numaxs[ja] > 15) ? "???" : labels[numaxs[ja]][jb]); // column legend
                           } // jb
                           printf("\n");
                       } // echo
                       for(int ib = 0; ib < nbi; ++ib) {
                           for(int m = 0; m < 3; ++m) { // method
-                              if (method_active[sv][m]) {
-                                  printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, labels[numaxs[ia]][ib]);
+                              if (method_active[m]) {
+                                  printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
                                   double abs_dev{0};
+                                  int const rm = ref_method[m]; // reference method
                                   for(int jb = 0; jb < nbj; ++jb) {
                                       auto const v = SV_matrix[sv][m](ia,ja,ib,jb);
                                       printf(" %7.4f", v);
-                                      auto const ref = method_active[sv][Numerical] ? SV_matrix[sv][Numerical](ia,ja,ib,jb) : 0;
+                                      auto const ref = method_active[rm] ? SV_matrix[sv][rm](ia,ja,ib,jb) : 0;
                                       auto const d = v - ref;
                                       abs_dev = std::max(std::abs(d), abs_dev);
                                   } // jb
-                                  printf(" %s", method_name[sv][m]);
-                                  if (Numerical != m) printf(", dev=%.1e", abs_dev);
+                                  printf(" %s", method_name[m]);
+                                  if (noReference != rm) printf(", dev=%.1e", abs_dev);
                                   printf("\n");
                                   int const diag = (ia == ja);
                                   max_abs_dev[m][diag] = std::max(max_abs_dev[m][diag], abs_dev);
@@ -653,15 +679,16 @@ namespace sho_potential {
                       } // ib
                   } // ja
               } // ia
-              
-              if (method_active[sv][Numerical]) {
-                  for(int m = Numerical + 1; m < 3; ++m) { // method
-                      if (method_active[sv][m]) {
-                          printf("\n# %c largest abs deviation of %s to %s is (diag) %g and %g (off-diag), pot=%03d\n",
-                              sv_char, method_name[sv][m], method_name[sv][Numerical], max_abs_dev[m][1], max_abs_dev[m][0], artificial_potential);
-                      } //
-                  } // method
-              } // if a numerical reference was given
+
+              for(int m = 0; m < 3; ++m) { // method
+                  if (method_active[m]) {
+                      int const rm = ref_method[m]; // reference method
+                      if (noReference != rm) {
+                          printf("\n# %c largest abs deviation of '%s' to '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
+                              sv_char, method_name[m], method_name[rm], max_abs_dev[m][1], max_abs_dev[m][0], artificial_potential);
+                      } // no reference
+                  } // active
+              } // method
               
           } // sv
       } // echo

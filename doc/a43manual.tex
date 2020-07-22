@@ -84,15 +84,19 @@ makes use of will need be covered in order to explain the handling.
 %
 \subsection{Density Functional Theory}
 \codename{} is an implementation for performing calculations in the framework of \ac{dft}.
-A fair number of books and vast number of articles in the scientific 
-literature is about \ac{dft}, therefore, we will only give a breif recap 
+A fair number of books and a vast number of articles in the scientific 
+literature is on \ac{dft}, therefore, we will only give a brief recap 
 of the very basics needed to understand what kind of physics can be
 simulated with \codename{} and also, where the limitations of predictive power
 are.
 
 \ac{dft} is a ground state method, this means that in principle we have to
 assume zero Kelvin. However, you will see later that for special situations 
-finite temperatures are applied (to smear out the Fermi-Dirac distribution).
+finite temperatures are applied to smear out the Fermi-Dirac distribution 
+for electronic occupation numbers in order to improve convergence.
+In principle, all results should be extrapolated to \unit[0]{K}.
+
+
 The underlying Hohenberg-Kohn theorem tells us, that we can derive some 
 ground state properties of the system once we have found the correct density.
 In order to find the density, Kohn and Sham introduced single-particle wave functions $\Psi_i$, which are eigenstates of an effective single-particle Hamiltonian $\hat H$.
@@ -101,7 +105,7 @@ With a little simplification, we can write the total electron density
 	n(\vec r) = \sum_i^{\mathrm{occ}} \left| \Psi_i(\vec r) \right|^2
 	\label{eqn:simplified_density_generation}
 \end{equation} 
-As a function or functional of the density $n(\vec r)$, we can construct
+As a function or functional of the density $n(\vec r)$ we can construct
 a local effective potential entering the Hamiltonian
 \begin{equation}
 	\hat H\um{Kohn-Sham} = \frac{\left( \imath \hbar \vec \nabla \right)^2}{2 m_e} + V\um{eff}(\vec r)
@@ -119,7 +123,7 @@ where $V\um{eff}(\vec r)$ includes
 \subsection{The Exchange-Correlation Functional}
 The true many-body wave function for a system with electrons (as being Fermions)
 is anti-symmetric under exchange of two particles. 
-This implies that there e.g.~a two electrons wave function $\Psi(\vec r_1,\vec r_2)$ must be zero whenever $\vec r_1 \rightarrow \vec r_2$ in order to obey
+This implies that e.g.~a two electrons wave function $\Psi(\vec r_1,\vec r_2)$ must be zero whenever $\vec r_1 \rightarrow \vec r_2$ in order to obey
 the anti-symmetry constraint.
 This lowers the repulsion energy of a real two-electrons system compared to a
 system of independent charged particles.
@@ -131,8 +135,8 @@ Both together are modelled in the contribution $V\um{xc}(\vec r)$
 to the total effective potential and a corresponding energy density $\epsilon\um{xc}$ for the evaluation of a total energy.
 
 Different parametrizations of the \ac{xc} functional are available.
-This application focusses onto the three classes of local (non-orbital dependent) functionals: 
-\begin{itemize} 
+\codename{} focusses onto the three classes of local (non-orbital dependent) functionals: 
+\begin{itemize}
 	\item Local (Spin) Density Approximations, LDA/LSDA, 
 	\item Generalized Gradient Approximations, GGA
 	\item Meta-GGAs
@@ -151,28 +155,9 @@ In analogy to eq.~(\ref{eqn:simplified_density_generation}), the kinetic energy 
 \end{equation}
 where we introduced Dirac's \emph{bra-ket} notation.
 Currently, only the LSDA Perdew-Zunger'81 \ttt{PZ81} is implemented 
-but we intent to interface \ttt{libxc} with access to most existing functional.
+but it is planned to interface \ttt{libxc} with access to most existing functional.
 \todo[inline]{Implement LIBXC, reference for LIBXC}
 
-
-\subsection{Atomic Units, Input and Output}
-Internally the code makes use of atomic Hartree units:
-\begin{equation}
-	\hbar = m_e = e = 1
-\end{equation}
-as reduces the number of non-trivial factors in many equations.
-This means that the unit of length is Bohr = \unit[0.529177]{\AA{}}
-and the unit of energy is called Hartree = \unit[27.2114]{$e$V}.
-However, we can change the length and energy units used for output.
-\todo[inline]{Change only at compile time possible. Make them runtime-configurable}
-Input length units are \AA{} as this is most convenient for molecular structure viewers
-(\ttt{VESTA}, \ttt{jmol}, etc.)
-
-Experimental parts of the code may not support all the unit conversion
-factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the logg files.
-Most standard functionality, however, supports unit conversion so that logg files
-show \ttt{eV} or \ttt{Ryd} and \ttt{Ang}$ = $\AA{} or \ttt{nm}, depending on the users choice.
-\todo[inline]{Keywords to change it?}
 
 
 \section{How to get started}
@@ -194,12 +179,12 @@ mainly used to maintain a single functions supporting different precision (\ttt{
 \section{Basic Handling}
 \codename{} comes as a single executable named \ttt{a43} which
 offers many functions accessible by options. Type \ttt{./a43 -h}
-to get a first help function":
+to get a first help function:
 \begin{verbatim}
 Usage ./a43 [OPTION]
-   -h, -H      	This help message
-   -t <module> 	Test module
-   +<var>=<val>	Modify variable environment
+   -h, -H       This help message
+   -t <module>  Test module
+   +<var>=<val> Modify variable environment
 \end{verbatim}
 
 An important functionality after building the application (see section \ref{sec:compiling}) is to run a self test of the available modules.
@@ -219,6 +204,29 @@ which couples to the command line interface:
 The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently.
 However, there is a ground rule that higher \ttt{verbosity} means more output
 and \ttt{verbosity=0} suppresses output except for fatal errors.
+
+\subsection{Atomic Units, Input and Output}
+Internally the code makes use of atomic Hartree units:
+\begin{equation}
+	\hbar = m_e = e = 1
+\end{equation}
+as this reduces the number of non-trivial factors in many equations.
+This means that the internal unit of length is Bohr = \unit[0.529177]{\AA{}}
+and the internal unit of energy is Hartree = \unit[27.2114]{$e$V}.
+However, we can change the length and energy units used for output like this:
+\begin{verbatim}
+./a43 +output.energy.unit=eV +output.length.unit=Ang ...
+\end{verbatim}
+Available output units are \ttt{eV}, \ttt{Ry} or \ttt{Ha} (default in the development branch) for energies and \ttt{nm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths.
+Input length units are \AA{} as this is most convenient for molecular structure viewers
+(\ttt{VESTA}, \ttt{jmol}, etc.)
+
+Experimental parts of the code may not support all the unit conversion
+factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the logg files.
+Most standard functionality, however, supports unit conversion so that logg files
+show \ttt{eV} or \ttt{Ry} and \ttt{Ang}$ = $\AA{} or \ttt{nm}, depending on the users choice.
+
+
 
 \subsection{Try a first structure}
 Make sure there is an \ttt{.xyz} file and run
@@ -264,7 +272,8 @@ For the advanced user, we recommend to inspect the logarithmic derivatives by
         +verbosity=7
 \end{verbatim}
 The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
-
+For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
+start, stop and stepping in units of $e$Volt.
 
 \subsection{Parallel Computing}
 Currently, some parts of \codename{} support shared memory parallelism 
