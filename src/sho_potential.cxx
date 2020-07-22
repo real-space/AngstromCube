@@ -325,9 +325,7 @@ namespace sho_potential {
                 sigmas[ia]*Ang, _Ang, numaxs[ia]);
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
-      
-//    auto const lmax = int(control::get("sho_potential.test.lmax", 2*numax_max)); // for Method4
-      
+     
       std::vector<view2D<char>> labels(16);
       for(int nu = 0; nu < 16; ++nu) {
           labels[nu] = view2D<char>(sho_tools::nSHO(nu), 8);
@@ -471,6 +469,8 @@ namespace sho_potential {
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
                   stat += generate_potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
+                  
+                  // use the same product to compute also the overlap matrix
                   double const one[1] = {1.};
                   auto Smat_iaja = Smat(ia,ja);
                   stat += generate_potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja]);
@@ -499,11 +499,11 @@ namespace sho_potential {
 
           auto const coarsest_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
           auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing);
-          auto const ekin = control::get("sho_potential.test.ekin", .03125); // specific for Method4
-          auto const kinetic_energy = ekin * highest_kinetic_energy;
+          auto const percentage = control::get("sho_potential.test.method4.percentage", 3.125); // specific for Method4
+          auto const kinetic_energy = (percentage*.01) * highest_kinetic_energy;
 
           if (echo > 3) printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
-              coarsest_grid_spacing*Ang, _Ang, highest_kinetic_energy*eV, _eV, kinetic_energy*eV, _eV, ekin*100);
+              coarsest_grid_spacing*Ang, _Ang, highest_kinetic_energy*eV, _eV, kinetic_energy*eV, _eV, percentage);
           
           for(int ia = 0; ia < natoms; ++ia) {
               double const sigma_V = sigmas[ia]*std::sqrt(.5);
@@ -631,9 +631,11 @@ namespace sho_potential {
 
       int ref_method[3] = {noReference, noReference, noReference}; method_active[noReference] = false;
       if (method_active[Numerical]) {
+          // compare both analytical methods to the numerical method
           if (method_active[Between]) ref_method[Between] = Numerical;
           if (method_active[Onsite])  ref_method[Onsite]  = Numerical;
       } else {
+          // compare the two analytical methods
           if (method_active[Between] && method_active[Onsite]) ref_method[Onsite] = Between;
       }
 

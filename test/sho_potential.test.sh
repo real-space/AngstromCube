@@ -11,7 +11,8 @@ rm -f $out; echo -n "# " > $out; date >> $out
 # for a in  200 ; do  ## the lowest non-linear one
 # for a in 0 ; do  ## use a real local potential (not an artifical one)
 # for a in   1000    100 010 001  ; do
-for a in 0 ; do
+# for a in 0 ; do
+a=0; for p in {3..10}; do
 # for a in 0 1000 100 200 300 400 ; do
 
 (cd ../src/ && make -j) && \
@@ -22,10 +23,11 @@ for a in 0 ; do
     +sho_potential.test.method=6 \
     +sho_potential.test.sigma.asymmetry=1.1 \
     +sho_potential.test.artificial.potential=$a \
+    +sho_potential.test.method4.percentage=$p \
     +sho_potential.test.show.potential.only=0 \
    >> $out
 
 #     +sho_potential.test.lmax=8
 
 done
-grep 'largest abs deviation of ' $out
+grep '# V largest abs deviation of ' $out
