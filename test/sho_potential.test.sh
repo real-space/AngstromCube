@@ -11,6 +11,7 @@ for a in 0   1000    100 010 001     200 110 020 101 011 002      300 210 120 03
 # for a in  200 ; do  ## the lowest non-linear one
 # for a in 0 ; do  ## use a real local potential (not an artifical one)
 # for a in   1000    100 010 001  ; do
+# for a in 300 400 0 1000 100 200 ; do
 
 (cd ../src/ && make -j) && \
   $exe +verbosity=29 \
@@ -18,8 +19,8 @@ for a in 0   1000    100 010 001     200 110 020 101 011 002      300 210 120 03
     +sho_potential.test.numax=2 \
     +sho_potential.test.sigma=2.0 \
     +sho_potential.test.method=5 \
-    +sho_potential.test.lmax=4 \
-    +sho_potential.test.sigma.asymmetry=1.001 \
+    +sho_potential.test.lmax=6 \
+    +sho_potential.test.sigma.asymmetry=1.0 \
     +sho_potential.test.artificial.potential=$a \
     +sho_potential.test.show.potential.only=1 \
    >> $out

@@ -293,7 +293,7 @@ A similar \ac{paw} contribution would then also appear in the overlap operator.
 The kinetic energy consists of a Laplacian so we can boil it down to the evaluation
 of $\braketop{ \psi^{[1D]}_{an} }{ \partial^2_x }{ \psi^{[1D]}_{a'n'} }$.
 This works just as outlined for the overlap elements
-except for the derivative operator modifying the polynomials.
+except for the derivative operator modifying the polynomials before contraction with the integration kernel $I_k$.
 Mind that in order to produce symmetric matrix elements,
 a first derivative should be applied to the left and a first derivative to the right.
 It is easy to show that applying the second derivative to the left in general differs from
@@ -306,12 +306,12 @@ Then, viable options to evaluate the potential matrix elements would be
 \begin{itemize}
 %
 \item to evaluate $\braketop{ \chi }{ \hat V }{ \chi' }$ numerically. 
-This may lead to a large cost prefactor but scales linearly due to the localization of $\chi$s.
-This method has been used to find reference values during development.
+This may lead to a large cost prefactor but scales linearly with the number of atoms due to the localization of $\chi$s.
+This method has been used to find reference values during development. This is referenced as \ttt{Method1}.
 %
 \item for each pair $(a,a')$ which is not too distant
 compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
-at the common center and perform the product and integral there.
+at the common center and perform the product and integral there. This is referenced as \ttt{Method2}.
 %
 \item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{sho} basis. 
 Then, we can insert a completeness relation: %%  (truncation of unity?)
@@ -324,10 +324,23 @@ and the second integral is the same as for the overlap operator.
 Mind that we inserted a complete basis $\chi_{a\vec n''}$. 
 This means that the convergence w.r.t.~the cut-off for $\vec n''$ needs to be checked carefully.
 Due to different convergence rates, the potential matrix $\hat V$ might not be symmetric
-requiring symmetrization according to $\hat V\um{sym} = \frac 12 \left( \hat V + \hat V^\dagger \right)$.
+requiring symmetrization according to $\hat V\um{sym} = \frac 12 \left( \hat V + \hat V^\dagger \right)$. This is referenced as \ttt{Method4}.
 %
 \end{itemize}
-In the following, we will pursue the second approach.
+In the following, we will discuss \ttt{Method2} and \ttt{Method4}.
+
+\subsubsection{Potential matrix elements by Method2}
+For each pair of atoms 
+(or, more precise for the periodic case, atomic image positions)
+$(a,a')$ compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
+at the common center and perform the product and integral there.
+The basis functions have polynomial degree up to $\numax_a$.
+When the expansion of the polynomials is shifted to the common center
+the polynomial coefficients change, however, the maximum degree stays unaffected.
+
+
+\subsubsection{Potential matrix elements by Method4}
+
 
 Finally, non-local potentials are usually expressed as dyadic operators
 $\ket{\tilde p^a_i} D^a_{ij} \bra{\tilde p_j}$ with localized projector functions $\tilde p_i(\vec r)$
