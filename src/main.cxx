@@ -44,7 +44,7 @@
 #include "element_config.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
-#include "isolated_atom.hxx" // ::all_tests
+// #include "isolated_atom.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
 // #include "pseudo_tools.hxx" // ::all_tests
 #include "inline_tools.hxx" // ::all_tests
