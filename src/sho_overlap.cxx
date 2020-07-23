@@ -190,10 +190,11 @@ namespace sho_overlap {
   
   template<typename real_t>
   real_t overlap_of_two_Hermite_Gauss_functions(
-      real_t const H0[], int const n0, double const s0, // polynomial H0[n0] times Gaussian exp(-x^2/(2*s0^2))
-      real_t const H1[], int const n1, double const s1, // polynomial H1[n1] times Gaussian exp(-x^2/(2*s1^2))
+      real_t const H0[], int const n0, double const s0, // polynomial H0[j < n0] times Gaussian exp(-x^2/(2*s0^2))
+      real_t const H1[], int const n1, double const s1, // polynomial H1[i < n1] times Gaussian exp(-x^2/(2*s1^2))
       double const distance, // separating distance of the two centers
       int const moment=0) { // multiply a moment x^m to the polynomial before integration
+
       auto const k0 = .5/(s0*s0), k1 = .5/(s1*s1);
       auto const denom = 1./(k0 + k1);
       auto const sigma = std::sqrt(denom);
@@ -203,16 +204,18 @@ namespace sho_overlap {
 
       if (0 == distance) {
           multiply(h0xh1.data(), n, H0, n0, H1, n1);
-          return integrate(h0xh1.data(), n, sigma, moment);
+          real_t const value = integrate(h0xh1.data(), n, sigma, moment);
+          return value;
       } // distance zero
-      
+
       auto const sh0 =  distance*k1*denom;
       auto const sh1 = -distance*k0*denom;
       std::vector<real_t> h0s(n0), h1s(n1); // H0 shifted by sh0 and H1 shifted by sh1
       shift_polynomial_centers(h0s.data(), H0, n0, sh0);
       shift_polynomial_centers(h1s.data(), H1, n1, sh1);
       multiply(h0xh1.data(), n, h0s.data(), n0, h1s.data(), n1);
-      return integrate(h0xh1.data(), n, sigma, moment) * std::exp(-k0*sh0*sh0 -k1*sh1*sh1);
+      real_t const value = integrate(h0xh1.data(), n, sigma, moment) * std::exp(-k0*sh0*sh0 -k1*sh1*sh1);
+      return value;
   } // overlap_of_two_Hermite_Gauss_functions
 
   template<int ncut, typename real_t>

@@ -12,9 +12,7 @@ for asy in 1; do
     -test sho_hamiltonian. \
     +sho_hamiltonian.test.numax=1 \
     +sho_hamiltonian.test.sigma=2.0 \
-    +sho_hamiltonian.test.method=6 \
     +sho_hamiltonian.test.sigma.asymmetry=$asy \
-    +sho_hamiltonian.test.show.potential.only=0 \
    >> $out
 
 done
