@@ -315,7 +315,7 @@ namespace sho_overlap {
   } // generate_density_or_potential_tensor
 
   template<int ncut, typename real_t>
-  status_t generate_product_tensor_plain(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
+  status_t product_tensor_plain(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
       , double const sigma=2 // 2:typical for density tensor
       , double const sigma0=1, double const sigma1=1) {
     status_t stat(0);
@@ -347,11 +347,11 @@ namespace sho_overlap {
         } // m
     } // n
     return stat; // non-zero if some polynomial coefficients got lost during multiplication
-  } // generate_product_tensor_plain
+  } // product_tensor_plain
 
   
   template<typename real_t>
-  status_t generate_product_tensor(real_t tensor[], int const ncut // data layout [2*ncut-1][ncut][ncut]
+  status_t product_tensor(real_t tensor[], int const ncut // data layout [2*ncut-1][ncut][ncut]
                     , double const sigma     // =2: typical for density tensor
                     , double const sigma0    // =1
                     , double const sigma1) { // =1
@@ -386,10 +386,10 @@ namespace sho_overlap {
         } // m
     } // n
     return stat; // non-zero if some polynomial coefficients got lost during multiplication
-  } // generate_product_tensor
+  } // product_tensor
 
   template<typename real_t>
-  status_t moment_tensor(real_t tensor[], // data layout [1 + maxmoment][n1][n0]
+  status_t moment_tensor(real_t tensor[], // data layout [1 + max(0, maxmoment)][n1][n0]
                      double const distance,
                      int const n0, int const n1, 
                      double const sigma0,   // =1
@@ -404,14 +404,30 @@ namespace sho_overlap {
     // ToDo: this function will shift each of the polynomials H0 (1 + maxmoment)*n1 times
     //                            and each of the polynomials H1 (1 + maxmoment)*n0 times
     //                            so there could be a lot of saving when the shifted polynomials
-    //                            are contructed in advance and the moment loop becomes innermost
-    for(int moment = 0; moment <= maxmoment; ++moment) {
-        for(int n = 0; n < n1; ++n) {
-            for(int m = 0; m < n0; ++m) {
-                t3(moment,n,m) = overlap_of_two_Hermite_Gauss_functions(
-                    H0[m], 1+m, sigma0, H1[n], 1+n, sigma1, distance, moment);
-            } // m
-        } // n
+    //                            are constructed in advance and the moment loop becomes innermost
+
+    int k{1}; // the underived Hermite polynomial H_n has non-zero coefficients up to 1+n
+    if (-2 == maxmoment) {
+        // derive Hermite polynomials to form the kinetic energy matrix
+        k = 2; // the Hermite of the derived Hermite Gauss function has one non-zero coefficient more
+        std::vector<double> dH0(n0), dH1(n1);
+        for(int j = 0; j < n0; ++j) {
+            derive_Hermite_Gauss_polynomials(dH0.data(), H0[j], n0, sigma0inv);
+            set(H0[j], n0, dH0.data()); // overwrite with the derived form
+        } // j
+        for(int i = 0; i < n1; ++i) {
+            derive_Hermite_Gauss_polynomials(dH1.data(), H1[i], n1, sigma1inv);
+            set(H1[i], n1, dH1.data()); // overwrite with the derived form
+        } // i
+    } // preare derivatives
+
+    for(int moment = 0; moment <= std::max(0, maxmoment); ++moment) {
+        for(int i = 0; i < n1; ++i) {
+            for(int j = 0; j < n0; ++j) {
+                t3(moment,i,j) = overlap_of_two_Hermite_Gauss_functions(
+                    H0[j], k+j, sigma0, H1[i], k+i, sigma1, distance, moment);
+            } // j
+        } // i
     } // moment
     return 0; // success
   } // moment_tensor
@@ -452,7 +468,7 @@ namespace sho_overlap {
                          double const sigma0, double const sigma1, int const maxmoment);
 
   template // explicit template instantiation
-  status_t generate_product_tensor(double tensor[], int const n, double const sigma,
+  status_t product_tensor(double tensor[], int const n, double const sigma,
                                    double const sigma0, double const sigma1);
 
 
@@ -607,8 +623,8 @@ namespace sho_overlap {
       float const ssp2_min = 1.f, ssp2_max = 3.f, ssp2_inc = 1.01f;
       for(float ssp2 = ssp2_min; ssp2 < ssp2_max; ssp2 *= ssp2_inc) {
           generate_density_tensor<ncut>(t.data(), 0, ssp2); // reference implementation
-//           generate_product_tensor_plain<ncut>(tt.data(), 1./std::sqrt(ssp2)); // old implementation
-          generate_product_tensor(tt.data(), ncut, 1./std::sqrt(ssp2)); // new implementation
+//           product_tensor_plain<ncut>(tt.data(), 1./std::sqrt(ssp2)); // old implementation
+          product_tensor(tt.data(), ncut, 1./std::sqrt(ssp2)); // new implementation
           auto const & ts = tt;
           generate_density_or_potential_tensor<ncut>(tp.data(), 0, ssp2);
 //           auto const & ts = tp;

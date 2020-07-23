@@ -1,6 +1,6 @@
 #include <cstdio> // printf
 #include <cmath> // std::sqrt
-#include <fstream> // std::ifstream
+// #include <fstream> // std::ifstream
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
 #include <utility> // std::pair<T1,T2>, std::make_pair
@@ -40,55 +40,6 @@
 
 namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
-
-  template<typename real_t>
-  status_t generate_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,j,i) 
-                            , view4D<real_t> const & t1D // input t1D(dir,m,j,i)
-                            , real_t const Vcoeff[], int const numax_m // expansion of the potential in x^{mx}*y^{my}*z^{mz}
-                            , int const numax_i, int const numax_j
-                            , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
-      // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
-      // can use different (dir01==1) tensors per direction or the same (dir01==0)
-      // t(m,j,i) = t1D(0,m_x,j_x,i_x) * t1D(1,m_y,j_y,i_y) * t1D(2,m_z,j_z,i_z)
-
-      int mzyx{0}; // contraction index
-      for    (int mz = 0; mz <= numax_m;           ++mz) {
-        for  (int my = 0; my <= numax_m - mz;      ++my) {
-          for(int mx = 0; mx <= numax_m - mz - my; ++mx) {
-
-            int izyx{0};
-            for    (int iz = 0; iz <= numax_i;           ++iz) {
-              for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
-                for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
-
-                  int jzyx{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t1D(dir01*2,mz,jz,iz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t1D(dir01*1,my,jy,iy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t1D(      0,mx,jx,ix) * tyz;
-
-                        Vmat(izyx,jzyx) += Vcoeff[mzyx] * txyz;
-
-                        ++jzyx;
-                      } // jx
-                    } // jy
-                  } // jz
-                  assert( sho_tools::nSHO(numax_j) == jzyx );
-
-                  ++izyx;
-                } // ix
-              } // iy
-            } // iz
-            assert( sho_tools::nSHO(numax_i) == izyx );
-
-            ++mzyx;
-          } // mx
-        } // my
-      } // mz
-      assert( sho_tools::nSHO(numax_m) == mzyx );
-    
-      return 0;
-  } // generate_potential_matrix
-
   
   template<typename real_t>
   status_t multiply_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
@@ -223,7 +174,7 @@ namespace sho_potential {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_local_potential_elements(int const echo=5) {
+  status_t test_local_potential_matrix_elements(int const echo=5) {
       status_t stat(0);
       
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
@@ -440,12 +391,12 @@ namespace sho_potential {
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
-                  stat += generate_potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
+                  stat += potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
                   
                   // use the same product to compute also the overlap matrix
                   double const one[1] = {1.};
                   auto Smat_iaja = Smat(ia,ja);
-                  stat += generate_potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja]);
+                  stat += potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja]);
 
               } // ja
           } // ia
@@ -528,7 +479,7 @@ namespace sho_potential {
 
               // Vaux(i,k) = sum_p Vcoeff[m] * t(m,k,i)
               int constexpr isotropic = 0;
-              stat += generate_potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, isotropic);
+              stat += potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, isotropic);
 #ifdef DEVEL
               if (echo > 17) {
                   printf("\n# Vaux for the atom #%i:\n", ia);
@@ -554,7 +505,7 @@ namespace sho_potential {
                   view3D<double> ovl(3, nucut_j, nucut_k); // get memory, index order (dir,j,k)
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
-                      sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut_k, nucut_j, sigmas[ia], sigmas[ja]);
+                      sho_overlap::overlap_matrix(ovl[d].data(), distance, nucut_k, nucut_j, sigmas[ia], sigmas[ja]);
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
@@ -671,11 +622,11 @@ namespace sho_potential {
       if (nullptr != center) delete[] center;
       if (nullptr != xyzZ) delete[] xyzZ;
       return stat;
-  } // test_local_potential_elements
+  } // test_local_potential_matrix_elements
 
   status_t all_tests(int const echo) {
     status_t status(0);
-    status += test_local_potential_elements(echo); // expensive
+    status += test_local_potential_matrix_elements(echo); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
