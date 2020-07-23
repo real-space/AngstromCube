@@ -168,7 +168,7 @@ namespace sho_hamiltonian {
 
 
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ja jb}>
-      int const natoms_PAW = 0; // natoms; // keep it flexible, ToDo: if we turn it on, sometimes there is an exception:
+      int const natoms_PAW = natoms; // keep it flexible, ToDo: if we turn it on, sometimes there is an exception:
       // "Incorrect checksum for freed object 0xsomeaddress: probably modified after being freed"
       auto const xyzZ_PAW = view2D<double>(xyzZ.data(), xyzZ.stride()); // duplicate view
       std::vector<int>    numax_PAW(natoms_PAW,  3); // ToDo: match with input from atomic PAW configuration
@@ -241,6 +241,7 @@ namespace sho_hamiltonian {
                           S_iaja[ia][ja](ib,jb) += s;
                           H_iaja[ia][ja](ib,jb) += h;
                       } // jb
+                      
                   } // ib
               } // ia
           } // la

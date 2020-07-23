@@ -212,7 +212,8 @@ namespace sho_overlap {
       shift_polynomial_centers(h0s.data(), H0, n0, sh0);
       shift_polynomial_centers(h1s.data(), H1, n1, sh1);
       multiply(h0xh1.data(), n, h0s.data(), n0, h1s.data(), n1);
-      return integrate(h0xh1.data(), n, sigma, moment) * std::exp(-k0*sh0*sh0 -k1*sh1*sh1);
+      real_t const value = integrate(h0xh1.data(), n, sigma, moment) * std::exp(-k0*sh0*sh0 -k1*sh1*sh1);
+      return value;
   } // overlap_of_two_Hermite_Gauss_functions
 
   template<int ncut, typename real_t>
