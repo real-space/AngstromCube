@@ -28,7 +28,6 @@ OBJ = \
 	finite_difference.o \
 	recorded_warnings.o \
 	potential_generator.o \
-	isolated_atom.o \
 	density_generator.o \
 	chemical_symbol.o \
 	sigma_config.o \
