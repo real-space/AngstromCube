@@ -126,7 +126,7 @@
           module_test("element_config.",           element_config::all_tests);
           module_test("vector_layout.",             vector_layout::all_tests);
           module_test("sho_potential.",             sho_potential::all_tests);
-          module_test("isolated_atom.",             isolated_atom::all_tests);
+//           module_test("isolated_atom.",             isolated_atom::all_tests);
           module_test("angular_grid.",               angular_grid::all_tests);
           module_test("inline_tools.",               inline_tools::all_tests);
 //           module_test("pseudo_tools.",               pseudo_tools::all_tests);
