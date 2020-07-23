@@ -54,18 +54,21 @@ namespace sho_potential {
             for  (int jy = 0; jy <= numax_j - jz; ++jy) {
               for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
 
+                  double tmp = 0;
                   int kzyx{0}; // contraction index
                   for    (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(2,jz,kz);
                     for  (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(1,jy,ky) * tz;
                       for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl1D(0,jx,kx) * tyz;
 
-                          Vmat(izyx,jzyx) += Vaux(izyx,kzyx) * txyz;
+                          tmp += Vaux(izyx,kzyx) * txyz;
 
                           ++kzyx;
                       } // kx
                     } // ky
                   } // kz
                   assert( sho_tools::nSHO(numax_k) == kzyx );
+
+                  Vmat(izyx,jzyx) = tmp;
                   
                   ++jzyx;
               } // jx
@@ -361,8 +364,8 @@ namespace sho_potential {
                   view4D<double> t(3, sho_tools::n1HO(numax_V), nucut_i, nucut_j, 0.0);
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ia][d] - center[ja][d];
-                      stat += sho_overlap::moment_tensor(t[d].data(), distance, nucut_j, nucut_i, 
-                                                                     sigmas[ja], sigmas[ia], numax_V);
+                      stat += sho_overlap::moment_tensor(t[d].data(), distance, nucut_i, nucut_j, 
+                                                                     sigmas[ia], sigmas[ja], numax_V);
                   } // d
 
                   std::vector<double> Vcoeff(sho_tools::nSHO(numax_V), 0.0);
@@ -474,7 +477,7 @@ namespace sho_potential {
               int const nucut_k = sho_tools::n1HO(numax_k);
               view4D<double> t(1, 1+numax_V, nucut_i, nucut_k, 0.0);
               double constexpr distance = 0.0;
-              stat += sho_overlap::moment_tensor(t[0].data(), distance, nucut_k, nucut_i,
+              stat += sho_overlap::moment_tensor(t[0].data(), distance, nucut_i, nucut_k,
                                                  sigmas[ia], sigmas[ia], numax_V);
 
               // Vaux(i,k) = sum_p Vcoeff[m] * t(m,i,k)
@@ -505,7 +508,7 @@ namespace sho_potential {
                   view3D<double> ovl(3, nucut_j, nucut_k); // get memory, index order (dir,j,k)
                   for(int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
-                      sho_overlap::overlap_matrix(ovl[d].data(), distance, nucut_k, nucut_j, sigmas[ia], sigmas[ja]);
+                      sho_overlap::overlap_matrix(ovl[d].data(), distance, nucut_j, nucut_k, sigmas[ja], sigmas[ia]);
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);

@@ -353,8 +353,8 @@ namespace sho_overlap {
   template<typename real_t>
   status_t product_tensor(real_t tensor[], int const ncut // data layout [2*ncut-1][ncut][ncut]
                     , double const sigma     // =2: typical for density tensor
-                    , double const sigma0    // =1
-                    , double const sigma1) { // =1
+                    , double const sigma1    // =1
+                    , double const sigma0) { // =1
     status_t stat(0);
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
@@ -368,32 +368,32 @@ namespace sho_overlap {
     prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
     prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
     view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
-    for(int n = 0; n < ncut; ++n) {
-        for(int m = 0; m < ncut; ++m) {
+    for(int i = 0; i < ncut; ++i) {
+        for(int j = 0; j < ncut; ++j) {
             std::vector<double> HH(2*ncut);
-            stat += multiply(HH.data(), 2*ncut, H0[n], ncut, H1[m], ncut);
+            stat += multiply(HH.data(), 2*ncut, H1[i], ncut, H0[j], ncut);
             for(int p = 0; p < 2*ncut - 1; ++p) {
                 real_t tensor_value = 0;
-                if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                if (0 == (p + i + j) % 2) { // odd contributions are zero by symmetry
                     std::vector<double> HHHp(4*ncut);
                     stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
                     auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
                     // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
                     tensor_value = P_pnm;
                 } // even?
-                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
+                if (tensor) t3(p,i,j) = tensor_value; // store only if output array pointer is non-zero
             } // p
-        } // m
-    } // n
+        } // j
+    } // i
     return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // product_tensor
 
   template<typename real_t>
   status_t moment_tensor(real_t tensor[], // data layout [1 + max(0, maxmoment)][n1][n0]
                      double const distance,
-                     int const n0, int const n1, 
-                     double const sigma0,   // =1
+                     int const n1, int const n0, 
                      double const sigma1,   // =1
+                     double const sigma0,   // =1
                      int const maxmoment) { // default=0 (overlap matrix)
     double const sigma0inv = 1./sigma0, sigma1inv = 1./sigma1;
     view2D<double> H0(n0, n0), H1(n1, n1); // polynomial coefficients
@@ -464,12 +464,12 @@ namespace sho_overlap {
 
 
   template // explicit template instantiation
-  status_t moment_tensor(double tensor[], double const distance, int const n0, int const n1,
-                         double const sigma0, double const sigma1, int const maxmoment);
+  status_t moment_tensor(double tensor[], double const distance, int const n1, int const n0,
+                         double const sigma1, double const sigma0, int const maxmoment);
 
   template // explicit template instantiation
   status_t product_tensor(double tensor[], int const n, double const sigma,
-                                   double const sigma0, double const sigma1);
+                                   double const sigma1, double const sigma0);
 
 
 
