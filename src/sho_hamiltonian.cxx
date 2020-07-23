@@ -140,21 +140,17 @@ namespace sho_hamiltonian {
               // construct the overlap matrix of SHO basis functions 
               double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
               // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
-              stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, // input (dir,m,j,i) // ToDo: turn indices!!
-                           ones, 0, numaxs[ia], numaxs[ja]);
+              stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja]);
 
               // construct the kinetic energy contribution
               double const kinetic[1] = {0.5}; // prefactor of kinetic energy in Hartree atomic units
-              stat += sho_potential::potential_matrix(H_iaja[ia][ja], nabla2, // input (dir,m,j,i) // ToDo: turn indices!!
-                           kinetic, 0, numaxs[ia], numaxs[ja]);
+              stat += sho_potential::potential_matrix(H_iaja[ia][ja], nabla2, kinetic, 0, numaxs[ia], numaxs[ja]);
               
               // add the contribution of the local potential
-              double Vcoeff[1] = {0.0}; // prelim, ToDo: fill with real values from expansion
+              double const Vcoeff[1] = {0.0}; // prelim, ToDo: fill with real values from expansion
               int const numax_V = 0; // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
-              stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, // input (dir,m,j,i) // ToDo: turn indices!!
-                           Vcoeff, numax_V, numaxs[ia], numaxs[ja]);
-              
-              
+              stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeff, numax_V, numaxs[ia], numaxs[ja]);
+
           } // ja
       } // ia
 

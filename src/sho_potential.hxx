@@ -12,8 +12,8 @@
 namespace sho_potential {
 
   template<typename real_t>
-  status_t potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,j,i) 
-                            , view4D<real_t> const & t1D // input t1D(dir,m,j,i)
+  status_t potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
+                            , view4D<real_t> const & t1D // input t1D(dir,m,i,j)
                             , real_t const Vcoeff[], int const numax_m // expansion of the potential in x^{mx}*y^{my}*z^{mz}
                             , int const numax_i, int const numax_j
                             , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
@@ -33,9 +33,9 @@ namespace sho_potential {
                 for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
                   int jzyx{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t1D(dir01*2,mz,jz,iz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t1D(dir01*1,my,jy,iy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t1D(      0,mx,jx,ix) * tyz;
+                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t1D(dir01*2,mz,iz,jz);
+                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t1D(dir01*1,my,iy,jy) * tz;
+                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t1D(      0,mx,ix,jx) * tyz;
 
                         Vmat(izyx,jzyx) += Vcoeff_m * txyz;
 
