@@ -34,6 +34,7 @@
 #include "davidson_solver.hxx" // ::all_tests
 #include "chemical_symbol.hxx" // ::all_tests
 #include "linear_operator.hxx" // ::all_tests
+#include "sho_hamiltonian.hxx" // ::all_tests
 #include "fourier_poisson.hxx" // ::all_tests
 #include "solid_harmonics.hxx" // ::all_tests
 #include "sho_projection.hxx" // ::all_tests
@@ -115,6 +116,7 @@
           module_test("davidson_solver.",         davidson_solver::all_tests);
           module_test("chemical_symbol.",         chemical_symbol::all_tests);
           module_test("linear_operator.",         linear_operator::all_tests);
+          module_test("sho_hamiltonian.",         sho_hamiltonian::all_tests);
           module_test("fourier_poisson.",         fourier_poisson::all_tests);
           module_test("solid_harmonics.",         solid_harmonics::all_tests);
           module_test("sho_projection.",           sho_projection::all_tests);
@@ -265,8 +267,6 @@
       if (echo > 0) printf("\n# verbosity = %d\n", echo);
       stat += unit_system::set_output_units(control::get("output.energy.unit", "Ha"),
                                             control::get("output.length.unit", "Bohr"));
-//       stat += unit_system::set_input_units (control::get( "input.energy.unit", "Ha"),
-//                                             control::get( "input.length.unit", "Bohr"));
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);

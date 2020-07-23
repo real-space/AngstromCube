@@ -572,7 +572,7 @@ namespace sho_overlap {
         derive_Hermite_Gauss_polynomials(d2H0[n], dH0[n], ncut, 1/sigma0);
         derive_Hermite_Gauss_polynomials(d2H1[n], dH1[n], ncut, 1/sigma1);
     } // n
-    double maxdev1 = 0, maxdev2 = 0, maxdev3 = 0;
+    double maxdev1{0}, maxdev2{0}, maxdev3{0};
     if (echo > 4) printf("# %s  distance overlaps\n", __func__);
     for(auto dist = 0.0; dist < 11; dist += .01) {
         if (echo > 4) printf("%.3f", dist);
@@ -759,12 +759,12 @@ namespace sho_overlap {
 
         if (!Ref && norm(pos) < dmax*dmax) {
             if (echo > 9) printf("%f %f %f\n", pos[0],pos[1],pos[2]);
-            int in = 0;
+            int in{0};
             for(int n2 = 0; n2 <= numax; ++n2) {
             for(int n1 = 0; n1 <= numax - n2; ++n1) {
             for(int n0 = 0; n0 <= numax - n2 - n1; ++n0) {
                 int const nv[] = {n0, n1, n2};
-                int im = 0;
+                int im{0};
                 for(int m2 = 0; m2 <= numax; ++m2) {
                 for(int m1 = 0; m1 <= numax - m2; ++m1) {
                 for(int m0 = 0; m0 <= numax - m2 - m1; ++m0) {

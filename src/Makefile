@@ -37,6 +37,7 @@ OBJ = \
 	single_atom.o \
 	sho_overlap.o \
 	sho_potential.o \
+	sho_hamiltonian.o \
 	sho_projection.o \
 	sho_radial.o \
 	sho_tools.o \

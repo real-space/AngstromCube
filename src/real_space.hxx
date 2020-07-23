@@ -84,8 +84,10 @@ namespace real_space {
       inline int const * boundary_conditions() const { return bc; }
       inline bool all_boundary_conditions(int const bc_ref=Periodic_Boundary) const { 
                     return (bc_ref == bc[0]) && (bc_ref == bc[1]) && (bc_ref == bc[2]); };
+//    inline bool any_boundary_conditions(int const bc_ref=Periodic_Boundary) const { 
+//                  return (bc_ref == bc[0]) || (bc_ref == bc[1]) || (bc_ref == bc[2]); };
   }; // class grid_t
-  
+
   
   
   template<typename real_t> // inner dimension

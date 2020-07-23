@@ -5,18 +5,17 @@
 #include <complex> // std::complex<real_t>
 #include <utility> // std::pair<T1,T2>, std::make_pair
 #include <vector> // std::vector<T>
-#include <array> // std::array<T,n>
+// #include <array> // std::array<T,n>
 #include <cassert> // assert
 
 #include "sho_potential.hxx"
 
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "control.hxx" // ::get
-#include "display_units.h" // eV, _eV, Ang, _Ang // ToDo
+#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project, ::sho_add
-        // ::renormalize_coefficients
 #include "boundary_condition.hxx" // Isolated_Boundary
 #include "sho_overlap.hxx" // ::generate_product_tensor, ...
         // ::generate_overlap_matrix, ::generate_potential_tensor
@@ -129,11 +128,9 @@ namespace sho_potential {
   } // multiply_potential_matrix
 
 
-//   status_t normalize_coefficients(double coeff[], int const numax, double const sigma) {
-//       return sho_projection::renormalize_coefficients(coeff, coeff, numax, sigma);
-//   } // normalize_coefficients
 
   status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0) {
+      // from SHO projection coefficients we find the coefficients for a representation in moments x^{m_x} y^{m_y} z^{m_z}
       status_t stat = 0;
       int const nc = sho_tools::nSHO(numax);
       int const m = sho_tools::n1HO(numax);
@@ -180,7 +177,7 @@ namespace sho_potential {
 
       view2D<char> zyx_label;
       if (echo > 4) {
-          printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang, _Ang);
+          printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang,_Ang);
           zyx_label = view2D<char>(nc, 8);
           sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
       } // echo
@@ -204,7 +201,7 @@ namespace sho_potential {
               } // mzyx
               dev = std::max(dev, std::abs(cc - coeff[kzyx]));
           } // kzyx
-          if (echo > 4) printf("# %s debug_check dev %.1e\n", __func__, dev);
+          if (echo > 4) printf("# %s debug_check dev %.1e a.u.\n", __func__, dev);
       } // debug check
 
       if (echo > 4) printf("# %s\n\n", __func__);
@@ -222,53 +219,28 @@ namespace sho_potential {
       return stat;
   } // normalize_potential_coefficients
   
-  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  status_t test_potential_elements(int const echo=5) {
-      status_t stat = 0;
+  status_t test_local_potential_elements(int const echo=5) {
+      status_t stat(0);
       
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat was written by spherical_atoms.
+      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
-      if (1) { // scope: read in the potential from a file
-          std::ifstream infile(vtotfile);
-          int npt = 0; 
-          if (!infile.is_open()) {
-              if (echo > 1) printf("# %s failed to open file %s\n",  __func__, vtotfile);
-              return 1; // failure
-          }
-          for(int d = 2; d >= 0; --d) {
-              char sep;
-              infile >> sep >> dims[d];
-              if (echo > 3) printf("# found dim %c with %i grid points\n", 120+d, dims[d]);
-          } // d
-          size_t const all = dims[0]*dims[1]*dims[2];
-          vtot.reserve(all);
-          size_t idx;
-          double val;
-          while (infile >> idx >> val) {
-              assert(idx < all);
-              ++npt;
-              vtot.push_back(val);
-          } // while
-          if (echo > 3) printf("# %s use %i values from file %s\n", __func__, npt, vtotfile);
-      } // scope
-      
+      stat += load_local_potential(vtot, dims, vtotfile, echo);
+
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
       double *xyzZ = nullptr;
       int natoms{0};
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
-      {
+      { // scope: read atomic positions
           stat += geometry_analysis::read_xyz_file(&xyzZ, &natoms, geo_file, cell, bc, 0);
           if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
-      }
-      
-      
+      } // scope
       
 //    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
 
@@ -313,7 +285,7 @@ namespace sho_potential {
 
       auto const usual_numax = int(control::get("sho_potential.test.numax", 1.));
       auto const usual_sigma =     control::get("sho_potential.test.sigma", 2.);
-      std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis size
+      std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       double const sigma_asymmetry = control::get("sho_potential.test.sigma.asymmetry", 1.0);
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
@@ -325,7 +297,7 @@ namespace sho_potential {
                 sigmas[ia]*Ang, _Ang, numaxs[ia]);
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
-     
+
       std::vector<view2D<char>> labels(16);
       for(int nu = 0; nu < 16; ++nu) {
           labels[nu] = view2D<char>(sho_tools::nSHO(nu), 8);
@@ -585,9 +557,9 @@ namespace sho_potential {
                       sho_overlap::generate_overlap_matrix(ovl[d].data(), distance, nucut_k, nucut_j, sigmas[ia], sigmas[ja]);
 #ifdef DEVEL
                       if (echo > 19) {
-                          printf("\n# ovl for the %c-direction:\n", 'x' + d);
+                          printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
                           for(int j = 0; j < nucut_j; ++j) {
-                              printf("# ovl n%c=%x  ", 'x' + d, j);
+                              printf("# ovl j%c=%x  ", 'x' + d, j);
                               for(int k = 0; k < nucut_k; ++k) {
                                   printf("%8.4f", ovl(d,j,k));
                               } // k
@@ -605,7 +577,7 @@ namespace sho_potential {
                   // Vmat_iaja(i,j) = sum_k Vaux(i,k) * ovl(j,k)
                   stat += multiply_potential_matrix(Vmat_iaja, ovl, Vaux, numaxs[ia], numaxs[ja], numax_k);
 
-                  { // extra: create overlap matrix
+                  { // scope: create overlap matrix
                       std::vector<sho_tools::SHO_index_t> idx(nbi), jdx(nbj);
                       stat += sho_tools::construct_index_table<sho_tools::order_zyx>(idx.data(), numaxs[ia], echo);
                       stat += sho_tools::construct_index_table<sho_tools::order_zyx>(jdx.data(), numaxs[ja], echo);
@@ -615,7 +587,7 @@ namespace sho_potential {
                               Vmat(ia,ja,ib,jb) = Vmat_iaja(ib,jb);
                           } // jb
                       } // ib
-                  } // echo extra
+                  } // scope
 
               } // ja
           } // ia
@@ -696,13 +668,14 @@ namespace sho_potential {
       } // echo
       
       
+      if (nullptr != center) delete[] center;
       if (nullptr != xyzZ) delete[] xyzZ;
       return stat;
-  } // test_potential_elements
+  } // test_local_potential_elements
 
   status_t all_tests(int const echo) {
     status_t status(0);
-    status += test_potential_elements(echo); // expensive
+    status += test_local_potential_elements(echo); // expensive
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
