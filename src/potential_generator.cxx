@@ -359,13 +359,14 @@ namespace potential_generator {
           atom_mat = data_list<double>(na, num[3], 0.0);
       } // scope
 
-      // the r^2-grid is used to bring radial quantities to a Cartesian grid
+      // the r^2-grids are used to bring radial quantities to a Cartesian grid
       std::vector<int32_t> nr2(na, 1 << 12); // 4096
       std::vector<float>   ar2(na, 16.f); // with nr2 == 4096 rcut = 15.998 Bohr
       data_list<double> atom_vbar(nr2, 0.0); // zero potentials
       data_list<double> atom_rhoc(nr2, 0.0); // core_densities
 
-      sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
+      int constexpr numax_unitary = 9;
+      sho_unitary::Unitary_SHO_Transform<double> const unitary(numax_unitary);
 
       std::vector<double>  rho(g.all()); // [augmented] charge density
       std::vector<double>  Vxc(g.all()); // exchange-correlation potential
@@ -376,7 +377,7 @@ namespace potential_generator {
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
 
-      // prepare for solving the Kohn-Sham equation
+      // prepare for solving the Kohn-Sham equation on the real-space grid
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
@@ -410,10 +411,10 @@ namespace potential_generator {
                   ncoeff_squared[ia] = pow2(ncoeff);
               } // ia
 
-              int const nkpoints = 1;
+              int const nkpoints = 1; // ToDo
               int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // s- and p-states
               int const nbands = nbands_per_atom*na;
-              view3D<double> psi(nkpoints, nbands, gc.all()); // Kohn-Sham states in double precision real
+              view3D<double> psi(nkpoints, nbands, gc.all()); // Kohn-Sham states in real-space grid representation
               { // scope: generate start waves from atomic orbitals
                   float const scale_sigmas = control::get("start.waves.scale.sigma", 5.); // how much more spread in the start waves compared to sigma_prj
                   uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz

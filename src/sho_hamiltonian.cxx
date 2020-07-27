@@ -214,8 +214,7 @@ namespace sho_hamiltonian {
       //
       
       typedef double psi_t; // can also be std::complex<double>
-      view3D<psi_t> SHW(3, nB, nBa, psi_t(0)); // get memory for Overlap, Hamiltonian and Work array
-
+      view3D<psi_t> SHm(2, nB, nBa, psi_t(0)); // get memory for Overlap S and Hamiltonian matrix H
 
       //
       // now construct the Hamiltonian:
@@ -239,8 +238,8 @@ namespace sho_hamiltonian {
           H_iaja[ia].resize(natoms);
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           for(int ja = 0; ja < natoms; ++ja) {
-              S_iaja[ia][ja] = view2D<psi_t>(&(SHW(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<psi_t>(&(SHW(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
+              S_iaja[ia][ja] = view2D<psi_t>(&(SHm(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
+              H_iaja[ia][ja] = view2D<psi_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
               int const n1j   = sho_tools::n1HO(numaxs[ja]);
 #if 0
               int const nb_ja = sho_tools::nSHO(numaxs[ja]);
@@ -280,8 +279,8 @@ namespace sho_hamiltonian {
       Vcoeffs.clear(); // free memory for potential coefficients
 
 
-      std::vector<std::vector<view2D<double>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
-      std::vector<std::vector<view3D<double>>> Psh_iala(natoms); // potentially sparse lists, e.g. compressed row format
+      std::vector<std::vector<view2D<psi_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
+      std::vector<std::vector<view3D<psi_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
       for(int ia = 0; ia < natoms; ++ia) {
           P_iaka[ia].resize(natoms_PAW);
           Psh_iala[ia].resize(natoms_PAW);
@@ -290,7 +289,7 @@ namespace sho_hamiltonian {
           for(int ka = 0; ka < natoms_PAW; ++ka) {
               int const nb_ka = sho_tools::nSHO(numax_PAW[ka]);
               int const n1k   = sho_tools::n1HO(numax_PAW[ka]);
-              P_iaka[ia][ka] = view2D<double>(nb_ia, nb_ka, 0.0); // get memory and initialize
+              P_iaka[ia][ka] = view2D<psi_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
 
               view4D<double> ovl1D(3, 1, n1i, n1k, 0.0);  //  <\chi1D_i|\chi1D_k>
               for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
@@ -300,14 +299,14 @@ namespace sho_hamiltonian {
 
               // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
               stat += sho_potential::potential_matrix(P_iaka[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka]);
-              
+
               // multiply P from left to SH_PAW (block diagonal --> ka == la)
               auto const la = ka;
               int const nb_la = nb_ka;
-              Psh_iala[ia][la] = view3D<double>(2, nb_ia, nb_la, 0.0); // get memory and initialize
+              Psh_iala[ia][la] = view3D<psi_t>(2, nb_ia, nb_la, 0.0); // get memory and initialize
               for(int ib = 0; ib < nb_ia; ++ib) {
                   for(int lb = 0; lb < nb_la; ++lb) {
-                      double s{0}, h{0};
+                      psi_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
                           s += P_iaka[ia][ka](ib,kb) * SH_PAW[ka](0,kb,lb);
                           h += P_iaka[ia][ka](ib,kb) * SH_PAW[ka](1,kb,lb);
@@ -349,11 +348,11 @@ namespace sho_hamiltonian {
       } // ja
 
       
-      auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
       std::vector<double> eigvals(nB, 0.0);
+      auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
       
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) {
-          if (echo > 0) printf("\n\n");
+          if (echo > 0) printf("\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
           auto const  u = s0h1 ?  eV :  1; // output unit conversion factor 
           auto const _u = s0h1 ? _eV : ""; // unit symbol
@@ -363,7 +362,7 @@ namespace sho_hamiltonian {
               for(int iB = 0; iB < nB; ++iB) {
                   printf("# row%3i ", iB);
                   for(int jB = 0; jB < nB; ++jB) {
-                      printf("%8.3f", SHW(s0h1,iB,jB)*u);
+                      printf("%8.3f", SHm(s0h1,iB,jB)*u);
                   } // jB
                   printf("\n");
               } // iB
@@ -372,10 +371,11 @@ namespace sho_hamiltonian {
 
           status_t stat_eig(0);
           if ((0 == s0h1) && ovl_eig) {
-              set(SHW(2,0), nB*nBa, SHW(0,0)); // copy overlap matrix S into work array W
-              stat_eig = linear_algebra::eigenvalues(nB, SHW(2,0), nBa, eigvals.data());
+              view2D<psi_t> S_copy(nB, nBa); // get memory
+              set(S_copy.data(), nB*nBa, SHm(0,0)); // copy overlap matrix S into work array W
+              stat_eig = linear_algebra::eigenvalues(nB, S_copy.data(), nBa, eigvals.data());
           } else {
-              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHW(1,0), nBa, SHW(0,0), nBa, eigvals.data());
+              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(1,0), nBa, SHm(0,0), nBa, eigvals.data());
           } // ovl_eig
 
           if ((1 == s0h1) || ovl_eig) {
@@ -397,6 +397,18 @@ namespace sho_hamiltonian {
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
                   if (s0h1 == 0 && lowest_eigenvalue < .1) warn("overlap matrix has small eigenvalues, lowest= %g", lowest_eigenvalue);
               } // stat_eig
+          } // ovl_eig
+
+          if (1 == s0h1) {
+              if (0 == stat_eig) {
+                  // ToDo: export the entire spectrum and the lowest n_occupied_bands eigenvectors
+                  //       for this k-point to be later used for the density generation.
+                  //       n_occupied_bands should be chosen large so that also the tail 
+                  //       of the Fermi-Dirac distribution is captured. We can check that
+                  //       by ensuring that the occupation numbers of the next higher state
+                  //          f_FD(eigvals[n_occupied_bands] - E_Fermi) < 10^{-15}
+                  //       are small.
+              } // success
           } // ovl_eig
 
       } // s0h1
