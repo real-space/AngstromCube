@@ -42,7 +42,7 @@ namespace sho_hamiltonian {
   
   template<typename real_t>
   status_t kinetic_matrix(view2D<real_t> & Tmat // result Tmat(i,j) = 
-                       , view4D<double> const & t1D // input t1D(dir,0,i,j) nabla^2 operator
+                       , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator
                        , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator
                        , int const numax_i, int const numax_j
                        , double const f=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
@@ -53,9 +53,9 @@ namespace sho_hamiltonian {
           for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
             int jzyx{0};
-            for    (int jz = 0; jz <= numax_j;           ++jz) { auto const Tz = t1D(2,0,iz,jz), oz = o1D(2,0,iz,jz);
-              for  (int jy = 0; jy <= numax_j - jz;      ++jy) { auto const Ty = t1D(1,0,iy,jy), oy = o1D(1,0,iy,jy);
-                for(int jx = 0; jx <= numax_j - jz - jy; ++jx) { auto const Tx = t1D(0,0,ix,jx), ox = o1D(0,0,ix,jx);
+            for    (int jz = 0; jz <= numax_j;           ++jz) { auto const Tz = t1D(2,iz,jz), oz = o1D(2,0,iz,jz);
+              for  (int jy = 0; jy <= numax_j - jz;      ++jy) { auto const Ty = t1D(1,iy,jy), oy = o1D(1,0,iy,jy);
+                for(int jx = 0; jx <= numax_j - jz - jy; ++jx) { auto const Tx = t1D(0,ix,jx), ox = o1D(0,0,ix,jx);
 
                   Tmat(izyx,jzyx) = f * ( Tx*oy*oz + ox*Ty*oz + ox*oy*Tz );
 
@@ -80,7 +80,7 @@ namespace sho_hamiltonian {
 #else // NO_UNIT_TESTS
 
   status_t test_Hamiltonian(int const echo=5) {
-      status_t stat = 0;
+      status_t stat(0);
       
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
@@ -119,13 +119,14 @@ namespace sho_hamiltonian {
 //       ++numaxs[0]; // manipulate to test variable block sizes
       
       
-      int const ncenters = pow2(natoms); // in principle, we only need a unique set of centers, even without periodic images, only ((natoms + 1)*natoms)/2
+      int ncenters = pow2(natoms); // in principle, we only need a unique set of centers, even without periodic images, only ((natoms + 1)*natoms)/2
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
       view3D<int> center_map(natoms, natoms, 2, -1);
       { // scope: set up list of centers
           int ic{0};
           for(int ia = 0; ia < natoms; ++ia) {
-              for(int ja = 0; ja < natoms; ++ja) {
+              for(int ja = ia; ja < natoms; ++ja) { // triangular
+                  assert(ja >= ia);
                   double const alpha_i = 1/pow2(sigmas[ia]);
                   double const alpha_j = 1/pow2(sigmas[ja]);
                   double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
@@ -149,11 +150,13 @@ namespace sho_hamiltonian {
                   
                   center_map(ia,ja,0) = ic;
                   center_map(ia,ja,1) = numax_V;
+                  center_map(ja,ia,0) = ic;
+                  center_map(ja,ia,1) = numax_V;
 
                   ++ic;
               } // ja
           } // ia
-          assert( ncenters == ic );
+          ncenters = ic; // less that initially allocated
       } // scope: set up list of centers
 
       // perform the projection of the local potential
@@ -172,6 +175,21 @@ namespace sho_hamiltonian {
       } // ic
       
 
+      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ja jb}>
+      int const natoms_PAW = natoms; // keep it flexible
+      auto const xyzZ_PAW = view2D<double>(xyzZ.data(), xyzZ.stride()); // duplicate view
+      std::vector<int>    numax_PAW(natoms_PAW,  3); // ToDo: match with input from atomic PAW configuration
+      std::vector<double> sigma_PAW(natoms_PAW, .5); // ToDo: match with input from atomic PAW configuration
+      std::vector<view3D<double>> SH_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
+      for(int ka = 0; ka < natoms_PAW; ++ka) {
+          int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
+          SH_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize
+          // ToDo: get atomic charge-deficit matrix into SH_PAW[ka][0]
+          // ToDo: get atomic Hamiltonian    matrix into SH_PAW[ka][1]
+          // ToDo: for both matrices: normalization w.r.t. L2-normalized SHO projector functions is important
+      } // ka
+
+      
       std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
       int total_basis_size{0}, maximum_numax{-1};
       for(int ia = 0; ia < natoms; ++ia) {
@@ -189,6 +207,11 @@ namespace sho_hamiltonian {
       offset[natoms] = total_basis_size;
       int const nB   = total_basis_size;
       int const nBa  = align<4>(nB); // memory aligned main matrix stride
+      
+
+      //
+      // From this point on, k-point dependency should be regarded
+      //
       
       typedef double psi_t; // can also be std::complex<double>
       view3D<psi_t> SHW(3, nB, nBa, psi_t(0)); // get memory for Overlap, Hamiltonian and Work array
@@ -234,7 +257,7 @@ namespace sho_hamiltonian {
               int const numax_V = center_map(ia,ja,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
               int const maxmoment = std::max(0, numax_V);
 
-              view4D<double> nabla2(3, 1, n1i + 1, n1j + 1, 0.0);      //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
+              view3D<double> nabla2(3, n1i + 1, n1j + 1, 0.0);         //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
               view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
               for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
                   double const distance = xyzZ(ia,d) - xyzZ(ja,d); // does not account for periodic images, ToDo
@@ -256,19 +279,6 @@ namespace sho_hamiltonian {
       } // ia
       Vcoeffs.clear(); // free memory for potential coefficients
 
-      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ja jb}>
-      int const natoms_PAW = natoms; // keep it flexible, ToDo: if we turn it on, sometimes there is an exception:
-      // "Incorrect checksum for freed object 0xsomeaddress: probably modified after being freed"
-      auto const xyzZ_PAW = view2D<double>(xyzZ.data(), xyzZ.stride()); // duplicate view
-      std::vector<int>    numax_PAW(natoms_PAW,  3); // ToDo: match with input from atomic PAW configuration
-      std::vector<double> sigma_PAW(natoms_PAW, .5); // ToDo: match with input from atomic PAW configuration
-      std::vector<view3D<double>> SH_PAW(natoms_PAW);
-      for(int ka = 0; ka < natoms_PAW; ++ka) {
-          int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
-          SH_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize
-          // ToDo: get atomic charge-deficit matrix into SH_PAW[ka][0]
-          // ToDo: get atomic Hamiltonian    matrix into SH_PAW[ka][1]
-      } // ka
 
       std::vector<std::vector<view2D<double>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
       std::vector<std::vector<view3D<double>>> Psh_iala(natoms); // potentially sparse lists, e.g. compressed row format
@@ -288,10 +298,8 @@ namespace sho_hamiltonian {
                   stat += sho_overlap::overlap_matrix(ovl1D(d,0,0), distance, n1i, n1k, sigmas[ia], sigma_PAW[ka]);
               } // d
 
-              double const ones[1] = {1.0}; // expansion of the identity
-              // P(ia,ka,i,j) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
+              // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
               stat += sho_potential::potential_matrix(P_iaka[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka]);
-
               
               // multiply P from left to SH_PAW (block diagonal --> ka == la)
               auto const la = ka;
@@ -347,8 +355,9 @@ namespace sho_hamiltonian {
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) {
           if (echo > 0) printf("\n\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
-          auto const  u = s0h1 ?  eV :  1 ;
-          auto const _u = s0h1 ? _eV : "";
+          auto const  u = s0h1 ?  eV :  1; // output unit conversion factor 
+          auto const _u = s0h1 ? _eV : ""; // unit symbol
+
           if (echo > 9 - s0h1) { // display S and H
               printf("\n# %s matrix (%s):\n", matrix_name, _u);
               for(int iB = 0; iB < nB; ++iB) {

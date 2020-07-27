@@ -10,7 +10,7 @@ for asy in 1 1.1; do
 (cd ../src/ && make -j) && \
   $exe +verbosity=8 \
     -test sho_hamiltonian. \
-    +sho_hamiltonian.test.numax=1 \
+    +sho_hamiltonian.test.numax=3 \
     +sho_hamiltonian.test.sigma=1.5 \
     +sho_hamiltonian.test.sigma.asymmetry=$asy \
     +sho_hamiltonian.scale.kinetic=1 \
