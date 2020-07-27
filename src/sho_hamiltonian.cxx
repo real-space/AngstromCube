@@ -40,6 +40,40 @@ namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between to SHO basis functions
   // including a PAW non-local contribution
   
+  template<typename real_t>
+  status_t kinetic_matrix(view2D<real_t> & Tmat // result Tmat(i,j) = 
+                       , view4D<double> const & t1D // input t1D(dir,0,i,j) nabla^2 operator
+                       , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator
+                       , int const numax_i, int const numax_j
+                       , double const f=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
+
+      int izyx{0};
+      for    (int iz = 0; iz <= numax_i;           ++iz) {
+        for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
+          for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
+
+            int jzyx{0};
+            for    (int jz = 0; jz <= numax_j;           ++jz) { auto const Tz = t1D(2,0,iz,jz), oz = o1D(2,0,iz,jz);
+              for  (int jy = 0; jy <= numax_j - jz;      ++jy) { auto const Ty = t1D(1,0,iy,jy), oy = o1D(1,0,iy,jy);
+                for(int jx = 0; jx <= numax_j - jz - jy; ++jx) { auto const Tx = t1D(0,0,ix,jx), ox = o1D(0,0,ix,jx);
+
+                  Tmat(izyx,jzyx) = f * ( Tx*oy*oz + ox*Ty*oz + ox*oy*Tz );
+
+                  ++jzyx;
+                } // jx
+              } // jy
+            } // jz
+            assert( sho_tools::nSHO(numax_j) == jzyx );
+
+            ++izyx;
+          } // ix
+        } // iy
+      } // iz
+      assert( sho_tools::nSHO(numax_i) == izyx );
+
+      return 0;
+  } // kinetic_matrix
+  
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -82,13 +116,12 @@ namespace sho_hamiltonian {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
-      ++numaxs[0]; // manipulate to test variable block sizes
+//       ++numaxs[0]; // manipulate to test variable block sizes
       
       
-      int maximum_moment{-1};
       int const ncenters = pow2(natoms); // in principle, we only need a unique set of centers, even without periodic images, only ((natoms + 1)*natoms)/2
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
-      view2D<int> center_map(natoms, natoms, -1);
+      view3D<int> center_map(natoms, natoms, 2, -1);
       { // scope: set up list of centers
           int ic{0};
           for(int ia = 0; ia < natoms; ++ia) {
@@ -109,22 +142,24 @@ namespace sho_hamiltonian {
                   if (echo > 1) printf("  numax_V= %i sigma_V: %g %s \n", numax_V, sigma_V*Ang, _Ang);
                   center(ic,3) = sigma_V;
                   center(ic,4) = numax_V;
+                  // debug info
                   center(ic,5) = 0;  // ToDo: store also the index of the periodic image, once active
                   center(ic,6) = ia; // ToDo: use global atom indices here
                   center(ic,7) = ja; // ToDo: use global atom indices here
                   
-                  center_map(ia,ja) = ic;
-                  maximum_moment = std::max(maximum_moment, numax_V);
+                  center_map(ia,ja,0) = ic;
+                  center_map(ia,ja,1) = numax_V;
 
                   ++ic;
               } // ja
           } // ia
           assert( ncenters == ic );
       } // scope: set up list of centers
-      int const maxmoment = maximum_moment;
 
       // perform the projection of the local potential
       std::vector<std::vector<double>> Vcoeffs(ncenters);
+      double const scale_potential = control::get("sho_hamiltonian.scale.potential", 1.0);
+      if (1.0 != scale_potential) warn("scale potential by %g", scale_potential);
       for(int ic = 0; ic < ncenters; ++ic) {
           double const sigma_V = center(ic,3);
           int    const numax_V = center(ic,4);
@@ -132,9 +167,9 @@ namespace sho_hamiltonian {
           stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot.data(), g, 0); // 0:mute
           
           stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
-
+          
+          scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
       } // ic
-      
       
 
       std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
@@ -169,6 +204,11 @@ namespace sho_hamiltonian {
       //   -- non-local PAW charge-deficit contributions
       //
       
+      // prefactor of kinetic energy in Hartree atomic units
+      double const kinetic = control::get("sho_hamiltonian.scale.kinetic", 1.0) * 0.5;
+      if (0.5 != kinetic) warn("kinetic energy prefactor is %g", kinetic);
+      double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
+
       std::vector<std::vector<view2D<psi_t>>> S_iaja(natoms); // construct sub-views for each atom pair
       std::vector<std::vector<view2D<psi_t>>> H_iaja(natoms); // construct sub-views for each atom pair
       for(int ia = 0; ia < natoms; ++ia) {
@@ -189,6 +229,11 @@ namespace sho_hamiltonian {
                   } // jb
               } // ib
 #endif
+
+              int const ic = center_map(ia,ja,0); // expansion center index
+              int const numax_V = center_map(ia,ja,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
+              int const maxmoment = std::max(0, numax_V);
+
               view4D<double> nabla2(3, 1, n1i + 1, n1j + 1, 0.0);      //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
               view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
               for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
@@ -198,17 +243,13 @@ namespace sho_hamiltonian {
               } // d
 
               // construct the overlap matrix of SHO basis functions
-              double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
               // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
               stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja]);
 
               // construct the kinetic energy contribution
-              double const kinetic[1] = {0.5}; // prefactor of kinetic energy in Hartree atomic units
-              stat += sho_potential::potential_matrix(H_iaja[ia][ja], nabla2, kinetic, 0, numaxs[ia], numaxs[ja]);
+              stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], kinetic);
 
               // add the contribution of the local potential
-              int const ic = center_map(ia,ja); // expansion center index
-              int const numax_V = int(center(ic,4)); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
               stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja]);
 
           } // ja
@@ -271,6 +312,10 @@ namespace sho_hamiltonian {
           } // ka
       } // ia
 
+      double const scale_h = control::get("sho_hamiltonian.scale.nonlocal.h", 1.0);
+      double const scale_s = control::get("sho_hamiltonian.scale.nonlocal.s", 1.0);
+      if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
+
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P_{jl} = Ph_{il} P_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P_{jl} = Ps_{il} P_{jl}
       for(int ja = 0; ja < natoms; ++ja) {
@@ -286,8 +331,8 @@ namespace sho_hamiltonian {
                               s += Psh_iala[ia][la](0,ib,lb) * P_iaka[ja][la](jb,lb);
                               h += Psh_iala[ia][la](1,ib,lb) * P_iaka[ja][la](jb,lb);
                           } // lb
-                          S_iaja[ia][ja](ib,jb) += s;
-                          H_iaja[ia][ja](ib,jb) += h;
+                          S_iaja[ia][ja](ib,jb) += s * scale_s;
+                          H_iaja[ia][ja](ib,jb) += h * scale_h;
                       } // jb
                       
                   } // ib
@@ -295,20 +340,58 @@ namespace sho_hamiltonian {
           } // la
       } // ja
 
-      if (echo > 7) { // display S and H
-          for(int s0h1 = 0; s0h1 < 2; ++s0h1) {
-              printf("\n# %s matrix:\n", s0h1 ? "Hamiltonian" : "overlap");
+      
+      auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
+      std::vector<double> eigvals(nB, 0.0);
+      
+      for(int s0h1 = 0; s0h1 < 2; ++s0h1) {
+          if (echo > 0) printf("\n\n");
+          auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
+          auto const  u = s0h1 ?  eV :  1 ;
+          auto const _u = s0h1 ? _eV : "";
+          if (echo > 9 - s0h1) { // display S and H
+              printf("\n# %s matrix (%s):\n", matrix_name, _u);
               for(int iB = 0; iB < nB; ++iB) {
                   printf("# row%3i ", iB);
                   for(int jB = 0; jB < nB; ++jB) {
-                      printf("%8.3f", SHW(s0h1,iB,jB));
+                      printf("%8.3f", SHW(s0h1,iB,jB)*u);
                   } // jB
                   printf("\n");
               } // iB
-          } // s0h1
-          printf("\n");
-      } // echo
+              printf("\n");
+          } // echo
 
+          status_t stat_eig(0);
+          if ((0 == s0h1) && ovl_eig) {
+              set(SHW(2,0), nB*nBa, SHW(0,0)); // copy overlap matrix S into work array W
+              stat_eig = linear_algebra::eigenvalues(nB, SHW(2,0), nBa, eigvals.data());
+          } else {
+              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHW(1,0), nBa, SHW(0,0), nBa, eigvals.data());
+          } // ovl_eig
+
+          if ((1 == s0h1) || ovl_eig) {
+              if (stat_eig) {
+                  warn("diagonalizing the %s matrix failed, status= %i", matrix_name, int(stat_eig));
+                  stat += stat_eig;
+              } else if (nB > 0) {
+                  double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];
+                  if (echo > 2) {
+                      printf("# eigenvalues of the %s matrix: ", matrix_name);
+                      int constexpr mB = 8; // show at most the 6 lowest + 2 highest eigenvalues
+                      for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
+                          printf(" %g", eigvals[iB]*u);
+                      } // iB
+                      if (nB > mB) printf(" ..."); // there are more eigenavalues than we display
+                      printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
+                  } // echo
+                  if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix are %g and %g %s, respectively\n", 
+                                            matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
+                  if (s0h1 == 0 && lowest_eigenvalue < .1) warn("overlap matrix has small eigenvalues, lowest= %g", lowest_eigenvalue);
+              } // stat_eig
+          } // ovl_eig
+
+      } // s0h1
+      
       if (nullptr != xyzZ_m) delete[] xyzZ_m;
       return stat;
   } // test_Hamiltonian

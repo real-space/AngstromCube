@@ -19,6 +19,16 @@
     	- can make use of GPUs
     	- does not require more input than the atomic coordinates
 
+**Current Status**
+    Here, we list the features that are planned but have so far not been addressed:
+    - different versions of LDA, GGA, meta-GGA
+    - efficient eigensolver for the full grid Hamiltonian
+    - GPU acceleration
+    - complex wave functions, k-points
+    - periodic images (SHO basis)
+    - total energy
+    - magnetism
+    
 **First tests**
     We should start off by making a branch of juRS that works on Green functions
 
@@ -120,6 +130,6 @@
     and eigenfunctions (eigensolver) is complicated.
     In particular because the PAW setup needs to be constructed differently.
     However, it would be a nice playground for methodologial experiments.
-    The probable most suitable eigensolver in grid representation is ChASE.
+    The probably most suitable eigensolver in grid representation is ChASE.
     In the local orbital method, that could be ELPA (?? or MAGMA for GPUs??)
-    
+
