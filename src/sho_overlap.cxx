@@ -72,14 +72,15 @@ namespace sho_overlap {
 
   
   template<typename real_t>
-  real_t integrate(real_t const p[], int const m, double const sigma=1, int const moment=0) {
-      real_t value{0};
+  double integrate(real_t const p[], int const m, double const sigma=1, int const moment=0) {
+      assert( 0 <= moment );
+      double value{0};
       //            / infty
       // kern_{n} = |   exp(-x^2/sigma^2) x^n dx  only non-zero for even n
       //            /-infty
       // contract the polynomial p[k] x^{k + moment} with kern_{k + moment}
-      real_t kern = constants::sqrtpi * sigma; // init recursive computation
-      for(int d = 0; m > 2*d - moment; ++d) {
+      double kern = constants::sqrtpi * sigma; // init recursive computation
+      for(int d = 0; (2*d - moment) < m; ++d) {
           int const ip = 2*d - moment;
           if (ip >= 0) value += p[ip] * kern;
           kern *= (d + 0.5) * (sigma*sigma);
@@ -155,8 +156,9 @@ namespace sho_overlap {
       for(int k = 0; k < nmax; ++k) { // loop MUST run forward from 0
 
           // evaluate the value of d^k p(x) / d x^k at x=x_shift
-          real_t val = 0;
-          {   real_t xsp{1}; // x_shift^p
+          real_t val{0};
+          {   
+              real_t xsp{1}; // x_shift^p
               for(int p = 0; p < nmax - k; ++p) { // we only need to run up to nmax-k as the degree of the input poly is decreased with every k
                   val += xsp * c_old[p];
                   xsp *= x_shift; // update x_shift^p for the next p-iteration
@@ -199,7 +201,7 @@ namespace sho_overlap {
       auto const denom = 1./(k0 + k1);
       auto const sigma = std::sqrt(denom);
       
-      int const n = n0 + n1;
+      int const n = n0 + n1; // ToDo: check if we can use n0 + n1 - 1 without changing the results
       std::vector<real_t> h0xh1(n); // product of H0s and H1s
 
       if (0 == distance) {

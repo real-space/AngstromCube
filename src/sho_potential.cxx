@@ -83,7 +83,7 @@ namespace sho_potential {
 
 
 
-  status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0) {
+  status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo) {
       // from SHO projection coefficients we find the coefficients for a representation in moments x^{m_x} y^{m_y} z^{m_z}
       status_t stat = 0;
       int const nc = sho_tools::nSHO(numax);

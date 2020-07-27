@@ -11,6 +11,8 @@
 
 namespace sho_potential {
 
+  status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0);
+  
   template<typename real_t>
   status_t potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
                             , view4D<real_t> const & t1D // input t1D(dir,m,i,j)
@@ -59,6 +61,7 @@ namespace sho_potential {
     
       return 0;
   } // potential_matrix
+  
   
   template <typename real_t>
   status_t load_local_potential(std::vector<real_t> & vtot, int dims[3], char const *filename, int const echo=0) {
