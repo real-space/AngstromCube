@@ -482,7 +482,7 @@ namespace sho_potential {
 
               // Vaux(i,k) = sum_p Vcoeff[m] * t(m,i,k)
               int constexpr isotropic = 0;
-              stat += potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, isotropic);
+              stat += potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, 1.0, isotropic);
 #ifdef DEVEL
               if (echo > 17) {
                   printf("\n# Vaux for the atom #%i:\n", ia);

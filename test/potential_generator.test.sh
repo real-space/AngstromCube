@@ -3,7 +3,8 @@
 exe=../src/a43
 
 ### Al-P dimer
-printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p\n" > atoms.xyz
+# printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p\n" > atoms.xyz
+printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p\n" > atoms.xyz
 echo "Al   0 0 -1.05835" >> atoms.xyz
 echo "P    0 0  1.05835" >> atoms.xyz
 
@@ -11,7 +12,8 @@ echo "P    0 0  1.05835" >> atoms.xyz
 $exe +verbosity=7 \
     -test potential_generator. \
         +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
+        +electrostatic.solver=mg \
+        +electrostatic.potential.to.file=v_es.mg.dat \
         +occupied.bands=4 \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
@@ -23,13 +25,16 @@ $exe +verbosity=7 \
         +bands.per.atom=4 \
         +potential_generator.max.scf=1 \
         +basis=sho \
-        +sho_hamiltonian.test.numax=3 \
+        +sho_hamiltonian.test.numax=2 \
         +sho_hamiltonian.test.sigma=1.5 \
         +sho_hamiltonian.test.overlap.eigvals=1 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
+        +sho_hamiltonian.scale.nonlocal.h=1 \
+        +sho_hamiltonian.scale.nonlocal.s=1 \
         > potential_generator.AlP.sho.out
 
 exit
+#         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
 #         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
 #          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
 #         +electrostatic.solver=mg \

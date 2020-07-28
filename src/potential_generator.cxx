@@ -122,7 +122,7 @@ namespace potential_generator {
                 , real_space::grid_t const & g 
                 , int const na, int32_t const nr2[], float const ar2[]
                 , view2D<double> const & center // (natoms, 4)
-                , int const n_periodic_images, view2D<double> const & periodic_images
+                , int const n_periodic_images, view2D<double const> const & periodic_images
                 , double const *const *const atom_qnt
                 , int const echo=0, int const echo_q=0
                 , double const factor=1
@@ -162,7 +162,7 @@ namespace potential_generator {
   status_t Bessel_Poisson_solver(double *const Ves, real_space::grid_t const & g
                             , double const *const rho, double const center[3]
                             , int const echo=0) {
-      if (!g.all_boundary_conditions(Isolated_Boundary)) {
+      if (g.number_of_boundary_conditions(Isolated_Boundary) < 3) {
           warn("Bessel Poisson solver requires 3 isolated boundary conditions");
           return -1;
       } // failed
@@ -293,7 +293,7 @@ namespace potential_generator {
       double *periodic_images_ptr{nullptr};
       int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-      view2D<double> periodic_images(periodic_images_ptr, 4); // wrap
+      view2D<double const> periodic_images(periodic_images_ptr, 4); // wrap
 
       
       std::vector<double> Za(na);        // list of atomic numbers

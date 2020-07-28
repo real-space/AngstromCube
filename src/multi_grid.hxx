@@ -56,16 +56,19 @@ namespace multi_grid {
             real_space::grid_t const & g // coarse grid where the Kohn-Sham equation is typically solved
           , uint32_t *n_coarse
           , int const echo=0) {
-      status_t stat{0};
       for(int d = 0; d < 3; ++d) {
           unsigned const ng = g[d];
           unsigned const k = nearest_binary_power(ng);
           unsigned const nb = 1ull << k;
-          if (echo > 2) printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", 'x'+d, ng, nb, k);
-          assert(nb < ng);
-          if (n_coarse) n_coarse[d] = nb;
+          if (nb < ng) {
+              if (echo > 2) printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", 'x'+d, ng, nb, k);
+              if (n_coarse) n_coarse[d] = nb;
+          } else {
+              // cannot be coarsened further
+              if (n_coarse) n_coarse[d] = ng;
+          }
       } // d
-      return stat;
+      return 0;
   } // analyze_grid_sizes
   
   template <typename real_t, typename real_in_t>
@@ -96,7 +99,7 @@ namespace multi_grid {
           double const ratio = go/double(gi);
           for(int io = 0; io < go; ++io) {
               real_t w8s[4] = {0,0,0,0};
-              int        iis[4];
+              int iis[4];
               int nw8 = 0;
               for(int ii = 0; ii < gi; ++ii) {
                   double const start = std::max((ii - 0)*ratio, double(io - 0));
@@ -199,7 +202,7 @@ namespace multi_grid {
       { // scope: checks
           int bc[3];
           for(char d = 'x'; d  <= 'z'; ++d) {
-              assert(go(d) < gi(d));
+              assert(go(d) <= gi(d));
               bc[d-120] = gi.boundary_condition(d);
               assert(go.boundary_condition(d) == bc[d-120]);
               if (echo > 0) printf("# %s in %c-direction from %d to %d grid points, boundary condition %d\n", 

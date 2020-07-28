@@ -14,7 +14,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project
-#include "boundary_condition.hxx" // Isolated_Boundary
+#include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image
 #include "sho_overlap.hxx" // ::
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues
@@ -41,11 +41,14 @@ namespace sho_hamiltonian {
   // including a PAW non-local contribution
   
   template<typename real_t>
-  status_t kinetic_matrix(view2D<real_t> & Tmat // result Tmat(i,j) = 
+  status_t kinetic_matrix(view2D<real_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
                        , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator
                        , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator
                        , int const numax_i, int const numax_j
-                       , double const f=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
+                       , real_t const phase=1
+                       , double const prefactor=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
+
+      real_t const phase_f = phase * prefactor;
 
       int izyx{0};
       for    (int iz = 0; iz <= numax_i;           ++iz) {
@@ -57,7 +60,7 @@ namespace sho_hamiltonian {
               for  (int jy = 0; jy <= numax_j - jz;      ++jy) { auto const Ty = t1D(1,iy,jy), oy = o1D(1,0,iy,jy);
                 for(int jx = 0; jx <= numax_j - jz - jy; ++jx) { auto const Tx = t1D(0,ix,jx), ox = o1D(0,0,ix,jx);
 
-                  Tmat(izyx,jzyx) = f * ( Tx*oy*oz + ox*Ty*oz + ox*oy*Tz );
+                  Tmat(izyx,jzyx) += phase_f * ( Tx*oy*oz + ox*Ty*oz + ox*oy*Tz );
 
                   ++jzyx;
                 } // jx
@@ -75,11 +78,11 @@ namespace sho_hamiltonian {
   } // kinetic_matrix
 
   
-  status_t solve(int const natoms
+  status_t solve(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4)
           , real_space::grid_t const & g
           , double const *const vtot
-          , int const natoms_prj // =-1
+          , int const natoms_prj // =-1 number of PAW atoms
           , double const *const sigma_prj // =nullptr
           , int    const *const numax_prj // =nullptr
           , double *const *const atom_mat // =nullptr
@@ -99,44 +102,77 @@ namespace sho_hamiltonian {
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
       
       
-      int ncenters = pow2(natoms); // in principle, we only need a unique set of centers, even without periodic images, only ((natoms + 1)*natoms)/2
+      std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
+      int total_basis_size{0}, maximum_numax{-1};
+      double maximum_sigma{0};
+      for(int ia = 0; ia < natoms; ++ia) {
+          if (echo > 0) {
+              printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f  numax= %d sigma= %.3f %s\n",
+                  ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, numaxs[ia], sigmas[ia]*Ang, _Ang);
+          } // echo
+          int const atom_basis_size = sho_tools::nSHO(numaxs[ia]);
+          maximum_numax = std::max(maximum_numax, numaxs[ia]);
+          maximum_sigma = std::max(maximum_sigma, sigmas[ia]);
+          offset[ia] = total_basis_size; // prefix sum
+          total_basis_size += atom_basis_size;
+      } // ia
+      int const numax_max = maximum_numax;
+      if (echo > 5) printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
+      offset[natoms] = total_basis_size;
+      int const nB   = total_basis_size;
+      int const nBa  = align<4>(nB); // memory aligned main matrix stride
+
+
+
+      float const rcut = 9*maximum_sigma; // exp(-9^2) = 6.6e-36
+      double *periodic_image_ptr{nullptr};
+      int8_t *periodic_shift_ptr{nullptr};
+      double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
+      int const n_periodic_images = boundary_condition::periodic_images(&periodic_image_ptr, cell, g.boundary_conditions(), rcut, 0, &periodic_shift_ptr);
+      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+      view2D<double const> periodic_image(periodic_image_ptr, 4); // wrap
+      view2D<int8_t const> periodic_shift(periodic_shift_ptr, 4); // wrap
+
+     
+      
+      int ncenters = natoms*natoms*n_periodic_images;
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
-      view3D<int> center_map(natoms, natoms, 2, -1);
+      view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
       { // scope: set up list of centers
           int ic{0};
           for(int ia = 0; ia < natoms; ++ia) {
-              for(int ja = ia; ja < natoms; ++ja) { // triangular
-                  assert(ja >= ia);
+              for(int ja = 0; ja < natoms; ++ja) {
+//                assert(ja >= ia);
                   double const alpha_i = 1/pow2(sigmas[ia]);
                   double const alpha_j = 1/pow2(sigmas[ja]);
                   double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
-                  int    const numax_V = numaxs[ia] + numaxs[ja];
                   double const wi = alpha_i*pow2(sigma_V);
                   double const wj = alpha_j*pow2(sigma_V);
                   assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
-                  if (echo > 1) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
-                  for(int d = 0; d < 3; ++d) {
-                      center(ic,d) = wi*xyzZ(ia,d) + wj*xyzZ(ja,d);
-                      if (echo > 1) printf("%12.6f", center(ic,d)*Ang);
-                      center(ic,d) += origin[d];
-                  } // d
-                  if (echo > 1) printf("  numax_V= %i sigma_V: %g %s \n", numax_V, sigma_V*Ang, _Ang);
-                  center(ic,3) = sigma_V;
-                  center(ic,4) = numax_V;
-                  // debug info
-                  center(ic,5) = 0;  // ToDo: store also the index of the periodic image, once active
-                  center(ic,6) = ia; // ToDo: use global atom indices here
-                  center(ic,7) = ja; // ToDo: use global atom indices here
-                  
-                  center_map(ia,ja,0) = ic;
-                  center_map(ia,ja,1) = numax_V;
-                  center_map(ja,ia,0) = ic;
-                  center_map(ja,ia,1) = numax_V;
+                  for(int ip = 0; ip < n_periodic_images; ++ip) {
+                      int const numax_V = numaxs[ia] + numaxs[ja]; // depending on the distance between atom#ia and the periodic image of atom#ja, this could be lowered
+                      if (echo > 7) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
+                      for(int d = 0; d < 3; ++d) {
+                          center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
+                          if (echo > 7) printf("%12.6f", center(ic,d)*Ang);
+                          center(ic,d) += origin[d];
+                      } // d
+                      if (echo > 7) printf("  numax_V= %i sigma_V: %g %s \n", numax_V, sigma_V*Ang, _Ang);
+                      center(ic,3) = sigma_V;
+                      center(ic,4) = numax_V;
+                      // debug info
+                      center(ic,5) = 0;  // ToDo: store also the index of the periodic image, once active
+                      center(ic,6) = ia; // ToDo: use global atom indices here
+                      center(ic,7) = ja; // ToDo: use global atom indices here
+                      
+                      center_map(ia,ja,ip,0) = ic;
+                      center_map(ia,ja,ip,1) = numax_V;
 
-                  ++ic;
+                      ++ic;
+                  } // ip
               } // ja
           } // ia
-          ncenters = ic; // less that initially allocated
+          ncenters = ic; // may be less that initially allocated
       } // scope: set up list of centers
 
       // perform the projection of the local potential
@@ -158,45 +194,32 @@ namespace sho_hamiltonian {
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
       auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
-      std::vector<int32_t> numax_PAW(natoms_PAW,  3); // ToDo: match with input from atomic PAW configuration
-      std::vector<double>  sigma_PAW(natoms_PAW, .5); // ToDo: match with input from atomic PAW configuration
+      std::vector<int32_t> numax_PAW(natoms_PAW,  3);
+      std::vector<double>  sigma_PAW(natoms_PAW, .5);
       std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
       for(int ka = 0; ka < natoms_PAW; ++ka) {
           if (numax_prj) numax_PAW[ka] = numax_prj[ka];
           if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
           int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
           if (atom_mat) {
-              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap
+              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap input
           } else {
               hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
           } // atom_mat
           // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
 
-      std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
-      int total_basis_size{0}, maximum_numax{-1};
-      for(int ia = 0; ia < natoms; ++ia) {
-          if (echo > 0) {
-              printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f  numax= %d sigma= %.3f %s\n",
-                  ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, numaxs[ia], sigmas[ia]*Ang, _Ang);
-          } // echo
-          int const atom_basis_size = sho_tools::nSHO(numaxs[ia]);
-          maximum_numax = std::max(maximum_numax, numaxs[ia]);
-          offset[ia] = total_basis_size; // prefix sum
-          total_basis_size += atom_basis_size;
-      } // ia
-      int const numax_max = maximum_numax;
-      if (echo > 5) printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
-      offset[natoms] = total_basis_size;
-      int const nB   = total_basis_size;
-      int const nBa  = align<4>(nB); // memory aligned main matrix stride
       
-
+      
+      
       //
       // From this point on, k-point dependency should be regarded
       //
-      
-      typedef double psi_t; // can also be std::complex<double>
+      int const nkpoints = 8; // Gamma and X-points
+      for(int ikp = 0; ikp < nkpoints; ++ikp) {
+      typedef double psi_t; // can also be std::complex<double>, float or std::complex<float>
+      psi_t const Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // ikp=0:1.0, ikp=1:-1.0
+
       view3D<psi_t> SHm(2, nB, nBa, psi_t(0)); // get memory for Overlap S and Hamiltonian matrix H
 
       //
@@ -222,48 +245,40 @@ namespace sho_hamiltonian {
       for(int ia = 0; ia < natoms; ++ia) {
           S_iaja[ia].resize(natoms);
           H_iaja[ia].resize(natoms);
-          int const n1i   = sho_tools::n1HO(numaxs[ia]);
+          int const n1i = sho_tools::n1HO(numaxs[ia]);
           for(int ja = 0; ja < natoms; ++ja) {
               S_iaja[ia][ja] = view2D<psi_t>(&(SHm(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
               H_iaja[ia][ja] = view2D<psi_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
-              int const n1j   = sho_tools::n1HO(numaxs[ja]);
-#if 0
-              int const nb_ja = sho_tools::nSHO(numaxs[ja]);
-              int const nb_ia = sho_tools::nSHO(numaxs[ia]);
-              for(int ib = 0; ib < nb_ia; ++ib) {
-                  for(int jb = 0; jb < nb_ja; ++jb) {
-                      S_iaja[ia][ja](ib,jb) = 10*ia + ja + ib*.1 + jb*.01;           // dummy values to see if all matrix entries are set
-                      H_iaja[ia][ja](ib,jb) = (ia + (ib + 1)*.1)*(ja + (jb + 1)*.1); // dummy values to see if all matrix entries are set
-                  } // jb
-              } // ib
-#endif
+              int const n1j = sho_tools::n1HO(numaxs[ja]);
 
-              int const ic = center_map(ia,ja,0); // expansion center index
-              int const numax_V = center_map(ia,ja,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
-              int const maxmoment = std::max(0, numax_V);
+              for(int ip = 0; ip < n_periodic_images; ++ip) {
+                  int const ic = center_map(ia,ja,ip,0); // expansion center index
+                  int const numax_V = center_map(ia,ja,ip,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
+                  int const maxmoment = std::max(0, numax_V);
 
-              view3D<double> nabla2(3, n1i + 1, n1j + 1, 0.0);         //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
-              view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
-              for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
-                  double const distance = xyzZ(ia,d) - xyzZ(ja,d); // does not account for periodic images, ToDo
-                  stat += sho_overlap::nabla2_matrix(nabla2[d].data(), distance, n1i + 1, n1j + 1, sigmas[ia], sigmas[ja]);
-                  stat += sho_overlap::moment_tensor(ovl1Dm[d].data(), distance, n1i, n1j, sigmas[ia], sigmas[ja], maxmoment);
-              } // d
+                  psi_t phase{1};
+                  view3D<double> nabla2(3, n1i + 1, n1j + 1, 0.0);         //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
+                  view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
+                  for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
+                      double const distance = xyzZ(ia,d) - (xyzZ(ja,d) + periodic_image(ip,d));
+                      phase *= std::pow(Bloch_phase[d], periodic_shift(ip,d));
+                      stat += sho_overlap::nabla2_matrix(nabla2[d].data(), distance, n1i + 1, n1j + 1, sigmas[ia], sigmas[ja]);
+                      stat += sho_overlap::moment_tensor(ovl1Dm[d].data(), distance, n1i, n1j, sigmas[ia], sigmas[ja], maxmoment);
+                  } // d
 
-              // construct the overlap matrix of SHO basis functions
-              // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
-              stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja]);
+                  // construct the overlap matrix of SHO basis functions
+                  // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
+                  stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja], phase);
 
-              // construct the kinetic energy contribution
-              stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], kinetic);
+                  // add the kinetic energy contribution
+                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], kinetic, phase);
 
-              // add the contribution of the local potential
-              stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja]);
+                  // add the contribution of the local potential
+                  stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase);
 
+              } // ip
           } // ja
       } // ia
-      Vcoeffs.clear(); // free memory for potential coefficients
-
 
       std::vector<std::vector<view2D<psi_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
       std::vector<std::vector<view3D<psi_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
@@ -272,19 +287,23 @@ namespace sho_hamiltonian {
           Psh_iala[ia].resize(natoms_PAW);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
-          for(int ka = 0; ka < natoms_PAW; ++ka) {
+          for(int ka = 0; ka < natoms_PAW; ++ka) { // does not account for periodic images, ToDo
               int const nb_ka = sho_tools::nSHO(numax_PAW[ka]);
               int const n1k   = sho_tools::n1HO(numax_PAW[ka]);
               P_iaka[ia][ka] = view2D<psi_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
 
               view4D<double> ovl1D(3, 1, n1i, n1k, 0.0);  //  <\chi1D_i|\chi1D_k>
-              for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
-                  double const distance = xyzZ(ia,d) - xyzZ_PAW(ka,d); // does not account for periodic images, ToDo
-                  stat += sho_overlap::overlap_matrix(ovl1D(d,0,0), distance, n1i, n1k, sigmas[ia], sigma_PAW[ka]);
-              } // d
+              for(int ip = 0; ip < n_periodic_images; ++ip) {
+                  psi_t phase{1};
+                  for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
+                      double const distance = xyzZ(ia,d) - (xyzZ_PAW(ka,d) + periodic_image(ip,d));
+                      phase *= std::pow(Bloch_phase[d], periodic_shift(ip,d));
+                      stat += sho_overlap::overlap_matrix(ovl1D(d,0,0), distance, n1i, n1k, sigmas[ia], sigma_PAW[ka]);
+                  } // d
 
-              // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
-              stat += sho_potential::potential_matrix(P_iaka[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka]);
+                  // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
+                  stat += sho_potential::potential_matrix(P_iaka[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka], phase);
+              } // ip
 
               // multiply P from left to hs_PAW (block diagonal --> ka == la)
               auto const la = ka;
@@ -321,7 +340,7 @@ namespace sho_hamiltonian {
                       for(int jb = 0; jb < nb_ja; ++jb) {
                           double s{0}, h{0};
                           for(int lb = 0; lb < nb_la; ++lb) { // contract
-                              s += Psh_iala[ia][la](0,ib,lb) * P_iaka[ja][la](jb,lb);
+                              s += Psh_iala[ia][la](0,ib,lb) * P_iaka[ja][la](jb,lb); // ToDo: needs a conjugation if complex?
                               h += Psh_iala[ia][la](1,ib,lb) * P_iaka[ja][la](jb,lb);
                           } // lb
                           S_iaja[ia][ja](ib,jb) += s * scale_s;
@@ -336,7 +355,7 @@ namespace sho_hamiltonian {
       
       std::vector<double> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
-      
+
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
@@ -344,7 +363,11 @@ namespace sho_hamiltonian {
           auto const _u = s0h1 ? _eV : ""; // unit symbol
 
           if (echo > 9 - s0h1) { // display S and H
-              printf("\n# %s matrix (%s):\n", matrix_name, _u);
+              printf("\n# %s matrix (%s) for Bloch phase", matrix_name, _u);
+              for(int d = 0; d < 3; ++d) {
+                  printf(" %g %g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
+              } // d
+              printf(":\n");
               for(int iB = 0; iB < nB; ++iB) {
                   printf("# row%3i ", iB);
                   for(int jB = 0; jB < nB; ++jB) {
@@ -399,6 +422,8 @@ namespace sho_hamiltonian {
 
       } // s0h1
       
+      } // ikp ToDo: indent
+      
       return stat;
   } // solve
   
@@ -427,9 +452,8 @@ namespace sho_hamiltonian {
       } // scope
       view2D<double const> const xyzZ(xyzZ_m, 4); // wrap for simpler usage
 
-//    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
-
       real_space::grid_t g(dims);
+      g.set_boundary_conditions(bc);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);

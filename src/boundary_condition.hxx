@@ -67,7 +67,9 @@ namespace boundary_condition {
                           idx[ni*4 + 3] =  0; // no use
                           ++ni; // count the number of images inside
 #ifdef DEVEL
-                          mark = 'o'; } else { mark = 'x';
+                          mark = 'o';
+                      } else {
+                          mark = 'x';
 #endif
                       } // d2 > 0
                   } // d2 < cell_diagonal2
