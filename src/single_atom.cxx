@@ -2934,7 +2934,8 @@ extern "C" {
 
     template <char Q='t'> double get_number_of_electrons() const { return csv_charge[core] + csv_charge[semicore] + csv_charge[valence]; }
     
-    int const get_numax() const { return numax; }
+    double const get_sigma() const { return sigma; }
+    int    const get_numax() const { return numax; }
     
   }; // class LiveAtom
 
@@ -3117,8 +3118,8 @@ namespace single_atom {
               double  *const sigma = dp; assert(nullptr != sigma);
               int32_t *const numax = ip; assert(nullptr != numax);
               for(int ia = 0; ia < a.size(); ++ia) {
-                  sigma[ia] = a[ia]->sigma; // spreads of the projectors // ToDo: use a getter function
-                  numax[ia] = a[ia]->numax; //  number of SHO-projectors // ToDo: use a getter function
+                  sigma[ia] = a[ia]->get_sigma(); // spreads of the projectors
+                  numax[ia] = a[ia]->get_numax(); //  number of SHO-projectors
               } // ia
               assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
@@ -3192,7 +3193,7 @@ namespace single_atom {
                   assert(nullptr != atom_mat[ia]);
                   int const numax = a[ia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
-                  int const h1hs2 = ip ? ip[ia]/(ncoeff*ncoeff) : 2;
+                  int const h1hs2 = ip ? ip[ia]/(ncoeff*ncoeff) : 2; // ToDo: make this more elegant
                   for(int i = 0; i < ncoeff; ++i) {
                       if (h1hs2 > 1)
                       set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);

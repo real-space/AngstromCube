@@ -73,42 +73,23 @@ namespace sho_hamiltonian {
 
       return 0;
   } // kinetic_matrix
-  
-  
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
-#else // NO_UNIT_TESTS
 
-  status_t test_Hamiltonian(int const echo=5) {
+  
+  status_t solve(int const natoms
+          , view2D<double const> const & xyzZ // (natoms, 4)
+          , real_space::grid_t const & g
+          , double const *const vtot
+          , int const natoms_prj // =-1
+          , double const *const sigma_prj // =nullptr
+          , int    const *const numax_prj // =nullptr
+          , double *const *const atom_mat // =nullptr
+          , int const echo) {
+    
       status_t stat(0);
       
-      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
-      int dims[] = {0, 0, 0};
-      std::vector<double> vtot; // total smooth potential
-      stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
-
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      double *xyzZ_m = nullptr;
-      int natoms{0};
-      double cell[3] = {0, 0, 0}; 
-      int bc[3] = {-7, -7, -7};
-      { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(&xyzZ_m, &natoms, geo_file, cell, bc, 0);
-          if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
-                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
-      } // scope
-      view2D<double> xyzZ(xyzZ_m, 4); // wrap for simpler usage
-
-//    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
-
-      real_space::grid_t g(dims);
-      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
-      if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
-      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
-
 
       auto const usual_numax = int(control::get("sho_hamiltonian.test.numax", 1.));
       auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", 2.);
@@ -116,7 +97,6 @@ namespace sho_hamiltonian {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
-//       ++numaxs[0]; // manipulate to test variable block sizes
       
       
       int ncenters = pow2(natoms); // in principle, we only need a unique set of centers, even without periodic images, only ((natoms + 1)*natoms)/2
@@ -167,7 +147,7 @@ namespace sho_hamiltonian {
           double const sigma_V = center(ic,3);
           int    const numax_V = center(ic,4);
           Vcoeffs[ic] = std::vector<double>(sho_tools::nSHO(numax_V), 0.0);
-          stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot.data(), g, 0); // 0:mute
+          stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot, g, 0); // 0:mute
           
           stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
           
@@ -175,21 +155,24 @@ namespace sho_hamiltonian {
       } // ic
       
 
-      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ja jb}>
-      int const natoms_PAW = natoms; // keep it flexible
-      auto const xyzZ_PAW = view2D<double>(xyzZ.data(), xyzZ.stride()); // duplicate view
-      std::vector<int>    numax_PAW(natoms_PAW,  3); // ToDo: match with input from atomic PAW configuration
-      std::vector<double> sigma_PAW(natoms_PAW, .5); // ToDo: match with input from atomic PAW configuration
-      std::vector<view3D<double>> SH_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
+      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
+      int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
+      auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
+      std::vector<int32_t> numax_PAW(natoms_PAW,  3); // ToDo: match with input from atomic PAW configuration
+      std::vector<double>  sigma_PAW(natoms_PAW, .5); // ToDo: match with input from atomic PAW configuration
+      std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
       for(int ka = 0; ka < natoms_PAW; ++ka) {
+          if (numax_prj) numax_PAW[ka] = numax_prj[ka];
+          if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
           int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
-          SH_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize
-          // ToDo: get atomic charge-deficit matrix into SH_PAW[ka][0]
-          // ToDo: get atomic Hamiltonian    matrix into SH_PAW[ka][1]
-          // ToDo: for both matrices: normalization w.r.t. L2-normalized SHO projector functions is important
+          if (atom_mat) {
+              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap
+          } else {
+              hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
+          } // atom_mat
+          // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
 
-      
       std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
       int total_basis_size{0}, maximum_numax{-1};
       for(int ia = 0; ia < natoms; ++ia) {
@@ -233,13 +216,16 @@ namespace sho_hamiltonian {
 
       std::vector<std::vector<view2D<psi_t>>> S_iaja(natoms); // construct sub-views for each atom pair
       std::vector<std::vector<view2D<psi_t>>> H_iaja(natoms); // construct sub-views for each atom pair
+      // the sub-views help to address the operators as S_iaja[ia][ja](ib,jb) although their true memory
+      // layout is equivalent to view4D<double> S(ia,ib,ja,jb)
+      // The vector<vector<>> construction allows for sparse operators in a later stage
       for(int ia = 0; ia < natoms; ++ia) {
           S_iaja[ia].resize(natoms);
           H_iaja[ia].resize(natoms);
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           for(int ja = 0; ja < natoms; ++ja) {
               S_iaja[ia][ja] = view2D<psi_t>(&(SHm(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<psi_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
+              H_iaja[ia][ja] = view2D<psi_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j   = sho_tools::n1HO(numaxs[ja]);
 #if 0
               int const nb_ja = sho_tools::nSHO(numaxs[ja]);
@@ -300,7 +286,7 @@ namespace sho_hamiltonian {
               // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
               stat += sho_potential::potential_matrix(P_iaka[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka]);
 
-              // multiply P from left to SH_PAW (block diagonal --> ka == la)
+              // multiply P from left to hs_PAW (block diagonal --> ka == la)
               auto const la = ka;
               int const nb_la = nb_ka;
               Psh_iala[ia][la] = view3D<psi_t>(2, nb_ia, nb_la, 0.0); // get memory and initialize
@@ -308,8 +294,8 @@ namespace sho_hamiltonian {
                   for(int lb = 0; lb < nb_la; ++lb) {
                       psi_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
-                          s += P_iaka[ia][ka](ib,kb) * SH_PAW[ka](0,kb,lb);
-                          h += P_iaka[ia][ka](ib,kb) * SH_PAW[ka](1,kb,lb);
+                          s += P_iaka[ia][ka](ib,kb) * hs_PAW[ka](1,kb,lb);
+                          h += P_iaka[ia][ka](ib,kb) * hs_PAW[ka](0,kb,lb);
                       } // kb
                       Psh_iala[ia][la](0,ib,lb) = s;
                       Psh_iala[ia][la](1,ib,lb) = h;
@@ -351,7 +337,7 @@ namespace sho_hamiltonian {
       std::vector<double> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
       
-      for(int s0h1 = 0; s0h1 < 2; ++s0h1) {
+      for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
           auto const  u = s0h1 ?  eV :  1; // output unit conversion factor 
@@ -370,12 +356,12 @@ namespace sho_hamiltonian {
           } // echo
 
           status_t stat_eig(0);
-          if ((0 == s0h1) && ovl_eig) {
+          if (1 == s0h1) {
+              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(1,0), nBa, SHm(0,0), nBa, eigvals.data());
+          } else if (ovl_eig) {
               view2D<psi_t> S_copy(nB, nBa); // get memory
               set(S_copy.data(), nB*nBa, SHm(0,0)); // copy overlap matrix S into work array W
               stat_eig = linear_algebra::eigenvalues(nB, S_copy.data(), nBa, eigvals.data());
-          } else {
-              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(1,0), nBa, SHm(0,0), nBa, eigvals.data());
           } // ovl_eig
 
           if ((1 == s0h1) || ovl_eig) {
@@ -390,7 +376,7 @@ namespace sho_hamiltonian {
                       for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
                           printf(" %g", eigvals[iB]*u);
                       } // iB
-                      if (nB > mB) printf(" ..."); // there are more eigenavalues than we display
+                      if (nB > mB) printf(" ..."); // there are more eigenvalues than we display
                       printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
                   } // echo
                   if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix are %g and %g %s, respectively\n", 
@@ -412,6 +398,43 @@ namespace sho_hamiltonian {
           } // ovl_eig
 
       } // s0h1
+      
+      return stat;
+  } // solve
+  
+  
+#ifdef  NO_UNIT_TESTS
+  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+#else // NO_UNIT_TESTS
+
+  status_t test_Hamiltonian(int const echo=5) {
+      status_t stat(0);
+      
+      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
+      int dims[] = {0, 0, 0};
+      std::vector<double> vtot; // total smooth potential
+      stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
+
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
+      double *xyzZ_m = nullptr;
+      int natoms{0};
+      double cell[3] = {0, 0, 0}; 
+      int bc[3] = {-7, -7, -7};
+      { // scope: read atomic positions
+          stat += geometry_analysis::read_xyz_file(&xyzZ_m, &natoms, geo_file, cell, bc, 0);
+          if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
+                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
+      } // scope
+      view2D<double const> const xyzZ(xyzZ_m, 4); // wrap for simpler usage
+
+//    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
+
+      real_space::grid_t g(dims);
+      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
+      if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
+      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
+      
+      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
       
       if (nullptr != xyzZ_m) delete[] xyzZ_m;
       return stat;

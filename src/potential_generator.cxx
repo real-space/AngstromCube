@@ -46,9 +46,16 @@
 #include "davidson_solver.hxx" // ::rotate, ::eigensolve
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
 #include "density_generator.hxx" // ::density
+#include "sho_hamiltonian.hxx" // ::solve
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 
+#define DEBUG
+#ifdef  DEBUG
+    #include "debug_output.hxx" // here
+#else
+    #define here
+#endif
 
 namespace potential_generator {
   // this module makes a DFT calculation based on atoms
@@ -114,12 +121,12 @@ namespace potential_generator {
   status_t add_smooth_quantities(double values[] // add to this function on a 3D grid
                 , real_space::grid_t const & g 
                 , int const na, int32_t const nr2[], float const ar2[]
-                , view2D<double> const & center
+                , view2D<double> const & center // (natoms, 4)
                 , int const n_periodic_images, view2D<double> const & periodic_images
                 , double const *const *const atom_qnt
                 , int const echo=0, int const echo_q=0
                 , double const factor=1
-                , char const *quantity="smooth quantity") {
+                , char const *quantity="???") {
 
           status_t stat(0);
           // add contributions from smooth core densities
@@ -290,21 +297,21 @@ namespace potential_generator {
 
       
       std::vector<double> Za(na);        // list of atomic numbers
+      view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
-          view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
           if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
           for(int ia = 0; ia < na; ++ia) {
-              double const Z = xyzZ[ia][3];
+              double const Z = xyzZ(ia,3);
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
               if (echo > 4) printf("# %s  %15.9f %15.9f %15.9f", Symbol,
-                              xyzZ[ia][0]*Ang, xyzZ[ia][1]*Ang, xyzZ[ia][2]*Ang);
+                              xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang);
               Za[ia] = Z;
               for(int d = 0; d < 3; ++d) {
-                  center[ia][d] = fold_back(xyzZ[ia][d], cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
-              }   center[ia][3] = 0; // 4th component is not used
-              if (echo > 1) printf("  relative%12.3f%16.3f%16.3f", center[ia][0]*g.inv_h[0],
-                                         center[ia][1]*g.inv_h[1], center[ia][2]*g.inv_h[2]);
+                  center(ia,d) = fold_back(xyzZ(ia,d), cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+              }   center(ia,3) = 0; // 4th component is not used
+              if (echo > 1) printf("  relative%12.3f%16.3f%16.3f", center(ia,0)*g.inv_h[0],
+                                          center(ia,1)*g.inv_h[1], center(ia,2)*g.inv_h[2]);
               if (echo > 4) printf("\n");
           } // ia
       } // scope
@@ -378,48 +385,52 @@ namespace potential_generator {
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
 
       // prepare for solving the Kohn-Sham equation on the real-space grid
+      auto const basis_method = control::get("basis", "grid");
+      bool const psi_on_grid = ((basis_method[0] | 32) == 'g');
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
               gc.set_boundary_conditions(g.boundary_conditions());
 
               // create a list of atoms
-              std::vector<atom_image::sho_atom_t> a;
+              std::vector<atom_image::sho_atom_t> a(0);
+              std::vector<double> sigma_a(na, .5);
               { // scope: collect information for projectors and construct a list of atoms
-                  view2D<double> xyzZinso(na, 8);
                   std::vector<int32_t> numax_a(na, 3);
-                  std::vector<double>  sigma_a(na, .5);
                   stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
-                  for(int ia = 0; ia < na; ++ia) {
-                      set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
-                      xyzZinso(ia,4) = ia;  // global_atom_id
-                      xyzZinso(ia,5) = numax_a[ia];
-                      xyzZinso(ia,6) = sigma_a[ia];
-                      xyzZinso(ia,7) = 0;   // __not_used__
-                  } // i
-                  stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
+                  if (psi_on_grid) {
+                      view2D<double> xyzZinso(na, 8);
+                      for(int ia = 0; ia < na; ++ia) {
+                          set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
+                          xyzZinso(ia,4) = ia;  // global_atom_id
+                          assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
+                          xyzZinso(ia,5) = numax_a[ia];
+                          xyzZinso(ia,6) = sigma_a[ia];
+                          xyzZinso(ia,7) = 0;   // __not_used__
+                      } // i
+                      stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
+                  } // psi_on_grid
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
               grid_operators::grid_operator_t<double> op(gc, a);
               // Mind that local potential and atom matrices are still unset!
 
-              std::vector<int> ncoeff_squared(na), ncoeff_a(na);
-              for(int ia = 0; ia < na; ++ia) {
-                  int const ncoeff = sho_tools::nSHO(op.get_numax(ia));
-                  ncoeff_a[ia] = ncoeff;
-                  ncoeff_squared[ia] = pow2(ncoeff);
-              } // ia
 
               int const nkpoints = 1; // ToDo
               int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // s- and p-states
               int const nbands = nbands_per_atom*na;
-              view3D<double> psi(nkpoints, nbands, gc.all()); // Kohn-Sham states in real-space grid representation
-              { // scope: generate start waves from atomic orbitals
+              view3D<double> psi; // Kohn-Sham states in real-space grid representation
+              if (psi_on_grid) { // scope: generate start waves from atomic orbitals
+                  psi = view3D<double>(nkpoints, nbands, gc.all()); // get memory
                   float const scale_sigmas = control::get("start.waves.scale.sigma", 5.); // how much more spread in the start waves compared to sigma_prj
                   uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                   sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // nu-ordered, take 1, 4, 10 or 20
-                  data_list<double> single_atomic_orbital(ncoeff_a, 0.0);
+                  std::vector<int32_t> ncoeff_a(na);
+                  for(int ia = 0; ia < na; ++ia) {
+                      ncoeff_a[ia] = sho_tools::nSHO(op.get_numax(ia));
+                  } // ia
+                  data_list<double> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
                   for(int iband = 0; iband < nbands; ++iband) {
                       int const ia = iband % na; // which atom?
                       int const io = iband / na; // which orbital?
@@ -448,6 +459,7 @@ namespace potential_generator {
 
           stat += single_atom::atom_update("x densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
+          here;
 
           if (echo > 4) { // report extremal values of the valence density on the grid
               printf("# valence density in iteration #%i:", scf_iteration);
@@ -460,6 +472,7 @@ namespace potential_generator {
           stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, echo, Y00sq, "smooth core density");
+          here;
 
           { // scope: eval the XC potential and energy
               double Exc{0}, Edc{0};
@@ -471,6 +484,7 @@ namespace potential_generator {
               Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
               if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
           } // scope
+          here;
 
           set(cmp.data(), g.all(), 0.0); // init compensation charge density
           { // scope: solve the Poisson equation
@@ -572,6 +586,7 @@ namespace potential_generator {
                   } // echo
                   
               } // scope
+              here;
 
 #ifdef DEVEL
               { // scope: export electrostatic potential to ASCII file
@@ -618,6 +633,7 @@ namespace potential_generator {
                   printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
               } // echo
           } // scope
+          here;
 
 #ifdef DEVEL
 //        exit(__LINE__);
@@ -645,6 +661,7 @@ namespace potential_generator {
               printf("\n# Total effective potential  (after adding zero potentials)");
               print_stats(Vtot.data(), g.all(), g.dV());
           } // echo
+          here;
 
          
           /**  
@@ -672,82 +689,90 @@ namespace potential_generator {
               } // echo
 #endif 
 
-              // restrict the local effective potential to the coarse grid
-              std::vector<double> Veff(gc.all());
-              multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, 0); // mute
-              if (echo > 1) {
-                  printf("\n# Total effective potential  (restricted to coarse grid)   ");
-                  print_stats(Veff.data(), gc.all(), gc.dV());
-              } // echo
+              if (psi_on_grid) {
+                
+                  // restrict the local effective potential to the coarse grid
+                  std::vector<double> Veff(gc.all());
+                  multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, 0); // mute
+                  if (echo > 1) {
+                      printf("\n# Total effective potential  (restricted to coarse grid)   ");
+                      print_stats(Veff.data(), gc.all(), gc.dV());
+                  } // echo
 
 #ifdef DEVEL
-              if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
-                // in order to test the interpolation routine
-                  std::vector<double> v_dcd(g.all(), 0.0);
-                  multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
-                  if (echo > 1) {
-                      printf("\n# Total effective potential (interpolated to dense grid)   ");
-                      print_stats(v_dcd.data(), g.all(), g.dV());
-                  } // echo
-              } // scope
+                  if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
+                    // in order to test the interpolation routine
+                      std::vector<double> v_dcd(g.all(), 0.0);
+                      multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
+                      if (echo > 1) {
+                          printf("\n# Total effective potential (interpolated to dense grid)   ");
+                          print_stats(v_dcd.data(), g.all(), g.dV());
+                      } // echo
+                  } // scope
 #endif
 
-              // copy the local potential and non-local atom matrices into the grid operator descriptor
-              op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo);
+                  // copy the local potential and non-local atom matrices into the grid operator descriptor
+                  op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo);
 
-              std::vector<double> rho_valence_new(gc.all(), 0.0); // new valence density
-              data_list<double> atom_rho(ncoeff_squared, 0.0); // atomic density matrices
+                  std::vector<double> rho_valence_new(gc.all(), 0.0); // new valence density
 
-              for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
-                  auto psi_k = psi[ikpoint];
+                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
+                      auto psi_k = psi[ikpoint]; // get a sub-view
 
-                  // solve the Kohn-Sham equation using various solvers
-                  if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
-                      stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                      for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                          stat += conjugate_gradients::eigensolve(psi_k.data(), nbands, op, echo - 5, 1e-6, energies[ikpoint]);
+                      // solve the Kohn-Sham equation using various solvers
+                      if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
                           stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                      } // irepeat
-                  } else
-                  if ('d' == *eigensolver_method) { // "davidson"
-                      for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                          stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo + 9);
-                      } // irepeat
-                  } else 
-                  if ('n' == *eigensolver_method) { // "none"
-                      if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
-                  } else {
-                      ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);
-                  } // eigensolver_method
+                          for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                              stat += conjugate_gradients::eigensolve(psi_k.data(), nbands, op, echo - 5, 1e-6, energies[ikpoint]);
+                              stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
+                          } // irepeat
+                      } else
+                      if ('d' == *eigensolver_method) { // "davidson"
+                          for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                              stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo + 9);
+                          } // irepeat
+                      } else
+                      if ('n' == *eigensolver_method) { // "none"
+                          if (take_atomic_valence_densities < 1) warn("eigensolver=\'none\' generates no new valence density");
+                      } else {
+                          ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);
+                      } // eigensolver_method
 
-                  // add to density
-                  stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), psi_k.data(), op, nbands, 1, echo);
+                      // add to density
+                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), psi_k.data(), op, nbands, 1, echo);
 
-              } // ikpoint
+                  } // ikpoint
 
-              // generate a new density from the eigenstates
-              // with occupation numbers from eigenenergies
+                  // generate a new density from the eigenstates
+                  // with occupation numbers from eigenenergies
 
-              stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
+                  stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
+                  
+              } else { // psi_on_grid
+                  here;
+                
+                  stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+                
+                  here;
+              } // psi_on_grid
 
               // ToDo: density mixing
               
               stat += single_atom::atom_update("atomic density matrices", na, 0, 0, 0, atom_rho.data());              
 
           } // scope: Kohn-Sham
-          
+
           if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
               auto const progress = scf_iteration/spherical_valence_decay;
               take_atomic_valence_densities = (progress >= 1) ? 0 : 2*pow3(progress) - 3*pow2(progress) + 1; // smooth transition function
               stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
           } // spherical_valence_decay
           
+          here;
       } // scf_iteration
+      here;
 
 #ifdef DEVEL
-
-//    return 1; // warning! no cleanup has been run
-//    printf("\n\n# Early exit in %s line %d\n\n", __FILE__, __LINE__); exit(__LINE__);
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
 
