@@ -8,7 +8,7 @@ echo "Al   0 0 -1.05835" >> atoms.xyz
 echo "P    0 0  1.05835" >> atoms.xyz
 
 (cd ../src/ && make -j) && \
-$exe +verbosity=10 \
+$exe +verbosity=7 \
     -test potential_generator. \
         +potential_generator.grid.spacing=0.251 \
         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
@@ -23,11 +23,10 @@ $exe +verbosity=10 \
         +bands.per.atom=4 \
         +potential_generator.max.scf=1 \
         +basis=sho \
-        +sho_hamiltonian.test.numax=1 \
+        +sho_hamiltonian.test.numax=3 \
         +sho_hamiltonian.test.sigma=1.5 \
         +sho_hamiltonian.test.overlap.eigvals=1 \
-        +sho_hamiltonian.scale.nonlocal.h=1 \
-        +sho_hamiltonian.scale.nonlocal.s=1 \
+        +sho_hamiltonian.test.sigma.asymmetry=1 \
         > potential_generator.AlP.sho.out
 
 exit
