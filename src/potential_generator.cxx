@@ -3,6 +3,7 @@
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
 #include <vector> // std::vector
+#include <complex> // std::complex
 
 #include "potential_generator.hxx"
 
@@ -119,7 +120,7 @@ namespace potential_generator {
   
   template <typename real_t>
   status_t write_array_to_file(char const *filename, real_t const array[], 
-               int const nx, int const ny, int const nz, int const echo, char const *arrayname="") {
+               int const nx, int const ny, int const nz, int const echo=0, char const *arrayname="") {
       char title[128]; std::sprintf(title, "%i x %i x %i  %s", nz, ny, nx, arrayname);
       auto const size = size_t(nz) * size_t(ny) * size_t(nx);
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
@@ -759,7 +760,7 @@ namespace potential_generator {
               } else { // psi_on_grid
                   here;
                 
-                  stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+                  stat += sho_hamiltonian::solve<std::complex<double>>(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
                 
                   here;
               } // psi_on_grid

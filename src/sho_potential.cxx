@@ -160,9 +160,6 @@ namespace sho_potential {
 
       if (echo > 4) printf("# %s\n\n", __func__);
 
-// #ifdef OLD
-//       set(coeff, nc, c_new.data()); // copy the results back into the input array
-// #else
       {
           int mzyx{0};
           for    (int mz = 0; mz <= numax;           ++mz) {
@@ -176,7 +173,6 @@ namespace sho_potential {
           }
           assert( nc == mzyx );
       }
-// #endif
    
       // Discussion:
       // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <complex> // std::complex<real_t>
+
 #ifndef HAS_no_MKL
 	#define HAS_MKL
 #endif
@@ -13,8 +15,13 @@ extern "C" {
 				int ipiv[], double b[], int const *ldb, int *info);
 	void dsyev_(char const *jobz, char const *uplo, int const* n, double a[], int const *lda, 
 		        double w[], double work[], int const *lwork, int *info);
+	void zheev_(char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda, 
+		        double w[], std::complex<double> work[], int const *lwork, double rwork[], int *info);
     void dsygv_(int const *itype, char const *jobz, char const *uplo, int const* n, double a[], int const *lda,
     			double b[], int const *ldb, double w[], double work[], int const *lwork, int *info);
+    void zhegv_(int const *itype, char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda,
+    			std::complex<double> b[], int const *ldb, double w[],
+                std::complex<double> work[], int const *lwork, double rwork[], int *info);
 #endif
 } // extern "C"
 
@@ -33,7 +40,7 @@ extern "C" {
 namespace linear_algebra {
   
   inline status_t inverse(int const n, double a[], int const lda) {
-      int info;
+      int info{0};
       int const lwork = n*n;
       auto const work = new double[lwork];
       auto const ipiv = new int[n];
@@ -53,7 +60,7 @@ namespace linear_algebra {
       status_t const info = LAPACKE_dgesv( LAPACK_COL_MAJOR, n, nrhs, a, lda, ipiv, b, ldb );
 #else
       auto const ipiv = new int[2*n];
-      int info = 0;
+      int info{0};
       dgesv_(&n, &nrhs, a, &lda, ipiv, b, &ldb, &info); // Fortran interface
 #endif
       delete[] ipiv;
@@ -64,27 +71,50 @@ namespace linear_algebra {
 #ifdef  HAS_MKL
       status_t const info = LAPACKE_dsyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else
-      int info = 0; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
-      auto const work = new double[lwork];
-      dsyev_(&jobz, &uplo, &n, a, &lda, w, work, &lwork, &info); // Fortran interface
-      delete[] work;
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      std::vector<double> work(lwork);
+      dsyev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, &info); // Fortran interface
 #endif
       return info;
   } // (standard_)eigenvalues
 
+  inline status_t eigenvalues(int const n, std::complex<double> a[], int const lda, double w[]) {
+#ifdef  HAS_MKL
+      status_t const info = LAPACKE_zheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+#else
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      std::vector<std::complex<double>> work(lwork);
+      std::vector<double> rwork(3*n);
+      zheev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#endif
+      return info;
+  } // (standard_)eigenvalues
+  
   inline status_t generalized_eigenvalues(int const n, double a[], int const lda, double b[], int const ldb, double w[]) {
 //    printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
       status_t const info = LAPACKE_dsygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
-      int info = 0; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
-      auto const work = new double[lwork];
-      dsygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work, &lwork, &info); // Fortran interface
-      delete[] work;
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      std::vector<double> work(lwork);
+      dsygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, &info); // Fortran interface
 #endif
       return info;
   } // generalized_eigenvalues
 
+  inline status_t generalized_eigenvalues(int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb, double w[]) {
+//    printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+#ifdef  HAS_MKL
+      status_t const info = LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+#else
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      std::vector<std::complex<double>> work(lwork);
+      std::vector<double> rwork(3*n);
+      zhegv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#endif
+      return info;
+  } // generalized_eigenvalues
+  
   inline status_t all_tests(int const echo=0) { return 0; }
 
 } // namespace linear_algebra

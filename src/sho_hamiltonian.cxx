@@ -40,15 +40,15 @@ namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between to SHO basis functions
   // including a PAW non-local contribution
   
-  template<typename real_t>
-  status_t kinetic_matrix(view2D<real_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
+  template<typename complex_t>
+  status_t kinetic_matrix(view2D<complex_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
                        , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator
                        , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator
                        , int const numax_i, int const numax_j
-                       , real_t const phase=1
+                       , complex_t const phase=1
                        , double const prefactor=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
 
-      real_t const phase_f = phase * prefactor;
+      complex_t const phase_f = phase * prefactor;
 
       int izyx{0};
       for    (int iz = 0; iz <= numax_i;           ++iz) {
@@ -77,7 +77,7 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
-  
+  template<typename complex_t> // can be std::complex<real_t> or real_t itself
   status_t solve(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4)
           , real_space::grid_t const & g
@@ -228,10 +228,10 @@ namespace sho_hamiltonian {
       //
       int const nkpoints = 8; // Gamma and X-points
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
-      typedef double psi_t; // can also be std::complex<double>, float or std::complex<float>
-      psi_t const Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // ikp=0:1.0, ikp=1:-1.0
 
-      view3D<psi_t> SHm(2, nB, nBa, psi_t(0)); // get memory for Overlap S and Hamiltonian matrix H
+      complex_t const Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // ikp=0:1.0, ikp=1:-1.0
+
+      view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for Overlap S and Hamiltonian matrix H
 
       //
       // now construct the Hamiltonian:
@@ -248,8 +248,8 @@ namespace sho_hamiltonian {
       if (0.5 != kinetic) warn("kinetic energy prefactor is %g", kinetic);
       double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
 
-      std::vector<std::vector<view2D<psi_t>>> S_iaja(natoms); // construct sub-views for each atom pair
-      std::vector<std::vector<view2D<psi_t>>> H_iaja(natoms); // construct sub-views for each atom pair
+      std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // construct sub-views for each atom pair
+      std::vector<std::vector<view2D<complex_t>>> H_iaja(natoms); // construct sub-views for each atom pair
       // the sub-views help to address the operators as S_iaja[ia][ja](ib,jb) although their true memory
       // layout is equivalent to view4D<double> S(ia,ib,ja,jb)
       // The vector<vector<>> construction allows for sparse operators in a later stage
@@ -258,8 +258,8 @@ namespace sho_hamiltonian {
           H_iaja[ia].resize(natoms);
           int const n1i = sho_tools::n1HO(numaxs[ia]);
           for(int ja = 0; ja < natoms; ++ja) {
-              S_iaja[ia][ja] = view2D<psi_t>(&(SHm(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<psi_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
+              S_iaja[ia][ja] = view2D<complex_t>(&(SHm(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
+              H_iaja[ia][ja] = view2D<complex_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j = sho_tools::n1HO(numaxs[ja]);
 
               for(int ip = 0; ip < n_periodic_images; ++ip) {
@@ -267,7 +267,7 @@ namespace sho_hamiltonian {
                   int const numax_V = center_map(ia,ja,ip,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
                   int const maxmoment = std::max(0, numax_V);
 
-                  psi_t phase{1};
+                  complex_t phase{1};
                   view3D<double> nabla2(3, n1i + 1, n1j + 1, 0.0);         //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
                   view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
                   for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
@@ -282,7 +282,7 @@ namespace sho_hamiltonian {
                   stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja], phase);
 
                   // add the kinetic energy contribution
-                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], kinetic, phase);
+                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], phase, kinetic);
 
                   // add the contribution of the local potential
                   stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase);
@@ -291,8 +291,8 @@ namespace sho_hamiltonian {
           } // ja
       } // ia
 
-      std::vector<std::vector<view2D<psi_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
-      std::vector<std::vector<view3D<psi_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
+      std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
+      std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
       for(int ia = 0; ia < natoms; ++ia) {
           P_iaka[ia].resize(natoms_PAW);
           Psh_iala[ia].resize(natoms_PAW);
@@ -301,11 +301,11 @@ namespace sho_hamiltonian {
           for(int ka = 0; ka < natoms_PAW; ++ka) { // does not account for periodic images, ToDo
               int const nb_ka = sho_tools::nSHO(numax_PAW[ka]);
               int const n1k   = sho_tools::n1HO(numax_PAW[ka]);
-              P_iaka[ia][ka] = view2D<psi_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
+              P_iaka[ia][ka] = view2D<complex_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
 
               view4D<double> ovl1D(3, 1, n1i, n1k, 0.0);  //  <\chi1D_i|\chi1D_k>
               for(int ip = 0; ip < n_periodic_images; ++ip) {
-                  psi_t phase{1};
+                  complex_t phase{1};
                   for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
                       double const distance = xyzZ(ia,d) - (xyzZ_PAW(ka,d) + periodic_image(ip,d));
                       phase *= std::pow(Bloch_phase[d], periodic_shift(ip,d));
@@ -319,10 +319,10 @@ namespace sho_hamiltonian {
               // multiply P from left to hs_PAW (block diagonal --> ka == la)
               auto const la = ka;
               int const nb_la = nb_ka;
-              Psh_iala[ia][la] = view3D<psi_t>(2, nb_ia, nb_la, 0.0); // get memory and initialize
+              Psh_iala[ia][la] = view3D<complex_t>(2, nb_ia, nb_la, 0.0); // get memory and initialize
               for(int ib = 0; ib < nb_ia; ++ib) {
                   for(int lb = 0; lb < nb_la; ++lb) {
-                      psi_t s{0}, h{0};
+                      complex_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
                           s += P_iaka[ia][ka](ib,kb) * hs_PAW[ka](1,kb,lb);
                           h += P_iaka[ia][ka](ib,kb) * hs_PAW[ka](0,kb,lb);
@@ -349,7 +349,7 @@ namespace sho_hamiltonian {
                   int const nb_ia = sho_tools::nSHO(numaxs[ia]);
                   for(int ib = 0; ib < nb_ia; ++ib) {
                       for(int jb = 0; jb < nb_ja; ++jb) {
-                          double s{0}, h{0};
+                          complex_t s{0}, h{0};
                           for(int lb = 0; lb < nb_la; ++lb) { // contract
                               s += Psh_iala[ia][la](0,ib,lb) * P_iaka[ja][la](jb,lb); // ToDo: needs a conjugation if complex?
                               h += Psh_iala[ia][la](1,ib,lb) * P_iaka[ja][la](jb,lb);
@@ -393,7 +393,7 @@ namespace sho_hamiltonian {
           if (1 == s0h1) {
               stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(1,0), nBa, SHm(0,0), nBa, eigvals.data());
           } else if (ovl_eig) {
-              view2D<psi_t> S_copy(nB, nBa); // get memory
+              view2D<complex_t> S_copy(nB, nBa); // get memory
               set(S_copy.data(), nB*nBa, SHm(0,0)); // copy overlap matrix S into work array W
               stat_eig = linear_algebra::eigenvalues(nB, S_copy.data(), nBa, eigvals.data());
           } // ovl_eig
@@ -469,7 +469,7 @@ namespace sho_hamiltonian {
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       
-      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
+      stat += solve<std::complex<double>>(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
       
       if (nullptr != xyzZ_m) delete[] xyzZ_m;
       return stat;

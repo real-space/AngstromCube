@@ -21,8 +21,8 @@ For development it is sometimes helpful to have plotable output. Here are two op
   1. Use the helper functions `dump_to_file` offered by *debug_output.hxx*
   2. Print to stdout directly in the format `x y0 y1 y2 ... yn` without `# ` in front
 The latter can easily be plotted e.g. by the `xmgrace -nxy` tool.
-For clarity, prepend a line with `## explanations about x and y:` (mind the double hashtag)
-When plotting an entire log file `grep \#\# log` can then help to identify graphs.
+For clarity, prepend a line with `## x_legend y_legends :` (mind the double hashtag)
+When plotting an entire log file `grep \#\# <logfile>` can then help to identify graphs.
 
 When including functionality from another header file (self-written onces or libraries),
 the coder is encouraged to keep a list of symbols up to date, listing only those

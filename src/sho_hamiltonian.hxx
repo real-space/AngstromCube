@@ -6,6 +6,7 @@
 
 namespace sho_hamiltonian {
 
+  template<typename complex_t> // complex_t cannot be auto-deducted!
   status_t solve(int const natoms
           , view2D<double const> const & xyzZ // (natoms, 4)
           , real_space::grid_t const & g

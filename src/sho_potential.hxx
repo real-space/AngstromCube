@@ -25,16 +25,11 @@ namespace sho_potential {
       // t(m,j,i) = t1D(0,m_x,j_x,i_x) * t1D(1,m_y,j_y,i_y) * t1D(2,m_z,j_z,i_z)
 
       int mzyx{0}; // contraction index
-// #ifdef OLD
-//       for    (int mz = 0; mz <= numax_m;           ++mz) {
-//         for  (int my = 0; my <= numax_m - mz;      ++my) {
-//           for(int mx = 0; mx <= numax_m - mz - my; ++mx) {
-// #else
       for    (int mu = 0; mu <= numax_m; ++mu) { // shell index for order_Ezyx
         for  (int mz = 0; mz <= mu;      ++mz) {
           for(int mx = 0; mx <= mu - mz; ++mx) {
             int const my = mu - mz - mx;
-// #endif                
+
             real_t const phase_Vcoeff_m = phase * Vcoeff[mzyx];
 
             int izyx{0};
