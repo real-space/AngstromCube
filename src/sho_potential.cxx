@@ -160,9 +160,9 @@ namespace sho_potential {
 
       if (echo > 4) printf("# %s\n\n", __func__);
 
-#ifdef OLD
-      set(coeff, nc, c_new.data()); // copy the results back into the input array
-#else
+// #ifdef OLD
+//       set(coeff, nc, c_new.data()); // copy the results back into the input array
+// #else
       {
           int mzyx{0};
           for    (int mz = 0; mz <= numax;           ++mz) {
@@ -176,8 +176,8 @@ namespace sho_potential {
           }
           assert( nc == mzyx );
       }
-#endif
-      
+// #endif
+   
       // Discussion:
       // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)
       // one could investigate if the factorization property stays
@@ -185,6 +185,8 @@ namespace sho_potential {
       // We could use a linear equation solver instead of matrix inverson,
       // however, the inversion only needs to be done once per (sigma,numax)
       // and also here the dependency on sigma can probably be moved out
+      //
+      // we can also precompute the translation table for order_zyx --> order_Ezyx
       
       return stat;
   } // normalize_potential_coefficients

@@ -176,6 +176,14 @@ namespace sho_hamiltonian {
       } // scope: set up list of centers
       if (echo > 7) printf("# project local potential at %d sites\n", ncenters);
 
+      // 
+      // Potential expansion centers that are on the same location and have the same sigma_V
+      // could be merged to reduce the projection efforts. Even if the numax_V do not match, 
+      // we take the higher one and take advantage of the order_Ezyx of the coefficients 
+      // after normalize_potential_coefficients.
+      // 
+      
+      
       // perform the projection of the local potential
       std::vector<std::vector<double>> Vcoeffs(ncenters);
       double const scale_potential = control::get("sho_hamiltonian.scale.potential", 1.0);
