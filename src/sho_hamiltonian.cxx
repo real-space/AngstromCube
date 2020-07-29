@@ -152,7 +152,7 @@ namespace sho_hamiltonian {
                   for(int ip = 0; ip < n_periodic_images; ++ip) {
                       int const numax_V = numaxs[ia] + numaxs[ja]; // depending on the distance between atom#ia and the periodic image of atom#ja, this could be lowered
                       if (echo > 7) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
-                      for(int d = 0; d < 3; ++d) {
+                      for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
                           center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
                           if (echo > 7) printf("%12.6f", center(ic,d)*Ang);
                           center(ic,d) += origin[d];
@@ -222,16 +222,18 @@ namespace sho_hamiltonian {
 
       
       
-      
       //
       // From this point on, k-point dependency should be regarded
       //
       int const nkpoints = 8; // Gamma and X-points
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
 
+      // what do we have to pass through a function interface at this point?
+      //  - natoms, numaxs, offset, nB, nBa, center_map, Vcoeffs, periodic_image, periodic_shift, sigmas, xyzZ
+        
       complex_t const Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // ikp=0:1.0, ikp=1:-1.0
 
-      view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for Overlap S and Hamiltonian matrix H
+      view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
 
       //
       // now construct the Hamiltonian:
@@ -243,11 +245,16 @@ namespace sho_hamiltonian {
       //   -- non-local PAW charge-deficit contributions
       //
       
+#ifdef DEVEL
       // prefactor of kinetic energy in Hartree atomic units
       double const kinetic = control::get("sho_hamiltonian.scale.kinetic", 1.0) * 0.5;
       if (0.5 != kinetic) warn("kinetic energy prefactor is %g", kinetic);
+#else
+      double constexpr kinetic = 0.5; // prefactor of kinetic energy in Hartree atomic units
+#endif
       double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
 
+      
       std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // construct sub-views for each atom pair
       std::vector<std::vector<view2D<complex_t>>> H_iaja(natoms); // construct sub-views for each atom pair
       // the sub-views help to address the operators as S_iaja[ia][ja](ib,jb) although their true memory
@@ -291,6 +298,9 @@ namespace sho_hamiltonian {
           } // ja
       } // ia
 
+      // what do we have to pass through a function interface at this point?
+      //  - natoms_PAW, numax_PAW, sigma_PAW, xyzZ_PAW
+      
       std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
       std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
       for(int ia = 0; ia < natoms; ++ia) {
@@ -335,9 +345,13 @@ namespace sho_hamiltonian {
           } // ka
       } // ia
 
+#ifdef DEVEL
       double const scale_h = control::get("sho_hamiltonian.scale.nonlocal.h", 1.0);
       double const scale_s = control::get("sho_hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
+#else
+      double constexpr scale_h = 1, scale_s = 1;
+#endif
 
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P_{jl} = Ph_{il} P_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P_{jl} = Ps_{il} P_{jl}
@@ -363,7 +377,10 @@ namespace sho_hamiltonian {
           } // la
       } // ja
 
-      
+      // release the memory
+      Psh_iala.clear();
+      P_iaka.clear();
+
       std::vector<double> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
 
@@ -373,7 +390,8 @@ namespace sho_hamiltonian {
           auto const  u = s0h1 ?  eV :  1; // output unit conversion factor 
           auto const _u = s0h1 ? _eV : ""; // unit symbol
 
-          if (echo > 9 - s0h1) { // display S and H
+          // display S and H
+          if (echo > 9 - s0h1) {
               printf("\n# %s matrix (%s) for Bloch phase", matrix_name, _u);
               for(int d = 0; d < 3; ++d) {
                   printf(" %g %g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
@@ -389,6 +407,7 @@ namespace sho_hamiltonian {
               printf("\n");
           } // echo
 
+          // diagonalize matrix
           status_t stat_eig(0);
           if (1 == s0h1) {
               stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(1,0), nBa, SHm(0,0), nBa, eigvals.data());
@@ -398,6 +417,7 @@ namespace sho_hamiltonian {
               stat_eig = linear_algebra::eigenvalues(nB, S_copy.data(), nBa, eigvals.data());
           } // ovl_eig
 
+          // show result
           if ((1 == s0h1) || ovl_eig) {
               if (stat_eig) {
                   warn("diagonalizing the %s matrix failed, status= %i", matrix_name, int(stat_eig));
@@ -417,7 +437,7 @@ namespace sho_hamiltonian {
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
                   if (s0h1 == 0 && lowest_eigenvalue < .1) warn("overlap matrix has small eigenvalues, lowest= %g", lowest_eigenvalue);
               } // stat_eig
-          } // ovl_eig
+          } // H or ovl_eig
 
           if (1 == s0h1) {
               if (0 == stat_eig) {
@@ -429,7 +449,7 @@ namespace sho_hamiltonian {
                   //          f_FD(eigvals[n_occupied_bands] - E_Fermi) < 10^{-15}
                   //       are small.
               } // success
-          } // ovl_eig
+          } // H
 
       } // s0h1
       
