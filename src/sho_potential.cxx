@@ -160,7 +160,23 @@ namespace sho_potential {
 
       if (echo > 4) printf("# %s\n\n", __func__);
 
+#ifdef OLD
       set(coeff, nc, c_new.data()); // copy the results back into the input array
+#else
+      {
+          int mzyx{0};
+          for    (int mu = 0; mu <= numax;   ++mu) { // shell index for order_Ezyx
+            for  (int mz = 0; mz <= mu;      ++mz) {
+              for(int mx = 0; mx <= mu - mz; ++mx) {
+                int const my = mu - mz - mx;
+                coeff[sho_tools::Ezyx_index(mx, my, mz)] = c_new[mzyx];
+                ++mzyx;
+              }
+            }
+          }
+          assert( nc == mzyx );
+      }
+#endif
       
       // Discussion:
       // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)
