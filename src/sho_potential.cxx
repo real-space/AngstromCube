@@ -165,11 +165,11 @@ namespace sho_potential {
 #else
       {
           int mzyx{0};
-          for    (int mu = 0; mu <= numax;   ++mu) { // shell index for order_Ezyx
-            for  (int mz = 0; mz <= mu;      ++mz) {
-              for(int mx = 0; mx <= mu - mz; ++mx) {
-                int const my = mu - mz - mx;
-                coeff[sho_tools::Ezyx_index(mx, my, mz)] = c_new[mzyx];
+          for    (int mz = 0; mz <= numax;           ++mz) {
+            for  (int my = 0; my <= numax - mz;      ++my) {
+              for(int mx = 0; mx <= numax - mz - my; ++mx) {
+                int const Ezyx = sho_tools::Ezyx_index(mx, my, mz);
+                coeff[Ezyx] = c_new[mzyx];
                 ++mzyx;
               }
             }
@@ -386,15 +386,17 @@ namespace sho_potential {
 
                   std::vector<double> Vcoeff(sho_tools::nSHO(numax_V), 0.0);
                   stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot.data(), g, 0); // 0:mute
+                  // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
                   
                   stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // 0:mute
-                  // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
+                  // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
 #ifdef FULL_DEBUG
                   if (echo > 9) {
                       int mzyx{0};
-                      for    (int mz = 0; mz <= numax_V;           ++mz) {
-                        for  (int my = 0; my <= numax_V - mz;      ++my) {
-                          for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
+                      for    (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
+                        for  (int mz = 0; mz <= mu;      ++mz) {
+                          for(int mx = 0; mx <= mu - mz; ++mx) {
+                              int const my = mu - mz - mx;
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7)
                                   printf("# V_coeff ai#%i aj#%i %x%x%x %16.6f\n", ia, ja, mz,my,mx, v);
@@ -459,14 +461,18 @@ namespace sho_potential {
 
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), numax_V, center[ia], sigma_V, vtot.data(), g, 0);
+              // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
+             
               stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // mute
-              // now Vcoeff is in a representation w.r.t. powers of the Cartesian coords x^{mx}*y^{my}*z^{mz}
+              // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
+
 #if 1
               if (echo > 9) {
                   int mzyx{0};
-                  for    (int mz = 0; mz <= numax_V;           ++mz) {
-                    for  (int my = 0; my <= numax_V - mz;      ++my) {
-                      for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
+                  for    (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
+                    for  (int mz = 0; mz <= mu;      ++mz) {
+                      for(int mx = 0; mx <= mu - mz; ++mx) {
+                          int const my = mu - mz - mx;
                           auto const v = Vcoeff[mzyx];
                           if (std::abs(v) > 5e-7) printf("# V_coeff ai#%i %x%x%x %16.6f\n", ia, mz,my,mx, v);
 //                        printf("#V_coeff_all %d %g ai#%i  %d %d %d\n", mz+my+mx, v, ia, mz,my,mx); // for plotting
