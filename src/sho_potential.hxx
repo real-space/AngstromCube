@@ -13,12 +13,12 @@ namespace sho_potential {
 
   status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0);
   
-  template<typename real_t>
-  status_t potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
+  template<typename complex_t, typename phase_t>
+  status_t potential_matrix(view2D<complex_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
                             , view4D<double> const & t1D // input t1D(dir,m,i,j)
                             , double const Vcoeff[], int const numax_m // expansion of the potential in x^{mx}*y^{my}*z^{mz}
                             , int const numax_i, int const numax_j
-                            , real_t const phase=1
+                            , phase_t const phase=1
                             , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
       // can use different (dir01==1) tensors per direction or the same (dir01==0)
@@ -30,7 +30,7 @@ namespace sho_potential {
           for(int mx = 0; mx <= mu - mz; ++mx) {
             int const my = mu - mz - mx;
 
-            real_t const phase_Vcoeff_m = phase * Vcoeff[mzyx];
+            auto const phase_Vcoeff_m = phase * Vcoeff[mzyx];
 
             int izyx{0};
             for    (int iz = 0; iz <= numax_i;           ++iz) {

@@ -410,12 +410,12 @@ namespace sho_potential {
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
-                  stat += potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja]);
+                  stat += potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja], 1.0);
                   
                   // use the same product to compute also the overlap matrix
                   double const one[1] = {1.};
                   auto Smat_iaja = Smat(ia,ja);
-                  stat += potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja]);
+                  stat += potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja], 1.0);
 
               } // ja
           } // ia
