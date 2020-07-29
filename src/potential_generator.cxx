@@ -760,7 +760,7 @@ namespace potential_generator {
               } else { // psi_on_grid
                   here;
                 
-                  stat += sho_hamiltonian::solve<std::complex<double>>(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+                  stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
                 
                   here;
               } // psi_on_grid

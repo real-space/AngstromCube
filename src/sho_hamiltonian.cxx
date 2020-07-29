@@ -77,161 +77,29 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
-  template<typename complex_t> // can be std::complex<real_t> or real_t itself
-  status_t solve(int const natoms // number of SHO basis centers
+  
+  template<typename complex_t=double> // can be std::complex<real_t> or real_t itself
+  status_t solve_k(int const natoms
           , view2D<double const> const & xyzZ // (natoms, 4)
-          , real_space::grid_t const & g
-          , double const *const vtot
-          , int const natoms_prj // =-1 number of PAW atoms
-          , double const *const sigma_prj // =nullptr
-          , int    const *const numax_prj // =nullptr
-          , double *const *const atom_mat // =nullptr
-          , int const echo) {
-    
+          , int const numaxs[]
+          , double const sigmas[]
+          , int const n_periodic_images
+          , view2D<double const> const & periodic_image
+          , view2D<int8_t const> const & periodic_shift
+          , std::vector<double> const Vcoeffs[]
+          , view4D<int> const & center_map
+          , int const nB, int const nBa // basis size and matrix stride
+          , int const offset[]
+          , int const natoms_PAW
+          , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4)
+          , int const numax_PAW[]
+          , double const sigma_PAW[]
+          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj)
+          , int const ikp=0, int const nkpoints=1, int const echo=0) {
+        
       status_t stat(0);
       
-      double const origin[] = {.5*(g[0] - 1)*g.h[0],
-                               .5*(g[1] - 1)*g.h[1], 
-                               .5*(g[2] - 1)*g.h[2]};
-
-      auto const usual_numax = int(control::get("sho_hamiltonian.test.numax", 1.));
-      auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", 2.);
-      std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
-      std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
-      double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
-      if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
-      
-      
-      std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
-      int total_basis_size{0}, maximum_numax{-1};
-      double maximum_sigma{0};
-      for(int ia = 0; ia < natoms; ++ia) {
-          if (echo > 0) {
-              printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f  numax= %d sigma= %.3f %s\n",
-                  ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, numaxs[ia], sigmas[ia]*Ang, _Ang);
-          } // echo
-          int const atom_basis_size = sho_tools::nSHO(numaxs[ia]);
-          maximum_numax = std::max(maximum_numax, numaxs[ia]);
-          maximum_sigma = std::max(maximum_sigma, sigmas[ia]);
-          offset[ia] = total_basis_size; // prefix sum
-          total_basis_size += atom_basis_size;
-      } // ia
-      int const numax_max = maximum_numax;
-      if (echo > 5) printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
-      offset[natoms] = total_basis_size;
-      int const nB   = total_basis_size;
-      int const nBa  = align<4>(nB); // memory aligned main matrix stride
-
-
-
-      float const rcut = 9*maximum_sigma; // exp(-9^2) = 6.6e-36
-      double *periodic_image_ptr{nullptr};
-      int8_t *periodic_shift_ptr{nullptr};
-      double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
-      int const n_periodic_images = boundary_condition::periodic_images(&periodic_image_ptr, cell, g.boundary_conditions(), rcut, 0, &periodic_shift_ptr);
-      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-      view2D<double const> periodic_image(periodic_image_ptr, 4); // wrap
-      view2D<int8_t const> periodic_shift(periodic_shift_ptr, 4); // wrap
-
-     
-      
-      int ncenters = natoms*natoms*n_periodic_images;
-      view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
-      view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
-      { // scope: set up list of centers for the expansion of the local potential
-          int ic{0};
-          for(int ia = 0; ia < natoms; ++ia) {
-              for(int ja = 0; ja < natoms; ++ja) {
-
-                  double const alpha_i = 1/pow2(sigmas[ia]);
-                  double const alpha_j = 1/pow2(sigmas[ja]);
-                  double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
-                  double const wi = alpha_i*pow2(sigma_V);
-                  double const wj = alpha_j*pow2(sigma_V);
-                  assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
-                  for(int ip = 0; ip < n_periodic_images; ++ip) {
-                      int const numax_V = numaxs[ia] + numaxs[ja]; // depending on the distance between atom#ia and the periodic image of atom#ja, this could be lowered
-                      if (echo > 7) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
-                      for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
-                          center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
-                          if (echo > 7) printf("%12.6f", center(ic,d)*Ang);
-                          center(ic,d) += origin[d];
-                      } // d
-                      if (echo > 7) printf("  numax_V= %i sigma_V: %g %s \n", numax_V, sigma_V*Ang, _Ang);
-                      center(ic,3) = sigma_V;
-                      center(ic,4) = numax_V;
-                      // debug info
-                      center(ic,5) = ip; // index of the periodic image
-                      center(ic,6) = ia; // ToDo: use global atom indices
-                      center(ic,7) = ja; // ToDo: use global atom indices
-
-                      center_map(ia,ja,ip,0) = ic;
-                      center_map(ia,ja,ip,1) = numax_V;
-
-                      ++ic;
-                  } // ip
-              } // ja
-          } // ia
-          ncenters = ic; // may be less that initially allocated
-      } // scope: set up list of centers
-      if (echo > 7) printf("# project local potential at %d sites\n", ncenters);
-
-      // 
-      // Potential expansion centers that are on the same location and have the same sigma_V
-      // could be merged to reduce the projection efforts. Even if the numax_V do not match, 
-      // we take the higher one and take advantage of the order_Ezyx of the coefficients 
-      // after normalize_potential_coefficients.
-      // 
-      
-      
-      // perform the projection of the local potential
-      std::vector<std::vector<double>> Vcoeffs(ncenters);
-      double const scale_potential = control::get("sho_hamiltonian.scale.potential", 1.0);
-      if (1.0 != scale_potential) warn("scale potential by %g", scale_potential);
-      for(int ic = 0; ic < ncenters; ++ic) {
-          double const sigma_V = center(ic,3);
-          int    const numax_V = center(ic,4);
-          Vcoeffs[ic] = std::vector<double>(sho_tools::nSHO(numax_V), 0.0);
-          stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot, g, 0); // 0:mute
-          // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
-          
-          stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
-          // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
-          
-          scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
-      } // ic
-
-
-      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
-      int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
-      auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
-      std::vector<int32_t> numax_PAW(natoms_PAW,  3);
-      std::vector<double>  sigma_PAW(natoms_PAW, .5);
-      std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
-      for(int ka = 0; ka < natoms_PAW; ++ka) {
-          if (numax_prj) numax_PAW[ka] = numax_prj[ka];
-          if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
-          int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
-          if (atom_mat) {
-              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap input
-          } else {
-              hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
-          } // atom_mat
-          // for both matrices: L2-normalization w.r.t. SHO projector functions is important
-      } // ka
-
-      
-      
-      //
-      // From this point on, k-point dependency should be regarded
-      //
-      int const nkpoints = 8; // Gamma and X-points
-      for(int ikp = 0; ikp < nkpoints; ++ikp) {
-
-      // what do we have to pass through a function interface at this point?
-      //  - natoms, numaxs, offset, nB, nBa, center_map, Vcoeffs, periodic_image, periodic_shift, sigmas, xyzZ
-        
-      complex_t const Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // ikp=0:1.0, ikp=1:-1.0
+      complex_t const Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points
 
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
 
@@ -298,9 +166,6 @@ namespace sho_hamiltonian {
           } // ja
       } // ia
 
-      // what do we have to pass through a function interface at this point?
-      //  - natoms_PAW, numax_PAW, sigma_PAW, xyzZ_PAW
-      
       std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
       std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
       for(int ia = 0; ia < natoms; ++ia) {
@@ -453,10 +318,177 @@ namespace sho_hamiltonian {
 
       } // s0h1
       
-      } // ikp ToDo: indent
+      return stat;
+  } // solve_k
+  
+  
+  status_t solve(int const natoms // number of SHO basis centers
+          , view2D<double const> const & xyzZ // (natoms, 4)
+          , real_space::grid_t const & g
+          , double const *const vtot
+          , int const natoms_prj // =-1 number of PAW atoms
+          , double const *const sigma_prj // =nullptr
+          , int    const *const numax_prj // =nullptr
+          , double *const *const atom_mat // =nullptr
+          , int const echo) {
+    
+      status_t stat(0);
+      
+      double const origin[] = {.5*(g[0] - 1)*g.h[0],
+                               .5*(g[1] - 1)*g.h[1], 
+                               .5*(g[2] - 1)*g.h[2]};
+
+      auto const usual_numax = int(control::get("sho_hamiltonian.test.numax", 1.));
+      auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", 2.);
+      std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
+      std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
+      double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
+      if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
+      
+      
+      std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
+      int total_basis_size{0}, maximum_numax{-1};
+      double maximum_sigma{0};
+      for(int ia = 0; ia < natoms; ++ia) {
+          if (echo > 0) {
+              printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f  numax= %d sigma= %.3f %s\n",
+                  ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, numaxs[ia], sigmas[ia]*Ang, _Ang);
+          } // echo
+          int const atom_basis_size = sho_tools::nSHO(numaxs[ia]);
+          maximum_numax = std::max(maximum_numax, numaxs[ia]);
+          maximum_sigma = std::max(maximum_sigma, sigmas[ia]);
+          offset[ia] = total_basis_size; // prefix sum
+          total_basis_size += atom_basis_size;
+      } // ia
+      int const numax_max = maximum_numax;
+      if (echo > 5) printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
+      offset[natoms] = total_basis_size;
+      int const nB   = total_basis_size;
+      int const nBa  = align<4>(nB); // memory aligned main matrix stride
+
+
+
+      float const rcut = 9*maximum_sigma; // exp(-9^2) = 6.6e-36
+      double *periodic_image_ptr{nullptr};
+      int8_t *periodic_shift_ptr{nullptr};
+      double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
+      int const n_periodic_images = boundary_condition::periodic_images(&periodic_image_ptr, cell, g.boundary_conditions(), rcut, 0, &periodic_shift_ptr);
+      if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+      view2D<double const> periodic_image(periodic_image_ptr, 4); // wrap
+      view2D<int8_t const> periodic_shift(periodic_shift_ptr, 4); // wrap
+
+     
+      
+      int ncenters = natoms*natoms*n_periodic_images;
+      view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
+      view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
+      { // scope: set up list of centers for the expansion of the local potential
+          int ic{0};
+          for(int ia = 0; ia < natoms; ++ia) {
+              for(int ja = 0; ja < natoms; ++ja) {
+
+                  double const alpha_i = 1/pow2(sigmas[ia]);
+                  double const alpha_j = 1/pow2(sigmas[ja]);
+                  double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
+                  double const wi = alpha_i*pow2(sigma_V);
+                  double const wj = alpha_j*pow2(sigma_V);
+                  assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
+                  for(int ip = 0; ip < n_periodic_images; ++ip) {
+                      int const numax_V = numaxs[ia] + numaxs[ja]; // depending on the distance between atom#ia and the periodic image of atom#ja, this could be lowered
+                      if (echo > 7) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
+                      for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
+                          center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
+                          if (echo > 7) printf("%12.6f", center(ic,d)*Ang);
+                          center(ic,d) += origin[d];
+                      } // d
+                      if (echo > 7) printf("  numax_V= %i sigma_V: %g %s \n", numax_V, sigma_V*Ang, _Ang);
+                      center(ic,3) = sigma_V;
+                      center(ic,4) = numax_V;
+                      // debug info
+                      center(ic,5) = ip; // index of the periodic image
+                      center(ic,6) = ia; // ToDo: use global atom indices
+                      center(ic,7) = ja; // ToDo: use global atom indices
+
+                      center_map(ia,ja,ip,0) = ic;
+                      center_map(ia,ja,ip,1) = numax_V;
+
+                      ++ic;
+                  } // ip
+              } // ja
+          } // ia
+          ncenters = ic; // may be less that initially allocated
+      } // scope: set up list of centers
+      if (echo > 7) printf("# project local potential at %d sites\n", ncenters);
+
+      // 
+      // Potential expansion centers that are on the same location and have the same sigma_V
+      // could be merged to reduce the projection efforts. Even if the numax_V do not match, 
+      // we take the higher one and take advantage of the order_Ezyx of the coefficients 
+      // after normalize_potential_coefficients.
+      // 
+      
+      
+      // perform the projection of the local potential
+      std::vector<std::vector<double>> Vcoeffs(ncenters);
+      double const scale_potential = control::get("sho_hamiltonian.scale.potential", 1.0);
+      if (1.0 != scale_potential) warn("scale potential by %g", scale_potential);
+      for(int ic = 0; ic < ncenters; ++ic) {
+          double const sigma_V = center(ic,3);
+          int    const numax_V = center(ic,4);
+          Vcoeffs[ic] = std::vector<double>(sho_tools::nSHO(numax_V), 0.0);
+          stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot, g, 0); // 0:mute
+          // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
+          
+          stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
+          // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
+          
+          scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
+      } // ic
+
+
+      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
+      int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
+      auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
+      std::vector<int32_t> numax_PAW(natoms_PAW,  3);
+      std::vector<double>  sigma_PAW(natoms_PAW, .5);
+      std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
+      for(int ka = 0; ka < natoms_PAW; ++ka) {
+          if (numax_prj) numax_PAW[ka] = numax_prj[ka];
+          if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
+          int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
+          if (atom_mat) {
+              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap input
+          } else {
+              hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
+          } // atom_mat
+          // for both matrices: L2-normalization w.r.t. SHO projector functions is important
+      } // ka
+
+      
+      
+      //
+      // From this point on, k-point dependency should be regarded
+      //
+      int const nkpoints = 8; // Gamma and X-points
+      for(int ikp = 0; ikp < nkpoints; ++ikp) {
+          
+          bool const double_complex = true;
+          if (double_complex) {
+              stat += solve_k<std::complex<double>>(
+                          natoms, xyzZ, numaxs.data(), sigmas.data(),
+                          n_periodic_images, periodic_image, periodic_shift,
+                          Vcoeffs.data(), center_map,
+                          nB, nBa, offset.data(),
+                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          ikp, nkpoints, echo);
+          } // double_complex
+          // more cases for double, float, std::complex<float>, ToDo
+          
+      } // ikp
       
       return stat;
   } // solve
+
   
   
 #ifdef  NO_UNIT_TESTS
@@ -489,8 +521,8 @@ namespace sho_hamiltonian {
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       
-      stat += solve<std::complex<double>>(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
-      
+      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
+
       if (nullptr != xyzZ_m) delete[] xyzZ_m;
       return stat;
   } // test_Hamiltonian
