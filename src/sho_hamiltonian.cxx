@@ -8,7 +8,7 @@
 #include "sho_hamiltonian.hxx"
 
 #include "sho_potential.hxx" // ::load_local_potential
-#include "geometry_analysis.hxx" // ::read_xyz_file
+#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "real_space.hxx" // ::grid_t
@@ -282,7 +282,7 @@ namespace sho_hamiltonian {
           if (echo > 9 - s0h1) {
               printf("\n# %s matrix (%s) for Bloch phase", matrix_name, _u);
               for(int d = 0; d < 3; ++d) {
-                  printf(" %g %g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
+                  printf(" %g+i*%g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
               } // d
               printf(":\n");
               for(int iB = 0; iB < nB; ++iB) {
@@ -343,8 +343,13 @@ namespace sho_hamiltonian {
       
       return stat;
   } // solve_k
-  
-  
+
+
+
+
+
+
+
   status_t solve(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4)
           , real_space::grid_t const & g
@@ -419,6 +424,7 @@ namespace sho_hamiltonian {
                       if (echo > 7) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
                       for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
                           center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
+                          center(ic,d) = geometry_analysis::fold_back(center(ic,d), cell[d]);
                           if (echo > 7) printf("%12.6f", center(ic,d)*Ang);
                           center(ic,d) += origin[d];
                       } // d
@@ -443,10 +449,14 @@ namespace sho_hamiltonian {
 
       // 
       // Potential expansion centers that are on the same location and have the same sigma_V
-      // could be merged to reduce the projection efforts. Even if the numax_V do not match, 
+      // could be merged to reduce the projection efforts. Even if the numax_Vs do not match, 
       // we take the higher one and take advantage of the order_Ezyx of the coefficients 
       // after normalize_potential_coefficients.
       // 
+      // For this analysis, define a spatial threshold how close expansion centers
+      // should be to be considered mergable, furthermore, a threshold for sigma_Vs.
+      // Then, we can divide the cell into sub-cells, integerizing the coordinates
+      // and compare in an N^2-algorithm each sub-cell to the neighborhood (27 subcells)
       
       
       // perform the projection of the local potential
@@ -456,8 +466,14 @@ namespace sho_hamiltonian {
       for(int ic = 0; ic < ncenters; ++ic) {
           double const sigma_V = center(ic,3);
           int    const numax_V = center(ic,4);
-          Vcoeffs[ic] = std::vector<double>(sho_tools::nSHO(numax_V), 0.0);
-          stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot, g, 0); // 0:mute
+          int const nc = sho_tools::nSHO(numax_V);
+          Vcoeffs[ic] = std::vector<double>(nc, 0.0);
+          for(int ip = 0; ip < n_periodic_images; ++ip) {
+              std::vector<double> Vcoeff(nc, 0.0);
+              double cnt[3]; set(cnt, 3, center[ic]); add_product(cnt, 3, periodic_image[ip], 1.0);
+              stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot, g, 0); // 0:mute
+              add_product(Vcoeffs[ic].data(), nc, Vcoeff.data(), 1.0);
+          } // ip
           // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
           
           stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute

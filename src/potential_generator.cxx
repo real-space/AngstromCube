@@ -22,9 +22,9 @@
 #include "fourier_poisson.hxx" // ::fourier_solve
 #include "iterative_poisson.hxx" // ::solve
 #include "finite_difference.hxx" // ::stencil_t, ::derive
-#include "geometry_analysis.hxx" // ::read_xyz_file
+#include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
 #include "simple_timer.hxx" // // SimpleTimer
-#include "control.hxx" // control::get
+#include "control.hxx" // ::get
 
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
 #include "bessel_transform.hxx" // ::Bessel_j0
@@ -81,12 +81,12 @@ namespace potential_generator {
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
   
-  inline double fold_back(double const position, double const cell_extend) { 
-      double x{position};
-      while(x >= 0.5*cell_extend) x -= cell_extend;
-      while(x < -0.5*cell_extend) x += cell_extend;
-      return x;
-  } // fold_back
+//   inline double fold_back(double const position, double const cell_extend) { 
+//       double x{position};
+//       while(x >= 0.5*cell_extend) x -= cell_extend;
+//       while(x < -0.5*cell_extend) x += cell_extend;
+//       return x;
+//   } // fold_back
   
   status_t init_geometry_and_grid(real_space::grid_t & g, double **coordinates_and_Z, 
                                   int & natoms, int const echo=0) {
@@ -316,7 +316,7 @@ namespace potential_generator {
                               xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang);
               Za[ia] = Z;
               for(int d = 0; d < 3; ++d) {
-                  center(ia,d) = fold_back(xyzZ(ia,d), cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
+                  center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center(ia,3) = 0; // 4th component is not used
               if (echo > 1) printf("  relative%12.3f%16.3f%16.3f", center(ia,0)*g.inv_h[0],
                                           center(ia,1)*g.inv_h[1], center(ia,2)*g.inv_h[2]);
@@ -892,7 +892,7 @@ namespace potential_generator {
 
       { // scope: export total potential to ASCII file
           auto const Vtot_out_filename = control::get("total.potential.to.file", "vtot.dat");
-          if (*Vtot_out_filename) stat += write_array_to_file(Vtot_out_filename, Vtot.data(), g[0], g[1], g[2], echo, "total effective potential");
+          if (*Vtot_out_filename) stat += write_array_to_file(Vtot_out_filename, Vtot.data(), g[0], g[1], g[2], echo);
       } // scope
 
 #endif // DEVEL

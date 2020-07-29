@@ -118,7 +118,7 @@ namespace grid_operators {
                   } else {
 
                       // scope: V_atom_coeff = matrix * atom_coeff
-                      
+
                       int const stride = a[ia].stride();
                       assert(stride >= ncoeff); // check internal consistency
                       auto *const mat = a[ia].get_matrix<real_fd_t>(h0s1);
@@ -133,7 +133,7 @@ namespace grid_operators {
                           V_atom_coeff[ia][i] = ci;
                       } // i
                   } // scope
-              
+
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
                           real_t const inv_Bloch_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
