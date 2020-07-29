@@ -374,10 +374,10 @@ namespace sho_potential {
                   stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // 0:mute
                   // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz}
 #ifdef FULL_DEBUG
-                  if (echo > 16) {
+                  if (echo > 9) {
                       int mzyx{0};
-                      for    (int mz = 0; mz <= numax_V; ++mz) {
-                        for  (int my = 0; my <= numax_V - mz; ++my) {
+                      for    (int mz = 0; mz <= numax_V;           ++mz) {
+                        for  (int my = 0; my <= numax_V - mz;      ++my) {
                           for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7)
@@ -448,8 +448,8 @@ namespace sho_potential {
 #if 1
               if (echo > 9) {
                   int mzyx{0};
-                  for    (int mz = 0; mz <= numax_V; ++mz) {
-                    for  (int my = 0; my <= numax_V - mz; ++my) {
+                  for    (int mz = 0; mz <= numax_V;           ++mz) {
+                    for  (int my = 0; my <= numax_V - mz;      ++my) {
                       for(int mx = 0; mx <= numax_V - mz - my; ++mx) {
                           auto const v = Vcoeff[mzyx];
                           if (std::abs(v) > 5e-7) printf("# V_coeff ai#%i %x%x%x %16.6f\n", ia, mz,my,mx, v);

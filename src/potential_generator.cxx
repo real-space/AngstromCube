@@ -117,7 +117,14 @@ namespace potential_generator {
       return stat;
   } // init_geometry_and_grid
   
-  
+  template <typename real_t>
+  status_t write_array_to_file(char const *filename, real_t const array[], 
+               int const nx, int const ny, int const nz, int const echo, char const *arrayname="") {
+      char title[128]; std::sprintf(title, "%i x %i x %i  %s", nz, ny, nx, arrayname);
+      auto const size = size_t(nz) * size_t(ny) * size_t(nx);
+      return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
+  } // write_array_to_file
+
   status_t add_smooth_quantities(double values[] // add to this function on a 3D grid
                 , real_space::grid_t const & g 
                 , int const na, int32_t const nr2[], float const ar2[]
@@ -591,7 +598,8 @@ namespace potential_generator {
 #ifdef DEVEL
               { // scope: export electrostatic potential to ASCII file
                   auto const Ves_out_filename = control::get("electrostatic.potential.to.file", "");
-                  if (*Ves_out_filename) stat += dump_to_file(Ves_out_filename, g.all(), Ves.data(), nullptr, 1, 1, "electrostatic potential", echo);
+                  if (*Ves_out_filename) stat += write_array_to_file(Ves_out_filename, Ves.data(), g[0], g[1], g[2], echo, "electrostatic potential");
+//                     dump_to_file(Ves_out_filename, g.all(), Ves.data(), nullptr, 1, 1, "electrostatic potential", echo);
               } // scope
 #endif
 
@@ -872,14 +880,19 @@ namespace potential_generator {
 
       } // scope Bessel
 
-      int const export_Vtot = int(control::get("potential_generator.export.vtot", 1.));
-      if (export_Vtot) {
-          // generate a file which contains the full potential Vtot
-          if (echo > 0) {
-              char title[96]; std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
-              dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
-          } // unless all output is suppressed
-      } // export_Vtot
+//       int const export_Vtot = int(control::get("potential_generator.export.vtot", 1.));
+//       if (export_Vtot) {
+//           generate a file which contains the full potential Vtot
+//           if (echo > 0) {
+//               char title[96]; std::sprintf(title, "%i x %i x %i", g[2], g[1], g[0]);
+//               dump_to_file("vtot.dat", Vtot.size(), Vtot.data(), nullptr, 1, 1, title, echo);
+//           } // unless all output is suppressed
+//       } // export_Vtot
+
+      { // scope: export total potential to ASCII file
+          auto const Vtot_out_filename = control::get("total.potential.to.file", "vtot.dat");
+          if (*Vtot_out_filename) stat += write_array_to_file(Vtot_out_filename, Vtot.data(), g[0], g[1], g[2], echo, "total effective potential");
+      } // scope
 
 #endif // DEVEL
 
@@ -891,7 +904,7 @@ namespace potential_generator {
       return stat;
   } // init
 
-
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS

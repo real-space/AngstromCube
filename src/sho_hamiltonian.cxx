@@ -138,11 +138,11 @@ namespace sho_hamiltonian {
       int ncenters = natoms*natoms*n_periodic_images;
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
       view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
-      { // scope: set up list of centers
+      { // scope: set up list of centers for the expansion of the local potential
           int ic{0};
           for(int ia = 0; ia < natoms; ++ia) {
               for(int ja = 0; ja < natoms; ++ja) {
-//                assert(ja >= ia);
+
                   double const alpha_i = 1/pow2(sigmas[ia]);
                   double const alpha_j = 1/pow2(sigmas[ja]);
                   double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
@@ -161,10 +161,10 @@ namespace sho_hamiltonian {
                       center(ic,3) = sigma_V;
                       center(ic,4) = numax_V;
                       // debug info
-                      center(ic,5) = 0;  // ToDo: store also the index of the periodic image, once active
-                      center(ic,6) = ia; // ToDo: use global atom indices here
-                      center(ic,7) = ja; // ToDo: use global atom indices here
-                      
+                      center(ic,5) = ip; // index of the periodic image
+                      center(ic,6) = ia; // ToDo: use global atom indices
+                      center(ic,7) = ja; // ToDo: use global atom indices
+
                       center_map(ia,ja,ip,0) = ic;
                       center_map(ia,ja,ip,1) = numax_V;
 
@@ -174,6 +174,7 @@ namespace sho_hamiltonian {
           } // ia
           ncenters = ic; // may be less that initially allocated
       } // scope: set up list of centers
+      if (echo > 7) printf("# project local potential at %d sites\n", ncenters);
 
       // perform the projection of the local potential
       std::vector<std::vector<double>> Vcoeffs(ncenters);
@@ -184,12 +185,14 @@ namespace sho_hamiltonian {
           int    const numax_V = center(ic,4);
           Vcoeffs[ic] = std::vector<double>(sho_tools::nSHO(numax_V), 0.0);
           stat += sho_projection::sho_project(Vcoeffs[ic].data(), numax_V, center[ic], sigma_V, vtot, g, 0); // 0:mute
+          // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
           
           stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
+          // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
           
           scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
       } // ic
-      
+
 
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible

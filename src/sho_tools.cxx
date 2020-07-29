@@ -114,13 +114,13 @@ namespace sho_tools {
 
   status_t test_energy_ordered_indices(int const echo=4, int const numax=9) {
       if (echo > 6) printf("\n# %s: numax == %i\n", __func__, numax);
-      status_t nerrors = 0;
-      int nzyx = 0, nln = 0, nlnm = 0;
+      status_t nerrors{0};
+      int nzyx{0}, nln{0}, nlnm{0};
       for(int nu = 0; nu <= numax; ++nu) { // shell index
 
           // Cartesian energy-ordered index
-          if (echo > 7) printf("\n# nzyx_index<nu=%i>\n", nu);
-          int xyz = 0;
+          if (echo > 7) printf("\n# Ezyx_index<nu=%i>\n", nu);
+          int xyz{0};
           for(int nz = 0; nz <= nu; ++nz) { // z can also run backwards so we start from (0,0,nu) and proceed with (1,0,nu-1)
               for(int nx = 0; nx <= nu - nz; ++nx) {
                   int const ny = nu - nz - nx;
@@ -196,7 +196,7 @@ namespace sho_tools {
       if (echo > 4) printf("\n# sizeof(SHO_index_t) = %d Byte\n", sizeof(SHO_index_t));
       return 0;
   } // test_sizeof
-
+  
   status_t all_tests(int const echo) {
     status_t status(0);
     status += test_radial_indices(echo);
