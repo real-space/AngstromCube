@@ -109,7 +109,7 @@ namespace sho_hamiltonian {
           , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
           , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
           , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
-          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW charge-deficit and Hamiltonian correction matrices
+          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
           , phase_t const Bloch_phase[3]
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int const echo=0) { // log-level
@@ -122,6 +122,7 @@ namespace sho_hamiltonian {
 #endif     
 
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
+      int constexpr S=0, H=1;
 
       //
       // now construct the Hamiltonian:
@@ -153,8 +154,8 @@ namespace sho_hamiltonian {
           H_iaja[ia].resize(natoms);
           int const n1i = sho_tools::n1HO(numaxs[ia]);
           for(int ja = 0; ja < natoms; ++ja) {
-              S_iaja[ia][ja] = view2D<complex_t>(&(SHm(0,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<complex_t>(&(SHm(1,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
+              S_iaja[ia][ja] = view2D<complex_t>(&(SHm(S,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
+              H_iaja[ia][ja] = view2D<complex_t>(&(SHm(H,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j = sho_tools::n1HO(numaxs[ja]);
 
               for(int ip = 0; ip < n_periodic_images; ++ip) {
@@ -221,11 +222,12 @@ namespace sho_hamiltonian {
                       complex_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
                           auto const p = P_iaka[ia][ka](ib,kb);
+                          // Mind that hs_PAW matrices are ordered {H,S}
                           s += p * hs_PAW[ka](1,kb,lb);
                           h += p * hs_PAW[ka](0,kb,lb);
                       } // kb
-                      Psh_iala[ia][la](0,ib,lb) = s;
-                      Psh_iala[ia][la](1,ib,lb) = h;
+                      Psh_iala[ia][la](S,ib,lb) = s;
+                      Psh_iala[ia][la](H,ib,lb) = h;
                   } // lb
               } // ib
 
@@ -240,14 +242,15 @@ namespace sho_hamiltonian {
       double constexpr scale_h = 1, scale_s = 1;
 #endif
 
-      // PAW contributions to H_{ij} = P_{ik} h_{kl} P_{jl} = Ph_{il} P_{jl}
-      //                  and S_{ij} = P_{ik} s_{kl} P_{jl} = Ps_{il} P_{jl}
-      for(int ja = 0; ja < natoms; ++ja) {
-          int const nb_ja = sho_tools::nSHO(numaxs[ja]);
-          for(int la = 0; la < natoms_PAW; ++la) { // contract
-              int const nb_la = sho_tools::nSHO(numax_PAW[la]);
-              for(int ia = 0; ia < natoms; ++ia) {
-                  int const nb_ia = sho_tools::nSHO(numaxs[ia]);
+      // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
+      //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
+      for(int ia = 0; ia < natoms; ++ia) {
+          int const nb_ia = sho_tools::nSHO(numaxs[ia]);
+          for(int ja = 0; ja < natoms; ++ja) {
+              int const nb_ja = sho_tools::nSHO(numaxs[ja]);
+              for(int la = 0; la < natoms_PAW; ++la) { // contract
+                  int const nb_la = sho_tools::nSHO(numax_PAW[la]);
+                  // matrix-matrix multiplication
                   for(int ib = 0; ib < nb_ia; ++ib) {
                       for(int jb = 0; jb < nb_ja; ++jb) {
                           complex_t s{0}, h{0};
@@ -259,12 +262,13 @@ namespace sho_hamiltonian {
                           S_iaja[ia][ja](ib,jb) += s * scale_s;
                           H_iaja[ia][ja](ib,jb) += h * scale_h;
                       } // jb
-
                   } // ib
-              } // ia
-          } // la
-      } // ja
+                  
+              } // la
+          } // ja
+      } // ia
       Psh_iala.clear(); P_iaka.clear(); // release the memory
+      S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
       std::vector<double> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
@@ -300,7 +304,7 @@ namespace sho_hamiltonian {
               double offi{0}; // off-diagonal elements imaginary part
               for(int iB = 0; iB < nB; ++iB) {
                   diag = std::max(diag, std::abs(std::imag(SHm(s0h1,iB,iB))));
-                  for(int jB = iB + 1; jB < nB; ++jB) {
+                  for(int jB = iB + 1; jB < nB; ++jB) { // triangular loop
                       auto const dev = SHm(s0h1,iB,jB) - conjugate(SHm(s0h1,jB,iB));
                       offr = std::max(offr, std::abs(std::real(dev)));
                       offi = std::max(offi, std::abs(std::imag(dev)));
@@ -309,15 +313,15 @@ namespace sho_hamiltonian {
               if (echo > 1) printf("# %s deviates from hermitian: imag(diag)= %.1e  imag(off)= %.1e  real(off)= %.1e\n",
                                       matrix_name, diag, offi, offr);
           } // check hermiticity
-          
+
           
           // diagonalize matrix
           status_t stat_eig(0);
           if (1 == s0h1) {
-              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(1,0), nBa, SHm(0,0), nBa, eigvals.data());
+              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(H,0), nBa, SHm(S,0), nBa, eigvals.data());
           } else if (ovl_eig) {
               view2D<complex_t> S_copy(nB, nBa); // get memory
-              set(S_copy.data(), nB*nBa, SHm(0,0)); // copy overlap matrix S into work array W
+              set(S_copy.data(), nB*nBa, SHm(S,0)); // copy overlap matrix S into work array W
               stat_eig = linear_algebra::eigenvalues(nB, S_copy.data(), nBa, eigvals.data());
           } // ovl_eig
 
