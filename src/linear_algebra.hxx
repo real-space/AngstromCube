@@ -11,17 +11,31 @@ extern "C" {
 #ifdef  HAS_MKL
   #include "mkl_lapacke.h" // LAPACK_COL_MAJOR, MKL_INT
 #else
+    // float64 linear_solve
 	void dgesv_(int const *n, int const *nrhs, double a[], int const *lda, 
 				int ipiv[], double b[], int const *ldb, int *info);
+    // float64 eigenvalues
 	void dsyev_(char const *jobz, char const *uplo, int const* n, double a[], int const *lda, 
 		        double w[], double work[], int const *lwork, int *info);
 	void zheev_(char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda, 
 		        double w[], std::complex<double> work[], int const *lwork, double rwork[], int *info);
+    // float64 generalized_eigenvalues
     void dsygv_(int const *itype, char const *jobz, char const *uplo, int const* n, double a[], int const *lda,
     			double b[], int const *ldb, double w[], double work[], int const *lwork, int *info);
     void zhegv_(int const *itype, char const *jobz, char const *uplo, int const* n, std::complex<double> a[], int const *lda,
     			std::complex<double> b[], int const *ldb, double w[],
                 std::complex<double> work[], int const *lwork, double rwork[], int *info);
+    // float32 eigenvalues
+	void ssyev_(char const *jobz, char const *uplo, int const* n, float a[], int const *lda, 
+		        float w[], float work[], int const *lwork, int *info);
+	void cheev_(char const *jobz, char const *uplo, int const* n, std::complex<float> a[], int const *lda, 
+		        float w[], std::complex<float> work[], int const *lwork, float rwork[], int *info);
+    // float32 generalized_eigenvalues
+    void ssygv_(int const *itype, char const *jobz, char const *uplo, int const* n, float a[], int const *lda,
+    			float b[], int const *ldb, float w[], float work[], int const *lwork, int *info);
+    void chegv_(int const *itype, char const *jobz, char const *uplo, int const* n, std::complex<float> a[], int const *lda,
+    			std::complex<float> b[], int const *ldb, float w[],
+                std::complex<float> work[], int const *lwork, float rwork[], int *info);
 #endif
 } // extern "C"
 
@@ -67,6 +81,7 @@ namespace linear_algebra {
       return info;
   } // linear_solve
   
+  
   inline status_t eigenvalues(int const n, double a[], int const lda, double w[]) {
 #ifdef  HAS_MKL
       status_t const info = LAPACKE_dsyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
@@ -103,7 +118,7 @@ namespace linear_algebra {
   } // generalized_eigenvalues
 
   inline status_t generalized_eigenvalues(int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb, double w[]) {
-//    printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+//    printf("\n# call zhegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
       status_t const info = LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
@@ -114,6 +129,59 @@ namespace linear_algebra {
 #endif
       return info;
   } // generalized_eigenvalues
+
+  
+  // float32 version: copy the above, replace double by float and change d --> s, z --> c
+
+  
+  inline status_t eigenvalues(int const n, float a[], int const lda, float w[]) {
+#ifdef  HAS_MKL
+      status_t const info = LAPACKE_ssyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+#else
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      std::vector<float> work(lwork);
+      ssyev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, &info); // Fortran interface
+#endif
+      return info;
+  } // (standard_)eigenvalues
+
+  inline status_t eigenvalues(int const n, std::complex<float> a[], int const lda, float w[]) {
+#ifdef  HAS_MKL
+      status_t const info = LAPACKE_cheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+#else
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
+      std::vector<std::complex<float>> work(lwork);
+      std::vector<float> rwork(3*n);
+      cheev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#endif
+      return info;
+  } // (standard_)eigenvalues
+  
+  inline status_t generalized_eigenvalues(int const n, float a[], int const lda, float b[], int const ldb, float w[]) {
+//    printf("\n# call ssygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+#ifdef  HAS_MKL
+      status_t const info = LAPACKE_ssygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+#else
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      std::vector<float> work(lwork);
+      ssygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, &info); // Fortran interface
+#endif
+      return info;
+  } // generalized_eigenvalues
+
+  inline status_t generalized_eigenvalues(int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb, float w[]) {
+//    printf("\n# call chegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+#ifdef  HAS_MKL
+      status_t const info = LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+#else
+      int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
+      std::vector<std::complex<float>> work(lwork);
+      std::vector<float> rwork(3*n);
+      chegv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
+#endif
+      return info;
+  } // generalized_eigenvalues
+
   
   inline status_t all_tests(int const echo=0) { return 0; }
 

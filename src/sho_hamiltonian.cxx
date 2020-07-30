@@ -93,7 +93,7 @@ namespace sho_hamiltonian {
   template<> inline double conjugate<double>(double const x) { return x; };
   
   
-  template<typename complex_t, typename phase_t>
+  template<typename complex_t, typename real_t, typename phase_t>
   status_t solve_k(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
           , int    const numaxs[] // spreads of the SHO basis
@@ -158,7 +158,7 @@ namespace sho_hamiltonian {
               H_iaja[ia][ja] = view2D<complex_t>(&(SHm(H,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j = sho_tools::n1HO(numaxs[ja]);
 
-              for(int ip = 0; ip < n_periodic_images; ++ip) {
+              for(int ip = 0; ip < n_periodic_images; ++ip) { // periodic images of ja
                   int const ic = center_map(ia,ja,ip,0); // expansion center index
                   int const numax_V = center_map(ia,ja,ip,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
                   int const maxmoment = std::max(0, numax_V);
@@ -186,22 +186,22 @@ namespace sho_hamiltonian {
               } // ip
           } // ja
       } // ia
-
+      
       // we use vectors of vectors here for potentially sparse list in the future, e.g. in the compressed row format
-      std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); //  <\chi3D_i|\tilde p_k>
+      std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); //  <\chi3D_{ia ib}|\tilde p_{ka kb}>
       std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
       for(int ia = 0; ia < natoms; ++ia) {
           P_iaka[ia].resize(natoms_PAW);
           Psh_iala[ia].resize(natoms_PAW);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
-          for(int ka = 0; ka < natoms_PAW; ++ka) { // does not account for periodic images, ToDo
+          for(int ka = 0; ka < natoms_PAW; ++ka) {
               int const nb_ka = sho_tools::nSHO(numax_PAW[ka]);
               int const n1k   = sho_tools::n1HO(numax_PAW[ka]);
               P_iaka[ia][ka] = view2D<complex_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
 
               view4D<double> ovl1D(3, 1, n1i, n1k, 0.0);  //  <\chi1D_i|\chi1D_k>
-              for(int ip = 0; ip < n_periodic_images; ++ip) {
+              for(int ip = 0; ip < n_periodic_images; ++ip) { // periodic images of ka
                   phase_t phase{1};
                   for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
                       double const distance = xyzZ(ia,d) - (xyzZ_PAW(ka,d) + periodic_image(ip,d));
@@ -223,8 +223,8 @@ namespace sho_hamiltonian {
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
                           auto const p = P_iaka[ia][ka](ib,kb);
                           // Mind that hs_PAW matrices are ordered {H,S}
-                          s += p * hs_PAW[ka](1,kb,lb);
-                          h += p * hs_PAW[ka](0,kb,lb);
+                          s += p * real_t(hs_PAW[ka](1,kb,lb));
+                          h += p * real_t(hs_PAW[ka](0,kb,lb));
                       } // kb
                       Psh_iala[ia][la](S,ib,lb) = s;
                       Psh_iala[ia][la](H,ib,lb) = h;
@@ -235,11 +235,11 @@ namespace sho_hamiltonian {
       } // ia
 
 #ifdef DEVEL
-      double const scale_h = control::get("sho_hamiltonian.scale.nonlocal.h", 1.0);
-      double const scale_s = control::get("sho_hamiltonian.scale.nonlocal.s", 1.0);
+      real_t const scale_h = control::get("sho_hamiltonian.scale.nonlocal.h", 1.0);
+      real_t const scale_s = control::get("sho_hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
-      double constexpr scale_h = 1, scale_s = 1;
+      real_t constexpr scale_h = 1, scale_s = 1;
 #endif
 
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
@@ -270,15 +270,15 @@ namespace sho_hamiltonian {
       Psh_iala.clear(); P_iaka.clear(); // release the memory
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
-      std::vector<double> eigvals(nB, 0.0);
+      std::vector<real_t> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
       char const hermitian = *control::get("sho_hamiltonian.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
 
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
-          auto const  u = s0h1 ?  eV :  1; // output unit conversion factor 
-          auto const _u = s0h1 ? _eV : ""; // unit symbol
+          real_t const  u = s0h1 ?  eV :  1; // output unit conversion factor 
+          auto   const _u = s0h1 ? _eV : ""; // unit symbol
 
           // display S and H
           if (echo > 9 - s0h1) {
@@ -299,9 +299,9 @@ namespace sho_hamiltonian {
 
           // check if the matrix is symmetric/Hermitian
           if (('b' == hermitian) || ((s0h1 ? 'h' : 's') == hermitian)) {
-              double diag{0}; // imaginary part of diagonal elements
-              double offr{0}; // off-diagonal elements real part
-              double offi{0}; // off-diagonal elements imaginary part
+              real_t diag{0}; // imaginary part of diagonal elements
+              real_t offr{0}; // off-diagonal elements real part
+              real_t offi{0}; // off-diagonal elements imaginary part
               for(int iB = 0; iB < nB; ++iB) {
                   diag = std::max(diag, std::abs(std::imag(SHm(s0h1,iB,iB))));
                   for(int jB = iB + 1; jB < nB; ++jB) { // triangular loop
@@ -411,8 +411,30 @@ namespace sho_hamiltonian {
       int const nBa  = align<4>(nB); // memory aligned main matrix stride
 
 
+      
+      
+      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
+      int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
+      auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
+      std::vector<int32_t> numax_PAW(natoms_PAW,  3);
+      std::vector<double>  sigma_PAW(natoms_PAW, .5);
+      double maximum_sigma_PAW{0};
+      std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
+      for(int ka = 0; ka < natoms_PAW; ++ka) {
+          if (numax_prj) numax_PAW[ka] = numax_prj[ka];
+          if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
+          maximum_sigma_PAW = std::max(maximum_sigma_PAW, sigma_PAW[ka]);
+          int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
+          if (atom_mat) {
+              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap input
+          } else {
+              hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
+          } // atom_mat
+          // for both matrices: L2-normalization w.r.t. SHO projector functions is important
+      } // ka
+      
 
-      float const rcut = 9*maximum_sigma; // exp(-9^2) = 6.6e-36
+      float const rcut = 9*std::max(maximum_sigma, maximum_sigma_PAW); // exp(-9^2) = 6.6e-36
       double *periodic_image_ptr{nullptr};
       int8_t *periodic_shift_ptr{nullptr};
       double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
@@ -608,27 +630,11 @@ namespace sho_hamiltonian {
       } // ic
       if (echo > 5) printf("# projection performed for %d of %d expansion centers\n", ncenters_active, ncenters);
 
-
-      // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
-      int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
-      auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
-      std::vector<int32_t> numax_PAW(natoms_PAW,  3);
-      std::vector<double>  sigma_PAW(natoms_PAW, .5);
-      std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
-      for(int ka = 0; ka < natoms_PAW; ++ka) {
-          if (numax_prj) numax_PAW[ka] = numax_prj[ka];
-          if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
-          int const nb_ka = sho_tools::nSHO(numax_PAW[ka]); // number of projectors
-          if (atom_mat) {
-              hs_PAW[ka] = view3D<double>(atom_mat[ka], nb_ka, nb_ka); // wrap input
-          } else {
-              hs_PAW[ka] = view3D<double>(2, nb_ka, nb_ka, 0.0); // get memory and initialize zero
-          } // atom_mat
-          // for both matrices: L2-normalization w.r.t. SHO projector functions is important
-      } // ka
+      
 
       // all preparations done, start k-point loop
       
+      auto const numeric_bits = int(control::get("sho_hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("sho_hamiltonian.test.kpoints", 17.));
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
@@ -644,23 +650,42 @@ namespace sho_hamiltonian {
           } // d
           char x_axis[96]; std::snprintf(x_axis, 95, "%.6f spectrum ", ikp*.5/(nkpoints - 1.));
           if (needs_complex) {
-              stat += solve_k<std::complex<double>>(
+              if (32 == numeric_bits) {
+                  stat += solve_k<std::complex<float>, float>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
                           n_periodic_images, periodic_image, periodic_shift,
                           Vcoeffs.data(), center_map,
                           nB, nBa, offset.data(),
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           Bloch_phase, x_axis, echo);
+              } else {
+                  stat += solve_k<std::complex<double>, double>(
+                          natoms, xyzZ, numaxs.data(), sigmas.data(),
+                          n_periodic_images, periodic_image, periodic_shift,
+                          Vcoeffs.data(), center_map,
+                          nB, nBa, offset.data(),
+                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          Bloch_phase, x_axis, echo);
+              } // numeric_bits
           } else {
-              stat += solve_k<double>(
+              if (32 == numeric_bits) {
+                  stat += solve_k<float, float>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
                           n_periodic_images, periodic_image, periodic_shift,
                           Vcoeffs.data(), center_map,
                           nB, nBa, offset.data(),
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           Bloch_phase_real, x_axis, echo);
+              } else {
+                  stat += solve_k<double, double>(
+                          natoms, xyzZ, numaxs.data(), sigmas.data(),
+                          n_periodic_images, periodic_image, periodic_shift,
+                          Vcoeffs.data(), center_map,
+                          nB, nBa, offset.data(),
+                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          Bloch_phase_real, x_axis, echo);
+              } // numeric_bits
           } // needs_complex
-          // ToDo: more cases for float and std::complex<float>, needs extension of linear_algebra module
           
       } // ikp
       
