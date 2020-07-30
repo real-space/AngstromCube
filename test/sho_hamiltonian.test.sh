@@ -16,6 +16,7 @@ for asy in 1 1.1; do
     +sho_hamiltonian.scale.kinetic=1 \
     +sho_hamiltonian.scale.potential=1 \
     +sho_hamiltonian.test.overlap.eigvals=1 \
+    +sho_hamiltonian.reduce.centers=q \
    >> $out
 
 done

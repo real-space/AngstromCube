@@ -4,6 +4,8 @@
 #include <complex> // std::complex<real_t>
 #include <vector> // std::vector<T>
 #include <cassert> // assert
+#include <set> // std::set<key>
+#include <numeric> // std::iota
 
 #include "sho_hamiltonian.hxx"
 
@@ -19,6 +21,7 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues
 #include "inline_tools.hxx" // align<nbits>
+#include "vector_math.hxx" // ::vec<N,T>
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -45,7 +48,7 @@ namespace sho_hamiltonian {
                        , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator
                        , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator
                        , int const numax_i, int const numax_j
-                       , phase_t const phase=1
+                       , phase_t const phase=1 // typically phase_t is double or complex<double>
                        , double const prefactor=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
 
       auto const phase_f = phase * prefactor;
@@ -408,6 +411,7 @@ namespace sho_hamiltonian {
       int ncenters = natoms*natoms*n_periodic_images;
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
       view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
+      double sigma_V_max{0}, sigma_V_min{9e9};
       { // scope: set up list of centers for the expansion of the local potential
           int ic{0};
           for(int ia = 0; ia < natoms; ++ia) {
@@ -419,16 +423,21 @@ namespace sho_hamiltonian {
                   double const wi = alpha_i*pow2(sigma_V);
                   double const wj = alpha_j*pow2(sigma_V);
                   assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
+                  sigma_V_max = std::max(sigma_V, sigma_V_max);
+                  sigma_V_min = std::min(sigma_V, sigma_V_min);
+                  // account for the periodic images around atom #ja
                   for(int ip = 0; ip < n_periodic_images; ++ip) {
-                      int const numax_V = numaxs[ia] + numaxs[ja]; // depending on the distance between atom#ia and the periodic image of atom#ja, this could be lowered
+                      int const numax_V = numaxs[ia] + numaxs[ja]; 
+                      // depending on the distance between atom#ia and the periodic image of atom#ja, numax_V could be lowered
                       if (echo > 7) printf("# ai#%i aj#%i \tcenter of weight\t", ia, ja);
                       for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
                           center(ic,d) = wi*xyzZ(ia,d) + wj*(xyzZ(ja,d) + periodic_image(ip,d));
-                          center(ic,d) = geometry_analysis::fold_back(center(ic,d), cell[d]);
+                          // cast coordinates into [-cell/2, cell/2)
+                          center(ic,d) = geometry_analysis::fold_back(center(ic,d), cell[d]); 
                           if (echo > 7) printf("%12.6f", center(ic,d)*Ang);
                           center(ic,d) += origin[d];
                       } // d
-                      if (echo > 7) printf("  numax_V= %i sigma_V: %g %s \n", numax_V, sigma_V*Ang, _Ang);
+                      if (echo > 7) printf("  numax_V= %i sigma_V= %g %s \n", numax_V, sigma_V*Ang, _Ang);
                       center(ic,3) = sigma_V;
                       center(ic,4) = numax_V;
                       // debug info
@@ -458,29 +467,129 @@ namespace sho_hamiltonian {
       // Then, we can divide the cell into sub-cells, integerizing the coordinates
       // and compare in an N^2-algorithm each sub-cell to the neighborhood (27 subcells)
       
+      std::vector<bool> center_active(ncenters, true); // init all centers as active
+      { // scope: count the number of similar, potentially identical, expansion centers
+          double const threshold_space = 1e-15; // in Bohr
+          double const threshold_sigma = 1e-12; // in Bohr
+          auto const method = control::get("sho_hamiltonian.reduce.centers", "none"); // {none, quadratic, smart}
+          if ('s' == (*method | 32)) { // "smart"
+              if (echo > 5) printf("# sho_hamiltonian.reduce.centers='%s' --> 'smart'\n", method);
+            
+              double ab[4][2]; // offset and slope
+              for(int d = 0; d < 3; ++d) {
+                  // map coordinates from [-cell/2, cell/2) to [0, 65535]
+                  ab[d][0] = .5*cell[d] - origin[d];
+                  ab[d][1] = std::min(1./threshold_space, 65535/cell[d]); // slope
+              } // d
+              ab[3][0] = -(sigma_V_min - threshold_sigma);
+              ab[3][1] = std::min(1./threshold_sigma, 65535/(sigma_V_max - sigma_V_min + 2*threshold_sigma));
+              // map sigma_Vs from [sigma_V_min, sigma_V_max] to [0, 65535] with some saftely margins
+
+              std::set<uint64_t> cset;
+              for(int ic = 0; ic < ncenters; ++ic) {
+                  uint64_t code{0};
+                  double rc[4];
+                  for(int d = 0; d < 4; ++d) {
+                      double const reduced_coord = (center(ic,d) + ab[d][0])*ab[d][1];
+                      rc[d] = reduced_coord;
+                      uint16_t const i = std::floor(reduced_coord);
+                      uint64_t const i64 = i;
+                      code |= (i64 << 16*(3 - d)); // compact into 64bits
+                  } // d
+                  if (echo > 7) printf("# CoW #%i\tcode= %016llx \t%9.1f%9.1f%9.1f%9.1f\n", ic, code, rc[0], rc[1], rc[2], rc[3]);
+                  // now enlist all codes in a set and measure its magnitude?
+                  cset.insert(code);
+              } // ic
+              if (echo > 5) printf("# CoW set has only %ld of %d elements\n", cset.size(), ncenters);
+          
+              // ToDo: run over each element in the set, find which centers are in it,
+              //       run over all 3^4 adjacent cells, find the centers in those,
+              //       do an order-N^2-comparison to find which pairs are below the thresholds
+          
+          } else if ('q' == (*method | 32)) { // "quadratic"
+              if (echo > 5) printf("# sho_hamiltonian.reduce.centers='%s' --> 'quadratic'\n", method);
+
+              // the naive way: N^2-comparisons.
+              std::vector<int> remap(ncenters); std::iota(remap.begin(), remap.end(), 0); // init remap with 0,1,2,3,...
+              if (echo > 5) printf("# compare %ld pairs from %d expansion centers\n", (size_t(ncenters)*(ncenters - 1))/2, ncenters);
+              typedef vector_math::vec<4,double> vec4;
+              size_t nremap{0};
+              for(int ic = 0; ic < ncenters; ++ic) {
+                  vec4 const vec_i = center[ic];
+                  for(int jc = ic + 1; jc < ncenters; ++jc) { // triangular loop
+                      assert( jc > ic );
+                      if (remap[jc] == jc) {
+                          vec4 const vec_j = center[jc];
+                          vec4 const vec_d = vec_i - vec_j;
+                          if (std::abs(vec_d[3]) < threshold_sigma) {
+                              if (std::abs(vec_d[2]) < threshold_space) {
+                                  if (std::abs(vec_d[1]) < threshold_space) {
+                                      if (std::abs(vec_d[0]) < threshold_space) {
+                                          // center #ic and #jc are sufficiently close and can be unified
+                                          remap[jc] = ic;
+                                          center_active[jc] = false; // center #jc will not be referenced, so it projection is not needed
+                                          ++nremap;
+                                      } // threshold_space
+                                  } // threshold_space
+                              } // threshold_space
+                          } // threshold_sigma
+                      } // remap[jc] == jc
+                  } // jc
+              } // ic
+              if (echo > 5) printf("# %ld pairs of %d expansion centers marked for remapping\n", nremap, ncenters);
+              
+              // run over center_map and apply remap to center_map(:,:,:,0)
+              size_t mremap{0};
+              for(int ia = 0; ia < natoms; ++ia) {
+                  for(int ja = 0; ja < natoms; ++ja) {
+                      for(int ip = 0; ip < n_periodic_images; ++ip) {
+                          int const jc = center_map(ia,ja,ip,0);
+                          int const ic = remap[jc];
+                          assert( jc >= ic );
+                          mremap += (ic != jc);
+                          center_map(ia,ja,ip,0) = ic;
+                      } // ip
+                  } // ja
+              } // ia
+              if (echo > 5) printf("# %ld pairs of %d expansion centers remapped\n", mremap, ncenters);
+
+          } else { // default method
+              if (echo > 5) printf("# sho_hamiltonian.reduce.centers='%s' --> 'none' (default)\n", method);
+              if ('n' != (*method | 32)) {
+                  warn("unknown method sho_hamiltonian.reduce.centers='%s', default to 'none'", method);
+              } // 'none'
+              if (echo > 5) printf("# use the unreduced number of %d expansion centers\n", ncenters);
+          } // method
+      } // scope: reduce_ncenters
+
       
       // perform the projection of the local potential
       std::vector<std::vector<double>> Vcoeffs(ncenters);
+      int ncenters_active{0};
       double const scale_potential = control::get("sho_hamiltonian.scale.potential", 1.0);
       if (1.0 != scale_potential) warn("scale potential by %g", scale_potential);
       for(int ic = 0; ic < ncenters; ++ic) {
-          double const sigma_V = center(ic,3);
-          int    const numax_V = center(ic,4);
-          int const nc = sho_tools::nSHO(numax_V);
-          Vcoeffs[ic] = std::vector<double>(nc, 0.0);
-          for(int ip = 0; ip < n_periodic_images; ++ip) {
-              std::vector<double> Vcoeff(nc, 0.0);
-              double cnt[3]; set(cnt, 3, center[ic]); add_product(cnt, 3, periodic_image[ip], 1.0);
-              stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot, g, 0); // 0:mute
-              add_product(Vcoeffs[ic].data(), nc, Vcoeff.data(), 1.0);
-          } // ip
-          // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
-          
-          stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
-          // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
-          
-          scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
+          if (center_active[ic]) {
+              double const sigma_V = center(ic,3);
+              int    const numax_V = center(ic,4);
+              int const nc = sho_tools::nSHO(numax_V);
+              Vcoeffs[ic] = std::vector<double>(nc, 0.0);
+              for(int ip = 0; ip < n_periodic_images; ++ip) {
+                  std::vector<double> Vcoeff(nc, 0.0);
+                  double cnt[3]; set(cnt, 3, center[ic]); add_product(cnt, 3, periodic_image[ip], 1.0);
+                  stat += sho_projection::sho_project(Vcoeff.data(), numax_V, cnt, sigma_V, vtot, g, 0); // 0:mute
+                  add_product(Vcoeffs[ic].data(), nc, Vcoeff.data(), 1.0);
+              } // ip
+              // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
+              
+              stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
+              // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
+              
+              scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
+              ++ncenters_active;
+          } // center_active[ic]
       } // ic
+      if (echo > 5) printf("# projection performed for %d of %d expansion centers\n", ncenters_active, ncenters);
 
 
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>

@@ -18,7 +18,7 @@ namespace sho_potential {
                             , view4D<double> const & t1D // input t1D(dir,m,i,j)
                             , double const Vcoeff[], int const numax_m // expansion of the potential in x^{mx}*y^{my}*z^{mz}
                             , int const numax_i, int const numax_j
-                            , phase_t const phase=1
+                            , phase_t const phase=1 // typically phase_t is double or complex<double>
                             , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
       // can use different (dir01==1) tensors per direction or the same (dir01==0)
