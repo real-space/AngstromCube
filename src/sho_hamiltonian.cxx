@@ -23,30 +23,14 @@
 #include "inline_tools.hxx" // align<nbits>
 #include "vector_math.hxx" // ::vec<N,T>
 
-// #define FULL_DEBUG
-#define DEBUG
-
-
-#ifdef FULL_DEBUG
-    #define full_debug(print) print 
-#else
-    #define full_debug(print)
-#endif
-
-#ifdef DEBUG
-    #define debug(print) print 
-#else
-    #define debug(print)
-#endif
-
 namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between to SHO basis functions
   // including a PAW non-local contribution
   
   template<typename complex_t, typename phase_t>
   status_t kinetic_matrix(view2D<complex_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
-                       , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator
-                       , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator
+                       , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator in 1D
+                       , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator in 1D
                        , int const numax_i, int const numax_j
                        , phase_t const phase=1 // typically phase_t is double or complex<double>
                        , double const prefactor=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
@@ -100,24 +84,24 @@ namespace sho_hamiltonian {
   
   
   template<typename complex_t, typename phase_t>
-  status_t solve_k(int const natoms
-          , view2D<double const> const & xyzZ // (natoms, 4)
-          , int const numaxs[]
-          , double const sigmas[]
-          , int const n_periodic_images
-          , view2D<double const> const & periodic_image
-          , view2D<int8_t const> const & periodic_shift
-          , std::vector<double> const Vcoeffs[]
-          , view4D<int> const & center_map
+  status_t solve_k(int const natoms // number of SHO basis centers
+          , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
+          , int    const numaxs[] // spreads of the SHO basis
+          , double const sigmas[] // cutoffs of the SHO basis
+          , int const n_periodic_images // number of periodic images
+          , view2D<double const> const & periodic_image // periodic image coordinates
+          , view2D<int8_t const> const & periodic_shift // periodic image shifts
+          , std::vector<double> const Vcoeffs[] // Vcoeff[ic][0..Ezyx..nSHO(numax_V)]
+          , view4D<int> const & center_map // ic = center_map(ia,ja,ip,0),  numax_V = center_map(ia,ja,ip,1)
           , int const nB, int const nBa // basis size and matrix stride
-          , int const offset[]
-          , int const natoms_PAW
-          , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4)
-          , int const numax_PAW[]
-          , double const sigma_PAW[]
-          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj)
+          , int const offset[] // beginning of matrix blocks
+          , int const natoms_PAW // number of PAW centers
+          , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
+          , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
+          , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
+          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW charge-deficit and Hamiltonian correction matrices
           , phase_t const Bloch_phase[3]
-          , int const ikp=-1 // for debugging
+          , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int const echo=0) { // log-level
         
       status_t stat(0);
@@ -316,8 +300,8 @@ namespace sho_hamiltonian {
               } else if (nB > 0) {
                   double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];
                   if (echo > 2) {
-                      printf("# eigenvalues of the %s matrix: ", matrix_name);
-                      int constexpr mB = 8; // show at most the 6 lowest + 2 highest eigenvalues
+                      printf("%s%s", x_axis, s0h1 ? "" : matrix_name);
+                      int constexpr mB = 9; // show at most the 7 lowest + 2 highest eigenvalues
                       for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
                           printf(" %g", eigvals[iB]*u);
                       } // iB
@@ -355,13 +339,13 @@ namespace sho_hamiltonian {
 
   status_t solve(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4)
-          , real_space::grid_t const & g
-          , double const *const vtot
+          , real_space::grid_t const & g // Cartesian grid descriptor for vtot
+          , double const *const vtot // total effective potential on grid
           , int const natoms_prj // =-1 number of PAW atoms
           , double const *const sigma_prj // =nullptr
           , int    const *const numax_prj // =nullptr
           , double *const *const atom_mat // =nullptr
-          , int const echo) {
+          , int const echo) { // log-level
     
       status_t stat(0);
       
@@ -612,11 +596,12 @@ namespace sho_hamiltonian {
 
       // all preparations done, start k-point loop
       
-      auto const nkpoints = int(control::get("sho_hamiltonian.test.kpoints", 8.));
+      auto const nkpoints = int(control::get("sho_hamiltonian.test.kpoints", 17.));
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
           std::complex<double> constexpr minus_one = -1;
-          std::complex<double> Bloch_phase[3] = {std::pow(minus_one, ikp/(nkpoints - 1.)), 1, 1}; // first and last phases are real, dispersion in x-direction
+          std::complex<double> const Bloch_phase[3] = {std::pow(minus_one, ikp/(nkpoints - 1.)), 1, 1}; // first and last phases are real, dispersion in x-direction
+//        std::complex<double> const Bloch_phase[3] = {1, 1, std::pow(minus_one, ikp/(nkpoints - 1.))}; // first and last phases are real, dispersion in z-direction
 
           double Bloch_phase_real[3];
           bool needs_complex{false};
@@ -624,6 +609,7 @@ namespace sho_hamiltonian {
               Bloch_phase_real[d] = Bloch_phase[d].real();
               if (std::abs(Bloch_phase[d].imag()) > 2e-16) needs_complex = true;
           } // d
+          char x_axis[96]; std::snprintf(x_axis, 95, "%.6f spectrum ", ikp*.5/(nkpoints - 1.));
           if (needs_complex) {
               stat += solve_k<std::complex<double>>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
@@ -631,7 +617,7 @@ namespace sho_hamiltonian {
                           Vcoeffs.data(), center_map,
                           nB, nBa, offset.data(),
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase, ikp, echo);
+                          Bloch_phase, x_axis, echo);
           } else {
               stat += solve_k<double>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
@@ -639,7 +625,7 @@ namespace sho_hamiltonian {
                           Vcoeffs.data(), center_map,
                           nB, nBa, offset.data(),
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase_real, ikp, echo);
+                          Bloch_phase_real, x_axis, echo);
           } // needs_complex
           // ToDo: more cases for float and std::complex<float>, needs extension of linear_algebra module
           
