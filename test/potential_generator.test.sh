@@ -30,8 +30,6 @@ $exe +verbosity=7 \
         +sho_hamiltonian.test.sigma=1.5 \
         +sho_hamiltonian.test.overlap.eigvals=1 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
-        +sho_hamiltonian.scale.nonlocal.h=1 \
-        +sho_hamiltonian.scale.nonlocal.s=1 \
         > potential_generator.AlP.sho.out
 
 exit

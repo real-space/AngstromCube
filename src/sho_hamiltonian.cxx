@@ -81,6 +81,16 @@ namespace sho_hamiltonian {
           return (nReIm > nByte) ? "complex<unknown>" : "unknown";
       }
   } // complex_name
+
+  template<typename complex_t>
+  bool constexpr is_complex(complex_t const x) { return (sizeof(complex_t) > sizeof(std::real(x))); }
+  
+  template<typename real_t>
+  std::complex<real_t> conjugate(std::complex<real_t> const x) { return std::conj(x); }
+
+  template<typename real_t> real_t conjugate(real_t const x);
+  template<> inline float  conjugate<float> (float  const x) { return x; };
+  template<> inline double conjugate<double>(double const x) { return x; };
   
   
   template<typename complex_t, typename phase_t>
@@ -132,9 +142,9 @@ namespace sho_hamiltonian {
 #endif
       double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
 
-      
-      std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // construct sub-views for each atom pair
-      std::vector<std::vector<view2D<complex_t>>> H_iaja(natoms); // construct sub-views for each atom pair
+      // we construct sub-views to the blocks for each atom pair
+      std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // <\chi3D_i| 1 + PAW |\chi3D_j>
+      std::vector<std::vector<view2D<complex_t>>> H_iaja(natoms); // <\chi3D_i| \hat T + \tilde V(\vec r) + PAW |\chi3D_j>
       // the sub-views help to address the operators as S_iaja[ia][ja](ib,jb) although their true memory
       // layout is equivalent to view4D<double> S(ia,ib,ja,jb)
       // The vector<vector<>> construction allows for sparse operators in a later stage
@@ -176,7 +186,8 @@ namespace sho_hamiltonian {
           } // ja
       } // ia
 
-      std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); // potentially sparse lists, e.g. compressed row format
+      // we use vectors of vectors here for potentially sparse list in the future, e.g. in the compressed row format
+      std::vector<std::vector<view2D<complex_t>>> P_iaka(natoms); //  <\chi3D_i|\tilde p_k>
       std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_iaka
       for(int ia = 0; ia < natoms; ++ia) {
           P_iaka[ia].resize(natoms_PAW);
@@ -209,8 +220,9 @@ namespace sho_hamiltonian {
                   for(int lb = 0; lb < nb_la; ++lb) {
                       complex_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
-                          s += P_iaka[ia][ka](ib,kb) * hs_PAW[ka](1,kb,lb);
-                          h += P_iaka[ia][ka](ib,kb) * hs_PAW[ka](0,kb,lb);
+                          auto const p = P_iaka[ia][ka](ib,kb);
+                          s += p * hs_PAW[ka](1,kb,lb);
+                          h += p * hs_PAW[ka](0,kb,lb);
                       } // kb
                       Psh_iala[ia][la](0,ib,lb) = s;
                       Psh_iala[ia][la](1,ib,lb) = h;
@@ -240,24 +252,23 @@ namespace sho_hamiltonian {
                       for(int jb = 0; jb < nb_ja; ++jb) {
                           complex_t s{0}, h{0};
                           for(int lb = 0; lb < nb_la; ++lb) { // contract
-                              s += Psh_iala[ia][la](0,ib,lb) * P_iaka[ja][la](jb,lb); // ToDo: needs a conjugation if complex?
-                              h += Psh_iala[ia][la](1,ib,lb) * P_iaka[ja][la](jb,lb);
+                              auto const p = conjugate(P_iaka[ja][la](jb,lb)); // needs a conjugation if complex
+                              s += Psh_iala[ia][la](0,ib,lb) * p;
+                              h += Psh_iala[ia][la](1,ib,lb) * p;
                           } // lb
                           S_iaja[ia][ja](ib,jb) += s * scale_s;
                           H_iaja[ia][ja](ib,jb) += h * scale_h;
                       } // jb
-                      
+
                   } // ib
               } // ia
           } // la
       } // ja
-
-      // release the memory
-      Psh_iala.clear();
-      P_iaka.clear();
+      Psh_iala.clear(); P_iaka.clear(); // release the memory
 
       std::vector<double> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
+      char const hermitian = *control::get("sho_hamiltonian.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
 
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
@@ -282,6 +293,24 @@ namespace sho_hamiltonian {
               printf("\n");
           } // echo
 
+          // check if the matrix is symmetric/Hermitian
+          if (('b' == hermitian) || ((s0h1 ? 'h' : 's') == hermitian)) {
+              double diag{0}; // imaginary part of diagonal elements
+              double offr{0}; // off-diagonal elements real part
+              double offi{0}; // off-diagonal elements imaginary part
+              for(int iB = 0; iB < nB; ++iB) {
+                  diag = std::max(diag, std::abs(std::imag(SHm(s0h1,iB,iB))));
+                  for(int jB = iB + 1; jB < nB; ++jB) {
+                      auto const dev = SHm(s0h1,iB,jB) - conjugate(SHm(s0h1,jB,iB));
+                      offr = std::max(offr, std::abs(std::real(dev)));
+                      offi = std::max(offi, std::abs(std::imag(dev)));
+                  } // jB
+              } // iB
+              if (echo > 1) printf("# %s deviates from hermitian: imag(diag)= %.1e  imag(off)= %.1e  real(off)= %.1e\n",
+                                      matrix_name, diag, offi, offr);
+          } // check hermiticity
+          
+          
           // diagonalize matrix
           status_t stat_eig(0);
           if (1 == s0h1) {
