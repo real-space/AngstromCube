@@ -99,8 +99,8 @@ namespace sho_hamiltonian {
           , int    const numaxs[] // spreads of the SHO basis
           , double const sigmas[] // cutoffs of the SHO basis
           , int const n_periodic_images // number of periodic images
-          , view2D<double const> const & periodic_image // periodic image coordinates
-          , view2D<int8_t const> const & periodic_shift // periodic image shifts
+          , view2D<double> const & periodic_image // periodic image coordinates
+          , view2D<int8_t> const & periodic_shift // periodic image shifts
           , std::vector<double> const Vcoeffs[] // Vcoeff[ic][0..Ezyx..nSHO(numax_V)]
           , view4D<int> const & center_map // ic = center_map(ia,ja,ip,0),  numax_V = center_map(ia,ja,ip,1)
           , int const nB, int const nBa // basis size and matrix stride
@@ -442,14 +442,12 @@ namespace sho_hamiltonian {
       } // ka
       
 
+      view2D<double> periodic_image;
+      view2D<int8_t> periodic_shift;
       float const rcut = 9*std::max(maximum_sigma, maximum_sigma_PAW); // exp(-9^2) = 6.6e-36
-      double *periodic_image_ptr{nullptr};
-      int8_t *periodic_shift_ptr{nullptr};
       double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
-      int const n_periodic_images = boundary_condition::periodic_images(&periodic_image_ptr, cell, g.boundary_conditions(), rcut, 0, &periodic_shift_ptr);
+      int const n_periodic_images = boundary_condition::periodic_images(periodic_image, cell, g.boundary_conditions(), rcut, 0, &periodic_shift);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-      view2D<double const> periodic_image(periodic_image_ptr, 4); // wrap
-      view2D<int8_t const> periodic_shift(periodic_shift_ptr, 4); // wrap
 
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 

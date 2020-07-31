@@ -99,7 +99,7 @@ namespace atom_image {
       } // set_matrix
 
       status_t set_image_positions(double const atom_position[3], int const nimages=1
-          , double const *periodic_positions=nullptr, int8_t const *indices=nullptr) {
+          , view2D<double> const *periodic_positions=nullptr, view2D<int8_t> const *indices=nullptr) {
           if (nullptr == periodic_positions) {
               _images.resize(1);
               _images[0] = atom_image_t(atom_position[0], atom_position[1], atom_position[2], _atom_id, 0,0,0);
@@ -110,9 +110,9 @@ namespace atom_image {
           for(int ii = 0; ii < nimages; ++ii) {
               double p[3];
               for(int d = 0; d < 3; ++d) {
-                  p[d] = atom_position[d] + periodic_positions[4*ii + d];
+                  p[d] = atom_position[d] + (*periodic_positions)(ii,d);
               } // d
-              int8_t const *iv = indices ? (&indices[4*ii]) : i000;
+              int8_t const *iv = indices ? ((*indices)[ii]) : i000;
               _images[ii] = atom_image_t(p[0], p[1], p[2], _atom_id, iv[0], iv[1], iv[2]);
           } // ii
           return 0;

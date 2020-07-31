@@ -130,7 +130,7 @@ namespace potential_generator {
                 , real_space::grid_t const & g 
                 , int const na, int32_t const nr2[], float const ar2[]
                 , view2D<double> const & center // (natoms, 4)
-                , int const n_periodic_images, view2D<double const> const & periodic_images
+                , int const n_periodic_images, view2D<double> const & periodic_images
                 , double const *const *const atom_qnt
                 , int const echo=0, int const echo_q=0
                 , double const factor=1
@@ -291,17 +291,17 @@ namespace potential_generator {
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
       std::vector<float> ionization(na, 0.f);
+#ifdef DEVEL      
       if ((ion != 0.0) && (na > 1)) {
           if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
           ionization[0] = ion; ionization[na - 1] = -ionization[0];
       } // ionized
-
+#endif
       
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
-      double *periodic_images_ptr{nullptr};
-      int const n_periodic_images = boundary_condition::periodic_images(&periodic_images_ptr, cell, g.boundary_conditions(), rcut, echo);
+      view2D<double> periodic_images;
+      int const n_periodic_images = boundary_condition::periodic_images(periodic_images, cell, g.boundary_conditions(), rcut, echo);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
-      view2D<double const> periodic_images(periodic_images_ptr, 4); // wrap
 
       
       std::vector<double> Za(na);        // list of atomic numbers
@@ -897,7 +897,6 @@ namespace potential_generator {
 
 #endif // DEVEL
 
-      delete[] periodic_images_ptr;
       delete[] coordinates_and_Z;
 
       stat += single_atom::atom_update("memory cleanup", na);
