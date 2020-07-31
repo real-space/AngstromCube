@@ -15,7 +15,7 @@
 #include "sho_tools.hxx" // ::nSHO, ::nSHO_radial
 #include "radial_integrator.hxx" // ::integrate_outwards<SRA>
 #include "constants.hxx" // ::pi
-#include "linear_algebra.hxx" // ::linear_solve, ::generalized_eigenvalues
+#include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
 #include "data_view.hxx" // view2D
 #ifdef DEVEL
     #include "control.hxx" // ::get // ToDo: remove this again
@@ -458,7 +458,7 @@ namespace scattering_test {
           { // scope: diagonalize
               bool diagonalize_overlap_matrix = true; // true:always, false:if GEP fails (GEP=generalized eigenvalue problem)
               // solve the generalized eigenvalue problem
-              auto const info = linear_algebra::generalized_eigenvalues(nr, Ham.data(), Ham.stride(), Ovl.data(), Ovl.stride(), eigs.data());
+              auto const info = linear_algebra::eigenvalues(eigs.data(), nr, Ham.data(), Ham.stride(), Ovl.data(), Ovl.stride());
               if (0 == int(info)) {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
@@ -498,7 +498,7 @@ namespace scattering_test {
 
               if (diagonalize_overlap_matrix) {
                   // diagonalize Ovl_copy, standard eigenvalue problem
-                  linear_algebra::eigenvalues(nr, Ovl_copy.data(), Ovl_copy.stride(), eigs.data());
+                  linear_algebra::eigenvalues(eigs.data(), nr, Ovl_copy.data(), Ovl_copy.stride());
                   if (eigs[0] <= 0) { // warn
                       if (echo > 0) printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
                   } // overlap matrix is not positive definite

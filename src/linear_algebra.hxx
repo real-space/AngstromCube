@@ -1,6 +1,7 @@
 #pragma once
 
 #include <complex> // std::complex<real_t>
+#include <vector> // std::vector<T>
 
 #ifndef HAS_no_MKL
 	#define HAS_MKL
@@ -9,7 +10,7 @@
 
 extern "C" {
 #ifdef  HAS_MKL
-  #include "mkl_lapacke.h" // LAPACK_COL_MAJOR, MKL_INT
+  #include "mkl_lapacke.h" // LAPACK_COL_MAJOR, MKL_INT, ...
 #else
     // float64 linear_solve
 	void dgesv_(int const *n, int const *nrhs, double a[], int const *lda, 
@@ -37,150 +38,155 @@ extern "C" {
     void chegv_(int const *itype, char const *jobz, char const *uplo, int const* n, std::complex<float> a[], int const *lda,
     			std::complex<float> b[], int const *ldb, float w[],
                 std::complex<float> work[], int const *lwork, float rwork[], int *info);
-#endif
-} // extern "C"
-
-
-extern "C" {
+    
     // LU decomoposition of a general matrix
     void dgetrf_(int const *m, int const *n, double a[], int const *lda, int ipiv[], int *info);
 
     // generate inverse of a matrix given its LU decomposition
     void dgetri_(int const *n, double a[], int const *lda, int ipiv[], double work[], int const *lwork, int *info);
+#endif
 } // extern "C"
 
 
+
 #include "status.hxx" // status_t
+
+#ifndef   MKL_INT
+  #define MKL_INT int
+#endif
 
 namespace linear_algebra {
   
   inline status_t inverse(int const n, double a[], int const lda) {
       int info{0};
       int const lwork = n*n;
-      auto const work = new double[lwork];
-      auto const ipiv = new int[n];
-
-      dgetrf_(&n, &n, a, &lda, ipiv, &info); // Fortran interface
+      std::vector<double> work(lwork);
+      std::vector<int> ipiv(n);
+#ifdef  HAS_MKL
+      info = LAPACKE_dgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
+#else
+      dgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+#endif
       if (info) return info; // early return: factorization failed!
-      dgetri_(&n, a, &lda, ipiv, work, &lwork, &info); // Fortran interface
 
-      delete[] ipiv;
-      delete[] work;
+#ifdef  HAS_MKL
+      info = LAPACKE_dgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
+#else
+      dgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#endif
       return info;
   } // inverse
   
   inline status_t linear_solve(int const n, double a[], int const lda, double b[], int const ldb, int const nrhs=1) {
+      std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
-      auto const ipiv = new MKL_INT[n];
-      status_t const info = LAPACKE_dgesv( LAPACK_COL_MAJOR, n, nrhs, a, lda, ipiv, b, ldb );
+      return LAPACKE_dgesv( LAPACK_COL_MAJOR, n, nrhs, a, lda, ipiv.data(), b, ldb );
 #else
-      auto const ipiv = new int[2*n];
       int info{0};
-      dgesv_(&n, &nrhs, a, &lda, ipiv, b, &ldb, &info); // Fortran interface
-#endif
-      delete[] ipiv;
+      dgesv_(&n, &nrhs, a, &lda, ipiv.data(), b, &ldb, &info); // Fortran interface
       return info;
+#endif
   } // linear_solve
   
-  
-  inline status_t eigenvalues(int const n, double a[], int const lda, double w[]) {
+
+  inline status_t _eigenvalues(int const n, double a[], int const lda, double w[]) {
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_dsyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+      return LAPACKE_dsyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<double> work(lwork);
       dsyev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, &info); // Fortran interface
-#endif
       return info;
+#endif
   } // (standard_)eigenvalues
 
-  inline status_t eigenvalues(int const n, std::complex<double> a[], int const lda, double w[]) {
+  inline status_t _eigenvalues(int const n, std::complex<double> a[], int const lda, double w[]) {
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_zheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+      return LAPACKE_zheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<std::complex<double>> work(lwork);
       std::vector<double> rwork(3*n);
       zheev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
-#endif
       return info;
+#endif
   } // (standard_)eigenvalues
   
-  inline status_t generalized_eigenvalues(int const n, double a[], int const lda, double b[], int const ldb, double w[]) {
+  inline status_t _generalized_eigenvalues(int const n, double a[], int const lda, double b[], int const ldb, double w[]) {
 //    printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_dsygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+      return LAPACKE_dsygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<double> work(lwork);
       dsygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, &info); // Fortran interface
-#endif
       return info;
+#endif
   } // generalized_eigenvalues
 
-  inline status_t generalized_eigenvalues(int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb, double w[]) {
+  inline status_t _generalized_eigenvalues(int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb, double w[]) {
 //    printf("\n# call zhegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+      return LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<std::complex<double>> work(lwork);
       std::vector<double> rwork(3*n);
       zhegv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
-#endif
       return info;
+#endif
   } // generalized_eigenvalues
 
   
   // float32 version: copy the above, replace double by float and change d --> s, z --> c
 
   
-  inline status_t eigenvalues(int const n, float a[], int const lda, float w[]) {
+  inline status_t _eigenvalues(int const n, float a[], int const lda, float w[]) {
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_ssyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+      return LAPACKE_ssyev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<float> work(lwork);
       ssyev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, &info); // Fortran interface
-#endif
       return info;
+#endif
   } // (standard_)eigenvalues
 
-  inline status_t eigenvalues(int const n, std::complex<float> a[], int const lda, float w[]) {
+  inline status_t _eigenvalues(int const n, std::complex<float> a[], int const lda, float w[]) {
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_cheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+      return LAPACKE_cheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<std::complex<float>> work(lwork);
       std::vector<float> rwork(3*n);
       cheev_(&jobz, &uplo, &n, a, &lda, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
-#endif
       return info;
+#endif
   } // (standard_)eigenvalues
   
-  inline status_t generalized_eigenvalues(int const n, float a[], int const lda, float b[], int const ldb, float w[]) {
+  inline status_t _generalized_eigenvalues(int const n, float a[], int const lda, float b[], int const ldb, float w[]) {
 //    printf("\n# call ssygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_ssygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+      return LAPACKE_ssygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<float> work(lwork);
       ssygv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, &info); // Fortran interface
-#endif
       return info;
+#endif
   } // generalized_eigenvalues
 
-  inline status_t generalized_eigenvalues(int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb, float w[]) {
+  inline status_t _generalized_eigenvalues(int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb, float w[]) {
 //    printf("\n# call chegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
-      status_t const info = LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+      return LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<std::complex<float>> work(lwork);
       std::vector<float> rwork(3*n);
       chegv_(&itype, &jobz, &uplo, &n, a, &lda, b, &ldb, w, work.data(), &lwork, rwork.data(), &info); // Fortran interface
-#endif
       return info;
+#endif
   } // generalized_eigenvalues
 
   
@@ -191,22 +197,22 @@ namespace linear_algebra {
 
     template<> // template specialization
     inline status_t eigenvalues<double>(double w[], int const n, double a[], int const lda, double b[], int const ldb) {
-        return b ? generalized_eigenvalues(n,a,lda,b,ldb,w) : eigenvalues(n,a,lda,w);  } 
+        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  } 
 
     template<> // template specialization
     inline status_t eigenvalues<float>(float w[], int const n, float a[], int const lda, float b[], int const ldb) {
-        return b ? generalized_eigenvalues(n,a,lda,b,ldb,w) : eigenvalues(n,a,lda,w);  }
+        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  }
   
     template<typename real_t>
     status_t eigenvalues(real_t w[], int const n, std::complex<real_t> a[], int const lda, std::complex<real_t> b[]=nullptr, int const ldb=0);
     
     template<> // template specialization
     inline status_t eigenvalues<double>(double w[], int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb) {
-        return b ? generalized_eigenvalues(n,a,lda,b,ldb,w) : eigenvalues(n,a,lda,w);  } 
+        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  } 
 
     template<> // template specialization
     inline status_t eigenvalues<float>(float w[], int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb) {
-        return b ? generalized_eigenvalues(n,a,lda,b,ldb,w) : eigenvalues(n,a,lda,w);  }
+        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  }
   
   
   inline status_t all_tests(int const echo=0) { return 0; }

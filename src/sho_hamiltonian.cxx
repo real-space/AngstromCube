@@ -318,11 +318,11 @@ namespace sho_hamiltonian {
           // diagonalize matrix
           status_t stat_eig(0);
           if (1 == s0h1) {
-              stat_eig = linear_algebra::generalized_eigenvalues(nB, SHm(H,0), nBa, SHm(S,0), nBa, eigvals.data());
+              stat_eig = linear_algebra::eigenvalues(eigvals.data(), nB, SHm(H,0), nBa, SHm(S,0), nBa);
           } else if (ovl_eig) {
               view2D<complex_t> S_copy(nB, nBa); // get memory
               set(S_copy.data(), nB*nBa, SHm(S,0)); // copy overlap matrix S into work array W
-              stat_eig = linear_algebra::eigenvalues(nB, S_copy.data(), nBa, eigvals.data());
+              stat_eig = linear_algebra::eigenvalues(eigvals.data(), nB, S_copy.data(), nBa);
           } // ovl_eig
 
           // show result

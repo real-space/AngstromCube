@@ -32,7 +32,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // ::transform_to_r2_grid
 #include "scattering_test.hxx" // ::eigenstate_analysis, ::emm_average
-#include "linear_algebra.hxx" // ::linear_solve, ::generalized_eigenvalues
+#include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
@@ -87,9 +87,8 @@ extern "C" {
   status_t minimize_curvature(int const n, view2D<double> & A, view2D<double> & B, double* lowest=nullptr) {
       // solve a generalized eigenvalue problem
       std::vector<double> eigs(n);
-      auto const info = linear_algebra::generalized_eigenvalues(n, A.data(), A.stride(),
-                                                                   B.data(), B.stride(), eigs.data());
-      if (lowest) *lowest = eigs[0];
+      auto const info = linear_algebra::eigenvalues(eigs.data(), n, A.data(), A.stride(), B.data(), B.stride());
+      if (lowest && n > 0) *lowest = eigs[0];
       return info;
   } // minimize_curvature
 
