@@ -88,7 +88,7 @@ namespace potential_generator {
 //       return x;
 //   } // fold_back
   
-  status_t init_geometry_and_grid(real_space::grid_t & g, double **coordinates_and_Z, 
+  status_t init_geometry_and_grid(real_space::grid_t & g, view2D<double> & xyzZ, 
                                   int & natoms, int const echo=0) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
@@ -97,7 +97,7 @@ namespace potential_generator {
       double cell[3];
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       int bc[3]; // boundary conditions
-      stat += geometry_analysis::read_xyz_file(coordinates_and_Z, &natoms, geo_file, cell, bc, echo);
+      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
 
       double const h = control::get("potential_generator.grid.spacing", 0.2378); // works for GeSbTe with alat=6.04
       g = real_space::grid_t(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
@@ -282,11 +282,12 @@ namespace potential_generator {
       char line[32]; set(line, 31, '='); line[31] = '\0'; // a line of 31x '='
       if (echo > 0) printf("\n\n# %s\n# Initialize\n# %s\n\n", line, line);      
       
-      double *coordinates_and_Z{nullptr};
+      view2D<double> xyzZ_noconst;
       real_space::grid_t g;
       int na_noconst{0};
-      stat += init_geometry_and_grid(g, &coordinates_and_Z, na_noconst, echo);
+      stat += init_geometry_and_grid(g, xyzZ_noconst, na_noconst, echo);
       int const na{na_noconst};
+      view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap as (na,4)
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
@@ -305,7 +306,6 @@ namespace potential_generator {
 
       
       std::vector<double> Za(na);        // list of atomic numbers
-      view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap as (na,4)
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
           if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
@@ -409,7 +409,7 @@ namespace potential_generator {
                   if (psi_on_grid) {
                       view2D<double> xyzZinso(na, 8);
                       for(int ia = 0; ia < na; ++ia) {
-                          set(xyzZinso[ia], 4, &coordinates_and_Z[4*ia]); // copy
+                          set(xyzZinso[ia], 4, xyzZ[ia]); // copy
                           xyzZinso(ia,4) = ia;  // global_atom_id
                           assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
                           xyzZinso(ia,5) = numax_a[ia];
@@ -896,8 +896,6 @@ namespace potential_generator {
       } // scope
 
 #endif // DEVEL
-
-      delete[] coordinates_and_Z;
 
       stat += single_atom::atom_update("memory cleanup", na);
 

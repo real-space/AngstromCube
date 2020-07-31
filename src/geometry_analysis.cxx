@@ -47,7 +47,7 @@ namespace geometry_analysis {
 
   public:
       BoxStructure(double const cell[3], int const bc[3], 
-                   double const radius, size_t const natoms, double const coordinates_and_Z[], int const echo=0) {
+                   double const radius, size_t const natoms, view2D<double> const & xyzZ, int const echo=0) {
           assert(radius > 0);
           double box_size[3], inv_box_size[3];
           int hnh[3];
@@ -101,7 +101,6 @@ namespace geometry_analysis {
           
           if (mbx > 1) {
               // start to sort the atomic positions into the boxes
-              view2D<double const> const xyzZ(coordinates_and_Z, 4); // wrap
               if (echo > 8) printf("# %s: inverse box size is %g %g %g\n", 
                                       __func__, inv_box_size[X], inv_box_size[Y], inv_box_size[Z]);
               double min_coords[3] = {9e99, 9e99, 9e99};
@@ -168,7 +167,7 @@ namespace geometry_analysis {
   double constexpr Bohr2Angstrom = 0.52917724924;
   double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
   
-  status_t read_xyz_file(double **xyzz, int *n_atoms, char const *filename, 
+  status_t read_xyz_file(view2D<double> & xyzZ, int & n_atoms, char const *filename, 
                          double *cell, int *bc, int const echo) { // optionals
 
       std::ifstream infile(filename, std::ifstream::in);
@@ -193,7 +192,7 @@ namespace geometry_analysis {
               if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo);
           } // d
       } // scope
-      auto const xyzZ = (natoms > 0) ? new double[natoms*4] : nullptr;
+      xyzZ = view2D<double>(natoms, 4);
       int na = 0;
       while (std::getline(infile, line)) {
           ++linenumber;
@@ -215,18 +214,17 @@ namespace geometry_analysis {
                       (y == element_symbols[2*Z + 1])) iZ = Z;
               } // Z
           } // scope
-          xyzZ[na*4 + 0] = px*Angstrom2Bohr;
-          xyzZ[na*4 + 1] = py*Angstrom2Bohr;
-          xyzZ[na*4 + 2] = pz*Angstrom2Bohr;
-          xyzZ[na*4 + 3] = iZ;
+          xyzZ(na,0) = px*Angstrom2Bohr;
+          xyzZ(na,1) = py*Angstrom2Bohr;
+          xyzZ(na,2) = pz*Angstrom2Bohr;
+          xyzZ(na,3) = iZ;
           ++na;
           assert(na <= natoms);
           // process pair 
       } // parse file line by line
       
 //    auto const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr, bc={periodic,isolated,isolated}
-      *xyzz = (natoms == na) ? xyzZ : nullptr;
-      *n_atoms = na;
+      n_atoms = na;
       return na - natoms; // returns 0 if the exact number of atoms has been found
   } // read_xyz_file
   
@@ -275,8 +273,8 @@ namespace geometry_analysis {
       atom_image_index_t(index_t const atom_index=0, int const species_index=0, 
                          int const iix=0, int const iiy=0, int const iiz=0) 
       : ia(atom_index), is(species_index), ix(iix), iy(iiy), iz(iiz) {} // constructor
-  };
-  
+  }; // class atom_image_index_t
+
   
   template<typename real_t, typename int_t=short>
   int print_summary(char string[], // result
@@ -372,7 +370,7 @@ namespace geometry_analysis {
   } // analyze_bond_structure
   
   
-  status_t analysis(double const coordinates_and_Z[], index_t const natoms, 
+  status_t analysis(view2D<double> const & xyzZ, index_t const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
       status_t stat = 0;
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
@@ -402,7 +400,6 @@ namespace geometry_analysis {
       char  Sy_of_species_right[128][4]; // right alignment: examples: "Au\0", " H\0"
       int nspecies{0}; // number of different species
 
-      view2D<double const> const xyzZ(coordinates_and_Z, 4);
       { // scope: fill ispecies and species_of_Z
           for(int first = 1; first >= 0; --first) {
               for(index_t ia = 0; ia < natoms; ++ia) {
@@ -452,7 +449,8 @@ namespace geometry_analysis {
       float const too_large = 188.973;
       auto smallest_distance = std::vector<float>(nspecies*nspecies, too_large);
 
-      double *image_pos = nullptr;
+      view2D<double> image_pos;
+      view2D<int8_t> image_shift;
       typedef vector_math::vec<3,double> vec3;
       double const rcut2 = pow2(rcut);
       int64_t nzero = 0, nstrange = 0, npairs = 0, nbonds = 0, nfar = 0, near = 0; // init counters
@@ -460,16 +458,17 @@ namespace geometry_analysis {
 
 // #define GEO_ORDER_N2
 #ifdef  GEO_ORDER_N2
-      int const nimages = boundary_condition::periodic_images(&image_pos, cell, bc, rcut, echo);
-      if (echo > 2) printf("# use N^2-algorithm, expect to visit %.1e atom pairs\n", nimages*pow2((double)natoms));
+      int const nimages = boundary_condition::periodic_images(image_pos, cell, bc, rcut, echo, &image_shift);
+      if (echo > 2) printf("# use N^2-algorithm, expect to visit %.1e atom pairs\n", nimages*pow2(double(natoms)));
 
-      {{{{{ // open 5 loops for the box structure
+      {{{{{ // open 5 scopes because the box structure has 5 loops
       for(int ii = 0; ii < nimages; ++ii) { // includes self-interaction
-          vec3 const pos_ii = &image_pos[ii*4];
+          vec3 const pos_ii = image_pos[ii];
+          auto const shift = image_shift[ii]; // not tested
           for(int ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else
-      BoxStructure<index_t> box(cell, bc, rcut, natoms, coordinates_and_Z);
+      BoxStructure<index_t> box(cell, bc, rcut, natoms, xyzZ);
 
       for(int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
       for(int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {
@@ -660,21 +659,20 @@ namespace geometry_analysis {
       
       // analyze coordination numbers
       if (echo > 3) {
-          int cn_exceeds = 0;
+          int cn_exceeds{0};
           int const max_cn = 24;
-          auto const cn_hist = new int[nspecies][max_cn];
-          set((int*)cn_hist, nspecies*max_cn, 0);
+          view2D<int> cn_hist(nspecies, max_cn, 0);
           for(index_t ia = 0; ia < natoms; ++ia) {
               int const isi = ispecies[ia];
               int const cni = coordination_number[ia];
-              if (cni < max_cn) ++cn_hist[isi][cni]; else ++cn_exceeds;
+              if (cni < max_cn) ++cn_hist(isi,cni); else ++cn_exceeds;
           } // ia
           printf("\n# coordination numbers (radius in %s)\n", _Ang);
           for(int is = 0; is < nspecies; ++is) {
               printf("# coordination number for %s (%.3f)", Sy_of_species[is], default_bond_length(Z_of_species[is])*Ang);
               for(int cn = 0; cn < max_cn; ++cn) {
-                  if (cn_hist[is][cn] > 0) {
-                      printf("  %dx%d", cn_hist[is][cn], cn);
+                  if (cn_hist(is,cn) > 0) {
+                      printf("  %dx%d", cn_hist(is,cn), cn);
                   } // histogram count non-zero
               } // cn
               printf("\n");
@@ -683,8 +681,7 @@ namespace geometry_analysis {
           if (cn_exceeds > 0) {
               warn("In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
               ++stat;
-          }
-          delete[] cn_hist;
+          } // cn_exceeds
       } // echo
      
 
@@ -723,7 +720,6 @@ namespace geometry_analysis {
           } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
       } // echo
       
-      if (nullptr != image_pos) delete[] image_pos; // ToDo: use a std::vector
       return stat;
   } // analysis
   
@@ -733,12 +729,12 @@ namespace geometry_analysis {
 
   status_t test_analysis(int const echo=9) {
     
-    double *xyzZ = nullptr;
+    view2D<double> xyzZ;
     int natoms = 0;
     auto const geo_file = control::get("geometry.file", "atoms.xyz");
     double cell[3] = {0, 0, 0}; 
     int bc[3] = {-7, -7, -7};
-    status_t stat = read_xyz_file(&xyzZ, &natoms, geo_file, cell, bc, 0);
+    status_t stat = read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
     
     if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
@@ -746,7 +742,6 @@ namespace geometry_analysis {
         stat += analysis(xyzZ, natoms, cell, bc, echo);
     } // timer
 
-    delete[] xyzZ;
     return stat;
   } // test_analysis
 

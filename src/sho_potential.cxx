@@ -200,12 +200,12 @@ namespace sho_potential {
       stat += load_local_potential(vtot, dims, vtotfile, echo);
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      double *xyzZ = nullptr;
+      view2D<double> xyzZ;
       int natoms{0};
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(&xyzZ, &natoms, geo_file, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
           if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
@@ -220,11 +220,11 @@ namespace sho_potential {
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
 
-      auto const center = new double[natoms][4]; // list of atomic centers
+      view2D<double> center(natoms, 4); // list of atomic centers
       for(int ia = 0; ia < natoms; ++ia) {
           for(int d = 0; d < 3; ++d) {
-              center[ia][d] = xyzZ[ia*4 + d] + origin[d]; // w.r.t. to the center of grid point (0,0,0)
-          }   center[ia][3] = 0; // 4th component is not used
+              center(ia,d) = xyzZ(ia,d) + origin[d]; // w.r.t. to the center of grid point (0,0,0)
+          }   center(ia,3) = 0; // 4th component is not used
       } // ia
 
       auto const artificial_potential = int(control::get("sho_potential.test.artificial.potential", 0.));
@@ -261,7 +261,7 @@ namespace sho_potential {
       int numax_max{0};
       for(int ia = 0; ia < natoms; ++ia) {
           if (echo > 0) printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%g %s numax=%d\n", 
-                ia, xyzZ[ia*4 + 3], xyzZ[ia*4 + 0]*Ang, xyzZ[ia*4 + 1]*Ang, xyzZ[ia*4 + 2]*Ang, 
+                ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, 
                 sigmas[ia]*Ang, _Ang, numaxs[ia]);
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
@@ -364,7 +364,7 @@ namespace sho_potential {
                   assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
                   double cnt[3]; // center of weight
                   for(int d = 0; d < 3; ++d) {
-                      cnt[d] = wi*xyzZ[ia*4 + d] + wj*xyzZ[ja*4 + d];
+                      cnt[d] = wi*xyzZ(ia,d) + wj*xyzZ(ja,d);
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
                   if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
@@ -641,9 +641,6 @@ namespace sho_potential {
           } // sv
       } // echo
       
-      
-      if (nullptr != center) delete[] center;
-      if (nullptr != xyzZ) delete[] xyzZ;
       return stat;
   } // test_local_potential_matrix_elements
 

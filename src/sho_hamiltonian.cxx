@@ -713,16 +713,16 @@ namespace sho_hamiltonian {
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      double *xyzZ_m = nullptr;
+      view2D<double> xyzZ_noconst;
       int natoms{0};
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(&xyzZ_m, &natoms, geo_file, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ_noconst, natoms, geo_file, cell, bc, 0);
           if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
-      view2D<double const> const xyzZ(xyzZ_m, 4); // wrap for simpler usage
+      view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap for simpler usage
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc);
@@ -732,7 +732,6 @@ namespace sho_hamiltonian {
       
       stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
 
-      if (nullptr != xyzZ_m) delete[] xyzZ_m;
       return stat;
   } // test_Hamiltonian
 
