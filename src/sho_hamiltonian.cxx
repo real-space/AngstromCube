@@ -116,9 +116,10 @@ namespace sho_hamiltonian {
         
       status_t stat(0);
 #ifdef DEVEL
-      complex_t x{1};
-      if (echo > 3) printf("\n\n# start %s<%s, phase_t=%s> nB=%d\n", 
-              __func__, complex_name(x), complex_name(*Bloch_phase), nB);
+      {   complex_t c{1}; real_t r{1};
+          if (echo > 3) printf("\n\n# start %s<%s, real_t=%s, phase_t=%s> nB=%d\n", 
+                  __func__, complex_name(c), complex_name(r), complex_name(*Bloch_phase), nB);
+      }
 #endif     
 
       //
@@ -138,17 +139,17 @@ namespace sho_hamiltonian {
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
       
       // we use vectors of vectors here for potentially sparse list in the future, e.g. in the compressed row format
-      std::vector<std::vector<view2D<complex_t>>> P_laja(natoms); //  <\tilde p_{ka kb}|\chi3D_{ja jb}>
-      std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_laja
+      std::vector<std::vector<view2D<complex_t>>> P_jala(natoms); //  <\tilde p_{ka kb}|\chi3D_{ja jb}>
+      std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_jala
       for(int ia = 0; ia < natoms; ++ia) {
-          P_laja[ia].resize(natoms_PAW);
+          P_jala[ia].resize(natoms_PAW);
           Psh_iala[ia].resize(natoms_PAW);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           for(int ka = 0; ka < natoms_PAW; ++ka) {
               int const nb_ka = sho_tools::nSHO(numax_PAW[ka]);
               int const n1k   = sho_tools::n1HO(numax_PAW[ka]);
-              P_laja[ia][ka] = view2D<complex_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
+              P_jala[ia][ka] = view2D<complex_t>(nb_ia, nb_ka, 0.0); // get memory and initialize
 
               view4D<double> ovl1D(3, 1, n1i, n1k, 0.0);  //  <\chi1D_i|\chi1D_k>
               for(int ip = 0; ip < n_periodic_images; ++ip) { // periodic images of ka
@@ -160,7 +161,7 @@ namespace sho_hamiltonian {
                   } // d
 
                   // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
-                  stat += sho_potential::potential_matrix(P_laja[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka], phase);
+                  stat += sho_potential::potential_matrix(P_jala[ia][ka], ovl1D, ones, 0, numaxs[ia], numax_PAW[ka], phase);
               } // ip
 
               // multiply P from left to hs_PAW (block diagonal --> ka == la)
@@ -171,7 +172,7 @@ namespace sho_hamiltonian {
                   for(int lb = 0; lb < nb_la; ++lb) {
                       complex_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
-                          auto const p = P_laja[ia][ka](ib,kb);
+                          auto const p = P_jala[ia][ka](ib,kb);
                           // Mind that hs_PAW matrices are ordered {H,S}
                           s += p * real_t(hs_PAW[ka](1,kb,lb));
                           h += p * real_t(hs_PAW[ka](0,kb,lb));
@@ -244,8 +245,9 @@ namespace sho_hamiltonian {
 
               } // ip
               
-              
-              // PAW contributions
+
+              // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
+              //                  and S_{ij} = Ps_{il} P^*_{jl}
               for(int la = 0; la < natoms_PAW; ++la) { // contract
                   int const nb_la = sho_tools::nSHO(numax_PAW[la]);
                   // matrix-matrix multiplication
@@ -253,7 +255,7 @@ namespace sho_hamiltonian {
                       for(int jb = 0; jb < nb_ja; ++jb) {
                           complex_t s{0}, h{0};
                           for(int lb = 0; lb < nb_la; ++lb) { // contract
-                              auto const p = conjugate(P_laja[ja][la](jb,lb)); // needs a conjugation if complex
+                              auto const p = conjugate(P_jala[ja][la](jb,lb)); // needs a conjugation if complex
                               s += Psh_iala[ia][la](0,ib,lb) * p;
                               h += Psh_iala[ia][la](1,ib,lb) * p;
                           } // lb
@@ -267,7 +269,7 @@ namespace sho_hamiltonian {
           } // ja
       } // ia
 
-      Psh_iala.clear(); P_laja.clear(); // release the memory
+      Psh_iala.clear(); P_jala.clear(); // release the memory
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
       std::vector<real_t> eigvals(nB, 0.0);
@@ -326,7 +328,7 @@ namespace sho_hamiltonian {
           } // ovl_eig
 
           // show result
-          if ((1 == s0h1) || ovl_eig) {
+          if ((H == s0h1) || ovl_eig) {
               if (stat_eig) {
                   warn("diagonalizing the %s matrix failed, status= %i", matrix_name, int(stat_eig));
                   stat += stat_eig;
@@ -334,7 +336,7 @@ namespace sho_hamiltonian {
                   double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];
                   if (echo > 2) {
                       printf("%s%s", x_axis, s0h1 ? "" : matrix_name);
-                      int constexpr mB = 9; // show at most the 7 lowest + 2 highest eigenvalues
+                      int constexpr mB = 8; // show at most the 6 lowest + 2 highest eigenvalues
                       for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
                           printf(" %g", eigvals[iB]*u);
                       } // iB
@@ -343,7 +345,13 @@ namespace sho_hamiltonian {
                   } // echo
                   if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix are %g and %g %s, respectively\n", 
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
-                  if (s0h1 == 0 && lowest_eigenvalue < .1) warn("overlap matrix has small eigenvalues, lowest= %g", lowest_eigenvalue);
+                  if (S == s0h1) {
+                      if (lowest_eigenvalue <= 0) {
+                          warn("overlap matrix has instable eigenvalues, lowest= %g", lowest_eigenvalue);
+                      } else if (lowest_eigenvalue < .1) {
+                          warn("overlap matrix has critical eigenvalues, lowest= %g", lowest_eigenvalue);
+                      } // lowest_eigenvalue
+                  } // s0h1
               } // stat_eig
           } // H or ovl_eig
 
@@ -643,31 +651,13 @@ namespace sho_hamiltonian {
 //        std::complex<double> const Bloch_phase[3] = {1, 1, std::pow(minus_one, ikp/(nkpoints - 1.))}; // first and last phases are real, dispersion in z-direction
 
           double Bloch_phase_real[3];
-          bool needs_complex{false};
+          bool can_be_real{true};
           for(int d = 0; d < 3; ++d) {
               Bloch_phase_real[d] = Bloch_phase[d].real();
-              if (std::abs(Bloch_phase[d].imag()) > 2e-16) needs_complex = true;
+              if (std::abs(Bloch_phase[d].imag()) > 2e-16) can_be_real = false;
           } // d
           char x_axis[96]; std::snprintf(x_axis, 95, "%.6f spectrum ", ikp*.5/(nkpoints - 1.));
-          if (needs_complex) {
-              if (32 == numeric_bits) {
-                  stat += solve_k<std::complex<float>, float>(
-                          natoms, xyzZ, numaxs.data(), sigmas.data(),
-                          n_periodic_images, periodic_image, periodic_shift,
-                          Vcoeffs.data(), center_map,
-                          nB, nBa, offset.data(),
-                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase, x_axis, echo);
-              } else {
-                  stat += solve_k<std::complex<double>, double>(
-                          natoms, xyzZ, numaxs.data(), sigmas.data(),
-                          n_periodic_images, periodic_image, periodic_shift,
-                          Vcoeffs.data(), center_map,
-                          nB, nBa, offset.data(),
-                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase, x_axis, echo);
-              } // numeric_bits
-          } else {
+          if (can_be_real) {
               if (32 == numeric_bits) {
                   stat += solve_k<float, float>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
@@ -685,8 +675,26 @@ namespace sho_hamiltonian {
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           Bloch_phase_real, x_axis, echo);
               } // numeric_bits
-          } // needs_complex
-          
+          } else { // replace this else by if(true) to test if real and complex version agree
+              if (32 == numeric_bits) {
+                  stat += solve_k<std::complex<float>, float>(
+                          natoms, xyzZ, numaxs.data(), sigmas.data(),
+                          n_periodic_images, periodic_image, periodic_shift,
+                          Vcoeffs.data(), center_map,
+                          nB, nBa, offset.data(),
+                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          Bloch_phase, x_axis, echo);
+              } else {
+                  stat += solve_k<std::complex<double>, double>(
+                          natoms, xyzZ, numaxs.data(), sigmas.data(),
+                          n_periodic_images, periodic_image, periodic_shift,
+                          Vcoeffs.data(), center_map,
+                          nB, nBa, offset.data(),
+                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          Bloch_phase, x_axis, echo);
+              } // numeric_bits
+          } // !can_be_real
+          if (echo > 0) fflush(stdout);
       } // ikp
       
       return stat;

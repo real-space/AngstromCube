@@ -61,7 +61,7 @@ namespace linear_algebra {
       int info{0};
       int const lwork = n*n;
       std::vector<double> work(lwork);
-      std::vector<int> ipiv(n);
+      std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
       info = LAPACKE_dgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
 #else
@@ -189,32 +189,17 @@ namespace linear_algebra {
 #endif
   } // generalized_eigenvalues
 
-  
-  
     // new interface: for hermitian/symmetric [generalized] eigenvalue problems
     template<typename real_t>
-    status_t eigenvalues(real_t w[], int const n, real_t a[], int const lda, real_t b[]=nullptr, int const ldb=0);
+    inline status_t eigenvalues(real_t w[], int const n, real_t a[], int const lda,
+                                                 real_t b[]=nullptr, int const ldb=0) {
+        return b ? _generalized_eigenvalues(n, a, lda, b, (ldb < n)?lda:ldb, w) : _eigenvalues(n, a, lda, w); }
 
-    template<> // template specialization
-    inline status_t eigenvalues<double>(double w[], int const n, double a[], int const lda, double b[], int const ldb) {
-        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  } 
-
-    template<> // template specialization
-    inline status_t eigenvalues<float>(float w[], int const n, float a[], int const lda, float b[], int const ldb) {
-        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  }
-  
     template<typename real_t>
-    status_t eigenvalues(real_t w[], int const n, std::complex<real_t> a[], int const lda, std::complex<real_t> b[]=nullptr, int const ldb=0);
-    
-    template<> // template specialization
-    inline status_t eigenvalues<double>(double w[], int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb) {
-        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  } 
+    inline status_t eigenvalues(real_t w[], int const n, std::complex<real_t> a[], int const lda,
+                                                 std::complex<real_t> b[]=nullptr, int const ldb=0) {
+        return b ? _generalized_eigenvalues(n, a, lda, b, (ldb < n)?lda:ldb, w) : _eigenvalues(n, a, lda, w); }
 
-    template<> // template specialization
-    inline status_t eigenvalues<float>(float w[], int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb) {
-        return b ? _generalized_eigenvalues(n,a,lda,b,(ldb < n)?lda:ldb,w) : _eigenvalues(n,a,lda,w);  }
-  
-  
   inline status_t all_tests(int const echo=0) { return 0; }
 
 } // namespace linear_algebra
