@@ -1,9 +1,10 @@
 #pragma once
 
 #include <random> // std::random_device, std::mt19937
+#include <complex> // std::complex<real_t>
 
 #include "status.hxx" // status_t
-  
+
 namespace simple_math {
 
   // templated, performant, thread safe pseudo random number generator based on Mersenne twister
@@ -110,7 +111,7 @@ namespace simple_math {
   real_t invert2x2(real_t inv[], int const is, real_t const a[], int const as=2) {
     auto const det = determinant(2, a, as);
     if (std::abs(det) < threshold) return 0;
-    auto const inv_det = 1/det;
+    auto const inv_det = real_t(1)/det;
     inv[0*is + 0] =   a[1*as + 1]*inv_det;
     inv[0*is + 1] = - a[0*as + 1]*inv_det;
     inv[1*is + 0] = - a[1*as + 0]*inv_det;
@@ -130,7 +131,7 @@ namespace simple_math {
         } // j
     } // i
     return det;
-  } // invert3x3
+  } // invert
 
   template<typename real_t>
   real_t determinant4x4(real_t const a[], int const as=4) {
@@ -159,7 +160,7 @@ namespace simple_math {
         } // i
     } // j
     return det;
-  } // invert4x4
+  } // invert
 
 
   template<typename T>
@@ -197,17 +198,17 @@ namespace simple_math {
 
   template<typename real_t>
   inline double matmul(int const n, real_t c[], int const cs, 
-  	           				  real_t const a[], int const as, 
-  	           				  real_t const b[], int const bs) {
-      double dev = 0;
+                              real_t const a[], int const as, 
+                              real_t const b[], int const bs) {
+      double dev{0};
       for(int i = 0; i < n; ++i) {
           for(int j = 0; j < n; ++j) {
-              real_t cc = 0;
+              real_t cc(0);
               for(int k = 0; k < n; ++k) {
                   cc += a[i*as + k] * b[k*bs + j];
               } // k
               c[i*cs + j] = cc;
-              dev += std::abs(cc - (i == j));
+              dev += (i == j) ? std::abs(cc - real_t(1)) : std::abs(cc);
           } // j
       } // i
       return dev; // deviation
@@ -223,7 +224,9 @@ namespace simple_math {
     for(int n = -1; n <= N; ++n) { // dimension
 	    for(int m = n; m <= M; ++m) { // stride
 	    	// fill with random values
-	    	for(int ij = 0; ij < n*m; ++ij) a[ij] = random<real_t>(-1, 1);
+	    	for(int ij = 0; ij < n*m; ++ij) {
+                a[ij] = random<real_t>(-1, 1);
+            } // ij
 	   	    auto const det = invert(n, inv, m, a, m);
 			auto const dev_ia = matmul(n, inva, m, inv, m, a, m);
     		auto const dev_ai = matmul(n, ainv, m, a, m, inv, m);
@@ -247,6 +250,7 @@ namespace simple_math {
     status_t status(0);
     status += std::abs(int(test_invert<float>(echo)));
     status += std::abs(int(test_invert<double>(echo)));
+//  status += std::abs(int(test_invert<std::complex<double>>(echo))); // does not compile
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  

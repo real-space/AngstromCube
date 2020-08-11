@@ -21,6 +21,7 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues
 #include "inline_tools.hxx" // align<nbits>
+#include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
 
 namespace sho_hamiltonian {
@@ -405,7 +406,8 @@ namespace sho_hamiltonian {
           auto const green_function = int(control::get("sho_hamiltonian.test.green.function", 0.));
           if (green_function > 0) {
               complex_t const minus1(-1);
-              if (!is_complex(minus1)) {
+//               if (!is_complex(minus1)) {
+              if (false) {
                   warn("# Green functions can only be computed in complex versions"); return stat;
               } else {
             
@@ -439,8 +441,8 @@ namespace sho_hamiltonian {
                           for(int jB = 0; jB < nB; ++jB) {
                               complex_t cN(0), cT(0);
                               for(int kB = 0; kB < nB; ++kB) {
-                                  cN += Green(iB,kB) * conjugate(ESmH_copy(kB,jB)); 
-                                  cT += ESmH_copy(iB,kB) * conjugate(Green(kB,jB)); 
+                                  cN += Green(iB,kB) * ESmH_copy(kB,jB); 
+                                  cT += ESmH_copy(iB,kB) * Green(kB,jB); 
                               } // kB
                               complex_t const diag = (iB == jB);
                               devN = std::max(devN, std::abs(cN - diag));
@@ -449,8 +451,9 @@ namespace sho_hamiltonian {
                                   std::real(cN), std::imag(cN), std::abs(cN - diag), std::real(cT), std::imag(cT), std::abs(cT - diag));
                           } // jB
                       } // iB
-                      if (echo > 0) printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
-//                       exit(42);
+                      if ((echo > 19) || ((echo > 0) && (devN + devT > 1e-7))) {
+                          printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
+                      }
                   } // check
 
                   // density of states
@@ -747,7 +750,7 @@ namespace sho_hamiltonian {
 //        std::complex<double> const Bloch_phase[3] = {1, 1, std::pow(minus_one, ikp/(nkpoints - 1.))}; // first and last phases are real, dispersion in z-direction
 
           double Bloch_phase_real[3];
-          bool can_be_real{false}; // ToDo: reset to true
+          bool can_be_real{true};
           for(int d = 0; d < 3; ++d) {
               Bloch_phase_real[d] = Bloch_phase[d].real();
               if (std::abs(Bloch_phase[d].imag()) > 2e-16) can_be_real = false;
@@ -833,8 +836,55 @@ namespace sho_hamiltonian {
       return stat;
   } // test_Hamiltonian
 
+  template<typename real_t>
+  status_t test_inverse(int const echo=0) {
+      status_t status(0);
+      int constexpr N = 5;
+      real_t dev{0};
+      view2D<std::complex<real_t>> a(N, N, 0), inv(N, N);
+      for(int n = 1; n <= N; ++n) { // dimension
+          // fill with random values
+          for(int i = 0; i < n; ++i) {
+              for(int j = 0; j < n; ++j) {
+                  auto const Re = simple_math::random<real_t>(-1, 1);
+                  auto const Im = simple_math::random<real_t>(-1, 1);
+                  a(i,j) = std::complex<real_t>(Re, Im);
+                  inv(i,j) = a(i,j); // copy
+              } // j
+          } // i
+          
+          auto const stat = linear_algebra::inverse(n, inv.data(), inv.stride());
+          if (stat) warn("inversion failed with status= %i", stat);
+          status += stat;
+
+          real_t devN{0}, devT{0};
+          for(int i = 0; i < n; ++i) {
+              for(int j = 0; j < n; ++j) {
+                  std::complex<real_t> cN(0), cT(0);
+                  for(int k = 0; k < n; ++k) {
+                      cN += a(i,k) * (inv(k,j));
+                      cT += inv(i,k) * (a(k,j));
+                  } // k
+                  std::complex<real_t> const diag = (i == j);
+                  devN = std::max(devN, std::abs(cN - diag));
+                  devT = std::max(devT, std::abs(cT - diag));
+                  if (echo > 9) printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,        
+                      std::real(a(i,j)), std::imag(a(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
+                      std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
+              } // j
+          } // i
+          if (echo > 3) printf("# %s n= %d deviations from unity are %.2e and %.2e transposed\n",
+                                __func__, n, devN, devT);
+          dev = std::max(dev, std::max(devN, devT));
+      } // n
+      if (echo > 0) printf("# %s up to N= %d deviations from unity are %.2e\n\n", __func__, N, dev);
+      return status;
+  } // test_inverse
+  
   status_t all_tests(int const echo) {
     status_t status(0);
+    status += test_inverse<double>(echo);
+    status += test_inverse<float>(echo);
     status += test_Hamiltonian(echo);
     return status;
   } // all_tests
