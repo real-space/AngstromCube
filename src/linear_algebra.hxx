@@ -12,6 +12,8 @@ extern "C" {
 #ifdef  HAS_MKL
   #include "mkl_lapacke.h" // LAPACK_COL_MAJOR, MKL_INT, ...
 #else
+  #define MKL_INT int
+
     // float64 linear_solve
 	void dgesv_(int const *n, int const *nrhs, double a[], int const *lda, 
 				int ipiv[], double b[], int const *ldb, int *info);
@@ -57,16 +59,10 @@ extern "C" {
 
 #include "status.hxx" // status_t
 
-#ifndef   MKL_INT
-  #define MKL_INT int
-#endif
-
 namespace linear_algebra {
   
   inline status_t inverse(int const n, double a[], int const lda) {
       int info{0};
-      int const lwork = n*n;
-      std::vector<double> work(lwork);
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
       info = LAPACKE_dgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
@@ -78,6 +74,8 @@ namespace linear_algebra {
 #ifdef  HAS_MKL
       info = LAPACKE_dgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
 #else
+      int const lwork = n*n;
+      std::vector<double> work(lwork);
       dgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
 #endif
       return info;
@@ -85,8 +83,6 @@ namespace linear_algebra {
   
   inline status_t inverse(int const n, float a[], int const lda) {
       int info{0};
-      int const lwork = n*n;
-      std::vector<float> work(lwork);
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
       info = LAPACKE_sgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
@@ -98,6 +94,8 @@ namespace linear_algebra {
 #ifdef  HAS_MKL
       info = LAPACKE_sgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
 #else
+      int const lwork = n*n;
+      std::vector<float> work(lwork);
       sgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
 #endif
       return info;
@@ -105,19 +103,19 @@ namespace linear_algebra {
 
   inline status_t inverse(int const n, std::complex<double> a[], int const lda) {
       int info{0};
-      int const lwork = n*n;
-      std::vector<std::complex<double>> work(lwork);
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
-      info = LAPACKE_zgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
+      info = LAPACKE_zgetrf( LAPACK_COL_MAJOR, n, n, (MKL_Complex16*)a, lda, ipiv.data() );
 #else
       zgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
 #endif
       if (info) return info; // early return: factorization failed!
 
 #ifdef  HAS_MKL
-      info = LAPACKE_zgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
+      info = LAPACKE_zgetri( LAPACK_COL_MAJOR, n, (MKL_Complex16*)a, lda, ipiv.data() );
 #else
+      int const lwork = n*n;
+      std::vector<std::complex<double>> work(lwork);
       zgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
 #endif
       return info;
@@ -125,19 +123,19 @@ namespace linear_algebra {
 
   inline status_t inverse(int const n, std::complex<float> a[], int const lda) {
       int info{0};
-      int const lwork = n*n;
-      std::vector<std::complex<float>> work(lwork);
       std::vector<MKL_INT> ipiv(2*n);
 #ifdef  HAS_MKL
-      info = LAPACKE_cgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
+      info = LAPACKE_cgetrf( LAPACK_COL_MAJOR, n, n, (MKL_Complex8*)a, lda, ipiv.data() );
 #else
       cgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
 #endif
       if (info) return info; // early return: factorization failed!
 
 #ifdef  HAS_MKL
-      info = LAPACKE_cgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
+      info = LAPACKE_cgetri( LAPACK_COL_MAJOR, n, (MKL_Complex8*)a, lda, ipiv.data() );
 #else
+      int const lwork = n*n;
+      std::vector<std::complex<float>> work(lwork);
       cgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
 #endif
       return info;
@@ -169,7 +167,7 @@ namespace linear_algebra {
 
   inline status_t _eigenvalues(int const n, std::complex<double> a[], int const lda, double w[]) {
 #ifdef  HAS_MKL
-      return LAPACKE_zheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+      return LAPACKE_zheev( LAPACK_COL_MAJOR, 'V', 'U', n, (MKL_Complex16*)a, lda, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<std::complex<double>> work(lwork);
@@ -194,7 +192,7 @@ namespace linear_algebra {
   inline status_t _generalized_eigenvalues(int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb, double w[]) {
 //    printf("\n# call zhegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
-      return LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+      return LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, (MKL_Complex16*)a, lda, (MKL_Complex16*)b, ldb, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<std::complex<double>> work(lwork);
@@ -221,7 +219,7 @@ namespace linear_algebra {
 
   inline status_t _eigenvalues(int const n, std::complex<float> a[], int const lda, float w[]) {
 #ifdef  HAS_MKL
-      return LAPACKE_cheev( LAPACK_COL_MAJOR, 'V', 'U', n, a, lda, w );
+      return LAPACKE_cheev( LAPACK_COL_MAJOR, 'V', 'U', n, (MKL_Complex8*)a, lda, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const lwork = (2*n + 2)*n;
       std::vector<std::complex<float>> work(lwork);
@@ -246,7 +244,7 @@ namespace linear_algebra {
   inline status_t _generalized_eigenvalues(int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb, float w[]) {
 //    printf("\n# call chegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
-      return LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
+      return LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, (MKL_Complex8*)a, lda, (MKL_Complex8*)b, ldb, w );
 #else
       int info{0}; char const jobz = 'V', uplo = 'U'; int const itype = 1, lwork = (2*n + 2)*n;
       std::vector<std::complex<float>> work(lwork);
