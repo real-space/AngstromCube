@@ -12,7 +12,7 @@
 #include "sho_potential.hxx" // ::load_local_potential
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
 #include "control.hxx" // ::get
-#include "display_units.h" // eV, _eV, Ang, _Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
 #include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project
@@ -64,7 +64,9 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
-  
+  template<typename real_t>
+  real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
+
   template<typename complex_t>
   char const * complex_name(complex_t const x) {
       auto const nByte = sizeof(std::real(x));
@@ -84,15 +86,22 @@ namespace sho_hamiltonian {
 
   template<typename complex_t>
   bool constexpr is_complex(complex_t const x) { return (sizeof(complex_t) > sizeof(std::real(x))); }
-  
-  template<typename real_t>
-  std::complex<real_t> conjugate(std::complex<real_t> const x) { return std::conj(x); }
 
   template<typename real_t> real_t conjugate(real_t const x);
   template<> inline float  conjugate<float> (float  const x) { return x; };
   template<> inline double conjugate<double>(double const x) { return x; };
   
+  template<typename real_t>
+  std::complex<real_t> conjugate(std::complex<real_t> const x) { return std::conj(x); }
+
   
+  template<typename complex_t, typename real_t> inline
+  complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given
+  template<> inline double to_complex_t(std::complex<double> const x) { return std::real(x); }
+  template<> inline float  to_complex_t(std::complex<float>  const x) { return std::real(x); }
+  template<> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
+  template<> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
+
   template<typename complex_t, typename real_t, typename phase_t>
   status_t solve_k(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
@@ -275,7 +284,10 @@ namespace sho_hamiltonian {
       std::vector<real_t> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
       char const hermitian = *control::get("sho_hamiltonian.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
-
+      real_t const E_imag = control::get("sho_hamiltonian.temperature", 9.765625e-4);
+      double const f_dos = -1./constants::pi;
+      
+      double lowest_H_eigenvalue{0};
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
@@ -317,6 +329,7 @@ namespace sho_hamiltonian {
           } // check hermiticity
 
           
+          
           // diagonalize matrix
           status_t stat_eig(0);
           if (1 == s0h1) {
@@ -351,6 +364,25 @@ namespace sho_hamiltonian {
                       } else if (lowest_eigenvalue < .1) {
                           warn("overlap matrix has critical eigenvalues, lowest= %g", lowest_eigenvalue);
                       } // lowest_eigenvalue
+                  } else {
+                      lowest_H_eigenvalue = lowest_eigenvalue; // use here immediately below and further down
+                      
+                      auto const nE = int(control::get("sho_hamiltonian.test.green.lehmann", 0.));
+                      if (nE > 0) {
+                          double const dE = -1.1*lowest_H_eigenvalue/nE;
+                          // from the eigenvalues, we can plot the density of states via the Lehmann representation
+                          if (echo > 0) printf("\n## E_real (%s), DoS (from Lehmann representation):\n", _eV);
+                          for(int iE = -nE; iE <= nE; ++iE) {
+                              real_t const E_real = iE*dE; 
+                              double density{0};
+                              for(int iB = 0; iB < nB; ++iB) {
+                                  density += f_dos*Lorentzian(E_real - eigvals[iB], E_imag);
+                              } // density
+                              if (echo > 0) printf("%g %g\n", E_real*eV, density);
+                          } // iE
+                          if (echo > 0) printf("\n");
+                      } // nE > 0
+                      
                   } // s0h1
               } // stat_eig
           } // H or ovl_eig
@@ -368,7 +400,73 @@ namespace sho_hamiltonian {
           } // H
 
       } // s0h1
-      
+
+      { // scope: try Green function approach
+          auto const green_function = int(control::get("sho_hamiltonian.test.green.function", 0.));
+          if (green_function > 0) {
+              complex_t const minus1(-1);
+              if (!is_complex(minus1)) {
+                  warn("# Green functions can only be computed in complex versions"); return stat;
+              } else {
+            
+                int const nE = green_function;
+                double const dE = -1.1*lowest_H_eigenvalue/nE;
+                if (echo > 0) printf("\n## E_real (%s), DoS:\n", _eV);
+                view2D<complex_t> ESmH(nB, nBa, complex_t(0)); // get memory
+                for(int iE = -nE; iE <= nE; ++iE) {
+                  real_t const E_real = iE*dE;
+                  auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
+                  if (echo > 99) printf("# Green function for energy point (%g %s, %g %s)\n",
+                                           std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin);
+                  int constexpr check = 1;
+                  view2D<complex_t> ESmH_copy(check*nB, nBa, complex_t(0)); // get memory
+                  // construct matrix to be inverted: E*S - H
+                  for(int iB = 0; iB < nB; ++iB) {
+                      set(ESmH[iB], nB, SHm(H,iB), minus1); // -H
+                      add_product(ESmH[iB], nB, SHm(S,iB), E); // +E*S
+                      if (check) set(ESmH_copy[iB], nB, ESmH[iB]); // copy
+                  } // iB
+
+                  // Green function G = (E*S - H)^{-1}
+                  auto const stat_inv = linear_algebra::inverse(nB, ESmH.data(), ESmH.stride());
+                  view2D<complex_t> Green(ESmH.data(), ESmH.stride()); // wrap
+                  if (int(stat_inv)) warn("inversion failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
+                  stat += stat_inv;
+
+                  if (check) {
+                      real_t devN(0), devT(0);
+                      for(int iB = 0; iB < nB; ++iB) {
+                          for(int jB = 0; jB < nB; ++jB) {
+                              complex_t cN(0), cT(0);
+                              for(int kB = 0; kB < nB; ++kB) {
+                                  cN += Green(iB,kB) * conjugate(ESmH_copy(kB,jB)); 
+                                  cT += ESmH_copy(iB,kB) * conjugate(Green(kB,jB)); 
+                              } // kB
+                              complex_t const diag = (iB == jB);
+                              devN = std::max(devN, std::abs(cN - diag));
+                              devT = std::max(devT, std::abs(cT - diag));
+                              if (echo > 99) printf("# iB=%i jB=%i cN= %g %g, dev= %.1e,\tcT= %g %g, dev= %.1e\n", iB, jB,
+                                  std::real(cN), std::imag(cN), std::abs(cN - diag), std::real(cT), std::imag(cT), std::abs(cT - diag));
+                          } // jB
+                      } // iB
+                      if (echo > 0) printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
+//                       exit(42);
+                  } // check
+
+                  // density of states
+                  double density{0};
+                  for(int iB = 0; iB < nB; ++iB) {
+                      density += f_dos*std::imag(Green(iB,iB));
+                  } // iB
+                  if (echo > 0) printf("%g %g\n", std::real(E)*eV, density);
+                  if (echo > 99) printf("# DoS for energy point (%g %s, %g %s) %g\n",
+                      std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin, density);
+                } // iE, ToDo: indent 4 spaces
+                if (echo > 0) printf("\n");
+              } // is_complex
+          } // green_function
+      } // scope
+
       return stat;
   } // solve_k
 
@@ -416,8 +514,8 @@ namespace sho_hamiltonian {
       if (echo > 5) printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
       offset[natoms] = total_basis_size;
       int const nB   = total_basis_size;
-      int const nBa  = align<4>(nB); // memory aligned main matrix stride
-
+//       int const nBa  = align<4>(nB); // memory aligned main matrix stride
+      int const nBa = nB; // no alignment (DEBUG)
 
       
       
@@ -640,7 +738,7 @@ namespace sho_hamiltonian {
 
       // all preparations done, start k-point loop
       
-      auto const numeric_bits = int(control::get("sho_hamiltonian.floating.point.bits", 64.)); // double by default
+      auto const floating_point_bits = int(control::get("sho_hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("sho_hamiltonian.test.kpoints", 17.));
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
@@ -649,14 +747,14 @@ namespace sho_hamiltonian {
 //        std::complex<double> const Bloch_phase[3] = {1, 1, std::pow(minus_one, ikp/(nkpoints - 1.))}; // first and last phases are real, dispersion in z-direction
 
           double Bloch_phase_real[3];
-          bool can_be_real{true};
+          bool can_be_real{false}; // ToDo: reset to true
           for(int d = 0; d < 3; ++d) {
               Bloch_phase_real[d] = Bloch_phase[d].real();
               if (std::abs(Bloch_phase[d].imag()) > 2e-16) can_be_real = false;
           } // d
-          char x_axis[96]; std::snprintf(x_axis, 95, "%.6f spectrum ", ikp*.5/(nkpoints - 1.));
+          char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/(nkpoints - 1.));
           if (can_be_real) {
-              if (32 == numeric_bits) {
+              if (32 == floating_point_bits) {
                   stat += solve_k<float, float>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
                           n_periodic_images, periodic_image, periodic_shift,
@@ -672,9 +770,9 @@ namespace sho_hamiltonian {
                           nB, nBa, offset.data(),
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           Bloch_phase_real, x_axis, echo);
-              } // numeric_bits
+              } // floating_point_bits
           } else { // replace this else by if(true) to test if real and complex version agree
-              if (32 == numeric_bits) {
+              if (32 == floating_point_bits) {
                   stat += solve_k<std::complex<float>, float>(
                           natoms, xyzZ, numaxs.data(), sigmas.data(),
                           n_periodic_images, periodic_image, periodic_shift,
@@ -690,7 +788,7 @@ namespace sho_hamiltonian {
                           nB, nBa, offset.data(),
                           natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           Bloch_phase, x_axis, echo);
-              } // numeric_bits
+              } // floating_point_bits
           } // !can_be_real
           if (echo > 0) fflush(stdout);
       } // ikp

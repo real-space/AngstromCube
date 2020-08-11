@@ -41,9 +41,15 @@ extern "C" {
     
     // LU decomoposition of a general matrix
     void dgetrf_(int const *m, int const *n, double a[], int const *lda, int ipiv[], int *info);
+    void sgetrf_(int const *m, int const *n, float  a[], int const *lda, int ipiv[], int *info);
+    void zgetrf_(int const *m, int const *n, std::complex<double> a[], int const *lda, int ipiv[], int *info);
+    void cgetrf_(int const *m, int const *n, std::complex<float>  a[], int const *lda, int ipiv[], int *info);
 
     // generate inverse of a matrix given its LU decomposition
     void dgetri_(int const *n, double a[], int const *lda, int ipiv[], double work[], int const *lwork, int *info);
+    void sgetri_(int const *n, float  a[], int const *lda, int ipiv[], float  work[], int const *lwork, int *info);
+    void zgetri_(int const *n, std::complex<double> a[], int const *lda, int ipiv[], std::complex<double> work[], int const *lwork, int *info);
+    void cgetri_(int const *n, std::complex<float>  a[], int const *lda, int ipiv[], std::complex<float>  work[], int const *lwork, int *info);
 #endif
 } // extern "C"
 
@@ -76,6 +82,67 @@ namespace linear_algebra {
 #endif
       return info;
   } // inverse
+  
+  inline status_t inverse(int const n, float a[], int const lda) {
+      int info{0};
+      int const lwork = n*n;
+      std::vector<float> work(lwork);
+      std::vector<MKL_INT> ipiv(2*n);
+#ifdef  HAS_MKL
+      info = LAPACKE_sgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
+#else
+      sgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+#endif
+      if (info) return info; // early return: factorization failed!
+
+#ifdef  HAS_MKL
+      info = LAPACKE_sgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
+#else
+      sgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#endif
+      return info;
+  } // inverse
+
+  inline status_t inverse(int const n, std::complex<double> a[], int const lda) {
+      int info{0};
+      int const lwork = n*n;
+      std::vector<std::complex<double>> work(lwork);
+      std::vector<MKL_INT> ipiv(2*n);
+#ifdef  HAS_MKL
+      info = LAPACKE_zgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
+#else
+      zgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+#endif
+      if (info) return info; // early return: factorization failed!
+
+#ifdef  HAS_MKL
+      info = LAPACKE_zgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
+#else
+      zgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#endif
+      return info;
+  } // inverse
+
+  inline status_t inverse(int const n, std::complex<float> a[], int const lda) {
+      int info{0};
+      int const lwork = n*n;
+      std::vector<std::complex<float>> work(lwork);
+      std::vector<MKL_INT> ipiv(2*n);
+#ifdef  HAS_MKL
+      info = LAPACKE_cgetrf( LAPACK_COL_MAJOR, n, n, a, lda, ipiv.data() );
+#else
+      cgetrf_(&n, &n, a, &lda, ipiv.data(), &info); // Fortran interface
+#endif
+      if (info) return info; // early return: factorization failed!
+
+#ifdef  HAS_MKL
+      info = LAPACKE_cgetri( LAPACK_COL_MAJOR, n, a, lda, ipiv.data() );
+#else
+      cgetri_(&n, a, &lda, ipiv.data(), work.data(), &lwork, &info); // Fortran interface
+#endif
+      return info;
+  } // inverse
+  
   
   inline status_t linear_solve(int const n, double a[], int const lda, double b[], int const ldb, int const nrhs=1) {
       std::vector<MKL_INT> ipiv(2*n);

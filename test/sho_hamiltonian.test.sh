@@ -17,6 +17,7 @@ for asy in 1 1.1; do
     +sho_hamiltonian.scale.potential=1 \
     +sho_hamiltonian.test.overlap.eigvals=1 \
     +sho_hamiltonian.reduce.centers=q \
+    +sho_hamiltonian.test.green.function=20 \
    >> $out
 
 done

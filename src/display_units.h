@@ -7,3 +7,4 @@
   extern double eV;  extern char const *_eV;  // dynamic energy unit
   extern double Ang; extern char const *_Ang; // dynamic length unit
 #endif
+  double const Kelvin = 315773.244215; char const _Kelvin[] = "Kelvin";

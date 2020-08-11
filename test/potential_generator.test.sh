@@ -3,18 +3,18 @@
 exe=../src/a43
 
 ### Al-P dimer
-# geometry_file=atoms.xyz
-# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
+geometry_file=atoms.xyz
+printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
-# echo "Al   0 0 -1.058354498" >> $geometry_file
-# echo "P    0 0  1.058354498" >> $geometry_file
-# out_file=potential_generator.AlP.sho.out
+echo "Al   0 0 -1.058354498" >> $geometry_file
+echo "P    0 0  1.058354498" >> $geometry_file
+out_file=potential_generator.AlP.sho.out
 
-geometry_file=C_chain.xyz
-printf " 1 \n#cell 1.420282 10 10 p p p \n" > $geometry_file
-echo "C   0 0 0" >> $geometry_file
-out_file=potential_generator.$geometry_file.sho.out
+# geometry_file=C_chain.xyz
+# printf " 1 \n#cell 1.420282 10 10 p p p \n" > $geometry_file
+# echo "C   0 0 0" >> $geometry_file
+# out_file=potential_generator.$geometry_file.sho.out
 
 # geometry_file=graphene.xyz
 # out_file=potential_generator.graphene.sho.out
@@ -30,7 +30,7 @@ $exe +verbosity=7 \
         +element_C="2s 2 2p 2 0 | 1.2 sigma .8" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
-        +single_atom.local.potential.method=sinc \
+        +single_atom.local.potential.method=parabola \
         +single_atom.init.echo=2 \
         +single_atom.init.scf.maxit=1 \
         +single_atom.echo=1 \
@@ -44,6 +44,8 @@ $exe +verbosity=7 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
         +sho_hamiltonian.test.kpoints=17 \
         +sho_hamiltonian.floating.point.bits=64 \
+        +sho_hamiltonian.test.green.function=200 \
+        +sho_hamiltonian.test.green.lehmann=200 \
         > $out_file
 
 exit
