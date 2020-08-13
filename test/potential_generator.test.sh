@@ -4,11 +4,11 @@ exe=../src/a43
 
 ### Al-P dimer
 geometry_file=atoms.xyz
-printf " 1 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
+printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
 echo "Al   0 0 -1.058354498" >> $geometry_file
-# echo "P    0 0  1.058354498" >> $geometry_file
+echo "P    0 0  1.058354498" >> $geometry_file
 out_file=potential_generator.AlP.sho.out
 
 # geometry_file=C_chain.xyz
@@ -31,7 +31,7 @@ $exe +verbosity=7 \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
         +single_atom.local.potential.method=parabola \
-        +single_atom.init.echo=2 \
+        +single_atom.init.echo=0 \
         +single_atom.init.scf.maxit=1 \
         +single_atom.echo=1 \
         +logder.start=2 +logder.stop=1 \

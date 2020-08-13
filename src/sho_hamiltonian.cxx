@@ -288,6 +288,117 @@ namespace sho_hamiltonian {
       real_t const E_imag = control::get("sho_hamiltonian.temperature", 9.765625e-4);
       double const f_dos = -1./constants::pi;
       
+      // for DEBUG of the Green function: replace overlap matrix by unity:
+      if (0) {
+          for(int iB = 0; iB < nB; ++iB) {
+              for(int jB = 0; jB < nB; ++jB) {
+                  SHm(S,iB,jB) = complex_t((iB == jB) ? 1 : 0);
+              } // jB
+          } // iB
+          warn("for DEBUG overlap matrix has been set to unity");
+      } // DEBUG
+      
+      double const energy_range[2] = {-1, 1};
+      
+      { // scope: try Green function approach
+          auto const green_function = int(control::get("sho_hamiltonian.test.green.function", 0.));
+          if (green_function > 0) {
+              complex_t const minus1(-1);
+              if (!is_complex(minus1)) {
+                  warn("# Green functions can only be computed in complex versions"); return stat;
+              } else {
+            
+                int const nE = green_function;
+                double const dE = (energy_range[1] - energy_range[0])/nE;
+                if (echo > 0) printf("\n## E_real (%s), DoS:\n", _eV);
+                view2D<complex_t> ESmH(nB, nBa, complex_t(0)); // get memory
+                for(int iE = 0; iE <= nE; ++iE) {
+                  real_t const E_real = iE*dE + energy_range[0];
+                  auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
+                  if (echo > 99) printf("# Green function for energy point (%g %s, %g %s)\n",
+                                           std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin);
+                  int constexpr check = 1;
+                  view2D<complex_t> ESmH_copy(check*nB, nBa, complex_t(0)); // get memory
+                  view2D<complex_t> Sinv(nB, nBa, complex_t(0)); // get memory
+                  // construct matrix to be inverted: E*S - H
+                  for(int iB = 0; iB < nB; ++iB) {
+                      set(Sinv[iB], nB, SHm(S,iB)); // copy S
+                      set(ESmH[iB], nB, SHm(H,iB), minus1); // -H
+                      add_product(ESmH[iB], nB, SHm(S,iB), E); // +E*S
+                      if (check) set(ESmH_copy[iB], nB, ESmH[iB]); // copy
+                  } // iB
+
+//                   // compute S^{-1}
+//                   auto const stat_Sinv = linear_algebra::inverse(nB, Sinv.data(), Sinv.stride());
+//                   if (int(stat_Sinv)) warn("inversion of overlap matrix failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
+//                   stat += stat_Sinv;
+                  
+                  // Green function G = (E*S - H)^{-1}, mind that with a non-orthogonal basis set, we have to multiply S^{-1} before interpreting the trace
+                  auto const stat_inv = linear_algebra::inverse(nB, ESmH.data(), ESmH.stride());
+                  view2D<complex_t> Green(ESmH.data(), ESmH.stride()); // wrap
+                  if (int(stat_inv)) warn("inversion failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
+                  stat += stat_inv;
+
+                  if (check) {
+                      real_t devN(0), devT(0);
+                      for(int iB = 0; iB < nB; ++iB) {
+                          for(int jB = 0; jB < nB; ++jB) {
+                              complex_t cN(0), cT(0);
+                              for(int kB = 0; kB < nB; ++kB) {
+                                  cN += Green(iB,kB) * ESmH_copy(kB,jB); 
+                                  cT += ESmH_copy(iB,kB) * Green(kB,jB); 
+                              } // kB
+                              complex_t const diag = (iB == jB);
+                              devN = std::max(devN, std::abs(cN - diag));
+                              devT = std::max(devT, std::abs(cT - diag));
+                              if (echo > 99) printf("# iB=%i jB=%i cN= %g %g, dev= %.1e,\tcT= %g %g, dev= %.1e\n", iB, jB,
+                                  std::real(cN), std::imag(cN), std::abs(cN - diag), std::real(cT), std::imag(cT), std::abs(cT - diag));
+                          } // jB
+                      } // iB
+                      if ((echo > 19) || ((echo > 0) && (devN + devT > 1e-7))) {
+                          printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
+                      }
+                  } // check
+                  
+//                   view2D<complex_t> GreenSinv(nB, nBa, complex_t(0)); // get memory
+//                       for(int iB = 0; iB < nB; ++iB) {
+//                           for(int jB = 0; jB < nB; ++jB) {
+//                               complex_t c(0);
+//                               for(int kB = 0; kB < nB; ++kB) {
+//                                   c += Green(iB,kB) * Sinv(kB,jB); 
+//                               } // kB
+//                               GreenSinv(iB,jB) = c;
+//                           } // jB
+//                       } // iB
+
+                  view2D<complex_t> GreenS(nB, nBa, complex_t(0)); // get memory
+                      for(int iB = 0; iB < nB; ++iB) {
+                          for(int jB = 0; jB < nB; ++jB) {
+                              complex_t c(0);
+                              for(int kB = 0; kB < nB; ++kB) {
+                                  c += Green(iB,kB) * SHm(S,kB,jB); 
+                              } // kB
+                              GreenS(iB,jB) = c;
+                          } // jB
+                      } // iB
+
+                  // density of states
+                  double density{0};
+                  for(int iB = 0; iB < nB; ++iB) {
+                      density += f_dos*std::imag(GreenS(iB,iB));
+                  } // iB
+                  if (echo > 0) printf("%g %g\n", std::real(E)*eV, density);
+                  if (echo > 99) printf("# DoS for energy point (%g %s, %g %s) %g\n",
+                      std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin, density);
+                } // iE, ToDo: indent 4 spaces
+                if (echo > 0) printf("\n");
+              } // is_complex
+          } // green_function
+      } // scope
+      
+      
+      
+      
       double lowest_H_eigenvalue{0};
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
@@ -370,11 +481,11 @@ namespace sho_hamiltonian {
                       
                       auto const nE = int(control::get("sho_hamiltonian.test.green.lehmann", 0.));
                       if (nE > 0) {
-                          double const dE = -1.1*lowest_H_eigenvalue/nE;
+                          double const dE = (energy_range[1] - energy_range[0])/nE;
                           // from the eigenvalues, we can plot the density of states via the Lehmann representation
                           if (echo > 0) printf("\n## E_real (%s), DoS (from Lehmann representation):\n", _eV);
-                          for(int iE = -nE; iE <= nE; ++iE) {
-                              real_t const E_real = iE*dE; 
+                          for(int iE = 0; iE <= nE; ++iE) {
+                              real_t const E_real = iE*dE + energy_range[0]; 
                               double density{0};
                               for(int iB = 0; iB < nB; ++iB) {
                                   density += f_dos*Lorentzian(E_real - eigvals[iB], E_imag);
@@ -402,73 +513,6 @@ namespace sho_hamiltonian {
 
       } // s0h1
 
-      { // scope: try Green function approach
-          auto const green_function = int(control::get("sho_hamiltonian.test.green.function", 0.));
-          if (green_function > 0) {
-              complex_t const minus1(-1);
-//               if (!is_complex(minus1)) {
-              if (false) {
-                  warn("# Green functions can only be computed in complex versions"); return stat;
-              } else {
-            
-                int const nE = green_function;
-                double const dE = -1.1*lowest_H_eigenvalue/nE;
-                if (echo > 0) printf("\n## E_real (%s), DoS:\n", _eV);
-                view2D<complex_t> ESmH(nB, nBa, complex_t(0)); // get memory
-                for(int iE = -nE; iE <= nE; ++iE) {
-                  real_t const E_real = iE*dE;
-                  auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
-                  if (echo > 99) printf("# Green function for energy point (%g %s, %g %s)\n",
-                                           std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin);
-                  int constexpr check = 1;
-                  view2D<complex_t> ESmH_copy(check*nB, nBa, complex_t(0)); // get memory
-                  // construct matrix to be inverted: E*S - H
-                  for(int iB = 0; iB < nB; ++iB) {
-                      set(ESmH[iB], nB, SHm(H,iB), minus1); // -H
-                      add_product(ESmH[iB], nB, SHm(S,iB), E); // +E*S
-                      if (check) set(ESmH_copy[iB], nB, ESmH[iB]); // copy
-                  } // iB
-
-                  // Green function G = (E*S - H)^{-1}
-                  auto const stat_inv = linear_algebra::inverse(nB, ESmH.data(), ESmH.stride());
-                  view2D<complex_t> Green(ESmH.data(), ESmH.stride()); // wrap
-                  if (int(stat_inv)) warn("inversion failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
-                  stat += stat_inv;
-
-                  if (check) {
-                      real_t devN(0), devT(0);
-                      for(int iB = 0; iB < nB; ++iB) {
-                          for(int jB = 0; jB < nB; ++jB) {
-                              complex_t cN(0), cT(0);
-                              for(int kB = 0; kB < nB; ++kB) {
-                                  cN += Green(iB,kB) * ESmH_copy(kB,jB); 
-                                  cT += ESmH_copy(iB,kB) * Green(kB,jB); 
-                              } // kB
-                              complex_t const diag = (iB == jB);
-                              devN = std::max(devN, std::abs(cN - diag));
-                              devT = std::max(devT, std::abs(cT - diag));
-                              if (echo > 99) printf("# iB=%i jB=%i cN= %g %g, dev= %.1e,\tcT= %g %g, dev= %.1e\n", iB, jB,
-                                  std::real(cN), std::imag(cN), std::abs(cN - diag), std::real(cT), std::imag(cT), std::abs(cT - diag));
-                          } // jB
-                      } // iB
-                      if ((echo > 19) || ((echo > 0) && (devN + devT > 1e-7))) {
-                          printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
-                      }
-                  } // check
-
-                  // density of states
-                  double density{0};
-                  for(int iB = 0; iB < nB; ++iB) {
-                      density += f_dos*std::imag(Green(iB,iB));
-                  } // iB
-                  if (echo > 0) printf("%g %g\n", std::real(E)*eV, density);
-                  if (echo > 99) printf("# DoS for energy point (%g %s, %g %s) %g\n",
-                      std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin, density);
-                } // iE, ToDo: indent 4 spaces
-                if (echo > 0) printf("\n");
-              } // is_complex
-          } // green_function
-      } // scope
 
       return stat;
   } // solve_k
@@ -750,7 +794,7 @@ namespace sho_hamiltonian {
 //        std::complex<double> const Bloch_phase[3] = {1, 1, std::pow(minus_one, ikp/(nkpoints - 1.))}; // first and last phases are real, dispersion in z-direction
 
           double Bloch_phase_real[3];
-          bool can_be_real{true};
+          bool can_be_real{false}; // ToDo: reset to true
           for(int d = 0; d < 3; ++d) {
               Bloch_phase_real[d] = Bloch_phase[d].real();
               if (std::abs(Bloch_phase[d].imag()) > 2e-16) can_be_real = false;
