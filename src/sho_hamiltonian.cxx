@@ -288,31 +288,21 @@ namespace sho_hamiltonian {
       real_t const E_imag = control::get("sho_hamiltonian.temperature", 9.765625e-4);
       double const f_dos = -1./constants::pi;
       
-      // for DEBUG of the Green function: replace overlap matrix by unity:
-      if (0) {
-          for(int iB = 0; iB < nB; ++iB) {
-              for(int jB = 0; jB < nB; ++jB) {
-                  SHm(S,iB,jB) = complex_t((iB == jB) ? 1 : 0);
-              } // jB
-          } // iB
-          warn("for DEBUG overlap matrix has been set to unity");
-      } // DEBUG
       
-      double const energy_range[2] = {-1, 1};
+      double const energy_range[2] = {-1, 1}; // ToDo: external input
       
-      { // scope: try Green function approach
-          auto const green_function = int(control::get("sho_hamiltonian.test.green.function", 0.));
-          if (green_function > 0) {
+      { // scope: try a Green function approach
+          auto const nE = int(control::get("sho_hamiltonian.test.green.function", 0.));
+          if (nE > 0) {
               complex_t const minus1(-1);
               if (!is_complex(minus1)) {
                   warn("# Green functions can only be computed in complex versions"); return stat;
-              } else {
-            
-                int const nE = green_function;
-                double const dE = (energy_range[1] - energy_range[0])/nE;
-                if (echo > 0) printf("\n## E_real (%s), DoS:\n", _eV);
-                view2D<complex_t> ESmH(nB, nBa, complex_t(0)); // get memory
-                for(int iE = 0; iE <= nE; ++iE) {
+              } // is not complex
+
+              double const dE = (energy_range[1] - energy_range[0])/nE;
+              if (echo > 0) printf("\n## E_real (%s), DoS:\n", _eV);
+              view2D<complex_t> ESmH(nB, nBa, complex_t(0)); // get memory
+              for(int iE = 0; iE <= nE; ++iE) {
                   real_t const E_real = iE*dE + energy_range[0];
                   auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
                   if (echo > 99) printf("# Green function for energy point (%g %s, %g %s)\n",
@@ -328,17 +318,13 @@ namespace sho_hamiltonian {
                       if (check) set(ESmH_copy[iB], nB, ESmH[iB]); // copy
                   } // iB
 
-//                   // compute S^{-1}
-//                   auto const stat_Sinv = linear_algebra::inverse(nB, Sinv.data(), Sinv.stride());
-//                   if (int(stat_Sinv)) warn("inversion of overlap matrix failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
-//                   stat += stat_Sinv;
-                  
-                  // Green function G = (E*S - H)^{-1}, mind that with a non-orthogonal basis set, we have to multiply S^{-1} before interpreting the trace
+                  // Green function G = (E*S - H)^{-1}, mind that with a non-orthogonal basis set, we have to multiply S before interpreting the trace
                   auto const stat_inv = linear_algebra::inverse(nB, ESmH.data(), ESmH.stride());
                   view2D<complex_t> Green(ESmH.data(), ESmH.stride()); // wrap
                   if (int(stat_inv)) warn("inversion failed for %s, E= %g %s", x_axis, E_real*eV,_eV);
                   stat += stat_inv;
 
+#ifdef DEVEL
                   if (check) {
                       real_t devN(0), devT(0);
                       for(int iB = 0; iB < nB; ++iB) {
@@ -359,28 +345,18 @@ namespace sho_hamiltonian {
                           printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
                       }
                   } // check
-                  
-//                   view2D<complex_t> GreenSinv(nB, nBa, complex_t(0)); // get memory
-//                       for(int iB = 0; iB < nB; ++iB) {
-//                           for(int jB = 0; jB < nB; ++jB) {
-//                               complex_t c(0);
-//                               for(int kB = 0; kB < nB; ++kB) {
-//                                   c += Green(iB,kB) * Sinv(kB,jB); 
-//                               } // kB
-//                               GreenSinv(iB,jB) = c;
-//                           } // jB
-//                       } // iB
+#endif
 
                   view2D<complex_t> GreenS(nB, nBa, complex_t(0)); // get memory
-                      for(int iB = 0; iB < nB; ++iB) {
-                          for(int jB = 0; jB < nB; ++jB) {
-                              complex_t c(0);
-                              for(int kB = 0; kB < nB; ++kB) {
-                                  c += Green(iB,kB) * SHm(S,kB,jB); 
-                              } // kB
-                              GreenS(iB,jB) = c;
-                          } // jB
-                      } // iB
+                  for(int iB = 0; iB < nB; ++iB) {
+                      for(int jB = 0; jB < nB; ++jB) {
+                          complex_t c(0);
+                          for(int kB = 0; kB < nB; ++kB) {
+                              c += Green(iB,kB) * SHm(S,kB,jB); 
+                          } // kB
+                          GreenS(iB,jB) = c;
+                      } // jB
+                  } // iB
 
                   // density of states
                   double density{0};
@@ -390,22 +366,20 @@ namespace sho_hamiltonian {
                   if (echo > 0) printf("%g %g\n", std::real(E)*eV, density);
                   if (echo > 99) printf("# DoS for energy point (%g %s, %g %s) %g\n",
                       std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin, density);
-                } // iE, ToDo: indent 4 spaces
-                if (echo > 0) printf("\n");
-              } // is_complex
+                
+              } // iE
+              if (echo > 0) printf("\n");
           } // green_function
       } // scope
       
       
-      
-      
-      double lowest_H_eigenvalue{0};
       for(int s0h1 = 0; s0h1 < 2; ++s0h1) { // loop must run forward and serial
           if (echo > 0) printf("\n");
           auto const matrix_name = s0h1 ? "Hamiltonian" : "overlap";
           real_t const  u = s0h1 ?  eV :  1; // output unit conversion factor 
           auto   const _u = s0h1 ? _eV : ""; // unit symbol
 
+#ifdef DEVEL
           // display S and H
           if (echo > 9 - s0h1) {
               printf("\n# %s matrix (%s) for Bloch phase", matrix_name, _u);
@@ -439,8 +413,7 @@ namespace sho_hamiltonian {
               if (echo > 1) printf("# %s deviates from hermitian: imag(diag)= %.1e  imag(off)= %.1e  real(off)= %.1e\n",
                                       matrix_name, diag, offi, offr);
           } // check hermiticity
-
-          
+#endif
           
           // diagonalize matrix
           status_t stat_eig(0);
@@ -476,16 +449,16 @@ namespace sho_hamiltonian {
                       } else if (lowest_eigenvalue < .1) {
                           warn("overlap matrix has critical eigenvalues, lowest= %g", lowest_eigenvalue);
                       } // lowest_eigenvalue
+#ifdef DEVEL
                   } else {
-                      lowest_H_eigenvalue = lowest_eigenvalue; // use here immediately below and further down
-                      
+                      // experiment: show Lorentians where the eigenenergies are
                       auto const nE = int(control::get("sho_hamiltonian.test.green.lehmann", 0.));
                       if (nE > 0) {
                           double const dE = (energy_range[1] - energy_range[0])/nE;
                           // from the eigenvalues, we can plot the density of states via the Lehmann representation
                           if (echo > 0) printf("\n## E_real (%s), DoS (from Lehmann representation):\n", _eV);
                           for(int iE = 0; iE <= nE; ++iE) {
-                              real_t const E_real = iE*dE + energy_range[0]; 
+                              real_t const E_real = iE*dE + energy_range[0];
                               double density{0};
                               for(int iB = 0; iB < nB; ++iB) {
                                   density += f_dos*Lorentzian(E_real - eigvals[iB], E_imag);
@@ -494,8 +467,8 @@ namespace sho_hamiltonian {
                           } // iE
                           if (echo > 0) printf("\n");
                       } // nE > 0
-                      
-                  } // s0h1
+#endif
+                  } // S == s0h1
               } // stat_eig
           } // H or ovl_eig
 

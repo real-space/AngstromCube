@@ -35,3 +35,13 @@ The syntax *::read_from_file* indicates that there is a namespace in front
 which matches with the filename of the header file, i.e. *debug_tools* in this example.
 This convention is inspired by the *use <module>, only: <symbols>* syntax of Fortran90. 
 
+*Macros and Preprocessor symbols*
+The most important preprocessor symbol is
+```C
+  #ifdef DEVEL
+  // code that is useful during development but should not appear in release versions
+  #endif
+```
+The *cppp -U DEVEL* tool is used to remove all DEVEL-code from the code base while
+maintaining the other macros. Here, *-U* stands for undefine.
+Please try to keep the release code base small and readable!
