@@ -37,6 +37,7 @@
 #include "sho_hamiltonian.hxx" // ::all_tests
 #include "fourier_poisson.hxx" // ::all_tests
 #include "solid_harmonics.hxx" // ::all_tests
+#include "pw_hamiltonian.hxx" // ::all_tests
 #include "sho_projection.hxx" // ::all_tests
 #include "shift_boundary.hxx" // ::all_tests
 #include "linear_algebra.hxx" // ::all_tests
@@ -107,8 +108,8 @@
           module_test("radial_integrator.",     radial_integrator::all_tests);
           module_test("geometry_analysis.",     geometry_analysis::all_tests);
           module_test("density_generator.",     density_generator::all_tests);
-          module_test("radial_potential.",       radial_potential::all_tests);
           module_test("iterative_poisson.",     iterative_poisson::all_tests);
+          module_test("radial_potential.",       radial_potential::all_tests);
 //           module_test("sigma_autoconfig.",       sigma_autoconfig::all_tests);
           module_test("bessel_transform.",       bessel_transform::all_tests);
           module_test("parallel_domains.",       parallel_domains::all_tests);
@@ -119,6 +120,7 @@
           module_test("sho_hamiltonian.",         sho_hamiltonian::all_tests);
           module_test("fourier_poisson.",         fourier_poisson::all_tests);
           module_test("solid_harmonics.",         solid_harmonics::all_tests);
+          module_test("pw_hamiltonian.",           pw_hamiltonian::all_tests);
           module_test("sho_projection.",           sho_projection::all_tests);
           module_test("shift_boundary.",           shift_boundary::all_tests);
           module_test("linear_algebra.",           linear_algebra::all_tests);

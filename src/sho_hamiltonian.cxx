@@ -150,7 +150,7 @@ namespace sho_hamiltonian {
       
       // we use vectors of vectors here for potentially sparse list in the future, e.g. in the compressed row format
       std::vector<std::vector<view2D<complex_t>>> P_jala(natoms); //  <\tilde p_{ka kb}|\chi3D_{ja jb}>
-      std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices muliplied to P_jala
+      std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices multiplied to P_jala
       for(int ia = 0; ia < natoms; ++ia) {
           P_jala[ia].resize(natoms_PAW);
           Psh_iala[ia].resize(natoms_PAW);
@@ -534,8 +534,7 @@ namespace sho_hamiltonian {
       if (echo > 5) printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
       offset[natoms] = total_basis_size;
       int const nB   = total_basis_size;
-//       int const nBa  = align<4>(nB); // memory aligned main matrix stride
-      int const nBa = nB; // no alignment (DEBUG)
+      int const nBa  = align<4>(nB); // memory aligned main matrix stride
 
       
       

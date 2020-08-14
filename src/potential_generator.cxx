@@ -48,6 +48,7 @@
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
 #include "density_generator.hxx" // ::density
 #include "sho_hamiltonian.hxx" // ::solve
+#include "pw_hamiltonian.hxx" // ::solve
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 
@@ -757,7 +758,13 @@ namespace potential_generator {
 
                   stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
                   
-              } else { // psi_on_grid
+              } else if ((basis_method[0] | 32) == 'p') { // plane wave
+                  here;
+                
+                  stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo);
+
+                  here;
+              } else { // SHO local orbitals
                   here;
                 
                   stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);

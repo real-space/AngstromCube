@@ -34,6 +34,7 @@ OBJ = \
 	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
+	pw_hamiltonian.o \
 	sho_overlap.o \
 	sho_potential.o \
 	sho_hamiltonian.o \
