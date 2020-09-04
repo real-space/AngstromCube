@@ -51,12 +51,13 @@ namespace fermi_distribution {
       return ne;
   } // count_electrons
 
-  status_t Fermi_level(int const n, double const energies[], double const kT, double const n_electrons, 
+  template<typename real_t>
+  status_t Fermi_level(int const n, real_t const energies[], double const kT, double const n_electrons, 
                        double & eF, double *occupations=nullptr, int const echo=9) {
     
       // ToDo: count the states with weights, check if there are enough states to host n_electrons
     
-      std::vector<double> ene(n); // energies
+      std::vector<real_t> ene(n); // energies
       set(ene.data(), n, energies); // copy
       std::sort(ene.begin(), ene.end()); // sort to ascending order
       auto const e_min = ene[0], e_max = ene[n - 1];

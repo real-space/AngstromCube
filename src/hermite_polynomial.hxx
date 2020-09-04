@@ -77,7 +77,7 @@ namespace hermite_polynomial {
           for(int nup = 0; nup <= numax; ++nup) {
               hh[nu][nup] *= scal;
               hh[nup][nu] *= scal;
-              int const d = (nu == nup);
+              int const d = (nu == nup); // d=1:diagonal d=0:off-diagonal
               max_dev[d] = std::max(max_dev[d], std::abs(double(hh[nu][nup]) - d));
           } // nup
           assert(std::abs(hh[nu][nu] - 1) < 1e-7);

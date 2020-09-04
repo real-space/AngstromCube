@@ -23,6 +23,7 @@
 #include "inline_tools.hxx" // align<nbits>
 #include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
+#include "dense_solver.hxx" // ::solve
 
 namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between to SHO basis functions
@@ -65,43 +66,43 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
-  template<typename real_t>
-  real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
-
-  template<typename complex_t>
-  char const * complex_name(complex_t const x) {
-      auto const nByte = sizeof(std::real(x));
-      auto const nReIm = sizeof(complex_t);
-      if (8 == nByte) {
-          return (nReIm > nByte) ? "complex<double>" : "double";
-      } else if (4 == nByte) {
-          return (nReIm > nByte) ? "complex<float>" : "float";
-      } else if (2 == nByte) {
-          return (nReIm > nByte) ? "complex<half>" : "half";
-      } else if (16 == nByte) {
-          return (nReIm > nByte) ? "complex<quad>" : "quad";
-      } else {
-          return (nReIm > nByte) ? "complex<unknown>" : "unknown";
-      }
-  } // complex_name
-
-  template<typename complex_t>
-  bool constexpr is_complex(complex_t const x) { return (sizeof(complex_t) > sizeof(std::real(x))); }
-
-  template<typename real_t> real_t conjugate(real_t const x);
-  template<> inline float  conjugate<float> (float  const x) { return x; };
-  template<> inline double conjugate<double>(double const x) { return x; };
-  
-  template<typename real_t>
-  std::complex<real_t> conjugate(std::complex<real_t> const x) { return std::conj(x); }
-
-  
-  template<typename complex_t, typename real_t> inline
-  complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given
-  template<> inline double to_complex_t(std::complex<double> const x) { return std::real(x); }
-  template<> inline float  to_complex_t(std::complex<float>  const x) { return std::real(x); }
-  template<> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
-  template<> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
+//   template<typename real_t>
+//   real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
+// 
+//   template<typename complex_t>
+//   char const * complex_name(complex_t const x) {
+//       auto const nByte = sizeof(std::real(x));
+//       auto const nReIm = sizeof(complex_t);
+//       if (8 == nByte) {
+//           return (nReIm > nByte) ? "complex<double>" : "double";
+//       } else if (4 == nByte) {
+//           return (nReIm > nByte) ? "complex<float>" : "float";
+//       } else if (2 == nByte) {
+//           return (nReIm > nByte) ? "complex<half>" : "half";
+//       } else if (16 == nByte) {
+//           return (nReIm > nByte) ? "complex<quad>" : "quad";
+//       } else {
+//           return (nReIm > nByte) ? "complex<unknown>" : "unknown";
+//       }
+//   } // complex_name
+// 
+//   template<typename complex_t>
+//   bool constexpr is_complex(complex_t const x) { return (sizeof(complex_t) > sizeof(std::real(x))); }
+// 
+//   template<typename real_t> real_t conjugate(real_t const x);
+//   template<> inline float  conjugate<float> (float  const x) { return x; };
+//   template<> inline double conjugate<double>(double const x) { return x; };
+//   
+//   template<typename real_t>
+//   std::complex<real_t> conjugate(std::complex<real_t> const x) { return std::conj(x); }
+// 
+//   
+//   template<typename complex_t, typename real_t> inline
+//   complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given
+//   template<> inline double to_complex_t(std::complex<double> const x) { return std::real(x); }
+//   template<> inline float  to_complex_t(std::complex<float>  const x) { return std::real(x); }
+//   template<> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
+//   template<> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
 
   template<typename complex_t, typename real_t, typename phase_t>
   status_t solve_k(int const natoms // number of SHO basis centers
@@ -279,9 +280,10 @@ namespace sho_hamiltonian {
           } // ja
       } // ia
 
-      Psh_iala.clear(); P_jala.clear(); // release the memory
+      Psh_iala.clear(); // release the memory, P_jala is still needed for the generation of density matrices
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
+#if 0
       std::vector<real_t> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("sho_hamiltonian.test.overlap.eigvals", 0.));
       char const hermitian = *control::get("sho_hamiltonian.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
@@ -481,6 +483,75 @@ namespace sho_hamiltonian {
                   //       by ensuring that the occupation numbers of the next higher state
                   //          f_FD(eigvals[n_occupied_bands] - E_Fermi) < 10^{-15}
                   //       are small.
+                
+                  // Idea: exporting all n_occupied_bands eigenvectors may require
+                  //       a lot of memory capacity and memory traffic during copying.
+                  //       Alternatively, we could think about this scheme with higher data locality:
+                  //       In iteration 0
+                  //            we don't know the Fermi level yet, so we use bisection to find a 
+                  //            E_Fermi_suggested for each kpoint separately
+                  //            After iteration 0 and outside the k-loop, we can average
+                  //            E_Fermi_suggested with the kpoint integration weights
+                  //       In all further iterations
+                  //            the Fermi level is an input.
+                  //       With the Fermi level,
+                  //       we compute the occupation number f_FD(eigvals[:] - E_Fermi)
+                  //       to add the band densities to the total density
+                  //       Furthermore, we also aggregate those
+                  //       band densities for which d/d E_Fermi f_FD is nonzero
+                  //       to a response density.
+                  //       The response density is necessary because probably
+                  //       the input Fermi level was not the one that produces the correct 
+                  //       number of electrons requested. However, in particular close to
+                  //       SCF convergence, we can linearize that.
+                  //       The response density norm estimates the number of states at the (wrong)
+                  //       Fermi level. So we can extract the necessary correction
+                  //       to the Fermi level for the next iteration and
+                  //       add as much of the response density to the total density
+                  //       that the norm of the corrected total density matches the charge requested.
+                
+                  // Implementation:
+#if 0               
+                  // ToDo: test this
+                  if (scf_iteration < 1) {
+                      // in the first iteration, we assume that E_Fermi is unknown but q_electrons is given
+                      assert( q_electrons >= 0 );
+                      int const n_electrons = std::floor(q_electrons); // how many fully occupied states were there for kT=0
+                      assert( n_electrons < nB );
+                      int const n1 = std::min(n_electrons + 1, nB - 1);
+                      double const w1 = q_electrons - n_electrons, w0 = 1 - w1; // linear interpolation weights
+                      E_Fermi = w0*eigvals[n_electrons] + w1*eigvals[n1]; // start guess for bisection iterations
+                      // find Fermi level by bisection (inside of this k-point spectrum only)
+                      stat += fermi_distribution::Fermi_level(nB, eigvals.data(), kT, q_electrons, 
+                                                              E_Fermi, nullptr, echo);
+                  } // first SCF iteration
+
+                  // assume that (now) E_Fermi is given
+                  double q_density{0}, q_response{0};
+                  for(int iB = 0; iB < nB; ++iB) {
+                      double dfdE;
+                      double const x = (eigval[iB] - E_Fermi)*beta; // beta is the inverse temperature
+                      double const f_FD = fermi_distribution::FermiDirac(x, dfdE);
+                      if (f_FD > 2e-16) {
+                          q_density += f_FD;
+                          // ToDO: add k_weight*f_FD*|\psi[iB]|^2 to the total density
+                      }
+                      if (dfdE > 2e-16) {
+                          q_response += dfdE;
+                          // ToDO: add k_weight*dfdE*|\psi[iB]|^2 to the response density
+                      }
+                  } // iB
+                  weight_sum += k_weight; // to check the normalization of weights
+                  density_sum += k_weight*q_density;
+                  response_sum += k_weight*q_response;
+                  E_Fermi_sum += k_weight*E_Fermi;
+                  // export weight_sum, density_sum, response_sum, E_Fermi_sum
+                  // 
+                  // Why do we compute E_Fermi_sum?
+                  //    After k-point summation E_Fermi_sum/weightsum will be a good guess
+                  //    for the Fermi level at the end of the first SCF iteration
+#endif
+                
               } // success
           } // H
 
@@ -488,6 +559,9 @@ namespace sho_hamiltonian {
 
 
       return stat;
+#else
+      return dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo);      
+#endif      
   } // solve_k
 
 

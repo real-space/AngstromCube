@@ -10,8 +10,8 @@ namespace pw_hamiltonian {
           , view2D<double const> const & xyzZ // (natoms, 4)
           , real_space::grid_t const & g // Cartesian grid descriptor for vtot
           , double const *const vtot // total effective potential on grid
-          , double const *const sigma_prj // =nullptr
-          , int    const *const numax_prj // =nullptr
+          , double const *const sigma_prj=nullptr
+          , int    const *const numax_prj=nullptr
           , double *const *const atom_mat=nullptr // PAW charge-deficit and Hamiltonian correction matrices
           , int const echo=0); // log-level
 

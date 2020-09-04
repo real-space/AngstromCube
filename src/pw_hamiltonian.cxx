@@ -26,51 +26,16 @@
 #include "hermite_polynomial.hxx" // hermite_polys
 #include "simple_stats.hxx" // ::Stats
 
+// #include "complex_tools.hxx" // Lorentzian, complex_name, is_complex, conjuagte, to_complex_t
+#include "dense_solver.hxx" // ::solve
+
 namespace pw_hamiltonian {
   // computes Hamiltonian matrix elements in for plane waves
   // including a PAW non-local contribution
-
-  template<typename real_t>
-  real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
-
-  template<typename complex_t>
-  char const * complex_name(complex_t const x) {
-      auto const nByte = sizeof(std::real(x));
-      auto const nReIm = sizeof(complex_t);
-      if (8 == nByte) {
-          return (nReIm > nByte) ? "complex<double>" : "double";
-      } else if (4 == nByte) {
-          return (nReIm > nByte) ? "complex<float>" : "float";
-      } else if (2 == nByte) {
-          return (nReIm > nByte) ? "complex<half>" : "half";
-      } else if (16 == nByte) {
-          return (nReIm > nByte) ? "complex<quad>" : "quad";
-      } else {
-          return (nReIm > nByte) ? "complex<unknown>" : "unknown";
-      }
-  } // complex_name
-
-  template<typename complex_t>
-  bool constexpr is_complex(complex_t const x) { return (sizeof(complex_t) > sizeof(std::real(x))); }
-
-  template<typename real_t> real_t conjugate(real_t const x);
-  template<> inline float  conjugate<float> (float  const x) { return x; };
-  template<> inline double conjugate<double>(double const x) { return x; };
-  
-  template<typename real_t>
-  std::complex<real_t> conjugate(std::complex<real_t> const x) { return std::conj(x); }
-
-  
-  template<typename complex_t, typename real_t> inline
-  complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given
-  template<> inline double to_complex_t(std::complex<double> const x) { return std::real(x); }
-  template<> inline float  to_complex_t(std::complex<float>  const x) { return std::real(x); }
-  template<> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
-  template<> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
   
   class PlaneWave {
     public:
-      double g2; // length of the vector
+      double g2; // length of the vector square == plane wave kinetic energy in Rydberg
       int16_t x, y, z;
       PlaneWave() : g2(0), x(0), y(0), z(0) {}
       PlaneWave(int const ix, int const iy, int const iz, double const len2) : g2(len2), x(ix), y(iy), z(iz) {}
@@ -103,8 +68,8 @@ namespace pw_hamiltonian {
             for(    int ly = 0; ly <= numax - lz;      ++ly) {
                 for(int lx = 0; lx <= numax - lz - ly; ++lx) {
                     pzyx[lb] = Hermite_Gauss(0,lx) *
-                                Hermite_Gauss(1,ly) *
-                                Hermite_Gauss(2,lz);
+                               Hermite_Gauss(1,ly) *
+                               Hermite_Gauss(2,lz);
                     ++lb;
                 } // lx
             } // ly
@@ -168,7 +133,24 @@ namespace pw_hamiltonian {
                   __func__, complex_name(c), complex_name(r), nB);
       }
 #endif
+
       // now we could sort the plane waves by their g2 length, optional
+      bool constexpr sort_PWs = true;
+      if (sort_PWs) {
+          auto compare_lambda = [](PlaneWave const & lhs, PlaneWave const & rhs) { return lhs.g2 < rhs.g2; };
+          std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
+          if (echo > 6) { // show in ascending order
+              printf("# %s|k+G|^2 =", x_axis);
+              for(int i = 0; i < std::min(5, nPWs); ++i) {
+                  printf(" %.4f", pw_basis[i].g2);
+              } // i
+              printf(" ...");
+              for(int i = -std::min(2, nPWs); i < 0; ++i) {
+                  printf(" %.3f", pw_basis[nPWs + i].g2);
+              } // i
+              printf(" Ry\n");
+          } // echo
+      } // sort_PWs
 
       //
       // now construct the Hamiltonian:
@@ -290,6 +272,7 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
+#if 0      
       // from here on, the routine is almost identical to that in sho_hamiltonian.cxx, maybe unify
       
       std::vector<real_t> eigvals(nB, 0.0);
@@ -498,6 +481,9 @@ namespace pw_hamiltonian {
 
 
       return stat;
+#else
+      return stat + dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo);
+#endif
   } // solve_k
 
 
