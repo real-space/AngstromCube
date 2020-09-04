@@ -2,11 +2,14 @@
 
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // complex_name, is_complex, conjuagte, to_complex_t
-#include "complex_tools.hxx" // Lorentzian
+#include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues, ::inverse
 #include "data_view.hxx" // view2D<T>
 
 namespace dense_solver {
-  
+
+  template<typename real_t>
+  inline real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
+
   template<typename complex_t, typename real_t>
   inline status_t solve(view3D<complex_t> & SHm
           , char const *x_axis
@@ -283,6 +286,7 @@ namespace dense_solver {
                   // Why do we compute E_Fermi_sum?
                   //    After k-point summation E_Fermi_sum/weightsum will be a good guess
                   //    for the Fermi level at the end of the first SCF iteration
+                  // But we could also just compute the correct Fermi level from all eigenvalues! Probably better
 #endif
                 
               } // success
@@ -293,6 +297,57 @@ namespace dense_solver {
       return stat;
   } // solve
   
-  inline status_t all_tests(int const echo=0) { return -1; }
+  
+  template<typename real_t>
+  status_t test_inverse(int const echo=0) {
+      status_t status(0);
+      int constexpr N = 5;
+      real_t dev{0};
+      view2D<std::complex<real_t>> a(N, N, 0), inv(N, N);
+      for(int n = 1; n <= N; ++n) { // dimension
+          // fill with random values
+          for(int i = 0; i < n; ++i) {
+              for(int j = 0; j < n; ++j) {
+                  auto const Re = simple_math::random<real_t>(-1, 1);
+                  auto const Im = simple_math::random<real_t>(-1, 1);
+                  a(i,j) = std::complex<real_t>(Re, Im);
+                  inv(i,j) = a(i,j); // copy
+              } // j
+          } // i
+          
+          auto const stat = linear_algebra::inverse(n, inv.data(), inv.stride());
+          if (stat) warn("inversion failed with status= %i", stat);
+          status += stat;
+
+          real_t devN{0}, devT{0};
+          for(int i = 0; i < n; ++i) {
+              for(int j = 0; j < n; ++j) {
+                  std::complex<real_t> cN(0), cT(0);
+                  for(int k = 0; k < n; ++k) {
+                      cN += a(i,k) * (inv(k,j));
+                      cT += inv(i,k) * (a(k,j));
+                  } // k
+                  std::complex<real_t> const diag = (i == j);
+                  devN = std::max(devN, std::abs(cN - diag));
+                  devT = std::max(devT, std::abs(cT - diag));
+                  if (echo > 9) printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,        
+                      std::real(a(i,j)), std::imag(a(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
+                      std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
+              } // j
+          } // i
+          if (echo > 3) printf("# %s n= %d deviations from unity are %.2e and %.2e transposed\n",
+                                __func__, n, devN, devT);
+          dev = std::max(dev, std::max(devN, devT));
+      } // n
+      if (echo > 0) printf("# %s up to N= %d deviations from unity are %.2e\n\n", __func__, N, dev);
+      return status;
+  } // test_inverse
+  
+  inline status_t all_tests(int const echo=0) {
+      status_t status(0);
+      status += test_inverse<double>(echo);
+      status += test_inverse<float>(echo);
+      return status;
+  } // all_tests
 
 } // namespace dense_solver

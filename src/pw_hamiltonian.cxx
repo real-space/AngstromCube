@@ -19,14 +19,11 @@
 #include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image
 #include "sho_overlap.hxx" // ::
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
-#include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues
 #include "inline_tools.hxx" // align<nbits>
 #include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
 #include "hermite_polynomial.hxx" // hermite_polys
 #include "simple_stats.hxx" // ::Stats
-
-// #include "complex_tools.hxx" // Lorentzian, complex_name, is_complex, conjuagte, to_complex_t
 #include "dense_solver.hxx" // ::solve
 
 namespace pw_hamiltonian {
