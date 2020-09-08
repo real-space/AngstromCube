@@ -189,7 +189,7 @@ namespace geometry_analysis {
                   cell[d] = L[d] * Angstrom2Bohr;
                   assert(cell[d] > 0);
               }
-              if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo);
+              if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 120+d);
           } // d
       } // scope
       xyzZ = view2D<double>(natoms, 4);

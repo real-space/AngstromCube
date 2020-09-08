@@ -25,7 +25,7 @@
 #include "dense_solver.hxx" // ::solve
 
 namespace sho_hamiltonian {
-  // computes Hamiltonian matrix elements between to SHO basis functions
+  // computes Hamiltonian matrix elements between two SHO basis functions
   // including a PAW non-local contribution
   
   template<typename complex_t, typename phase_t>
@@ -141,6 +141,14 @@ namespace sho_hamiltonian {
               int const nb_la = nb_ka;
               Psh_iala[ia][la] = view3D<complex_t>(2, nb_ia, nb_la, 0.0); // get memory and initialize
               for(int ib = 0; ib < nb_ia; ++ib) {
+//                   if (echo > -1) {
+//                       printf("# ia=%i ka=%i ib=%i kb=0..%i ", ia, ka, ib, nb_ka);
+//                       for(int kb = 0; kb < nb_ka; ++kb) {
+//                           auto const p = P_jala[ia][ka](ib,kb);
+//                           printf("%10.6f%9.6f", std::real(p), std::imag(p));
+//                       } // kb
+//                       printf("\n");
+//                   } // echo
                   for(int lb = 0; lb < nb_la; ++lb) {
                       complex_t s{0}, h{0};
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract

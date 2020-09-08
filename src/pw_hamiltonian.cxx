@@ -27,7 +27,7 @@
 #include "dense_solver.hxx" // ::solve
 
 namespace pw_hamiltonian {
-  // computes Hamiltonian matrix elements in for plane waves
+  // computes Hamiltonian matrix elements for plane waves
   // including a PAW non-local contribution
   
   class PlaneWave {
@@ -101,7 +101,7 @@ namespace pw_hamiltonian {
           max_PWs *= (boxdim[d] + 1 + boxdim[d]);
       } // d
       std::vector<PlaneWave> pw_basis(max_PWs);
-      {
+      { // scope: generate set of plane waves
           int iB{0}, outside{0};
           for(int iGz = -boxdim[2]; iGz <= boxdim[2]; ++iGz) {
           for(int iGy = -boxdim[1]; iGy <= boxdim[1]; ++iGy) {
@@ -121,7 +121,7 @@ namespace pw_hamiltonian {
           int const number_of_PWs = iB;
           assert( number_of_PWs + outside == max_PWs );
           pw_basis.resize(number_of_PWs); // resize() or shrink_to_fit()
-      } // generate set of plane waves
+      } // scope: generate set of plane waves
       int const nB = pw_basis.size();
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
@@ -136,6 +136,7 @@ namespace pw_hamiltonian {
       if (sort_PWs) {
           auto compare_lambda = [](PlaneWave const & lhs, PlaneWave const & rhs) { return lhs.g2 < rhs.g2; };
           std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
+#ifdef DEVEL
           if (echo > 6) { // show in ascending order
               printf("# %s|k+G|^2 =", x_axis);
               for(int i = 0; i < std::min(5, nPWs); ++i) {
@@ -147,6 +148,7 @@ namespace pw_hamiltonian {
               } // i
               printf(" Ry\n");
           } // echo
+#endif
       } // sort_PWs
 
       //
@@ -248,7 +250,8 @@ namespace pw_hamiltonian {
               // add the contribution of the local potential
               int const iVx = i.x - j.x, iVy = i.y - j.y, iVz = i.z - j.z;
               if ((std::abs(iVx) <= nG[0]) && (std::abs(iVy) <= nG[1]) && (std::abs(iVz) <= nG[2])) {
-                  SHm(H,iB,jB) += localpot*Vcoeff(nG[2] + iVz, nG[1] + iVy, nG[0] + iVx, 0);
+                  auto const V = Vcoeff(nG[2] + iVz, nG[1] + iVy, nG[0] + iVx, 0);
+                  SHm(H,iB,jB) += localpot*std::complex<real_t>(V.real(), V.imag());
               }
 
               // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
@@ -318,8 +321,8 @@ namespace pw_hamiltonian {
       if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f Ha corresponds %.3f^2 Ry or %.2f %s\n", 
                               ecut, std::sqrt(2*ecut), ecut*eV,_eV);
 
-//       int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
-      int const nG[3] = {2, 1, 1}; // 2*nG <= g
+      int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
+//       int const nG[3] = {2, 1, 1}; // 2*nG <= g
       view4D<std::complex<double>> Vcoeffs(2*nG[2]+1, 2*nG[1]+1, 2*nG[0]+2, 1, 0.0);
       { // scope: Fourier transform the local potential
           double const two_pi = 2*constants::pi;
@@ -386,7 +389,9 @@ namespace pw_hamiltonian {
           } else { // replace this else by if(true) to test if real and complex version agree
               int nPWs{0};
               if (32 == floating_point_bits) {
-                  error("ToDo: instanciate PW for complex<float>");
+                  stat += solve_k<std::complex<float>, float>(ecut, reci_matrix, Vcoeffs, nG, svol,
+                          natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          kpoint, x_axis, nPWs, echo);
               } else {
                   stat += solve_k<std::complex<double>, double>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),

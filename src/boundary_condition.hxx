@@ -173,20 +173,20 @@ namespace boundary_condition {
       return ni;
   } // periodic_images
   
-  inline int fromString(char const *string, int const echo=0) {
+  inline int fromString(char const *string, int const echo=0, char const dir='?') {
       char const first = *string;
       switch (first | 32) { // ignore case with | 32
         case 'p': case '1':
-            if (echo > 0) printf("# interpret \"%s\" as periodic boundary condition\n", string);
+            if (echo > 0) printf("# interpret \"%s\" as periodic boundary condition in %c-direction\n", string, dir);
             return Periodic_Boundary;
         case 'i': case '0':
-            if (echo > 0) printf("# interpret \"%s\" as isolated boundary condition\n", string);
+            if (echo > 0) printf("# interpret \"%s\" as isolated boundary condition in %c-direction\n", string, dir);
             return Isolated_Boundary;
         case 'm': case '-':
-            if (echo > 0) printf("# interpret \"%s\" as mirror boundary condition\n", string);
+            if (echo > 0) printf("# interpret \"%s\" as mirror boundary condition in %c-direction\n", string, dir);
             return Mirrored_Boundary;
         default :
-            if (echo > 0) printf("# cannot interpret \"%s\" as boundary condition\n", string);
+            if (echo > 0) printf("# cannot interpret \"%s\" as boundary condition in %c-direction\n", string, dir);
             return Invalid_Boundary;
       } // switch
   } // fromString

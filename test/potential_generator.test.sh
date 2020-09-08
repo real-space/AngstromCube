@@ -9,7 +9,29 @@ printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
 echo "Al   0 0 -1.058354498" >> $geometry_file
 echo "P    0 0  1.058354498" >> $geometry_file
-out_file=potential_generator.AlP.sho.out
+out_file=potential_generator.AlP.pw.out
+
+### Al fcc bulk
+geometry_file=atoms.xyz
+printf " 4 \n#cell 4.0495 4.0495 4.0495 p p p \n" > $geometry_file
+echo "Al   -1.012375 -1.012375 -1.012375" >> $geometry_file
+echo "Al    1.012375  1.012375 -1.012375" >> $geometry_file
+echo "Al    1.012375 -1.012375  1.012375" >> $geometry_file
+echo "Al   -1.012375  1.012375  1.012375" >> $geometry_file
+out_file=potential_generator.Al-fcc.pw.out
+
+### P sc bulk
+geometry_file=atoms.xyz
+printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
+echo "P 0 0 0" >> $geometry_file
+out_file=potential_generator.P-sc.pw.out
+
+### Al sc bulk
+geometry_file=atoms.xyz
+printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
+echo "Al 0 0 0" >> $geometry_file
+out_file=potential_generator.Al-sc.pw.out
+
 
 # geometry_file=C_chain.xyz
 # printf " 1 \n#cell 1.420282 10 10 p p p \n" > $geometry_file
@@ -37,17 +59,15 @@ $exe +verbosity=7 \
         +logder.start=2 +logder.stop=1 \
         +bands.per.atom=4 \
         +potential_generator.max.scf=1 \
-        +basis=sho \
-        +sho_hamiltonian.test.numax=3 \
-        +sho_hamiltonian.test.sigma=1. \
-        +sho_hamiltonian.test.overlap.eigvals=1 \
-        +sho_hamiltonian.test.sigma.asymmetry=1 \
-        +sho_hamiltonian.test.kpoints=17 \
-        +sho_hamiltonian.floating.point.bits=64 \
-        +sho_hamiltonian.test.green.function=200 \
-        +sho_hamiltonian.test.green.lehmann=200 \
+        +basis=pw \
+        +pw_hamiltonian.cutoff.energy=3.5 \
+        +pw_hamiltonian.test.kpoints=17 \
+        +pw_hamiltonian.floating.point.bits=64 \
+        +pw_hamiltonian.scale.nonlocal.s=1 \
+        +dense_solver.test.overlap.eigvals=1 \
         > $out_file
 
+        
 exit
 #         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
 #         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
@@ -58,6 +78,16 @@ exit
 #         +eigensolver=cg +conjugate_gradients.max.iter=1 \
 #         +start.waves.scale.sigma=5 \
 #         +atomic.valence.decay=0 \
+
+#         +basis=sho \
+#         +sho_hamiltonian.test.numax=3 \
+#         +sho_hamiltonian.test.sigma=1.1 \
+#         +sho_hamiltonian.test.overlap.eigvals=1 \
+#         +sho_hamiltonian.test.sigma.asymmetry=1 \
+#         +sho_hamiltonian.test.kpoints=17 \
+#         +sho_hamiltonian.floating.point.bits=64 \
+#         +sho_hamiltonian.test.green.function=200 \
+#         +sho_hamiltonian.test.green.lehmann=200 \
 
 ### simple cubic
 printf " 1 \n#cell 12 12 12 i i i\n" > atoms.xyz

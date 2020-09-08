@@ -5,7 +5,7 @@ exe=../src/a43
 out=sho_hamiltonian.out
 rm -f $out; echo -n "# " > $out; date >> $out
 
-for asy in 1 1.1; do
+for asy in 1; do
 
 (cd ../src/ && make -j) && \
   $exe +verbosity=10 \
