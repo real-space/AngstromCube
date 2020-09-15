@@ -682,7 +682,7 @@ namespace potential_generator {
           std::vector<double> rhov_new(g.all(), 0.0); // new valence density
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
-              SimpleTimer KS_timer(__FILE__, __LINE__, "Solve KS-equation", echo);
+              SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
 #ifdef DEVEL
               if (echo > 6) {
                   for(int ia = 0; ia < na; ++ia) {

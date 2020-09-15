@@ -21,6 +21,8 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "inline_tools.hxx" // align<nbits>
 #include "simple_math.hxx" // ::random<real_t>
+#include "simple_stats.hxx" // ::Stats
+#include "simple_timer.hxx" // SimpleTimer
 #include "vector_math.hxx" // ::vec<N,T>
 #include "dense_solver.hxx" // ::solve
 
@@ -524,6 +526,7 @@ namespace sho_hamiltonian {
       
       auto const floating_point_bits = int(control::get("sho_hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("sho_hamiltonian.test.kpoints", 17.));
+      simple_stats::Stats<double> time_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
           std::complex<double> constexpr minus_one = -1;
@@ -537,45 +540,34 @@ namespace sho_hamiltonian {
               if (std::abs(Bloch_phase[d].imag()) > 2e-16) can_be_real = false;
           } // d
           char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/(nkpoints - 1.));
+          SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
+          #define SOLVE_K_ARGS(BLOCH_PHASE) \
+                         (natoms, xyzZ, numaxs.data(), sigmas.data(), \
+                          n_periodic_images, periodic_image, periodic_shift, \
+                          Vcoeffs.data(), center_map, \
+                          nB, nBa, offset.data(), \
+                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(), \
+                          BLOCH_PHASE, x_axis, echo)
           if (can_be_real) {
               if (32 == floating_point_bits) {
-                  stat += solve_k<float, float>(
-                          natoms, xyzZ, numaxs.data(), sigmas.data(),
-                          n_periodic_images, periodic_image, periodic_shift,
-                          Vcoeffs.data(), center_map,
-                          nB, nBa, offset.data(),
-                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase_real, x_axis, echo);
+                  stat += solve_k<float, float> SOLVE_K_ARGS(Bloch_phase_real);
               } else {
-                  stat += solve_k<double, double>(
-                          natoms, xyzZ, numaxs.data(), sigmas.data(),
-                          n_periodic_images, periodic_image, periodic_shift,
-                          Vcoeffs.data(), center_map,
-                          nB, nBa, offset.data(),
-                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase_real, x_axis, echo);
+                  stat += solve_k<double, double> SOLVE_K_ARGS(Bloch_phase_real);
               } // floating_point_bits
           } else { // replace this else by if(true) to test if real and complex version agree
               if (32 == floating_point_bits) {
-                  stat += solve_k<std::complex<float>, float>(
-                          natoms, xyzZ, numaxs.data(), sigmas.data(),
-                          n_periodic_images, periodic_image, periodic_shift,
-                          Vcoeffs.data(), center_map,
-                          nB, nBa, offset.data(),
-                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase, x_axis, echo);
+                  stat += solve_k<std::complex<float>, float> SOLVE_K_ARGS(Bloch_phase);
               } else {
-                  stat += solve_k<std::complex<double>, double>(
-                          natoms, xyzZ, numaxs.data(), sigmas.data(),
-                          n_periodic_images, periodic_image, periodic_shift,
-                          Vcoeffs.data(), center_map,
-                          nB, nBa, offset.data(),
-                          natoms_PAW, xyzZ_PAW, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          Bloch_phase, x_axis, echo);
+                  stat += solve_k<std::complex<double>, double> SOLVE_K_ARGS(Bloch_phase);
               } // floating_point_bits
           } // !can_be_real
+          #undef SOLVE_K_ARGS
+          time_stats.add(timer.stop());
           if (echo > 0) fflush(stdout);
       } // ikp
+
+      if (echo > 3) printf("\n# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
+                      time_stats.avg(), time_stats.var(), time_stats.min(), time_stats.max());
       
       return stat;
   } // solve

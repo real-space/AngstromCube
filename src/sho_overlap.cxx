@@ -700,7 +700,7 @@ namespace sho_overlap {
         } // echo
     } // scope: lattice structure
 
-    double shortest_bond2 = 9e99;
+    double shortest_bond2{9e99};
     for(int i3 = -1; i3 <= 1; ++i3) {
         for(int i2 = -1; i2 <= 1; ++i2) {
             for(int i1 = -1; i1 <= 1; ++i1) {

@@ -172,7 +172,7 @@ namespace dense_solver {
                   double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];
                   if (echo > 2) {
                       printf("%s%s", x_axis, s0h1 ? "" : matrix_name);
-                      int constexpr mB = 8; // show at most the 6 lowest + 2 highest eigenvalues
+                      int constexpr mB = 10; // show at most the 8 lowest + 2 highest eigenvalues
                       for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
                           printf(" %g", eigvals[iB]*u);
                       } // iB

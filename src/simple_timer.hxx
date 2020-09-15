@@ -22,10 +22,15 @@
           start_time = std::chrono::high_resolution_clock::now(); // start
       } // constructor
 
-      ~SimpleTimer() {
+      double stop(int const stop_echo=0) { 
           auto const stop_time = std::chrono::high_resolution_clock::now(); // stop
           auto const musec = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
-          if (echo > 0) printf("# timer started at %s:%d %s took %.5f sec\n", file, line, func, 1e-6*musec);
+          if (stop_echo > 0) printf("# timer started at %s:%d %s took %.5f sec\n", file, line, func, 1e-6*musec);
+          return 1e-6*musec;
+      } // stop
+
+      ~SimpleTimer() {
+          stop(echo);
       } // destructor
 
   }; // class SimpleTimer

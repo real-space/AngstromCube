@@ -1,13 +1,12 @@
 #pragma once
 
-#include "display_units.h" // eV, _eV, Ang, _Ang
-// #include "input_units.h" // in_eV, _in_eV, in_Ang, _in_Ang
+#include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
 #include "status.hxx" // status_t
 #include "recorded_warnings.hxx" // warn
 
 namespace unit_system {
   
-  double constexpr electron_Volt = 27.210282768626; // conversion factor from Hartree to eVolt
+  double constexpr Hartree2electronVolt = 27.210282768626; // conversion factor from Hartree to eVolt
 
   char constexpr _electron_Volt[] = "eV"; // electron Volt energy unit
   char constexpr _Rydberg[] = "Ry"; // Rydberg atomic energy unit
@@ -16,17 +15,19 @@ namespace unit_system {
   inline double energy_unit(char const *which, char const **const symbol) {
       char const w = which[0] | 32; // take first char and ignore case
       if ('e' == w) {
-          *symbol = _electron_Volt;   return electron_Volt; // "eV"
+          *symbol = _electron_Volt;   return Hartree2electronVolt; // "eV"
       } else if ('r' == w) {
           *symbol = _Rydberg;         return 2; // "Ry"
+      } else if ('k' == w) {
+          *symbol = _Kelvin;          return Kelvin; // "Kelvin"
       } else {
           if ('h' != w) warn("unknown energy unit \"%s\", default to Ha (Hartree)", which);
           *symbol = _Hartree;         return 1; // "Ha"
       } // w
   } // energy_unit
 
-  double constexpr nano_meter = .052917724924; // conversion factor from Bohr to nm
-  
+  double constexpr Bohr2nanometer = .052917724924; // conversion factor from Bohr to nm
+
   char constexpr _nano_meter[] = "nm"; // nanometer length unit
   char constexpr _Angstrom[] = "Ang"; // Angstrom length unit
   char constexpr _Bohr[] = "Bohr"; // Bohr atomic length unit
@@ -34,9 +35,9 @@ namespace unit_system {
   inline double length_unit(char const *which, char const **const symbol) {
       char const w = which[0] | 32; // take first char and ignore case
       if ('a' == w) {
-          *symbol = _Angstrom;    return 10*nano_meter; // "Ang"
+          *symbol = _Angstrom;    return 10*Bohr2nanometer; // "Ang"
       } else if ('n' == w) {
-          *symbol = _nano_meter;  return nano_meter; // "nm"
+          *symbol = _nano_meter;  return Bohr2nanometer; // "nm"
       } else {
           if ('b' != w) warn("unknown length unit \"%s\", default to Bohr", which);
           *symbol = _Bohr;        return 1; // "Bohr"
@@ -53,17 +54,6 @@ namespace unit_system {
       return 0;
 #endif
   } // set_output_units
-
-//   inline status_t set_input_units(char const *energy, char const *length) {
-// #ifdef _Input_Units_Fixed
-//       if ('H' != *energy || 'B' != *length) warn("input units cannot be changed to {%s, %s} at runtime", energy, length);
-//       return -1; // cannot modify
-// #else
-//       in_eV  = 1./energy_unit(energy, &_in_eV);
-//       in_Ang = 1./length_unit(length, &_in_Ang);
-//       return 0;
-// #endif
-//   } // set_input_units
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }

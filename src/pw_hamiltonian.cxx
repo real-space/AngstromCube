@@ -24,7 +24,10 @@
 #include "vector_math.hxx" // ::vec<N,T>
 #include "hermite_polynomial.hxx" // hermite_polys
 #include "simple_stats.hxx" // ::Stats
+#include "simple_timer.hxx" // SimpleTimer
 #include "dense_solver.hxx" // ::solve
+#include "unit_system.hxx" // ::energy_unit
+
 
 namespace pw_hamiltonian {
   // computes Hamiltonian matrix elements for plane waves
@@ -44,10 +47,10 @@ namespace pw_hamiltonian {
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for(int d = 0; d < 3; ++d) {
-            double const x = gv[d]*sigma;
-            hermite_polys(Hermite_Gauss[d], x, numax);
+            double const x = -gv[d]*sigma; // -x because the fourier transform of HG_n(x) is (-1)^n HG_n(k)
+            hermite_polys(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
-              
+
         { // scope: normalize Hermite_Gauss functions
             double nfactorial{1};
             for(int n = 0; n <= numax; ++n) {
@@ -58,7 +61,7 @@ namespace pw_hamiltonian {
                 nfactorial *= (n + 1)*0.5; // update nfactorial
             } // n
         } // scope
-              
+
         // generate projection coefficient for factorized SHO projectors in zyx_order
         int lb{0};
         for(        int lz = 0; lz <= numax;           ++lz) {
@@ -72,10 +75,10 @@ namespace pw_hamiltonian {
             } // ly
         } // lz
         assert( sho_tools::nSHO(numax) == lb );
-        
+
   } // Hermite_Gauss_projectors
-  
-  
+
+
 
   template<typename complex_t, typename real_t>
   status_t solve_k(double const ecut // plane wave cutoff energy
@@ -92,8 +95,6 @@ namespace pw_hamiltonian {
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int & nPWs // export number of plane waves
           , int const echo=0) { // log-level
-
-      status_t stat(0);
 
       int boxdim[3], max_PWs{1};
       for(int d = 0; d < 3; ++d) {
@@ -162,7 +163,7 @@ namespace pw_hamiltonian {
       //
 
       int constexpr S=0, H=1; // static indices for S:overlap matrix, H:Hamiltonian matrix
-      
+
       std::vector<int> offset(natoms_PAW + 1, 0); // prefetch sum
       for(int ka = 0; ka < natoms_PAW; ++ka) {
           int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
@@ -172,8 +173,9 @@ namespace pw_hamiltonian {
 
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
-      
+
       view2D<complex_t> P_jl(nB, nC, 0.0); //  <k+G_i|\tilde p_{la lb}>
+      std::vector<double>   P2_l(nC, 0.0); // |<k+G_i|\tilde p_{la lb}>|^2
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
       for(int jB = 0; jB < nB; ++jB) {
           auto const & i = pw_basis[jB];
@@ -192,7 +194,8 @@ namespace pw_hamiltonian {
 
                   for(int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
-                      P_jl(jB,lC) = complex_t(phase * pzyx[lb]);
+                      P_jl(jB,lC) = complex_t(phase * pzyx[lb] * norm_factor);
+                      P2_l[lC] += pow2(pzyx[lb]);
                   } // lb
               }
 
@@ -213,13 +216,27 @@ namespace pw_hamiltonian {
               } // lb
           } // ka
       } // jB
-      
+
+#ifdef DEVEL
+      if (echo > 29) {
+          for(int la = 0; la < natoms_PAW; ++la) {
+              printf("# ^2-norm of the projector of atom #%i ", la);
+              int const nSHO = sho_tools::nSHO(numax_PAW[la]);
+              for(int lb = 0; lb < nSHO; ++lb) {
+                  int const lC = offset[la] + lb;
+                  printf(" %g", P2_l[lC]);
+              } // lb
+              printf("\n"); fflush(stdout);
+          } // la
+      } // echo
+#endif
+
       // PAW projection matrix ready
 
       // allocate bulk memory for overlap and Hamiltonian
       int const nBa = align<4>(nB); // memory aligned main matrix stride
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
-      
+
 #ifdef DEVEL
       if (echo > 3) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n",
                   2*nG[2]+1, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
@@ -239,12 +256,12 @@ namespace pw_hamiltonian {
       double constexpr kinetic = 0.5; // prefactor of kinetic energy in Hartree atomic units
       real_t constexpr scale_h = 1, scale_s = 1, localpot = 1;
 #endif
-      
+
       for(int iB = 0; iB < nB; ++iB) {      auto const & i = pw_basis[iB];
 
           SHm(S,iB,iB) += 1; // unity overlap matrix, plane waves are orthogonal
           SHm(H,iB,iB) += kinetic*i.g2; // kinetic energy contribution
-          
+
           for(int jB = 0; jB < nB; ++jB) {  auto const & j = pw_basis[jB];
 
               // add the contribution of the local potential
@@ -256,7 +273,7 @@ namespace pw_hamiltonian {
 
               // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
               //                  and S_{ij} = Ps_{il} P^*_{jl}
-              
+
               // inner part of a matrix-matrix multiplication
               { // scope: add non-local contributions
                   complex_t s{0}, h{0};
@@ -272,7 +289,7 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
-      return stat + dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo);
+      return dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo);
   } // solve_k
 
 
@@ -302,6 +319,7 @@ namespace pw_hamiltonian {
       double const cell_matrix[3][4] = {{g[0]*g.h[0], 0, 0, 0}, {0, g[1]*g.h[1], 0, 0}, {0, 0, g[2]*g.h[2], 0}};
       double reci_matrix[3][4];
       auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4);
+      scale(reci_matrix[0], 12, 2*constants::pi); // scale by 2\pi
       if (echo > 0) printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
       if (echo > 0) {
           auto const sqRy = 1;
@@ -314,15 +332,16 @@ namespace pw_hamiltonian {
           printf("\n");
       } // echo
       stat += (abs(cell_volume) > 1e-15);
-      scale(reci_matrix[0], 12, 2*constants::pi); // scale by 2\pi
       double const svol = 1./std::sqrt(cell_volume); // normalization factor for plane waves
 
-      auto const ecut = control::get("pw_hamiltonian.cutoff.energy", 11.); // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f Ha corresponds %.3f^2 Ry or %.2f %s\n", 
-                              ecut, std::sqrt(2*ecut), ecut*eV,_eV);
+      char const *_ecut_u{nullptr};
+      auto const ecut_unit = control::get("pw_hamiltonian.cutoff.energy.unit", "Ha");
+      auto const ecut_u = unit_system::energy_unit(ecut_unit, &_ecut_u);
+      auto const ecut = control::get("pw_hamiltonian.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
+      if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds %.3f^2 Ry or %.2f %s\n", 
+                              ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
       int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
-//       int const nG[3] = {2, 1, 1}; // 2*nG <= g
       view4D<std::complex<double>> Vcoeffs(2*nG[2]+1, 2*nG[1]+1, 2*nG[0]+2, 1, 0.0);
       { // scope: Fourier transform the local potential
           double const two_pi = 2*constants::pi;
@@ -378,10 +397,11 @@ namespace pw_hamiltonian {
       
       auto const floating_point_bits = int(control::get("pw_hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("pw_hamiltonian.test.kpoints", 17.));
-      simple_stats::Stats<double> nPW_stats;
+      simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
-          double const kpoint[3] = {ikp/(nkpoints - 1.), 1, 1}; //
           char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/(nkpoints - 1.));
+          double const kpoint[3] = {ikp*.5/(nkpoints - 1.), 0, 0}; //
+          SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
           bool can_be_real{false}; // real only with inversion symmetry
           if (can_be_real) {
@@ -400,10 +420,13 @@ namespace pw_hamiltonian {
               nPW_stats.add(nPWs);
           } // !can_be_real
           if (echo > 0) fflush(stdout);
+          tPW_stats.add(timer.stop());
       } // ikp
       
-      if (echo > 3) printf("# average number of plane waves is %.3f +/- %.3f min %g max %g\n",
+      if (echo > 3) printf("\n# average number of plane waves is %.3f +/- %.3f min %g max %g\n",
                       nPW_stats.avg(), nPW_stats.var(), nPW_stats.min(), nPW_stats.max());
+      if (echo > 3) printf("# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
+                      tPW_stats.avg(), tPW_stats.var(), tPW_stats.min(), tPW_stats.max());
 
       return stat;
   } // solve
@@ -445,10 +468,34 @@ namespace pw_hamiltonian {
       return stat;
   } // test_Hamiltonian
 
+  status_t test_Hermite_Gauss_normalization(int const echo=5, int const numax=3, double const sigma=1) {
+      status_t stat(0);
+
+      auto const nSHO = sho_tools::nSHO(numax);
+      std::vector<double> pzyx(nSHO), p2(nSHO, 0.0);
+      double constexpr dg = 0.125, d3g = pow3(dg);
+      int constexpr ng = 40;
+      for(int iz = -ng; iz <= ng; ++iz) {
+      for(int iy = -ng; iy <= ng; ++iy) {
+      for(int ix = -ng; ix <= ng; ++ix) {
+          double const gv[3] = {dg*ix, dg*iy, dg*iz};
+          Hermite_Gauss_projectors(pzyx.data(), numax, sigma, gv);
+          add_product(p2.data(), nSHO, pzyx.data(), pzyx.data());
+      }}} // ig
+      printf("\n# %s: norms ", __func__);
+      for(int ip = 0; ip < nSHO; ++ip) {
+          printf(" %g", p2[ip]*d3g);
+      } // ip
+      printf("\n");
+
+      return stat;
+  } // test_Hermite_Gauss_normalization
+
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_Hamiltonian(echo);
-    return status;
+      status_t status(0);
+      status += test_Hamiltonian(echo);
+      status += test_Hermite_Gauss_normalization(echo);
+      return status;
   } // all_tests
 #endif // NO_UNIT_TESTS  
 
