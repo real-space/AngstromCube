@@ -308,7 +308,8 @@ namespace pw_hamiltonian {
           , int const echo) { // log-level
 
       status_t stat(0);
-
+      SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
+      
       for(int ia = 0; ia < natoms_PAW; ++ia) {
           if (echo > 0) {
               printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f %s\n",
@@ -335,8 +336,7 @@ namespace pw_hamiltonian {
       double const svol = 1./std::sqrt(cell_volume); // normalization factor for plane waves
 
       char const *_ecut_u{nullptr};
-      auto const ecut_unit = control::get("pw_hamiltonian.cutoff.energy.unit", "Ha");
-      auto const ecut_u = unit_system::energy_unit(ecut_unit, &_ecut_u);
+      auto const ecut_u = unit_system::energy_unit(control::get("pw_hamiltonian.cutoff.energy.unit", "Ha"), &_ecut_u);
       auto const ecut = control::get("pw_hamiltonian.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
       if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
@@ -392,7 +392,7 @@ namespace pw_hamiltonian {
 
       
       
-
+      prepare_timer.stop(echo);
       // all preparations done, start k-point loop
       
       auto const floating_point_bits = int(control::get("pw_hamiltonian.floating.point.bits", 64.)); // double by default

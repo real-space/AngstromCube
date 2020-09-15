@@ -115,7 +115,9 @@ EXTFLAGS ?=
 
 ifeq ($(SYSTEM),zam044)
 	EXTFLAGS += -D HAS_no_MKL
+	EXTFLAGS += -D HAS_FFTW
 	LDFLAGS += -lm -lblas -llapack ### works on zam044 (MacBook Pro)
+	LDFLAGS += -lfftw3
 else
 	## eq ($(THISMACHINE), "zam054")
 	### works with g++ on zam054 (JSC workstation)

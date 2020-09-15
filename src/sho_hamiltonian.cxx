@@ -274,7 +274,8 @@ namespace sho_hamiltonian {
           , int const echo) { // log-level
     
       status_t stat(0);
-      
+      SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
+
       auto const usual_numax = int(control::get("sho_hamiltonian.test.numax", 1.));
       auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", 2.);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
@@ -520,8 +521,7 @@ namespace sho_hamiltonian {
       } // ic
       if (echo > 5) printf("# projection performed for %d of %d expansion centers\n", ncenters_active, ncenters);
 
-      
-
+      prepare_timer.stop(echo);
       // all preparations done, start k-point loop
       
       auto const floating_point_bits = int(control::get("sho_hamiltonian.floating.point.bits", 64.)); // double by default
@@ -531,18 +531,16 @@ namespace sho_hamiltonian {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
           std::complex<double> constexpr minus_one = -1;
           std::complex<double> const Bloch_phase[3] = {std::pow(minus_one, ikp/(nkpoints - 1.)), 1, 1}; // first and last phases are real, dispersion in x-direction
-//        std::complex<double> const Bloch_phase[3] = {1, 1, std::pow(minus_one, ikp/(nkpoints - 1.))}; // first and last phases are real, dispersion in z-direction
 
           double Bloch_phase_real[3];
-          bool can_be_real{false}; // ToDo: reset to true
+          bool can_be_real{true}; // ToDo: reset to true
           for(int d = 0; d < 3; ++d) {
               Bloch_phase_real[d] = Bloch_phase[d].real();
-              if (std::abs(Bloch_phase[d].imag()) > 2e-16) can_be_real = false;
+              can_be_real = can_be_real && (std::abs(Bloch_phase[d].imag()) < 2e-16);
           } // d
           char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/(nkpoints - 1.));
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
-          #define SOLVE_K_ARGS(BLOCH_PHASE) \
-                         (natoms, xyzZ, numaxs.data(), sigmas.data(), \
+          #define SOLVE_K_ARGS(BLOCH_PHASE) (natoms, xyzZ, numaxs.data(), sigmas.data(), \
                           n_periodic_images, periodic_image, periodic_shift, \
                           Vcoeffs.data(), center_map, \
                           nB, nBa, offset.data(), \

@@ -40,7 +40,7 @@ out_file_base=pot_gen.Al-fcc
 # geometry_file=graphene.xyz
 # out_file_base=potential_generator.graphene.sho.out
 
-for numax in {6..6}; do
+for numax in {3..4}; do
   out_file=$out_file_base.sho$numax.out
 
   (cd ../src/ && make -j) && \
@@ -52,7 +52,7 @@ for numax in {6..6}; do
         +electrostatic.potential.to.file=v_es.mg.dat \
         +occupied.bands=4 \
         +element_C="2s 2 2p 2 0 | 1.2 sigma .8" \
-        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
+        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
         +single_atom.local.potential.method=parabola \
         +single_atom.init.echo=0 \
@@ -66,14 +66,14 @@ for numax in {6..6}; do
         +sho_hamiltonian.test.sigma=1.0 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
         +sho_hamiltonian.test.kpoints=9 \
-        +sho_hamiltonian.scale.nonlocal.h=0 \
-        +sho_hamiltonian.scale.nonlocal.s=0 \
+        +sho_hamiltonian.scale.nonlocal.h=1 \
+        +sho_hamiltonian.scale.nonlocal.s=1 \
         +sho_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
         > $out_file
 done
 
-for ecut in `seq 1 1`; do
+for ecut in `seq 5 5 15`; do
   out_file=$out_file_base.pw$ecut.out
 
   (cd ../src/ && make -j) && \
@@ -85,7 +85,7 @@ for ecut in `seq 1 1`; do
         +electrostatic.potential.to.file=v_es.mg.dat \
         +occupied.bands=4 \
         +element_C="2s 2 2p 2 0 | 1.2 sigma .8" \
-        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
+        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
         +single_atom.local.potential.method=parabola \
         +single_atom.init.echo=0 \
@@ -97,8 +97,8 @@ for ecut in `seq 1 1`; do
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \
         +pw_hamiltonian.test.kpoints=9 \
-        +pw_hamiltonian.scale.nonlocal.h=0 \
-        +pw_hamiltonian.scale.nonlocal.s=0 \
+        +pw_hamiltonian.scale.nonlocal.h=1 \
+        +pw_hamiltonian.scale.nonlocal.s=1 \
         +pw_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
         > $out_file
