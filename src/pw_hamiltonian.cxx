@@ -27,6 +27,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "dense_solver.hxx" // ::solve
 #include "unit_system.hxx" // ::energy_unit
+#include "fourier_transform.hxx" // ::fft
 
 
 namespace pw_hamiltonian {
@@ -83,7 +84,7 @@ namespace pw_hamiltonian {
   template<typename complex_t, typename real_t>
   status_t solve_k(double const ecut // plane wave cutoff energy
           , double const reci[3][4] // reciprocal cell matrix
-          , view4D<std::complex<double>> const & Vcoeff // <G|V|G'> = potential(iGz-jGz,iGy-jGy,iGx-jGx,0:3)
+          , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
           , int const nG[3] // half the number of plane wave entries in the potential
           , double const norm_factor // normalization for the cell volume
           , int const natoms_PAW // number of PAW centers
@@ -238,24 +239,25 @@ namespace pw_hamiltonian {
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
 
 #ifdef DEVEL
-      if (echo > 3) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n",
-                  2*nG[2]+1, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
-      assert( 2*nG[0] < Vcoeff.dim1() );
-      assert( 2*nG[1] < Vcoeff.dim2() );
-      // unfortunately we cannot check dim3
+      if (echo > 3) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
+      assert( nG[0] <= Vcoeff.stride() );
+      assert( nG[1] <= Vcoeff.dim1() );
+      assert( nG[2] <= Vcoeff.dim2() );
       
       // prefactor of kinetic energy in Hartree atomic units
-      double const kinetic = control::get("pw_hamiltonian.scale.kinetic", 1.0) * 0.5;
-      if (0.5 != kinetic) warn("kinetic energy prefactor is %g", kinetic);
+      double const scale_k = control::get("pw_hamiltonian.scale.kinetic", 1.0);
+      double const scale_p = control::get("pw_hamiltonian.scale.potential", 1.0);
+      if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
+      if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
       real_t const scale_h = control::get("pw_hamiltonian.scale.nonlocal.h", 1.0);
       real_t const scale_s = control::get("pw_hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
-      real_t const localpot = control::get("pw_hamiltonian.scale.potential", 1.0);
-      if (1 != localpot) warn("local potential prefactor is %g", localpot);
 #else
-      double constexpr kinetic = 0.5; // prefactor of kinetic energy in Hartree atomic units
-      real_t constexpr scale_h = 1, scale_s = 1, localpot = 1;
+      real_t constexpr scale_h = 1, scale_s = 1
+      double constexpr scale_k = 1, scale_p = 1;
 #endif
+      double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
+      real_t const localpot = scale_p / (nG[0]*nG[1]*nG[1]);
 
       for(int iB = 0; iB < nB; ++iB) {      auto const & i = pw_basis[iB];
 
@@ -266,10 +268,11 @@ namespace pw_hamiltonian {
 
               // add the contribution of the local potential
               int const iVx = i.x - j.x, iVy = i.y - j.y, iVz = i.z - j.z;
-              if ((std::abs(iVx) <= nG[0]) && (std::abs(iVy) <= nG[1]) && (std::abs(iVz) <= nG[2])) {
-                  auto const V = Vcoeff(nG[2] + iVz, nG[1] + iVy, nG[0] + iVx, 0);
-                  SHm(H,iB,jB) += localpot*std::complex<real_t>(V.real(), V.imag());
-              }
+              if ((2*std::abs(iVx) < nG[0]) && (2*std::abs(iVy) < nG[1]) && (2*std::abs(iVz) < nG[2])) {
+                  int const imz = (iVz + nG[2])%nG[2], imy = (iVy + nG[1])%nG[1], imx = (iVx + nG[0])%nG[0];
+                  auto const V_re = Vcoeff(0, imz, imy, imx), V_im = Vcoeff(1, imz, imy, imx);
+                  SHm(H,iB,jB) += localpot*std::complex<real_t>(V_re, V_im);
+              } // inside range
 
               // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
               //                  and S_{ij} = Ps_{il} P^*_{jl}
@@ -341,25 +344,34 @@ namespace pw_hamiltonian {
       if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
-      int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
-      view4D<std::complex<double>> Vcoeffs(2*nG[2]+1, 2*nG[1]+1, 2*nG[0]+2, 1, 0.0);
-      { // scope: Fourier transform the local potential
+//       int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
+//       view4D<std::complex<double>> Vcoeffs(2*nG[2]+1, 2*nG[1]+1, 2*nG[0]+2, 1, 0.0);
+      int const nG[3] = {g[0], g[1], g[2]}; //
+      view4D<double> Vcoeffs(2,nG[2],nG[1],nG[0], 0.0);
+
+      auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, nG, echo);
+      if (0 == fft_stat) {
+          if (echo > 5) printf("# used FFT to transform local potential into space of plane-wave differences\n");
+      } else { // scope: Fourier transform the local potential "by hand"
+          if (echo > 5) printf("# FFT failed, transform local potential manually\n");
           double const two_pi = 2*constants::pi;
-          double const w8 = 1./(g[0]*g[1]*g[2]);
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
-          for        (int iGz = -nG[2]; iGz <= nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
-              for    (int iGy = -nG[1]; iGy <= nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
-                  for(int iGx = -nG[0]; iGx <= nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];
-                      std::complex<double> t(0);
+          for        (int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
+              for    (int iGy = 0; iGy < nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
+                  for(int iGx = 0; iGx < nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];
+                      double re{0}, im{0};
                       for(int iz = 0; iz < g[2]; ++iz) {
                       for(int iy = 0; iy < g[1]; ++iy) {
                       for(int ix = 0; ix < g[0]; ++ix) {
                           double const arg = Gz*iz + Gy*iy + Gx*ix;
-                          t += vtot[(iz*g[1] + iy)*g[0] + ix] * std::complex<double>(std::cos(arg), std::sin(arg));
+                          double const V = vtot[(iz*g[1] + iy)*g[0] + ix];
+                          re += V * std::cos(arg);
+                          im += V * std::sin(arg);
                       } // ix
                       } // iy
                       } // iz
-                      Vcoeffs(nG[2]+iGz,nG[1]+iGy,nG[0]+iGx,0) = t*w8; // store
+                      Vcoeffs(0,iGz,iGy,iGx) = re; // store
+                      Vcoeffs(1,iGz,iGy,iGx) = im; // store
                   } // iGx
               } // iGy
           } // iGz

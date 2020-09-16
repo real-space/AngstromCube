@@ -2,13 +2,13 @@
 
 exe=../src/a43
 
-nkpoints=3
+nkpoints=9
 
 ### Al atom
 geometry_file=atoms.xyz
-printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
+printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 echo "Al   0 0 0" >> $geometry_file
-out_file_base=pg.Al-atom
+out_file_base=pg_new.Al-atom
 
 ### Al-P dimer
 # geometry_file=atoms.xyz
@@ -73,9 +73,9 @@ for numax in {5..5}; do
         +sho_hamiltonian.test.sigma=1.0 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
         +sho_hamiltonian.test.kpoints=$nkpoints \
-        +sho_hamiltonian.scale.kinetic=0 \
-        +sho_hamiltonian.scale.potential=0 \
-        +sho_hamiltonian.scale.nonlocal.h=1 \
+        +sho_hamiltonian.scale.kinetic=1 \
+        +sho_hamiltonian.scale.potential=1 \
+        +sho_hamiltonian.scale.nonlocal.h=0 \
         +sho_hamiltonian.scale.nonlocal.s=0 \
         +sho_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
@@ -106,9 +106,9 @@ for ecut in `seq 5 5`; do
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \
         +pw_hamiltonian.test.kpoints=$nkpoints \
-        +pw_hamiltonian.scale.kinetic=0 \
-        +pw_hamiltonian.scale.potential=0 \
-        +pw_hamiltonian.scale.nonlocal.h=1 \
+        +pw_hamiltonian.scale.kinetic=1 \
+        +pw_hamiltonian.scale.potential=1 \
+        +pw_hamiltonian.scale.nonlocal.h=0 \
         +pw_hamiltonian.scale.nonlocal.s=0 \
         +pw_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \

@@ -172,16 +172,18 @@ namespace sho_hamiltonian {
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
       
 #ifdef DEVEL
-      // prefactor of kinetic energy in Hartree atomic units
-      double const kinetic = control::get("sho_hamiltonian.scale.kinetic", 1.0) * 0.5;
-      if (0.5 != kinetic) warn("kinetic energy prefactor is %g", kinetic);
+      double const scale_k = control::get("sho_hamiltonian.scale.kinetic", 1.0);
+      double const scale_p = control::get("sho_hamiltonian.scale.potential", 1.0);
+      if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
+      if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
       real_t const scale_h = control::get("sho_hamiltonian.scale.nonlocal.h", 1.0);
       real_t const scale_s = control::get("sho_hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
-      double constexpr kinetic = 0.5; // prefactor of kinetic energy in Hartree atomic units
-      real_t constexpr scale_h = 1, scale_s = 1;
+      real_t constexpr scale_h = 1, scale_s = 1
+      double constexpr scale_k = 1, scale_p = 1;
 #endif
+      double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
 
       // we construct sub-views to the blocks for each atom pair
       std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // <\chi3D_i| 1 + PAW |\chi3D_j>
@@ -223,7 +225,7 @@ namespace sho_hamiltonian {
                   stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], phase, kinetic);
 
                   // add the contribution of the local potential
-                  stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase);
+                  stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase*scale_p);
 
               } // ip
               
