@@ -194,7 +194,7 @@ namespace pw_hamiltonian {
 
                   for(int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
-                      P_jl(jB,lC) = complex_t(phase * pzyx[lb] * norm_factor);
+                      P_jl(jB,lC) = complex_t(phase * pzyx[lb]); //  * norm_factor
                       P2_l[lC] += pow2(pzyx[lb]);
                   } // lb
               }
@@ -323,7 +323,7 @@ namespace pw_hamiltonian {
       scale(reci_matrix[0], 12, 2*constants::pi); // scale by 2\pi
       if (echo > 0) printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
       if (echo > 0) {
-          auto const sqRy = 1;
+          auto constexpr sqRy = 1;
           printf("# cell matrix in %s and reciprocal matrix in sqRy:\n", _Ang);
           for(int d = 0; d < 3; ++d) {
               printf("# %12.6f%12.6f%12.6f    \t%12.6f%12.6f%12.6f\n",
@@ -394,7 +394,7 @@ namespace pw_hamiltonian {
       
       prepare_timer.stop(echo);
       // all preparations done, start k-point loop
-      
+
       auto const floating_point_bits = int(control::get("pw_hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("pw_hamiltonian.test.kpoints", 17.));
       simple_stats::Stats<double> nPW_stats, tPW_stats;

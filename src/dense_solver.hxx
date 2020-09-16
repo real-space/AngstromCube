@@ -25,7 +25,7 @@ namespace dense_solver {
 
       std::vector<real_t> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("dense_solver.test.overlap.eigvals", 0.));
-      char const hermitian = *control::get("dense_solver.test.hermitian", "both") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
+      char const hermitian = *control::get("dense_solver.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
       real_t const E_imag = control::get("electronic.temperature", 9.765625e-4);
       double const f_dos = -1./constants::pi;
       double const energy_range[2] = {-1, 1}; // ToDo: external input
@@ -272,7 +272,7 @@ namespace dense_solver {
                           q_density += f_FD;
                           // ToDO: add k_weight*f_FD*|\psi[iB]|^2 to the total density
                       }
-                      if (dfdE > 2e-16) {
+                      if (std::abs(dfdE) > 2e-16) {
                           q_response += dfdE;
                           // ToDO: add k_weight*dfdE*|\psi[iB]|^2 to the response density
                       }
@@ -303,15 +303,15 @@ namespace dense_solver {
       status_t status(0);
       int constexpr N = 5;
       real_t dev{0};
-      view2D<std::complex<real_t>> a(N, N, 0), inv(N, N);
+      view2D<std::complex<real_t>> mat(N, N, 0), inv(N, N);
       for(int n = 1; n <= N; ++n) { // dimension
           // fill with random values
           for(int i = 0; i < n; ++i) {
               for(int j = 0; j < n; ++j) {
                   auto const Re = simple_math::random<real_t>(-1, 1);
                   auto const Im = simple_math::random<real_t>(-1, 1);
-                  a(i,j) = std::complex<real_t>(Re, Im);
-                  inv(i,j) = a(i,j); // copy
+                  mat(i,j) = std::complex<real_t>(Re, Im);
+                  inv(i,j) = mat(i,j); // copy
               } // j
           } // i
           
@@ -324,14 +324,14 @@ namespace dense_solver {
               for(int j = 0; j < n; ++j) {
                   std::complex<real_t> cN(0), cT(0);
                   for(int k = 0; k < n; ++k) {
-                      cN += a(i,k) * (inv(k,j));
-                      cT += inv(i,k) * (a(k,j));
+                      cN += mat(i,k) * inv(k,j);
+                      cT += inv(i,k) * mat(k,j);
                   } // k
                   std::complex<real_t> const diag = (i == j);
                   devN = std::max(devN, std::abs(cN - diag));
                   devT = std::max(devT, std::abs(cT - diag));
                   if (echo > 9) printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,        
-                      std::real(a(i,j)), std::imag(a(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
+                      std::real(mat(i,j)), std::imag(mat(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
                       std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
               } // j
           } // i

@@ -1,28 +1,30 @@
 #pragma once
 
-#include <chrono>
-#include <cstring> // strcpy
+#include <chrono> // ::high_resolution_clock
+#include <cstring> // ::strcpy
 
-  #include "status.hxx" // status_t
+#include "status.hxx" // status_t
 
   class SimpleTimer {
     // This timer object prints the time elapsed between construction and destruction 
     // into stdout immediately when destructed. See test_usage() below.
+    // When stop() is called, the timer returns the elapsed time in seconds as double.
     private:
       std::chrono::time_point<std::chrono::high_resolution_clock> start_time;
       char file[60];
-      int  line, echo;
+      int  line;
       char func[32];
+      int  echo;
     public:
 
       SimpleTimer(char const *sourcefile, int const sourceline=0, char const *function=nullptr, int const echo=1) 
       : line(sourceline), echo(echo) {
-          strcpy(file, sourcefile);
-          if (nullptr != function) strcpy(func, function); else func[0] = 0;
+          std::strcpy(file, sourcefile);
+          if (nullptr != function) std::strcpy(func, function); else func[0] = 0;
           start_time = std::chrono::high_resolution_clock::now(); // start
       } // constructor
 
-      double stop(int const stop_echo=0) { 
+      double stop(int const stop_echo=0) const { 
           auto const stop_time = std::chrono::high_resolution_clock::now(); // stop
           auto const musec = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
           if (stop_echo > 0) printf("# timer started at %s:%d %s took %.5f sec\n", file, line, func, 1e-6*musec);

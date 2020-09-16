@@ -1,7 +1,8 @@
 **A4cube**
 
     A4cube is an all-electron DFT application under construction.
-    It is based on a real-space grid based representation, Green functions, near-sightedness and
+    It is based on a various representations: real-space grids and factorizable local orbitals.
+    Furthermore, the Green functions formalism, near-sightedness and
     PAW, in particular revPAW
     (see Paul F. Baumeister, Shigeru Tsukamoto, proceedings of PASC19)
     
@@ -20,17 +21,24 @@
     	- does not require more input than the atomic coordinates
 
 **Current Status**
-    Here, we list the features that are planned but have so far not been addressed:
-    - different versions of LDA, GGA, meta-GGA
-    - efficient eigensolver for the full grid Hamiltonian
-    - GPU acceleration
+    These features are planned but have so far not been addressed:
+    - different versions of LDA, GGA, meta-GGA (currenly only one LSDA: PZ81)
+    - efficient eigensolver for the grid Hamiltonian (currently inefficient subspace rotation method)
+    - MPI parallelization
+    - OpenMP parallelization
+    - GPU acceleration (currently none)
     - complex wave functions, k-points
-    - periodic images (SHO basis)
+    - fancy boundary conditions
     - total energy
     - magnetism
-    
-**First tests**
-    We should start off by making a branch of juRS that works on Green functions
+    These features are ready:
+    - potential generation (non-magnetic)
+    - multigrid Poisson solver for the electrostatics (serial)
+    - SHO-projector PAW with all-electron atoms (non-magnetic)
+    Some features are build in only for development:
+    - FFT Poisson solver for the electrostatic problem
+    - plane wave basis set using a dense eigensolver
+
 
 **Reuse existing code modules**
     In order not to re-program and validate everything, we

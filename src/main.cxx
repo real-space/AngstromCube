@@ -25,6 +25,7 @@
 #include "radial_integrator.hxx" // ::all_tests
 #include "geometry_analysis.hxx" // ::all_tests
 #include "density_generator.hxx" // ::all_tests
+#include "fourier_transform.hxx" // ::all_tests
 #include "iterative_poisson.hxx" // ::all_tests
 // #include "sigma_autoconfig.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
@@ -108,6 +109,7 @@
           module_test("radial_integrator.",     radial_integrator::all_tests);
           module_test("geometry_analysis.",     geometry_analysis::all_tests);
           module_test("density_generator.",     density_generator::all_tests);
+          module_test("fourier_transform.",     fourier_transform::all_tests);
           module_test("iterative_poisson.",     iterative_poisson::all_tests);
           module_test("radial_potential.",       radial_potential::all_tests);
 //           module_test("sigma_autoconfig.",       sigma_autoconfig::all_tests);

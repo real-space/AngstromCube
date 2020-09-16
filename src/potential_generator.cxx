@@ -427,7 +427,7 @@ namespace potential_generator {
 
 
               int const nkpoints = 1; // ToDo
-              int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // s- and p-states
+              int const nbands_per_atom = int(control::get("bands.per.atom", 4.)); // 4:s- and p-states
               int const nbands = nbands_per_atom*na;
               view3D<double> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
@@ -543,7 +543,7 @@ namespace potential_generator {
                           set(reci[d], 4, 0.0);
                           reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
                       } // d
-                      stat += fourier_poisson::fourier_solve(Ves.data(), rho.data(), ng, reci);
+                      stat += fourier_poisson::solve(Ves.data(), rho.data(), ng, reci);
                   } else if ('M' == es_solver_method) { // "Multi-grid" (upper case!)
 #ifdef DEVEL
                       // create a 2x denser grid descriptor

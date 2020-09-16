@@ -2,23 +2,31 @@
 
 exe=../src/a43
 
-### Al-P dimer
+nkpoints=3
+
+### Al atom
 geometry_file=atoms.xyz
-printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
+printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
+echo "Al   0 0 0" >> $geometry_file
+out_file_base=pg.Al-atom
+
+### Al-P dimer
+# geometry_file=atoms.xyz
+# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
-echo "Al   0 0 -1.058354498" >> $geometry_file
-echo "P    0 0  1.058354498" >> $geometry_file
-out_file=potential_generator.AlP.pw.out
+# echo "Al   0 0 -1.058354498" >> $geometry_file
+# echo "P    0 0  1.058354498" >> $geometry_file
+# out_file=potential_generator.AlP.pw.out
 
 ### Al fcc bulk
-geometry_file=atoms.xyz
-printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
-echo "Al   -1.0 -1.0 -1.0" >> $geometry_file
-echo "Al    1.0  1.0 -1.0" >> $geometry_file
-echo "Al    1.0 -1.0  1.0" >> $geometry_file
-echo "Al   -1.0  1.0  1.0" >> $geometry_file
-out_file_base=pot_gen.Al-fcc
+# geometry_file=atoms.xyz
+# printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
+# echo "Al   -1.0 -1.0 -1.0" >> $geometry_file
+# echo "Al    1.0  1.0 -1.0" >> $geometry_file
+# echo "Al    1.0 -1.0  1.0" >> $geometry_file
+# echo "Al   -1.0  1.0  1.0" >> $geometry_file
+# out_file_base=pg.Al-fcc
 
 ### P sc bulk
 # geometry_file=atoms.xyz
@@ -40,7 +48,7 @@ out_file_base=pot_gen.Al-fcc
 # geometry_file=graphene.xyz
 # out_file_base=potential_generator.graphene.sho.out
 
-for numax in {3..4}; do
+for numax in {5..5}; do
   out_file=$out_file_base.sho$numax.out
 
   (cd ../src/ && make -j) && \
@@ -48,8 +56,7 @@ for numax in {3..4}; do
     -test potential_generator. \
         +geometry.file=$geometry_file \
         +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=mg \
-        +electrostatic.potential.to.file=v_es.mg.dat \
+        +electrostatic.solver=fft \
         +occupied.bands=4 \
         +element_C="2s 2 2p 2 0 | 1.2 sigma .8" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
@@ -65,15 +72,18 @@ for numax in {3..4}; do
         +sho_hamiltonian.test.numax=$numax \
         +sho_hamiltonian.test.sigma=1.0 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
-        +sho_hamiltonian.test.kpoints=9 \
+        +sho_hamiltonian.test.kpoints=$nkpoints \
+        +sho_hamiltonian.scale.kinetic=0 \
+        +sho_hamiltonian.scale.potential=0 \
         +sho_hamiltonian.scale.nonlocal.h=1 \
-        +sho_hamiltonian.scale.nonlocal.s=1 \
+        +sho_hamiltonian.scale.nonlocal.s=0 \
         +sho_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
         > $out_file
+        ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
 
-for ecut in `seq 5 5 15`; do
+for ecut in `seq 5 5`; do
   out_file=$out_file_base.pw$ecut.out
 
   (cd ../src/ && make -j) && \
@@ -81,8 +91,7 @@ for ecut in `seq 5 5 15`; do
     -test potential_generator. \
         +geometry.file=$geometry_file \
         +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=mg \
-        +electrostatic.potential.to.file=v_es.mg.dat \
+        +electrostatic.solver=fft \
         +occupied.bands=4 \
         +element_C="2s 2 2p 2 0 | 1.2 sigma .8" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
@@ -96,12 +105,15 @@ for ecut in `seq 5 5 15`; do
         +potential_generator.max.scf=1 \
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \
-        +pw_hamiltonian.test.kpoints=9 \
+        +pw_hamiltonian.test.kpoints=$nkpoints \
+        +pw_hamiltonian.scale.kinetic=0 \
+        +pw_hamiltonian.scale.potential=0 \
         +pw_hamiltonian.scale.nonlocal.h=1 \
-        +pw_hamiltonian.scale.nonlocal.s=1 \
+        +pw_hamiltonian.scale.nonlocal.s=0 \
         +pw_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
         > $out_file
+        ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
 
 exit
