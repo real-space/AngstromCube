@@ -48,7 +48,7 @@ namespace pw_hamiltonian {
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for(int d = 0; d < 3; ++d) {
-            double const x = -gv[d]*sigma; // -x because the fourier transform of HG_n(x) is (-1)^n HG_n(k)
+            double const x = -gv[d]*sigma; // -x because the fourier transform of HG_n(x) is (-1)^n HG_n(k) = HG(-k)
             hermite_polys(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
 
@@ -195,7 +195,7 @@ namespace pw_hamiltonian {
 
                   for(int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
-                      P_jl(jB,lC) = complex_t(phase * pzyx[lb]); //  * norm_factor
+                      P_jl(jB,lC) = complex_t(phase * pzyx[lb] * norm_factor);
                       P2_l[lC] += pow2(pzyx[lb]);
                   } // lb
               }
@@ -244,7 +244,6 @@ namespace pw_hamiltonian {
       assert( nG[1] <= Vcoeff.dim1() );
       assert( nG[2] <= Vcoeff.dim2() );
       
-      // prefactor of kinetic energy in Hartree atomic units
       double const scale_k = control::get("pw_hamiltonian.scale.kinetic", 1.0);
       double const scale_p = control::get("pw_hamiltonian.scale.potential", 1.0);
       if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
@@ -257,7 +256,7 @@ namespace pw_hamiltonian {
       double constexpr scale_k = 1, scale_p = 1;
 #endif
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
-      real_t const localpot = scale_p / (nG[0]*nG[1]*nG[1]);
+      real_t const localpot = scale_p / (nG[0]*nG[1]*nG[2]);
 
       for(int iB = 0; iB < nB; ++iB) {      auto const & i = pw_basis[iB];
 
@@ -341,7 +340,7 @@ namespace pw_hamiltonian {
       char const *_ecut_u{nullptr};
       auto const ecut_u = unit_system::energy_unit(control::get("pw_hamiltonian.cutoff.energy.unit", "Ha"), &_ecut_u);
       auto const ecut = control::get("pw_hamiltonian.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds %.3f^2 Ry or %.2f %s\n", 
+      if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
 //       int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
@@ -505,7 +504,7 @@ namespace pw_hamiltonian {
 
   status_t all_tests(int const echo) {
       status_t status(0);
-      status += test_Hamiltonian(echo);
+//       status += test_Hamiltonian(echo);
       status += test_Hermite_Gauss_normalization(echo);
       return status;
   } // all_tests
