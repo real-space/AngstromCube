@@ -30,6 +30,8 @@
     - complex wave functions, k-points
     - fancy boundary conditions
     - total energy
+    - forces
+    - self-consistency (so far on the radial grids only)
     - magnetism
     These features are ready:
     - potential generation (non-magnetic)
@@ -38,7 +40,9 @@
     Some features are build in only for development:
     - FFT Poisson solver for the electrostatic problem
     - plane wave basis set using a dense eigensolver
-
+    These feautures are not intended to be implemented ever:
+    - Strain
+    - phonons
 
 **Reuse existing code modules**
     In order not to re-program and validate everything, we

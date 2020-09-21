@@ -90,7 +90,7 @@ namespace sho_hamiltonian {
         
       status_t stat(0);
 #ifdef DEVEL
-      {   complex_t c{1}; real_t r{1};
+      {   complex_t c(1); real_t r{1};
           if (echo > 3) printf("\n\n# start %s<%s, real_t=%s, phase_t=%s> nB=%d\n", 
                   __func__, complex_name(c), complex_name(r), complex_name(*Bloch_phase), nB);
       }
@@ -152,10 +152,10 @@ namespace sho_hamiltonian {
 //                       printf("\n");
 //                   } // echo
                   for(int lb = 0; lb < nb_la; ++lb) {
-                      complex_t s{0}, h{0};
+                      complex_t s(0), h(0);
                       for(int kb = 0; kb < nb_ka; ++kb) { // contract
                           auto const p = P_jala[ia][ka](ib,kb);
-                          // Mind that hs_PAW matrices are ordered {H,S}
+                          // Mind that hs_PAW matrices are ordered {0:H,1:S}
                           s += p * real_t(hs_PAW[ka](1,kb,lb));
                           h += p * real_t(hs_PAW[ka](0,kb,lb));
                       } // kb
@@ -195,8 +195,8 @@ namespace sho_hamiltonian {
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           for(int ja = 0; ja < natoms; ++ja) {
-              S_iaja[ia][ja] = view2D<complex_t>(&(SHm(S,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<complex_t>(&(SHm(H,offset[ia],offset[ja])), nBa); // wrapper to sub-blocks of the Hamiltonian matrix
+              S_iaja[ia][ja] = view2D<complex_t>(&(SHm(S,offset[ia],offset[ja])), SHm.stride()); // wrapper to sub-blocks of the overlap matrix
+              H_iaja[ia][ja] = view2D<complex_t>(&(SHm(H,offset[ia],offset[ja])), SHm.stride()); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j   = sho_tools::n1HO(numaxs[ja]);
               int const nb_ja = sho_tools::nSHO(numaxs[ja]);
 
@@ -205,7 +205,7 @@ namespace sho_hamiltonian {
                   int const numax_V = center_map(ia,ja,ip,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
                   int const maxmoment = std::max(0, numax_V);
 
-                  phase_t phase{1};
+                  phase_t phase(1);
                   view3D<double> nabla2(3, n1i + 1, n1j + 1, 0.0);         //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
                   view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
                   for(int d = 0; d < 3; ++d) { // spatial directions x,y,z
@@ -215,15 +215,15 @@ namespace sho_hamiltonian {
                       stat += sho_overlap::moment_tensor(ovl1Dm[d].data(), distance, n1i, n1j, sigmas[ia], sigmas[ja], maxmoment);
                   } // d
 
-                  // construct the overlap matrix of SHO basis functions
-                  // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
-                  stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja], phase);
-
                   // add the kinetic energy contribution
                   stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], phase, kinetic);
 
                   // add the contribution of the local potential
                   stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase);
+
+                  // construct the overlap matrix of SHO basis functions
+                  // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
+                  stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja], phase);
 
               } // ip
               
@@ -235,7 +235,7 @@ namespace sho_hamiltonian {
                   // matrix-matrix multiplication
                   for(int ib = 0; ib < nb_ia; ++ib) {
                       for(int jb = 0; jb < nb_ja; ++jb) {
-                          complex_t s{0}, h{0};
+                          complex_t s(0), h(0);
                           for(int lb = 0; lb < nb_la; ++lb) { // contract
                               auto const p = conjugate(P_jala[ja][la](jb,lb)); // needs a conjugation if complex
                               s += Psh_iala[ia][la](0,ib,lb) * p;

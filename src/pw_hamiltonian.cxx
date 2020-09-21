@@ -48,7 +48,7 @@ namespace pw_hamiltonian {
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for(int d = 0; d < 3; ++d) {
-            double const x = -gv[d]*sigma; // -x because the fourier transform of HG_n(x) is (-1)^n HG_n(k) = HG(-k)
+            double const x = -gv[d]*sigma; // -x because the Fourier transform of HG_n(x) is (-1)^n HG_n(k) = HG(-k) [for sigma=1]
             hermite_polys(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
 
@@ -80,6 +80,10 @@ namespace pw_hamiltonian {
   } // Hermite_Gauss_projectors
 
 
+  inline double Fourier_Gauss_factor_3D(double const sigma=1) {
+      // \sqrt(2 pi sigma) ^3
+      return pow3(constants::sqrt2 * constants::sqrtpi);
+  } //  Fourier_Gauss_factor_3D
 
   template<typename complex_t, typename real_t>
   status_t solve_k(double const ecut // plane wave cutoff energy
@@ -127,7 +131,7 @@ namespace pw_hamiltonian {
       int const nB = pw_basis.size();
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
-      {   complex_t c{1}; real_t r{1};
+      {   complex_t c(1); real_t r{1};
           if (echo > 3) printf("\n\n# start %s<%s, real_t=%s> nB=%d\n", 
                   __func__, complex_name(c), complex_name(r), nB);
       }
@@ -182,7 +186,7 @@ namespace pw_hamiltonian {
           auto const & i = pw_basis[jB];
           double const gv[3] = {(i.x + kpoint[0])*reci[0][0],
                                 (i.y + kpoint[1])*reci[1][1],
-                                (i.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci assumed here
+                                (i.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci-matrix assumed here
           for(int ka = 0; ka < natoms_PAW; ++ka) {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
@@ -192,10 +196,11 @@ namespace pw_hamiltonian {
 
               {   std::vector<double> pzyx(nSHO);
                   Hermite_Gauss_projectors(pzyx.data(), numax_PAW[ka], sigma_PAW[ka], gv);
+                  auto const fgf = Fourier_Gauss_factor_3D(sigma_PAW[ka]);
 
                   for(int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
-                      P_jl(jB,lC) = complex_t(phase * pzyx[lb] * norm_factor);
+                      P_jl(jB,lC) = complex_t(phase * pzyx[lb] * fgf * norm_factor);
                       P2_l[lC] += pow2(pzyx[lb]);
                   } // lb
               }
@@ -204,7 +209,7 @@ namespace pw_hamiltonian {
               auto const iB = jB;
               for(int lb = 0; lb < nSHO; ++lb) {
                   int const iC = offset[ka] + lb; // global PAW coefficient index
-                  complex_t s{0}, h{0};
+                  complex_t s(0), h(0);
                   for(int kb = 0; kb < nSHO; ++kb) { // contract
                       int const kC = offset[ka] + kb;
                       auto const p = P_jl(iB,kC); // ToDo: do we need to conjugate here instead of below?
@@ -278,11 +283,11 @@ namespace pw_hamiltonian {
 
               // inner part of a matrix-matrix multiplication
               { // scope: add non-local contributions
-                  complex_t s{0}, h{0};
+                  complex_t s(0), h(0);
                   for(int lC = 0; lC < nC; ++lC) { // contract
                       auto const p = conjugate(P_jl(jB,lC)); // needs a conjugation, ToDo: here or above?
-                      s += Psh_il(0,iB,lC) * p;
-                      h += Psh_il(1,iB,lC) * p;
+                      s += Psh_il(S,iB,lC) * p;
+                      h += Psh_il(H,iB,lC) * p;
                   } // lC
                   SHm(S,iB,jB) += s * scale_s;
                   SHm(H,iB,jB) += h * scale_h;
@@ -325,17 +330,18 @@ namespace pw_hamiltonian {
       scale(reci_matrix[0], 12, 2*constants::pi); // scale by 2\pi
       if (echo > 0) printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
       if (echo > 0) {
-          auto constexpr sqRy = 1;
-          printf("# cell matrix in %s and reciprocal matrix in sqRy:\n", _Ang);
+          auto constexpr sqRy = 1; auto const _sqRy = "sqRy";
+          printf("# cell matrix in %s\t\tand\t\treciprocal matrix in %s:\n", _Ang, _sqRy);
           for(int d = 0; d < 3; ++d) {
               printf("# %12.6f%12.6f%12.6f    \t%12.6f%12.6f%12.6f\n",
-                    cell_matrix[d][0]*Ang,  cell_matrix[d][1]*Ang,  cell_matrix[d][2]*Ang,
-                    reci_matrix[d][0]*sqRy, reci_matrix[d][1]*sqRy, reci_matrix[d][2]*sqRy);
+                cell_matrix[d][0]*Ang,  cell_matrix[d][1]*Ang,  cell_matrix[d][2]*Ang,
+                reci_matrix[d][0]*sqRy, reci_matrix[d][1]*sqRy, reci_matrix[d][2]*sqRy);
           } // d
           printf("\n");
       } // echo
       stat += (abs(cell_volume) > 1e-15);
       double const svol = 1./std::sqrt(cell_volume); // normalization factor for plane waves
+      if (echo > 1) printf("# normalization factor for plane waves is %g a.u.\n", svol);
 
       char const *_ecut_u{nullptr};
       auto const ecut_u = unit_system::energy_unit(control::get("pw_hamiltonian.cutoff.energy.unit", "Ha"), &_ecut_u);
@@ -417,7 +423,7 @@ namespace pw_hamiltonian {
           bool can_be_real{false}; // real only with inversion symmetry
           if (can_be_real) {
               error("PW only implemented with complex");
-          } else { // replace this else by if(true) to test if real and complex version agree
+          } else { // replace this "else" by "if(true)" to test if real and complex version agree
               int nPWs{0};
               if (32 == floating_point_bits) {
                   stat += solve_k<std::complex<float>, float>(ecut, reci_matrix, Vcoeffs, nG, svol,
@@ -479,7 +485,11 @@ namespace pw_hamiltonian {
       return stat;
   } // test_Hamiltonian
 
-  status_t test_Hermite_Gauss_normalization(int const echo=5, int const numax=3, double const sigma=1) {
+  status_t test_Hermite_Gauss_normalization(int const echo=5, int const numax=3) {
+      // we check if the Hermite_Gauss_projectors are L2-normalized 
+      // when evaluated on a dense Cartesian mesh (in reciprocal space).
+      // this is useful information as due to the Plancherel theorem,
+      // this implies the right scaling of the projectors in both spaces.
       status_t stat(0);
 
       auto const nSHO = sho_tools::nSHO(numax);
@@ -490,8 +500,8 @@ namespace pw_hamiltonian {
       for(int iy = -ng; iy <= ng; ++iy) {
       for(int ix = -ng; ix <= ng; ++ix) {
           double const gv[3] = {dg*ix, dg*iy, dg*iz};
-          Hermite_Gauss_projectors(pzyx.data(), numax, sigma, gv);
-          add_product(p2.data(), nSHO, pzyx.data(), pzyx.data());
+          Hermite_Gauss_projectors(pzyx.data(), numax, 1.0, gv);
+          add_product(p2.data(), nSHO, pzyx.data(), pzyx.data()); // += |p^2|
       }}} // ig
       printf("\n# %s: norms ", __func__);
       for(int ip = 0; ip < nSHO; ++ip) {
@@ -501,10 +511,10 @@ namespace pw_hamiltonian {
 
       return stat;
   } // test_Hermite_Gauss_normalization
-
+  
   status_t all_tests(int const echo) {
       status_t status(0);
-//       status += test_Hamiltonian(echo);
+      status += test_Hamiltonian(echo);
       status += test_Hermite_Gauss_normalization(echo);
       return status;
   } // all_tests

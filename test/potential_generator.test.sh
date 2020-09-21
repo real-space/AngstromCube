@@ -12,9 +12,16 @@ nkpoints=3
 
 ### C-sc
 geometry_file=atoms.xyz
-printf " 1 \n#cell 5 5 5 p p p \n" > $geometry_file
+printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 echo "C  0 0 0" >> $geometry_file
 out_file_base=pg_new.C-sc
+
+### H-sc
+# geometry_file=atoms.xyz
+# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+# echo "H  0 0 0" >> $geometry_file
+# out_file_base=pg_new.H-sc
+
 
 ### Al-P dimer
 # geometry_file=atoms.xyz
@@ -54,7 +61,47 @@ out_file_base=pg_new.C-sc
 # geometry_file=graphene.xyz
 # out_file_base=potential_generator.graphene.sho.out
 
-for numax in {4..4}; do
+scale_k=1
+scale_p=1
+scale_h=1
+scale_s=1
+
+for ecut in `seq 20 5 35`; do
+  out_file=$out_file_base.pw$ecut.out
+
+  (cd ../src/ && make -j) && \
+  $exe +verbosity=7 \
+    -test potential_generator. \
+        +geometry.file=$geometry_file \
+        +potential_generator.grid.spacing=0.251 \
+        +electrostatic.solver=fft \
+        +occupied.bands=4 \
+        +element_H="1s 1 0 | 0.9 sigma .41" \
+        +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
+        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
+         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
+        +single_atom.local.potential.method=parabola \
+        +single_atom.init.echo=7 \
+        +single_atom.init.scf.maxit=1 \
+        +single_atom.echo=1 \
+        +logder.start=2 +logder.stop=1 \
+        +bands.per.atom=4 \
+        +potential_generator.max.scf=1 \
+        +basis=pw \
+        +pw_hamiltonian.cutoff.energy=$ecut \
+        +pw_hamiltonian.test.kpoints=$nkpoints \
+        +pw_hamiltonian.scale.kinetic=$scale_k \
+        +pw_hamiltonian.scale.potential=$scale_p \
+        +pw_hamiltonian.scale.nonlocal.h=$scale_h \
+        +pw_hamiltonian.scale.nonlocal.s=$scale_s \
+        +pw_hamiltonian.floating.point.bits=32 \
+        +dense_solver.test.overlap.eigvals=1 \
+        > $out_file
+        ./spectrum.sh $out_file > $out_file.spectrum.dat
+done
+exit
+
+for numax in `seq 0 1 9`; do
   out_file=$out_file_base.sho$numax.out
 
   (cd ../src/ && make -j) && \
@@ -64,7 +111,8 @@ for numax in {4..4}; do
         +potential_generator.grid.spacing=0.251 \
         +electrostatic.solver=fft \
         +occupied.bands=4 \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .3" \
+        +element_H="1s 1 0 | 0.9 sigma .41" \
+        +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
         +single_atom.local.potential.method=parabola \
@@ -79,44 +127,11 @@ for numax in {4..4}; do
         +sho_hamiltonian.test.sigma=1.0 \
         +sho_hamiltonian.test.sigma.asymmetry=1 \
         +sho_hamiltonian.test.kpoints=$nkpoints \
-        +sho_hamiltonian.scale.kinetic=1 \
-        +sho_hamiltonian.scale.potential=1 \
-        +sho_hamiltonian.scale.nonlocal.h=1 \
-        +sho_hamiltonian.scale.nonlocal.s=1 \
+        +sho_hamiltonian.scale.kinetic=$scale_k \
+        +sho_hamiltonian.scale.potential=$scale_p \
+        +sho_hamiltonian.scale.nonlocal.h=$scale_h \
+        +sho_hamiltonian.scale.nonlocal.s=$scale_s \
         +sho_hamiltonian.floating.point.bits=32 \
-        +dense_solver.test.overlap.eigvals=1 \
-        > $out_file
-        ./spectrum.sh $out_file > $out_file.spectrum.dat
-done
-
-for ecut in `seq 5 5`; do
-  out_file=$out_file_base.pw$ecut.out
-
-  (cd ../src/ && make -j) && \
-  $exe +verbosity=7 \
-    -test potential_generator. \
-        +geometry.file=$geometry_file \
-        +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=fft \
-        +occupied.bands=4 \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .3" \
-        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
-         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
-        +single_atom.local.potential.method=parabola \
-        +single_atom.init.echo=7 \
-        +single_atom.init.scf.maxit=1 \
-        +single_atom.echo=1 \
-        +logder.start=2 +logder.stop=1 \
-        +bands.per.atom=4 \
-        +potential_generator.max.scf=1 \
-        +basis=pw \
-        +pw_hamiltonian.cutoff.energy=$ecut \
-        +pw_hamiltonian.test.kpoints=$nkpoints \
-        +pw_hamiltonian.scale.kinetic=1 \
-        +pw_hamiltonian.scale.potential=1 \
-        +pw_hamiltonian.scale.nonlocal.h=1 \
-        +pw_hamiltonian.scale.nonlocal.s=1 \
-        +pw_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
         > $out_file
         ./spectrum.sh $out_file > $out_file.spectrum.dat
