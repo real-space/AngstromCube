@@ -434,7 +434,7 @@ namespace potential_generator {
                   psi = view3D<double>(nkpoints, nbands, gc.all()); // get memory
                   float const scale_sigmas = control::get("start.waves.scale.sigma", 5.); // how much more spread in the start waves compared to sigma_prj
                   uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // nu-ordered, take 1, 4, 10 or 20
+                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
                   std::vector<int32_t> ncoeff_a(na);
                   for(int ia = 0; ia < na; ++ia) {
                       ncoeff_a[ia] = sho_tools::nSHO(op.get_numax(ia));

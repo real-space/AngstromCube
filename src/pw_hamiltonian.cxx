@@ -81,7 +81,8 @@ namespace pw_hamiltonian {
 
 
   inline double Fourier_Gauss_factor_3D(double const sigma=1) {
-      // \sqrt(2 pi sigma) ^3
+      // \sqrt(2 pi)^3
+      // independent of sigma, ToDo: remove sigma argument
       return pow3(constants::sqrt2 * constants::sqrtpi);
   } //  Fourier_Gauss_factor_3D
 

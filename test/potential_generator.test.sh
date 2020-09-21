@@ -2,7 +2,7 @@
 
 exe=../src/a43
 
-nkpoints=3
+nkpoints=9
 
 ### Al atom
 # geometry_file=atoms.xyz
@@ -66,7 +66,40 @@ scale_p=1
 scale_h=1
 scale_s=1
 
-for ecut in `seq 20 5 35`; do
+for spacing in `seq 4 4 4`; do
+  out_file=$out_file_base.grid$spacing.out
+
+  (cd ../src/ && make -j) && \
+  $exe +verbosity=7 \
+    -test potential_generator. \
+        +geometry.file=$geometry_file \
+        +potential_generator.grid.spacing=0.251 \
+        +electrostatic.solver=fft \
+        +occupied.bands=4 \
+        +element_H="1s 1 0 | 0.9 sigma .41" \
+        +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
+        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
+         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
+        +single_atom.local.potential.method=sinc \
+        +single_atom.init.echo=7 \
+        +single_atom.init.scf.maxit=1 \
+        +single_atom.echo=1 \
+        +logder.start=2 +logder.stop=1 \
+        +bands.per.atom=4 \
+        +potential_generator.max.scf=1 \
+        +basis=grid \
+        +grid_hamiltonian.floating.point.bits=32 \
+        +repeat.eigensolver=35 \
+        +eigensolver=cg \
+        +conjugate_gradients.max.iter=19 \
+        +start.waves.scale.sigma=9 \
+        +atomic.valence.decay=0 \
+        > $out_file
+        ./spectrum.sh $out_file > $out_file.spectrum.dat
+done
+
+
+for ecut in `seq 5 5 5`; do
   out_file=$out_file_base.pw$ecut.out
 
   (cd ../src/ && make -j) && \
@@ -80,7 +113,7 @@ for ecut in `seq 20 5 35`; do
         +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
-        +single_atom.local.potential.method=parabola \
+        +single_atom.local.potential.method=sinc \
         +single_atom.init.echo=7 \
         +single_atom.init.scf.maxit=1 \
         +single_atom.echo=1 \
@@ -99,7 +132,7 @@ for ecut in `seq 20 5 35`; do
         > $out_file
         ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
-exit
+# exit
 
 for numax in `seq 0 1 9`; do
   out_file=$out_file_base.sho$numax.out
@@ -115,7 +148,7 @@ for numax in `seq 0 1 9`; do
         +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
-        +single_atom.local.potential.method=parabola \
+        +single_atom.local.potential.method=sinc \
         +single_atom.init.echo=7 \
         +single_atom.init.scf.maxit=1 \
         +single_atom.echo=1 \
