@@ -13,6 +13,7 @@
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // set
 #include "simple_math.hxx" // ::random<T>
+#include "complex_tools.hxx" // conjugate
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -37,13 +38,13 @@
 namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
 
-  template<typename real_t>
-  void inner_products(double s[] // result <bra|ket> [nstates][mstates]
+  template<typename doublecomplex_t, typename complex_t>
+  void inner_products(doublecomplex_t s[] // result <bra|ket> [nstates][mstates]
                    , int const stride // same stride assumed for both, bra and ket
                    , size_t const ndof
-                   , real_t const bra[] // assumed shape [nstates][ndof]
+                   , complex_t const bra[] // assumed shape [nstates][ndof]
                    , int const nstates  // number of bra states
-                   , real_t const ket[] // assumed shape [mstates][ndof]
+                   , complex_t const ket[] // assumed shape [mstates][ndof]
                    , int const mstates  // number of ket states
                    , double const factor=1) {
       assert(stride >= mstates);
@@ -51,9 +52,9 @@ namespace davidson_solver {
           auto const bra_ptr = &bra[istate*ndof];
           for(int jstate = 0; jstate < mstates; ++jstate) {
               auto const ket_ptr = &ket[jstate*ndof];
-              double tmp = 0;
+              doublecomplex_t tmp(0);
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += bra_ptr[dof] * ket_ptr[dof];
+                  tmp += conjugate(bra_ptr[dof]) * ket_ptr[dof];
               } // dof
               s[istate*stride + jstate] = tmp*factor; // init
           } // jstate
@@ -61,25 +62,25 @@ namespace davidson_solver {
   } // inner_products
 
 
-  template<typename real_t>
+  template<typename complex_t>
   void vector_norm2s(double s[] // result <ket|ket> [mstates]
                    , size_t const ndof
-                   , real_t const ket[] // assumed shape [nstates][ndof]
+                   , complex_t const ket[] // assumed shape [nstates][ndof]
                    , int const mstates  // number of ket states
-                   , real_t const *bra=nullptr
+                   , complex_t const *bra=nullptr
                    , double const factor=1) {
       for(int jstate = 0; jstate < mstates; ++jstate) {
           auto const ket_ptr = &ket[jstate*ndof];
           auto const bra_ptr = bra ? &bra[jstate*ndof] : ket_ptr;
-          double tmp = 0;
+          double tmp{0};
           for(size_t dof = 0; dof < ndof; ++dof) {
-              tmp += bra_ptr[dof] * ket_ptr[dof];
+              tmp += std::real(conjugate(bra_ptr[dof]) * ket_ptr[dof]);
           } // dof
           s[jstate] = tmp*factor; // init
       } // jstate
   } // vector_norm2s
-
-
+  
+  
   template<typename real_t>
   void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr) {
       if (n < 1) return;
@@ -96,23 +97,23 @@ namespace davidson_solver {
       }   printf("\n");
   } // show_matrix
 
-  template<typename real_t, typename real_fd_t>
-  status_t eigensolve(real_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+
+  template<typename complex_t, typename real_fd_t>
+  status_t eigensolve(complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
-    , grid_operators::grid_operator_t<real_t,real_fd_t> const &op
+    , grid_operators::grid_operator_t<complex_t,real_fd_t> const &op
     , int const echo // =0 log output level
     , float const mbasis // =2
     , unsigned const niterations // =2
   ) {
 //    float const mbasis = 2; // control::get("davidson.basis.multiplier", 2.0);
-      status_t stat = 0;
-      if (nbands < 1) return 0;
+      status_t stat(0);
+      if (nbands < 1) return stat;
       
-      auto const g = op.get_grid();
-      
-      size_t const ndof = size_t(g[0]) * size_t(g[1]) * size_t(g[2]);
-      
+      double const dV = op.get_volume_element();
+      size_t const ndof = op.get_degrees_of_freedom(); // bad naming since e.g. complex numbers bear 2 DoF in it
+
       int const max_space = int(std::ceil(mbasis*nbands));
       int       sub_space = nbands; // init with the waves from the input
       if (echo > 0) printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
@@ -127,11 +128,10 @@ namespace davidson_solver {
       std::vector<double> eigval(max_space);
       std::vector<double> residual_norm2s(max_space);
       
-      view2D<real_t>  psi(max_space, ndof, 0.0);
-      view2D<real_t> hpsi(max_space, ndof, 0.0);
-      view2D<real_t> spsi(max_space, ndof, 0.0);
-      view2D<real_t> epsi(max_space, ndof, 0.0); // new eigenfunctions
-      view2D<real_t> sepsi(       1, ndof, 0.0);
+      view2D<complex_t>  psi(max_space, ndof, 0.0); //    |psi>
+      view2D<complex_t> hpsi(max_space, ndof, 0.0); // ^H*|psi>
+      view2D<complex_t> spsi(max_space, ndof, 0.0); // ^S*|psi>
+      view2D<complex_t> epsi(max_space, ndof, 0.0); // new eigenfunctions
       
       set(psi.data(), nbands*ndof, waves); // copy nbands initial wave functions into psi
 
@@ -146,8 +146,8 @@ namespace davidson_solver {
           } // istate
 
           // compute matrix representation in the sub_space
-          inner_products(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, g.dV());
-          inner_products(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, g.dV());
+          inner_products(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, dV);
+          inner_products(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, dV);
 
           if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
@@ -163,9 +163,9 @@ namespace davidson_solver {
 
               // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
               for(int i = 0; i < sub_space; ++i) {
-                  set(epsi[i], ndof, real_t(0));
+                  set(epsi[i], ndof, complex_t(0));
                   for(int j = 0; j < sub_space; ++j) {
-                      add_product(epsi[i], ndof, psi[j], real_t(eigvec(i,j)));
+                      add_product(epsi[i], ndof, psi[j], complex_t(eigvec(i,j)));
                   } // j
               } // i
               std::swap(psi, epsi); // pointer swap instead of deep copy
@@ -178,16 +178,16 @@ namespace davidson_solver {
                       stat += op.Hamiltonian(hpsi[i], psi[i], op_echo);
                       set(epsi[i], ndof, hpsi[i]);
                       stat += op.Overlapping(spsi[i], psi[i], op_echo);
-                      add_product(epsi[i], ndof, spsi[i], real_t(-eigval[i]));
+                      add_product(epsi[i], ndof, spsi[i], complex_t(-eigval[i]));
                       
                       if (with_overlap) stat += op.Overlapping(spsi[i], epsi[i], op_echo);
                   } // i
                   vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
-                                       with_overlap ? spsi.data() : nullptr, g.dV());
+                                       with_overlap ? spsi.data() : nullptr, dV);
 
                   std::vector<double> res_norm2_sort(sub_space);              
                   set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
-                  std::sort(res_norm2_sort.begin(), res_norm2_sort.end()); // sort
+                  std::sort(res_norm2_sort.begin(), res_norm2_sort.end()); // sort in place
 
                   // now select the threshold epsi with the largest residual and add them to the basis
                   int const max_bands = max_space - sub_space; // not more than this many
@@ -224,13 +224,13 @@ namespace davidson_solver {
                   for(int i = 0; i < add_bands; ++i) {
                       int const j = indices[i];
                       int const ii = sub_space + i;
-                      real_t const f = 1./std::sqrt(residual_norm2s[j]);
+                      double const f = 1./std::sqrt(residual_norm2s[j]);
                       set(psi[ii], ndof, epsi[j], f); // and normalize
                   } // i
 
                   sub_space += add_bands; // increase the subspace size by the number of non-vanishing residual vectors
 
-                  // ToDo: make sure that we run at least one more iteration at the increase function space size
+                  // ToDo: make sure that we run at least one more iteration at the increased function space size
                   niter = iteration + 2;
               } else { // if the space can grow
                   niter = iteration; // stop
@@ -254,7 +254,7 @@ namespace davidson_solver {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  template <typename real_t>
+  template <typename complex_t>
   status_t test_solver(int const echo=9) {
       status_t stat{0};
       int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
@@ -264,7 +264,7 @@ namespace davidson_solver {
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
       real_space::grid_t g(8, 8, 8);
-      std::vector<real_t> psi(nbands*g.all(), 0.0);
+      std::vector<complex_t> psi(nbands*g.all(), 0.0);
       std::vector<double> energies(nbands, 0.0);
 
       int const swm = control::get("davidson_solver.start.waves", 0.);
@@ -298,7 +298,7 @@ namespace davidson_solver {
           if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
 
-      grid_operators::grid_operator_t<real_t> op(g);
+      grid_operators::grid_operator_t<complex_t> op(g);
 
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {

@@ -399,7 +399,7 @@ namespace sigma_config {
         
         // fill the core
         if (echo > 6) {
-            printf("# fill the core up to enn =");
+            printf("# fill the core up to the principal quantum number n=");
             for(int ell = 0; ell < 4; ++ell) {
                 printf(" %d", e.ncmx[ell]*(e.ncmx[ell] > ell)); // show zeros if there are no core electrons
             } // ell
@@ -434,7 +434,7 @@ namespace sigma_config {
             } // inl < 32
         } // inl
         double const nelectrons = nve + nce;
-        if (echo > 4) printf("# found %g = %g core + %g valence electrons and Z = %g\n", nelectrons, nce, nve, e.Z);
+        if (echo > 4) printf("# found %g electrons = %g core + %g valence electrons and Z = %g protons\n", nelectrons, nce, nve, e.Z);
         if (ncv) warn("lost %g electrons for Z = %g\n", ncv, e.Z);
 
         if (echo > 4) {
@@ -442,7 +442,7 @@ namespace sigma_config {
             for(int ell = 0; ell < 8; ++ell) {
                 printf(" %d", e.nn[ell]);
             } // ell
-            printf(" partial waves\n");
+            printf(" partial waves for s,p,d,...\n");
         } // echo
         
         if (std::abs(nelectrons - e.Z) > 1e-12 && e.Z > 0) warn("PAW setup for %s (Z=%g) is charged with %g electrons", symbol, e.Z, nelectrons - e.Z);

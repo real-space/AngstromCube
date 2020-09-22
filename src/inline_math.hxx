@@ -37,8 +37,8 @@
       for(size_t i = 0; i < n; ++i) y[i] = a;
   } // set
 
-  template<typename real_t, typename real_a_t> inline
-  void set(real_t y[], size_t const n, real_a_t const a[], real_t const f=1) {
+  template<typename real_t, typename real_a_t, typename real_f_t=real_t> inline
+  void set(real_t y[], size_t const n, real_a_t const a[], real_f_t const f=1) {
       for(size_t i = 0; i < n; ++i) y[i] = a[i]*f;
   } // set
 

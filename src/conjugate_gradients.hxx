@@ -7,11 +7,11 @@ namespace conjugate_gradients {
 
   template<typename real_t>
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
+    , double eigenvalues[] // export results
     , int const nbands // number of bands
     , grid_operators::grid_operator_t<real_t,real_t> const & op // grid operator descriptor
     , int const echo=9 // log output level
-    , float const threshold=1e-8f
-    , double *const eigenvalues=nullptr); // export results
+    , float const threshold=1e-8f); // convergence criterion
   
   template<typename real_t> inline double tiny();
   template<> inline double tiny<double>() { return 2.25e-308; }

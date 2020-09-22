@@ -85,19 +85,19 @@ for spacing in `seq 4 4 4`; do
         +single_atom.init.scf.maxit=1 \
         +single_atom.echo=1 \
         +logder.start=2 +logder.stop=1 \
-        +bands.per.atom=4 \
+        +bands.per.atom=10 \
         +potential_generator.max.scf=1 \
         +basis=grid \
         +grid_hamiltonian.floating.point.bits=32 \
         +repeat.eigensolver=35 \
-        +eigensolver=cg \
+        +eigensolver=davidson \
         +conjugate_gradients.max.iter=19 \
         +start.waves.scale.sigma=9 \
         +atomic.valence.decay=0 \
         > $out_file
         ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
-
+exit
 
 for ecut in `seq 5 5 5`; do
   out_file=$out_file_base.pw$ecut.out

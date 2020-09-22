@@ -17,6 +17,7 @@
 #include "atom_image.hxx" // ::sho_atom_t, ::atom_image_t
 #include "display_units.h" // eV, _eV
 #include "recorded_warnings.hxx" // warn
+#include "complex_tools.hxx" // conjugate
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -55,9 +56,9 @@ namespace conjugate_gradients {
                    , real_t const bra[] // assumed shape [ndof]
                    , real_t const ket[] // assumed shape [ndof]
                    , double const factor=1) {
-              double tmp = 0;
+              double tmp{0};
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += bra[dof] * ket[dof];
+                  tmp += conjugate(bra[dof]) * ket[dof];
               } // dof
               return tmp*factor; // init
   } // inner_product
@@ -78,10 +79,10 @@ namespace conjugate_gradients {
   
   
   template<typename complex_t>
-  double submatrix2x2(double const sAs, complex_t sAp, double const pAp, complex_t & alpha, double & beta) {
+  double submatrix2x2(double const sAs, complex_t const sAp, double const pAp, complex_t & alpha, double & beta) {
       // lowest eigenvalue of the 2 x 2 matrix ( sAs , pAs )
       //                                       ( sAp , pAp )
-      double const sAppAs = pow2(std::abs(sAp)); // == |sAp|^2
+      double const sAppAs = std::real(conjugate(sAp)*sAp); // == |sAp|^2
       double const gamma = 0.5*(sAs + pAp) - std::sqrt(0.25*pow2(sAs - pAp) + sAppAs);
 
       if (std::abs((sAs - gamma)/gamma) > 2e-16) {
@@ -99,11 +100,11 @@ namespace conjugate_gradients {
   
   template<typename real_t>
   status_t eigensolve(real_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
+    , double eigenvalues[] // export results
     , int const nbands // number of bands
     , grid_operators::grid_operator_t<real_t,real_t> const & op // grid operator descriptor
     , int const echo// =9 // log output level
-    , float const threshold // =1e-8f
-    , double *eigenvalues //=nullptr // export results
+    , float const threshold // =1e-8f convergence criterion
   ) {
       status_t stat = 0;
       int const maxiter = control::get("conjugate_gradients.max.iter", 132);
@@ -112,14 +113,14 @@ namespace conjugate_gradients {
       
       if (echo > 0) printf("# start CG onto %d bands\n", nbands);
 
-      auto const & g = op.get_grid();
+      double const dV = op.get_volume_element();
+      size_t const nv = op.get_degrees_of_freedom();
       bool const use_overlap = op.use_overlap();
       bool const use_precond = op.use_precond();
       
       int const cg0sd1 = control::get("conjugate_gradients.steepest.descent", 0.); // 1:steepest descent, 0:conjugate gradients
       bool const use_cg = (0 == cg0sd1);
 
-      int const nv = g.all();
       view2D<real_t> s(eigenstates, nv); // set wrapper
       
       view2D<real_t> Ss(eigenstates, nv); // wrap
@@ -167,7 +168,7 @@ namespace conjugate_gradients {
               for(int iortho = 0; iortho < northo[0]; ++iortho) {
                   if (echo > 7 && ib > 0) printf("# orthogonalize band #%i against %d lower bands\n", ib, ib);
                   for(int jb = 0; jb < ib; ++jb) {
-                      auto const a = inner_product(nv, s[ib], Ss[jb], g.dV());
+                      auto const a = inner_product(nv, s[ib], Ss[jb], dV);
                       if (echo > 8) printf("# orthogonalize band #%i against band #%i with %g\n", ib, jb, a);
                       add_product( s[ib], nv,  s[jb], real_t(-a));
                       if (use_overlap) {
@@ -175,7 +176,7 @@ namespace conjugate_gradients {
                       } else assert(Ss[ib] == s[ib]);
                   } // jb
 
-                  auto const snorm = inner_product(nv, s[ib], Ss[ib], g.dV());
+                  auto const snorm = inner_product(nv, s[ib], Ss[ib], dV);
                   if (echo > 7) printf("# norm^2 of band #%i is %g\n", ib, snorm);
                   if (snorm < 1e-12) {
                       warn("CG failed for band #%i", ib);
@@ -212,13 +213,13 @@ namespace conjugate_gradients {
                       restart = false;
                   } // (re)start
                 
-                  energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
+                  energy[ib] = inner_product(nv, s[ib], Hs, dV);
                   if (echo > 7) printf("# CG energy of band #%i is %g %s in iteration #%i\n", 
                                                               ib, energy[ib]*eV, _eV, iiter);
                   
                   // compute gradient = - ( H\psi - E*S\psi )
                   set(grd, nv, Hs, real_t(-1)); add_product(grd, nv, Ss[ib], real_t(energy[ib]));
-                  if (echo > 7) printf("# norm^2 (no S) of gradient %.e\n", inner_product(nv, grd, grd, g.dV()));
+                  if (echo > 7) printf("# norm^2 (no S) of gradient %.e\n", inner_product(nv, grd, grd, dV));
 
                   if (use_precond) {
                       op.Conditioner(Pgrd, grd, echo);
@@ -227,7 +228,7 @@ namespace conjugate_gradients {
                   for(int iortho = 0; iortho < northo[1]; ++iortho) {
                       if (echo > 7) printf("# orthogonalize gradient against %d bands\n", ib + 1);
                       for(int jb = 0; jb <= ib; ++jb) {
-                          auto const a = inner_product(nv, Pgrd, Ss[jb], g.dV());
+                          auto const a = inner_product(nv, Pgrd, Ss[jb], dV);
                           if (echo > 8) printf("# orthogonalize gradient against band #%i with %g\n", jb, a);
                           add_product(Pgrd, nv, s[jb], real_t(-a));
                       } // jb
@@ -238,7 +239,7 @@ namespace conjugate_gradients {
                       stat += op.Overlapping(SPgrd, Pgrd, echo);
                   } else assert(SPgrd == Pgrd);
                   
-                  double const res_new = inner_product(nv, Pgrd, SPgrd, g.dV());
+                  double const res_new = inner_product(nv, Pgrd, SPgrd, dV);
                   if (echo > 7) printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", res_new);
 
                   residual[ib] = std::abs(res_new); // store
@@ -265,12 +266,12 @@ namespace conjugate_gradients {
                           set(Scon, nv, Sdir); // copy
                       } else { assert(Sdir == dir); assert(Scon == con); };
 
-                      if (echo > 7) printf("# norm^2 of con %.e\n", inner_product(nv, con, Scon, g.dV()));
+                      if (echo > 7) printf("# norm^2 of con %.e\n", inner_product(nv, con, Scon, dV));
                       
                       for(int iortho = 0; iortho < northo[2]; ++iortho) {
                           if (echo > 7) printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
                           for(int jb = 0; jb <= ib; ++jb) {
-                              auto const a = inner_product(nv, con, Ss[jb], g.dV());
+                              auto const a = inner_product(nv, con, Ss[jb], dV);
                               if (echo > 8) printf("# orthogonalize conjugate direction against band #%i with %g\n", jb, a);
                               add_product(con,  nv,  s[jb], real_t(-a));
                               if (use_overlap) {
@@ -281,7 +282,7 @@ namespace conjugate_gradients {
                       
                   } else { assert(Scon == SPgrd); assert(con == Pgrd); } // steepest descent method
 
-                  double const cnorm = inner_product(nv, con, Scon, g.dV());
+                  double const cnorm = inner_product(nv, con, Scon, dV);
                   if (echo > 7) printf("# norm^2 of conjugate direction is %.e\n", cnorm);
                   if (cnorm < 1e-12) {
                       it_converged = iiter; // converged, stop the iiter loop
@@ -301,8 +302,8 @@ namespace conjugate_gradients {
                       stat += op.Hamiltonian(Hcon, con, echo);
 
                       double    const sHs = energy[ib];
-                      complex_t const sHc = inner_product(nv, s[ib], Hcon, g.dV()); // must be complex_t
-                      double    const cHc = inner_product(nv,   con, Hcon, g.dV());
+                      complex_t const sHc = inner_product(nv, s[ib], Hcon, dV); // must be complex_t
+                      double    const cHc = inner_product(nv,   con, Hcon, dV);
                       complex_t alpha{1};
                       double    beta{0};
                       submatrix2x2(sHs, sHc, cHc, alpha, beta);
@@ -321,7 +322,7 @@ namespace conjugate_gradients {
               } // iiter
               
               if (maxiter < 1) {
-                  energy[ib] = inner_product(nv, s[ib], Hs, g.dV());
+                  energy[ib] = inner_product(nv, s[ib], Hs, dV);
               } // evaluate only the energy so the display is correct
               
               if (echo > 4) {
@@ -346,14 +347,12 @@ namespace conjugate_gradients {
   } // eigensolve
   
   template // explicit template instantiation
-  status_t eigensolve<double>(double eigenstates[], int const nbands
-    , grid_operators::grid_operator_t<double,double> const &op
-    , int const echo, float const threshold, double *eigenvalues);
+  status_t eigensolve<double>(double eigenstates[], double eigenvalues[], int const nbands
+    , grid_operators::grid_operator_t<double,double> const &op, int const echo, float const threshold);
 
   template // explicit template instantiation
-  status_t eigensolve<float>(float eigenstates[], int const nbands
-    , grid_operators::grid_operator_t<float,float> const &op
-    , int const echo, float const threshold, double *eigenvalues);
+  status_t eigensolve<float>(float eigenstates[], double eigenvalues[], int const nbands
+    , grid_operators::grid_operator_t<float,float> const &op, int const echo, float const threshold);
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
@@ -407,9 +406,10 @@ namespace conjugate_gradients {
       // construct Hamiltonian and Overlap operator
       grid_operators::grid_operator_t<real_t,real_t> const op(g); 
 
+      std::vector<double> eigenvalues(nbands, 0.0);
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat += eigensolve(psi.data(), nbands, op, echo);
+          stat += eigensolve(psi.data(), eigenvalues.data(), nbands, op, echo);
       } // it
       return stat;
   } // test_solver

@@ -15,24 +15,6 @@ namespace grid_operators {
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
-
-  status_t basic_test(int const echo=9) {
-      status_t stat(0);
-      int const dims[] = {12, 13, 14};
-      real_space::grid_t g(dims);
-      std::vector<double> psi(2*g.all(), 1.0);
-      std::vector<double> potential(dims[2]*dims[1]*dims[0], 0.5);
-      std::vector<atom_image::sho_atom_t> a(1);
-      a[0] = atom_image::sho_atom_t(0.5, 3, 999); // sigma=0.5, numax=3, atom_id=999, no position given!
-      double const apos[] = {0,0,0};
-      a[0].set_image_positions(apos);
-      finite_difference::stencil_t<double> kinetic(g.h, 8, -0.5);
-//       // decativated: interfaces deprecated, use op.Hamiltonian in the future!
-//       stat += grid_Hamiltonian(psi.data(), &psi[g.all()], g, a, kinetic, potential.data());
-//       stat += grid_Overlapping(psi.data(), &psi[g.all()], g, a);
-      return stat;
-  } // basic_test
-
   
   status_t projector_normalization_test(int const echo=9) {
       status_t stat(0);
@@ -101,7 +83,6 @@ namespace grid_operators {
   status_t all_tests(int const echo) {
     status_t status(0);
     status += class_test(echo);
-    status += basic_test(echo);
     status += class_with_atoms_test(echo);
     status += projector_normalization_test(echo);
     return status;

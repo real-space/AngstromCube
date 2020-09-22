@@ -21,7 +21,7 @@
 namespace grid_operators {
 
   template<typename real_t, typename real_fd_t>
-  status_t _grid_operator(real_t Hpsi[] // result
+  status_t _grid_operation(real_t Hpsi[] // result
                         , real_t const psi[] // input wave functions
                         , real_space::grid_t const &g // 3D Cartesian grid descriptor
                         , std::vector<atom_image::sho_atom_t> const &a // atoms
@@ -84,6 +84,7 @@ namespace grid_operators {
                       error("atom #%i has no image!", a[ia].atom_id());
 #endif
                   } else {
+                      // Gamma point, no periodic images
                       stat += sho_projection::sho_project(atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma(), psi, g, echo_sho);
                   } // need_images
               } // psi != nullptr
@@ -97,20 +98,21 @@ namespace grid_operators {
                   set(atomic_projection_coefficients[ia], ncoeff, atom_coeff[ia].data()); // export
               } // ia
           } // atomic_projection_coefficients
-                  
+
           if (Hpsi) {
 
               for(int ia = 0; ia < na; ++ia) {
-                  int const numax = a[ia].numax();
+                  int const numax = (atomic_addition_coefficients != nullptr) ? 3 : a[ia].numax();
                   int const ncoeff = sho_tools::nSHO(numax);
                   V_atom_coeff[ia] = std::vector<real_t>(ncoeff, 0.0);
-              
+
                   if (atomic_addition_coefficients) {
+                      assert( 3 == numax ); // this option is only used for start wave functions.
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
                           for(int ic = 0; ic < ncoeff; ++ic) {
-                              printf(" %g", atomic_addition_coefficients[ia][ic]); // show only the 1st vector entry
+                              printf(" %g", atomic_addition_coefficients[ia][ic]);
                           }   printf("\n");
                       } // echo
 #endif
@@ -124,11 +126,11 @@ namespace grid_operators {
                       auto *const mat = a[ia].get_matrix<real_fd_t>(h0s1);
                       // DGEMM-style matrix multiplication
                       for(int i = 0; i < ncoeff; ++i) {
-                          real_t ci(0);
+                          real_fd_t ci(0);
                           for(int j = 0; j < ncoeff; ++j) {
-                              auto const am = mat[i*stride + j];
+                              real_fd_t const am = mat[i*stride + j];
                               real_fd_t const cj = atom_coeff[ia][j];
-                              ci += cj * am;
+                              ci += am * cj;
                           } // j
                           V_atom_coeff[ia][i] = ci;
                       } // i
@@ -143,6 +145,7 @@ namespace grid_operators {
                           stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma()*scale_sigmas, echo_sho);
                       } // ii
                   } else {
+                      // Gamma point, no periodic images
                       stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma()*scale_sigmas, echo_sho);
                   } // need images
                   
@@ -152,7 +155,7 @@ namespace grid_operators {
 
       } // h0s1 >= 0
       return stat;
-  } // _grid_operator
+  } // _grid_operation
 
   //
   // idea: the identity operation of the Overlap operator could be implemented with a
@@ -274,24 +277,27 @@ namespace grid_operators {
       } // constructor without atoms
 
       status_t Hamiltonian(real_t Hpsi[], real_t const psi[], int const echo=0) const {
-          return _grid_operator(Hpsi, psi, grid, atoms, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
+          return _grid_operation(Hpsi, psi, grid, atoms, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
       } // Hamiltonian
 
       status_t Overlapping(real_t Spsi[], real_t const psi[], int const echo=0) const {
-          return _grid_operator<real_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase.data(), nullptr, nullptr, echo);
+          return _grid_operation<real_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase.data(), nullptr, nullptr, echo);
       } // Overlapping
 
       status_t Conditioner(real_t Cpsi[], real_t const psi[], int const echo=0) const {
-          return _grid_operator(Cpsi, psi, grid, atoms, -1, boundary_phase.data(), &preconditioner, nullptr, echo);
+          return _grid_operation(Cpsi, psi, grid, atoms, -1, boundary_phase.data(), &preconditioner, nullptr, echo);
       } // Pre-Conditioner
 
       status_t get_atom_coeffs(real_t *const *const atom_coeffs, real_t const psi[], int const echo=0) const {
-          return _grid_operator<real_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
+          return _grid_operation<real_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
       status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, float const scale_sigmas, int const echo=0) const {
-          return _grid_operator<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
+          return _grid_operation<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
       } // get_start_waves
+
+      double get_volume_element() const { return grid.dV(); }
+      size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
 
       status_t set_potential(double const *local_potential=nullptr, size_t const ng=0, 
                              double const *const *const atom_matrices=nullptr,
