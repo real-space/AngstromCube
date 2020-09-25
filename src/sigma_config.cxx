@@ -234,11 +234,11 @@ namespace sigma_config {
 
         int iword{0};
         
-        char const * string{config + (*config == '"')}; // drop first char if it is '"'
+        char const * string{config + ('"' == *config)}; // drop first char if it is '"'
         char c0{*string};
         while(c0) {
 //          if (echo > 0) printf("# start from '%s'\n", string);
-          
+
             assert(iword < mwords);
           
             values[iword] = 0.0;
