@@ -202,7 +202,7 @@
       status_t stat(0);
       char const *test_unit = nullptr; // the name of the unit to be tested
       int run_tests{0};
-      int verbosity{3}; // set low
+      int verbosity{3}; // set default verbosity low
       if (argc < 2) {
           printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
           return -1;
@@ -267,10 +267,15 @@
               printf(" %s", argv[iarg]); // repeat the command line arguments
           }   printf("\n");
       } // echo
+      //
+      // in addition to command_line_interface, we can modify the control environment by a file
+      stat += control::read_control_file(control::get("control.file", ""), echo);
+      //
       if (echo > 0) show_version();
       if (echo > 0) printf("\n# verbosity = %d\n", echo);
-      stat += unit_system::set_output_units(control::get("output.energy.unit", "Ha"),
-                                            control::get("output.length.unit", "Bohr"));
+      stat += unit_system::set_output_units(
+                  control::get("output.energy.unit", "Ha"),
+                  control::get("output.length.unit", "Bohr"));
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);

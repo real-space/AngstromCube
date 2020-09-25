@@ -14,6 +14,7 @@
 #include "inline_math.hxx" // set
 #include "simple_math.hxx" // ::random<T>
 #include "complex_tools.hxx" // conjugate
+#include "display_units.h" // eV, _eV
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -82,13 +83,13 @@ namespace davidson_solver {
   
   
   template<typename real_t>
-  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr, real_t const factor=1) {
+  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr, real_t const factor=1, char const *unit="1") {
       if (n < 1) return;
       if (1 == n) {
-          printf("# Vector=%s ", name);
+          printf("# Vector=%s (%s)", name, unit);
       } else {
-          printf("\n# %dx%d Matrix=%s\n", n, m, name);
-      }
+          printf("\n# %dx%d Matrix=%s (%s)\n", n, m, name, unit);
+      } // n == 1
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
@@ -150,7 +151,7 @@ namespace davidson_solver {
           inner_products(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, dV);
 
           if (echo > 9) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
-          if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
+          if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian", eV, _eV);
 
           auto const info = linear_algebra::eigenvalues(eigval.data(), sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride());
           if (info) {
@@ -158,7 +159,7 @@ namespace davidson_solver {
               stat += info;
           } else {
               auto const & eigvec = Hmt;
-              if (echo > 8) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
+              if (echo > 8) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues", eV, _eV);
               // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 
               // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
@@ -200,7 +201,7 @@ namespace davidson_solver {
                               ++new_bands;
                               thres2 = std::min(thres2, rn2);
                           }
-                      } //
+                      } // rn2
                   } // i
                   int const add_bands = new_bands;
                   if (echo > 0) printf("# Davidson: add %d residual vectors with norm2 above %.3e\n", add_bands, thres2);
@@ -216,7 +217,7 @@ namespace davidson_solver {
                               if (echo > 0) printf(" %i", i);
                               ++new_band;
                           }
-                      } //
+                      } // rn2
                   } // i
                   if (echo > 0) printf("\n");
                   if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
@@ -243,7 +244,7 @@ namespace davidson_solver {
       set(waves, nbands*ndof, psi.data());  // copy result wave functions back
       set(energies, nbands, eigval.data()); // export last set of nbands eigenvalues
 
-      if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues", eV);
+      if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues", eV, _eV);
 
       return stat;
   } // eigensolve

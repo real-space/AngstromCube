@@ -4,6 +4,7 @@
 #include "complex_tools.hxx" // complex_name, is_complex, conjuagte, to_complex_t
 #include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues, ::inverse
 #include "data_view.hxx" // view2D<T>
+#include "display_units.h" // eV, _eV, Kelvin, _Kelvin
 
 namespace dense_solver {
 

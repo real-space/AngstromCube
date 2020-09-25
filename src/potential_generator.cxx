@@ -384,8 +384,8 @@ namespace potential_generator {
       std::vector<double>  Ves(g.all(), 0.0); // electrostatic potential
       std::vector<double> Vtot(g.all()); // total effective potential
 
-      char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fourier", "multi-grid", "CG", "SD", "none"}
-      char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n'}
+      char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
+      char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n', 'm', 'M'}
 
       // prepare for solving the Kohn-Sham equation on the real-space grid
       auto const basis_method = control::get("basis", "grid");
@@ -448,7 +448,7 @@ namespace potential_generator {
               view2D<double> energies(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
 
               auto const eigensolver_method = control::get("eigensolver", "cg");
-              int const nrepeat = int(control::get("repeat.eigensolver", 1.)); // repetitions of the solver
+              auto const nrepeat = int(control::get("repeat.eigensolver", 1.)); // repetitions of the solver
       // KS solver prepared
       
       
@@ -628,6 +628,7 @@ namespace potential_generator {
                   double const Ees = 0.5*dot_product(g.all(), rho.data(), Ves.data())*g.dV();
                   printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
               } // echo
+
           } // scope
           here;
 
@@ -716,7 +717,7 @@ namespace potential_generator {
                           } // irepeat
                       } else
                       if ('n' == *eigensolver_method) { // "none"
-                          if (take_atomic_valence_densities < 1) warn("eigensolver=\'none\' generates no new valence density");
+                          if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
                       } else {
                           ++stat; error("unknown eigensolver method \'%s\'", eigensolver_method);
                       } // eigensolver_method

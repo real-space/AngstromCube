@@ -2,7 +2,7 @@
 
 exe=../src/a43
 
-nkpoints=9
+nkpoints=2
 
 ### Al atom
 # geometry_file=atoms.xyz
@@ -16,14 +16,17 @@ nkpoints=9
 # echo "C  0 0 0" >> $geometry_file
 # out_file_base=pg_new.C-sc
 
-### C-dimer: QE-spectrum -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV
-### exe:                 -22.522  -11.837   -3.817   -0.825   -0.341    1.797    1.913    2.057 2.414 eV (not self-consistent)
+### C-dimer:
 geometry_file=atoms.xyz
 printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
 echo "C  0 0 -0.65" >> $geometry_file
 echo "C  0 0  0.65" >> $geometry_file
 out_file_base=pg_new.C-dimer
-
+### QE-spectrum          -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV (self-consistent result)
+### exe using davidson   -22.522  -11.837   -3.817   -0.825   -0.341    1.797    1.913    2.057 2.414 eV (not self-consistent)
+### exe using CG         -22.694  -12.207   -4.013   -4.013   -2.165    0.242    1.671    1.707   1.721   2.005 2.005 2.195 2.195 3.065 3.363 4.106 4.137 4.165 4.180 4.329
+### exe using SHO4       -21.2913 -9.80567 -7.60901 -7.60899 -7.39258 -0.223547 -0.223528 11.133 eV
+### exe using 10Ry       -22.6197 -12.1007 -4.01218 -4.01207 -2.19573 0.234374 1.69084 1.7138    133.364 133.388 eV
 
 ### H-sc
 # geometry_file=atoms.xyz
@@ -70,82 +73,97 @@ out_file_base=pg_new.C-dimer
 # geometry_file=graphene.xyz
 # out_file_base=potential_generator.graphene.sho.out
 
+### generate a control file
+cat > control.sh << EOF
+# grid spacing of the dense grid
+potential_generator.grid.spacing=0.251
+
+# max number of self-consistency iterations
+potential_generator.max.scf=1
+
+# Poisson solver
+electrostatic.solver=fft
+
+# DEVEL option
+occupied.bands=4
+
+# configuration of atomic PAW setups
+element_H="1s 1 0 | 0.9 sigma .41"
+element_C="2s 2 2p 2 0 | 1.2 sigma .5"
+element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5"
+element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1"
+single_atom.local.potential.method=sinc
+single_atom.init.echo=7
+single_atom.init.scf.maxit=1
+single_atom.echo=1
+# logarithmic derivatives
+logder.unit=Ha
+logder.start=2
+logder.stop=1
+
+# this option is not active
+grid_hamiltonian.floating.point.bits=32
+
+# iterative eigenvalue solver options
+bands.per.atom=10
+repeat.eigensolver=15
+eigensolver=davidson
+
+# for the CG method
+conjugate_gradients.max.iter=19
+
+# for start wave functions use SHO functions with larger sigma spread
+start.waves.scale.sigma=9
+atomic.valence.decay=0
+
+# show energies in units of electronVolt
+output.energy.unit=eV
+EOF
+
 scale_k=1
 scale_p=1
 scale_h=1
 scale_s=1
 
-for spacing in `seq 4 4 4`; do
+for spacing in `seq 4 1 4`; do
   out_file=$out_file_base.grid$spacing.out
-
-  (cd ../src/ && make -j) && \
-  $exe +verbosity=9 \
-    -test potential_generator. \
-        +geometry.file=$geometry_file \
-        +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=fft \
-        +occupied.bands=4 \
-        +element_H="1s 1 0 | 0.9 sigma .41" \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
-        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
-         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
-        +single_atom.local.potential.method=sinc \
-        +single_atom.init.echo=7 \
-        +single_atom.init.scf.maxit=1 \
-        +single_atom.echo=1 \
-        +logder.start=2 +logder.stop=1 \
-        +bands.per.atom=10 \
-        +potential_generator.max.scf=1 \
-        +basis=grid \
-        +grid_hamiltonian.floating.point.bits=32 \
-        +repeat.eigensolver=35 \
-        +eigensolver=davidson \
-        +conjugate_gradients.max.iter=19 \
-        +start.waves.scale.sigma=9 \
-        +atomic.valence.decay=0 \
-        +output.energy.unit=eV \
-        > $out_file
-        ./spectrum.sh $out_file > $out_file.spectrum.dat
-done
-exit
-
-for ecut in `seq 5 5 5`; do
-  out_file=$out_file_base.pw$ecut.out
+  echo "# start calculation $out_file"
 
   (cd ../src/ && make -j) && \
   $exe +verbosity=7 \
     -test potential_generator. \
         +geometry.file=$geometry_file \
-        +potential_generator.grid.spacing=0.251 \
-        +electrostatic.solver=fft \
-        +occupied.bands=4 \
-        +element_H="1s 1 0 | 0.9 sigma .41" \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
-        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
-         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
-        +single_atom.local.potential.method=sinc \
-        +single_atom.init.echo=7 \
-        +single_atom.init.scf.maxit=1 \
-        +single_atom.echo=1 \
-        +logder.start=2 +logder.stop=1 \
-        +bands.per.atom=4 \
-        +potential_generator.max.scf=1 \
-        +basis=pw \
-        +pw_hamiltonian.cutoff.energy=$ecut \
-        +pw_hamiltonian.test.kpoints=$nkpoints \
-        +pw_hamiltonian.scale.kinetic=$scale_k \
-        +pw_hamiltonian.scale.potential=$scale_p \
-        +pw_hamiltonian.scale.nonlocal.h=$scale_h \
-        +pw_hamiltonian.scale.nonlocal.s=$scale_s \
-        +pw_hamiltonian.floating.point.bits=32 \
-        +dense_solver.test.overlap.eigvals=1 \
+        +control.file=control.sh \
+        +basis=grid \
         > $out_file
         ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
-# exit
+exit
+#         +potential_generator.grid.spacing=0.251 \
+#         +electrostatic.solver=fft \
+#         +occupied.bands=4 \
+#         +element_H="1s 1 0 | 0.9 sigma .41" \
+#         +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
+#         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
+#          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
+#         +single_atom.local.potential.method=sinc \
+#         +single_atom.init.echo=7 \
+#         +single_atom.init.scf.maxit=1 \
+#         +single_atom.echo=1 \
+#         +logder.start=2 +logder.stop=1 \
+#         +bands.per.atom=10 \
+#         +potential_generator.max.scf=1 \
+#         +grid_hamiltonian.floating.point.bits=32 \
+#         +repeat.eigensolver=15 \
+#         +eigensolver=davidson \
+#         +conjugate_gradients.max.iter=19 \
+#         +start.waves.scale.sigma=9 \
+#         +atomic.valence.decay=0 \
+#         +output.energy.unit=eV \
 
-for numax in `seq 0 1 9`; do
+for numax in `seq 4 1 4`; do
   out_file=$out_file_base.sho$numax.out
+  echo "# start calculation $out_file"
 
   (cd ../src/ && make -j) && \
   $exe +verbosity=7 \
@@ -176,11 +194,49 @@ for numax in `seq 0 1 9`; do
         +sho_hamiltonian.scale.nonlocal.s=$scale_s \
         +sho_hamiltonian.floating.point.bits=32 \
         +dense_solver.test.overlap.eigvals=1 \
+        +output.energy.unit=eV \
         > $out_file
         ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
 
+for ecut in `seq 1 1 5`; do
+  out_file=$out_file_base.pw$ecut.out
+  echo "# start calculation $out_file"
+
+  (cd ../src/ && make -j) && \
+  $exe +verbosity=7 \
+    -test potential_generator. \
+        +geometry.file=$geometry_file \
+        +potential_generator.grid.spacing=0.251 \
+        +electrostatic.solver=fft \
+        +occupied.bands=4 \
+        +element_H="1s 1 0 | 0.9 sigma .41" \
+        +element_C="2s 2 2p 2 0 | 1.2 sigma .5" \
+        +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5" \
+         +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \
+        +single_atom.local.potential.method=sinc \
+        +single_atom.init.echo=7 \
+        +single_atom.init.scf.maxit=1 \
+        +single_atom.echo=1 \
+        +logder.start=2 +logder.stop=1 \
+        +bands.per.atom=4 \
+        +potential_generator.max.scf=1 \
+        +basis=pw \
+        +pw_hamiltonian.cutoff.energy=$ecut \
+        +pw_hamiltonian.test.kpoints=$nkpoints \
+        +pw_hamiltonian.scale.kinetic=$scale_k \
+        +pw_hamiltonian.scale.potential=$scale_p \
+        +pw_hamiltonian.scale.nonlocal.h=$scale_h \
+        +pw_hamiltonian.scale.nonlocal.s=$scale_s \
+        +pw_hamiltonian.floating.point.bits=32 \
+        +dense_solver.test.overlap.eigvals=1 \
+        +output.energy.unit=eV \
+        > $out_file
+        ./spectrum.sh $out_file > $out_file.spectrum.dat
+done
 exit
+
+
 #         +electrostatic.solver=load +electrostatic.potential.from.file=v_es.mg.dat \
 #         +element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma 1.1" \
 #          +element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1" \

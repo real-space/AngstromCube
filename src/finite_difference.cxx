@@ -26,10 +26,10 @@ namespace finite_difference {
       int const mantissa_bits = (sizeof(real_t) > 4)? 52 : 23; // 23:float, 52:double
       double const precision = 4./(1ul << mantissa_bits);
       if (echo > 4) printf("# expected precision for real_%ld is %g\n", sizeof(real_t), precision);
-      int const M = 15;
+      int const M = 16;
       double maxdev = 0; int maxdev_nn = -99;
       real_t c[M];
-      for(int nn = M - 1; nn >= -1; --nn) {
+      for(int nn = M - 2; nn >= -1; --nn) {
           for(int i = 0; i < M; ++i) c[i] = 0; // clear
           set_Laplacian_coefficients(c, nn);
           double checksum = c[0]; for(int i = 1; i < M; ++i) checksum += 2*c[i];
@@ -60,36 +60,35 @@ namespace finite_difference {
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
           real_space::grid_t g(dims);
           g.set_boundary_conditions(Periodic_Boundary);
-          double const k = (1 + dir)*2*constants::pi/g[dir];
-          auto const values = new real_t[g.all()];
+          double const k = (1 + dir)*2*constants::pi/g[dir]; // wave vector of a single plane wave
+          std::vector<real_t> values(g.all()), result(g.all());
           for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
-          std::vector<real_t> out(g.all());
-          stat += finite_difference::apply(out.data(), values, g, Laplacian);
-          if (echo > 5) printf("\n# in, out, ref values:\n");
+          stat += finite_difference::apply(result.data(), values.data(), g, Laplacian);
+          if (echo > 5) printf("\n# in, result, ref values:\n");
           double dev{0};
           for(size_t i = 0; i < g.all(); ++i) {
-              double const ref = -k*k*values[i];
-              if (echo > 5) printf("%ld %g %g %g\n", i, values[i], out[i], ref);
-              // compare in the middle range out and ref values
-              dev += std::abs(out[i] - ref);
+              double const ref = -k*k*values[i]; // analytic solution to the Laplacian operator applied to a plane wave
+              if (echo > 5) printf("%ld %g %g %g\n", i, values[i], result[i], ref);
+              // compare in the middle range result and ref values
+              dev += std::abs(result[i] - ref);
           } // i
-          if (echo > 2) printf("# %c-direction: dev = %g\n", 120+dir, dev);
+          if (echo > 2) printf("# %s %c-direction: dev = %g\n", __func__, 120+dir, dev);
       } // direction
       return stat;
   } // test_Laplacian
 
   status_t test_dispersion(int const echo=9) {
       if (echo < 7) return 0; // this function is only plotting
-      for(int nn = 1; nn < 14; ++nn) {
+      for(int nn = 1; nn <= 13; ++nn) { // largest order implemented is 13
           stencil_t<double> const fd(1.0, nn);
-          printf("\n## dispersion for nn=%d\n", nn);
+          printf("\n## finite-difference dispersion for nn=%d\n", nn);
           for(int ik = 0; ik <= 100; ++ik) {
-              double const k =  .01 * constants::pi * ik;
-              double E_k = -0.5*fd.c2nd[0][0];
+              double const k = 0.01 * ik * constants::pi;
+              double E_k{-0.5*fd.c2nd[0][0]};
               for(int j = 1; j <= nn; ++j) {
                   E_k -= std::cos(k*j) * fd.c2nd[0][j];
               } // j
-              printf("%g %g\n", k, E_k); // in Hartree
+              printf("%g %g %g\n", k, E_k, 0.5*k*k); // in Hartree
           } // ik
       } // nn
       return 0;
@@ -100,9 +99,9 @@ namespace finite_difference {
     status += test_coefficients<double>(echo);
     status += test_coefficients<float>(echo);
     status += test_create_and_destroy(echo);
-    status += test_dispersion(echo);
     status += test_Laplacian<double>(echo);
     recorded_warnings::clear_warnings(); // clear
+    status += test_dispersion(echo);
     return status;
   } // all_tests
 #endif // NO_UNIT_TESTS

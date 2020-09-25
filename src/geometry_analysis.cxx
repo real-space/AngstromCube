@@ -29,6 +29,13 @@ namespace geometry_analysis {
   
   template<typename int_t>
   class BoxStructure {
+    //
+    // We want to analyze all short pair distances of N atoms and their periodic images.
+    // The naive implementation results in order(N^2) operations
+    // However, given a truncation radius we can split the system up into smaller boxes
+    // and only compare the distances of atoms inside a box with atoms inside the (up to)
+    // 26 neighbor boxes.
+    //
   private:
     int static constexpr X=0, Y=1, Z=2;
     std::vector<std::vector<int_t>> atom_index; // list of atomic indices
@@ -70,7 +77,7 @@ namespace geometry_analysis {
           if (echo > 2) printf("# %s: use %d %d %d halo boxes on each side\n", __func__, nhalo[X], nhalo[Y], nhalo[Z]);
 
           indirection.resize(nbx);
-          image_index.resize(4*nbx);
+          image_index.resize(nbx*4);
           { // scope: fill indirection list
               for        (int jz = 0; jz < hnh[Z]; ++jz) {  int const iz = get_center_box<Z>(jz - nhalo[Z]);
                   for    (int jy = 0; jy < hnh[Y]; ++jy) {  int const iy = get_center_box<Y>(jy - nhalo[Y]);
@@ -78,12 +85,12 @@ namespace geometry_analysis {
                       for(int jx = 0; jx < hnh[X]; ++jx) {  int const ix = get_center_box<X>(jx - nhalo[X]);
                           int ib = get_center_index(ix, iy, iz);
                           int const jb = (jz*hnh[Y] + jy)*hnh[X] + jx;
-                          image_index[4*jb + X] = (int)std::floor((jx - nhalo[X])/((double)nboxes[X]));
-                          image_index[4*jb + Y] = (int)std::floor((jy - nhalo[Y])/((double)nboxes[Y]));
-                          image_index[4*jb + Z] = (int)std::floor((jz - nhalo[Z])/((double)nboxes[Z]));
-                          if ((Isolated_Boundary == bc[X]) && (0 != image_index[4*jb + X])) ib = -1;
-                          if ((Isolated_Boundary == bc[Y]) && (0 != image_index[4*jb + Y])) ib = -1;
-                          if ((Isolated_Boundary == bc[Z]) && (0 != image_index[4*jb + Z])) ib = -1;
+                          image_index[jb*4 + X] = (int)std::floor((jx - nhalo[X])/((double)nboxes[X]));
+                          image_index[jb*4 + Y] = (int)std::floor((jy - nhalo[Y])/((double)nboxes[Y]));
+                          image_index[jb*4 + Z] = (int)std::floor((jz - nhalo[Z])/((double)nboxes[Z]));
+                          if ((Isolated_Boundary == bc[X]) && (0 != image_index[jb*4 + X])) ib = -1;
+                          if ((Isolated_Boundary == bc[Y]) && (0 != image_index[jb*4 + Y])) ib = -1;
+                          if ((Isolated_Boundary == bc[Z]) && (0 != image_index[jb*4 + Z])) ib = -1;
                           indirection[jb] = ib;
                           if (echo > 9) printf(" %2d", ib);
                       } // jx
@@ -150,7 +157,7 @@ namespace geometry_analysis {
           assert(jz >= -nhalo[Z]); assert(jz < nboxes[Z] + nhalo[Z]);
           int const jb = ((jz + nhalo[Z])*hnh[Y] + (jy + nhalo[Y]))*hnh[X] + (jx + nhalo[X]);
           for(int d = 0; d < 3; ++d) {
-              if (ii != nullptr) ii[d] = image_index[4*jb + d];
+              if (ii != nullptr) ii[d] = image_index[jb*4 + d];
           } // d
           int const ib = indirection[jb];
           *list = (ib >= 0) ? atom_index[ib].data() : nullptr;
@@ -166,7 +173,7 @@ namespace geometry_analysis {
   
   double constexpr Bohr2Angstrom = 0.52917724924;
   double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
-  
+
   status_t read_xyz_file(view2D<double> & xyzZ, int & n_atoms, char const *filename, 
                          double *cell, int *bc, int const echo) { // optionals
 
@@ -692,7 +699,7 @@ namespace geometry_analysis {
                                    "# bond lengths are in %s, angles in degree\n\n",_Ang);
 // #pragma omp parallel for
               for(index_t ia = 0; ia < natoms_BP; ++ia) {
-                  int const cn = std::min((int)coordination_number[ia], MaxBP);
+                  int const cn = std::min(int(coordination_number[ia]), MaxBP);
                   double const xyz_ia[3] = {xyzZ[ia][0], xyzZ[ia][1], xyzZ[ia][2]}; // load center coordinates
                   assert(cn == bond_partner[ia].size());
                   view2D<float> coords(cn, 4, 0.0); // get memory, decide float or double for the bond structure analysis
@@ -707,7 +714,7 @@ namespace geometry_analysis {
                   int const isi = ispecies[ia];
                   bond_partner[ia].clear(); // free memory
                   char string_buffer[2048];
-                  analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[4][3]);
+                  analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[ia][3]);
 // #pragma omp critical
                   if (echo > 4) printf("# a#%i %s %s\n", ia, Sy_of_species[isi], string_buffer); // no new line
               } // ia
