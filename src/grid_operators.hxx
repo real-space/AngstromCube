@@ -12,6 +12,7 @@
 #include "vector_math.hxx" // ::vec<N,T>
 #include "boundary_condition.hxx" // ::periodic_images
 #include "recorded_warnings.hxx" // error, warn
+#include "complex_tools.hxx" // conjugate
 
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
@@ -31,7 +32,7 @@ namespace grid_operators {
                         , double const *potential=nullptr // diagonal potential operator [optional]
                         , int const echo=0
                         , real_t       *const *const atomic_projection_coefficients=nullptr
-                        , real_t const *const *const atomic_addition_coefficients=nullptr
+                        , real_t const *const *const start_wave_coeffs=nullptr
                         , double const scale_sigmas=1 // only during addition (used for start wave functions)
                          ) {
       status_t stat(0);
@@ -40,6 +41,7 @@ namespace grid_operators {
           if (kinetic) {
               if (psi) {
                   stat += finite_difference::apply(Hpsi, psi, g, *kinetic); // prefactor -0.5 moved into finite-difference-coefficients
+                  // ToDo: FD needs boundary_phase as well
                   if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
               } // psi != nullptr
           } else {
@@ -61,8 +63,7 @@ namespace grid_operators {
       if (h0s1 >= 0) {
         
           int const na = a.size(); // number of atoms
-          std::vector<std::vector<real_t>> V_atom_coeff(na);
-          std::vector<std::vector<real_t>>   atom_coeff(na);
+          std::vector<std::vector<real_t>> atom_coeff(na);
           
           for(int ia = 0; ia < na; ++ia) {
               int const numax = a[ia].numax();
@@ -88,43 +89,37 @@ namespace grid_operators {
                       stat += sho_projection::sho_project(atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma(), psi, g, echo_sho);
                   } // need_images
               } // psi != nullptr
-
-          } // ia
-
-          if (atomic_projection_coefficients) {
-              for(int ia = 0; ia < na; ++ia) {
-                  int const numax = a[ia].numax();
-                  int const ncoeff = sho_tools::nSHO(numax);
+              
+              if (atomic_projection_coefficients) {
                   set(atomic_projection_coefficients[ia], ncoeff, atom_coeff[ia].data()); // export
-              } // ia
-          } // atomic_projection_coefficients
+              } // atomic_projection_coefficients
+          } // ia
 
           if (Hpsi) {
 
               for(int ia = 0; ia < na; ++ia) {
-                  int const numax = (atomic_addition_coefficients != nullptr) ? 3 : a[ia].numax();
+                  int const numax = (start_wave_coeffs) ? 3 : a[ia].numax();
                   int const ncoeff = sho_tools::nSHO(numax);
-                  V_atom_coeff[ia] = std::vector<real_t>(ncoeff, 0.0);
+                  std::vector<real_t> V_atom_coeff_ia(ncoeff);
 
-                  if (atomic_addition_coefficients) {
+                  if (start_wave_coeffs) {
                       assert( 3 == numax ); // this option is only used for start wave functions.
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
                           for(int ic = 0; ic < ncoeff; ++ic) {
-                              printf(" %g", atomic_addition_coefficients[ia][ic]);
+                              printf(" %g", start_wave_coeffs[ia][ic]);
                           }   printf("\n");
                       } // echo
 #endif
-                      set(V_atom_coeff[ia].data(), ncoeff, atomic_addition_coefficients[ia]); // import
+                      set(V_atom_coeff_ia.data(), ncoeff, start_wave_coeffs[ia]); // import
                   } else {
 
                       // scope: V_atom_coeff = matrix * atom_coeff
-
                       int const stride = a[ia].stride();
                       assert(stride >= ncoeff); // check internal consistency
                       auto *const mat = a[ia].get_matrix<real_fd_t>(h0s1);
-                      // DGEMM-style matrix multiplication
+                      // matrix-vector multiplication
                       for(int i = 0; i < ncoeff; ++i) {
                           real_fd_t ci(0);
                           for(int j = 0; j < ncoeff; ++j) {
@@ -132,21 +127,23 @@ namespace grid_operators {
                               real_fd_t const cj = atom_coeff[ia][j];
                               ci += am * cj;
                           } // j
-                          V_atom_coeff[ia][i] = ci;
+                          V_atom_coeff_ia[i] = ci;
                       } // i
-                  } // scope
+                      // scope
+                      
+                  } // start_wave_coeffs
 
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
                           real_t const inv_Bloch_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
                           std::vector<real_t> V_image_coeff(ncoeff);
-                          set(V_image_coeff.data(), ncoeff, V_atom_coeff[ia].data(), inv_Bloch_factor);
+                          set(V_image_coeff.data(), ncoeff, V_atom_coeff_ia.data(), inv_Bloch_factor);
 
                           stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma()*scale_sigmas, echo_sho);
                       } // ii
                   } else {
                       // Gamma point, no periodic images
-                      stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma()*scale_sigmas, echo_sho);
+                      stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff_ia.data(), numax, a[ia].pos(), a[ia].sigma()*scale_sigmas, echo_sho);
                   } // need images
                   
               } // ia

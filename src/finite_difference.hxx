@@ -170,7 +170,7 @@ namespace finite_difference {
   } // set_Laplacian_coefficients
 
   
-  template<typename real_t> // real_t: coefficient may be float or double
+  template<typename real_t> // real_t may be float or double
   class stencil_t {
     public:
       real_t c2nd[3][nnArraySize]; // coefficients for the 2nd derivative

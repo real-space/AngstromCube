@@ -435,16 +435,13 @@ namespace potential_generator {
                       int const ia = iband % na; // which atom?
                       int const io = iband / na; // which orbital?
                       if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands_per_atom);
-                      if (echo > -7) printf("# %s initialize band #%i as atomic orbital %x%x%x of atom #%i\n",
-                                              __func__, iband, qn[io][2], qn[io][1], qn[io][0], ia);
-                      int const isho = sho_tools::zyx_index(3, qn[io][0], qn[io][1], qn[io][2]); // isho in order_zyx w.r.t. numax=3
-                      single_atomic_orbital[ia][isho] = 1;
+                      auto const q = qn[io];
+                      if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
+                      int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
+                      single_atomic_orbital[ia][isho] = 1; // set
                       op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
-                      single_atomic_orbital[ia][isho] = 0;
-//                       } else {
-//                           warn("cannot initialize band #%i, SHO quantum numbers %x%x%x out of range", iband, qn[io][2], qn[io][1], qn[io][0]);
-//                       }
-                      if (echo > -7) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
+                      single_atomic_orbital[ia][isho] = 0; // reset
+//                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
                   } // iband
               } // scope
 
@@ -715,7 +712,7 @@ namespace potential_generator {
                       } else
                       if ('d' == *eigensolver_method) { // "davidson"
                           for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo + 9);
+                              stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else
                       if ('n' == *eigensolver_method) { // "none"

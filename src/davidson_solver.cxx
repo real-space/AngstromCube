@@ -82,17 +82,17 @@ namespace davidson_solver {
   
   
   template<typename real_t>
-  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr) {
+  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr, real_t const factor=1) {
       if (n < 1) return;
       if (1 == n) {
-          printf("# Vector=%s  ", name);
+          printf("# Vector=%s ", name);
       } else {
           printf("\n# %dx%d Matrix=%s\n", n, m, name);
       }
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
-              printf("%9.3f", mat[i*stride + j]);
+              printf((1 == n)?" %.3f":" %7.3f", mat[i*stride + j]*factor);
           }   printf("\n");
       }   printf("\n");
   } // show_matrix
@@ -149,7 +149,7 @@ namespace davidson_solver {
           inner_products(Ovl.data(), Ovl.stride(), ndof, psi.data(), sub_space, spsi.data(), sub_space, dV);
           inner_products(Hmt.data(), Hmt.stride(), ndof, psi.data(), sub_space, hpsi.data(), sub_space, dV);
 
-          if (echo > 8) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
+          if (echo > 9) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian");
 
           auto const info = linear_algebra::eigenvalues(eigval.data(), sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride());
@@ -243,7 +243,7 @@ namespace davidson_solver {
       set(waves, nbands*ndof, psi.data());  // copy result wave functions back
       set(energies, nbands, eigval.data()); // export last set of nbands eigenvalues
 
-      if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues");
+      if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues", eV);
 
       return stat;
   } // eigensolve

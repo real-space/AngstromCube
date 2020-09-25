@@ -11,10 +11,19 @@ nkpoints=9
 # out_file_base=pg_new.Al-atom
 
 ### C-sc
+# geometry_file=atoms.xyz
+# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
+# out_file_base=pg_new.C-sc
+
+### C-dimer: QE-spectrum -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV
+### exe:                 -22.522  -11.837   -3.817   -0.825   -0.341    1.797    1.913    2.057 2.414 eV (not self-consistent)
 geometry_file=atoms.xyz
-printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
-out_file_base=pg_new.C-sc
+printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
+echo "C  0 0 -0.65" >> $geometry_file
+echo "C  0 0  0.65" >> $geometry_file
+out_file_base=pg_new.C-dimer
+
 
 ### H-sc
 # geometry_file=atoms.xyz
@@ -70,7 +79,7 @@ for spacing in `seq 4 4 4`; do
   out_file=$out_file_base.grid$spacing.out
 
   (cd ../src/ && make -j) && \
-  $exe +verbosity=7 \
+  $exe +verbosity=9 \
     -test potential_generator. \
         +geometry.file=$geometry_file \
         +potential_generator.grid.spacing=0.251 \
@@ -94,6 +103,7 @@ for spacing in `seq 4 4 4`; do
         +conjugate_gradients.max.iter=19 \
         +start.waves.scale.sigma=9 \
         +atomic.valence.decay=0 \
+        +output.energy.unit=eV \
         > $out_file
         ./spectrum.sh $out_file > $out_file.spectrum.dat
 done
