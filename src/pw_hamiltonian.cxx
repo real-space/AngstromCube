@@ -250,12 +250,12 @@ namespace pw_hamiltonian {
       assert( nG[1] <= Vcoeff.dim1() );
       assert( nG[2] <= Vcoeff.dim2() );
       
-      double const scale_k = control::get("pw_hamiltonian.scale.kinetic", 1.0);
-      double const scale_p = control::get("pw_hamiltonian.scale.potential", 1.0);
+      double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
+      double const scale_p = control::get("hamiltonian.scale.potential", 1.0);
       if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
       if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
-      real_t const scale_h = control::get("pw_hamiltonian.scale.nonlocal.h", 1.0);
-      real_t const scale_s = control::get("pw_hamiltonian.scale.nonlocal.s", 1.0);
+      real_t const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.0);
+      real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
       real_t constexpr scale_h = 1, scale_s = 1
@@ -414,7 +414,7 @@ namespace pw_hamiltonian {
       // all preparations done, start k-point loop
 
       auto const floating_point_bits = int(control::get("pw_hamiltonian.floating.point.bits", 64.)); // double by default
-      auto const nkpoints = int(control::get("pw_hamiltonian.test.kpoints", 17.));
+      auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
           char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/(nkpoints - 1.));

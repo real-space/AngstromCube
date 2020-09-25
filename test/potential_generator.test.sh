@@ -72,16 +72,13 @@ project_base=pg_new.C-dimer
 # geometry_file=graphene.xyz
 # project_base=potential_generator.graphene.sho.out
 
-nkpoints=2
-scale_k=1
-scale_p=1
-scale_h=1
-scale_s=1
-
 ### generate a control file
 cat > control.sh << EOF
 # verbosity of log output
 verbosity=7
+
+# show energies in units of electronVolt
+output.energy.unit=eV
 
 # where to find the coordinates
 geometry.file=$geometry_file
@@ -112,46 +109,30 @@ logder.unit=Ha
 logder.start=2
 logder.stop=1
 
-
 # configuration for basis=grid
 bands.per.atom=10
-repeat.eigensolver=15
 eigensolver=davidson
-# this option is not active
-grid_hamiltonian.floating.point.bits=32
-
-# for the CG method
+repeat.eigensolver=15
 conjugate_gradients.max.iter=19
-
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=9
 atomic.valence.decay=0
 
-# show energies in units of electronVolt
-output.energy.unit=eV
-
 # configuration for basis=sho
+# spread of the SHO basis functions
 sho_hamiltonian.test.sigma=1.0
-sho_hamiltonian.test.sigma.asymmetry=1
-sho_hamiltonian.test.kpoints=$nkpoints
-sho_hamiltonian.scale.kinetic=$scale_k
-sho_hamiltonian.scale.potential=$scale_p
-sho_hamiltonian.scale.nonlocal.h=$scale_h
-sho_hamiltonian.scale.nonlocal.s=$scale_s
-sho_hamiltonian.floating.point.bits=32
 
+# configuration for basis=sho or basis=pw
+hamiltonian.test.kpoints=2
+hamiltonian.scale.kinetic=1
+hamiltonian.scale.potential=1
+hamiltonian.scale.nonlocal.h=1
+hamiltonian.scale.nonlocal.s=1
+hamiltonian.floating.point.bits=32
 
+# also compute the eigenvalues of the overlap matrix?
 dense_solver.test.overlap.eigvals=1
 
-# configuration for basis=pw
-pw_hamiltonian.test.kpoints=$nkpoints
-pw_hamiltonian.scale.kinetic=$scale_k
-pw_hamiltonian.scale.potential=$scale_p
-pw_hamiltonian.scale.nonlocal.h=$scale_h
-pw_hamiltonian.scale.nonlocal.s=$scale_s
-pw_hamiltonian.floating.point.bits=32
-
-#! maybe we could unify some sho_hamiltonian and pw_hamiltonian options
 EOF
 
 

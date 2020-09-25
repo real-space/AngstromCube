@@ -172,10 +172,10 @@ namespace sho_hamiltonian {
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
       
 #ifdef DEVEL
-      double const scale_k = control::get("sho_hamiltonian.scale.kinetic", 1.0);
+      double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
       if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
-      real_t const scale_h = control::get("sho_hamiltonian.scale.nonlocal.h", 1.0);
-      real_t const scale_s = control::get("sho_hamiltonian.scale.nonlocal.s", 1.0);
+      real_t const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.0);
+      real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.0);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
       real_t constexpr scale_h = 1, scale_s = 1
@@ -496,7 +496,7 @@ namespace sho_hamiltonian {
       // perform the projection of the local potential
       std::vector<std::vector<double>> Vcoeffs(ncenters);
       int ncenters_active{0};
-      double const scale_potential = control::get("sho_hamiltonian.scale.potential", 1.0);
+      double const scale_potential = control::get("hamiltonian.scale.potential", 1.0);
       if (1.0 != scale_potential) warn("local potential is scaled by %g", scale_potential);
       for(int ic = 0; ic < ncenters; ++ic) {
           if (center_active[ic]) {
@@ -524,8 +524,8 @@ namespace sho_hamiltonian {
       prepare_timer.stop(echo);
       // all preparations done, start k-point loop
       
-      auto const floating_point_bits = int(control::get("sho_hamiltonian.floating.point.bits", 64.)); // double by default
-      auto const nkpoints = int(control::get("sho_hamiltonian.test.kpoints", 17.));
+      auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
+      auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
       simple_stats::Stats<double> time_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
