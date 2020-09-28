@@ -316,7 +316,7 @@ namespace pw_hamiltonian {
           , int const echo) { // log-level
 
       status_t stat(0);
-      SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
+//    SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
       
       for(int ia = 0; ia < natoms_PAW; ++ia) {
           if (echo > 0) {
@@ -340,7 +340,7 @@ namespace pw_hamiltonian {
           } // d
           printf("\n");
       } // echo
-      stat += (abs(cell_volume) > 1e-15);
+      stat += (std::abs(cell_volume) < 1e-9);
       double const svol = 1./std::sqrt(cell_volume); // normalization factor for plane waves
       if (echo > 1) printf("# normalization factor for plane waves is %g a.u.\n", svol);
 
@@ -410,7 +410,7 @@ namespace pw_hamiltonian {
 
       
       
-      prepare_timer.stop(echo);
+//    prepare_timer.stop(echo);
       // all preparations done, start k-point loop
 
       auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default

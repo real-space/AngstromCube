@@ -289,7 +289,7 @@ namespace grid_operators {
           return _grid_operation<real_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
-      status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, float const scale_sigmas, int const echo=0) const {
+      status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, float const scale_sigmas=1, int const echo=0) const {
           return _grid_operation<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
       } // get_start_waves
 

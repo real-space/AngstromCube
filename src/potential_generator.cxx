@@ -389,7 +389,7 @@ namespace potential_generator {
 
       // prepare for solving the Kohn-Sham equation on the real-space grid
       auto const basis_method = control::get("basis", "grid");
-      bool const psi_on_grid = ((basis_method[0] | 32) == 'g');
+      bool const psi_on_grid = ((*basis_method | 32) == 'g');
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
@@ -426,7 +426,7 @@ namespace potential_generator {
               view3D<double> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
                   psi = view3D<double>(nkpoints, nbands, gc.all()); // get memory
-                  float const scale_sigmas = control::get("start.waves.scale.sigma", 5.); // how much more spread in the start waves compared to sigma_prj
+                  float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
                   uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                   sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
                   std::vector<int32_t> ncoeff_a(na, 20);

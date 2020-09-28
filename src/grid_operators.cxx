@@ -35,7 +35,7 @@ namespace grid_operators {
       for(int ic = 0; ic < ncoeff; ++ic) {
           set(psi.data(), g.all(), 0.0);
           a_coeff[ic] = 1;
-          stat += op.get_start_waves(psi.data(), &a_coeff, echo);
+          stat += op.get_start_waves(psi.data(), &a_coeff, 1, echo);
           stat += op.get_atom_coeffs(&p_coeff, psi.data(), echo);
           if (echo > 5) printf("# %s%3i  ", __func__, ic);
           for(int jc = 0; jc < ncoeff; ++jc) {
@@ -79,7 +79,7 @@ namespace grid_operators {
       stat += op.Conditioner(Hpsi.data(), psi.data(), echo);
       return stat;
   } // class_with_atoms_test
-  
+
   status_t all_tests(int const echo) {
     status_t status(0);
     status += class_test(echo);
