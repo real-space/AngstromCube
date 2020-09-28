@@ -19,6 +19,8 @@
 #include "constants.hxx" // ::pi
 #include "control.hxx" // ::get
 #include "lossful_compression.hxx" // RDP_lossful_compression
+#include "sigma_config.hxx" // ::get, element_t
+#include "recorded_warnings.hxx" // warn
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -41,13 +43,6 @@
 #endif
 
 namespace atom_core {
-
-  typedef struct {
-      double E; // energy
-      float occ; // occupation number
-      enn_QN_t enn; // principal quantum number
-      ell_QN_t ell; // angular momentum
-  } orbital_t;
 
   enum energy_contributions {
       E_tot = 0, // total energy: E_eig - E_Htr - E_vxc + E_exc
@@ -83,23 +78,23 @@ namespace atom_core {
   } // rad_pot
 
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged) {
-    auto const alpha = 0.3058*std::pow(Z, 1./3.);
-    auto const beta = std::sqrt(108./constants::pi)*std::max(0., Z - 2)*alpha;
-    if (4 + 3.2*charged < 0) return -1; // error
-    auto const gamma = std::sqrt(4 + 3.2*charged);
-    auto const g2 = pow3(gamma) * ((Z < 2) ? 0.5*Z : 1);
-    double q{0};
-    for(auto ir = 0; ir < g.n; ++ir) {
-        auto const r = g.r[ir];
-        auto const x = alpha*r;
-        auto const exa = (x < 50)? std::exp(-3*x) : 0;
-        auto const xb = gamma*r;
-        auto const exb = (xb < 150)? std::exp(-xb) : 0;
-        r2rho[ir] = beta*std::sqrt(x)*exa + g2*exb*r*r;
-//      printf("%g %g\n", r, r2rho[ir]);
-        q += r2rho[ir] * g.dr[ir]; // integrate total charge
-    } // ir
-    return q; // charge
+      auto const alpha = 0.3058*std::pow(Z, 1./3.);
+      auto const beta = std::sqrt(108./constants::pi)*std::max(0., Z - 2)*alpha;
+      if (4 + 3.2*charged < 0) return -1; // error
+      auto const gamma = std::sqrt(4 + 3.2*charged);
+      auto const g2 = pow3(gamma) * ((Z < 2) ? 0.5*Z : 1);
+      double q{0};
+      for(auto ir = 0; ir < g.n; ++ir) {
+          auto const r = g.r[ir];
+          auto const x = alpha*r;
+          auto const exa = (x < 50)? std::exp(-3*x) : 0;
+          auto const xb = gamma*r;
+          auto const exb = (xb < 150)? std::exp(-xb) : 0;
+          r2rho[ir] = beta*std::sqrt(x)*exa + g2*exb*r*r;
+  //      printf("%g %g\n", r, r2rho[ir]);
+          q += r2rho[ir] * g.dr[ir]; // integrate total charge
+      } // ir
+      return q; // charge
   } // initial_density
 
   inline void get_Zeff_file_name(char *filename, char const *basename, float const Z) {
@@ -162,11 +157,20 @@ namespace atom_core {
   } // store_Zeff_to_file
 
 
+  typedef struct {
+      double E; // energy
+      double occ; // occupation number
+      enn_QN_t enn; // principal quantum number
+      ell_QN_t ell; // angular momentum
+  } orbital_t;
+  
 
-  status_t scf_atom(radial_grid_t const & g, // radial grid descriptor
-               double const Z, // atomic number
-               int const echo) { // log output level
-      if (echo > 0) printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
+  status_t scf_atom(radial_grid_t const & g // radial grid descriptor
+             , double const Z // atomic number
+             , int const echo // log output level
+             , double const occupations[][2] // =nullptr
+                   ) {
+      if (echo > 7) printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
 
       int constexpr sra = 1; // scalar-relativistic
       int constexpr MAXCYCLES = 200;
@@ -183,17 +187,23 @@ namespace atom_core {
               int enn{(m + 1)/2};
               for(int ell = m/2; ell >= 0; --ell) {
                   ++enn; // main quantum number
-                  int const max_occ = 2*(ell + 1 + ell); // spin degenerate
+                  int const max_occ = 2*ell + 1;
                   orb[i].enn = enn;
                   orb[i].ell = ell;
-                  orb[i].occ = std::min(std::max(0.0, Z - iZ), max_occ*1.);
+                  int const inl = nl_index(enn, ell);
+                  auto const auto_occ = std::min(std::max(0.0, Z - iZ), 2.*max_occ);
+                  orb[i].occ = occupations ? std::abs(occupations[inl][0] + occupations[inl][1]) : auto_occ;
+                  if (std::abs(orb[i].occ - auto_occ) > 2e-16) {
+                      warn("For Z=%g the occupation of the %d%c-orbital differs: %g vs %g (auto)",
+                                      Z, enn, ellchar(ell), orb[i].occ, auto_occ);
+                  } // warning
                   orb[i].E = guess_energy(Z, enn);
                   if (orb[i].occ > 0) {
-                      if (echo > 6) printf("# %s  i=%d %d%c f= %g  guess E= %g %s\n",
-                           __func__, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
+                      if (echo > 6) printf("# %s  Z=%g  i=%d %d%c f= %g  guess E= %g %s\n",
+                           __func__, Z, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
                       imax = std::max(i, imax);
                   } // occupied
-                  iZ += max_occ; // iZ jumps between atomic numbers of atoms with full shells
+                  iZ += 2*max_occ; // iZ jumps between atomic numbers of atoms with full shells
                   ++i; // next shell
               } // ell
           } // m
@@ -286,7 +296,7 @@ namespace atom_core {
                   double const q  = dot_product(g.n, rho4pi.data(), g.r2dr); // can be merged with the loop above
                   double const qq = dot_product(g.n, r2rho4pi.data(), g.dr); // can be merged with the loop above
                   if (std::abs(q - Z) > .1 && echo > 0) {
-                      printf("# %s  Z=%g  icyc=%d  Warning: rho has %.6f (or %.6f) electrons\n",  __func__, Z, icyc, q, qq);
+                      warn("for Z=%g rho has %g (or %g) electrons", Z, q, qq);
                   } // not charge neutral
 
                   next_task = Task_GenPot;
@@ -502,9 +512,15 @@ namespace atom_core {
     if (echo > 0) printf("\n# %s:%d  %s(echo=%d) from %g to %g in steps of %g\n\n",
                     __FILE__, __LINE__, __func__, echo, Z_begin, Z_end, Z_inc);
     status_t stat{0};
+    char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
     for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
         auto const rg = *radial_grid::create_default_radial_grid(Z);
-        stat += scf_atom(rg, Z, echo);
+        if (custom_config == 'a') { // "auto"
+            stat += scf_atom(rg, Z, echo);
+        } else {
+            auto const element = sigma_config::get(Z, echo);
+            stat += scf_atom(rg, Z, echo, element.occ);
+        }
     } // Z
     return stat;
   } // test_core_solver

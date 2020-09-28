@@ -1031,10 +1031,10 @@ extern "C" {
         } // ics
 
         // report integrals
-        for(int csv = 0; csv < 3; ++csv) {
+        for(int csv = 0; csv < 3; ++csv) { // core, semicore, valence
             double const old_charge = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
             double const new_charge = dot_product(nr, rg[TRU]->dr, new_r2density[csv]);
-            
+
             double mix_new = mixing[csv], mix_old = 1.0 - mix_new;
             // rescale the mixing coefficients such that the desired number of electrons comes out
             auto const mixed_charge = mix_old*old_charge + mix_new*new_charge;
@@ -2173,12 +2173,11 @@ extern "C" {
 
 #ifdef DEVEL      
         if (1) {
-            printf("# %s Radial density matrix in %s-order:\n", 
-                      label, SHO_order2string(sho_tools::order_lmn).c_str());
-            char labels[220*8];
-            sho_tools::construct_label_table(labels, numax, sho_tools::order_lmn);
+            printf("# %s Radial density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
+            view2D<char> labels(220, 8, '\0');
+            sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
             for(int i = 0; i < nSHO; ++i) {
-                printf("# %s %s\t", label, &labels[i*8]);
+                printf("# %s %s \t", label, labels[i]);
                 for(int j = 0; j < nSHO; ++j) {
                     printf("%8.3f", radial_density_matrix(i,j));
                 } // j

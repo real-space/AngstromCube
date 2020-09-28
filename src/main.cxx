@@ -260,7 +260,7 @@
           } // ci0
 
       } // iarg
-      int const echo = control::get("verbosity", double(verbosity)); // define default verbosity here
+      int echo{verbosity}; // define verbosity for repeating arguments and control file entries
       if (echo > 0) {
           printf("\n#");
           for(int iarg = 0; iarg < argc; ++iarg) {
@@ -270,6 +270,8 @@
       //
       // in addition to command_line_interface, we can modify the control environment by a file
       stat += control::read_control_file(control::get("control.file", ""), echo);
+      //
+      echo = int(control::get("verbosity", double(verbosity))); // redefine verbosity here
       //
       if (echo > 0) show_version();
       if (echo > 0) printf("\n# verbosity = %d\n", echo);

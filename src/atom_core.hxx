@@ -12,7 +12,8 @@ namespace atom_core {
   status_t scf_atom(
       radial_grid_t const &g, // radial grid descriptor
       double const Z, // atomic number
-      int const echo=0); // log output level
+      int const echo=0, // log output level
+      double const occupations[][2]=nullptr); // occupation numbers by nl_index
 
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, double const Z,
                    char const name[]="Zeff", double const factor=1, int const echo=0);

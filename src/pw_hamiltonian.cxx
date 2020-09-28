@@ -413,7 +413,7 @@ namespace pw_hamiltonian {
       prepare_timer.stop(echo);
       // all preparations done, start k-point loop
 
-      auto const floating_point_bits = int(control::get("pw_hamiltonian.floating.point.bits", 64.)); // double by default
+      auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
@@ -458,7 +458,7 @@ namespace pw_hamiltonian {
   status_t test_Hamiltonian(int const echo=5) {
       status_t stat(0);
       
-      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
+      auto const vtotfile = control::get("sho_hamiltonian.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);

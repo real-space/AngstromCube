@@ -19,6 +19,8 @@ namespace sigma_config {
 
     element_t & get(double const Zcore, int const echo=0);
 
+    inline int8_t nl_index(int const enn, int const ell) { assert(ell < enn); return (enn*(enn - 1))/2 + ell; }
+    
     status_t all_tests(int const echo=0);
 
 } // namespace sigma_config
