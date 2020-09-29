@@ -5,6 +5,7 @@
 #endif
 
 #include <cstdio> // printf, std::snprintf
+#include <cstring> // std::strncpy
 #include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
 #include <algorithm> // std::max
@@ -364,6 +365,7 @@ extern "C" {
       double logder_energy_range[3]; // [start, increment, stop]
       char   partial_wave_char[32]; // [iln]
       double partial_wave_energy_split[1+ELLMAX]; // [ell]
+      char   local_potential_method[16];
 
       view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
@@ -436,6 +438,7 @@ extern "C" {
             for(int inl = 0; inl < 32; ++inl) {
                 custom_occ[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
             } // inl
+            std::strncpy(local_potential_method, ec.method, 15);
 
         } else {
             // single_atom.config=auto
@@ -462,6 +465,9 @@ extern "C" {
                 double const core_hole_charge_input = control::get(Sy_config, 1.);
                 core_hole_charge = std::min(std::max(0.0, core_hole_charge_input), 1.0);
             } // active
+            
+            auto const potential_method_auto = control::get("single_atom.local.potential.method", "sinc");
+            std::strncpy(local_potential_method, potential_method_auto, 15);
 
         } // initialize from sigma_config
         
@@ -1262,8 +1268,7 @@ extern "C" {
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         status_t stat(0);
         double const r_cut = rg[TRU]->r[ir_cut[TRU]];
-        auto const method = control::get("single_atom.local.potential.method", "parabola");
-        if ('p' == *method) { // construct initial smooth spherical potential
+        if ('p' == (*local_potential_method | 32)) { // construct initial smooth spherical potential as parabola
             set(V_smt, rg[SMT]->n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
             if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
             stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2, rpow); // replace by a parabola

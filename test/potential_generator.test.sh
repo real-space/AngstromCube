@@ -15,10 +15,10 @@ geometry_file=atoms.xyz
 # project_base=pg_new.C-sc
 
 ### C-dimer:
-printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
-echo "C  0 0 -0.65" >> $geometry_file
-echo "C  0 0  0.65" >> $geometry_file
-project_base=pg_new.C-dimer
+# printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
+# echo "C  0 0 -0.65" >> $geometry_file
+# echo "C  0 0  0.65" >> $geometry_file
+# project_base=pg_new.C-dimer
 ### QE-spectrum          -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV (self-consistent result)
 ### exe using davidson   -22.522  -11.837   -3.817   -0.825   -0.341    1.797    1.913    2.057 2.414 eV (not self-consistent)
 ### exe using CG         -22.694  -12.207   -4.013   -4.013   -2.165    0.242    1.671    1.707   1.721   2.005 2.005 2.195 2.195 3.065 3.363 4.106 4.137 4.165 4.180 4.329
@@ -32,12 +32,12 @@ project_base=pg_new.C-dimer
 
 
 ### Al-P dimer
-# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
+printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
-# echo "Al   0 0 -1.058354498" >> $geometry_file
-# echo "P    0 0  1.058354498" >> $geometry_file
-# project=potential_generator.AlP.pw
+echo "Al   0 0 -1.058354498" >> $geometry_file
+echo "P    0 0  1.058354498" >> $geometry_file
+project_base=potential_generator.AlP
 
 ### Al fcc bulk
 # printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
@@ -85,10 +85,10 @@ occupied.bands=4
 
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
-element_C="2s 2 2p 2 0 | 1.2 sigma .5"
-#element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5"
-#element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1"
-single_atom.local.potential.method=sinc
+#element_C="2s 2 2p 2 0 | 1.2 sigma .5"
+element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
+element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
+#single_atom.local.potential.method=sinc
 single_atom.init.echo=7
 single_atom.init.scf.maxit=1
 single_atom.echo=1

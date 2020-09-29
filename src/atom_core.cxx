@@ -192,7 +192,7 @@ namespace atom_core {
                   orb[i].ell = ell;
                   int const inl = nl_index(enn, ell);
                   auto const auto_occ = std::min(std::max(0.0, Z - iZ), 2.*max_occ);
-                  orb[i].occ = occupations ? std::abs(occupations[inl][0] + occupations[inl][1]) : auto_occ;
+                  orb[i].occ = occupations ? std::min(2.*max_occ, std::abs(occupations[inl][0]) + std::abs(occupations[inl][1])) : auto_occ;
                   if (std::abs(orb[i].occ - auto_occ) > 2e-16) {
                       warn("For Z=%g the occupation of the %d%c-orbital differs: %g vs %g (auto)",
                                       Z, enn, ellchar(ell), orb[i].occ, auto_occ);

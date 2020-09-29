@@ -2,6 +2,8 @@
 
 #include <complex> // std::complex<real_t>
 #include <cmath> // std::sqrt
+#include <vector> // std::vector<T>
+
 #include "constants.hxx" // ::pi
 #include "inline_math.hxx" // pow2
 
@@ -89,7 +91,7 @@ namespace spherical_harmonics {
       }
 
       int const S = (1 + ellmax); // stride for p, the array of associated legendre functions
-      real_t p[(1 + ellmax)*S];
+      std::vector<real_t> p((1 + ellmax)*S);
 
       // generate associated legendre functions for m >= 0
       real_t fac = 1;
@@ -106,7 +108,7 @@ namespace spherical_harmonics {
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
-      real_t c[1 + ellmax], s[1 + ellmax];
+      std::vector<real_t> c(1 + ellmax), s(1 + ellmax);
       // determine sin and cos of phi
       c[0] = 1; s[0] = 0;
       if (ellmax > 0) {
