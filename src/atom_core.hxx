@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio> // std::sprintf
 #include <cmath> // std::exp
 
 #include "radial_grid.h" // radial_grid_t
@@ -16,7 +17,13 @@ namespace atom_core {
       double const occupations[][2]=nullptr); // occupation numbers by nl_index
 
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, double const Z,
-                   char const name[]="Zeff", double const factor=1, int const echo=0);
+                    char const basename[]="pot/Zeff", double const factor=1, int const echo=0, char const *prefix="");
+  
+  status_t store_Zeff_to_file(double const Zeff[], double const r[], int const nr, double const Z,
+                    char const basename[]="pot/Zeff", double const factor=1, int const echo=9);
+
+  inline void get_Zeff_file_name(char *filename, char const *basename, float const Z) {
+      std::sprintf(filename, "%s.%03g", basename, Z); }
 
   double initial_density(double r2rho[], radial_grid_t const &g, double const Z, double const charged=0);
 

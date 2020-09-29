@@ -138,7 +138,7 @@ namespace davidson_solver {
 
       unsigned niter = niterations;
       for(unsigned iteration = 0; iteration < niter; ++iteration) {
-          if (echo > 0) printf("# Davidson iteration %i\n", iteration);
+          if (echo > 9) printf("# Davidson iteration %i\n", iteration);
 
           // apply Hamiltonian and Overlap operator
           for(int istate = 0; istate < sub_space; ++istate) {
@@ -204,22 +204,25 @@ namespace davidson_solver {
                       } // rn2
                   } // i
                   int const add_bands = new_bands;
-                  if (echo > 0) printf("# Davidson: add %d residual vectors with norm2 above %.3e\n", add_bands, thres2);
+                  if (echo > 0) {
+                      printf("# Davidson: in iteration #%i add %d residual vectors with norm2 above %.3e\n",
+                                          iteration, add_bands, thres2);
+                  } // echo
 
                   std::vector<short> indices(add_bands);
                   int new_band{0};
-                  if (echo > 0) printf("# Davidson: add residual vectors: ");
+                  if (echo > 9) printf("# Davidson: add residual vectors: ");
                   for(int i = 0; i < sub_space; ++i) {
                       auto const rn2 = residual_norm2s[i];
                       if (rn2 >= thres2) {
                           if (new_band < max_bands) {
                               indices[new_band] = i;
-                              if (echo > 0) printf(" %i", i);
+                              if (echo > 9) printf(" %i", i);
                               ++new_band;
                           }
                       } // rn2
                   } // i
-                  if (echo > 0) printf("\n");
+                  if (echo > 9) printf("\n");
                   if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
 
                   for(int i = 0; i < add_bands; ++i) {

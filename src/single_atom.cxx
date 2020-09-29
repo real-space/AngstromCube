@@ -521,9 +521,9 @@ extern "C" {
             full_potential[ts] = view2D<double>(nlm, mr, 0.0); // get memory
         } // true and smooth
 
-        auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo);
+        auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
         if (load_stat) error("loading of potential file failed for Z=%g", Z_core);
-          
+
 #ifdef DEVEL
         // show the loaded Zeff(r)
         if (echo > 33) {
@@ -2182,7 +2182,7 @@ extern "C" {
             view2D<char> labels(220, 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
             for(int i = 0; i < nSHO; ++i) {
-                printf("# %s %s \t", label, labels[i]);
+                printf("# %s %-8s ", label, labels[i]);
                 for(int j = 0; j < nSHO; ++j) {
                     printf("%8.3f", radial_density_matrix(i,j));
                 } // j

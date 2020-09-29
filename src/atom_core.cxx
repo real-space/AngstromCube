@@ -1,4 +1,4 @@
-#include <cstdio> // printf
+#include <cstdio> // printf, std::sprintf
 #include <cassert> // assert
 #include <cmath> // std::sqrt, std::pow, std::exp, std::abs, std::sqrt, std::round
 #include <fstream> // ifstream, ofstream
@@ -97,14 +97,11 @@ namespace atom_core {
       return q; // charge
   } // initial_density
 
-  inline void get_Zeff_file_name(char *filename, char const *basename, float const Z) {
-      sprintf(filename, "%s.%03g", basename, Z); }
-
   status_t read_Zeff_from_file(double Zeff[], radial_grid_t const &g, double const Z,
-          char const basename[], double const factor, int const echo) {
+                      char const basename[], double const factor, int const echo, char const prefix[]) {
       status_t stat{0};
       char filename[96]; get_Zeff_file_name(filename, basename, Z);
-      if (echo > 3) printf("# %s Z=%g  try to read file %s\n",  __func__, Z, filename);
+      if (echo > 3) printf("# %s %s Z=%g  try to read file %s\n", prefix, __func__, Z, filename);
       std::ifstream infile(filename);
       int ngr{0}, ngu{0}; // number of radial grid points read and used
       if (infile.is_open()) {
@@ -130,17 +127,17 @@ namespace atom_core {
               r_prev = r; Ze_prev = Ze; // pass
               stat = (r_max < r_min);
           } // while
-          if (echo > 3) printf("# %s Z=%g  use %d of %d values from file %s, interpolate to %d values\n",
-                                  __func__, Z, ngu, ngr, filename, ir);
+          if (echo > 3) printf("# %s %s Z=%g  use %d of %d values from file %s, interpolate to %d values\n",
+                                  prefix, __func__, Z, ngu, ngr, filename, ir);
       } else {
-          if (echo > 1) printf("# %s Z=%g  failed to open file %s\n",  __func__, Z, filename);
+          if (echo > 1) printf("# %s %s Z=%g  failed to open file %s\n", prefix, __func__, Z, filename);
           stat = -1; // failure
       } // is_open
       return stat;
   } // read_Zeff_from_file
 
   status_t store_Zeff_to_file(double const Zeff[], double const r[], int const nr, double const Z,
-      char const basename[]="pot/Zeff", float const factor=1, int const echo=9) {
+                    char const basename[], double const factor, int const echo) {
       char filename[96]; get_Zeff_file_name(filename, basename, Z);
       if (echo > 3) printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
       std::ofstream outfile(filename);
@@ -306,7 +303,7 @@ namespace atom_core {
                   full_debug(printf("# Task_Generate_Pot\n"));
 
                   rad_pot(rV_new.data(), g, rho4pi.data(), Z, energies);
-                  debug({ char fn[99]; sprintf(fn, "rV_new-icyc%d.dat", icyc); dump_to_file(fn, g.n, rV_new, g.r); });
+                  debug({ char fn[99]; std::sprintf(fn, "rV_new-icyc%d.dat", icyc); dump_to_file(fn, g.n, rV_new, g.r); });
 
                   next_task = Task_Energy;
               } break; // Task_GenPot

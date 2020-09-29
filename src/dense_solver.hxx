@@ -180,7 +180,7 @@ namespace dense_solver {
                       if (nB > mB) printf(" ..."); // there are more eigenvalues than we display
                       printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
                   } // echo
-                  if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix are %g and %g %s, respectively\n", 
+                  if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s, respectively\n", 
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
                   if (S == s0h1) {
                       if (lowest_eigenvalue <= 0) {
