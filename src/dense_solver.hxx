@@ -11,6 +11,20 @@ namespace dense_solver {
   template<typename real_t>
   inline real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
 
+  template<typename real_t>
+  inline void display_spectrum(real_t const eigvals[], int const nB, char const *x_axis
+      , double const u=1, char const *_u="", char const *matrix_name="", int const mB=10) {
+      if (nB < 2) return;
+      printf("%s%s", x_axis, matrix_name);
+      // show at most the (mB - 2) lowest + 2 highest eigenvalues
+      for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
+          printf(" %g", eigvals[iB]*u);
+      } // iB
+      if (nB > mB) printf(" ..."); // there are more eigenvalues than we display
+      printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
+  } // display_spectrum
+  
+  
   template<typename complex_t, typename real_t>
   inline status_t solve(view3D<complex_t> & SHm
           , char const *x_axis
@@ -121,10 +135,11 @@ namespace dense_solver {
 #ifdef DEVEL
           // display S and H
           if (echo > 9 - s0h1) {
-              printf("\n# %s matrix (%s) for Bloch phase", matrix_name, _u);
-              for(int d = 0; d < 3; ++d) {
+              printf("\n# %s matrix (%s)", matrix_name, _u);
+//               printf(" for Bloch phase");
+//               for(int d = 0; d < 3; ++d) {
 //                   printf(" %g+i*%g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
-              } // d
+//               } // d
               printf(":\n");
               for(int iB = 0; iB < nB; ++iB) {
                   printf("# row%3i ", iB);
@@ -172,13 +187,14 @@ namespace dense_solver {
               } else if (nB > 0) {
                   double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];
                   if (echo > 2) {
-                      printf("%s%s", x_axis, s0h1 ? "" : matrix_name);
-                      int constexpr mB = 10; // show at most the 8 lowest + 2 highest eigenvalues
-                      for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
-                          printf(" %g", eigvals[iB]*u);
-                      } // iB
-                      if (nB > mB) printf(" ..."); // there are more eigenvalues than we display
-                      printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
+//                       printf("%s%s", x_axis, s0h1 ? "" : matrix_name);
+//                       int constexpr mB = 10; // show at most the 8 lowest + 2 highest eigenvalues
+//                       for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
+//                           printf(" %g", eigvals[iB]*u);
+//                       } // iB
+//                       if (nB > mB) printf(" ..."); // there are more eigenvalues than we display
+//                       printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
+                      display_spectrum(eigvals.data(), nB, x_axis, u, _u, s0h1?"":matrix_name, 10);
                   } // echo
                   if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s, respectively\n", 
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);

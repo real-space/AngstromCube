@@ -72,7 +72,7 @@ verbosity=7
 output.energy.unit=eV
 
 # grid spacing of the dense grid
-potential_generator.grid.spacing=0.12501
+potential_generator.grid.spacing=0.2501
 
 # max number of self-consistency iterations
 potential_generator.max.scf=1
@@ -98,7 +98,7 @@ logder.start=2
 logder.stop=1
 
 # configuration for basis=grid
-bands.per.atom=10
+bands.per.atom=20
 eigensolver=cg
 repeat.eigensolver=15
 conjugate_gradients.max.iter=19
@@ -118,13 +118,18 @@ hamiltonian.scale.nonlocal.h=1
 hamiltonian.scale.nonlocal.s=1
 hamiltonian.floating.point.bits=32
 
+# configuration for basis=pw
+#pw_hamiltonian.solver=direct
+pw_hamiltonian.solver=iterative
+davidson_solver.max.iterations=5
+
 # also compute the eigenvalues of the overlap matrix?
-dense_solver.test.overlap.eigvals=1
+dense_solver.test.overlap.eigvals=0
 
 EOF
 
 
-for spacing in `seq 4 1 4`; do
+for spacing in `seq 4 1 3`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -135,7 +140,7 @@ for spacing in `seq 4 1 4`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 8`; do
+for numax in `seq 4 2 3`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -147,7 +152,7 @@ for numax in `seq 4 2 8`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 5 15`; do
+for ecut in `seq 5 5 5`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

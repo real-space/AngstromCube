@@ -4,8 +4,6 @@
 
 #include "status.hxx" // status_t
 
-#include "grid_operators.hxx"
-
 #include "atom_image.hxx" // ::sho_atom_t
 #include "real_space.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::stencil_t<real_t>

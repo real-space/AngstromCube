@@ -59,11 +59,11 @@
     #define debug(print)
 #endif
 
-extern "C" {
-   // BLAS interface to matrix matrix multiplication
-  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
-              const double*, const int*, const double*, const int*, const double*, double*, const int*);
-} // extern "C"
+// extern "C" {
+//   // BLAS interface to matrix matrix multiplication
+//   void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
+//               const double*, const int*, const double*, const int*, const double*, double*, const int*);
+// } // extern "C"
 
 
   int constexpr ELLMAX=7;

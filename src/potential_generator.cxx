@@ -707,12 +707,14 @@ namespace potential_generator {
                       if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
                           stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                              if (echo > 6) { printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); fflush(stdout); }
                               stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo - 5);
                               stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else
                       if ('d' == *eigensolver_method) { // "davidson"
                           for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                              if (echo > 6) { printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); fflush(stdout); }
                               stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else

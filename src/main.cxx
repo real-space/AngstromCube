@@ -43,6 +43,7 @@
 #include "shift_boundary.hxx" // ::all_tests
 #include "linear_algebra.hxx" // ::all_tests
 #include "grid_operators.hxx" // ::all_tests
+#include "dense_operator.hxx" // ::all_tests
 #include "element_config.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
@@ -127,6 +128,7 @@
           module_test("shift_boundary.",           shift_boundary::all_tests);
           module_test("linear_algebra.",           linear_algebra::all_tests);
           module_test("grid_operators.",           grid_operators::all_tests);
+          module_test("dense_operator.",           dense_operator::all_tests);
           module_test("element_config.",           element_config::all_tests);
           module_test("vector_layout.",             vector_layout::all_tests);
           module_test("sho_potential.",             sho_potential::all_tests);

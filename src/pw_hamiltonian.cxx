@@ -29,6 +29,8 @@
 #include "unit_system.hxx" // ::energy_unit
 #include "fourier_transform.hxx" // ::fft
 
+#include "davidson_solver.hxx" // ::eigensolve
+#include "dense_operator.hxx" // ::dense_operator_t
 
 namespace pw_hamiltonian {
   // computes Hamiltonian matrix elements for plane waves
@@ -80,12 +82,85 @@ namespace pw_hamiltonian {
   } // Hermite_Gauss_projectors
 
 
-  inline double Fourier_Gauss_factor_3D(double const sigma=1) {
+  inline double Fourier_Gauss_factor_3D() {
       // \sqrt(2 pi)^3
-      // independent of sigma, ToDo: remove sigma argument
       return pow3(constants::sqrt2 * constants::sqrtpi);
   } //  Fourier_Gauss_factor_3D
 
+  
+  template<typename complex_t, typename real_t>
+  status_t iterative_solve(view3D<complex_t> const & SHm, char const *x_axis=""
+      , int const echo=0, int const nbands=10) {
+      //
+      // An iterative solver using the Davidson method
+      //
+      status_t stat(0);
+      int constexpr H=1, S=0;
+
+      int const nPW  = SHm.dim1();
+      int const nPWa = SHm.stride();
+
+      if (echo > 7) {
+          printf("# %s for the lowest %d bands of a %d x %d Hamiltonian\n",
+                    __func__, nbands, nPW, nPWa);
+          fflush(stdout);
+      } // echo
+      
+      // create nbands start waves
+      view2D<complex_t> waves(nbands, nPW, complex_t(0));
+      
+      if (nbands > nPW) {
+          warn("tried to find %d bands in a basis set with %d plane waves", nbands, nPW);
+          return -1;
+      } // enough plane waves?
+
+      { // scope: fill start wave functions with good, linear independent start vectors
+          view3D<complex_t> SHmat_b(2, nbands, nbands);
+          for(int ib = 0; ib < nbands; ++ib) {
+              set(SHmat_b(S,ib), nbands, SHm(S,ib));
+              set(SHmat_b(H,ib), nbands, SHm(H,ib));
+          } // ib
+
+          // assume that plane waves are energy ordered and solve for the nbands * nbands sub-Hamiltonian
+          auto const stat_eig = dense_solver::solve<complex_t,real_t>(SHmat_b, "# start waves "); // mute
+          if (stat_eig != 0) {
+              warn("diagonalization of the %d x %d sub-Hamiltonian returned status= %i", nbands, nbands, int(stat_eig));
+              return stat_eig;
+          } // error?
+          stat += stat_eig;
+
+          // copy eigenvectors into low PW coefficients of start waves
+          for(int ib = 0; ib < nbands; ++ib) {
+              set(waves[ib], nbands, SHmat_b(H,ib));
+          } // ib
+      } // scope
+
+      // construct a dense-matrix operator op
+      dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
+
+      // solve using the Davidson eigensolver
+      std::vector<double> eigvals(nbands);
+      status_t stat_dav(0);
+      int const nit = control::get("davidson_solver.max.iterations", 1.);
+      for(int it = 0; it < nit; ++it) {
+          stat_dav = davidson_solver::eigensolve < dense_operator::dense_operator_t<complex_t>, complex_t, std::complex<double> >
+                                            (waves.data(), eigvals.data(), nbands, op, echo - 10, 2.f);
+          stat += stat_dav;
+      } // it
+      if (0 == stat_dav) {
+          if (echo > 2) {
+              dense_solver::display_spectrum(eigvals.data(), nbands, x_axis, eV, _eV);
+              if (echo > 4) printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n", 
+                                      eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
+              fflush(stdout);
+          } // echo
+      } // stat_dav
+
+      return stat;
+  } // iterative_solve
+  
+  
+  
   template<typename complex_t, typename real_t>
   status_t solve_k(double const ecut // plane wave cutoff energy
           , double const reci[3][4] // reciprocal cell matrix
@@ -100,7 +175,8 @@ namespace pw_hamiltonian {
           , double const kpoint[3] // vector inside the Brillouin zone, all 3 components in [-.5, .5]
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int & nPWs // export number of plane waves
-          , int const echo=0) { // log-level
+          , int const echo=0 // log-level
+          , int const nbands=10) { // number of bands (needed by iterative solver)
 
       int boxdim[3], max_PWs{1};
       for(int d = 0; d < 3; ++d) {
@@ -197,7 +273,7 @@ namespace pw_hamiltonian {
 
               {   std::vector<double> pzyx(nSHO);
                   Hermite_Gauss_projectors(pzyx.data(), numax_PAW[ka], sigma_PAW[ka], gv);
-                  auto const fgf = Fourier_Gauss_factor_3D(sigma_PAW[ka]);
+                  auto const fgf = Fourier_Gauss_factor_3D();
 
                   for(int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
@@ -297,7 +373,10 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
-      return dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo);
+      auto const solver = *control::get("pw_hamiltonian.solver", "direct") | 32;
+      return ('d' == solver) ? 
+              dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo) :
+                  iterative_solve<complex_t, real_t>(SHm, x_axis, echo, nbands);
   } // solve_k
 
 
@@ -408,7 +487,8 @@ namespace pw_hamiltonian {
           // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
 
-      
+      double const nbands_per_atom = control::get("bands.per.atom", 10.);
+      int const nbands = int(nbands_per_atom*natoms_PAW);
       
 //    prepare_timer.stop(echo);
       // all preparations done, start k-point loop
@@ -429,11 +509,11 @@ namespace pw_hamiltonian {
               if (32 == floating_point_bits) {
                   stat += solve_k<std::complex<float>, float>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          kpoint, x_axis, nPWs, echo);
+                          kpoint, x_axis, nPWs, echo, nbands);
               } else {
                   stat += solve_k<std::complex<double>, double>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          kpoint, x_axis, nPWs, echo);
+                          kpoint, x_axis, nPWs, echo, nbands);
               } // floating_point_bits
               nPW_stats.add(nPWs);
           } // !can_be_real
