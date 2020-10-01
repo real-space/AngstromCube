@@ -25,10 +25,12 @@ namespace dense_solver {
   } // display_spectrum
   
   
-  template<typename complex_t, typename real_t>
+  template<typename complex_t>
   inline status_t solve(view3D<complex_t> & SHm
           , char const *x_axis
           , int const echo=0) { // log-level
+            
+      using real_t = decltype(std::real(complex_t(1))); // base type
 
       int constexpr S=0, H=1; // static indices for S:overlap matrix, H:Hamiltonian matrix
 
@@ -45,11 +47,9 @@ namespace dense_solver {
       double const f_dos = -1./constants::pi;
       double const energy_range[2] = {-1, 1}; // ToDo: external input
       
-      auto const nE_Green = int(control::get("dense_solver.test.green.function", 0.));
-      if (nE_Green > 0) {
-          auto const nE = nE_Green;
-          complex_t const minus1(-1);
-          if (!is_complex(minus1)) {
+      auto const nE = int(control::get("dense_solver.test.green.function", 0.));
+      if (nE > 0) {
+          if (!is_complex<complex_t>()) {
               warn("# Green functions can only be computed in complex versions"); return stat;
           } // is not complex
 
@@ -59,15 +59,15 @@ namespace dense_solver {
           for(int iE = 0; iE <= nE; ++iE) {
               real_t const E_real = iE*dE + energy_range[0];
               auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
-              if (echo > 99) printf("# Green function for energy point (%g %s, %g %s)\n",
+              if (echo > 9) printf("# Green function for energy point (%g %s, %g %s)\n",
                                         std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin);
-              int constexpr check = 1;
+              int constexpr check = 1; // 1:do checks, 0:no checks
               view2D<complex_t> ESmH_copy(check*nB, nBa, complex_t(0)); // get memory
               view2D<complex_t> Sinv(nB, nBa, complex_t(0)); // get memory
               // construct matrix to be inverted: E*S - H
               for(int iB = 0; iB < nB; ++iB) {
                   set(Sinv[iB], nB, SHm(S,iB)); // copy S
-                  set(ESmH[iB], nB, SHm(H,iB), minus1); // -H
+                  set(ESmH[iB], nB, SHm(H,iB), real_t(-1)); // -H
                   add_product(ESmH[iB], nB, SHm(S,iB), E); // +E*S
                   if (check) set(ESmH_copy[iB], nB, ESmH[iB]); // copy
               } // iB

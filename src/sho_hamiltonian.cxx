@@ -67,7 +67,7 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
-  template<typename complex_t, typename real_t, typename phase_t>
+  template<typename complex_t, typename phase_t>
   status_t solve_k(int const natoms // number of SHO basis centers
           , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
           , int    const numaxs[] // spreads of the SHO basis
@@ -87,14 +87,14 @@ namespace sho_hamiltonian {
           , phase_t const Bloch_phase[3]
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int const echo=0) { // log-level
+            
+      using real_t = decltype(std::real(complex_t(1))); // base type
         
       status_t stat(0);
 #ifdef DEVEL
-      {   complex_t c(1); real_t r{1};
-          if (echo > 3) printf("\n\n# start %s<%s, real_t=%s, phase_t=%s> nB=%d\n", 
-                  __func__, complex_name(c), complex_name(r), complex_name(*Bloch_phase), nB);
-      }
-#endif     
+      if (echo > 3) printf("\n\n# start %s<%s, real_t=%s, phase_t=%s> nB=%d\n", 
+          __func__, complex_name<complex_t>(), complex_name<real_t>(), complex_name(*Bloch_phase), nB);
+#endif
 
       //
       // now construct the Hamiltonian:
@@ -254,7 +254,7 @@ namespace sho_hamiltonian {
       Psh_iala.clear(); // release the memory, P_jala is still needed for the generation of density matrices
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
-      return dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo);      
+      return dense_solver::solve(SHm, x_axis, echo);
   } // solve_k
 
 
@@ -548,15 +548,15 @@ namespace sho_hamiltonian {
                           BLOCH_PHASE, x_axis, echo)
           if (can_be_real) {
               if (32 == floating_point_bits) {
-                  stat += solve_k<float, float> SOLVE_K_ARGS(Bloch_phase_real);
+                  stat += solve_k<float> SOLVE_K_ARGS(Bloch_phase_real);
               } else {
-                  stat += solve_k<double, double> SOLVE_K_ARGS(Bloch_phase_real);
+                  stat += solve_k<double> SOLVE_K_ARGS(Bloch_phase_real);
               } // floating_point_bits
           } else { // replace this else by if(true) to test if real and complex version agree
               if (32 == floating_point_bits) {
-                  stat += solve_k<std::complex<float>, float> SOLVE_K_ARGS(Bloch_phase);
+                  stat += solve_k<std::complex<float>> SOLVE_K_ARGS(Bloch_phase);
               } else {
-                  stat += solve_k<std::complex<double>, double> SOLVE_K_ARGS(Bloch_phase);
+                  stat += solve_k<std::complex<double>> SOLVE_K_ARGS(Bloch_phase);
               } // floating_point_bits
           } // !can_be_real
           #undef SOLVE_K_ARGS

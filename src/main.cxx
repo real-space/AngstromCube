@@ -45,6 +45,7 @@
 #include "grid_operators.hxx" // ::all_tests
 #include "dense_operator.hxx" // ::all_tests
 #include "element_config.hxx" // ::all_tests
+#include "complex_tools.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
 // #include "isolated_atom.hxx" // ::all_tests
@@ -74,7 +75,7 @@
 #ifndef _Output_Units_Fixed
       #include "display_units.h" // extern definitions
       // global variables
-      double eV  = 1; char const *_eV = "";  // dynamic energy unit
+      double eV  = 1; char const *_eV  = ""; // dynamic energy unit
       double Ang = 1; char const *_Ang = ""; // dynamic length unit
       // end global variables
 #endif
@@ -130,6 +131,7 @@
           module_test("grid_operators.",           grid_operators::all_tests);
           module_test("dense_operator.",           dense_operator::all_tests);
           module_test("element_config.",           element_config::all_tests);
+          module_test("complex_tools.",             complex_tools::all_tests);
           module_test("vector_layout.",             vector_layout::all_tests);
           module_test("sho_potential.",             sho_potential::all_tests);
 //           module_test("isolated_atom.",             isolated_atom::all_tests);
@@ -275,8 +277,11 @@
       //
       echo = int(control::get("verbosity", double(verbosity))); // redefine verbosity here
       //
-      if (echo > 0) show_version();
-      if (echo > 0) printf("\n# verbosity = %d\n", echo);
+      if (echo > 0) {
+          printf("\n");
+          show_version();
+          printf("\n# verbosity = %d\n", echo);
+      } // echo
       stat += unit_system::set_output_units(
                   control::get("output.energy.unit", "Ha"),
                   control::get("output.length.unit", "Bohr"));

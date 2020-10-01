@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint> // int8_t
+#include <complex> // std::real
 
 #include "status.hxx" // status_t
 
@@ -19,9 +20,9 @@
 
 namespace grid_operators {
 
-  template<typename real_t, typename real_fd_t>
-  status_t _grid_operation(real_t Hpsi[] // result
-                        , real_t const psi[] // input wave functions
+  template<typename complex_t, typename real_fd_t=double>
+  status_t _grid_operation(complex_t Hpsi[] // result
+                        , complex_t const psi[] // input wave functions
                         , real_space::grid_t const &g // 3D Cartesian grid descriptor
                         , std::vector<atom_image::sho_atom_t> const &a // atoms
                         , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
@@ -29,10 +30,13 @@ namespace grid_operators {
                         , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
                         , double const *potential=nullptr // diagonal potential operator [optional]
                         , int const echo=0
-                        , real_t       *const *const atomic_projection_coefficients=nullptr
-                        , real_t const *const *const start_wave_coeffs=nullptr
+                        , complex_t       *const *const atomic_projection_coefficients=nullptr
+                        , complex_t const *const *const start_wave_coeffs=nullptr
                         , double const scale_sigmas=1 // only during addition (used for start wave functions)
                          ) {
+      using real_t = decltype(std::real(complex_t(1)));
+      using atom_matrix_t = decltype(std::real(real_fd_t(1)));
+      
       status_t stat(0);
 
       if (Hpsi) {
@@ -43,14 +47,14 @@ namespace grid_operators {
                   if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
               } // psi != nullptr
           } else {
-              set(Hpsi, g.all(), real_t(0)); // clear
+              set(Hpsi, g.all(), complex_t(0)); // clear
           } // kinetic
 
           if (psi) {
               size_t const nzyx = g[2] * g[1] * g[0];
               if (echo > 8) printf("# %s Apply %s operator\n", __func__, potential ? "potential" : "unity");
               for(size_t izyx = 0; izyx < nzyx; ++izyx) {
-                  real_fd_t const V = potential ? potential[izyx] : real_fd_t(1); // apply potential or the unity operation of the overlap operator
+                  real_t const V = potential ? potential[izyx] : 1; // apply potential or the unity operation of the overlap operator
                   Hpsi[izyx] += V * psi[izyx];
               } // izyx
           } // psi != nullptr
@@ -61,21 +65,21 @@ namespace grid_operators {
       if (h0s1 >= 0) {
         
           int const na = a.size(); // number of atoms
-          std::vector<std::vector<real_t>> atom_coeff(na);
+          std::vector<std::vector<complex_t>> atom_coeff(na);
           
           for(int ia = 0; ia < na; ++ia) {
               int const numax = a[ia].numax();
               int const ncoeff = sho_tools::nSHO(numax);
-              atom_coeff[ia] = std::vector<real_t>(ncoeff, 0.0);
+              atom_coeff[ia] = std::vector<complex_t>(ncoeff, 0.0);
 
               if (psi) {
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
-                          std::vector<real_t> image_coeff(ncoeff, 0.0); // can we omit the initialization?
+                          std::vector<complex_t> image_coeff(ncoeff, 0.0); // can we omit the initialization?
                       
                           stat += sho_projection::sho_project(image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma(), psi, g, echo_sho);
 
-                          real_t const Bloch_factor = 1.0; // ToDo: use k-dependent Bloch-factors
+                          complex_t const Bloch_factor = 1.0; // ToDo: use k-dependent Bloch-factors
                           add_product(atom_coeff[ia].data(), ncoeff, image_coeff.data(), Bloch_factor);
                       } // ii
 #ifdef DEBUG
@@ -98,7 +102,7 @@ namespace grid_operators {
               for(int ia = 0; ia < na; ++ia) {
                   int const numax = (start_wave_coeffs) ? 3 : a[ia].numax();
                   int const ncoeff = sho_tools::nSHO(numax);
-                  std::vector<real_t> V_atom_coeff_ia(ncoeff);
+                  std::vector<complex_t> V_atom_coeff_ia(ncoeff);
 
                   if (start_wave_coeffs) {
                       assert( 3 == numax ); // this option is only used for start wave functions.
@@ -116,13 +120,13 @@ namespace grid_operators {
                       // scope: V_atom_coeff = matrix * atom_coeff
                       int const stride = a[ia].stride();
                       assert(stride >= ncoeff); // check internal consistency
-                      auto *const mat = a[ia].get_matrix<real_fd_t>(h0s1);
+                      auto *const mat = a[ia].get_matrix<atom_matrix_t>(h0s1);
                       // matrix-vector multiplication
                       for(int i = 0; i < ncoeff; ++i) {
-                          real_fd_t ci(0);
+                          complex_t ci(0);
                           for(int j = 0; j < ncoeff; ++j) {
-                              real_fd_t const am = mat[i*stride + j];
-                              real_fd_t const cj = atom_coeff[ia][j];
+                              auto const am = mat[i*stride + j];
+                              auto const cj = atom_coeff[ia][j];
                               ci += am * cj;
                           } // j
                           V_atom_coeff_ia[i] = ci;
@@ -133,8 +137,8 @@ namespace grid_operators {
 
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
-                          real_t const inv_Bloch_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
-                          std::vector<real_t> V_image_coeff(ncoeff);
+                          complex_t const inv_Bloch_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
+                          std::vector<complex_t> V_image_coeff(ncoeff);
                           set(V_image_coeff.data(), ncoeff, V_atom_coeff_ia.data(), inv_Bloch_factor);
 
                           stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma()*scale_sigmas, echo_sho);
@@ -226,15 +230,19 @@ namespace grid_operators {
 
   
 
-  template <typename real_t, typename real_fd_t=double>
+  template <typename wave_function_t, typename DoubleComplex_t=wave_function_t, typename read_FiniDiff_t=wave_function_t>
   class grid_operator_t
   {
+    public:
+      typedef wave_function_t complex_t;
+      typedef DoubleComplex_t doublecomplex_t;
+      typedef read_FiniDiff_t real_fd_t;
     private:
       void _constructor(real_space::grid_t const & g // real space grid descriptor
                , double const *local_potential // may be nullptr
                , int const nn_precond
                , int const nn_kinetic=8) {
-        
+
 //           int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
           // the kinetic energy operator
@@ -246,7 +254,7 @@ namespace grid_operators {
           set_potential(local_potential, g.all(), nullptr, 9); // echo=9
 
           // this simple grid-based preconditioner is a diffusion stencil
-          preconditioner = finite_difference::stencil_t<real_t>(g.h, std::min(1, nn_precond));
+          preconditioner = finite_difference::stencil_t<complex_t>(g.h, std::min(1, nn_precond));
           for(int d = 0; d < 3; ++d) {
               preconditioner.c2nd[d][1] = 1/12.;
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
@@ -271,24 +279,24 @@ namespace grid_operators {
           _constructor(grid, local_potential, nn_precond);
       } // constructor without atoms
 
-      status_t Hamiltonian(real_t Hpsi[], real_t const psi[], int const echo=0) const {
+      status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
           return _grid_operation(Hpsi, psi, grid, atoms, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
       } // Hamiltonian
 
-      status_t Overlapping(real_t Spsi[], real_t const psi[], int const echo=0) const {
-          return _grid_operation<real_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase.data(), nullptr, nullptr, echo);
+      status_t Overlapping(complex_t Spsi[], complex_t const psi[], int const echo=0) const {
+          return _grid_operation<complex_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase.data(), nullptr, nullptr, echo);
       } // Overlapping
 
-      status_t Conditioner(real_t Cpsi[], real_t const psi[], int const echo=0) const {
+      status_t Conditioner(complex_t Cpsi[], complex_t const psi[], int const echo=0) const {
           return _grid_operation(Cpsi, psi, grid, atoms, -1, boundary_phase.data(), &preconditioner, nullptr, echo);
       } // Pre-Conditioner
 
-      status_t get_atom_coeffs(real_t *const *const atom_coeffs, real_t const psi[], int const echo=0) const {
-          return _grid_operation<real_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
+      status_t get_atom_coeffs(complex_t *const *const atom_coeffs, complex_t const psi[], int const echo=0) const {
+          return _grid_operation<complex_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
-      status_t get_start_waves(real_t psi0[], real_t const *const *const atom_coeffs, float const scale_sigmas=1, int const echo=0) const {
-          return _grid_operation<real_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
+      status_t get_start_waves(complex_t psi0[], complex_t const *const *const atom_coeffs, float const scale_sigmas=1, int const echo=0) const {
+          return _grid_operation<complex_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
       } // get_start_waves
 
       double get_volume_element() const { return grid.dV(); }
@@ -326,10 +334,10 @@ namespace grid_operators {
     private:
       real_space::grid_t grid;
       std::vector<atom_image::sho_atom_t> atoms;
-      std::vector<double> boundary_phase; // could be real_t or real_fd_t in the future
+      std::vector<double> boundary_phase; // could be complex_t or real_fd_t in the future
       std::vector<double> potential;
       finite_difference::stencil_t<real_fd_t> kinetic;
-      finite_difference::stencil_t<real_t> preconditioner;
+      finite_difference::stencil_t<complex_t> preconditioner;
       bool has_precond;
       bool has_overlap;
     public:

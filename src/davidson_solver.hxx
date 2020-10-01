@@ -5,8 +5,8 @@
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::eigenvalues
-#include "inline_math.hxx" // set
-#include "complex_tools.hxx" // conjugate
+#include "inline_math.hxx" // set, pow2
+#include "complex_tools.hxx" // conjugate, is_complex
 #include "display_units.h" // eV, _eV
 
 
@@ -29,9 +29,9 @@ namespace davidson_solver {
               auto const ket_ptr = &ket[jstate*ndof];
               doublecomplex_t tmp(0);
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += conjugate(bra_ptr[dof]) * ket_ptr[dof];
+                  tmp += doublecomplex_t(conjugate(bra_ptr[dof]) * ket_ptr[dof]);
               } // dof
-              s[istate*stride + jstate] = tmp*factor; // init
+              s[istate*stride + jstate] = tmp*doublecomplex_t(factor); // init
           } // jstate
       } // istate
   } // inner_products
@@ -57,23 +57,24 @@ namespace davidson_solver {
   
   
   template<typename real_t>
-  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr, double const factor=1, char const *unit="1") {
+  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr, double const unit=1, char const *_unit="1") {
       if (n < 1) return;
+      if (is_complex<real_t>()) return;
       if (1 == n) {
-          printf("# Vector=%s (%s)", name, unit);
+          printf("# Vector=%s (%s)", name, _unit);
       } else {
-          printf("\n# %dx%d Matrix=%s (%s)\n", n, m, name, unit);
+          printf("\n# %dx%d Matrix=%s (%s)\n", n, m, name, _unit);
       } // n == 1
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
-              printf((1 == n)?" %.3f":" %7.3f", mat[i*stride + j]*factor);
+              printf((1 == n)?" %.3f":" %7.3f", std::real(mat[i*stride + j])*unit);
           }   printf("\n");
       }   printf("\n");
   } // show_matrix
 
-  template<class operator_t, typename complex_t, typename doublecomplex_t>
-  status_t eigensolve(complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+  template<class operator_t> // , typename complex_t, typename doublecomplex_t>
+  status_t eigensolve(typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
     , operator_t const &op
@@ -81,6 +82,9 @@ namespace davidson_solver {
     , float const mbasis=2
     , unsigned const niterations=2
   ) {
+      using complex_t = typename operator_t::complex_t; // abbreviate
+      using doublecomplex_t = typename operator_t::doublecomplex_t;
+      using doubleprecision_t = decltype(std::real(doublecomplex_t(1))); // base type
       status_t stat(0);
       if (nbands < 1) return stat;
 
@@ -91,13 +95,13 @@ namespace davidson_solver {
       int sub_space{nbands}; // init with the waves from the input
       if (echo > 0) printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
 
-      double const threshold2 = 1e-8; // do not add residual vectors with a norm2 smaller than this
+      double const threshold2 = pow2(1e-4); // do not add residual vectors with a norm < 1e-4
 
-      int const op_echo = echo - 16;
+      int const op_echo = echo - 16; // lower log level in operator calls
 
       view3D<doublecomplex_t> matrices(2, max_space, max_space);
       auto Hmt = matrices[0], Ovl = matrices[1];
-      std::vector<double> eigval(max_space);
+      std::vector<doubleprecision_t> eigval(max_space);
       std::vector<double> residual_norm2s(max_space);
 
       complex_t const zero(0);
@@ -223,28 +227,15 @@ namespace davidson_solver {
 
       return stat;
   } // eigensolve
-  
-  template<typename complex_t, typename real_fd_t=complex_t>
-  status_t eigensolve(complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
-    , double *const energies // export eigenenergies
-    , int const nbands // number of bands
-    , grid_operators::grid_operator_t<complex_t,real_fd_t> const &op
-    , int const echo=0 // log output level
-    , float const mbasis=2 // factor enlarging the space of trial functions
-    , unsigned const niterations=9 // number of Davidson iterations
-  ) {
-      return eigensolve< grid_operators::grid_operator_t<complex_t,real_fd_t>, complex_t, complex_t >
-                       (waves, energies, nbands, op, echo, mbasis, niterations);
-  }
 
-  template<typename complex_t, typename real_fd_t=complex_t> inline
-  status_t rotate(complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+
+  template<class operator_t> // , typename complex_t, typename doublecomplex_t>
+  status_t rotate(typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
-    , grid_operators::grid_operator_t<complex_t,real_fd_t> const &op
-    , int const echo=0)
-      { return eigensolve(waves, energies, nbands, op, echo, 1, 1); }
-      
+    , operator_t const &op
+    , int const echo=0)   { return eigensolve(waves, energies, nbands, op, echo, 1, 1); }
+
   status_t all_tests(int const echo=0);
 
 } // namespace davidson_solver

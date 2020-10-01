@@ -252,13 +252,13 @@ namespace finite_difference {
       int8_t const * nearest_neighbors() const { return _nn; }
       int nearest_neighbors(int const d) const { assert(d >= 0); assert(d < 3); return _nn[d]; }
       real_t * Laplace_coefficients(int const d) { assert(d >= 0); assert(d < 3); return c2nd[d]; }
-      
+
   }; // class stencil_t
 
-  template <typename real_out_t, // result is stored in this precision 
-            typename real_in_t, // input comes in this precision
+  template <typename complex_out_t, // result is stored in this precision 
+            typename complex_in_t, // input comes in this precision
             typename real_fd_t> // computations are executed in this precision
-  status_t apply(real_out_t out[], real_in_t const in[], real_space::grid_t const &g, 
+  status_t apply(complex_out_t out[], complex_in_t const in[], real_space::grid_t const &g, 
                      stencil_t<real_fd_t> const &fd, double const factor=1) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors
@@ -301,7 +301,7 @@ namespace finite_difference {
               for(int x = 0; x < g('x'); ++x) {
                   int const i_zyx = (z*g('y') + y)*g('x') + x;
 
-                  real_fd_t t(0); // init result
+                  complex_out_t t(0); // init result
 
                   for(int d = 0; d < 3; ++d) {
                       int const nf = fd.nearest_neighbors(d);

@@ -1,9 +1,10 @@
 #pragma once
 
-#include <complex> // std::norm
+#include <complex> // std::norm, std::real
 
 #include "status.hxx" // status_t
 #include "grid_operators.hxx" // ::grid_operator_t
+#include "complex_tools.hxx" // conjugate
 #include "sho_tools.hxx" // ::nSHO
 #include "data_view.hxx" // view3D<T>
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<real_t*> with new constructions
@@ -24,13 +25,16 @@ namespace density_generator {
       return gsum*dV;
   } // print_stats
 
-  template<typename real_t, typename real_fd_t=double>
+  template<class grid_operator_t>
   status_t density(double rho[]        // result density on Cartesian grid
       , double *const *const atom_rho  // result atomic density matrices
-      , real_t const eigenfunctions[]
-      , grid_operators::grid_operator_t<real_t,real_fd_t> const & op
+      , typename grid_operator_t::complex_t const eigenfunctions[]
+      , grid_operator_t const & op
       , int const nbands=1, int const nkpoints=1
       , int const echo=0) {
+      
+      using complex_t = typename grid_operator_t::complex_t; // abbreviate
+    
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
 
@@ -43,14 +47,14 @@ namespace density_generator {
                               __func__, g('x'), g('y'), g('z'));
 
       int const na = op.get_natoms();
-      std::vector<real_t*> atom_coeff(na, nullptr);
+      std::vector<complex_t*> atom_coeff(na, nullptr); // ToDo: this should be a data_list container
       for(int ia = 0; ia < na; ++ia) {
           int const numax = op.get_numax(ia);
           int const ncoeff = sho_tools::nSHO(numax);
-          atom_coeff[ia] = new real_t[ncoeff];
+          atom_coeff[ia] = new complex_t[ncoeff];
       } // ia
 
-      view3D<real_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
+      view3D<complex_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
 
       double const occupied_bands = control::get("occupied.bands", 0.); // as long as the Fermi function is not in here
       
@@ -83,7 +87,7 @@ namespace density_generator {
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {
                               auto const c_j = atom_coeff[ia][j];
-                              atom_rho[ia][i*ncoeff + j] += weight_nk * c_i * c_j;
+                              atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(conjugate(c_i) * c_j);
                           } // j
                       } // i
                   } // ia

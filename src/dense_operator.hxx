@@ -12,12 +12,17 @@
 
 namespace dense_operator {
 
-  template <typename complex_t>
+  template<typename wave_function_t, typename DoubleComplex_t=wave_function_t>
   class dense_operator_t {
     //
     //  An operator offering the action of dense-stored 
     //  Hamiltonian and Overlap matrix onto single vectors
     //
+
+    public:
+      typedef wave_function_t complex_t;
+      typedef DoubleComplex_t doublecomplex_t;
+
     private:
       complex_t const *Hmt, *Smt;
       double const *Cnd;
@@ -56,12 +61,13 @@ namespace dense_operator {
       bool use_overlap() const { return (nullptr != Smt); }
   }; // class dense_operator_t
 
+
   inline status_t test_construct_and_destroy(int const echo=0) {
       double matrix[3][4];
       dense_operator_t<double> const op(3, 4, matrix[0]);
       return op.get_degrees_of_freedom() - 3;
   } // test_construct_and_destroy
-  
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_construct_and_destroy(echo);

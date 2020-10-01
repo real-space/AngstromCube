@@ -2,6 +2,7 @@
 
 #include <cstdint> // uint32_t
 #include <cstdio> // printf
+#include <complex> // std::real
 
 #include "status.hxx" // status_t
 
@@ -19,14 +20,16 @@ namespace sho_projection {
   template<typename real_t>
   inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
   
-  template<typename real_t, int PROJECT0_OR_ADD1>
-  status_t _sho_project_or_add(real_t coeff[] // result if projecting, coefficients are zyx-ordered
+  template<typename complex_t, int PROJECT0_OR_ADD1> inline
+  status_t _sho_project_or_add(complex_t coeff[] // result if projecting, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
-                     , real_t values[] // grid array, result if adding
+                     , complex_t values[] // grid array, result if adding
                      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=4) { //
+      using real_t = decltype(std::real(complex_t(1))); // base type
+      
       auto const rcut = truncation_radius(sigma, numax);
       assert(sigma > 0);
       double const sigma_inv = 1./sigma;
@@ -48,27 +51,28 @@ namespace sho_projection {
                            num[0], num[1], num[2], nvolume);
 
       int const nSHO = sho_tools::nSHO(numax);
-      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, real_t(0));
+      if (0 == PROJECT0_OR_ADD1) set(coeff, nSHO, complex_t(0));
 
       if (nvolume < 1) return 0; // no range
 
       // ToDo: analyze if the grid spacing is small enough for this \sigma
 
       int const M = 1 + numax;
-      real_t* H1d[3];
+      std::vector<real_t> H1d[3];
       for(int dir = 0; dir < 3; ++dir) {
-          H1d[dir] = new real_t[num[dir]*M]; // get memory
+          H1d[dir] = std::vector<real_t>(num[dir]*M); // get memory
+          auto const h1d = H1d[dir].data();
 
-          real_t const grid_spacing = g.h[dir];
+          double const grid_spacing = g.h[dir];
           if (echo > 5) printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
           for(int ii = 0; ii < num[dir]; ++ii) {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
-              hermite_polys(H1d[dir] + ii*M, x, numax);
+              hermite_polys(h1d + ii*M, x, numax);
               if (echo > 5) {
                   printf("%g\t", x);
                   for(int nu = 0; nu <= numax; ++nu) {
-                      printf("%12.6f", H1d[dir][ii*M + nu]);
+                      printf("%12.6f", h1d[ii*M + nu]);
                   }   printf("\n");
               } // echo
           } // i
@@ -80,7 +84,7 @@ namespace sho_projection {
               for(int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
                   
-                  real_t val = values[ixyz];
+                  complex_t val = values[ixyz];
                   if (true) {
 //                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO{0};
@@ -107,37 +111,34 @@ namespace sho_projection {
           } // iy
       } // iz
 
-      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, (real_t)g.dV()); // volume element of the grid
+      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, (complex_t)g.dV()); // volume element of the grid
 
-      for(int dir = 0; dir < 3; ++dir) {
-          delete[] H1d[dir]; // free memory
-      } // dir
       return 0; // success
   } // _sho_project_or_add
   
 
   // wrapper function
-  template<typename real_t>
-  status_t sho_project(real_t coeff[] // result, coefficients are zyx-ordered
+  template<typename complex_t>
+  status_t sho_project(complex_t coeff[] // result, coefficients are zyx-ordered
                      , int const numax // how many
                      , double const center[3] // where
                      , double const sigma
-                     , real_t const values[] // input, grid array
+                     , complex_t const values[] // input, grid array
                      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
-      return _sho_project_or_add<real_t,0>(coeff, numax, center, sigma, (real_t*)values, g, echo); // un-const values pointer
+      return _sho_project_or_add<complex_t,0>(coeff, numax, center, sigma, (complex_t*)values, g, echo); // un-const values pointer
   } // sho_project
 
   // wrapper function
-  template<typename real_t>
-  status_t sho_add(real_t values[] // result gets modified, grid array
+  template<typename complex_t>
+  status_t sho_add(complex_t values[] // result gets modified, grid array
                  , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
-                 , real_t const coeff[] // input, coefficients are zyx-ordered
+                 , complex_t const coeff[] // input, coefficients are zyx-ordered
                  , int const numax // how many
                  , double const center[3] // where
                  , double const sigma
                  , int const echo=0) { //
-      return _sho_project_or_add<real_t,1>((real_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
+      return _sho_project_or_add<complex_t,1>((complex_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
 
 

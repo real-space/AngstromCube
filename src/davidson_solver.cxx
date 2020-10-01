@@ -4,7 +4,7 @@
 #include <algorithm> // std::swap<T>, std::sort
 #include <cmath> // std::sin
 
-#include "davidson_solver.hxx"
+#include "davidson_solver.hxx" // eigensolve
 
 #include "grid_operators.hxx" // ::grid_operator_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
@@ -45,7 +45,7 @@ namespace davidson_solver {
   status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
 #else // NO_UNIT_TESTS
 
-  template <typename complex_t>
+  template<typename complex_t>
   status_t test_solver(int const echo=9) {
       status_t stat{0};
       int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
@@ -89,7 +89,7 @@ namespace davidson_solver {
           if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
       }
 
-      grid_operators::grid_operator_t<complex_t> op(g);
+      grid_operators::grid_operator_t<complex_t> const op(g);
 
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
@@ -100,8 +100,10 @@ namespace davidson_solver {
 
   status_t all_tests(int const echo) {
     status_t stat{0};
+    stat += test_solver<std::complex<double>>(echo);
+    stat += test_solver<std::complex<float>>(echo);
     stat += test_solver<double>(echo);
-//     stat += test_solver<float>(echo); // work on this
+    stat += test_solver<float>(echo);
     return stat;
   } // all_tests
 #endif // NO_UNIT_TESTS

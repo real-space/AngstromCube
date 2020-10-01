@@ -101,7 +101,7 @@ namespace potential_generator {
       int bc[3]; // boundary conditions
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
 
-      double const h = control::get("potential_generator.grid.spacing", 0.2378); // works for GeSbTe with alat=6.04
+      double const h = control::get("potential_generator.grid.spacing", 0.23622);
       g = real_space::grid_t(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
@@ -296,7 +296,7 @@ namespace potential_generator {
       
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
       view2D<double> periodic_images;
-      int const n_periodic_images = boundary_condition::periodic_images(periodic_images, cell, g.boundary_conditions(), rcut, echo);
+      int const n_periodic_images = boundary_condition::periodic_images(periodic_images, cell, g.boundary_conditions(), rcut, echo - 4);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       
@@ -416,21 +416,23 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-              grid_operators::grid_operator_t<double> op(gc, a);
+              using real_wave_function_t    = float;
+              using wave_function_t         = std::complex<real_wave_function_t>;
+              using complex_matrix_t        = std::complex<double>;
+              grid_operators::grid_operator_t<wave_function_t, complex_matrix_t, real_wave_function_t> op(gc, a);
               // Mind that local potential and atom matrices are still unset!
-
 
               int const nkpoints = 1; // ToDo
               double const nbands_per_atom = control::get("bands.per.atom", 4.); // 4:s- and p-states
               int const nbands = int(nbands_per_atom*na);
-              view3D<double> psi; // Kohn-Sham states in real-space grid representation
+              view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
-                  psi = view3D<double>(nkpoints, nbands, gc.all()); // get memory
+                  psi = view3D<wave_function_t>(nkpoints, nbands, gc.all()); // get memory
                   float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
                   uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                   sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
                   std::vector<int32_t> ncoeff_a(na, 20);
-                  data_list<double> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
+                  data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
                   for(int iband = 0; iband < nbands; ++iband) {
                       int const ia = iband % na; // which atom?
                       int const io = iband / na; // which orbital?

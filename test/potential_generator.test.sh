@@ -13,7 +13,7 @@ geometry_file=atoms.xyz
 # echo "C  0 0 0" >> $geometry_file
 
 project_base=pg.C-atom
-printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
+printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.C-dimer
@@ -72,7 +72,7 @@ verbosity=7
 output.energy.unit=eV
 
 # grid spacing of the dense grid
-potential_generator.grid.spacing=0.2501
+potential_generator.grid.spacing=0.23622
 
 # max number of self-consistency iterations
 potential_generator.max.scf=1
@@ -89,9 +89,9 @@ element_C="2s 2 2p 2 0 | 1.2 sigma .5"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.init.echo=7
+single_atom.init.echo=0
 single_atom.init.scf.maxit=1
-single_atom.echo=1
+single_atom.echo=0
 # logarithmic derivatives
 logder.unit=Ha
 logder.start=2
@@ -120,8 +120,9 @@ hamiltonian.floating.point.bits=32
 
 # configuration for basis=pw
 #pw_hamiltonian.solver=direct
-pw_hamiltonian.solver=iterative
-davidson_solver.max.iterations=5
+#pw_hamiltonian.solver=iterative
+pw_hamiltonian.solver=both
+davidson_solver.max.iterations=3
 
 # also compute the eigenvalues of the overlap matrix?
 dense_solver.test.overlap.eigvals=0
@@ -129,7 +130,7 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 4 1 3`; do
+for spacing in `seq 4 1 4`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

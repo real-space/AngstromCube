@@ -1,4 +1,4 @@
-#include <cstdio> // printf
+#include <cstdio> // printf, fflush, stdout
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
@@ -88,7 +88,7 @@ namespace pw_hamiltonian {
   } //  Fourier_Gauss_factor_3D
 
   
-  template<typename complex_t, typename real_t>
+  template<typename complex_t>
   status_t iterative_solve(view3D<complex_t> const & SHm, char const *x_axis=""
       , int const echo=0, int const nbands=10) {
       //
@@ -115,36 +115,36 @@ namespace pw_hamiltonian {
       } // enough plane waves?
 
       { // scope: fill start wave functions with good, linear independent start vectors
-          view3D<complex_t> SHmat_b(2, nbands, nbands);
-          for(int ib = 0; ib < nbands; ++ib) {
-              set(SHmat_b(S,ib), nbands, SHm(S,ib));
-              set(SHmat_b(H,ib), nbands, SHm(H,ib));
+          int const nsub = std::min(2*nbands, nPW);
+          view3D<complex_t> SHmat_b(2, nsub, nsub);
+          for(int ib = 0; ib < nsub; ++ib) {
+              set(SHmat_b(S,ib), nsub, SHm(S,ib));
+              set(SHmat_b(H,ib), nsub, SHm(H,ib));
           } // ib
 
-          // assume that plane waves are energy ordered and solve for the nbands * nbands sub-Hamiltonian
-          auto const stat_eig = dense_solver::solve<complex_t,real_t>(SHmat_b, "# start waves "); // mute
+          // assume that plane waves are energy ordered and solve for the nsub * nsub sub-Hamiltonian
+          auto const stat_eig = dense_solver::solve(SHmat_b, "# start waves "); // mute
           if (stat_eig != 0) {
-              warn("diagonalization of the %d x %d sub-Hamiltonian returned status= %i", nbands, nbands, int(stat_eig));
+              warn("diagonalization of the %d x %d sub-Hamiltonian returned status= %i", nsub, nsub, int(stat_eig));
               return stat_eig;
           } // error?
           stat += stat_eig;
 
           // copy eigenvectors into low PW coefficients of start waves
           for(int ib = 0; ib < nbands; ++ib) {
-              set(waves[ib], nbands, SHmat_b(H,ib));
+              set(waves[ib], nsub, SHmat_b(H,ib));
           } // ib
       } // scope
 
       // construct a dense-matrix operator op
-      dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
+      dense_operator::dense_operator_t<complex_t,std::complex<double>> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
 
       // solve using the Davidson eigensolver
       std::vector<double> eigvals(nbands);
       status_t stat_dav(0);
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat_dav = davidson_solver::eigensolve < dense_operator::dense_operator_t<complex_t>, complex_t, std::complex<double> >
-                                            (waves.data(), eigvals.data(), nbands, op, echo - 10, 2.f);
+          stat_dav = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.f);
           stat += stat_dav;
       } // it
       if (0 == stat_dav) {
@@ -208,10 +208,7 @@ namespace pw_hamiltonian {
       int const nB = pw_basis.size();
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
-      {   complex_t c(1); real_t r{1};
-          if (echo > 3) printf("\n\n# start %s<%s, real_t=%s> nB=%d\n", 
-                  __func__, complex_name(c), complex_name(r), nB);
-      }
+      if (echo > 6) { printf("\n\n# start %s<%s> nB=%d\n", __func__, complex_name<complex_t>(), nB); fflush(stdout); }
 #endif
 
       // now we could sort the plane waves by their g2 length, optional
@@ -220,7 +217,7 @@ namespace pw_hamiltonian {
           auto compare_lambda = [](PlaneWave const & lhs, PlaneWave const & rhs) { return lhs.g2 < rhs.g2; };
           std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
 #ifdef DEVEL
-          if (echo > 6) { // show in ascending order
+          if (echo > 8) { // show in ascending order
               printf("# %s|k+G|^2 =", x_axis);
               for(int i = 0; i < std::min(5, nPWs); ++i) {
                   printf(" %.4f", pw_basis[i].g2);
@@ -321,11 +318,11 @@ namespace pw_hamiltonian {
       view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
 
 #ifdef DEVEL
-      if (echo > 3) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
+      if (echo > 9) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
       assert( nG[0] <= Vcoeff.stride() );
       assert( nG[1] <= Vcoeff.dim1() );
       assert( nG[2] <= Vcoeff.dim2() );
-      
+
       double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
       double const scale_p = control::get("hamiltonian.scale.potential", 1.0);
       if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
@@ -373,10 +370,10 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
-      auto const solver = *control::get("pw_hamiltonian.solver", "direct") | 32;
-      return ('d' == solver) ? 
-              dense_solver::solve<complex_t, real_t>(SHm, x_axis, echo) :
-                  iterative_solve<complex_t, real_t>(SHm, x_axis, echo, nbands);
+      auto solver = *control::get("pw_hamiltonian.solver", "direct") | 32;
+      if ('b' == solver) {     iterative_solve(SHm, x_axis, echo, nbands); solver = 'd'; }
+      return ('d' == solver) ? dense_solver::solve(SHm, x_axis, echo)
+                             : iterative_solve(SHm, x_axis, echo, nbands);
   } // solve_k
 
 
