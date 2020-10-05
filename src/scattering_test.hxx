@@ -67,28 +67,28 @@ namespace scattering_test {
           } // nrn
       } // ell
 
-      if (echo > 8) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
+      assert(rg.n <= stride);
+      if (echo > 18) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
       for(int ir = 0; ir < rg.n; ++ir) {
-          double const r = rg.r[ir], dr = rg.dr[ir];
-//        double const dr = 0.03125, r = dr*ir; // equidistant grid
+          double const r = rg.r[ir], r2dr = rg.r2dr[ir];
+//        double const dr = 0.03125, r = dr*ir, r2dr = pow2(r)*dr; // equidistant grid
           double const x = siginv*r, x2 = pow2(x);
           double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
-          if (echo > 8) printf("%g ", r);
+          if (echo > 18) printf("%g ", r);
           auto const r_pow_rpow = intpow(r, rpow);
           for(int ell = 0; ell <= numax; ++ell) {
               auto const x_pow_ell = intpow(x, ell);
               for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
-                  auto & projector_value = prj[iln*stride + ir];
-                  projector_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * x_pow_ell;
-                  if (echo > 8) printf(" %g", projector_value);
-                  norm[iln] += pow2(r*projector_value) * dr;
-                  projector_value *= r_pow_rpow;
+                  double const projector_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * x_pow_ell;
+                  if (echo > 18) printf(" %g", projector_value);
+                  norm[iln] += pow2(projector_value) * r2dr;
+                  prj[iln*stride + ir] = projector_value * r_pow_rpow;
               } // nrn
           } // ell
-          if (echo > 8) printf("\n");
+          if (echo > 18) printf("\n");
       } // ir
-      if (echo > 8) printf("\n\n");
+      if (echo > 18) printf("\n\n");
       if (echo > 9) {
           printf("# projector normalizations are ");
           for(int iln = 0; iln < nln; ++iln) {

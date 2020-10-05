@@ -85,13 +85,14 @@ occupied.bands=4
 
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
-element_C="2s 2 2p 2 0 | 1.2 sigma .5"
+element_C="2s 1 2p 3 0 | 1.2 sigma .5"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.init.echo=0
+single_atom.echo=7
+single_atom.init.echo=7
+single_atom.optimize.sigma=-10
 single_atom.init.scf.maxit=1
-single_atom.echo=0
 # logarithmic derivatives
 logder.unit=Ha
 logder.start=2
@@ -141,7 +142,7 @@ for spacing in `seq 4 1 4`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 3`; do
+for numax in `seq 4 2 8`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

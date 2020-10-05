@@ -76,7 +76,7 @@
 
   template<typename real_t, typename real_a_t> inline
   double dot_product(size_t const n, real_t const bra[], real_a_t const ket[]) {
-      double dot = 0;
+      double dot{0};
       for(size_t i = 0; i < n; ++i) {
           dot += bra[i]*ket[i];
       } // i
@@ -85,7 +85,7 @@
 
   template<typename real_t, typename real_a_t, typename real_b_t> inline
   double dot_product(size_t const n, real_t const bra[], real_a_t const ket[], real_b_t const metric[]) {
-      double dot = 0;
+      double dot{0};
       for(size_t i = 0; i < n; ++i) {
           dot += bra[i]*metric[i]*ket[i];
       } // i

@@ -204,9 +204,9 @@ namespace sigma_config {
     
     
     int8_t constexpr KeyHole = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
-      KeyMethod = -4, KeyIgnore = -5, KeyWarn = -6, KeyUndef = -8, KeyNumeric = -9;
-//  char constexpr Key2Char[] = "h|sZV_W?Un"; // negative keys needed: [-key]
-    char const Key2String[][8] = {"hole", "|", "sigma", "Z=", "V", "ignored", "warn", "?", "undef", "numeric"};
+      KeyMethod = -4, KeyIgnore = -5, KeyWarn = -6, KeyNumax = -7, KeyUndef = -8, KeyNumeric = -9;
+//  char constexpr Key2Char[] = "h|sZV_WnU$"; // negative keys needed: [-key]
+    char const Key2String[][8] = {"hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "undef", "numeric"};
 
     inline int8_t char2ell(char const c) {
         switch (c) {
@@ -229,6 +229,7 @@ namespace sigma_config {
             case 'r': case 'R': case '|': return KeyRcut;
             case 's': case 'S': return KeySigma;
             case 'Z': case 'z': return KeyZcore;
+            case 'N': case 'n': return KeyNumax;
             case 'V': case 'v': return KeyMethod;
             case 'W': case 'w': return KeyWarn;
             case '0': case '.': case '+': case '-': return KeyNumeric; // numeric reading
@@ -268,6 +269,7 @@ namespace sigma_config {
         e.Z = Z;
         e.rcut = 2.;
         e.sigma = .5;
+        e.numax = -1; // automatic
         e.q_core_hole[0] = 0;
         e.q_core_hole[1] = 0;
         e.inl_core_hole = -1; // init invalid
@@ -450,11 +452,15 @@ namespace sigma_config {
                 } else if (KeyRcut == key) {
                     e.rcut = value;
                     if (echo > 9) printf("# found cutoff radius rcut = %g\n", e.rcut);
-                    if(e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
+                    if (e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
                 } else if (KeySigma == key) {
                     e.sigma = value;
                     if (echo > 9) printf("# found projector spread sigma = %g\n", e.sigma);
-                    if(e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
+                    if (e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
+                } else if (KeyNumax == key) {
+                    e.numax = int(value);
+                    if (echo > 9) printf("# found SHO projector cutoff numax = %d\n", e.numax);
+                    if (std::abs(e.numax - value) > 1e-6) warn("numax must be a positive integer found %g --> %d", value, e.numax);
                 } else if (KeyZcore == key) {
                     e.Z = value;
                     set_default_core_shells(e.ncmx, e.Z); // adjust default core shells
