@@ -417,8 +417,10 @@ namespace potential_generator {
 
               // construct grid-based Hamiltonian and overlap operator descriptor
               using real_wave_function_t    = float;
-              using wave_function_t         = std::complex<real_wave_function_t>;
-              using complex_matrix_t        = std::complex<double>;
+//               using wave_function_t         = std::complex<real_wave_function_t>;
+//               using complex_matrix_t        = std::complex<double>;
+              using wave_function_t         = real_wave_function_t;
+              using complex_matrix_t        = double;
               grid_operators::grid_operator_t<wave_function_t, complex_matrix_t, real_wave_function_t> op(gc, a);
               // Mind that local potential and atom matrices are still unset!
 

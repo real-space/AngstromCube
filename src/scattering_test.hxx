@@ -197,7 +197,7 @@ namespace scattering_test {
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
               , double const sigma // sigma spread of SHO projectors
               , int const lmax // ellmax up to which the analysis should go
-              , uint8_t const nn[] // number of projectors per ell
+              , uint8_t const nn_input[] // number of projectors per ell
               , int const numax
               , double const aHm[] // non-local Hamiltonian elements in ln_basis
               , double const aSm[] // non-local overlap matrix elements
@@ -224,6 +224,7 @@ namespace scattering_test {
       int const nln = sho_tools::nSHO_radial(numax);
       int const stride = mr;
 
+      int nn[12]; for(int ell = 0; ell < 12; ++ell) { nn[ell] = (numax + 2 - ell)/2; } // == nnmax(numax, ell)
       if (echo > 9) printf("# %s nn = %d %d %d %d %d %d %d %d\n", __func__, nn[0], nn[1], nn[2], nn[3], nn[4], nn[5], nn[6], nn[7]);
       
       int constexpr node_count = 0; // 1 or 0 switch
@@ -347,7 +348,7 @@ namespace scattering_test {
               , double const Vsmt[] // smooth potential given on radial grid
               , double const sigma // sigma spread of SHO projectors
               , int const lmax // ellmax up to which the analysis should go
-              , uint8_t const nn[] // number of projectors per ell
+              , uint8_t const nn_input[] // number of projectors per ell
               , int const numax
               , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
               , double const aSm[] // non-local overlap matrix elements, assume stride nln
@@ -360,6 +361,8 @@ namespace scattering_test {
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) printf("\n# %s %s %s dr=%g nr=%i rmax=%g %s\n", label, __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
+      
+      int nn[12]; for(int ell = 0; ell < 12; ++ell) { nn[ell] = (numax + 2 - ell)/2; } // == nnmax(numax, ell)
       
       auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform

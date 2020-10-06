@@ -86,7 +86,7 @@ occupied.bands=4
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
@@ -96,7 +96,7 @@ single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=1
 # logarithmic derivatives
 logder.unit=Ha
-logder.start=2
+logder.start=-2
 logder.stop=1
 
 # configuration for basis=grid
@@ -138,13 +138,13 @@ for spacing in `seq 1 1 1`; do
   echo "# start calculation $project" && \
   $exe -test potential_generator. \
         +control.file=control.sh \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
         +basis=grid \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
+#         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
-for numax in `seq 4 2 3`; do
+for numax in `seq 4 2 8`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -156,7 +156,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 5 4`; do
+for ecut in `seq 5 5 5`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

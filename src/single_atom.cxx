@@ -339,7 +339,7 @@
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][nr_smt] r*projectors, depend only on sigma and numax
-      view2D<double> projector_coeff; // [nln][nn_max(numax,0)] coeff of projectors in the SHO basis
+      view2D<double> projector_coeff[1+ELLMAX+2]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
       view3D<double> partial_waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       std::vector<double> true_norm; // vector[nln] for display of partial wave results
@@ -826,11 +826,10 @@
         true_norm      = std::vector<double>(nln, 1.0); // get memory
 
         projectors = view2D<double>(nln, align<2>(rg[SMT]->n), 0.0); // get memory
-        projector_coeff = view2D<double>(nln, nn_max(numax, 0), 0.0);
         for(int ell = 0; ell <= numax; ++ell) {
+            projector_coeff[ell] = view2D<double>(nn[ell], nn_max(numax, ell), 0.0); // block-diagonal in ell
             for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
-                projector_coeff(iln,nrn) = 1; // Kronecker
+                projector_coeff[ell](nrn,nrn) = 1; // Kronecker
             } // nrn
         } // ell
 
@@ -1105,15 +1104,14 @@
     double expand_numerical_projectors_in_SHO_basis(double const sigma_now, int const numax
                                   , radial_grid_t const & rg, view2D<double> const & rprj
                                   , double const occ_ell[]
-                                  , int const echo=0, double *projector_coeff=nullptr) {
+                                  , int const echo=0
+                                  , double *projector_coeff=nullptr) { // array layout nln*8
 
             int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
             view2D<double> prj_sho(nln, align<2>(rg.n), 0.0); // get memory for r*projector
 
             // expand the normalized radial SHO basis functions for this value of sigma
             scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), rg, sigma_now, numax, 0, echo/2);
-
-//          std::vector<double> projector_coeff(nln*8, 0.0);
 
             double weighted_quality{0};
             for(int ell = 0; ell <= numax; ++ell) {
@@ -1191,7 +1189,7 @@
                 // copy the tail of the TRU wave function into the SMT wave function
                 set(sphi[iln], rg[SMT]->n, tphi[iln] + nr_diff);
 
-                // pseudize by matching a polynomial r^(ell + 1)*(c_0 + c_2 r^2 + c_4 r^4 + c_6 r^6)
+                // pseudize by matching a polynomial r^(ell + 1)*(c_0 + c_1 r^2 + c_2 r^4 + c_3 r^6)
                 double coeff[4]; // matching coefficients
                 auto const stat = pseudize_function(sphi[iln], rg[SMT], ir_cut[SMT], 4, ell + 1, coeff);
                 assert(0 == stat);
@@ -1320,7 +1318,8 @@
                     } // mrn
                     printf("\n");
                 } // echo
-                set(projector_coeff[iln], nmx, new_prj_coeff[iln]); // copy into member variable
+                assert(nmx == projector_coeff[ell].stride());
+                set(projector_coeff[ell][nrn], nmx, new_prj_coeff[iln]); // copy into member variable
             } // nrn
         } // ell
 
@@ -1562,9 +1561,10 @@
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
-
-        // ToDo: projectors only depend on sigma, numax and the radial grid --> move this to the constructor
-        scattering_test::expand_sho_projectors(projectors.data(), projectors.stride(), *rg[SMT], sigma, numax, 1, echo/2);
+        
+        int const nln = sho_tools::nSHO_radial(numax);
+        view2D<double> radial_sho_basis(nln, align<2>(rg[SMT]->n), 0.0); // get memory
+        scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), *rg[SMT], sigma, numax, 1, echo/2);
 
         r_match = 9*sigma;
         int const ir_match[] = {radial_grid::find_grid_index(*rg[TRU], r_match),
@@ -1586,13 +1586,23 @@
 
             if (echo > 3) printf("\n# %s %s for ell=%i\n\n", label, __func__, ell);
 
-            view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view
+            view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view of the member array
             
             int const n = nn[ell];
             for(int nrn_ = 0; nrn_ < n; ++nrn_) { int const nrn = nrn_; // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
                 int constexpr SRA = 1;
+                
+                // construct the projectors from the linear combinations of the radial SHO basis
+                set(projectors_ell[nrn], projectors_ell.stride(), 0.0);
+                for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // radial SHO basis size
+                    auto const c = projector_coeff[ell](nrn,mrn);
+                    if (0.0 != c) {
+                        add_product(projectors_ell[nrn], rg[SMT]->n, radial_sho_basis[ln_off + mrn], c);
+                        if (echo > 0) printf("# %s construct ell=%i nrn=%i projector by taking %.6f of the %i-th radial SHO basis function\n", label, ell, nrn, c, mrn);
+                    } // coefficient non-zero
+                } // mrn
 
                 set(vs.wave[TRU], nr, 0.0); // clear
 
@@ -1909,7 +1919,7 @@
                 // int const stride = align<2>(rg[SMT]->n);
                 int const msub = (1 + numax/2); // max. size of the subspace
 
-#ifdef DEVEL                
+#ifdef DEVEL
                 if (echo > 24) { // show normalization and orthogonality of projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         for(int krn = 0; krn < n; ++krn) {
@@ -1919,7 +1929,7 @@
                     } // nrn
                 } // echo
 #endif
-                
+
                 view2D<double> ovl(msub, msub); // get memory
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
@@ -1974,7 +1984,7 @@
                     if (echo > 2) printf("# %s after orthogonalization <partial waves|projectors> deviates max. %.1e from unity matrix\n", label, dev);
                     if (dev > 1e-12) warn("%s duality violated, deviates %g from unity", label, dev);
                 } // scope
-                
+
                 if (echo > 15) {
                     for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                         auto const & vs = partial_wave[ln_off + nrn];
@@ -2633,6 +2643,7 @@
                 for(int emm = -ell; emm <= ell; ++emm) {
                     int const lm = solid_harmonics::lm_index(ell, emm);
                     assert(lm < nlm);
+                    // similar but not the same with check_spherical_matrix_elements
                     for(int iln = 0; iln < nln; ++iln) {
                         auto const wave_i = partial_wave[iln].wave[ts];
                         product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
@@ -2678,16 +2689,84 @@
                 int const jln = ln_index_list[jlmn];
                 int const jlm = lm_index_list[jlmn];
                 if (ilm == jlm) {
-                    hamiltonian_lmn(ilmn,jlmn) += ( kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln) );
-                    overlap_lmn(ilmn,jlmn) =
-                        ( charge_deficit(0,TRU,iln,jln)
-                        - charge_deficit(0,SMT,iln,jln) ); // ell=0
+                    hamiltonian_lmn(ilmn,jlmn) += ( kinetic_energy(TRU,iln,jln) 
+                                                  - kinetic_energy(SMT,iln,jln) );
+                    overlap_lmn(ilmn,jlmn) = ( charge_deficit(0,TRU,iln,jln)
+                                             - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
                 if ((echo > 7)) printf(" %7.3f", true_norm[iln]*hamiltonian_lmn(ilmn,jlmn)*true_norm[jln]*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
         } // ilmn
 
+        
+        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
+                ell_list[iln] = ell;
+            } // nrn
+        } // ell
+        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
+
+        view2D<double> u_proj(nlmn, nlmn, 0.0);
+        for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+            int const iln = ln_index_list[ilmn];
+            int const ell = ell_list[iln];
+            int const nrn = iln - ln_offset[iln];
+            if (nrn < nn[ell]) {
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    int const jln = ln_index_list[jlmn];
+                    if (lm_index_list[ilmn] == lm_index_list[jlmn]) {
+                        int const mrn = jln - ln_offset[jln];
+                        u_proj(ilmn,jlmn) = projector_coeff[ell](nrn,mrn);
+                    } // ell-diagonal
+                } // jlmn
+            } // nrn
+        } // ilmn
+
+#ifdef DEVEL
+        if (echo > 2) { // display
+            printf("\n# %s lmn-based projector matrix:\n", label);
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+                printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    printf("%8.4f", u_proj(ilmn,jlmn));
+                }   printf("\n");
+            } // ilmn
+        } // echo
+#endif        
+        
+        // We need to wrap the matrices with the projector_coeff from left and right
+        for(int iHS = 0; iHS < 2; ++iHS) {
+            view2D<double> tmp_mat(nlmn, nlmn, 0.0);
+            
+            auto const & mat_lmn = iHS ? hamiltonian_lmn : overlap_lmn;
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    double t{0};
+                    for(int klmn = 0; klmn < nlmn; ++klmn) { // constract over partial waves
+                        t += mat_lmn(ilmn,klmn) * u_proj(klmn,jlmn);
+                    } // klmn
+                    tmp_mat(ilmn,jlmn) = t;
+                } // jlmn
+            } // ilmn
+
+            auto & mat_new = iHS ? hamiltonian_lmn : overlap_lmn;
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    double t{0};
+                    for(int klmn = 0; klmn < nlmn; ++klmn) { // constract over partial waves
+                        t += u_proj(klmn,ilmn) * tmp_mat(klmn,jlmn);
+                    } // klmn
+                    mat_new(ilmn,jlmn) = t;
+                } // jlmn
+            } // ilmn
+
+        } // iHS
+        
+        
 #ifdef DEVEL
         if (echo > 8) { // display
             printf("\n# %s lmn-based Overlap elements:\n", label);
@@ -2785,51 +2864,60 @@
 
 
 
-    void check_spherical_matrix_elements(int const echo, view3D<double> & aHSm) const {
+    void check_spherical_matrix_elements(int const echo) const {
         if (echo < 1) return; // this function only plots information to the logg
         // check if the emm-averaged Hamiltonian elements produce the same scattering properties
         // as the spherical part of the full potential
         int const nln = sho_tools::nSHO_radial(numax);
+        std::vector<int8_t> ells(nln, -1);
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                ells[iln] = ell;
+            } // nrn
+        } // ell
 
         view3D<double> potential_ln(TRU_AND_SMT, nln, nln); // fully emm-degenerate potential matrix elements
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
             std::vector<double> wave_pot_r2dr(nr); // temporary product of partial wave, potential and metric
-            for(int iln = 0; iln < nln; ++iln) {
-                auto const wave_i = partial_wave[iln].wave[ts];
-                // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights
-                product(wave_pot_r2dr.data(), nr, wave_i, potential[ts].data(), rg[ts]->rdr);
-                for(int jln = 0; jln < nln; ++jln) {
-                    auto const wave_j = partial_wave[jln].wave[ts];
-                    potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
-                } // jln
-            } // iln
+            for(int ell = 0; ell <= numax; ++ell) {
+                for(int nrn = 0; nrn < nn[ell]; ++nrn) {
+                    int const iln = sho_tools::ln_index(numax, ell, nrn);
+                    auto const wave_i = partial_wave[iln].wave[ts];
+                    // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights
+                    product(wave_pot_r2dr.data(), nr, wave_i, potential[ts].data(), rg[ts]->rdr);
+                    for(int mrn = 0; mrn < nn[ell]; ++mrn) {
+                        int const jln = sho_tools::ln_index(numax, ell, mrn);
+                        auto const wave_j = partial_wave[jln].wave[ts];
+                        potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
+                    } // mrn
+                } // nrn
+            } // ell
         } // ts: true and smooth
 
+        view3D<double> aHSm(2, nln, nln, 0.0);
         auto hamiltonian_ln = aHSm[0], overlap_ln = aHSm[1];
         { // scope
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
-                    hamiltonian_ln(iln,jln) =  ( kinetic_energy(TRU,iln,jln)
-                                               - kinetic_energy(SMT,iln,jln) )
-                                             + ( potential_ln(TRU,iln,jln)
-                                               - potential_ln(SMT,iln,jln) );
-                    int const ell = 0;
-                    overlap_ln(iln,jln) =  ( charge_deficit(ell,TRU,iln,jln)
-                                           - charge_deficit(ell,SMT,iln,jln) );
+                    if (ells[iln] == ells[jln]) {
+                        hamiltonian_ln(iln,jln) = ( kinetic_energy(TRU,iln,jln)
+                                                  - kinetic_energy(SMT,iln,jln) )
+                                                + ( potential_ln(TRU,iln,jln)
+                                                  - potential_ln(SMT,iln,jln) );
+                        int const ell = 0;
+                        overlap_ln(iln,jln) = ( charge_deficit(ell,TRU,iln,jln)
+                                              - charge_deficit(ell,SMT,iln,jln) );
+                    } // ells match
                 } // jln
             } // iln
         } // scope
 
         bool const check_overlap_eigenvalues = true;
         if (check_overlap_eigenvalues) {
-            std::vector<int8_t> ells(nln, -1);
             { // scope:
                 for(int ell = 0; ell <= numax; ++ell) {
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                        int const iln = sho_tools::ln_index(numax, ell, nrn);
-                        ells[iln] = ell;
-                    } // nrn
 
                     double lower{0}, upper{0};
                     if (1 == nn[ell]) {
@@ -2863,35 +2951,100 @@
                 printf("\n");
                 view2D<char> ln_labels(nln, 4);
                 sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
-                if (0) {
-                    printf("\n# %s with true_norm scaling:\n", label);
-                    for(int i01 = 0; i01 < 2; ++i01) {
-                        auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
-                        auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
-                        for(int iln = 0; iln < nln; ++iln) {
-                            printf("# %s spherical %s %s ", label, ln_labels[iln], label_qn);
-                            for(int jln = 0; jln < nln; ++jln) {
-                                printf(" %g", (ells[iln] == ells[jln]) ? true_norm[iln]*input_ln(iln,jln)*true_norm[jln] : 0);
-                            }   printf("\n");
-                        }   printf("\n");
-                    } // i01
-                } // 0
-
                 printf("\n# %s without true_norm scaling:\n", label);
-                for(int i01 = 0; i01 < 2; ++i01) {
-                    auto const & input_ln = i01 ?  overlap_ln :  hamiltonian_ln;
-                    auto const   label_qn = i01 ? "overlap"   : "hamiltonian" ;
+                for(int iHS = 0; iHS < 2; ++iHS) {
                     for(int iln = 0; iln < nln; ++iln) {
-                        printf("# %s spherical %s %s ", label, ln_labels[iln], label_qn);
+                        printf("# %s spherical %s %s ", label, ln_labels[iln], iHS ? "overlap" : "hamiltonian");
                         for(int jln = 0; jln < nln; ++jln) {
-                            printf(" %g", (ells[iln] == ells[jln]) ? input_ln(iln,jln) : 0);
+                            printf(" %g", aHSm(iHS,iln,jln));
                         }   printf("\n");
                     }   printf("\n");
-                } // i01
+                } // iHS
 
             } // echo
 #endif            
         } // check_overlap_eigenvalues
+        
+        
+        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
+                ell_list[iln] = ell;
+            } // nrn
+        } // ell
+        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
+
+        view2D<double> u_proj(nln, nln, 0.0);
+        for(int iln = 0; iln < nln; ++iln) {
+            int const ell = ell_list[iln];
+            int const nrn = iln - ln_offset[iln];
+            if (nrn < nn[ell]) {
+                assert(nrn >= 0);
+                for(int jln = 0; jln < nln; ++jln) {
+                    if (ell == ell_list[jln]) {
+                        int const mrn = jln - ln_offset[jln];
+                        u_proj(iln,jln) = projector_coeff[ell](nrn,mrn);
+                    } // ell-diagonal
+                } // jln
+            } // nrn
+        } // iln
+
+#ifdef DEVEL
+        if (echo > 2) { // display
+            printf("\n# %s ln-based projector matrix:\n", label);
+            for(int iln = 0; iln < nln; ++iln) {
+                printf("# %s u_proj for iln=%3i  ", label, iln);
+                for(int jln = 0; jln < nln; ++jln) {
+                    printf("%8.4f", u_proj(iln,jln));
+                }   printf("\n");
+            } // iln
+        } // echo
+#endif        
+
+        // We need to wrap the matrices with the projector_coeff from left and right
+        for(int iHS = 0; iHS < 2; ++iHS) {
+            view2D<double> tmp_mat(nln, nln, 0.0); // get temporary memory
+            
+            for(int iln = 0; iln < nln; ++iln) {
+                for(int jln = 0; jln < nln; ++jln) {
+                    double t{0};
+                    for(int kln = 0; kln < nln; ++kln) { // contract over partial waves
+                        t += aHSm(iHS,iln,kln) * u_proj(kln,jln);
+                    } // kln
+                    tmp_mat(iln,jln) = t;
+                } // jln
+            } // iln
+
+            for(int iln = 0; iln < nln; ++iln) {
+                for(int jln = 0; jln < nln; ++jln) {
+                    double t{0};
+                    for(int kln = 0; kln < nln; ++kln) { // contract over partial waves
+                        t += u_proj(kln,iln) * tmp_mat(kln,jln);
+                    } // kln
+                    aHSm(iHS,iln,jln) = t;
+                } // jln
+            } // iln
+
+        } // iHS
+
+#ifdef DEVEL
+          if (echo > 4) { // display
+              printf("\n");
+              view2D<char> ln_labels(nln, 4);
+              sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
+              printf("\n# %s without true_norm scaling:\n", label);
+              for(int iHS = 0; iHS < 2; ++iHS) {
+                  for(int iln = 0; iln < nln; ++iln) {
+                      printf("# %s spherical %s %s ", label, ln_labels[iln], iHS ? "overlap" : "hamiltonian");
+                      for(int jln = 0; jln < nln; ++jln) {
+                          printf("%8.4f", aHSm(iHS,iln,jln));
+                      }   printf("\n");
+                  }   printf("\n");
+              } // iHS
+          } // echo
+#endif            
 
         if (1) {
             double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
@@ -2935,8 +3088,7 @@
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
         int const nln = sho_tools::nSHO_radial(numax);
-        view3D<double> aHSm(2, nln, nln, 0.0);
-        check_spherical_matrix_elements(echo, aHSm); // check scattering properties for emm-averaged Hamiltonian elements
+        check_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
