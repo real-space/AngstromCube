@@ -97,7 +97,7 @@ namespace scattering_test {
       } // echo
       return stat;
   } // expand_sho_projectors
-
+  
 // #define _SELECTED_ENERGIES_LOGDER
   
   inline double find_outwards_solution(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)

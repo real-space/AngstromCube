@@ -38,6 +38,7 @@
 #include "sho_hamiltonian.hxx" // ::all_tests
 #include "fourier_poisson.hxx" // ::all_tests
 #include "solid_harmonics.hxx" // ::all_tests
+#include "bisection_tools.hxx" // ::all_tests
 #include "pw_hamiltonian.hxx" // ::all_tests
 #include "sho_projection.hxx" // ::all_tests
 #include "shift_boundary.hxx" // ::all_tests
@@ -124,6 +125,7 @@
           module_test("sho_hamiltonian.",         sho_hamiltonian::all_tests);
           module_test("fourier_poisson.",         fourier_poisson::all_tests);
           module_test("solid_harmonics.",         solid_harmonics::all_tests);
+          module_test("bisection_tools.",         bisection_tools::all_tests);
           module_test("pw_hamiltonian.",           pw_hamiltonian::all_tests);
           module_test("sho_projection.",           sho_projection::all_tests);
           module_test("shift_boundary.",           shift_boundary::all_tests);

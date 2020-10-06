@@ -39,6 +39,7 @@
 #include "control.hxx" // ::get
 #include "chemical_symbol.hxx" // ::get
 #include "sigma_config.hxx" // ::get, element_t
+#include "bisection_tools.hxx" // bisector_t
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -94,8 +95,7 @@
   } // minimize_curvature
 
 
-
-
+  inline int nn_max(int const numax, int const ell) { return (numax + 2 - ell)/2; }
     
 
   status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc,
@@ -454,7 +454,7 @@
             
             // get nn[] from numax
             for(int ell = 0; ell <= ELLMAX; ++ell) {
-                int const nn_suggested = std::max(0, (numax + 2 - ell)/2); // suggest
+                int const nn_suggested = std::max(0, nn_max(numax, ell)); // suggest
                 nn[ell] = std::min(nn_suggested, nn_limiter); // take a smaller number of partial waves
             } // ell
 
@@ -1111,10 +1111,9 @@
 
             double weighted_quality{0};
             for(int ell = 0; ell <= numax; ++ell) {
-                int const nrn_max = (numax + 2 - ell)/2;
                 double denom_sho[8];
-                assert(nrn_max <= 8);
-                for(int mrn = 0; mrn < nrn_max; ++mrn) { // smooth number or radial nodes
+                assert(nn_max(numax, ell) <= 8);
+                for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                     int const jln = sho_tools::ln_index(numax, ell, mrn);
                     denom_sho[mrn] = dot_product(rg.n, prj_sho[jln], prj_sho[jln], rg.r2dr); // should be close to 1.0
 //                  printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma_now*Ang,_Ang, jln, denom_sho);
@@ -1125,7 +1124,7 @@
                     int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
                     double const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of numerically given projectors
 
-                    for(int mrn = 0; mrn < nrn_max; ++mrn) { // smooth number or radial nodes
+                    for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                         int const jln = sho_tools::ln_index(numax, ell, mrn);
                         
 //                      if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
@@ -1162,13 +1161,12 @@
         view2D<double> sphi(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*phi_smt
         view2D<double> rprj(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*projector
         view2D<double> skin(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*T*phi_smt
-//         view2D<double> prj_sho(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*projector
         
         double occ_ell[12]; set(occ_ell, 12, 0.0);
         double total_occ{0};
 
         for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+            for(int nrn = 0; nrn < nn[ell]; ++nrn) { // partial waves
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 auto const energy = partial_wave[iln].energy;
                 auto const occ    = partial_wave[iln].occupation;
@@ -1230,98 +1228,66 @@
             total_occ += occ_ell[ell];
         } // ell
 
-        double sigma_now = 0.5*sigma_old; // initialize, start lower than the suggested sigma
-        std::vector<double> best_projector_coeff(nln*8, 0.0);
-        double best_weighted_quality{-1}, sigma_opt{-1}; // init with impossible values
-        int best_weighted_quality_at_iter{-1};
-        int const scan_sigma = control::get("single_atom.scan.sigma", 199.);
-        // to optimize efficiently we need to define a derivative w.r.t. sigma and use a Newton method or bisection to find its zero.
-        for(int iter = 0; iter < scan_sigma; ++iter) {
+        // search for the optimal sigma value to best represent the projectors in a SHO basis of size numax
+        double const sigma_range[] = {0.5*sigma_old, 2.0*sigma_old};
+#if 1
+        auto const scan_sigma = int(control::get("single_atom.scan.sigma", 5.));
+        double sigma_opt{sigma_old}, best_weighted_quality{-1}, window[] = {0.5, 2.0};
+        for(int level = 0; level < 36; ++level) {
+            double const level_range[] = {sigma_opt*window[0], sigma_opt*window[1]};
+            if (echo > 11) printf("# %s search for optimal sigma in [%g, %g] %s, level %i\n", label, level_range[0]*Ang, level_range[1]*Ang, _Ang, level);
+            double const sigma_inc = std::pow(level_range[1]/level_range[0], 1./scan_sigma);
+            double sigma_now = level_range[0];
+            for(int iter = 0; iter <= scan_sigma; ++iter) {
 
-            // suggest a new sigma (named sigma_now here)
-            sigma_now *= 1.01;
-            
-#if 0            
-            int const nr = rg[SMT]->n;
-            
-            // expand the normalized radial SHO basis functions for this value of sigma
-            scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), *rg[SMT], sigma_now, numax, 0, echo/2);
+                auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, *rg[SMT], rprj, occ_ell, echo);
+                if (echo > 12) printf("# %s search for optimal sigma at sigma= %g %s with quality %g\n", label, sigma_now*Ang, _Ang, weighted_quality);
 
-            std::vector<double> projector_coeff(nln*8, 0.0);
+                if (weighted_quality > best_weighted_quality) {
+                    best_weighted_quality = weighted_quality;
+                    sigma_opt = sigma_now; // store
+                } // store the best result
 
-            double weighted_quality{0};
-            for(int ell = 0; ell <= numax; ++ell) {
-                int const nrn_max = (numax + 2 - ell)/2;
-                double denom_sho[8];
-                for(int mrn = 0; mrn < nrn_max; ++mrn) { // smooth number or radial nodes
-                    int const jln = sho_tools::ln_index(numax, ell, mrn);
-                    denom_sho[mrn] = dot_product(nr, prj_sho[jln], prj_sho[jln], rg[SMT]->r2dr); // should be close to 1.0
-//                  printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma_now*Ang,_Ang, jln, denom_sho);
-                } // mrn
-                
-                double quality_ell{0};
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // number of the partial wave
-                    int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
-                    double const denom_num = dot_product(nr, rprj[iln], rprj[iln], rg[SMT]->dr); // norm^2 of numerically given projectors
-
-                    for(int mrn = 0; mrn < nrn_max; ++mrn) { // smooth number or radial nodes
-                        int const jln = sho_tools::ln_index(numax, ell, mrn);
-                        
-//                      if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
-                        if (denom_sho[mrn]*denom_num > 0) {
-                            double const inner = dot_product(nr, rprj[iln], prj_sho[jln], rg[SMT]->rdr);
-                            double const quality = pow2(inner) / (denom_sho[mrn]*denom_num);
-                            if (echo > 13) printf("# %s quality for %c%i with sigma= %g %s is %g\n",
-                                                      label, ellchar[ell], nrn, sigma_now*Ang, _Ang, quality);
-                            quality_ell += quality/nn[ell];
-
-                            projector_coeff[iln*8 + mrn] = inner / std::sqrt(denom_sho[mrn]); // if nn[ell] > 1, we want to know the ratio of c1/c0
-                        } else {
-                            if (echo > 1) printf("# %s for sigma= %g %s failed to normalize %c%i projectors: sho %g classical %g\n", 
-                                                    label, sigma_now*Ang,_Ang, ellchar[ell], nrn, denom_sho[mrn], denom_num);
-                        }
-                    } // mrn
-                } // nrn
-                if (echo > 11) printf("# %s quality for %c-channel with sigma= %g %s is %g\n", label, ellchar[ell], sigma_now*Ang, _Ang, quality_ell);
-                weighted_quality += occ_ell[ell]*quality_ell;
-            } // ell
-            if (echo > 9) printf("# %s weighted quality with sigma= %g %s is %g\n", label, sigma_now*Ang, _Ang, weighted_quality);
+                sigma_now *= sigma_inc;
+            } // iter-ate for optimization
+            if (echo > 1) printf("# %s optimized sigma %.12f %s with quality %g at level %d\n", label, sigma_opt*Ang, _Ang, best_weighted_quality, level);
+            window[0] = std::sqrt(window[0]);
+            window[1] = std::sqrt(window[1]);
+        } // level
 #else
-            auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, *rg[SMT], rprj, occ_ell, echo);
+        bisection_tools::bisector_t<double> bisection(sigma_range[0], sigma_range[1], 1e-15, '*');
+        double sigma_now, weighted_quality{0};
+        while(bisection.extremum(sigma_now, weighted_quality, echo + 9)) {
+            weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, *rg[SMT], rprj, occ_ell, echo);
+        } // while
+        double const best_weighted_quality = weighted_quality;
+        double const sigma_opt = sigma_now;
+        if (echo > 5) printf("# %s after %d bisection steps found optimized sigma= %g %s\n", 
+                              label, bisection.get_iterations_needed(), sigma_opt*Ang, _Ang);
 #endif
-
-            if (echo > 9) printf("\n# %s suggest new sigma= %g %s\n", label, sigma_now*Ang, _Ang);
-            if (weighted_quality > best_weighted_quality) {
-                best_weighted_quality = weighted_quality;
-                best_weighted_quality_at_iter = iter;
-//                 set(best_projector_coeff.data(), nln*8, projector_coeff.data());
-                sigma_opt = sigma_now; // store
-            } // store the best result
-
-        } // iter-ate for optimization
-        
         // the upper limit for the weighted quality is the number of valence electrons
-        if (echo > 5) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g, %.1f %%\n\n", label, sigma_opt*Ang, _Ang, 
+        if (echo > 5) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, 
                                   best_weighted_quality, total_occ, best_weighted_quality*100/std::max(1., total_occ));
-        if (sigma_opt == sigma_now) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
-        if (0 == best_weighted_quality_at_iter) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
+        if (sigma_range[1] == sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
+        if (sigma_range[0] == sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
 
         // show expansion coefficients of the projectors
+        std::vector<double> best_projector_coeff(nln*8, 0.0);
         expand_numerical_projectors_in_SHO_basis(sigma_opt, numax, *rg[SMT], rprj, occ_ell, echo, best_projector_coeff.data());
-        
+
             for(int ell = 0; ell <= numax; ++ell) {
-                int const nrn_max = (numax + 2 - ell)/2;
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) { // number of the partial wave
                     int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
                     if (echo > 6) {
                         double norm{0};
-                        for(int mrn = 0; mrn < nrn_max; ++mrn) { // smooth number or radial nodes
+                        for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                             norm += pow2(best_projector_coeff[iln*8 + mrn]);
                         } // mrn
+                        // ToDo: if nrn > 0, orthgonalize coefficient vector against nrn=0 vector and normalize again.
                         if (norm > 0) {
                             double const f = 1./std::sqrt(norm);
                             printf("# %s optimized, normalized coefficients of the %c-projector ", label, ellchar[ell]);
-                            for(int mrn = 0; mrn < nrn_max; ++mrn) { // smooth number or radial nodes
+                            for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                                 printf(" %.6f", best_projector_coeff[iln*8 + mrn]*f);
                             } // mrn
                             printf("\n");
