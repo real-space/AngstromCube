@@ -92,7 +92,7 @@ occupied.bands=4
 #single_atom.local.potential.method=sinc
 single_atom.echo=3
 single_atom.init.echo=7
-single_atom.optimize.sigma=-10
+single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=1
 # logarithmic derivatives
 logder.unit=Ha
@@ -132,13 +132,13 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 1 1 9`; do
+for spacing in `seq 1 1 1`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test potential_generator. \
         +control.file=control.sh \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .5 numax $spacing V=sinc" \
+        +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
         +basis=grid \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
