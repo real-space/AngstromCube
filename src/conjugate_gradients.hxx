@@ -4,7 +4,7 @@
 #include <cstdio> // printf
 
 #include "status.hxx" // status_t
-#include "complex_tools.hxx" // conjugate, is_complex
+#include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
 #include "inline_math.hxx" // set, pow2
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "display_units.h" // eV, _eV
@@ -17,30 +17,32 @@ namespace conjugate_gradients {
   template<typename complex_t> inline double tiny();
   template<> inline double tiny<double>() { return 2.25e-308; }
   template<> inline double tiny<float> () { return 1.18e-38; }
-  
-  template<typename complex_t>
-  complex_t inner_product(size_t const ndof
+
+  template<typename doublecomplex_t, typename complex_t>
+  doublecomplex_t inner_product(size_t const ndof
                    , complex_t const bra[] // assumed shape [ndof]
                    , complex_t const ket[] // assumed shape [ndof]
-                   , double const factor=1) {
-              complex_t tmp{0};
+                   , doublecomplex_t const factor) { // the factor needs to be complex to derive the result type
+              doublecomplex_t tmp{0};
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += conjugate(bra[dof]) * ket[dof];
+                  tmp += doublecomplex_t(conjugate(bra[dof])) * doublecomplex_t(ket[dof]);
               } // dof
-              return tmp*complex_t(factor); // init
+              return tmp*factor; // init
   } // inner_product
 
   template<typename complex_t>
-  void show_matrix(complex_t const mat[], int const stride, int const n, int const m, char const *name=nullptr
-      , char const initchar='#', char const final_newline='\n') {
+  void show_matrix(complex_t const mat[], int const stride, int const n, int const m,
+      char const *name=nullptr, char const initchar='#', char const final_newline='\n')
+  {
       if (is_complex<complex_t>()) return;
       printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
               printf("%9.3f", mat[i*stride + j]);
-          }   printf("\n");
-      }   
+          } // j 
+          printf("\n");
+      } // i
       if (final_newline) printf("%c", final_newline);
   } // show_matrix
 
@@ -75,7 +77,7 @@ namespace conjugate_gradients {
     , float const threshold=1e-8f // convergence criterion
   ) {
       using complex_t = typename operator_t::complex_t; // abbreviate
-      using doublecomplex_t = typename operator_t::doublecomplex_t; // abbreviate
+      using doublecomplex_t = decltype(to_double_complex_t(complex_t(1)));
       using real_t = decltype(std::real(complex_t(1))); // base type
 
       status_t stat = 0;
@@ -84,11 +86,11 @@ namespace conjugate_gradients {
       
       if (echo > 0) printf("# start CG onto %d bands\n", nbands);
 
-      double const dV = op.get_volume_element();
+      doublecomplex_t const dV = op.get_volume_element();
       size_t const nv = op.get_degrees_of_freedom();
       bool const use_overlap = op.use_overlap();
       bool const use_precond = op.use_precond();
-      
+
       int const cg0sd1 = control::get("conjugate_gradients.steepest.descent", 0.); // 1:steepest descent, 0:conjugate gradients
       bool const use_cg = (0 == cg0sd1);
 
@@ -152,7 +154,7 @@ namespace conjugate_gradients {
                   if (snorm < 1e-12) {
                       warn("CG failed for band #%i", ib);
                       return 1;
-                  }
+                  } // failed
                   complex_t const snrm = 1./std::sqrt(snorm);
                   scale( s[ib], nv, snrm);
                   if (use_overlap) {
@@ -272,9 +274,9 @@ namespace conjugate_gradients {
                       // apply Hamiltonian
                       stat += op.Hamiltonian(Hcon, con, echo);
 
-                      double    const sHs = energy[ib];
-                      doublecomplex_t sHc = inner_product(nv, s[ib], Hcon, dV); // must be complex_t
-                      double    const cHc = std::real(inner_product(nv,   con, Hcon, dV));
+                      double const sHs = energy[ib];
+                      auto   const sHc = inner_product(nv, s[ib], Hcon, dV); // must be complex_t
+                      double const cHc = std::real(inner_product(nv,   con, Hcon, dV));
                       doublecomplex_t alpha{1};
                       double          beta{0};
                       submatrix2x2(sHs, sHc, cHc, alpha, beta);

@@ -230,13 +230,12 @@ namespace grid_operators {
 
   
 
-  template <typename wave_function_t, typename DoubleComplex_t=wave_function_t, typename read_FiniDiff_t=wave_function_t>
+  template <typename wave_function_t, typename real_FiniDiff_t=wave_function_t>
   class grid_operator_t
   {
     public:
       typedef wave_function_t complex_t;
-      typedef DoubleComplex_t doublecomplex_t;
-      typedef read_FiniDiff_t real_fd_t;
+      typedef real_FiniDiff_t real_fd_t;
     private:
       void _constructor(real_space::grid_t const & g // real space grid descriptor
                , double const *local_potential // may be nullptr

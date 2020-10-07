@@ -132,7 +132,7 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -144,7 +144,7 @@ for spacing in `seq 1 1 1`; do
 #         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
-for numax in `seq 4 2 8`; do
+for numax in `seq 4 2 6`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

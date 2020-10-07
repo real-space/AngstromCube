@@ -410,11 +410,11 @@ namespace scattering_test {
           for(int ir = 0; ir < nr; ++ir) {
               double const r = g.r[ir + 1];
               // diagonal: local potential and repulsive angular part of the kinetic energy
-              Ham[ir][ir] = Vloc[ir + 1] + 0.5*(ell*(ell + 1.)/pow2(r)); 
-              Ovl[ir][ir] = 1.;
+              Ham(ir,ir) = Vloc[ir + 1] + 0.5*(ell*(ell + 1.)/pow2(r)); 
+              Ovl(ir,ir) = 1.;
               for(int jr = 0; jr < nr; ++jr) {
                   int const dij = std::abs(ir - jr);
-                  if (dij <= nFD) Ham[ir][jr] -= 0.5*cFD[dij]; // finite_difference kinetic energy operator
+                  if (dij <= nFD) Ham(ir,jr) -= 0.5*cFD[dij]; // finite_difference kinetic energy operator
               } // jr
               // in the radial representation, the usual Laplacian d^2/dr^2 can be applied 
               // for the radial component if the wave functions are in r*phi(r) representation
@@ -429,13 +429,13 @@ namespace scattering_test {
               for(int jr = 0; jr < nr; ++jr) {
                   for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                       for(int mrn = 0; mrn < nn[ell]; ++mrn) {
-                          Ham[ir][jr] += rprj1[nrn][ir] * aHm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
-                          Ovl[ir][jr] += rprj1[nrn][ir] * aSm_ell[nrn][mrn] * rprj1[mrn][jr] * dr;
+                          Ham(ir,jr) += rprj1(nrn,ir) * aHm_ell(nrn,mrn) * rprj1(mrn,jr) * dr;
+                          Ovl(ir,jr) += rprj1(nrn,ir) * aSm_ell(nrn,mrn) * rprj1(mrn,jr) * dr;
                       } // mrn
                   } // nrn
               } // jr
               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
-                  projector_norm[nrn] += pow2(rprj1[nrn][ir]) * dr; 
+                  projector_norm[nrn] += pow2(rprj1(nrn,ir)) * dr; 
               } // nrn
           } // ir
 
@@ -451,7 +451,7 @@ namespace scattering_test {
               printf("# %s: charge deficits for ell=%i are ", __func__, ell);
               for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                   for(int mrn = nrn; mrn < nn[ell]; ++mrn) { // triangular loop
-                      printf(" %g", aSm_ell[nrn][mrn]);
+                      printf(" %g", aSm_ell(nrn,mrn));
                   } // mrn
               }   printf("\n");
           } // echo
@@ -480,7 +480,7 @@ namespace scattering_test {
                           if (echo > 9) {
                               printf("\n## %s %s ell=%i eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
                               for(int ir = 0; ir < nr; ++ir) {
-                                  printf("%g %g\n", g.r[ir + 1], evec[iev][ir]);
+                                  printf("%g %g\n", g.r[ir + 1], evec(iev,ir));
                               }   printf("\n\n");
                           } // echo
 

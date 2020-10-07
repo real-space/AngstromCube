@@ -6,7 +6,7 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::eigenvalues
 #include "inline_math.hxx" // set, pow2
-#include "complex_tools.hxx" // conjugate, is_complex
+#include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
 #include "display_units.h" // eV, _eV
 
 
@@ -29,9 +29,9 @@ namespace davidson_solver {
               auto const ket_ptr = &ket[jstate*ndof];
               doublecomplex_t tmp(0);
               for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += doublecomplex_t(conjugate(bra_ptr[dof]) * ket_ptr[dof]);
+                  tmp += doublecomplex_t(conjugate(bra_ptr[dof])) * doublecomplex_t(ket_ptr[dof]);
               } // dof
-              s[istate*stride + jstate] = tmp*doublecomplex_t(factor); // init
+              s[istate*stride + jstate] = tmp*factor; // init
           } // jstate
       } // istate
   } // inner_products
@@ -73,7 +73,7 @@ namespace davidson_solver {
       }   printf("\n");
   } // show_matrix
 
-  template<class operator_t> // , typename complex_t, typename doublecomplex_t>
+  template<class operator_t>
   status_t eigensolve(typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
@@ -83,8 +83,8 @@ namespace davidson_solver {
     , unsigned const niterations=2
   ) {
       using complex_t = typename operator_t::complex_t; // abbreviate
-      using doublecomplex_t = typename operator_t::doublecomplex_t;
-      using doubleprecision_t = decltype(std::real(doublecomplex_t(1))); // base type
+      using doublecomplex_t = decltype(to_double_complex_t(complex_t(1))); // double or complex<double>
+      using real_t = decltype(std::real(complex_t(1)));
       status_t stat(0);
       if (nbands < 1) return stat;
 
@@ -100,8 +100,8 @@ namespace davidson_solver {
       int const op_echo = echo - 16; // lower log level in operator calls
 
       view3D<doublecomplex_t> matrices(2, max_space, max_space);
-      auto Hmt = matrices[0], Ovl = matrices[1];
-      std::vector<doubleprecision_t> eigval(max_space);
+      auto Hmt = matrices[0], Ovl = matrices[1]; // named sub-views
+      std::vector<double> eigval(max_space);
       std::vector<double> residual_norm2s(max_space);
 
       complex_t const zero(0);
@@ -204,7 +204,7 @@ namespace davidson_solver {
                   for(int i = 0; i < add_bands; ++i) {
                       int const j = indices[i];
                       int const ii = sub_space + i;
-                      complex_t const f = 1./std::sqrt(residual_norm2s[j]);
+                      real_t const f = 1./std::sqrt(residual_norm2s[j]);
                       set(psi[ii], ndof, epsi[j], f); // and normalize
                   } // i
 

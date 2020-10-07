@@ -89,8 +89,8 @@ namespace pw_hamiltonian {
 
   
   template<typename complex_t>
-  status_t iterative_solve(view3D<complex_t> const & SHm, char const *x_axis=""
-      , int const echo=0, int const nbands=10) {
+  status_t iterative_solve(view3D<complex_t> const & SHm, char const *x_axis="",
+      int const echo=0, int const nbands=10, float const direct_ratio=2) {
       //
       // An iterative solver using the Davidson method
       //
@@ -115,8 +115,9 @@ namespace pw_hamiltonian {
       } // enough plane waves?
 
       { // scope: fill start wave functions with good, linear independent start vectors
-          int const nsub = std::min(2*nbands, nPW);
-          view3D<complex_t> SHmat_b(2, nsub, nsub);
+          int const nsubspace = std::max(nbands, int(direct_ratio*nbands));
+          int const nsub = std::min(nsubspace, nPW);
+          view3D<complex_t> SHmat_b(2, nsub, align<2>(nsub));
           for(int ib = 0; ib < nsub; ++ib) {
               set(SHmat_b(S,ib), nsub, SHm(S,ib));
               set(SHmat_b(H,ib), nsub, SHm(H,ib));
@@ -129,6 +130,7 @@ namespace pw_hamiltonian {
               return stat_eig;
           } // error?
           stat += stat_eig;
+          // after the dense solver, the Hamiltonian matrix contains the eigenvectors
 
           // copy eigenvectors into low PW coefficients of start waves
           for(int ib = 0; ib < nbands; ++ib) {
@@ -137,7 +139,7 @@ namespace pw_hamiltonian {
       } // scope
 
       // construct a dense-matrix operator op
-      dense_operator::dense_operator_t<complex_t,std::complex<double>> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
+      dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
 
       // solve using the Davidson eigensolver
       std::vector<double> eigvals(nbands);
@@ -337,12 +339,14 @@ namespace pw_hamiltonian {
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
       real_t const localpot = scale_p / (nG[0]*nG[1]*nG[2]);
 
-      for(int iB = 0; iB < nB; ++iB) {      auto const & i = pw_basis[iB];
+      for(int iB = 0; iB < nB; ++iB) {
+          auto const & i = pw_basis[iB];
 
           SHm(S,iB,iB) += 1; // unity overlap matrix, plane waves are orthogonal
           SHm(H,iB,iB) += kinetic*i.g2; // kinetic energy contribution
 
-          for(int jB = 0; jB < nB; ++jB) {  auto const & j = pw_basis[jB];
+          for(int jB = 0; jB < nB; ++jB) {
+              auto const & j = pw_basis[jB];
 
               // add the contribution of the local potential
               int const iVx = i.x - j.x, iVy = i.y - j.y, iVz = i.z - j.z;
@@ -392,7 +396,6 @@ namespace pw_hamiltonian {
           , int const echo) { // log-level
 
       status_t stat(0);
-//    SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
       
       for(int ia = 0; ia < natoms_PAW; ++ia) {
           if (echo > 0) {
@@ -426,10 +429,8 @@ namespace pw_hamiltonian {
       if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
-//       int const nG[3] = {g[0]/2 - 1, g[1]/2 - 1, g[2]/2 - 1}; // 2*nG <= g
-//       view4D<std::complex<double>> Vcoeffs(2*nG[2]+1, 2*nG[1]+1, 2*nG[0]+2, 1, 0.0);
       int const nG[3] = {g[0], g[1], g[2]}; //
-      view4D<double> Vcoeffs(2,nG[2],nG[1],nG[0], 0.0);
+      view4D<double> Vcoeffs(2, nG[2], nG[1], nG[0], 0.0);
 
       auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, nG, echo);
       if (0 == fft_stat) {
@@ -438,30 +439,25 @@ namespace pw_hamiltonian {
           if (echo > 5) printf("# FFT failed, transform local potential manually\n");
           double const two_pi = 2*constants::pi;
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
-          for        (int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
-              for    (int iGy = 0; iGy < nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
-                  for(int iGx = 0; iGx < nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];
-                      double re{0}, im{0};
-                      for(int iz = 0; iz < g[2]; ++iz) {
-                      for(int iy = 0; iy < g[1]; ++iy) {
-                      for(int ix = 0; ix < g[0]; ++ix) {
-                          double const arg = Gz*iz + Gy*iy + Gx*ix;
-                          double const V = vtot[(iz*g[1] + iy)*g[0] + ix];
-                          re += V * std::cos(arg);
-                          im += V * std::sin(arg);
-                      } // ix
-                      } // iy
-                      } // iz
-                      Vcoeffs(0,iGz,iGy,iGx) = re; // store
-                      Vcoeffs(1,iGz,iGy,iGx) = im; // store
-                  } // iGx
-              } // iGy
-          } // iGz
-          
+          for(int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
+          for(int iGy = 0; iGy < nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
+          for(int iGx = 0; iGx < nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];
+              double re{0}, im{0};
+              for(int iz = 0; iz < g[2]; ++iz) {
+              for(int iy = 0; iy < g[1]; ++iy) {
+              for(int ix = 0; ix < g[0]; ++ix) {
+                  double const arg = Gz*iz + Gy*iy + Gx*ix;
+                  double const V = vtot[(iz*g[1] + iy)*g[0] + ix];
+                  re += V * std::cos(arg);
+                  im += V * std::sin(arg);
+              }}} // ix iy iz
+              Vcoeffs(0,iGz,iGy,iGx) = re; // store
+              Vcoeffs(1,iGz,iGy,iGx) = im; // store
+          }}} // iGx iGy iGz
+
           if (echo > 6) {
-              auto const V0 = Vcoeffs(nG[2],nG[1],nG[0],0);
               printf("# 000-Fourier coefficient of the potential is %g %g %s\n", 
-                                std::real(V0)*eV, std::imag(V0)*eV, _eV); 
+                                Vcoeffs(0,0,0,0)*eV, Vcoeffs(1,0,0,0)*eV, _eV); 
           } // echo
       } // scope
 
@@ -486,16 +482,15 @@ namespace pw_hamiltonian {
 
       double const nbands_per_atom = control::get("bands.per.atom", 10.);
       int const nbands = int(nbands_per_atom*natoms_PAW);
-      
-//    prepare_timer.stop(echo);
+
       // all preparations done, start k-point loop
 
       auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
-          char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/(nkpoints - 1.));
-          double const kpoint[3] = {ikp*.5/(nkpoints - 1.), 0, 0}; //
+          double const kpoint[3] = {ikp*.5/(nkpoints - 1.), 0, 0};
+          char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", kpoint[0]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
           bool can_be_real{false}; // real only with inversion symmetry
@@ -517,7 +512,7 @@ namespace pw_hamiltonian {
           if (echo > 0) fflush(stdout);
           tPW_stats.add(timer.stop());
       } // ikp
-      
+
       if (echo > 3) printf("\n# average number of plane waves is %.3f +/- %.3f min %g max %g\n",
                       nPW_stats.avg(), nPW_stats.var(), nPW_stats.min(), nPW_stats.max());
       if (echo > 3) printf("# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
@@ -534,7 +529,7 @@ namespace pw_hamiltonian {
 
   status_t test_Hamiltonian(int const echo=5) {
       status_t stat(0);
-      
+
       auto const vtotfile = control::get("sho_hamiltonian.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
@@ -557,7 +552,7 @@ namespace pw_hamiltonian {
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
-      
+
       stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, echo);
 
       return stat;
@@ -589,7 +584,7 @@ namespace pw_hamiltonian {
 
       return stat;
   } // test_Hermite_Gauss_normalization
-  
+
   status_t all_tests(int const echo) {
       status_t status(0);
       status += test_Hamiltonian(echo);

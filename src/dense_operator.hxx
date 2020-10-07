@@ -12,7 +12,7 @@
 
 namespace dense_operator {
 
-  template<typename wave_function_t, typename DoubleComplex_t=wave_function_t>
+  template<typename wave_function_t> // choose from {float, double, complex<float>, complex<double>}
   class dense_operator_t {
     //
     //  An operator offering the action of dense-stored 
@@ -21,7 +21,6 @@ namespace dense_operator {
 
     public:
       typedef wave_function_t complex_t;
-      typedef DoubleComplex_t doublecomplex_t;
 
     private:
       complex_t const *Hmt, *Smt;
