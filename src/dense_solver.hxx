@@ -314,7 +314,10 @@ namespace dense_solver {
       return stat;
   } // solve
   
-  
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
+
   template<typename real_t>
   status_t test_inverse(int const echo=0) {
       status_t status(0);
@@ -366,5 +369,7 @@ namespace dense_solver {
       status += test_inverse<float>(echo);
       return status;
   } // all_tests
+
+#endif // NO_UNIT_TESTS
 
 } // namespace dense_solver

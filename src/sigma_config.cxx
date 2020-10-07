@@ -14,11 +14,11 @@
 
 namespace sigma_config {
 
-    char const ellchar[12] = "spdfghijkl?";
+  char const ellchar[12] = "spdfghijkl?";
 
 #define EXPERIMENTAL
 
-    char const * default_config(unsigned const iZ) { // compiled into the code
+  char const * default_config(unsigned const iZ) { // compiled into the code
 
         switch (iZ) {
             case  1: return "1s* 1 0 2p | 0.9 sigma .247";                              // H   
@@ -158,7 +158,7 @@ namespace sigma_config {
                      warn("no default element configuration given for Z=%d", iZ);
                      return "";
         } // switch
-    } // default config
+  } // default config
 
   
 //
@@ -537,7 +537,7 @@ namespace sigma_config {
     } // get
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_86(int const echo=0) {

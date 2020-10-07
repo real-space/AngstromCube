@@ -20,9 +20,9 @@ namespace angular_grid {
   template<typename real_t>
   int create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo=0);
 
-  status_t all_tests(int const echo=0);
-
   template<int lmax>
   status_t create_numerical_Gaunt(std::vector<gaunt_entry_t> & gaunt, int const echo=0);
+
+  status_t all_tests(int const echo=0);
 
 } // namespace angular_grid

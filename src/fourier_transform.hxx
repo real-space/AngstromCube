@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdio> // printf
 #include <cmath> // std::cos, std::abs, std::sqrt
 #include <cassert> // assert
@@ -12,7 +14,11 @@
 #ifdef HAS_FFTW
 extern "C" {
   #include <fftw3.h> // fftw_plan, fftw_plan_dft_r2r_3d
-}
+} // extern "C"
+#endif
+
+#ifndef NO_UNIT_TESTS
+  #include "constants.hxx" // ::pi
 #endif
 
 namespace fourier_transform {
@@ -72,7 +78,7 @@ namespace fourier_transform {
   } // fft
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=1) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
@@ -120,12 +126,13 @@ namespace fourier_transform {
       return int(status_fft) + int(status_inv);
   } // test_fft
 
-  inline status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_fft<float>(echo);
-    status += test_fft<double>(echo);
-    return status;
+  inline status_t all_tests(int const echo=0) {
+      status_t status(0);
+      status += test_fft<float>(echo);
+      status += test_fft<double>(echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
   
 } // namespace fourier_transform

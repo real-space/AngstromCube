@@ -21,7 +21,7 @@ namespace element_config {
   } // element_symbol
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline status_t test_show_all_elements(int const echo=2) {

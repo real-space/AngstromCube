@@ -1,6 +1,7 @@
 #pragma once
 
-// #define STATUS_WITH_MESSAGE
+
+  int constexpr STATUS_TEST_NOT_INCLUDED = -1;
 
 #ifndef STATUS_WITH_MESSAGE
   typedef int status_t;

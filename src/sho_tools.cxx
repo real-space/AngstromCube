@@ -8,7 +8,7 @@
 namespace sho_tools {
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_order_enum(int const echo=4) {
@@ -198,15 +198,16 @@ namespace sho_tools {
   } // test_sizeof
   
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_radial_indices(echo);
-    status += test_Cartesian_indices(echo);
-    status += test_energy_ordered_indices(echo);
-    status += test_index_table_construction<int16_t>(echo);
-    status += test_order_enum(echo);
-    status += test_sizeof(echo);
-    return status;
+      status_t status(0);
+      status += test_radial_indices(echo);
+      status += test_Cartesian_indices(echo);
+      status += test_energy_ordered_indices(echo);
+      status += test_index_table_construction<int16_t>(echo);
+      status += test_order_enum(echo);
+      status += test_sizeof(echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace sho_tools

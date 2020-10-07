@@ -170,40 +170,42 @@ namespace recorded_warnings {
 
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
-    if (echo > 1) printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
-    WarningRecord wr(__FILE__,__LINE__,__func__);
-    auto const msg = wr.get_message();
-    sprintf(msg, "This is a non-recorded warning! Text created in %s:%d", __FILE__, __LINE__);
-    return 0;
+      if (echo > 1) printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
+      WarningRecord wr(__FILE__,__LINE__,__func__);
+      auto const msg = wr.get_message();
+      sprintf(msg, "This is a non-recorded warning! Text created in %s:%d", __FILE__, __LINE__);
+      return 0;
   } // test_create_and_destroy
 
   status_t test_preprocessor_macro(int const echo=9) {
-    if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
-    warn("This is a test warning from %s:%d", __FILE__, __LINE__);
-    return 0;
+      if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+      warn("This is a test warning from %s:%d", __FILE__, __LINE__);
+      return 0;
   } // test_preprocessor_macro
 
   status_t test_overwriting(int const echo=9) {
-    if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
-    for(int i = 0; i < 9; ++i) {
-        warn("This is a test warning from inside a loop, iteration #%d", i);
-    } // i
-    return 0;
+      if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+      for(int i = 0; i < 9; ++i) {
+          warn("This is a test warning from inside a loop, iteration #%d", i);
+      } // i
+      return 0;
   } // test_overwriting
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_create_and_destroy(echo);
-    status += test_preprocessor_macro(echo);
-    status += test_overwriting(echo);
-    status += show_warnings(echo); // display those warnings that have been launched for test purposes
-    status += clear_warnings(echo); // clear test warnings from record
-    return status;
+      status_t status(0);
+      status += test_create_and_destroy(echo);
+      status += test_preprocessor_macro(echo);
+      status += test_overwriting(echo);
+      // clean up
+      status += show_warnings(echo); // display those warnings that have been launched for test purposes
+      status += clear_warnings(echo); // clear test warnings from record
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
 
 } // namespace recorded_warnings

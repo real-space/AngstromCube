@@ -7,7 +7,7 @@
 #include "inline_tools.hxx" // align<N_bits>
 #include "sho_projection.hxx" // ::sho_prefactor
 
-#include "status.hxx" // status_t
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace atom_image {
   
@@ -151,7 +151,7 @@ namespace atom_image {
       } // get_matrix
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {

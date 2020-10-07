@@ -314,6 +314,6 @@ namespace linear_algebra {
       cgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); return 0; }
 
 
-  inline status_t all_tests(int const echo=0) { return 0; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 
 } // namespace linear_algebra

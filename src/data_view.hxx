@@ -330,63 +330,63 @@ inline void set(view4D<T> & y, size_t const n3, T const a) {
 namespace data_view {
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-inline int test_view2D(int const echo=9) {
-    int constexpr n1 = 3, n0 = 5;
-    if (echo > 0) printf("\n# %s(%i,%i)\n", __func__, n1, n0);
+  inline int test_view2D(int const echo=9) {
+      int constexpr n1 = 3, n0 = 5;
+      if (echo > 0) printf("\n# %s(%i,%i)\n", __func__, n1, n0);
 
-    // view2D<double> a(n1,8); // memory allocation
-    auto a = view2D<double>(n1,8);
-    assert(a.stride() >= n0);
-    for(int i = 0; i < n1; ++i) {
-        for(int j = 0; j < n0; ++j) {
-            #ifdef _VIEW2D_HAS_PARENTHESIS
-            a(i,j) = i + 0.1*j;
-            if (echo > 0) printf("# a2D(%i,%i) = %g\n", i, j, a(i,j));
-            assert(a.at(i,j) == a[i][j]);
-            #else
-            a[i][j] = i + 0.1*j;
-            if (echo > 0) printf("# a2D(%i,%i) = %g\n", i, j, a[i][j]);
-            #endif
-        } // j
-    } // i
-
-    int ii = 1;
-    if (echo > 0) printf("\n# ai = a1D[%i][:]\n", ii);
-    auto const ai = a[ii]; // pointer into contiguous memory
-    for(int j = 0; j < n0; ++j) {
-        if (echo > 0) printf("# ai[%i] = %g\n", j, ai[j]);
-        #ifdef _VIEW2D_HAS_PARENTHESIS
-        assert(a.at(ii,j) == ai[j]);
-        #else
-        assert(a[ii][j] == ai[j]);
-        #endif
-    } // j
-
-    return 0;
-} // test_view2D
-
-inline int test_view3D(int const echo=9) {
-    int constexpr n2 = 3, n1 = 2, n0 = 5;
-    if (echo > 0) printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
-    view3D<double> a(n2,n1,8); // memory allocation
-    assert(a.stride() >= n0);
-    for(int h = 0; h < n2; ++h) {
+      // view2D<double> a(n1,8); // memory allocation
+      auto a = view2D<double>(n1,8);
+      assert(a.stride() >= n0);
       for(int i = 0; i < n1; ++i) {
-        for(int j = 0; j < n0; ++j) {
-            a(h,i,j) = h + 0.1*i + 0.01*j;
-            if (echo > 0) printf("# a3D(%i,%i,%i) = %g\n", h, i, j, a(h,i,j));
-            #ifdef _VIEW3D_HAS_INDEXING
-            assert(a(h,i,j) == a[h][i][j]);
-            #endif
-        } // j
-      } // h
-    } // i
+          for(int j = 0; j < n0; ++j) {
+              #ifdef _VIEW2D_HAS_PARENTHESIS
+              a(i,j) = i + 0.1*j;
+              if (echo > 0) printf("# a2D(%i,%i) = %g\n", i, j, a(i,j));
+              assert(a.at(i,j) == a[i][j]);
+              #else
+              a[i][j] = i + 0.1*j;
+              if (echo > 0) printf("# a2D(%i,%i) = %g\n", i, j, a[i][j]);
+              #endif
+          } // j
+      } // i
 
-    return 0;
-} // test_view3D
+      int ii = 1;
+      if (echo > 0) printf("\n# ai = a1D[%i][:]\n", ii);
+      auto const ai = a[ii]; // pointer into contiguous memory
+      for(int j = 0; j < n0; ++j) {
+          if (echo > 0) printf("# ai[%i] = %g\n", j, ai[j]);
+          #ifdef _VIEW2D_HAS_PARENTHESIS
+          assert(a.at(ii,j) == ai[j]);
+          #else
+          assert(a[ii][j] == ai[j]);
+          #endif
+      } // j
+
+      return 0;
+  } // test_view2D
+
+  inline int test_view3D(int const echo=9) {
+      int constexpr n2 = 3, n1 = 2, n0 = 5;
+      if (echo > 0) printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
+      view3D<double> a(n2,n1,8); // memory allocation
+      assert(a.stride() >= n0);
+      for(int h = 0; h < n2; ++h) {
+        for(int i = 0; i < n1; ++i) {
+          for(int j = 0; j < n0; ++j) {
+              a(h,i,j) = h + 0.1*i + 0.01*j;
+              if (echo > 0) printf("# a3D(%i,%i,%i) = %g\n", h, i, j, a(h,i,j));
+              #ifdef _VIEW3D_HAS_INDEXING
+              assert(a(h,i,j) == a[h][i][j]);
+              #endif
+          } // j
+        } // h
+      } // i
+
+      return 0;
+  } // test_view3D
 
   inline status_t test_bench_view2D(int const echo=1) {
 #ifdef DEVEL
@@ -417,14 +417,13 @@ inline int test_view3D(int const echo=9) {
       return 0;
   } // test_bench_view2D
 
-
-inline status_t all_tests(int const echo=0) {
-    status_t status = 0;
-    status += test_view2D(echo);
-    status += test_view3D(echo);
-    status += test_bench_view2D(echo);
-    return status;
-} // all_tests
+  inline status_t all_tests(int const echo=0) {
+      status_t status = 0;
+      status += test_view2D(echo);
+      status += test_view3D(echo);
+      status += test_bench_view2D(echo);
+      return status;
+  } // all_tests
 
 #endif // NO_UNIT_TESTS  
 

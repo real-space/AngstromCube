@@ -1,4 +1,3 @@
-
 #pragma once
 
 #include <algorithm> // std::min, std::max
@@ -42,7 +41,7 @@ namespace simple_stats {
   }; // class Stats<T>
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=2) {
@@ -51,6 +50,7 @@ namespace simple_stats {
 //  status += ToDo
     return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
 
 } // namespace simple_stats

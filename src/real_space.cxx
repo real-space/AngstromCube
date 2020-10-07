@@ -14,7 +14,7 @@
 namespace real_space {
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
@@ -72,11 +72,12 @@ namespace real_space {
   } // test_add_function
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_create_and_destroy(echo);
-    status += test_add_function(echo);
-    return status;
+      status_t status(0);
+      status += test_create_and_destroy(echo);
+      status += test_add_function(echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace real_space

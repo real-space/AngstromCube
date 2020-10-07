@@ -171,7 +171,7 @@ namespace solid_harmonics {
   inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
@@ -184,12 +184,13 @@ namespace solid_harmonics {
   } // test_indices
 
   inline status_t all_tests(int const echo=3) {
-    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t status(0);
-    assert( Y00 * Y00inv == 1.0 ); // should be exact
-    status += test_indices(echo);
-    return status;
+      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      status_t status(0);
+      assert( Y00 * Y00inv == 1.0 ); // should be exact
+      status += test_indices(echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace solid_harmonics

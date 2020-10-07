@@ -56,7 +56,7 @@ namespace unit_system {
   } // set_output_units
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline status_t test_all_combinations(int const echo=0) {
@@ -87,6 +87,7 @@ namespace unit_system {
       stat += test_all_combinations(echo);
       return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
   
 } // namespace unit_system

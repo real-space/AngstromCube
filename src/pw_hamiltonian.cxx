@@ -524,7 +524,7 @@ namespace pw_hamiltonian {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_Hamiltonian(int const echo=5) {
@@ -591,6 +591,7 @@ namespace pw_hamiltonian {
       status += test_Hermite_Gauss_normalization(echo);
       return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
 
 } // namespace pw_hamiltonian

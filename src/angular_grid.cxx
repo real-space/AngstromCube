@@ -13,6 +13,7 @@
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 #include "gaunt_entry.h" // gaunt_entry_t
 #include "constants.hxx" // ::pi
+#include "status.hxx" // status_t
 
 extern "C" {
    // BLAS interface to matrix matrix multiplication
@@ -1821,7 +1822,7 @@ namespace angular_grid {
   status_t create_numerical_Gaunt<6>(std::vector<gaunt_entry_t> & gaunt, int const echo);
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   int test_generation(int const echo=1) {

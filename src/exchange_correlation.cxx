@@ -3,7 +3,6 @@
 #include <cstdio> // printf
 
 #ifndef  NO_UNIT_TESTS
-  #include "inline_math.hxx" // pow3
   #include "display_units.h" // eV, _eV, Ang, _Ang
 #endif
 
@@ -11,10 +10,6 @@
 
 #include "constants.hxx" // ::pi
 #include "inline_math.hxx" // pow2
-
-
-// #define FULL_DEBUG
-// #define DEBUG
 
 namespace exchange_correlation {
   
@@ -71,7 +66,7 @@ namespace exchange_correlation {
   double lda_PZ81_kernel<double>(double const rho, double &Vdn, double const mag, double *Vup);
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_PZ81_potential(int const echo=0) {

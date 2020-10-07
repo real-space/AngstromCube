@@ -49,18 +49,23 @@ class VecLayout {
 namespace vector_layout {
   
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t all_tests(int const echo=9) {
-    if (echo > 0) printf("# %s\n", __func__);
+  inline status_t test_construction_and_destruction(int const echo=9) {
+      if (echo > 0) printf("# %s\n", __func__);
+      typedef double real_t;
+      VecLayout<real_t> layout(8, 8);
+      return 0;
+  } // test_construction_and_destruction
 
-    typedef double real_t;
-    VecLayout<real_t> layout(8, 8);
-    
-    return 0;
+  inline status_t all_tests(int const echo=0) {
+      if (echo > 0) printf("# %s\n", __func__);
+      status_t stat(0);
+      stat += test_construction_and_destruction(echo);
+      return stat;
   } // all_tests
 
-#endif
+#endif // NO_UNIT_TESTS
 
 } // namespace vector_layout

@@ -15,9 +15,8 @@
 
 namespace sho_projection {
 
-
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline constexpr char const * _diag(bool const diagonal) { return diagonal ? "diagonal" : "off-diag"; }
@@ -175,12 +174,13 @@ namespace sho_projection {
   } // test_renormalize_electrostatics
   
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_renormalize_electrostatics(echo);
-    status += test_L2_orthogonality<double>(echo); // takes a while
-//     status += test_L2_orthogonality<float>(echo);
-    return status;
+      status_t status(0);
+      status += test_renormalize_electrostatics(echo);
+      status += test_L2_orthogonality<double>(echo); // takes a while
+//    status += test_L2_orthogonality<float>(echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace sho_projection

@@ -159,42 +159,42 @@ namespace radial_eigensolver {
 
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_hydrogen_like_potential(
-    radial_grid_t const g, // radial grid descriptor
-    float const Z,
-    int const echo=7) { // number of protons in the nucleus
+        radial_grid_t const g // radial grid descriptor
+      , double const Z // atomic number
+      , int const echo=7) { // number of protons in the nucleus
 
-    status_t status(0);
-    auto const ellchar = "spdfghijkl";
-    auto rV = std::vector<double>(g.n, -Z); // fill all potential values with r*V(r) == -Z
-    auto const rf = new double[g.n];
-    for(auto sra = 1; sra <= 1; ++sra) { // 0:non-relativistic, 1:scalar-relativistic, 2:scalar-rel-with-linearized-sqrt
-      if (echo > 0) printf("\n\n# %s %s SRA approximation level = %d\n", __FILE__, __func__, sra);
-      for(auto enn = 1; enn <= 9; ++enn) {
-        for(auto ell = 0; ell < enn; ++ell) {
-          double E = -.5*pow2(Z/enn); // guess energy for hydrogen like atoms
-          status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf)));
-          if (echo > 1) printf("%2d%c energy for Z = %.3f found at E = %.12f %s\n", enn, ellchar[ell], Z, E*eV, _eV);
+      status_t status(0);
+      auto const ellchar = "spdfghijkl";
+      auto rV = std::vector<double>(g.n, -Z); // fill all potential values with r*V(r) == -Z
+      auto const rf = new double[g.n];
+      for(auto sra = 1; sra <= 1; ++sra) { // 0:non-relativistic, 1:scalar-relativistic, 2:scalar-rel-with-linearized-sqrt
+          if (echo > 0) printf("\n\n# %s %s SRA approximation level = %d\n", __FILE__, __func__, sra);
+          for(auto enn = 1; enn <= 9; ++enn) {
+              for(auto ell = 0; ell < enn; ++ell) {
+                  double E = -.5*pow2(Z/enn); // guess energy for hydrogen like atoms
+                  status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf)));
+                  if (echo > 1) printf("%2d%c energy for Z = %.3f found at E = %.12f %s\n", enn, ellchar[ell], Z, E*eV, _eV);
 #ifdef  DEBUG
-          { char filename[32]; sprintf(filename, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
-            dump_to_file(filename, g.n, rf, g.r);
-          }
+                  char filename[32]; sprintf(filename, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
+                  dump_to_file(filename, g.n, rf, g.r);
 #endif
-        } // ell
-      } // enn
-    } // sra
-    return status;
+              } // ell
+          } // enn
+      } // sra
+      return status;
   } // test_hydrogen_like_potential
   
   
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100, echo);
-    return status;
+      status_t status(0);
+      status += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100, echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace radial_eigensolver

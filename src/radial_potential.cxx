@@ -91,31 +91,31 @@ namespace radial_potential {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_radial_potential(int const echo, radial_grid_t const g) { // radial grid descriptor
-    auto const rho = std::vector<double>(g.n, 1);
-    auto       rVH = std::vector<double>(g.n);
-    auto       vHt = std::vector<double>(g.n);
-    Hartree_potential(rVH.data(), g, rho.data());
-    Hartree_potential(vHt.data(), g, rho.data(), 0, 0);
-    double const R = g.rmax;
-    auto const V0 = .50754*R*R; // small correction by 1.5%
-    if (echo > 0) printf("# Rmax = %g V0 = %g \n", R, V0);
-    for(int ir = 0; ir < g.n; ++ir) {
-        auto const r = g.r[ir];
-        double const model = V0 - r*r/6;
-        if (echo > 1) printf("%g %g %g %g\n", r, rVH[ir], r*model, r*vHt[ir]/(4*constants::pi));
-    } // ir
-    return 0;
+      std::vector<double> const rho(g.n, 1);
+      std::vector<double> rVH(g.n), vHt(g.n);
+      Hartree_potential(rVH.data(), g, rho.data());
+      Hartree_potential(vHt.data(), g, rho.data(), 0, 0);
+      double const R = g.rmax;
+      auto const V0 = .50754*R*R; // small correction by 1.5%
+      if (echo > 0) printf("# Rmax = %g V0 = %g \n", R, V0);
+      for(int ir = 0; ir < g.n; ++ir) {
+          auto const r = g.r[ir];
+          double const model = V0 - r*r/6;
+          if (echo > 1) printf("%g %g %g %g\n", r, rVH[ir], r*model, r*vHt[ir]/(4*constants::pi));
+      } // ir
+      return 0;
   } // test_radial_potential
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_radial_potential(echo, *radial_grid::create_exponential_radial_grid(512));
-    return status;
+      status_t status(0);
+      status += test_radial_potential(echo, *radial_grid::create_exponential_radial_grid(512));
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace radial_potential

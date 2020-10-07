@@ -40,26 +40,27 @@
 namespace simple_timer {
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline int64_t fibonacci(int64_t const n) { if (n < 3) return 1; return fibonacci(n - 1) + fibonacci(n - 2); }
 
   inline status_t test_usage(int const echo=3) {
-    int64_t result, inp = 42;
-    {   SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
-        result = fibonacci(inp);
-    } // timer destructor is envoked at the end of this scope
-    if (echo > 0) printf("# fibonacci(%ld) = %ld\n", inp, result);
-    return 0;
+      int64_t result, inp = 42;
+      {   SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
+          result = fibonacci(inp);
+      } // timer destructor is envoked at the end of this scope
+      if (echo > 0) printf("# fibonacci(%ld) = %ld\n", inp, result);
+      return 0;
   } // test_usage
 
   inline status_t all_tests(int const echo=0) {
-    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t status(0);
-    status += test_usage(echo);
-    return status;
+      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      status_t status(0);
+      status += test_usage(echo);
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
 
 } // namespace simple_timer

@@ -156,7 +156,7 @@ namespace conjugate_gradients {
                       return 1;
                   } // failed
                   complex_t const snrm = 1./std::sqrt(snorm);
-                  scale( s[ib], nv, snrm);
+                  scale(s[ib], nv, snrm);
                   if (use_overlap) {
                       scale(Ss[ib], nv, snrm);
                   } else assert(Ss[ib] == s[ib]);

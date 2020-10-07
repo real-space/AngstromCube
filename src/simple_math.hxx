@@ -193,7 +193,7 @@ namespace simple_math {
 
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
@@ -216,43 +216,44 @@ namespace simple_math {
 
   template<typename real_t>
   inline status_t test_invert(int const echo=3) {
-    if (echo > 1) printf("\n# %s\n", __func__);
-    int constexpr N = 4;
-    int constexpr M = 8;
-    real_t a[N*M], inv[N*M], ainv[N*M], inva[N*M];
-    double maxdev = 0;
-    for(int n = -1; n <= N; ++n) { // dimension
-	    for(int m = n; m <= M; ++m) { // stride
-	    	// fill with random values
-	    	for(int ij = 0; ij < n*m; ++ij) {
-                a[ij] = random<real_t>(-1, 1);
-            } // ij
-	   	    auto const det = invert(n, inv, m, a, m);
-			auto const dev_ia = matmul(n, inva, m, inv, m, a, m);
-    		auto const dev_ai = matmul(n, ainv, m, a, m, inv, m);
-	    	maxdev = std::max(maxdev, std::max(dev_ia, dev_ai));
-		    if (echo > 2) printf("# %s n=%i stride=%i determinant %g deviations %g and %g\n", 
-		    						__func__, n, m, det, dev_ia, dev_ai);
-    		if (echo > 7) {
-	        	for(int i = 0; i < n; ++i) {
-    	        	for(int j = 0; j < n; ++j) {
-        	      	printf("# i=%d j=%d \ta*inv_ij=%.6f \tinv*a_ij=%.6f \ta_ij=%g \tinv_ij=%g\n", 
-            	  			i, j, ainv[i*m + j], inva[i*m + j], a[i*m + j], inv[i*m + j]);
-	    	}}}
-	    } // m
-    } // n
-    if (echo > 0) printf("# %s: largest deviation for inversions up to %ix%i is %g\n", __func__, N, N, maxdev);
-    return 0;
+      if (echo > 1) printf("\n# %s\n", __func__);
+      int constexpr N = 4;
+      int constexpr M = 8;
+      real_t a[N*M], inv[N*M], ainv[N*M], inva[N*M];
+      double maxdev = 0;
+      for(int n = -1; n <= N; ++n) { // dimension
+          for(int m = n; m <= M; ++m) { // stride
+              // fill with random values
+              for(int ij = 0; ij < n*m; ++ij) {
+                  a[ij] = random<real_t>(-1, 1);
+              } // ij
+              auto const det = invert(n, inv, m, a, m);
+              auto const dev_ia = matmul(n, inva, m, inv, m, a, m);
+              auto const dev_ai = matmul(n, ainv, m, a, m, inv, m);
+              maxdev = std::max(maxdev, std::max(dev_ia, dev_ai));
+              if (echo > 2) printf("# %s n=%i stride=%i determinant %g deviations %g and %g\n", 
+                                      __func__, n, m, det, dev_ia, dev_ai);
+              if (echo > 7) {
+                  for(int i = 0; i < n; ++i) {
+                      for(int j = 0; j < n; ++j) {
+                      printf("# i=%d j=%d \ta*inv_ij=%.6f \tinv*a_ij=%.6f \ta_ij=%g \tinv_ij=%g\n", 
+                              i, j, ainv[i*m + j], inva[i*m + j], a[i*m + j], inv[i*m + j]);
+              }}}
+          } // m
+      } // n
+      if (echo > 0) printf("# %s: largest deviation for inversions up to %ix%i is %g\n", __func__, N, N, maxdev);
+      return 0;
   } // test inversion
   
   inline status_t all_tests(int const echo=2) {
-    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t status(0);
-    status += std::abs(int(test_invert<float>(echo)));
-    status += std::abs(int(test_invert<double>(echo)));
-//  status += std::abs(int(test_invert<std::complex<double>>(echo))); // does not compile
-    return status;
+      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      status_t status(0);
+      status += std::abs(int(test_invert<float>(echo)));
+      status += std::abs(int(test_invert<double>(echo)));
+//    status += std::abs(int(test_invert<std::complex<double>>(echo))); // does not compile
+      return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
 
 } // namespace simple_math

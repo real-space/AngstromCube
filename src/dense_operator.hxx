@@ -60,6 +60,9 @@ namespace dense_operator {
       bool use_overlap() const { return (nullptr != Smt); }
   }; // class dense_operator_t
 
+#ifdef  NO_UNIT_TESTS
+  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
 
   inline status_t test_construct_and_destroy(int const echo=0) {
       double matrix[3][4];
@@ -72,5 +75,7 @@ namespace dense_operator {
       stat += test_construct_and_destroy(echo);
       return stat;
   } // all_tests
+
+#endif // NO_UNIT_TESTS
 
 } // namespace dense_operator

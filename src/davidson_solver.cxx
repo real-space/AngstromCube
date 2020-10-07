@@ -38,7 +38,7 @@ namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template<typename complex_t>

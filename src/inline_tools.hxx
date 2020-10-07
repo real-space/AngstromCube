@@ -26,7 +26,7 @@ namespace inline_tools {
 	void inline eightchars(char string[8], uint64_t const c8) { *((uint64_t*)string) = c8; }
 
 #ifdef  NO_UNIT_TESTS
-	status_t inline all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+	status_t inline all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
  	status_t inline test_eightchars(int const echo=1) {

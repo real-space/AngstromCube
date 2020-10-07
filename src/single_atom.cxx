@@ -3472,7 +3472,7 @@ namespace single_atom {
   
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_compensator_normalization(int const echo=5) {
@@ -3499,25 +3499,26 @@ namespace single_atom {
   } // test_compensator_normalization
   
   int test_LiveAtom(int const echo=9) {
-    int const numax = int(control::get("single_atom.test.numax", 3.)); // default 3: ssppdf
-    bool const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
+      int const numax = int(control::get("single_atom.test.numax", 3.)); // default 3: ssppdf
+      bool const avd = (control::get("single_atom.test.atomic.valence.density", 0.) > 0); //
 //     for(int Z = 0; Z <= 109; ++Z) { // all elements
 //     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
 //        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-    {   double const Z   = control::get("single_atom.test.Z", 29.); // default copper
-        double const ion = control::get("single_atom.test.ion", 0.); // default neutral
-        if (echo > 1) printf("\n# Z = %g\n", Z);
-        LiveAtom a(Z, numax, avd, ion, -1, echo); // envoke constructor
-    } // Z
-    return 0;
+      {   double const Z   = control::get("single_atom.test.Z", 29.); // default copper
+          double const ion = control::get("single_atom.test.ion", 0.); // default neutral
+          if (echo > 1) printf("\n# Z = %g\n", Z);
+          LiveAtom a(Z, numax, avd, ion, -1, echo); // envoke constructor
+      } // Z
+      return 0;
   } // test_LiveAtom
 
   status_t all_tests(int const echo) {
-    status_t stat{0};
-    stat += test_LiveAtom(echo);
-    stat += test_compensator_normalization(echo);
-    return stat;
+      status_t stat{0};
+      stat += test_LiveAtom(echo);
+      stat += test_compensator_normalization(echo);
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace single_atom

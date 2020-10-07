@@ -6,7 +6,7 @@
 #include <iomanip> // std::setprecision
 #include <vector> // std::vector<T>
 
-#include "atom_core.hxx"
+#include "atom_core.hxx" // guess_energy, nl_index, ellchar 
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "radial_grid.h" // radial_grid_t
@@ -21,6 +21,7 @@
 #include "lossful_compression.hxx" // RDP_lossful_compression
 #include "sigma_config.hxx" // ::get, element_t
 #include "recorded_warnings.hxx" // warn
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 // #define FULL_DEBUG
 // #define DEBUG
@@ -470,7 +471,7 @@ namespace atom_core {
 
 
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_initial_density(int const echo=0) {

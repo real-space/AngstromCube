@@ -110,7 +110,7 @@ namespace radial_grid {
   
   
 #ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
@@ -140,6 +140,7 @@ namespace radial_grid {
       status += test_exp_grid(echo);
       return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace radial_grid

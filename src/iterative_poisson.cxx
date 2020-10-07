@@ -485,7 +485,7 @@ namespace iterative_poisson {
                 , char const method, int const echo, float const threshold
                 , float *residual, int const maxiter, int const miniter, int restart);
 
-  status_t all_tests(int const echo) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
@@ -541,11 +541,12 @@ namespace iterative_poisson {
   } // test_solver
 
   status_t all_tests(int const echo) {
-    status_t stat(0);
-    stat += test_solver<double>(echo); // instantiation for both, double and float
-    stat += test_solver<float>(echo);  // compilation and convergence tests
-    return stat;
+      status_t stat(0);
+      stat += test_solver<double>(echo); // instantiation for both, double and float
+      stat += test_solver<float>(echo);  // compilation and convergence tests
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace iterative_poisson

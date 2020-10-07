@@ -136,7 +136,7 @@ namespace shift_boundary {
 
   // ToDo: how to treat k-points?
 
-    inline status_t test_plane_wave(int const echo=9, int const structure=4) {
+  inline status_t test_plane_wave(int const echo=9, int const structure=4) {
       status_t stat{0};
       char const structure_name[][4] = {"sc\0","bcc","hcp","fcc"};
       double amat[3][4]; set(amat[0], 3*4, 0.0);
@@ -291,20 +291,21 @@ namespace shift_boundary {
     // the boundary k-dependent and the Hamiltonian inside the bulk real.
 
       return stat;
-    } // test_plane_wave
+  } // test_plane_wave
 
 #ifdef  NO_UNIT_TESTS
-    inline status_t all_tests(int const echo=0) { printf("\nError: %s was compiled with -D NO_UNIT_TESTS\n\n", __FILE__); return -1; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-    inline status_t all_tests(int const echo=3) {
+  inline status_t all_tests(int const echo=3) {
       if (echo > 1) printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat{0};
       for(int structure = 1; structure <= 4; ++structure) {
           stat += test_plane_wave(echo, structure);
       } // structure
       return stat;
-    } // all_tests
+  } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace shift_boundary
