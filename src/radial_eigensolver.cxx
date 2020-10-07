@@ -190,9 +190,9 @@ namespace radial_eigensolver {
   
   
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100, echo);
-      return status;
+      status_t stat(0);
+      stat += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100, echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

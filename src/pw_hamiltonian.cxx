@@ -586,10 +586,10 @@ namespace pw_hamiltonian {
   } // test_Hermite_Gauss_normalization
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_Hamiltonian(echo);
-      status += test_Hermite_Gauss_normalization(echo);
-      return status;
+      status_t stat(0);
+      stat += test_Hamiltonian(echo);
+      stat += test_Hermite_Gauss_normalization(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

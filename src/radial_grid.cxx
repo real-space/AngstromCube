@@ -135,10 +135,10 @@ namespace radial_grid {
   } // test_exp_grid
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_create_and_destroy(echo);
-      status += test_exp_grid(echo);
-      return status;
+      status_t stat(0);
+      stat += test_create_and_destroy(echo);
+      stat += test_exp_grid(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

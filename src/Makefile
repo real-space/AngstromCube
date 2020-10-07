@@ -39,9 +39,9 @@ OBJ = \
 ifdef NO_UNIT_TESTS
 else
 	###
-	### for the following module all relevant functionality 
-	### is contained in the .hxx header file so that the objects 
-	### do not need to be compiled nor linked
+	### For the following modules all relevant functionality 
+	### 	is contained in the .hxx header file so that the
+	### 	objects do not need to be compiled nor linked.
 	###
 	OBJ += \
 	bessel_transform.o \

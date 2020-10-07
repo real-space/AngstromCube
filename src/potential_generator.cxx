@@ -889,9 +889,9 @@ namespace potential_generator {
   } // test_init
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_init(echo);
-      return status;
+      status_t stat(0);
+      stat += test_init(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS
