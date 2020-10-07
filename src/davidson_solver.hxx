@@ -9,7 +9,6 @@
 #include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
 #include "display_units.h" // eV, _eV
 
-
 namespace davidson_solver {
 
 
@@ -135,7 +134,7 @@ namespace davidson_solver {
               stat += info;
           } else {
               auto const & eigvec = Hmt;
-              if (echo > 8) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues", eV, _eV);
+              if (echo > 8) show_matrix(eigval.data(), 0, 1, sub_space, "Eigenvalues", eV, _eV);
               // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 
               // now rotate the basis into the eigenspace, ToDo: we should use DGEMM-style operations
@@ -176,7 +175,7 @@ namespace davidson_solver {
                           if (new_bands < max_bands) {
                               ++new_bands;
                               thres2 = std::min(thres2, rn2);
-                          }
+                          } // new_bands < max_bands
                       } // rn2
                   } // i
                   int const add_bands = new_bands;
@@ -195,7 +194,7 @@ namespace davidson_solver {
                               indices[new_band] = i;
                               if (echo > 9) printf(" %i", i);
                               ++new_band;
-                          }
+                          } // new_band < max_bands
                       } // rn2
                   } // i
                   if (echo > 9) printf("\n");
@@ -214,7 +213,7 @@ namespace davidson_solver {
                   niter = iteration + 2;
               } else { // if the space can grow
                   niter = iteration; // stop
-              }
+              } // sub_space < max_space
 
           } // info
 
@@ -223,18 +222,18 @@ namespace davidson_solver {
       set(waves, nbands*ndof, psi.data());  // copy result wave functions back
       set(energies, nbands, eigval.data()); // export last set of nbands eigenvalues
 
-      if (echo > 4) show_matrix(eigval.data(), 1, 1, sub_space, "Eigenvalues", eV, _eV);
+      if (echo > 4) show_matrix(eigval.data(), 0, 1, sub_space, "Eigenvalues", eV, _eV);
 
       return stat;
   } // eigensolve
 
-
-  template<class operator_t> // , typename complex_t, typename doublecomplex_t>
+  template<class operator_t>
   status_t rotate(typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
     , operator_t const &op
-    , int const echo=0)   { return eigensolve(waves, energies, nbands, op, echo, 1, 1); }
+    , int const echo=0
+  ) { return eigensolve(waves, energies, nbands, op, echo, 1, 1); }
 
   status_t all_tests(int const echo=0);
 

@@ -4,7 +4,7 @@
 #include <algorithm> // std::swap<T>
 #include <cmath> // std::sin
 
-#include "conjugate_gradients.hxx" // eigensolve
+#include "conjugate_gradients.hxx" // ::eigensolve
 
 #include "real_space.hxx" // ::grid_t
 #include "control.hxx" // ::get
@@ -80,18 +80,18 @@ namespace conjugate_gradients {
                   psi[iband*g.all() + ixyz] = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-          if (echo > 2) printf("# %s: use cosine solutions as start vectors\n", __func__);
+          if (echo > 2) printf("\n# %s: use cosine solutions as start vectors\n", __func__);
       } else if ('r' == swm) {
           for(size_t i = 0; i < nbands*g.all(); ++i) {
               psi[i] = simple_math::random(-1., 1.); // random wave functions (most probably not very good)
           } // i
-          if (echo > 2) printf("# %s: use random values as start vectors\n", __func__);
+          if (echo > 2) printf("\n# %s: use random values as start vectors\n", __func__);
       } else {
           for(int iband = 0; iband < nbands; ++iband) {
               psi[iband*g.all() + iband] = 1; // bad start wave functions
           } // iband
-          if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
-      }
+          if (echo > 2) printf("\n# %s: use as start vectors some delta functions at the boundary\n", __func__);
+      } // swm (start wave method)
 
       // construct Hamiltonian and Overlap operator
       using real_t = decltype(std::real(complex_t(1)));

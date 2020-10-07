@@ -6,17 +6,13 @@
 
 #include "davidson_solver.hxx" // eigensolve
 
-#include "grid_operators.hxx" // ::grid_operator_t
-#include "data_view.hxx" // view2D<T>, view3D<T>
-#include "linear_algebra.hxx" // ::eigenvalues
-#include "inline_math.hxx" // set
-#include "complex_tools.hxx" // conjugate
-#include "display_units.h" // eV, _eV
-
 // for tests
+#include "grid_operators.hxx" // ::grid_operator_t
+#include "data_view.hxx" // view2D<T>
+#include "display_units.h" // eV, _eV
 #include "control.hxx" // ::get
+#include "complex_tools.hxx" // complex_name<T>
 #include "simple_math.hxx" // ::random<T>
-
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -47,15 +43,16 @@ namespace davidson_solver {
 
   template<typename complex_t>
   status_t test_solver(int const echo=9) {
-      status_t stat{0};
       int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
+      if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
+      status_t stat{0};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
       //                           3*(pi/8.78)**2      = 0.192 (found)
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
-      real_space::grid_t g(8, 8, 8);
-      std::vector<complex_t> psi(nbands*g.all(), 0.0);
+      real_space::grid_t const g(8, 8, 8); // boundary conditions are isolated by default
+      view2D<complex_t> psi(nbands, g.all(), complex_t(0));
       std::vector<double> energies(nbands, 0.0);
 
       int const swm = control::get("davidson_solver.start.waves", 0.);
@@ -71,24 +68,27 @@ namespace davidson_solver {
                   wxyz[6] = wxyz[3]*wxyz[1]; // z*x (ell=2)
                   wxyz[7] = wxyz[1]*wxyz[2]*wxyz[3]; // x*y*z (ell=3)
               } // nbands > 4
-              int const ixyz = (iz*g('y') + iy)*g('x') + ix;
+              int const izyx = (iz*g('y') + iy)*g('x') + ix;
               for(int iband = 0; iband < nbands; ++iband) {
-                  psi[iband*g.all() + ixyz] = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
+                  psi(iband,izyx) = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-          if (echo > 2) printf("# %s: use cosine solutions as start vectors\n", __func__);
+          if (echo > 2) printf("\n# %s: use cosine solutions as start vectors\n", __func__);
       } else if (1 == swm) {
-          for(size_t i = 0; i < nbands*g.all(); ++i) {
-              psi[i] = simple_math::random(-1.f, 1.f); // random wave functions (most probably not very good)
-          } // i
-          if (echo > 2) printf("# %s: use random values as start vectors\n", __func__);
+          for(int iband = 0; iband < nbands; ++iband) {
+              for(int izyx = 0; izyx < g.all(); ++izyx) {
+                  psi(iband,izyx) = simple_math::random(-1.f, 1.f); // random wave functions (most probably not very good)
+              } // izyx
+          } // iband
+          if (echo > 2) printf("\n# %s: use random values as start vectors\n", __func__);
       } else {
           for(int iband = 0; iband < nbands; ++iband) {
-              psi[iband*g.all() + iband] = 1; // bad start wave functions
+              psi(iband,iband) = 1; // bad start wave functions
           } // iband
-          if (echo > 2) printf("# %s: use as start vectors some delta functions at the boundary\n", __func__);
-      }
+          if (echo > 2) printf("\n# %s: use as start vectors some delta functions at the boundary\n", __func__);
+      } // swm (start wave method)
 
+      // create a real-space grid Hamiltonian without atoms and with a flat local potential (at zero)
       grid_operators::grid_operator_t<complex_t> const op(g);
 
       int const nit = control::get("davidson_solver.max.iterations", 1.);
