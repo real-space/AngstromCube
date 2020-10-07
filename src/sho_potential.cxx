@@ -645,9 +645,9 @@ namespace sho_potential {
   } // test_local_potential_matrix_elements
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_local_potential_matrix_elements(echo); // expensive
-      return status;
+      status_t stat(0);
+      stat += test_local_potential_matrix_elements(echo); // expensive
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

@@ -1913,13 +1913,14 @@ namespace angular_grid {
   } // test_numerical_Gaunt
 
   status_t all_tests(int const echo) {
-    status_t stat{0};
-    stat += test_generation(echo);
-    stat += test_orthogonality(echo);
-    stat += test_numerical_Gaunt(echo);
-    solid_harmonics::cleanup<double>(); // free internal memory
-    return stat;
+      status_t stat{0};
+      stat += test_generation(echo);
+      stat += test_orthogonality(echo);
+      stat += test_numerical_Gaunt(echo);
+      solid_harmonics::cleanup<double>(); // free internal memory
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace angular_grid

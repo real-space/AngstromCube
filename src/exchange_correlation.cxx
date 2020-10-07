@@ -70,19 +70,20 @@ namespace exchange_correlation {
 #else // NO_UNIT_TESTS
 
   status_t test_PZ81_potential(int const echo=0) {
-    if (echo > 0) printf("\n## density(%s^-3) energy(%s) potential(%s)\n", _Ang, _eV, _eV);
-    for(double rho = .625e-20; rho < 1e9; rho *= 2) {
-        double V; double const E = lda_PZ81_kernel(rho, V);
-        if (echo > 0) printf("%g %g %g\n", rho/pow3(Ang), E*eV, V*eV);
-    } // rho
-    return 0;
+      if (echo > 0) printf("\n## density(%s^-3) energy(%s) potential(%s)\n", _Ang, _eV, _eV);
+      for(double rho = .625e-20; rho < 1e9; rho *= 2) {
+          double V; double const E = lda_PZ81_kernel(rho, V);
+          if (echo > 0) printf("%g %g %g\n", rho/pow3(Ang), E*eV, V*eV);
+      } // rho
+      return 0;
   } // test_PZ81_potential
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_PZ81_potential(echo);
-    return status;
+      status_t stat(0);
+      stat += test_PZ81_potential(echo);
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace exchange_correlation

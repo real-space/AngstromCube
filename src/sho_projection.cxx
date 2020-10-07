@@ -10,14 +10,9 @@
 #include "solid_harmonics.hxx" // ::rlXlm
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
-// #define FULL_DEBUG
-// #define DEBUG
-
 namespace sho_projection {
 
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   inline constexpr char const * _diag(bool const diagonal) { return diagonal ? "diagonal" : "off-diag"; }
 
@@ -174,11 +169,11 @@ namespace sho_projection {
   } // test_renormalize_electrostatics
   
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_renormalize_electrostatics(echo);
-      status += test_L2_orthogonality<double>(echo); // takes a while
-//    status += test_L2_orthogonality<float>(echo);
-      return status;
+      status_t stat(0);
+      stat += test_renormalize_electrostatics(echo);
+      stat += test_L2_orthogonality<double>(echo); // takes a while
+//    stat += test_L2_orthogonality<float>(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

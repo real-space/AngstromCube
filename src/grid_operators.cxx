@@ -12,9 +12,7 @@
 namespace grid_operators {
   // setup of the real-space grid-based Hamiltonian and overlap operator
   
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
   
   status_t projector_normalization_test(int const echo=9) {
       status_t stat(0);
@@ -81,12 +79,13 @@ namespace grid_operators {
   } // class_with_atoms_test
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += class_test(echo);
-    status += class_with_atoms_test(echo);
-    status += projector_normalization_test(echo);
-    return status;
+      status_t stat(0);
+      stat += class_test(echo);
+      stat += class_with_atoms_test(echo);
+      stat += projector_normalization_test(echo);
+      return stat;
   } // all_tests
-#endif // NO_UNIT_TESTS  
+
+#endif // NO_UNIT_TESTS
 
 } // namespace grid_operators

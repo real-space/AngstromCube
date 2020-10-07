@@ -8,13 +8,10 @@
 #include "constants.hxx" // ::sqrtpi
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t
 #include "inline_tools.hxx" // align<nbits>
-// #include "sho_tools.hxx" // ::nSHO_radial
 
 namespace sho_radial {
 
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   template<typename real_t>
   real_t numerical_norm(real_t const c0[], int const nrn0, 
@@ -95,9 +92,9 @@ namespace sho_radial {
   } // test_orthonormality
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_orthonormality(echo);
-      return status;
+      status_t stat(0);
+      stat += test_orthonormality(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

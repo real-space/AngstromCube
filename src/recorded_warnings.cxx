@@ -196,14 +196,14 @@ namespace recorded_warnings {
   } // test_overwriting
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_create_and_destroy(echo);
-      status += test_preprocessor_macro(echo);
-      status += test_overwriting(echo);
+      status_t stat(0);
+      stat += test_create_and_destroy(echo);
+      stat += test_preprocessor_macro(echo);
+      stat += test_overwriting(echo);
       // clean up
-      status += show_warnings(echo); // display those warnings that have been launched for test purposes
-      status += clear_warnings(echo); // clear test warnings from record
-      return status;
+      stat += show_warnings(echo); // display those warnings that have been launched for test purposes
+      stat += clear_warnings(echo); // clear test warnings from record
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

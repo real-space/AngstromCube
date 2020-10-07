@@ -1,99 +1,19 @@
 #include <cstdio> // printf
-#include <cassert> // assert
-#include <cmath> // sqrt, pow, exp, sqrt
-#include <algorithm> // max, fill
-#include <fstream> // std::ifstream
-#include <sstream> // std::istringstream
-#include <vector> // std::vector
-#include <numeric> // std::iota
+// #include <cassert> // assert
+// #include <cmath> // sqrt, pow, exp, sqrt
+// #include <algorithm> // max, fill
+// #include <fstream> // std::ifstream
+// #include <sstream> // std::istringstream
+// #include <vector> // std::vector
+// #include <numeric> // std::iota
 
-#include "sho_unitary.hxx"
+#include "sho_unitary.hxx" // Unitary_SHO_Transform
 
-#include "inline_tools.hxx" // align
-#include "sho_tools.hxx" // ::n2HO, ::order_*
+#include "sho_tools.hxx" // ::order_*
 
 namespace sho_unitary {
 
-  template<typename real_t>
-  real_t signed_sqrt(real_t const x) { return (x < 0)? -std::sqrt(-x) : std::sqrt(x); }
-
-  template<typename real_t>
-  status_t read_unitary_matrix_from_file(real_t **u, int const numax, int &nu_high,
-                  char const filename[], int const echo) {
-
-      //
-      // Expected File format:
-      //    Each line has these 8 entries:
-      //      nx ny nz ell emm nrn nom den
-      //    where
-      //      nx, ny, nz      are the three Cartesian SHO indices, >= 0
-      //      ell, emm        are the spherical harmonic indices
-      //                      ell >= 0, -ell <= emm <= ell
-      //      nrn             is the number or radial nodes, nrn >= 0
-      //      nom den         encode the value of the matrix entry of u:
-      //                      u = sgn(nom)*sqrt(abs(nom)/den)
-      //                      den > 0, nom may be negative but since
-      //                      only non-zero entries are given, nom != 0
-      //
-      //  if we want to squeeze it into a data-type, this would do
-      //  struct { uint8_t nx, ny, nz, _spare, ell, nrn; int16_t emm;
-      //           int64_t nom; uint64_t den; };
-      //  this would support the index ranges up to numax=255
-      std::ifstream infile(filename, std::ios_base::in);
-      bool const file_is_nu_ordered = true;
-
-      int n_ignored = 0;
-              std::string line;
-              while (std::getline(infile, line))
-              {
-                  char const c0 = line[0];
-                  if ('#' != c0 && ' ' != c0 && '\n' != c0 && 0 != c0) {
-                      std::istringstream iss(line);
-                      int nx, ny, nz, ell, emm, nrn;
-                      int64_t nom, den;
-                      if (!(iss >> nx >> ny >> nz >> ell >> emm >> nrn >> nom >> den)) {
-                          printf("# Failed to read integer number from \"%s\"!\n", line.c_str());
-                          break;
-                      } // error
-
-                      real_t const u_entry = signed_sqrt(nom/((real_t)den));
-                      if (echo > 8) printf("%d %d %d    %d %2d %d  %.15f\n", nx, ny, nz, ell, emm, nrn, u_entry);
-                      int const nzyx = sho_tools::Ezyx_index(nx, ny, nz);
-                      int const nlnm = sho_tools::Elnm_index(ell, nrn, emm);
-                      int const nu_xyz = sho_tools::get_nu(nx, ny, nz);
-                      int const nu_rad = sho_tools::get_nu(ell, nrn);
-                      if (nu_xyz != nu_rad) {
-                          printf("# off-block entry found in file <%s>: nx=%d ny=%d nz=%d (nu=%d)  ell=%d emm=%d nrn=%d (nu=%d)\n",
-                                 filename, nx, ny, nz, nu_xyz, ell, emm, nrn, nu_rad);
-                          return 1; // error
-                      } // nu matches
-                      int const nu = nu_xyz;
-                      nu_high = std::max(nu_high, nu);
-                      if (nu > numax) {
-                          ++n_ignored; // ignore the entry
-                          if (file_is_nu_ordered) return 0; // we can return already since the entries are nu-ordered,
-                                  // .. so we do not need to parse past the first nu which exceeds the searched range;
-                      } else {
-                          int const nb = sho_tools::n2HO(nu); // dimension of block
-                          int const ioff = sho_tools::nSHO(nu - 1); // offset from previous blocks
-                          u[nu][(nzyx - ioff)*nb + (nlnm - ioff)] = u_entry; // set the entry
-                      } // nu in range
-                  }
-                  // process pair (a,b)
-              } // while
-        if (n_ignored && (echo > 2)) printf("# ignored %d lines in file <%s> reading up to nu=%d\n", n_ignored, filename, numax);
-        return 0;
-  } // read_unitary_matrix_from_file
-
-
-
-
-#ifdef  NO_UNIT_TESTS
-  template // explicit template instantiation
-  status_t read_unitary_matrix_from_file<double>(double**, int const, int &, char const*, int const);
-
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   int test_generation(int const echo=9) { return 0; } // { return generate_unitary_transform(9, echo); }
 
@@ -116,12 +36,12 @@ namespace sho_unitary {
   } // test_vector_transform
 
   status_t all_tests(int const echo) {
-      auto status{0};
-      status += test_generation(echo);
-      status += test_loading<float>(echo);
-      status += test_loading<double>(echo);
-      status += test_vector_transform(echo);
-      return status;
+      status_t stat(0);
+      stat += test_generation(echo);
+      stat += test_loading<float>(echo);
+      stat += test_loading<double>(echo);
+      stat += test_vector_transform(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

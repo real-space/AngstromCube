@@ -1,3 +1,4 @@
+
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <algorithm> // std::copy
@@ -10,15 +11,10 @@
 #include "radial_grid.hxx" // create_exponential_radial_grid
 #include "inline_math.hxx" // pow2
 
-// #define FULL_DEBUG
-// #define DEBUG
-
 namespace bessel_transform {
   // a radial bessel transformation of s-functions (ell=0)
   
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   status_t test_Gaussian(int const echo=4) {
       if (echo > 3) printf("# %s: %s\n", __FILE__, __func__);
@@ -74,11 +70,12 @@ namespace bessel_transform {
   } // test_r2grid
 
   status_t all_tests(int const echo) {
-    status_t stat{0};
-    stat += test_Gaussian(echo);
-    stat += test_r2grid(echo);
-    return stat;
+      status_t stat{0};
+      stat += test_Gaussian(echo);
+      stat += test_r2grid(echo);
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace bessel_transform

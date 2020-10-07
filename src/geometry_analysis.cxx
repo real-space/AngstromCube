@@ -735,27 +735,25 @@ namespace geometry_analysis {
 #else // NO_UNIT_TESTS
 
   status_t test_analysis(int const echo=9) {
-    
+    status_t stat(0);
     view2D<double> xyzZ;
     int natoms = 0;
     auto const geo_file = control::get("geometry.file", "atoms.xyz");
     double cell[3] = {0, 0, 0}; 
     int bc[3] = {-7, -7, -7};
-    status_t stat = read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
-    
+    stat += read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
     if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                              natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
     { // SimpleTimer timer(__FILE__, __LINE__, "analysis");
         stat += analysis(xyzZ, natoms, cell, bc, echo);
     } // timer
-
     return stat;
   } // test_analysis
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_analysis(echo);
-    return status;
+      status_t status(0);
+      status += test_analysis(echo);
+      return status;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

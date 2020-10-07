@@ -480,7 +480,7 @@ namespace iterative_poisson {
   } // solve
 
 #ifdef  NO_UNIT_TESTS
-  template // explicit template instantiation
+  template // explicit template instantiation for double
   status_t solve(double x[], double const b[], real_space::grid_t const &g // grid descriptor
                 , char const method, int const echo, float const threshold
                 , float *residual, int const maxiter, int const miniter, int restart);

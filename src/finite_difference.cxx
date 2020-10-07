@@ -16,9 +16,7 @@
 
 namespace finite_difference {
   
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   template<typename real_t>
   status_t test_coefficients(int const echo=2) {
@@ -95,14 +93,14 @@ namespace finite_difference {
   } // test_dispersion
   
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_coefficients<double>(echo);
-    status += test_coefficients<float>(echo);
-    status += test_create_and_destroy(echo);
-    status += test_Laplacian<double>(echo);
-    recorded_warnings::clear_warnings(); // clear
-    status += test_dispersion(echo);
-    return status;
+      status_t stat(0);
+      stat += test_coefficients<double>(echo);
+      stat += test_coefficients<float>(echo);
+      stat += test_create_and_destroy(echo);
+      stat += test_Laplacian<double>(echo);
+      recorded_warnings::clear_warnings(); // clear
+      stat += test_dispersion(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

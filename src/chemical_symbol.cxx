@@ -210,9 +210,9 @@ namespace chemical_symbol {
   } // test_consistency
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += std::abs(int(test_consistency(echo)));
-    return status;
+      status_t stat(0);
+      stat += std::abs(int(test_consistency(echo)));
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

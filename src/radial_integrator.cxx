@@ -426,19 +426,19 @@ int integrate_outwards( // return the number of nodes
     return nnodes;
 } // integrate_outwards
 
-    template // explicit template instantiation needed for logarithmic derivatives
-    int integrate_outwards<1>(radial_grid_t const &g, double const rV[], ell_QN_t const ell, double const E,
-              double gg[], double ff[], int const ir_stop=-1, double *dg=nullptr, double const *rp=nullptr);
+  template // explicit template instantiation needed for logarithmic derivatives
+  int integrate_outwards<1>(radial_grid_t const &g, double const rV[], ell_QN_t const ell, double const E,
+            double gg[], double ff[], int const ir_stop=-1, double *dg=nullptr, double const *rp=nullptr);
 
   template <int SRA>
   double shoot_sra( // returns the kink
-    radial_grid_t const &g, // radial grid descriptor
-    double const rV[], // radial potential r*V_Hxc(r) - e^2*Z
-    ell_QN_t const ell, // angular momentum quantum number
-    double const E, // energy (eigen-)value in Hartree
-    int &nnodes, // number of nodes
-    double* rf=nullptr, // radial wave function*r
-    double* r2rho=nullptr) // density of that wave function*r^2
+      radial_grid_t const &g, // radial grid descriptor
+      double const rV[], // radial potential r*V_Hxc(r) - e^2*Z
+      ell_QN_t const ell, // angular momentum quantum number
+      double const E, // energy (eigen-)value in Hartree
+      int &nnodes, // number of nodes
+      double* rf=nullptr, // radial wave function*r
+      double* r2rho=nullptr) // density of that wave function*r^2
   {
 #ifdef  DEBUG
       printf("# %s: l=%d E= %.9f %s\n", __func__, ell, E*eV, _eV);
@@ -591,13 +591,13 @@ int integrate_outwards( // return the number of nodes
   } // test_inhomogeneous
 
   status_t all_tests(int const echo) {
-      status_t status(0);
+      status_t stat(0);
       auto const g = radial_grid::create_exponential_radial_grid(512);
-//    status += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), 1);
-//    status += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), 1);
-      status += test_Bessel_functions(echo, *g);
-//    status += test_inhomogeneous(*g); // solutions need to be inspected manually
-      return status;
+//    stat += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), 1);
+//    stat += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), 1);
+      stat += test_Bessel_functions(echo, *g);
+//    stat += test_inhomogeneous(*g); // solutions need to be inspected manually
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

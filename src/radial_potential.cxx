@@ -111,9 +111,9 @@ namespace radial_potential {
   } // test_radial_potential
 
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_radial_potential(echo, *radial_grid::create_exponential_radial_grid(512));
-      return status;
+      status_t stat(0);
+      stat += test_radial_potential(echo, *radial_grid::create_exponential_radial_grid(512));
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

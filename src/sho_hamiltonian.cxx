@@ -608,9 +608,9 @@ namespace sho_hamiltonian {
   } // test_Hamiltonian
   
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_Hamiltonian(echo);
-      return status;
+      status_t stat(0);
+      stat += test_Hamiltonian(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

@@ -1,8 +1,10 @@
 SYSTEM ?= zam044
 
 ## Check whether CUDA compiler is available
-ENABLEGPU := $(shell command -v nvcc 2> /dev/null)
-#ENABLEGPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
+ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
+#ENABLE_GPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
+
+#NO_UNIT_TESTS=1
 
 # For reproducability compile the git key (hash) into the code
 GITKEY=$(shell git log | head -1 | sed -e 's/commit //g')
@@ -18,36 +20,47 @@ OBJ = \
 	radial_eigensolver.o \
 	radial_potential.o \
 	exchange_correlation.o \
-	conjugate_gradients.o \
 	geometry_analysis.o \
-	bessel_transform.o \
 	iterative_poisson.o \
-	real_space.o \
-	davidson_solver.o \
-	grid_operators.o \
-	finite_difference.o \
 	recorded_warnings.o \
 	potential_generator.o \
-	density_generator.o \
 	chemical_symbol.o \
 	sigma_config.o \
-	fourier_poisson.o \
 	atom_core.o \
 	single_atom.o \
 	pw_hamiltonian.o \
 	sho_overlap.o \
 	sho_potential.o \
 	sho_hamiltonian.o \
-	sho_projection.o \
-	sho_radial.o \
-	sho_tools.o \
-	sho_unitary.o \
 	angular_grid.o \
 	control.o \
 	main.o
 
-ifdef ENABLEGPU
-	OBJ += gpu_drivers.o
+ifdef NO_UNIT_TESTS
+else
+	###
+	### for the following module all relevant functionality 
+	### is contained in the .hxx header file so that the objects 
+	### do not need to be compiled nor linked
+	###
+	OBJ += \
+	bessel_transform.o \
+	conjugate_gradients.o \
+	fourier_poisson.o \
+	davidson_solver.o \
+	grid_operators.o \
+	finite_difference.o \
+	density_generator.o \
+	sho_projection.o \
+	sho_radial.o \
+	sho_tools.o \
+	sho_unitary.o \
+	real_space.o
+endif
+
+ifdef ENABLE_GPU
+	OBJ += \
+	gpu_drivers.o
 endif
 
 
@@ -77,7 +90,11 @@ FEAFLAGS =
 FEAFLAGS += -D_GIT_KEY=$(GITKEY) 
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS += ###-fopenmp -fno-omit-frame-pointer
-# FEAFLAGS += -D NO_UNIT_TESTS ## for production
+
+ifdef NO_UNIT_TESTS
+	## for production: eliminate the unit tests
+	FEAFLAGS += -D NO_UNIT_TESTS
+endif
 
 ## include also code which is not meant for release,
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
@@ -106,7 +123,7 @@ CUOPTFLAGS +=  -Xptxas -v
 
 # for profiling
 CUOPTFLAGS += -lineinfo
-ifdef ENABLEGPU
+ifdef ENABLE_GPU
 	FEAFLAGS += -DUSE_NVTX
 	LDFLAGS  += -rdynamic -L/usr/local/cuda/lib64 -lcudart -lnvToolsExt
 endif

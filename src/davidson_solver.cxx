@@ -6,7 +6,6 @@
 
 #include "davidson_solver.hxx" // eigensolve
 
-// for tests
 #include "grid_operators.hxx" // ::grid_operator_t
 #include "data_view.hxx" // view2D<T>
 #include "display_units.h" // eV, _eV
@@ -14,32 +13,10 @@
 #include "complex_tools.hxx" // complex_name<T>
 #include "simple_math.hxx" // ::random<T>
 
-// #define FULL_DEBUG
-#define DEBUG
-
-#ifdef  DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif
-
-#ifdef FULL_DEBUG
-    #define full_debug(print) print
-#else
-    #define full_debug(print)
-#endif
-
-#ifdef DEBUG
-    #define debug(print) print
-#else
-    #define debug(print)
-#endif
-
-
 namespace davidson_solver {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the Davidson method
 
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   template<typename complex_t>
   status_t test_solver(int const echo=9) {
@@ -99,13 +76,14 @@ namespace davidson_solver {
   } // test_solver
 
   status_t all_tests(int const echo) {
-    status_t stat{0};
-    stat += test_solver<std::complex<double>>(echo);
-    stat += test_solver<std::complex<float>> (echo);
-    stat += test_solver<double>(echo);
-    stat += test_solver<float> (echo);
-    return stat;
+      status_t stat{0};
+      stat += test_solver<std::complex<double>>(echo);
+      stat += test_solver<std::complex<float>> (echo);
+      stat += test_solver<double>(echo);
+      stat += test_solver<float> (echo);
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace davidson_solver

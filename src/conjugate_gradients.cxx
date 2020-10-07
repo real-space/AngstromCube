@@ -12,41 +12,10 @@
 #include "simple_math.hxx" // random
 #include "grid_operators.hxx" // ::grid_operator_t
 
-// #define FULL_DEBUG
-#define DEBUG
-
-#ifdef  DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif
-
-#ifdef FULL_DEBUG
-    #define full_debug(print) print
-#else
-    #define full_debug(print)
-#endif
-
-#ifdef DEBUG
-    #define debug(print) print
-#else
-    #define debug(print)
-#endif
-
-//   #include <cstdarg> // Args
-//   #include <utility> // std::forward
-// 
-//   template <class... Args>
-//   char const * print(char const *const fmt, Args &&... args) {
-//       static char line[256]; // warning, this static field makes this function NOT threadsafe!
-//       std::sprintf(line, fmt, std::forward<Args>(args)... );
-//       return line;
-//   } // print
-
 namespace conjugate_gradients {
   // solve iteratively for the lowest eigenstates of an implicitly given Hamiltonian using the conjugate gradients method
-  
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+
+#ifndef NO_UNIT_TESTS
   
   template <typename complex_t>
   status_t test_solver(int const echo=9) {
@@ -106,13 +75,14 @@ namespace conjugate_gradients {
   } // test_solver
 
   status_t all_tests(int const echo) {
-    status_t stat{0};
-    stat += test_solver<std::complex<double>>(echo);
-    stat += test_solver<std::complex<float>> (echo);
-    stat += test_solver<double>(echo);
-    stat += test_solver<float> (echo); // test complation and convergence
-    return stat;
+      status_t stat{0};
+      stat += test_solver<std::complex<double>>(echo);
+      stat += test_solver<std::complex<float>> (echo);
+      stat += test_solver<double>(echo);
+      stat += test_solver<float> (echo); // test complation and convergence
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace conjugate_gradients

@@ -189,7 +189,6 @@ namespace control {
     return stat;
   } // test_control
 
-
   status_t test_precision(int const echo=3) {
     // check if there are rounding errors arising from the 
     //    ASCII representation of double precision numbers
@@ -208,10 +207,10 @@ namespace control {
   } // test_precision
   
   status_t all_tests(int const echo) {
-    status_t status(0);
-//     status += test_control(echo);
-//     status += test_precision(echo);
-    return status;
+      status_t stat(0);
+//    stat += test_control(echo);
+//    stat += test_precision(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

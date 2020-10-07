@@ -7,9 +7,7 @@
 
 namespace sho_tools {
 
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   status_t test_order_enum(int const echo=4) {
       SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm,
@@ -198,14 +196,14 @@ namespace sho_tools {
   } // test_sizeof
   
   status_t all_tests(int const echo) {
-      status_t status(0);
-      status += test_radial_indices(echo);
-      status += test_Cartesian_indices(echo);
-      status += test_energy_ordered_indices(echo);
-      status += test_index_table_construction<int16_t>(echo);
-      status += test_order_enum(echo);
-      status += test_sizeof(echo);
-      return status;
+      status_t stat(0);
+      stat += test_radial_indices(echo);
+      stat += test_Cartesian_indices(echo);
+      stat += test_energy_ordered_indices(echo);
+      stat += test_index_table_construction<int16_t>(echo);
+      stat += test_order_enum(echo);
+      stat += test_sizeof(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

@@ -468,11 +468,11 @@ namespace sho_overlap {
 
 
 
-  template // explicit template instantiation
+  template // explicit template instantiation for double
   status_t moment_tensor(double tensor[], double const distance, int const n1, int const n0,
                          double const sigma1, double const sigma0, int const maxmoment);
 
-  template // explicit template instantiation
+  template // explicit template instantiation for double
   status_t product_tensor(double tensor[], int const n, double const sigma,
                                    double const sigma1, double const sigma0);
 
@@ -1131,7 +1131,7 @@ namespace sho_overlap {
       if (numerical > 0 && echo > 1) printf("# %s max relative deviation between analytical and numerical is %.1e\n", __func__, maxreldevall);
       return stat;
   } // test_pure_power_overlap
-  
+
   status_t test_moment_normalization(int const echo=1, int const m=8, int const numerical=999) {
       status_t stat(0);
       view2D<double> imat(m, m, 0.0);
@@ -1148,7 +1148,7 @@ namespace sho_overlap {
       // ToDo: can we derive a recursion relation for the imat coefficients?
       return stat; // will always return 0 as we do not invert any longer
   } // test_moment_normalization
-  
+
   status_t all_tests(int const echo) {
       int n{0}; auto const t = int(control::get("sho_overlap.select.test", -1.)); // -1:all
       status_t stat(0);

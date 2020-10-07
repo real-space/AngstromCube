@@ -10,9 +10,7 @@
 
 namespace density_generator {
  
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
       real_space::grid_t const g(4, 5, 6);
@@ -24,10 +22,11 @@ namespace density_generator {
   } // test_init
 
   status_t all_tests(int const echo) {
-    status_t status(0);
-    status += test_init(echo);
-    return status;
+      status_t stat(0);
+      stat += test_init(echo);
+      return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace density_generator
