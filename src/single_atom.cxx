@@ -314,13 +314,14 @@
       double sigma, sigma_inv; // spread of the SHO projectors and its inverse
       uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
       std::vector<partial_wave_t> partial_wave;
+      std::vector<char> partial_wave_active;
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][nr_smt] r*projectors, depend only on sigma and numax
       view2D<double> projector_coeff[1+ELLMAX+2]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
-      view3D<double> partial_waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
+      view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       std::vector<double> true_norm; // vector[nln] for display of partial wave results
       // end of energy-parameter-set dependent members
@@ -493,9 +494,8 @@
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = (TRU == ts)? nrt : nrs;
             // spherically symmetric quantities:
-            spherical_density[ts] = view2D<double>(3, nr, 0.0); // get memory
-//          spherical_valence_density[ts] = std::vector<double>(nr, 0.0); // get memory
-            potential[ts]                 = std::vector<double>(nr, 0.0); // get memory
+            spherical_density[ts] = view2D<double>(3, nr, 0.0); // get memory for core, semicore, valence
+            potential[ts]       = std::vector<double>(nr, 0.0); // get memory
             // quantities with lm-resolution:
             int const mr = align<2>(nr);
             full_density[ts]   = view2D<double>(nlm, mr, 0.0); // get memory
@@ -554,7 +554,7 @@
             set(max_energy, 4, -9e9);
             set(min_energy, 4,  9e9);
 
-            int ics = 0, highest_occupied_core_state_index = -1; 
+            int ics{0}, highest_occupied_core_state_index{-1}; 
             double n_electrons{Z_core - ionization}; // init number of electrons to be distributed
             for(int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number, allows Z up to 120
                 int enn = (nq_aux + 1)/2; // init principal quantum number n
@@ -660,7 +660,7 @@
             } // nq_aux
             ncorestates = highest_occupied_core_state_index + 1; // correct the number of core states to those occupied
             spherical_state.resize(ncorestates); // destruct unused core states
-            
+
             for(int csl = core; csl <= semicore; ++csl) {
                 for(int svh = csl + 1; svh <= valence; ++svh) {
                     if (max_energy[csl] > min_energy[svh]) {
@@ -700,8 +700,9 @@
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         int nlnn{0}; for(int ell = 0; ell <= numax; ++ell) { nlnn += nn[ell]; }
-        partial_waves[TRU] = view3D<double>(2, nlnn, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
-        partial_waves[SMT] = view3D<double>(2, nlnn, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
+        nlnn = nln;
+        partial_wave_radial_part[TRU] = view3D<double>(2, nlnn, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
+        partial_wave_radial_part[SMT] = view3D<double>(2, nlnn, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         
         set(partial_wave_char, 32, '\0'); // init partial wave characteristic
         
@@ -720,6 +721,7 @@
         } // use_energy_parameter
 
         partial_wave = std::vector<partial_wave_t>(nln);
+        partial_wave_active = std::vector<char>(nln, 0);
         {
             int ilnn{0}; // index of the existing partial waves
             for(int ell = 0; ell <= numax; ++ell) {
@@ -737,12 +739,13 @@
                     vs.ell = ell;
                     vs.emm = emm_Degenerate;
                     vs.spin = spin_Degenerate;
-                    vs.csv = 2; // 2:valence state
-                    
+                    vs.csv = valence;
+
                     if (nrn < nn[ell]) {
+                        partial_wave_active[iln] = 1;
                         for(int ts = TRU; ts <= SMT; ++ts) {
-                            vs.wave[ts] = partial_waves[ts](0,ilnn); // pointer for the {true, smooth} radial function
-                            vs.wKin[ts] = partial_waves[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
+                            vs.wave[ts] = partial_wave_radial_part[ts](0,ilnn); // pointer for the {true, smooth} radial function
+                            vs.wKin[ts] = partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
                         } // ts
                         ++ilnn;
                     } else {
@@ -750,11 +753,16 @@
                             vs.wave[ts] = nullptr;
                             vs.wKin[ts] = nullptr;
                         } // ts
+                        for(int ts = TRU; ts <= SMT; ++ts) {
+                            vs.wave[ts] = partial_wave_radial_part[ts](0,ilnn); // pointer for the {true, smooth} radial function
+                            vs.wKin[ts] = partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
+                        } // ts
+                        ++ilnn;
                     }
 
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
                     double occ{custom_occ[inl]};
-                    if (nrn < nn[ell]) {
+                    if (partial_wave_active[iln]) {
                         double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
                         if (nrn > 0) E = std::max(E, partial_wave[iln - 1].energy); // higher than previous energy
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), enn, ell, E, vs.wave[TRU]);
@@ -798,9 +806,9 @@
                             } // nrn > 0
                         } // occ > 0
 
-                    } else { // nrn < nn[ell]
+                    } else { // active
                         partial_wave_char[iln] = '_';
-                    } // nrn < nn[ell]
+                    } // partial_wave_active
 
                 } // nrn
             } // ell
@@ -918,10 +926,10 @@
                     printf("   %g", spherical_state[ics].wave[TRU][ir + nr_diff]*f);
                 } // ics
                 for(int iln = 0; iln < nln; ++iln) {
-                    if (nullptr != partial_wave[iln].wave[TRU]) {
+                    if (partial_wave_active[iln]) {
                         printf("   %g %g", partial_wave[iln].wave[TRU][ir + nr_diff]*f
                                          , partial_wave[iln].wave[SMT][ir]*f);
-                    } // wave
+                    } // active
                 } // iln
                 printf("\n");
             } // ir
@@ -2075,13 +2083,14 @@
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
-                true_norm[iln] = 1.;
                 if (0) {
                     auto const wave_i = partial_wave[iln].wave[ts];
                     if (nullptr != wave_i) {
                         auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
                         true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
-                    } // wave_i
+                    } else {
+                        true_norm[iln] = 0; // partial wave does not exist
+                    }
                 } // 0
             } // iln
         } // scope
@@ -2093,22 +2102,22 @@
             if (echo > 4) printf("\n# %s charges for %s partial waves\n", label, ts_name[ts]);
             for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
                 bool const echo_l = (echo > 4 + 4*(ell > 0));
-                if (echo_l) printf("# %s charges for ell=%d, jln = 0, 1, ...\n", label, ell);
+                if (echo_l) printf("# %s charges for ell=%d\n", label, ell);
                 if (ell > 0) scale(rl.data(), nr, rg[ts]->r); // create r^{\ell}
                 for(int iln = 0; iln < nln; ++iln) {
-                    if (echo_l) printf("# %s %s iln = %d ", label, ts?"smt":"tru", iln);
-                    auto const wave_i = partial_wave[iln].wave[ts];
-                    if (nullptr != wave_i) {
+                    if (partial_wave_active[iln]) {
+                        auto const wave_i = partial_wave[iln].wave[ts];
+                        if (echo_l) printf("# %s %s iln = %d ", label, ts?"smt":"tru", iln);
                         product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = partial_wave[jln].wave[ts];
-                            auto const cd = (nullptr != wave_j) ? dot_product(nr, wave_r2rl_dr.data(), wave_j) : 0;
+                            auto const cd = partial_wave_active[jln] ? dot_product(nr, wave_r2rl_dr.data(), wave_j) : 0;
                             charge_deficit(ell,ts,iln,jln) = cd;
-                            if (echo_l) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
+                            if (echo_l && partial_wave_active[jln]) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
     //                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
                         } // jln
-                    } // wave_i
-                    if (echo_l) printf("\n");
+                        if (echo_l) printf("\n");
+                    } // active
                 } // iln
                 if (echo_l) printf("\n");
             } // ell
@@ -2356,17 +2365,17 @@
                 } // 00 == lm
                 if (mix_valence_density > 0) {
                     for(int iln = 0; iln < nln; ++iln) {
-                        auto const wave_i = partial_wave[iln].wave[ts];
-                        if (nullptr != wave_i) {
+                        if (partial_wave_active[iln]) {
+                            auto const wave_i = partial_wave[iln].wave[ts];
                             for(int jln = 0; jln < nln; ++jln) {
-                                auto const wave_j = partial_wave[jln].wave[ts];
-                                if (nullptr != wave_j) {
+                                if (partial_wave_active[jln]) {
+                                    auto const wave_j = partial_wave[jln].wave[ts];
                                     double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
         //                          if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
                                     add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
-                                } // wave_j
+                                } // active
                             } // jln
-                        } // wave_i
+                        } // active
                     } // iln
                 } // mix_valence_density
             } // lm
@@ -2650,23 +2659,23 @@
                     assert(lm < nlm);
                     // similar but not the same with check_spherical_matrix_elements
                     for(int iln = 0; iln < nln; ++iln) {
-                        auto const wave_i = partial_wave[iln].wave[ts];
-                        if (nullptr != wave_i) {
+                        if (partial_wave_active[iln]) {
+                            auto const wave_i = partial_wave[iln].wave[ts];
                             product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
                             for(int jln = 0; jln < nln; ++jln) {
-                                auto const wave_j = partial_wave[jln].wave[ts];
-                                if (nullptr != wave_j) {
+                                if (partial_wave_active[jln]) {
+                                    auto const wave_j = partial_wave[jln].wave[ts];
                                     potential_ln(lm,ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
-                                } // wave_j
+                                } // active
                             } // jln
-                        } // wave_i
+                        } // active
                     } // iln
                 } // emm
             } // ell
         } // ts: true and smooth
 
-        view2D<double> hamiltonian_lmn(nlmn, nlmn, 0.0); // get memory
-        view2D<double>     overlap_lmn(nlmn, nlmn, 0.0);
+        view3D<double> matrices_lmn(2, nlmn, nlmn, 0.0); // get memory
+        auto hamiltonian_lmn = matrices_lmn[0], overlap_lmn = matrices_lmn[1];
 
         int const mlm = pow2(1 + numax);
         for(auto gnt : gaunt) {
@@ -2750,26 +2759,24 @@
         // We need to wrap the matrices with the projector_coeff from left and right
         for(int iHS = 0; iHS < 2; ++iHS) {
             view2D<double> tmp_mat(nlmn, nlmn, 0.0);
-            
-            auto const & mat_lmn = iHS ? hamiltonian_lmn : overlap_lmn;
+
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     double t{0};
                     for(int klmn = 0; klmn < nlmn; ++klmn) { // constract over partial waves
-                        t += mat_lmn(ilmn,klmn) * u_proj(klmn,jlmn);
+                        t += matrices_lmn(iHS,ilmn,klmn) * u_proj(klmn,jlmn);
                     } // klmn
                     tmp_mat(ilmn,jlmn) = t;
                 } // jlmn
             } // ilmn
 
-            auto & mat_new = iHS ? hamiltonian_lmn : overlap_lmn;
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     double t{0};
                     for(int klmn = 0; klmn < nlmn; ++klmn) { // constract over partial waves
                         t += u_proj(klmn,ilmn) * tmp_mat(klmn,jlmn);
                     } // klmn
-                    mat_new(ilmn,jlmn) = t;
+                    matrices_lmn(iHS,ilmn,jlmn) = t;
                 } // jlmn
             } // ilmn
 
@@ -2789,25 +2796,21 @@
         
         if (1) { // scope: check if averaging over emm gives back the same operators in the case of a spherical potential
 
-            view2D<double> hamiltonian_ln(nln, nln); // get memory
-            view2D<double>     overlap_ln(nln, nln); // get memory
-            for(int i01 = 0; i01 < 2; ++i01) {
-                auto const & input_lmn = i01 ?  overlap_lmn :  hamiltonian_lmn;
-                auto const   label_inp = i01 ? "overlap"    : "hamiltonian"   ;
-                auto const & result_ln = i01 ?  overlap_ln  :  hamiltonian_ln ;
-                scattering_test::emm_average(result_ln.data(), input_lmn.data(), int(numax), nn);
+            view3D<double> matrices_ln(2, nln, nln); // get memory
+            for(int iHS = 0; iHS < 2; ++iHS) {
+                scattering_test::emm_average(matrices_ln(iHS,0), matrices_lmn(iHS,0), int(numax));
                 if (echo > 4) {
                     for(int iln = 0; iln < nln; ++iln) {
-                        printf("# %s emm-averaged%3i %s ", label, iln, label_inp);
+                        printf("# %s emm-averaged%3i %s ", label, iln, iHS?"overlap":"hamiltonian");
                         for(int jln = 0; jln < nln; ++jln) {
-                            printf(" %11.6f", true_norm[iln]*result_ln(iln,jln)*true_norm[jln]);
+                            printf(" %11.6f", true_norm[iln]*matrices_ln(iHS,iln,jln)*true_norm[jln]);
                         }   printf("\n");
                     }   printf("\n");
                 } // echo
-            } // i01
+            } // iHS
 
-#ifdef NEVER
-            if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
+#if 1 // def NEVER
+            if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 double const V_rmax = full_potential[SMT](00,rg[SMT]->n - 1)*Y00;
@@ -2820,10 +2823,10 @@
 
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-                  (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+                  (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, matrices_ln(0,0), matrices_ln(1,0), 384, V_rmax, label, echo);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-            if (0) { // Warning: can only produce the same eigenenergies if potentials are converged:
+            if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 double* rV[TRU_AND_SMT]; std::vector<double> rV_vec[TRU_AND_SMT];
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -2833,7 +2836,7 @@
                 } // ts
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-                  (rg, rV, sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
+                  (rg, rV, sigma, int(numax + 1), numax, matrices_ln(0,0), matrices_ln(1,0), logder_energy_range, label, echo);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 #endif // NEVER
             
@@ -2893,18 +2896,18 @@
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
-                    auto const wave_i = partial_wave[iln].wave[ts];
-                    if (nullptr != wave_i) {
+                    if (partial_wave_active[iln]) {
+                        auto const wave_i = partial_wave[iln].wave[ts];
                         // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights
                         product(wave_pot_r2dr.data(), nr, wave_i, potential[ts].data(), rg[ts]->rdr);
                         for(int mrn = 0; mrn < nn[ell]; ++mrn) {
                             int const jln = sho_tools::ln_index(numax, ell, mrn);
-                            auto const wave_j = partial_wave[jln].wave[ts];
-                            if (nullptr != wave_j) {
+                            if (partial_wave_active[jln]) {
+                                auto const wave_j = partial_wave[jln].wave[ts];
                                 potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
-                            } // wave_j
+                            } // active
                         } // mrn
-                    } // wave_i
+                    } // active
                 } // nrn
             } // ell
         } // ts: true and smooth
@@ -2967,13 +2970,22 @@
                 printf("\n# %s without true_norm scaling:\n", label);
                 for(int iHS = 0; iHS < 2; ++iHS) {
                     for(int iln = 0; iln < nln; ++iln) {
-                        printf("# %s spherical %s %s ", label, ln_labels[iln], iHS ? "overlap" : "hamiltonian");
-                        for(int jln = 0; jln < nln; ++jln) {
-                            printf(" %g", aHSm(iHS,iln,jln));
-                        }   printf("\n");
-                    }   printf("\n");
+                        if (partial_wave_active[iln]) {
+                            printf("# %s spherical %s %s ", label, ln_labels[iln], iHS ? "overlap" : "hamiltonian");
+                            for(int jln = 0; jln < nln; ++jln) {
+                                if (partial_wave_active[jln]) {
+                                    if (partial_wave[iln].ell == partial_wave[jln].ell) {
+                                        printf(" %g", aHSm(iHS,iln,jln));
+                                    } else {
+                                        printf("        ");
+                                    } // ells match
+                                } // active
+                            } // jln
+                            printf("\n");
+                        } // active
+                    } // iln
+                    printf("\n");
                 } // iHS
-
             } // echo
 #endif            
         } // check_overlap_eigenvalues
@@ -3008,10 +3020,17 @@
         if (echo > 2) { // display
             printf("\n# %s ln-based projector matrix:\n", label);
             for(int iln = 0; iln < nln; ++iln) {
-                printf("# %s u_proj for iln=%3i  ", label, iln);
-                for(int jln = 0; jln < nln; ++jln) {
-                    printf("%8.4f", u_proj(iln,jln));
-                }   printf("\n");
+                if (partial_wave_active[iln]) {
+                    printf("# %s u_proj for%2d%c ", label, partial_wave[iln].enn, ellchar[partial_wave[iln].ell]);
+                    for(int jln = 0; jln < nln; ++jln) {
+                        if (partial_wave[iln].ell == partial_wave[jln].ell) {
+                            printf("%8.4f", u_proj(iln,jln));
+                        } else {
+                            printf("        ");
+                        } // ells match
+                    } // jln
+                    printf("\n");
+                } // wave
             } // iln
         } // echo
 #endif        
@@ -3044,17 +3063,20 @@
 
 #ifdef DEVEL
           if (echo > 4) { // display
-              printf("\n");
-              view2D<char> ln_labels(nln, 4);
-              sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
-              printf("\n# %s without true_norm scaling:\n", label);
               for(int iHS = 0; iHS < 2; ++iHS) {
+                  printf("\n# %s spherical %s without true_norm scaling:\n", label, iHS ? "overlap" : "hamiltonian");
                   for(int iln = 0; iln < nln; ++iln) {
-                      printf("# %s spherical %s %s ", label, ln_labels[iln], iHS ? "overlap" : "hamiltonian");
+                      printf("# %s %2d%c", label, partial_wave[iln].nrn[SMT], ellchar[partial_wave[iln].ell]);
                       for(int jln = 0; jln < nln; ++jln) {
-                          printf("%8.4f", aHSm(iHS,iln,jln));
-                      }   printf("\n");
-                  }   printf("\n");
+                          if (partial_wave[iln].ell == partial_wave[jln].ell) {
+                              printf("%8.4f", aHSm(iHS,iln,jln));
+                          } else {
+                              printf("        ");
+                          } // ells match
+                      } // jln
+                      printf("\n");
+                  } // iln
+                  printf("\n");
               } // iHS
           } // echo
 #endif            
@@ -3070,7 +3092,7 @@
 
             if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-              (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+              (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else {
             if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         }
@@ -3079,7 +3101,7 @@
             if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
             double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
-              (rg, rV, sigma, int(numax + 1), nn, numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
+              (rg, rV, sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
         } else {
             if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         }

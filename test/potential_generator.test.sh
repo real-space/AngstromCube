@@ -97,8 +97,9 @@ single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=1
 # logarithmic derivatives
 logder.unit=Ha
-logder.start=-2
+logder.start=2
 logder.stop=1
+#logder.step=1e-4
 
 # configuration for basis=grid
 bands.per.atom=20
