@@ -431,8 +431,9 @@ namespace pw_hamiltonian {
 
       int const nG[3] = {g[0], g[1], g[2]}; //
       view4D<double> Vcoeffs(2, nG[2], nG[1], nG[0], 0.0);
+      view3D<double> vtot_Im(nG[2], nG[1], nG[0], 0.0);
 
-      auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, nG, echo);
+      auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, vtot_Im(0,0), nG, true, echo);
       if (0 == fft_stat) {
           if (echo > 5) printf("# used FFT to transform local potential into space of plane-wave differences\n");
       } else { // scope: Fourier transform the local potential "by hand"

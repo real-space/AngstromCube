@@ -7,7 +7,7 @@
 #include "complex_tools.hxx" // conjugate
 #include "sho_tools.hxx" // ::nSHO
 #include "data_view.hxx" // view3D<T>
-#include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<real_t*> with new constructions
+#include "data_list.hxx" // data_list<T>
 #include "control.hxx" // ::get
 
 namespace density_generator {
@@ -47,12 +47,12 @@ namespace density_generator {
                               __func__, g('x'), g('y'), g('z'));
 
       int const na = op.get_natoms();
-      std::vector<complex_t*> atom_coeff(na, nullptr); // ToDo: this should be a data_list container
+      std::vector<int> ncoeff(na, 0);
       for(int ia = 0; ia < na; ++ia) {
           int const numax = op.get_numax(ia);
-          int const ncoeff = sho_tools::nSHO(numax);
-          atom_coeff[ia] = new complex_t[ncoeff];
+          ncoeff[ia] = sho_tools::nSHO(numax);
       } // ia
+      data_list<complex_t> atom_coeff(ncoeff);
 
       view3D<complex_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
 
@@ -81,13 +81,13 @@ namespace density_generator {
                       int const ncoeff = sho_tools::nSHO(numax);
                       // add to the atomic density matrix, ToDo
                       for(int i = 0; i < ncoeff; ++i) {
-                          auto const c_i = atom_coeff[ia][i]; // needs a conjugate
+                          auto const c_i = conjugate(atom_coeff[ia][i]);
 #ifdef DEVEL
                           if (echo > 9) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %g\n", ikpoint, iband, ia, i, c_i);
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {
                               auto const c_j = atom_coeff[ia][j];
-                              atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(conjugate(c_i) * c_j);
+                              atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(c_i * c_j);
                           } // j
                       } // i
                   } // ia
@@ -96,15 +96,11 @@ namespace density_generator {
           } // iband
       } // ikpoint
 
-      if (echo > 1) {
-          printf("\n# Total valence density  grid stats:");
-          print_stats(rho, g.all(), g.dV());
-      } // echo
+      if (echo > 1) { printf("\n# Total valence density"); print_stats(rho, g.all(), g.dV()); }
 
-      // memory cleanup
-      for(int ia = 0; ia < na; ++ia) {
 #ifdef DEVEL
-          if (echo > 6) {
+      if (echo > 6) {
+          for(int ia = 0; ia < na; ++ia) {
               int const ncoeff = sho_tools::nSHO(op.get_numax(ia));
               printf("\n# show %d x %d density matrix for atom #%i in %s-order\n", 
                   ncoeff, ncoeff, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str());
@@ -112,15 +108,14 @@ namespace density_generator {
               for(int i = 0; i < ncoeff; ++i) {
                   printf("# %s\t", &labels[i*8]);
                   for(int j = 0; j < ncoeff; ++j) {
-                      printf("%8.3f", atom_rho[ia][i*ncoeff + j]);
+                      printf("%10.2e", atom_rho[ia][i*ncoeff + j]);
                   } // j
                   printf("\n");
               } // i
               printf("\n");
-          } // echo
+          } // ia
+      } // echo
 #endif // DEVEL
-          delete[] atom_coeff[ia];
-      } // ia
 
       return stat;
   } // density

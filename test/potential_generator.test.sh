@@ -86,7 +86,8 @@ occupied.bands=4
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 4 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
@@ -132,19 +133,19 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 1 1 0`; do
+for spacing in `seq 4 1 3`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test potential_generator. \
         +control.file=control.sh \
         +basis=grid \
+        +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
-#         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
-for numax in `seq 4 2 6`; do
+for numax in `seq 4 2 3`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

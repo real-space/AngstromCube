@@ -20,7 +20,7 @@ namespace fourier_poisson {
       double const mat[3][4] = {{2*pi/ng[0],0,0, 0},{0,2*pi/ng[1],0, 0}, {0,0,2*pi/ng[2], 0}};
       double const alpha = 1./pow2(8.); // in units of h^-2
       std::vector<double> rho(ngall), V(ngall);
-      double charge{0}, V_rad{0}; // charge
+      double charge{0};
       for(int i01 = 0; i01 <= 1; ++i01) {
           double q{0}; // count charge
           for(int z = 0; z < ng[2]; ++z) {
@@ -39,7 +39,8 @@ namespace fourier_poisson {
           if (echo > 2) printf("# charge in cell %g %g\n", q, charge);
       } // i01
       if (echo > 4) printf("\n# radial density and 1/r Coulomb potential\n");
-      double const dr = 1./8.;
+      double const dr = 1./8., pi4dr = 4*pi*dr;
+      double V_rad{0};
       for(int i01 = 0; i01 <= 1; ++i01) {
           double q_rad{0};
           for(int ir = 0; ir < ng[0]/dr; ++ir) {
@@ -47,8 +48,8 @@ namespace fourier_poisson {
               auto const rho_rad = std::exp(-alpha*r2) - charge;
               // show density, (shifted) potential, integrated charge up to r
               if (i01 && (echo > 4)) printf("%g %g %g %g\n", r, rho_rad, V_rad + q_rad/r, q_rad); 
-              q_rad += rho_rad * 4*pi * r2 * dr;
-              V_rad -= rho_rad * 4*pi * r * dr * (2*i01 - 1); // sum up in 1st iteration and subtract in second
+              q_rad += rho_rad * r2 * pi4dr;
+              V_rad -= rho_rad * r  * pi4dr * (2*i01 - 1); // sum up in 1st iteration and subtract in second
           } // ir
           if (echo > 3) printf("\n# radial integrated charge %g, V_rad %g\n", q_rad, V_rad);
       } // i01

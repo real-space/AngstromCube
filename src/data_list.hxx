@@ -23,12 +23,14 @@ private:
 public:
   
   template<typename int_t>
-  data_list(uint32_t const n, int_t const ms[], T const init_value={0}) 
+  data_list(uint32_t const n, int_t const ms[], T const init_value=T(0)) 
       : _ptrs(n, nullptr), _m(n), _mem(0), _n(n), _max_m(0) {
-      size_t num{0};
+      assert(n == _n); // safety checks on upper limit of n
+      size_t num{0}; // total number of elements
       for(uint32_t i = 0; i < n; ++i) {
           auto const m = uint32_t(std::max(ms[i], 0));
           _m[i] = m;
+          assert(ms[i] == _m[i]); // safety checks on upper limit of ms[i]
           _max_m = std::max(_max_m, m);
           num += _m[i];
       } // i
@@ -44,7 +46,7 @@ public:
   } // constructor
 
   template<typename int_t>
-  data_list(std::vector<int_t> const &ms, T const init_value={0}) : data_list(ms.size(), ms.data(), init_value) {} // delegating constructor
+  data_list(std::vector<int_t> const &ms, T const init_value=T(0)) : data_list(ms.size(), ms.data(), init_value) {} // delegating constructor
 
   data_list(void) : _data(0), _ptrs(0), _m(0), _mem(0), _n(0), _max_m(0) {} // default constructor
 

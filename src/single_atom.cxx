@@ -41,25 +41,6 @@
 #include "sigma_config.hxx" // ::get, element_t
 #include "bisection_tools.hxx" // bisector_t
 
-// #define FULL_DEBUG
-#define DEBUG
-
-#ifdef  DEBUG
-    #include "debug_output.hxx" // dump_to_file
-#endif
-
-#ifdef FULL_DEBUG
-    #define full_debug(print) print
-#else
-    #define full_debug(print)
-#endif
-
-#ifdef DEBUG
-    #define debug(print) print
-#else
-    #define debug(print)
-#endif
-
 // extern "C" {
 //   // BLAS interface to matrix matrix multiplication
 //   void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
@@ -70,14 +51,13 @@
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
   
-//   enum csv_t : uint16_t { core=0, semicore=1, valence=2 };
   int constexpr core=0, semicore=1, valence=2, csv_undefined=3;
-
 //  char const csv_char[] = "csv?";  // 0:core, 1:semicore, 2:valence   (((unused)))
   char const csv_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
+
   char const ts_name[][8] = {"true", "smooth"};  // TRU:true, SMT:smooth
 
-  double constexpr Y00 = solid_harmonics::Y00; // == 1./sqrt(4*pi)
+  double constexpr Y00    = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
 
   template<typename real_t>
@@ -340,7 +320,7 @@
       view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][nr_smt] r*projectors, depend only on sigma and numax
       view2D<double> projector_coeff[1+ELLMAX+2]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
-      view3D<double> partial_waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln][nr], valence states point into this
+      view3D<double> partial_waves[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       std::vector<double> true_norm; // vector[nln] for display of partial wave results
       // end of energy-parameter-set dependent members
@@ -400,7 +380,7 @@
             std::snprintf(label, 15, "%s#%d", chem_symbol, atom_id); 
         } else {
             std::snprintf(label, 15, "%s", chem_symbol); 
-        }
+        } // atom_id
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
         take_spherical_density[core] = 1; // must always be 1, since we can compute the core density only on the radial grid.
@@ -584,7 +564,7 @@
                         auto & cs = spherical_state[ics]; // abbreviate (former "core" state) 
                         cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                         cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
-                        
+
                         std::vector<double> r2rho(nrt, 0.0);
                         double E = atom_core::guess_energy(Z_core, enn); // init with a guess
                         // solve the eigenvalue problem with a spherical potential
@@ -719,8 +699,9 @@
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-        partial_waves[TRU] = view3D<double>(2, nln, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
-        partial_waves[SMT] = view3D<double>(2, nln, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
+        int nlnn{0}; for(int ell = 0; ell <= numax; ++ell) { nlnn += nn[ell]; }
+        partial_waves[TRU] = view3D<double>(2, nlnn, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
+        partial_waves[SMT] = view3D<double>(2, nlnn, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         
         set(partial_wave_char, 32, '\0'); // init partial wave characteristic
         
@@ -740,6 +721,7 @@
 
         partial_wave = std::vector<partial_wave_t>(nln);
         {
+            int ilnn{0}; // index of the existing partial waves
             for(int ell = 0; ell <= numax; ++ell) {
                 for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
 
@@ -757,10 +739,18 @@
                     vs.spin = spin_Degenerate;
                     vs.csv = 2; // 2:valence state
                     
-                    for(int ts = TRU; ts <= SMT; ++ts) {
-                        vs.wave[ts] = partial_waves[ts](0,iln); // pointer for the {true, smooth} radial function
-                        vs.wKin[ts] = partial_waves[ts](1,iln); // pointer for the {true, smooth} kinetic energy
-                    } // ts
+                    if (nrn < nn[ell]) {
+                        for(int ts = TRU; ts <= SMT; ++ts) {
+                            vs.wave[ts] = partial_waves[ts](0,ilnn); // pointer for the {true, smooth} radial function
+                            vs.wKin[ts] = partial_waves[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
+                        } // ts
+                        ++ilnn;
+                    } else {
+                        for(int ts = TRU; ts <= SMT; ++ts) {
+                            vs.wave[ts] = nullptr;
+                            vs.wKin[ts] = nullptr;
+                        } // ts
+                    }
 
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
                     double occ{custom_occ[inl]};
@@ -928,8 +918,10 @@
                     printf("   %g", spherical_state[ics].wave[TRU][ir + nr_diff]*f);
                 } // ics
                 for(int iln = 0; iln < nln; ++iln) {
-                    printf("   %g %g", partial_wave[iln].wave[TRU][ir + nr_diff]*f
-                                     , partial_wave[iln].wave[SMT][ir]*f);
+                    if (nullptr != partial_wave[iln].wave[TRU]) {
+                        printf("   %g %g", partial_wave[iln].wave[TRU][ir + nr_diff]*f
+                                         , partial_wave[iln].wave[SMT][ir]*f);
+                    } // wave
                 } // iln
                 printf("\n");
             } // ir
@@ -1235,6 +1227,7 @@
             total_occ += occ_ell[ell];
         } // ell
 
+        char const *optimized{""};
         auto const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.)); // 0:no, 1:use optimize, -1:optimize and display only
 #ifdef DEVEL
         double const sigma_old = sigma; // copy member variable
@@ -1285,6 +1278,7 @@
             if (sigma_range[0] == sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
 
             if (optimize_sigma < -9) error("stop after sigma optimization");
+            optimized = "optimized, ";
         } // optimize_sigma
         double const sigma_out = optimize_sigma ? sigma_opt : sigma_old;
 #else  // DEVEL
@@ -1312,9 +1306,9 @@
                     warn("failed to normalize projector coefficients for ell=%c, nrn=%d", ellchar[ell], nrn);
                 } // norm > 0
                 if (echo > 6) {
-                    printf("# %s optimized, normalized coefficients of the %c-projector ", label, ellchar[ell]);
+                    printf("# %s %snormalized coefficients of the %d%c-projector ", label, optimized, partial_wave[iln].enn, ellchar[ell]);
                     for(int mrn = 0; mrn < nmx; ++mrn) { // radial SHO basis functions
-                        printf(" %.6f", new_prj_coeff(iln,mrn));
+                        printf("%10.6f", new_prj_coeff(iln,mrn));
                     } // mrn
                     printf("\n");
                 } // echo
@@ -1532,6 +1526,7 @@
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
                     int constexpr SRA = 1;
+                    assert(vs.wave[TRU] != nullptr);
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
                     if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, the %i%c-eigenvalue\n",
                                           label, ell, nrn, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
@@ -1600,7 +1595,7 @@
                     auto const c = projector_coeff[ell](nrn,mrn);
                     if (0.0 != c) {
                         add_product(projectors_ell[nrn], rg[SMT]->n, radial_sho_basis[ln_off + mrn], c);
-                        if (echo > 0) printf("# %s construct ell=%i nrn=%i projector by taking %.6f of the %i-th radial SHO basis function\n", label, ell, nrn, c, mrn);
+                        if (echo > 0) printf("# %s construct ell=%i nrn=%i projector by taking%10.6f of the %i-th radial SHO basis function\n", label, ell, nrn, c, mrn);
                     } // coefficient non-zero
                 } // mrn
 
@@ -1616,6 +1611,7 @@
                     // solve inhomogeneous equation (H - E) Psi_1 = Psi_0
                     vs.energy = partial_wave[iln - 1].energy; // same energy parameter as for Psi_0
                     std::vector<double> ff(rg[TRU]->n), inh(rg[TRU]->n);
+                    assert(iln > 0); assert(partial_wave[iln - 1].ell == ell);
                     product(inh.data(), rg[TRU]->n, partial_wave[iln - 1].wave[TRU], rg[TRU]->r);
                     double dg;
                     if (echo > 1) printf("# %s for ell=%i use energy derivative at E= %g %s\n", label, ell, vs.energy*eV, _eV);
@@ -2079,11 +2075,14 @@
             int const ts = TRU;
             int const nr = rg[ts]->n; // entire radial grid
             for(int iln = 0; iln < nln; ++iln) {
+                true_norm[iln] = 1.;
                 if (0) {
                     auto const wave_i = partial_wave[iln].wave[ts];
-                    auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
-                    true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
-                } else true_norm[iln] = 1.;
+                    if (nullptr != wave_i) {
+                        auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
+                        true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
+                    } // wave_i
+                } // 0
             } // iln
         } // scope
 
@@ -2099,14 +2098,16 @@
                 for(int iln = 0; iln < nln; ++iln) {
                     if (echo_l) printf("# %s %s iln = %d ", label, ts?"smt":"tru", iln);
                     auto const wave_i = partial_wave[iln].wave[ts];
-                    product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
-                    for(int jln = 0; jln < nln; ++jln) {
-                        auto const wave_j = partial_wave[jln].wave[ts];
-                        auto const cd = dot_product(nr, wave_r2rl_dr.data(), wave_j);
-                        charge_deficit(ell,ts,iln,jln) = cd;
-                        if (echo_l) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
-//                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
-                    } // jln
+                    if (nullptr != wave_i) {
+                        product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
+                        for(int jln = 0; jln < nln; ++jln) {
+                            auto const wave_j = partial_wave[jln].wave[ts];
+                            auto const cd = (nullptr != wave_j) ? dot_product(nr, wave_r2rl_dr.data(), wave_j) : 0;
+                            charge_deficit(ell,ts,iln,jln) = cd;
+                            if (echo_l) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
+    //                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
+                        } // jln
+                    } // wave_i
                     if (echo_l) printf("\n");
                 } // iln
                 if (echo_l) printf("\n");
@@ -2355,13 +2356,17 @@
                 } // 00 == lm
                 if (mix_valence_density > 0) {
                     for(int iln = 0; iln < nln; ++iln) {
-                        auto const wave_i = partial_wave[iln].wave[ts];         assert(nullptr != wave_i);
-                        for(int jln = 0; jln < nln; ++jln) {
-                            auto const wave_j = partial_wave[jln].wave[ts];     assert(nullptr != wave_j);
-                            double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
-//                          if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
-                            add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
-                        } // jln
+                        auto const wave_i = partial_wave[iln].wave[ts];
+                        if (nullptr != wave_i) {
+                            for(int jln = 0; jln < nln; ++jln) {
+                                auto const wave_j = partial_wave[jln].wave[ts];
+                                if (nullptr != wave_j) {
+                                    double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
+        //                          if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
+                                    add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
+                                } // wave_j
+                            } // jln
+                        } // wave_i
                     } // iln
                 } // mix_valence_density
             } // lm
@@ -2646,11 +2651,15 @@
                     // similar but not the same with check_spherical_matrix_elements
                     for(int iln = 0; iln < nln; ++iln) {
                         auto const wave_i = partial_wave[iln].wave[ts];
-                        product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
-                        for(int jln = 0; jln < nln; ++jln) {
-                            auto const wave_j = partial_wave[jln].wave[ts];
-                            potential_ln(lm,ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
-                        } // jln
+                        if (nullptr != wave_i) {
+                            product(wave_pot_r2dr.data(), nr, wave_i, full_potential[ts][lm], rg[ts]->r2dr);
+                            for(int jln = 0; jln < nln; ++jln) {
+                                auto const wave_j = partial_wave[jln].wave[ts];
+                                if (nullptr != wave_j) {
+                                    potential_ln(lm,ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
+                                } // wave_j
+                            } // jln
+                        } // wave_i
                     } // iln
                 } // emm
             } // ell
@@ -2885,13 +2894,17 @@
                 for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     auto const wave_i = partial_wave[iln].wave[ts];
-                    // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights
-                    product(wave_pot_r2dr.data(), nr, wave_i, potential[ts].data(), rg[ts]->rdr);
-                    for(int mrn = 0; mrn < nn[ell]; ++mrn) {
-                        int const jln = sho_tools::ln_index(numax, ell, mrn);
-                        auto const wave_j = partial_wave[jln].wave[ts];
-                        potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
-                    } // mrn
+                    if (nullptr != wave_i) {
+                        // potential is defined as r*V(r), so we only need r*dr to get r^2*dr as integration weights
+                        product(wave_pot_r2dr.data(), nr, wave_i, potential[ts].data(), rg[ts]->rdr);
+                        for(int mrn = 0; mrn < nn[ell]; ++mrn) {
+                            int const jln = sho_tools::ln_index(numax, ell, mrn);
+                            auto const wave_j = partial_wave[jln].wave[ts];
+                            if (nullptr != wave_j) {
+                                potential_ln(ts,iln,jln) = dot_product(nr, wave_pot_r2dr.data(), wave_j);
+                            } // wave_j
+                        } // mrn
+                    } // wave_i
                 } // nrn
             } // ell
         } // ts: true and smooth

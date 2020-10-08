@@ -19,13 +19,16 @@ namespace fourier_poisson {
               , double const factor=-epsilon0
               , int const echo=0) {
 
-      size_t const ng_all = size_t(ng[0]) * ng[1] * ng[2];
+      size_t const ng_all = size_t(ng[0]) * size_t(ng[1]) * size_t(ng[2]);
       auto const mg_all = align<3>(ng_all); // aligned to 8 real_t numbers
-      std::vector<real_t> mem(2*mg_all); // get memory     
-      auto const x_Re = mem.data(), x_Im = mem.data() + mg_all; // point to the second half of that array
+      std::vector<real_t> mem(3*mg_all, real_t(0)); // get memory     
+      auto const x_Re = mem.data(),
+                 x_Im = mem.data() + mg_all, // point to the second half of that array
+                 b_Im = mem.data() + 2*mg_all,
+                 neglect = b_Im;
 
-      status_t stat = 0;
-      stat += fourier_transform::fft<real_t, true>(x_Re, x_Im, b, ng); // transform b into reciprocal space
+      status_t stat(0);
+      stat += fourier_transform::fft(x_Re, x_Im, b, b_Im, ng, true); // transform b into reciprocal space
 
       if (echo > 0) printf("# %s charge neutrality = %g %g\n", __func__, x_Re[0], x_Im[0]);
       x_Re[0] = 0; x_Im[0] = 0; // charge neutrality, clear the k=[0 0 0]-component
@@ -54,7 +57,7 @@ namespace fourier_poisson {
           } // j1
       } // j2
 
-      stat += fourier_transform::fft<real_t, false>(x, x_Im, x_Re, ng); // transform solution x back into real-space
+      stat += fourier_transform::fft(x, neglect, x_Re, x_Im, ng, false); // transform solution x back into real-space
 
       return stat;
   } // solve
