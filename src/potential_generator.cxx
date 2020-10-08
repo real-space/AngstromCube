@@ -667,7 +667,7 @@ namespace potential_generator {
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
 #ifdef DEVEL
-              if (echo > 6) {
+              if (echo > 16) {
                   for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);

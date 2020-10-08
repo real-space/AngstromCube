@@ -301,17 +301,21 @@ namespace sigma_config {
             auto key = char2key(cn);
 //                 if (echo > 0) printf("# found key=%i in '%s'\n", key, string);
             if (key > 0) {
+                // the first non-blank char was a digit larger than 0
                 int const enn = key;
                 if (enn > 9) error("enn=%i > 9 not supported in '%s'!", enn, string);
-                char const cl = *(string + 1);
+                char const cl = *(string + 1); // expect an ellchar here
                 auto const ell = char2ell(cl);
                 if (ell >= 0) {
                     if (ell >= enn) error("unphysical ell=%i >= enn=%i in '%s'!", ell, enn, string);
 
                     char const cm = *(string + 2);
                     if ((cm | 32) == 'h') key = KeyHole; // core hole, modify key
-                    int const mrn = ('*' == cm); // max radial nodes
+                    
+                    char const *asterisk{string + 2};
+                    int mrn{0}; while ('*' == *asterisk) { ++mrn; ++asterisk; } // count the '*' chars 
                     if (echo > 9) printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
+
                     word.enn = enn; // store
                     word.ell = ell; // store
                     word.mrn = mrn; // store

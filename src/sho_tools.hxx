@@ -17,8 +17,8 @@ namespace sho_tools {
       order_lnm     = 0x6d6e6c,   // "lnm"    Radial order best for radial basis functions, depends on numax
       order_nlm     = 0x6d6c6e,   // "nlm"    Radial order best for spherical harmonics,    depends on numax
       order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial,                    independent of numax
-      order_ln      = 0x6e6c,     // "ln"     ell-ordered radial     emm-degenerate,        depends on numax
       order_Enl     = 0x6c6e45,   // "Enl"    energy-ordered Radial, emm-degenerate,    independent of numax
+      order_ln      = 0x6e6c,     // "ln"     ell-ordered radial     emm-degenerate,        depends on numax
       order_nl      = 0x6c6e,     // "nl"     enn-ordered radial     emm-degenerate,        depends on numax
       order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
@@ -361,7 +361,7 @@ namespace sho_tools {
                   if (order_nl == order) { j = nl_index(numax, n, l); } else
                   if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
                   assert( j >= 0 );
-                  std::sprintf(&label[j*nChar], "%i%c", n, ellchar[l]);
+                  std::sprintf(&label[j*nChar], "%c%i", ellchar[l], n);
                   ++ii;
           }} // l n
           assert(nSHO_radial(numax) == ii);

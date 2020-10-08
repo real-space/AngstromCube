@@ -2107,7 +2107,7 @@
                 for(int iln = 0; iln < nln; ++iln) {
                     if (partial_wave_active[iln]) {
                         auto const wave_i = partial_wave[iln].wave[ts];
-                        if (echo_l) printf("# %s %s iln = %d ", label, ts?"smt":"tru", iln);
+                        if (echo_l) printf("# %s %s %2d%c ", label, ts?"smt":"tru", partial_wave[iln].enn, ellchar[partial_wave[iln].ell]);
                         product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = partial_wave[jln].wave[ts];
@@ -2124,6 +2124,8 @@
         } // ts
     } // update_charge_deficit
 
+    
+    
     template<typename int_t>
     void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[],
                              int_t lmn_begin[], int_t lmn_end[],
@@ -2238,7 +2240,7 @@
 #endif
     } // transform_SHO
 
-    void get_rho_tensor(view3D<double> & density_tensor
+    void get_rho_tensor(view3D<double> & density_tensor // (lm,iln,jln) where iln,jln are in radial SHO basis
         , view2D<double> const & density_matrix
         , sho_tools::SHO_order_t const order=sho_tools::order_zyx
         , int const echo=0) {
@@ -2286,7 +2288,7 @@
         } // order
 
 #ifdef DEVEL      
-        if (1) {
+        if (0) {
             printf("# %s Radial density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
             view2D<char> labels(220, 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
@@ -2303,6 +2305,10 @@
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
+        
+        //   ToDo:  Introduce the projector_coeff to bring
+        //          the iln,jln indices of density_tensor 
+        //          into the partial-wave space
 
         set(density_tensor, nlm, 0.0); // clear
         for(auto gnt : gaunt) {
@@ -2748,13 +2754,15 @@
         if (echo > 2) { // display
             printf("\n# %s lmn-based projector matrix:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
-                printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                    printf("%8.4f", u_proj(ilmn,jlmn));
-                }   printf("\n");
+                if (partial_wave_active[ln_index_list[ilmn]]) {
+                    printf("# %s u_proj for ilmn=%3i  ", label, ilmn);
+                    for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                        printf(" %g", u_proj(ilmn,jlmn));
+                    }   printf("\n");
+                } // active
             } // ilmn
         } // echo
-#endif        
+#endif
         
         // We need to wrap the matrices with the projector_coeff from left and right
         for(int iHS = 0; iHS < 2; ++iHS) {
@@ -2796,20 +2804,37 @@
         
         if (1) { // scope: check if averaging over emm gives back the same operators in the case of a spherical potential
 
+#ifdef NEVER
+            // determine a display limiter
+            int mln{0};
+            {   int lmax{-1};
+                for(int ell = 0; ell <= numax; ++ell) {
+                    if (nn[ell] > 0) lmax = ell;
+                } // ell
+                for(int ell = 0; ell <= lmax; ++ell) {
+                    mln += nn_max(numax, ell);
+                } // ell
+            }
+          
             view3D<double> matrices_ln(2, nln, nln); // get memory
             for(int iHS = 0; iHS < 2; ++iHS) {
                 scattering_test::emm_average(matrices_ln(iHS,0), matrices_lmn(iHS,0), int(numax));
                 if (echo > 4) {
-                    for(int iln = 0; iln < nln; ++iln) {
-                        printf("# %s emm-averaged%3i %s ", label, iln, iHS?"overlap":"hamiltonian");
-                        for(int jln = 0; jln < nln; ++jln) {
-                            printf(" %11.6f", true_norm[iln]*matrices_ln(iHS,iln,jln)*true_norm[jln]);
-                        }   printf("\n");
-                    }   printf("\n");
+                    for(int iln = 0; iln < mln; ++iln) {
+                        printf("# %s emm-averaged%3i %s ", label, iln, iHS?"overlap    ":"hamiltonian");
+                        for(int jln = 0; jln < mln; ++jln) {
+                            if (partial_wave[iln].ell == partial_wave[jln].ell) {
+                                printf(" %11.6f", true_norm[iln]*matrices_ln(iHS,iln,jln)*true_norm[jln]);
+                            } else {
+                                printf("            ");
+                            } // ells match
+                        } // jln
+                        printf("\n");
+                    } // iln 
+                    printf("\n");
                 } // echo
             } // iHS
 
-#if 1 // def NEVER
             if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
@@ -2965,19 +2990,17 @@
 #ifdef DEVEL
             if (echo > 4) { // display
                 printf("\n");
-                view2D<char> ln_labels(nln, 4);
-                sho_tools::construct_label_table<4>(ln_labels.data(), numax, sho_tools::order_ln);
-                printf("\n# %s without true_norm scaling:\n", label);
                 for(int iHS = 0; iHS < 2; ++iHS) {
+                    printf("\n# %s spherical %s in partial waves:\n", label, iHS ? "overlap" : "hamiltonian (Ha)");
                     for(int iln = 0; iln < nln; ++iln) {
                         if (partial_wave_active[iln]) {
-                            printf("# %s spherical %s %s ", label, ln_labels[iln], iHS ? "overlap" : "hamiltonian");
+                            printf("# %s %2d%c", label, partial_wave[iln].enn, ellchar[partial_wave[iln].ell]);
                             for(int jln = 0; jln < nln; ++jln) {
                                 if (partial_wave_active[jln]) {
                                     if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                                        printf(" %g", aHSm(iHS,iln,jln));
+                                        printf(" %11.6f", aHSm(iHS,iln,jln));
                                     } else {
-                                        printf("        ");
+                                        printf("            ");
                                     } // ells match
                                 } // active
                             } // jln
@@ -3015,25 +3038,45 @@
                 } // jln
             } // nrn
         } // iln
-
+        
 #ifdef DEVEL
+        // determine a display limiter
+        int mln{0};
+        {   int lmax{-1};
+            for(int ell = 0; ell <= numax; ++ell) {
+                if (nn[ell] > 0) lmax = ell;
+            } // ell
+            for(int ell = 0; ell <= lmax; ++ell) {
+                mln += nn_max(numax, ell);
+            } // ell
+        }
+
         if (echo > 2) { // display
             printf("\n# %s ln-based projector matrix:\n", label);
-            for(int iln = 0; iln < nln; ++iln) {
+            if (1) { // show a legend
+                view2D<char> ln_labels(nln, 8);
+                sho_tools::construct_label_table<8>(ln_labels.data(), numax, sho_tools::order_ln);
+                printf("# %s   radial SHO:      ", label);
+                for(int jln = 0; jln < mln; ++jln) {
+                      printf("%-10s", ln_labels[jln]);
+                } // jln
+                printf("\n");
+            } // show a legend
+            for(int iln = 0; iln < mln; ++iln) {
                 if (partial_wave_active[iln]) {
                     printf("# %s u_proj for%2d%c ", label, partial_wave[iln].enn, ellchar[partial_wave[iln].ell]);
-                    for(int jln = 0; jln < nln; ++jln) {
+                    for(int jln = 0; jln < mln; ++jln) {
                         if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                            printf("%8.4f", u_proj(iln,jln));
+                            printf("%10.6f", u_proj(iln,jln));
                         } else {
-                            printf("        ");
+                            printf("          ");
                         } // ells match
                     } // jln
                     printf("\n");
                 } // wave
             } // iln
         } // echo
-#endif        
+#endif
 
         // We need to wrap the matrices with the projector_coeff from left and right
         for(int iHS = 0; iHS < 2; ++iHS) {
@@ -3064,14 +3107,14 @@
 #ifdef DEVEL
           if (echo > 4) { // display
               for(int iHS = 0; iHS < 2; ++iHS) {
-                  printf("\n# %s spherical %s without true_norm scaling:\n", label, iHS ? "overlap" : "hamiltonian");
-                  for(int iln = 0; iln < nln; ++iln) {
-                      printf("# %s %2d%c", label, partial_wave[iln].nrn[SMT], ellchar[partial_wave[iln].ell]);
-                      for(int jln = 0; jln < nln; ++jln) {
+                  printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian (Ha)");
+                  for(int iln = 0; iln < mln; ++iln) {
+                      printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
+                      for(int jln = 0; jln < mln; ++jln) {
                           if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                              printf("%8.4f", aHSm(iHS,iln,jln));
+                              printf(" %11.6f", aHSm(iHS,iln,jln));
                           } else {
-                              printf("        ");
+                              printf("            ");
                           } // ells match
                       } // jln
                       printf("\n");
