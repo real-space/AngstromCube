@@ -427,24 +427,32 @@ namespace potential_generator {
               int const nbands = int(nbands_per_atom*na);
               view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
+                  auto const start_wave_file = control::get("start.waves", "");
                   psi = view3D<wave_function_t>(nkpoints, nbands, gc.all()); // get memory
-                  float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
-                  uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-                  sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
-                  std::vector<int32_t> ncoeff_a(na, 20);
-                  data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
-                  for(int iband = 0; iband < nbands; ++iband) {
-                      int const ia = iband % na; // which atom?
-                      int const io = iband / na; // which orbital?
-                      if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands_per_atom);
-                      auto const q = qn[io];
-                      if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
-                      int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
-                      single_atomic_orbital[ia][isho] = 1; // set
-                      op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
-                      single_atomic_orbital[ia][isho] = 0; // reset
-//                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
-                  } // iband
+                  if (0 == *start_wave_file) {
+                      float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
+                      uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
+                      sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
+                      std::vector<int32_t> ncoeff_a(na, 20);
+                      data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
+                      for(int iband = 0; iband < nbands; ++iband) {
+                          int const ia = iband % na; // which atom?
+                          int const io = iband / na; // which orbital?
+                          if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands_per_atom);
+                          auto const q = qn[io];
+                          if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
+                          int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
+                          single_atomic_orbital[ia][isho] = 1; // set
+                          op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
+                          single_atomic_orbital[ia][isho] = 0; // reset
+    //                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
+                      } // iband
+                  } else {
+                      if (is_complex<wave_function_t>()) error("not prepared for complex wave function reading!");
+                      if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
+                      auto const nerrors = debug_tools::read_from_file(psi.data(), start_wave_file, nbands, gc.all(), gc.all(), "wave functions", echo);
+                      if (nerrors) error("failed to read start wave functions from file \'%s\'", start_wave_file);
+                  } // start wave method
               } // scope
 
               view2D<double> energies(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
@@ -671,7 +679,7 @@ namespace potential_generator {
                   for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
-                      printf("\n# atom-centered %dx%d Hamiltonian (in %s) for atom #%i\n", n, n, _eV, ia);
+                      printf("\n# atom-centered %d x %d Hamiltonian (in %s) for atom #%i\n", n, n, _eV, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {
@@ -680,7 +688,7 @@ namespace potential_generator {
                           printf("\n");
                       } // i
                       view2D<double const> const aSm(atom_mat[ia] + n*n, n);
-                      printf("\n# atom-centered %dx%d overlap matrix for atom #%i\n", n, n, ia);
+                      printf("\n# atom-centered %d x %d overlap matrix for atom #%i\n", n, n, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {
@@ -745,6 +753,7 @@ namespace potential_generator {
                   // with occupation numbers from eigenenergies
 
                   stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
+                  if (echo > 1) { printf("\n# Total valence density on dense"); print_stats(rho_valence.data(), g.all(), g.dV()); }
                   
               } else if ((basis_method[0] | 32) == 'p') { // plane wave
                   here;
@@ -771,11 +780,24 @@ namespace potential_generator {
               take_atomic_valence_densities = (progress >= 1) ? 0 : 2*pow3(progress) - 3*pow2(progress) + 1; // smooth transition function
               stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
           } // spherical_valence_decay
-          
+
           here;
       } // scf_iteration
       here;
 
+      if (psi_on_grid) {
+          auto const export_wave_file = control::get("export.waves", "");
+          if (0 != export_wave_file[0]) {
+              if (!is_complex<wave_function_t>()) {
+                  auto const nerrors = dump_to_file(export_wave_file,
+                      nbands, psi.data(), 0, gc.all(), gc.all(), "wave functions", echo);
+                  if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, export_wave_file); 
+              } else {
+                  warn("storing for complex wave functions not implemented");
+              } // is complex
+          } // filename not empty
+      } // wave functions on Cartesian real space grid
+      
 #ifdef DEVEL
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);

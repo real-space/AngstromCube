@@ -80,13 +80,11 @@ potential_generator.max.scf=1
 # Poisson solver
 electrostatic.solver=fft
 
-# DEVEL option
-occupied.bands=4
 
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
@@ -104,12 +102,16 @@ logder.stop=1
 
 # configuration for basis=grid
 bands.per.atom=20
+# DEVEL option
+devel.occupied.bands=2
 eigensolver=cg
-repeat.eigensolver=15
+repeat.eigensolver=3
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=9
 atomic.valence.decay=0
+export.waves=waves.dat
+ start.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
@@ -135,16 +137,16 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 4 1 3`; do
+for spacing in `seq 1 1 1`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test potential_generator. \
         +control.file=control.sh \
         +basis=grid \
-        +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
+#         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
 for numax in `seq 4 2 3`; do
@@ -159,7 +161,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 1 2`; do
+for ecut in `seq 2 1 1`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

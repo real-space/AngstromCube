@@ -56,8 +56,8 @@ namespace density_generator {
 
       view3D<complex_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
 
-      double const occupied_bands = control::get("occupied.bands", 0.); // as long as the Fermi function is not in here
-      
+      double const occupied_bands = control::get("devel.occupied.bands", 0.); // as long as the Fermi function is not in here
+
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
           double const kpoint_weight = 1; // depends on ikpoint
@@ -73,13 +73,13 @@ namespace density_generator {
                   for(size_t izyx = 0; izyx < g.all(); ++izyx) { // parallel
                       rho[izyx] += weight_nk * std::norm(psi_nk[izyx]);
                   } // izyx
-                  
+
                   // construct the atomic density matrix atom_rho
                   op.get_atom_coeffs(atom_coeff.data(), psi_nk, echo/2); // project again
                   for(int ia = 0; ia < na; ++ia) {
                       int const numax = op.get_numax(ia);
                       int const ncoeff = sho_tools::nSHO(numax);
-                      // add to the atomic density matrix, ToDo
+                      // add to the atomic density matrix
                       for(int i = 0; i < ncoeff; ++i) {
                           auto const c_i = conjugate(atom_coeff[ia][i]);
 #ifdef DEVEL

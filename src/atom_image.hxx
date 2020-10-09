@@ -69,7 +69,8 @@ namespace atom_image {
           // reorder is necessary as values has order_Ezyx and _matrix has order_zyx, could be moved out
 
           std::vector<double> rescale(_ncoeff, 0.0);
-          {   int ii = 0;
+          {   
+              int ii{0};
               for(int z = 0; z <= _numax; ++z) {
                   for(int y = 0; y <= _numax - z; ++y) {
                       for(int x = 0; x <= _numax - z - y; ++x) {
@@ -90,7 +91,7 @@ namespace atom_image {
           for(int i = 0; i < nc; ++i) {
               for(int j = 0; j < nc; ++j) {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
-                  int const ij_reordered = reorder[i]*stride + reorder[j];
+                  int const ij_reordered = ij; // reorder[i]*stride + reorder[j]; // NOT REORDERED
                   _matrix64[ij] = rescale[i] * values[ij_reordered] * rescale[j];
                   _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j

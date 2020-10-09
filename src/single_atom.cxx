@@ -250,6 +250,44 @@
    
 
 
+    template<typename int_t>
+    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[],
+                             int_t lmn_begin[], int_t lmn_end[], int const numax,
+                             char const *label="", int const echo=0) {
+        int const mlm = pow2(1 + numax);
+        set(lmn_begin, mlm, int_t(-1));
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int emm = -ell; emm <= ell; ++emm) {
+                for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+                    int const ilmn      = sho_tools::lmn_index(numax, ell, emm, nrn);
+                    ln_index_list[ilmn] = sho_tools::ln_index(numax, ell, nrn); // valence state index
+                    int const ilm       = sho_tools::lm_index(ell, emm);
+                    lm_index_list[ilmn] = ilm;
+                    if (lmn_begin[ilm] < 0) lmn_begin[ilm] = ilmn; // store the first index of this lm
+                    lmn_end[ilm] = ilmn + 1; // store the last index of this lm
+                } // nrn
+            } // emm
+        } // ell
+
+#ifdef DEVEL        
+        if (echo > 3) { // display
+            printf("# %s ln_index_list ", label);
+            for(int i = 0; i < sho_tools::nSHO(numax); ++i) {
+                printf(" %i", ln_index_list[i]);
+            } // i
+            printf("\n");
+            printf("# %s lmn_begin-lmn_end ", label);
+            for(int ilm = 0; ilm < mlm; ++ilm) {
+                if (lmn_begin[ilm] == lmn_end[ilm] - 1) {
+                    printf(" %i", lmn_begin[ilm]);
+                } else {
+                    printf(" %i-%i", lmn_begin[ilm], lmn_end[ilm] - 1);
+                } // do not display e.g. 7-7 but only 7
+            } // ilm
+            printf("\n");
+        } // echo
+#endif
+    } // get_valence_mapping
 
 
 
@@ -325,7 +363,7 @@
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       // end of energy-parameter-set dependent members
       std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
-      view2D<double> density_matrix; // atomic density matrix [nSHO][nSHO]
+      view2D<double> density_matrix; // atomic density matrix [nSHO][>=nSHO]
 
       view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
@@ -828,8 +866,8 @@
         int const matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
         if (echo > 0) printf("# %s matrix size for hamiltonian and overlap: dim = %d, stride = %d\n", label, nSHO, matrix_stride);
         density_matrix = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
-        hamiltonian = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
-        overlap     = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
+        hamiltonian    = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
+        overlap        = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
 
         unitary_zyx_lmn = view2D<double>(nSHO, nSHO, 0.0);
         { // scope: fill the Unitary_SHO_Transform with values from a file
@@ -843,7 +881,7 @@
         lm_index_list.resize(nSHO);
         lmn_begin.resize(mlm);
         lmn_end.resize(mlm);
-        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), echo);
+        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), int(numax), label, echo);
 
         { // scope: specify the range of the logarithmic derivative analysis
             auto const logder_energy_unit_name = control::get("logder.unit", "Ha");
@@ -2107,45 +2145,6 @@
         } // ts
     } // update_charge_deficit
 
-    
-    
-    template<typename int_t>
-    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[],
-                             int_t lmn_begin[], int_t lmn_end[],
-                             int const echo=0) const {
-        int const mlm = pow2(1 + numax);
-        set(lmn_begin, mlm, int_t(-1));
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int emm = -ell; emm <= ell; ++emm) {
-                for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
-                    int const ilmn      = sho_tools::lmn_index(numax, ell, emm, nrn);
-                    ln_index_list[ilmn] = sho_tools::ln_index(numax, ell, nrn); // valence state index
-                    int const lm        = sho_tools::lm_index(ell, emm);
-                    lm_index_list[ilmn] = lm;
-                    if (lmn_begin[lm] < 0) lmn_begin[lm] = ilmn; // store the first index of this lm
-                    lmn_end[lm] = ilmn + 1; // store the last index of this lm
-                } // nrn
-            } // emm
-        } // ell
-
-#ifdef DEVEL        
-        if (echo > 3) { // display
-            printf("# %s ln_index_list ", label);
-            for(int i = 0; i < sho_tools::nSHO(numax); ++i) {
-                printf(" %i", ln_index_list[i]);
-            }   printf("\n");
-            printf("# %s lmn_begin-lmn_end ", label);
-            for(int i = 0; i < mlm; ++i) {
-                if (lmn_begin[i] == lmn_end[i] - 1) {
-                    printf(" %i", lmn_begin[i]);
-                } else {
-                    printf(" %i-%i", lmn_begin[i], lmn_end[i] - 1);
-                }
-            }   printf("\n");
-        } // echo
-#endif
-    } // get_valence_mapping
-
 
     void transform_SHO(double out[], int const out_stride,
                   double const in[], int const in_stride,
@@ -2169,7 +2168,7 @@
             for(int nC = 0; nC < N; ++nC) {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij{0};
-                    for(int kC = 0; kC < N; ++kC) {
+                    for(int kC = 0; kC < N; ++kC) { // contract over Cartesian index k
                         tij += inp(nC,kC) * uni(kC,mR); // *u
                     } // kC
                     tmp(nC,mR) = alpha*tij;
@@ -2178,7 +2177,7 @@
             for(int nR = 0; nR < N; ++nR) {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij{0};
-                    for(int kC = 0; kC < N; ++kC) {
+                    for(int kC = 0; kC < N; ++kC) { // contract over Cartesian index k
                         tij += uni(kC,nR) * tmp(kC,mR); // u^T*
                     } // kC
                     res(nR,mR) = alpha*tij;
@@ -2194,7 +2193,7 @@
             for(int nC = 0; nC < N; ++nC) {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij{0};
-                    for(int kR = 0; kR < N; ++kR) {
+                    for(int kR = 0; kR < N; ++kR) { // contract over Radial index k
                         tij += uni(nC,kR) * inp(kR,mR); // u*
                     } // kR
                     tmp(nC,mR) = alpha*tij;
@@ -2203,7 +2202,7 @@
             for(int nC = 0; nC < N; ++nC) {
                 for(int mC = 0; mC < N; ++mC) {
                     double tij{0};
-                    for(int kR = 0; kR < N; ++kR) {
+                    for(int kR = 0; kR < N; ++kR) { // contract over Radial index k
                         tij += tmp(nC,kR) * uni(mC,kR); // *u^T
                     } // kR
                     res(nC,mC) = alpha*tij;
@@ -2223,8 +2222,8 @@
 #endif
     } // transform_SHO
 
-    void get_rho_tensor(view3D<double> & density_tensor // (lm,iln,jln) where iln,jln are in radial SHO basis
-        , view2D<double> const & density_matrix
+    void get_rho_tensor(view3D<double> & rho_tensor // (lm,iln,jln) where iln,jln are in radial SHO basis
+        , view2D<double> const & rho_matrix
         , sho_tools::SHO_order_t const order=sho_tools::order_zyx
         , int const echo=0) {
       
@@ -2243,12 +2242,12 @@
         if (sho_tools::order_zyx == order) {
             // we need to transform from Cartesian to Radial first
 
-            // now transform the density_matrix[izyx][jzyx]
+            // now transform the rho_matrix[izyx][jzyx]
             //     into a radial_density_matrix[ilmn][jlmn]
             //     using the unitary transform from left and right
             radial_density_matrix = view2D<double>(nSHO, stride); // get memory
             transform_SHO(radial_density_matrix.data(), stride,
-                  density_matrix.data(), density_matrix.stride(), true);
+                  rho_matrix.data(), rho_matrix.stride(), true);
 #ifdef DEVEL
             if (1) { // debugging
                 view2D<double> check_matrix(nSHO, nSHO);
@@ -2257,7 +2256,7 @@
                 double maxdev{0};
                 for(int i = 0; i < nSHO; ++i) {
                     for(int j = 0; j < nSHO; ++j) {
-                        maxdev = std::max(maxdev, std::abs(check_matrix(i,j) - density_matrix(i,j)));
+                        maxdev = std::max(maxdev, std::abs(check_matrix(i,j) - rho_matrix(i,j)));
                     } // j
                 } // i
                 if (maxdev > 1e-12) warn("%s found max deviation %.1e when backtransforming the density matrix", label, maxdev);
@@ -2265,7 +2264,7 @@
             } // debugging
 #endif
         } else if (sho_tools::order_lmn == order) {
-            radial_density_matrix = view2D<double>(density_matrix.data(), density_matrix.stride()); // wrap
+            radial_density_matrix = view2D<double>(rho_matrix.data(), rho_matrix.stride()); // wrap
         } else {
             error("%s should be in either order_zyx or order_lmn", label);
         } // order
@@ -2290,10 +2289,10 @@
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
         
         //   ToDo:  Introduce the projector_coeff to bring
-        //          the iln,jln indices of density_tensor 
+        //          the iln,jln indices of rho_tensor 
         //          into the partial-wave space
 
-        set(density_tensor, nlm, 0.0); // clear
+        set(rho_tensor, nlm, 0.0); // clear
         for(auto gnt : gaunt) {
             int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
             // if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-12); // make sure that G_00ij = delta_ij*Y00
@@ -2303,7 +2302,7 @@
                     int const iln = ln_index_list[ilmn];
                     for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
-                        density_tensor(lm,iln,jln) += G * radial_density_matrix(ilmn,jlmn);
+                        rho_tensor(lm,iln,jln) += G * radial_density_matrix(ilmn,jlmn);
 #ifdef DEVEL
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
@@ -2319,7 +2318,7 @@
         for(int lm = 0; lm < nlm; ++lm) {
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
-                    auto const rho_ij = density_tensor(lm,iln,jln);
+                    auto const rho_ij = rho_tensor(lm,iln,jln);
                     if (std::abs(rho_ij) > 1e-9) printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
                                                            label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
                 } // jln
@@ -2868,11 +2867,11 @@
 #ifdef DEVEL
         if (echo > 6) { // display
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
-                       label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
-            view2D<char> Ezyx_label(nSHO, 8);
-            sho_tools::construct_label_table<8>(Ezyx_label.data(), numax, sho_tools::order_Ezyx);
+                       label, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), _eV);
+            view2D<char> zyx_label(nSHO, 8);
+            sho_tools::construct_label_table<8>(zyx_label.data(), numax, sho_tools::order_zyx);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                printf("# %s hamiltonian elements for %8s ", label, Ezyx_label[iSHO]); // ToDo: show the nx,ny,nz quantum numbers
+                printf("# %s hamiltonian elements for %-6s", label, zyx_label[iSHO]); // ToDo: show the nx,ny,nz quantum numbers
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
                     printf(" %11.6f", hamiltonian(iSHO,jSHO)*eV);
                 } // jSHO
