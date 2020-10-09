@@ -639,8 +639,8 @@ namespace potential_generator {
 #endif
           
           // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
-          float mixing_ratios[] = {.5, .5, .5, .5}; // {potential, core_density, semicore_density, valence_density}
-          stat += single_atom::atom_update("update", na, 0, 0, mixing_ratios, atom_vlm.data());
+          float potential_mixing_ratio[] = {.5}; // {potential}
+          stat += single_atom::atom_update("update", na, 0, 0, potential_mixing_ratio, atom_vlm.data());
           stat += single_atom::atom_update("hamiltonian", na, 0, 0, 0, atom_mat.data());
           stat += single_atom::atom_update("zero potentials", na, 0, nr2.data(), ar2.data(), atom_vbar.data());
 
@@ -667,7 +667,7 @@ namespace potential_generator {
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
 #ifdef DEVEL
-              if (echo > 16) {
+              if (echo > 6) {
                   for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
@@ -675,8 +675,18 @@ namespace potential_generator {
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {
-                              printf(" %.3f", aHm(i,j)*eV);
-                          }   printf("\n");
+                              printf(" %.6f", aHm(i,j)*eV);
+                          } // j
+                          printf("\n");
+                      } // i
+                      view2D<double const> const aSm(atom_mat[ia] + n*n, n);
+                      printf("\n# atom-centered %dx%d overlap matrix for atom index #%i\n", n, n, ia);
+                      for(int i = 0; i < n; ++i) {
+                          printf("#%3i  ", i);
+                          for(int j = 0; j < n; ++j) {
+                              printf(" %.6f", aSm(i,j));
+                          } // j
+                          printf("\n");
                       } // i
                   } // ia
               } // echo
@@ -750,9 +760,9 @@ namespace potential_generator {
                   here;
               } // psi_on_grid
 
-              // ToDo: density mixing
-              
-              stat += single_atom::atom_update("atomic density matrices", na, 0, 0, 0, atom_rho.data());              
+//               // ToDo: density mixing
+//               float rho_mixing_ratios[] = {.5, .5, .5}; // {core_density, semicore_density, valence_density}             
+//               stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());              
 
           } // scope: Kohn-Sham
 

@@ -86,15 +86,16 @@ occupied.bands=4
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
-element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 4 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.echo=3
+single_atom.echo=7
 single_atom.init.echo=7
 single_atom.optimize.sigma=0
-single_atom.init.scf.maxit=1
+single_atom.init.scf.maxit=0
 # logarithmic derivatives
 logder.unit=Ha
 logder.start=2
@@ -123,10 +124,10 @@ hamiltonian.scale.nonlocal.s=1
 hamiltonian.floating.point.bits=32
 
 # configuration for basis=pw
-#pw_hamiltonian.solver=direct
+pw_hamiltonian.solver=direct
 #pw_hamiltonian.solver=iterative
-pw_hamiltonian.solver=both
-davidson_solver.max.iterations=3
+#pw_hamiltonian.solver=both
+davidson_solver.max.iterations=9
 
 # also compute the eigenvalues of the overlap matrix?
 dense_solver.test.overlap.eigvals=0
@@ -158,7 +159,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 5 5`; do
+for ecut in `seq 2 1 2`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

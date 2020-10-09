@@ -308,7 +308,7 @@
 
       // the following quantities are energy-parameter-set dependent
       double r_cut; // classical augmentation radius for potential and core density
-      int ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
+      int   ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
       float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
       int8_t numax; // limit of the SHO projector quantum numbers
       double sigma, sigma_inv; // spread of the SHO projectors and its inverse
@@ -323,7 +323,6 @@
       view2D<double> projector_coeff[1+ELLMAX+2]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
       view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
-      std::vector<double> true_norm; // vector[nln] for display of partial wave results
       // end of energy-parameter-set dependent members
       std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
       view2D<double> density_matrix; // atomic density matrix [nSHO][nSHO]
@@ -699,8 +698,7 @@
         if (echo > 5) printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-        int nlnn{0}; for(int ell = 0; ell <= numax; ++ell) { nlnn += nn[ell]; }
-        nlnn = nln;
+        int nlnn{0}; for(int ell = 0; ell <= numax; ++ell) { nlnn += nn[ell]; } // count active partial waves
         partial_wave_radial_part[TRU] = view3D<double>(2, nlnn, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
         partial_wave_radial_part[SMT] = view3D<double>(2, nlnn, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
         
@@ -743,6 +741,7 @@
 
                     if (nrn < nn[ell]) {
                         partial_wave_active[iln] = 1;
+                        assert(ilnn < nlnn);
                         for(int ts = TRU; ts <= SMT; ++ts) {
                             vs.wave[ts] = partial_wave_radial_part[ts](0,ilnn); // pointer for the {true, smooth} radial function
                             vs.wKin[ts] = partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
@@ -753,11 +752,6 @@
                             vs.wave[ts] = nullptr;
                             vs.wKin[ts] = nullptr;
                         } // ts
-                        for(int ts = TRU; ts <= SMT; ++ts) {
-                            vs.wave[ts] = partial_wave_radial_part[ts](0,ilnn); // pointer for the {true, smooth} radial function
-                            vs.wKin[ts] = partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
-                        } // ts
-                        ++ilnn;
                     }
 
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
@@ -821,7 +815,6 @@
         charge_deficit = view4D<double>(1 + ellmax_compensator, TRU_AND_SMT, nln, nln, 0.0); // get memory
         kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln, 0.0); // get memory
         zero_potential = std::vector<double>(nrs, 0.0); // get memory
-        true_norm      = std::vector<double>(nln, 1.0); // get memory
 
         projectors = view2D<double>(nln, align<2>(rg[SMT]->n), 0.0); // get memory
         for(int ell = 0; ell <= numax; ++ell) {
@@ -874,17 +867,18 @@
                 spherical_density[TRU][csv], csv_name[csv], echo);
         } // csv
 
-        int const maxit_scf = control::get("single_atom.init.scf.maxit", 1.);
-        float const potential_mixing = 0.25f; // this controls the percentage of the full_potential ...
+        int const maxit_scf = control::get("single_atom.init.scf.maxit", 0.);
+        float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
           // ... that is taken to relax the spherical potential from which core states and partial wave are computed
         float const density_mixing[3] = {.25, .25, .25}; // [csv]
 
+        update_density(density_mixing, echo); // run the density update at least once
         for(int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) printf("\n\n# %s SCF-iteration %d\n\n", label, scf);
-//             update((scf >= maxit_scf - 333)*9); // switch full echo on in the last 3 iterations
-            update_density(density_mixing, echo);
-            double* const ves_multipoles = nullptr;
-            update_potential(potential_mixing, ves_multipoles, echo);
+            int const echo_scf = echo*(scf >= maxit_scf - 1); // turn on output only for the last iteration
+            update_density(density_mixing, echo_scf);
+            double const *const ves_multipoles = nullptr; // no potential shifts
+            update_potential(potential_mixing, ves_multipoles, echo_scf);
         } // self-consistency iterations
 
 #ifdef DEVEL
@@ -913,6 +907,11 @@
                       );
             } // ir
             printf("\n\n");
+            
+            if (dot_product(rg[TRU]->n, spherical_density[TRU][semicore], rg[TRU]->r2dr) > 0) {
+                warn("%s semicore density was not plotted", label);
+            } // non-vanishing semicore density
+
         } // echo
 
         // show the smooth and true partial waves
@@ -1311,7 +1310,7 @@
                 if (norm > 0) {
                     scale(new_prj_coeff[iln], nmx, 1./std::sqrt(norm));
                 } else {
-                    warn("failed to normalize projector coefficients for ell=%c, nrn=%d", ellchar[ell], nrn);
+                    warn("%s failed to normalize projector coefficients for ell=%c, nrn=%d", label, ellchar[ell], nrn);
                 } // norm > 0
                 if (echo > 6) {
                     printf("# %s %snormalized coefficients of the %d%c-projector ", label, optimized, partial_wave[iln].enn, ellchar[ell]);
@@ -2078,22 +2077,6 @@
     
     void update_charge_deficit(int const echo=0) {
         int const nln = sho_tools::nSHO_radial(numax);
-        { // scope: generate a vector true_norm such that
-          // true_norm[iln]*charge_deficit[0][TRU][iln][jln]*true_norm[jln] is normalized to 1
-            int const ts = TRU;
-            int const nr = rg[ts]->n; // entire radial grid
-            for(int iln = 0; iln < nln; ++iln) {
-                if (0) {
-                    auto const wave_i = partial_wave[iln].wave[ts];
-                    if (nullptr != wave_i) {
-                        auto const norm2 = dot_product(nr, wave_i, wave_i, rg[ts]->r2dr);
-                        true_norm[iln] = (norm2 > 1e-99) ? 1./std::sqrt(norm2) : 0;
-                    } else {
-                        true_norm[iln] = 0; // partial wave does not exist
-                    }
-                } // 0
-            } // iln
-        } // scope
 
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n; // integrate over the full radial grid
@@ -2113,7 +2096,7 @@
                             auto const wave_j = partial_wave[jln].wave[ts];
                             auto const cd = partial_wave_active[jln] ? dot_product(nr, wave_r2rl_dr.data(), wave_j) : 0;
                             charge_deficit(ell,ts,iln,jln) = cd;
-                            if (echo_l && partial_wave_active[jln]) printf("\t%10.6f", true_norm[iln]*cd*true_norm[jln]);
+                            if (echo_l && partial_wave_active[jln]) printf("\t%10.6f", cd);
     //                      if ((SMT==ts) && (echo > 1)) printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
                         } // jln
                         if (echo_l) printf("\n");
@@ -2277,8 +2260,8 @@
                         maxdev = std::max(maxdev, std::abs(check_matrix(i,j) - density_matrix(i,j)));
                     } // j
                 } // i
-                printf("# %s found max deviation %.1e when backtransforming the density matrix\n\n", label, maxdev);
-                assert(maxdev < 1e-9);
+                if (maxdev > 1e-12) warn("%s found max deviation %.1e when backtransforming the density matrix", label, maxdev);
+                if (maxdev > 1e-9) error("%s found max deviation %.1e when backtransforming the density matrix", label, maxdev);
             } // debugging
 #endif
         } else if (sho_tools::order_lmn == order) {
@@ -2718,7 +2701,7 @@
                     overlap_lmn(ilmn,jlmn) = ( charge_deficit(0,TRU,iln,jln)
                                              - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
-                if ((echo > 7)) printf(" %7.3f", true_norm[iln]*hamiltonian_lmn(ilmn,jlmn)*true_norm[jln]*eV);
+                if ((echo > 7)) printf(" %7.3f", hamiltonian_lmn(ilmn,jlmn)*eV);
             } // jlmn
             if ((echo > 7)) printf("\n");
         } // ilmn
@@ -2758,7 +2741,8 @@
                     printf("# %s u_proj for ilmn=%3i  ", label, ilmn);
                     for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                         printf(" %g", u_proj(ilmn,jlmn));
-                    }   printf("\n");
+                    } // jlmn
+                    printf("\n");
                 } // active
             } // ilmn
         } // echo
@@ -2771,7 +2755,7 @@
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     double t{0};
-                    for(int klmn = 0; klmn < nlmn; ++klmn) { // constract over partial waves
+                    for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over partial waves
                         t += matrices_lmn(iHS,ilmn,klmn) * u_proj(klmn,jlmn);
                     } // klmn
                     tmp_mat(ilmn,jlmn) = t;
@@ -2781,7 +2765,7 @@
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     double t{0};
-                    for(int klmn = 0; klmn < nlmn; ++klmn) { // constract over partial waves
+                    for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over partial waves
                         t += u_proj(klmn,ilmn) * tmp_mat(klmn,jlmn);
                     } // klmn
                     matrices_lmn(iHS,ilmn,jlmn) = t;
@@ -2794,17 +2778,18 @@
 #ifdef DEVEL
         if (echo > 8) { // display
             printf("\n# %s lmn-based Overlap elements:\n", label);
-            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_index_list[ilmn];
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_index_list[jlmn];
-                    printf(" %g", true_norm[iln]*overlap_lmn(ilmn,jlmn)*true_norm[jln]);
-                }   printf("\n");
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    printf(" %g", overlap_lmn(ilmn,jlmn));
+                } // jlmn
+                printf("\n");
             } // ilmn
+            printf("\n");
         } // echo
-        
+
         if (1) { // scope: check if averaging over emm gives back the same operators in the case of a spherical potential
 
-#ifdef NEVER
             // determine a display limiter
             int mln{0};
             {   int lmax{-1};
@@ -2815,16 +2800,17 @@
                     mln += nn_max(numax, ell);
                 } // ell
             }
-          
+
             view3D<double> matrices_ln(2, nln, nln); // get memory
             for(int iHS = 0; iHS < 2; ++iHS) {
                 scattering_test::emm_average(matrices_ln(iHS,0), matrices_lmn(iHS,0), int(numax));
                 if (echo > 4) {
+                    double const unit = iHS ? 1 : eV;
                     for(int iln = 0; iln < mln; ++iln) {
                         printf("# %s emm-averaged%3i %s ", label, iln, iHS?"overlap    ":"hamiltonian");
                         for(int jln = 0; jln < mln; ++jln) {
                             if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                                printf(" %11.6f", true_norm[iln]*matrices_ln(iHS,iln,jln)*true_norm[jln]);
+                                printf(" %11.6f", matrices_ln(iHS,iln,jln)*unit);
                             } else {
                                 printf("            ");
                             } // ells match
@@ -2835,6 +2821,7 @@
                 } // echo
             } // iHS
 
+#ifdef NEVER
             if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
@@ -2876,14 +2863,13 @@
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which requires proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
 #ifdef DEVEL
-        if (echo > 8) { // display
+        if (echo > 6) { // display
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                        label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO); // ToDo: show the nx,ny,nz quantum numbers
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-                    printf(" %7.3f", hamiltonian(iSHO,jSHO)*eV); // true_norm cannot be used here
-                    // since hamiltonian is given in the Cartesian representation!
+                    printf(" %11.6f", hamiltonian(iSHO,jSHO)*eV);
                 } // jSHO
                 printf("\n");
             } // iSHO
@@ -2991,14 +2977,15 @@
             if (echo > 4) { // display
                 printf("\n");
                 for(int iHS = 0; iHS < 2; ++iHS) {
-                    printf("\n# %s spherical %s in partial waves:\n", label, iHS ? "overlap" : "hamiltonian (Ha)");
+                    printf("\n# %s spherical %s in partial waves:\n", label, iHS ? "overlap" : "hamiltonian");
+                    double const unit = iHS ? 1 : eV;
                     for(int iln = 0; iln < nln; ++iln) {
                         if (partial_wave_active[iln]) {
                             printf("# %s %2d%c", label, partial_wave[iln].enn, ellchar[partial_wave[iln].ell]);
                             for(int jln = 0; jln < nln; ++jln) {
                                 if (partial_wave_active[jln]) {
                                     if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                                        printf(" %11.6f", aHSm(iHS,iln,jln));
+                                        printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
                                     } else {
                                         printf("            ");
                                     } // ells match
@@ -3107,12 +3094,13 @@
 #ifdef DEVEL
           if (echo > 4) { // display
               for(int iHS = 0; iHS < 2; ++iHS) {
-                  printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian (Ha)");
+                  printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian");
+                  double const unit = iHS ? 1 : eV;
                   for(int iln = 0; iln < mln; ++iln) {
                       printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
                       for(int jln = 0; jln < mln; ++jln) {
                           if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                              printf(" %11.6f", aHSm(iHS,iln,jln));
+                              printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
                           } else {
                               printf("            ");
                           } // ells match
@@ -3133,7 +3121,7 @@
                 } // ir
             } // scope
 
-            if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
+            if (echo > 1) printf("\n\n# %s %s eigenstate_analysis\n", label, __func__);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else {
@@ -3141,7 +3129,7 @@
         }
 
         if (1) {
-            if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
+            if (echo > 1) printf("\n\n# %s %s logarithmic_derivative\n", label, __func__);
             double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, rV, sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
@@ -3160,7 +3148,7 @@
 
 
     void update_density(float const density_mixing[3], int const echo=0) {
-//         if (echo > 2) printf("\n# %s\n", __func__);
+        if (echo > 2) printf("\n# %s\n", __func__);
         update_spherical_states(density_mixing, echo);
         update_energy_parameters(echo);
         update_partial_waves(echo); // create new partial waves for the valence description
@@ -3175,8 +3163,9 @@
     } // update_density
 
     // ==============
-    // between update_density and update_potential we need to
-    // export qlm_compensator, solve the 3D electrostatic problem, return here with ves_multipoles
+    // after update_density we need to export qlm_compensator, 
+    // then solve the 3D electrostatic problem,
+    // and finally return here with ves_multipoles
     // ==============
 
     void update_potential(float const potential_mixing, double const ves_multipoles[], int const echo=0) {
@@ -3357,12 +3346,12 @@ namespace single_atom {
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
       int   constexpr numax_default = 3;
-      float const mix_rho_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
+      float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
       
       int na{natoms};
       
       status_t stat(0);
-      stat = test_string_switch(what, echo);
+      stat = test_string_switch(what); // muted
 
       switch (how) {
         
@@ -3447,21 +3436,21 @@ namespace single_atom {
           }
           break;
 
-          case 'u': // interface usage: atom_update("update", natoms, null, null, mix={mix_pot, mix_rho[3]}, vlm);
+          case 'u': // interface usage: atom_update("update", natoms, null, null, mix[1]={mix_pot}, vlm);
           {
               double const *const *const vlm = dpp; assert(nullptr != vlm);
-              float const *mix = fp ? fp : mix_rho_defaults;
+              float const mix_pot = fp ? fp[1] : mix_defaults[0];
               for(int ia = 0; ia < a.size(); ++ia) {
-                  a[ia]->update_potential(mix[0], vlm[ia], echo); // set electrostatic multipole shifts
-                  a[ia]->update_density(&mix[1], echo);
+                  a[ia]->update_potential(mix_pot, vlm[ia], echo); // set electrostatic multipole shifts
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
           break;
 
-          case 'a': // interface usage: atom_update("atomic density matrix", natoms, null, null, null, atom_rho);
+          case 'a': // interface usage: atom_update("atomic density matrix", natoms, null, null, mix_rho[3], atom_rho);
           {
               double const *const *const atom_rho = dpp; assert(nullptr != atom_rho);
+              float const *const mix_rho = fp ? fp : &mix_defaults[1];
               for(int ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_rho[ia]);
                   int const numax = a[ia]->get_numax();
@@ -3469,8 +3458,9 @@ namespace single_atom {
                   for(int i = 0; i < ncoeff; ++i) {
                       set(a[ia]->density_matrix[i], ncoeff, &atom_rho[ia][i*ncoeff + 0]);
                   } // i
+                  a[ia]->update_density(mix_rho, echo);                  
               } // ia
-              assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
+              assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
           break;
               
@@ -3515,11 +3505,23 @@ namespace single_atom {
                   assert(nullptr != atom_mat[ia]);
                   int const numax = a[ia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
-                  int const h1hs2 = ip ? ip[ia]/(ncoeff*ncoeff) : 2; // ToDo: make this more elegant
+                  int const nelements = ip ? ip[ia] : 2*pow2(ncoeff);
+                  int const h1hs2 = nelements/pow2(ncoeff); // ToDo: make this more elegant
                   for(int i = 0; i < ncoeff; ++i) {
                       if (h1hs2 > 1)
                       set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);
                       set(&atom_mat[ia][(0*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->hamiltonian[i]);
+#if 0
+                      if (echo > 0) {
+                          for(int j = 0; j < ncoeff; ++j) {
+                              printf("# atom_mat[a=%i](i=%i,j=%i) = %.6f %.6f %s overlap= %.6f %.6f\n", ia, i, j, 
+                                  atom_mat[ia][(0*ncoeff + i)*ncoeff + j]*eV,
+                                  a[ia]->hamiltonian(i,j)*eV,_eV,
+                                  atom_mat[ia][(1*ncoeff + i)*ncoeff + j],
+                                  a[ia]->overlap(i,j)                     );
+                          } // j
+                      } // echo
+#endif
                   } // i
               } // ia
               assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)
