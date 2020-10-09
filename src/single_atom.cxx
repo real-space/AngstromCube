@@ -2802,12 +2802,15 @@
             }
 
             view3D<double> matrices_ln(2, nln, nln); // get memory
+            view2D<char> ln_label(nln, 4);
+            sho_tools::construct_label_table<4>(ln_label.data(), numax, sho_tools::order_ln);
             for(int iHS = 0; iHS < 2; ++iHS) {
                 scattering_test::emm_average(matrices_ln(iHS,0), matrices_lmn(iHS,0), int(numax));
                 if (echo > 4) {
+                    if (0 == iHS) printf("\n");
                     double const unit = iHS ? 1 : eV;
                     for(int iln = 0; iln < mln; ++iln) {
-                        printf("# %s emm-averaged%3i %s ", label, iln, iHS?"overlap    ":"hamiltonian");
+                        printf("# %s emm-averaged %s  %s ", label, iHS?"overlap    ":"hamiltonian", ln_label[iln]);
                         for(int jln = 0; jln < mln; ++jln) {
                             if (partial_wave[iln].ell == partial_wave[jln].ell) {
                                 printf(" %11.6f", matrices_ln(iHS,iln,jln)*unit);
@@ -2816,7 +2819,7 @@
                             } // ells match
                         } // jln
                         printf("\n");
-                    } // iln 
+                    } // iln
                     printf("\n");
                 } // echo
             } // iHS
@@ -2866,8 +2869,10 @@
         if (echo > 6) { // display
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                        label, sho_tools::SHO_order2string(sho_tools::order_Ezyx).c_str(), _eV);
+            view2D<char> Ezyx_label(nSHO, 8);
+            sho_tools::construct_label_table<8>(Ezyx_label.data(), numax, sho_tools::order_Ezyx);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                printf("# %s hamiltonian elements for iSHO=%3d  ", label, iSHO); // ToDo: show the nx,ny,nz quantum numbers
+                printf("# %s hamiltonian elements for %8s ", label, Ezyx_label[iSHO]); // ToDo: show the nx,ny,nz quantum numbers
                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
                     printf(" %11.6f", hamiltonian(iSHO,jSHO)*eV);
                 } // jSHO

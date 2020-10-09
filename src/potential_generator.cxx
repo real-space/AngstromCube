@@ -671,7 +671,7 @@ namespace potential_generator {
                   for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
-                      printf("\n# atom-centered %dx%d Hamiltonian (in %s) for atom index #%i\n", n, n, _eV, ia);
+                      printf("\n# atom-centered %dx%d Hamiltonian (in %s) for atom #%i\n", n, n, _eV, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {
@@ -680,7 +680,7 @@ namespace potential_generator {
                           printf("\n");
                       } // i
                       view2D<double const> const aSm(atom_mat[ia] + n*n, n);
-                      printf("\n# atom-centered %dx%d overlap matrix for atom index #%i\n", n, n, ia);
+                      printf("\n# atom-centered %dx%d overlap matrix for atom #%i\n", n, n, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
                           for(int j = 0; j < n; ++j) {
