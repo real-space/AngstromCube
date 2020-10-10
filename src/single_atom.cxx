@@ -343,7 +343,7 @@ namespace single_atom {
     
 
     double show_state_analysis(int const echo, char const *label, radial_grid_t const *rg, double const wave[],
-            char const enn, int const ell, float const occ, double const energy, char const *csv_class, int const ir_cut) {
+            char const *tag, float const occ, double const energy, char const *csv_class, int const ir_cut) {
         
         double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
         for(int ir = 0; ir < rg->n; ++ir) {
@@ -358,8 +358,8 @@ namespace single_atom {
         double const qinv = (q > 0) ? 1./q : 0;
         double const charge_outside = qout*qinv;
 
-        if (echo > 0) printf("# %s %-9s  %c%c%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
-               csv_class, enn, ellchar[ell], occ, energy*eV,_eV, 
+        if (echo > 0) printf("# %s %-9s  %-4s%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
+               csv_class, tag, occ, energy*eV,_eV, 
                qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, charge_outside);
 
         return charge_outside;
@@ -541,7 +541,7 @@ namespace single_atom {
         ellmax_pot = ellmax_rho;
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax= %d and %d, respectively\n", label, ellmax_rho, ellmax_pot);
         ellmax_cmp = std::min(4, int(ellmax_rho));
-        if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_cmp);
+        if (echo > 0) printf("# %s compensation charges are expanded up to lmax= %d\n", label, ellmax_cmp);
 
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
         sigma_inv = 1./sigma;
@@ -584,7 +584,7 @@ namespace single_atom {
         } // true and smooth
 
         auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
-        if (load_stat) error("loading of potential file failed for Z=%g", Z_core);
+        if (load_stat) error("loading of potential file failed for Z= %g", Z_core);
 
 #ifdef DEVEL
         // show the loaded Zeff(r)
@@ -617,7 +617,7 @@ namespace single_atom {
         nr_diff = rg[TRU]->n - rg[SMT]->n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
         ir_cut[SMT] = radial_grid::find_grid_index(*rg[SMT], r_cut);
         ir_cut[TRU] = ir_cut[SMT] + nr_diff;
-        if (echo > 0) printf("# %s pseudize the core density at r[%i or %i] = %.6f, requested %.3f %s\n",
+        if (echo > 0) printf("# %s pseudize the core density at r[%i or %i]= %.6f, requested %.3f %s\n",
                           label, ir_cut[TRU], ir_cut[SMT], rg[SMT]->r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
         assert(rg[SMT]->r[ir_cut[SMT]] == rg[TRU]->r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
 
@@ -652,7 +652,8 @@ namespace single_atom {
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(),
                                                     enn, ell, E, cs.wave[TRU], r2rho.data());
                         cs.energy = E; // store eigenenergy of the spherical potential
-                        double const charge_outside = show_state_analysis(0, label, rg[TRU], cs.wave[TRU], '0' + enn, ell, 0.0, E, "?", ir_cut[TRU]);
+                        std::snprintf(cs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
+                        double const charge_outside = show_state_analysis(0, label, rg[TRU], cs.wave[TRU], cs.tag, 0.0, E, "?", ir_cut[TRU]);
 
                         int const inl = atom_core::nl_index(enn, ell);
                         int csv_auto{csv_undefined}; // init
@@ -852,21 +853,28 @@ namespace single_atom {
                             if (ics >= 0) { // atomic eigenstate was marked as valence
                                 occ = spherical_state[ics].occupation; //
                                 vs.occupation = occ;
-                                if (occ > 0 && echo > 3) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
+                                if (occ > 0) {
+                                    if (echo > 3) printf("# %s transfer %.1f electrons from %d%c-core state #%d"
                                         " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
+                                } // occupation transfer
                             } // ics
                         }
                         if (echo > 0) printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n", label, csv_name[valence], enn, ellchar[ell], vs.occupation, E*eV,_eV);
-                        
+
+                        std::snprintf(vs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
+                       
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
                             partial_wave_char[iln] = 'e';
+                            std::snprintf(vs.tag, 7, "%c%.5g", ellchar[ell], vs.energy*eV); // create a state label
                         } else // use_energy_parameter
                         if (occ > 0) {
                             // leave eigenstate, see above
                         } else { // occ > 0
                             if (nrn > 0) {
+                                char asterisk[8] = "*******"; asterisk[nrn] = '\0';
+                                std::snprintf(vs.tag, 7, "%c%s", ellchar[ell], asterisk); // create a state label
                                 partial_wave_char[iln] = '*';
 #ifdef DEVEL
                                 if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
@@ -886,8 +894,10 @@ namespace single_atom {
 
                     } else { // active
                         partial_wave_char[iln] = '_';
+                        std::snprintf(vs.tag, 7, "%c?", ellchar[ell]); // create a state label
                     } // partial_wave_active
 
+                    if (echo > 19) printf("# %s created a state descriptor with tag=\'%s\'\n", label, vs.tag);
                 } // nrn
             } // ell
         } // valence states
@@ -910,7 +920,7 @@ namespace single_atom {
 
         int const nSHO = sho_tools::nSHO(numax);
         int const matrix_stride = align<2>(nSHO); // 2^<2> doubles = 32 Byte alignment
-        if (echo > 0) printf("# %s matrix size for hamiltonian and overlap: dim = %d, stride = %d\n", label, nSHO, matrix_stride);
+        if (echo > 0) printf("# %s matrix size for hamiltonian and overlap: dim= %d, stride= %d\n", label, nSHO, matrix_stride);
         density_matrix = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
         hamiltonian    = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
         overlap        = view2D<double>(nSHO, matrix_stride, 0.0); // get memory
@@ -1064,7 +1074,7 @@ namespace single_atom {
 
         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
         // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
-        if (stat) warn("%s Matching procedure for the smooth %s density failed! info = %d", label, quantity, int(stat));
+        if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
 
         if (echo > 8) { // plot the densities
             printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
@@ -1091,7 +1101,7 @@ namespace single_atom {
     
     
     void update_spherical_states(float const mixing[3], int const echo=0) {
-        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+        if (echo > 1) printf("\n# %s %s Z= %g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
@@ -1123,7 +1133,7 @@ namespace single_atom {
                 add_product(new_r2density[csv], nr, r2rho.data(), scal);
                 nelectrons[csv] += std::max(0.0, std::abs(cs.occupation));
             } // scal > 0
-            show_state_analysis(echo, label, rg[TRU], cs.wave[TRU], '0' + cs.enn, cs.ell, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
+            show_state_analysis(echo, label, rg[TRU], cs.wave[TRU], cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
         } // ics
 
         // report integrals
@@ -1419,8 +1429,8 @@ namespace single_atom {
             // and we want the shape of the true partial wave given by sphi[ell nrn=0]
             int const ell = suggest_vloc;
             assert(ell <= numax);
-            int const jln = sho_tools::ln_index(numax, ell, 0); // nrn=0
-            int const iln = sho_tools::ln_index(numax, ell, 0); // nrn=0
+            int const jln = sho_tools::ln_index(numax, ell, 0); // nrn=0 // radial SHO index
+            int const iln = sho_tools::ln_index(numax, ell, 0); // nrn=0 // partial wave index
             // then the local potential can be found from the inversion:
             //      ~V(r) = E + ( ~p(r) - ^T ~phi(r) )/~phi(r)
             // where we need to respect the duality: < ~p | ~phi > = 1 which fixes the scaling
@@ -1557,7 +1567,7 @@ namespace single_atom {
         } // method
 #ifdef DEVEL
         if (echo > 11) {
-            printf("\n\n## %s r in %s, r*V_tru(r), r*V_smt(r) in %s%s:\n", __func__, _Ang, _Ang, _eV);
+            printf("\n\n## %s: r in %s, r*V_tru(r), r*V_smt(r) in %s*%s:\n", __func__, _Ang, _Ang, _eV);
             auto const factors = df*eV*Ang;
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 double const r = rg[SMT]->r[ir], r_pow = rpow ? 1 : r;
@@ -1589,16 +1599,16 @@ namespace single_atom {
                 assert ('_' != c);
                 if ('e' == c) {
                     // energy parameter, vs.energy has already been set earlier
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at energy parameter E= %g %s\n", 
-                                            label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s the %s partial wave uses energy parameter E= %g %s\n", 
+                                            label, vs.tag, vs.energy*eV, _eV);
                 } else
                 if ('D' == c) {
 #ifdef DEVEL                  
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use an energy derivative as partial wave at E= %g %s\n", 
-                                            label, ell, nrn, vs.energy*eV, _eV);
+                    if (echo > 3) printf("# %s the %s partial wave is an energy derivative at E= %g %s\n", 
+                                            label, vs.tag, vs.energy*eV, _eV);
 #else
                     error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
 #endif
@@ -1606,14 +1616,14 @@ namespace single_atom {
                 if ('*' == c) {
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy + partial_wave_energy_split[ell];
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s\n", label, ell, nrn, vs.energy*eV, _eV);
-                
+                    if (echo > 3) printf("# %s the %s partial wave is at E= %g %s\n", label, vs.tag, vs.energy*eV, _eV);
+
                 } else
                 if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, copy %c-energy\n", 
-                                        label, ell, nrn, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
+                    if (echo > 3) printf("# %s the %s partial wave is at E= %g %s, copy %c-energy\n", 
+                                        label, vs.tag, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
 
                 } else {
                     assert(c == '0' + vs.enn);
@@ -1621,8 +1631,8 @@ namespace single_atom {
                     int constexpr SRA = 1;
                     assert(vs.wave[TRU] != nullptr);
                     radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
-                    if (echo > 3) printf("# %s for ell=%i nrn=%i use a partial wave at E= %g %s, the %i%c-eigenvalue\n",
-                                          label, ell, nrn, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
+                    if (echo > 3) printf("# %s the %s partial wave is at E= %g %s, the %i%c-eigenvalue\n",
+                                          label, vs.tag, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
                 }
                 if (0 == nrn) previous_ell_energy = vs.energy;
             } // nrn
@@ -1688,7 +1698,8 @@ namespace single_atom {
                     auto const c = projector_coeff[ell](nrn,mrn);
                     if (0.0 != c) {
                         add_product(projectors_ell[nrn], rg[SMT]->n, radial_sho_basis[ln_off + mrn], c);
-                        if (echo > 0) printf("# %s construct ell=%i nrn=%i projector by taking%10.6f of the %i-th radial SHO basis function\n", label, ell, nrn, c, mrn);
+                        if (echo > 0) printf("# %s construct  %s projector by taking%10.6f of the %c%i radial SHO basis function\n",
+                                                label, vs.tag, c, ellchar[ell],mrn);
                     } // coefficient non-zero
                 } // mrn
 
@@ -1755,7 +1766,7 @@ namespace single_atom {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], partial_wave_char[iln], ell, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
+                show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
 
 //                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
 //                 if (prelim_waves & (1 << ell)) {
@@ -1802,12 +1813,15 @@ namespace single_atom {
                         } else {
                             // matching coefficient - how much of the homogeneous solution do we need to add to match logder
                             auto const denom =    vgtru*dghom - dgtru*vghom; // ToDo: check if denom is not too small
+                            if (echo > 17) { printf("# %s LINE= %d    %g * %g - %g * %g = %g\n", label, __LINE__, vgtru, dghom, dgtru, vghom, denom); fflush(stdout); }
+                            assert(std::abs(denom) > 1e-300);
                             auto const c_hom = - (vgtru*dginh - dgtru*vginh) / denom;
 
                             // combine inhomogeneous and homogeneous solution to match true solution outside r_match
                             add_product(rphi[krn], rg[SMT]->n, rphi[HOM], c_hom);
 
                             auto const scal = vgtru / (vginh + c_hom*vghom); // match not only in logder but also in value
+                            assert(scal == scal);
                             scale(rphi[krn], rg[SMT]->n, rg[SMT]->rinv, scal); // scale and divide by r
                             // ToDo: extrapolate lowest point?
 
@@ -1862,7 +1876,7 @@ namespace single_atom {
 #endif                    
 
                     std::vector<double> evec(n, 0.0);
-                    evec[nrn] = 1.0; // this is everything that needs to be done for method=='e' 
+                    evec[nrn] = 1.0; // this is everything that needs to be done for method==energy_ordering
                     if (n > 1) {
                         
                         if (method == minimize_radial_curvature) { 
@@ -1906,7 +1920,7 @@ namespace single_atom {
                                 double lowest_eigenvalue = 0;
                                 auto const info = minimize_curvature(n, Ekin, Olap, &lowest_eigenvalue);
                                 if (info) {
-                                    printf("# %s generalized eigenvalue problem failed info=%i\n", label, int(info));
+                                    warn("%s generalized eigenvalue problem in minimize_curvature failed, info= %i\n", label, int(info));
                                 } else {
                                     set(evec.data(), n, Ekin[0]);
                                     if (echo > 6) {
@@ -1979,7 +1993,8 @@ namespace single_atom {
 
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
                     set(vs.wKin[SMT], rg[SMT]->n, 0.0);
-                    double sum{0}; for(int krn = 0; krn < n; ++krn) sum += evec[krn];
+                    double sum{0}; for(int krn = 0; krn < n; ++krn) { sum += evec[krn]; }
+                    assert(std::abs(sum) > 1e-300);
                     double const scal = 1.0/sum; // scaling such that the sum is 1
                     for(int krn = 0; krn < n; ++krn) {
                         auto const coeff = scal*evec[krn];
@@ -2004,7 +2019,7 @@ namespace single_atom {
 
 
             { // scope: establish dual orthgonality with [SHO] projectors
-                int const nr = rg[SMT]->n; //, mr = align<2>(nr);
+                int const nr = rg[SMT]->n;
                 // int const stride = align<2>(rg[SMT]->n);
                 int const msub = (1 + numax/2); // max. size of the subspace
 
@@ -2159,8 +2174,8 @@ namespace single_atom {
 
     } // update_partial_waves
 
-    
-    
+
+
     void update_charge_deficit(int const echo=0) {
         int const nln = sho_tools::nSHO_radial(numax);
 
@@ -2176,7 +2191,7 @@ namespace single_atom {
                 for(int iln = 0; iln < nln; ++iln) {
                     if (partial_wave_active[iln]) {
                         auto const wave_i = partial_wave[iln].wave[ts];
-                        if (echo_l) printf("# %s %s %2d%c ", label, ts?"smt":"tru", partial_wave[iln].enn, ellchar[partial_wave[iln].ell]);
+                        if (echo_l) printf("# %s %s %-4s", label, ts?"smt":"tru", partial_wave[iln].tag);
                         product(wave_r2rl_dr.data(), nr, wave_i, rl.data(), rg[ts]->r2dr); // product of three arrays
                         for(int jln = 0; jln < nln; ++jln) {
                             auto const wave_j = partial_wave[jln].wave[ts];
@@ -2996,8 +3011,11 @@ namespace single_atom {
                     if (1 == nn[ell]) {
                         int const iln = sho_tools::ln_index(numax, ell, 0);
                         lower = overlap_ln(iln,iln);
-                    } else if (2 >= nn[ell]) {
-                        if (nn[ell] > 2 && echo > 0) printf("# %s overlap matrix eigenvalues only checked for the 2x2 sub matrix!", label); 
+                    } else if (nn[ell] >= 2) {
+                        if (nn[ell] > 2) {
+                            if (echo > 0) printf("# %s overlap matrix eigenvalues only checked for the 2x2 sub matrix!", label);
+                            warn("%s no stability check for more than 2 partial waves, found nn= %d for ell=\'%c\'", label, nn[ell], ellchar[ell]);
+                        } // warnings
                         int const iln = sho_tools::ln_index(numax, ell, 0);
                         // get eigenvalues of the 2x2 matrix [a,b]
                         //                                   [c,d] with c==b (symmetric)
@@ -3007,8 +3025,8 @@ namespace single_atom {
                         auto const split = std::sqrt(pow2(a - d) + 4*pow2(b));
                         upper = 0.5*(a + d + split);
                         lower = 0.5*(a + d - split);
-                    } else { 
-                        assert(0 == nn[ell]); // sanity check
+                    } else {
+                        assert(0 == nn[ell]);
                     } // nn[ell]
                     
                     if (nn[ell] > 0 && lower <= -0.9) {
@@ -3085,30 +3103,28 @@ namespace single_atom {
                 auto matrix_ln = aHSm[iHS];
                 gemm(tmp_mat, nln, matrix_ln, nln, u_proj); // *u
                 gemm(matrix_ln, nln, uT_proj, nln, tmp_mat); // u^T*
+#ifdef DEVEL
+                if (echo > 4) { // display
+                      int const mln = display_delimiter(numax, nn);
+                      printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian");
+                      double const unit = iHS ? 1 : eV;
+                      for(int iln = 0; iln < mln; ++iln) {
+                          printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
+                          for(int jln = 0; jln < mln; ++jln) {
+                              if (partial_wave[iln].ell == partial_wave[jln].ell) {
+                                  printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
+                              } else {
+                                  printf("            ");
+                              } // ells match
+                          } // jln
+                          printf("\n");
+                      } // iln
+                      printf("\n");
+                } // echo
+#endif
             } // iHS
         } // scope
 
-#ifdef DEVEL
-          if (echo > 4) { // display
-              int const mln = display_delimiter(numax, nn);
-              for(int iHS = 0; iHS < 2; ++iHS) {
-                  printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian");
-                  double const unit = iHS ? 1 : eV;
-                  for(int iln = 0; iln < mln; ++iln) {
-                      printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
-                      for(int jln = 0; jln < mln; ++jln) {
-                          if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                              printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
-                          } else {
-                              printf("            ");
-                          } // ells match
-                      } // jln
-                      printf("\n");
-                  } // iln
-                  printf("\n");
-              } // iHS
-          } // echo
-#endif            
 
         if (1) {
             double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];

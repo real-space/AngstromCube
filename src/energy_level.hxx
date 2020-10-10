@@ -10,6 +10,7 @@
       double* wKin[Pseudo]; // kinetic energy operator onto wave, r*T*wave
       double energy; // energy level in Hartree atomic units
       double occupation; // occupation number
+      char tag[8]; // label
       enn_QN_t enn; // main quantum_number
       ell_QN_t ell; // angular momentum quantum_number
       emm_QN_t emm; // usually emm == emm_Degenerate

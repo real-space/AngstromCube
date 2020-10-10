@@ -83,13 +83,16 @@ electrostatic.solver=fft
 
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .41"
-element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .445 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
+#element_C="2s** 2 2p* 2 0 3d 4f | 1.2 sigma .38 numax 3 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
+single_atom.nn.limit=3
+single_atom.partial.wave.method=energy_ordering
 single_atom.echo=7
 single_atom.init.echo=7
 single_atom.optimize.sigma=0
