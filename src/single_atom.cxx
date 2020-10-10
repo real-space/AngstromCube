@@ -151,14 +151,16 @@
       return a_transposed;
   } // transpose
 
-  // define matrix-matrix multiplication using the * operator
+  // define matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
   template<typename Ta, typename Tb, typename Tc>
   void gemm(view2D<Tc> & c, int const N, view2D<Tb> const & b, int const K, view2D<Ta> const & a
             , int const aM=-1, char const beta='0') {
       int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
-      if (M > a.stride()) error("M= %d, a.stride= %ld", M, a.stride());
-      if (M > c.stride()) error("M= %d, c.stride= %ld", M, c.stride());
+      if (M > a.stride()) error("M= %d > %ld =a.stride", M, a.stride());
+      if (K > b.stride()) error("K= %d > %ld =b.stride", M, b.stride());
+      if (M > c.stride()) error("M= %d > %ld =c.stride", M, c.stride());
       assert( M <= a.stride() );
+      assert( K <= b.stride() );
       assert( M <= c.stride() );
       for(int n = 0; n < N; ++n) {
           for(int m = 0; m < M; ++m) {
@@ -419,13 +421,11 @@
 
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
-      // ToDo: check if all of these 4 lists are used or can be replace but some sho_tool::???_index()
-      std::vector<int16_t> ln_index_list;
-      std::vector<int16_t> lm_index_list;
-      std::vector<int16_t> lmn_begin;
-      std::vector<int16_t> lmn_end;
-
       
+      std::vector<int16_t> ln_index_list; // iln = ln_index_list[ilmn]
+      std::vector<int16_t> lm_index_list; // ilm = lm_index_list[ilmn]
+      std::vector<int16_t> lmn_begin; // lm_index_list[lmn_begin[ilm]] == ilm
+      std::vector<int16_t> lmn_end; // lm_index_list[lmn_end[ilm] - 1] == ilm
       
       
   public:
