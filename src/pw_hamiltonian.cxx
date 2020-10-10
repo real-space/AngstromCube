@@ -419,7 +419,7 @@ namespace pw_hamiltonian {
                       auto const & i = pw_basis[iB];
                       // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
                       int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
-                      if (echo > 6) { printf("# in Fourier space psi(x=%d,y=%d,z=%d) = eigenvector(band=%i,pw=%i)\n", iGx,iGy,iGz, iband,iB); fflush(stdout); }
+//                    if (echo > 66) { printf("# in Fourier space psi(x=%d,y=%d,z=%d) = eigenvector(band=%i,pw=%i)\n", iGx,iGy,iGz, iband,iB); fflush(stdout); }
                       std::complex<double> const eigenvector_coeff = SHm(H,iband,iB);
                       psi_G(iGz,iGy,iGx) = eigenvector_coeff;
                       for(int iC = 0; iC < nC; ++iC) {

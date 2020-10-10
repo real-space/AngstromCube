@@ -40,6 +40,8 @@
 #include "chemical_symbol.hxx" // ::get
 #include "sigma_config.hxx" // ::get, element_t
 #include "bisection_tools.hxx" // bisector_t
+#include "complex_tools.hxx" // conjugate
+#include "debug_tools.hxx" // here
 
 // extern "C" {
 //   // BLAS interface to matrix matrix multiplication
@@ -132,12 +134,42 @@
   } // pseudize_function
 
 
+  // define matrix-transposition
+  template<typename T>
+  view2D<T> transpose(view2D<T> const & a, int const aN, int const aM=-1, char const conj='n') {
+      int const N = (-1 == aM) ? a.stride() : aM;
+      int const M = aN;
+      assert( N <= a.stride() );
+      bool const c = ('c' == (conj | 32)); // case insensitive: 'C' and 'c' lead to complex conjugation
+      view2D<T> a_transposed(N, M);
+      for(int n = 0; n < N; ++n) {
+          for(int m = 0; m < M; ++m) {
+              auto const a_mn = a(m,n); 
+              a_transposed(n,m) = c ? conjugate(a_mn) : a_mn;
+          } // m
+      } // n
+      return a_transposed;
+  } // transpose
 
-
-
-
-
-    
+  // define matrix-matrix multiplication using the * operator
+  template<typename Ta, typename Tb, typename Tc>
+  void gemm(view2D<Tc> & c, int const N, view2D<Tb> const & b, int const K, view2D<Ta> const & a
+            , int const aM=-1, char const beta='0') {
+      int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
+      if (M > a.stride()) error("M= %d, a.stride= %ld", M, a.stride());
+      if (M > c.stride()) error("M= %d, c.stride= %ld", M, c.stride());
+      assert( M <= a.stride() );
+      assert( M <= c.stride() );
+      for(int n = 0; n < N; ++n) {
+          for(int m = 0; m < M; ++m) {
+              Tc t(0);
+              for(int k = 0; k < K; ++k) { // contraction index
+                  t += b(n,k) * a(k,m);
+              } // k
+              if ('0' == beta) { c(n,m) = t; } else { c(n,m) += t; } // store
+          } // m
+      } // n
+  } // gemm
 
 
 
@@ -2148,9 +2180,9 @@
                   bool const in_Cartesian, double const alpha=1) const {
 
         int const N = unitary_zyx_lmn.stride();
-        view2D<double const> uni(unitary_zyx_lmn.data(), N); // wrap
+        view2D<double> const uni(unitary_zyx_lmn.data(), N); // wrap
         view2D<double> tmp(N, N); // get memory
-        view2D<double const> inp(in, in_stride); // wrap
+        view2D<double const> const inp(in, in_stride); // wrap
         view2D<double> res(out, out_stride); // wrap
 
 //         double const beta = 0;
@@ -2162,6 +2194,7 @@
 //             tmp(=C)[n_C][m_R] = in(=B)[n_C][k_C] * unitary(=A)[k_C][m_R]    // step 1
 //             out(=C)[n_R][m_R] = unitary(=B^T)[n_R][k_C] * tmp(=A)[k_C][m_R] // step 2
 
+#if 0 
             for(int nC = 0; nC < N; ++nC) {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij{0};
@@ -2180,13 +2213,20 @@
                     res(nR,mR) = alpha*tij;
                 } // mR
             } // nR
-
+#else
+            assert(1 == alpha);
+            auto const uni_transposed = transpose(uni, N);
+            gemm(tmp, N, inp, N, uni); // *u
+            gemm(res, N, uni_transposed, N, tmp); // u^T*
+#endif
+            
         } else { // in_Cartesian
             // transform Radial input to Cartesian output
 
 //             tmp(=C)[n_R][m_C] = in(=B)[n_R][k_R] * unitary(=A^T)[k_R][m_C] // step 1
 //             out(=C)[n_C][m_C] = unitary(=B)[n_C][k_R] * tmp(=A)[k_R][m_C]  // step 2
 
+#if 0 
             for(int nC = 0; nC < N; ++nC) {
                 for(int mR = 0; mR < N; ++mR) {
                     double tij{0};
@@ -2205,6 +2245,12 @@
                     res(nC,mC) = alpha*tij;
                 } // mC
             } // nC
+#else
+            assert(1 == alpha);
+            auto const uni_transposed = transpose(uni, N);
+            gemm(tmp, N, uni, N, inp); // u*
+            gemm(res, N, tmp, N, uni_transposed); // *u^T
+#endif
 
         } // in_Cartesian
 
@@ -2223,7 +2269,7 @@
     
     
     view2D<double> unfold_projector_coefficients() const {
-      
+
         int const nln = sho_tools::nSHO_radial(numax);
         std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
         for(int ell = 0; ell <= numax; ++ell) {
@@ -2257,7 +2303,7 @@
     } // unfold_projector_coefficients
     
     view2D<double> unfold_projector_coefficients_emm_degenerate() const {
-    
+
         int const nln = sho_tools::nSHO_radial(numax);
         std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
         for(int ell = 0; ell <= numax; ++ell) {
@@ -2359,28 +2405,34 @@
             //          into the partial-wave space
             //
             auto const u_proj = unfold_projector_coefficients();
-            int const nlmn = nSHO;
+            int const N = nSHO;
 
-            view2D<double> tmp_mat(nlmn, nlmn, 0.0);
-            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+            view2D<double> tmp_mat(N, N);
+#if 0           
+            for(int i = 0; i < N; ++i) {
+                for(int j = 0; j < N; ++j) {
                     double t{0};
-                    for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over radial SHO states
-                        t += radial_density_matrix(ilmn,klmn) * u_proj(jlmn,klmn);
-                    } // klmn
-                    tmp_mat(ilmn,jlmn) = t;
-                } // jlmn
-            } // ilmn
+                    for(int k = 0; k < N; ++k) { // contract over radial SHO states
+                        t += radial_density_matrix(i,k) * u_proj(j,k); // *u^T
+                    } // k
+                    tmp_mat(i,j) = t;
+                } // j
+            } // i            
 
-            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+            for(int i = 0; i < N; ++i) {
+                for(int j = 0; j < N; ++j) {
                     double t{0};
-                    for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over radial SHO states
-                        t += u_proj(ilmn,klmn) * tmp_mat(klmn,jlmn);
-                    } // klmn
-                    radial_density_matrix(ilmn,jlmn) = t;
-                } // jlmn
-            } // ilmn
+                    for(int k = 0; k < N; ++k) { // contract over radial SHO states
+                        t += u_proj(i,k) * tmp_mat(k,j); // u*
+                    } // k
+                    radial_density_matrix(i,j) = t;
+                } // j
+            } // i
+#else
+            auto const uT_proj = transpose(u_proj, N);
+            gemm(tmp_mat, N, radial_density_matrix, N, uT_proj); // *u^T
+            gemm(radial_density_matrix, N, u_proj, N, tmp_mat); // u*
+#endif
 
         } // scope
 
@@ -2826,12 +2878,12 @@
         // We need to wrap the matrices with the projector_coeff from left and right
         for(int iHS = 0; iHS < 2; ++iHS) {
             view2D<double> tmp_mat(nlmn, nlmn, 0.0);
-
+#if 0
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     double t{0};
                     for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over partial waves
-                        t += matrices_lmn(iHS,ilmn,klmn) * u_proj(klmn,jlmn);
+                        t += matrices_lmn(iHS,ilmn,klmn) * u_proj(klmn,jlmn); // *u
                     } // klmn
                     tmp_mat(ilmn,jlmn) = t;
                 } // jlmn
@@ -2841,11 +2893,17 @@
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     double t{0};
                     for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over partial waves
-                        t += u_proj(klmn,ilmn) * tmp_mat(klmn,jlmn);
+                        t += u_proj(klmn,ilmn) * tmp_mat(klmn,jlmn); // u^T*
                     } // klmn
                     matrices_lmn(iHS,ilmn,jlmn) = t;
                 } // jlmn
             } // ilmn
+#else
+            auto matrix_lmn = matrices_lmn[iHS];
+            auto const uT_proj = transpose(u_proj, nlmn);
+            gemm(tmp_mat, nlmn, matrix_lmn, nlmn, u_proj); // *u
+            gemm(matrix_lmn, nlmn, uT_proj, nlmn, tmp_mat); // u^T*
+#endif
 
         } // iHS
         
@@ -3124,12 +3182,12 @@
         // We need to wrap the matrices with the projector_coeff from left and right
         for(int iHS = 0; iHS < 2; ++iHS) {
             view2D<double> tmp_mat(nln, nln, 0.0); // get temporary memory
-            
+#if 0
             for(int iln = 0; iln < nln; ++iln) {
                 for(int jln = 0; jln < nln; ++jln) {
                     double t{0};
                     for(int kln = 0; kln < nln; ++kln) { // contract over partial waves
-                        t += aHSm(iHS,iln,kln) * u_proj(kln,jln);
+                        t += aHSm(iHS,iln,kln) * u_proj(kln,jln); // *u
                     } // kln
                     tmp_mat(iln,jln) = t;
                 } // jln
@@ -3139,12 +3197,17 @@
                 for(int jln = 0; jln < nln; ++jln) {
                     double t{0};
                     for(int kln = 0; kln < nln; ++kln) { // contract over partial waves
-                        t += u_proj(kln,iln) * tmp_mat(kln,jln);
+                        t += u_proj(kln,iln) * tmp_mat(kln,jln); // u^T*
                     } // kln
                     aHSm(iHS,iln,jln) = t;
                 } // jln
             } // iln
-
+#else
+            auto matrix_ln = aHSm[iHS];
+            auto const uT_proj = transpose(u_proj, nln);
+            gemm(tmp_mat, nln, matrix_ln, nln, u_proj); // *u
+            gemm(matrix_ln, nln, uT_proj, nln, tmp_mat); // u^T*
+#endif
         } // iHS
 
 #ifdef DEVEL

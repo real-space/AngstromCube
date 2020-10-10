@@ -170,7 +170,6 @@ for ecut in `seq 2 1 2`; do
         +control.file=control.sh \
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \
-        -V
-#         > $project.out
+        > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
