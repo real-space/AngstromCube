@@ -101,9 +101,9 @@ logder.stop=1
 #logder.step=1e-4
 
 # configuration for basis=grid
-bands.per.atom=20
+bands.per.atom=10
 # DEVEL option
-devel.occupied.bands=2
+devel.occupied.bands=8
 eigensolver=cg
 repeat.eigensolver=3
 conjugate_gradients.max.iter=19
@@ -111,7 +111,7 @@ conjugate_gradients.max.iter=19
 start.waves.scale.sigma=9
 atomic.valence.decay=0
 export.waves=waves.dat
- start.waves=waves.dat
+#start.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
@@ -127,6 +127,7 @@ hamiltonian.floating.point.bits=32
 
 # configuration for basis=pw
 pw_hamiltonian.solver=direct
+pw_hamiltonian.density=1
 #pw_hamiltonian.solver=iterative
 #pw_hamiltonian.solver=both
 davidson_solver.max.iterations=9
@@ -137,7 +138,7 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -161,7 +162,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 1 1`; do
+for ecut in `seq 2 1 2`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -169,6 +170,7 @@ for ecut in `seq 2 1 1`; do
         +control.file=control.sh \
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \
-        > $project.out
+        -V
+#         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
 done

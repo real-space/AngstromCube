@@ -147,25 +147,45 @@ namespace sho_projection {
   } // sho_1D_prefactor (L2-normalization)
 
   inline double sho_prefactor(int const nx, int const ny, int const nz, double const sigma) { 
-      return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
+//    return sho_1D_prefactor(nx, sigma) * sho_1D_prefactor(ny, sigma) * sho_1D_prefactor(nz, sigma);
+      return std::sqrt(   double(1 << nx)*double(1 << ny)*double(1 << nz) /
+                        (  factorial(nx) * factorial(ny) * factorial(nz) * pow3(constants::sqrtpi * sigma) ) ); 
   } // sho_prefactor (L2-normalization)
 
+  template<typename real_t>
+  std::vector<real_t> get_sho_prefactors(int const numax, double const sigma) {
+      int const nSHO = sho_tools::nSHO(numax);
+      std::vector<real_t> f(nSHO);
+      int iSHO{0};
+      for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
+          for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
+              for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
+                  f[iSHO] = fx * fy * fz;
+                  ++iSHO;
+              } // nx
+          } // ny
+      } // nz
+      assert(nSHO == iSHO);
+      return f;
+  } // get_sho_prefactors
+  
+  
   template<typename real_t> inline status_t
   renormalize_coefficients(real_t out[], // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
                            real_t const in[], // zyx_ordered, input unnormalized, if inverse input is assumed normalized
                            int const numax, double const sigma) {
-        int iSHO{0};
-        for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
-            for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
-                for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
-                    auto const f = fx * fy * fz;
-                    out[iSHO] = in[iSHO] * f;
-                    ++iSHO;
-                } // nx
-            } // ny
-        } // nz
-        assert( sho_tools::nSHO(numax) == iSHO );
-        return 0;
+      int iSHO{0};
+      for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
+          for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
+              for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
+                  auto const f = fx * fy * fz;
+                  out[iSHO] = in[iSHO] * f;
+                  ++iSHO;
+              } // nx
+          } // ny
+      } // nz
+      assert( sho_tools::nSHO(numax) == iSHO );
+      return 0;
   } // renormalize_coefficients
   
   

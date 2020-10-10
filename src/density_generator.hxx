@@ -6,9 +6,11 @@
 #include "grid_operators.hxx" // ::grid_operator_t
 #include "complex_tools.hxx" // conjugate
 #include "sho_tools.hxx" // ::nSHO
+#include "sho_projection.hxx" // ::sho_prefactor
 #include "data_view.hxx" // view3D<T>
 #include "data_list.hxx" // data_list<T>
 #include "control.hxx" // ::get
+#include "display_units.h" // Ang, _Ang
 
 namespace density_generator {
 
@@ -34,7 +36,8 @@ namespace density_generator {
       , int const echo=0) {
       
       using complex_t = typename grid_operator_t::complex_t; // abbreviate
-    
+      using real_t    = decltype(std::real(complex_t(1)));
+
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat{0};
 
@@ -43,14 +46,19 @@ namespace density_generator {
       auto const g = op.get_grid();
       
       if (echo > 3) printf("# %s assume %d bands and %d k-points\n", __func__, nbands, nkpoints);
-      if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d Cartesian grid\n", 
+      if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d Cartesian grid\n",
                               __func__, g('x'), g('y'), g('z'));
 
       int const na = op.get_natoms();
+      std::vector<std::vector<real_t>> scale_factors(na);
       std::vector<int> ncoeff(na, 0);
       for(int ia = 0; ia < na; ++ia) {
           int const numax = op.get_numax(ia);
           ncoeff[ia] = sho_tools::nSHO(numax);
+          auto const sigma = op.get_sigma(ia);
+          if (echo > 6) printf("# %s atom #%i has numax=%d and %d coefficients, sigma= %g %s\n", __func__, ia, numax, ncoeff[ia], sigma*Ang,_Ang);
+          assert(sigma > 0);
+          scale_factors[ia] = sho_projection::get_sho_prefactors<real_t>(numax, sigma);
       } // ia
       data_list<complex_t> atom_coeff(ncoeff);
 
@@ -67,7 +75,7 @@ namespace density_generator {
               double const band_occupation = 2*std::min(std::max(0.0, occupied_bands - iband), 1.0); // depends on iband and ikpoint
               double const weight_nk = band_occupation * kpoint_weight;
               auto const psi_nk = psi_k[iband];
-              
+
               if (weight_nk > 0) {
 // #pragma omp for
                   for(size_t izyx = 0; izyx < g.all(); ++izyx) { // parallel
@@ -79,14 +87,16 @@ namespace density_generator {
                   for(int ia = 0; ia < na; ++ia) {
                       int const numax = op.get_numax(ia);
                       int const ncoeff = sho_tools::nSHO(numax);
+                      auto const sf = scale_factors[ia].data();
                       // add to the atomic density matrix
                       for(int i = 0; i < ncoeff; ++i) {
-                          auto const c_i = conjugate(atom_coeff[ia][i]);
+                          auto const c_i = conjugate(atom_coeff[ia][i] * sf[i]);
 #ifdef DEVEL
-                          if (echo > 9) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %g\n", ikpoint, iband, ia, i, c_i);
+                          if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %g %g factor=%g\n",
+                                              ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), sf[i]);
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {
-                              auto const c_j = atom_coeff[ia][j];
+                              auto const c_j = atom_coeff[ia][j] * sf[i];
                               atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(c_i * c_j);
                           } // j
                       } // i

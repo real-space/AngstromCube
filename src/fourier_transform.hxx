@@ -66,13 +66,39 @@ namespace fourier_transform {
           out[i]      = cvo[i].real();
           out_imag[i] = cvo[i].imag();
       } // i
-      return 0;
+      return 0; // success
 #endif // defined HAS_FFTW
 
       return -1; // has no FFT library
 #endif // defined HAS_no_MKL     
   } // fft
 
+  inline status_t fft(std::complex<double> out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
+               , std::complex<double> const in[] // (in) indexing in[(iz*ng[1] + iy)*ng[0] + ix]
+               , int const ng[3] // grid numbers
+               , bool const forward=true
+               , int const echo=0) { // log level
+#ifndef HAS_no_MKL
+      status_t status(-1);
+      if (echo > 0) printf("# MKL-FFT returns status=%i, not implemented\n", int(status));
+      return status;
+#else // not defined HAS_no_MKL
+
+#ifdef HAS_FFTW
+      auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) in, 
+                                                              (fftw_complex*) out, 
+                                  forward ? FFTW_FORWARD : FFTW_BACKWARD, FFTW_ESTIMATE);
+      if (nullptr == plan) return __LINE__; // error
+      fftw_execute(plan);
+      fftw_destroy_plan(plan);
+      return 0; // success
+#endif // defined HAS_FFTW
+
+      return -1; // has no FFT library
+#endif // defined HAS_no_MKL     
+  } // fft
+  
+  
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

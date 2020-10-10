@@ -19,6 +19,7 @@
 #include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image
 #include "sho_overlap.hxx" // ::
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
+#include "data_list.hxx" // data_list<T>
 #include "inline_tools.hxx" // align<nbits>
 #include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
@@ -163,7 +164,7 @@ namespace pw_hamiltonian {
   
   
   
-  template<typename complex_t, typename real_t>
+  template<typename complex_t>
   status_t solve_k(double const ecut // plane wave cutoff energy
           , double const reci[3][4] // reciprocal cell matrix
           , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
@@ -180,6 +181,8 @@ namespace pw_hamiltonian {
           , int const echo=0 // log-level
           , int const nbands=10) { // number of bands (needed by iterative solver)
 
+      using real_t = decltype(std::real(complex_t(1)));
+            
       int boxdim[3], max_PWs{1};
       for(int d = 0; d < 3; ++d) {
           boxdim[d] = std::ceil(ecut/pow2(reci[d][d]));
@@ -256,7 +259,9 @@ namespace pw_hamiltonian {
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
 
       view2D<complex_t> P_jl(nB, nC, 0.0); //  <k+G_i|\tilde p_{la lb}>
+#ifdef DEVEL
       std::vector<double>   P2_l(nC, 0.0); // |<k+G_i|\tilde p_{la lb}>|^2
+#endif
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
       for(int jB = 0; jB < nB; ++jB) {
           auto const & i = pw_basis[jB];
@@ -277,7 +282,9 @@ namespace pw_hamiltonian {
                   for(int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
                       P_jl(jB,lC) = complex_t(phase * pzyx[lb] * fgf * norm_factor);
+#ifdef DEVEL
                       P2_l[lC] += pow2(pzyx[lb]);
+#endif
                   } // lb
               }
 
@@ -376,8 +383,104 @@ namespace pw_hamiltonian {
 
       auto solver = *control::get("pw_hamiltonian.solver", "direct") | 32;
       if ('b' == solver) {     iterative_solve(SHm, x_axis, echo, nbands); solver = 'd'; }
-      return ('d' == solver) ? dense_solver::solve(SHm, x_axis, echo)
-                             : iterative_solve(SHm, x_axis, echo, nbands);
+      auto const solver_stat = ('d' == solver) ?
+          dense_solver::solve(SHm, x_axis, echo) :
+          iterative_solve(SHm, x_axis, echo, nbands);
+
+          
+
+      int const gen_density = control::get("pw_hamiltonian.density", 0.);
+      if (gen_density) {
+          auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
+          view3D<double> rho(nG[2], nG[1], nG[0], 0.0);
+          std::vector<int> ncoeff(natoms_PAW, 0), ncoeff2(natoms_PAW, 0);
+          for(int ka = 0; ka < natoms_PAW; ++ka) {
+              ncoeff[ka] = sho_tools::nSHO(numax_PAW[ka]);
+              ncoeff2[ka] = pow2(ncoeff[ka]);
+          } // ka
+          data_list<double> atom_rho(ncoeff2);
+          std::complex<double> const zero(0);
+          std::vector<std::complex<double>> atom_coeff(nC);
+          view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
+          view3D<std::complex<double>> psi_r(nG[2], nG[1], nG[0]); // real space array
+
+          double const kpoint_weight = 1; // depends on ikpoint, ToDo
+          double const occupied_bands = control::get("devel.occupied.bands", 0.); // as long as the Fermi function is not in here
+          for(int iband = 0; iband < nbands; ++iband) {
+              double const band_occupation = 2*std::min(std::max(0.0, occupied_bands - iband), 1.0); // depends on iband and ikpoint
+              double const weight_nk = band_occupation * kpoint_weight;
+              if (weight_nk > 0) {
+                  if (echo > 6) { printf("# weight for band #%i is %g\n", iband, weight_nk); fflush(stdout); }
+                  // fill psi_G
+                  set(psi_G.data(), nG_all, zero);
+                  set(atom_coeff.data(), nC, zero);
+                  
+                  for(int iB = 0; iB < nB; ++iB) {
+                      auto const & i = pw_basis[iB];
+                      // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
+                      int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
+                      if (echo > 6) { printf("# in Fourier space psi(x=%d,y=%d,z=%d) = eigenvector(band=%i,pw=%i)\n", iGx,iGy,iGz, iband,iB); fflush(stdout); }
+                      std::complex<double> const eigenvector_coeff = SHm(H,iband,iB);
+                      psi_G(iGz,iGy,iGx) = eigenvector_coeff;
+                      for(int iC = 0; iC < nC; ++iC) {
+                          atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
+                      } // iC
+                  } // iB
+                  if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
+                  
+                  auto const fft_stat = fourier_transform::fft(psi_r.data(), psi_G.data(), nG, false, echo);
+                  if (echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
+
+                  // accumulate real-space density rho(r) = |psi(r)|^2
+                  for(int iz = 0; iz < nG[2]; ++iz) {
+                  for(int iy = 0; iy < nG[1]; ++iy) {
+                  for(int ix = 0; ix < nG[0]; ++ix) {
+                      rho(iz,iy,ix) += weight_nk * std::norm(psi_r(iz,iy,ix));
+                  }}} // iz iy ix
+
+                  // accumulate atomic density matrices
+                  for(int ka = 0; ka < natoms_PAW; ++ka) {
+                      auto const density_matrix = atom_rho[ka];
+                      int const nc = ncoeff[ka], stride = nc;
+                      for(int ic = 0; ic < nc; ++ic) {
+                          auto const c_i = conjugate(atom_coeff[ic + offset[ka]]);
+                          for(int jc = 0; jc < nc; ++jc) { 
+                              auto const c_j = atom_coeff[jc + offset[ka]];
+                              density_matrix[ic*stride + jc] += weight_nk * std::real(c_i * c_j); // Caution: imaginary part is dropped!
+                          } // jc
+                      } // ic
+                  } // ka
+
+              } // weight nonzero
+          } // iband
+
+          double rho_sum{0};
+          for(size_t izyx = 0; izyx < nG_all; ++izyx) {
+              rho_sum += rho(0,0)[izyx]; // avoid index checking
+          } // izyx
+          if (echo > 0) printf("# pw_hamiltonian found a density of %g electrons, average %g\n", rho_sum, rho_sum/nG_all);
+             
+#ifdef DEVEL
+          if (echo > 6) { // show atomic density matrices
+              for(int ia = 0; ia < natoms_PAW; ++ia) {
+                  int const nc = ncoeff[ia];
+                  printf("\n# show %d x %d density matrix for atom #%i in %s-order\n", 
+                      nc, nc, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str());
+                  for(int i = 0; i < nc; ++i) {
+                      printf("# %3i\t", i);
+                      for(int j = 0; j < nc; ++j) {
+                          printf("%10.2e", atom_rho[ia][i*nc + j]);
+                      } // j
+                      printf("\n");
+                  } // i
+                  printf("\n");
+              } // ia
+          } // echo
+#endif // DEVEL
+          
+      } // gen_density
+      
+      return solver_stat;
   } // solve_k
 
 
@@ -500,11 +603,11 @@ namespace pw_hamiltonian {
           } else { // replace this "else" by "if(true)" to test if real and complex version agree
               int nPWs{0};
               if (32 == floating_point_bits) {
-                  stat += solve_k<std::complex<float>, float>(ecut, reci_matrix, Vcoeffs, nG, svol,
+                  stat += solve_k<std::complex<float>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo, nbands);
               } else {
-                  stat += solve_k<std::complex<double>, double>(ecut, reci_matrix, Vcoeffs, nG, svol,
+                  stat += solve_k<std::complex<double>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo, nbands);
               } // floating_point_bits

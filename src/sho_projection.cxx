@@ -168,8 +168,22 @@ namespace sho_projection {
       return stat;
   } // test_renormalize_electrostatics
   
+  status_t test_L2_prefactors(int const echo=0, int const numax=9) {
+      double dev{0};
+      for(double sigma = 0.25; sigma < 5; sigma *= 2) {
+          for(int z = 0; z <= numax; ++z) {           auto const rz = sho_1D_prefactor(z, sigma);
+          for(int y = 0; y <= numax - z; ++y) {       auto const ry = sho_1D_prefactor(y, sigma);
+          for(int x = 0; x <= numax - z - y; ++x) {   auto const rx = sho_1D_prefactor(x, sigma);
+              dev = std::max(dev, std::abs(sho_prefactor(x, y, z, sigma) - rx*ry*rz));
+          }}} // zyx
+      } // sigma
+      if (echo > 3) printf("\n# %s deviation is %.1e\n\n", __func__, dev);
+      return (dev > 1e-12);
+  } // test_L2_prefactors
+
   status_t all_tests(int const echo) {
       status_t stat(0);
+      stat += test_L2_prefactors(echo);
       stat += test_renormalize_electrostatics(echo);
       stat += test_L2_orthogonality<double>(echo); // takes a while
 //    stat += test_L2_orthogonality<float>(echo);

@@ -430,6 +430,7 @@ namespace potential_generator {
                   auto const start_wave_file = control::get("start.waves", "");
                   psi = view3D<wave_function_t>(nkpoints, nbands, gc.all()); // get memory
                   if (0 == *start_wave_file) {
+                      if (echo > 1) printf("# initialize grid wave functions as %d atomic orbitals, %g orbitals per atom\n", nbands, nbands_per_atom);
                       float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
                       uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                       sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
@@ -745,7 +746,7 @@ namespace potential_generator {
                       } // eigensolver_method
 
                       // add to density
-                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), psi_k.data(), op, nbands, 1, echo);
+                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), psi_k.data(), op, nbands, nkpoints, echo);
 
                   } // ikpoint
 
@@ -769,9 +770,12 @@ namespace potential_generator {
                   here;
               } // psi_on_grid
 
-//               // ToDo: density mixing
-//               float rho_mixing_ratios[] = {.5, .5, .5}; // {core_density, semicore_density, valence_density}             
-//               stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());              
+              if (1) { // update take_atomic_valence_densities
+                  float take_some_spherical_valence_density = 0.25f;
+                  stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_some_spherical_valence_density);
+              }
+              float rho_mixing_ratios[] = {.5, .5, .5}; // {core_density, semicore_density, valence_density}             
+              stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());              
 
           } // scope: Kohn-Sham
 

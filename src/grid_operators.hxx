@@ -335,6 +335,7 @@ namespace grid_operators {
       std::vector<atom_image::sho_atom_t> atoms;
       std::vector<double> boundary_phase; // could be complex_t or real_fd_t in the future
       std::vector<double> potential;
+      std::vector<complex_t> scale_factors;
       finite_difference::stencil_t<real_fd_t> kinetic;
       finite_difference::stencil_t<complex_t> preconditioner;
       bool has_precond;
@@ -344,7 +345,8 @@ namespace grid_operators {
       bool use_precond() const { return has_precond; }
       bool use_overlap() const { return has_overlap; }
       int  get_natoms()  const { return atoms.size(); }
-      int  get_numax(int const ia) const { return atoms[ia].numax(); }
+      int    get_numax(int const ia) const { return atoms[ia].numax(); }
+      double get_sigma(int const ia) const { return atoms[ia].sigma(); }
   }; // class grid_operator_t
   
 #ifdef NO_UNIT_TESTS

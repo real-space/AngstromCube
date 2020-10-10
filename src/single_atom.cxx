@@ -289,9 +289,6 @@
 #endif
     } // get_valence_mapping
 
-
-
-
     
 
     double show_state_analysis(int const echo, char const *label, radial_grid_t const *rg, double const wave[],
@@ -898,7 +895,7 @@
         } // scope
 
         pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
-        
+
         for(int csv = 0; csv < 3; ++csv) { // construct an initial smooth density
             spherical_charge_deficit[csv] = pseudize_spherical_density(
                 spherical_density[SMT][csv],
@@ -2222,6 +2219,75 @@
 #endif
     } // transform_SHO
 
+    
+    
+    
+    view2D<double> unfold_projector_coefficients() const {
+      
+        int const nln = sho_tools::nSHO_radial(numax);
+        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
+                ell_list[iln] = ell;
+            } // nrn
+        } // ell
+        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
+        
+        int const nlmn = sho_tools::nSHO(numax);
+        view2D<double> u_proj(nlmn, nlmn, 0.0);
+        for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+            int const iln = ln_index_list[ilmn];
+            int const ilm = lm_index_list[ilmn];
+            int const ell = ell_list[iln];
+            int const nrn = iln - ln_offset[iln];
+            if (nrn < nn[ell]) {
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    int const jln = ln_index_list[jlmn];
+                    if (ilm == lm_index_list[jlmn]) {
+                        int const mrn = jln - ln_offset[jln];
+                        u_proj(ilmn,jlmn) = projector_coeff[ell](nrn,mrn);
+                    } // ell-diagonal
+                } // jlmn
+            } // nrn
+        } // ilmn
+
+        return u_proj;
+    } // unfold_projector_coefficients
+    
+    view2D<double> unfold_projector_coefficients_emm_degenerate() const {
+    
+        int const nln = sho_tools::nSHO_radial(numax);
+        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
+        for(int ell = 0; ell <= numax; ++ell) {
+            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
+                ell_list[iln] = ell;
+            } // nrn
+        } // ell
+        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
+
+        view2D<double> u_proj(nln, nln, 0.0);
+        for(int iln = 0; iln < nln; ++iln) {
+            int const ell = ell_list[iln];
+            int const nrn = iln - ln_offset[iln];
+            if (nrn < nn[ell]) {
+                assert(nrn >= 0);
+                for(int jln = 0; jln < nln; ++jln) {
+                    if (ell == ell_list[jln]) {
+                        int const mrn = jln - ln_offset[jln];
+                        u_proj(iln,jln) = projector_coeff[ell](nrn,mrn);
+                    } // ell-diagonal
+                } // jln
+            } // nrn
+        } // iln
+    
+        return u_proj;
+    } // unfold_projector_coefficients_emm_degenerate
+    
+    
     void get_rho_tensor(view3D<double> & rho_tensor // (lm,iln,jln) where iln,jln are in radial SHO basis
         , view2D<double> const & rho_matrix
         , sho_tools::SHO_order_t const order=sho_tools::order_zyx
@@ -2246,7 +2312,7 @@
             //     into a radial_density_matrix[ilmn][jlmn]
             //     using the unitary transform from left and right
             radial_density_matrix = view2D<double>(nSHO, stride); // get memory
-            transform_SHO(radial_density_matrix.data(), stride,
+            transform_SHO(radial_density_matrix.data(), radial_density_matrix.stride(),
                   rho_matrix.data(), rho_matrix.stride(), true);
 #ifdef DEVEL
             if (1) { // debugging
@@ -2270,27 +2336,58 @@
         } // order
 
 #ifdef DEVEL      
-        if (0) {
+        if (1) {
             printf("# %s Radial density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
             view2D<char> labels(220, 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
-            for(int i = 0; i < nSHO; ++i) {
-                printf("# %s %-8s ", label, labels[i]);
-                for(int j = 0; j < nSHO; ++j) {
-                    printf("%8.3f", radial_density_matrix(i,j));
-                } // j
+            for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
+                printf("# %s %-8s ", label, labels[ilmn]);
+                for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
+                    printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
+                } // jlmn
                 printf("\n");
-            } // i
+            } // ilmn
             printf("\n");
         } // plot
 #endif
+
+        
+        
+        { // scope
+            //   ToDo:  Introduce the projector_coeff to bring
+            //          the iln,jln indices of rho_tensor 
+            //          into the partial-wave space
+            //
+            auto const u_proj = unfold_projector_coefficients();
+            int const nlmn = nSHO;
+
+            view2D<double> tmp_mat(nlmn, nlmn, 0.0);
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    double t{0};
+                    for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over radial SHO states
+                        t += radial_density_matrix(ilmn,klmn) * u_proj(jlmn,klmn);
+                    } // klmn
+                    tmp_mat(ilmn,jlmn) = t;
+                } // jlmn
+            } // ilmn
+
+            for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                    double t{0};
+                    for(int klmn = 0; klmn < nlmn; ++klmn) { // contract over radial SHO states
+                        t += u_proj(ilmn,klmn) * tmp_mat(klmn,jlmn);
+                    } // klmn
+                    radial_density_matrix(ilmn,jlmn) = t;
+                } // jlmn
+            } // ilmn
+
+        } // scope
+
+
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
-        
-        //   ToDo:  Introduce the projector_coeff to bring
-        //          the iln,jln indices of rho_tensor 
-        //          into the partial-wave space
 
         set(rho_tensor, nlm, 0.0); // clear
         for(auto gnt : gaunt) {
@@ -2313,19 +2410,24 @@
             } // limits
         } // gnt
 
-#ifdef DEVEL        
-#ifdef FULL_DEBUG
-        for(int lm = 0; lm < nlm; ++lm) {
-            for(int iln = 0; iln < nln; ++iln) {
-                for(int jln = 0; jln < nln; ++jln) {
-                    auto const rho_ij = rho_tensor(lm,iln,jln);
-                    if (std::abs(rho_ij) > 1e-9) printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
-                                                           label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
-                } // jln
-            } // iln
-        } // lm
-#endif
-#endif
+// #ifdef DEVEL
+// #ifdef FULL_DEBUG
+        if (1) {
+            int const nln = sho_tools::nSHO_radial(numax);
+            for(int lm = 0; lm < 1; ++lm) {
+                for(int iln = 0; iln < nln; ++iln) {
+                    for(int jln = 0; jln < nln; ++jln) {
+                        auto const rho_ij = rho_tensor(lm,iln,jln);
+                        if (std::abs(rho_ij) > 2e-16) {
+                            printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
+                                   label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
+                        } // rho_ij > 0
+                    } // jln
+                } // iln
+            } // lm
+        } // 1
+// #endif
+// #endif
     } // get_rho_tensor
 
 
@@ -2359,7 +2461,7 @@
                                 if (partial_wave_active[jln]) {
                                     auto const wave_j = partial_wave[jln].wave[ts];
                                     double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
-        //                          if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
+                                    if (00 == lm) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
                                     add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
                                 } // active
                             } // jln
@@ -2705,33 +2807,7 @@
             if ((echo > 7)) printf("\n");
         } // ilmn
 
-        
-        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
-                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
-                ell_list[iln] = ell;
-            } // nrn
-        } // ell
-        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
-
-        view2D<double> u_proj(nlmn, nlmn, 0.0);
-        for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
-            int const iln = ln_index_list[ilmn];
-            int const ell = ell_list[iln];
-            int const nrn = iln - ln_offset[iln];
-            if (nrn < nn[ell]) {
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                    int const jln = ln_index_list[jlmn];
-                    if (lm_index_list[ilmn] == lm_index_list[jlmn]) {
-                        int const mrn = jln - ln_offset[jln];
-                        u_proj(ilmn,jlmn) = projector_coeff[ell](nrn,mrn);
-                    } // ell-diagonal
-                } // jlmn
-            } // nrn
-        } // ilmn
-
+        auto const u_proj = unfold_projector_coefficients();
 #ifdef DEVEL
         if (echo > 2) { // display
             printf("\n# %s lmn-based projector matrix:\n", label);
@@ -3003,33 +3079,9 @@
             } // echo
 #endif            
         } // check_overlap_eigenvalues
-        
-        
-        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
-                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
-                ell_list[iln] = ell;
-            } // nrn
-        } // ell
-        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
 
-        view2D<double> u_proj(nln, nln, 0.0);
-        for(int iln = 0; iln < nln; ++iln) {
-            int const ell = ell_list[iln];
-            int const nrn = iln - ln_offset[iln];
-            if (nrn < nn[ell]) {
-                assert(nrn >= 0);
-                for(int jln = 0; jln < nln; ++jln) {
-                    if (ell == ell_list[jln]) {
-                        int const mrn = jln - ln_offset[jln];
-                        u_proj(iln,jln) = projector_coeff[ell](nrn,mrn);
-                    } // ell-diagonal
-                } // jln
-            } // nrn
-        } // iln
-        
+        auto const u_proj = unfold_projector_coefficients_emm_degenerate();
+
 #ifdef DEVEL
         // determine a display limiter
         int mln{0};
@@ -3049,7 +3101,7 @@
                 sho_tools::construct_label_table<8>(ln_labels.data(), numax, sho_tools::order_ln);
                 printf("# %s   radial SHO:      ", label);
                 for(int jln = 0; jln < mln; ++jln) {
-                      printf("%-10s", ln_labels[jln]);
+                    printf("%-10s", ln_labels[jln]);
                 } // jln
                 printf("\n");
             } // show a legend
@@ -3158,7 +3210,7 @@
         update_partial_waves(echo); // create new partial waves for the valence description
         update_charge_deficit(echo); // update quantities derived from the partial waves
         int const nln = sho_tools::nSHO_radial(numax);
-        check_spherical_matrix_elements(echo); // check scattering properties for emm-averaged Hamiltonian elements
+        check_spherical_matrix_elements(echo); // check scattering properties for the reference potential
         int const lmax = std::max(ellmax, ellmax_compensator);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
@@ -3479,14 +3531,15 @@ namespace single_atom {
           }
           break;
 
-          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, lmax, mix_spherical=null);
-                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , lmax, mix_spherical=null);
+          case 'l': // interface usage: atom_update("lmax qlm", natoms, dp=null, lmax, fp=mix_spherical=null);
+                    // interface usage: atom_update("lmax vlm", natoms, dp= ~0 , lmax, fp=mix_spherical=null);
           {
               int32_t *const lmax = ip; assert(nullptr != lmax);
+              float const mix_spherical = fp ? std::min(std::max(0.f, fp[0]), 1.f) : 0;
               for(int ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
                   // fine-control take_spherical_density[valence] any float in [0, 1], NOT atom-resolved! consumes only fp[0]
-                  if (fp) a[ia]->take_spherical_density[valence] = std::min(std::max(0.f, fp[0]), 1.f);
+                  if (fp) a[ia]->take_spherical_density[valence] = mix_spherical;
               } // ia
               assert(!dpp); // last argument must be nullptr (by default)
           }
