@@ -49,6 +49,7 @@
 //               const double*, const int*, const double*, const int*, const double*, double*, const int*);
 // } // extern "C"
 
+namespace single_atom {
 
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
@@ -79,6 +80,22 @@
 
   inline int nn_max(int const numax, int const ell) { return (numax + 2 - ell)/2; }
     
+  template<typename int_t>
+  int display_delimiter(int const numax, int_t const nn[]) {
+      // we want to display only the non-zero SHO contributions
+
+      int lmax{-1}; // find the largest ell for which there are partial waves
+      for(int ell = 0; ell <= numax; ++ell) {
+          if (nn[ell] > 0) lmax = ell;
+      } // ell
+
+      int mln{0}; // count the number of emm-degenerate radial SHO states
+      for(int ell = 0; ell <= lmax; ++ell) {
+          mln += nn_max(numax, ell);
+      } // ell
+      return mln;
+  } // display_delimiter
+
 
   status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc,
               int const nmax=4, int const ell=0, double *coeff=nullptr) {
@@ -370,10 +387,11 @@
       radial_grid_t* rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
               // SMT may point to TRU, but at least both radial grids must have the same tail
       int nr_diff; // how many more radial grid points are in *rg[TRU] compared to *rg[SMT]
-      ell_QN_t ellmax; // limit ell for full_potential and full_density
-      ell_QN_t ellmax_compensator; // limit ell for the charge deficit compensators
+      ell_QN_t ellmax_pot; // limit ell for full_potential
+      ell_QN_t ellmax_rho; // limit ell for full_density
+      ell_QN_t ellmax_cmp; // limit ell for the charge deficit compensators
       double sigma_compensator; // Gaussian spread for the charge deficit compensators
-      std::vector<double> qlm_compensator; // coefficients for the charge deficit compensators, (1+ellmax_compensator)^2
+      std::vector<double> qlm_compensator; // coefficients for the charge deficit compensators, (1 + ellmax_cmp)^2
 
       // the following quantities are energy-parameter-set dependent
       double r_cut; // classical augmentation radius for potential and core density
@@ -387,7 +405,7 @@
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
-      view4D<double> charge_deficit; // tensor [1 + ellmax_compensator][TRU_AND_SMT][nln][nln]
+      view4D<double> charge_deficit; // tensor [1 + ellmax_cmp][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][nr_smt] r*projectors, depend only on sigma and numax
       view2D<double> projector_coeff[1+ELLMAX+2]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
       view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
@@ -396,7 +414,7 @@
       std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
       view2D<double> density_matrix; // atomic density matrix [nSHO][>=nSHO]
 
-      view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax)^2 radial functions
+      view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax_rho)^2 radial functions
       int ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
       int nspins; // 1 or 2 (order 0z) or 4 (order 0zxy)
 
@@ -406,8 +424,8 @@
       std::vector<spherical_orbital_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       view2D<double> spherical_density[TRU_AND_SMT]; // spherical densities*4pi, no Y00 factor, for {core, semicore, valence}
 
-      view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1+ellmax)^2 radial functions
-      view2D<double> full_potential[TRU_AND_SMT]; // (1+ellmax)^2 radial functions
+      view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1 + ellmax_rho)^2 radial functions
+      view2D<double> full_potential[TRU_AND_SMT]; // (1 + ellmax_pot)^2 radial functions
       std::vector<double> potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor, used for the generation of partial waves
 
       double spherical_charge_deficit[3]; // in units of electrons
@@ -450,13 +468,12 @@
         } // atom_id
         if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
 
-        take_spherical_density[core] = 1; // must always be 1, since we can compute the core density only on the radial grid.
+        take_spherical_density[core] = 1; // must always be 1, since we can represent the true core density only on the radial grid.
         take_spherical_density[semicore] = 1;
         take_spherical_density[valence] = atomic_valence_density ? 1 : 0;
 
 
-        double custom_occ[32]; // customized occupation numbers for the radial states
-        set(custom_occ, 32, 0.0);
+        std::vector<double> custom_occ(32, 0.0); // customized occupation numbers for the radial states
         set(nn, 1+ELLMAX+2, uint8_t(0)); // clear
         bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
@@ -485,7 +502,7 @@
             } // ell
             for(int inl = 0; inl < 32; ++inl) {
                 custom_occ[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
-            } // inl
+            } // inl enn-ell all-electron orbital index
             std::strncpy(local_potential_method, ec.method, 15);
 
         } else {
@@ -519,11 +536,12 @@
 
         } // initialize from sigma_config
         
-        if (echo > 0) printf("# %s projectors and partial waves are expanded up to numax = %d\n", label,  numax);
-        ellmax = 2*numax; // could be smaller than 2*numax
-        if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax = %d\n", label, ellmax);
-        ellmax_compensator = std::min(4, int(ellmax));
-        if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_compensator);
+        if (echo > 0) printf("# %s projectors are expanded up to numax= %d\n", label,  numax);
+        ellmax_rho = 2*numax; // could be smaller than 2*numax
+        ellmax_pot = ellmax_rho;
+        if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax= %d and %d, respectively\n", label, ellmax_rho, ellmax_pot);
+        ellmax_cmp = std::min(4, int(ellmax_rho));
+        if (echo > 0) printf("# %s compensation charges are expanded up to lmax = %d\n", label, ellmax_cmp);
 
         sigma_compensator = r_cut/std::sqrt(20.); // Bohr
         sigma_inv = 1./sigma;
@@ -532,10 +550,10 @@
             printf("# %s numbers of projectors ", label);
             for(int ell = 0; ell <= ELLMAX; ++ell) {
                 printf(" %d", nn[ell]);
-            }   printf("\n");
+            } // ell 
+            printf("\n");
         } // echo
 
-        
         // now Z_core may not change any more
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
 
@@ -547,25 +565,22 @@
         } // use the same number of radial grid points for true and smooth quantities
         // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
 
-        int const nrt = align<2>(rg[TRU]->n), // optional memory access alignment
-                  nrs = align<2>(rg[SMT]->n);
+        int const nr[] = {int(align<2>(rg[TRU]->n)), int(align<2>(rg[SMT]->n))}; // optional memory access alignment
         if (echo > 0) printf("# %s radial grid up to %g %s\n", label, rg[TRU]->rmax*Ang, _Ang);
         if (echo > 0) printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU]->n, rg[SMT]->n);
-        if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nrt, nrs);
+        if (echo > 0) printf("# %s radial grid numbers are %d and %d (padded to align)\n", label, nr[TRU], nr[SMT]);
         
         
         
 
-        int const nlm = pow2(1 + ellmax);
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const nr = (TRU == ts)? nrt : nrs;
             // spherically symmetric quantities:
-            spherical_density[ts] = view2D<double>(3, nr, 0.0); // get memory for core, semicore, valence
-            potential[ts]       = std::vector<double>(nr, 0.0); // get memory
+            spherical_density[ts] = view2D<double>(3, nr[ts], 0.0); // get memory for core, semicore, valence
+            potential[ts]       = std::vector<double>(nr[ts], 0.0); // get memory
             // quantities with lm-resolution:
-            int const mr = align<2>(nr);
-            full_density[ts]   = view2D<double>(nlm, mr, 0.0); // get memory
-            full_potential[ts] = view2D<double>(nlm, mr, 0.0); // get memory
+            int const mr = align<2>(nr[ts]);
+            full_density[ts]   = view2D<double>(pow2(1 + ellmax_rho), mr, 0.0); // get memory
+            full_potential[ts] = view2D<double>(pow2(1 + ellmax_pot), mr, 0.0); // get memory
         } // true and smooth
 
         auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), *rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
@@ -608,7 +623,7 @@
 
         
         ncorestates = 20; // maximum number
-        true_core_waves = view3D<double>(2, ncorestates, nrt, 0.0); // get memory for the true radial wave functions and kinetic waves
+        true_core_waves = view3D<double>(2, ncorestates, nr[TRU], 0.0); // get memory for the true radial wave functions and kinetic waves
         int constexpr SRA = 1;
         spherical_state = std::vector<spherical_orbital_t>(ncorestates);
         { // scope: initialize the spherical states
@@ -631,7 +646,7 @@
                         cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                         cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
 
-                        std::vector<double> r2rho(nrt, 0.0);
+                        std::vector<double> r2rho(nr[TRU], 0.0);
                         double E = atom_core::guess_energy(Z_core, enn); // init with a guess
                         // solve the eigenvalue problem with a spherical potential
                         radial_eigensolver::shooting_method(SRA, *rg[TRU], potential[TRU].data(),
@@ -766,9 +781,11 @@
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         int nlnn{0}; for(int ell = 0; ell <= numax; ++ell) { nlnn += nn[ell]; } // count active partial waves
-        partial_wave_radial_part[TRU] = view3D<double>(2, nlnn, nrt, 0.0); // get memory for the true   radial wave function and kinetic wave
-        partial_wave_radial_part[SMT] = view3D<double>(2, nlnn, nrs, 0.0); // get memory for the smooth radial wave function and kinetic wave
-        
+        for(int ts = TRU; ts <= SMT; ++ts) {
+            int const mr = align<2>(nr[ts]);
+            partial_wave_radial_part[ts] = view3D<double>(2, nlnn, mr, 0.0); // get memory for the true/smooth radial wave function and kinetic wave
+        } // ts
+
         set(partial_wave_char, 32, '\0'); // init partial wave characteristic
         
         double constexpr energy_derivative = -8.0;
@@ -875,13 +892,13 @@
             } // ell
         } // valence states
 
-        int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
+        int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
         aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
-        int const nlm_cmp = pow2(1 + ellmax_compensator);
+        int const nlm_cmp = pow2(1 + ellmax_cmp);
         qlm_compensator = std::vector<double>(nlm_cmp, 0.0); // get memory
-        charge_deficit = view4D<double>(1 + ellmax_compensator, TRU_AND_SMT, nln, nln, 0.0); // get memory
+        charge_deficit = view4D<double>(1 + ellmax_cmp, TRU_AND_SMT, nln, nln, 0.0); // get memory
         kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln, 0.0); // get memory
-        zero_potential = std::vector<double>(nrs, 0.0); // get memory
+        zero_potential = std::vector<double>(nr[SMT], 0.0); // get memory
 
         projectors = view2D<double>(nln, align<2>(rg[SMT]->n), 0.0); // get memory
         for(int ell = 0; ell <= numax; ++ell) {
@@ -1195,7 +1212,7 @@
                     double const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of numerically given projectors
 
                     for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
-                        int const jln = sho_tools::ln_index(numax, ell, mrn);
+                        int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
                         
 //                      if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
                         if (denom_sho[mrn]*denom_num > 0) {
@@ -1395,21 +1412,23 @@
         // experimental
         int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
         if (suggest_vloc > -1) {
+            int const nln = sho_tools::nSHO_radial(numax);
             view2D<double> prj_sho(nln, align<2>(rg[SMT]->n), 0.0); // get memory for r*projector
             // if we dictate the shape of the projectors
             scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), *rg[SMT], sigma_opt, numax, 1, echo/2); // r*projector
             // and we want the shape of the true partial wave given by sphi[ell nrn=0]
             int const ell = suggest_vloc;
             assert(ell <= numax);
+            int const jln = sho_tools::ln_index(numax, ell, 0); // nrn=0
             int const iln = sho_tools::ln_index(numax, ell, 0); // nrn=0
             // then the local potential can be found from the inversion:
             //      ~V(r) = E + ( ~p(r) - ^T ~phi(r) )/~phi(r)
             // where we need to respect the duality: < ~p | ~phi > = 1 which fixes the scaling
-            double const duality = 1./dot_product(rg[SMT]->n, prj_sho[iln], sphi[iln], rg[SMT]->dr);
+            double const duality = 1./dot_product(rg[SMT]->n, prj_sho[jln], sphi[iln], rg[SMT]->dr);
             if (echo > 0) printf("\n## %s suggested local potential for ell=%i (%c) and currently used potential (Bohr, Ha, Ha):\n", label, ell, ellchar[ell]);
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 double const denom = (std::abs(sphi(iln,ir)) < 1e-6) ? 1 : sphi(iln,ir);
-                double const pot = partial_wave[iln].energy + ( prj_sho(iln,ir)*duality - skin(iln,ir) ) / denom;
+                double const pot = partial_wave[iln].energy + ( prj_sho(jln,ir)*duality - skin(iln,ir) ) / denom;
                 if (echo > 0) printf("%g %g %g\n", rg[SMT]->r[ir], pot, potential[SMT][ir]*rg[SMT]->rinv[ir]);
             } // ir
             if (echo > 0) printf("\n\n");
@@ -2150,7 +2169,7 @@
             std::vector<double> rl(nr, 1.0); // init as r^0
             std::vector<double> wave_r2rl_dr(nr);
             if (echo > 4) printf("\n# %s charges for %s partial waves\n", label, ts_name[ts]);
-            for(int ell = 0; ell <= ellmax_compensator; ++ell) { // loop-carried dependency on rl, run forward, run serial!
+            for(int ell = 0; ell <= ellmax_cmp; ++ell) { // loop-carried dependency on rl, run forward, run serial!
                 bool const echo_l = (echo > 4 + 4*(ell > 0));
                 if (echo_l) printf("# %s charges for ell=%d\n", label, ell);
                 if (ell > 0) scale(rl.data(), nr, rg[ts]->r); // create r^{\ell}
@@ -2219,16 +2238,17 @@
             } // nrn
         } // ell
         for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
-        
+
         int const nlmn = sho_tools::nSHO(numax);
-        view2D<double> u_proj(nlmn, nlmn, 0.0);
+        int const mlmn = sho_tools::nSHO(numax);
+        view2D<double> u_proj(nlmn, mlmn, 0.0);
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
             int const ell = ell_list[iln];
             int const nrn = iln - ln_offset[iln];
             if (nrn < nn[ell]) {
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                for(int jlmn = 0; jlmn < mlmn; ++jlmn) {
                     int const jln = ln_index_list[jlmn];
                     if (ilm == lm_index_list[jlmn]) {
                         int const mrn = jln - ln_offset[jln];
@@ -2254,7 +2274,8 @@
         } // ell
         for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
 
-        view2D<double> u_proj(nln, nln, 0.0);
+        int const mln = sho_tools::nSHO_radial(numax);
+        view2D<double> u_proj(nln, mln, 0.0);
         for(int iln = 0; iln < nln; ++iln) {
             int const ell = ell_list[iln];
             int const nrn = iln - ln_offset[iln];
@@ -2277,14 +2298,14 @@
         , view2D<double> const & rho_matrix
         , sho_tools::SHO_order_t const order=sho_tools::order_zyx
         , int const echo=0) {
-      
+
         int const nSHO = sho_tools::nSHO(numax);
         int const stride = nSHO;
         assert(stride >= nSHO);
 
         initialize_Gaunt();
 
-        int const lmax = std::max(ellmax, ellmax_compensator);
+        int const lmax = std::max(ellmax_rho, ellmax_cmp);
         int const nlm = pow2(1 + lmax);
         int const mlm = pow2(1 + numax);
 
@@ -2345,8 +2366,8 @@
             //
             auto const u_proj = unfold_projector_coefficients();
             int const N = nSHO;
-
-            view2D<double> tmp_mat(N, N);
+            int const M = nSHO;
+            view2D<double> tmp_mat(N, M);
             auto const uT_proj = transpose(u_proj, N);
             gemm(tmp_mat, N, radial_density_matrix, N, uT_proj); // *u^T
             gemm(radial_density_matrix, N, u_proj, N, tmp_mat); // u*
@@ -2401,7 +2422,7 @@
 
 
     void update_full_density(view3D<double> const & density_tensor, int const echo=0) { // density tensor rho_{lm iln jln}
-        int const nlm = pow2(1 + ellmax);
+        int const nlm = pow2(1 + ellmax_rho);
         int const nln = sho_tools::nSHO_radial(numax);
         // view3D<double const> density_tensor(rho_tensor, nln, nln); // rho_tensor[mln][nln][nln]
 
@@ -2444,8 +2465,8 @@
         } // true and smooth
 
         // determine the compensator charges
-        int const nlm_cmp = pow2(1 + ellmax_compensator);
-        for(int ell = 0; ell <= ellmax_compensator; ++ell) {
+        int const nlm_cmp = pow2(1 + ellmax_cmp);
+        for(int ell = 0; ell <= ellmax_cmp; ++ell) {
             for(int emm = -ell; emm <= ell; ++emm) {
                 int const lm = solid_harmonics::lm_index(ell, emm);
                 double rho_lm{0}, tru_lm{0}, smt_lm{0};
@@ -2467,7 +2488,7 @@
                 assert(lm < nlm_cmp);
                 qlm_compensator[lm] = rho_lm * mix_valence_density;
                 if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm, smt_lm);
-                
+
             } // emm
         } // ell
 
@@ -2478,12 +2499,12 @@
         if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[00]*Y00inv);
 
         { // scope: construct the augmented density
-            int const nlm_aug = pow2(1 + std::max(ellmax, ellmax_compensator));
+            int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
             auto const mr = full_density[SMT].stride(); // on the smooth grid
             assert(aug_density.stride() == mr);
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
-            add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_compensator, sigma_compensator);
+            add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_cmp, sigma_compensator);
             double const aug_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, aug_density[00]); // only aug_density[00==lm]
             if (echo > 2) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge*Y00inv); // this value should be small
 
@@ -2503,12 +2524,14 @@
 
 
     void update_full_potential(float const mixing, double const ves_multipole[], int const echo=0) {
-        int const nlm = pow2(1 + ellmax);
-        int const npt = angular_grid::Lebedev_grid_size(ellmax);
+        int const nlm = pow2(1 + ellmax_rho);
+        assert(ellmax_rho == ellmax_pot);
+        int const npt = angular_grid::Lebedev_grid_size(std::max(ellmax_rho, ellmax_pot));
         std::vector<double> vlm(nlm, 0.0);
         for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts]->n;
             auto const mr = full_density[ts].stride();
+            assert(mr >= nr); // stride
 
             { // scope: quantities on the angular grid
                 if (echo > 6) printf("# %s quantities on the angular grid are %i * %li = %li\n", label, npt, mr, npt*mr);
@@ -2521,7 +2544,7 @@
                 // using an angular grid quadrature, e.g. Lebedev-Laikov grids
                 if ((echo > 6) && (SMT == ts)) printf("# %s local smooth density at origin %g a.u.\n",
                                                           label, full_density[ts](00,0)*Y00);
-                angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax, false);
+                angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax_rho, false);
                 // envoke the exchange-correlation potential (acts in place)
 //              if (echo > 7) printf("# envoke the exchange-correlation on angular grid\n");
                 for(size_t ip = 0; ip < npt*mr; ++ip) {
@@ -2533,10 +2556,10 @@
                 } // ip
                 // transform back to lm-index
                 assert(full_potential[ts].stride() == mr);
-                angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax, true);
+                angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax_pot, true);
                 { // scope: transform also the exchange-correlation energy density
                     view2D<double> exc_lm(nlm, mr);
-                    angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax, true);
+                    angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax_rho, true);
                     if (SMT == ts) {
                         if (echo > 7) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
                                                             label, full_potential[SMT](00,0)*Y00*eV,_eV);
@@ -2547,7 +2570,7 @@
                     auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts]->r2dr); // dot_product with diagonal metric
                     if (echo > 5) printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n",
                                             label, ts_name[ts], Exc00*eV,_eV);
-                    for(int ell = 1; ell <= ellmax; ++ell) {
+                    for(int ell = 1; ell <= std::min(ellmax_rho, ellmax_pot); ++ell) {
                         double Edc_L{0}, Exc_L{0};
                         for(int emm = -ell; emm <= ell; ++emm) {
                             int const ilm = sho_tools::lm_index(ell, emm);
@@ -2559,7 +2582,7 @@
                         if (echo > 5 + ell) printf("# %s exchange-correlation energy in %s ell=%i channel %.12g %s\n",
                                         label, ts_name[ts], ell, Exc_L*eV,_eV);
                     } // ell
-                    
+
                 } // scope
             } // scope: quantities on the angular grid
 
@@ -2568,10 +2591,10 @@
             double const q_nucleus = (TRU == ts) ? -Z_core*Y00 : 0; // Z_core = number of protons in the nucleus
             auto   const & rho_aug = (TRU == ts) ? full_density[TRU] : aug_density;
             // solve electrostatics with singularity (q_nucleus) // but no outer boundary conditions (v_lm)
-            radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax, q_nucleus);
+            radial_potential::Hartree_potential(Ves.data(), *rg[ts], rho_aug.data(), rho_aug.stride(), ellmax_pot, q_nucleus);
 
             if (SMT == ts) {
-                add_or_project_compensators<1>(Ves, vlm.data(), rg[SMT], ellmax_compensator, sigma_compensator); // project Ves to compensators
+                add_or_project_compensators<1>(Ves, vlm.data(), rg[SMT], ellmax_cmp, sigma_compensator); // project Ves to compensators
                 if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
 
                 // but the solution of the 3D problem found that these integrals should be ves_multipole, therefore
@@ -2587,7 +2610,7 @@
                 if (echo > 7) printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves(00,0)*Y00*eV,_eV);
             } // SMT only
 
-            add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_compensator, sigma_compensator);
+            add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_cmp, sigma_compensator);
 
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
                 double v_[1];
@@ -2682,7 +2705,7 @@
 
 
     void update_matrix_elements(int const echo=0) {
-        int const nlm = pow2(1 + ellmax);
+        int const nlm = pow2(1 + ellmax_pot);
         int const nln = sho_tools::nSHO_radial(numax);
         int const nSHO = sho_tools::nSHO(numax);
         int const nlmn = nSHO;
@@ -2712,7 +2735,7 @@
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             int const nr = rg[ts]->n;
             std::vector<double> wave_pot_r2dr(nr);
-            for(int ell = 0; ell <= ellmax; ++ell) {
+            for(int ell = 0; ell <= ellmax_pot; ++ell) {
                 for(int emm = -ell; emm <= ell; ++emm) {
                     int const lm = solid_harmonics::lm_index(ell, emm);
                     assert(lm < nlm);
@@ -2748,7 +2771,7 @@
                             int const jln = ln_index_list[jlmn];
                             hamiltonian_lmn(ilmn,jlmn) +=
                               G * ( potential_ln(lm,TRU,iln,jln)
-                              	  - potential_ln(lm,SMT,iln,jln) );
+                                  - potential_ln(lm,SMT,iln,jln) );
                         } // jlmn
                     } // ilmn
                 } // lm
@@ -2802,7 +2825,7 @@
                 gemm(matrix_lmn, nlmn, uT_proj, nlmn, tmp_mat); // u^T*
             } // iHS
         } // scope
-        
+
 #ifdef DEVEL
         if (echo > 8) { // display
             printf("\n# %s lmn-based Overlap elements:\n", label);
@@ -2818,23 +2841,13 @@
 
         if (1) { // scope: check if averaging over emm gives back the same operators in the case of a spherical potential
 
-            // determine a display limiter
-            int mln{0};
-            {   int lmax{-1};
-                for(int ell = 0; ell <= numax; ++ell) {
-                    if (nn[ell] > 0) lmax = ell;
-                } // ell
-                for(int ell = 0; ell <= lmax; ++ell) {
-                    mln += nn_max(numax, ell);
-                } // ell
-            }
-
             view3D<double> matrices_ln(2, nln, nln); // get memory
             view2D<char> ln_label(nln, 4);
             sho_tools::construct_label_table<4>(ln_label.data(), numax, sho_tools::order_ln);
             for(int iHS = 0; iHS < 2; ++iHS) {
                 scattering_test::emm_average(matrices_ln(iHS,0), matrices_lmn(iHS,0), int(numax));
                 if (echo > 4) {
+                    int const mln = display_delimiter(numax, nn);
                     if (0 == iHS) printf("\n");
                     double const unit = iHS ? 1 : eV;
                     for(int iln = 0; iln < mln; ++iln) {
@@ -3036,18 +3049,9 @@
         auto const u_proj = unfold_projector_coefficients_emm_degenerate();
 
 #ifdef DEVEL
-        // determine a display limiter
-        int mln{0};
-        {   int lmax{-1};
-            for(int ell = 0; ell <= numax; ++ell) {
-                if (nn[ell] > 0) lmax = ell;
-            } // ell
-            for(int ell = 0; ell <= lmax; ++ell) {
-                mln += nn_max(numax, ell);
-            } // ell
-        }
 
         if (echo > 2) { // display
+            int const mln = display_delimiter(numax, nn);
             printf("\n# %s ln-based projector matrix:\n", label);
             if (1) { // show a legend
                 view2D<char> ln_labels(nln, 8);
@@ -3086,6 +3090,7 @@
 
 #ifdef DEVEL
           if (echo > 4) { // display
+              int const mln = display_delimiter(numax, nn);
               for(int iHS = 0; iHS < 2; ++iHS) {
                   printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian");
                   double const unit = iHS ? 1 : eV;
@@ -3148,7 +3153,7 @@
         update_charge_deficit(echo); // update quantities derived from the partial waves
         int const nln = sho_tools::nSHO_radial(numax);
         check_spherical_matrix_elements(echo); // check scattering properties for the reference potential
-        int const lmax = std::max(ellmax, ellmax_compensator);
+        int const lmax = std::max(ellmax_rho, ellmax_cmp);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
         get_rho_tensor(rho_tensor, density_matrix, sho_tools::order_zyx, echo);
@@ -3246,8 +3251,6 @@
     template <> double LiveAtom::get_number_of_electrons<'c'>() const { return csv_charge[core]; }
     template <> double LiveAtom::get_number_of_electrons<'s'>() const { return csv_charge[semicore]; }
     template <> double LiveAtom::get_number_of_electrons<'v'>() const { return csv_charge[valence]; }
-
-namespace single_atom {
 
   // instead of having a switch only onto  the first char of a string (as in atom_update),
   // we could use a switch onto int or long with these functions
@@ -3461,7 +3464,7 @@ namespace single_atom {
           {
               double *const *const qlm = dpp; assert(nullptr != qlm);
               for(int ia = 0; ia < a.size(); ++ia) {
-                  int const nlm = pow2(1 + a[ia]->ellmax_compensator);
+                  int const nlm = pow2(1 + a[ia]->ellmax_cmp);
                   set(qlm[ia], nlm, a[ia]->qlm_compensator.data()); // copy compensator multipoles
               } // ia
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
@@ -3474,7 +3477,7 @@ namespace single_atom {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               float const mix_spherical = fp ? std::min(std::max(0.f, fp[0]), 1.f) : 0;
               for(int ia = 0; ia < a.size(); ++ia) {
-                  lmax[ia] = dp ? a[ia]->ellmax : a[ia]->ellmax_compensator;
+                  lmax[ia] = dp ? a[ia]->ellmax_pot : a[ia]->ellmax_cmp;
                   // fine-control take_spherical_density[valence] any float in [0, 1], NOT atom-resolved! consumes only fp[0]
                   if (fp) a[ia]->take_spherical_density[valence] = mix_spherical;
               } // ia
