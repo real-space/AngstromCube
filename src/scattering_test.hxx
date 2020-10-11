@@ -516,8 +516,8 @@ namespace scattering_test {
   
   
   template<typename real_t>
-  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax, int const stride=-1) {
-      int const echo = 1;
+  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax
+          , int const avg2sum0=2, int const echo=1, int const stride=-1) {
       if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
       int const nln = sho_tools::nSHO_radial(numax);
       int const nlmn = sho_tools::nSHO(numax);
@@ -539,7 +539,7 @@ namespace scattering_test {
               } // emm
               for(int nrn = 0; nrn < nn; ++nrn) {
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
-                  lf_list[iln] = real_t(1)/std::sqrt(2*ell + real_t(1));
+                  lf_list[iln] = real_t(1)/std::sqrt(avg2sum0*ell + real_t(1));
               } // nrn
           } // ell
           if (echo > 6) printf("\n");
@@ -547,14 +547,17 @@ namespace scattering_test {
               printf("# %s: l2p1_list ", __func__);
               for(int iln = 0; iln < nln; ++iln) {
                   printf(" %.1f", (lf_list[iln] > 0) ? 1./pow2(lf_list[iln]) : 0);
-              }   printf("\n");
+              } // iln
+              printf("\n");
           } // echo
       } // scope
-      
+
       { // scope: now average
           set(Mln, nln*nln, real_t(0)); // clear
-          for(int ilmn = 0; ilmn < nlmn; ++ilmn) {      int const iln = ln_list[ilmn];
-              for(int jlmn = 0; jlmn < nlmn; ++jlmn) {  int const jln = ln_list[jlmn];
+          for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+              int const iln = ln_list[ilmn];
+              for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+                  int const jln = ln_list[jlmn];
                   Mln[iln*nln + jln] += Mlmn[ilmn*M_stride + jlmn];
               } // jlmn
           } // ilmn
