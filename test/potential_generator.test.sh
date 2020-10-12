@@ -16,6 +16,11 @@ project_base=pg.C-atom
 printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 echo "C  0 0 0" >> $geometry_file
 
+# project_base=pg.Mg-atom
+# printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+# echo "Mg  0 0 0" >> $geometry_file
+
+
 # project_base=pg.C-dimer
 # printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
 # echo "C  0 0 -0.65" >> $geometry_file
@@ -91,6 +96,8 @@ element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
+#element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
+#element_Mg="2s 2 3s* 2 2p 6 3p 2e-99 3d | 1.96 numax 4 sigma .578 V=sinc"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc

@@ -264,13 +264,12 @@ namespace linear_algebra {
 #endif
   } // generalized_eigenvalues
 
-    // new interface: for hermitian/symmetric [generalized] eigenvalue problems
-    template<typename real_t>
+    template<typename real_t> // for symmetric [generalized] eigenvalue problems
     inline status_t eigenvalues(real_t w[], int const n, real_t a[], int const lda,
                                                  real_t b[]=nullptr, int const ldb=0) {
         return b ? _generalized_eigenvalues(n, a, lda, b, (ldb < n)?lda:ldb, w) : _eigenvalues(n, a, lda, w); }
 
-    template<typename real_t>
+    template<typename real_t> // for hermitian [generalized] eigenvalue problems
     inline status_t eigenvalues(real_t w[], int const n, std::complex<real_t> a[], int const lda,
                                                  std::complex<real_t> b[]=nullptr, int const ldb=0) {
         return b ? _generalized_eigenvalues(n, a, lda, b, (ldb < n)?lda:ldb, w) : _eigenvalues(n, a, lda, w); }

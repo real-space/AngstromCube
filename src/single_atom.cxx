@@ -368,7 +368,116 @@ namespace single_atom {
     
    
    
+    double perform_Gram_Schmidt(int const n, view3D<double> & LU_inv
+            , view2D<double> const & A
+            , char const *label, char const ell='?', int const echo=0
+            , char const *op="\0\0\0\0\0\0\0\0\0\0\0\0\0"
+    ) {
+        double const det = simple_math::determinant(n, A.data(), A.stride());
+        if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ell, det);
+        if (std::abs(det) < 1e-9) {
+            warn("%s determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
+            return det;
+        }
+        // Gram-Schmidt orthonormalization is effectively a LU-decomposition, however, we modify it here
+        view2D<double> left(n, n, 0.0), upper(n, n, 0.0); // get memory for LU factors
+        for(int i = 0; i < n; ++i) {
+            upper(i,i) = 1; // start from unit matrix
+            set(left[i], n, A[i]); // start from A
+        } // i
+        
+        // now factorize A in a custom fashion
+        for(int i = 0; i < n; ++i) {
+            if (0 != op[i]) {
+                error("not correct, see differences A - L*U");
+                auto const diag = left(i,i);
+                auto const dinv = 1./diag; // ToDo: check if we can safely divide by diag
+                for(int k = 0; k < n; ++k) {
+                    left(i,k)  *= dinv; // row operation
+                    upper(k,i) *= diag; // column operation
+                } // k
+            } // which one to scale?
 
+            for(int j = i + 1; j < n; ++j) {
+                if (0 == op[j]) {
+                    // clear out upper right corner of Left
+                    auto const c = left(i,j)/left(i,i); // ToDo: check if we can safely divide by left(i,i)
+                    for(int k = 0; k < n; ++k) {
+                        left(k,j)  -= c*left(k,i); // column operation
+                        upper(i,k) += c*upper(j,k); // row operation
+                    } // k
+                    left(i,j) = 0; // clear out exactly
+                } else {
+                    // clear out lower left corner of Left
+                    auto const c = left(j,i)/left(i,i); // ToDo: check if we can safely divide by left(i,i)
+                    for(int k = 0; k < n; ++k) {
+                        left(j,k)  -= c*left(i,k); // row operation
+                        upper(k,i) += c*upper(k,j); // column operation
+                    } // k
+                    left(j,i) = 0; // clear out exactly
+                } // which one to modify?
+            } // j
+        } // i
+
+        auto L_inv = LU_inv[0], U_inv = LU_inv[1];
+        double const det_U = simple_math::invert(n, U_inv.data(), U_inv.stride(), upper.data(), n);
+        double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(),  left.data(), n);
+
+        if (echo > 1) { // check that the factorization worked
+          
+            for(int i = 0; i < n; ++i) {
+                printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
+                for(int j = 0; j < n; ++j) {
+                    printf(" %11.6f", left(i,j));
+                } // j
+                printf("\t\t");
+                for(int j = 0; j < n; ++j) {
+                    printf(" %11.6f", upper(i,j));
+                } // j
+                printf("\n");
+            } // i
+            printf("\n");
+            
+            view2D<double> A_LU(n, n);
+            gemm(A_LU, n, left, n, upper);
+            for(int i = 0; i < n; ++i) {
+                printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
+                if (0) {
+                    for(int j = 0; j < n; ++j) {
+                        printf(" %11.6f", A(i,j));
+                    } // j
+                    printf("\t\t");
+                    for(int j = 0; j < n; ++j) {
+                        printf(" %11.6f", A_LU(i,j));
+                    } // j
+                    printf("\t\t");
+                }
+                for(int j = 0; j < n; ++j) {
+                    printf(" %11.6f", A_LU(i,j) - A(i,j));
+                } // j
+                printf("\n");
+            } // i
+            printf("\n");
+
+            printf("# %s  ell=%c  |L^-1|= %g and |U^{-1}|= %g, product= %g, |A|= %g\n",
+                      label, ell, det_L, det_U, det_L*det_U, det);
+            for(int i = 0; i < n; ++i) {
+                printf("# %s  ell=%c  L^-1(i,:) and U^{-1}(i,:)  i=%2i ", label, ell, i);
+                for(int j = 0; j < n; ++j) {
+                    printf(" %11.6f", L_inv(i,j));
+                } // j
+                printf("\t\t\t");
+                for(int j = 0; j < n; ++j) {
+                    printf(" %11.6f", U_inv(i,j));
+                } // j
+                printf("\n");
+            } // i
+            printf("\n");
+            
+        } // echo
+
+        return det;
+    } // perform
 
 
 
@@ -1279,6 +1388,8 @@ namespace single_atom {
 
         std::vector<double> norms(nln, 0.0);
         
+        auto const Gram_Schmidt_iterations = int(control::get("single_atom.gram.schmidt.repeat", 1.));
+        
         //
         // Contruct partial waves and preliminary projectors the classical way
         //    leading to numerically given projector functions fully constrained 
@@ -1355,11 +1466,11 @@ namespace single_atom {
             } // nrn
             total_occ += occ_ell[ell];
             
-            int const ln_off = sho_tools::ln_index(numax, ell, 0); // irn=0, offset of partial wave indices
-            view2D<double> ovl(nn[ell], nn[ell], 0.0);
             // establish duality according to the Gram-Schmidt scheme
             // leaving the lowest projector and lowest partial wave unchanged (except for scaling)
-            for(int i01 = 0; i01 < 2; ++i01) {
+            int const ln_off = sho_tools::ln_index(numax, ell, 0); // irn=0, offset of partial wave indices
+            view2D<double> ovl(nn[ell], nn[ell], 0.0);
+            for(int i01 = 0; i01 < Gram_Schmidt_iterations; ++i01) {
 
                 // compute the overlap of projectors and smooth partial waves
                 for(int irn = 0; irn < nn[ell]; ++irn) {        int const iln = irn + ln_off;
@@ -1394,13 +1505,13 @@ namespace single_atom {
                             // true wave of the state is normalized, keep that and scale only the projector instead
                             scale_factor_prj = 1./ovl_ii;
                         } else {
-                            // scale the projector to be L2-normalized and the partial waves to get duality
+                            // scale the projector to be L2-normalized and the partial waves accordingly to get duality
                             auto const norm2 = dot_product(rg[SMT]->n, rprj[iln], rprj[iln], rg[SMT]->dr);
                             auto const length = std::sqrt(norm2);
                             scale_factor_prj = 1./length;
                             scale_factor_phi = length/ovl_ii;
                         } // keep eigenstates normalized
-                        
+
                         if (1 != scale_factor_prj) {
                             scale(rprj[iln], rg[SMT]->n, scale_factor_prj);
                             for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
@@ -1432,14 +1543,15 @@ namespace single_atom {
                     } // echo
                     
                     for(int jrn = irn + 1; jrn < nn[ell]; ++jrn) {      int const jln = jrn + ln_off;
+
                         // clear out upper right corner
                         auto const ovl_ij = -ovl(irn,jrn);
                         add_product(tphi[jln], rg[TRU]->n, tphi[iln], ovl_ij);
                         add_product(sphi[jln], rg[SMT]->n, sphi[iln], ovl_ij);
                         add_product(skin[jln], rg[SMT]->n, skin[iln], ovl_ij);
                         for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                            ovl(krn,jrn) = dot_product(rg[SMT]->n, rprj[kln], sphi[jln], rg[SMT]->dr);
-                        } // lrn
+                            ovl(krn,jrn) = dot_product(rg[SMT]->n, rprj[kln], sphi[jln], rg[SMT]->dr); // update column
+                        } // krn
 
                         if (echo > 6) { // show overlap
                             printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], irn,jrn);
@@ -1457,7 +1569,7 @@ namespace single_atom {
                         auto const ovl_ji = -ovl(jrn,irn);
                         add_product(rprj[jln], rg[SMT]->n, rprj[iln], ovl_ji);
                         for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                            ovl(jrn,krn) = dot_product(rg[SMT]->n, rprj[jln], sphi[kln], rg[SMT]->dr);
+                            ovl(jrn,krn) = dot_product(rg[SMT]->n, rprj[jln], sphi[kln], rg[SMT]->dr); // update row
                         } // krn
 
                         if (echo > 6) { // show overlap
@@ -1557,9 +1669,12 @@ namespace single_atom {
 
         // show expansion coefficients of the projectors
         view2D<double> prj_coeff(nln, 8, 0.0); // get memory
-        view2D<double> phi_coeff(nln, 8, 0.0); // get memory (projection of the smooth partial waves onto SHO basis)
-        expand_numerical_projectors_in_SHO_basis(sigma_out, numax, *rg[SMT], rprj, occ_ell, echo, prj_coeff.data());
-        expand_numerical_projectors_in_SHO_basis(sigma_out, numax, *rg[SMT], sphi, occ_ell,    0, phi_coeff.data());
+        auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_out, numax, *rg[SMT], rprj, occ_ell, echo, prj_coeff.data());
+        if (echo > 3) printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
+                                      weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
+
+//         view2D<double> phi_coeff(nln, 8, 0.0); // get memory (projection of the smooth partial waves onto SHO basis)
+//         expand_numerical_projectors_in_SHO_basis(sigma_out, numax, *rg[SMT], sphi, occ_ell,    0, phi_coeff.data());
 
         for(int ell = 0; ell <= numax; ++ell) {
             int const nmx = nn_max(numax, ell); assert(nmx <= 8);
@@ -2005,7 +2120,20 @@ namespace single_atom {
         int const nln = sho_tools::nSHO_radial(numax);
         view2D<double> radial_sho_basis(nln, align<2>(rg[SMT]->n), 0.0); // get memory
         scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), *rg[SMT], sigma, numax, 1, echo/2);
+#ifdef DEVEL
+        if (echo > 6) { // show normalization and orthogonality of the radial SHO basis
+            for(int ell = 0; ell <= numax; ++ell) {
+                for(int irn = 0; irn < nn_max(numax, ell); ++irn) {       int const iln = sho_tools::ln_index(numax, ell, irn);
+                    for(int jrn = 0; jrn < nn_max(numax, ell); ++jrn) {   int const jln = sho_tools::ln_index(numax, ell, jrn);
+                        printf("# %s radial SHO basis <%c%d|%c%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell],irn, ellchar[ell],jrn,
+                            (irn == jrn), dot_product(nr, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT]->dr) - (irn == jrn), sigma*Ang,_Ang);
+                    } // jrn
+                } // irn
+            } // ell
+        } // echo
+#endif
 
+        
         r_match = 9*sigma;
         int const ir_match[] = {radial_grid::find_grid_index(*rg[TRU], r_match),
                                 radial_grid::find_grid_index(*rg[SMT], r_match)};
@@ -2332,7 +2460,8 @@ namespace single_atom {
 #endif                          
                         if (method == energy_ordering) {
                             assert(1 == evec[nrn]);
-                        }
+                        } // energy_ordering
+
                     } // n > 1 more than one partial wave
 
                     set(vs.wave[SMT], rg[SMT]->n, 0.0);
@@ -2362,10 +2491,8 @@ namespace single_atom {
             } // nrn
 
 
-            { // scope: establish dual orthgonality with [SHO] projectors
+            { // scope: establish dual orthgonality with projectors
                 int const nr = rg[SMT]->n;
-                // int const stride = align<2>(rg[SMT]->n);
-                int const msub = (1 + numax/2); // max. size of the subspace
 
 #ifdef DEVEL
                 if (echo > 24) { // show normalization and orthogonality of projectors
@@ -2375,10 +2502,11 @@ namespace single_atom {
                                 (nrn == krn), dot_product(nr, projectors_ell[nrn], projectors_ell[krn], rg[SMT]->dr) - (nrn == krn), sigma*Ang,_Ang);
                         } // krn
                     } // nrn
+                    warn("unlike in previous versions, projectors are not necessarily orthonormalized!");
                 } // echo
 #endif
 
-                view2D<double> ovl(msub, msub); // get memory
+                view2D<double> ovl(n, n); // get memory
                 for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                     int const iln = ln_off + nrn;
                     auto const wave = partial_wave[iln].wave[SMT];
@@ -2389,48 +2517,99 @@ namespace single_atom {
                     } // krn
                 } // nrn
 
-                view2D<double> inv(msub, msub); // get memory
-                if (n > 4) exit(__LINE__); // error not implemented
-                double const det = simple_math::invert(n, inv.data(), inv.stride(), ovl.data(), ovl.stride());
-                if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
+                // can be removed
+//                 view2D<double> inv(n, n); // get memory
+//                 double const det = simple_math::invert(n, inv.data(), inv.stride(), ovl.data(), ovl.stride());
+//                 if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ellchar[ell], det);
 
-                // make a new linear combination
+                view3D<double> LU_inv(2, n, n, 0.0); // get memory
+                perform_Gram_Schmidt(n, LU_inv, ovl, label, ellchar[ell], echo);
+
+                // make a new linear combination of the partial waves
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                    int const nrts = rg[ts]->n, mrts = align<2>(nrts);
-                    view3D<double> waves(2, n, mrts, 0.0); // temporary storage for pairs {wave, wKin}
+                    int const nrts = rg[ts]->n;
+                    view3D<double> waves(2, n, align<2>(nrts), 0.0); // temporary storage for pairs {wave, wKin}
                     for(int nrn = 0; nrn < n; ++nrn) {
                         int const iln = ln_off + nrn;
-                        set(waves(0,nrn), nrts, partial_wave[iln].wave[ts]); // copy
-                        set(waves(1,nrn), nrts, partial_wave[iln].wKin[ts]); // copy
+                        set(waves(0,nrn), nrts, partial_wave[iln].wave[ts]); // copy into temporary
+                        set(waves(1,nrn), nrts, partial_wave[iln].wKin[ts]); // copy into temporary
                     } // nrn
+                    // reconstruct partial waves
                     for(int nrn = 0; nrn < n; ++nrn) {
                         int const iln = ln_off + nrn;
                         set(partial_wave[iln].wave[ts], nrts, 0.0); // clear
                         set(partial_wave[iln].wKin[ts], nrts, 0.0); // clear
                         for(int krn = 0; krn < n; ++krn) {
-                            if (ts == TRU && echo > 3) printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n", label, ellchar[ell], nrn, inv(nrn,krn), krn);
-                            add_product(partial_wave[iln].wave[ts], nrts, waves(0,krn), inv(nrn,krn));
-                            add_product(partial_wave[iln].wKin[ts], nrts, waves(1,krn), inv(nrn,krn));
+                            auto const coeff = LU_inv(0,nrn,krn);
+                            if (coeff != 0) {
+                                if (ts == TRU && echo > 3) {
+                                    printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n",
+                                              label, ellchar[ell], nrn, coeff, krn);
+                                } // echo
+                                add_product(partial_wave[iln].wave[ts], nrts, waves(0,krn), coeff);
+                                add_product(partial_wave[iln].wKin[ts], nrts, waves(1,krn), coeff);
+                            } // coeff nonzero
                         } // krn
                     } // nrn
                 } // ts in {tru, smt}
 
+                { // scope: orthogonalize the projectors
+                    int const mr = projectors_ell.stride();
+                    view2D<double> proj(n, mr, 0.0); // temporary storage for projectors on radial grid
+                    view2D<double> proj_coeff(nn[ell], nn_max(numax, ell), 0.0);
+                    for(int nrn = 0; nrn < n; ++nrn) {
+                        set(proj[nrn], mr, projectors_ell[nrn]); // copy into temporary
+                        set(proj_coeff[nrn], nn_max(numax, ell), projector_coeff[ell][nrn]); // copy into temporary
+                    } // nrn
+                    // reconstruct projectors
+                    for(int nrn = 0; nrn < n; ++nrn) {
+                        set(projectors_ell[nrn], mr, 0.0); // clear
+                        set(projector_coeff[ell][nrn], nn_max(numax, ell), 0.0); // clear
+                        for(int krn = 0; krn < n; ++krn) {
+                            auto const coeff = LU_inv(1,krn,nrn);
+                            if (coeff != 0) {
+                                if (echo > 3) {
+                                    printf("# %s create orthogonalized %c-projector #%i with %g * projector #%i\n",
+                                              label, ellchar[ell], nrn, coeff, krn);
+                                } // echo
+                                add_product(projectors_ell[nrn], mr, proj[krn], coeff);
+                                add_product(projector_coeff[ell][nrn], nn_max(numax, ell), proj_coeff[krn], coeff);
+                            } // coeff nonzero
+                        } // krn
+                    } // nrn
+                } // scope 
+
 #ifdef DEVEL                
                 if (n > 0) { // scope: check the overlap again
-                    view2D<double> ovl_new(msub, msub); // get memory
+                    view2D<double> ovl_new(n, n); // get memory
                     double dev{0}; // largest deviations from unity
                     for(int nrn = 0; nrn < n; ++nrn) { // smooth number or radial nodes
                         int const iln = ln_off + nrn;
                         auto const wave = partial_wave[iln].wave[SMT];
                         for(int krn = 0; krn < n; ++krn) { // smooth number or radial nodes
                             ovl_new(nrn,krn) = dot_product(nr, wave, projectors_ell[krn], rg[SMT]->rdr);
-                            if (echo > 7) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap %g\n",
-                                                  label, ellchar[ell], nrn, ellchar[ell], krn, ovl_new(nrn,krn));
-                            dev = std::max(dev, std::abs(ovl_new(nrn,krn) - (nrn == krn)));
+                            int const Kronecker = (nrn == krn);
+                            auto const deviate = ovl_new(nrn,krn) - Kronecker;
+                            if (echo > 7) printf("# %s smooth partial %c-wave #%d with %c-projector #%d new overlap= %i + %g\n",
+                                                  label, ellchar[ell], nrn, ellchar[ell], krn, Kronecker, deviate);
+                            dev = std::max(dev, std::abs(deviate));
                         } // krn
                     } // nrn
                     if (echo > 2) printf("# %s after orthogonalization <partial waves|projectors> deviates max. %.1e from unity matrix\n", label, dev);
-                    if (dev > 1e-12) warn("%s duality violated, deviates %g from unity", label, dev);
+                    if (dev > 1e-12) {
+                        warn("%s duality violated, deviates %g from unity", label, dev);
+                        if (echo > 0) {
+                            printf("\n# %s <partial waves|projectors> matrix:\n", label);
+                            for(int i = 0; i < n; ++i) {
+                                printf("# %s nrn=%2i ", label, i);
+                                for(int j = 0; j < n; ++j) {
+                                    printf(" %11.6f", ovl_new(i,j));
+                                } // j
+                                printf("\n");
+                            } // i
+                            printf("\n");
+                        } // echo
+                    } // dev
                 } // scope
 
                 if (echo > 15) {
@@ -3433,36 +3612,26 @@ namespace single_atom {
             auto const overlap_ln = aHSm[1];
             { // scope:
                 for(int ell = 0; ell <= numax; ++ell) {
-                  
-                    // ToDo: write this more general using linear_algebra::eigenvalues();
 
-                    double lower{0}, upper{0};
-                    if (1 == nn[ell]) {
-                        int const iln = sho_tools::ln_index(numax, ell, 0);
-                        lower = overlap_ln(iln,iln);
-                    } else if (nn[ell] >= 2) {
-                        if (nn[ell] > 2) {
-                            if (echo > 0) printf("# %s overlap matrix eigenvalues only checked for the 2x2 sub matrix!\n", label);
-                            warn("%s no stability check for more than 2 partial waves, found nn= %d for ell=\'%c\'", label, nn[ell], ellchar[ell]);
-                        } // warnings
-                        int const iln = sho_tools::ln_index(numax, ell, 0);
-                        // get eigenvalues of the 2x2 matrix [a,b]
-                        //                                   [c,d] with c==b (symmetric)
-                        auto const a = overlap_ln(iln,iln);
-                        auto const b = overlap_ln(iln,iln + 1);
-                        auto const d = overlap_ln(iln + 1,iln + 1);
-                        auto const split = std::sqrt(pow2(a - d) + 4*pow2(b));
-                        upper = 0.5*(a + d + split);
-                        lower = 0.5*(a + d - split);
-                    } else {
-                        assert(0 == nn[ell]);
+                    double eigvals[8] = {0,0,0,0, 0,0,0,0}; assert(nn[ell] <= 8);
+                    if (nn[ell] > 0) {
+                        // create a copy since the eigenvalue routine modifies the memory regions
+                        view2D<double> ovl_nn(nn[ell], nn[ell]); 
+                        for(int irn = 0; irn < nn[ell]; ++irn) {
+                            int const iln = sho_tools::ln_index(numax, ell, irn);
+                            set(ovl_nn[irn], nn[ell], overlap_ln[iln]); // copy rows
+                        } // irn
+
+                        // the eigenvalues of the non-local part of the overlap operator may not be <= -1
+                        linear_algebra::eigenvalues(eigvals, nn[ell], ovl_nn.data(), ovl_nn.stride());
+
+                        if (eigvals[0] <= -0.9) {
+                            auto const classification = (eigvals[0] <= -1) ? "instable" : "critical";
+                            warn("%s eigenvalues of charge deficit matrix for ell=%i %s! %g and %g", label, ell, classification, eigvals[0], eigvals[1]);
+                        } // warning
+                        
                     } // nn[ell]
-                    
-                    if (nn[ell] > 0 && lower <= -0.9) {
-                        auto const classification = (lower <= -1) ? "instable" : "critical";
-                        warn("%s eigenvalues of charge deficit matrix for ell=%i %s! %g and %g", label, ell, classification, lower, upper);
-                    } // warning
-                    
+
                 } // ell
             } // scope
         } // check_overlap_eigenvalues
