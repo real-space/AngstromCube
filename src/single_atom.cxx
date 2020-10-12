@@ -373,9 +373,10 @@ namespace single_atom {
             , char const *label, char const ell='?', int const echo=0
             , char const *op="\0\0\0\0\0\0\0\0\0\0\0\0\0"
     ) {
+        if (n < 1) return 0.0; // but no warning
         double const det = simple_math::determinant(n, A.data(), A.stride());
         if (echo > 2) printf("# %s determinant for %c-projectors %g\n", label, ell, det);
-        if (std::abs(det) < 1e-9) {
+        if (std::abs(det) < 1e-24) {
             warn("%s determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
             return det;
         }
@@ -1387,7 +1388,7 @@ namespace single_atom {
         double total_occ{0};
 
         std::vector<double> norms(nln, 0.0);
-        
+
         auto const Gram_Schmidt_iterations = int(control::get("single_atom.gram.schmidt.repeat", 1.));
         
         //
@@ -1408,7 +1409,7 @@ namespace single_atom {
                 int constexpr SRA = 1; // scalar relativistic approximation
                 radial_integrator::shoot(SRA, *rg[TRU], potential[TRU].data(), ell, energy, nnodes, tphi[iln]);
                 norms[iln] = dot_product(rg[TRU]->n, tphi[iln], tphi[iln], rg[TRU]->dr);
-                // tphi contains r*phi(r)
+                // tphi contains r*phi_true(r)
                 if (occ > 1e-24) {
                     if (norms[iln] > 1e-99) {
                         scale(tphi[iln], rg[TRU]->n, 1./std::sqrt(norms[iln]));
@@ -1469,138 +1470,178 @@ namespace single_atom {
             // establish duality according to the Gram-Schmidt scheme
             // leaving the lowest projector and lowest partial wave unchanged (except for scaling)
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // irn=0, offset of partial wave indices
-            view2D<double> ovl(nn[ell], nn[ell], 0.0);
-            for(int i01 = 0; i01 < Gram_Schmidt_iterations; ++i01) {
+            int const n = nn[ell];
+            if (n > 0) {
+                view2D<double> ovl(n, n, 0.0);
+                for(int i01 = 0; i01 < Gram_Schmidt_iterations; ++i01) {
 
-                // compute the overlap of projectors and smooth partial waves
-                for(int irn = 0; irn < nn[ell]; ++irn) {        int const iln = irn + ln_off;
-                    for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                        ovl(irn,jrn) = dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr);
-                    } // jrn
-                } // irn
-
-                if (echo > 3) { // show overlap
-                    printf("\n# %s %c-overlap before Gram-Schmidt (numeric):\n", label, ellchar[ell]);
-                    for(int irn = 0; irn < nn[ell]; ++irn) {
-                        printf("# %s ", label, ellchar[ell]);
-                        for(int jrn = 0; jrn < nn[ell]; ++jrn) {
-                            printf(" %11.6f", ovl(irn,jrn));
+                    // compute the overlap of projectors and smooth partial waves
+                    for(int irn = 0; irn < n; ++irn) {        int const iln = irn + ln_off;
+                        for(int jrn = 0; jrn < n; ++jrn) {    int const jln = jrn + ln_off;
+                            ovl(irn,jrn) = dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr);
                         } // jrn
-                        printf("\n");
                     } // irn
-                    printf("\n");
-                } // echo
 
-                // establish (preliminary) duality by Gram-Schmidt
-                for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-
-                    double const ovl_ii = ovl(irn,irn);
-                    double scale_factor_prj{1}, scale_factor_phi{1};
-                    if (std::abs(ovl_ii) < 1e-24) {
-                        warn("%s overlap element too small ell=%i irn=%i", label, ell, irn);
-                    } else {
-
-                        if (1 == norms[iln]) {
-                            if (echo > 5) printf("# %s keep normalization of %s-partial wave\n", label, partial_wave[iln].tag);
-                            // true wave of the state is normalized, keep that and scale only the projector instead
-                            scale_factor_prj = 1./ovl_ii;
-                        } else {
-                            // scale the projector to be L2-normalized and the partial waves accordingly to get duality
-                            auto const norm2 = dot_product(rg[SMT]->n, rprj[iln], rprj[iln], rg[SMT]->dr);
-                            auto const length = std::sqrt(norm2);
-                            scale_factor_prj = 1./length;
-                            scale_factor_phi = length/ovl_ii;
-                        } // keep eigenstates normalized
-
-                        if (1 != scale_factor_prj) {
-                            scale(rprj[iln], rg[SMT]->n, scale_factor_prj);
-                            for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                                ovl(irn,krn) = dot_product(rg[SMT]->n, rprj[iln], sphi[kln], rg[SMT]->dr);
-                            } // krn
-                        } // scale
-                        
-                        if (1 != scale_factor_phi) {
-                            scale(tphi[iln], rg[TRU]->n, scale_factor_phi);
-                            scale(sphi[iln], rg[SMT]->n, scale_factor_phi);
-                            scale(skin[iln], rg[SMT]->n, scale_factor_phi);
-                            for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                                ovl(krn,irn) = dot_product(rg[SMT]->n, rprj[kln], sphi[iln], rg[SMT]->dr);
-                            } // krn
-                        } // scale
-
-                    } // |ovl_ii| finite
-
-                    if (echo > 6) { // show overlap
-                        printf("\n# %s %c-overlap after scaling ovl(%i,%i):\n", label, ellchar[ell], irn,irn);
-                        for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
+                    if (echo > 3) { // show overlap
+                        printf("\n# %s (numeric projectors) %c-overlap before Gram-Schmidt:\n", label, ellchar[ell]);
+                        for(int irn = 0; irn < n; ++irn) {
                             printf("# %s ", label, ellchar[ell]);
-                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
+                            for(int jrn = 0; jrn < n; ++jrn) {
+                                printf(" %11.6f", ovl(irn,jrn));
+                            } // jrn
+                            printf("\n");
+                        } // irn
+                        printf("\n");
+                    } // echo
+
+#if 0
+                    // establish (preliminary) duality by Gram-Schmidt
+                    for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
+
+                        double const ovl_ii = ovl(irn,irn);
+                        double scale_factor_prj{1}, scale_factor_phi{1};
+                        if (std::abs(ovl_ii) < 1e-24) {
+                            warn("%s overlap element too small ell=%i irn=%i", label, ell, irn);
+                        } else {
+
+                            if (1 == norms[iln]) {
+                                if (echo > 5) printf("# %s keep normalization of %s-partial wave\n", label, partial_wave[iln].tag);
+                                // true wave of the state is normalized, keep that and scale only the projector instead
+                                scale_factor_prj = 1./ovl_ii;
+                            } else {
+                                // scale the projector to be L2-normalized and the partial waves accordingly to get duality
+                                auto const norm2 = dot_product(rg[SMT]->n, rprj[iln], rprj[iln], rg[SMT]->dr);
+                                auto const length = std::sqrt(norm2);
+                                scale_factor_prj = 1./length;
+                                scale_factor_phi = length/ovl_ii;
+                            } // keep eigenstates normalized
+
+                            if (1 != scale_factor_prj) {
+                                scale(rprj[iln], rg[SMT]->n, scale_factor_prj);
+                                for(int krn = 0; krn < n; ++krn) {    int const kln = krn + ln_off;
+                                    ovl(irn,krn) = dot_product(rg[SMT]->n, rprj[iln], sphi[kln], rg[SMT]->dr);
+                                } // krn
+                            } // scale
+                            
+                            if (1 != scale_factor_phi) {
+                                scale(tphi[iln], rg[TRU]->n, scale_factor_phi);
+                                scale(sphi[iln], rg[SMT]->n, scale_factor_phi);
+                                scale(skin[iln], rg[SMT]->n, scale_factor_phi);
+                                for(int krn = 0; krn < n; ++krn) {    int const kln = krn + ln_off;
+                                    ovl(krn,irn) = dot_product(rg[SMT]->n, rprj[kln], sphi[iln], rg[SMT]->dr);
+                                } // krn
+                            } // scale
+
+                        } // |ovl_ii| finite
+
+                        if (echo > 6) { // show overlap
+                            printf("\n# %s %c-overlap after scaling ovl(%i,%i):\n", label, ellchar[ell], irn,irn);
+                            for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
+                                printf("# %s ", label, ellchar[ell]);
+                                for(int jrn = 0; jrn < n; ++jrn) {    int const jln = jrn + ln_off;
+                                    printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
+                                } // jrn
+                                printf("\n");
+                            } // irn
+                            printf("\n");
+                        } // echo
+                        
+                        for(int jrn = irn + 1; jrn < n; ++jrn) {      int const jln = jrn + ln_off;
+
+                            // clear out upper right corner
+                            auto const ovl_ij = -ovl(irn,jrn);
+                            add_product(tphi[jln], rg[TRU]->n, tphi[iln], ovl_ij);
+                            add_product(sphi[jln], rg[SMT]->n, sphi[iln], ovl_ij);
+                            add_product(skin[jln], rg[SMT]->n, skin[iln], ovl_ij);
+                            for(int krn = 0; krn < n; ++krn) {    int const kln = krn + ln_off;
+                                ovl(krn,jrn) = dot_product(rg[SMT]->n, rprj[kln], sphi[jln], rg[SMT]->dr); // update column
+                            } // krn
+
+                            if (echo > 6) { // show overlap
+                                printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], irn,jrn);
+                                for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
+                                    printf("# %s ", label, ellchar[ell]);
+                                    for(int jrn = 0; jrn < n; ++jrn) {    int const jln = jrn + ln_off;
+                                        printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
+                                    } // jrn
+                                    printf("\n");
+                                } // irn
+                                printf("\n");
+                            } // echo
+
+                            // clear out lower left corner
+                            auto const ovl_ji = -ovl(jrn,irn);
+                            add_product(rprj[jln], rg[SMT]->n, rprj[iln], ovl_ji);
+                            for(int krn = 0; krn < n; ++krn) {    int const kln = krn + ln_off;
+                                ovl(jrn,krn) = dot_product(rg[SMT]->n, rprj[jln], sphi[kln], rg[SMT]->dr); // update row
+                            } // krn
+
+                            if (echo > 6) { // show overlap
+                                printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], jrn,irn);
+                                for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
+                                    printf("# %s ", label, ellchar[ell]);
+                                    for(int jrn = 0; jrn < n; ++jrn) {    int const jln = jrn + ln_off;
+                                        printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
+                                    } // jrn
+                                    printf("\n");
+                                } // irn
+                                printf("\n");
+                            } // echo
+                            
+                        } // jrn
+
+                    } // irn
+#else
+                    view3D<double> LU_inv(2, n, n, 0.0);
+                    perform_Gram_Schmidt(n, LU_inv, transpose(ovl, n), label, ellchar[ell], echo);
+
+                    if (1) { // scope: orthogonalize partial waves and numerical projectors
+                        view2D<double> ttmp(n, tphi.stride(), 0.0);
+                        view3D<double> stmp(n, 3, sphi.stride(), 0.0);
+                        for(int irn = 0; irn < n; ++irn) {
+                            for(int jrn = 0; jrn < n; ++jrn) {
+                                auto const coeff = LU_inv(0,irn,jrn);
+                                add_product(ttmp[irn],   tphi.stride(), tphi[jrn + ln_off], coeff);
+                                add_product(stmp(irn,0), sphi.stride(), sphi[jrn + ln_off], coeff);
+                                add_product(stmp(irn,1), skin.stride(), skin[jrn + ln_off], coeff);
+                                if (echo > 3 && coeff != 0) {
+                                    printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n",
+                                              label, ellchar[ell], irn, coeff, jrn);
+                                } // echo
+
+                                add_product(stmp(irn,2), rprj.stride(), rprj[jrn + ln_off], LU_inv(1,jrn,irn));
+                                if (echo > 3 && LU_inv(1,jrn,irn) != 0) {
+                                    printf("# %s create orthogonalized %c-projector #%i with %g * projector #%i\n",
+                                              label, ellchar[ell], irn, LU_inv(1,jrn,irn), jrn);
+                                } // echo
+                            } // jrn
+                        } // irn
+                        // copy back
+                        for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
+                            set(tphi[iln], tphi.stride(), ttmp[irn]);
+                            set(sphi[iln], sphi.stride(), stmp(irn,0));
+                            set(skin[iln], skin.stride(), stmp(irn,1));
+
+                            set(rprj[iln], rprj.stride(), stmp(irn,2));
+                        } // irn
+                    } // scope
+#endif                
+
+                    if (echo > 3) { // show overlap (should be unity now)
+                        printf("\n# %s (numeric projectors) %c-overlap after Gram-Schmidt:\n", label, ellchar[ell]);
+                        for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
+                            printf("# %s ", label, ellchar[ell]);
+                            for(int jrn = 0; jrn < n; ++jrn) {      int const jln = jrn + ln_off;
                                 printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
                             } // jrn
                             printf("\n");
                         } // irn
                         printf("\n");
                     } // echo
-                    
-                    for(int jrn = irn + 1; jrn < nn[ell]; ++jrn) {      int const jln = jrn + ln_off;
 
-                        // clear out upper right corner
-                        auto const ovl_ij = -ovl(irn,jrn);
-                        add_product(tphi[jln], rg[TRU]->n, tphi[iln], ovl_ij);
-                        add_product(sphi[jln], rg[SMT]->n, sphi[iln], ovl_ij);
-                        add_product(skin[jln], rg[SMT]->n, skin[iln], ovl_ij);
-                        for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                            ovl(krn,jrn) = dot_product(rg[SMT]->n, rprj[kln], sphi[jln], rg[SMT]->dr); // update column
-                        } // krn
-
-                        if (echo > 6) { // show overlap
-                            printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], irn,jrn);
-                            for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                                printf("# %s ", label, ellchar[ell]);
-                                for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                                    printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                                } // jrn
-                                printf("\n");
-                            } // irn
-                            printf("\n");
-                        } // echo
-
-                        // clear out lower left corner
-                        auto const ovl_ji = -ovl(jrn,irn);
-                        add_product(rprj[jln], rg[SMT]->n, rprj[iln], ovl_ji);
-                        for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                            ovl(jrn,krn) = dot_product(rg[SMT]->n, rprj[jln], sphi[kln], rg[SMT]->dr); // update row
-                        } // krn
-
-                        if (echo > 6) { // show overlap
-                            printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], jrn,irn);
-                            for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                                printf("# %s ", label, ellchar[ell]);
-                                for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                                    printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                                } // jrn
-                                printf("\n");
-                            } // irn
-                            printf("\n");
-                        } // echo
-                        
-                    } // jrn
-
-                } // irn
-
-                if (echo > 3) { // show overlap (should be unity now)
-                    printf("\n# %s %c-overlap after Gram-Schmidt (numeric):\n", label, ellchar[ell]);
-                    for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                        printf("# %s ", label, ellchar[ell]);
-                        for(int jrn = 0; jrn < nn[ell]; ++jrn) {      int const jln = jrn + ln_off;
-                            printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                        } // jrn
-                        printf("\n");
-                    } // irn
-                    printf("\n");
-                } // echo
-
-            } // can be done 0, 1 or 2 times
+                } // can be done 0, 1 or 2 times
+                
+            } // nn[ell] > 0
             
         } // ell
 
@@ -1673,188 +1714,11 @@ namespace single_atom {
         if (echo > 3) printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
                                       weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
 
-//         view2D<double> phi_coeff(nln, 8, 0.0); // get memory (projection of the smooth partial waves onto SHO basis)
-//         expand_numerical_projectors_in_SHO_basis(sigma_out, numax, *rg[SMT], sphi, occ_ell,    0, phi_coeff.data());
-
         for(int ell = 0; ell <= numax; ++ell) {
             int const nmx = nn_max(numax, ell); assert(nmx <= 8);
-            int const ln_off = sho_tools::ln_index(numax, ell, 0); // irn=0, offset of partial wave indices
-            
-#if 0            
-          for(int i01 = 0; i01 < 2; ++i01) {
-            
-            for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                auto const norm2 = dot_product(nmx, prj_coeff[iln], prj_coeff[iln]);
-                if (norm2 > 0) {
-                    if (echo > 6) {
-                        auto const length = std::sqrt(norm2);
-                        printf("# %s %scoefficients of the %s-projector: %.6e * [", label, optimized, partial_wave[iln].tag, length);
-                        for(int mrn = 0; mrn < nmx; ++mrn) { // radial SHO basis functions
-                            printf("%10.6f", prj_coeff[iln][mrn]/length);
-                        } // mrn
-                        printf(" ]\n");
-                    } // echo
-                } else {
-                    warn("%s failed to normalize %s-projector coefficients for display", label, partial_wave[iln].tag);
-                } // norm2 > 0
-            } // irn
 
-            view2D<double> ovl(nn[ell], nn[ell], 0.0);
-            // compute the overlap of projectors and smooth partial waves
-            for(int irn = 0; irn < nn[ell]; ++irn) {        int const iln = irn + ln_off;
-                for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                    ovl(irn,jrn) = dot_product(nmx, prj_coeff[iln], phi_coeff[jln]);
-                } // jrn
-            } // irn
-
-            if (echo > 3) { // show overlap
-                printf("\n# %s %c-overlap before Gram-Schmidt (in SHO basis and numeric):\n", label, ellchar[ell]);
-                for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                    printf("# %s ", label, ellchar[ell]);
-                    for(int jrn = 0; jrn < nn[ell]; ++jrn) {
-                        printf(" %11.6f", ovl(irn,jrn));
-                    } // jrn
-                    printf("\t\t\t");
-                    for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                        printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                    } // jrn
-                    printf("\n");
-                } // irn
-                printf("\n");
-            } // echo
-
-            // establish (preliminary) duality by Gram-Schmidt
-            for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-
-                double const ovl_ii = ovl(irn,irn);
-                double scale_factor_prj{1}, scale_factor_phi{1};
-                if (std::abs(ovl_ii) < 1e-24) {
-                    warn("%s overlap element too small ell=%i irn=%i", label, ell, irn);
-                } else {
-
-                    if (1 == norms[iln]) {
-                        if (echo > 5) printf("# %s keep normalization of %s-partial wave\n", label, partial_wave[iln].tag);
-                        // true wave of the state is normalized, keep that and scale only the projector instead
-                        scale_factor_prj = 1./ovl_ii;
-                    } else {
-                        // scale the projector to be L2-normalized and the partial waves to get duality
-                        auto const norm2 = dot_product(nmx, prj_coeff[iln], prj_coeff[iln]);
-                        auto const length = std::sqrt(norm2);
-                        scale_factor_prj = 1./length;
-                        scale_factor_phi = length/ovl_ii;
-                    } // keep eigenstates normalized
-                    
-                    if (1 != scale_factor_prj) {
-                        scale(prj_coeff[iln], nmx,   scale_factor_prj);
-                        scale(rprj[iln], rg[SMT]->n, scale_factor_prj); // needed?
-                        for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                            ovl(irn,krn) = dot_product(nmx, prj_coeff[iln], phi_coeff[kln]); // update row irn
-                        } // krn
-                    } // scale
-                    
-                    if (1 != scale_factor_phi) {
-                        scale(phi_coeff[iln], nmx,   scale_factor_phi);
-                        scale(tphi[iln], rg[TRU]->n, scale_factor_phi);
-                        scale(sphi[iln], rg[SMT]->n, scale_factor_phi);
-                        scale(skin[iln], rg[SMT]->n, scale_factor_phi);
-                        for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                            ovl(krn,irn) = dot_product(nmx, prj_coeff[kln], phi_coeff[iln]); // update column irn
-                        } // krn
-                    } // scale
-
-                } // |ovl_ii| finite
-
-                if (echo > 6) { // show overlap
-                    printf("\n# %s %c-overlap after scaling ovl(%i,%i):\n", label, ellchar[ell], irn,irn);
-                    for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                        printf("# %s ", label, ellchar[ell]);
-                        for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                            printf(" %11.6f", dot_product(nmx, prj_coeff[iln], phi_coeff[jln]));
-                        } // jrn
-                        printf("\t\t\t");
-                        for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                            printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                        } // jrn
-                        printf("\n");
-                    } // irn
-                    printf("\n");
-                } // echo
-                
-                for(int jrn = irn + 1; jrn < nn[ell]; ++jrn) {      int const jln = jrn + ln_off;
-                    // clear out upper right corner
-                    auto const ovl_ij = -ovl(irn,jrn);
-                    add_product(tphi[jln], rg[TRU]->n, tphi[iln], ovl_ij);
-                    add_product(sphi[jln], rg[SMT]->n, sphi[iln], ovl_ij);
-                    add_product(skin[jln], rg[SMT]->n, skin[iln], ovl_ij);
-                    add_product(phi_coeff[jln], nmx, phi_coeff[iln], ovl_ij);
-                    for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                        ovl(krn,jrn) = dot_product(nmx, prj_coeff[kln], phi_coeff[jln]); // update column jrn
-                    } // lrn
-
-                    if (echo > 6) { // show overlap
-                        printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], irn,jrn);
-                        for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                            printf("# %s ", label, ellchar[ell]);
-                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                                printf(" %11.6f", dot_product(nmx, prj_coeff[iln], phi_coeff[jln]));
-                            } // jrn
-                            printf("\t\t\t");
-                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                                printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                            } // jrn
-                            printf("\n");
-                        } // irn
-                        printf("\n");
-                    } // echo
-
-                    // clear out lower left corner
-                    auto const ovl_ji = -ovl(jrn,irn);
-                    add_product(prj_coeff[jln], nmx, prj_coeff[iln], ovl_ji);
-                    add_product(rprj[jln], rg[SMT]->n, rprj[iln], ovl_ji); // needed?
-                    for(int krn = 0; krn < nn[ell]; ++krn) {    int const kln = krn + ln_off;
-                        ovl(jrn,krn) = dot_product(nmx, prj_coeff[jln], phi_coeff[kln]); // update row jrn
-                    } // krn
-
-                    if (echo > 6) { // show overlap
-                        printf("\n# %s %c-overlap after clearing ovl(%i,%i):\n", label, ellchar[ell], jrn,irn);
-                        for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                            printf("# %s ", label, ellchar[ell]);
-                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                                printf(" %11.6f", dot_product(nmx, prj_coeff[iln], phi_coeff[jln]));
-                            } // jrn
-                            printf("\t\t\t");
-                            for(int jrn = 0; jrn < nn[ell]; ++jrn) {    int const jln = jrn + ln_off;
-                                printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                            } // jrn
-                            printf("\n");
-                        } // irn
-                        printf("\n");
-                    } // echo
-                    
-                } // jrn
-
-            } // irn
-
-            if (echo > 3) { // show overlap (should be unity now)
-                printf("\n# %s %c-overlap after Gram-Schmidt (in SHO basis and numeric):\n", label, ellchar[ell]);
-                for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
-                    printf("# %s ", label, ellchar[ell]);
-                    for(int jrn = 0; jrn < nn[ell]; ++jrn) {      int const jln = jrn + ln_off;
-                        printf(" %11.6f", dot_product(nmx, prj_coeff[iln], phi_coeff[jln]));
-                    } // jrn
-                    printf("\t\t\t");
-                    for(int jrn = 0; jrn < nn[ell]; ++jrn) {      int const jln = jrn + ln_off;
-                        printf(" %11.6f", dot_product(rg[SMT]->n, rprj[iln], sphi[jln], rg[SMT]->dr));
-                    } // jrn
-                    printf("\n");
-                } // irn
-                printf("\n");
-            } // echo
-            
-          } // i01 // we can run more than 1 iteration here to see if that increases the precision
-#endif
-
-            for(int irn = 0; irn < nn[ell]; ++irn) {  int const iln = irn + ln_off;
+            for(int irn = 0; irn < nn[ell]; ++irn) {
+                int const iln = sho_tools::ln_index(numax, ell, irn);
                 auto const norm2 = dot_product(nmx, prj_coeff[iln], prj_coeff[iln]);
                 if (norm2 > 0) {
                     if (echo > 6) {
@@ -2556,15 +2420,16 @@ namespace single_atom {
                 { // scope: orthogonalize the projectors
                     int const mr = projectors_ell.stride();
                     view2D<double> proj(n, mr, 0.0); // temporary storage for projectors on radial grid
-                    view2D<double> proj_coeff(nn[ell], nn_max(numax, ell), 0.0);
+                    int const nmx = nn_max(numax, ell);
+                    view2D<double> proj_coeff(n, nmx, 0.0);
                     for(int nrn = 0; nrn < n; ++nrn) {
                         set(proj[nrn], mr, projectors_ell[nrn]); // copy into temporary
-                        set(proj_coeff[nrn], nn_max(numax, ell), projector_coeff[ell][nrn]); // copy into temporary
+                        set(proj_coeff[nrn], nmx, projector_coeff[ell][nrn]); // copy into temporary
                     } // nrn
                     // reconstruct projectors
                     for(int nrn = 0; nrn < n; ++nrn) {
                         set(projectors_ell[nrn], mr, 0.0); // clear
-                        set(projector_coeff[ell][nrn], nn_max(numax, ell), 0.0); // clear
+                        set(projector_coeff[ell][nrn], nmx, 0.0); // clear
                         for(int krn = 0; krn < n; ++krn) {
                             auto const coeff = LU_inv(1,krn,nrn);
                             if (coeff != 0) {
@@ -2573,7 +2438,7 @@ namespace single_atom {
                                               label, ellchar[ell], nrn, coeff, krn);
                                 } // echo
                                 add_product(projectors_ell[nrn], mr, proj[krn], coeff);
-                                add_product(projector_coeff[ell][nrn], nn_max(numax, ell), proj_coeff[krn], coeff);
+                                add_product(projector_coeff[ell][nrn], nmx, proj_coeff[krn], coeff);
                             } // coeff nonzero
                         } // krn
                     } // nrn
@@ -2680,15 +2545,16 @@ namespace single_atom {
                 } // symmetrization active?
 
 #ifdef DEVEL                
-                // display
-                for(int i = 0; i < n; ++i) {
-                    for(int j = 0; j < n; ++j) {
-                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
-                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
-                        if (echo > 19) printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
-                          label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
-                    } // j
-                } // i
+                if (echo > 19) { // display
+                    for(int i = 0; i < n; ++i) {
+                        for(int j = 0; j < n; ++j) {
+                            auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
+                            auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
+                            printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
+                              label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
+                        } // j
+                    } // i
+                } // echo
 #endif               
 
             } // scope: establish dual orthgonality with [SHO] projectors
