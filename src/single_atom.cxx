@@ -371,7 +371,7 @@ namespace single_atom {
     double perform_Gram_Schmidt(int const n, view3D<double> & LU_inv
             , view2D<double> const & A
             , char const *label, char const ell='?', int const echo=0
-            , char const *op="UUUUUUUUUUUUUUUUUU"
+            , char const *op="ULUUUUUUUUUUUUUUUU"
     ) {
         if (n < 1) return 0.0; // but no warning
         double const det = simple_math::determinant(n, A.data(), A.stride());
