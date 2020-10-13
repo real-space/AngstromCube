@@ -238,7 +238,8 @@ namespace finite_difference {
           return diag;
       } // clear_diagonal_elements
 
-  private:
+//   private:
+  public:
       void scale_coefficients(double const f[3]) {
           for(int d = 0; d < 3; ++d) {
               for(int i = 0; i < nnArraySize; ++i) {

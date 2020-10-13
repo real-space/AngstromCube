@@ -590,7 +590,17 @@ namespace potential_generator {
                   } // es_solver_method
 
                   if (echo > 1) print_stats(Ves.data(), g.all(), g.dV(), "\n# electrostatic potential");
-                  
+#ifdef DEVEL
+                  if (echo > 6) {
+                      printf("# electrostatic potential at grid corners:");
+                      for(int iz = 0; iz < g[2]; iz += g[2] - 1) {
+                      for(int iy = 0; iy < g[1]; iy += g[1] - 1) {
+                      for(int ix = 0; ix < g[0]; ix += g[0] - 1) {
+                          printf(" %g", Ves[(iz*g[1] + iy)*g[0] + ix]*eV);
+                      }}} // ix iy iz
+                      printf(" %s\n", _eV);
+                  } // echo
+#endif
               } // scope
               here;
 
@@ -770,12 +780,14 @@ namespace potential_generator {
                   here;
               } // psi_on_grid
 
+#if 0
               if (1) { // update take_atomic_valence_densities
-                  float take_some_spherical_valence_density = 0.25f;
+                  float take_some_spherical_valence_density = 0.f;
                   stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_some_spherical_valence_density);
               }
               float rho_mixing_ratios[] = {.5, .5, .5}; // {core_density, semicore_density, valence_density}             
-              stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());              
+              stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
+#endif
 
           } // scope: Kohn-Sham
 

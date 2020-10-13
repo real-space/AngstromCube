@@ -299,6 +299,8 @@ namespace pw_hamiltonian {
                       // Mind that hs_PAW matrices are ordered {0:H,1:S}
                       s += p * real_t(hs_PAW[ka](1,kb,lb));
                       h += p * real_t(hs_PAW[ka](0,kb,lb));
+//                    printf("# non-local matrices atom=%i i=%i j=%i ovl= %g hmt= %g %s\n",
+//                            ka, lb, kb, hs_PAW[ka](1,kb,lb), hs_PAW[ka](0,kb,lb)*eV, _eV);
                   } // kb
                   Psh_il(S,iB,iC) = s;
                   Psh_il(H,iB,iC) = h;
@@ -332,12 +334,12 @@ namespace pw_hamiltonian {
       assert( nG[1] <= Vcoeff.dim1() );
       assert( nG[2] <= Vcoeff.dim2() );
 
-      double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
-      double const scale_p = control::get("hamiltonian.scale.potential", 1.0);
+      double const scale_k = control::get("hamiltonian.scale.kinetic", 1.);
+      double const scale_p = control::get("hamiltonian.scale.potential", 1.);
       if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
       if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
-      real_t const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.0);
-      real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.0);
+      real_t const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.);
+      real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
       real_t constexpr scale_h = 1, scale_s = 1
@@ -381,13 +383,14 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
-      auto solver = *control::get("pw_hamiltonian.solver", "direct") | 32;
-      if ('b' == solver) {     iterative_solve(SHm, x_axis, echo, nbands); solver = 'd'; }
-      auto const solver_stat = ('d' == solver) ?
-          dense_solver::solve(SHm, x_axis, echo) :
-          iterative_solve(SHm, x_axis, echo, nbands);
-
-          
+      auto const nB_auto = int(control::get("pw_hamiltonian.dense.solver.below", 999.));
+      char const solver = *control::get("pw_hamiltonian.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
+      bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
+                                  ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
+      status_t solver_stat(0);
+      if (run_solver[0]) solver_stat += iterative_solve(SHm, x_axis, echo, nbands);
+      if (run_solver[1]) solver_stat += dense_solver::solve(SHm, x_axis, echo);
+      // dense solver must runs second in case of "both" since it modifies the memory locations of SHm
 
       int const gen_density = control::get("pw_hamiltonian.density", 0.);
       if (gen_density) {

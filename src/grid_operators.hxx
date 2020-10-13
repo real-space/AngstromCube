@@ -16,6 +16,10 @@
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
 
+#ifdef DEVEL
+  #include "control.hxx" // ::get
+#endif
+
 #define DEBUG
 
 namespace grid_operators {
@@ -168,12 +172,24 @@ namespace grid_operators {
                 , int const echo=0) {
       status_t stat(0);
       assert(atom_matrices); // may not be nullptr
+
+#ifdef DEVEL
+      double const scale_k = control::get("hamiltonian.scale.kinetic", 1.);
+      double const scale_p = control::get("hamiltonian.scale.potential", 1.);
+      if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
+      if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
+      double const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.);
+      double const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
+      if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
+#endif
+
       for(size_t ia = 0; ia < a.size(); ++ia) {
           // set atomic Hamiltonian and charge deficit matrices
           assert(atom_matrices[ia]);
           int const ncoeff = sho_tools::nSHO(a[ia].numax());
           for(int h0s1 = 0; h0s1 <= 1; ++h0s1) {
-              stat += a[ia].set_matrix(&atom_matrices[ia][h0s1*ncoeff*ncoeff], ncoeff, ncoeff, h0s1);
+              stat += a[ia].set_matrix(&atom_matrices[ia][h0s1*ncoeff*ncoeff], ncoeff, ncoeff, h0s1
+                                        , h0s1 ? scale_s : scale_h);
           } // 0:Hamiltonian and 1:overlap/charge deficit
       } // ia
       return stat;
@@ -250,7 +266,19 @@ namespace grid_operators {
 
           // the local effective potential, ToDo: separate this because we might want to call it later
           potential = std::vector<double>(g.all(), 0.0); // init as zero everywhere
-          set_potential(local_potential, g.all(), nullptr, 9); // echo=9
+#ifdef DEVEL
+          double const scale_p = control::get("hamiltonian.scale.potential", 1.);
+          if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
+          
+          double const scale_k = control::get("hamiltonian.scale.kinetic", 1.);
+          if (1 != scale_k) {
+              kinetic.scale_coefficients(scale_k);
+              warn("kinetic energy is scaled by %g", scale_k);
+          } // scale_k != 1
+#else
+          double constexpr scale_p = 1;
+#endif
+          set_potential(local_potential, g.all(), nullptr, 1, scale_p);
 
           // this simple grid-based preconditioner is a diffusion stencil
           preconditioner = finite_difference::stencil_t<complex_t>(g.h, std::min(1, nn_precond));
@@ -258,7 +286,8 @@ namespace grid_operators {
               preconditioner.c2nd[d][1] = 1/12.;
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
           } // d
-
+          
+          
       } // _constructor
       
     public:
@@ -301,14 +330,16 @@ namespace grid_operators {
       double get_volume_element() const { return grid.dV(); }
       size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
 
-      status_t set_potential(double const *local_potential=nullptr, size_t const ng=0, 
-                             double const *const *const atom_matrices=nullptr,
-                             int const echo=0) {
+      status_t set_potential(double const *local_potential=nullptr, size_t const ng=0
+                            , double const *const *const atom_matrices=nullptr
+                            , int const echo=0
+                            , double const local_potential_factor=1) {
           status_t stat(0);
           if (echo > 0) printf("# %s %s\n", __FILE__, __func__);
           if (nullptr != local_potential) {
               if (ng == grid.all()) {
-                  set(potential.data(), ng, local_potential); // copy data in
+                  set(potential.data(), ng, local_potential, local_potential_factor); // copy data in
+                  if (1 != local_potential_factor) warn("local potential is scaled by %g", local_potential_factor);
                   if (echo > 0) printf("# %s %s local potential copied (%ld elements)\n", __FILE__, __func__, ng);
               } else {
                   error("expect %ld element for the local potential but got %ld\n", grid.all(), ng);

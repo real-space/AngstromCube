@@ -12,9 +12,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
@@ -35,37 +35,40 @@ echo "C  0 0 0" >> $geometry_file
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "H  0 0 0" >> $geometry_file
 
-
-### Al-P dimer
+# project_base=potential_generator.AlP
 # printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
 # echo "Al   0 0 -1.058354498" >> $geometry_file
 # echo "P    0 0  1.058354498" >> $geometry_file
-# project_base=potential_generator.AlP
 
-### Al fcc bulk
+# project_base=pg.Al-fcc
 # printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
 # echo "Al   -1.0 -1.0 -1.0" >> $geometry_file
 # echo "Al    1.0  1.0 -1.0" >> $geometry_file
 # echo "Al    1.0 -1.0  1.0" >> $geometry_file
 # echo "Al   -1.0  1.0  1.0" >> $geometry_file
-# project_base=pg.Al-fcc
 
-### P sc bulk
+# project_base=potential_generator.P-sc
 # printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
 # echo "P 0 0 0" >> $geometry_file
-# project_base=potential_generator.P-sc
 
-### Al sc bulk
+# project_base=potential_generator.Al-sc
 # printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
 # echo "Al 0 0 0" >> $geometry_file
-# project_base=potential_generator.Al-sc
 
-### C_chain
+# project_base=potential_generator.C_chain.sho
 # printf " 1 \n#cell 1.420282 10 10 p p p \n" > $geometry_file
 # echo "C   0 0 0" >> $geometry_file
-# project_base=potential_generator.C_chain.sho
+
+# project_base=pg.He-atom
+# printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+# echo "He  0 0 0" >> $geometry_file
+
+project_base=pg.H-atom
+printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+echo "H  0 0 0" >> $geometry_file
+
 
 ### generate a control file
 cat > control.sh << EOF
@@ -77,7 +80,8 @@ verbosity=7
 output.energy.unit=eV
 
 # grid spacing of the dense grid
-potential_generator.grid.spacing=0.23622
+#potential_generator.grid.spacing=0.23622
+potential_generator.grid.spacing=0.1772
 
 # max number of self-consistency iterations
 potential_generator.max.scf=1
@@ -87,11 +91,13 @@ electrostatic.solver=fft
 
 
 # configuration of atomic PAW setups
-#element_H="1s 1 0 | 0.9 sigma .41"
+element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
+#element_He="1s 2 2p | 1.5 numax 1 sigma .537535"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-element_C="2s* 2 2p 2 0 3d | 1.2 numax 2 sigma .38 V=sinc"
+#element_C="2s* 2 2p 2 0 3d | 1.2 numax 2 sigma .38 V=sinc"
+#single_atom.partial.wave.energy=1.1 good for carbon
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
 #element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
@@ -114,11 +120,11 @@ logder.stop=1
 logder.step=1e-3
 
 # configuration for basis=grid
-bands.per.atom=10
+bands.per.atom=20
 # DEVEL option
-devel.occupied.bands=8
+devel.occupied.bands=.5
 eigensolver=cg
-repeat.eigensolver=3
+repeat.eigensolver=33
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=9
@@ -128,22 +134,25 @@ export.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
-sho_hamiltonian.test.sigma=1.0
+#sho_hamiltonian.test.sigma=1.0
+#sho_hamiltonian.test.sigma=.308
+# sho_hamiltonian.test.sigma=.5
+sho_hamiltonian.test.sigma=1
 
 # configuration for basis=sho or basis=pw
 hamiltonian.test.kpoints=2
-hamiltonian.scale.kinetic=1
-hamiltonian.scale.potential=1
+hamiltonian.scale.kinetic=0
+hamiltonian.scale.potential=0
 hamiltonian.scale.nonlocal.h=1
-hamiltonian.scale.nonlocal.s=1
+hamiltonian.scale.nonlocal.s=0
+start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=32
 
 # configuration for basis=pw
+pw_hamiltonian.density=0        0=no 1=yes
+# pw_hamiltonian.solver=auto both direct iterative
 pw_hamiltonian.solver=direct
-pw_hamiltonian.density=1
-#pw_hamiltonian.solver=iterative
-#pw_hamiltonian.solver=both
-davidson_solver.max.iterations=9
+davidson_solver.max.iterations=19
 
 # also compute the eigenvalues of the overlap matrix?
 dense_solver.test.overlap.eigvals=0
@@ -151,7 +160,7 @@ dense_solver.test.overlap.eigvals=0
 EOF
 
 
-for spacing in `seq 1 1 0`; do
+for spacing in `seq 1 1 1`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -175,7 +184,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 1 2`; do
+for ecut in `seq 5 5 1`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

@@ -60,7 +60,7 @@ namespace atom_image {
       inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
 
       status_t set_matrix(double const values[], // data layout values[ncoeff][stride]
-                          int const ncoeff, int const stride, int const h0s1=0) {
+                          int const ncoeff, int const stride, int const h0s1=0, double const factor=1) {
           assert(0 == h0s1 || 1 == h0s1); // 0:hamiltonian H, 1:overlap S (or I, contains charge deficit)
           assert(ncoeff <= stride);
           
@@ -92,7 +92,7 @@ namespace atom_image {
               for(int j = 0; j < nc; ++j) {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
                   int const ij_reordered = ij; // reorder[i]*stride + reorder[j]; // NOT REORDERED
-                  _matrix64[ij] = rescale[i] * values[ij_reordered] * rescale[j];
+                  _matrix64[ij] = rescale[i] * values[ij_reordered]*factor * rescale[j];
                   _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j
           } // i

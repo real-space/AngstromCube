@@ -308,7 +308,7 @@ namespace scattering_test {
                           } // ires
                           printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
                       } else {
-                          printf("# %s no %c-resonances found\n", label, ellchar[ell]);
+                          printf("# %s no %c-resonances found below %g %s\n", label, ellchar[ell], energy_range[2]*eV, _eV);
                       } // ndiff > 0
                       fflush(stdout);
                   } // echo
