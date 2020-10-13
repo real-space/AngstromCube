@@ -300,12 +300,16 @@ namespace scattering_test {
                       max_abs_diff = std::abs(res_diff);
                   } // new maximum found
                   int const ndiff = std::min(nres[TRU], nres[SMT]);
-                  if (ndiff > 0 && echo > 2) {
-                      printf("# %s %c-resonance differences", label, ellchar[ell]);
-                      for(int ires = 0; ires < ndiff; ++ires) {
-                          printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
-                      } // ires
-                      printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
+                  if (echo > 2) {
+                      if (ndiff > 0) {
+                          printf("# %s %c-resonance differences", label, ellchar[ell]);
+                          for(int ires = 0; ires < ndiff; ++ires) {
+                              printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
+                          } // ires
+                          printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
+                      } else {
+                          printf("# %s no %c-resonances found\n", label, ellchar[ell]);
+                      } // ndiff > 0
                       fflush(stdout);
                   } // echo
               } // ell
@@ -320,7 +324,7 @@ namespace scattering_test {
           } // dE > 0
       } // echo
 
-      if (echo > 5) { // display logarithmic derivatives or generalized node counts
+      if (echo > 7) { // display logarithmic derivatives or generalized node counts
           printf("\n\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                 label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
           for(int ien = 0; ien <= nen; ++ien) {

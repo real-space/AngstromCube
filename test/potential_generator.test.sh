@@ -91,9 +91,9 @@ electrostatic.solver=fft
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+element_C="2s* 2 2p 2 0 3d | 1.2 numax 2 sigma .38 V=sinc"
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
-element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
+#element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
 #element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
@@ -111,7 +111,7 @@ single_atom.init.scf.maxit=0
 logder.unit=Ha
 logder.start=-2
 logder.stop=1
-#logder.step=1e-3
+logder.step=1e-3
 
 # configuration for basis=grid
 bands.per.atom=10
