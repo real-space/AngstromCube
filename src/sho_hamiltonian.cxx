@@ -92,8 +92,8 @@ namespace sho_hamiltonian {
         
       status_t stat(0);
 #ifdef DEVEL
-      if (echo > 3) printf("\n\n# start %s<%s, real_t=%s, phase_t=%s> nB=%d\n", 
-          __func__, complex_name<complex_t>(), complex_name<real_t>(), complex_name(*Bloch_phase), nB);
+      if (echo > 3) printf("\n\n# start %s<%s, phase_t=%s> nB=%d\n", 
+          __func__, complex_name<complex_t>(), complex_name(*Bloch_phase), nB);
 #endif
 
       //

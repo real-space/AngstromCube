@@ -267,18 +267,13 @@ namespace grid_operators {
           // the local effective potential, ToDo: separate this because we might want to call it later
           potential = std::vector<double>(g.all(), 0.0); // init as zero everywhere
 #ifdef DEVEL
-          double const scale_p = control::get("hamiltonian.scale.potential", 1.);
-          if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
-          
           double const scale_k = control::get("hamiltonian.scale.kinetic", 1.);
           if (1 != scale_k) {
               kinetic.scale_coefficients(scale_k);
               warn("kinetic energy is scaled by %g", scale_k);
           } // scale_k != 1
-#else
-          double constexpr scale_p = 1;
 #endif
-          set_potential(local_potential, g.all(), nullptr, 1, scale_p);
+          set_potential(local_potential, g.all(), nullptr, 1);
 
           // this simple grid-based preconditioner is a diffusion stencil
           preconditioner = finite_difference::stencil_t<complex_t>(g.h, std::min(1, nn_precond));
@@ -332,14 +327,18 @@ namespace grid_operators {
 
       status_t set_potential(double const *local_potential=nullptr, size_t const ng=0
                             , double const *const *const atom_matrices=nullptr
-                            , int const echo=0
-                            , double const local_potential_factor=1) {
+                            , int const echo=0) {
           status_t stat(0);
           if (echo > 0) printf("# %s %s\n", __FILE__, __func__);
           if (nullptr != local_potential) {
               if (ng == grid.all()) {
-                  set(potential.data(), ng, local_potential, local_potential_factor); // copy data in
-                  if (1 != local_potential_factor) warn("local potential is scaled by %g", local_potential_factor);
+#ifdef DEVEL
+                  double const scale_p = control::get("hamiltonian.scale.potential", 1.);
+                  if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
+#else
+                  double constexpr scale_p = 1;
+#endif
+                  set(potential.data(), ng, local_potential, scale_p); // copy data in
                   if (echo > 0) printf("# %s %s local potential copied (%ld elements)\n", __FILE__, __func__, ng);
               } else {
                   error("expect %ld element for the local potential but got %ld\n", grid.all(), ng);

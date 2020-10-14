@@ -65,9 +65,13 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "He  0 0 0" >> $geometry_file
 
-project_base=pg.H-atom
+# project_base=pg.H-atom
+# printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+# echo "H  0 0 0" >> $geometry_file
+
+project_base=pg.Li-atom
 printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
-echo "H  0 0 0" >> $geometry_file
+echo "Li  0 0 0" >> $geometry_file
 
 
 ### generate a control file
@@ -79,9 +83,9 @@ verbosity=7
 # show energies in units of electronVolt
 output.energy.unit=eV
 
-# grid spacing of the dense grid
-#potential_generator.grid.spacing=0.23622
-potential_generator.grid.spacing=0.1772
+# grid spacing of the dense grid (in Bohr)
+potential_generator.grid.spacing=0.23622
+#potential_generator.grid.spacing=0.1772   ## dense grid
 
 # max number of self-consistency iterations
 potential_generator.max.scf=1
@@ -91,13 +95,16 @@ electrostatic.solver=fft
 
 
 # configuration of atomic PAW setups
-element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
+#element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
 #element_He="1s 2 2p | 1.5 numax 1 sigma .537535"
+#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .7752 V=parabola"
+#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 2 sigma .612475 V=sinc"
+element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_C="2s* 2 2p 2 0 3d | 1.2 numax 2 sigma .38 V=sinc"
-#single_atom.partial.wave.energy=1.1 good for carbon
+#single_atom.partial.wave.energy=1.1 good for carbon with 2s*
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
 #element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
@@ -107,7 +114,7 @@ element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.nn.limit=4
+single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
 single_atom.echo=7
 single_atom.init.echo=7
@@ -117,7 +124,7 @@ single_atom.init.scf.maxit=0
 logder.unit=Ha
 logder.start=-2
 logder.stop=1
-logder.step=1e-3
+logder.step=1e-2
 
 # configuration for basis=grid
 bands.per.atom=20
@@ -134,19 +141,20 @@ export.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
+sho_hamiltonian.test.sigma=2.0
 #sho_hamiltonian.test.sigma=1.0
+#sho_hamiltonian.test.sigma=0.7752
+#sho_hamiltonian.test.sigma=.5
 #sho_hamiltonian.test.sigma=.308
-# sho_hamiltonian.test.sigma=.5
-sho_hamiltonian.test.sigma=1
 
 # configuration for basis=sho or basis=pw
 hamiltonian.test.kpoints=2
-hamiltonian.scale.kinetic=0
-hamiltonian.scale.potential=0
+hamiltonian.scale.kinetic=1
+hamiltonian.scale.potential=1
 hamiltonian.scale.nonlocal.h=1
-hamiltonian.scale.nonlocal.s=0
-start.waves.scale.sigma=1
-hamiltonian.floating.point.bits=32
+hamiltonian.scale.nonlocal.s=1
+# start.waves.scale.sigma=1
+hamiltonian.floating.point.bits=64
 
 # configuration for basis=pw
 pw_hamiltonian.density=0        0=no 1=yes
@@ -172,7 +180,7 @@ for spacing in `seq 1 1 1`; do
 #         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
-for numax in `seq 4 2 3`; do
+for numax in `seq 4 2 8`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -184,7 +192,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 5 1`; do
+for ecut in `seq 5 5 10`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
