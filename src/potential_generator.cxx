@@ -765,7 +765,7 @@ namespace potential_generator {
 
                   stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
                   if (echo > 1) { printf("\n# Total valence density on dense"); print_stats(rho_valence.data(), g.all(), g.dV()); }
-                  
+
               } else if ((basis_method[0] | 32) == 'p') { // plane wave
                   here;
                 
@@ -818,7 +818,7 @@ namespace potential_generator {
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
 
-      int const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.));
+      auto const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.));
       if (verify_Poisson)
       { // scope: compute the Laplacian using high-order finite-differences
 
@@ -840,7 +840,7 @@ namespace potential_generator {
 
       } // scope
 
-      int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.0));
+      int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.));
       if (use_Bessel_projection) 
       { // scope: use a Bessel projection around each atom position to compare 3D and radial quantities
         
@@ -915,6 +915,33 @@ namespace potential_generator {
 
       } // scope Bessel
 
+      if (echo > 1) {
+          if (control::get("potential_generator.direct.projection", 0.) > 0) {
+              double cnt[3];
+              if (na < 1) {
+                  for(int d = 0; d < 3; ++d) cnt[d] = 0.5*(g[d] - 1)*g.h[d];
+                  printf("\n## all values of Vtot (unordered) as function of the distance to the cell center (a.u.)\n");
+              } else {
+                  for(int d = 0; d < 3; ++d) cnt[d] = center(0,d);
+                  printf("\n## all values of Vtot (unordered) as function of the distance to atom #0 (a.u.)\n");
+              } // atoms?
+              for(int iz = 0; iz < g[2]; ++iz) {
+                  double const z = iz*g.h[2] - cnt[2], z2 = z*z;
+                  for(int iy = 0; iy < g[1]; ++iy) {
+                      double const y = iy*g.h[1] - cnt[1], y2 = y*y; 
+                      for(int ix = 0; ix < g[0]; ++ix) {
+                          double const x = ix*g.h[0] - cnt[0], x2 = x*x;
+                          double const r = std::sqrt(x2 + y2 + z2);
+                          int const izyx = (iz*g[1] + iy)*g[0] + ix;
+                          printf("%g %g\n", r, Vtot[izyx]);
+                      } // ix
+                  } // iy
+              } // iz
+              printf("\n");
+          } // control
+      } // echo
+      
+      
       { // scope: export total potential to ASCII file
           auto const Vtot_out_filename = control::get("total.potential.to.file", "vtot.dat");
           if (*Vtot_out_filename) stat += write_array_to_file(Vtot_out_filename, Vtot.data(), g[0], g[1], g[2], echo);

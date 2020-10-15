@@ -1308,21 +1308,28 @@ namespace single_atom {
 
 
 
-    void show_ell_block_diagonal(view2D<double> const & matrix_ln, char const *what, double const unit=1) const {
+    void show_ell_block_diagonal(view2D<double> const & matrix_ln
+        , char const *what="", double const unit=1
+        , bool const all_i=false, bool const all_j=false
+    ) const {
         int const nlnr = sho_tools::nSHO_radial(numax);
         view2D<char> ln_label(nlnr, 4);
         sho_tools::construct_label_table<4>(ln_label.data(), numax, sho_tools::order_ln);
         int const mlnr = display_delimiter(numax, nn);
         for(int ilnr = 0; ilnr < mlnr; ++ilnr) {
-            printf("# %s %s %s ", label, what, ln_label[ilnr]);
-            for(int jlnr = 0; jlnr < mlnr; ++jlnr) {
-                if (partial_wave[ilnr].ell == partial_wave[jlnr].ell) { // ToDo
-                    printf(" %11.6f", matrix_ln(ilnr,jlnr)*unit);
-                } else {
-                    printf("            ");
-                } // ells match
-            } // jlnr
-            printf("\n");
+            if (partial_wave_active[ilnr] || all_i) {
+                printf("# %s %s %-4s ", label, what, all_i ? ln_label[ilnr] : partial_wave[ilnr].tag);
+                for(int jlnr = 0; jlnr < mlnr; ++jlnr) {
+                    if (partial_wave_active[jlnr] || all_j) {
+                        if (partial_wave[ilnr].ell == partial_wave[jlnr].ell) { // ToDo
+                            printf(" %11.6f", matrix_ln(ilnr,jlnr)*unit);
+                        } else {
+                            printf("            ");
+                        } // ells match
+                    } // only active or all
+                } // jlnr
+                printf("\n");
+            } // only active or all
         } // ilnr
         printf("\n");
     } // show_ell_block_diagonal
@@ -2681,11 +2688,9 @@ namespace single_atom {
             int const nlnr = sho_tools::nSHO_radial(numax);
             view2D<double> density_matrix_ln(nlnr,nlnr);
             scattering_test::emm_average(density_matrix_ln.data(), radial_density_matrix.data(), int(numax), 0);
-            show_ell_block_diagonal(density_matrix_ln, "emm-summed density matrix");
+            show_ell_block_diagonal(density_matrix_ln, "emm-summed SHO density matrix", 1, true, true);
         } // echo
 #endif
-
-        
         
         { // scope
             //   ToDo:  Introduce the projector_coeff to bring
@@ -2694,14 +2699,21 @@ namespace single_atom {
             //
             auto const u_proj = unfold_projector_coefficients();
             int const N = nSHO;
-            int const M = nSHO;
-            view2D<double> tmp_mat(N, M);
+            view2D<double> tmp_mat(N, N);
             auto const uT_proj = transpose(u_proj, N);
             gemm(tmp_mat, N, radial_density_matrix, N, uT_proj); // *u^T
             gemm(radial_density_matrix, N, u_proj, N, tmp_mat); // u*
 
         } // scope
-
+        
+#ifdef DEVEL      
+        if (echo > 2) {
+            int const nlnr = sho_tools::nSHO_radial(numax);
+            view2D<double> density_matrix_ln(nlnr,nlnr);
+            scattering_test::emm_average(density_matrix_ln.data(), radial_density_matrix.data(), int(numax), 0);
+            show_ell_block_diagonal(density_matrix_ln, "emm-summed density matrix"); // in partial waves
+        } // echo
+#endif
 
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
@@ -2925,6 +2937,16 @@ namespace single_atom {
                 add_or_project_compensators<1>(Ves, vlm.data(), rg[SMT], ellmax_cmp, sigma_compensator); // project Ves to compensators
                 if (echo > 7) printf("# %s inner integral between normalized compensator and smooth Ves(r) = %g %s\n", label, vlm[0]*Y00*eV,_eV);
 
+                if (echo > 21) {
+                    printf("\n## %s smooth spherical electrostatic potential (a.u.):\n", label);
+                    print_compressed(rg[ts]->r, Ves[00], rg[ts]->n);                    
+                } // echo
+
+                if (echo > 21) {
+                    printf("\n## %s smooth spherical exchange-correlation potential (a.u.):\n", label);
+                    print_compressed(rg[ts]->r, full_potential[ts][00], rg[ts]->n);                    
+                } // echo
+
                 // but the solution of the 3D problem found that these integrals should be ves_multipole, therefore
                 if (nullptr == ves_multipole) {
                     set(vlm.data(), nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
@@ -2969,7 +2991,7 @@ namespace single_atom {
 
         // construct the zero_potential V_bar
         std::vector<double> V_smt(rg[SMT]->n);
-        set(zero_potential.data(), rg[SMT]->n, 0.0); // init zero
+        set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
         
         auto const df = Y00*eV; assert(df > 0); // display factor
         auto const stat = pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], echo, Y00); // <0> indicates that these arrays hold V(r) (not r*V(r))
@@ -2998,12 +3020,28 @@ namespace single_atom {
                         label, Vint/vol*eV, r1Vint/(vol*r_cut)*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
                 // these numbers should be small since they indicate that V_bar is localized inside the sphere
                 // and how much V_smt deviates from V_tru outside the sphere
+            
+            if (echo > 21) {
+                printf("\n## %s pseudized total potential (a.u.):\n", label);
+                print_compressed(rg[SMT]->r, V_smt.data(), rg[SMT]->n);                    
+            } // echo
+
+            if (echo > 21) {
+                printf("\n## %s zero potential (a.u.):\n", label);
+                print_compressed(rg[SMT]->r, zero_potential.data(), rg[SMT]->n);                    
+            } // echo
+            
         } // pseudization successful
         if (echo > 5) printf("# %s zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
             label, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT]->n - 1]*df, _eV);
 
         // add spherical zero potential for SMT==ts and 0==lm
         add_product(full_potential[SMT][00], rg[SMT]->n, zero_potential.data(), 1.0);
+
+        if (echo > 21) {
+            printf("\n## %s smooth total potential (a.u.):\n", label);
+            print_compressed(rg[SMT]->r, full_potential[SMT][00], rg[SMT]->n);                    
+        } // echo
 
         // feed back spherical part of the true potential into the spherical true potential r*V
         // which determines core states and true partial waves
@@ -3176,35 +3214,34 @@ namespace single_atom {
             } // iHS
             if (echo > 4) {
                 printf("\n");
-                show_ell_block_diagonal(matrices_ln[0], "emm-averaged hamiltonian", eV);
-                show_ell_block_diagonal(matrices_ln[1], "emm-averaged overlap");
+                show_ell_block_diagonal(matrices_ln[0], "emm-averaged hamiltonian", eV, true, true);
+                show_ell_block_diagonal(matrices_ln[1], "emm-averaged overlap    ",  1, true, true);
             } // echo
 
 #ifdef NEVER
             if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
-                double const V_rmax = full_potential[SMT](00,rg[SMT]->n - 1)*Y00;
+                // prepare a smooth local potential which goes to zero at Rmax
                 auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
-                { // scope: prepare a smooth local potential which goes to zero at Rmax
-                    for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                        Vsmt[ir] = full_potential[SMT](00,ir)*Y00 - V_rmax;
-                    } // ir
-                } // scope
-
+                double const V_rmax = full_potential[SMT](00,rg[SMT]->n - 1)*Y00;
+                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                    Vsmt[ir] = full_potential[SMT](00,ir)*Y00 - V_rmax;
+                } // ir
                 if (echo > 1) printf("\n# %s %s eigenstate_analysis\n\n", label, __func__);
+                if (echo > 5) printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
                   (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, matrices_ln(0,0), matrices_ln(1,0), 384, V_rmax, label, echo);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
             if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
                      //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
-                double* rV[TRU_AND_SMT]; std::vector<double> rV_vec[TRU_AND_SMT];
+                std::vector<double> rV_vec[TRU_AND_SMT];
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                    int const nr = rg[ts]->n;
-                    rV_vec[ts] = std::vector<double>(nr); rV[ts] = rV_vec[ts].data();
-                    product(rV[ts], nr, full_potential[ts][00], rg[ts]->r, Y00);
+                    rV_vec[ts] = std::vector<double>(rg[ts]->n);
+                    product(rV_vec[ts].data(), rg[ts]->n, full_potential[ts][00], rg[ts]->r, Y00); // rV(r) = V_00(r)*r*Y00
                 } // ts
+                double const *const rV[TRU_AND_SMT] = {rV_vec[TRU].data(), rV_vec[SMT].data()};
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
                   (rg, rV, sigma, int(numax + 1), numax, matrices_ln(0,0), matrices_ln(1,0), logder_energy_range, label, echo);
@@ -3305,27 +3342,8 @@ namespace single_atom {
 
 #ifdef DEVEL
         if (echo > 4) { // display
-            printf("\n");
-            for(int iHS = 0; iHS < 2; ++iHS) {
-                printf("\n# %s spherical %s in partial waves:\n", label, iHS ? "overlap" : "hamiltonian");
-                double const unit = iHS ? 1 : eV;
-                for(int iln = 0; iln < nln; ++iln) {
-                    if (partial_wave_active[iln]) {
-                        printf("# %s %-4s", label, partial_wave[iln].tag);
-                        for(int jln = 0; jln < nln; ++jln) {
-                            if (partial_wave_active[jln]) {
-                                if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                                    printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
-                                } else {
-                                    printf("            ");
-                                } // ells match
-                            } // active
-                        } // jln
-                        printf("\n");
-                    } // active
-                } // iln
-                printf("\n");
-            } // iHS
+            show_ell_block_diagonal(aHSm[0], "spherical hamiltonian", eV);
+            show_ell_block_diagonal(aHSm[1], "spherical overlap    ");
         } // echo
 #endif
 
@@ -3339,25 +3357,26 @@ namespace single_atom {
             if (1) { // show a legend
                 view2D<char> ln_labels(nln, 8);
                 sho_tools::construct_label_table<8>(ln_labels.data(), numax, sho_tools::order_ln);
-                printf("# %s   radial SHO:      ", label);
+                printf("# %s              radial SHO:      ", label);
                 for(int jln = 0; jln < mln; ++jln) {
-                    printf("%-10s", ln_labels[jln]);
+                    printf("%-12s", ln_labels[jln]);
                 } // jln
                 printf("\n");
             } // show a legend
-            for(int iln = 0; iln < mln; ++iln) {
-                if (partial_wave_active[iln]) {
-                    printf("# %s u_proj for %-4s ", label, partial_wave[iln].tag);
-                    for(int jln = 0; jln < mln; ++jln) {
-                        if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                            printf(" %9.6f", u_proj(iln,jln));
-                        } else {
-                            printf("          ");
-                        } // ells match
-                    } // jln
-                    printf("\n");
-                } // wave
-            } // iln
+//             for(int iln = 0; iln < mln; ++iln) {
+//                 if (partial_wave_active[iln]) {
+//                     printf("# %s u_proj for %-4s ", label, partial_wave[iln].tag);
+//                     for(int jln = 0; jln < mln; ++jln) {
+//                         if (partial_wave[iln].ell == partial_wave[jln].ell) {
+//                             printf(" %9.6f", u_proj(iln,jln));
+//                         } else {
+//                             printf("          ");
+//                         } // ells match
+//                     } // jln
+//                     printf("\n");
+//                 } // wave
+//             } // iln
+            show_ell_block_diagonal(u_proj, "ln-based projector", 1, false, true);
         } // echo
 #endif
 
@@ -3421,14 +3440,13 @@ namespace single_atom {
 
         if (1) {
             double const V_rmax = potential[SMT][rg[SMT]->n - 1]*rg[SMT]->rinv[rg[SMT]->n - 1];
-            auto Vsmt = std::vector<double>(rg[SMT]->n, 0);
-            { // scope: prepare a smooth local potential which goes to zero at Rmax
-                for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                    Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
-                } // ir
-            } // scope
-
+            auto Vsmt = std::vector<double>(rg[SMT]->n);
+            // prepare a smooth local potential which goes to zero at Rmax
+            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
+                Vsmt[ir] = potential[SMT][ir]*rg[SMT]->rinv[ir] - V_rmax;
+            } // ir
             if (echo > 1) printf("\n\n# %s %s eigenstate_analysis\n", label, __func__);
+            if (echo > 5) printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (*rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
         } else {
@@ -3437,7 +3455,7 @@ namespace single_atom {
 
         if (1) {
             if (echo > 1) printf("\n\n# %s %s logarithmic_derivative\n", label, __func__);
-            double const *rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
+            double const *const rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, rV, sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
         } else {

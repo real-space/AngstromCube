@@ -114,7 +114,7 @@ element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.nn.limit=2
+single_atom.nn.limit=4
 single_atom.partial.wave.method=energy_ordering
 single_atom.echo=7
 single_atom.init.echo=7
@@ -127,11 +127,11 @@ logder.stop=1
 logder.step=1e-2
 
 # configuration for basis=grid
-bands.per.atom=20
+bands.per.atom=10
 # DEVEL option
 devel.occupied.bands=.5
 eigensolver=cg
-repeat.eigensolver=33
+repeat.eigensolver=15
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=9
@@ -157,13 +157,17 @@ hamiltonian.scale.nonlocal.s=1
 hamiltonian.floating.point.bits=64
 
 # configuration for basis=pw
-pw_hamiltonian.density=0        0=no 1=yes
+pw_hamiltonian.density=1        0=no 1=yes
 # pw_hamiltonian.solver=auto both direct iterative
 pw_hamiltonian.solver=direct
 davidson_solver.max.iterations=19
 
 # also compute the eigenvalues of the overlap matrix?
 dense_solver.test.overlap.eigvals=0
+
+# analyze the potentials up to vtot
+potential_generator.use.bessel.projection=0
+potential_generator.direct.projection=0
 
 EOF
 
@@ -180,7 +184,7 @@ for spacing in `seq 1 1 1`; do
 #         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
-for numax in `seq 4 2 8`; do
+for numax in `seq 4 2 0`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -192,7 +196,7 @@ for numax in `seq 4 2 8`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 5 10`; do
+for ecut in `seq 5 5 5`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

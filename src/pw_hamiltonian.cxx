@@ -462,17 +462,18 @@ namespace pw_hamiltonian {
               rho_sum += rho(0,0)[izyx]; // avoid index checking
           } // izyx
           if (echo > 0) printf("# pw_hamiltonian found a density of %g electrons, average %g\n", rho_sum, rho_sum/nG_all);
-             
+
 #ifdef DEVEL
           if (echo > 6) { // show atomic density matrices
               for(int ia = 0; ia < natoms_PAW; ++ia) {
                   int const nc = ncoeff[ia];
-                  printf("\n# show %d x %d density matrix for atom #%i in %s-order\n", 
-                      nc, nc, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str());
+                  double max_rho{1e-12}; for(int ij = 0; ij < nc*nc; ++ij) max_rho = std::max(max_rho, atom_rho[ia][ij]);
+                  printf("\n# show %d x %d density matrix for atom #%i in %s-order, normalized to maximum %.6e\n", 
+                      nc, nc, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), max_rho);
                   for(int i = 0; i < nc; ++i) {
                       printf("# %3i\t", i);
                       for(int j = 0; j < nc; ++j) {
-                          printf("%10.2e", atom_rho[ia][i*nc + j]);
+                          printf(" %9.6f", atom_rho[ia][i*nc + j]/max_rho);
                       } // j
                       printf("\n");
                   } // i

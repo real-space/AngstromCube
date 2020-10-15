@@ -92,11 +92,11 @@ namespace density_generator {
                       for(int i = 0; i < ncoeff; ++i) {
                           auto const c_i = conjugate(atom_coeff[ia][i] * sf[i]);
 #ifdef DEVEL
-                          if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %g %g factor=%g\n",
+                          if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %.6e\t%g factor=%g\n",
                                               ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), sf[i]);
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {
-                              auto const c_j = atom_coeff[ia][j] * sf[i];
+                              auto const c_j = atom_coeff[ia][j] * sf[j];
                               atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(c_i * c_j);
                           } // j
                       } // i
@@ -112,13 +112,14 @@ namespace density_generator {
       if (echo > 6) {
           for(int ia = 0; ia < na; ++ia) {
               int const ncoeff = sho_tools::nSHO(op.get_numax(ia));
-              printf("\n# show %d x %d density matrix for atom #%i in %s-order\n", 
-                  ncoeff, ncoeff, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str());
+              double max_rho{1e-12}; for(int ij = 0; ij < pow2(ncoeff); ++ij) max_rho = std::max(max_rho, atom_rho[ia][ij]);
+              printf("\n# show %d x %d density matrix for atom #%i in %s-order, normalized to maximum %.6e\n", 
+                  ncoeff, ncoeff, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), max_rho);
               char labels[220*8]; sho_tools::construct_label_table(labels, op.get_numax(ia), sho_tools::order_zyx);
               for(int i = 0; i < ncoeff; ++i) {
                   printf("# %s\t", &labels[i*8]);
                   for(int j = 0; j < ncoeff; ++j) {
-                      printf("%10.2e", atom_rho[ia][i*ncoeff + j]);
+                      printf(" %9.6f", atom_rho[ia][i*ncoeff + j]/max_rho);
                   } // j
                   printf("\n");
               } // i
