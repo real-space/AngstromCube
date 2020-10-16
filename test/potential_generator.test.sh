@@ -107,6 +107,7 @@ element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
 #single_atom.partial.wave.energy=1.1 good for carbon with 2s*
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
 #element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
+#element_C="2s 2 2p 2 0 3d 4f 5g 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
 #element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
@@ -131,10 +132,10 @@ bands.per.atom=10
 # DEVEL option
 devel.occupied.bands=.5
 eigensolver=cg
-repeat.eigensolver=15
+repeat.eigensolver=35
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
-start.waves.scale.sigma=9
+start.waves.scale.sigma=6
 atomic.valence.decay=0
 export.waves=waves.dat
 #start.waves=waves.dat

@@ -64,7 +64,7 @@ namespace grid_operators {
           } // psi != nullptr
       } // Hpsi != nullptr
 
-      int constexpr echo_sho = 0;
+      int const echo_sho = 0*(nullptr != atomic_projection_coefficients);
 
       if (h0s1 >= 0) {
         
@@ -74,7 +74,7 @@ namespace grid_operators {
           for(int ia = 0; ia < na; ++ia) {
               int const numax = a[ia].numax();
               int const ncoeff = sho_tools::nSHO(numax);
-              atom_coeff[ia] = std::vector<complex_t>(ncoeff, 0.0);
+              atom_coeff[ia] = std::vector<complex_t>(ncoeff, complex_t(0));
 
               if (psi) {
                   if (a[ia].nimages() > 1) {
@@ -115,7 +115,8 @@ namespace grid_operators {
                           printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
                           for(int ic = 0; ic < ncoeff; ++ic) {
                               printf(" %g", start_wave_coeffs[ia][ic]);
-                          }   printf("\n");
+                          } // ic
+                          printf("\n");
                       } // echo
 #endif
                       set(V_atom_coeff_ia.data(), ncoeff, start_wave_coeffs[ia]); // import
@@ -202,23 +203,28 @@ namespace grid_operators {
                        , double const xyzZins[] // data layout [na][8], collection of different quantities
                        , int const na // number of atoms
                        , int const stride // typically stride=8
-                       , real_space::grid_t const & g // actually we need cell info here, not grid
+                       , real_space::grid_t const & gc // we need cell info here and grid spacing (for the grid_offset)
                        , int const echo=9
                        , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
                        , float const rcut=18) { // sho_projection usually ends at 9*sigma
       status_t stat(0);
 
-      double const cell[] = {g[0]*g.h[0], g[0]*g.h[1], g[2]*g.h[2]};
+      double const cell[] = {gc[0]*gc.h[0], gc[1]*gc.h[1], gc[2]*gc.h[2]};
+      double const grid_offset[] = {0.5*(gc[0] - 1)*gc.h[0], 0.5*(gc[1] - 1)*gc.h[1], 0.5*(gc[2] - 1)*gc.h[2]};
       view2D<double> image_positions;
       view2D<int8_t> image_indices;
       int const n_periodic_images = boundary_condition::periodic_images(
-            image_positions, cell, g.boundary_conditions(), rcut, echo, &image_indices);
+            image_positions, cell, gc.boundary_conditions(), rcut, echo, &image_indices);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       assert(stride >= 7);
       a.resize(na);
       for(int ia = 0; ia < na; ++ia) {
-          double const *pos =            & xyzZins[ia*stride + 0];
+          double const *apos = &xyzZins[ia*stride + 0];
+          double pos[3];
+          for(int d = 0; d < 3; ++d) {
+              pos[d] =    grid_offset[d] + xyzZins[ia*stride + d];
+          } // d
           double const Z =                 xyzZins[ia*stride + 3];
           int32_t const atom_id = int32_t( xyzZins[ia*stride + 4]);
           int const numax = int(std::round(xyzZins[ia*stride + 5]));
@@ -227,10 +233,12 @@ namespace grid_operators {
           int const Zi = std::round(Z);
           a[ia] = atom_image::sho_atom_t(sigma, numax, atom_id, pos, Zi);
           a[ia].set_image_positions(pos, n_periodic_images, &image_positions, &image_indices);
-          
+
           char Symbol[4]; chemical_symbol::get(Symbol, Z);
           if (echo > 3) printf("# %s %s %g %g %g %s has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
-              Symbol, pos[0]*Ang, pos[1]*Ang, pos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
+              Symbol, apos[0]*Ang, apos[1]*Ang, apos[2]*Ang, _Ang, n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
+          if (echo > 3) printf("# %s %s %g %g %g (rel) has %d images, sigma %g %s, numax %d (atom_id %i)\n", __func__, 
+              Symbol, pos[0]*gc.inv_h[0], pos[1]*gc.inv_h[1], pos[2]*gc.inv_h[2], n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
 
       } // ia
       

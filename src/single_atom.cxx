@@ -2669,9 +2669,9 @@ namespace single_atom {
             error("%s should be in either order_zyx or order_lmn", label);
         } // order
 
-#ifdef DEVEL      
+#ifdef DEVEL
         if (echo > 6) {
-            printf("# %s Radial density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
+            printf("# %s Radial SHO density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
             view2D<char> labels(220, 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
             for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
@@ -2706,7 +2706,24 @@ namespace single_atom {
 
         } // scope
         
-#ifdef DEVEL      
+#ifdef DEVEL
+        if (echo > 6) {
+            printf("# %s Radial density matrix in partial waves:\n", label);
+            for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
+                int const iln = ln_index_list[ilmn];
+                if (partial_wave_active[iln]) {
+                    printf("# %s %-8s ", label, partial_wave[iln].tag);
+                    for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
+                        if (partial_wave_active[ln_index_list[jlmn]]) {
+                              printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
+                        } // active_j
+                    } // jlmn
+                    printf("\n");
+                } // active_i
+            } // ilmn
+            printf("\n");
+        } // echo
+
         if (echo > 2) {
             int const nlnr = sho_tools::nSHO_radial(numax);
             view2D<double> density_matrix_ln(nlnr,nlnr);
@@ -2791,7 +2808,7 @@ namespace single_atom {
                                 if (partial_wave_active[jln]) {
                                     auto const wave_j = partial_wave[jln].wave[ts];
                                     double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
-                                    if (00 == lm) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
+                                    if (00 == lm && ts == TRU) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
                                     add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
                                 } // active
                             } // jln
@@ -3181,7 +3198,6 @@ namespace single_atom {
             } // ilmn
         } // echo
 #endif
-        
         
         { // scope: wrap the matrices with the projector_coeff from left and right
             auto const uT_proj = transpose(u_proj, nlmn);

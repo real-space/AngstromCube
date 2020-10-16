@@ -92,7 +92,7 @@ namespace density_generator {
                       for(int i = 0; i < ncoeff; ++i) {
                           auto const c_i = conjugate(atom_coeff[ia][i] * sf[i]);
 #ifdef DEVEL
-                          if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i] = %.6e\t%g factor=%g\n",
+                          if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g\tfactor= %g\n",
                                               ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), sf[i]);
 #endif // DEVEL
                           for(int j = 0; j < ncoeff; ++j) {

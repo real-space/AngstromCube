@@ -303,7 +303,7 @@ namespace potential_generator {
       std::vector<double> Za(na);        // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
-          if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__,_Ang);
+          if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
           for(int ia = 0; ia < na; ++ia) {
               double const Z = xyzZ(ia,3);
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
@@ -313,8 +313,8 @@ namespace potential_generator {
               for(int d = 0; d < 3; ++d) {
                   center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
               }   center(ia,3) = 0; // 4th component is not used
-              if (echo > 1) printf("  relative%12.3f%16.3f%16.3f", center(ia,0)*g.inv_h[0],
-                                          center(ia,1)*g.inv_h[1], center(ia,2)*g.inv_h[2]);
+              if (echo > 1) printf("  relative %g %g %g", center(ia,0)*g.inv_h[0],
+                                 center(ia,1)*g.inv_h[1], center(ia,2)*g.inv_h[2]);
               if (echo > 4) printf("\n");
           } // ia
       } // scope
@@ -416,7 +416,8 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-              using real_wave_function_t = float; // decide here if float or double precision
+//               using real_wave_function_t = float; // decide here if float or double precision
+              using real_wave_function_t = double;
 //            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
               using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, a);
@@ -531,7 +532,7 @@ namespace potential_generator {
 #ifdef DEVEL
                   if (echo > 0) {
                       printf("\n\n# %s\n# Solve Poisson equation\n# %s\n\n", line, line);
-                      fflush(stdout); // flush stdout so if the Poisson solver takes long, we can already see the output up to here
+                      fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
                   } // echo
 #endif
               
@@ -766,7 +767,7 @@ namespace potential_generator {
                   stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
                   if (echo > 1) { printf("\n# Total valence density on dense"); print_stats(rho_valence.data(), g.all(), g.dV()); }
 
-              } else if ((basis_method[0] | 32) == 'p') { // plane wave
+              } else if ((*basis_method | 32) == 'p') { // plane wave
                   here;
                 
                   stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo);
@@ -780,9 +781,9 @@ namespace potential_generator {
                   here;
               } // psi_on_grid
 
-#if 0
+#if 1
               if (1) { // update take_atomic_valence_densities
-                  float take_some_spherical_valence_density = 0.f;
+                  float take_some_spherical_valence_density = 0.5f;
                   stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_some_spherical_valence_density);
               }
               float rho_mixing_ratios[] = {.5, .5, .5}; // {core_density, semicore_density, valence_density}             

@@ -73,7 +73,8 @@ namespace sho_projection {
                   printf("%g\t", x);
                   for(int nu = 0; nu <= numax; ++nu) {
                       printf("%12.6f", h1d[ii*M + nu]);
-                  }   printf("\n");
+                  } // nu
+                  printf("\n");
               } // echo
           } // i
       } // dir
@@ -120,9 +121,9 @@ namespace sho_projection {
   // wrapper function
   template<typename complex_t>
   status_t sho_project(complex_t coeff[] // result, coefficients are zyx-ordered
-                     , int const numax // how many
+                     , int const numax // SHO basis size
                      , double const center[3] // where
-                     , double const sigma
+                     , double const sigma // SHO basis spread
                      , complex_t const values[] // input, grid array
                      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                      , int const echo=0) { //
@@ -134,9 +135,9 @@ namespace sho_projection {
   status_t sho_add(complex_t values[] // result gets modified, grid array
                  , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
                  , complex_t const coeff[] // input, coefficients are zyx-ordered
-                 , int const numax // how many
+                 , int const numax // SHO basis size
                  , double const center[3] // where
-                 , double const sigma
+                 , double const sigma // SHO basis spread
                  , int const echo=0) { //
       return _sho_project_or_add<complex_t,1>((complex_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add

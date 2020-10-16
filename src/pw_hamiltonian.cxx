@@ -170,11 +170,14 @@ namespace pw_hamiltonian {
           , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
           , int const nG[3] // half the number of plane wave entries in the potential
           , double const norm_factor // normalization for the cell volume
+ 
           , int const natoms_PAW // number of PAW centers
           , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
+          , double const grid_offset[3] // origin of atomic positions w.r.t. the local potential
           , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
           , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
           , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
+
           , double const kpoint[3] // vector inside the Brillouin zone, all 3 components in [-.5, .5]
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int & nPWs // export number of plane waves
@@ -186,8 +189,10 @@ namespace pw_hamiltonian {
       int boxdim[3], max_PWs{1};
       for(int d = 0; d < 3; ++d) {
           boxdim[d] = std::ceil(ecut/pow2(reci[d][d]));
+          if (echo > 17) printf("# %s reci[%d] = %.6f %.6f %.6f sqRy, kpoint=%9.6f\n", __func__, d, reci[d][0], reci[d][1], reci[d][2], kpoint[d]);
           max_PWs *= (boxdim[d] + 1 + boxdim[d]);
       } // d
+      if (echo > 11) printf("# %s boxdim = %d x %d x %d, E_cut= %g Ry\n", __func__, boxdim[0], boxdim[1], boxdim[2], 2*ecut);
       std::vector<PlaneWave> pw_basis(max_PWs);
       { // scope: generate set of plane waves
           int iB{0}, outside{0};
@@ -198,6 +203,7 @@ namespace pw_hamiltonian {
                                     (iGy + kpoint[1])*reci[1][1],
                                     (iGz + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci assumed here
               double const g2 = pow2(gv[0]) + pow2(gv[1]) + pow2(gv[2]);
+              if (echo > 91) printf("# %s suggest PlaneWave(%d,%d,%d) with |k+G|^2= %g Ry inside= %d\n", __func__, iGx,iGy,iGz, g2, g2 < 2*ecut);
               if (g2 < 2*ecut) {
                   pw_basis[iB] = PlaneWave(iGx, iGy, iGz, g2);
                   ++iB; // count
@@ -213,7 +219,11 @@ namespace pw_hamiltonian {
       int const nB = pw_basis.size();
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
-      if (echo > 6) { printf("\n\n# start %s<%s> nB=%d\n", __func__, complex_name<complex_t>(), nB); fflush(stdout); }
+      if (echo > 6) { 
+          printf("\n# start %s<%s> Ecut= %g %s nPW=%d\n",
+                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB);
+          fflush(stdout);
+      } // echo
 #endif
 
       // now we could sort the plane waves by their g2 length, optional
@@ -254,7 +264,7 @@ namespace pw_hamiltonian {
           offset[ka + 1] = offset[ka] + nSHO;
       } // ka
       int const nC = offset[natoms_PAW]; // total number of PAW coefficients
-
+      
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
 
@@ -272,7 +282,9 @@ namespace pw_hamiltonian {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
               // phase factor related to the atomic position
-              double const arg = xyzZ_PAW(ka,0)*gv[0] + xyzZ_PAW(ka,1)*gv[1] + xyzZ_PAW(ka,2)*gv[2];
+              double const arg = (grid_offset[0] + xyzZ_PAW(ka,0))*gv[0] 
+                               + (grid_offset[1] + xyzZ_PAW(ka,1))*gv[1] 
+                               + (grid_offset[2] + xyzZ_PAW(ka,2))*gv[2];
               std::complex<double> const phase(std::cos(arg), std::sin(arg));
 
               {   std::vector<double> pzyx(nSHO);
@@ -511,10 +523,13 @@ namespace pw_hamiltonian {
           } // echo
       } // ia
 
+      double const grid_offset[3] = {0.5*(g[0] - 1)*g.h[0], // position of the cell center w.r.t. the position of grid point(0,0,0)
+                                     0.5*(g[1] - 1)*g.h[1],
+                                     0.5*(g[2] - 1)*g.h[2]};
       double const cell_matrix[3][4] = {{g[0]*g.h[0], 0, 0, 0}, {0, g[1]*g.h[1], 0, 0}, {0, 0, g[2]*g.h[2], 0}};
       double reci_matrix[3][4];
       auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4);
-      scale(reci_matrix[0], 12, 2*constants::pi); // scale by 2\pi
+      scale(reci_matrix[0], 3*4, 2*constants::pi); // scale by 2\pi
       if (echo > 0) printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
       if (echo > 0) {
           auto constexpr sqRy = 1; auto const _sqRy = "sqRy";
@@ -597,7 +612,7 @@ namespace pw_hamiltonian {
       auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
-          double const kpoint[3] = {ikp*.5/(nkpoints - 1.), 0, 0};
+          double const kpoint[3] = {ikp*.5/std::max(1., nkpoints - 1.), 0, 0};
           char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", kpoint[0]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
@@ -608,11 +623,11 @@ namespace pw_hamiltonian {
               int nPWs{0};
               if (32 == floating_point_bits) {
                   stat += solve_k<std::complex<float>>(ecut, reci_matrix, Vcoeffs, nG, svol,
-                          natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo, nbands);
               } else {
                   stat += solve_k<std::complex<double>>(ecut, reci_matrix, Vcoeffs, nG, svol,
-                          natoms_PAW, xyzZ, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
+                          natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo, nbands);
               } // floating_point_bits
               nPW_stats.add(nPWs);
