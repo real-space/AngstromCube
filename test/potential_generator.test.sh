@@ -117,8 +117,8 @@ element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=4
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=7
-single_atom.init.echo=7
+single_atom.echo=0
+single_atom.init.echo=0
 single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
 # logarithmic derivatives
@@ -135,7 +135,7 @@ eigensolver=cg
 repeat.eigensolver=35
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
-start.waves.scale.sigma=6
+start.waves.scale.sigma=5
 atomic.valence.decay=0
 export.waves=waves.dat
 #start.waves=waves.dat
@@ -158,10 +158,11 @@ hamiltonian.scale.nonlocal.s=1
 hamiltonian.floating.point.bits=64
 
 # configuration for basis=pw
-pw_hamiltonian.density=1        0=no 1=yes
-# pw_hamiltonian.solver=auto both direct iterative
+pw_hamiltonian.density=0        0=no 1=yes
+# pw_hamiltonian.solver= { auto both direct iterative }
 pw_hamiltonian.solver=direct
 davidson_solver.max.iterations=19
+pw_hamiltonian.iterative.solver.ratio=2.0
 
 # also compute the eigenvalues of the overlap matrix?
 dense_solver.test.overlap.eigvals=0
@@ -173,7 +174,7 @@ potential_generator.direct.projection=0
 EOF
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

@@ -24,20 +24,21 @@ namespace dense_operator {
 
     private:
       complex_t const *Hmt, *Smt;
-      double const *Cnd;
+      complex_t const *Cnd;
       int nB, nBa;
       
       inline status_t matrix_vector_multiplication(complex_t mvec[]
                      , complex_t const mat[], complex_t const vec[], int const echo=0) const {
-          if (echo > 0) { printf("# %s<%s> gemm\n", __func__, complex_name<complex_t>()); fflush(stdout); }
-          return linear_algebra::gemm(1, nB, nB, mvec, nB, vec, nB, mat, nBa); }
+          if (echo > 19) { printf("# %s<%s> gemm\n", __func__, complex_name<complex_t>()); fflush(stdout); }
+          return linear_algebra::gemm(nB, 1, nB, mvec, nB, vec, nB, mat, nBa);
+      } // matrix_vector_multiplication
 
     public:
 
       dense_operator_t(int const nB, int const stride
                   , complex_t const *Hmt          // Hamiltonian
                   , complex_t const *Smt=nullptr  // Overlap matrix
-                  , double    const *Cnd=nullptr) // diagonal preconditioner
+                  , complex_t const *Cnd=nullptr) // diagonal preconditioner
         : Hmt{Hmt}, Smt{Smt}, Cnd{Cnd}, nB{nB}, nBa{stride}
       { assert( nB <= nBa ); } // constructor
 

@@ -288,15 +288,35 @@ namespace linear_algebra {
   inline status_t gemm(int const M, int const N, int const K, std::complex<double> c[], int const ldc
           , std::complex<double> const b[], int const ldb, std::complex<double> const a[], int const lda
           , std::complex<double> const alpha=1, std::complex<double> const beta=0, char const transa='n', char const transb='n') {
-      zgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); return 0; }
+      if (0) {
+          printf("# zgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
+                          transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
+          fflush(stdout);
+      } // echo
+      zgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+      return 0;
+  } // gemm
 
-  inline status_t gemm(int const N, int const M, int const K, std::complex<float> c[], int const ldc
+  inline status_t gemm(int const M, int const N, int const K, std::complex<float> c[], int const ldc
           , std::complex<float> const b[], int const ldb, std::complex<float> const a[], int const lda
           , std::complex<float> const alpha=1, std::complex<float> const beta=0, char const transa='n', char const transb='n') {
-      if (0) { 
-          printf("# cgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[][%d], B[][%d], beta=(%g, %g), C[][%d])\n",
-                          transa, transb, M, N, K, alpha.real(), alpha.imag(), lda, ldb, beta.real(), beta.imag(), ldc);
+      if (0) {
+//         gemm.f
+//         DO n = 1,N
+//             DO k = 1,K
+//                 DO m = 1,M
+//                     C(m,n) += ALPHA * A(m,k) * B(k,n)
+//         gemm.hxx
+//         for n = 0 .. N
+//             for k = 0 .. K
+//                 for m = 0 .. M
+//                     C[n*ldc + m] += alpha * B[n*ldb + k] * A[k*lda + m];
+
+          printf("# cgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
+                          transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
           fflush(stdout);
+      } 
+      if (0) { // triple loop naive implementation
           if (('n' == (transa | 32)) && ('n' == (transb | 32))) {
               for(int n = 0; n < N; ++n) {
                   for(int m = 0; m < M; ++m) {
@@ -310,7 +330,9 @@ namespace linear_algebra {
               return 0;
           } // trans and transb 
       } // 1
-      cgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); return 0; }
+      cgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+      return 0;
+  } // gemm
 
 
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

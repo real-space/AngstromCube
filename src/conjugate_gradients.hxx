@@ -32,14 +32,14 @@ namespace conjugate_gradients {
 
   template<typename complex_t>
   void show_matrix(complex_t const mat[], int const stride, int const n, int const m,
-      char const *name=nullptr, char const initchar='#', char const final_newline='\n')
+      char const *name=nullptr, complex_t const unit=1, char const initchar='#', char const final_newline='\n')
   {
       if (is_complex<complex_t>()) return;
       printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
-              printf("%9.3f", mat[i*stride + j]);
+              printf("%9.3f", mat[i*stride + j]*unit);
           } // j 
           printf("\n");
       } // i
@@ -309,7 +309,7 @@ namespace conjugate_gradients {
 
           if (echo > 4) {
               char label[64]; std::snprintf(label, 63, "Eigenvalues of outer iteration #%i", outer_iteration);
-              show_matrix(energy.data(), nbands, 1, nbands, label, '#', 0);
+              show_matrix(energy.data(), nbands, 1, nbands, label, eV, '#', 0);
           } // echo
 
       } // outer iterations

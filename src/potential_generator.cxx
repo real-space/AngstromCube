@@ -781,7 +781,7 @@ namespace potential_generator {
                   here;
               } // psi_on_grid
 
-#if 1
+#if 0
               if (1) { // update take_atomic_valence_densities
                   float take_some_spherical_valence_density = 0.5f;
                   stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_some_spherical_valence_density);

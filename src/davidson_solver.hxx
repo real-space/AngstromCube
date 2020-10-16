@@ -14,8 +14,8 @@ namespace davidson_solver {
 
   template<typename doublecomplex_t, typename complex_t>
   void inner_products(doublecomplex_t s[] // result <bra|ket> [nstates][mstates]
-                   , int const stride // same stride assumed for both, bra and ket
-                   , size_t const ndof
+                   , int const stride // stride for the result matrix
+                   , size_t const ndof // also assumed as stride for bra and ket
                    , complex_t const bra[] // assumed shape [nstates][ndof]
                    , int const nstates  // number of bra states
                    , complex_t const ket[] // assumed shape [mstates][ndof]
@@ -80,6 +80,7 @@ namespace davidson_solver {
     , int const echo=0 // log output level
     , float const mbasis=2
     , unsigned const niterations=2
+    , float const threshold=1e-4
   ) {
       using complex_t = typename operator_t::complex_t; // abbreviate
       using doublecomplex_t = decltype(to_double_complex_t(complex_t(1))); // double or complex<double>
@@ -94,7 +95,7 @@ namespace davidson_solver {
       int sub_space{nbands}; // init with the waves from the input
       if (echo > 0) printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
 
-      double const threshold2 = pow2(1e-4); // do not add residual vectors with a norm < 1e-4
+      double const threshold2 = pow2(threshold); // do not add residual vectors with a norm < 1e-4
 
       int const op_echo = echo - 16; // lower log level in operator calls
 
@@ -115,6 +116,8 @@ namespace davidson_solver {
       for(unsigned iteration = 0; iteration < niter; ++iteration) {
           if (echo > 9) printf("# Davidson iteration %i\n", iteration);
 
+          int n_drop{0};
+        do{
           // apply Hamiltonian and Overlap operator
           for(int istate = 0; istate < sub_space; ++istate) {
               stat += op.Hamiltonian(hpsi[istate], psi[istate], op_echo);
@@ -128,12 +131,64 @@ namespace davidson_solver {
           if (echo > 9) show_matrix(Ovl.data(), Ovl.stride(), sub_space, sub_space, "Overlap");
           if (echo > 8) show_matrix(Hmt.data(), Hmt.stride(), sub_space, sub_space, "Hamiltonian", eV, _eV);
 
+          if (1) { // inspect eigenvalues of the overlap matrix
+              view2D<doublecomplex_t> Ovl_copy(sub_space, sub_space, doublecomplex_t(0));
+              for(int i = 0; i < sub_space; ++i) {
+                  set(Ovl_copy[i], sub_space, Ovl[i]);
+              } // i
+              
+              if (1) { // check if the overlap matrix is symmetric/Hermitian
+                  double dev2{0};
+                  for(int i = 0; i < sub_space; ++i) {
+                      for(int j = 0; j < i; ++j) {
+                          dev2 = std::max(dev2, std::norm(Ovl_copy(i,j) - conjugate(Ovl_copy(j,i))));
+                      } // j
+                  } // i
+                  auto const dev = std::sqrt(std::max(0.0, dev2)); // since std::norm(z) generates |z|^2
+                  if (echo > 9 && dev > 1e-14) printf("# Davidson: the %d x %d overlap matrix deviates from %s by %.1e\n",
+                      sub_space, sub_space, is_complex<doublecomplex_t>() ? "Hermitian" : "symmetric", dev);
+                  if (dev > 1e-12) warn("the overlap matrix deviates by %.1e from symmetric/Hermitian", dev);
+              } // check if the overlap matrix is symmetric/Hermitian
+
+              auto const info = linear_algebra::eigenvalues(eigval.data(), sub_space, Ovl_copy.data(), Ovl_copy.stride());
+              if (1) {
+                  printf("# Davidson: lowest eigenvalues of the %d x %d overlap matrix ", sub_space, sub_space);
+                  for(int i = 0; i < std::min(9, sub_space) - 1; ++i) {
+                      printf(" %.3g", eigval[i]);
+                  } // i
+                  if (sub_space > 9) printf(" ...");
+                  printf(" %g", eigval[sub_space - 1]);
+                  if (0 != info) printf(", info= %i\n", int(info));
+                  printf("\n");
+              } // 1
+              if (eigval[0] <= 0.0) {
+                  warn("overlap matrix is not positive definite, lowest eigenvalue is %g", eigval[0]);
+              } // one or more non-positive eigenvalues
+
+              int drop_bands{0}; while (eigval[drop_bands] < 1e-4) ++drop_bands;
+              n_drop = drop_bands;
+              if (n_drop > 0) {
+                  if (echo > 0) printf("# Davidson: drop %d bands to stabilize the overlap\n", n_drop);
+                  for(int i = 0; i < sub_space - n_drop; ++i) {
+                      int const ii = i + n_drop;
+                      set(epsi[i], ndof, zero);
+                      for(int j = 0; j < sub_space; ++j) {
+                          add_product(epsi[i], ndof, psi[j], complex_t(Ovl_copy(ii,j)));
+                      } // j
+                  } // i
+                  std::swap(psi, epsi); // pointer swap instead of deep copy
+                  sub_space -= n_drop;
+              } // drop n bands
+
+          } // inspect eigenvalues of the overlap matrix
+        } while(n_drop > 0); //while
+
           auto const info = linear_algebra::eigenvalues(eigval.data(), sub_space, Hmt.data(), Hmt.stride(), Ovl.data(), Ovl.stride());
           if (info) {
               warn("generalized eigenvalue problem returned INFO=%i", info);
               stat += info;
           } else {
-              auto const & eigvec = Hmt;
+              auto const & eigvec = Hmt; // on success eigenvectors are stored in the memory location of the Hamiltonian
               if (echo > 8) show_matrix(eigval.data(), 0, 1, sub_space, "Eigenvalues", eV, _eV);
               // if (echo > 8) show_matrix(eigvec.data(), eigvec.stride(), sub_space, sub_space, "Eigenvectors");
 
@@ -159,18 +214,33 @@ namespace davidson_solver {
                       if (with_overlap) stat += op.Overlapping(spsi[i], epsi[i], op_echo);
                   } // i
                   vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
-                                       with_overlap ? spsi.data() : nullptr, dV);
+                                               with_overlap ? spsi.data() : nullptr, dV);
+                  if (0) {
+                      printf("# Davidson: unsorted residual norms^2 ");
+                      for(int i = 0; i < sub_space; ++i) {
+                          printf(" %.1e", residual_norm2s[i]);
+                      } // i
+                      printf("\n");
+                  } // 1
 
                   std::vector<double> res_norm2_sort(sub_space);              
                   set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
-                  std::sort(res_norm2_sort.begin(), res_norm2_sort.end()); // sort in place
+                  std::sort(res_norm2_sort.rbegin(), res_norm2_sort.rend()); // sort in place, reversed
+                  // reverse as we seek for the largest residuals
+                  if (1) {
+                      printf("# Davidson: sorted residual norms^2 ");
+                      for(int i = 0; i < sub_space; ++i) {
+                          printf(" %.1e", res_norm2_sort[i]);
+                      } // i
+                      printf("\n");
+                  } // 1
 
                   // now select the threshold epsi with the largest residual and add them to the basis
                   int const max_bands = max_space - sub_space; // not more than this many
                   int new_bands{0};
-                  double thres2{9e99};
+                  double thres2{9.999e99};
                   for(int i = 0; i < sub_space; ++i) {
-                      auto const rn2 = res_norm2_sort[sub_space - 1 - i]; // reverse as we seek for the largest residuals
+                      auto const rn2 = res_norm2_sort[i];
                       if (rn2 > threshold2) {
                           if (new_bands < max_bands) {
                               ++new_bands;
@@ -180,13 +250,14 @@ namespace davidson_solver {
                   } // i
                   int const add_bands = new_bands;
                   if (echo > 0) {
-                      printf("# Davidson: in iteration #%i add %d residual vectors with norm2 above %.3e\n",
-                                          iteration, add_bands, thres2);
+                      printf("# Davidson: in iteration #%i add %d residual vectors", iteration, add_bands);
+                      if (add_bands > 0) printf(" with norm2 above %.3e", thres2);
+                      printf("\n");
                   } // echo
 
                   std::vector<short> indices(add_bands);
                   int new_band{0};
-                  if (echo > 9) printf("# Davidson: add residual vectors: ");
+                  if (echo > 9 && add_bands > 0) printf("# Davidson: add %d residual vectors: ", add_bands);
                   for(int i = 0; i < sub_space; ++i) {
                       auto const rn2 = residual_norm2s[i];
                       if (rn2 >= thres2) {
@@ -197,7 +268,7 @@ namespace davidson_solver {
                           } // new_band < max_bands
                       } // rn2
                   } // i
-                  if (echo > 9) printf("\n");
+                  if (echo > 9 && add_bands > 0) printf("\n");
                   if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
 
                   for(int i = 0; i < add_bands; ++i) {
@@ -210,7 +281,7 @@ namespace davidson_solver {
                   sub_space += add_bands; // increase the subspace size by the number of non-vanishing residual vectors
 
                   // ToDo: make sure that we run at least one more iteration at the increased function space size
-                  niter = iteration + 2;
+                  niter = iteration + 2 * (add_bands > 0);
               } else { // if the space can grow
                   niter = iteration; // stop
               } // sub_space < max_space

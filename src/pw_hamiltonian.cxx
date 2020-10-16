@@ -31,6 +31,7 @@
 #include "fourier_transform.hxx" // ::fft
 
 #include "davidson_solver.hxx" // ::eigensolve
+#include "conjugate_gradients.hxx" // ::eigensolve
 #include "dense_operator.hxx" // ::dense_operator_t
 
 namespace pw_hamiltonian {
@@ -101,14 +102,14 @@ namespace pw_hamiltonian {
       int const nPW  = SHm.dim1();
       int const nPWa = SHm.stride();
 
-      if (echo > 7) {
-          printf("# %s for the lowest %d bands of a %d x %d Hamiltonian\n",
-                    __func__, nbands, nPW, nPWa);
+      if (echo > 6) {
+          printf("# %s for the lowest %d bands of a %d x %d Hamiltonian (stride %d)\n",
+                    __func__, nbands, nPW, nPW, nPWa);
           fflush(stdout);
       } // echo
-      
+
       // create nbands start waves
-      view2D<complex_t> waves(nbands, nPW, complex_t(0));
+      view2D<complex_t> waves(nbands, nPW, complex_t(0)); // get memory
       
       if (nbands > nPW) {
           warn("tried to find %d bands in a basis set with %d plane waves", nbands, nPW);
@@ -125,6 +126,8 @@ namespace pw_hamiltonian {
           } // ib
 
           // assume that plane waves are energy ordered and solve for the nsub * nsub sub-Hamiltonian
+          if (echo > 6) { printf("# %s get %d start waves from diagonalization of a %d x %d Hamiltonian (stride %d)\n",
+                                  __func__, nbands, nsub, nsub, SHmat_b.stride()); fflush(stdout); }
           auto const stat_eig = dense_solver::solve(SHmat_b, "# start waves "); // mute
           if (stat_eig != 0) {
               warn("diagonalization of the %d x %d sub-Hamiltonian returned status= %i", nsub, nsub, int(stat_eig));
@@ -133,31 +136,50 @@ namespace pw_hamiltonian {
           stat += stat_eig;
           // after the dense solver, the Hamiltonian matrix contains the eigenvectors
 
+          if (echo > 6) { printf("# %s copy %d start waves from eigenstates of the %d x %d Hamiltonian (stride %d)\n",
+                                  __func__, nbands, nsub, nsub, SHmat_b.stride()); fflush(stdout); }
           // copy eigenvectors into low PW coefficients of start waves
           for(int ib = 0; ib < nbands; ++ib) {
               set(waves[ib], nsub, SHmat_b(H,ib));
           } // ib
+          
       } // scope
+      
 
+      if (echo > 6) { printf("# %s construct a dense operator for the %d x %d Hamiltonian (stride %d)\n",
+                              __func__, nPW, nPW, nPWa); fflush(stdout); }
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
 
+      char const method = *control::get("pw_hamiltonian.iterative.solver", "Davidson") | 32;
+
       // solve using the Davidson eigensolver
       std::vector<double> eigvals(nbands);
-      status_t stat_dav(0);
-      int const nit = control::get("davidson_solver.max.iterations", 1.);
-      for(int it = 0; it < nit; ++it) {
-          stat_dav = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.f);
-          stat += stat_dav;
-      } // it
-      if (0 == stat_dav) {
+      status_t stat_slv(0);
+      if ('c' == method) {
+          int const nit = control::get("pw_hamiltonian.max.cg.iterations", 3.);
+          if (echo > 6) { printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); fflush(stdout); }
+          for(int it = 0; it < nit && (0 == stat_slv); ++it) {
+              if (echo > 6) { printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); fflush(stdout); }
+              stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10);
+              stat += stat_slv;
+          } // it
+      } else { // method
+          int const nit = control::get("davidson_solver.max.iterations", 1.);
+          if (echo > 6) { printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); fflush(stdout); }
+          stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.5f, nit, 1e-2);
+      } // method
+
+      if (0 == stat_slv) {
           if (echo > 2) {
               dense_solver::display_spectrum(eigvals.data(), nbands, x_axis, eV, _eV);
               if (echo > 4) printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n", 
                                       eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
               fflush(stdout);
           } // echo
-      } // stat_dav
+      } else {
+          warn("Davidson solver for the plane wave Hamiltonian failed with status= %i", int(stat_slv));
+      } // stat_slv
 
       return stat;
   } // iterative_solve
@@ -182,7 +204,9 @@ namespace pw_hamiltonian {
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int & nPWs // export number of plane waves
           , int const echo=0 // log-level
-          , int const nbands=10) { // number of bands (needed by iterative solver)
+          , int const nbands=10 // number of bands (needed for iterative solver)
+          , float const direct_ratio=2.f // try to get good start waves by envoking a dense solver on a (2.0*nbands)x(2.0*nbands) sub-Hamiltonian
+      ) { // number of bands (needed by iterative solver)
 
       using real_t = decltype(std::real(complex_t(1)));
             
@@ -274,10 +298,10 @@ namespace pw_hamiltonian {
 #endif
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
       for(int jB = 0; jB < nB; ++jB) {
-          auto const & i = pw_basis[jB];
-          double const gv[3] = {(i.x + kpoint[0])*reci[0][0],
-                                (i.y + kpoint[1])*reci[1][1],
-                                (i.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci-matrix assumed here
+          auto const & pw = pw_basis[jB];
+          double const gv[3] = {(pw.x + kpoint[0])*reci[0][0],
+                                (pw.y + kpoint[1])*reci[1][1],
+                                (pw.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci-matrix assumed here
           for(int ka = 0; ka < natoms_PAW; ++ka) {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
@@ -400,7 +424,7 @@ namespace pw_hamiltonian {
       bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
-      if (run_solver[0]) solver_stat += iterative_solve(SHm, x_axis, echo, nbands);
+      if (run_solver[0]) solver_stat += iterative_solve(SHm, x_axis, echo, nbands, direct_ratio);
       if (run_solver[1]) solver_stat += dense_solver::solve(SHm, x_axis, echo);
       // dense solver must runs second in case of "both" since it modifies the memory locations of SHm
 
@@ -610,6 +634,7 @@ namespace pw_hamiltonian {
 
       auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
       auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
+      float const iterative_direct_ratio = control::get("pw_hamiltonian.iterative.solver.ratio", 2.);
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
           double const kpoint[3] = {ikp*.5/std::max(1., nkpoints - 1.), 0, 0};
@@ -624,11 +649,13 @@ namespace pw_hamiltonian {
               if (32 == floating_point_bits) {
                   stat += solve_k<std::complex<float>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          kpoint, x_axis, nPWs, echo, nbands);
+                          kpoint, x_axis, nPWs, echo,
+                          nbands, iterative_direct_ratio);
               } else {
                   stat += solve_k<std::complex<double>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
-                          kpoint, x_axis, nPWs, echo, nbands);
+                          kpoint, x_axis, nPWs, echo,
+                          nbands, iterative_direct_ratio);
               } // floating_point_bits
               nPW_stats.add(nPWs);
           } // !can_be_real
