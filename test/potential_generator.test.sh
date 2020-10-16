@@ -12,19 +12,19 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-# project_base=pg.C-atom
-# printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-atom
+printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
 
-project_base=pg.C-dimer
-printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 -0.65" >> $geometry_file
-echo "C  0 0  0.65" >> $geometry_file
+# project_base=pg.C-dimer
+# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 -0.65" >> $geometry_file
+# echo "C  0 0  0.65" >> $geometry_file
 ### QE-spectrum          -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV (self-consistent result)
 # pg.C-dimer.sho3.out:#   -2.44596 12.4182 12.4182 15.8118 15.8118 17.2857 17.8086 26.7288 ... 227.187 274.533 eV
 # pg.C-dimer.sho4.out:#   -10.4397 6.19268 9.4426 12.0828 12.0828 15.6831 15.6831 23.6335 ... 345.598 410.391 eV
@@ -134,7 +134,7 @@ element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.nn.limit=4
+single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
 single_atom.echo=0
 single_atom.init.echo=0
@@ -149,7 +149,7 @@ logder.step=1e-2
 # configuration for basis=grid
 bands.per.atom=10
 # DEVEL option
-devel.occupied.bands=.5
+devel.occupied.bands=3.5
 eigensolver=cg
 repeat.eigensolver=15
 conjugate_gradients.max.iter=19
@@ -169,10 +169,6 @@ sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
 hamiltonian.test.kpoints=1
-hamiltonian.scale.kinetic=1
-hamiltonian.scale.potential=1
-hamiltonian.scale.nonlocal.h=1
-hamiltonian.scale.nonlocal.s=1
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
@@ -205,7 +201,7 @@ for spacing in `seq 1 1 0`; do
 #         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
 done
 
-for numax in `seq 3 1 2`; do
+for numax in `seq 4 2 3`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -217,7 +213,7 @@ for numax in `seq 3 1 2`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 1 1 1`; do
+for ecut in `seq 7 1 7`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

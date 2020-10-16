@@ -175,15 +175,11 @@ namespace grid_operators {
       assert(atom_matrices); // may not be nullptr
 
 #ifdef DEVEL
-      double const scale_k = control::get("hamiltonian.scale.kinetic", 1.);
-      double const scale_p = control::get("hamiltonian.scale.potential", 1.);
-      if (1 != scale_k) warn("kinetic energy is scaled by %g", scale_k);
-      if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
       double const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.);
       double const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
-      double constexpr scale_k=1, scale_p=1, scale_h=1, scale_s=1;
+      double constexpr scale_h=1, scale_s=1;
 #endif
 
       for(size_t ia = 0; ia < a.size(); ++ia) {

@@ -378,7 +378,7 @@ namespace pw_hamiltonian {
       real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
 #else
-      real_t constexpr scale_h = 1, scale_s = 1
+      real_t constexpr scale_h = 1, scale_s = 1;
       double constexpr scale_k = 1, scale_p = 1;
 #endif
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
@@ -483,6 +483,8 @@ namespace pw_hamiltonian {
                       int const nc = ncoeff[ka], stride = nc;
                       for(int ic = 0; ic < nc; ++ic) {
                           auto const c_i = conjugate(atom_coeff[ic + offset[ka]]);
+                          if (echo > 1) printf("# band #%i atom #%i c[%i]= %g %g |c|= %g\n", 
+                                        iband, ka, ic, std::real(c_i), std::imag(c_i), std::abs(c_i));
                           for(int jc = 0; jc < nc; ++jc) { 
                               auto const c_j = atom_coeff[jc + offset[ka]];
                               density_matrix[ic*stride + jc] += weight_nk * std::real(c_i * c_j); // Caution: imaginary part is dropped!

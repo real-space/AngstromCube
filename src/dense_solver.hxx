@@ -1,7 +1,9 @@
 #pragma once
 
+#include <cstdio> // printf
+
 #include "status.hxx" // status_t
-#include "complex_tools.hxx" // complex_name, is_complex, conjuagte, to_complex_t
+#include "complex_tools.hxx" // complex_name, is_complex, conjugate, to_complex_t
 #include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues, ::inverse
 #include "data_view.hxx" // view2D<T>
 #include "display_units.h" // eV, _eV, Kelvin, _Kelvin
@@ -42,7 +44,9 @@ namespace dense_solver {
 
       std::vector<real_t> eigvals(nB, 0.0);
       auto const ovl_eig = int(control::get("dense_solver.test.overlap.eigvals", 0.));
+#ifdef DEVEL
       char const hermitian = *control::get("dense_solver.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
+#endif
       real_t const E_imag = control::get("electronic.temperature", 9.765625e-4);
       double const f_dos = -1./constants::pi;
       double const energy_range[2] = {-1, 1}; // ToDo: external input

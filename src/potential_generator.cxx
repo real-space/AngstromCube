@@ -28,11 +28,11 @@
 
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
 #include "bessel_transform.hxx" // ::Bessel_j0
+#include "debug_tools.hxx" // ::read_from_file
 
 #ifdef DEVEL
     #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file
-    #include "debug_tools.hxx" // ::read_from_file
     #include "radial_r2grid.hxx" // radial_r2grid_t
     #include "radial_r2grid.hxx" // r2_axis
 #endif
