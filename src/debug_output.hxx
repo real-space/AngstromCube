@@ -37,4 +37,4 @@ int dump_to_file(
     return 0;
 } // dump_to_file
 
-#define here { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); fflush(stdout); }
+#define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); fflush(stdout); }

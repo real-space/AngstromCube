@@ -244,8 +244,8 @@ namespace pw_hamiltonian {
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
       if (echo > 6) { 
-          printf("\n# start %s<%s> Ecut= %g %s nPW=%d\n",
-                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB);
+          printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %.2f minutes)\n",
+                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB));
           fflush(stdout);
       } // echo
 #endif

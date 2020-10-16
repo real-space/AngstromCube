@@ -182,6 +182,8 @@ namespace grid_operators {
       double const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.);
       double const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
+#else
+      double constexpr scale_k=1, scale_p=1, scale_h=1, scale_s=1;
 #endif
 
       for(size_t ia = 0; ia < a.size(); ++ia) {
@@ -264,7 +266,9 @@ namespace grid_operators {
       void _constructor(real_space::grid_t const & g // real space grid descriptor
                , double const *local_potential // may be nullptr
                , int const nn_precond
-               , int const nn_kinetic=8) {
+               , int const nn_kinetic=8
+               , int const echo=0
+      ) {
 
 //           int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
@@ -281,7 +285,7 @@ namespace grid_operators {
               warn("kinetic energy is scaled by %g", scale_k);
           } // scale_k != 1
 #endif
-          set_potential(local_potential, g.all(), nullptr, 1);
+          set_potential(local_potential, g.all(), nullptr, echo);
 
           // this simple grid-based preconditioner is a diffusion stencil
           preconditioner = finite_difference::stencil_t<complex_t>(g.h, std::min(1, nn_precond));
@@ -298,16 +302,18 @@ namespace grid_operators {
       grid_operator_t(real_space::grid_t const & g // real space grid descriptor
                       , std::vector<atom_image::sho_atom_t> const & a // is moved to atoms
                       , double const *local_potential=nullptr // effective local potential
-                      , int const nn_precond=1) // range of the preconditioner
-          : grid(g), atoms(a), has_precond(nn_precond > 0), has_overlap(true) {
-          _constructor(grid, local_potential, nn_precond);
+                      , int const nn_precond=1 // range of the preconditioner
+                      , int const echo=0
+      ) : grid(g), atoms(a), has_precond(nn_precond > 0), has_overlap(true) {
+          _constructor(grid, local_potential, nn_precond, echo);
       } // constructor with atoms
 
       grid_operator_t(real_space::grid_t const & g // real space grid descriptor
                       , double const *local_potential=nullptr // effective local potential
-                      , int const nn_precond=1) // range of the preconditioner
-          : grid(g), atoms(0), has_precond(nn_precond > 0), has_overlap(true) {
-          _constructor(grid, local_potential, nn_precond);
+                      , int const nn_precond=1 // range of the preconditioner
+                      , int const echo=0
+      ) : grid(g), atoms(0), has_precond(nn_precond > 0), has_overlap(true) {
+          _constructor(grid, local_potential, nn_precond, echo);
       } // constructor without atoms
 
       status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {

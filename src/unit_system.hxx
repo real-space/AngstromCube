@@ -46,11 +46,15 @@ namespace unit_system {
 
   inline status_t set_output_units(char const *energy, char const *length) {
 #ifdef _Output_Units_Fixed
-      if ('H' != *energy || 'B' != *length) warn("output units cannot be changed to {%s, %s} at runtime", energy, length);
+      if ('H' != *energy || 'B' != *length) {
+          warn("output units cannot be changed to {%s, %s} at runtime", energy, length);
+      } // units differ from "Ha" and "Bohr"
       return -1; // cannot modify
 #else
       eV  = energy_unit(energy, &_eV);
       Ang = length_unit(length, &_Ang);
+      assert( eV  > 0 );
+      assert( Ang > 0 );
       return 0;
 #endif
   } // set_output_units

@@ -217,16 +217,16 @@
       } // no argument passed to executable
       for(int iarg = 1; iarg < argc; ++iarg) {
           assert(nullptr != argv[iarg]);
-          char const ci0 = *argv[iarg]; // char #0 of command line argument #1
+          char const ci0 = *argv[iarg]; // char #0 of command line argument #i
           if ('-' == ci0) {
 
               // options (short or long)
-              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #1
+              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #i
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
 
-                  // long options
-                  std::string option(argv[iarg] + 2); // remove two '-' in front
+                  // long options with "--"
+                  std::string option(argv[iarg] + 2); // + 2 to remove "--" in front
                   if ("help" == option) {
                       return show_help(argv[0]);
                   } else 
@@ -234,7 +234,7 @@
                       return show_version(argv[0]);
                   } else 
                   if ("verbose" == option) {
-                      verbosity = 6; // set high
+                      verbosity = 6; // set default verbosity high
                   } else
                   if ("test" == option) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
@@ -244,12 +244,12 @@
 
               } else { // ci1
 
-                  // short options
+                  // short options with "-"
                   if ('h' == (ci1 | IgnoreCase)) {
                       return show_help(argv[0]);
                   } else
                   if ('v' == (ci1 | IgnoreCase)) {
-                      ++verbosity; verbosity += 3*('V' == ci1); // increment by 'V':4, 'v':1
+                      verbosity += 1 + 3*('V' == ci1); // increment by 'V':4, 'v':1
                   } else
                   if ('t' == (ci1 | IgnoreCase)) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
@@ -268,18 +268,19 @@
           } // ci0
 
       } // iarg
-      int echo{verbosity}; // define verbosity for repeating arguments and control file entries
+      int echo = int(control::get("verbosity", double(verbosity))); // define verbosity for repeating arguments and control file entries
       if (echo > 0) {
           printf("\n#");
           for(int iarg = 0; iarg < argc; ++iarg) {
               printf(" %s", argv[iarg]); // repeat the command line arguments
-          }   printf("\n");
+          } // iarg
+          printf("\n");
       } // echo
       //
       // in addition to command_line_interface, we can modify the control environment by a file
       stat += control::read_control_file(control::get("control.file", ""), echo);
       //
-      echo = int(control::get("verbosity", double(verbosity))); // redefine verbosity here
+      echo = int(control::get("verbosity", double(echo))); // verbosity may have been redefined in the control file
       //
       if (echo > 0) {
           printf("\n");

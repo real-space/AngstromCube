@@ -51,6 +51,7 @@
 #include "pw_hamiltonian.hxx" // ::solve
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
+#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, scale=1, add=0, final="\n")
 
 #define DEBUG
 #ifdef  DEBUG
@@ -67,7 +68,7 @@ namespace potential_generator {
   // feel the effect of the density of neighboring atoms
 
   template<typename real_t>
-  double print_stats(real_t const values[], size_t const all, double const dV=1, char const *prefix="") {
+  double print_stats(real_t const values[], size_t const all, double const dV=1, char const *prefix="", real_t const unit=1) {
       real_t gmin{9e307}, gmax{-gmin}; double gsum{0}, gsum2{0};
       for(size_t i = 0; i < all; ++i) {
           gmin = std::min(gmin, values[i]);
@@ -75,7 +76,7 @@ namespace potential_generator {
           gsum  += values[i];
           gsum2 += pow2(values[i]);
       } // i
-      printf("%s grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*dV, gsum/all);
+      printf("%s grid stats min %g max %g integral %g avg %g\n", prefix, gmin*unit, gmax*unit, gsum*dV*unit, gsum/all*unit);
       return gsum*dV;
   } // print_stats
 
@@ -232,7 +233,7 @@ namespace potential_generator {
       rho_abs *= g.dV();
       rho_squ = std::sqrt(rho_squ)*g.dV();
 
-      if (echo > 1) print_stats(Ves, g.all(), g.dV(), "# real-space stats of output potential:");
+      if (echo > 1) print_stats(Ves, g.all(), g.dV(), "# real-space stats of output potential:", eV);
 
       if (echo > 3) printf("# Bessel_Poisson deviation from a spherical density: "
           "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ);
@@ -274,9 +275,9 @@ namespace potential_generator {
 
       status_t stat(0);
       
-      char line[32]; set(line, 31, '='); line[31] = '\0'; // a line of 31x '='
-      if (echo > 0) printf("\n\n# %s\n# Initialize\n# %s\n\n", line, line);      
-      
+      char h_line[32]; set(h_line, 31, '='); h_line[31] = '\0'; // a horizontal line of 31x '='
+      if (echo > 0) printf("\n\n# %s\n# Initialize\n# %s\n\n", h_line, h_line);      
+
       view2D<double> xyzZ_noconst;
       real_space::grid_t g;
       int na_noconst{0};
@@ -291,6 +292,7 @@ namespace potential_generator {
       if ((ion != 0.0) && (na > 1)) {
           if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
           ionization[0] = ion; ionization[na - 1] = -ionization[0];
+          if (echo > 2) { printf("# %s ionizations:", __func__); printf_vector(" %g", ionization.data(), na); }
       } // ionized
 #endif
       
@@ -303,7 +305,7 @@ namespace potential_generator {
       std::vector<double> Za(na);        // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
-          if (echo > 1) printf("# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
+          if (echo > 1) printf("\n# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
           for(int ia = 0; ia < na; ++ia) {
               double const Z = xyzZ(ia,3);
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
@@ -312,9 +314,12 @@ namespace potential_generator {
               Za[ia] = Z;
               for(int d = 0; d < 3; ++d) {
                   center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), cell[d]) + 0.5*(g[d] - 1)*g.h[d]; // w.r.t. to the center of grid point (0,0,0)
-              }   center(ia,3) = 0; // 4th component is not used
-              if (echo > 1) printf("  relative %g %g %g", center(ia,0)*g.inv_h[0],
+              } // d
+              center(ia,3) = 0; // 4th component is not used
+#ifdef DEVEL
+              if (echo > 6) printf("  relative %g %g %g", center(ia,0)*g.inv_h[0],
                                  center(ia,1)*g.inv_h[1], center(ia,2)*g.inv_h[2]);
+#endif
               if (echo > 4) printf("\n");
           } // ia
       } // scope
@@ -416,8 +421,8 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-//               using real_wave_function_t = float; // decide here if float or double precision
-              using real_wave_function_t = double;
+              using real_wave_function_t = float; // decide here if float or double precision
+//               using real_wave_function_t = double;
 //            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
               using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, a);
@@ -468,7 +473,7 @@ namespace potential_generator {
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
-          if (echo > 1) printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", line, scf_iteration, line);
+          if (echo > 1) printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", h_line, scf_iteration, h_line);
 
           stat += single_atom::atom_update("x densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
@@ -484,7 +489,7 @@ namespace potential_generator {
           // add contributions from smooth core densities, and optionally spherical valence densities
           stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
-                                echo, echo, Y00sq, "smooth core density");
+                                echo, 0, Y00sq, "smooth core density");
           here;
 
           { // scope: eval the XC potential and energy
@@ -506,7 +511,7 @@ namespace potential_generator {
               for(int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
-                  if (echo > -1) printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
+                  if (echo > 6) printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
                   std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
 //                if (echo > 7) printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
@@ -515,7 +520,7 @@ namespace potential_generator {
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
                   } // periodic images
 #ifdef DEVEL
-                  if (echo > 1) { // report extremal values of the density on the grid
+                  if (echo > 6) { // report extremal values of the density on the grid
                       printf("# after adding %g electrons compensator density for atom #%i:", atom_qlm[ia][00]*Y00inv, ia);
                       print_stats(cmp.data(), g.all(), g.dV());
                   } // echo
@@ -531,7 +536,7 @@ namespace potential_generator {
                   SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
 #ifdef DEVEL
                   if (echo > 0) {
-                      printf("\n\n# %s\n# Solve Poisson equation\n# %s\n\n", line, line);
+                      printf("\n\n# %s\n# Solve Poisson equation\n# %s\n\n", h_line, h_line);
                       fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
                   } // echo
 #endif
@@ -590,7 +595,7 @@ namespace potential_generator {
                       stat += iterative_poisson::solve(Ves.data(), rho.data(), g, es_solver_method, echo);
                   } // es_solver_method
 
-                  if (echo > 1) print_stats(Ves.data(), g.all(), g.dV(), "\n# electrostatic potential");
+                  if (echo > 1) print_stats(Ves.data(), g.all(), g.dV(), "\n# electrostatic potential", eV);
 #ifdef DEVEL
                   if (echo > 6) {
                       printf("# electrostatic potential at grid corners:");
@@ -635,11 +640,12 @@ namespace potential_generator {
                       int const ellmax_show = std::min(ellmax, 2);
                       for(int ell = 1; ell <= ellmax_show; ++ell) {
                           printf("# potential projection for atom #%d v_%im =", ia, ell);
-                          double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
-                          for(int emm = -ell; emm <= ell; ++emm) {
-                              int const lm = sho_tools::lm_index(ell, emm);
-                              printf(" %.6f", atom_vlm[ia][lm]*unitfactor);
-                          } // emm
+//                           double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
+//                           for(int emm = -ell; emm <= ell; ++emm) {
+//                               int const lm = sho_tools::lm_index(ell, emm);
+//                               printf(" %.6f", atom_vlm[ia][lm]*unitfactor);
+//                           } // emm
+                          printf_vector(" %.6f", &atom_vlm[ia][sho_tools::lm_index(ell, -ell)], 2*ell + 1, Y00 * eV * std::pow(Ang, -ell), 0., "");
                           printf(" %s %s^%i\n", _eV, _Ang, -ell);
                       } // ell
                   } // echo
@@ -666,14 +672,14 @@ namespace potential_generator {
 
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), g.dV(), "\n# Total effective potential (before adding zero potentials)");
+          if (echo > 1) print_stats(Vtot.data(), g.all(), g.dV(), "\n# Total effective potential (before adding zero potentials)", eV);
 
           // now also add the zero potential vbar to Vtot
           stat += add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), g.dV(), "\n# Total effective potential  (after adding zero potentials)");
+          if (echo > 1) print_stats(Vtot.data(), g.all(), g.dV(), "\n# Total effective potential  (after adding zero potentials)", eV);
           here;
 
          
@@ -694,19 +700,21 @@ namespace potential_generator {
                       printf("\n# atom-centered %d x %d Hamiltonian (in %s) for atom #%i\n", n, n, _eV, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
-                          for(int j = 0; j < n; ++j) {
-                              printf(" %.6f", aHm(i,j)*eV);
-                          } // j
-                          printf("\n");
+//                           for(int j = 0; j < n; ++j) {
+//                               printf(" %.6f", aHm(i,j)*eV);
+//                           } // j
+//                           printf("\n");
+                          printf_vector(" %.6f", aHm[i], n, eV);
                       } // i
                       view2D<double const> const aSm(atom_mat[ia] + n*n, n);
                       printf("\n# atom-centered %d x %d overlap matrix for atom #%i\n", n, n, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
-                          for(int j = 0; j < n; ++j) {
-                              printf(" %.6f", aSm(i,j));
-                          } // j
-                          printf("\n");
+//                           for(int j = 0; j < n; ++j) {
+//                               printf(" %.6f", aSm(i,j));
+//                           } // j
+//                           printf("\n");
+                          printf_vector(" %.6f", aSm[i], n);
                       } // i
                   } // ia
               } // echo
@@ -717,13 +725,13 @@ namespace potential_generator {
                   // restrict the local effective potential to the coarse grid
                   std::vector<double> Veff(gc.all());
                   multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, 0); // mute
-                  if (echo > 1) print_stats(Veff.data(), gc.all(), gc.dV(), "\n# Total effective potential  (restricted to coarse grid)   ");
+                  if (echo > 1) print_stats(Veff.data(), gc.all(), gc.dV(), "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 #ifdef DEVEL
                   if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
                     // in order to test the interpolation routine
                       std::vector<double> v_dcd(g.all(), 0.0);
                       multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
-                      if (echo > 1) print_stats(v_dcd.data(), g.all(), g.dV(), "\n# Total effective potential (interpolated to dense grid)   ");
+                      if (echo > 1) print_stats(v_dcd.data(), g.all(), g.dV(), "\n# Total effective potential (interpolated to dense grid)   ", eV);
                   } // scope
 #endif
 
@@ -894,7 +902,8 @@ namespace potential_generator {
                       printf("\n# Bessel coeff of %s for atom #%d:\n", array_name, ia);
                       for(int iq = 0; iq < nq; ++iq) {
                           printf("# %g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
-                      }   printf("\n\n");
+                      } // iq
+                      printf("\n\n");
                   } // echo
 
                   if (echo > 3) {
@@ -941,7 +950,7 @@ namespace potential_generator {
               printf("\n");
           } // control
       } // echo
-      
+
       
       { // scope: export total potential to ASCII file
           auto const Vtot_out_filename = control::get("total.potential.to.file", "vtot.dat");
