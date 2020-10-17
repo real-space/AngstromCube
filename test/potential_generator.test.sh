@@ -136,8 +136,8 @@ element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=0
-single_atom.init.echo=0
+single_atom.echo=7
+single_atom.init.echo=7
 single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
 # logarithmic derivatives

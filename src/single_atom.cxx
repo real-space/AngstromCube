@@ -19,16 +19,19 @@
 #include "angular_grid.hxx" // ::transform, ::Lebedev_grid_size
 #include "radial_integrator.hxx" // ::integrate_outwards
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
+
+#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow, dot_product
 #include "inline_tools.hxx" // align<nbits>
+
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
+#include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial
+
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
-#include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, spherical_orbital_t, partial_wave_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "unit_system.hxx" // ::energy_unit
-#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow, dot_product
 #include "simple_math.hxx" // ::invert
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // ::transform_to_r2_grid
@@ -42,6 +45,7 @@
 #include "bisection_tools.hxx" // bisector_t
 #include "complex_tools.hxx" // conjugate
 #include "debug_tools.hxx" // here
+#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, scale=1, add=0, final="\n")
 
 // extern "C" {
 //   // BLAS interface to matrix matrix multiplication
@@ -54,7 +58,7 @@ namespace single_atom {
   int constexpr ELLMAX=7;
   char const ellchar[] = "spdfghijklmno";
   
-  int constexpr core=0, semicore=1, valence=2, csv_undefined=3;
+  int constexpr core=0, semicore=1, valence=2, csv_undefined=3; // ToDo: as enum to distinguish the different energy level classes
 //  char const csv_char[] = "csv?";  // 0:core, 1:semicore, 2:valence   (((unused)))
   char const csv_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
 
@@ -63,26 +67,41 @@ namespace single_atom {
   double constexpr Y00    = solid_harmonics::Y00; // == 1./sqrt(4*pi)
   double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
 
-  template<typename real_t>
-  inline void symmetrize(real_t &left, real_t &right) { left = (left + right)/2; right = left; }
+  template <typename real_t>
+  inline void symmetrize(real_t &left, real_t &right) {
+      // given two elements, set both of them to their common arithmetic average
+      left = (left + right)/2; right = left;
+  } // symmetrize
 
 
+  status_t minimize_curvature(int const n // dimension
+                  , view2D<double> & A // kinetic energy operator
+                  , view2D<double> & B // overlap operator
+                  , double* lowest=nullptr // export coefficient
+  ) {
+      // solve a generalized eigenvalue problem to find the lowest eigenvector coefficient
 
-
-  status_t minimize_curvature(int const n, view2D<double> & A, view2D<double> & B, double* lowest=nullptr) {
-      // solve a generalized eigenvalue problem
+      if (n < 1) return 0;
       std::vector<double> eigs(n);
       auto const info = linear_algebra::eigenvalues(eigs.data(), n, A.data(), A.stride(), B.data(), B.stride());
-      if (lowest && n > 0) *lowest = eigs[0];
+      if (lowest) *lowest = eigs[0];
       return info;
   } // minimize_curvature
 
 
-  inline int nn_max(int const numax, int const ell) { return (numax + 2 - ell)/2; }
-    
+  inline int nn_max(int const numax, int const ell) {
+      // number of different radial SHO states with the same ell of a SHO basis of size numax
+      return (numax + 2 - ell)/2;
+  } // nn_max
+
   template<typename int_t>
-  int display_delimiter(int const numax, int_t const nn[], char const resolve=0) {
-      // we want to display only the non-zero SHO contributions
+  int display_delimiter( // returns mln (or mlmn if resolve=='m')
+        int const numax // size of the SHO basis
+      , int_t const nn[] // numbers of partial waves per ell-channel
+      , char const resolve='\0' // 'm':emm_Resolved, otherwise emm_Degenerate
+  ) {
+      // we want to display only the non-zero SHO contributions and skip higher ell entries
+
       int const m2 = ('m' == resolve) ? 2 : 0;
 
       int lmax{-1}; // find the largest ell for which there are partial waves
@@ -98,10 +117,17 @@ namespace single_atom {
   } // display_delimiter
 
 
-  status_t pseudize_function(double fun[], radial_grid_t const *rg, int const irc,
-              int const nmax=4, int const ell=0, double *coeff=nullptr) {
-      int constexpr echo = 0;
+  status_t pseudize_function(
+          double fun[] // result function
+        , radial_grid_t const *const rg // radial grid descriptor
+        , int const irc // radial grid index of the cutoff radius
+        , int const nmax=4 // matching order (limited to max. 4)
+        , int const ell=0 // angular momentum quantum number
+        , double *coeff=nullptr // optional export coefficients
+        , int const echo=0 // log-level
+  ) {
       // match a radial function with an even-order polynomial inside r[irc]
+
       double Amat[4][4], bvec[4] = {0,0,0,0};
       set(Amat[0], 4*4, 0.0);
       int const nm = std::min(std::max(1, nmax), 4);
@@ -118,8 +144,10 @@ namespace single_atom {
           // b is the inhomogeneus right side of the set of linear equations
           bvec[i4] = fun[ir];
       } // i4
-
+      
+#ifdef DEVEL
       if (echo > 7) {
+          printf("\n");
           for(int i4 = 0; i4 < nm; ++i4) {
               printf("# %s Amat i=%i ", __func__, i4);
               for(int j4 = 0; j4 < nm; ++j4) {
@@ -128,17 +156,20 @@ namespace single_atom {
               printf(" bvec %16.9f\n", bvec[i4]);
           } // i4
       } // echo
-
-      double* x = bvec;
+#endif
+      double* x = bvec; // rename memory
       auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
 
+#ifdef DEVEL      
       if (echo > 7) {
           printf("# %s xvec     ", __func__);
-          for(int j4 = 0; j4 < nm; ++j4) {
-              printf(" %16.9f", x[j4]);
-          }   printf("\n");
+//           for(int j4 = 0; j4 < nm; ++j4) {
+//               printf(" %16.9f", x[j4]);
+//           } // j4
+//           printf("\n");
+          printf_vector(" %16.9f", x, nm);
       } // echo
-
+#endif
       set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
       // replace the inner part of the function by the even-order polynomial
       for(int ir = 0; ir < irc; ++ir) {
@@ -152,9 +183,14 @@ namespace single_atom {
   } // pseudize_function
 
 
-  // define matrix-transposition
   template<typename T>
-  view2D<T> transpose(view2D<T> const & a, int const aN, int const aM=-1, char const conj='n') {
+  view2D<T> transpose(view2D<T> const & a // input matrix a(N
+      , int const aN // assume shape a(N,M)
+      , int const aM=-1 // -1:auto use a.stride()
+      , char const conj='n' // 'c':complex conjugate (for complex data types)
+  ) {
+      // define matrix-transposition a(N,M) --> a_transposed(M,N)
+
       int const N = (-1 == aM) ? a.stride() : aM;
       int const M = aN;
       assert( N <= a.stride() );
@@ -169,10 +205,15 @@ namespace single_atom {
       return a_transposed;
   } // transpose
 
-  // define matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
   template<typename Ta, typename Tb, typename Tc>
-  void gemm(view2D<Tc> & c, int const N, view2D<Tb> const & b, int const K, view2D<Ta> const & a
-            , int const aM=-1, char const beta='0') {
+  void gemm(view2D<Tc> & c // result matrix, shape(N,M)
+      , int const N, view2D<Tb> const & b //  left input matrix, shape(N,K)
+      , int const K, view2D<Ta> const & a // right input matrix, shape(K,M)
+      , int const aM=-1 // user specify M different from min(a.stride(), c.stride())
+      , char const beta='0' // '0':overwrite elements of c, else add to c
+  ) {
+      // define a generic matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
+
       int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
       if (M > a.stride()) error("M= %d > %ld =a.stride", M, a.stride());
       if (K > b.stride()) error("K= %d > %ld =b.stride", M, b.stride());
@@ -202,6 +243,8 @@ namespace single_atom {
     	, double const sigma   // spread_compensator
     	, int const echo=0     // log output level
     ) {
+        // compensation charge densities on the radial grid
+
         int const nr = rg->n;
         auto const sig2inv = .5/(sigma*sigma);
         if (echo > 0) printf("# sigma = %g\n", sigma);
@@ -239,6 +282,7 @@ namespace single_atom {
                 } // add or project
             } // emm
         } // ell
+
     } // add_or_project_compensators
 
 
@@ -251,8 +295,17 @@ namespace single_atom {
 
     
     template <typename real_t>
-    status_t Lagrange_derivatives(unsigned const n, real_t const y[], double const x[], double const at_x0
-                        , double *value_x0, double *deriv1st, double *deriv2nd) { // zeroth, first and second derivative at x0
+    status_t Lagrange_derivatives(
+          unsigned const n // order of the Lagrange polynomial
+        , real_t const y[] // data values of y(x)
+        , double const x[] // support points   x
+        , double const x0 // x0 to eval the polynomial and its derivatives at
+        , double *value_x0 // export value at x0 (for reference)
+        , double *deriv1st // export derivative at x0
+        , double *deriv2nd // export second derivative at x0
+    ) {
+        // zeroth, first and second derivative of y(x) at x0
+
         double d0{0}, d1{0}, d2{0};
         //
         //  L(x) = sum_j y_j                                                           prod_{m!=j}             (x - x_m)/(x_j - x_m)
@@ -273,16 +326,16 @@ namespace single_atom {
                             double d2m{1};
                             for (int m = 0; m < n; ++m) {
                                 if (m != j && m != k && m != l) {
-                                    d2m *= (at_x0 - x[m])/(x[j] - x[m]);
+                                    d2m *= (x0 - x[m])/(x[j] - x[m]);
                                 } // exclude
                             } // m
                             
-                            d1l *= (at_x0 - x[l])/(x[j] - x[l]);
+                            d1l *= (x0 - x[l])/(x[j] - x[l]);
                             d2l += d2m/(x[j] - x[l]);
                         } // exclude
                     } // l
                     
-                    d0j *= (at_x0 - x[k])/(x[j] - x[k]);
+                    d0j *= (x0 - x[k])/(x[j] - x[k]);
                     d1j += d1l/(x[j] - x[k]);
                     d2j += d2l/(x[j] - x[k]);
                 } // exclude
@@ -298,14 +351,22 @@ namespace single_atom {
         
         return 0; // success
     } // Lagrange_derivatives
-   
-   
 
 
-    template<typename int_t>
-    void get_valence_mapping(int_t ln_index_list[], int_t lm_index_list[],
-                             int_t lmn_begin[], int_t lmn_end[], int const numax,
-                             char const *label="", int const echo=0) {
+
+
+    template <typename int_t>
+    void get_valence_mapping(
+          int_t ln_index_list[] // ln-index of ilmn (retrieves the emm_Degenerate index)
+        , int_t lm_index_list[] // lm-index of ilmn (retrieves the (ell,emm)-combined spherical harmonic quantum number)
+        , int_t lmn_begin[] // begin of ilmn indices wich have a given lm-index
+        , int_t lmn_end[]   //   end of ilmn indices wich have a given lm-index
+        , int const numax // SHO basis size
+        , char const *label="" // log-prefix
+        , int const echo=0 // log-level
+    ) {
+        // create various index tables used in the construction of matrix elements
+
         int const mlm = pow2(1 + numax);
         set(lmn_begin, mlm, int_t(-1));
         for(int ell = 0; ell <= numax; ++ell) {
@@ -320,21 +381,18 @@ namespace single_atom {
                 } // nrn
             } // emm
         } // ell
-
-#ifdef DEVEL        
+#ifdef DEVEL
         if (echo > 3) { // display
             printf("# %s ln_index_list ", label);
-            for(int i = 0; i < sho_tools::nSHO(numax); ++i) {
-                printf(" %i", ln_index_list[i]);
-            } // i
-            printf("\n");
+//             for(int i = 0; i < sho_tools::nSHO(numax); ++i) {
+//                 printf(" %i", ln_index_list[i]);
+//             } // i
+//             printf("\n");
+            printf_vector(" %i", ln_index_list, sho_tools::nSHO(numax));
             printf("# %s lmn_begin-lmn_end ", label);
             for(int ilm = 0; ilm < mlm; ++ilm) {
-                if (lmn_begin[ilm] == lmn_end[ilm] - 1) {
-                    printf(" %i", lmn_begin[ilm]);
-                } else {
-                    printf(" %i-%i", lmn_begin[ilm], lmn_end[ilm] - 1);
-                } // do not display e.g. 7-7 but only 7
+                printf(" %i", lmn_begin[ilm]);
+                if (lmn_end[ilm] - 1 > lmn_begin[ilm]) printf("-%i", lmn_end[ilm] - 1); // do not display e.g. " 7-7" but only " 7"
             } // ilm
             printf("\n");
         } // echo
@@ -343,13 +401,25 @@ namespace single_atom {
 
     
 
-    double show_state_analysis(int const echo, char const *label, radial_grid_t const *rg, double const wave[],
-            char const *tag, float const occ, double const energy, char const *csv_class, int const ir_cut) {
-        
+    double show_state_analysis( // returns the charge outside the sphere
+          int const echo // log-level
+        , char const *label // log-prefix
+        , radial_grid_t const *rg // radial grid descriptor
+        , double const wave[] // radial wave function (Mind: not scaled by r)
+        , char const *tag // name of the state
+        , double const occ // occupation number
+        , double const energy // energy eigenvalue or energy parameter
+        , char const *csv_class // classification as 0:core, 1:semicore, 2:valence, 3:?
+        , int const ir_cut=0 // radial grid index of the augmentation radius
+    ) { 
+        // display stat information about a radial wave functions
+
         double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
         for(int ir = 0; ir < rg->n; ++ir) {
             double const rho_wf = pow2(wave[ir]);
-            double const dV = rg->r2dr[ir], r = rg->r[ir], r_inv_dV = rg->rdr[ir];
+            double const dV = rg->r2dr[ir];
+            double const r = rg->r[ir];
+            double const r_inv_dV = rg->rdr[ir];
             q    += rho_wf*dV; // charge
             qr   += rho_wf*r*dV; // for <r>
             qr2  += rho_wf*r*r*dV; // for variance
@@ -363,16 +433,22 @@ namespace single_atom {
                csv_class, tag, occ, energy*eV,_eV, 
                qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, charge_outside);
 
-        return charge_outside;
+        return charge_outside; // percentage of charge outside the augmentation radius
     } // show_state_analysis
     
    
    
-    double perform_Gram_Schmidt(int const n, view3D<double> & LU_inv
-            , view2D<double> const & A
-            , char const *label, char const ell='?', int const echo=0
-            , char const op[]="UUUUUUUUUUUUUUU" // treated as array of chars, not as string
-    ) {
+    double perform_Gram_Schmidt( // returns the determinant |A|
+          int const n // number of projectors == number of partial waves == nn[ell]
+        , view3D<double> & LU_inv // resulting matrices {L^-1, U^-1}
+        , view2D<double> const & A // input matrix, overlap of <preliminary partial waves_
+        , char const *label // log-prefix
+        , char const ell='?' // ell-character for display
+        , int const echo=0 // log-level
+        , char const op[]="UUUUUUUUUUUUUUU" // treated as array of chars, not as string
+    ) { 
+        // perform a Gram-Schmidt orthogonalization to restore PAW duality
+
         if (n < 1) return 0.0; // but no warning
         double const det = simple_math::determinant(n, A.data(), A.stride());
         if (echo > 2) printf("# %s determinant for %c-projectors is %g\n", label, ell, det);
@@ -568,16 +644,20 @@ namespace single_atom {
   public:
 
     // constructor method:
-    LiveAtom(double const Z_protons
-            , int const nu_max=3
+    LiveAtom(
+              double const Z_protons // number of protons in the nucleus
+            , int const nu_max=3 // SHO basis size (if auto-configured)
             , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
-            , double const ionization=0
-            , int32_t const global_atom_id=-1
+            , double const ionization=0 // charged valence configurations
+            , int32_t const global_atom_id=-1 // global indentifyed
             , int const echo=0 // logg level for this constructor method only
-            ) : atom_id{global_atom_id} 
-              , Z_core{Z_protons}
-              , gaunt_init{false}
-        { // constructor
+    )
+        : // initializations
+          atom_id{global_atom_id} 
+        , Z_core{Z_protons}
+        , gaunt_init{false}
+    {
+        // constructor
 
         char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
         if (atom_id >= 0) {
@@ -667,10 +747,11 @@ namespace single_atom {
         
         if (echo > 0) {
             printf("# %s numbers of projectors ", label);
-            for(int ell = 0; ell <= ELLMAX; ++ell) {
-                printf(" %d", nn[ell]);
-            } // ell 
-            printf("\n");
+//             for(int ell = 0; ell <= ELLMAX; ++ell) {
+//                 printf(" %d", nn[ell]);
+//             } // ell
+//             printf("\n");
+            printf_vector(" %d", nn, ELLMAX+1);
         } // echo
 
         // now Z_core may not change any more
