@@ -20,7 +20,8 @@ undefs=""\
 " -U FULL_DEBUG"\
 " -U DEVEL"\
 " -U OLD_SINGLE_ATOM_UPDATE_INTERFACE"\
-" -U LARGE_GRIDS"
+" -U LARGE_GRIDS"\
+" -U NEVER"
 
 echo "Generation of a release version,"
 echo "  apply the partial preprocessor"
