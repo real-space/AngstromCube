@@ -227,11 +227,14 @@ namespace pw_hamiltonian {
                                     (iGy + kpoint[1])*reci[1][1],
                                     (iGz + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci assumed here
               double const g2 = pow2(gv[0]) + pow2(gv[1]) + pow2(gv[2]);
+#ifdef FULL_DEBUG
               if (echo > 91) printf("# %s suggest PlaneWave(%d,%d,%d) with |k+G|^2= %g Ry inside= %d\n", __func__, iGx,iGy,iGz, g2, g2 < 2*ecut);
+#endif // FULL_DEBUG
               if (g2 < 2*ecut) {
                   pw_basis[iB] = PlaneWave(iGx, iGy, iGz, g2);
                   ++iB; // count
-              } else { ++outside;
+              } else {
+                  ++outside;
               } // within energy ball
           } // iGx
           } // iGy

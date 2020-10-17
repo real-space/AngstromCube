@@ -2113,7 +2113,7 @@ namespace single_atom {
                     int constexpr HOM = 0;
                     for(int krn = HOM; krn <= n; ++krn) { // loop must run serial and forward
                         // krn == 0 generates the homogeneous solution in the first iteration
-                        auto projector = (krn > HOM) ? projectors_ell[krn - 1] : nullptr;
+                        auto projector = (krn > HOM) ? projectors_ell[krn-1] : nullptr;
 #ifdef DEVEL
                         std::vector<double> rhs;
                         if (use_energy_derivative && nrn > 0 && krn > HOM) {
@@ -2170,13 +2170,12 @@ namespace single_atom {
                             }
 
                             // now visually check that the matching of value and derivative of rphi is ok.
-                            if (echo > 19) {
-                                printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru, phi_smt, prj, rTphi_tru, rTphi_smt):\n",
-                                        label, ell, nrn, krn-1);
+                            if (echo > 29) {
+                                printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru,phi_smt, prj, rTphi_tru,rTphi_smt):\n",
+                                             label, ell, nrn, krn-1);
                                 for(int ir = 1; ir < rg[SMT]->n; ++ir) {
-                                    printf("%g  %g %g  %g  %g %g\n", rg[SMT]->r[ir],
-                                        vs.wave[TRU][ir + nr_diff], rphi(krn,ir), projectors_ell(krn,ir)*rg[SMT]->rinv[ir],
-                                        vs.wKin[TRU][ir + nr_diff], Tphi(krn,ir));
+                                    printf("%g  %g %g  %g  %g %g\n", rg[SMT]->r[ir],     vs.wave[TRU][ir + nr_diff], rphi(krn,ir),
+                                            projectors_ell(krn-1,ir)*rg[SMT]->rinv[ir],  vs.wKin[TRU][ir + nr_diff], Tphi(krn,ir));
                                 } // ir
                                 printf("\n\n");
                             } // echo
@@ -2184,7 +2183,7 @@ namespace single_atom {
                             // check that the matching of value and derivative of rphi is ok by comparing value and derivative
                             if (echo > 9) {
                                 printf("# %s check matching of vg and dg for ell=%i nrn=%i krn=%i: %g == %g ? and %g == %g ?\n",
-                                       label, ell, nrn, krn-1, vgtru, scal*(vginh + c_hom*vghom),  dgtru, scal*(dginh + c_hom*dghom));
+                                    label, ell, nrn, krn-1, vgtru, scal*(vginh + c_hom*vghom), dgtru, scal*(dginh + c_hom*dghom));
                             } // echo
 
                         } // krn > 0
@@ -2278,11 +2277,12 @@ namespace single_atom {
                                 double const angle = std::atan2(-c[1], c[0]);
                                 evec[0] = std::sin(angle);
                                 evec[1] = std::cos(angle);
-                                {
-                                    double const ovl10 = evec[0]*c[0] + evec[1]*c[1];
-                                    if (echo > 8) printf("# %s method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n", label, angle, ovl10, evec[0], evec[1]);
-                                }
-                                
+                                if (echo > 8) {
+                                    auto const ovl10 = evec[0]*c[0] + evec[1]*c[1];
+                                    printf("# %s method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n",
+                                              label, angle, ovl10, evec[0], evec[1]);
+                                } // echo
+
                             } // if nrn > 0
 
                         } else // method
@@ -2299,11 +2299,12 @@ namespace single_atom {
                                 double const angle = std::atan2(-c[1], c[0]);
                                 evec[0] = std::sin(angle);
                                 evec[1] = std::cos(angle);
-                                {
-                                    double const ovl01 = evec[0]*c[0] + evec[1]*c[1];
-                                    if (echo > 1) printf("# method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", angle, ovl01, evec[0], evec[1]);
-                                }
-                                
+                                if (echo > 1) {
+                                    auto const ovl01 = evec[0]*c[0] + evec[1]*c[1];
+                                    printf("# %s method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", 
+                                              label, angle, ovl01, evec[0], evec[1]);
+                                } // echo
+
                             } // if nrn > 0
 
                         } else // method
@@ -2326,8 +2327,8 @@ namespace single_atom {
                     } // krn
 
                     if (echo > 19) {
-                        printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru, phi_smt, rTphi_tru, rTphi_smt):\n",
-                                label, ell, nrn);
+                        printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru,phi_smt, rTphi_tru,rTphi_smt):\n",
+                                     label, ell, nrn);
                         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                             printf("%g  %g %g  %g %g\n", rg[SMT]->r[ir],
                                 vs.wave[TRU][ir + nr_diff], vs.wave[SMT][ir],
@@ -2352,7 +2353,7 @@ namespace single_atom {
                                 (irn == jrn), dot_product(nr, projectors_ell[irn], projectors_ell[jrn], rg[SMT]->dr) - (irn == jrn), sigma*Ang,_Ang);
                         } // jrn
                     } // irn
-                    warn("unlike in previous versions, projectors are not necessarily orthonormalized!");
+                    printf("# %s Mind: unlike in previous versions, projectors are not necessarily orthonormalized!\n", label);
                 } // echo
 #endif // DEVEL
 
@@ -2454,10 +2455,11 @@ namespace single_atom {
                             printf("\n# %s %c-<projectors|partial waves> matrix:\n", label, ellchar[ell]);
                             for(int i = 0; i < n; ++i) {
                                 printf("# %s irn=%2i ", label, i);
-                                for(int j = 0; j < n; ++j) {
-                                    printf(" %11.6f", ovl_new(i,j));
-                                } // j
-                                printf("\n");
+//                                 for(int j = 0; j < n; ++j) {
+//                                     printf(" %11.6f", ovl_new(i,j));
+//                                 } // j
+//                                 printf("\n");
+                                printf_vector(" %11.6f", ovl_new[i], n);
                             } // i
                             printf("\n");
                         } // echo
@@ -2498,7 +2500,7 @@ namespace single_atom {
                         auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
                         auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
                         if (echo > 19) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
-                          label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
+                            label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
 #endif // DEVEL
@@ -2538,7 +2540,7 @@ namespace single_atom {
                             auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
                             auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
                             printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
-                              label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
+                                label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                         } // j
                     } // i
                 } // echo

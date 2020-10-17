@@ -138,7 +138,7 @@ namespace dense_solver {
 
 #ifdef DEVEL
           // display S and H
-          if (echo > 9 - s0h1) {
+          if (echo > 29 - s0h1) {
               printf("\n# %s matrix (%s)", matrix_name, _u);
 //               printf(" for Bloch phase");
 //               for(int d = 0; d < 3; ++d) {
@@ -148,7 +148,7 @@ namespace dense_solver {
               for(int iB = 0; iB < nB; ++iB) {
                   printf("# row%3i ", iB);
                   for(int jB = 0; jB < nB; ++jB) {
-                      printf("%8.3f", SHm(s0h1,iB,jB)*u);
+                      printf(" %7.3f %g", std::real(SHm(s0h1,iB,jB))*u, std::imag(SHm(s0h1,iB,jB))*u);
                   } // jB
                   printf("\n");
               } // iB
@@ -171,7 +171,7 @@ namespace dense_solver {
               if (echo > 1) printf("# %s deviates from hermitian: imag(diag)= %.1e  imag(off)= %.1e  real(off)= %.1e\n",
                                       matrix_name, diag, offi, offr);
           } // check hermiticity
-#endif
+#endif // DEVEL
           
           // diagonalize matrix
           status_t stat_eig(0);
