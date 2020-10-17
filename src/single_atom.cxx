@@ -2,7 +2,7 @@
 /*
  *  Make sure to modify this file in the development branch
  */
-#endif
+#endif // not DEVEL
 
 #include <cstdio> // printf, std::snprintf
 #include <cstring> // std::strncpy
@@ -156,7 +156,7 @@ namespace single_atom {
               printf(" bvec %16.9f\n", bvec[i4]);
           } // i4
       } // echo
-#endif
+#endif // DEVEL
       double* x = bvec; // rename memory
       auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
 
@@ -169,7 +169,7 @@ namespace single_atom {
 //           printf("\n");
           printf_vector(" %16.9f", x, nm);
       } // echo
-#endif
+#endif // DEVEL
       set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
       // replace the inner part of the function by the even-order polynomial
       for(int ir = 0; ir < irc; ++ir) {
@@ -396,7 +396,7 @@ namespace single_atom {
             } // ilm
             printf("\n");
         } // echo
-#endif
+#endif // DEVEL
     } // get_valence_mapping
 
     
@@ -512,15 +512,7 @@ namespace single_atom {
           
             for(int i = 0; i < n; ++i) {
                 printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
-//                 for(int j = 0; j < n; ++j) {
-//                     printf(" %11.6f", L(i,j));
-//                 } // j
-//                 printf("\t\t");
                 printf_vector(" %11.6f", L[i], n, "\t\t");
-//                 for(int j = 0; j < n; ++j) {
-//                     printf(" %11.6f", U(i,j));
-//                 } // j
-//                 printf("\n");
                 printf_vector(" %11.6f", U[i], n);
             } // i
             printf("\n");
@@ -530,15 +522,7 @@ namespace single_atom {
             for(int i = 0; i < n; ++i) {
                 printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
                 if (0) {
-//                     for(int j = 0; j < n; ++j) {
-//                         printf(" %11.6f", A(i,j));
-//                     } // j
-//                     printf("\t\t");
                     printf_vector(" %11.6f", A[i], n, "\t\t");
-//                     for(int j = 0; j < n; ++j) {
-//                         printf(" %11.6f", A_LU(i,j));
-//                     } // j
-//                     printf("\t\t");
                     printf_vector(" %11.6f", A_LU[i], n, "\t\t");
                 } // 0
                 for(int j = 0; j < n; ++j) {
@@ -551,15 +535,7 @@ namespace single_atom {
                         label, ell, det_L, det_U, det_L*det_U, det);
             for(int i = 0; i < n; ++i) {
                 printf("# %s  ell=%c  L^-1 and U^-1  i=%2i ", label, ell, i);
-//                 for(int j = 0; j < n; ++j) {
-//                     printf(" %11.6f", L_inv(i,j));
-//                 } // j
-//                 printf("\t\t\t");
                 printf_vector(" %11.6f", L_inv[i], n, "\t\t\t");
-//                 for(int j = 0; j < n; ++j) {
-//                     printf(" %11.6f", U_inv(i,j));
-//                 } // j
-//                 printf("\n");
                 printf_vector(" %11.6f", U_inv[i], n);
             } // i
             printf("\n");
@@ -751,10 +727,6 @@ namespace single_atom {
         
         if (echo > 0) {
             printf("# %s numbers of projectors ", label);
-//             for(int ell = 0; ell <= ELLMAX; ++ell) {
-//                 printf(" %d", nn[ell]);
-//             } // ell
-//             printf("\n");
             printf_vector(" %d", nn, ELLMAX+1);
         } // echo
 
@@ -799,7 +771,7 @@ namespace single_atom {
            } // ir
            printf("\n\n");
         } // echo
-#endif
+#endif // DEVEL
 
         std::vector<int8_t> as_valence(96, -1);
         int8_t enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; // enn-QN of the highest occupied core level
@@ -998,7 +970,7 @@ namespace single_atom {
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher, special function for -8.0:energy derivative
 #ifndef DEVEL
         if (energy_derivative == excited_energy) warn("energy derivative for partial wave only with -D DEVEL");
-#endif
+#endif // DEVEL
         set(partial_wave_energy_split, 1+ELLMAX, excited_energy);
         
         double const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
@@ -1083,7 +1055,7 @@ namespace single_atom {
                                 partial_wave_char[iln] = '*';
 #ifdef DEVEL
                                 if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
-#endif
+#endif // DEVEL
                                 if (('*' == partial_wave_char[iln]) && (std::abs(partial_wave_energy_split[ell]) < 1e-3)) {
                                     warn("%s partial wave energy split for ell=%i is small (%g %s)",
                                         label, ell, partial_wave_energy_split[ell]*eV, _eV);
@@ -1233,7 +1205,7 @@ namespace single_atom {
             } // ir
             printf("\n\n\n\n");
         } // echo
-#endif
+#endif // DEVEL
     } // constructor
 
 
@@ -1320,7 +1292,7 @@ namespace single_atom {
             printf("\n## %s %s: r, -Zeff(r)\n", label, __func__);
             print_compressed(rg[TRU]->r, potential[TRU].data(), rg[TRU]->n);
         } // echo
-#endif
+#endif // DEVEL
         for(int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate
             int constexpr SRA = 1; // 1:scalar relativistic approximation
@@ -1381,7 +1353,7 @@ namespace single_atom {
                     auto const new_q = dot_product(nr, rg[TRU]->r2dr, spherical_density[TRU][csv]);
                     if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, csv_name[csv], new_q);
                 } // debug
-#endif
+#endif // DEVEL
                 if (echo > 0) printf("# %s %s density change %g e (rms %g e) bare Coulomb energy change %g %s\n", 
                     label, csv_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
             } // output only for contributing densities
@@ -1592,10 +1564,6 @@ namespace single_atom {
                         printf("\n# %s (numeric projectors) %c-overlap before Gram-Schmidt:\n", label, ellchar[ell]);
                         for(int irn = 0; irn < n; ++irn) {
                             printf("# %s ", label, ellchar[ell]);
-//                             for(int jrn = 0; jrn < n; ++jrn) {
-//                                 printf(" %11.6f", ovl(irn,jrn));
-//                             } // jrn
-//                             printf("\n");
                             printf_vector(" %11.6f", ovl[irn], n);
                         } // irn
                         printf("\n");
@@ -1694,7 +1662,7 @@ namespace single_atom {
                 window[0] = std::sqrt(window[0]);
                 window[1] = std::sqrt(window[1]);
             } // level
-#else
+#else // 1
             bisection_tools::bisector_t<double> bisection(sigma_range[0], sigma_range[1], 1e-15, '*');
             double sigma_now, weighted_quality{0};
             while(bisection.extremum(sigma_now, weighted_quality, echo + 9)) {
@@ -1704,7 +1672,7 @@ namespace single_atom {
             sigma_opt = sigma_now;
             if (echo > 5) printf("# %s after %d bisection steps found optimized sigma= %g %s\n", 
                                   label, bisection.get_iterations_needed(), sigma_opt*Ang, _Ang);
-#endif
+#endif // 1
             // the upper limit for the weighted quality is the number of valence electrons
             if (echo > 5) printf("\n# %s optimized sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, 
                                       best_weighted_quality, total_occ, best_weighted_quality*100/std::max(1., total_occ));
@@ -1736,10 +1704,6 @@ namespace single_atom {
                     if (echo > 6) {
                         auto const length = std::sqrt(norm2);
                         printf("# %s %scoefficients of the %s-projector: %.6e * [", label, optimized, partial_wave[iln].tag, length);
-//                         for(int mrn = 0; mrn < nmx; ++mrn) { // radial SHO basis functions
-//                             printf(" %9.6f", prj_coeff[iln][mrn]/length);
-//                         } // mrn
-//                         printf(" ]\n");
                         printf_vector(" %9.6f", prj_coeff[iln], nmx, " ]\n", 1./length);
                     } // echo
                 } else {
@@ -1778,7 +1742,7 @@ namespace single_atom {
             if (echo > 0) printf("\n\n");
             error("terminate after task single_atom.suggest.local.potential=%i", suggest_vloc);
         } // suggest smooth local potential shape
-#endif
+#endif // DEVEL
         return sigma_out;
     } // update_sigma
 
@@ -1855,7 +1819,7 @@ namespace single_atom {
                     printf("\n\n");
                 } // order
             } // echo
-#endif        
+#endif // DEVEL
             // Fit a V_s*sin(r*k_s) + r*V_0 to r*V(r) at r_cut, fulfil three equations:
             //  (r*V(r))  |r=r_cut  = d0 =  V_s*sin(r_cut*k_s) + r_cut*V_0
             //  (r*V(r))' |r=r_rcut = d1 =  V_s*cos(r_cut*k_s)*k_s  +  V_0
@@ -1916,7 +1880,7 @@ namespace single_atom {
             } // ir
             printf("\n\n");
         } // echo
-#endif
+#endif // DEVEL
         return stat;
     } // pseudize_local_potential
 
@@ -1944,15 +1908,15 @@ namespace single_atom {
                                             label, vs.tag, vs.energy*eV, _eV);
                 } else
                 if ('D' == c) {
-#ifdef DEVEL                  
+#ifndef DEVEL                  
+                    error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
+#else
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
                     if (echo > 3) printf("# %s the %s partial wave is an energy derivative at E= %g %s\n", 
                                             label, vs.tag, vs.energy*eV, _eV);
-#else
-                    error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
-#endif
+#endif // DEVEL
                 } else
                 if ('*' == c) {
                     assert(nrn > 0);
@@ -2018,7 +1982,7 @@ namespace single_atom {
                 } // irn
             } // ell
         } // echo
-#endif
+#endif // DEVEL
 
         
         r_match = 9*sigma;
@@ -2034,7 +1998,7 @@ namespace single_atom {
             } // ir
             printf("\n\n");
         } // echo
-#endif
+#endif // DEVEL
 
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
@@ -2084,7 +2048,7 @@ namespace single_atom {
                     normalize = false;
                     orthogonalize = true;
                 } else
-#endif
+#endif // DEVEL
                 {
                     int nnodes{0};
                     // integrate SRA equation (^T + V(r) - E) phi(r) = 0 outwards homogeneously
@@ -2100,7 +2064,7 @@ namespace single_atom {
                         if (echo > 1) printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
                         add_product(vs.wave[TRU], nr, psi0, rg[TRU]->r, p);
                 } // orthogonalize
-#endif
+#endif // DEVEL
                 // scope: divide by r and normalize the partial waves
                 {   double norm_factor{1};
                     if (normalize) {
@@ -2117,7 +2081,7 @@ namespace single_atom {
                 if (use_energy_derivative && nrn > 0) {
                     add_product(vs.wKin[TRU], nr, rg[TRU]->r, partial_wave[iln - 1].wave[TRU]); // now wKin = r*(E - V(r))*wave(r) + r*psi0
                 } // kinetic energy wave in the case of energy derivative has an extra term
-#endif
+#endif // DEVEL
 //                 auto const tru_norm = dot_product(ir_cut[TRU], r2rho.data(), rg[TRU]->dr)/norm_wf2; // integrate only up to rcut
 //                 auto const work = r2rho.data();
 //                 scale(work, nr, potential[TRU].data());
@@ -2158,7 +2122,7 @@ namespace single_atom {
                             projector = rhs.data(); // use as inhomogeneiety
                             // comment: this will be 2x the same solution, for krn==1 and krn==2, code results from a quick fix
                         }
-#endif
+#endif // DEVEL
 
                         double dg; // derivative at end point
                         // solve inhomgeneous equation and match true wave in value and derivative
@@ -2197,7 +2161,7 @@ namespace single_atom {
                                 // seems like the tails of TRU and SMT wave and wKin are deviating slightly beyond r_match
 
                             } else 
-#endif                          
+#endif // DEVEL
                             {
                                 // Tphi = (E - V)*phi + projector
                                 for(int ir = 0; ir < rg[SMT]->n; ++ir) {
@@ -2232,7 +2196,7 @@ namespace single_atom {
 #ifdef DEVEL
                     char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
                     char const orthogonalize_first = '1';       // ToDo
-#endif                    
+#endif // DEVEL
 
                     std::vector<double> evec(n, 0.0);
                     evec[nrn] = 1.0; // this is everything that needs to be done for method==energy_ordering
@@ -2267,10 +2231,6 @@ namespace single_atom {
     //                          printf("\n");
                                 for(int krn = 0; krn < n; ++krn) {
                                     printf("# %s curvature (%s) and overlap for i=%i ", label, eV, krn);
-//                                     for(int jrn = 0; jrn < n; ++jrn) {
-//                                         printf(" %g|%g", Ekin(krn,jrn), Olap(krn,jrn));
-//                                     } // jrn
-//                                     printf("\n");
                                     printf_vector(" %g", Ekin[krn], n, "\t\t", eV);
                                     printf_vector(" %g", Olap[krn], n);
                                 } // krn
@@ -2288,7 +2248,6 @@ namespace single_atom {
                                         printf("# %s lowest eigenvalue of the radial curvature is %g %s", label, lowest_eigenvalue*eV, _eV);
                                         if (echo > 8) {
                                             printf(", coefficients");
-//                                             for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin(0,krn));
                                             printf_vector(" %g", Ekin[0], n, nullptr); // does not need scaling by eV since these are eigenvector coefficients
                                         } // high echo
                                         printf("\n");
@@ -2315,7 +2274,7 @@ namespace single_atom {
                                     double const ovl10 = std::cos(angle)*c[1] + std::sin(angle)*c[0];
                                     printf("# method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g\n", angle, ovl10);
                                 } // iang
-#endif
+#endif // 0
                                 double const angle = std::atan2(-c[1], c[0]);
                                 evec[0] = std::sin(angle);
                                 evec[1] = std::cos(angle);
@@ -2348,7 +2307,7 @@ namespace single_atom {
                             } // if nrn > 0
 
                         } else // method
-#endif                          
+#endif // DEVEL
                         if (method == energy_ordering) {
                             assert(1 == evec[nrn]);
                         } // energy_ordering
@@ -2395,7 +2354,7 @@ namespace single_atom {
                     } // irn
                     warn("unlike in previous versions, projectors are not necessarily orthonormalized!");
                 } // echo
-#endif
+#endif // DEVEL
 
                 view2D<double> ovl(n, n); // get memory
                 view3D<double> LU_inv(2, n, n, 0.0); // get memory
@@ -2518,7 +2477,7 @@ namespace single_atom {
                         printf("\n\n");
                     } // irn
                 } // echo
-#endif
+#endif // DEVEL
 
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
@@ -2542,7 +2501,7 @@ namespace single_atom {
                           label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
                     } // j
                 } // i
-#endif
+#endif // DEVEL
 
                 if (1) { // symmetrize the kinetic energy tensor
                     for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
@@ -2583,7 +2542,7 @@ namespace single_atom {
                         } // j
                     } // i
                 } // echo
-#endif               
+#endif // DEVEL
 
             } // scope: establish dual orthgonality with [SHO] projectors
 
@@ -2766,7 +2725,7 @@ namespace single_atom {
                 if (maxdev > 1e-12) warn("%s found max deviation %.1e when backtransforming the density matrix", label, maxdev);
                 if (maxdev > 1e-9) error("%s found max deviation %.1e when backtransforming the density matrix", label, maxdev);
             } // debugging
-#endif
+#endif // DEVEL
         } else if (sho_tools::order_lmn == order) {
             radial_density_matrix = view2D<double>(rho_matrix.data(), rho_matrix.stride()); // wrap
         } else {
@@ -2780,10 +2739,6 @@ namespace single_atom {
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
             for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 printf("# %s %-8s ", label, labels[ilmn]);
-//                 for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
-//                     printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
-//                 } // jlmn
-//                 printf("\n");
                 printf_vector(" %11.6f", radial_density_matrix[ilmn], nSHO);
             } // ilmn
             printf("\n");
@@ -2795,7 +2750,7 @@ namespace single_atom {
             scattering_test::emm_average(density_matrix_ln.data(), radial_density_matrix.data(), int(numax), 0);
             show_ell_block_diagonal(density_matrix_ln, "emm-summed SHO density matrix", 1, true, true);
         } // echo
-#endif
+#endif // DEVEL
         
         { // scope
             //   ToDo:  Introduce the projector_coeff to bring
@@ -2835,7 +2790,7 @@ namespace single_atom {
             scattering_test::emm_average(density_matrix_ln.data(), radial_density_matrix.data(), int(numax), 0);
             show_ell_block_diagonal(density_matrix_ln, "emm-summed density matrix"); // in partial waves
         } // echo
-#endif
+#endif // DEVEL
 
         //   Then, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
@@ -2856,13 +2811,13 @@ namespace single_atom {
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
 //                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij*Y00inv, lm, iln, jln);
-#endif                        
+#endif // DEVEL
                     } // jlmn
                 } // ilmn
             } // limits
         } // gnt
 
-// #ifdef DEVEL
+#ifdef DEVEL
 // #ifdef FULL_DEBUG
         if (1) {
             int const nln = sho_tools::nSHO_radial(numax);
@@ -2878,8 +2833,8 @@ namespace single_atom {
                 } // iln
             } // lm
         } // 1
-// #endif
-// #endif
+// #endif // FULL_DEBUG
+#endif // DEVEL
     } // get_rho_tensor
 
 
@@ -2938,7 +2893,7 @@ namespace single_atom {
                             double const rho_ij = density_tensor(lm,iln,jln);
 #ifdef FULL_DEBUG
                             if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
-#endif                       
+#endif // FULL_DEBUG                       
                             rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                                - charge_deficit(ell,SMT,iln,jln) );
                             tru_lm += rho_ij *   charge_deficit(ell,TRU,iln,jln)  ; // only for display
@@ -3285,8 +3240,6 @@ namespace single_atom {
             } // jlmn
             if (echo > 7) {
                 printf("# %s hamiltonian elements for ilmn=%3i  ", label, ilmn);
-//                     if ((echo > 7)) printf(" %7.3f", hamiltonian_lmn(ilmn,jlmn)*eV);
-//                 if ((echo > 7)) printf("\n");
                 printf_vector(" %7.3f", hamiltonian_lmn[ilmn], nlmn, "\n", eV);
             } // echo
         } // ilmn
@@ -3299,15 +3252,11 @@ namespace single_atom {
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 if (partial_wave_active[ln_index_list[ilmn]]) {
                     printf("# %s u_proj for ilmn=%3i  ", label, ilmn);
-//                     for(int jlmn = 0; jlmn < mlmn; ++jlmn) {
-//                         printf(" %g", u_proj(ilmn,jlmn));
-//                     } // jlmn
-//                     printf("\n");
                     printf_vector(" %g", u_proj[ilmn], mlmn);
                 } // active
             } // ilmn
         } // echo
-#endif
+#endif // DEVEL
         
         { // scope: wrap the matrices with the projector_coeff from left and right
             auto const uT_proj = transpose(u_proj, nlmn);
@@ -3324,10 +3273,6 @@ namespace single_atom {
             printf("\n# %s lmn-based Overlap elements:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
-//                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-//                     printf(" %g", overlap_lmn(ilmn,jlmn));
-//                 } // jlmn
-//                 printf("\n");
                 printf_vector(" %g", overlap_lmn[ilmn], nlmn);
             } // ilmn
             printf("\n");
@@ -3393,10 +3338,6 @@ namespace single_atom {
             sho_tools::construct_label_table<8>(zyx_label.data(), numax, sho_tools::order_zyx);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for %-6s", label, zyx_label[iSHO]); // ToDo: show the nx,ny,nz quantum numbers
-//                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-//                     printf(" %11.6f", hamiltonian(iSHO,jSHO)*eV);
-//                 } // jSHO
-//                 printf("\n");
                 printf_vector(" %11.6f", hamiltonian[iSHO], nSHO, "\n", eV);
             } // iSHO
         } // echo
@@ -3473,7 +3414,7 @@ namespace single_atom {
             show_ell_block_diagonal(aHSm[0], "spherical hamiltonian", eV);
             show_ell_block_diagonal(aHSm[1], "spherical overlap    ");
         } // echo
-#endif
+#endif // DEVEL
 
         auto const u_proj = unfold_projector_coefficients_emm_degenerate();
 
@@ -3492,7 +3433,7 @@ namespace single_atom {
             } // show a legend
             show_ell_block_diagonal(u_proj, "ln-based projector", 1, false, true);
         } // echo
-#endif
+#endif // DEVEL
 
         { // scope: wrap the matrices with the projector_coeff from left and right
             auto const uT_proj = transpose(u_proj, nln);
@@ -3503,21 +3444,8 @@ namespace single_atom {
                 gemm(matrix_ln, nln, uT_proj, nln, tmp_mat); // u^T*
 #ifdef DEVEL
                 if (echo > 4) { // display
-//                  int const mln = display_delimiter(numax, nn);
                     printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS?"overlap":"hamiltonian");
                     double const unit = iHS ? 1 : eV;
-//                     for(int iln = 0; iln < mln; ++iln) {
-//                         printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
-//                         for(int jln = 0; jln < mln; ++jln) {
-//                             if (partial_wave[iln].ell == partial_wave[jln].ell) {
-//                                 printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
-//                             } else {
-//                                 printf("            ");
-//                             } // ells match
-//                         } // jln
-//                         printf("\n");
-//                     } // iln
-//                     printf("\n");
                     show_ell_block_diagonal(matrix_ln, iHS?"overlap    ":"hamiltonian" , unit, true, true);
                 } // echo
 #endif // DEVEL
@@ -3651,7 +3579,7 @@ namespace single_atom {
             } // ir
             printf("\n\n");
         } // echo
-#endif
+#endif // DEVEL
 
         // divide input by mask function
         std::vector<double> inp(rg[SMT]->n);
@@ -3679,7 +3607,7 @@ namespace single_atom {
             } // ir2
             printf("\n\n");
         } // echo
-#endif
+#endif // DEVEL
         return stat;
     } // get_smooth_spherical_quantity
     
@@ -3711,7 +3639,7 @@ namespace single_atom {
           #undef  instr
       } // s is a valid pointer
       return ui64;
-#else
+#else  // __IS_A_CXX14_COMPILER__
       return s[0] | (uint64_t(s[1]) <<  8)
                   | (uint64_t(s[2]) << 16) 
                   | (uint64_t(s[3]) << 24)
@@ -3719,7 +3647,7 @@ namespace single_atom {
                   | (uint64_t(s[5]) << 40)
                   | (uint64_t(s[6]) << 48)
                   | (uint64_t(s[7]) << 56);
-#endif      
+#endif // __IS_A_CXX14_COMPILER__   
   } // string2long
 
   inline uint32_t constexpr string2int(char const s[4]) {
@@ -3732,11 +3660,11 @@ namespace single_atom {
           #undef  instr
       } // s is a valid pointer
       return ui32;
-#else
+#else  // __IS_A_CXX14_COMPILER__
       return s[0] | (uint32_t(s[1]) <<  8) 
                   | (uint32_t(s[2]) << 16) 
                   | (uint32_t(s[3]) << 24);
-#endif
+#endif // __IS_A_CXX14_COMPILER__
   } // string2int
   
   // from https://hbfs.wordpress.com/2017/01/10/strings-in-c-switchcase-statements/
@@ -3846,10 +3774,10 @@ namespace single_atom {
               for(int ia = 0; ia < a.size(); ++ia) {
                   dnc[ia] = reinterpret_cast<double const*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
               } // ia
-#else
+#else  // DEVEL
               stat = -1;
               warn("%s only available with -D DEVEL", what);
-#endif
+#endif // DEVEL
               assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           }
           break;
@@ -3962,7 +3890,7 @@ namespace single_atom {
                                   a[ia]->overlap(i,j)                     );
                           } // j
                       } // echo
-#endif
+#endif // 0
                   } // i
               } // ia
               assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)
@@ -4015,7 +3943,7 @@ namespace single_atom {
           if (echo > 4) printf("# %s: for sigma = %g is 1 + %.1e\n", __func__, sigma, qlm[0] - 1);
       } // sigma
       if (echo > 2) printf("# %s: largest deviation is %.1e\n", __func__, maxdev);
-#endif
+#endif // DEVEL
       return (maxdev > 1e-15);
   } // test_compensator_normalization
   
@@ -4054,4 +3982,4 @@ namespace single_atom {
         #include "single_atom.h"
       #undef  SINGLE_ATOM_SOURCE
   } // extern "C"
-#endif
+#endif // LIVE_ATOM_AS_LIBRARY

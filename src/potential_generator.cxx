@@ -642,13 +642,10 @@ namespace potential_generator {
                       printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, atom_vlm[ia][00]*Y00*eV,_eV);
                       int const ellmax_show = std::min(ellmax, 2);
                       for(int ell = 1; ell <= ellmax_show; ++ell) {
-                          printf("# potential projection for atom #%d v_%im =", ia, ell);
                           double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
-//                           for(int emm = -ell; emm <= ell; ++emm) {
-//                               int const lm = sho_tools::lm_index(ell, emm);
-//                               printf(" %.6f", atom_vlm[ia][lm]*unitfactor);
-//                           } // emm
-                          printf_vector(" %.6f", &atom_vlm[ia][sho_tools::lm_index(ell, -ell)], 2*ell + 1, 0, unitfactor);
+                          int const ilm0 = sho_tools::lm_index(ell, -ell);
+                          printf("# potential projection for atom #%d v_%im =", ia, ell);
+                          printf_vector(" %.6f", &atom_vlm[ia][ilm0], 2*ell + 1, nullptr, unitfactor);
                           printf(" %s %s^%i\n", _eV, _Ang, -ell);
                       } // ell
                   } // echo
@@ -703,20 +700,12 @@ namespace potential_generator {
                       printf("\n# atom-centered %d x %d Hamiltonian (in %s) for atom #%i\n", n, n, _eV, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
-//                           for(int j = 0; j < n; ++j) {
-//                               printf(" %.6f", aHm(i,j)*eV);
-//                           } // j
-//                           printf("\n");
                           printf_vector(" %.6f", aHm[i], n, "\n", eV);
                       } // i
                       view2D<double const> const aSm(atom_mat[ia] + n*n, n);
                       printf("\n# atom-centered %d x %d overlap matrix for atom #%i\n", n, n, ia);
                       for(int i = 0; i < n; ++i) {
                           printf("#%3i  ", i);
-//                           for(int j = 0; j < n; ++j) {
-//                               printf(" %.6f", aSm(i,j));
-//                           } // j
-//                           printf("\n");
                           printf_vector(" %.6f", aSm[i], n);
                       } // i
                   } // ia
