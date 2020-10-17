@@ -51,7 +51,7 @@
 #include "pw_hamiltonian.hxx" // ::solve
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
-#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, scale=1, add=0, final="\n")
+#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, final="\n", scale=1, add=0)
 
 #define DEBUG
 #ifdef  DEBUG
@@ -292,7 +292,10 @@ namespace potential_generator {
       if ((ion != 0.0) && (na > 1)) {
           if (echo > 2) printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
           ionization[0] = ion; ionization[na - 1] = -ionization[0];
-          if (echo > 2) { printf("# %s ionizations:", __func__); printf_vector(" %g", ionization.data(), na); }
+          if (echo > 2) {
+              printf("# %s ionizations:", __func__);
+              printf_vector(" %g", ionization.data(), na);
+          } // echo
       } // ionized
 #endif
       
@@ -640,12 +643,12 @@ namespace potential_generator {
                       int const ellmax_show = std::min(ellmax, 2);
                       for(int ell = 1; ell <= ellmax_show; ++ell) {
                           printf("# potential projection for atom #%d v_%im =", ia, ell);
-//                           double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
+                          double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
 //                           for(int emm = -ell; emm <= ell; ++emm) {
 //                               int const lm = sho_tools::lm_index(ell, emm);
 //                               printf(" %.6f", atom_vlm[ia][lm]*unitfactor);
 //                           } // emm
-                          printf_vector(" %.6f", &atom_vlm[ia][sho_tools::lm_index(ell, -ell)], 2*ell + 1, Y00 * eV * std::pow(Ang, -ell), 0., "");
+                          printf_vector(" %.6f", &atom_vlm[ia][sho_tools::lm_index(ell, -ell)], 2*ell + 1, 0, unitfactor);
                           printf(" %s %s^%i\n", _eV, _Ang, -ell);
                       } // ell
                   } // echo
@@ -704,7 +707,7 @@ namespace potential_generator {
 //                               printf(" %.6f", aHm(i,j)*eV);
 //                           } // j
 //                           printf("\n");
-                          printf_vector(" %.6f", aHm[i], n, eV);
+                          printf_vector(" %.6f", aHm[i], n, "\n", eV);
                       } // i
                       view2D<double const> const aSm(atom_mat[ia] + n*n, n);
                       printf("\n# atom-centered %d x %d overlap matrix for atom #%i\n", n, n, ia);

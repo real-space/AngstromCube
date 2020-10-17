@@ -45,7 +45,7 @@
 #include "bisection_tools.hxx" // bisector_t
 #include "complex_tools.hxx" // conjugate
 #include "debug_tools.hxx" // here
-#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, scale=1, add=0, final="\n")
+#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, final="\n", scale=1, add=0)
 
 // extern "C" {
 //   // BLAS interface to matrix matrix multiplication
@@ -512,14 +512,16 @@ namespace single_atom {
           
             for(int i = 0; i < n; ++i) {
                 printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
-                for(int j = 0; j < n; ++j) {
-                    printf(" %11.6f", L(i,j));
-                } // j
-                printf("\t\t");
-                for(int j = 0; j < n; ++j) {
-                    printf(" %11.6f", U(i,j));
-                } // j
-                printf("\n");
+//                 for(int j = 0; j < n; ++j) {
+//                     printf(" %11.6f", L(i,j));
+//                 } // j
+//                 printf("\t\t");
+                printf_vector(" %11.6f", L[i], n, "\t\t");
+//                 for(int j = 0; j < n; ++j) {
+//                     printf(" %11.6f", U(i,j));
+//                 } // j
+//                 printf("\n");
+                printf_vector(" %11.6f", U[i], n);
             } // i
             printf("\n");
             
@@ -528,37 +530,39 @@ namespace single_atom {
             for(int i = 0; i < n; ++i) {
                 printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
                 if (0) {
-                    for(int j = 0; j < n; ++j) {
-                        printf(" %11.6f", A(i,j));
-                    } // j
-                    printf("\t\t");
-                    for(int j = 0; j < n; ++j) {
-                        printf(" %11.6f", A_LU(i,j));
-                    } // j
-                    printf("\t\t");
-                }
+//                     for(int j = 0; j < n; ++j) {
+//                         printf(" %11.6f", A(i,j));
+//                     } // j
+//                     printf("\t\t");
+                    printf_vector(" %11.6f", A[i], n, "\t\t");
+//                     for(int j = 0; j < n; ++j) {
+//                         printf(" %11.6f", A_LU(i,j));
+//                     } // j
+//                     printf("\t\t");
+                    printf_vector(" %11.6f", A_LU[i], n, "\t\t");
+                } // 0
                 for(int j = 0; j < n; ++j) {
                     printf(" %11.6f", A_LU(i,j) - A(i,j));
                 } // j
                 printf("\n");
             } // i
-            printf("\n");
 
-            printf("# %s  ell=%c  |L|= %g and |U|= %g, product= %g, |A|= %g\n",
-                      label, ell, det_L, det_U, det_L*det_U, det);
+            printf("\n# %s  ell=%c  |L|= %g and |U|= %g, product= %g, |A|= %g\n",
+                        label, ell, det_L, det_U, det_L*det_U, det);
             for(int i = 0; i < n; ++i) {
                 printf("# %s  ell=%c  L^-1 and U^-1  i=%2i ", label, ell, i);
-                for(int j = 0; j < n; ++j) {
-                    printf(" %11.6f", L_inv(i,j));
-                } // j
-                printf("\t\t\t");
-                for(int j = 0; j < n; ++j) {
-                    printf(" %11.6f", U_inv(i,j));
-                } // j
-                printf("\n");
+//                 for(int j = 0; j < n; ++j) {
+//                     printf(" %11.6f", L_inv(i,j));
+//                 } // j
+//                 printf("\t\t\t");
+                printf_vector(" %11.6f", L_inv[i], n, "\t\t\t");
+//                 for(int j = 0; j < n; ++j) {
+//                     printf(" %11.6f", U_inv(i,j));
+//                 } // j
+//                 printf("\n");
+                printf_vector(" %11.6f", U_inv[i], n);
             } // i
             printf("\n");
-            
         } // echo
 #endif // DEVEL
         return det;
@@ -787,12 +791,13 @@ namespace single_atom {
         if (load_stat) error("loading of potential file failed for Z= %g", Z_core);
 
 #ifdef DEVEL
-        // show the loaded Zeff(r)
+        // show the loaded Zeff(r) == -r*V(r)
         if (echo > 33) {
            printf("\n## loaded Z_eff(r) function:\n");
            for(int ir = 0; ir < rg[TRU]->n; ++ir) {
                printf("%.15g %.15g\n", rg[TRU]->r[ir], -potential[TRU][ir]);
            } // ir
+           printf("\n\n");
         } // echo
 #endif
 
@@ -1280,7 +1285,8 @@ namespace single_atom {
             printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
             for(int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
                 printf("%g %g %g\n", rg[SMT]->r[ir], smooth_density[ir], true_density[ir + nr_diff]);
-            }   printf("\n\n");
+            } // ir
+            printf("\n\n");
         } // plot
         
         // report integrals
@@ -1389,9 +1395,12 @@ namespace single_atom {
 
 
 
-    void show_ell_block_diagonal(view2D<double> const & matrix_ln
-        , char const *what="", double const unit=1
-        , bool const all_i=false, bool const all_j=false
+    void show_ell_block_diagonal(
+          view2D<double> const & matrix_ln
+        , char const *title=""
+        , double const unit=1
+        , bool const all_i=false
+        , bool const all_j=false
     ) const {
         int const nlnr = sho_tools::nSHO_radial(numax);
         view2D<char> ln_label(nlnr, 4);
@@ -1399,7 +1408,7 @@ namespace single_atom {
         int const mlnr = display_delimiter(numax, nn);
         for(int ilnr = 0; ilnr < mlnr; ++ilnr) {
             if (partial_wave_active[ilnr] || all_i) {
-                printf("# %s %s %-4s ", label, what, all_i ? ln_label[ilnr] : partial_wave[ilnr].tag);
+                printf("# %s %s %-4s ", label, title, all_i ? ln_label[ilnr] : partial_wave[ilnr].tag);
                 for(int jlnr = 0; jlnr < mlnr; ++jlnr) {
                     if (partial_wave_active[jlnr] || all_j) {
                         if (partial_wave[ilnr].ell == partial_wave[jlnr].ell) { // ToDo
@@ -1583,10 +1592,11 @@ namespace single_atom {
                         printf("\n# %s (numeric projectors) %c-overlap before Gram-Schmidt:\n", label, ellchar[ell]);
                         for(int irn = 0; irn < n; ++irn) {
                             printf("# %s ", label, ellchar[ell]);
-                            for(int jrn = 0; jrn < n; ++jrn) {
-                                printf(" %11.6f", ovl(irn,jrn));
-                            } // jrn
-                            printf("\n");
+//                             for(int jrn = 0; jrn < n; ++jrn) {
+//                                 printf(" %11.6f", ovl(irn,jrn));
+//                             } // jrn
+//                             printf("\n");
+                            printf_vector(" %11.6f", ovl[irn], n);
                         } // irn
                         printf("\n");
                     } // echo
@@ -1726,10 +1736,11 @@ namespace single_atom {
                     if (echo > 6) {
                         auto const length = std::sqrt(norm2);
                         printf("# %s %scoefficients of the %s-projector: %.6e * [", label, optimized, partial_wave[iln].tag, length);
-                        for(int mrn = 0; mrn < nmx; ++mrn) { // radial SHO basis functions
-                            printf(" %9.6f", prj_coeff[iln][mrn]/length);
-                        } // mrn
-                        printf(" ]\n");
+//                         for(int mrn = 0; mrn < nmx; ++mrn) { // radial SHO basis functions
+//                             printf(" %9.6f", prj_coeff[iln][mrn]/length);
+//                         } // mrn
+//                         printf(" ]\n");
+                        printf_vector(" %9.6f", prj_coeff[iln], nmx, " ]\n", 1./length);
                     } // echo
                 } else {
                     warn("%s failed to normalize %s-projector coefficients after Gram-Schmidt", label, partial_wave[iln].tag);
@@ -1780,7 +1791,14 @@ namespace single_atom {
     
 
     template <int rpow>
-    status_t pseudize_local_potential(double V_smt[], double const V_tru[], int const echo=0, double const df=1) { // df=display_factor
+    status_t pseudize_local_potential(
+          double V_smt[]  // output smooth potential
+        , double const V_tru[] // true potential V(r)
+        , int const echo=0 // log-level
+        , double const df=1 // df=display factor
+    ) { 
+        // replace the true singular potential by a smooth pseudopotential inside the augmentation sphere
+
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         status_t stat(0);
         double const r_cut = rg[TRU]->r[ir_cut[TRU]];
@@ -1975,7 +1993,8 @@ namespace single_atom {
 
 
     void update_partial_waves(int const echo=0) {
-        sigma = update_sigma(echo); // run optimization on sigma
+
+        sigma = update_sigma(echo); // run optimization on sigma, potentially modify the member variable sigma
 
         auto const Gram_Schmidt_iterations = int(control::get("single_atom.gram.schmidt.repeat", 2.));
        
@@ -1984,7 +2003,7 @@ namespace single_atom {
 //      auto const small_component = new double[rg[TRU]->n];
         int const nr = rg[TRU]->n;
         std::vector<double> r2rho(nr);
-        
+
         int const nln = sho_tools::nSHO_radial(numax);
         view2D<double> radial_sho_basis(nln, align<2>(rg[SMT]->n), 0.0); // get memory
         scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), *rg[SMT], sigma, numax, 1, echo/2);
@@ -2247,11 +2266,13 @@ namespace single_atom {
                             if (echo > 7) {
     //                          printf("\n");
                                 for(int krn = 0; krn < n; ++krn) {
-                                    printf("# %s curvature|overlap for i=%i ", label, krn);
-                                    for(int jrn = 0; jrn < n; ++jrn) {
-                                        printf(" %g|%g", Ekin(krn,jrn), Olap(krn,jrn));
-                                    } // jrn
-                                    printf("\n");
+                                    printf("# %s curvature (%s) and overlap for i=%i ", label, eV, krn);
+//                                     for(int jrn = 0; jrn < n; ++jrn) {
+//                                         printf(" %g|%g", Ekin(krn,jrn), Olap(krn,jrn));
+//                                     } // jrn
+//                                     printf("\n");
+                                    printf_vector(" %g", Ekin[krn], n, "\t\t", eV);
+                                    printf_vector(" %g", Olap[krn], n);
                                 } // krn
     //                          printf("\n");
                             } // echo
@@ -2266,7 +2287,9 @@ namespace single_atom {
                                     if (echo > 6) {
                                         printf("# %s lowest eigenvalue of the radial curvature is %g %s", label, lowest_eigenvalue*eV, _eV);
                                         if (echo > 8) {
-                                            printf(", coefficients"); for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin(0,krn));
+                                            printf(", coefficients");
+//                                             for(int krn = 0; krn < n; ++krn) printf(" %g", Ekin(0,krn));
+                                            printf_vector(" %g", Ekin[0], n, nullptr); // does not need scaling by eV since these are eigenvector coefficients
                                         } // high echo
                                         printf("\n");
                                     } // echo
@@ -2757,10 +2780,11 @@ namespace single_atom {
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
             for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 printf("# %s %-8s ", label, labels[ilmn]);
-                for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
-                    printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
-                } // jlmn
-                printf("\n");
+//                 for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
+//                     printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
+//                 } // jlmn
+//                 printf("\n");
+                printf_vector(" %11.6f", radial_density_matrix[ilmn], nSHO);
             } // ilmn
             printf("\n");
         } // echo
@@ -3071,7 +3095,8 @@ namespace single_atom {
                         printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
                         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                             printf("%g %g %g\n", rg[SMT]->r[ir], Ves(00,ir)*Y00, aug_density(00,ir)*Y00);
-                        }   printf("\n\n");
+                        } // ir  
+                        printf("\n\n");
                     } // show radial function of Ves[00]*Y00 to be compared to projections of the 3D electrostatic potential
                 } // echo
             } else {
@@ -3248,7 +3273,6 @@ namespace single_atom {
         for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             int const ilm = lm_index_list[ilmn];
-            if (echo > 7) printf("# %s hamiltonian elements for ilmn=%3i  ", label, ilmn);
             for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                 int const jln = ln_index_list[jlmn];
                 int const jlm = lm_index_list[jlmn];
@@ -3258,9 +3282,13 @@ namespace single_atom {
                     overlap_lmn(ilmn,jlmn) = ( charge_deficit(0,TRU,iln,jln)
                                              - charge_deficit(0,SMT,iln,jln) ); // ell=0
                 } // diagonal in lm, offdiagonal in nrn
-                if ((echo > 7)) printf(" %7.3f", hamiltonian_lmn(ilmn,jlmn)*eV);
             } // jlmn
-            if ((echo > 7)) printf("\n");
+            if (echo > 7) {
+                printf("# %s hamiltonian elements for ilmn=%3i  ", label, ilmn);
+//                     if ((echo > 7)) printf(" %7.3f", hamiltonian_lmn(ilmn,jlmn)*eV);
+//                 if ((echo > 7)) printf("\n");
+                printf_vector(" %7.3f", hamiltonian_lmn[ilmn], nlmn, "\n", eV);
+            } // echo
         } // ilmn
 
         auto const u_proj = unfold_projector_coefficients();
@@ -3271,10 +3299,11 @@ namespace single_atom {
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 if (partial_wave_active[ln_index_list[ilmn]]) {
                     printf("# %s u_proj for ilmn=%3i  ", label, ilmn);
-                    for(int jlmn = 0; jlmn < mlmn; ++jlmn) {
-                        printf(" %g", u_proj(ilmn,jlmn));
-                    } // jlmn
-                    printf("\n");
+//                     for(int jlmn = 0; jlmn < mlmn; ++jlmn) {
+//                         printf(" %g", u_proj(ilmn,jlmn));
+//                     } // jlmn
+//                     printf("\n");
+                    printf_vector(" %g", u_proj[ilmn], mlmn);
                 } // active
             } // ilmn
         } // echo
@@ -3295,10 +3324,11 @@ namespace single_atom {
             printf("\n# %s lmn-based Overlap elements:\n", label);
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
                 printf("# %s overlap elements for ilmn=%3i  ", label, ilmn);
-                for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                    printf(" %g", overlap_lmn(ilmn,jlmn));
-                } // jlmn
-                printf("\n");
+//                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+//                     printf(" %g", overlap_lmn(ilmn,jlmn));
+//                 } // jlmn
+//                 printf("\n");
+                printf_vector(" %g", overlap_lmn[ilmn], nlmn);
             } // ilmn
             printf("\n");
         } // echo
@@ -3363,10 +3393,11 @@ namespace single_atom {
             sho_tools::construct_label_table<8>(zyx_label.data(), numax, sho_tools::order_zyx);
             for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
                 printf("# %s hamiltonian elements for %-6s", label, zyx_label[iSHO]); // ToDo: show the nx,ny,nz quantum numbers
-                for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-                    printf(" %11.6f", hamiltonian(iSHO,jSHO)*eV);
-                } // jSHO
-                printf("\n");
+//                 for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
+//                     printf(" %11.6f", hamiltonian(iSHO,jSHO)*eV);
+//                 } // jSHO
+//                 printf("\n");
+                printf_vector(" %11.6f", hamiltonian[iSHO], nSHO, "\n", eV);
             } // iSHO
         } // echo
 #endif // DEVEL
@@ -3447,7 +3478,6 @@ namespace single_atom {
         auto const u_proj = unfold_projector_coefficients_emm_degenerate();
 
 #ifdef DEVEL
-
         if (echo > 2) { // display
             int const mln = display_delimiter(numax, nn);
             printf("\n# %s ln-based projector matrix:\n", label);
@@ -3460,19 +3490,6 @@ namespace single_atom {
                 } // jln
                 printf("\n");
             } // show a legend
-//             for(int iln = 0; iln < mln; ++iln) {
-//                 if (partial_wave_active[iln]) {
-//                     printf("# %s u_proj for %-4s ", label, partial_wave[iln].tag);
-//                     for(int jln = 0; jln < mln; ++jln) {
-//                         if (partial_wave[iln].ell == partial_wave[jln].ell) {
-//                             printf(" %9.6f", u_proj(iln,jln));
-//                         } else {
-//                             printf("          ");
-//                         } // ells match
-//                     } // jln
-//                     printf("\n");
-//                 } // wave
-//             } // iln
             show_ell_block_diagonal(u_proj, "ln-based projector", 1, false, true);
         } // echo
 #endif
@@ -3486,23 +3503,24 @@ namespace single_atom {
                 gemm(matrix_ln, nln, uT_proj, nln, tmp_mat); // u^T*
 #ifdef DEVEL
                 if (echo > 4) { // display
-                      int const mln = display_delimiter(numax, nn);
-                      printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS ? "overlap" : "hamiltonian");
-                      double const unit = iHS ? 1 : eV;
-                      for(int iln = 0; iln < mln; ++iln) {
-                          printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
-                          for(int jln = 0; jln < mln; ++jln) {
-                              if (partial_wave[iln].ell == partial_wave[jln].ell) {
-                                  printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
-                              } else {
-                                  printf("            ");
-                              } // ells match
-                          } // jln
-                          printf("\n");
-                      } // iln
-                      printf("\n");
+//                  int const mln = display_delimiter(numax, nn);
+                    printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS?"overlap":"hamiltonian");
+                    double const unit = iHS ? 1 : eV;
+//                     for(int iln = 0; iln < mln; ++iln) {
+//                         printf("# %s %c%i  ", label, ellchar[partial_wave[iln].ell], partial_wave[iln].nrn[SMT]);
+//                         for(int jln = 0; jln < mln; ++jln) {
+//                             if (partial_wave[iln].ell == partial_wave[jln].ell) {
+//                                 printf(" %11.6f", aHSm(iHS,iln,jln)*unit);
+//                             } else {
+//                                 printf("            ");
+//                             } // ells match
+//                         } // jln
+//                         printf("\n");
+//                     } // iln
+//                     printf("\n");
+                    show_ell_block_diagonal(matrix_ln, iHS?"overlap    ":"hamiltonian" , unit, true, true);
                 } // echo
-#endif
+#endif // DEVEL
             } // iHS
         } // scope
 
@@ -3630,7 +3648,8 @@ namespace single_atom {
             printf("\n## %s %s before filtering:\n", label, qnt_name);
             for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                 printf("%g %g\n", rg[SMT]->r[ir], qnt_vector[ir]*Y00s);
-            }   printf("\n\n");
+            } // ir
+            printf("\n\n");
         } // echo
 #endif
 
@@ -3657,7 +3676,8 @@ namespace single_atom {
             printf("\n## %s %s  after filtering:\n", label, qnt_name);
             for(int ir2 = 0; ir2 < nr2; ++ir2) {
                 printf("%g %g\n", std::sqrt(ir2/ar2), qnt[ir2]*Y00s);
-            }   printf("\n\n");
+            } // ir2
+            printf("\n\n");
         } // echo
 #endif
         return stat;
