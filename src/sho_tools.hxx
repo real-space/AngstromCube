@@ -1,7 +1,7 @@
 #pragma once
 
-#include <cstdio> // printf
-#include <cstdint> // int64_t, std::sprintf, uint8_t
+#include <cstdio> // printf, std::sprintf
+#include <cstdint> // int64_t
 #include <string> // std::string
 
 #include "status.hxx" // status_t
@@ -23,14 +23,6 @@ namespace sho_tools {
       order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
 
-  typedef struct {
-      union {
-        struct { uint8_t nx, ny, nz; } Cartesian;
-        uint8_t xyz[3]; // == {nx, ny, nz}
-        struct { uint8_t nrn, ell, emm; } radial;
-      };
-      uint8_t nu; // sanity check: nu == nx + ny + nz or nu == ell + 2*nrn
-  } SHO_index_t;
 
   inline constexpr bool is_energy_ordered(SHO_order_t const order) {
       return (order_Ezyx == order) || (order_Elnm == order) || (order_Enl == order); }
@@ -44,7 +36,7 @@ namespace sho_tools {
   inline std::string SHO_order2string(SHO_order_t const order) {
       auto const o = order;
       return std::string((char const *)&o);
-  }
+  } // SHO_order2string
 
   // number of all 3D SHO states up to numax >= 0
   inline constexpr int nSHO(int const numax) { return ((1 + numax)*(2 + numax)*(3 + numax))/6; }
@@ -64,13 +56,15 @@ namespace sho_tools {
   inline int constexpr nSHO_radial(int const numax)    { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
   inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
 
-  inline constexpr int ln_index(int const numax, int const ell, int const nrn) {
+  inline constexpr
+  int ln_index(int const numax, int const ell, int const nrn) {
       return nrn + (1 + ell*( (2*numax + 4) - ell))/4; } // ln_index
   template<int numax> inline constexpr
   int ln_index(int const ell, int const nrn) {
       return ln_index(numax, ell, nrn); }
 
-  inline constexpr int nl_index(int const numax, int const nrn, int const ell) {
+  inline constexpr
+  int nl_index(int const numax, int const nrn, int const ell) {
       return ell + (numax + 2 - nrn)*nrn; } // nl_index
   template<int numax> inline constexpr
   int nl_index(int const nrn, int const ell) {
@@ -111,7 +105,8 @@ namespace sho_tools {
   // =============================== Cartesian indices ===============================
 
   // Cartesian 3D index
-  inline constexpr int zyx_index(int const numax, int const nx, int const ny, int const nz) {
+  inline constexpr
+  int zyx_index(int const numax, int const nx, int const ny, int const nz) {
       return (nz*nz*nz - 3*(2 + numax)*nz*nz + (3*pow2(2 + numax) - 1)*nz // contribution for nx=0, ny=0
               + ny*(2 + numax - nz)*6 - (ny*(1 + ny))*3  +  6*nx)/6;  // contribution from previous y and x
   } // zyx_index
@@ -156,13 +151,18 @@ namespace sho_tools {
   int get_nu(int_t const energy_ordered) {
       int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
 
-  template<typename int_t> inline
-  status_t construct_index_table(int_t energy_ordered[], int const numax,
-                    SHO_order_t const order, int_t *inverse=nullptr, int const echo=0) {
+  template <typename int_t> inline
+  status_t construct_index_table(
+        int_t energy_ordered[] // permutation indices for energy ordering
+      , int const numax // SHO basis size
+      , SHO_order_t const order // SHO input order
+      , int_t *inverse=nullptr // inverse permutation
+      , int const echo=0 // log-level
+  ) {
       // construct a table of energy ordered indices
       // this is needed to address e.g. the block-diagonal SHO-transformation operator
-      if (echo > 3) printf("# construct_index_table for <numax=%i> order_%s\n",
-                              numax, SHO_order2string(order).c_str());
+      if (echo > 3) printf("# %s for <numax=%i> order_%s\n",
+                              __func__, numax, SHO_order2string(order).c_str());
       if (echo > 4) printf("# ");
       int ii = 0;
       switch (order) {
@@ -275,49 +275,46 @@ namespace sho_tools {
       return 0; // success if 0
   } // construct_index_table
 
-
-  template<SHO_order_t order> inline
-  status_t construct_index_table(SHO_index_t idx[], int const numax, int const echo=0); // provide no implementation for the general case
-
-  template<> inline // template specialization
-  status_t construct_index_table<order_zyx>(SHO_index_t idx[], int const numax, int const echo) {
+  template <typename uint_t> inline
+  status_t quantum_number_table(
+        uint_t idx[] // assumed stride 4
+      , int const numax // size of SHO basis
+      , SHO_order_t const order // SHO input order      
+      , int const echo=0 // log-level
+  ) {
+      // list all triples of quantum numbers
+      if (is_Cartesian(order)) {
           int ii{0};
           for(int z = 0; z <= numax; ++z) {
               for(int y = 0; y <= numax - z; ++y) {
                   for(int x = 0; x <= numax - z - y; ++x) {
                       assert( zyx_index(numax, x, y, z) == ii );
-                      idx[ii].Cartesian.nx = x;
-                      idx[ii].Cartesian.ny = y;
-                      idx[ii].Cartesian.nz = z;
-                      idx[ii].nu = get_nu(x, y, z);
-//                    idx[ii] = {x, y, z, get_nu(x, y, z)};
+                      int const jj = (order == order_Ezyx) ? Ezyx_index(x, y, z) : ii;
+                      idx[jj*4 + 0] = x;
+                      idx[jj*4 + 1] = y;
+                      idx[jj*4 + 2] = z;
+                      idx[jj*4 + 3] = get_nu(x, y, z);
                       ++ii;
-          }}} // x y z
-          return ( nSHO(numax) != ii );
-  } // construct_index_table<order_zyx>
+                  } // x
+              } // y
+          } // z
+          assert (nSHO(numax) == ii);
+      } else {
+          if (echo > 0) printf("\n# %s %s Error: only Cartesian implemented but found %s\n\n",
+                                    __FILE__, __func__, SHO_order2string(order).c_str());
+          return -1;
+      } // is_Cartesian
+      return 0;
+  } // quantum_number_table
 
-  template<SHO_order_t order> inline
-  status_t construct_index_table(uint8_t idx[][4], int const numax, int const echo=0); // provide no implementation for the general case
-  
-  template<> inline // template specialization
-  status_t construct_index_table<order_Ezyx>(uint8_t idx[][4], int const numax, int const echo) {
-          int ii{0};
-          for(int z = 0; z <= numax; ++z) {
-              for(int y = 0; y <= numax - z; ++y) {
-                  for(int x = 0; x <= numax - z - y; ++x) {
-                      assert( zyx_index(numax, x, y, z) == ii );
-                      ++ii;
-                      int const jj = Ezyx_index(x, y, z);
-                      idx[jj][0] = x;
-                      idx[jj][1] = y;
-                      idx[jj][2] = z;
-                      idx[jj][3] = get_nu(x, y, z);
-          }}} // x y z
-          return ( nSHO(numax) != ii );
-  } // construct_index_table<order_Ezyx>
+  template <unsigned nChar=8> inline // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
+  status_t construct_label_table(
+        char label[]
+      , int const numax
+      , SHO_order_t const order
+      , int const echo=0
+  ) {
 
-  template <unsigned nChar=8> // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
-  inline status_t construct_label_table(char label[], int const numax, SHO_order_t const order, int const echo=1) {
       auto const ellchar = "spdfghijklmno"; // ToDo: 'i' should not be included by convention
       int ii{0};
       switch (order) {

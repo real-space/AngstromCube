@@ -11,18 +11,31 @@
 
 namespace sho_potential {
 
-  status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo=0);
-  
-  template<typename complex_t, typename phase_t>
-  status_t potential_matrix(view2D<complex_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
-                            , view4D<double> const & t1D // input t1D(dir,m,i,j)
-                            , double const Vcoeff[], int const numax_m // expansion of the potential in x^{mx}*y^{my}*z^{mz}
-                            , int const numax_i, int const numax_j
-                            , phase_t const phase=1 // typically phase_t is double or complex<double>
-                            , int const dir01=1) { // 1:direction dependent input tensor, 0:isotropic
+  status_t normalize_potential_coefficients(
+        double coeff[] // coefficients[nSHO(numax)], input: in zyx_order, output in Ezyx_order
+      , int const numax // SHO basis size
+      , double const sigma // SHO basis spread
+      , int const echo=0 // log-level
+  ); // declaration only
+
+  template <typename complex_t, typename phase_t>
+  status_t potential_matrix(
+        view2D<complex_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
+      , view4D<double> const & t1D // input t1D(dir,m,i,j)
+      , double const Vcoeff[] // coefficients of the SHO-expanded local potential (Ezyx_order)
+      , int const numax_m // order of expansion of the potential in x^{mx}*y^{my}*z^{mz}
+      , int const numax_i
+      , int const numax_j
+      , phase_t const phase=1 // typically phase_t is double or complex<double>
+      , int const dir01=1 // 1:direction dependent input tensor, 0:isotropic
+  ) {
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
       // can use different (dir01==1) tensors per direction or the same (dir01==0)
       // t(m,j,i) = t1D(0,m_x,j_x,i_x) * t1D(1,m_y,j_y,i_y) * t1D(2,m_z,j_z,i_z)
+      assert( t1D.stride()  >= sho_tools::n1HO(numax_j) );
+      assert( t1D.dim1()    >= sho_tools::n1HO(numax_i) );
+      assert( t1D.dim2()    >= sho_tools::n1HO(numax_m) );
+      assert( Vmat.stride() >= sho_tools::nSHO(numax_j) );
 
       int mzyx{0}; // contraction index
       for    (int mu = 0; mu <= numax_m; ++mu) { // shell index for order_Ezyx
@@ -67,7 +80,14 @@ namespace sho_potential {
   
   
   template <typename real_t>
-  status_t load_local_potential(std::vector<real_t> & vtot, int dims[3], char const *filename, int const echo=0) {
+  status_t load_local_potential(
+        std::vector<real_t> & vtot // output
+      , int dims[3] // output dimensions found
+      , char const *filename // input filename
+      , int const echo=0 // log-level
+  ) {
+      // load the total potential from a file
+
       status_t stat(0);
       set(dims, 3, 0); // clear
       vtot.clear();
@@ -102,8 +122,8 @@ namespace sho_potential {
       } // scope
       return stat;
   } // load_local_potential
-  
-  
+
+
   status_t all_tests(int const echo=0);
-  
+
 } // namespace sho_potential

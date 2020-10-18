@@ -16,14 +16,15 @@
 #include "control.hxx" // ::get
 #include "inline_math.hxx" // pow2, set
 #include "data_view.hxx" // view2D<T>
-#include "simple_math.hxx" // ::random<real_or_int_t>
 #include "sho_tools.hxx" // ::nSHO
 #include "linear_algebra.hxx" // ::inverse
 #include "recorded_warnings.hxx" // warn
 #include "display_units.h" // Ang, _Ang, eV, _eV
+#include "print_tools.hxx" // printf_vector
 
-// #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
-// #include "display_units.h" // eV, _eV, Ang, _Ang
+#ifndef NO_UNIT_TESTS
+    #include "simple_math.hxx" // ::random<real_or_int_t>
+#endif
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -48,14 +49,15 @@
 namespace sho_overlap {
   // computes the overlap between Gaussian-localized 1D polynomials
   
-  template<typename real_t>
-  int multiply(real_t    p0xp1[], int const n, // result
-               real_t const p0[], int const n0,
-               real_t const p1[], int const n1) {
+  template <typename real_t>
+  int multiply( // returns the number of non-zero coefficients that did not fit into p0xp1
+        real_t    p0xp1[], int const n  // result
+      , real_t const p0[], int const n0 // left input
+      , real_t const p1[], int const n1 // right input
+  ) {
       // multiplication of two polynomials
-      for(int d = 0; d < n; ++d) {
-          p0xp1[d] = 0; // clear
-      } // d
+
+      set(p0xp1, n, real_t(0)); // clear result polynomial coefficients
       int nloss{0};
       for(int d0 = 0; d0 < n0; ++d0) {
           for(int d1 = 0; d1 < n1; ++d1) {
@@ -64,21 +66,28 @@ namespace sho_overlap {
                   p0xp1[d] += p0[d0] * p1[d1];
               } else {
                   nloss += (0 != (p0[d0] * p1[d1]));
-              }
+              } // d < n
           } // d1
       } // d0
       return nloss; // return a positive number if potentially non-zero coefficients have been lost because n < n0 + n1 - 1
   } // multiply
 
   
-  template<typename real_t>
-  double integrate(real_t const p[], int const m, double const sigma=1, int const moment=0) {
-      assert( 0 <= moment );
-      double value{0};
+  template <typename real_t>
+  double integrate( // returns the analytically integrated value
+        real_t const p[] // input polynomial coefficients
+      , int const m // number of coefficients in p[]
+      , double const sigma=1.0 // Gaussian spread
+      , int const moment=0 // shifting of powers
+  ) {
+      // contract the polynomial p[k] x^{k + moment} with kern_{k + moment}
+      //
       //            / infty
       // kern_{n} = |   exp(-x^2/sigma^2) x^n dx  only non-zero for even n
       //            /-infty
-      // contract the polynomial p[k] x^{k + moment} with kern_{k + moment}
+      //
+      assert( 0 <= moment );
+      double value{0};
       double kern = constants::sqrtpi * sigma; // init recursive computation
       for(int d = 0; (2*d - moment) < m; ++d) {
           int const ip = 2*d - moment;
@@ -89,10 +98,15 @@ namespace sho_overlap {
   } // integrate
  
   
-  template<typename real_t>
-  void prepare_centered_Hermite_polynomials(real_t H[], int const ncut,
-                    double const siginv=1, double const normalize=1) {
-      
+  template <typename real_t>
+  void prepare_centered_Hermite_polynomials(
+        real_t H[] // result: Hermite polynomials H[i*ncut + j] up to order n < ncut
+      , int const ncut // number of coefficients in H[]
+      , double const siginv=1.0 // inverse of Gaussian spread sigma
+      , double const normalize=1.0 // normalize to this number, except if 0.0
+  ) {
+      // prepare the polynomial coefficient matrix of all ncut-1 centered Hermite polynomials
+
       int const S = ncut; // access stride
       for(int i = 0; i < S*S; ++i) H[i] = 0; // clear
 
@@ -106,7 +120,7 @@ namespace sho_overlap {
           } // d
       } // n
 
-      if (0 != normalize) {
+      if (0.0 != normalize) {
           double nfactorial{1};
           for(int n = 0; n < ncut; ++n) {
               double const nrmf = normalize*std::sqrt(siginv/(constants::sqrtpi*nfactorial));
@@ -120,9 +134,13 @@ namespace sho_overlap {
   } // prepare_centered_Hermite_polynomials
 
   
-  template<typename real_t>
-  int derive_Hermite_Gauss_polynomials(real_t dH[], real_t const H[], int const n,
-                    double const siginv=1) {
+  template <typename real_t>
+  int derive_Hermite_Gauss_polynomial( // returns 1 if the highest term could not be stored
+        real_t dH[] // output derived Hermite polynomial coefficients
+      , real_t const H[] // input Hermite polynomial coefficients H[n]
+      , int const n // number of coefficients for both, H[] and dH[]
+      , double const siginv=1.0 // inverse of the Gaussian spread sigma
+  ) {
       // the Gaussian envelope function exp(-.5*(x/sigma)^2) is implicit here
       // but needs to be considered when deriving:
       // 
@@ -131,7 +149,8 @@ namespace sho_overlap {
       // derive the polynomial part first
       for(int d = 1; d < n; ++d) {
           dH[d - 1] = d*H[d];
-      }   dH[n - 1] = 0;
+      } // d
+      dH[n - 1] = 0;
 
       // now add the terms from the inner derivative of exp(-.5*(x/sigma)^2)
       for(int d = 0; d < n - 1; ++d) {
@@ -141,12 +160,15 @@ namespace sho_overlap {
       return (H[n - 1] != 0); // returns 1 if the highest term could not be stored
   } // derive
 
-  template<typename real_t>
-  void shift_polynomial_centers(real_t c_shifted[], // result: shifted polynomial
-                                real_t const c[], // assume p(x) = sum_k=0...nmax-1 c[k] * x^k
-                                int const nmax,
-                                real_t const x_shift) {
-    
+  template <typename real_t>
+  void shift_polynomial_centers(
+        real_t c_shifted[] // result: shifted polynomial
+      , real_t const c[] // assume p(x) = sum_k=0...nmax-1 c[k] * x^k
+      , int const nmax // number of coefficients for both, c[] and c_shifted[]
+      , real_t const x_shift // how much is the center shifted
+  ) {
+      // shift the center of the polynomial by Taylor expansion
+
       std::vector<real_t> c_old(nmax);
       for(int k = 0; k < nmax; ++k) {
           c_old[k] = c[k]; // get a work copy
@@ -178,11 +200,13 @@ namespace sho_overlap {
   } // shift_polynomial_centers
   
   
-  template<typename real_t>
-  real_t overlap_of_poly_times_Gauss_with_pure_powers(
-      real_t const p[], int const n0 // polynomial coefficients p[i] * x^i, i=0...n0-1
+  template <typename real_t>
+  real_t overlap_of_poly_times_Gauss_with_pure_powers( // return the integral
+        real_t const p[] // polynomial coefficients p[i] * x^i, i=0...n0-1
+      , int const n0 // number of polynomial coefficients
       , double const s0 // Gaussian decay exp(-x^2/(2*s0^2))
-      , int const moment) { // additional power x^moment
+      , int const moment // additional power x^moment
+  ) {
       assert( 0 <= moment );
       assert( 0 < s0 );
       auto const sigma = std::sqrt(2.)*s0; // the integrate function assumes exp(-x^2/sigma^2)
@@ -190,12 +214,13 @@ namespace sho_overlap {
   } // overlap_of_poly_times_Gauss_with_pure_powers
 
   
-  template<typename real_t>
+  template <typename real_t>
   real_t overlap_of_two_Hermite_Gauss_functions(
       real_t const H0[], int const n0, double const s0, // polynomial H0[j < n0] times Gaussian exp(-x^2/(2*s0^2))
       real_t const H1[], int const n1, double const s1, // polynomial H1[i < n1] times Gaussian exp(-x^2/(2*s1^2))
       double const distance, // separating distance of the two centers
-      int const moment=0) { // multiply a moment x^m to the polynomial before integration
+      int const moment=0 // multiply a moment x^m to the polynomial before integration
+  ) {
 
       auto const k0 = .5/(s0*s0), k1 = .5/(s1*s1);
       auto const denom = 1./(k0 + k1);
@@ -220,109 +245,120 @@ namespace sho_overlap {
       return value;
   } // overlap_of_two_Hermite_Gauss_functions
 
-  template<int ncut, typename real_t>
-  status_t generate_density_tensor(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
-      , int const echo=9, float const sigma_over_sigmap_squared=2) {
-    status_t stat(0);
-    // this structure can be used to describe the density generation
-    // for the density we assume that it is sufficient to
-    // represent the density in a SHO basis 
-    // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
-    if (echo > 1) printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
-    double const sigma = 1; // typically == 1 
-    double const sigma_inv = 1./sigma; // typically == 1
-    double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
-    double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
-    double const alpha = 2*sigma_inv*sigma_inv + sigmapinv2; // == 4
-    double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
-    view2D<double> H(ncut, ncut, 0.0), Hp(2*ncut, 2*ncut, 0.0);
-    prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
-    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
-    view3D<real_t> t3(tensor, ncut, ncut); // wrapper
-    for(int p = 0; p < 2*ncut - 1; ++p) {
-        if (echo > 1) printf("\n# p = %d\n", p);
-        for(int n = 0; n < ncut; ++n) {
-            std::vector<double> HHp(3*ncut, 0.0);
-            stat += multiply(HHp.data(), 3*ncut, H[n], ncut, Hp[p], 2*ncut);
-            for(int m = 0; m < ncut; ++m) {
-                real_t tensor_value = 0;
-                if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
-                    std::vector<double> HHpH(4*ncut, 0.0);
-                    stat += multiply(HHpH.data(), 4*ncut, H[m], ncut, HHp.data(), 3*ncut);
-                    auto const P_pnm = integrate(HHpH.data(), 4*ncut, sqrt_alpha_inv);
-//                  if (echo > 1) printf(" %d%d%d %.9f\n", p,n,m, P_pnm); // show tensor values as list
-                    if (echo > 1) printf(" %.9f", P_pnm); // show tensor values
-                    // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
-                    tensor_value = P_pnm;
-                } // even?
-                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
-            } // m
-            if (echo > 1) printf("\n");
-        } // n
-        if (echo > 1) printf("\n");
-    } // p
-    return stat; // non-zero if some polynomial coefficients got lost during multiplication
+  template <int ncut, typename real_t>
+  status_t generate_density_tensor(
+        real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
+      , int const echo=9
+      , float const sigma_over_sigmap_squared=2
+  ) {
+      // this structure can be used to describe the density generation
+      // for the density we assume that it is sufficient to
+      // represent the density in a SHO basis 
+      // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
+    
+      status_t stat(0);
+      if (echo > 1) printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
+      double const sigma = 1; // typically == 1 
+      double const sigma_inv = 1./sigma; // typically == 1
+      double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
+      double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
+      double const alpha = 2*sigma_inv*sigma_inv + sigmapinv2; // == 4
+      double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
+      view2D<double> H(ncut, ncut, 0.0), Hp(2*ncut, 2*ncut, 0.0);
+      prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
+      prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
+      view3D<real_t> t3(tensor, ncut, ncut); // wrapper
+      for(int p = 0; p < 2*ncut - 1; ++p) {
+          if (echo > 1) printf("\n# p = %d\n", p);
+          for(int n = 0; n < ncut; ++n) {
+              std::vector<double> HHp(3*ncut, 0.0);
+              stat += multiply(HHp.data(), 3*ncut, H[n], ncut, Hp[p], 2*ncut);
+              for(int m = 0; m < ncut; ++m) {
+                  real_t tensor_value = 0;
+                  if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                      std::vector<double> HHpH(4*ncut, 0.0);
+                      stat += multiply(HHpH.data(), 4*ncut, H[m], ncut, HHp.data(), 3*ncut);
+                      auto const P_pnm = integrate(HHpH.data(), 4*ncut, sqrt_alpha_inv);
+//                    if (echo > 1) printf(" %d%d%d %.9f\n", p,n,m, P_pnm); // show tensor values as list
+                      if (echo > 1) printf(" %.9f", P_pnm); // show tensor values
+                      // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
+                      tensor_value = P_pnm;
+                  } // even?
+                  if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
+              } // m
+              if (echo > 1) printf("\n");
+          } // n
+          if (echo > 1) printf("\n");
+      } // p
+      return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // generate_density_tensor
 
 
-  template<int ncut, typename real_t>
-  status_t generate_density_or_potential_tensor(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
-      , int const echo=9, float const sigma_over_sigmap_squared=2) { // 2:typical for density tensor
-    status_t stat(0);
-    // this structure can be used to describe the density generation
-    // for the density we assume that it is sufficient to
-    // represent the density in a SHO basis 
-    // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
-    double const sigma = 1; // typically == 1 
-    double const sigma_inv = 1./sigma; // typically == 1
-    double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
-    double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
-    double const alpha = 2*sigma_inv*sigma_inv + sigmapinv2; // == 4
-    double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
-    view2D<double> H(ncut, ncut), Hp(2*ncut, 2*ncut);
-    prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
-    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
-    view3D<real_t> t3(tensor, ncut, ncut); // wrapper
-    for(int n = 0; n < ncut; ++n) {
-        for(int m = 0; m < ncut; ++m) {
-            std::vector<double> HH(2*ncut, 0.0);
-            stat += multiply(HH.data(), 2*ncut, H[n], ncut, H[m], ncut);
-            for(int p = 0; p < 2*ncut - 1; ++p) {
-                real_t tensor_value = 0;
-                if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
-                    std::vector<double> HHHp(4*ncut, 0.0);
-                    stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
-                    auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
-                    // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
-                    tensor_value = P_pnm;
-                } // even?
-                if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
-            } // p
-        } // m
-    } // n
-    if (nullptr == tensor) return -1; // function had no effect
-    if (echo > 1) {
-        printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
-        for(int p = 0; p < 2*ncut - 1; ++p) {
-            printf("\n# p = %d\n", p);
-            for(int n = 0; n < ncut; ++n) {
-                for(int m = 0; m < ncut; ++m) {
-                    if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
-                        printf(" %.9f", t3(p,n,m)); // show tensor values
-                    } // even?
-                } // m
-                printf("\n");
-            } // n
-           printf("\n");
-        } // p
-    } // echo
-    return stat; // non-zero if some polynomial coefficients got lost during multiplication
+  template <int ncut, typename real_t>
+  status_t generate_density_or_potential_tensor(
+        real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
+      , int const echo=9
+      , float const sigma_over_sigmap_squared=2 // 2:typical for density tensor
+   ) {
+      status_t stat(0);
+      // this structure can be used to describe the density generation
+      // for the density we assume that it is sufficient to
+      // represent the density in a SHO basis 
+      // with sigma_\rho = sigma/sqrt(2) and nu_max_\rho = 2\nu_max
+      double const sigma = 1; // typically == 1 
+      double const sigma_inv = 1./sigma; // typically == 1
+      double const sigmapinv2 = sigma_over_sigmap_squared*sigma_inv*sigma_inv; // typically == 2
+      double const sigmapinv = std::sqrt(sigmapinv2); // typically == 1.414
+      double const alpha = 2*sigma_inv*sigma_inv + sigmapinv2; // == 4
+      double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
+      view2D<double> H(ncut, ncut), Hp(2*ncut, 2*ncut);
+      prepare_centered_Hermite_polynomials(H.data(), ncut, sigma_inv); // unit spread sigma=1, L2-normalized
+      prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // spread sigma_p = sigma/sqrt(2), L2-normalized
+      view3D<real_t> t3(tensor, ncut, ncut); // wrapper
+      for(int n = 0; n < ncut; ++n) {
+          for(int m = 0; m < ncut; ++m) {
+              std::vector<double> HH(2*ncut, 0.0);
+              stat += multiply(HH.data(), 2*ncut, H[n], ncut, H[m], ncut);
+              for(int p = 0; p < 2*ncut - 1; ++p) {
+                  real_t tensor_value = 0;
+                  if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                      std::vector<double> HHHp(4*ncut, 0.0);
+                      stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
+                      auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
+                      // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
+                      tensor_value = P_pnm;
+                  } // even?
+                  if (tensor) t3(p,n,m) = tensor_value; // store only if output array pointer is non-zero
+              } // p
+          } // m
+      } // n
+      if (nullptr == tensor) return -1; // function had no effect
+      if (echo > 1) {
+          printf("\n\n\n# %s ncut=%d\n", __func__, ncut);
+          for(int p = 0; p < 2*ncut - 1; ++p) {
+              printf("\n# p = %d\n", p);
+              for(int n = 0; n < ncut; ++n) {
+                  for(int m = 0; m < ncut; ++m) {
+                      if (0 == (p + n + m) % 2) { // odd contributions are zero by symmetry
+                          printf(" %.9f", t3(p,n,m)); // show tensor values
+                      } // even?
+                  } // m
+                  printf("\n");
+              } // n
+            printf("\n");
+          } // p
+      } // echo
+      return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // generate_density_or_potential_tensor
 
-  template<int ncut, typename real_t>
-  status_t product_tensor_plain(real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
+  template <int ncut, typename real_t>
+  status_t product_tensor_plain(
+        real_t tensor[] // data layout [2*ncut-1][ncut][ncut]
       , double const sigma=2 // 2:typical for density tensor
-      , double const sigma0=1, double const sigma1=1) {
+      , double const sigma0=1
+      , double const sigma1=1
+  ) {
+    
     status_t stat(0);
     double const sigma0inv = 1./sigma0;
     double const sigma1inv = 1./sigma1;
@@ -355,113 +391,126 @@ namespace sho_overlap {
   } // product_tensor_plain
 
   
-  template<typename real_t>
-  status_t product_tensor(real_t tensor[], int const ncut // data layout [2*ncut-1][ncut][ncut]
-                    , double const sigma     // =2: typical for density tensor
-                    , double const sigma1    // =1
-                    , double const sigma0) { // =1
-    status_t stat(0);
-    double const sigma0inv = 1./sigma0;
-    double const sigma1inv = 1./sigma1;
-    double const sigmapinv = 1./sigma;
-    double const alpha = pow2(sigma0inv) + pow2(sigma1inv) + pow2(sigmapinv);
-    double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
-    view2D<double> H0(ncut, ncut);
-    view2D<double> H1(ncut, ncut);
-    view2D<double> Hp(2*ncut, 2*ncut);
-    prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
-    prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
-    prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
-    view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
-    for(int i = 0; i < ncut; ++i) {
-        for(int j = 0; j < ncut; ++j) {
-            std::vector<double> HH(2*ncut);
-            stat += multiply(HH.data(), 2*ncut, H1[i], ncut, H0[j], ncut);
-            for(int p = 0; p < 2*ncut - 1; ++p) {
-                real_t tensor_value = 0;
-                if (0 == (p + i + j) % 2) { // odd contributions are zero by symmetry
-                    std::vector<double> HHHp(4*ncut);
-                    stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
-                    auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
-                    // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
-                    tensor_value = P_pnm;
-                } // even?
-                if (tensor) t3(p,i,j) = tensor_value; // store only if output array pointer is non-zero
-            } // p
-        } // j
-    } // i
-    return stat; // non-zero if some polynomial coefficients got lost during multiplication
+  template <typename real_t>
+  status_t product_tensor(
+        real_t tensor[]
+      , int const ncut // data layout [2*ncut-1][ncut][ncut]
+      , double const sigma  // =2: typical for density tensor
+      , double const sigma1 // =1
+      , double const sigma0 // =1
+  ) {
+      
+      status_t stat(0);
+      double const sigma0inv = 1./sigma0;
+      double const sigma1inv = 1./sigma1;
+      double const sigmapinv = 1./sigma;
+      double const alpha = pow2(sigma0inv) + pow2(sigma1inv) + pow2(sigmapinv);
+      double const sqrt_alpha_inv = 1./std::sqrt(alpha); // typically == 0.5
+      view2D<double> H0(ncut, ncut);
+      view2D<double> H1(ncut, ncut);
+      view2D<double> Hp(2*ncut, 2*ncut);
+      prepare_centered_Hermite_polynomials(H0.data(), ncut, sigma0inv); // L2-normalized
+      prepare_centered_Hermite_polynomials(H1.data(), ncut, sigma1inv); // L2-normalized
+      prepare_centered_Hermite_polynomials(Hp.data(), 2*ncut, sigmapinv); // L2-normalized
+      view3D<real_t> t3(tensor, ncut, ncut); // wrapper    
+      for(int i = 0; i < ncut; ++i) {
+          for(int j = 0; j < ncut; ++j) {
+              std::vector<double> HH(2*ncut);
+              stat += multiply(HH.data(), 2*ncut, H1[i], ncut, H0[j], ncut);
+              for(int p = 0; p < 2*ncut - 1; ++p) {
+                  real_t tensor_value = 0;
+                  if (0 == (p + i + j) % 2) { // odd contributions are zero by symmetry
+                      std::vector<double> HHHp(4*ncut);
+                      stat += multiply(HHHp.data(), 4*ncut, HH.data(), 2*ncut, Hp[p], 2*ncut);
+                      auto const P_pnm = integrate(HHHp.data(), 4*ncut, sqrt_alpha_inv);
+                      // tensor has shape P_pnm[2*ncut-1][ncut][ncut] with each second entry zero
+                      tensor_value = P_pnm;
+                  } // even?
+                  if (tensor) t3(p,i,j) = tensor_value; // store only if output array pointer is non-zero
+              } // p
+          } // j
+      } // i
+      return stat; // non-zero if some polynomial coefficients got lost during multiplication
   } // product_tensor
 
-  template<typename real_t>
-  status_t moment_tensor(real_t tensor[], // data layout [1 + max(0, maxmoment)][n1][n0]
-                     double const distance,
-                     int const n1, int const n0, 
-                     double const sigma1,   // =1
-                     double const sigma0,   // =1
-                     int const maxmoment) { // default=0 (overlap matrix)
-    double const sigma0inv = 1./sigma0, sigma1inv = 1./sigma1;
-    view2D<double> H0(n0, n0), H1(n1, n1); // polynomial coefficients
-    double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
-    prepare_centered_Hermite_polynomials(H0.data(), n0, sigma0inv, normalize);
-    prepare_centered_Hermite_polynomials(H1.data(), n1, sigma1inv, normalize);
-    view3D<real_t> t3(tensor, n1, n0); // wrapper
-    // ToDo: this function will shift each of the polynomials H0 (1 + maxmoment)*n1 times
-    //                            and each of the polynomials H1 (1 + maxmoment)*n0 times
-    //                            so there could be a lot of saving when the shifted polynomials
-    //                            are constructed in advance and the moment loop becomes innermost
+  template <typename real_t>
+  status_t moment_tensor(
+        real_t tensor[] // data layout [1 + max(0, maxmoment)][n1][n0]
+      , double const distance
+      , int const n1
+      , int const n0 
+      , double const sigma1 // =1
+      , double const sigma0 // =1
+      , int const maxmoment // default=0 (overlap matrix)
+  ) {
+    
+      double const sigma0inv = 1./sigma0, sigma1inv = 1./sigma1;
+      view2D<double> H0(n0, n0), H1(n1, n1); // polynomial coefficients
+      double constexpr normalize = 1; // 1: L2-normalize Hermite polynomials with Gauss metric
+      prepare_centered_Hermite_polynomials(H0.data(), n0, sigma0inv, normalize);
+      prepare_centered_Hermite_polynomials(H1.data(), n1, sigma1inv, normalize);
+      view3D<real_t> t3(tensor, n1, n0); // wrapper
+      // ToDo: this function will shift each of the polynomials H0 (1 + maxmoment)*n1 times
+      //                            and each of the polynomials H1 (1 + maxmoment)*n0 times
+      //                            so there could be a lot of saving when the shifted polynomials
+      //                            are constructed in advance and the moment loop becomes innermost
 
-    int k{1}; // the underived Hermite polynomial H_n has non-zero coefficients up to 1+n
-    if (-2 == maxmoment) {
-        // derive Hermite polynomials to form the kinetic energy matrix
-        k = 2; // the Hermite of the derived Hermite Gauss function has one non-zero coefficient more
-        std::vector<double> dH0(n0), dH1(n1);
-        for(int j = 0; j < n0; ++j) {
-            derive_Hermite_Gauss_polynomials(dH0.data(), H0[j], n0, sigma0inv);
-            set(H0[j], n0, dH0.data()); // overwrite with the derived form
-        } // j
-        for(int i = 0; i < n1; ++i) {
-            derive_Hermite_Gauss_polynomials(dH1.data(), H1[i], n1, sigma1inv);
-            set(H1[i], n1, dH1.data()); // overwrite with the derived form
-        } // i
-    } // preare derivatives
+      int k{1}; // the underived Hermite polynomial H_n has non-zero coefficients up to 1+n
+      if (-2 == maxmoment) {
+          // derive Hermite polynomials to form the kinetic energy matrix
+          k = 2; // the Hermite of the derived Hermite Gauss function has one non-zero coefficient more
+          std::vector<double> dH0(n0), dH1(n1);
+          for(int j = 0; j < n0; ++j) {
+              derive_Hermite_Gauss_polynomial(dH0.data(), H0[j], n0, sigma0inv);
+              set(H0[j], n0, dH0.data()); // overwrite with the derived form
+          } // j
+          for(int i = 0; i < n1; ++i) {
+              derive_Hermite_Gauss_polynomial(dH1.data(), H1[i], n1, sigma1inv);
+              set(H1[i], n1, dH1.data()); // overwrite with the derived form
+          } // i
+      } // preare derivatives
 
-    for(int moment = 0; moment <= std::max(0, maxmoment); ++moment) {
-        for(int i = 0; i < n1; ++i) {
-            for(int j = 0; j < n0; ++j) {
-                t3(moment,i,j) = overlap_of_two_Hermite_Gauss_functions(
-                    H0[j], k+j, sigma0, H1[i], k+i, sigma1, distance, moment);
-            } // j
-        } // i
-    } // moment
-    return 0; // success
+      for(int moment = 0; moment <= std::max(0, maxmoment); ++moment) {
+          for(int i = 0; i < n1; ++i) {
+              for(int j = 0; j < n0; ++j) {
+                  t3(moment,i,j) = overlap_of_two_Hermite_Gauss_functions(
+                      H0[j], k+j, sigma0, H1[i], k+i, sigma1, distance, moment);
+              } // j
+          } // i
+      } // moment
+      return 0; // success
   } // moment_tensor
 
   
-  status_t moment_normalization(double matrix[], int const M // matrix layout [M][M]
-                    , double const sigma, int const echo) {
-    // uses LAPACK for inversion although the matrix is already in upper triangular shape
-    if (M < 1) return 0;
-    view2D<double> mat1D(matrix, M); // wrapper for result, assume data layout [M][M]
-    int constexpr check = 1;
-    view2D<double> mcopy(check*M, M, 0.0); // get memory if check > 0
+  status_t moment_normalization(
+        double matrix[] // output matrix, assumed layout [M][M]
+      , int const M // dimensions
+      , double const sigma // Gaussian spread
+      , int const echo // log-level
+  ) {
 
-    view2D<double> H(M, M, 0.0); // polynomial coefficients
-    double constexpr normalize = 0; // 1: L2-normalize Hermite polynomials with Gauss metric
-    prepare_centered_Hermite_polynomials(H.data(), H.stride(), 1./sigma, normalize);
-    if (echo > 4) printf("\n# %s numax=%i sigma=%g %s\n", __func__, M - 1, sigma*Ang, _Ang);
-    for(int n = 0; n < M; ++n) {
-        if (echo > 4) printf("# %s n=%i ", __func__, n);
-        for(int moment = 0; moment < M; ++moment) { // square loop
-            mat1D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
-            if (check > 0) mcopy(n,moment) = mat1D(n,moment); // store a copy
-//             if ((n & 1) == (moment & 1)) // pairity condition, ToDo: check if analytical parity improves it
-            if (echo > 4) printf(" %g", mat1D(n,moment));
-        } // moment
-        if (echo > 4) printf("\n");
-    } // n = 1D HO quantum number
+      // uses LAPACK for inversion although the matrix is already in upper triangular shape
+      if (M < 1) return 0;
+      view2D<double> mat1D(matrix, M); // wrapper for result, assume data layout [M][M]
+      int constexpr check = 1;
+      view2D<double> mcopy(check*M, M, 0.0); // get memory if check > 0
 
-    return 0;
+      view2D<double> H(M, M, 0.0); // polynomial coefficients
+      double constexpr normalize = 0; // 1: L2-normalize Hermite polynomials with Gauss metric
+      prepare_centered_Hermite_polynomials(H.data(), H.stride(), 1./sigma, normalize);
+      if (echo > 4) printf("\n# %s numax=%i sigma=%g %s\n", __func__, M - 1, sigma*Ang, _Ang);
+      for(int n = 0; n < M; ++n) {
+          if (echo > 4) printf("# %s n=%i ", __func__, n);
+          for(int moment = 0; moment < M; ++moment) { // square loop
+              mat1D(n,moment) = overlap_of_poly_times_Gauss_with_pure_powers(H[n], M, sigma, moment);
+              if (check > 0) mcopy(n,moment) = mat1D(n,moment); // store a copy
+  //             if ((n & 1) == (moment & 1)) // pairity condition, ToDo: check if analytical parity improves it
+              if (echo > 4) printf(" %g", mat1D(n,moment));
+          } // moment
+          if (echo > 4) printf("\n");
+      } // n = 1D HO quantum number
+
+      return 0;
   } // moment_normalization
 
 
@@ -484,14 +533,17 @@ namespace sho_overlap {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+#if 0
   template<typename real_t>
   void plot_poly(real_t const poly[], int const m, char const *name="") {
       printf("# Poly %s :", name);
-      for(int d = 0; d < m; ++d) {
-          printf("  %.6f", poly[d]);
-      } // d
-      printf("\n");
+//       for(int d = 0; d < m; ++d) {
+//           printf("  %.6f", poly[d]);
+//       } // d
+//       printf("\n");
+      printf_vector("  %.6f", poly, m);
   } // plot
+#endif // 0
 
   template<typename real_t>
   real_t eval_poly(real_t const poly[], int const m, double x) {
@@ -511,12 +563,17 @@ namespace sho_overlap {
       int ndev{0}; double mdev{0};
       for(int n = 0; n < ncut; ++n) {
           if (echo > 4) printf("# %s n=%d check ortho-normality\n", __func__, n);
-          if (echo > 3) plot_poly(H[n], 1+n, "H_n");
+          if (echo > 3) {
+//            plot_poly(H[n], 1+n, "H_n");
+              printf("# H_%i: ", n); // no new line
+              printf_vector(" %.6f", H[n], 1+n);
+          } // echo
           for(int m = 0; m < ncut; ++m) {
               multiply(hh.data(), 2*ncut, H[n], 1+n, H[m], 1+m);
               if (echo > 5) {
-                  printf("# n=%i m=%i ", n, m); // no new line
-                  plot_poly(hh.data(), 1+n+m, "H_n*H_m");
+//                plot_poly(hh.data(), 1+n+m, "H_n*H_m");
+                  printf("# H_%i * H_%i: ", n, m); // no new line
+                  printf_vector(" %.6f", hh.data(), 1+n+m);
               } // echo
               double const norm = integrate(hh.data(), 1+n+m, sigma);
               mdev = std::max(mdev, fabs(norm - (m == n)));
@@ -555,8 +612,8 @@ namespace sho_overlap {
                           double const x0 = ix*dx - 0; // position at zero 
                           double const x1 = ix*dx - dist; // position at (plus) dist
                           ovl_numerical += eval_poly(H0[n], 1+n, x0) * std::exp(-0.5*pow2(x0/sigma0))
-                                        * eval_poly(H1[m], 1+m, x1) * std::exp(-0.5*pow2(x1/sigma1));
-                      } //
+                                         * eval_poly(H1[m], 1+m, x1) * std::exp(-0.5*pow2(x1/sigma1));
+                      } // ix
                       ovl_numerical *= dx;
                       if (echo > 5) printf(" %.6f", ovl_numerical);
                       maxdev = std::max(maxdev, std::abs(ovl - ovl_numerical));
@@ -578,20 +635,20 @@ namespace sho_overlap {
       // --> we should use the first derivative applied to left and right for the kinetic energy
       int constexpr ncut = 6;
       int constexpr mcut = ncut - 2;
-  //     double const sigma0 = 1, sigma1 = sigma0; // same sigma
+//    double const sigma0 = 1, sigma1 = sigma0; // same sigma
       double const sigma0 = 0.9, sigma1 = 1.11; // seems ok for different sigmas
       view2D<double> H0(ncut, ncut, 0.0), H1(ncut, ncut, 0.0);
-      prepare_centered_Hermite_polynomials(H0.data(), ncut, 1/sigma0);
-      prepare_centered_Hermite_polynomials(H1.data(), ncut, 1/sigma1);
+      prepare_centered_Hermite_polynomials(H0.data(), ncut, 1./sigma0);
+      prepare_centered_Hermite_polynomials(H1.data(), ncut, 1./sigma1);
 
       view2D<double> dH0(ncut, ncut, 0.0), dH1(ncut, ncut, 0.0), d2H0(ncut, ncut, 0.0), d2H1(ncut, ncut, 0.0);
       for(int n = 0; n < mcut; ++n) {
           // first derivatives
-          derive_Hermite_Gauss_polynomials(dH0[n], H0[n], ncut, 1/sigma0);
-          derive_Hermite_Gauss_polynomials(dH1[n], H1[n], ncut, 1/sigma1);
+          derive_Hermite_Gauss_polynomial(dH0[n], H0[n], ncut, 1./sigma0);
+          derive_Hermite_Gauss_polynomial(dH1[n], H1[n], ncut, 1./sigma1);
           // second derivatives
-          derive_Hermite_Gauss_polynomials(d2H0[n], dH0[n], ncut, 1/sigma0);
-          derive_Hermite_Gauss_polynomials(d2H1[n], dH1[n], ncut, 1/sigma1);
+          derive_Hermite_Gauss_polynomial(d2H0[n], dH0[n], ncut, 1./sigma0);
+          derive_Hermite_Gauss_polynomial(d2H1[n], dH1[n], ncut, 1./sigma1);
       } // n
       double maxdev1{0}, maxdev2{0}, maxdev3{0};
       if (echo > 4) printf("# %s  distance overlaps\n", __func__);
@@ -742,8 +799,8 @@ namespace sho_overlap {
           } // echo
           
           // construct first derivatives
-          derive_Hermite_Gauss_polynomials(dH0[n], H0[n], ncut, 1./sigma0);
-          derive_Hermite_Gauss_polynomials(dH1[n], H1[n], ncut, 1./sigma1);
+          derive_Hermite_Gauss_polynomial(dH0[n], H0[n], ncut, 1./sigma0);
+          derive_Hermite_Gauss_polynomial(dH1[n], H1[n], ncut, 1./sigma1);
       } // n
 
       int const n3D = sho_tools::nSHO(numax);

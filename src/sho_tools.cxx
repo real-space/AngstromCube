@@ -189,11 +189,6 @@ namespace sho_tools {
       if (stat && (echo > 1)) printf("# Warning: %s found %i errors!\n", __func__, stat);
       return stat;
   } // test_index_table_construction
-
-  status_t test_sizeof(int const echo=1) {
-      if (echo > 4) printf("\n# sizeof(SHO_index_t) = %d Byte\n", sizeof(SHO_index_t));
-      return 0;
-  } // test_sizeof
   
   status_t all_tests(int const echo) {
       status_t stat(0);
@@ -202,7 +197,6 @@ namespace sho_tools {
       stat += test_energy_ordered_indices(echo);
       stat += test_index_table_construction<int16_t>(echo);
       stat += test_order_enum(echo);
-      stat += test_sizeof(echo);
       return stat;
   } // all_tests
 

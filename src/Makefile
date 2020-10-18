@@ -105,7 +105,7 @@ FEAFLAGS += -D DEVEL
 OPTFLAGS = -O0
 ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # OPTFLAGS = -O2
-OPTFLAGS += -g -pedantic -Wall -Warray-bounds -Wno-sign-compare -Wno-nested-anon-types -Wno-format-security -Wno-format
+OPTFLAGS += -g -pedantic -Wall -Wno-format-security -Wno-format
 
 # LDFLAGS = -mkl
 LDFLAGS = ## -lmkl_intel_thread

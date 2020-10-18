@@ -1,26 +1,25 @@
 #include <cstdio> // printf
 #include <cmath> // std::sqrt
-// #include <fstream> // std::ifstream
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
 #include <utility> // std::pair<T1,T2>, std::make_pair
 #include <vector> // std::vector<T>
-// #include <array> // std::array<T,n>
 #include <cassert> // assert
 
 #include "sho_potential.hxx"
 
-#include "geometry_analysis.hxx" // ::read_xyz_file
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "real_space.hxx" // ::grid_t
-#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project, ::sho_add
+#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::quantum_number_table
+#include "sho_overlap.hxx" // ::generate_product_tensor, ::generate_overlap_matrix, ::generate_potential_tensor
+#include "geometry_analysis.hxx" // ::read_xyz_file
 #include "boundary_condition.hxx" // Isolated_Boundary
-#include "sho_overlap.hxx" // ::generate_product_tensor, ...
-        // ::generate_overlap_matrix, ::generate_potential_tensor
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "linear_algebra.hxx" // ::inverse
+#include "inline_math.hxx" // dot_product
+#include "print_tools.hxx" // printf_vector
 
 // #define FULL_DEBUG
 #define DEBUG
@@ -41,20 +40,32 @@
 namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
   
-  template<typename real_t>
-  status_t multiply_potential_matrix(view2D<real_t> & Vmat // result Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
-     , view3D<real_t> const & ovl1D  // input ovl1D(dir,j,k)
-     , view2D<real_t> const & Vaux // input Vaux(i,k)
-     , int const numax_i, int const numax_j, int const numax_k) {
+  template <typename real_t>
+  status_t multiply_potential_matrix(
+        view2D<real_t> & Vmat // result Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
+      , view3D<real_t> const & ovl1D  // input ovl1D(dir,j,k)
+      , view2D<real_t> const & Vaux // input Vaux(i,k)
+      , int const numax_i // size of SHO basis
+      , int const numax_j // size of SHO basis
+      , int const numax_k // size of SHO basis
+  ) {
+      // contract Vaux with a 3D factorizable overlap tensor
+      int const ni = sho_tools::nSHO(numax_i);
+      int const nj = sho_tools::nSHO(numax_j);
+      int const nk = sho_tools::nSHO(numax_k);
+      assert( sho_tools::n1HO(numax_k) <= ovl1D.stride() );
+      assert( sho_tools::n1HO(numax_j) <= ovl1D.dim1() );
+      assert( nk <= Vaux.stride() );
+      assert( nj <= Vmat.stride() );
 
-      for(int izyx = 0; izyx < sho_tools::nSHO(numax_i); ++izyx) {
+      for(int izyx = 0; izyx < ni; ++izyx) {
         
           int jzyx{0};
           for    (int jz = 0; jz <= numax_j; ++jz) {
             for  (int jy = 0; jy <= numax_j - jz; ++jy) {
               for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
 
-                  double tmp = 0;
+                  double tmp{0};
                   int kzyx{0}; // contraction index
                   for    (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(2,jz,kz);
                     for  (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(1,jy,ky) * tz;
@@ -66,7 +77,7 @@ namespace sho_potential {
                       } // kx
                     } // ky
                   } // kz
-                  assert( sho_tools::nSHO(numax_k) == kzyx );
+                  assert( nk == kzyx );
 
                   Vmat(izyx,jzyx) = tmp;
                   
@@ -74,7 +85,7 @@ namespace sho_potential {
               } // jx
             } // jy
           } // jz
-          assert( sho_tools::nSHO(numax_j) == jzyx );
+          assert( nj == jzyx );
 
       } // izyx
       
@@ -83,9 +94,15 @@ namespace sho_potential {
 
 
 
-  status_t normalize_potential_coefficients(double coeff[], int const numax, double const sigma, int const echo) {
+  status_t normalize_potential_coefficients(
+        double coeff[] // coefficients[nSHO(numax)], input: in zyx_order, output in Ezyx_order
+      , int const numax // SHO basis size
+      , double const sigma // SHO basis spread
+      , int const echo // log-level
+  ) {
       // from SHO projection coefficients we find the coefficients for a representation in moments x^{m_x} y^{m_y} z^{m_z}
-      status_t stat = 0;
+
+      status_t stat(0);
       int const nc = sho_tools::nSHO(numax);
       int const m = sho_tools::n1HO(numax);
       
@@ -123,7 +140,10 @@ namespace sho_potential {
 
           // now invert the 3D matrix
           auto const stat = linear_algebra::inverse(nc, mat3D.data(), mat3D.stride());
-          if (stat) { warn("Maybe factorization failed, status=%i", int(stat)); return stat; }
+          if (stat) {
+              warn("Maybe factorization failed, status=%i", int(stat));
+              return stat;
+          } // inversion returned non-zero status
           // inverse is stored in inv3D due o pointer overlap
       } // scope
 
@@ -138,21 +158,23 @@ namespace sho_potential {
 
       // just a matrix-vector multiplication
       for(int mzyx = 0; mzyx < nc; ++mzyx) {
-          double cc{0};
-          for(int kzyx = 0; kzyx < nc; ++kzyx) {
-              cc += inv3D(mzyx,kzyx) * coeff[kzyx];
-          } // kzyx
-          c_new[mzyx] = cc; // store
+//           double cc{0};
+//           for(int kzyx = 0; kzyx < nc; ++kzyx) {
+//               cc += inv3D(mzyx,kzyx) * coeff[kzyx];
+//           } // kzyx
+//           c_new[mzyx] = cc; // store
+          c_new[mzyx] = dot_product(nc, inv3D[mzyx], coeff);
       } // mzyx
-      
+
       if (debug_check) {
           // check if the input vector comes out again
           double dev{0};
           for(int kzyx = 0; kzyx < nc; ++kzyx) {
-              double cc{0};
-              for(int mzyx = 0; mzyx < nc; ++mzyx) {
-                  cc += mat3D_copy(kzyx,mzyx) * c_new[mzyx];
-              } // mzyx
+//               double cc{0};
+//               for(int mzyx = 0; mzyx < nc; ++mzyx) {
+//                   cc += mat3D_copy(kzyx,mzyx) * c_new[mzyx];
+//               } // mzyx
+              double const cc = dot_product(nc, mat3D_copy[kzyx], c_new.data());
               dev = std::max(dev, std::abs(cc - coeff[kzyx]));
           } // kzyx
           if (echo > 4) printf("# %s debug_check dev %.1e a.u.\n", __func__, dev);
@@ -160,20 +182,20 @@ namespace sho_potential {
 
       if (echo > 4) printf("# %s\n\n", __func__);
 
-      {
+      { // scope: coeff := c_new[reordered]
           int mzyx{0};
           for    (int mz = 0; mz <= numax;           ++mz) {
             for  (int my = 0; my <= numax - mz;      ++my) {
               for(int mx = 0; mx <= numax - mz - my; ++mx) {
                 int const Ezyx = sho_tools::Ezyx_index(mx, my, mz);
-                coeff[Ezyx] = c_new[mzyx];
+                coeff[Ezyx] = c_new[mzyx]; // reorder
                 ++mzyx;
-              }
-            }
-          }
+              } // mx
+            } // my
+          } // mz
           assert( nc == mzyx );
-      }
-   
+      } // scope
+
       // Discussion:
       // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)
       // one could investigate if the factorization property stays
@@ -186,7 +208,7 @@ namespace sho_potential {
       
       return stat;
   } // normalize_potential_coefficients
-  
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -534,14 +556,15 @@ namespace sho_potential {
                           printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
                           for(int j = 0; j < nucut_j; ++j) {
                               printf("# ovl j%c=%x  ", 'x' + d, j);
-                              for(int k = 0; k < nucut_k; ++k) {
-                                  printf("%8.4f", ovl(d,j,k));
-                              } // k
-                              printf("\n");
-                          } // j 
+//                               for(int k = 0; k < nucut_k; ++k) {
+//                                   printf("%8.4f", ovl(d,j,k));
+//                               } // k
+//                               printf("\n");
+                              printf_vector(" %7.4f", ovl(d,j), nucut_k);
+                          } // j
                           printf("\n");
                       } // echo
-#endif
+#endif // DEVEL
                   } // d
 
                   int const nbj = sho_tools::nSHO(numaxs[ja]);
@@ -552,12 +575,12 @@ namespace sho_potential {
                   stat += multiply_potential_matrix(Vmat_iaja, ovl, Vaux, numaxs[ia], numaxs[ja], numax_k);
 
                   { // scope: create overlap matrix
-                      std::vector<sho_tools::SHO_index_t> idx(nbi), jdx(nbj);
-                      stat += sho_tools::construct_index_table<sho_tools::order_zyx>(idx.data(), numaxs[ia], echo);
-                      stat += sho_tools::construct_index_table<sho_tools::order_zyx>(jdx.data(), numaxs[ja], echo);
-                      for(int ib = 0; ib < nbi; ++ib) {        auto const i = idx[ib].Cartesian;
-                          for(int jb = 0; jb < nbj; ++jb) {    auto const j = jdx[jb].Cartesian;
-                              Smat(ia,ja,ib,jb) = ovl(0,j.nx,i.nx) * ovl(1,j.ny,i.ny) * ovl(2,j.nz,i.nz);
+                      view2D<uint8_t> idx(nbi, 4), jdx(nbj, 4);
+                      stat += sho_tools::quantum_number_table(idx.data(), numaxs[ia], sho_tools::order_zyx, echo);
+                      stat += sho_tools::quantum_number_table(jdx.data(), numaxs[ja], sho_tools::order_zyx, echo);
+                      for(int ib = 0; ib < nbi; ++ib) {        auto const i = idx[ib];
+                          for(int jb = 0; jb < nbj; ++jb) {    auto const j = jdx[jb];
+                              Smat(ia,ja,ib,jb) = ovl(0,j[0],i[0]) * ovl(1,j[1],i[1]) * ovl(2,j[2],i[2]);
                               Vmat(ia,ja,ib,jb) = Vmat_iaja(ib,jb);
                           } // jb
                       } // ib

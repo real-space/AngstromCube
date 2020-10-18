@@ -14,7 +14,7 @@
 #include "control.hxx" // ::get
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
 #include "real_space.hxx" // ::grid_t
-#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::SHO_index_t, ::construct_label_table
+#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::construct_label_table
 #include "sho_projection.hxx" // ::sho_project
 #include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image
 #include "sho_overlap.hxx" // ::

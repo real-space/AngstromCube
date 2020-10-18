@@ -16,6 +16,7 @@
 #include "radial_grid.hxx" // ::radial_grid_t
 #include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
+#include "sho_tools.hxx" // ::quantum_number_table
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
@@ -442,7 +443,7 @@ namespace potential_generator {
                       if (echo > 1) printf("# initialize grid wave functions as %d atomic orbitals, %g orbitals per atom\n", nbands, nbands_per_atom);
                       float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
                       uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-                      sho_tools::construct_index_table<sho_tools::order_Ezyx>(qn, 3); // Ezyx-ordered, take 1, 4, 10 or 20
+                      sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
                       std::vector<int32_t> ncoeff_a(na, 20);
                       data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
                       for(int iband = 0; iband < nbands; ++iband) {
