@@ -13,7 +13,7 @@ geometry_file=atoms.xyz
 # echo "C  0 0 0" >> $geometry_file
 
 project_base=pg.C-atom
-printf " 1 \n#cell 3 3 3 p p p \n" > $geometry_file
+printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
@@ -149,7 +149,7 @@ logder.step=1e-2
 # configuration for basis=grid
 bands.per.atom=10
 # DEVEL option
-devel.occupied.bands=3.5
+devel.occupied.bands=4
 eigensolver=cg
 repeat.eigensolver=15
 conjugate_gradients.max.iter=19
