@@ -27,10 +27,14 @@ namespace dense_solver {
   } // display_spectrum
   
   
-  template<typename complex_t>
-  inline status_t solve(view3D<complex_t> & SHm
-          , char const *x_axis
-          , int const echo=0) { // log-level
+  template <typename complex_t>
+  inline status_t solve(
+        view3D<complex_t> & SHm
+      , char const *x_axis
+      , int const echo=0 // log-level
+      , int const nbands=0
+      , double *eigenenergies=nullptr // export nbands eigenvalues
+  ) {
             
       using real_t = decltype(std::real(complex_t(1))); // base type
 
@@ -314,7 +318,11 @@ namespace dense_solver {
           } // H
           
       } // s0h1
-            
+      
+      if (eigenenergies) {
+          set(eigenenergies, std::min(size_t(nbands), eigvals.size()), eigvals.data()); // export
+      } // eigenenergies
+      
       return stat;
   } // solve
   

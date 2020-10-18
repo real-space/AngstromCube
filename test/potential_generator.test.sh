@@ -12,19 +12,19 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
 
-# project_base=pg.C-dimer
-# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 -0.65" >> $geometry_file
-# echo "C  0 0  0.65" >> $geometry_file
+project_base=pg.C-dimer
+printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  -0.65 0 0" >> $geometry_file
+echo "C   0.65 0 0" >> $geometry_file
 ### QE-spectrum          -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV (self-consistent result)
 # pg.C-dimer.sho3.out:#   -2.44596 12.4182 12.4182 15.8118 15.8118 17.2857 17.8086 26.7288 ... 227.187 274.533 eV
 # pg.C-dimer.sho4.out:#   -10.4397 6.19268 9.4426 12.0828 12.0828 15.6831 15.6831 23.6335 ... 345.598 410.391 eV
@@ -149,7 +149,7 @@ logder.step=1e-2
 # configuration for basis=grid
 bands.per.atom=10
 # DEVEL option
-devel.occupied.bands=4
+valence.electrons=8
 eigensolver=cg
 repeat.eigensolver=15
 conjugate_gradients.max.iter=19
@@ -213,7 +213,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 7 1 7`; do
+for ecut in `seq 5 5 5`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

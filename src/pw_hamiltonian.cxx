@@ -33,6 +33,11 @@
 #include "davidson_solver.hxx" // ::eigensolve
 #include "conjugate_gradients.hxx" // ::eigensolve
 #include "dense_operator.hxx" // ::dense_operator_t
+#include "fermi_distribution.hxx" // ::Fermi_level
+
+#ifdef DEVEL
+    #include "print_tools.hxx" // printf_vector(fmt, vec, n [, final, scale, add])
+#endif // DEVEL
 
 namespace pw_hamiltonian {
   // computes Hamiltonian matrix elements for plane waves
@@ -355,11 +360,13 @@ namespace pw_hamiltonian {
           for(int la = 0; la < natoms_PAW; ++la) {
               printf("# ^2-norm of the projector of atom #%i ", la);
               int const nSHO = sho_tools::nSHO(numax_PAW[la]);
-              for(int lb = 0; lb < nSHO; ++lb) {
-                  int const lC = offset[la] + lb;
-                  printf(" %g", P2_l[lC]);
-              } // lb
-              printf("\n"); fflush(stdout);
+//               for(int lb = 0; lb < nSHO; ++lb) {
+//                   int const lC = offset[la] + lb;
+//                   printf(" %g", P2_l[lC]);
+//               } // lb
+//               printf("\n");
+              printf_vector(" %g", &P2_l[offset[la]], nSHO);
+              fflush(stdout);
           } // la
       } // echo
 #endif // DEVEL
@@ -430,12 +437,23 @@ namespace pw_hamiltonian {
       bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
+      std::vector<double> eigenenergies(nbands, -9e9);
       if (run_solver[0]) solver_stat += iterative_solve(SHm, x_axis, echo, nbands, direct_ratio);
-      if (run_solver[1]) solver_stat += dense_solver::solve(SHm, x_axis, echo);
+      if (run_solver[1]) solver_stat += dense_solver::solve(SHm, x_axis, echo, nbands, eigenenergies.data());
       // dense solver must runs second in case of "both" since it modifies the memory locations of SHm
 
       int const gen_density = control::get("pw_hamiltonian.density", 0.);
       if (gen_density) {
+        
+          double const n_electrons = control::get("valence.electrons", 0.);
+          double const kT = control::get("electronic.temperature", 9.765625e-4);
+          // determine the occupation numbers
+          std::vector<double> occupation(nbands, 0.0);
+          double Fermi_energy{-9e99};
+          auto const stat = fermi_distribution::Fermi_level(Fermi_energy, occupation.data(),
+                                  eigenenergies.data(), nbands, kT, n_electrons, 2, echo + 10);
+          solver_stat += stat;
+
           auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
           view3D<double> rho(nG[2], nG[1], nG[0], 0.0);
           std::vector<int> ncoeff(natoms_PAW, 0), ncoeff2(natoms_PAW, 0);
@@ -450,12 +468,12 @@ namespace pw_hamiltonian {
           view3D<std::complex<double>> psi_r(nG[2], nG[1], nG[0]); // real space array
 
           double const kpoint_weight = 1; // depends on ikpoint, ToDo
-          double const occupied_bands = control::get("devel.occupied.bands", 0.); // as long as the Fermi function is not in here
           for(int iband = 0; iband < nbands; ++iband) {
-              double const band_occupation = 2*std::min(std::max(0.0, occupied_bands - iband), 1.0); // depends on iband and ikpoint
+              double const band_occupation = 2*occupation[iband];
               double const weight_nk = band_occupation * kpoint_weight;
-              if (weight_nk > 0) {
-                  if (echo > 6) { printf("# weight for band #%i is %g\n", iband, weight_nk); fflush(stdout); }
+              if (weight_nk > 1e-16) {
+                  if (echo > 6) { printf("# band #%i, energy= %g %s, occupation= %g, weight= %g\n",
+                                  iband, eigenenergies[iband]*eV,_eV, occupation[iband], weight_nk); fflush(stdout); }
                   // fill psi_G
                   set(psi_G.data(), nG_all, zero);
                   set(atom_coeff.data(), nC, zero);
@@ -516,10 +534,11 @@ namespace pw_hamiltonian {
                       nc, nc, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), max_rho);
                   for(int i = 0; i < nc; ++i) {
                       printf("# %3i\t", i);
-                      for(int j = 0; j < nc; ++j) {
-                          printf(" %9.6f", atom_rho[ia][i*nc + j]/max_rho);
-                      } // j
-                      printf("\n");
+//                       for(int j = 0; j < nc; ++j) {
+//                           printf(" %9.6f", atom_rho[ia][i*nc + j]/max_rho);
+//                       } // j
+//                       printf("\n");
+                      printf_vector(" %9.6f", &atom_rho[ia][i*nc], nc, "\n", 1./max_rho);
                   } // i
                   printf("\n");
               } // ia
@@ -738,10 +757,11 @@ namespace pw_hamiltonian {
           add_product(p2.data(), nSHO, pzyx.data(), pzyx.data()); // += |p^2|
       }}} // ig
       printf("\n# %s: norms ", __func__);
-      for(int ip = 0; ip < nSHO; ++ip) {
-          printf(" %g", p2[ip]*d3g);
-      } // ip
-      printf("\n");
+//       for(int ip = 0; ip < nSHO; ++ip) {
+//           printf(" %g", p2[ip]*d3g);
+//       } // ip
+//       printf("\n");
+      printf_vector(" %g", p2.data(), nSHO, "\n", d3g);
 
       return stat;
   } // test_Hermite_Gauss_normalization
