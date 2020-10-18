@@ -405,22 +405,26 @@ namespace potential_generator {
               gc.set_boundary_conditions(g.boundary_conditions());
 
               // create a list of atoms
-              std::vector<atom_image::sho_atom_t> a(0);
+              auto list_of_atoms = grid_operators::empty_list_of_atoms();
               std::vector<double> sigma_a(na, .5);
               { // scope: collect information for projectors and construct a list of atoms
-                  std::vector<int32_t> numax_a(na, 3);
-                  stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
+                  {   std::vector<int32_t> numax_a(na, 3);
+                      stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
+                      for(int ia = 0; ia < na; ++ia) {
+                          assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
+                      } // ia
+                  } // scope: numax_a
+
                   if (psi_on_grid) {
                       view2D<double> xyzZinso(na, 8);
                       for(int ia = 0; ia < na; ++ia) {
                           set(xyzZinso[ia], 4, xyzZ[ia]); // copy
                           xyzZinso(ia,4) = ia;  // global_atom_id
-                          assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
-                          xyzZinso(ia,5) = numax_a[ia];
+                          xyzZinso(ia,5) = numax[ia];
                           xyzZinso(ia,6) = sigma_a[ia];
                           xyzZinso(ia,7) = 0;   // __not_used__
-                      } // i
-                      stat += grid_operators::list_of_atoms(a, xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
+                      } // ia
+                      list_of_atoms = grid_operators::list_of_atoms(xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
                   } // psi_on_grid
               } // scope
 
@@ -429,8 +433,9 @@ namespace potential_generator {
 //               using real_wave_function_t = double;
 //            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
               using wave_function_t = real_wave_function_t;               // decide here if real or complex
-              grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, a);
+              grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices are still unset!
+              list_of_atoms.clear();
 
               int const nkpoints = 1; // ToDo
               double const nbands_per_atom = control::get("bands.per.atom", 4.); // 4:s- and p-states

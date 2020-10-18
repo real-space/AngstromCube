@@ -66,7 +66,8 @@ namespace davidson_solver {
       } // swm (start wave method)
 
       // create a real-space grid Hamiltonian without atoms and with a flat local potential (at zero)
-      grid_operators::grid_operator_t<complex_t> const op(g);
+      auto const loa = grid_operators::list_of_atoms(nullptr, 0, 8, g); // empty list
+      grid_operators::grid_operator_t<complex_t> const op(g, loa);
 
       int const nit = control::get("davidson_solver.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {

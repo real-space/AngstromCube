@@ -14,7 +14,8 @@ namespace density_generator {
 
   status_t test_init(int const echo=3) {
       real_space::grid_t const g(4, 5, 6);
-      grid_operators::grid_operator_t<float,double> const op(g);
+      std::vector<atom_image::sho_atom_t> a(0);
+      grid_operators::grid_operator_t<float,double> const op(g, a);
       std::vector<float> wave(g.all());
       std::vector<double> rho(g.all());
       std::iota(wave.begin(), wave.end(), 0);

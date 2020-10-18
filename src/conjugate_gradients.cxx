@@ -64,7 +64,8 @@ namespace conjugate_gradients {
 
       // construct Hamiltonian and Overlap operator
       using real_t = decltype(std::real(complex_t(1)));
-      grid_operators::grid_operator_t<complex_t,real_t> const op(g); 
+      auto const loa = grid_operators::list_of_atoms(nullptr, 0, 8, g); // empty list
+      grid_operators::grid_operator_t<complex_t,real_t> const op(g, loa); 
 
       std::vector<double> eigenvalues(nbands, 0.0);
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);

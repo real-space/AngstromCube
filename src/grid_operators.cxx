@@ -19,10 +19,9 @@ namespace grid_operators {
       real_space::grid_t g(32, 32, 32); // grid spacings = {1,1,1} by default
       int const numax = 3;
       double const sigma = 2.0;
-      std::vector<atom_image::sho_atom_t> a;
       //                          x   y   z   Z   id   numax  sigma
       double const xyzZinso[] = {16, 16, 16, 7.5, 747, numax, sigma};
-      stat += list_of_atoms(a, xyzZinso, 1, 7, g, echo);
+      auto const a = list_of_atoms(xyzZinso, 1, 7, g, echo);
       int const ncoeff = sho_tools::nSHO(numax);
       std::vector<double> psi(g.all(), 0.0), a_vec(ncoeff, 0.0), p_vec(ncoeff);
       auto const a_coeff = a_vec.data();
@@ -55,7 +54,7 @@ namespace grid_operators {
       int const dims[] = {12, 13, 14};
       int const all = dims[0]*dims[1]*dims[2];
       std::vector<double> psi(all, 1.0), Hpsi(all);
-      grid_operator_t<double> op(dims);
+      grid_operator_t<double> op(dims, empty_list_of_atoms());
       stat += op.Hamiltonian(Hpsi.data(), psi.data(), echo);
       stat += op.Overlapping(psi.data(), Hpsi.data(), echo);
       stat += op.Conditioner(Hpsi.data(), psi.data(), echo);
@@ -65,11 +64,10 @@ namespace grid_operators {
   status_t class_with_atoms_test(int const echo=9) {
       status_t stat(0);
       real_space::grid_t g(36, 25, 24);
-      std::vector<atom_image::sho_atom_t> a;
       //                          x   y   z    Z     id nu sigma dummy
       double const xyzZinso[] = {.1, .2, -4,  13.0,  767, 3, 1.5, 9e9,
                                 -.1, .2,  3,  15.1,  757, 4, 1.7, 8e8};
-      stat += list_of_atoms(a, xyzZinso, 2, 8, g, echo);
+      auto const a = list_of_atoms(xyzZinso, 2, 8, g, echo);
       std::vector<double> psi(g.all(), 1.0), Hpsi(g.all());
       grid_operator_t<double> op(g, a);
       stat += op.Hamiltonian(Hpsi.data(), psi.data(), echo);

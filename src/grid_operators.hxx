@@ -25,19 +25,20 @@
 namespace grid_operators {
 
   template<typename complex_t, typename real_fd_t=double>
-  status_t _grid_operation(complex_t Hpsi[] // result
-                        , complex_t const psi[] // input wave functions
-                        , real_space::grid_t const &g // 3D Cartesian grid descriptor
-                        , std::vector<atom_image::sho_atom_t> const &a // atoms
-                        , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
-                        , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
-                        , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
-                        , double const *potential=nullptr // diagonal potential operator [optional]
-                        , int const echo=0
-                        , complex_t       *const *const atomic_projection_coefficients=nullptr
-                        , complex_t const *const *const start_wave_coeffs=nullptr
-                        , double const scale_sigmas=1 // only during addition (used for start wave functions)
-                         ) {
+  status_t _grid_operation(
+        complex_t Hpsi[] // result
+      , complex_t const psi[] // input wave functions
+      , real_space::grid_t const &g // 3D Cartesian grid descriptor
+      , std::vector<atom_image::sho_atom_t> const &a // atoms
+      , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
+      , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
+      , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
+      , double const *potential=nullptr // diagonal potential operator [optional]
+      , int const echo=0
+      , complex_t       *const *const atomic_projection_coefficients=nullptr
+      , complex_t const *const *const start_wave_coeffs=nullptr
+      , double const scale_sigmas=1 // only during addition (used for start wave functions)
+  ) {
       using real_t = decltype(std::real(complex_t(1)));
       using atom_matrix_t = decltype(std::real(real_fd_t(1)));
       
@@ -197,14 +198,15 @@ namespace grid_operators {
   
   // prepare the sho_atoms for grid_operator_t
   inline // ToDo: move body to grid_operators.cxx since this is not templated
-  status_t list_of_atoms(std::vector<atom_image::sho_atom_t> & a
-                       , double const xyzZins[] // data layout [na][8], collection of different quantities
-                       , int const na // number of atoms
-                       , int const stride // typically stride=8
-                       , real_space::grid_t const & gc // we need cell info here and grid spacing (for the grid_offset)
-                       , int const echo=9
-                       , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
-                       , float const rcut=18) { // sho_projection usually ends at 9*sigma
+  std::vector<atom_image::sho_atom_t> list_of_atoms(
+        double const xyzZins[] // data layout [na][8], collection of different quantities
+      , int const na // number of atoms
+      , int const stride // typically stride=8
+      , real_space::grid_t const & gc // we need cell info here and grid spacing (for the grid_offset)
+      , int const echo=9
+      , double const *const *const atom_matrices=nullptr // data layout am[na][2*ncoeff[ia]^2]
+      , float const rcut=18 // sho_projection usually ends at 9*sigma
+  ) {
       status_t stat(0);
 
       double const cell[] = {gc[0]*gc.h[0], gc[1]*gc.h[1], gc[2]*gc.h[2]};
@@ -216,7 +218,7 @@ namespace grid_operators {
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       assert(stride >= 7);
-      a.resize(na);
+      std::vector<atom_image::sho_atom_t> a(na);
       for(int ia = 0; ia < na; ++ia) {
           double const *apos = &xyzZins[ia*stride + 0];
           double pos[3];
@@ -239,7 +241,7 @@ namespace grid_operators {
               Symbol, pos[0]*gc.inv_h[0], pos[1]*gc.inv_h[1], pos[2]*gc.inv_h[2], n_periodic_images, sigma*Ang, _Ang, numax, atom_id);
 
       } // ia
-      
+
       if (nullptr != atom_matrices) {
           stat += set_nonlocal_potential(a, atom_matrices, echo);
       } else {
@@ -247,10 +249,11 @@ namespace grid_operators {
             // we will create the an instance of the grid_operator_t before we know the atom_matrices, so nullptr is often passed but it is ok.
       } // atom_matrices != nullptr
       
-      return stat;
+      return a;
   } // list_of_atoms
 
-  
+  inline std::vector<atom_image::sho_atom_t> empty_list_of_atoms()
+      {  std::vector<atom_image::sho_atom_t> a(0); return a; }
 
   template <typename wave_function_t, typename real_FiniDiff_t=wave_function_t>
   class grid_operator_t
@@ -258,15 +261,19 @@ namespace grid_operators {
     public:
       typedef wave_function_t complex_t;
       typedef real_FiniDiff_t real_fd_t;
-    private:
-      void _constructor(real_space::grid_t const & g // real space grid descriptor
-               , double const *local_potential // may be nullptr
-               , int const nn_precond
-               , int const nn_kinetic=8
-               , int const echo=0
-      ) {
+      
+    public:
 
-//           int const nn_precond = control::get("conjugate_gradients.precond", 1.);
+      grid_operator_t(
+            real_space::grid_t const & g // real space grid descriptor
+          , std::vector<atom_image::sho_atom_t> const &a // is moved to atoms
+          , double const *local_potential=nullptr // effective local potential
+          , int const nn_precond=1 // range of the preconditioner
+          , int const nn_kinetic=8
+          , int const echo=0
+      ) : grid(g), atoms(a), has_precond(nn_precond > 0), has_overlap(true) {
+
+//        int const nn_precond = control::get("conjugate_gradients.precond", 1.);
 
           // the kinetic energy operator
           kinetic = finite_difference::stencil_t<real_fd_t>(g.h, nn_kinetic, -0.5); 
@@ -280,8 +287,10 @@ namespace grid_operators {
               kinetic.scale_coefficients(scale_k);
               warn("kinetic energy is scaled by %g", scale_k);
           } // scale_k != 1
-#endif
+#endif // DEVEL
           set_potential(local_potential, g.all(), nullptr, echo);
+
+//        printf("\n# here: %s %s:%d\n\n", __func__, __FILE__, __LINE__);
 
           // this simple grid-based preconditioner is a diffusion stencil
           preconditioner = finite_difference::stencil_t<complex_t>(g.h, std::min(1, nn_precond));
@@ -290,27 +299,7 @@ namespace grid_operators {
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
           } // d
           
-          
-      } // _constructor
-      
-    public:
-
-      grid_operator_t(real_space::grid_t const & g // real space grid descriptor
-                      , std::vector<atom_image::sho_atom_t> const & a // is moved to atoms
-                      , double const *local_potential=nullptr // effective local potential
-                      , int const nn_precond=1 // range of the preconditioner
-                      , int const echo=0
-      ) : grid(g), atoms(a), has_precond(nn_precond > 0), has_overlap(true) {
-          _constructor(grid, local_potential, nn_precond, echo);
       } // constructor with atoms
-
-      grid_operator_t(real_space::grid_t const & g // real space grid descriptor
-                      , double const *local_potential=nullptr // effective local potential
-                      , int const nn_precond=1 // range of the preconditioner
-                      , int const echo=0
-      ) : grid(g), atoms(0), has_precond(nn_precond > 0), has_overlap(true) {
-          _constructor(grid, local_potential, nn_precond, echo);
-      } // constructor without atoms
 
       status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
           return _grid_operation(Hpsi, psi, grid, atoms, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
@@ -335,9 +324,12 @@ namespace grid_operators {
       double get_volume_element() const { return grid.dV(); }
       size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
 
-      status_t set_potential(double const *local_potential=nullptr, size_t const ng=0
-                            , double const *const *const atom_matrices=nullptr
-                            , int const echo=0) {
+      status_t set_potential(
+            double const *local_potential=nullptr
+          , size_t const ng=0
+          , double const *const *const atom_matrices=nullptr
+          , int const echo=0
+      ) {
           status_t stat(0);
           if (echo > 0) printf("# %s %s\n", __FILE__, __func__);
           if (nullptr != local_potential) {
