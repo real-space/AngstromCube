@@ -13,7 +13,7 @@ geometry_file=atoms.xyz
 # echo "C  0 0 0" >> $geometry_file
 
 project_base=pg.C-atom
-printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
+printf " 1 \n#cell 3 3 3 p p p \n" > $geometry_file
 echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
@@ -100,7 +100,7 @@ verbosity=7
 
 # show energies in units of electronVolt
 output.energy.unit=eV
-output.length.unit=Ang
+output.length.unit=Bohr
 
 # grid spacing of the dense grid (in Bohr)
 potential_generator.grid.spacing=0.23622

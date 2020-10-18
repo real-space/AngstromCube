@@ -251,7 +251,7 @@ namespace pw_hamiltonian {
                  __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB));
           fflush(stdout);
       } // echo
-#endif
+#endif // DEVEL
 
       // now we could sort the plane waves by their g2 length, optional
       bool constexpr sort_PWs = true;
@@ -270,7 +270,7 @@ namespace pw_hamiltonian {
               } // i
               printf(" Ry\n");
           } // echo
-#endif
+#endif // DEVEL
       } // sort_PWs
 
       //
@@ -288,17 +288,19 @@ namespace pw_hamiltonian {
       std::vector<int> offset(natoms_PAW + 1, 0); // prefetch sum
       for(int ka = 0; ka < natoms_PAW; ++ka) {
           int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
+          assert( hs_PAW[ka].stride() >= nSHO );
+          assert( hs_PAW[ka].dim1()   == nSHO );
           offset[ka + 1] = offset[ka] + nSHO;
       } // ka
       int const nC = offset[natoms_PAW]; // total number of PAW coefficients
-      
+
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
 
       view2D<complex_t> P_jl(nB, nC, 0.0); //  <k+G_i|\tilde p_{la lb}>
 #ifdef DEVEL
       std::vector<double>   P2_l(nC, 0.0); // |<k+G_i|\tilde p_{la lb}>|^2
-#endif
+#endif // DEVEL
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
       for(int jB = 0; jB < nB; ++jB) {
           auto const & pw = pw_basis[jB];
@@ -309,9 +311,10 @@ namespace pw_hamiltonian {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
               // phase factor related to the atomic position
-              double const arg = (grid_offset[0] + xyzZ_PAW(ka,0))*gv[0] 
-                               + (grid_offset[1] + xyzZ_PAW(ka,1))*gv[1] 
-                               + (grid_offset[2] + xyzZ_PAW(ka,2))*gv[2];
+              double const arg = -(  (grid_offset[0] + xyzZ_PAW(ka,0))*gv[0] 
+                                   + (grid_offset[1] + xyzZ_PAW(ka,1))*gv[1] 
+                                   + (grid_offset[2] + xyzZ_PAW(ka,2))*gv[2] );
+//            printf("\n# effective position"); for(int d = 0; d < 3; ++d) printf(" %g", grid_offset[d] + xyzZ_PAW(ka,d));
               std::complex<double> const phase(std::cos(arg), std::sin(arg));
 
               {   std::vector<double> pzyx(nSHO);
@@ -323,7 +326,7 @@ namespace pw_hamiltonian {
                       P_jl(jB,lC) = complex_t(phase * pzyx[lb] * fgf * norm_factor);
 #ifdef DEVEL
                       P2_l[lC] += pow2(pzyx[lb]);
-#endif
+#endif // DEVEL
                   } // lb
               }
 
@@ -359,7 +362,7 @@ namespace pw_hamiltonian {
               printf("\n"); fflush(stdout);
           } // la
       } // echo
-#endif
+#endif // DEVEL
 
       // PAW projection matrix ready
 
@@ -380,10 +383,10 @@ namespace pw_hamiltonian {
       real_t const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.);
       real_t const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
       if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
-#else
+#else  // DEVEL
       real_t constexpr scale_h = 1, scale_s = 1;
       double constexpr scale_k = 1, scale_p = 1;
-#endif
+#endif // DEVEL
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
       real_t const localpot = scale_p / (nG[0]*nG[1]*nG[2]);
 
@@ -555,7 +558,9 @@ namespace pw_hamiltonian {
       double const grid_offset[3] = {0.5*(g[0] - 1)*g.h[0], // position of the cell center w.r.t. the position of grid point(0,0,0)
                                      0.5*(g[1] - 1)*g.h[1],
                                      0.5*(g[2] - 1)*g.h[2]};
-      double const cell_matrix[3][4] = {{g[0]*g.h[0], 0, 0, 0}, {0, g[1]*g.h[1], 0, 0}, {0, 0, g[2]*g.h[2], 0}};
+      double const cell_matrix[3][4] = {{g[0]*g.h[0], 0, 0,   0},
+                                        {0, g[1]*g.h[1], 0,   0},
+                                        {0, 0, g[2]*g.h[2],   0}};
       double reci_matrix[3][4];
       auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4);
       scale(reci_matrix[0], 3*4, 2*constants::pi); // scale by 2\pi
@@ -580,15 +585,17 @@ namespace pw_hamiltonian {
       if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
-      int const nG[3] = {g[0], g[1], g[2]}; //
+      int const nG[3] = {g[0], g[1], g[2]}; // same as the numbers of real-space grid points
       view4D<double> Vcoeffs(2, nG[2], nG[1], nG[0], 0.0);
-      view3D<double> vtot_Im(nG[2], nG[1], nG[0], 0.0);
+      view3D<double> vtot_Im(   nG[2], nG[1], nG[0], 0.0);
 
       auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, vtot_Im(0,0), nG, true, echo);
       if (0 == fft_stat) {
-          if (echo > 5) printf("# used FFT to transform local potential into space of plane-wave differences\n");
-      } else { // scope: Fourier transform the local potential "by hand"
-          if (echo > 5) printf("# FFT failed, transform local potential manually\n");
+          if (echo > 5) printf("# used FFT on %d x %d x %d to transform local potential into space of plane-wave differences\n", nG[0], nG[1], nG[2]);
+      } else
+      { // scope: Fourier transform the local potential "by hand"
+          if (echo > 5) { printf("# FFT failed, transform local potential manually\n"); fflush(stdout); }
+          SimpleTimer timer(__FILE__, __LINE__, "manual Fourier transform (not FFT)");
           double const two_pi = 2*constants::pi;
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
           for(int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
@@ -598,7 +605,7 @@ namespace pw_hamiltonian {
               for(int iz = 0; iz < g[2]; ++iz) {
               for(int iy = 0; iy < g[1]; ++iy) {
               for(int ix = 0; ix < g[0]; ++ix) {
-                  double const arg = Gz*iz + Gy*iy + Gx*ix;
+                  double const arg = -(Gz*iz + Gy*iy + Gx*ix); // argument must be negative to match the FFT
                   double const V = vtot[(iz*g[1] + iy)*g[0] + ix];
                   re += V * std::cos(arg);
                   im += V * std::sin(arg);
@@ -607,12 +614,11 @@ namespace pw_hamiltonian {
               Vcoeffs(1,iGz,iGy,iGx) = im; // store
           }}} // iGx iGy iGz
 
-          if (echo > 6) {
-              printf("# 000-Fourier coefficient of the potential is %g %g %s\n", 
-                                Vcoeffs(0,0,0,0)*eV, Vcoeffs(1,0,0,0)*eV, _eV); 
-          } // echo
       } // scope
-
+      if (echo > 6) {
+          printf("# 000-Fourier coefficient of the potential is %g %g %s\n",
+                            Vcoeffs(0,0,0,0)*eV, Vcoeffs(1,0,0,0)*eV, _eV); 
+      } // echo
       
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       std::vector<int32_t> numax_PAW(natoms_PAW,  3);
