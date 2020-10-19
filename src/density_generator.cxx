@@ -19,7 +19,8 @@ namespace density_generator {
       std::vector<float> wave(g.all());
       std::vector<double> rho(g.all());
       std::iota(wave.begin(), wave.end(), 0);
-      return density(rho.data(), nullptr, wave.data(), op, 1, 1, echo);
+      double spectrum[] = {0};
+      return density(rho.data(), nullptr, wave.data(), spectrum, op, 1, 1, echo);
   } // test_init
 
   status_t all_tests(int const echo) {

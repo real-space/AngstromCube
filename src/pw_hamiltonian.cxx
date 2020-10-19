@@ -440,7 +440,7 @@ namespace pw_hamiltonian {
 
       int const gen_density = control::get("pw_hamiltonian.density", 0.);
       if (gen_density) {
-        
+
           double const n_electrons = control::get("valence.electrons", 0.);
           double const kT = control::get("electronic.temperature", 9.765625e-4);
           // determine the occupation numbers

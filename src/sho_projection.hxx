@@ -17,33 +17,35 @@
 namespace sho_projection {
 
   
-  template<typename real_t>
+  template <typename real_t>
   inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
   
-  template<typename complex_t, int PROJECT0_OR_ADD1> inline
-  status_t _sho_project_or_add(complex_t coeff[] // result if projecting, coefficients are zyx-ordered
-                     , int const numax // how many
-                     , double const center[3] // where
-                     , double const sigma
-                     , complex_t values[] // grid array, result if adding
-                     , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
-                     , int const echo=4) { //
+  template <typename complex_t, int PROJECT0_OR_ADD1> inline
+  status_t _sho_project_or_add(
+        complex_t coeff[] // result if projecting, coefficients are zyx-ordered
+      , int const numax // how many
+      , double const center[3] // where
+      , double const sigma
+      , complex_t values[] // grid array, result if adding
+      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
+      , int const echo=0 // log-level
+  ) {
       using real_t = decltype(std::real(complex_t(1))); // base type
-      
+
       auto const rcut = truncation_radius(sigma, numax);
       assert(sigma > 0);
       double const sigma_inv = 1./sigma;
       // determine the limitations of the projection domain
       int off[3], end[3], num[3];
-      for(int dir = 0; dir < 3; ++dir) {
-          off[dir] = std::ceil((center[dir] - rcut)*g.inv_h[dir]);
-          end[dir] = std::ceil((center[dir] + rcut)*g.inv_h[dir]);
-          if (echo > 9) printf("# prelim for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
-          off[dir] = std::max(off[dir], 0); // lower
-          end[dir] = std::min(end[dir], g[dir]); // upper boundary
-          if (echo > 9) printf("# limits for %c-direction are [%d, %d)\n", 120+dir, off[dir], end[dir]);
-          num[dir] = std::max(0, end[dir] - off[dir]);
-      } // dir
+      for(int d = 0; d < 3; ++d) {
+          off[d] = std::ceil((center[d] - rcut)*g.inv_h[d]);
+          end[d] = std::ceil((center[d] + rcut)*g.inv_h[d]);
+          if (echo > 9) printf("# prelim for %c-direction are [%d, %d)\n", 120+d, off[d], end[d]);
+          off[d] = std::max(off[d], 0); // lower
+          end[d] = std::min(end[d], g[d]); // upper boundary
+          if (echo > 9) printf("# limits for %c-direction are [%d, %d)\n", 120+d, off[d], end[d]);
+          num[d] = std::max(0, end[d] - off[d]);
+      } // d
       auto const nvolume = (size_t(num[0]) * num[1]) * num[2];
       if ((nvolume < 1) && (echo < 7)) return 0; // no range
       if (echo > 2) printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n", 
@@ -57,35 +59,50 @@ namespace sho_projection {
 
       // ToDo: analyze if the grid spacing is small enough for this \sigma
 
-      int const M = 1 + numax;
+      int const M = sho_tools::n1HO(numax);
       std::vector<real_t> H1d[3];
       for(int dir = 0; dir < 3; ++dir) {
           H1d[dir] = std::vector<real_t>(num[dir]*M); // get memory
           auto const h1d = H1d[dir].data();
 
           double const grid_spacing = g.h[dir];
-          if (echo > 5) printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
+          if (echo > 55) printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
           for(int ii = 0; ii < num[dir]; ++ii) {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
               hermite_polys(h1d + ii*M, x, numax);
-              if (echo > 5) {
+#ifdef DEVEL
+              if (echo > 55) {
                   printf("%g\t", x);
                   for(int nu = 0; nu <= numax; ++nu) {
-                      printf("%12.6f", h1d[ii*M + nu]);
+                      printf(" %11.6f", h1d[ii*M + nu]);
                   } // nu
                   printf("\n");
               } // echo
+#endif // DEVEL
           } // i
       } // dir
    
 
+#ifdef DEVEL
+      if (1 == PROJECT0_OR_ADD1) {
+          if (echo > 6) {
+              printf("# addition coefficients ");
+              for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+                  printf(" %g", coeff[iSHO]);
+              } // iSHO
+              printf("\n\n");
+          } // echo
+      } // ADD
+#endif // DEVEL
+   
+   
       for(        int iz = 0; iz < num[2]; ++iz) {
           for(    int iy = 0; iy < num[1]; ++iy) {
               for(int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
                   
-                  complex_t val = values[ixyz];
+                  complex_t val = values[ixyz]; // load
                   if (true) {
 //                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO{0};
@@ -105,40 +122,54 @@ namespace sho_projection {
                       assert( nSHO == iSHO );
                   } // true
                   if (1 == PROJECT0_OR_ADD1) {
-                      values[ixyz] = val;
+                      values[ixyz] = val; // store
                   } // write back (add)
                   
               } // ix
           } // iy
       } // iz
 
-      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, (complex_t)g.dV()); // volume element of the grid
+      if (0 == PROJECT0_OR_ADD1) scale(coeff, nSHO, complex_t(g.dV())); // volume element of the grid
+
+#ifdef DEVEL
+      if (0 == PROJECT0_OR_ADD1) {
+          if (echo > 6) {
+              printf("# projection coefficients ");
+              for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+                  printf(" %g", coeff[iSHO]);
+              } // iSHO
+              printf("\n\n");
+          } // echo
+      } // PROJECT
+#endif // DEVEL
 
       return 0; // success
   } // _sho_project_or_add
   
 
-  // wrapper function
-  template<typename complex_t>
-  status_t sho_project(complex_t coeff[] // result, coefficients are zyx-ordered
-                     , int const numax // SHO basis size
-                     , double const center[3] // where
-                     , double const sigma // SHO basis spread
-                     , complex_t const values[] // input, grid array
-                     , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
-                     , int const echo=0) { //
+  template <typename complex_t>
+  status_t sho_project( // wrapper function
+        complex_t coeff[] // result, coefficients are zyx-ordered
+      , int const numax // SHO basis size
+      , double const center[3] // where
+      , double const sigma // SHO basis spread
+      , complex_t const values[] // input, grid array
+      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
+      , int const echo=0 //
+  ) {
       return _sho_project_or_add<complex_t,0>(coeff, numax, center, sigma, (complex_t*)values, g, echo); // un-const values pointer
   } // sho_project
-
-  // wrapper function
-  template<typename complex_t>
-  status_t sho_add(complex_t values[] // result gets modified, grid array
-                 , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
-                 , complex_t const coeff[] // input, coefficients are zyx-ordered
-                 , int const numax // SHO basis size
-                 , double const center[3] // where
-                 , double const sigma // SHO basis spread
-                 , int const echo=0) { //
+  
+  template <typename complex_t> 
+  status_t sho_add( // wrapper function
+        complex_t values[] // result gets modified, grid array
+      , real_space::grid_t const &g // grid descriptor, assume that g is a Cartesian grid
+      , complex_t const coeff[] // input, coefficients are zyx-ordered
+      , int const numax // SHO basis size
+      , double const center[3] // where
+      , double const sigma // SHO basis spread
+      , int const echo=0 // log-level
+  ) {
       return _sho_project_or_add<complex_t,1>((complex_t*)coeff, numax, center, sigma, values, g, echo); // un-const coeff pointer
   } // sho_add
 
@@ -154,7 +185,10 @@ namespace sho_projection {
   } // sho_prefactor (L2-normalization)
 
   template<typename real_t>
-  std::vector<real_t> get_sho_prefactors(int const numax, double const sigma) {
+  std::vector<real_t> get_sho_prefactors(
+        int const numax
+      , double const sigma
+  ) {
       int const nSHO = sho_tools::nSHO(numax);
       std::vector<real_t> f(nSHO);
       int iSHO{0};
@@ -171,10 +205,13 @@ namespace sho_projection {
   } // get_sho_prefactors
   
   
-  template<typename real_t> inline status_t
-  renormalize_coefficients(real_t out[], // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
-                           real_t const in[], // zyx_ordered, input unnormalized, if inverse input is assumed normalized
-                           int const numax, double const sigma) {
+  template <typename real_t> inline
+  status_t renormalize_coefficients(
+        real_t out[] // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
+      , real_t const in[] // zyx_ordered, input unnormalized, if inverse input is assumed normalized
+      , int const numax
+      , double const sigma
+  ) {
       int iSHO{0};
       for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
           for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
@@ -188,7 +225,7 @@ namespace sho_projection {
       assert( sho_tools::nSHO(numax) == iSHO );
       return 0;
   } // renormalize_coefficients
-  
+
   
   inline double radial_L1_prefactor(int const ell, double const sigma) {
       return std::sqrt(2) / ( constants::sqrtpi * std::pow(sigma, 2*ell + 3) * factorial<2>(2*ell + 1) );
@@ -200,10 +237,13 @@ namespace sho_projection {
       return 1/std::sqrt(fm2);
   } // radial_L2_prefactor (L2-normalization)
 
-  template<typename real_t> inline status_t
-  renormalize_radial_coeff(real_t out[], // out[pow2(1 + ellmax)]
-                           real_t const in[], // in[pow2(1 + ellmax)], assert all nrn > 0 contributions vanish
-                           int const ellmax, double const sigma) {
+  template<typename real_t> inline
+  status_t renormalize_radial_coeff(
+        real_t out[] // out[pow2(1 + ellmax)]
+      , real_t const in[] // in[pow2(1 + ellmax)], assert all nrn > 0 contributions vanish
+      , int const ellmax
+      , double const sigma
+  ) {
       for(int ell = 0; ell <= ellmax; ++ell) { // angular momentum quantum number
           auto const pfc = radial_L1_prefactor(ell, sigma) / radial_L2_prefactor(ell, sigma); // prefactor correction
           for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
@@ -214,14 +254,16 @@ namespace sho_projection {
       return 0;
   } // renormalize_radial_coeff
 
-  inline status_t
-  renormalize_electrostatics(double vlm[] // result vlm[pow2(1 + ellmax)]
-                          , double const vzyx[] // input zyx_ordered, unnormalized, [nSHO(ellmax)]
-                          , int const ellmax
-                          , double const sigma
-                          , sho_unitary::Unitary_SHO_Transform<double> const & u
-                          , int const echo=0) {
-      status_t stat = 0;
+  inline
+  status_t renormalize_electrostatics(
+        double vlm[] // result vlm[pow2(1 + ellmax)]
+      , double const vzyx[] // input zyx_ordered, unnormalized, [nSHO(ellmax)]
+      , int const ellmax
+      , double const sigma
+      , sho_unitary::Unitary_SHO_Transform<double> const & u
+      , int const echo=0
+  ) {
+      status_t stat(0);
 
       int const nSHO = sho_tools::nSHO(ellmax);
       std::vector<double> vzyx_nrm(nSHO, 0.0); // L2-normalized order_zyx
@@ -238,14 +280,16 @@ namespace sho_projection {
       return stat;
   } // renormalize_electrostatics
 
-  inline status_t
-  denormalize_electrostatics(double qzyx[] // result qzyx[nSHO(ellmax)], denormalized
-                          , double const qlm[] // input charge moments, normalized, [pow2(1 + ellmax)]
-                          , int const ellmax
-                          , double const sigma
-                          , sho_unitary::Unitary_SHO_Transform<double> const & u
-                          , int const echo=0) {
-      status_t stat = 0;
+  inline
+  status_t denormalize_electrostatics(
+        double qzyx[] // result qzyx[nSHO(ellmax)], denormalized
+      , double const qlm[] // input charge moments, normalized, [pow2(1 + ellmax)]
+      , int const ellmax
+      , double const sigma
+      , sho_unitary::Unitary_SHO_Transform<double> const & u
+      , int const echo=0
+  ) {
+      status_t stat(0);
 
       int const nSHO = sho_tools::nSHO(ellmax);
       std::vector<double> qnlm(nSHO, 0.0); // L2-normalized order_nlm

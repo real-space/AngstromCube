@@ -12,51 +12,74 @@
 namespace davidson_solver {
 
 
-  template<typename doublecomplex_t, typename complex_t>
-  void inner_products(doublecomplex_t s[] // result <bra|ket> [nstates][mstates]
-                   , int const stride // stride for the result matrix
-                   , size_t const ndof // also assumed as stride for bra and ket
-                   , complex_t const bra[] // assumed shape [nstates][ndof]
-                   , int const nstates  // number of bra states
-                   , complex_t const ket[] // assumed shape [mstates][ndof]
-                   , int const mstates  // number of ket states
-                   , double const factor=1) {
+  template <typename doublecomplex_t, typename complex_t>
+  void inner_products(
+        doublecomplex_t s[] // result <bra|ket> [nstates][mstates]
+      , int const stride // stride for the result matrix
+      , size_t const ndof // also assumed as stride for bra and ket
+      , complex_t const bra[] // assumed shape [nstates][ndof]
+      , int const nstates  // number of bra states
+      , complex_t const ket[] // assumed shape [mstates][ndof]
+      , int const mstates  // number of ket states
+      , double const factor=1
+  ) {
       assert(stride >= mstates);
-      for(int istate = 0; istate < nstates; ++istate) {
-          auto const bra_ptr = &bra[istate*ndof];
-          for(int jstate = 0; jstate < mstates; ++jstate) {
-              auto const ket_ptr = &ket[jstate*ndof];
+      for(int ibra = 0; ibra < nstates; ++ibra) {
+          auto const bra_ptr = &bra[ibra*ndof];
+          for(int jket = 0; jket < mstates; ++jket) {
+              auto const ket_ptr = &ket[jket*ndof];
               doublecomplex_t tmp(0);
               for(size_t dof = 0; dof < ndof; ++dof) {
                   tmp += doublecomplex_t(conjugate(bra_ptr[dof])) * doublecomplex_t(ket_ptr[dof]);
               } // dof
-              s[istate*stride + jstate] = tmp*factor; // init
-          } // jstate
-      } // istate
+              s[ibra*stride + jket] = tmp*factor; // init
+          } // jket
+#ifdef NEVER
+//           printf("\n# davidson_solver: inner_products: state i=%i\n", ibra);
+//           for(int dof = 0; dof < ndof; ++dof) {
+//               printf("%g%c", bra_ptr[dof], ((dof + 1) & 0x7)?' ':'\n');
+//           } // dof
+          printf("\n# davidson_solver: inner_products: coeffs (%i,:) ", ibra);
+          for(int jket = 0; jket < mstates; ++jket) {
+              printf("%g ", s[ibra*stride + jket]);
+          } // dof
+          printf("\n");
+#endif // NEVER
+      } // ibra
   } // inner_products
 
 
-  template<typename complex_t>
-  void vector_norm2s(double s[] // result <ket|ket> [mstates]
-                   , size_t const ndof
-                   , complex_t const ket[] // assumed shape [nstates][ndof]
-                   , int const mstates  // number of ket states
-                   , complex_t const *bra=nullptr
-                   , double const factor=1) {
-      for(int jstate = 0; jstate < mstates; ++jstate) {
-          auto const ket_ptr = &ket[jstate*ndof];
-          auto const bra_ptr = bra ? &bra[jstate*ndof] : ket_ptr;
+  template <typename complex_t>
+  void vector_norm2s(
+        double s[] // result <ket|ket> [mstates]
+      , size_t const ndof
+      , complex_t const ket[] // assumed shape [nstates][ndof]
+      , int const mstates  // number of ket states
+      , complex_t const *bra=nullptr
+      , double const factor=1
+  ) {
+      for(int jket = 0; jket < mstates; ++jket) {
+          auto const ket_ptr = &ket[jket*ndof];
+          auto const bra_ptr = bra ? &bra[jket*ndof] : ket_ptr;
           double tmp{0};
           for(size_t dof = 0; dof < ndof; ++dof) {
               tmp += std::real(conjugate(bra_ptr[dof]) * ket_ptr[dof]);
           } // dof
-          s[jstate] = tmp*factor; // init
-      } // jstate
+          s[jket] = tmp*factor; // init
+      } // jket
   } // vector_norm2s
   
   
-  template<typename real_t>
-  void show_matrix(real_t const mat[], int const stride, int const n, int const m, char const *name=nullptr, double const unit=1, char const *_unit="1") {
+  template <typename real_t>
+  void show_matrix(
+        real_t const mat[]
+      , int const stride
+      , int const n
+      , int const m
+      , char const *name=nullptr
+      , double const unit=1
+      , char const *_unit="1"
+  ) {
       if (n < 1) return;
       if (is_complex<real_t>()) return;
       if (1 == n) {
@@ -68,12 +91,15 @@ namespace davidson_solver {
           if (n > 1) printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
               printf((1 == n)?" %.3f":" %7.3f", std::real(mat[i*stride + j])*unit);
-          }   printf("\n");
-      }   printf("\n");
+          } // j
+          printf("\n");
+      } // i
+      printf("\n");
   } // show_matrix
 
-  template<class operator_t>
-  status_t eigensolve(typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+  template <class operator_t>
+  status_t eigensolve(
+      typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
     , operator_t const &op
@@ -117,7 +143,7 @@ namespace davidson_solver {
           if (echo > 9) printf("# Davidson iteration %i\n", iteration);
 
           int n_drop{0};
-        do{
+        do {
           // apply Hamiltonian and Overlap operator
           for(int istate = 0; istate < sub_space; ++istate) {
               stat += op.Hamiltonian(hpsi[istate], psi[istate], op_echo);
@@ -134,9 +160,9 @@ namespace davidson_solver {
           if (1) { // inspect eigenvalues of the overlap matrix
               view2D<doublecomplex_t> Ovl_copy(sub_space, sub_space, doublecomplex_t(0));
               for(int i = 0; i < sub_space; ++i) {
-                  set(Ovl_copy[i], sub_space, Ovl[i]);
+                  set(Ovl_copy[i], sub_space, Ovl[i]); // deep copy
               } // i
-              
+
               if (1) { // check if the overlap matrix is symmetric/Hermitian
                   double dev2{0};
                   for(int i = 0; i < sub_space; ++i) {
@@ -299,12 +325,15 @@ namespace davidson_solver {
   } // eigensolve
 
   template<class operator_t>
-  status_t rotate(typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
+  status_t rotate(
+      typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double *const energies // export eigenenergies
     , int const nbands // number of bands
     , operator_t const &op
     , int const echo=0
-  ) { return eigensolve(waves, energies, nbands, op, echo, 1, 1); }
+  ) {
+      return eigensolve(waves, energies, nbands, op, echo, 1, 1);
+  } // rotate
 
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

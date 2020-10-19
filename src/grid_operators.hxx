@@ -15,6 +15,7 @@
 
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
+#include "print_tools.hxx" // printf_vector
 
 #ifdef DEVEL
   #include "control.hxx" // ::get
@@ -37,7 +38,7 @@ namespace grid_operators {
       , int const echo=0
       , complex_t       *const *const atomic_projection_coefficients=nullptr
       , complex_t const *const *const start_wave_coeffs=nullptr
-      , double const scale_sigmas=1 // only during addition (used for start wave functions)
+      , float const scale_sigmas=1 // only during addition (used for start wave functions)
   ) {
       using real_t = decltype(std::real(complex_t(1)));
       using atom_matrix_t = decltype(std::real(real_fd_t(1)));
@@ -114,12 +115,9 @@ namespace grid_operators {
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
-                          for(int ic = 0; ic < ncoeff; ++ic) {
-                              printf(" %g", start_wave_coeffs[ia][ic]);
-                          } // ic
-                          printf("\n");
+                          printf_vector(" %g", start_wave_coeffs[ia], ncoeff);
                       } // echo
-#endif
+#endif // DEVEL
                       set(V_atom_coeff_ia.data(), ncoeff, start_wave_coeffs[ia]); // import
                   } else {
 
@@ -133,6 +131,10 @@ namespace grid_operators {
                           for(int j = 0; j < ncoeff; ++j) {
                               auto const am = mat[i*stride + j];
                               auto const cj = atom_coeff[ia][j];
+#ifdef DEVEL
+//                               if (echo > 9) printf("# %s atomic %s matrix for atom #%i mat(%i,%i)= %g\n", 
+//                                                    __func__, h0s1?"overlap":"hamiltonian", ia, i, j, am);
+#endif // DEVEL
                               ci += am * cj;
                           } // j
                           V_atom_coeff_ia[i] = ci;
@@ -176,11 +178,11 @@ namespace grid_operators {
       assert(atom_matrices); // may not be nullptr
 
 #ifdef DEVEL
-      double const scale_h = control::get("hamiltonian.scale.nonlocal.h", 1.);
-      double const scale_s = control::get("hamiltonian.scale.nonlocal.s", 1.);
-      if (1 != scale_h || 1 != scale_s) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_h, scale_s);
+      double const scale_hs[] = {control::get("hamiltonian.scale.nonlocal.h", 1.),
+                                 control::get("hamiltonian.scale.nonlocal.s", 1.)};
+      if (1 != scale_hs[0] || 1 != scale_hs[1]) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_hs[0], scale_hs[1]);
 #else
-      double constexpr scale_h=1, scale_s=1;
+      double constexpr scale_hs[] = {1, 1};
 #endif
 
       for(size_t ia = 0; ia < a.size(); ++ia) {
@@ -188,8 +190,7 @@ namespace grid_operators {
           assert(atom_matrices[ia]);
           int const ncoeff = sho_tools::nSHO(a[ia].numax());
           for(int h0s1 = 0; h0s1 <= 1; ++h0s1) {
-              stat += a[ia].set_matrix(&atom_matrices[ia][h0s1*ncoeff*ncoeff], ncoeff, ncoeff, h0s1
-                                        , h0s1 ? scale_s : scale_h);
+              stat += a[ia].set_matrix(&atom_matrices[ia][h0s1*ncoeff*ncoeff], ncoeff, ncoeff, h0s1, scale_hs[h0s1]);
           } // 0:Hamiltonian and 1:overlap/charge deficit
       } // ia
       return stat;
@@ -248,7 +249,7 @@ namespace grid_operators {
 //           warn("Atom-centered matrices were not set"); // this warning is deactivated as in the default use case,
             // we will create the an instance of the grid_operator_t before we know the atom_matrices, so nullptr is often passed but it is ok.
       } // atom_matrices != nullptr
-      
+
       return a;
   } // list_of_atoms
 
@@ -261,7 +262,7 @@ namespace grid_operators {
     public:
       typedef wave_function_t complex_t;
       typedef real_FiniDiff_t real_fd_t;
-      
+
     public:
 
       grid_operator_t(
@@ -298,7 +299,7 @@ namespace grid_operators {
               preconditioner.c2nd[d][1] = 1/12.;
               preconditioner.c2nd[d][0] = 2/12.; // stencil [1/4 1/2 1/4] in all 3 directions, normalized
           } // d
-          
+
       } // constructor with atoms
 
       status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
@@ -350,7 +351,7 @@ namespace grid_operators {
               if (echo > 0) printf("# %s %s no local potential given!\n", __FILE__, __func__);
               ++stat;
           } // local potential given
-          
+
           if (nullptr != atom_matrices) {
               stat += set_nonlocal_potential(atoms, atom_matrices, echo);
               if (echo > 0) printf("# %s %s non-local matrices copied for %ld atoms\n", __FILE__, __func__, atoms.size());
@@ -380,7 +381,7 @@ namespace grid_operators {
       int    get_numax(int const ia) const { return atoms[ia].numax(); }
       double get_sigma(int const ia) const { return atoms[ia].sigma(); }
   }; // class grid_operator_t
-  
+
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

@@ -11,6 +11,7 @@
 #include "data_list.hxx" // data_list<T>
 #include "control.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
+#include "fermi_distribution.hxx" // Fermi_level
 
 namespace density_generator {
 
@@ -27,10 +28,11 @@ namespace density_generator {
       return gsum*dV;
   } // print_stats
 
-  template<class grid_operator_t>
+  template <class grid_operator_t>
   status_t density(double rho[]        // result density on Cartesian grid
       , double *const *const atom_rho  // result atomic density matrices
       , typename grid_operator_t::complex_t const eigenfunctions[]
+      , double const eigenenergies[]
       , grid_operator_t const & op
       , int const nbands=1, int const nkpoints=1
       , int const echo=0) {
@@ -63,16 +65,25 @@ namespace density_generator {
       data_list<complex_t> atom_coeff(ncoeff);
 
       view3D<complex_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
+      view2D<double const>    const ene(eigenenergies,  nbands); // wrap
 
-      double const occupied_bands = control::get("devel.occupied.bands", 0.); // as long as the Fermi function is not in here
+      double const n_electrons = control::get("valence.electrons", 0.0);
+      double const kT = control::get("electronic.temperature", 9.765625e-4);
 
+      
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
           double const kpoint_weight = 1; // depends on ikpoint
           auto const psi_k = psi[ikpoint];
 
+          // determine the occupation numbers
+          std::vector<double> occupation(nbands, 0.0);
+          double Fermi_energy{-9e99};
+          stat += fermi_distribution::Fermi_level(Fermi_energy, occupation.data(),
+                             ene[ikpoint], nbands, kT, n_electrons, 2, echo + 10);
+
           for(int iband = 0; iband < nbands; ++iband) {
-              double const band_occupation = 2*std::min(std::max(0.0, occupied_bands - iband), 1.0); // depends on iband and ikpoint
+              double const band_occupation = occupation[iband]; // depends on iband and ikpoint
               double const weight_nk = band_occupation * kpoint_weight;
               auto const psi_nk = psi_k[iband];
 

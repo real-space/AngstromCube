@@ -59,14 +59,15 @@ namespace atom_image {
       template <typename real_t> 
       inline real_t const * get_matrix(int const h0s1=0) const; // provide no implementation for the general case
 
-      status_t set_matrix(double const values[], // data layout values[ncoeff][stride]
-                          int const ncoeff, int const stride, int const h0s1=0, double const factor=1) {
+      status_t set_matrix(
+            double const values[] // data layout values[ncoeff][stride_values], coefficients are assumed in order_zyx
+          , int const ncoeff
+          , int const stride_values
+          , int const h0s1=0
+          , double const factor=1
+      ) {
           assert(0 == h0s1 || 1 == h0s1); // 0:hamiltonian H, 1:overlap S (or I, contains charge deficit)
-          assert(ncoeff <= stride);
-          
-          std::vector<int> reorder(_ncoeff, 0);
-          sho_tools::construct_index_table(reorder.data(), _numax, sho_tools::order_zyx);
-          // reorder is necessary as values has order_Ezyx and _matrix has order_zyx, could be moved out
+          assert(ncoeff <= stride_values);
 
           std::vector<double> rescale(_ncoeff, 0.0);
           {   
@@ -74,12 +75,12 @@ namespace atom_image {
               for(int z = 0; z <= _numax; ++z) {
                   for(int y = 0; y <= _numax - z; ++y) {
                       for(int x = 0; x <= _numax - z - y; ++x) {
-                          assert(reorder[ii] == sho_tools::Ezyx_index(x, y, z));
                           rescale[ii] = sho_projection::sho_prefactor(x, y, z, _sigma); // ToDo: can be replaced by the factorized version
                           ++ii;
                       } // x
                   } // y
               } // z
+              assert( _ncoeff == ii );
           } // rescale because projector functions used in a fast SHO-transform are not normalized, could be moved out
 
           for(int ij = 0; ij < _ncoeff*_stride; ++ij) {
@@ -91,8 +92,8 @@ namespace atom_image {
           for(int i = 0; i < nc; ++i) {
               for(int j = 0; j < nc; ++j) {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
-                  int const ij_reordered = ij; // reorder[i]*stride + reorder[j]; // NOT REORDERED
-                  _matrix64[ij] = rescale[i] * values[ij_reordered]*factor * rescale[j];
+                  int const ij_values = i*stride_values + j;
+                  _matrix64[ij] = rescale[i] * values[ij_values]*factor * rescale[j];
                   _matrix32[ij] = _matrix64[ij]; // convert to float
               } // j
           } // i

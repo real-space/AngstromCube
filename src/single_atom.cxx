@@ -1967,9 +1967,6 @@ namespace single_atom {
        
         if (echo > 2) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
-//      auto const small_component = new double[rg[TRU]->n];
-        int const nr = rg[TRU]->n;
-        std::vector<double> r2rho(nr);
 
         int const nln = sho_tools::nSHO_radial(numax);
         view2D<double> radial_sho_basis(nln, align<2>(rg[SMT]->n), 0.0); // get memory
@@ -1980,13 +1977,15 @@ namespace single_atom {
                 for(int irn = 0; irn < nn_max(numax, ell); ++irn) {       int const iln = sho_tools::ln_index(numax, ell, irn);
                     for(int jrn = 0; jrn < nn_max(numax, ell); ++jrn) {   int const jln = sho_tools::ln_index(numax, ell, jrn);
                         printf("# %s radial SHO basis <%c%d|%c%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell],irn, ellchar[ell],jrn,
-                            (irn == jrn), dot_product(nr, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT]->dr) - (irn == jrn), sigma*Ang,_Ang);
+                            (irn == jrn), dot_product(rg[SMT]->n, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT]->dr) - (irn == jrn), sigma*Ang,_Ang);
                     } // jrn
                 } // irn
             } // ell
         } // echo
 #endif // DEVEL
 
+        int const nr = rg[TRU]->n;
+        std::vector<double> r2rho(nr);
         
         r_match = 9*sigma;
         int const ir_match[] = {radial_grid::find_grid_index(*rg[TRU], r_match),
@@ -3796,10 +3795,10 @@ namespace single_atom {
               echo_mask.resize(na);
               bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms
               auto const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
-              auto const echo_init_mask = int64_t(control::get("single_atom.init.echo.mask", -1.)); // log-level mask, -1:all
+              auto const bmask = int64_t(control::get("single_atom.echo.mask", -1.)); // log-level mask, -1:all
               for(int ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
-                  echo_mask[ia] = (-1 == echo_init_mask) ? 1 : ((echo_init_mask >> ia) & 0x1);
+                  echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
                   a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_mask[ia]*echo_init);
                   if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
