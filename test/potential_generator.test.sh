@@ -12,18 +12,18 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 10 10 10 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 10 10 10 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
-# project_base=pg.C-dimer
-# printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
-# echo "C  0 0 -0.65" >> $geometry_file
-# echo "C  0 0  0.65" >> $geometry_file
+project_base=pg.C-dimer
+printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
+echo "C  0 0 -0.65" >> $geometry_file
+echo "C  0 0  0.65" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -129,7 +129,7 @@ logder.step=1e-2
 # configuration for basis=grid
 bands.per.atom=10
 eigensolver=cg
-repeat.eigensolver=1
+repeat.eigensolver=3
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
@@ -213,10 +213,7 @@ done
 # pg.C-dimer.sho8.out:#   -19.0737 -4.35561 -2.00145 -1.61998 -1.61998 4.75747 4.75747 16.2042 ... 940.895 1050.93 eV
 # pg.C-dimer.sho9.out:#   -19.4077 -5.06115 -4.12805 -4.12805 -3.08344 2.8209 2.8209 15.5628 ... 1116.53 1228.39 eV
 # pg.C-dimer.sho10.out#   -20.2971 -6.50843 -4.24552 -4.24552 -4.17229 2.64382 2.64382 14.6912 ... 1296.84 1411.54 eV
-### exe using PW5 double -23.0606 -13.7356 -7.58652 -6.84787 -5.15872 -0.335201 -0.208443 0.065608 ... 133.323 133.324 eV
-### exe using PW5  float -23.0604 -13.7355 -7.58635 -6.84766 -5.15843 -0.329002 -0.208301 0.0676805 ... 133.335 133.338 eV
-### exe using PW10 float -23.6921 -14.7412 -8.86353 -8.05424 -5.99189 -1.53464 -1.03378 -0.233875 ... 269.28 269.28 eV
-### exe using GRID float -26.633 -14.274 -13.599 -12.890 -10.141 -2.797 -2.786 -0.298 1.572 1.721 1.729 1.729 1.898 2.619 3.362 4.180 4.284 4.306 4.313 6.039 (did not converge)
+### exe using GRID       -21.702 -10.513 -9.352 -9.352 -8.465 -2.165 -2.165 -0.296 1.570 1.705 1.705 1.721 1.909 2.608 3.362 4.180 4.182 4.183 4.448 6.039
 ### exe using PW1..10 (double)
 # 0.000000     -16.8874 -6.44077 -2.20068 -2.20068 -0.729291 1.11406 1.75765 2.24427    25.2062 25.2209
 # 0.000000     -19.9523 -9.47263 -4.42102 -4.42102 -2.55295 0.190194 1.74456 1.77841    51.1208 51.1264
