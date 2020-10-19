@@ -3768,6 +3768,7 @@ namespace single_atom {
       // A vector of LiveAtom instances is stored in a static variable.
 
       static std::vector<LiveAtom*> a; // internal state, so this function may not be templated!!
+      static std::vector<bool> echo_mask;
       static int echo = -9;
       if (-9 == echo) echo = int(control::get("single_atom.echo", 0.)); // initialize only on the 1st call to atom_update()
 
@@ -3780,7 +3781,7 @@ namespace single_atom {
       int   constexpr nr2_default = 1 << 12;
       int   constexpr numax_default = 3;
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
-      
+
       int na{natoms};
       
       status_t stat(0);
@@ -3792,11 +3793,14 @@ namespace single_atom {
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
+              echo_mask.resize(na);
               bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms
-              int const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
+              auto const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
+              auto const echo_init_mask = int64_t(control::get("single_atom.init.echo.mask", -1.)); // log-level mask, -1:all
               for(int ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
-                  a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_init);
+                  echo_mask[ia] = (-1 == echo_init_mask) ? 1 : ((echo_init_mask >> ia) & 0x1);
+                  a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_mask[ia]*echo_init);
                   if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
           }
@@ -3886,7 +3890,7 @@ namespace single_atom {
               double const *const *const vlm = dpp; assert(nullptr != vlm);
               float const mix_pot = fp ? fp[0] : mix_defaults[0];
               for(int ia = 0; ia < a.size(); ++ia) {
-                  a[ia]->update_potential(mix_pot, vlm[ia], echo); // set electrostatic multipole shifts
+                  a[ia]->update_potential(mix_pot, vlm[ia], echo_mask[ia]*echo); // set electrostatic multipole shifts
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }
@@ -3903,7 +3907,7 @@ namespace single_atom {
                   for(int i = 0; i < ncoeff; ++i) {
                       set(a[ia]->density_matrix[i], ncoeff, &atom_rho[ia][i*ncoeff + 0]);
                   } // i
-                  a[ia]->update_density(mix_rho, echo);                  
+                  a[ia]->update_density(mix_rho, echo_mask[ia]*echo);                  
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
           }

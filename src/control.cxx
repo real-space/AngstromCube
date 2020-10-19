@@ -1,4 +1,4 @@
-#include <cstdio> // printf, sprintf
+#include <cstdio> // printf, std::snprintf
 #include <cassert> // assert
 #include <string>
 #include <cstdlib> // std::atof
@@ -54,7 +54,7 @@ namespace control {
   char const* set(char const *name, char const *value, int const echo) {
       if (echo > 5) printf("# control::set(\"%s\", \"%s\")\n", name, value);
       return _manage_variables(name, value, echo);
-  } // set
+  } // set<string>
 
   status_t command_line_interface(char const *statement, int const echo) {
       auto const equal = find_equal_sign(statement);
@@ -74,7 +74,8 @@ namespace control {
       }
   } // command_line_interface
   
-  char const* get(char const *name, char const *default_value, int const echo) {
+  char const* get(char const *name, char const *default_value) {
+      int const echo = default_echo_level;
       auto const value = _manage_variables(name, nullptr, echo);
       if (nullptr != value) {
           if (0 != value[0]) {
@@ -84,16 +85,18 @@ namespace control {
       }
       if (echo > 5) printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
       return default_value;
-  } // get
+  } // get<string>
 
   char const* set(char const *name, double const value, int const echo) {
-      char buffer[32]; std::sprintf(buffer, "%.16e", value);
+      char buffer[32]; 
+      std::snprintf(buffer, 31, "%.16e", value);
       return set(name, buffer, echo);
   } // set<double>
 
-  double get(char const *name, double const default_value, int const echo) {
-      char buffer[32]; std::sprintf(buffer, "%.16e", default_value);
-      return std::atof(get(name, buffer, echo));
+  double get(char const *name, double const default_value) {
+      char buffer[32];
+      std::snprintf(buffer, 31, "%.16e", default_value);
+      return std::atof(get(name, buffer));
   } // get<double>
 
 
@@ -198,7 +201,7 @@ namespace control {
     double d = .2;
     for(int i = 0; i < nmax; ++i) {
         set("d", d, echo);
-        double const g = get("d", 1., echo);
+        double const g = get("d", 1.);
         stat += (g != d);
         d *= std::sqrt(33/32.); // some irrational number close to 1
     } // i

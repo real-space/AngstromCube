@@ -68,8 +68,14 @@ namespace potential_generator {
   // their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
 
-  template<typename real_t>
-  double print_stats(real_t const values[], size_t const all, double const dV=1, char const *prefix="", real_t const unit=1) {
+  template <typename real_t>
+  double print_stats(
+        real_t const values[] // input values
+      , size_t const all // how many
+      , double const dV=1 // volume element for the integration
+      , char const *prefix="" // leading printf messages
+      , real_t const unit=1 // unit conversion factor
+  ) {
       real_t gmin{9e307}, gmax{-gmin}; double gsum{0}, gsum2{0};
       for(size_t i = 0; i < all; ++i) {
           gmin = std::min(gmin, values[i]);
@@ -81,19 +87,16 @@ namespace potential_generator {
       return gsum*dV;
   } // print_stats
 
-//   inline int n_grid_points(double const suggest) { return (int)align<1>((int)std::ceil(suggest)); }
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
   
-//   inline double fold_back(double const position, double const cell_extend) { 
-//       double x{position};
-//       while(x >= 0.5*cell_extend) x -= cell_extend;
-//       while(x < -0.5*cell_extend) x += cell_extend;
-//       return x;
-//   } // fold_back
   
-  status_t init_geometry_and_grid(real_space::grid_t & g, view2D<double> & xyzZ, 
-                                  int & natoms, int const echo=0) {
+  status_t init_geometry_and_grid(
+        real_space::grid_t & g // output grid descriptor
+      , view2D<double> & xyzZ // output atom coordinates and core charges Z
+      , int & natoms // output number of atoms found
+      , int const echo=0 // log-level
+  ) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat(0);
       
@@ -118,68 +121,80 @@ namespace potential_generator {
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
       } // d
       if (echo > 1) printf("# cell is  %g %g %g  %s\n", cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang);
-      
+
       return stat;
   } // init_geometry_and_grid
   
   template <typename real_t>
-  status_t write_array_to_file(char const *filename, real_t const array[], 
-               int const nx, int const ny, int const nz, int const echo=0, char const *arrayname="") {
+  status_t write_array_to_file(
+        char const *filename // file name to write to
+      , real_t const array[]  // array pointer
+      , int const nx, int const ny, int const nz // grid dimensions
+      , int const echo=0 // log-level
+      , char const *arrayname="" // some description to appear in the file
+  ) {
       char title[128]; std::sprintf(title, "%i x %i x %i  %s", nz, ny, nx, arrayname);
       auto const size = size_t(nz) * size_t(ny) * size_t(nx);
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file
 
-  status_t add_smooth_quantities(double values[] // add to this function on a 3D grid
-                , real_space::grid_t const & g 
-                , int const na, int32_t const nr2[], float const ar2[]
-                , view2D<double> const & center // (natoms, 4)
-                , int const n_periodic_images, view2D<double> const & periodic_images
-                , double const *const *const atom_qnt
-                , int const echo=0, int const echo_q=0
-                , double const factor=1
-                , char const *quantity="???") {
+  status_t add_smooth_quantities(
+        double values[] // add to this function on a 3D grid
+      , real_space::grid_t const & g // Cartesian real-space grid descriptor
+      , int const na, int32_t const nr2[], float const ar2[] // r2-grid descriptor
+      , view2D<double> const & center // (natoms, 4) center coordinates
+      , int const n_periodic_images, view2D<double> const & periodic_images
+      , double const *const *const atom_qnt // atom data on r2-grids
+      , int const echo=0 // log-level
+      , int const echo_q=0 // log-level for the charge
+      , double const factor=1 // multipliyer
+      , char const *quantity="???" // description for log-messages
+  ) {
+      // add contributions from smooth core densities
 
-          status_t stat(0);
-          // add contributions from smooth core densities
-          for(int ia = 0; ia < na; ++ia) {
+      status_t stat(0);
+      for(int ia = 0; ia < na; ++ia) {
 #ifdef DEVEL
-              if (echo > 11) {
-                  printf("\n## r, %s of atom #%i\n", quantity, ia);
-                  print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
-              } // echo
-#endif
-              double q_added{0};
-              for(int ii = 0; ii < n_periodic_images; ++ii) {
-                  double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-                  double q_added_image = 0;
-                  stat += real_space::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
-                  if (echo_q > 11) printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
-                  q_added += q_added_image;
-              } // periodic images
+          if (echo > 11) {
+              printf("\n## r, %s of atom #%i\n", quantity, ia);
+              print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
+          } // echo
+#endif // DEVEL
+          double q_added{0};
+          for(int ii = 0; ii < n_periodic_images; ++ii) {
+              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+              double q_added_image = 0;
+              stat += real_space::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
+              if (echo_q > 11) printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
+              q_added += q_added_image;
+          } // periodic images
 #ifdef DEVEL
-              if (echo_q > 0) {
-                  printf("# after adding %g electrons %s of atom #%d:", q_added, quantity, ia);
-                  print_stats(values, g.all(), g.dV());
-              } // echo
-              if (echo_q > 3) printf("# added %s for atom #%d is  %g electrons\n", quantity, ia, q_added);
-//            if (echo_q > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
-#endif
-          } // ia
-          return stat;
+          if (echo_q > 0) {
+              printf("# after adding %g electrons %s of atom #%d:", q_added, quantity, ia);
+              print_stats(values, g.all(), g.dV());
+          } // echo
+          if (echo_q > 3) printf("# added %s for atom #%d is  %g electrons\n", quantity, ia, q_added);
+//        if (echo_q > 3) printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
+#endif // DEVEL
+      } // ia
+      return stat;
   } // add_smooth_quantities
 
   
   
-  status_t Bessel_Poisson_solver(double *const Ves, real_space::grid_t const & g
-                            , double const *const rho, double const center[3]
-                            , int const echo=0) {
+  status_t Bessel_Poisson_solver(
+        double Ves[] // output electrostatic potential
+      , real_space::grid_t const & g // Cartesian real-space grid descriptor
+      , double const rho[] // input density
+      , double const center[3] // center around which to expand, e.g. an atomic position
+      , int const echo=0 // log-level
+  ) {
+      // solve the Poisson equation for spherically symmetric geometries using a Bessel trasform
+      status_t stat(0);
       if (g.number_of_boundary_conditions(Isolated_Boundary) < 3) {
           warn("Bessel Poisson solver requires 3 isolated boundary conditions");
           return -1;
       } // failed
-
-      status_t stat(0);
         
       // report extremal values of what is stored on the grid
       if (echo > 1) print_stats(rho, g.all(), g.dV(), "# real-space stats of input density:   ");
@@ -299,7 +314,7 @@ namespace potential_generator {
           } // echo
       } // ionized
 #endif
-      
+
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
       view2D<double> periodic_images;
       int const n_periodic_images = boundary_condition::periodic_images(periodic_images, cell, g.boundary_conditions(), rcut, echo - 4);
@@ -391,6 +406,7 @@ namespace potential_generator {
       int constexpr numax_unitary = 9;
       sho_unitary::Unitary_SHO_Transform<double> const unitary(numax_unitary);
 
+      // allocations of grid quantities
       std::vector<double>  rho(g.all()); // [augmented] charge density
       std::vector<double>  Vxc(g.all()); // exchange-correlation potential
       std::vector<double>  cmp(g.all()); // compensation charge densities
@@ -447,7 +463,7 @@ namespace potential_generator {
               view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
                   auto const start_wave_file = control::get("start.waves", "");
-                  psi = view3D<wave_function_t>(nkpoints, nbands, gc.all()); // get memory
+                  psi = view3D<wave_function_t>(nkpoints, nbands, gc.all()); // get memory (potentially large)
                   if (0 == *start_wave_file) {
                       if (echo > 1) printf("# initialize grid wave functions as %d atomic orbitals, %g orbitals per atom\n", nbands, nbands_per_atom);
                       float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj

@@ -69,8 +69,8 @@ namespace fermi_distribution {
       std::sort(ene.begin(), ene.end()); // sort to ascending order
       auto const e_min = ene[0], e_max = ene[nb - 1];
       if (echo > 0) printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
-      
-      { // scope: find T=0 Fermi level:
+
+      { // scope: find T=0 Fermi level, works only for a sorted spectrum and ignores weights
           int ieF{0};
           while (ieF < n_electrons) ++ieF; // ignores weights
           eF = (ieF < nb) ? ((ieF > 0) ? 0.5*(ene[ieF] + ene[ieF - 1]) : e_min) : e_max;
