@@ -23,8 +23,8 @@ geometry_file=atoms.xyz
 
 project_base=pg.C-dimer
 printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  -0.65 0 0" >> $geometry_file
-echo "C   0.65 0 0" >> $geometry_file
+echo "C  0 0 -0.65" >> $geometry_file
+echo "C  0 0  0.65" >> $geometry_file
 ### QE-spectrum          -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV (self-consistent result)
 # pg.C-dimer.sho3.out:#   -2.44596 12.4182 12.4182 15.8118 15.8118 17.2857 17.8086 26.7288 ... 227.187 274.533 eV
 # pg.C-dimer.sho4.out:#   -10.4397 6.19268 9.4426 12.0828 12.0828 15.6831 15.6831 23.6335 ... 345.598 410.391 eV
@@ -136,7 +136,7 @@ element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=7
+single_atom.echo=8
 single_atom.init.echo=7
 single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
@@ -213,7 +213,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 5 5`; do
+for ecut in `seq 1 1 10`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

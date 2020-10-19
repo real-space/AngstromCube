@@ -230,14 +230,14 @@ namespace single_atom {
 
 
 
-    template<int ADD0_or_PROJECT1>
+    template <int ADD0_or_PROJECT1>
     void add_or_project_compensators(
-    	  view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
-    	, double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
-    	, radial_grid_t const *rg // radial grid despriptor
-    	, int const lmax	   // cutoff for angular momentum expansion
-    	, double const sigma   // spread_compensator
-    	, int const echo=0     // log output level
+          view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
+        , double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
+        , radial_grid_t const *rg // radial grid despriptor
+        , int const lmax       // cutoff for angular momentum expansion
+        , double const sigma   // spread_compensator
+        , int const echo=0     // log-level
     ) {
         // compensation charge densities on the radial grid
 
@@ -3039,7 +3039,8 @@ namespace single_atom {
                 if (nullptr == ves_multipole) {
                     set(vlm.data(), nlm, 0.); // no correction of the electrostatic potential heights for isolated atoms
                 } else {
-                    if (echo > 6) printf("# %s v_00 found %g but expected %g %s\n", label, vlm[0]*Y00*eV, ves_multipole[0]*Y00*eV,_eV);
+                    if (echo > 6) printf("# %s v_00 found %g but expected %g, shift by %g %s\n", // report monopole shift
+                        label, vlm[00]*Y00*eV, ves_multipole[00]*Y00*eV, ves_multipole[00]*Y00*eV - vlm[00]*Y00*eV, _eV);
                     scale(vlm.data(), nlm, -1.); add_product(vlm.data(), nlm, ves_multipole, 1.); // vlm := ves_multipole - vlm
                 } // no ves_multipole given
             } // smooth only
@@ -3051,17 +3052,22 @@ namespace single_atom {
             add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_cmp, sigma_compensator);
 
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
-                double v_[1];
-                add_or_project_compensators<1>(Ves, v_, rg[SMT], 0, sigma_compensator); // project to compensators
+//                 double v_test[1];
+                std::vector<double> v_test(pow2(1 + ellmax_cmp), 0.0);
+                add_or_project_compensators<1>(Ves, v_test.data(), rg[SMT], ellmax_cmp, sigma_compensator); // project to compensators with ellmax_cmp=0
                 if (echo > 7) {
-                    printf("# %s after correction v_00 is %g %s\n", label, v_[00]*Y00*eV,_eV);
+                    printf("# %s after correction v_00 is %g %s\n", label, v_test[00]*Y00*eV,_eV);
+                    if (1) {
+                        printf("# %s after correction v_lm (%s Bohr^-ell) is", label, _eV);
+                        printf_vector(" %.6f", v_test.data(), v_test.size(), "\n", Y00*eV); // Warning, not consistent with _Ang != "Bohr"
+                    } // 1
                     printf("# %s local smooth electrostatic potential at origin is %g %s\n", label, Ves(00,0)*Y00*eV,_eV);
                     printf("# %s local smooth augmented density at origin is %g a.u.\n", label, aug_density(00,0)*Y00);
                     if (echo > 8) {
                         printf("\n## %s local smooth electrostatic potential and augmented density in a.u.:\n", label);
                         for(int ir = 0; ir < rg[SMT]->n; ++ir) {
                             printf("%g %g %g\n", rg[SMT]->r[ir], Ves(00,ir)*Y00, aug_density(00,ir)*Y00);
-                        } // ir  
+                        } // ir
                         printf("\n\n");
                     } // show radial function of Ves[00]*Y00 to be compared to projections of the 3D electrostatic potential
                 } // echo
@@ -3657,16 +3663,18 @@ namespace single_atom {
     
     radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return rg[SMT]; }
 
-    template <char Q='t'> double get_number_of_electrons() const { return csv_charge[core] + csv_charge[semicore] + csv_charge[valence]; }
+    double get_number_of_electrons(char const csv='v') const {
+        if ('v' == (csv | 32)) return csv_charge[valence];
+        if ('s' == (csv | 32)) return csv_charge[semicore];
+        if ('c' == (csv | 32)) return csv_charge[core];
+        // otherwise total number of electrons
+        return csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
+    } // get_number_of_electrons
 
     double const get_sigma() const { return sigma; }
     int    const get_numax() const { return numax; }
-    
-  }; // class LiveAtom
 
-    template <> double LiveAtom::get_number_of_electrons<'c'>() const { return csv_charge[core]; }
-    template <> double LiveAtom::get_number_of_electrons<'s'>() const { return csv_charge[semicore]; }
-    template <> double LiveAtom::get_number_of_electrons<'v'>() const { return csv_charge[valence]; }
+  }; // class LiveAtom
 
   // instead of having a switch only onto  the first char of a string (as in atom_update),
   // we could use a switch onto int or long with these functions
@@ -3726,6 +3734,9 @@ namespace single_atom {
           case str2int("x densities"):
           case str2int("core densities"):
           case str2int("valence densities"):
+          case str2int("#valence electrons"):
+          case str2int("#semicore electrons"):
+          case str2int("#core electrons"):
           case str2int("projectors"):
           case str2int("energies"): // reserve for the export of atomic energy contributions
           case str2int("qlm charges"):
@@ -3781,12 +3792,12 @@ namespace single_atom {
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
-              bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms, can only be 0 or 1
+              bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms
               int const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               for(int ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_init);
-                  if(ip) ip[ia] = a[ia]->get_numax(); // export numax
+                  if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
           }
           break;
@@ -3797,8 +3808,20 @@ namespace single_atom {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
               a.clear();
-              na = a.size(); // fulfill consistency check at the end
+              na = a.size(); // set na to fulfill consistency check at the end of this routine
               assert(!dp); assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
+          }
+          break;
+          
+          case '#': // interface usage: atom_update("#valence electrons", natoms, ne[]);
+                    // interface usage: atom_update("#semicore electrons", natoms, ne[]);
+                    // interface usage: atom_update("#core electrons", natoms, ne[]);
+          {
+              double *ne = dp; assert(nullptr != ne);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  ne[ia] = a[ia]->get_number_of_electrons(what[1]);
+              } // ia
+              assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
           break;
 

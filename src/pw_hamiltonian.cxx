@@ -68,7 +68,7 @@ namespace pw_hamiltonian {
                 for(int d = 0; d < 3; ++d) {
                     Hermite_Gauss(d,n) *= nrmf; // scale
                 } // d
-                nfactorial *= (n + 1)*0.5; // update nfactorial
+                nfactorial *= (n + 1)*0.5; // update nfactorial * 2^-n
             } // n
         } // scope
 
@@ -251,9 +251,10 @@ namespace pw_hamiltonian {
       int const nB = pw_basis.size();
       nPWs = nB; // export the number of plane waves used for statistics
 #ifdef DEVEL
-      if (echo > 6) { 
-          printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %.2f minutes)\n",
-                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB));
+      if (echo > 6) {
+          float const minutes = 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB), seconds = 60*(minutes - int(minutes));
+          printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %d:%02d minutes)\n",
+                 __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, int(minutes), int(seconds));
           fflush(stdout);
       } // echo
 #endif // DEVEL
@@ -360,11 +361,6 @@ namespace pw_hamiltonian {
           for(int la = 0; la < natoms_PAW; ++la) {
               printf("# ^2-norm of the projector of atom #%i ", la);
               int const nSHO = sho_tools::nSHO(numax_PAW[la]);
-//               for(int lb = 0; lb < nSHO; ++lb) {
-//                   int const lC = offset[la] + lb;
-//                   printf(" %g", P2_l[lC]);
-//               } // lb
-//               printf("\n");
               printf_vector(" %g", &P2_l[offset[la]], nSHO);
               fflush(stdout);
           } // la
@@ -534,10 +530,6 @@ namespace pw_hamiltonian {
                       nc, nc, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), max_rho);
                   for(int i = 0; i < nc; ++i) {
                       printf("# %3i\t", i);
-//                       for(int j = 0; j < nc; ++j) {
-//                           printf(" %9.6f", atom_rho[ia][i*nc + j]/max_rho);
-//                       } // j
-//                       printf("\n");
                       printf_vector(" %9.6f", &atom_rho[ia][i*nc], nc, "\n", 1./max_rho);
                   } // i
                   printf("\n");
@@ -757,10 +749,6 @@ namespace pw_hamiltonian {
           add_product(p2.data(), nSHO, pzyx.data(), pzyx.data()); // += |p^2|
       }}} // ig
       printf("\n# %s: norms ", __func__);
-//       for(int ip = 0; ip < nSHO; ++ip) {
-//           printf(" %g", p2[ip]*d3g);
-//       } // ip
-//       printf("\n");
       printf_vector(" %g", p2.data(), nSHO, "\n", d3g);
 
       return stat;

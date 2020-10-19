@@ -350,6 +350,7 @@ namespace potential_generator {
       } // switch
       
       
+      std::vector<double>  n_electrons_a(na, 0.); // number of valence electrons brought in by each atom
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
       std::vector<int32_t> numax(na, -1); // init with 0 projectors
       std::vector<int32_t> lmax_qlm(na, -1);
@@ -360,6 +361,9 @@ namespace potential_generator {
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data(), &take_atomic_valence_densities);
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
+      stat += single_atom::atom_update("#valence electrons",  na, n_electrons_a.data());
+      double const n_valence_electrons = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
+      if (echo > 0) printf("\n# found %g valence electrons\n\n", n_valence_electrons);
 
       data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat;
       if (1) { // scope: set up data_list items

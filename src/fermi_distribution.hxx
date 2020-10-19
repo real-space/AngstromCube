@@ -101,7 +101,7 @@ namespace fermi_distribution {
           ++iter;
           auto const em = 0.5*(e[0] + e[1]);
           auto const nem = count_electrons(nb, energies, em, kTinv);
-          if (echo > 7) { printf("# %s with energy %g %s --> %g electrons\n", __func__, em*eV, _eV, spin_factor*nem); fflush(stdout); }
+          if (echo > 7) { printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spin_factor*nem); fflush(stdout); }
           int const i01 = (nem > n_electrons);
           e[i01] = em;
           ne[i01] = nem;
@@ -114,7 +114,7 @@ namespace fermi_distribution {
       if (res > 1e-9) {
           warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spin_factor, iter); 
       } else {
-          if (echo > 3) printf("# %s at %g %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS_at_eF*spin_factor);
+          if (echo > 3) printf("# %s at %.9f %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS_at_eF*spin_factor);
       }
       return 0;
   } // Fermi_level
