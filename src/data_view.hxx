@@ -7,6 +7,7 @@
 #include <utility> // std::move
 
 #include "status.hxx" // status_t
+#include "complex_tools.hxx" // conjugate
 
 // #define debug_printf(...) printf(__VA_ARGS__)  
 #define debug_printf(...)
@@ -105,10 +106,62 @@ private:
 }; // view2D
 
 
-template<typename T>
-inline void set(view2D<T> & y, size_t const n1, T const a) { 
-         std::fill(y.data(), y.data() + n1*y.stride(), a); }
+  template<typename T>
+  inline void set(view2D<T> & y, size_t const n1, T const a) { 
+          std::fill(y.data(), y.data() + n1*y.stride(), a); }
 
+         
+  template<typename T>
+  view2D<T> transpose(view2D<T> const & a // input matrix a(N
+      , int const aN // assume shape a(N,M)
+      , int const aM=-1 // -1:auto use a.stride()
+      , char const conj='n' // 'c':complex conjugate (for complex data types)
+  ) {
+      // define matrix-transposition a(N,M) --> a_transposed(M,N)
+
+      int const N = (-1 == aM) ? a.stride() : aM;
+      int const M = aN;
+      assert( N <= a.stride() );
+      bool const c = ('c' == (conj | 32)); // case insensitive: 'C' and 'c' lead to complex conjugation
+      view2D<T> a_transposed(N, M);
+      for(int n = 0; n < N; ++n) {
+          for(int m = 0; m < M; ++m) {
+              auto const a_mn = a(m,n); 
+              a_transposed(n,m) = c ? conjugate(a_mn) : a_mn;
+          } // m
+      } // n
+      return a_transposed;
+  } // transpose
+
+  template<typename Ta, typename Tb, typename Tc>
+  void gemm(view2D<Tc> & c // result matrix, shape(N,M)
+      , int const N, view2D<Tb> const & b //  left input matrix, shape(N,K)
+      , int const K, view2D<Ta> const & a // right input matrix, shape(K,M)
+      , int const aM=-1 // user specify M different from min(a.stride(), c.stride())
+      , char const beta='0' // '0':overwrite elements of c, else add to c
+  ) {
+      // define a generic matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
+
+      int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
+      if (M > a.stride()) error("M= %d > %ld =a.stride", M, a.stride());
+      if (K > b.stride()) error("K= %d > %ld =b.stride", M, b.stride());
+      if (M > c.stride()) error("M= %d > %ld =c.stride", M, c.stride());
+      assert( M <= a.stride() );
+      assert( K <= b.stride() );
+      assert( M <= c.stride() );
+      for(int n = 0; n < N; ++n) {
+          for(int m = 0; m < M; ++m) {
+              Tc t(0);
+              for(int k = 0; k < K; ++k) { // contraction index
+                  t += b(n,k) * a(k,m);
+              } // k
+              if ('0' == beta) { c(n,m) = t; } else { c(n,m) += t; } // store
+          } // m
+      } // n
+  } // gemm
+         
+         
+         
 template<typename T>
 class view3D {
 public:

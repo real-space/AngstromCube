@@ -37,7 +37,7 @@
 #include "bessel_transform.hxx" // ::transform_to_r2_grid
 #include "scattering_test.hxx" // ::eigenstate_analysis, ::logarithmic_derivative, ::emm_average
 #include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
-#include "data_view.hxx" // view2D<T>, view3D<T>
+#include "data_view.hxx" // view4D<T>, view3D<T>, view2D<T>, transpose, gemm
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
 #include "chemical_symbol.hxx" // ::get
@@ -119,119 +119,55 @@ namespace single_atom {
       return mln;
   } // display_delimiter
 
-#if 0
-  
-  status_t pseudize_function(
-          double fun[] // result function
-        , radial_grid_t const *const rg // radial grid descriptor
-        , int const irc // radial grid index of the cutoff radius
-        , int const nmax=4 // matching order (limited to max. 4)
-        , int const ell=0 // angular momentum quantum number
-        , double *coeff=nullptr // optional export coefficients
-        , int const echo=0 // log-level
-  ) {
-      // match a radial function with an even-order polynomial inside r[irc]
 
-      double Amat[4][4], bvec[4] = {0,0,0,0};
-      set(Amat[0], 4*4, 0.0);
-      int const nm = std::min(std::max(1, nmax), 4);
-      for(int i4 = 0; i4 < nm; ++i4) {
-          // use up to 4 radial indices [irc-2,irc-1,irc+0,irc+1]
-          int const ir = irc + i4 - nm/2; // not fully centered around irc
-          double const r = rg->r[ir];
-          double rl = intpow(r, ell);
-          // set up a basis of 4 functions: r^0, r^0, r^4, r^6 at up to 4 neighboring grid points around r(irc)
-          for(int j4 = 0; j4 < nm; ++j4) {
-              Amat[j4][i4] = rl;
-              rl *= pow2(r);
-          } // j4
-          // b is the inhomogeneus right side of the set of linear equations
-          bvec[i4] = fun[ir];
-      } // i4
-      
-#ifdef DEVEL
-      if (echo > 7) {
-          printf("\n");
-          for(int i4 = 0; i4 < nm; ++i4) {
-              printf("# %s Amat i=%i ", __func__, i4);
-              for(int j4 = 0; j4 < nm; ++j4) {
-                  printf(" %16.9f", Amat[j4][i4]);
-              } // j4
-              printf(" bvec %16.9f\n", bvec[i4]);
-          } // i4
-      } // echo
-#endif // DEVEL
-      double* x = bvec; // rename memory
-      auto const info = linear_algebra::linear_solve(nm, Amat[0], 4, bvec, 4, 1);
-
-#ifdef DEVEL      
-      if (echo > 7) {
-          printf("# %s xvec     ", __func__);
-          printf_vector(" %16.9f", x, nm);
-      } // echo
-#endif // DEVEL
-      set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
-      // replace the inner part of the function by the even-order polynomial
-      for(int ir = 0; ir < irc; ++ir) {
-          double const r = rg->r[ir];
-          double const rr = pow2(r);
-          double const rl = intpow(r, ell);
-          fun[ir] = rl*(x[0] + rr*(x[1] + rr*(x[2] + rr*x[3])));
-      } // ir
-      if (nullptr != coeff) set(coeff, nm, x); // export coefficients
-      return info;
-  } // pseudize_function
-
-#endif
-
-  template<typename T>
-  view2D<T> transpose(view2D<T> const & a // input matrix a(N
-      , int const aN // assume shape a(N,M)
-      , int const aM=-1 // -1:auto use a.stride()
-      , char const conj='n' // 'c':complex conjugate (for complex data types)
-  ) {
-      // define matrix-transposition a(N,M) --> a_transposed(M,N)
-
-      int const N = (-1 == aM) ? a.stride() : aM;
-      int const M = aN;
-      assert( N <= a.stride() );
-      bool const c = ('c' == (conj | 32)); // case insensitive: 'C' and 'c' lead to complex conjugation
-      view2D<T> a_transposed(N, M);
-      for(int n = 0; n < N; ++n) {
-          for(int m = 0; m < M; ++m) {
-              auto const a_mn = a(m,n); 
-              a_transposed(n,m) = c ? conjugate(a_mn) : a_mn;
-          } // m
-      } // n
-      return a_transposed;
-  } // transpose
-
-  template<typename Ta, typename Tb, typename Tc>
-  void gemm(view2D<Tc> & c // result matrix, shape(N,M)
-      , int const N, view2D<Tb> const & b //  left input matrix, shape(N,K)
-      , int const K, view2D<Ta> const & a // right input matrix, shape(K,M)
-      , int const aM=-1 // user specify M different from min(a.stride(), c.stride())
-      , char const beta='0' // '0':overwrite elements of c, else add to c
-  ) {
-      // define a generic matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
-
-      int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
-      if (M > a.stride()) error("M= %d > %ld =a.stride", M, a.stride());
-      if (K > b.stride()) error("K= %d > %ld =b.stride", M, b.stride());
-      if (M > c.stride()) error("M= %d > %ld =c.stride", M, c.stride());
-      assert( M <= a.stride() );
-      assert( K <= b.stride() );
-      assert( M <= c.stride() );
-      for(int n = 0; n < N; ++n) {
-          for(int m = 0; m < M; ++m) {
-              Tc t(0);
-              for(int k = 0; k < K; ++k) { // contraction index
-                  t += b(n,k) * a(k,m);
-              } // k
-              if ('0' == beta) { c(n,m) = t; } else { c(n,m) += t; } // store
-          } // m
-      } // n
-  } // gemm
+//   template<typename T>
+//   view2D<T> transpose(view2D<T> const & a // input matrix a(N
+//       , int const aN // assume shape a(N,M)
+//       , int const aM=-1 // -1:auto use a.stride()
+//       , char const conj='n' // 'c':complex conjugate (for complex data types)
+//   ) {
+//       // define matrix-transposition a(N,M) --> a_transposed(M,N)
+// 
+//       int const N = (-1 == aM) ? a.stride() : aM;
+//       int const M = aN;
+//       assert( N <= a.stride() );
+//       bool const c = ('c' == (conj | 32)); // case insensitive: 'C' and 'c' lead to complex conjugation
+//       view2D<T> a_transposed(N, M);
+//       for(int n = 0; n < N; ++n) {
+//           for(int m = 0; m < M; ++m) {
+//               auto const a_mn = a(m,n); 
+//               a_transposed(n,m) = c ? conjugate(a_mn) : a_mn;
+//           } // m
+//       } // n
+//       return a_transposed;
+//   } // transpose
+// 
+//   template<typename Ta, typename Tb, typename Tc>
+//   void gemm(view2D<Tc> & c // result matrix, shape(N,M)
+//       , int const N, view2D<Tb> const & b //  left input matrix, shape(N,K)
+//       , int const K, view2D<Ta> const & a // right input matrix, shape(K,M)
+//       , int const aM=-1 // user specify M different from min(a.stride(), c.stride())
+//       , char const beta='0' // '0':overwrite elements of c, else add to c
+//   ) {
+//       // define a generic matrix-matrix multiplication: c(N,M) = b(N,K) * a(K,M)
+// 
+//       int const M = (-1 == aM) ? std::min(c.stride(), a.stride()) : aM;
+//       if (M > a.stride()) error("M= %d > %ld =a.stride", M, a.stride());
+//       if (K > b.stride()) error("K= %d > %ld =b.stride", M, b.stride());
+//       if (M > c.stride()) error("M= %d > %ld =c.stride", M, c.stride());
+//       assert( M <= a.stride() );
+//       assert( K <= b.stride() );
+//       assert( M <= c.stride() );
+//       for(int n = 0; n < N; ++n) {
+//           for(int m = 0; m < M; ++m) {
+//               Tc t(0);
+//               for(int k = 0; k < K; ++k) { // contraction index
+//                   t += b(n,k) * a(k,m);
+//               } // k
+//               if ('0' == beta) { c(n,m) = t; } else { c(n,m) += t; } // store
+//           } // m
+//       } // n
+//   } // gemm
 
 
 
@@ -287,72 +223,6 @@ namespace single_atom {
     } // add_or_project_compensators
 
 
-
-
-
-
-
-#if 0
-    
-    template <typename real_t>
-    status_t Lagrange_derivatives(
-          unsigned const n // order of the Lagrange polynomial
-        , real_t const y[] // data values of y(x)
-        , double const x[] // support points   x
-        , double const x0 // x0 to eval the polynomial and its derivatives at
-        , double *value_x0 // export value at x0 (for reference)
-        , double *deriv1st // export derivative at x0
-        , double *deriv2nd // export second derivative at x0
-    ) {
-        // zeroth, first and second derivative of y(x) at x0
-
-        double d0{0}, d1{0}, d2{0};
-        //
-        //  L(x) = sum_j y_j                                                           prod_{m!=j}             (x - x_m)/(x_j - x_m)
-        //
-        //  L'(x) = sum_j y_j sum_{k!=j} 1/(x_j - x_k)                                 prod_{m!=j, m!=k}       (x - x_m)/(x_j - x_m)
-        //
-        //  L''(x) = sum_j y_j sum_{k!=j} 1/(x_j - x_k) sum_{l!=j, l!=k} 1/(x_j - x_l) prod_{m!=j, m!=k, m!=l} (x - x_m)/(x_j - x_m)
-        
-        for (int j = 0; j < n; ++j) {
-            double d0j{1}, d1j{0}, d2j{0};
-            for (int k = 0; k < n; ++k) {
-                if (k != j) {
-                    if (std::abs(x[j] - x[k]) < 1e-9*std::max(std::abs(x[j]), std::abs(x[j]))) return 1; // status instable
-                    double d1l{1}, d2l{0};
-                    for (int l = 0; l < n; ++l) {
-                        if (l != j && l != k) {
-                            
-                            double d2m{1};
-                            for (int m = 0; m < n; ++m) {
-                                if (m != j && m != k && m != l) {
-                                    d2m *= (x0 - x[m])/(x[j] - x[m]);
-                                } // exclude
-                            } // m
-                            
-                            d1l *= (x0 - x[l])/(x[j] - x[l]);
-                            d2l += d2m/(x[j] - x[l]);
-                        } // exclude
-                    } // l
-                    
-                    d0j *= (x0 - x[k])/(x[j] - x[k]);
-                    d1j += d1l/(x[j] - x[k]);
-                    d2j += d2l/(x[j] - x[k]);
-                } // exclude
-            } // k
-            d0 += d0j * y[j];
-            d1 += d1j * y[j];
-            d2 += d2j * y[j];
-        } // j
-        
-        if(value_x0) *value_x0 = d0;
-        if(deriv1st) *deriv1st = d1;
-        if(deriv2nd) *deriv2nd = d2;
-        
-        return 0; // success
-    } // Lagrange_derivatives
-
-#endif // 0
     
 
     template <typename int_t>
@@ -1124,17 +994,12 @@ namespace single_atom {
         } // scope
 
         {
-//          pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
             int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
                        int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
             pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
         }
         
-        
         for(int csv = 0; csv < 3; ++csv) { // construct an initial smooth density
-//             spherical_charge_deficit[csv] = pseudize_spherical_density(
-//                 spherical_density[SMT][csv],
-//                 spherical_density[TRU][csv], csv_name[csv], echo);
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
                 spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
@@ -1223,12 +1088,6 @@ namespace single_atom {
         radial_grid::destroy_radial_grid(rg[SMT]);
     } // destructor
 
-
-
-
-
-
-
     
 
     status_t initialize_Gaunt() {
@@ -1237,52 +1096,6 @@ namespace single_atom {
         gaunt_init = (0 == int(stat));
         return stat;
     } // initialize_Gaunt
-
-
-
-
-
-
-
-#if 0    
-
-    double pseudize_spherical_density(
-          double smooth_density[]
-        , double const true_density[]
-        , char const *quantity="core"
-        , int const echo=0
-    ) const {
-        int const nrs = rg[SMT]->n;
-        set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
-
-//         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-        auto const stat = pseudo_tools::pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-        // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
-        if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
-#ifdef DEVEL
-        if (echo > 8) { // plot the densities
-            printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
-            for(int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
-                printf("%g %g %g\n", rg[SMT]->r[ir], smooth_density[ir], true_density[ir + nr_diff]);
-            } // ir
-            printf("\n\n");
-        } // plot
-#endif
-        // report integrals
-        auto const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, true_density);
-        auto const smt_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, smooth_density);
-        double const charge_deficit = tru_charge - smt_charge;
-        if (echo > 1) printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
-                                label, quantity, tru_charge, smt_charge);
-
-        return charge_deficit;
-    } // pseudize_spherical_density
-
-#endif
-
-
-
-
 
     
     
@@ -1365,9 +1178,6 @@ namespace single_atom {
                     label, csv_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
             } // output only for contributing densities
 
-//             spherical_charge_deficit[csv] = pseudize_spherical_density(
-//                 spherical_density[SMT][csv],
-//                 spherical_density[TRU][csv], csv_name[csv], echo_pseudo);
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
                 spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
@@ -1767,143 +1577,6 @@ namespace single_atom {
 
 
 
-
-
-
-
-#if 0
-
-    template <int rpow>
-    status_t pseudize_local_potential(
-          double V_smt[]  // output smooth potential
-        , double const V_tru[] // true potential V(r)
-        , int const echo=0 // log-level
-        , double const df=1 // df=display factor
-    ) const { 
-        // replace the true singular potential by a smooth pseudopotential inside the augmentation sphere
-
-        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
-        status_t stat(0);
-        double const r_cut = rg[TRU]->r[ir_cut[TRU]];
-        if ('p' == (*local_potential_method | 32)) { // construct initial smooth spherical potential as parabola
-            set(V_smt, rg[SMT]->n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
-            if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
-            stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2, rpow); // replace by a parabola
-            if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
-                           label, r_cut*Ang, _Ang, V_tru[ir_cut[TRU]]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
-        } else {
-            assert(rpow == rpow*rpow); // rpow either 0 or 1
-            // construct a Lagrange polynomial of controllable order to fit r*V_true(r) around r_cut
-            int const ir0 = ir_cut[TRU];
-            double const x0 = rg[TRU]->r[ir0];
-            double xi[32], yi[32];
-            yi[0] = V_tru[ir0]*(rpow ? 1 : x0); // r_cut*V(r_cut)
-            xi[0] = rg[TRU]->r[ir0] - x0;  // expand around r_cut
-            for (int order = 1; order < 16; ++order) {
-                {
-                    int const ir = ir0 + order; assert(ir < rg[TRU]->n);
-                    int const i = 2*order - 1;
-                    yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU]->r[ir]);
-                    xi[i] = rg[TRU]->r[ir] - x0;
-                }
-                {
-                    int const ir = ir0 - order; assert(ir >= 0);
-                    int const i = 2*order;
-                    yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU]->r[ir]);
-                    xi[i] = rg[TRU]->r[ir] - x0;
-                }
-            } // order
-#ifdef DEVEL
-            if (echo > 22) {
-                printf("\n## Lagrange-N, reference-value, Lagrange(rcut), dLagrange/dr, d^2Lagrange/dr^2, status:\n");
-                for (int order = 1; order < 16; ++order) {
-                    unsigned const Lagrange_order = 2*order + 1;
-                    {
-                        double d0{0}, d1{0}, d2{0};
-                        auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-                        printf("%d %.15f %.15f %.15f %.15f %i\n", Lagrange_order, V_tru[ir0], d0, d1, d2, int(stat));
-                    }
-                } // order
-            } // echo
-            
-            if (echo > 27 && 1 == rpow) {
-                for (int order = 1; order < 16; ++order) {
-                    unsigned const Lagrange_order = 2*order + 1;
-                    printf("\n\n## r, r*V_true(r), Lagrange_fit(N=%d), dLagrange/dr, d^2Lagrange/dr^2, status:\n", Lagrange_order);
-                    for(int ir = 0; ir < rg[TRU]->n; ++ir) {
-                        double d0{0}, d1{0}, d2{0};
-                        auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, rg[TRU]->r[ir] - x0, &d0, &d1, &d2);
-                        printf("%g %g %g %g %g %i\n", rg[TRU]->r[ir], V_tru[ir], d0, d1, d2, int(stat));
-                    } // ir
-                    printf("\n\n");
-                } // order
-            } // echo
-#endif // DEVEL
-            // Fit a V_s*sin(r*k_s) + r*V_0 to r*V(r) at r_cut, fulfil three equations:
-            //  (r*V(r))  |r=r_cut  = d0 =  V_s*sin(r_cut*k_s) + r_cut*V_0
-            //  (r*V(r))' |r=r_rcut = d1 =  V_s*cos(r_cut*k_s)*k_s  +  V_0
-            //  (r*V(r))''|r=r_rcut = d2 = -V_s*sin(r_cut*k_s)*k_s^2
-            //
-            //  with d0 < 0, d1 > 0, d2 < 0 and r_cut*k_s constrained to (2*pi, 2.5*pi)
-            unsigned const Lagrange_order = 1 + 2*std::min(std::max(1, int(control::get("single_atom.lagrange.derivative", 7.))), 15);
-            double d0{0}, d1{0}, d2{0};
-            stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-            if (echo > 7) printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", 
-                                    label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
-            
-            if (d1 <= 0) warn("%s positive potential slope for sinc-fit expected but found %g", label, d1);
-            if (d2 >  0) warn("%s negative potential curvature for sinc-fit expected but found %g", label, d2);
-            
-            double k_s{2.25*constants::pi/r_cut}, k_s_prev{0}; // initial guess
-            double V_s, V_0;
-            int const max_iter = 999;
-            int iterations_needed{0};
-            for (int iter = max_iter; (std::abs(k_s - k_s_prev) > 1e-15) && (iter > 0); --iter) {
-                k_s_prev = k_s;
-                double const sin = std::sin(k_s*r_cut);
-                double const cos = std::cos(k_s*r_cut);
-                V_s = d2/(-k_s*k_s*sin);
-                V_0 = d1 - V_s*k_s*cos;
-                double const d0_new = 0.5*d0 + 0.5*(V_s*sin + r_cut*V_0); // 50% mixing
-                if (echo > 27) printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", label, iter, V_s, k_s, V_0, d0, d0 - d0_new);
-                k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
-                ++iterations_needed;
-            } // while
-            if (iterations_needed >= max_iter) warn("%s sinc-fit did not converge in %d iterations!", label, iterations_needed);
-            if (k_s*r_cut <= 2*constants::pi || k_s*r_cut >= 2.5*constants::pi) {
-                warn("%s sinc-fit failed!, k_s*r_cut=%g not in (2pi, 2.5pi)", label, k_s*r_cut);
-            } // out of target range
-
-            if (echo > 5) printf("# %s match local potential to sinc function at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
-                           label, r_cut*Ang, _Ang, yi[0]/r_cut*df*eV, _eV);
-
-            if (echo > 3) printf("# %s smooth potential value of sinc-fit at origin is %g %s\n", label, (V_s*k_s + V_0)*df*eV, _eV);
-            
-            // now modify the smooth local potential
-            for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
-                double const r = rg[SMT]->r[ir];
-                V_smt[ir] = (V_s*sin(r*k_s) + r*V_0)*(rpow ? 1 : rg[SMT]->rinv[ir]); // set values to the fitted sinc-function
-            } // ir
-            for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
-                V_smt[ir] = V_tru[ir + nr_diff]; // copy the tail
-            } // ir
-
-        } // method
-#ifdef DEVEL
-        if (echo > 11) {
-            printf("\n\n## %s: r in %s, r*V_tru(r), r*V_smt(r) in %s*%s:\n", __func__, _Ang, _Ang, _eV);
-            auto const factors = df*eV*Ang;
-            for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-                double const r = rg[SMT]->r[ir], r_pow = rpow ? 1 : r;
-                printf("%g %g %g\n", r*Ang, r_pow*V_tru[ir + nr_diff]*factors, r_pow*V_smt[ir]*factors);
-            } // ir
-            printf("\n\n");
-        } // echo
-#endif // DEVEL
-        return stat;
-    } // pseudize_local_potential
-
-#endif
 
 
 
@@ -3110,10 +2783,9 @@ namespace single_atom {
         // construct the zero_potential V_bar
         std::vector<double> V_smt(rg[SMT]->n);
         set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
-        
-//         auto const stat = pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], echo, Y00); // <0> indicates that these arrays hold V(r) (not r*V(r))
-            int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
-                       int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
+
+        int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
+                   int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
         auto const stat = pseudo_tools::pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], rg, ir_cut, method, label, echo, Y00);
         auto const df = Y00*eV; assert(df > 0); // display factor
         if (stat) {
