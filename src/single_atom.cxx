@@ -123,140 +123,202 @@ namespace single_atom {
   } // display_delimiter
 
 
-    template <int ADD0_or_PROJECT1>
-    void add_or_project_compensators(
-          view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
-        , double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
-        , radial_grid_t const & rg // radial grid descriptor
-        , int const lmax       // cutoff for angular momentum expansion
-        , double const sigma   // spread_compensator
-        , int const echo=0     // log-level
-    ) {
-        // compensation charge densities on the radial grid
+  template <int ADD0_or_PROJECT1>
+  void add_or_project_compensators(
+        view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
+      , double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
+      , radial_grid_t const & rg // radial grid descriptor
+      , int const lmax       // cutoff for angular momentum expansion
+      , double const sigma   // spread_compensator
+      , int const echo=0     // log-level
+  ) {
+      // compensation charge densities on the radial grid
 
-        int const nr = rg.n;
-        auto const sig2inv = .5/(sigma*sigma);
-        if (echo > 0) printf("# sigma = %g\n", sigma);
-        std::vector<double> rl(nr), rlgauss(nr);
-        for(int ell = 0; ell <= lmax; ++ell) { // serial!
-            double norm{0};
-            for(int ir = 0; ir < nr; ++ir) {
-                auto const r = rg.r[ir];
-                if (0 == ell) {
-                    rl[ir] = 1; // start with r^0
-                    rlgauss[ir] = std::exp(-sig2inv*r*r);
-                } else {
-                    rl[ir]      *= r; // construct r^ell
-                    rlgauss[ir] *= r; // construct r^ell*gaussian
-                }
-                norm += rlgauss[ir] * rl[ir] * rg.r2dr[ir];
-                if (echo > 8) printf("# ell=%i norm=%g ir=%i rlgauss=%g rl=%g r2dr=%g\n",
-                                        ell, norm, ir, rlgauss[ir], rl[ir], rg.r2dr[ir]);
-            } // ir
-            if (echo > 1) printf("# ell=%i norm=%g nr=%i\n", ell, norm, nr);
-            assert(norm > 0);
-            auto const scal = 1./norm;
-            for(int emm = -ell; emm <= ell; ++emm) {
-                int const lm = solid_harmonics::lm_index(ell, emm);
-                if (0 == ADD0_or_PROJECT1) {
-                    add_product(Alm[lm], nr, rlgauss.data(), qlm[lm]*scal); // add normalized compensator to augmented density
-                } else if (2 == ADD0_or_PROJECT1) {
-                    add_product(Alm[lm], nr, rl.data(), qlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
-                    // ToDo: setup of normalized rlgauss is not necessary in this version
-                } else if (3 == ADD0_or_PROJECT1) {
-                    qlm[lm] = dot_product(nr, Alm[lm], rl.data(), rg.r2dr); // dot_product with metric
-                    // ToDo: setup of normalized rlgauss is not necessary in this version
-                } else {
-                    qlm[lm] = dot_product(nr, Alm[lm], rlgauss.data(), rg.r2dr) * scal; // dot_product with metric
-                } // add or project
-            } // emm
-        } // ell
+      int const nr = rg.n;
+      auto const sig2inv = .5/(sigma*sigma);
+      if (echo > 0) printf("# sigma = %g\n", sigma);
+      std::vector<double> rl(nr), rlgauss(nr);
+      for(int ell = 0; ell <= lmax; ++ell) { // serial!
+          double norm{0};
+          for(int ir = 0; ir < nr; ++ir) {
+              auto const r = rg.r[ir];
+              if (0 == ell) {
+                  rl[ir] = 1; // start with r^0
+                  rlgauss[ir] = std::exp(-sig2inv*r*r);
+              } else {
+                  rl[ir]      *= r; // construct r^ell
+                  rlgauss[ir] *= r; // construct r^ell*gaussian
+              }
+              norm += rlgauss[ir] * rl[ir] * rg.r2dr[ir];
+              if (echo > 8) printf("# ell=%i norm=%g ir=%i rlgauss=%g rl=%g r2dr=%g\n",
+                                      ell, norm, ir, rlgauss[ir], rl[ir], rg.r2dr[ir]);
+          } // ir
+          if (echo > 1) printf("# ell=%i norm=%g nr=%i\n", ell, norm, nr);
+          assert(norm > 0);
+          auto const scal = 1./norm;
+          for(int emm = -ell; emm <= ell; ++emm) {
+              int const lm = solid_harmonics::lm_index(ell, emm);
+              if (0 == ADD0_or_PROJECT1) {
+                  add_product(Alm[lm], nr, rlgauss.data(), qlm[lm]*scal); // add normalized compensator to augmented density
+              } else if (2 == ADD0_or_PROJECT1) {
+                  add_product(Alm[lm], nr, rl.data(), qlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
+                  // ToDo: setup of normalized rlgauss is not necessary in this version
+              } else if (3 == ADD0_or_PROJECT1) {
+                  qlm[lm] = dot_product(nr, Alm[lm], rl.data(), rg.r2dr); // dot_product with metric
+                  // ToDo: setup of normalized rlgauss is not necessary in this version
+              } else {
+                  qlm[lm] = dot_product(nr, Alm[lm], rlgauss.data(), rg.r2dr) * scal; // dot_product with metric
+              } // add or project
+          } // emm
+      } // ell
 
-    } // add_or_project_compensators
+  } // add_or_project_compensators
 
 
-    
+  
 
-    template <typename int_t>
-    void get_valence_mapping(
-          int_t ln_index_list[] // ln-index of ilmn (retrieves the emm_Degenerate index)
-        , int_t lm_index_list[] // lm-index of ilmn (retrieves the (ell,emm)-combined spherical harmonic quantum number)
-        , int_t lmn_begin[] // begin of ilmn indices wich have a given lm-index
-        , int_t lmn_end[]   //   end of ilmn indices wich have a given lm-index
-        , int const numax // SHO basis size
-        , char const *label="" // log-prefix
-        , int const echo=0 // log-level
-    ) {
-        // create various index tables used in the construction of matrix elements
+  template <typename int_t>
+  void get_valence_mapping(
+        int_t ln_index_list[] // ln-index of ilmn (retrieves the emm_Degenerate index)
+      , int_t lm_index_list[] // lm-index of ilmn (retrieves the (ell,emm)-combined spherical harmonic quantum number)
+      , int_t lmn_begin[] // begin of ilmn indices wich have a given lm-index
+      , int_t lmn_end[]   //   end of ilmn indices wich have a given lm-index
+      , int const numax // SHO basis size
+      , char const *label="" // log-prefix
+      , int const echo=0 // log-level
+  ) {
+      // create various index tables used in the construction of matrix elements
 
-        int const mlm = pow2(1 + numax);
-        set(lmn_begin, mlm, int_t(-1));
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int emm = -ell; emm <= ell; ++emm) {
-                for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
-                    int const ilmn      = sho_tools::lmn_index(numax, ell, emm, nrn);
-                    ln_index_list[ilmn] = sho_tools::ln_index(numax, ell, nrn); // valence state index
-                    int const ilm       = sho_tools::lm_index(ell, emm);
-                    lm_index_list[ilmn] = ilm;
-                    if (lmn_begin[ilm] < 0) lmn_begin[ilm] = ilmn; // store the first index of this lm
-                    lmn_end[ilm] = ilmn + 1; // store the last index of this lm
-                } // nrn
-            } // emm
-        } // ell
+      int const mlm = pow2(1 + numax);
+      set(lmn_begin, mlm, int_t(-1));
+      for(int ell = 0; ell <= numax; ++ell) {
+          for(int emm = -ell; emm <= ell; ++emm) {
+              for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+                  int const ilmn      = sho_tools::lmn_index(numax, ell, emm, nrn);
+                  ln_index_list[ilmn] = sho_tools::ln_index(numax, ell, nrn); // valence state index
+                  int const ilm       = sho_tools::lm_index(ell, emm);
+                  lm_index_list[ilmn] = ilm;
+                  if (lmn_begin[ilm] < 0) lmn_begin[ilm] = ilmn; // store the first index of this lm
+                  lmn_end[ilm] = ilmn + 1; // store the last index of this lm
+              } // nrn
+          } // emm
+      } // ell
 #ifdef DEVEL
-        if (echo > 3) { // display
-            printf("# %s ln_index_list ", label);
-            printf_vector(" %i", ln_index_list, sho_tools::nSHO(numax));
-            printf("# %s lmn_begin-lmn_end ", label);
-            for(int ilm = 0; ilm < mlm; ++ilm) {
-                printf(" %i", lmn_begin[ilm]);
-                if (lmn_end[ilm] - 1 > lmn_begin[ilm]) printf("-%i", lmn_end[ilm] - 1); // do not display e.g. " 7-7" but only " 7"
-            } // ilm
-            printf("\n");
-        } // echo
+      if (echo > 3) { // display
+          printf("# %s ln_index_list ", label);
+          printf_vector(" %i", ln_index_list, sho_tools::nSHO(numax));
+          printf("# %s lmn_begin-lmn_end ", label);
+          for(int ilm = 0; ilm < mlm; ++ilm) {
+              printf(" %i", lmn_begin[ilm]);
+              if (lmn_end[ilm] - 1 > lmn_begin[ilm]) printf("-%i", lmn_end[ilm] - 1); // do not display e.g. " 7-7" but only " 7"
+          } // ilm
+          printf("\n");
+      } // echo
 #endif // DEVEL
-    } // get_valence_mapping
+  } // get_valence_mapping
 
-    
+  
 
-    double show_state_analysis( // returns the charge outside the sphere
-          int const echo // log-level
-        , char const *label // log-prefix
-        , radial_grid_t const & rg // radial grid descriptor, should be rg[TRU]
-        , double const wave[] // radial wave function (Mind: not scaled by r)
-        , char const *tag // name of the state
-        , double const occ // occupation number
-        , double const energy // energy eigenvalue or energy parameter
-        , char const *csv_class // classification as 0:core, 1:semicore, 2:valence, 3:?
-        , int const ir_cut=0 // radial grid index of the augmentation radius
-    ) { 
-        // display stat information about a radial wave functions
+  double show_state_analysis( // returns the charge outside the sphere
+        int const echo // log-level
+      , char const *label // log-prefix
+      , radial_grid_t const & rg // radial grid descriptor, should be rg[TRU]
+      , double const wave[] // radial wave function (Mind: not scaled by r)
+      , char const *tag // name of the state
+      , double const occ // occupation number
+      , double const energy // energy eigenvalue or energy parameter
+      , char const *csv_class // classification as 0:core, 1:semicore, 2:valence, 3:?
+      , int const ir_cut=0 // radial grid index of the augmentation radius
+  ) { 
+      // display stat information about a radial wave functions
 
-        double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
-        for(int ir = 0; ir < rg.n; ++ir) {
-            double const rho_wf = pow2(wave[ir]);
-            double const dV = rg.r2dr[ir];
-            double const r = rg.r[ir];
-            double const r_inv_dV = rg.rdr[ir];
-            q    += rho_wf*dV; // charge
-            qr   += rho_wf*r*dV; // for <r>
-            qr2  += rho_wf*r*r*dV; // for variance
-            qrm1 += rho_wf*r_inv_dV; // Coulomb integral without -Z
-            qout += rho_wf*dV*(ir >= ir_cut);
-        } // ir
-        double const qinv = (q > 0) ? 1./q : 0;
-        double const charge_outside = qout*qinv;
+      double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
+      for(int ir = 0; ir < rg.n; ++ir) {
+          double const rho_wf = pow2(wave[ir]);
+          double const dV = rg.r2dr[ir];
+          double const r = rg.r[ir];
+          double const r_inv_dV = rg.rdr[ir];
+          q    += rho_wf*dV; // charge
+          qr   += rho_wf*r*dV; // for <r>
+          qr2  += rho_wf*r*r*dV; // for variance
+          qrm1 += rho_wf*r_inv_dV; // Coulomb integral without -Z
+          qout += rho_wf*dV*(ir >= ir_cut);
+      } // ir
+      double const qinv = (q > 0) ? 1./q : 0;
+      double const charge_outside = qout*qinv;
 
-        if (echo > 0) printf("# %s %-9s  %-4s%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
-               csv_class, tag, occ, energy*eV,_eV, 
-               qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, charge_outside);
+      if (echo > 0) printf("# %s %-9s  %-4s%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
+              csv_class, tag, occ, energy*eV,_eV, 
+              qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, charge_outside);
 
-        return charge_outside; // percentage of charge outside the augmentation radius
-    } // show_state_analysis
+      return charge_outside; // percentage of charge outside the augmentation radius
+  } // show_state_analysis
     
    
 
 
+   
+  double expand_numerical_projectors_in_SHO_basis( // return the quality of "occupied" projectors
+        double const sigma // spread of the SHO basis
+      , int const numax // size of the SHO basis
+      , uint8_t const nn[] // nn[ell], number of projectors per ell-channel
+      , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
+      , view2D<double> const & rprj // rprj(nln,>= rg.n)
+      , double const weight_ln[] // weights, usually partial wave occupations [nln]
+      , char const *label="" // log-prefix
+      , int const echo=0 // log-level
+      , double projector_coeff[]=nullptr // optional result, array layout [nln*8]
+  ) {
+
+      int const nln = sho_tools::nSHO_radial(numax);
+      view2D<double> prj_sho(nln, align<2>(rg.n), 0.0); // get memory for r*projector
+
+      // expand the normalized radial SHO basis functions for this value of sigma
+      scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), rg, sigma, numax, 0, echo/2);
+
+      double weighted_quality{0};
+      for(int ell = 0; ell <= numax; ++ell) {
+          double denom_sho[8];
+          assert(nn_max(numax, ell) <= 8);
+          for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
+              int const jln = sho_tools::ln_index(numax, ell, mrn);
+              denom_sho[mrn] = dot_product(rg.n, prj_sho[jln], prj_sho[jln], rg.r2dr); // should be close to 1.0
+//            printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma*Ang,_Ang, jln, denom_sho);
+          } // mrn
+
+          for(int nrn = 0; nrn < nn[ell]; ++nrn) { // number of the partial wave
+              int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
+              double const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of numerically given projectors
+
+              double quality_ln{0};
+              for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
+                  int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
+
+//                if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
+                  if (denom_sho[mrn]*denom_num > 0) {
+                      double const inner = dot_product(rg.n, rprj[iln], prj_sho[jln], rg.rdr);
+                      double const quality = pow2(inner) / (denom_sho[mrn]*denom_num);
+                      if (echo > 13) printf("# %s quality for %c%i with sigma= %g %s is %g\n",
+                                          label, ellchar[ell], nrn, sigma*Ang, _Ang, quality);
+                      quality_ln += quality;
+
+                      if (projector_coeff) projector_coeff[iln*8 + mrn] = inner / std::sqrt(denom_sho[mrn]);
+                  } else {
+                      if (echo > 1) printf("# %s for sigma= %g %s cannot normalize %c%i proj: sho %g num %g\n", 
+                                          label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[mrn], denom_num);
+                  }
+              } // mrn
+              if (echo > 11) printf("# %s quality for %c nrn=%d with sigma= %g %s is %g (weight %.2f)\n", 
+                                    label, ellchar[ell], nrn, sigma*Ang, _Ang, quality_ln, weight_ln[iln]);
+              weighted_quality += weight_ln[iln]*quality_ln;
+          } // nrn
+      } // ell
+      if (echo > 9) printf("# %s weighted quality with sigma= %g %s is %g\n", 
+                              label, sigma*Ang, _Ang, weighted_quality);
+
+      return weighted_quality;
+  } // expand_numerical_projectors_in_SHO_basis
+   
     
 
     
@@ -304,7 +366,7 @@ namespace single_atom {
 
       // spin-resolved members
       double csv_charge[3];
-      double take_spherical_density[3]; // 1.f: use the spherical density only, 0.f: use the density from partial waves, mixtures possible.
+      double take_spherical_density[3]; // 1: use the spherical density only, 0: use the density from partial waves, mixtures possible.
       std::vector<spherical_orbital_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       view2D<double> spherical_density[TRU_AND_SMT]; // spherical densities*4pi, no Y00 factor, for {core, semicore, valence}
 
@@ -869,7 +931,10 @@ namespace single_atom {
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
             if (maxit_scf < 1) warn("exported paw file although no setup SCF iterations executed");
-            if (export_xml < 0) error("single_atom.export.xml=%d (negative leads to a stop, no real error)", export_xml);
+            if (export_xml < 0) {
+                if (echo > 0) printf("\n\n# single_atom.export.xml=%d (negative leads to a stop)\n\n", export_xml);
+                std::exit(0);
+            } // stop after export
         } // export_xml
 
         // show the smooth and true potential
@@ -1046,88 +1111,32 @@ namespace single_atom {
           view2D<double> const & matrix_ln
         , char const *title=""
         , double const unit=1
-        , bool const all_i=false
-        , bool const all_j=false
+        , bool const all_i=false // otherwise only active partial waves
+        , bool const all_j=false // otherwise only active partial waves
     ) const {
         int const nlnr = sho_tools::nSHO_radial(numax);
         view2D<char> ln_label(nlnr, 4);
         sho_tools::construct_label_table<4>(ln_label.data(), numax, sho_tools::order_ln);
         int const mlnr = display_delimiter(numax, nn);
-        for(int ilnr = 0; ilnr < mlnr; ++ilnr) {
-            if (partial_wave_active[ilnr] || all_i) {
-                printf("# %s %s %-4s ", label, title, all_i ? ln_label[ilnr] : partial_wave[ilnr].tag);
-                for(int jlnr = 0; jlnr < mlnr; ++jlnr) {
-                    if (partial_wave_active[jlnr] || all_j) {
-                        if (partial_wave[ilnr].ell == partial_wave[jlnr].ell) { // ToDo
-                            printf(" %11.6f", matrix_ln(ilnr,jlnr)*unit);
+        for(int iln = 0; iln < mlnr; ++iln) {
+            if (partial_wave_active[iln] || all_i) {
+                printf("# %s %s %-4s ", label, title, all_i ? ln_label[iln] : partial_wave[iln].tag);
+                for(int jln = 0; jln < mlnr; ++jln) {
+                    if (partial_wave_active[jln] || all_j) {
+                        if (partial_wave[iln].ell == partial_wave[jln].ell) {
+                            printf(" %11.6f", matrix_ln(iln,jln)*unit);
                         } else {
                             printf("            ");
                         } // ells match
                     } // only active or all
-                } // jlnr
+                } // jln
                 printf("\n");
             } // only active or all
-        } // ilnr
+        } // iln
         printf("\n");
     } // show_ell_block_diagonal
 
     
-    // ToDo: move out
-    double expand_numerical_projectors_in_SHO_basis(
-          double const sigma_now, int const numax
-        , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
-        , view2D<double> const & rprj
-        , double const occ_ell[]
-        , int const echo=0
-        , double *projector_coeff=nullptr // array layout nln*8
-    ) const {
-
-            int const nln = sho_tools::nSHO_radial(numax);
-            view2D<double> prj_sho(nln, align<2>(rg.n), 0.0); // get memory for r*projector
-
-            // expand the normalized radial SHO basis functions for this value of sigma
-            scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), rg, sigma_now, numax, 0, echo/2);
-
-            double weighted_quality{0};
-            for(int ell = 0; ell <= numax; ++ell) {
-                double denom_sho[8];
-                assert(nn_max(numax, ell) <= 8);
-                for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
-                    int const jln = sho_tools::ln_index(numax, ell, mrn);
-                    denom_sho[mrn] = dot_product(rg.n, prj_sho[jln], prj_sho[jln], rg.r2dr); // should be close to 1.0
-//                  printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma_now*Ang,_Ang, jln, denom_sho);
-                } // mrn
-
-                double quality_ell{0};
-                for(int nrn = 0; nrn < nn[ell]; ++nrn) { // number of the partial wave
-                    int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
-                    double const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of numerically given projectors
-
-                    for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
-                        int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
-                        
-//                      if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
-                        if (denom_sho[mrn]*denom_num > 0) {
-                            double const inner = dot_product(rg.n, rprj[iln], prj_sho[jln], rg.rdr);
-                            double const quality = pow2(inner) / (denom_sho[mrn]*denom_num);
-                            if (echo > 13) printf("# %s quality for %c%i with sigma= %g %s is %g\n",
-                                                      label, ellchar[ell], nrn, sigma_now*Ang, _Ang, quality);
-                            quality_ell += quality/nn[ell];
-
-                            if (projector_coeff) projector_coeff[iln*8 + mrn] = inner / std::sqrt(denom_sho[mrn]);
-                        } else {
-                            if (echo > 1) printf("# %s for sigma= %g %s failed to normalize %c%i projectors: sho %g classical %g\n", 
-                                                    label, sigma_now*Ang,_Ang, ellchar[ell], nrn, denom_sho[mrn], denom_num);
-                        }
-                    } // mrn
-                } // nrn
-                if (echo > 11) printf("# %s quality for %c-channel with sigma= %g %s is %g\n", label, ellchar[ell], sigma_now*Ang, _Ang, quality_ell);
-                weighted_quality += occ_ell[ell]*quality_ell;
-            } // ell
-            if (echo > 9) printf("# %s weighted quality with sigma= %g %s is %g\n", label, sigma_now*Ang, _Ang, weighted_quality);
-
-            return weighted_quality;
-    } // expand_numerical_projectors_in_SHO_basis
 
 
     double update_sigma( // returns optimized sigma, if optimization was active
@@ -1149,7 +1158,7 @@ namespace single_atom {
         view2D<double> rprj(nln, align<2>(rg[SMT].n), 0.0); // get memory for r*projector
         view2D<double> skin(nln, align<2>(rg[SMT].n), 0.0); // get memory for r*T*phi_smt
 
-        std::vector<double> occ_ell(numax + 1, 0.0);
+        std::vector<double> occ_ln(nln, 0.0);
         double total_occ{0};
 
         std::vector<double> norms(nln, 0.0);
@@ -1229,9 +1238,9 @@ namespace single_atom {
                 //
                 // now expand the projectors in SHO projectors and minimize the deviation by optimizing sigma.
                 // the total deviation is weighted with the ell-channel-summed occupation numbers, occ_ell.
-                occ_ell[ell] += occ;
+                occ_ln[iln] = occ;
+                total_occ  += occ;
             } // nrn
-            total_occ += occ_ell[ell];
             
             // establish duality according to the Gram-Schmidt scheme
             // leaving the lowest projector and lowest partial wave unchanged (except for scaling)
@@ -1334,7 +1343,7 @@ namespace single_atom {
                 double sigma_now = level_range[0];
                 for(int iter = 0; iter <= scan_sigma; ++iter) {
 
-                    auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, rg[SMT], rprj, occ_ell.data(), echo);
+                    auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, nn, rg[SMT], rprj, occ_ln.data(), label, echo);
                     if (echo > 12) printf("# %s search for optimal sigma at sigma= %g %s with quality %g\n", label, sigma_now*Ang, _Ang, weighted_quality);
 
                     if (weighted_quality > best_weighted_quality) {
@@ -1352,7 +1361,7 @@ namespace single_atom {
             bisection_tools::bisector_t<double> bisection(sigma_range[0], sigma_range[1], 1e-15, '*');
             double sigma_now, weighted_quality{0};
             while(bisection.extremum(sigma_now, weighted_quality, echo + 9)) {
-                weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, *rg[SMT], rprj, occ_ell.data(), echo);
+                weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_now, numax, nn, *rg[SMT], rprj, occ_ln.data(), label, echo);
             } // while
             double const best_weighted_quality = weighted_quality;
             sigma_opt = sigma_now;
@@ -1365,7 +1374,6 @@ namespace single_atom {
             if (sigma_range[1] == sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
             if (sigma_range[0] == sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
 
-            if (optimize_sigma < -9) error("stop after sigma optimization");
             optimized = "optimized ";
         } // optimize_sigma
         double const sigma_out = optimize_sigma ? sigma_opt : sigma_old;
@@ -1376,7 +1384,7 @@ namespace single_atom {
 
         // show expansion coefficients of the projectors
         view2D<double> prj_coeff(nln, 8, 0.0); // get memory
-        auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_out, numax, rg[SMT], rprj, occ_ell.data(), echo, prj_coeff.data());
+        auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(sigma_out, numax, nn, rg[SMT], rprj, occ_ln.data(), label, echo, prj_coeff.data());
         if (echo > 3) printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
                                       weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
 
@@ -1393,7 +1401,7 @@ namespace single_atom {
                         printf_vector(" %9.6f", prj_coeff[iln], nmx, " ]\n", 1./length);
                     } // echo
                 } else {
-                    warn("%s failed to normalize %s-projector coefficients after Gram-Schmidt", label, partial_wave[iln].tag);
+                    warn("%s failed to normalize %s-projector coefficients", label, partial_wave[iln].tag);
                 } // norm2 > 0
 
                 assert(nmx == projector_coeff[ell].stride());
@@ -1403,6 +1411,12 @@ namespace single_atom {
         } // ell
 
 #ifdef DEVEL
+        if (optimize_sigma < -9) {
+            if (echo > 0) printf("\n\n# %s stop after sigma optimization\n\n", __func__);
+            std::exit(0);
+        } // stop after sigma optimization
+
+
         // experimental
         int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
         if (suggest_vloc > -1) {

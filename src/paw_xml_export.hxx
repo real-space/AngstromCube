@@ -24,14 +24,15 @@ namespace paw_xml_export {
       , int const echo=0 // log-level
       , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
-  ) { 
+  ) {
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
-      double const E[8] = {0, 0, 0, 0,   0, 0, 0, 0};
+      double const E[8] = {0, 0, 0, 0,   0, 0, 0, 0}; // ToDo
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
       char const ts_tag[TRU_AND_SMT][4] = {"ae", "ps"};
 
-      char Sy[4], file_name_buffer[512];
+      char Sy[4];
       int const iZ = chemical_symbol::get(Sy, Z);
+      char file_name_buffer[512];
       if (nullptr == filename) {
           std::snprintf(file_name_buffer, 511, "%s/%s.xml", pathname, Sy);
           filename = file_name_buffer;
@@ -41,7 +42,7 @@ namespace paw_xml_export {
 
       std::FILE *const f = std::fopen(filename, "w");
       if (nullptr == f) {
-          if (echo > 1) printf("# %s Error opening file %s!\n", __func__, filename);
+          if (echo > 0) printf("# %s Error opening file %s!\n", __func__, filename);
           return __LINE__;
       } // failed to open
 
@@ -73,15 +74,17 @@ namespace paw_xml_export {
           } // active
       } // iln
       std::fprintf(f, "  </valence_states>\n");
-      
+
+      double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
       for(int ts = TRU; ts <= SMT; ++ts) {
-          double const prefactor = rg[ts].rmax/(std::exp(rg[ts].anisotropy * (rg[ts].n - 1)) - 1.);
           std::fprintf(f, "  <radial_grid eq=\"r=f*(exp(d*i)-1)\""
-              " d=\"%g\" f=\"%g\" n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"/>\n",
-              rg[ts].anisotropy, prefactor, rg[ts].n - 1, 1, rg[ts].n - 1, ts_tag[ts]);
+              " d=\"%g\" f=\"%.15e\" n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"/>\n",
+              rg[TRU].anisotropy, prefactor, rg[ts].n - 1, 1 + rg[TRU].n - rg[ts].n, rg[TRU].n - 1, ts_tag[ts]);
       } // ts
-      double const rc_cmp = sigma_cmp*std::sqrt(2.); // ToDo: check formula
-      std::fprintf(f, "  <shape_function type=\"gauss\" rc=\"%.12e\"/>\n", rc_cmp);
+      
+      // the shapefunction of compensation charges are generalized Gaussians
+      std::fprintf(f, "  <shape_function type=\"gauss\" rc=\"%.12e\"/>\n",
+          sigma_cmp*std::sqrt(2.)); // exp(-(r/rc)^2) == exp(-r^2/(2*sigma_cmp^2))
 
       auto constexpr m = 1; // 0.005; // DEBUG, scale the number of radial grid entries down to say one line
 
@@ -126,7 +129,10 @@ namespace paw_xml_export {
               auto const & vs = valence_states[iln];
               for(int ts = TRU; ts <= SMT; ++ts) {
                   std::fprintf(f, "  <%s_partial_wave state=\"%s-%s\" grid=\"g_%s\">\n    ", ts_label[ts], Sy,vs.tag, ts_tag[ts]);
-                  if (vs.wave[ts] == nullptr) return __LINE__; // error
+                  if (nullptr == vs.wave[ts]) {
+                      if (echo > 0) printf("# %s found nullptr in partial wave iln=%i\n", __func__, iln);
+                      return __LINE__; // error
+                  } // error
                   for(int ir = 1; ir < rg[ts].n*m; ++ir) {
                       std::fprintf(f, " %.12e", vs.wave[ts][ir]);
                   } // ir
