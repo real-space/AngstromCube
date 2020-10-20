@@ -120,6 +120,9 @@ single_atom.init.echo=7
 single_atom.echo.mask=-1        #bit mask for the first 50 atoms, -1=all on
 single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
+
+smooth.radial.grid.from=0
+
 # logarithmic derivatives
 logder.unit=Ha
 logder.start=-2

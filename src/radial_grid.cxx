@@ -86,18 +86,18 @@ namespace radial_grid {
       // find a suitable grid point to start from
       int ir{0}; while (tru.r[ir] < r_min) { ++ir; }
       if (echo > 3) printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
-      int const ir_offset = ir;
+      int const nr_diff = ir;
 
       auto g = new radial_grid_t;
       // offset pointers
-      g->r      = tru.r    + ir_offset;
-      g->dr     = tru.dr   + ir_offset;
-      g->rdr    = tru.rdr  + ir_offset;
-      g->r2dr   = tru.r2dr + ir_offset;
-      g->rinv   = tru.rinv + ir_offset;
+      g->r      = tru.r    + nr_diff;
+      g->dr     = tru.dr   + nr_diff;
+      g->rdr    = tru.rdr  + nr_diff;
+      g->r2dr   = tru.r2dr + nr_diff;
+      g->rinv   = tru.rinv + nr_diff;
       g->memory_owner = false; // avoid double free
 
-      g->n = tru.n - ir_offset; // reduced number of grid points
+      g->n = tru.n - nr_diff; // reduced number of grid points
       g->rmax = tru.rmax; // both grids have the same tail
       return g;
   } // create_pseudo_radial_grid
