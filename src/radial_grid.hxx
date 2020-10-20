@@ -31,7 +31,7 @@ namespace radial_grid {
   inline radial_grid_t* create_default_radial_grid(float const Z_nucleons) {
       return create_exponential_radial_grid(250*std::sqrt(Z_nucleons + 9.) + .5); }
 
-  void destroy_radial_grid(radial_grid_t* g); // radial grid descriptor
+  void destroy_radial_grid(radial_grid_t* g, char const *name=""); // radial grid descriptor
 
   int find_grid_index(radial_grid_t const &g, double const radius);
 

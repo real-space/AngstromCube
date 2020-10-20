@@ -8,10 +8,13 @@
 #include "control.hxx" // ::get // ToDo: remove this dependency
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, dot_product
-#include "linear_algebra.hxx" // ::linear_solve
+#include "simple_math.hxx" // ::determinant
+#include "linear_algebra.hxx" // ::linear_solve, ::invert
 #include "print_tools.hxx" // printf_vector
 #include "recorded_warnings.hxx" // warn
 #include "constants.hxx" // ::pi
+#include "data_view.hxx" // view3D<T>, view2D<T>
+
 
 namespace pseudo_tools {
 
@@ -316,6 +319,114 @@ namespace pseudo_tools {
       return stat;
   } // pseudize_local_potential
 
+  
+  inline
+  double perform_Gram_Schmidt( // returns the determinant |A|
+        int const n // number of projectors == number of partial waves == nn[ell]
+      , view3D<double> & LU_inv // resulting matrices {L^-1, U^-1}
+      , view2D<double> const & A // input matrix, overlap of <preliminary partial waves_
+      , char const *label // log-prefix
+      , char const ell='?' // ell-character for display
+      , int const echo=0 // log-level
+      , char const op[]="UUUUUUUUUUUUUUU" // treated as array of chars, not as string
+  ) { 
+      // perform a Gram-Schmidt orthogonalization to restore PAW duality
+
+      if (n < 1) return 0.0; // but no warning
+      double const det = simple_math::determinant(n, A.data(), A.stride());
+      if (echo > 2) printf("# %s determinant for %c-projectors is %g\n", label, ell, det);
+      if (std::abs(det) < 1e-24) {
+          warn("%s determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
+          return det;
+      }
+      // Gram-Schmidt orthonormalization is effectively a LU-decomposition, however, we modify it here
+      view2D<double> L(n, n, 0.0), U(n, n, 0.0); // get memory for LU factors
+      for(int i = 0; i < n; ++i) {
+          U(i,i) = 1; // start from unit matrix
+          set(L[i], n, A[i]); // start from A
+      } // i
+
+      // now factorize A in a custom fashion
+      for(int i = 0; i < n; ++i) {
+
+          if (op[i] & 32) { // all lower case chars, e.g. 'l' or 'u'          
+              auto const diag = L(i,i);
+              auto const dinv = 1./diag; // ToDo: check if we can safely divide by L(i,i)
+              for(int k = 0; k < n; ++k) {
+                  U(i,k) *= diag; // row operation
+                  L(k,i) *= dinv; // col operation
+              } // k
+              // leads to L_inv(i,i) == 1.0
+          } else {
+              // leads to U_inv(i,i) == 1.0
+          } // which one to scale?
+
+          for(int j = i + 1; j < n; ++j) {
+            
+              if (op[j] & 1) { // all odd chars, e.g. 'u' or 'U'
+                  // clear out upper right corner of L
+                  auto const c = L(i,j)/L(i,i); // ToDo: check if we can safely divide by L(i,i)
+                  for(int k = 0; k < n; ++k) {
+                      L(k,j) -= c*L(k,i); // col operation
+                      U(i,k) += c*U(j,k); // row operation
+                  } // k
+                  L(i,j) = 0; // clear out exactly
+              } // modify col L(:,j) and row U(i,:)
+              
+              else { // all odd chars, e.g. 'u' or 'U'
+                  // clear out lower left corner of L
+                  auto const c = L(j,i)/L(j,j); // ToDo: check if we can safely divide by L(j,j)
+                  for(int k = 0; k < n; ++k) {
+                      L(k,i) -= c*L(k,j); // col operation
+                      U(j,k) += c*U(i,k); // row operation
+                  } // k
+                  L(j,i) = 0; // clear out exactly
+              } // modify col L(:,i) and row U(j,:)
+
+          } // j
+      } // i
+
+      auto L_inv = LU_inv[0], U_inv = LU_inv[1];
+      double const det_U = simple_math::invert(n, U_inv.data(), U_inv.stride(), U.data(), n);
+      double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(),  L.data(), n);
+
+#ifdef DEVEL
+      if (echo > 11) { // check that the factorization worked
+        
+          for(int i = 0; i < n; ++i) {
+              printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
+              printf_vector(" %11.6f", L[i], n, "\t\t");
+              printf_vector(" %11.6f", U[i], n);
+          } // i
+          printf("\n");
+          
+          view2D<double> A_LU(n, n);
+          gemm(A_LU, n, L, n, U);
+          for(int i = 0; i < n; ++i) {
+              printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
+              if (0) {
+                  printf_vector(" %11.6f", A[i], n, "\t\t");
+                  printf_vector(" %11.6f", A_LU[i], n, "\t\t");
+              } // 0
+              for(int j = 0; j < n; ++j) {
+                  printf(" %11.6f", A_LU(i,j) - A(i,j));
+              } // j
+              printf("\n");
+          } // i
+
+          printf("\n# %s  ell=%c  |L|= %g and |U|= %g, product= %g, |A|= %g\n",
+                      label, ell, det_L, det_U, det_L*det_U, det);
+          for(int i = 0; i < n; ++i) {
+              printf("# %s  ell=%c  L^-1 and U^-1  i=%2i ", label, ell, i);
+              printf_vector(" %11.6f", L_inv[i], n, "\t\t\t");
+              printf_vector(" %11.6f", U_inv[i], n);
+          } // i
+          printf("\n");
+      } // echo
+#endif // DEVEL
+      return det;
+  } // perform_Gram_Schmidt
+  
 
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

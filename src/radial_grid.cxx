@@ -102,7 +102,8 @@ namespace radial_grid {
       return g;
   } // create_pseudo_radial_grid
 
-  void destroy_radial_grid(radial_grid_t* g) {
+  void destroy_radial_grid(radial_grid_t* g, char const *name) {
+//    printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
       if (g->memory_owner) delete [] g->r;
       g->n = 0;
   } // destroy
