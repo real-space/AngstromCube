@@ -56,6 +56,7 @@ namespace radial_grid {
       set_derived_grid_quantities(*g, N_aligned);
       g->n = N;
       g->rmax = g->r[g->n - 1];
+      g->anisotropy = d;
       return g;
   } // create_exponential_radial_grid
 
@@ -75,6 +76,7 @@ namespace radial_grid {
       set_derived_grid_quantities(*g, N_aligned);
       g->n = N;
       g->rmax = g->r[g->n - 1];
+      g->anisotropy = 0;
       return g;
   } // create_equidistant_radial_grid
 
@@ -99,6 +101,7 @@ namespace radial_grid {
 
       g->n = tru.n - nr_diff; // reduced number of grid points
       g->rmax = tru.rmax; // both grids have the same tail
+      g->anisotropy = tru.anisotropy;
       return g;
   } // create_pseudo_radial_grid
 

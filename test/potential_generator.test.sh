@@ -12,18 +12,18 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-# project_base=pg.C-atom
-# printf " 1 \n#cell 10 10 10 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-atom
+printf " 1 \n#cell 6 6 6 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
-project_base=pg.C-dimer
-printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
-echo "C  0 0 -0.65" >> $geometry_file
-echo "C  0 0  0.65" >> $geometry_file
+# project_base=pg.C-dimer
+# printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
+# echo "C  0 0 -0.65" >> $geometry_file
+# echo "C  0 0  0.65" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -121,7 +121,7 @@ single_atom.echo.mask=-1        #bit mask for the first 50 atoms, -1=all on
 single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
 
-smooth.radial.grid.from=0
+#smooth.radial.grid.from=0
 
 # logarithmic derivatives
 logder.unit=Ha
@@ -166,6 +166,9 @@ dense_solver.test.overlap.eigvals=1
 # analyze the potentials up to vtot
 potential_generator.use.bessel.projection=0
 potential_generator.direct.projection=0
+
+single_atom.init.scf.maxit=1
+single_atom.export.xml=-1
 
 EOF
 

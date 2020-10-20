@@ -2,22 +2,22 @@
 
 #include <cstdio> // printf
 #include <cassert> // assert
-#include <fstream> // std::fstream
-#include <sstream> // std::sstream
-#include <string> // std::string
+#include <fstream> // std::ifstream
+#include <sstream> // std::istringstream
+#include <string> // std::string, std::getline
 
 namespace debug_tools {
 
-  template<typename real_t>
+  template <typename real_t>
   int read_from_file(
-    real_t y_data[], // 2D-data array [N*Stride]
-    char const *filename,
-    int const N, // expected number of rows
-    int const Stride=1, // Stride, default=1 for 1D functions
-    int const M=1, // number of columns to fill
-    char const *title=nullptr, // title (only for display to log)
-    int const echo=0) // report writing to stdout, 0: suppress report
-  {
+        real_t y_data[] // 2D-data array [N*Stride]
+      , char const *filename
+      , int const N // expected number of rows
+      , int const Stride=1 // Stride, default=1 for 1D functions
+      , int const M=1 // number of columns to fill
+      , char const *title=nullptr // title (only for display to log)
+      , int const echo=0 // report writing to stdout, 0: suppress report
+  ) {
       assert(M <= Stride);
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {

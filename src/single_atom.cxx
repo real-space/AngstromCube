@@ -50,6 +50,7 @@
 #include "pseudo_tools.hxx" // ::pseudize_local_potential, ::pseudize_function, ...
                             // ::pseudize_spherical_density, ::perform_Gram_Schmidt
 
+#include "paw_xml_export.hxx" // ::write_to_file
 
 // extern "C" {
 //   // BLAS interface to matrix matrix multiplication
@@ -857,6 +858,20 @@ namespace single_atom {
         } // self-consistency iterations
 
 #ifdef DEVEL
+
+        auto const export_xml = int(control::get("single_atom.export.xml", 0.));
+        if (export_xml) {
+            if (echo > 0) printf("\n\n# %s export configuration to file\n", label);
+            auto const stat = paw_xml_export::write_to_file(Z_core, rg, 
+                partial_wave, partial_wave_active.data(),
+                kinetic_energy, csv_charge, spherical_density, projectors,
+                r_cut, sigma_compensator, zero_potential.data(), echo);
+            if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
+            if (echo > 0) printf("# %s exported configuration to file\n", label);
+            if (maxit_scf < 1) warn("exported paw file although no setup SCF iterations executed");
+            if (export_xml < 0) error("single_atom.export.xml=%d (negative leads to a stop, no real error)", export_xml);
+        } // export_xml
+
         // show the smooth and true potential
         if (false && (echo > 0)) {
             printf("\n## %s spherical parts: r, "
@@ -909,7 +924,9 @@ namespace single_atom {
             } // ir
             printf("\n\n\n\n");
         } // echo
+        
 #endif // DEVEL
+
     } // constructor
 
 
