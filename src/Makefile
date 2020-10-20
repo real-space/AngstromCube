@@ -49,6 +49,7 @@ else
 	fourier_poisson.o \
 	davidson_solver.o \
 	grid_operators.o \
+	pseudo_tools.o \
 	finite_difference.o \
 	density_generator.o \
 	sho_projection.o \

@@ -11,9 +11,6 @@
 #include "recorded_warnings.hxx" // ::clear_warnings
 #include "boundary_condition.hxx" // Periodic_Boundary
 
-// #define FULL_DEBUG
-// #define DEBUG
-
 namespace finite_difference {
   
 #ifndef NO_UNIT_TESTS

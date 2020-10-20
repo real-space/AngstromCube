@@ -7,14 +7,15 @@
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
 #include "control.hxx" // ::get // ToDo: remove this dependency
 #include "display_units.h" // eV, _eV, Ang, _Ang
+#include "inline_math.hxx" // set, dot_product
+#include "linear_algebra.hxx" // ::linear_solve
+#include "print_tools.hxx" // printf_vector
+#include "recorded_warnings.hxx" // warn
+#include "constants.hxx" // ::pi
 
 namespace pseudo_tools {
 
-// ToDo
-//   double pseudize_spherical_density(double rho_smt[], double const rho_tru[]
-//                                   , radial_grid_t const *const rg[], int const ir_cut[], int const nr_diff, char const *label
-//                                   , char const *quantity="core", int const echo=0); 
-
+  inline
   status_t pseudize_function(
           double fun[] // result function
         , radial_grid_t const *const rg // radial grid descriptor
@@ -76,6 +77,44 @@ namespace pseudo_tools {
       return info;
   } // pseudize_function
 
+  
+  inline
+  double pseudize_spherical_density(
+        double smooth_density[]
+      , double const true_density[]
+      , radial_grid_t const *const rg[TRU_AND_SMT] // TRU and SMT radial grid
+      , int const ir_cut[TRU_AND_SMT] // index of r_cut on TRU and SMT radial grid
+      , char const *quantity="core"
+      , char const *label="" // log-prefix
+      , int const echo=0 // log-level
+  ) {
+      int const nrs = rg[SMT]->n;
+      int const nr_diff = rg[TRU]->n - nrs;
+      set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
+
+//         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+      auto const stat = pseudo_tools::pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+      // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
+      if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
+#ifdef DEVEL
+      if (echo > 8) { // plot the densities
+          printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
+          for(int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
+              printf("%g %g %g\n", rg[SMT]->r[ir], smooth_density[ir], true_density[ir + nr_diff]);
+          } // ir
+          printf("\n\n");
+      } // plot
+#endif // DEVEL
+      // report integrals
+      auto const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, true_density);
+      auto const smt_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, smooth_density);
+      double const charge_deficit = tru_charge - smt_charge;
+      if (echo > 1) printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
+                              label, quantity, tru_charge, smt_charge);
+
+      return charge_deficit;
+  } // pseudize_spherical_density
+  
 
 
   template <typename real_t>

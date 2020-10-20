@@ -51,7 +51,7 @@
 #include "sho_potential.hxx" // ::all_tests
 // #include "isolated_atom.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
-// #include "pseudo_tools.hxx" // ::all_tests
+#include "pseudo_tools.hxx" // ::all_tests
 #include "inline_tools.hxx" // ::all_tests
 #include "simple_timer.hxx" // ::all_tests
 #include "sigma_config.hxx" // ::all_tests
@@ -140,7 +140,7 @@
 //           module_test("isolated_atom.",             isolated_atom::all_tests);
           module_test("angular_grid.",               angular_grid::all_tests);
           module_test("inline_tools.",               inline_tools::all_tests);
-//           module_test("pseudo_tools.",               pseudo_tools::all_tests);
+          module_test("pseudo_tools.",               pseudo_tools::all_tests);
           module_test("simple_timer.",               simple_timer::all_tests);
           module_test("sigma_config.",               sigma_config::all_tests);
           module_test("dense_solver.",               dense_solver::all_tests);

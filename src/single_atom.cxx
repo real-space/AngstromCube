@@ -13,7 +13,7 @@
 #include "single_atom.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid, ::dot_product
+#include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid
 #include "radial_eigensolver.hxx" // ::shooting_method
 #include "radial_potential.hxx" // ::Hartree_potential
 #include "angular_grid.hxx" // ::transform, ::Lebedev_grid_size
@@ -1132,9 +1132,12 @@ namespace single_atom {
         
         
         for(int csv = 0; csv < 3; ++csv) { // construct an initial smooth density
-            spherical_charge_deficit[csv] = pseudize_spherical_density(
+//             spherical_charge_deficit[csv] = pseudize_spherical_density(
+//                 spherical_density[SMT][csv],
+//                 spherical_density[TRU][csv], csv_name[csv], echo);
+            spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
-                spherical_density[TRU][csv], csv_name[csv], echo);
+                spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
         } // csv
 
         int const maxit_scf = control::get("single_atom.init.scf.maxit", 0.);
@@ -1241,10 +1244,14 @@ namespace single_atom {
 
 
 
-    
+#if 0    
 
-    double pseudize_spherical_density(double smooth_density[], double const true_density[]
-                                    , char const *quantity="core", int const echo=0) const {
+    double pseudize_spherical_density(
+          double smooth_density[]
+        , double const true_density[]
+        , char const *quantity="core"
+        , int const echo=0
+    ) const {
         int const nrs = rg[SMT]->n;
         set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
 
@@ -1271,7 +1278,7 @@ namespace single_atom {
         return charge_deficit;
     } // pseudize_spherical_density
 
-
+#endif
 
 
 
@@ -1358,9 +1365,13 @@ namespace single_atom {
                     label, csv_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
             } // output only for contributing densities
 
-            spherical_charge_deficit[csv] = pseudize_spherical_density(
-                spherical_density[SMT][csv], 
-                spherical_density[TRU][csv], csv_name[csv], echo_pseudo); 
+//             spherical_charge_deficit[csv] = pseudize_spherical_density(
+//                 spherical_density[SMT][csv],
+//                 spherical_density[TRU][csv], csv_name[csv], echo_pseudo);
+            spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
+                spherical_density[SMT][csv],
+                spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
+
         } // csv
 
     } // update_spherical_states
