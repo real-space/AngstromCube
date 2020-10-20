@@ -22,8 +22,8 @@ namespace radial_grid {
       g->memory_owner = (nullptr != g->r);
       return g;
   } // get_memory
-  
-  inline void set_derived_grid_quantities(radial_grid_t& g, int const n_aligned) {
+
+  inline void set_derived_grid_quantities(radial_grid_t & g, int const n_aligned) {
       for (int ir = 0; ir < n_aligned; ++ir) {
           auto const r = g.r[ir], dr = g.dr[ir];
           g.rdr[ir] = r*dr;
@@ -33,15 +33,18 @@ namespace radial_grid {
       } // ir
   } // set_derived_grid_quantities
 
-  radial_grid_t* create_exponential_radial_grid(int const npoints,
-                   float const Rmax, float const anisotropy) { // optional args
+  radial_grid_t* create_exponential_radial_grid(
+        int const npoints
+      , float const Rmax // =default_Rmax
+      , float const anisotropy // =default_anisotropy
+  ) {
       double const R = std::max(std::abs(Rmax)*1., .945);
       double const d = std::min(std::max(1e-4, anisotropy*1.), .1);
       int const N = std::max(std::abs(npoints), 32);
 
       int const N_aligned = align<2>(N); // padded to multiples of 4
       auto const g = get_memory(N_aligned);    
-      
+
       double const a = R / (std::exp(d*(N - 1)) - 1.); // prefactor
       for (auto ir = 0; ir < N_aligned; ++ir) {
           double const edi = std::exp(d*ir);
@@ -56,15 +59,17 @@ namespace radial_grid {
       return g;
   } // create_exponential_radial_grid
 
-  radial_grid_t* create_equidistant_radial_grid(int const npoints, float const Rmax) {
+  radial_grid_t* create_equidistant_radial_grid(
+        int const npoints
+      , float const Rmax // =default_Rmax
+  ) {
       int const N = std::max(1, npoints);
       int const N_aligned = align<2>(N); // padded to multiples of 4
       auto const g = get_memory(N_aligned);    
 
       double const dr = Rmax/N;
       for (auto ir = 0; ir < N_aligned; ++ir) {
-          double const r = ir*dr;
-          g->r[ir] = r;
+          g->r[ir] = ir*dr;
           g->dr[ir] = dr;
       } // ir
       set_derived_grid_quantities(*g, N_aligned);
@@ -72,11 +77,14 @@ namespace radial_grid {
       g->rmax = g->r[g->n - 1];
       return g;
   } // create_equidistant_radial_grid
-  
-  
-  radial_grid_t* create_pseudo_radial_grid(radial_grid_t const &tru, double const r_min, int const echo) {
+
+  radial_grid_t* create_pseudo_radial_grid(
+        radial_grid_t const & tru
+      , double const r_min // =1e-3 Bohr
+      , int const echo // log-level
+  ) {
       // find a suitable grid point to start from
-      int ir = 0; while (tru.r[ir] < r_min) ++ir;
+      int ir{0}; while (tru.r[ir] < r_min) { ++ir; }
       if (echo > 3) printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
       int const ir_offset = ir;
 
@@ -87,28 +95,27 @@ namespace radial_grid {
       g->rdr    = tru.rdr  + ir_offset;
       g->r2dr   = tru.r2dr + ir_offset;
       g->rinv   = tru.rinv + ir_offset;
-      g->memory_owner = false;
+      g->memory_owner = false; // avoid double free
 
       g->n = tru.n - ir_offset; // reduced number of grid points
       g->rmax = tru.rmax; // both grids have the same tail
       return g;
   } // create_pseudo_radial_grid
-  
-  
+
   void destroy_radial_grid(radial_grid_t* g) {
       if (g->memory_owner) delete [] g->r;
       g->n = 0;
   } // destroy
 
-  int find_grid_index(radial_grid_t const &g, double const radius) {
+  int find_grid_index(radial_grid_t const & g, double const radius) {
       // ToDo: if this becomes performance critical, replace by bisection algorithm
       for(int ir = 0; ir < g.n; ++ir) {
           if (radius < g.r[ir]) return ir - 1;
       } // ir
       return g.n - 2;
   } // find_grid_index
-  
-  
+
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

@@ -167,7 +167,7 @@ potential_generator.direct.projection=0
 EOF
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -191,7 +191,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 1 3`; do
+for ecut in `seq 2 1 2`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

@@ -384,23 +384,25 @@ namespace potential_generator {
       std::vector<double> rho_valence(g.all(), 0.0);
      
       char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
-      if (echo > 0) printf("\n# initial.valence.density = \'%s\'\n", initial_valence_density_method);
-      
+      if (echo > 0) printf("\n# initial.valence.density =%s\n", initial_valence_density_method);
+
       auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero., never if 0
       float take_atomic_valence_densities{0};
 
       if ('a' == *initial_valence_density_method) { // atomic
           if (echo > 1) printf("# include spherical atomic valence densities in the smooth core densities\n");
           take_atomic_valence_densities = 1; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
-          
-      } else if ('l' == *initial_valence_density_method) { // load
-          error("initial.valence.density = load has not been implemented yet");
-      } else if ('n' == *initial_valence_density_method) { // none
-          warn("initial.valence.density = none may cause problems");
-      } else {
-          warn("initial.valence.density = %s is unknown, valence density is zero", initial_valence_density_method);
-      } // switch
-      
+      } else
+      if ('l' == *initial_valence_density_method) { // load
+          error("initial.valence.density=load has not been implemented yet");
+      } else
+      if ('n' == *initial_valence_density_method) { // none
+          warn("initial.valence.density=none may cause problems");
+      } else
+      {
+          warn("initial.valence.density=%s is unknown, valence density is zero", initial_valence_density_method);
+      } // initial_valence_density_method
+
       
       std::vector<double>  n_electrons_a(na, 0.); // number of valence electrons brought in by each atom
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges

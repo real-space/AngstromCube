@@ -47,6 +47,9 @@
 #include "debug_tools.hxx" // here
 #include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, final="\n", scale=1, add=0)
 
+#include "pseudo_tools.hxx" // ::pseudize_local_potential
+
+
 // extern "C" {
 //   // BLAS interface to matrix matrix multiplication
 //   void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
@@ -116,7 +119,8 @@ namespace single_atom {
       return mln;
   } // display_delimiter
 
-
+#if 0
+  
   status_t pseudize_function(
           double fun[] // result function
         , radial_grid_t const *const rg // radial grid descriptor
@@ -178,6 +182,7 @@ namespace single_atom {
       return info;
   } // pseudize_function
 
+#endif
 
   template<typename T>
   view2D<T> transpose(view2D<T> const & a // input matrix a(N
@@ -287,8 +292,7 @@ namespace single_atom {
 
 
 
-    
-
+#if 0
     
     template <typename real_t>
     status_t Lagrange_derivatives(
@@ -348,8 +352,8 @@ namespace single_atom {
         return 0; // success
     } // Lagrange_derivatives
 
-
-
+#endif // 0
+    
 
     template <typename int_t>
     void get_valence_mapping(
@@ -1119,8 +1123,14 @@ namespace single_atom {
                 label, logder_energy_range[0]*eu, logder_energy_range[1]*eu, logder_energy_range[2]*eu, _eu);
         } // scope
 
-        pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
-
+        {
+//          pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), echo); // <1> indicates that these arrays hold r*V(r) functions
+            int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
+                       int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
+            pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
+        }
+        
+        
         for(int csv = 0; csv < 3; ++csv) { // construct an initial smooth density
             spherical_charge_deficit[csv] = pseudize_spherical_density(
                 spherical_density[SMT][csv],
@@ -1238,7 +1248,8 @@ namespace single_atom {
         int const nrs = rg[SMT]->n;
         set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
 
-        auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+//         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+        auto const stat = pseudo_tools::pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
         // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
         if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
 #ifdef DEVEL
@@ -1500,7 +1511,8 @@ namespace single_atom {
 
                 // pseudize by matching a polynomial r^(ell + 1)*(c_0 + c_1 r^2 + c_2 r^4 + c_3 r^6)
                 double coeff[4]; // matching coefficients
-                auto const stat = pseudize_function(sphi[iln], rg[SMT], ir_cut[SMT], 4, ell + 1, coeff);
+//                 auto const stat = pseudize_function(sphi[iln], rg[SMT], ir_cut[SMT], 4, ell + 1, coeff);
+                auto const stat = pseudo_tools::pseudize_function(sphi[iln], rg[SMT], ir_cut[SMT], 4, ell + 1, coeff);
                 assert(0 == stat);
 
                 // construct a preliminary projector according to the Bloechl scheme:
@@ -1748,7 +1760,7 @@ namespace single_atom {
 
 
 
-    
+#if 0
 
     template <int rpow>
     status_t pseudize_local_potential(
@@ -1756,7 +1768,7 @@ namespace single_atom {
         , double const V_tru[] // true potential V(r)
         , int const echo=0 // log-level
         , double const df=1 // df=display factor
-    ) { 
+    ) const { 
         // replace the true singular potential by a smooth pseudopotential inside the augmentation sphere
 
         if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
@@ -1880,6 +1892,7 @@ namespace single_atom {
         return stat;
     } // pseudize_local_potential
 
+#endif
 
 
 
@@ -3087,8 +3100,11 @@ namespace single_atom {
         std::vector<double> V_smt(rg[SMT]->n);
         set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
         
+//         auto const stat = pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], echo, Y00); // <0> indicates that these arrays hold V(r) (not r*V(r))
+            int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
+                       int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
+        auto const stat = pseudo_tools::pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], rg, ir_cut, method, label, echo, Y00);
         auto const df = Y00*eV; assert(df > 0); // display factor
-        auto const stat = pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], echo, Y00); // <0> indicates that these arrays hold V(r) (not r*V(r))
         if (stat) {
             if (echo > 0) printf("# %s matching procedure for the local potential failed! status= %d\n", label, int(stat));
         } else {
