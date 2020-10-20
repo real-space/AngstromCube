@@ -126,7 +126,7 @@ namespace single_atom {
     void add_or_project_compensators(
           view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
         , double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
-        , radial_grid_t const & rg // radial grid despriptor
+        , radial_grid_t const & rg // radial grid descriptor
         , int const lmax       // cutoff for angular momentum expansion
         , double const sigma   // spread_compensator
         , int const echo=0     // log-level
@@ -254,115 +254,6 @@ namespace single_atom {
     } // show_state_analysis
     
    
-#if 0
-    double perform_Gram_Schmidt( // returns the determinant |A|
-          int const n // number of projectors == number of partial waves == nn[ell]
-        , view3D<double> & LU_inv // resulting matrices {L^-1, U^-1}
-        , view2D<double> const & A // input matrix, overlap of <preliminary partial waves_
-        , char const *label // log-prefix
-        , char const ell='?' // ell-character for display
-        , int const echo=0 // log-level
-        , char const op[]="UUUUUUUUUUUUUUU" // treated as array of chars, not as string
-    ) { 
-        // perform a Gram-Schmidt orthogonalization to restore PAW duality
-
-        if (n < 1) return 0.0; // but no warning
-        double const det = simple_math::determinant(n, A.data(), A.stride());
-        if (echo > 2) printf("# %s determinant for %c-projectors is %g\n", label, ell, det);
-        if (std::abs(det) < 1e-24) {
-            warn("%s determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
-            return det;
-        }
-        // Gram-Schmidt orthonormalization is effectively a LU-decomposition, however, we modify it here
-        view2D<double> L(n, n, 0.0), U(n, n, 0.0); // get memory for LU factors
-        for(int i = 0; i < n; ++i) {
-            U(i,i) = 1; // start from unit matrix
-            set(L[i], n, A[i]); // start from A
-        } // i
-
-        // now factorize A in a custom fashion
-        for(int i = 0; i < n; ++i) {
-
-            if (op[i] & 32) { // all lower case chars, e.g. 'l' or 'u'          
-                auto const diag = L(i,i);
-                auto const dinv = 1./diag; // ToDo: check if we can safely divide by L(i,i)
-                for(int k = 0; k < n; ++k) {
-                    U(i,k) *= diag; // row operation
-                    L(k,i) *= dinv; // col operation
-                } // k
-                // leads to L_inv(i,i) == 1.0
-            } else {
-                // leads to U_inv(i,i) == 1.0
-            } // which one to scale?
-
-            for(int j = i + 1; j < n; ++j) {
-              
-                if (op[j] & 1) { // all odd chars, e.g. 'u' or 'U'
-                    // clear out upper right corner of L
-                    auto const c = L(i,j)/L(i,i); // ToDo: check if we can safely divide by L(i,i)
-                    for(int k = 0; k < n; ++k) {
-                        L(k,j) -= c*L(k,i); // col operation
-                        U(i,k) += c*U(j,k); // row operation
-                    } // k
-                    L(i,j) = 0; // clear out exactly
-                } // modify col L(:,j) and row U(i,:)
-                
-                else { // all odd chars, e.g. 'u' or 'U'
-                    // clear out lower left corner of L
-                    auto const c = L(j,i)/L(j,j); // ToDo: check if we can safely divide by L(j,j)
-                    for(int k = 0; k < n; ++k) {
-                        L(k,i) -= c*L(k,j); // col operation
-                        U(j,k) += c*U(i,k); // row operation
-                    } // k
-                    L(j,i) = 0; // clear out exactly
-                } // modify col L(:,i) and row U(j,:)
-
-            } // j
-        } // i
-
-        auto L_inv = LU_inv[0], U_inv = LU_inv[1];
-        double const det_U = simple_math::invert(n, U_inv.data(), U_inv.stride(), U.data(), n);
-        double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(),  L.data(), n);
-
-#ifdef DEVEL
-        if (echo > 11) { // check that the factorization worked
-          
-            for(int i = 0; i < n; ++i) {
-                printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
-                printf_vector(" %11.6f", L[i], n, "\t\t");
-                printf_vector(" %11.6f", U[i], n);
-            } // i
-            printf("\n");
-            
-            view2D<double> A_LU(n, n);
-            gemm(A_LU, n, L, n, U);
-            for(int i = 0; i < n; ++i) {
-                printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
-                if (0) {
-                    printf_vector(" %11.6f", A[i], n, "\t\t");
-                    printf_vector(" %11.6f", A_LU[i], n, "\t\t");
-                } // 0
-                for(int j = 0; j < n; ++j) {
-                    printf(" %11.6f", A_LU(i,j) - A(i,j));
-                } // j
-                printf("\n");
-            } // i
-
-            printf("\n# %s  ell=%c  |L|= %g and |U|= %g, product= %g, |A|= %g\n",
-                        label, ell, det_L, det_U, det_L*det_U, det);
-            for(int i = 0; i < n; ++i) {
-                printf("# %s  ell=%c  L^-1 and U^-1  i=%2i ", label, ell, i);
-                printf_vector(" %11.6f", L_inv[i], n, "\t\t\t");
-                printf_vector(" %11.6f", U_inv[i], n);
-            } // i
-            printf("\n");
-        } // echo
-#endif // DEVEL
-        return det;
-    } // perform_Gram_Schmidt
-#endif // 0
-
-
 
 
     
@@ -549,13 +440,10 @@ namespace single_atom {
         // now Z_core may not change any more
         rg[TRU] = radial_grid::create_default_radial_grid(Z_core);
 
-        if (0) { // flat copy, true and smooth quantities live on the same radial grid
-            rg[SMT] = rg[TRU]; // copy the pointer to the struct with the pointers, but not the struct
-            rg[SMT]->memory_owner = false; // avoid double free
-        } else { // create a radial grid descriptor which has less points at the origin
+        { // scope: create a radial grid descriptor which has less points at the origin
             auto const rc = control::get("smooth.radial.grid.from", 1e-3);
             rg[SMT] = radial_grid::create_pseudo_radial_grid(*rg[TRU], rc);
-        } // use the same number of radial grid points for true and smooth quantities
+        } // scope
         // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
 
         int const nr[] = {int(align<2>(rg[TRU]->n)), int(align<2>(rg[SMT]->n))}; // optional memory access alignment
