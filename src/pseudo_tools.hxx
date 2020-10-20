@@ -21,7 +21,7 @@ namespace pseudo_tools {
   inline
   status_t pseudize_function(
           double fun[] // result function
-        , radial_grid_t const *const rg // radial grid descriptor
+        , double const rg[] // radial grid
         , int const irc // radial grid index of the cutoff radius
         , int const nmax=4 // matching order (limited to max. 4)
         , int const ell=0 // angular momentum quantum number
@@ -36,7 +36,7 @@ namespace pseudo_tools {
       for(int i4 = 0; i4 < nm; ++i4) {
           // use up to 4 radial indices [irc-2,irc-1,irc+0,irc+1]
           int const ir = irc + i4 - nm/2; // not fully centered around irc
-          double const r = rg->r[ir];
+          double const r = rg[ir];
           double rl = intpow(r, ell);
           // set up a basis of 4 functions: r^0, r^0, r^4, r^6 at up to 4 neighboring grid points around r(irc)
           for(int j4 = 0; j4 < nm; ++j4) {
@@ -71,7 +71,7 @@ namespace pseudo_tools {
       set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
       // replace the inner part of the function by the even-order polynomial
       for(int ir = 0; ir < irc; ++ir) {
-          double const r = rg->r[ir];
+          double const r = rg[ir];
           double const rr = pow2(r);
           double const rl = intpow(r, ell);
           fun[ir] = rl*(x[0] + rr*(x[1] + rr*(x[2] + rr*x[3])));
@@ -85,32 +85,32 @@ namespace pseudo_tools {
   double pseudize_spherical_density(
         double smooth_density[]
       , double const true_density[]
-      , radial_grid_t const *const rg[TRU_AND_SMT] // TRU and SMT radial grid
+      , radial_grid_t const rg[TRU_AND_SMT] // TRU and SMT radial grid
       , int const ir_cut[TRU_AND_SMT] // index of r_cut on TRU and SMT radial grid
       , char const *quantity="core"
       , char const *label="" // log-prefix
       , int const echo=0 // log-level
   ) {
-      int const nrs = rg[SMT]->n;
-      int const nr_diff = rg[TRU]->n - nrs;
+      int const nrs = rg[SMT].n;
+      int const nr_diff = rg[TRU].n - nrs;
       set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
 
-//         auto const stat = pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-      auto const stat = pseudo_tools::pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-      // alternatively, pseudize_function(smooth_density, rg[SMT], ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
+//         auto const stat = pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+      auto const stat = pseudo_tools::pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+      // alternatively, pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
       if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
 #ifdef DEVEL
       if (echo > 8) { // plot the densities
           printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
           for(int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
-              printf("%g %g %g\n", rg[SMT]->r[ir], smooth_density[ir], true_density[ir + nr_diff]);
+              printf("%g %g %g\n", rg[SMT].r[ir], smooth_density[ir], true_density[ir + nr_diff]);
           } // ir
           printf("\n\n");
       } // plot
 #endif // DEVEL
       // report integrals
-      auto const tru_charge = dot_product(rg[TRU]->n, rg[TRU]->r2dr, true_density);
-      auto const smt_charge = dot_product(rg[SMT]->n, rg[SMT]->r2dr, smooth_density);
+      auto const tru_charge = dot_product(rg[TRU].n, rg[TRU].r2dr, true_density);
+      auto const smt_charge = dot_product(rg[SMT].n, rg[SMT].r2dr, smooth_density);
       double const charge_deficit = tru_charge - smt_charge;
       if (echo > 1) printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
                               label, quantity, tru_charge, smt_charge);
@@ -185,48 +185,48 @@ namespace pseudo_tools {
   status_t pseudize_local_potential(
         double V_smt[]  // output smooth potential
       , double const V_tru[] // true potential V(r)
-      , radial_grid_t const *const rg[TRU_AND_SMT] // TRU and SMT radial grid
+      , radial_grid_t const rg[TRU_AND_SMT] // TRU and SMT radial grid
       , int const ir_cut[TRU_AND_SMT] // index of r_cut on TRU and SMT radial grid
       , int const n_Lagrange_points=0 // 0:parabola, >0:sinc
       , char const *label="" // log-prefix
       , int const echo=0 // log-level
       , double const df=1 // df=display factor
-  ) { 
+  ) {
       // replace the true singular potential by a smooth pseudopotential inside the augmentation sphere
       int const nr_diff = ir_cut[TRU] - ir_cut[SMT];
-      double const r_cut = rg[TRU]->r[ir_cut[TRU]];
+      double const r_cut = rg[TRU].r[ir_cut[TRU]];
       
-      assert(rg[TRU]->r[nr_diff] == rg[SMT]->r[0]);
-      assert(r_cut == rg[SMT]->r[ir_cut[SMT]]);
+      assert(rg[TRU].r[nr_diff] == rg[SMT].r[0]);
+      assert(r_cut == rg[SMT].r[ir_cut[SMT]]);
 
       if (echo > 1) printf("\n# %s %s\n", label, __func__);
       status_t stat(0);
       if (n_Lagrange_points < 1) { // construct initial smooth spherical potential as parabola
-          set(V_smt, rg[SMT]->n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
+          set(V_smt, rg[SMT].n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
           if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
-          stat = pseudize_function(V_smt, rg[SMT], ir_cut[SMT], 2, rpow); // replace by a parabola
+          stat = pseudize_function(V_smt, rg[SMT].r, ir_cut[SMT], 2, rpow); // replace by a parabola
           if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
                           label, r_cut*Ang, _Ang, V_tru[ir_cut[TRU]]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
       } else {
           assert(rpow == rpow*rpow); // rpow either 0 or 1
           // construct a Lagrange polynomial of controllable order to fit r*V_true(r) around r_cut
           int const ir0 = ir_cut[TRU];
-          double const x0 = rg[TRU]->r[ir0];
+          double const x0 = rg[TRU].r[ir0];
           double xi[32], yi[32];
           yi[0] = V_tru[ir0]*(rpow ? 1 : x0); // r_cut*V(r_cut)
-          xi[0] = rg[TRU]->r[ir0] - x0;  // expand around r_cut
+          xi[0] = rg[TRU].r[ir0] - x0;  // expand around r_cut
           for (int order = 1; order < 16; ++order) {
               {
-                  int const ir = ir0 + order; assert(ir < rg[TRU]->n);
+                  int const ir = ir0 + order; assert(ir < rg[TRU].n);
                   int const i = 2*order - 1;
-                  yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU]->r[ir]);
-                  xi[i] = rg[TRU]->r[ir] - x0;
+                  yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU].r[ir]);
+                  xi[i] = rg[TRU].r[ir] - x0;
               }
               {
                   int const ir = ir0 - order; assert(ir >= 0);
                   int const i = 2*order;
-                  yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU]->r[ir]);
-                  xi[i] = rg[TRU]->r[ir] - x0;
+                  yi[i] = V_tru[ir]*(rpow ? 1 : rg[TRU].r[ir]);
+                  xi[i] = rg[TRU].r[ir] - x0;
               }
           } // order
 #ifdef DEVEL
@@ -246,10 +246,10 @@ namespace pseudo_tools {
               for (int order = 1; order < 16; ++order) {
                   unsigned const Lagrange_order = 2*order + 1;
                   printf("\n\n## r, r*V_true(r), Lagrange_fit(N=%d), dLagrange/dr, d^2Lagrange/dr^2, status:\n", Lagrange_order);
-                  for(int ir = 0; ir < rg[TRU]->n; ++ir) {
+                  for(int ir = 0; ir < rg[TRU].n; ++ir) {
                       double d0{0}, d1{0}, d2{0};
-                      auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, rg[TRU]->r[ir] - x0, &d0, &d1, &d2);
-                      printf("%g %g %g %g %g %i\n", rg[TRU]->r[ir], V_tru[ir], d0, d1, d2, int(stat));
+                      auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, rg[TRU].r[ir] - x0, &d0, &d1, &d2);
+                      printf("%g %g %g %g %g %i\n", rg[TRU].r[ir], V_tru[ir], d0, d1, d2, int(stat));
                   } // ir
                   printf("\n\n");
               } // order
@@ -297,10 +297,10 @@ namespace pseudo_tools {
           
           // now modify the smooth local potential
           for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
-              double const r = rg[SMT]->r[ir];
-              V_smt[ir] = (V_s*sin(r*k_s) + r*V_0)*(rpow ? 1 : rg[SMT]->rinv[ir]); // set values to the fitted sinc-function
+              double const r = rg[SMT].r[ir];
+              V_smt[ir] = (V_s*sin(r*k_s) + r*V_0)*(rpow ? 1 : rg[SMT].rinv[ir]); // set values to the fitted sinc-function
           } // ir
-          for(int ir = ir_cut[SMT]; ir < rg[SMT]->n; ++ir) {
+          for(int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
               V_smt[ir] = V_tru[ir + nr_diff]; // copy the tail
           } // ir
 
@@ -309,8 +309,8 @@ namespace pseudo_tools {
       if (echo > 11) {
           printf("\n\n## %s: r in %s, r*V_tru(r), r*V_smt(r) in %s*%s:\n", __func__, _Ang, _Ang, _eV);
           auto const factors = df*eV*Ang;
-          for(int ir = 0; ir < rg[SMT]->n; ++ir) {
-              double const r = rg[SMT]->r[ir], r_pow = rpow ? 1 : r;
+          for(int ir = 0; ir < rg[SMT].n; ++ir) {
+              double const r = rg[SMT].r[ir], r_pow = rpow ? 1 : r;
               printf("%g %g %g\n", r*Ang, r_pow*V_tru[ir + nr_diff]*factors, r_pow*V_smt[ir]*factors);
           } // ir
           printf("\n\n");

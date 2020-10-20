@@ -193,7 +193,7 @@ namespace scattering_test {
   } // generalized_node_count_SMT
 
   inline status_t logarithmic_derivative(
-                radial_grid_t const *const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
+                radial_grid_t const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
               , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
               , double const sigma // sigma spread of SHO projectors
               , int const lmax // ellmax up to which the analysis should go
@@ -215,8 +215,8 @@ namespace scattering_test {
 
       if (nen < 0) return stat; // empty range
 
-      int const nr_diff = rg[TRU]->n - rg[SMT]->n; assert(nr_diff >= 0);
-      int const mr = align<2>(rg[TRU]->n);
+      int const nr_diff = rg[TRU].n - rg[SMT].n; assert(nr_diff >= 0);
+      int const mr = align<2>(rg[TRU].n);
       std::vector<double> gg(mr), ff(mr); // greater and smaller component, TRU grid
       int ir_stop[TRU_AND_SMT];
 
@@ -224,15 +224,15 @@ namespace scattering_test {
       int const stride = mr;
 
       int constexpr node_count = 0; // 1 or 0 switch
-      view2D<double> rphi(node_count*9, align<2>(rg[SMT]->n));
-      std::vector<double> rtru(node_count*rg[TRU]->n);
+      view2D<double> rphi(node_count*9, align<2>(rg[SMT].n));
+      std::vector<double> rtru(node_count*rg[TRU].n);
 
       view2D<double> rprj(nln, stride); // mr might be much larger than needed since mr is taken from the TRU grid
       // preparation for the projector functions
-      stat += expand_sho_projectors(rprj.data(), rprj.stride(), *rg[SMT], sigma, numax, 1, 0);
+      stat += expand_sho_projectors(rprj.data(), rprj.stride(), rg[SMT], sigma, numax, 1, 0);
       
-      ir_stop[SMT] = std::min(radial_grid::find_grid_index(*rg[SMT], Rlog_over_sigma*sigma), rg[SMT]->n - 2);
-      double const Rlog = rg[SMT]->r[ir_stop[SMT]];
+      ir_stop[SMT] = std::min(radial_grid::find_grid_index(rg[SMT], Rlog_over_sigma*sigma), rg[SMT].n - 2);
+      double const Rlog = rg[SMT].r[ir_stop[SMT]];
       if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
@@ -248,8 +248,8 @@ namespace scattering_test {
               int const iln_off = sho_tools::ln_index(numax, ell, 0);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                   double const gnc = (TRU == ts) ?
-                     generalized_node_count_TRU(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo) :
-                     generalized_node_count_SMT(*rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
+                     generalized_node_count_TRU(rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo) :
+                     generalized_node_count_SMT(rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), nn,
                                                 &aHm[iln_off*nln + iln_off],
                                                 &aSm[iln_off*nln + iln_off], nln, echo);
