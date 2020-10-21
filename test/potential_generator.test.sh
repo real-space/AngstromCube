@@ -99,8 +99,8 @@ electrostatic.solver=fft
 #element_Li="2s 1 0 2p 2e-99 | 2.0 numax 2 sigma .612475 V=sinc"
 #element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
 
-#element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
-element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
@@ -108,6 +108,8 @@ element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #single_atom.partial.wave.energy=1.1 good for carbon with 2s*
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
 #element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
+#element_C="2s 2 2p 2 3d 4f 5g 6h 7i | 1.2 numax 15 sigma .197208 V=sinc"
+#element_C="2s 2 2p 2 | 1.2 numax 15 sigma .19416 V=parabola"
 #element_C="2s 2 2p 2 0 3d 4f 5g 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
@@ -116,12 +118,12 @@ element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 #single_atom.local.potential.method=sinc
-single_atom.nn.limit=2
+single_atom.nn.limit=8
 single_atom.partial.wave.method=energy_ordering
 single_atom.echo=8
 single_atom.init.echo=7
 single_atom.echo.mask=-1        #bit mask for the first 50 atoms, -1=all on
-single_atom.optimize.sigma=-10
+single_atom.optimize.sigma=1
 single_atom.init.scf.maxit=0
 
 #smooth.radial.grid.from=0
@@ -171,7 +173,7 @@ potential_generator.use.bessel.projection=0
 potential_generator.direct.projection=0
 
 single_atom.init.scf.maxit=1
-single_atom.export.xml=-1
+single_atom.export.xml=1
 
 EOF
 

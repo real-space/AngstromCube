@@ -60,9 +60,9 @@
 
 namespace single_atom {
 
-  int constexpr ELLMAX=7;
-  char const ellchar[] = "spdfghijklmno";
-  
+  int constexpr ELLMAX=15;
+  char const ellchar[] = "spdfghijklmnopq";
+
   int constexpr core=0, semicore=1, valence=2, csv_undefined=3; // ToDo: as enum to distinguish the different energy level classes
 //  char const csv_char[] = "csv?";  // 0:core, 1:semicore, 2:valence   (((unused)))
   char const csv_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
@@ -351,7 +351,7 @@ namespace single_atom {
       float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
       ell_QN_t numax; // limit of the SHO projector quantum numbers
       double sigma; // spread of the SHO projectors and its inverse
-      uint8_t nn[1+ELLMAX+2]; // number of projectors and partial waves used in each ell-channel
+      uint8_t nn[1 + ELLMAX]; // number of projectors and partial waves used in each ell-channel
       std::vector<partial_wave_t> partial_wave;
       std::vector<char> partial_wave_active;
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
@@ -359,7 +359,7 @@ namespace single_atom {
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_cmp][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][rg[SMT].n] r*projectors, depend only on sigma and numax
-      view2D<double> projector_coeff[1+ELLMAX+2]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
+      view2D<double> projector_coeff[1 + ELLMAX]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
       view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
       view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       // end of energy-parameter-set dependent members
@@ -384,7 +384,7 @@ namespace single_atom {
 
       double logder_energy_range[3]; // [start, increment, stop]
       char   partial_wave_char[32]; // [iln]
-      double partial_wave_energy_split[1+ELLMAX]; // [ell]
+      double partial_wave_energy_split[1 + ELLMAX]; // [ell]
       char   local_potential_method[16];
 
       view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
@@ -430,7 +430,7 @@ namespace single_atom {
 
 
         std::vector<double> custom_occ(32, 0.0); // customized occupation numbers for the radial states
-        set(nn, 1+ELLMAX+2, uint8_t(0)); // clear
+        set(nn, 1 + ELLMAX, uint8_t(0)); // clear
         bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
 
@@ -492,7 +492,7 @@ namespace single_atom {
 
         } // initialize from sigma_config
         
-        if (echo > 0) printf("# %s projectors are expanded up to numax= %d\n", label,  numax);
+        if (echo > 0) printf("# %s projectors are expanded up to numax= %d\n", label, numax);
         ellmax_rho = 2*numax; // could be smaller than 2*numax
         ellmax_pot = ellmax_rho;
         if (echo > 0) printf("# %s radial density and potentials are expanded up to lmax= %d and %d, respectively\n", label, ellmax_rho, ellmax_pot);
@@ -503,8 +503,9 @@ namespace single_atom {
 
         if (echo > 0) {
             printf("# %s numbers of projectors ", label);
-            printf_vector(" %d", nn, ELLMAX+1);
+            printf_vector(" %d", nn, 1 + numax);
         } // echo
+        assert( numax <= ELLMAX );
 
         // now Z_core may not change any more
         rg[TRU] = *radial_grid::create_default_radial_grid(Z_core);
@@ -543,7 +544,7 @@ namespace single_atom {
 #endif // DEVEL
 
         std::vector<int8_t> as_valence(96, -1);
-        enn_QN_t enn_core_ell[12] = {0,0,0,0, 0,0,0,0, 0,0,0,0}; // enn-QN of the highest occupied core level
+        enn_QN_t enn_core_ell[16] = {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0}; // enn-QN of the highest occupied core level
 
         
 
@@ -740,8 +741,8 @@ namespace single_atom {
 #ifndef DEVEL
         if (energy_derivative == excited_energy) warn("energy derivative for partial wave only with -D DEVEL");
 #endif // DEVEL
-        set(partial_wave_energy_split, 1+ELLMAX, excited_energy);
-        
+        set(partial_wave_energy_split, 1 + ELLMAX, excited_energy);
+
         double const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
         int const previous_energy_parameter = control::get("single_atom.previous.energy.parameter", 0.0); // bit array, -1:all, 0:none, 2:p, 6:p+d, 14:p+d+f, ...
         bool const use_energy_parameter = (energy_parameter > -9e9);
@@ -819,7 +820,7 @@ namespace single_atom {
                             // leave eigenstate, see above
                         } else { // occ > 0
                             if (nrn > 0) {
-                                char asterisk[8] = "*******"; asterisk[nrn] = '\0';
+                                char asterisk[9] = "********"; asterisk[nrn] = '\0';
                                 std::snprintf(vs.tag, 7, "%c%s", ellchar[ell], asterisk); // create a state label
                                 partial_wave_char[iln] = '*';
 #ifdef DEVEL
@@ -2287,7 +2288,7 @@ namespace single_atom {
 #ifdef DEVEL
         if (echo > 6) {
             printf("# %s Radial SHO density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
-            view2D<char> labels(220, 8, '\0');
+            view2D<char> labels(sho_tools::nSHO(numax), 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
             for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 printf("# %s %-8s ", label, labels[ilmn]);

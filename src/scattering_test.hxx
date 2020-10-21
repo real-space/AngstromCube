@@ -33,8 +33,8 @@ namespace scattering_test {
 
   int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
 
-  auto const ellchar = "spdfghijklmno"; // ToDo: by convention 'i' is not the proper char for ell=6
-  
+  char const ellchar[] = "spdfghijkl0123456789"; // ToDo: by convention 'i' is not the proper char for ell=6
+
   template <typename real_t> inline
   real_t arcus_tangent(real_t const nom, real_t const den) {
       return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
@@ -48,70 +48,7 @@ namespace scattering_test {
       return nnodes;
   } // count_nodes
 
-#if 0
-
-  template <typename real_t>
-  status_t expand_sho_projectors_old(
-        real_t prj[]  // output projectors [nln*stride]
-      , int const stride // stride >= rg.n
-      , radial_grid_t const & rg // radial grid descriptor
-      , double const sigma // SHO basis spread
-      , int const numax // SHO basis size
-      , int const rpow=0 // return r^rpow * p(r)
-      , int const echo=0 // log-level
-  ) {
-
-      status_t stat = 0;
-      double const sigma_inv = 1./sigma;
-      double const sigma_m23 = std::sqrt(pow3(sigma_inv));
-      int const maxpoly = align<2>(1 + numax/2);
-      int const nln = sho_tools::nSHO_radial(numax);
-      view2D<double> poly(nln, maxpoly);
-      std::vector<double> norm(nln, 0.0);
-//    std::vector<int> nrns(nln), ells(nln);
-      for(int ell = 0; ell <= numax; ++ell) {
-          int const nn_max = (numax + 2 - ell)/2;
-          for(int nrn = 0; nrn < nn_max; ++nrn) {
-              int const iln = sho_tools::ln_index(numax, ell, nrn);
-              stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell);
-              auto const norm_factor = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
-              scale(poly[iln], nrn + 1, norm_factor);
-          } // nrn
-      } // ell
-
-      assert(rg.n <= stride);
-      if (echo > 18) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
-      for(int ir = 0; ir < rg.n; ++ir) {
-          double const r = rg.r[ir], r2dr = rg.r2dr[ir];
-//        double const dr = 0.03125, r = dr*ir, r2dr = pow2(r)*dr; // equidistant grid
-          double const x = sigma_inv*r, x2 = pow2(x);
-          double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
-          if (echo > 18) printf("%g ", r);
-          auto const r_pow_rpow = intpow(r, rpow);
-          for(int ell = 0; ell <= numax; ++ell) {
-              auto const x_pow_ell = intpow(x, ell);
-              int const nn_max = (numax + 2 - ell)/2;
-              for(int nrn = 0; nrn < nn_max; ++nrn) {
-                  int const iln = sho_tools::ln_index(numax, ell, nrn);
-                  double const projector_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * x_pow_ell;
-                  if (echo > 18) printf(" %g", projector_value);
-                  norm[iln] += pow2(projector_value) * r2dr;
-                  prj[iln*stride + ir] = projector_value * r_pow_rpow;
-              } // nrn
-          } // ell
-          if (echo > 18) printf("\n");
-      } // ir
-      if (echo > 18) printf("\n\n");
-      if (echo > 9) {
-          printf("# projector normalizations are ");
-          printf_vector(" %g", norm.data(), nln);
-      } // echo
-
-      return stat;
-  } // expand_sho_projectors
-
-#endif
-  
+ 
   template <typename real_t>
   status_t expand_sho_projectors(
         real_t prj[]  // output projectors [nln*stride]
@@ -170,7 +107,6 @@ namespace scattering_test {
           double x_pow_ell{1}; // x^ell
           double ddx_x_pow_ell{0}; // ell*x^(ell - 1)
           for(int ell = 0; ell <= numax; ++ell) { // serial loop, must run forward 
-
               int const nn_max = (numax + 2 - ell)/2;
               for(int nrn = 0; nrn < nn_max; ++nrn) {
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
@@ -251,7 +187,7 @@ namespace scattering_test {
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(deriv, value));
   } // generalized_node_count_TRU
 
-  template <bool NodeCount=false, int const nLIM=8> inline
+  template <bool NodeCount=false, int const nLIM=9> inline
   double generalized_node_count_SMT(
         radial_grid_t const & rg // radial grid descriptor
       , double const rV[] // effective potential r*V(r)
