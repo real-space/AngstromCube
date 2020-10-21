@@ -75,7 +75,7 @@ echo "C  0 0 0" >> $geometry_file
 cat > control.sh << EOF
 
 # verbosity of the log files
-verbosity=7
+verbosity=77
 
 # show energies in units of electronVolt
 output.energy.unit=eV
@@ -118,10 +118,10 @@ element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=8
-single_atom.init.echo=7
+single_atom.echo=78
+single_atom.init.echo=77
 single_atom.echo.mask=-1        #bit mask for the first 50 atoms, -1=all on
-single_atom.optimize.sigma=-10
+single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
 
 #smooth.radial.grid.from=0
