@@ -35,12 +35,12 @@ namespace scattering_test {
 
   auto const ellchar = "spdfghijklmno"; // ToDo: by convention 'i' is not the proper char for ell=6
   
-  template<typename real_t>
-  inline real_t arcus_tangent(real_t const nom, real_t const den) {
+  template <typename real_t> inline
+  real_t arcus_tangent(real_t const nom, real_t const den) {
       return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
-  
-  template<typename real_t>
-  inline size_t count_nodes(size_t const n, real_t const f[]) {
+
+  template <typename real_t>
+  size_t count_nodes(size_t const n, real_t const f[]) {
       size_t nnodes = 0;
       for(auto i = 1u; i < n; ++i) {
           nnodes += (f[i - 1]*f[i] < 0);
@@ -48,8 +48,11 @@ namespace scattering_test {
       return nnodes;
   } // count_nodes
 
-  inline status_t expand_sho_projectors(
-        double prj[]  // output projectors [nln*stride]
+#if 0
+
+  template <typename real_t>
+  status_t expand_sho_projectors_old(
+        real_t prj[]  // output projectors [nln*stride]
       , int const stride // stride >= rg.n
       , radial_grid_t const & rg // radial grid descriptor
       , double const sigma // SHO basis spread
@@ -59,15 +62,16 @@ namespace scattering_test {
   ) {
 
       status_t stat = 0;
-      double const siginv = 1./sigma;
-      double const sigma_m23 = std::sqrt(pow3(siginv));
+      double const sigma_inv = 1./sigma;
+      double const sigma_m23 = std::sqrt(pow3(sigma_inv));
       int const maxpoly = align<2>(1 + numax/2);
       int const nln = sho_tools::nSHO_radial(numax);
       view2D<double> poly(nln, maxpoly);
       std::vector<double> norm(nln, 0.0);
-      std::vector<int> nrns(nln), ells(nln);
+//    std::vector<int> nrns(nln), ells(nln);
       for(int ell = 0; ell <= numax; ++ell) {
-          for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+          int const nn_max = (numax + 2 - ell)/2;
+          for(int nrn = 0; nrn < nn_max; ++nrn) {
               int const iln = sho_tools::ln_index(numax, ell, nrn);
               stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell);
               auto const norm_factor = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
@@ -80,13 +84,14 @@ namespace scattering_test {
       for(int ir = 0; ir < rg.n; ++ir) {
           double const r = rg.r[ir], r2dr = rg.r2dr[ir];
 //        double const dr = 0.03125, r = dr*ir, r2dr = pow2(r)*dr; // equidistant grid
-          double const x = siginv*r, x2 = pow2(x);
+          double const x = sigma_inv*r, x2 = pow2(x);
           double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
           if (echo > 18) printf("%g ", r);
           auto const r_pow_rpow = intpow(r, rpow);
           for(int ell = 0; ell <= numax; ++ell) {
               auto const x_pow_ell = intpow(x, ell);
-              for(int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+              int const nn_max = (numax + 2 - ell)/2;
+              for(int nrn = 0; nrn < nn_max; ++nrn) {
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
                   double const projector_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2) * Gaussian * x_pow_ell;
                   if (echo > 18) printf(" %g", projector_value);
@@ -99,36 +104,146 @@ namespace scattering_test {
       if (echo > 18) printf("\n\n");
       if (echo > 9) {
           printf("# projector normalizations are ");
-//           for(int iln = 0; iln < nln; ++iln) {
-//               printf(" %g", norm[iln]);
-//           } // iln
-//           printf("\n");
           printf_vector(" %g", norm.data(), nln);
       } // echo
+
+      return stat;
+  } // expand_sho_projectors
+
+#endif
+  
+  template <typename real_t>
+  status_t expand_sho_projectors(
+        real_t prj[]  // output projectors [nln*stride]
+      , int const stride // stride >= rg.n
+      , radial_grid_t const & rg // radial grid descriptor
+      , double const sigma // SHO basis spread
+      , int const numax // SHO basis size
+      , int const rpow=0 // return r^rpow * p(r)
+      , int const echo=0 // log-level
+      , real_t dprj[]=nullptr // derivative of projectors w.r.t. sigma
+  ) {
+
+      status_t stat(0);
+      assert(sigma > 0);
+      double const sigma_inv = 1./sigma;
+      double const sigma_m23 = std::sqrt(pow3(sigma_inv)); // == sigma^{-3/2}
+      double const dds_sigma_m23 = -1.5*sigma_inv; // d/dsigma sigma^{-3/2} = -3/2 sigma^{-5/2} =  -3/2 * 1./sigma * sigma^{-3/2} 
+      int const maxpoly = align<2>(1 + numax/2);
+      int const nln = sho_tools::nSHO_radial(numax);
+      view2D<double> poly(nln, maxpoly, 0.0);
+      view2D<double> ddx2_poly(nln, maxpoly, 0.0);
+      for(int ell = 0; ell <= numax; ++ell) {
+          int const nn_max = (numax + 2 - ell)/2;
+          for(int nrn = 0; nrn < nn_max; ++nrn) { // number of radial nodes
+              int const iln = sho_tools::ln_index(numax, ell, nrn);
+              stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell); //  a polynomial in x^2
+              double const norm_factor = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
+              scale(poly[iln], nrn + 1, norm_factor);
+              for(int p = 1; p <= nrn; ++p) {
+                  ddx2_poly(iln,p - 1) = p*poly(iln,p); // derive polynomial w.r.t. its argument x^2
+              } // p
+              // Beware for the derivative: the norm_factor depends on sigma
+          } // nrn
+      } // ell
+
+      assert(rg.n <= stride);
+#ifdef DEVEL
+      std::vector<double> norm(nln, 0.0);
+#endif // DEVEL
+      if (echo > 18) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
+      for(int ir = 0; ir < rg.n; ++ir) { // parallel over ir
+          double const r = rg.r[ir], r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
+//        double const dr = 0.03125, r = dr*ir, r2dr = r*r*dr; // use an equidistant grid
+          double const r_pow_rpow = intpow(r, rpow);
+
+          double const x = r*sigma_inv; // x == r/sigma
+          double const x2 = x*x; // x^2
+          double const Gaussian = (x2 < 160) ? std::exp(-0.5*x2) : 0;
+
+          // prepare for the derivative w.r.t. sigma
+          double const ddx_Gaussian = -x*Gaussian; // d/dx Gaussian(x)
+          double const ddx_x2 = 2*x; // d/dx x^2 = 2x
+          double const dds_x = -x*sigma_inv; // d/dsigma x = d/dsigma r/sigma = -r/sigma^2 = -x/sigma
+
+          if (echo > 18) printf("%g ", r);
+          double x_pow_ell{1}, ddx_x_pow_ell{0};
+          for(int ell = 0; ell <= numax; ++ell) { // serial loop, must run forward 
+//               double const x_pow_ell = intpow(x, ell); // direct evaluation
+//               double const ddx_x_pow_ell = (ell > 0) ? ell*intpow(x, ell - 1) : 0; // direct evaluation
+
+              int const nn_max = (numax + 2 - ell)/2;
+              for(int nrn = 0; nrn < nn_max; ++nrn) {
+                  int const iln = sho_tools::ln_index(numax, ell, nrn);
+                  double const poly_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2);
+                  double const projector_value = poly_value * Gaussian * x_pow_ell;
+#ifdef DEVEL
+                  if (echo > 18) printf(" %g", projector_value);
+                  norm[iln] += pow2(projector_value) * r2dr;
+#endif // DEVEL
+                  prj[iln*stride + ir] = projector_value * r_pow_rpow; // store
+
+                  if (nullptr != dprj) {
+                      double const ddx2_poly_value = sho_radial::expand_poly(ddx2_poly[iln], nrn, x2);
+                      double const ddx_poly_value = ddx_x2 * ddx2_poly_value;
+                      double const dds_projector_value =
+                                   dds_sigma_m23 * projector_value + // derivate of the prefactor is an additional factor here
+                                   dds_x * (ddx_poly_value * Gaussian * x_pow_ell +
+                                            poly_value * ddx_Gaussian * x_pow_ell +
+                                            poly_value * Gaussian * ddx_x_pow_ell);
+
+                      dprj[iln*stride + ir] = dds_projector_value * r_pow_rpow; // store derivative
+                  } // compute also the derivatives w.r.t. sigma
+              } // nrn
+
+              // update x^ell and its derivative for the next ell-iteration
+              ddx_x_pow_ell = (ell + 1)*x_pow_ell;
+              x_pow_ell *= x;
+          } // ell
+          if (echo > 18) printf("\n");
+      } // ir
+      if (echo > 18) printf("\n\n");
+#ifdef DEVEL
+      if (echo > 9) {
+          printf("# projector normalizations are ");
+          printf_vector(" %g", norm.data(), nln);
+      } // echo
+#endif // DEVEL
       return stat;
   } // expand_sho_projectors
   
+  
+  
 // #define _SELECTED_ENERGIES_LOGDER
   
-  inline double find_outwards_solution(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
-      , int const ell, double const energy // // angular moment quantum number and energy
-      , double gg[], double ff[] // work arrays, greater and smaller component
+  inline
+  double find_outwards_solution(
+        radial_grid_t const & rg // radial grid descriptor
+      , double const rV[] // effective potential r*V(r)
+      , int const ell // angular moment quantum number
+      , double const energy // energy parameter
+      , double gg[] // work arrays, greater component
+      , double ff[] // work arrays, smaller component
       , int const ir_stop=-1 // radius where to stop
-      , double const *inh=nullptr) // r*inhomogeneiety
-  {
+      , double const *inh=nullptr // r*inhomogeneiety
+  ) {
       int constexpr SRA = 1; // use the scalar relativistic approximation
       double deriv{0};
       radial_integrator::integrate_outwards<SRA>(rg, rV, ell, energy, gg, ff, ir_stop, &deriv, inh);
       return deriv;
   } // find_outwards_solution
 
-  template<bool NodeCount=false>
-  inline double generalized_node_count_TRU(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
-      , int const ell, double const energy // // angular moment quantum number and energy
-      , double gg[], double ff[] // work arrays, greater and smaller component
+  template <bool NodeCount=false> inline
+  double generalized_node_count_TRU(
+        radial_grid_t const & rg // radial grid descriptor
+      , double const rV[] // effective potential r*V(r)
+      , int const ell // angular moment quantum number
+      , double const energy // energy parameter
+      , double gg[] // work arrays, greater component
+      , double ff[] // work arrays, smaller component
       , int const ir_stop // radius where to stop
-      , int const echo=0) {
-
+      , int const echo=0 // log-level
+  ) {
       if (echo > 9) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
@@ -137,18 +252,22 @@ namespace scattering_test {
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(deriv, value));
   } // generalized_node_count_TRU
 
-  template <bool NodeCount=false, int const nLIM=8>
-  inline double generalized_node_count_SMT(radial_grid_t const & rg, double const rV[] // effective potential r*V(r)
-      , int const ell, double const energy // // angular moment quantum number and energy
-      , double gg[], double ff[] // work arrays, greater and smaller component
+  template <bool NodeCount=false, int const nLIM=8> inline
+  double generalized_node_count_SMT(
+        radial_grid_t const & rg // radial grid descriptor
+      , double const rV[] // effective potential r*V(r)
+      , int const ell // angular moment quantum number
+      , double const energy // energy parameter
+      , double gg[] // work arrays, greater component
+      , double ff[] // work arrays, smaller component
       , int const ir_stop // radius where to stop
       , view2D<double> const & rprj // pointer to inhomogeneieties
       , int const n=0 // number of projector >= 0
       , double const *aHm=nullptr // pointer to Hamiltonian, can be zero if n=0
       , double const *aSm=nullptr // pointer to overlap, can be zero if n=0
       , int const stride=0 // stride for Hamiltonian and overlap
-      , int const echo=0) {
-
+      , int const echo=0 // log-level
+  ) {
       double deriv[nLIM], value[nLIM], gfp[nLIM*nLIM]; assert(n < nLIM);
 
       view2D<double> waves(NodeCount ? (1 + n) : 0, align<2>(ir_stop + 1)); // get memory
@@ -202,18 +321,20 @@ namespace scattering_test {
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(der, val));
   } // generalized_node_count_SMT
 
-  inline status_t logarithmic_derivative(
-                radial_grid_t const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
-              , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
-              , double const sigma // sigma spread of SHO projectors
-              , int const lmax // ellmax up to which the analysis should go
-              , int const numax
-              , double const aHm[] // non-local Hamiltonian elements in ln_basis
-              , double const aSm[] // non-local overlap matrix elements
-              , double const energy_range[3] // {lower, step, upper}
-              , char const *label=""
-              , int const echo=2 // log-level
-              , float const Rlog_over_sigma=6) {
+  inline
+  status_t logarithmic_derivative(
+        radial_grid_t const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
+      , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
+      , double const sigma // sigma spread of SHO projectors
+      , int const lmax // ellmax up to which the analysis should go
+      , int const numax
+      , double const aHm[] // non-local Hamiltonian elements in ln_basis
+      , double const aSm[] // non-local overlap matrix elements
+      , double const energy_range[3] // {lower, step, upper}
+      , char const *label="" // log-prefix
+      , int const echo=0 // log-level
+      , float const Rlog_over_sigma=6.f
+  ) {
 
       status_t stat(0);
       
@@ -356,18 +477,20 @@ namespace scattering_test {
   
   
   
-  inline status_t eigenstate_analysis(radial_grid_t const& gV // grid descriptor for Vsmt
-              , double const Vsmt[] // smooth potential given on radial grid
-              , double const sigma // sigma spread of SHO projectors
-              , int const lmax // ellmax up to which the analysis should go
-              , int const numax
-              , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
-              , double const aSm[] // non-local overlap matrix elements, assume stride nln
-              , int const nr=384 // number of radial grid points in equidistance mesh
-              , double const Vshift=0 // potential shift
-              , char const *label=""
-              , int const echo=2
-    ) {
+  inline
+  status_t eigenstate_analysis(
+        radial_grid_t const & gV // radial grid descriptor for Vsmt
+      , double const Vsmt[] // smooth potential given on radial grid
+      , double const sigma // sigma spread of SHO projectors
+      , int const lmax // ellmax up to which the analysis should go
+      , int const numax // SHO basis size
+      , double const aHm[] // non-local Hamiltonian elements in ln_basis, assume stride nln
+      , double const aSm[] // non-local overlap matrix elements, assume stride nln
+      , int const nr=384 // number of radial grid points in equidistance mesh
+      , double const Vshift=0 // potential shift
+      , char const *label="" // log-prefix
+      , int const echo=0 // log-level
+  ) {
       status_t stat(0);
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
@@ -539,62 +662,67 @@ namespace scattering_test {
   } // eigenstate_analysis
   
   
-  template<typename real_t>
-  status_t emm_average(real_t Mln[], real_t const Mlmn[], int const numax
-          , int const avg2sum0=2, int const echo=1, int const stride=-1) {
+  template <typename real_t>
+  status_t emm_average(
+        real_t Mln[] // output emm-averaged or emm-summed array[nln*nln]
+      , real_t const Mlmn[] // input array[nlmn*nlmn]
+      , int const numax // SHO basis size
+      , int const avg2sum0=2 // 2:average over emm-values withing each ell-channel, 0:sum only
+      , int const echo=0 // log-level
+      , int const stride=-1 // optional stride for Mlmn, defaults to nlmn
+  ) {
       if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
       int const nln = sho_tools::nSHO_radial(numax);
       int const nlmn = sho_tools::nSHO(numax);
       int const M_stride = (stride < 0) ? nlmn : stride;
       auto ln_list = std::vector<int>(nlmn, 0);
       auto lf_list = std::vector<real_t>(nln, 0);
-      { // scope: fill the ln_list
+      // fill the ln_list
 
-          if (echo > 6) printf("# %s: ln_list ", __func__);
-          for(int ell = 0; ell <= numax; ++ell) {
-              int const nn = (numax + 2 - ell)/2;
-              for(int emm = -ell; emm <= ell; ++emm) {
-                  for(int nrn = 0; nrn < nn; ++nrn) {
-                      int const ilmn = sho_tools::lmn_index(numax, ell, emm, nrn);
-                      int const iln = sho_tools::ln_index(numax, ell, nrn);
-                      ln_list[ilmn] = iln;
-                      if (echo > 6) printf(" %i", ln_list[ilmn]);
-                  } // nrn
-              } // emm
-              for(int nrn = 0; nrn < nn; ++nrn) {
+      if (echo > 6) printf("# %s: ln_list ", __func__);
+      for(int ell = 0; ell <= numax; ++ell) {
+          int const nn_max = (numax + 2 - ell)/2; // == nn_max(numax, ell)
+          for(int emm = -ell; emm <= ell; ++emm) {
+              for(int nrn = 0; nrn < nn_max; ++nrn) {
+                  int const ilmn = sho_tools::lmn_index(numax, ell, emm, nrn);
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
-                  lf_list[iln] = real_t(1)/std::sqrt(avg2sum0*ell + real_t(1));
+                  ln_list[ilmn] = iln;
+                  if (echo > 6) printf(" %i", ln_list[ilmn]);
               } // nrn
-          } // ell
-          if (echo > 6) printf("\n");
-          if (echo > 5) {
-              printf("# %s: l2p1_list ", __func__);
-              for(int iln = 0; iln < nln; ++iln) {
-                  printf(" %.1f", (lf_list[iln] > 0) ? 1./pow2(lf_list[iln]) : 0);
-              } // iln
-              printf("\n");
-          } // echo
-      } // scope
-
-      { // scope: now average
-          set(Mln, nln*nln, real_t(0)); // clear
-          for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
-              int const iln = ln_list[ilmn];
-              for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
-                  int const jln = ln_list[jlmn];
-                  Mln[iln*nln + jln] += Mlmn[ilmn*M_stride + jlmn];
-              } // jlmn
-          } // ilmn
-          // apply (2*ell + 1) denominators
+          } // emm
+          for(int nrn = 0; nrn < nn_max; ++nrn) {
+              int const iln = sho_tools::ln_index(numax, ell, nrn);
+              lf_list[iln] = real_t(1)/std::sqrt(avg2sum0*ell + real_t(1));
+          } // nrn
+      } // ell
+      if (echo > 6) printf("\n");
+      if (echo > 5) {
+          printf("# %s: l2p1_list ", __func__);
           for(int iln = 0; iln < nln; ++iln) {
-              for(int jln = 0; jln < nln; ++jln) {
-                  Mln[iln*nln + jln] *= lf_list[iln]*lf_list[jln];
-              } // jln
+              printf(" %.1f", (lf_list[iln] > 0) ? 1./pow2(lf_list[iln]) : 0);
           } // iln
-      } // scope
+          printf("\n");
+      } // echo
+
+      set(Mln, nln*nln, real_t(0)); // clear
+      // accumulate
+      for(int ilmn = 0; ilmn < nlmn; ++ilmn) {
+          int const iln = ln_list[ilmn];
+          for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
+              int const jln = ln_list[jlmn];
+              Mln[iln*nln + jln] += Mlmn[ilmn*M_stride + jlmn];
+          } // jlmn
+      } // ilmn
+
+      // apply (2*ell + 1) denominators, can be omitted for (0 == avg2sum0)
+      for(int iln = 0; iln < nln; ++iln) {
+          for(int jln = 0; jln < nln; ++jln) {
+              Mln[iln*nln + jln] *= lf_list[iln]*lf_list[jln];
+          } // jln
+      } // iln
       return 0;
   } // emm_average
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -612,11 +740,93 @@ namespace scattering_test {
       // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
   } // test_eigenstate_analysis
 
+  inline status_t test_expand_sho_projectors_derivative(int const echo=0
+            , int const numax=9, double const sigma=1.0) {
+      status_t stat(0);
+      auto const rg = *radial_grid::create_default_radial_grid(0);
+      int const nr = align<2>(rg.n);
+      int const nln = sho_tools::nSHO_radial(numax);
+      view3D<double> prj(5, nln, nr, 0.0); // get memory for {sigma, sigma+delta, sigma-delta, ...
+      // the numerical derivative (sigma+delta - sigma-delta)/(2 delta), and the analytical d/dsigma}
+
+      stat += expand_sho_projectors(prj(0,0), prj.stride(), rg, sigma, numax, 0, echo, prj(4,0)); // derivative into prj[4]
+      double constexpr delta = 1e-9;
+      stat += expand_sho_projectors(prj(1,0), prj.stride(), rg, sigma*(1 - delta), numax, 0, echo);
+      stat += expand_sho_projectors(prj(2,0), prj.stride(), rg, sigma*(1 + delta), numax, 0, echo);
+
+#ifdef DEVEL
+      // check how much <sho_ell_irn|sho_ell_jrn> deviates from a unit matrix
+      for(int k = 0; k < 3; ++k) { // loop over 3 different sigma-values: sigma, sigma*(1-delta), sigma*(1+delta)
+          double max_dev{0};
+          for(int ell = 0; ell <= numax; ++ell) { // ell-block diagonal
+              int const nn_max = (numax + 2 - ell)/2;
+              for(int irn = 0; irn < nn_max; ++irn) {
+                  if (echo > 7) printf("# %s %c%d ", __func__, ellchar[ell], irn);
+                  int const iln = sho_tools::ln_index(numax, ell, irn);
+                  for(int jrn = 0; jrn < nn_max; ++jrn) {
+                      int const jln = sho_tools::ln_index(numax, ell, jrn);
+                      auto const aij = dot_product(rg.n, prj(k,iln), prj(k,jln), rg.r2dr);
+                      auto const dev = aij - (irn == jrn);
+                      max_dev = std::max(max_dev, std::abs(dev));
+                      if (echo > 7) printf(" %8.1e", dev);
+                  } // jrn
+                  if (echo > 7) printf("\n");
+              } // irn
+          } // ell
+          if (echo > 4) printf("# %s: largest deviation from unit matrix for numax= %d is %.1e\n", __func__, numax, max_dev);
+      } // k
+#endif // DEVEL
+
+      // construct a finite-difference derivative w.r.t. sigma in set#3
+      add_product(prj(3,0), nln*prj.stride(), prj(1,0), -.5/delta);
+      add_product(prj(3,0), nln*prj.stride(), prj(2,0),  .5/delta);
+      
+      { // scope: check the difference between the analytically derived projectors (#4) and a finite-difference derived set (#3)
+          double max_dev{0};
+          for(int ell = 0; ell <= numax; ++ell) {
+              int const nn_max = (numax + 2 - ell)/2;
+              for(int irn = 0; irn < nn_max; ++irn) {
+                  if (echo > 5) printf("# %s: %c%d ", __func__, ellchar[ell], irn);
+                  int const iln = sho_tools::ln_index(numax, ell, irn);
+                  for(int jrn = 0; jrn < nn_max; ++jrn) {
+                      int const jln = sho_tools::ln_index(numax, ell, jrn);
+                      auto const ana_ij = dot_product(rg.n, prj(0,iln), prj(4,jln), rg.r2dr);
+                      auto const num_ij = dot_product(rg.n, prj(0,iln), prj(3,jln), rg.r2dr);
+                      if (echo > 5) printf(" %11.6f", ana_ij);
+//                       if (echo > 5) printf(" %11.6f", num_ij);
+                      auto const dev = ana_ij - num_ij;
+                      max_dev = std::max(max_dev, std::abs(dev));
+                      if (echo > 5) printf(" %8.1e", dev);
+                  } // jrn
+                  if (echo > 5) printf("\n");
+              } // irn
+          } // ell
+          if (echo > 4) printf("# %s: largest deviation |analytical - numerical| is %.1e\n", __func__, max_dev);
+      } // scope
+
+#ifdef DEVEL
+      if (echo > 21) {
+          printf("\n## %s: plot numerical and analytical derivative\n", __func__);
+          for(int ir = 0; ir < rg.n; ++ir) {
+              printf("%g", rg.r[ir]);
+              for(int irn = 0; irn < nln; ++irn) {
+                  printf("  %g %g", prj(3,irn,ir), prj(4,irn,ir));
+              } // irn
+              printf("\n");
+          } // ir
+          printf("\n\n");
+      } // echo
+#endif // DEVEL
+
+      return stat;
+  } // test_expand_sho_projectors_derivative
+  
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-      status_t status(0);
-      status += test_eigenstate_analysis(echo);
-      return status;
+      status_t stat(0);
+      stat += test_eigenstate_analysis(echo);
+      stat += test_expand_sho_projectors_derivative(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  
