@@ -31,7 +31,11 @@ namespace bisection_tools {
         } // constructor
 
         
-        bool root(real_t & new_x, real_t const last_y, int const echo=0) {
+        bool root( // return decision if we need to continue
+              real_t & new_x // result: next x-value to try
+            , real_t const last_y // input: last y-value
+            , int const echo=0 // log-level
+        ) {
             if (_is_converged) return false;
             if (_iter > _maxiter) return false;
 
@@ -74,7 +78,8 @@ namespace bisection_tools {
             return true; // run again
         } // root
 
-        bool extremum(real_t & new_x, real_t const last_y, int const echo=0) {
+#ifdef DEVEL
+        bool extremum(real_t & new_x, real_t const last_y, int const echo=0) { // WARNING, not reliable
             if (_is_converged) return false;
             if (_iter > _maxiter) return false;
 
@@ -107,7 +112,7 @@ namespace bisection_tools {
             ++_iter;
             return true; // run again
         } // extremum
-        
+#endif // DEVEL
         
         int get_iterations_needed() const { return _is_converged ? _iter : -_iter; }
         int is_converged() const { return _is_converged; }

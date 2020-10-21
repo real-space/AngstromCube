@@ -167,10 +167,9 @@ namespace scattering_test {
           double const dds_x = -x*sigma_inv; // d/dsigma x = d/dsigma r/sigma = -r/sigma^2 = -x/sigma
 
           if (echo > 18) printf("%g ", r);
-          double x_pow_ell{1}, ddx_x_pow_ell{0};
+          double x_pow_ell{1}; // x^ell
+          double ddx_x_pow_ell{0}; // ell*x^(ell - 1)
           for(int ell = 0; ell <= numax; ++ell) { // serial loop, must run forward 
-//               double const x_pow_ell = intpow(x, ell); // direct evaluation
-//               double const ddx_x_pow_ell = (ell > 0) ? ell*intpow(x, ell - 1) : 0; // direct evaluation
 
               int const nn_max = (numax + 2 - ell)/2;
               for(int nrn = 0; nrn < nn_max; ++nrn) {
