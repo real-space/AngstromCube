@@ -134,6 +134,7 @@ namespace density_generator {
               auto const psi_nk = psi_k[iband];
 
               if (occupation[iband] > occ_threshold) {
+                  if (echo > 6) printf("# %s: k-point #%i bands #%i   occupation= %g\n", __func__, ikpoint, iband, occupation[iband]);
 
                   add_to_density(rho, g.all(), psi_nk, weight_nk, echo, iband, ikpoint);
 
@@ -149,6 +150,7 @@ namespace density_generator {
                                natom_coeff.data(), na, weight_nk, echo, iband, ikpoint);
 
                   if (d_occupation[iband] > occ_threshold) {
+                      if (echo > 6) printf("# %s: k-point #%i bands #%i d_occupation= %g\n", __func__, ikpoint, iband, d_occupation[iband]);
                       double const d_weight_nk = d_occupation[iband] * kpoint_weight;
 
                       add_to_density(d_rho.data(), g.all(), psi_nk, d_weight_nk, echo, iband, ikpoint);

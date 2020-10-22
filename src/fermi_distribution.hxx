@@ -44,18 +44,20 @@ namespace fermi_distribution {
       , double occupations[]=nullptr
       , double ddeF_occupations[]=nullptr
   ) {
-      double ne{0}, dnde{0};
+      double const ddeF_x = -kTinv;
+      double ne{0}, ddx_ne{0};
       assert(nullptr == weights); // not implemented!
       for(int i = 0; i < n; ++i) {
-          double dfde;
-          double const occ = FermiDirac((energies[i] - eF)*kTinv, &dfde);
+          double ddx_f;
+          double const x = (energies[i] - eF)*kTinv;
+          double const f = FermiDirac(x, &ddx_f);
           double const w8 = weights ? weights[i] : 1;
-          ne   += occ  *w8;
-          dnde -= dfde *w8;
-          if (occupations) occupations[i] = occ;
-          if (ddeF_occupations) ddeF_occupations[i] = dfde*kTinv;
+          ne     += f     *w8;
+          ddx_ne += ddx_f *w8;
+          if (occupations) occupations[i] = f;
+          if (ddeF_occupations) ddeF_occupations[i] = ddx_f * ddeF_x;
       } // i
-      if (derivative) *derivative = dnde*kTinv; // derivative w.r.t. eF
+      if (derivative) *derivative = ddx_ne * ddeF_x; // derivative w.r.t. eF
       return ne;
   } // count_electrons
 
@@ -266,7 +268,7 @@ namespace fermi_distribution {
       double get_Fermi_level() const { return _mu; }
 
     private:
-      
+
       // member variables
       double _ne; // number of electrons
       double _mu; // the chemical potential
