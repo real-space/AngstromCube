@@ -15,14 +15,15 @@ namespace density_generator {
 
   status_t test_init(int const echo=3) {
       real_space::grid_t const g(4, 5, 6);
-      std::vector<atom_image::sho_atom_t> a(0);
+      int const natoms = 0;
+      std::vector<atom_image::sho_atom_t> a(natoms);
       grid_operators::grid_operator_t<float,double> const op(g, a);
       std::vector<float> wave(g.all());
       std::vector<double> rho(g.all());
       std::iota(wave.begin(), wave.end(), 0);
-      fermi_distribution::FermiLevel_t eF(0);
+      fermi_distribution::FermiLevel_t eF(1);
       double spectrum[] = {0};
-      return density(rho.data(), nullptr, eF, wave.data(), spectrum, op, 1, 1, echo);
+      return density(rho.data(), nullptr, eF, wave.data(), spectrum, g, natoms, op, 1, 1, echo);
   } // test_init
 
   status_t all_tests(int const echo) {

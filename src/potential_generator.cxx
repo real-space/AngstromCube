@@ -455,6 +455,7 @@ namespace potential_generator {
 
       // prepare for solving the Kohn-Sham equation on the real-space grid
       auto const basis_method = control::get("basis", "grid");
+      bool const plane_waves = ((*basis_method | 32) == 'p');
       bool const psi_on_grid = ((*basis_method | 32) == 'g');
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
@@ -830,7 +831,7 @@ namespace potential_generator {
 
                       // add to density
                       stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
-                                     psi_k.data(), energies[ikpoint], op, nbands, nkpoints, echo);
+                                     psi_k.data(), energies[ikpoint], gc, na, op, nbands, nkpoints, echo);
 
                   } // ikpoint
 
@@ -840,9 +841,9 @@ namespace potential_generator {
                   stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
                   if (echo > 1) { printf("\n# Total valence density on dense"); print_stats(rho_valence.data(), g.all(), g.dV()); }
 
-              } else if ((*basis_method | 32) == 'p') { // plane wave
+              } else if (plane_waves) {
                   here;
-                
+
                   stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo);
 
                   here;

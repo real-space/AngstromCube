@@ -55,9 +55,9 @@ namespace fermi_distribution {
           ne     += f     *w8;
           ddx_ne += ddx_f *w8;
           if (occupations) occupations[i] = f;
-          if (ddeF_occupations) ddeF_occupations[i] = ddx_f * ddeF_x;
+          if (ddeF_occupations) ddeF_occupations[i] = std::abs(ddx_f * ddeF_x);
       } // i
-      if (derivative) *derivative = ddx_ne * ddeF_x; // derivative w.r.t. eF
+      if (derivative) *derivative = std::abs(ddx_ne * ddeF_x); // derivative w.r.t. eF
       return ne;
   } // count_electrons
 
@@ -69,12 +69,12 @@ namespace fermi_distribution {
       , int const nb // number of bands
       , double const kT
       , double const number_of_electrons
-      , int const spin_factor=2 // 2:spin_paired, 1:spin_resolved
+      , int const spinfactor=2 // 2:spin_paired, 1:spin_resolved
       , int const echo=9
       , double response_occ[]=nullptr
       , double *DoS_at_eF=nullptr
   ) {
-      double const n_electrons = number_of_electrons/spin_factor;
+      double const n_electrons = number_of_electrons/spinfactor;
       // ToDo: count the states with weights, check if there are enough states to host n_electrons
       std::vector<real_t> ene(nb); // energies
       set(ene.data(), nb, energies); // copy
@@ -101,7 +101,7 @@ namespace fermi_distribution {
               e[i01] += sgn*change*delta_e; change = 1; delta_e *= 1.125;
               ne[i01] = count_electrons(nb, energies, e[i01], kTinv);
               if (echo > 5) { printf("# %s correct %ser start energy to %g %s --> %g electrons\n", 
-                            __func__, i01?"upp":"low", e[i01]*eV, _eV, spin_factor*ne[i01]); fflush(stdout); }
+                            __func__, i01?"upp":"low", e[i01]*eV, _eV, spinfactor*ne[i01]); fflush(stdout); }
           } while(sgn*ne[i01] < sgn*n_electrons);
       } // i01
 
@@ -114,7 +114,7 @@ namespace fermi_distribution {
           auto const em = 0.5*(e[0] + e[1]);
           auto const nem = count_electrons(nb, energies, em, kTinv);
           if (echo > 7) {
-//            printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spin_factor*nem);
+//            printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spinfactor*nem);
               auto const ene = std::abs(e[1] - e[0]); // energy residual
               int const ndigits_energy = std::min(std::max(1, int(-std::log10(ene)) - 1), 15);
               int const ndigits_charge = std::min(std::max(1, int(-std::log10(res)) - 1), 15);
@@ -122,7 +122,7 @@ namespace fermi_distribution {
               char fmt[64]; std::snprintf(fmt, 63, "# %s with energy %%.%df %s --> %%.%df electrons\n",
                                                       __func__, ndigits_energy, _eV, ndigits_charge);
 //            printf("# %s fmt= %s\n", __func__, fmt);
-              printf(fmt, em*eV, spin_factor*nem);
+              printf(fmt, em*eV, spinfactor*nem);
               fflush(stdout);
           } // echo
           int const i01 = (nem > n_electrons);
@@ -133,11 +133,11 @@ namespace fermi_distribution {
       eF = 0.5*(e[0] + e[1]);
       double DoS; // density of states at the Fermi level
       auto const nem = count_electrons(nb, energies, eF, kTinv, nullptr, &DoS, occupations, response_occ);
-      if (echo > 6) printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spin_factor*nem); 
+      if (echo > 6) printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spinfactor*nem); 
       if (res > 1e-9) {
-          warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spin_factor, iter); 
+          warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spinfactor, iter); 
       } else {
-          if (echo > 3) printf("# %s at %.9f %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS*spin_factor);
+          if (echo > 3) printf("# %s at %.9f %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS*kT*spinfactor);
       }
       if (DoS_at_eF) *DoS_at_eF = DoS;
       return 0;
@@ -187,14 +187,14 @@ namespace fermi_distribution {
 
       FermiLevel_t( // constructor
             double const n_electrons
-          , int const spin_factor=2
+          , int const spinfactor=2
           , double const kT=default_temperature
           , int const echo=9 // log-level
       )
         : _ne(std::max(0.0, n_electrons))
         , _mu(Fermi_level_not_initialized)
         , _kT(kT)
-        , _spin_factor(std::min(std::max(1, spin_factor), 2))
+        , _spinfactor(std::min(std::max(1, spinfactor), 2))
       {
           if (echo > 0) printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
           set_temperature(kT, echo);
@@ -209,6 +209,10 @@ namespace fermi_distribution {
           return (kT >= 0);
       } // set_temperature
 
+      double get_temperature() const { return _kT; }
+
+      int get_spinfactor() const { return _spinfactor; }
+      
       inline double minimum_temperature() const { return 1e-9; }
 
       inline bool is_initialized() const { return (Fermi_level_not_initialized != _mu); }
@@ -256,10 +260,10 @@ namespace fermi_distribution {
             if (Fermi_level_not_initialized == _mu) {
                 if (echo > 0) printf("# FermiLevel has not been initialized\n", __func__, nbands);
                 double eF;
-                Fermi_level(eF, occupations, energies, nbands, _kT, _ne, _spin_factor, echo, response_occ, &DoS);
-                _mu = eF;
+                Fermi_level(eF, occupations, energies, nbands, _kT, _ne, _spinfactor, echo, response_occ, &DoS);
+//              _mu = eF;
             } else {
-                if (echo > 0) printf("# FermiLevel at %g %s %s\n", _mu*eV,_eV, __func__);
+                if (echo > 0) printf("# FermiLevel %s at %g %s\n", __func__, _mu*eV,_eV);
                 count_electrons(nbands, energies, _mu, _kTinv, nullptr, &DoS, occupations, response_occ);
             } // initialized?
             return DoS;
@@ -275,7 +279,7 @@ namespace fermi_distribution {
       double _kT; // temperature times Boltzmann factor
       double _kTinv;
       double _accu[4]; // Fermi level accumulator
-      int _spin_factor;
+      int _spinfactor; // 2:spin-paired, 1:spin-resolved
 
   }; // class FermiLevel_t
 
