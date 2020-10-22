@@ -95,10 +95,10 @@ namespace single_atom {
   } // minimize_curvature
 
 
-  inline int nn_max(int const numax, int const ell) {
-      // number of different radial SHO states with the same ell of a SHO basis of size numax
-      return (numax + 2 - ell)/2;
-  } // nn_max
+//   inline int nn_max(int const numax, int const ell) {
+//       // number of different radial SHO states with the same ell of a SHO basis of size numax
+//       return (numax + 2 - ell)/2;
+//   } // nn_max
 
   template<typename int_t>
   int display_delimiter( // returns mln (or mlmn if resolve=='m')
@@ -117,7 +117,7 @@ namespace single_atom {
 
       int mln{0}; // count the number of [emm-degenerate] radial SHO states
       for(int ell = 0; ell <= lmax; ++ell) {
-          mln += nn_max(numax, ell)*(m2*ell + 1);
+          mln += sho_tools::nn_max(numax, ell)*(m2*ell + 1);
       } // ell
       return mln;
   } // display_delimiter
@@ -281,8 +281,8 @@ namespace single_atom {
       gradient = 0;
       for(int ell = 0; ell <= numax; ++ell) {
           double denom_sho[8];
-          assert(nn_max(numax, ell) <= 8);
-          for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
+          assert(sho_tools::nn_max(numax, ell) <= 8);
+          for(int mrn = 0; mrn < sho_tools::nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
               int const jln = sho_tools::ln_index(numax, ell, mrn);
               denom_sho[mrn] = dot_product(rg.n, prj_sho(0,jln), prj_sho(0,jln), rg.r2dr); // should be close to 1.0
 //            printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma*Ang,_Ang, jln, denom_sho);
@@ -293,7 +293,7 @@ namespace single_atom {
               double const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of numerically given projectors
 
               double quality_ln{0}, gradient_ln{0};
-              for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
+              for(int mrn = 0; mrn < sho_tools::nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                   int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
 
 //                if (echo > 1) printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
@@ -475,7 +475,7 @@ namespace single_atom {
             
             // get nn[] from numax
             for(int ell = 0; ell <= ELLMAX; ++ell) {
-                int const nn_suggested = std::max(0, nn_max(numax, ell)); // suggest
+                int const nn_suggested = std::max(0, sho_tools::nn_max(numax, ell)); // suggest
                 nn[ell] = std::min(nn_suggested, nn_limiter); // take a smaller number of partial waves
             } // ell
 
@@ -859,7 +859,7 @@ namespace single_atom {
 
         projectors = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory, radial representation
         for(int ell = 0; ell <= numax; ++ell) {
-            projector_coeff[ell] = view2D<double>(nn[ell], nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
+            projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
             for(int nrn = 0; nrn < nn[ell]; ++nrn) {
                 projector_coeff[ell](nrn,nrn) = 1; // Kronecker
             } // nrn
@@ -1375,7 +1375,7 @@ namespace single_atom {
                                       weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
 
         for(int ell = 0; ell <= numax; ++ell) {
-            int const nmx = nn_max(numax, ell); assert(nmx <= 8 && "numax > hard limit 15");
+            int const nmx = sho_tools::nn_max(numax, ell); assert(nmx <= 8 && "numax > hard limit 15");
 
             for(int irn = 0; irn < nn[ell]; ++irn) {
                 int const iln = sho_tools::ln_index(numax, ell, irn);
@@ -1528,8 +1528,8 @@ namespace single_atom {
 #ifdef DEVEL
         if (echo > 6) { // show normalization and orthogonality of the radial SHO basis
             for(int ell = 0; ell <= numax; ++ell) {
-                for(int irn = 0; irn < nn_max(numax, ell); ++irn) {       int const iln = sho_tools::ln_index(numax, ell, irn);
-                    for(int jrn = 0; jrn < nn_max(numax, ell); ++jrn) {   int const jln = sho_tools::ln_index(numax, ell, jrn);
+                for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {       int const iln = sho_tools::ln_index(numax, ell, irn);
+                    for(int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {   int const jln = sho_tools::ln_index(numax, ell, jrn);
                         printf("# %s radial SHO basis <%c%d|%c%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell],irn, ellchar[ell],jrn,
                             (irn == jrn), dot_product(rg[SMT].n, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT].dr) - (irn == jrn), sigma*Ang,_Ang);
                     } // jrn
@@ -1567,7 +1567,7 @@ namespace single_atom {
                 int const iln = ln_off + nrn;
                 // construct the projectors from the linear combinations of the radial SHO basis
                 set(projectors_ell[nrn], projectors_ell.stride(), 0.0);
-                for(int mrn = 0; mrn < nn_max(numax, ell); ++mrn) { // radial SHO basis size
+                for(int mrn = 0; mrn < sho_tools::nn_max(numax, ell); ++mrn) { // radial SHO basis size
                     auto const c = projector_coeff[ell](nrn,mrn);
                     if (0.0 != c) {
                         add_product(projectors_ell[nrn], rg[SMT].n, radial_sho_basis[ln_off + mrn], c);
@@ -1934,7 +1934,7 @@ namespace single_atom {
                     { // scope: orthogonalize the projectors
                         int const mr = projectors_ell.stride();
                         view2D<double> proj(n, mr, 0.0); // temporary storage for projectors on radial grid
-                        int const nmx = nn_max(numax, ell);
+                        int const nmx = sho_tools::nn_max(numax, ell);
                         view2D<double> proj_coeff(n, nmx, 0.0);
                         for(int irn = 0; irn < n; ++irn) {
                             set(proj[irn], mr, projectors_ell[irn]); // copy into temporary
@@ -2176,7 +2176,7 @@ namespace single_atom {
         int const nln = sho_tools::nSHO_radial(numax);
         std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
         for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
+            for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
                 ell_list[iln] = ell;
@@ -2210,7 +2210,7 @@ namespace single_atom {
         int const nln = sho_tools::nSHO_radial(numax);
         std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
         for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < nn_max(numax, ell); ++nrn) {
+            for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
                 ell_list[iln] = ell;

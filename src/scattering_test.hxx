@@ -3,30 +3,24 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 #include <cstdint> // uint8_t
-#include <cmath> // std::copysign
+#include <vector> // std::vector<T>
+#include <cmath> // std::copysign, ::atan2, ::sqrt, ::ceil, ::abs, ::exp, ::round
+#include <algorithm> // std::min, std::max
 
-#include "radial_grid.hxx" // ::create_equidistant_radial_grid, ::find_grid_index
+#include "radial_grid.h" // radial_grid_t
+#include "radial_grid.hxx" // ::create_equidistant_radial_grid, ::find_grid_index, ::create_default_radial_grid
 #include "bessel_transform.hxx" // ::transform_s_function
 #include "finite_difference.hxx" // ::set_Laplacian_coefficients
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_tools.hxx" // align<nBits>
-#include "inline_math.hxx" // set
+#include "inline_math.hxx" // set, add_product, dot_product
 #include "sho_tools.hxx" // ::nSHO, ::nSHO_radial
 #include "radial_integrator.hxx" // ::integrate_outwards<SRA>
 #include "constants.hxx" // ::pi
 #include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
 #include "data_view.hxx" // view2D
 #include "print_tools.hxx" // printf_vector
-#ifdef DEVEL
-    #include "control.hxx" // ::get // ToDo: remove this again
-#endif
-
-#define DEBUG
-#ifdef  DEBUG
-  #include "debug_output.hxx" // here
-#endif
-
 #include "status.hxx" // status_t
 
 namespace scattering_test {
@@ -40,9 +34,9 @@ namespace scattering_test {
       return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
 
   template <typename real_t>
-  size_t count_nodes(size_t const n, real_t const f[]) {
-      size_t nnodes = 0;
-      for(auto i = 1u; i < n; ++i) {
+  size_t count_nodes(real_t const f[], int const n) {
+      size_t nnodes{0};
+      for(int i = 1; i < n; ++i) {
           nnodes += (f[i - 1]*f[i] < 0);
       };
       return nnodes;
@@ -71,8 +65,7 @@ namespace scattering_test {
       view2D<double> poly(nln, maxpoly, 0.0);
       view2D<double> ddx2_poly(nln, maxpoly, 0.0);
       for(int ell = 0; ell <= numax; ++ell) {
-          int const nn_max = (numax + 2 - ell)/2;
-          for(int nrn = 0; nrn < nn_max; ++nrn) { // number of radial nodes
+          for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // number of radial nodes
               int const iln = sho_tools::ln_index(numax, ell, nrn);
               stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell); //  a polynomial in x^2
               double const norm_factor = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
@@ -107,8 +100,7 @@ namespace scattering_test {
           double x_pow_ell{1}; // x^ell
           double ddx_x_pow_ell{0}; // ell*x^(ell - 1)
           for(int ell = 0; ell <= numax; ++ell) { // serial loop, must run forward 
-              int const nn_max = (numax + 2 - ell)/2;
-              for(int nrn = 0; nrn < nn_max; ++nrn) {
+              for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
                   double const poly_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2);
                   double const projector_value = poly_value * Gaussian * x_pow_ell;
@@ -182,7 +174,7 @@ namespace scattering_test {
       if (echo > 9) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
-      int nnodes{0}; if (NodeCount) nnodes = count_nodes(ir_stop + 1, gg);
+      int nnodes{0}; if (NodeCount) nnodes = count_nodes(gg, ir_stop + 1);
       double constexpr one_over_pi = 1./constants::pi;
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(deriv, value));
   } // generalized_node_count_TRU
@@ -244,13 +236,13 @@ namespace scattering_test {
       } // n > 0
       double const val = dot_product(n0, x, value); // value of the greater component at Rlog
       double const der = dot_product(n0, x, deriv); // derivative
-      int nnodes{0}; 
+      int nnodes{0};
       if (NodeCount) {
           set(gg, rg.n, 0.0); // clear
           for(int jrn = 0; jrn <= n; ++jrn) {
               add_product(gg, ir_stop + 1, waves[jrn], x[jrn]);
           } // jrn
-          nnodes = count_nodes(ir_stop + 1, gg); 
+          nnodes = count_nodes(gg, ir_stop + 1); 
       } // NodeCount
       double constexpr one_over_pi = 1./constants::pi;
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(der, val));
@@ -616,16 +608,15 @@ namespace scattering_test {
 
       if (echo > 6) printf("# %s: ln_list ", __func__);
       for(int ell = 0; ell <= numax; ++ell) {
-          int const nn_max = (numax + 2 - ell)/2; // == nn_max(numax, ell)
           for(int emm = -ell; emm <= ell; ++emm) {
-              for(int nrn = 0; nrn < nn_max; ++nrn) {
+              for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                   int const ilmn = sho_tools::lmn_index(numax, ell, emm, nrn);
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
                   ln_list[ilmn] = iln;
                   if (echo > 6) printf(" %i", ln_list[ilmn]);
               } // nrn
           } // emm
-          for(int nrn = 0; nrn < nn_max; ++nrn) {
+          for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
               int const iln = sho_tools::ln_index(numax, ell, nrn);
               lf_list[iln] = real_t(1)/std::sqrt(avg2sum0*ell + real_t(1));
           } // nrn
@@ -694,11 +685,10 @@ namespace scattering_test {
       for(int k = 0; k < 3; ++k) { // loop over 3 different sigma-values: sigma, sigma*(1-delta), sigma*(1+delta)
           double max_dev{0};
           for(int ell = 0; ell <= numax; ++ell) { // ell-block diagonal
-              int const nn_max = (numax + 2 - ell)/2;
-              for(int irn = 0; irn < nn_max; ++irn) {
+              for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
                   if (echo > 7) printf("# %s %c%d ", __func__, ellchar[ell], irn);
                   int const iln = sho_tools::ln_index(numax, ell, irn);
-                  for(int jrn = 0; jrn < nn_max; ++jrn) {
+                  for(int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
                       int const jln = sho_tools::ln_index(numax, ell, jrn);
                       auto const aij = dot_product(rg.n, prj(k,iln), prj(k,jln), rg.r2dr);
                       auto const dev = aij - (irn == jrn);
@@ -719,11 +709,10 @@ namespace scattering_test {
       { // scope: check the difference between the analytically derived projectors (#4) and a finite-difference derived set (#3)
           double max_dev{0};
           for(int ell = 0; ell <= numax; ++ell) {
-              int const nn_max = (numax + 2 - ell)/2;
-              for(int irn = 0; irn < nn_max; ++irn) {
+              for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
                   if (echo > 5) printf("# %s: %c%d ", __func__, ellchar[ell], irn);
                   int const iln = sho_tools::ln_index(numax, ell, irn);
-                  for(int jrn = 0; jrn < nn_max; ++jrn) {
+                  for(int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
                       int const jln = sho_tools::ln_index(numax, ell, jrn);
                       auto const ana_ij = dot_product(rg.n, prj(0,iln), prj(4,jln), rg.r2dr);
                       auto const num_ij = dot_product(rg.n, prj(0,iln), prj(3,jln), rg.r2dr);

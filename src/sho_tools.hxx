@@ -63,6 +63,11 @@ namespace sho_tools {
   int ln_index(int const ell, int const nrn) {
       return ln_index(numax, ell, nrn); }
 
+//   inline constexpr
+//   int nrn_max(int const numax, int const ell) { return (numax - ell)/2; } // largest number of radial nodes
+  inline constexpr
+  int nn_max(int const numax, int const ell) { return (numax + 2 - ell)/2; } // size of the ell-subspace, emm_Degenerate
+
   inline constexpr
   int nl_index(int const numax, int const nrn, int const ell) {
       return ell + (numax + 2 - nrn)*nrn; } // nl_index
