@@ -97,15 +97,26 @@ namespace fermi_distribution {
       double res{1};
       int const maxiter = 99;
       int iter{0}; // init with max. number of iterations, hard limit
-      while(res > 1e-9 && iter < maxiter) {
+      while(res > 1e-15 && iter < maxiter) {
           ++iter;
           auto const em = 0.5*(e[0] + e[1]);
           auto const nem = count_electrons(nb, energies, em, kTinv);
-          if (echo > 7) { printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spin_factor*nem); fflush(stdout); }
+          if (echo > 7) {
+//            printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spin_factor*nem);
+              auto const ene = std::abs(e[1] - e[0]); // energy residual
+              int const ndigits_energy = std::min(std::max(1, int(-std::log10(ene)) - 1), 15);
+              int const ndigits_charge = std::min(std::max(1, int(-std::log10(res)) - 1), 15);
+//            printf("# %s ndigits= %d and %d\n", __func__, ndigits_energy, ndigits_charge);
+              char fmt[64]; std::snprintf(fmt, 63, "# %s with energy %%.%df %s --> %%.%df electrons\n",
+                                                      __func__, ndigits_energy, _eV, ndigits_charge);
+//            printf("# %s fmt= %s\n", __func__, fmt);
+              printf(fmt, em*eV, spin_factor*nem);
+              fflush(stdout);
+          } // echo
           int const i01 = (nem > n_electrons);
           e[i01] = em;
           ne[i01] = nem;
-          res = std::abs(nem - n_electrons);
+          res = std::abs(nem - n_electrons); // charge residual
       }
       eF = 0.5*(e[0] + e[1]);
       double DoS_at_eF;
