@@ -50,6 +50,7 @@
 #include "density_generator.hxx" // ::density
 #include "sho_hamiltonian.hxx" // ::solve
 #include "pw_hamiltonian.hxx" // ::solve
+#include "fermi_distribution.hxx" // ::FermiLevel_t
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 #include "print_tools.hxx" // print_stats, printf_vector
@@ -448,6 +449,10 @@ namespace potential_generator {
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n', 'm', 'M'}
 
+      // create a FermiLevel object
+      fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2,
+              control::get("electronic.temperature", 1e-3), echo);
+
       // prepare for solving the Kohn-Sham equation on the real-space grid
       auto const basis_method = control::get("basis", "grid");
       bool const psi_on_grid = ((*basis_method | 32) == 'g');
@@ -486,8 +491,9 @@ namespace potential_generator {
 //            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
               using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
-              // Mind that local potential and atom matrices are still unset!
+              // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
+              
 
               int const nkpoints = 1; // ToDo
               double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
@@ -823,7 +829,7 @@ namespace potential_generator {
                       } // eigensolver_method
 
                       // add to density
-                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), 
+                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
                                      psi_k.data(), energies[ikpoint], op, nbands, nkpoints, echo);
 
                   } // ikpoint

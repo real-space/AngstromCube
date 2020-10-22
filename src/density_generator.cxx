@@ -7,6 +7,7 @@
 
 #include "real_space.hxx" // ::grid_t
 #include "grid_operators.hxx" // ::grid_operator_t
+#include "fermi_distribution.hxx" // ::FermiLevel_t
 
 namespace density_generator {
  
@@ -19,8 +20,9 @@ namespace density_generator {
       std::vector<float> wave(g.all());
       std::vector<double> rho(g.all());
       std::iota(wave.begin(), wave.end(), 0);
+      fermi_distribution::FermiLevel_t eF(0);
       double spectrum[] = {0};
-      return density(rho.data(), nullptr, wave.data(), spectrum, op, 1, 1, echo);
+      return density(rho.data(), nullptr, eF, wave.data(), spectrum, op, 1, 1, echo);
   } // test_init
 
   status_t all_tests(int const echo) {
