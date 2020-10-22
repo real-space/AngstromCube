@@ -12,24 +12,60 @@
 #include "control.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
 #include "fermi_distribution.hxx" // Fermi_level
+#include "print_tools.hxx" // print_stats
 
 namespace density_generator {
 
-  // ToDo: move somewhere, where potential_generator and this module can access it  
-  inline double print_stats(double const values[], size_t const all, double const dV=1, char const prefix=' ') {
-      double gmin{9e307}, gmax{-gmin}, gsum{0}, gsum2{0};
-      for(size_t i = 0; i < all; ++i) {
-          gmin = std::min(gmin, values[i]);
-          gmax = std::max(gmax, values[i]);
-          gsum  += values[i];
-          gsum2 += pow2(values[i]);
-      } // i
-      printf("%c grid stats min %g max %g integral %g avg %g\n", prefix, gmin, gmax, gsum*dV, gsum/all);
-      return gsum*dV;
-  } // print_stats
+  template <typename complex_t>
+  void add_to_density(
+        double rho[] // is modified
+      , size_t const nzyx // number of grid points , real_space::grid_t const & g // grid descriptor
+      , complex_t const wave[] // wave function on real-space grid g
+      , double const weight=1 // weight (should be considerable, i.e. > 1e-16)
+      , int const echo=0 // log-level
+  ) {
+      // add the absolute squared of a wave function to the density
+      for(size_t izyx = 0; izyx < nzyx; ++izyx) { // parallel
+          rho[izyx] += weight * std::norm(wave[izyx]);
+      } // izyx
+  } // add_to_density
+
+  
+  template <typename complex_t>
+  void add_to_density_matrices(
+        double *const atom_rho[] // atomic density matrices will be modified
+      , complex_t const *const atom_coeff[] // projection coefficents of the wave function
+      , uint16_t const natom_coeff[] // number of coefficients per atom 
+      , int const natoms // number of atoms
+      , double const weight=1 // weight (should be considerable, i.e. > 1e-16)
+      , int const echo=0 // log-level
+      , int const iband=-1
+      , int const ikpoint=-1
+  ) {
+      // construct the atomic density matrix atom_rho
+      for(int ia = 0; ia < natoms; ++ia) {
+          int const ncoeff = natom_coeff[ia];
+          // add to the atomic density matrix
+          for(int i = 0; i < ncoeff; ++i) {
+              auto const c_i = conjugate(atom_coeff[ia][i]);
+#ifdef DEVEL
+              if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g\n",
+                                  ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i));
+#endif // DEVEL
+              for(int j = 0; j < ncoeff; ++j) {
+                  auto const c_j = atom_coeff[ia][j];
+                  atom_rho[ia][i*ncoeff + j] += weight * std::real(c_i * c_j);
+              } // j
+          } // i
+      } // ia
+  } // add_to_density
+
+
+
 
   template <class grid_operator_t>
-  status_t density(double rho[]        // result density on Cartesian grid
+  status_t density(
+        double rho[]                   // result density on grid
       , double *const *const atom_rho  // result atomic density matrices
       , typename grid_operator_t::complex_t const eigenfunctions[]
       , double const eigenenergies[]
@@ -48,21 +84,21 @@ namespace density_generator {
       auto const g = op.get_grid();
       
       if (echo > 3) printf("# %s assume %d bands and %d k-points\n", __func__, nbands, nkpoints);
-      if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d Cartesian grid\n",
+      if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d grid\n",
                               __func__, g('x'), g('y'), g('z'));
 
       int const na = op.get_natoms();
       std::vector<std::vector<real_t>> scale_factors(na);
-      std::vector<int> ncoeff(na, 0);
+      std::vector<uint16_t> natom_coeff(na);
       for(int ia = 0; ia < na; ++ia) {
           int const numax = op.get_numax(ia);
-          ncoeff[ia] = sho_tools::nSHO(numax);
+          natom_coeff[ia] = sho_tools::nSHO(numax);
           auto const sigma = op.get_sigma(ia);
-          if (echo > 6) printf("# %s atom #%i has numax=%d and %d coefficients, sigma= %g %s\n", __func__, ia, numax, ncoeff[ia], sigma*Ang,_Ang);
+          if (echo > 6) printf("# %s atom #%i has numax=%d and %d coefficients, sigma= %g %s\n", __func__, ia, numax, natom_coeff[ia], sigma*Ang,_Ang);
           assert(sigma > 0);
           scale_factors[ia] = sho_projection::get_sho_prefactors<real_t>(numax, sigma);
       } // ia
-      data_list<complex_t> atom_coeff(ncoeff);
+      data_list<complex_t> atom_coeff(natom_coeff);
 
       view3D<complex_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
       view2D<double const>    const ene(eigenenergies,  nbands); // wrap
@@ -80,7 +116,7 @@ namespace density_generator {
           std::vector<double> occupation(nbands, 0.0);
           double Fermi_energy{-9e99};
           stat += fermi_distribution::Fermi_level(Fermi_energy, occupation.data(),
-                             ene[ikpoint], nbands, kT, n_electrons, 2, echo + 10);
+                             ene[ikpoint], nbands, kT, n_electrons, 2, echo);
 
           for(int iband = 0; iband < nbands; ++iband) {
               double const band_occupation = occupation[iband]; // depends on iband and ikpoint
@@ -88,31 +124,41 @@ namespace density_generator {
               auto const psi_nk = psi_k[iband];
 
               if (weight_nk > 0) {
-// #pragma omp for
-                  for(size_t izyx = 0; izyx < g.all(); ++izyx) { // parallel
-                      rho[izyx] += weight_nk * std::norm(psi_nk[izyx]);
-                  } // izyx
+                
+                  add_to_density(rho, g.all(), psi_nk, weight_nk);
 
-                  // construct the atomic density matrix atom_rho
-                  op.get_atom_coeffs(atom_coeff.data(), psi_nk, echo/2); // project again
+                  // project eigenstates onto the atomic projector functions
+                  op.get_atom_coeffs(atom_coeff.data(), psi_nk, echo/2); // project
+                  
+                  // scale the coefficients (real-space grid only)
                   for(int ia = 0; ia < na; ++ia) {
                       int const numax = op.get_numax(ia);
                       int const ncoeff = sho_tools::nSHO(numax);
                       auto const sf = scale_factors[ia].data();
-                      // add to the atomic density matrix
                       for(int i = 0; i < ncoeff; ++i) {
-                          auto const c_i = conjugate(atom_coeff[ia][i] * sf[i]);
-#ifdef DEVEL
-                          if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g\tfactor= %g\n",
-                                              ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), sf[i]);
-#endif // DEVEL
-                          for(int j = 0; j < ncoeff; ++j) {
-                              auto const c_j = atom_coeff[ia][j] * sf[j];
-                              atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(c_i * c_j);
-                          } // j
+                          atom_coeff[ia][i] *= sf[i]; // scale
                       } // i
                   } // ia
-                  
+
+//                   // construct the atomic density matrix atom_rho
+//                   for(int ia = 0; ia < na; ++ia) {
+//                       int const numax = op.get_numax(ia);
+//                       int const ncoeff = sho_tools::nSHO(numax);
+//                       // add to the atomic density matrix
+//                       for(int i = 0; i < ncoeff; ++i) {
+//                           auto const c_i = conjugate(atom_coeff[ia][i]);
+// #ifdef DEVEL
+//                           if (echo > 6) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g\n",
+//                                               ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i));
+// #endif // DEVEL
+//                           for(int j = 0; j < ncoeff; ++j) {
+//                               auto const c_j = atom_coeff[ia][j];
+//                               atom_rho[ia][i*ncoeff + j] += weight_nk * std::real(c_i * c_j);
+//                           } // j
+//                       } // i
+//                   } // ia
+                  add_to_density_matrices(atom_rho, atom_coeff.data(), natom_coeff.data(), na, weight_nk, echo, iband, ikpoint);
+
               } // weight is positive
           } // iband
       } // ikpoint

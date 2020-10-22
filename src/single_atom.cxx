@@ -95,12 +95,7 @@ namespace single_atom {
   } // minimize_curvature
 
 
-//   inline int nn_max(int const numax, int const ell) {
-//       // number of different radial SHO states with the same ell of a SHO basis of size numax
-//       return (numax + 2 - ell)/2;
-//   } // nn_max
-
-  template<typename int_t>
+  template <typename int_t>
   int display_delimiter( // returns mln (or mlmn if resolve=='m')
         int const numax // size of the SHO basis
       , int_t const nn[] // numbers of partial waves per ell-channel
@@ -108,7 +103,7 @@ namespace single_atom {
   ) {
       // we want to display only the non-zero SHO contributions and skip higher ell entries
 
-      int const m2 = ('m' == resolve) ? 2 : 0;
+      int const m2 = 2*('m' == resolve);
 
       int lmax{-1}; // find the largest ell for which there are partial waves
       for(int ell = 0; ell <= numax; ++ell) {

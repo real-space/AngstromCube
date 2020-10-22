@@ -444,10 +444,10 @@ namespace pw_hamiltonian {
           double const n_electrons = control::get("valence.electrons", 0.);
           double const kT = control::get("electronic.temperature", 9.765625e-4);
           // determine the occupation numbers
-          std::vector<double> occupation(nbands, 0.0);
+          view2D<double> occupation(2, nbands, 0.0);
           double Fermi_energy{-9e99};
-          auto const stat = fermi_distribution::Fermi_level(Fermi_energy, occupation.data(),
-                                  eigenenergies.data(), nbands, kT, n_electrons, 2, echo + 10);
+          auto const stat = fermi_distribution::Fermi_level(Fermi_energy, occupation[0],
+              eigenenergies.data(), nbands, kT, n_electrons, 2, echo + 9, occupation[1]);
           solver_stat += stat;
 
           auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
@@ -465,15 +465,15 @@ namespace pw_hamiltonian {
 
           double const kpoint_weight = 1; // depends on ikpoint, ToDo
           for(int iband = 0; iband < nbands; ++iband) {
-              double const band_occupation = 2*occupation[iband];
+              double const band_occupation = 2*occupation(0,iband); // factor 2 for spin-paired
               double const weight_nk = band_occupation * kpoint_weight;
               if (weight_nk > 1e-16) {
-                  if (echo > 6) { printf("# band #%i, energy= %g %s, occupation= %g, weight= %g\n",
-                                  iband, eigenenergies[iband]*eV,_eV, occupation[iband], weight_nk); fflush(stdout); }
+                  if (echo > 6) { printf("# band #%i, energy= %g %s, occupation= %g, response= %g, weight= %g\n",
+                      iband, eigenenergies[iband]*eV,_eV, occupation(0,iband), occupation(1,iband), weight_nk); fflush(stdout); }
                   // fill psi_G
                   set(psi_G.data(), nG_all, zero);
                   set(atom_coeff.data(), nC, zero);
-                  
+
                   for(int iB = 0; iB < nB; ++iB) {
                       auto const & i = pw_basis[iB];
                       // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
@@ -486,7 +486,7 @@ namespace pw_hamiltonian {
                       } // iC
                   } // iB
                   if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
-                  
+
                   auto const fft_stat = fourier_transform::fft(psi_r.data(), psi_G.data(), nG, false, echo);
                   if (echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
 

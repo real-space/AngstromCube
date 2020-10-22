@@ -13,7 +13,7 @@ geometry_file=atoms.xyz
 # echo "C  0 0 0" >> $geometry_file
 
 project_base=pg.C-atom
-printf " 1 \n#cell 6 6 6 i i i \n" > $geometry_file
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
 echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
@@ -137,12 +137,12 @@ logder.step=1e-2
 # configuration for basis=grid
 bands.per.atom=10
 eigensolver=cg
-repeat.eigensolver=3
+repeat.eigensolver=1
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-export.waves=waves.dat
+#export.waves=waves.dat
 start.waves=waves.dat
 
 # configuration for basis=sho
@@ -178,7 +178,7 @@ single_atom.export.xml=1
 EOF
 
 
-for spacing in `seq 1 1 0`; do
+for spacing in `seq 1 1 1`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -202,7 +202,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 1 2`; do
+for ecut in `seq 1 1 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

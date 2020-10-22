@@ -17,7 +17,7 @@
 #include "boundary_condition.hxx" // Periodic_Boundary
 
 #ifndef NO_UNIT_TESTS
-  #include "real_space.hxx" // ::bessel_projection
+  #include "real_space.hxx" // ::grid_t, ::Bessel_projection
   #include "radial_grid.hxx" // ::radial_grid_t, ::create_equidistant_radial_grid
   #include "bessel_transform.hxx" // ::transform_s_function
   #include "radial_potential.hxx" // ::Hartree_potential
@@ -527,7 +527,7 @@ namespace iterative_poisson {
               int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
               std::vector<double> q_coeff(nq, 0.0);
               for(int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
-                  real_space::bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
+                  real_space::Bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
                   bessel_transform::transform_s_function(f_prj[x0b1], q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
               } // x0b1
           } // scope

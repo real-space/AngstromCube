@@ -12,7 +12,7 @@
 #include "inline_tools.hxx" // align<n>
 #include "constants.hxx" // ::sqrtpi, ::pi
 #include "solid_harmonics.hxx" // ::Y00
-#include "real_space.hxx" // ::grid_t, ::add_function
+#include "real_space.hxx" // ::grid_t, ::add_function, ::Bessel_projection
 #include "radial_grid.hxx" // ::radial_grid_t
 #include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
@@ -52,7 +52,7 @@
 #include "pw_hamiltonian.hxx" // ::solve
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
-#include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, final="\n", scale=1, add=0)
+#include "print_tools.hxx" // print_stats, printf_vector
 
 #define DEBUG
 #ifdef  DEBUG
@@ -68,24 +68,6 @@ namespace potential_generator {
   // their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
 
-  template <typename real_t>
-  double print_stats(
-        real_t const values[] // input values
-      , size_t const all // how many
-      , double const dV=1 // volume element for the integration
-      , char const *prefix="" // leading printf messages
-      , real_t const unit=1 // unit conversion factor
-  ) {
-      real_t gmin{9e307}, gmax{-gmin}; double gsum{0}, gsum2{0};
-      for(size_t i = 0; i < all; ++i) {
-          gmin = std::min(gmin, values[i]);
-          gmax = std::max(gmax, values[i]);
-          gsum  += values[i];
-          gsum2 += pow2(values[i]);
-      } // i
-      printf("%s grid stats min %g max %g integral %g avg %g\n", prefix, gmin*unit, gmax*unit, gsum*dV*unit, gsum/all*unit);
-      return gsum*dV;
-  } // print_stats
 
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
@@ -203,7 +185,7 @@ namespace potential_generator {
                               center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
       float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
       std::vector<double> qc(nq, 0.0);
-      stat += real_space::bessel_projection(qc.data(), nq, dq, rho, g, center);
+      stat += real_space::Bessel_projection(qc.data(), nq, dq, rho, g, center);
       qc[0] = 0; // stabilize charge neutrality, q=0-component must vanish
 
       double const by4pi = .25/constants::pi; // 1/(4*pi)
@@ -963,7 +945,7 @@ namespace potential_generator {
                       std::vector<double> qc_image(nq, 0.0);
                       for(int ii = 0; ii < n_periodic_images; ++ii) {
                           double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-                          stat += real_space::bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
+                          stat += real_space::Bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
                           add_product(qc.data(), nq, qc_image.data(), 1.0);
                       } // ii
                   } // scope
@@ -1007,24 +989,9 @@ namespace potential_generator {
               printf("\n## all values of Vtot in %s (unordered) as function of the distance to %s\n",
                                                  _eV, (na > 0) ? "atom #0" : "the cell center");
               print_direct_projection(Vtot.data(), g, eV, (na > 0) ? center[0] : nullptr);          
-//               for(int iz = 0; iz < g[2]; ++iz) {
-//                   double const z = iz*g.h[2] - cnt[2], z2 = z*z;
-//                   for(int iy = 0; iy < g[1]; ++iy) {
-//                       double const y = iy*g.h[1] - cnt[1], y2 = y*y; 
-//                       for(int ix = 0; ix < g[0]; ++ix) {
-//                           double const x = ix*g.h[0] - cnt[0], x2 = x*x;
-//                           double const r = std::sqrt(x2 + y2 + z2);
-//                           int const izyx = (iz*g[1] + iy)*g[0] + ix;
-//                           printf("%g %g\n", r, Vtot[izyx]);
-//                       } // ix
-//                   } // iy
-//               } // iz
-//               printf("\n");
-              
           } // control
       } // echo
 
-      
       { // scope: export total potential to ASCII file
           auto const Vtot_out_filename = control::get("total.potential.to.file", "vtot.dat");
           if (*Vtot_out_filename) stat += write_array_to_file(Vtot_out_filename, Vtot.data(), g[0], g[1], g[2], echo);

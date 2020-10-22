@@ -14,8 +14,8 @@
 
 namespace fermi_distribution {
   
-  template <typename real_t>
-  inline real_t FermiDirac(real_t const x, real_t *derivative=nullptr) { 
+  template <typename real_t> inline
+  real_t FermiDirac(real_t const x, real_t *derivative=nullptr) { 
       if (std::abs(x) > 36) {
           if (derivative) *derivative = 0;
           return real_t(x < 0);
@@ -26,7 +26,7 @@ namespace fermi_distribution {
       return f;
   } // FermiDirac
 
-  template <typename real_t>
+  template <typename real_t> inline
   real_t FermiDirac_broadening(real_t const x) {
       real_t der;
       FermiDirac(x, &der);
@@ -34,9 +34,16 @@ namespace fermi_distribution {
   } // FermiDirac_broadening
 
   template <typename real_t>
-  double count_electrons(int const n, real_t const energies[], 
-      double const eF, double const kTinv, 
-      double const weights[]=nullptr, double *derivative=nullptr, double occupations[]=nullptr) {
+  double count_electrons(
+        int const n
+      , real_t const energies[]
+      , double const eF
+      , double const kTinv
+      , double const weights[]=nullptr
+      , double *derivative=nullptr
+      , double occupations[]=nullptr
+      , double ddeF_occupations[]=nullptr
+  ) {
       double ne{0}, dnde{0};
       assert(nullptr == weights); // not implemented!
       for(int i = 0; i < n; ++i) {
@@ -46,8 +53,9 @@ namespace fermi_distribution {
           ne   += occ  *w8;
           dnde -= dfde *w8;
           if (occupations) occupations[i] = occ;
+          if (ddeF_occupations) ddeF_occupations[i] = dfde*kTinv;
       } // i
-      if (derivative) *derivative = dnde*kTinv;
+      if (derivative) *derivative = dnde*kTinv; // derivative w.r.t. eF
       return ne;
   } // count_electrons
 
@@ -61,6 +69,7 @@ namespace fermi_distribution {
       , double const number_of_electrons
       , int const spin_factor=2 // 2:spin_paired, 1:spin_resolved
       , int const echo=9
+      , double response_occ[]=nullptr
   ) {
       double const n_electrons = number_of_electrons/spin_factor;
       // ToDo: count the states with weights, check if there are enough states to host n_electrons
@@ -97,7 +106,7 @@ namespace fermi_distribution {
       double res{1};
       int const maxiter = 99;
       int iter{0}; // init with max. number of iterations, hard limit
-      while(res > 1e-15 && iter < maxiter) {
+      while(res > 2e-15 && iter < maxiter) {
           ++iter;
           auto const em = 0.5*(e[0] + e[1]);
           auto const nem = count_electrons(nb, energies, em, kTinv);
@@ -120,7 +129,7 @@ namespace fermi_distribution {
       }
       eF = 0.5*(e[0] + e[1]);
       double DoS_at_eF;
-      auto const nem = count_electrons(nb, energies, eF, kTinv, nullptr, &DoS_at_eF, occupations);
+      auto const nem = count_electrons(nb, energies, eF, kTinv, nullptr, &DoS_at_eF, occupations, response_occ);
       if (echo > 6) printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spin_factor*nem); 
       if (res > 1e-9) {
           warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spin_factor, iter); 
