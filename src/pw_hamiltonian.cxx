@@ -52,7 +52,6 @@ namespace pw_hamiltonian {
     private:
   }; // class PlaneWave
 
-
   void Hermite_Gauss_projectors(double pzyx[], int const numax, double const sigma, double const gv[3]) {
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
@@ -96,9 +95,13 @@ namespace pw_hamiltonian {
 
   
   template<typename complex_t>
-  status_t iterative_solve(view3D<complex_t> const & HSm, char const *x_axis="",
-      int const echo=0, int const nbands=10, float const direct_ratio=2) {
-      //
+  status_t iterative_solve(
+        view3D<complex_t> const & HSm
+      , char const *x_axis=""
+      , int const echo=0
+      , int const nbands=10
+      , float const direct_ratio=2
+  ) {
       // An iterative solver using the Davidson method
       //
       status_t stat(0);
@@ -211,6 +214,7 @@ namespace pw_hamiltonian {
           , int const echo=0 // log-level
           , int const nbands=10 // number of bands (needed for iterative solver)
           , float const direct_ratio=2.f // try to get good start waves by envoking a dense solver on a (2.0*nbands)x(2.0*nbands) sub-Hamiltonian
+          , DensityIngredients *export_rho=nullptr
       ) { // number of bands (needed by iterative solver)
 
       using real_t = decltype(std::real(complex_t(1)));
@@ -291,7 +295,8 @@ namespace pw_hamiltonian {
 
       int constexpr H=0, S=1; // static indices for H:Hamiltonian matrix, S:overlap matrix
 
-      std::vector<uint32_t> offset(natoms_PAW + 1, 0); // prefetch sum
+      std::vector<uint32_t> offset(natoms_PAW + 1); // prefetch sum
+      offset[0] = 0;
       for(int ka = 0; ka < natoms_PAW; ++ka) {
           int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
           assert( hs_PAW[ka].stride() >= nSHO );
@@ -438,7 +443,7 @@ namespace pw_hamiltonian {
       // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
       int const gen_density = control::get("pw_hamiltonian.density", 0.);
-      if (gen_density) {
+      if (gen_density || export_rho) {
 
           double const n_electrons = control::get("valence.electrons", 0.);
           double const kT = control::get("electronic.temperature", 9.765625e-4);
@@ -461,13 +466,19 @@ namespace pw_hamiltonian {
           std::vector<std::complex<double>> atom_coeff(nC);
           view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
           view3D<std::complex<double>> psi_r(nG[2], nG[1], nG[0]); // real space array
-          
+
+          if (export_rho) {
+              export_rho->constructor(nG, nbands, natoms_PAW, nC, echo);
+              export_rho->energies.assign(eigenenergies.begin(), eigenenergies.begin() + nbands);
+              export_rho->offset.assign(offset.begin(), offset.end());
+              assert(export_rho->offset.size() == export_rho->natoms + 1);
+          } // export_rho != nullptr
 
           double const kpoint_weight = 1; // depends on ikpoint, ToDo
           for(int iband = 0; iband < nbands; ++iband) {
               double const band_occupation = 2*occupation(0,iband); // factor 2 for spin-paired
               double const weight_nk = band_occupation * kpoint_weight;
-              if (weight_nk > 1e-16) {
+              if (export_rho || weight_nk > 1e-16) {
                   if (echo > 6) { printf("# band #%i, energy= %g %s, occupation= %g, response= %g, weight= %g\n",
                       iband, eigenenergies[iband]*eV,_eV, occupation(0,iband), occupation(1,iband), weight_nk); fflush(stdout); }
                   // fill psi_G
@@ -490,6 +501,11 @@ namespace pw_hamiltonian {
                   auto const fft_stat = fourier_transform::fft(psi_r.data(), psi_G.data(), nG, false, echo);
                   if (echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
 
+                  if (export_rho) {
+                      set(export_rho->psi_r[iband], nG_all, psi_r.data()); // copy real-space grid representation of the density
+                      set(export_rho->coeff[iband], nC, atom_coeff.data()); // copy atomic projection coefficients
+                  } // export_rho != nullptr
+                    
                   // accumulate real-space density rho(r) = |psi(r)|^2
                   for(int iz = 0; iz < nG[2]; ++iz) {
                   for(int iy = 0; iy < nG[1]; ++iy) {
@@ -548,14 +564,17 @@ namespace pw_hamiltonian {
 
 
 
-  status_t solve(int const natoms_PAW // number of PAW atoms
-          , view2D<double const> const & xyzZ // (natoms, 4)
-          , real_space::grid_t const & g // Cartesian grid descriptor for vtot
-          , double const *const vtot // total effective potential on grid
-          , double const *const sigma_prj // =nullptr
-          , int    const *const numax_prj // =nullptr
-          , double *const *const atom_mat // =nullptr
-          , int const echo) { // log-level
+  status_t solve(
+        int const natoms_PAW // number of PAW atoms
+      , view2D<double const> const & xyzZ // (natoms, 4)
+      , real_space::grid_t const & g // Cartesian grid descriptor for vtot
+      , double const *const vtot // total effective potential on grid
+      , double const *const sigma_prj // =nullptr
+      , int    const *const numax_prj // =nullptr
+      , double *const *const atom_mat // =nullptr
+      , int const echo // log-level
+      , std::vector<DensityIngredients> *export_rho // =nullptr
+  ) {
 
       status_t stat(0);
       
@@ -648,15 +667,18 @@ namespace pw_hamiltonian {
           } // atom_mat
           // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
+      if (nullptr == atom_mat) warn("atomic PAW correction matrices were not passed for %d atoms", natoms_PAW); 
 
       double const nbands_per_atom = control::get("bands.per.atom", 10.);
       int const nbands = int(nbands_per_atom*natoms_PAW);
 
+      auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
+      float const iterative_direct_ratio = control::get("pw_hamiltonian.iterative.solver.ratio", 2.);
+      auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
+      if (export_rho) export_rho->resize(nkpoints);
+
       // all preparations done, start k-point loop
 
-      auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
-      auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
-      float const iterative_direct_ratio = control::get("pw_hamiltonian.iterative.solver.ratio", 2.);
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
           double const kpoint[3] = {ikp*.5/std::max(1., nkpoints - 1.), 0, 0};
@@ -672,12 +694,14 @@ namespace pw_hamiltonian {
                   stat += solve_k<std::complex<float>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo,
-                          nbands, iterative_direct_ratio);
+                          nbands, iterative_direct_ratio, 
+                          export_rho ? &((*export_rho)[ikp]) : nullptr);
               } else {
                   stat += solve_k<std::complex<double>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo,
-                          nbands, iterative_direct_ratio);
+                          nbands, iterative_direct_ratio, 
+                          export_rho ? &((*export_rho)[ikp]) : nullptr);
               } // floating_point_bits
               nPW_stats.add(nPWs);
           } // !can_be_real
@@ -725,7 +749,7 @@ namespace pw_hamiltonian {
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
 
-      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, echo);
+      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, echo, nullptr);
 
       return stat;
   } // test_Hamiltonian

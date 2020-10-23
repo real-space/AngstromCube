@@ -605,7 +605,7 @@ namespace potential_generator {
 #ifdef DEVEL
                   if (echo > 0) {
                       printf("\n\n# %s\n# Solve Poisson equation\n# %s\n\n", h_line, h_line);
-                      fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
+                      std::fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
                   } // echo
 #endif // DEVEL     
                   if ('f' == (es_solver_method | 32)) { // "fft", "fourier" 
@@ -803,7 +803,7 @@ namespace potential_generator {
                   // copy the local potential and non-local atom matrices into the grid operator descriptor
                   op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo);
 
-                  std::vector<double> rho_valence_new(gc.all(), 0.0); // new valence density
+                  std::vector<double> rho_valence_gc(gc.all(), 0.0); // new valence density
 
                   for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
                       auto psi_k = psi[ikpoint]; // get a sub-view
@@ -812,14 +812,14 @@ namespace potential_generator {
                       if ('c' == *eigensolver_method) { // "cg" or "conjugate_gradients"
                           stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              if (echo > 6) { printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); fflush(stdout); }
+                              if (echo > 6) { printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
                               stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo - 5);
                               stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else
                       if ('d' == *eigensolver_method) { // "davidson"
                           for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              if (echo > 6) { printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); fflush(stdout); }
+                              if (echo > 6) { printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
                               stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else
@@ -834,7 +834,7 @@ namespace potential_generator {
                           std::vector<uint32_t> coeff_starts;
                           auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
                                                     psi_k.data(), gc.all(), na, op, nbands, 1, echo);
-                          stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
+                          stat += density_generator::density(rho_valence_gc.data(), atom_rho.data(), Fermi,
                                                     energies[ikpoint], psi_k.data(), atom_coeff.data(), 
                                                     coeff_starts.data(), na, gc, nbands, 1, echo, nullptr);
                       } // scope
@@ -843,14 +843,23 @@ namespace potential_generator {
                   // generate a new density from the eigenstates
                   // with occupation numbers from eigenenergies
 
-                  stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_new.data(), gc);
+                  stat += multi_grid::interpolate3D(rho_valence.data(), g, rho_valence_gc.data(), gc);
                   if (echo > 1) { printf("\n# Total valence density on dense"); print_stats(rho_valence.data(), g.all(), g.dV()); }
 
               } else if (plane_waves) {
+                  std::vector<double> rho_valence_new(g.all(), 0.0); // new valence density
+                  std::vector<pw_hamiltonian::DensityIngredients> export_rho;
                   here;
 
-                  stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo);
-
+                  stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+                  
+                  for(auto & x : export_rho) {
+                      if (echo > 1) { printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
+                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
+                                                x.energies.data(), x.psi_r.data(), x.coeff.data(), 
+                                                x.offset.data(), x.natoms, g, x.nbands, 1, echo, nullptr);
+                  } // ikpoint
+                  if (echo > 1) { printf("\n# Total new valence density from PW basis"); print_stats(rho_valence_new.data(), g.all(), g.dV()); }
                   here;
               } else { // SHO local orbitals
                   here;

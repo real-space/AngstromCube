@@ -26,13 +26,13 @@ When plotting an entire log file `grep \#\# <logfile>` can then help to identify
 
 When including functionality from another header file (self-written onces or libraries),
 the coder is encouraged to keep a list of symbols up to date, listing only those
-symbols that re used in the compilation unit at hand.
+symbols that appear in the current source file
 ```C++
     #include "debug_output.hxx" // dump_to_file
     #include "debug_tools.hxx" // ::read_from_file
 ```
 The syntax *::read_from_file* indicates that there is a namespace in front
-which matches with the filename of the header file, i.e. *debug_tools* in this example.
+which should match with the filename of the header file, i.e. *debug_tools* in this example.
 This convention is inspired by the *use <module>, only: <symbols>* syntax of Fortran90. 
 
 *Macros and Preprocessor symbols*
@@ -45,3 +45,22 @@ The most important preprocessor symbol is
 The *cppp -U DEVEL* tool is used to remove all DEVEL-code from the code base while
 maintaining the other macros. Here, *-U* stands for undefine.
 Please try to keep the release code base small and readable!
+
+*You can write Fortran in any language*
+The saying above moques about the *bad* programming style many Fortran programs
+are written in. However, there are some nice things in Fortran90 that come handy
+so they were re-introduced into the C++ of this project:
+```Fortran90
+    x(:) = b(:)
+```
+However, to keep it as basic as possible, it can be done by
+```C++
+    #include "inline_math.hxx" // set
+    set(x, n, b);
+```
+but we have to know the length of the arrays.
+Certainly, `set` is templated, so where `x` and `b` are pointers, not necessaily of the same type.
+`set` also supports scaling and assignment of a scalar value
+```C++
+    set(x, n, b, scalar_factor); set(b, n, scalar_value);
+```

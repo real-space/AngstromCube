@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::fprintf, std::FILE, std::fopen, std::fclose
+#include <cstdio> // printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::fflush, stdout
 
 template <typename real_t>
 int dump_to_file(
@@ -39,4 +39,4 @@ int dump_to_file(
     return 0;
 } // dump_to_file
 
-#define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); fflush(stdout); }
+#define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
