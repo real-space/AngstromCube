@@ -432,13 +432,13 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
-      auto const nB_auto = int(control::get("pw_hamiltonian.dense.solver.below", 999.));
+      int  const nB_auto = control::get("pw_hamiltonian.dense.solver.below", 999.);
       char const solver = *control::get("pw_hamiltonian.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
       bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
       std::vector<double> eigenenergies(nbands, -9e9);
-      if (run_solver[0]) solver_stat += iterative_solve(HSm, x_axis, echo, nbands, direct_ratio);
+      if (run_solver[0]) solver_stat += iterative_solve(HSm, x_axis, echo, nbands, direct_ratio); // ToDo: needs to export eigenenergies
       if (run_solver[1]) solver_stat += dense_solver::solve(HSm, x_axis, echo, nbands, eigenenergies.data());
       // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
@@ -450,111 +450,33 @@ namespace pw_hamiltonian {
           assert(export_rho->offset.size() == export_rho->natoms + 1);
 
           auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
-#if 0
-          double const n_electrons = control::get("valence.electrons", 0.);
-          double const kT = control::get("electronic.temperature", 1e-3);
-          // determine the occupation numbers
-          view2D<double> occupation(2, nbands, 0.0);
-          double Fermi_energy{-9e99};
-          auto const stat = fermi_distribution::Fermi_level(Fermi_energy, occupation[0],
-              eigenenergies.data(), nbands, kT, n_electrons, 2, echo + 9, occupation[1]);
-          solver_stat += stat;
 
-          view3D<double> rho(nG[2], nG[1], nG[0], 0.0);
-          std::vector<int> ncoeff(natoms_PAW, 0), ncoeff2(natoms_PAW, 0);
-          for(int ka = 0; ka < natoms_PAW; ++ka) {
-              ncoeff[ka] = sho_tools::nSHO(numax_PAW[ka]);
-              ncoeff2[ka] = pow2(ncoeff[ka]);
-          } // ka
-          data_list<double> atom_rho(ncoeff2);
-#endif // 0
           std::complex<double> const zero(0);
-          std::vector<std::complex<double>> atom_coeff(nC, zero);
           view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
-          view3D<std::complex<double>> psi_r(nG[2], nG[1], nG[0]); // real space array
 
           for(int iband = 0; iband < nbands; ++iband) {
-#if 0
-              double const band_occupation = 2*occupation(0,iband); // factor 2 for spin-paired
-              double const weight_nk = band_occupation * kpoint_weight;
-              if (export_rho || weight_nk > 1e-16) {
-                  if (echo > 6) { printf("# band #%i, energy= %g %s, occupation= %g, response= %g, weight= %g\n",
-                      iband, eigenenergies[iband]*eV,_eV, occupation(0,iband), occupation(1,iband), weight_nk); fflush(stdout); }
-#endif // 0
-                  // fill psi_G
-                  set(psi_G.data(), nG_all, zero);
-                  set(atom_coeff.data(), nC, zero);
+              auto const atom_coeff = export_rho->coeff[iband];
+              // clear
+              set(atom_coeff, nC, zero);
+              set(psi_G.data(), nG_all, zero);
+              // fill psi_G and atom_coefficients
+              for(int iB = 0; iB < nB; ++iB) {
+                  std::complex<double> const eigenvector_coeff = HSm(H,iband,iB);
+                  auto const & i = pw_basis[iB];
+                  // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
+                  int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
+                  psi_G(iGz,iGy,iGx) = eigenvector_coeff * norm_factor;
+                  for(int iC = 0; iC < nC; ++iC) {
+                      atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
+                  } // iC
+              } // iB
+//            if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
 
-                  for(int iB = 0; iB < nB; ++iB) {
-                      auto const & i = pw_basis[iB];
-                      // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
-                      int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
-//                    if (echo > 66) { printf("# in Fourier space psi(x=%d,y=%d,z=%d) = eigenvector(band=%i,pw=%i)\n", iGx,iGy,iGz, iband,iB); fflush(stdout); }
-                      std::complex<double> const eigenvector_coeff = HSm(H,iband,iB);
-                      psi_G(iGz,iGy,iGx) = eigenvector_coeff;
-                      for(int iC = 0; iC < nC; ++iC) {
-                          atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
-                      } // iC
-                  } // iB
-//                if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
+              // back-transform to real-space
+              auto const fft_stat = fourier_transform::fft(export_rho->psi_r[iband], psi_G.data(), nG, false, echo);
+              if (int(fft_stat) != 0 && echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
 
-                  auto const fft_stat = fourier_transform::fft(psi_r.data(), psi_G.data(), nG, false, echo);
-                  if (echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
-
-                  if (export_rho) {
-                      set(export_rho->psi_r[iband], nG_all, psi_r.data(), norm_factor); // copy real-space grid representation of the density
-                      set(export_rho->coeff[iband], nC, atom_coeff.data()); // copy atomic projection coefficients
-                  } // export_rho != nullptr
-#if 0
-                  // accumulate real-space density rho(r) = |psi(r)|^2
-                  for(int iz = 0; iz < nG[2]; ++iz) {
-                  for(int iy = 0; iy < nG[1]; ++iy) {
-                  for(int ix = 0; ix < nG[0]; ++ix) {
-                      rho(iz,iy,ix) += weight_nk * std::norm(psi_r(iz,iy,ix));
-                  }}} // iz iy ix
-
-                  // accumulate atomic density matrices
-                  for(int ka = 0; ka < natoms_PAW; ++ka) {
-                      auto const density_matrix = atom_rho[ka];
-                      int const nc = ncoeff[ka], stride = nc;
-                      for(int ic = 0; ic < nc; ++ic) {
-                          auto const c_i = conjugate(atom_coeff[ic + offset[ka]]);
-                          if (echo > 1) printf("# band #%i atom #%i c[%i]= %g %g |c|= %g\n", 
-                                        iband, ka, ic, std::real(c_i), std::imag(c_i), std::abs(c_i));
-                          for(int jc = 0; jc < nc; ++jc) { 
-                              auto const c_j = atom_coeff[jc + offset[ka]];
-                              density_matrix[ic*stride + jc] += weight_nk * std::real(c_i * c_j); // Caution: imaginary part is dropped!
-                          } // jc
-                      } // ic
-                  } // ka
-              } // weight nonzero
-#endif // 0
           } // iband
-
-#if 0
-          double rho_sum{0};
-          for(size_t izyx = 0; izyx < nG_all; ++izyx) {
-              rho_sum += rho(0,0)[izyx]; // avoid index checking
-          } // izyx
-          if (echo > 0) printf("# pw_hamiltonian found a density of %g electrons, average %g\n", rho_sum, rho_sum/nG_all);
-
-#ifdef DEVEL
-          if (echo > 6) { // show atomic density matrices
-              for(int ia = 0; ia < natoms_PAW; ++ia) {
-                  int const nc = ncoeff[ia];
-                  double max_rho{1e-12}; for(int ij = 0; ij < nc*nc; ++ij) max_rho = std::max(max_rho, atom_rho[ia][ij]);
-                  printf("\n# show %d x %d density matrix for atom #%i in %s-order, normalized to maximum %.6e\n", 
-                      nc, nc, ia, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), max_rho);
-                  for(int i = 0; i < nc; ++i) {
-                      printf("# %3i\t", i);
-                      printf_vector(" %9.6f", &atom_rho[ia][i*nc], nc, "\n", 1./max_rho);
-                  } // i
-                  printf("\n");
-              } // ia
-          } // echo
-#endif // DEVEL
-     
-#endif // 0
       } // export_rho != nullptr
 
       return solver_stat;

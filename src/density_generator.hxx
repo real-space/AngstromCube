@@ -201,7 +201,7 @@ namespace density_generator {
           // determine the occupation numbers
           std::vector<double> occupation(nbands, 0.0);
           std::vector<double> d_occupation(nbands, 0.0); // derivative of occupation number w.r.t. E_Fermi
-          Fermi.get_occupations(occupation.data(), ene[ikpoint], nbands, echo + 10, d_occupation.data());
+          Fermi.get_occupations(occupation.data(), ene[ikpoint], nbands, echo, d_occupation.data());
 
           int ilub{nbands}; // index of lowest completely unoccupied band
           double old_charge{0};
@@ -250,7 +250,6 @@ namespace density_generator {
 
       if (echo > 1) { printf("\n# Total valence density "); print_stats(rho, g.all(), g.dV()); }
       if (echo > 3) { printf("# Total response density"); print_stats(d_rho.data(), g.all(), g.dV(), "", kT); }
-
 #ifdef DEVEL
       if (echo > 6) {
           for(int ia = 0; ia < natoms; ++ia) {
