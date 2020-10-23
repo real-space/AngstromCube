@@ -71,26 +71,6 @@ echo "C  0 0 0" >> $geometry_file
 # echo "Li  0 0 0" >> $geometry_file
 
 
-### generate a control file
-cat > control.sh << EOF
-
-# verbosity of the log files
-verbosity=7
-
-# show energies in units of electronVolt
-output.energy.unit=eV
-output.length.unit=Bohr
-
-# grid spacing of the dense grid (in Bohr)
-potential_generator.grid.spacing=0.23622
-#potential_generator.grid.spacing=0.1772   ## dense grid
-
-# max number of self-consistency iterations
-potential_generator.max.scf=1
-
-# Poisson solver
-electrostatic.solver=fft
-
 
 # configuration of atomic PAW setups
 #element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
@@ -98,10 +78,7 @@ electrostatic.solver=fft
 #element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .7752 V=parabola"
 #element_Li="2s 1 0 2p 2e-99 | 2.0 numax 2 sigma .612475 V=sinc"
 #element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
-
-element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
-
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
@@ -117,12 +94,38 @@ element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
 #element_Mg="2s 2 3s* 2 2p 6 3p 2e-99 3d | 1.96 numax 4 sigma .578 V=sinc"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
+
+
+### generate a control file
+cat > control.sh << EOF
+
+# configuration of atomic PAW setups
+element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
+
+# verbosity of the log files
+verbosity=7
+
+# show energies in units of electronVolt
+output.energy.unit=eV
+output.length.unit=Bohr
+
+# grid spacing of the dense grid (in Bohr)
+potential_generator.grid.spacing=0.23622
+#potential_generator.grid.spacing=0.1772   ## dense grid
+
+# max number of self-consistency iterations
+potential_generator.max.scf=1
+
+# Poisson solver {mg, fft, none, cg, sd} and {MG, load, Bessel0} in development
+electrostatic.solver=fft
+
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=8
 single_atom.partial.wave.method=energy_ordering
 single_atom.echo=8
 single_atom.init.echo=7
-single_atom.echo.mask=-1        #bit mask for the first 50 atoms, -1=all on
+### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
+single_atom.echo.mask=-1
 single_atom.optimize.sigma=1
 single_atom.init.scf.maxit=0
 
@@ -204,7 +207,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 1 1 0`; do
+for ecut in `seq 2 1 2`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

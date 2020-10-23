@@ -291,7 +291,7 @@ namespace pw_hamiltonian {
 
       int constexpr S=0, H=1; // static indices for S:overlap matrix, H:Hamiltonian matrix
 
-      std::vector<int> offset(natoms_PAW + 1, 0); // prefetch sum
+      std::vector<uint32_t> offset(natoms_PAW + 1, 0); // prefetch sum
       for(int ka = 0; ka < natoms_PAW; ++ka) {
           int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
           assert( hs_PAW[ka].stride() >= nSHO );
