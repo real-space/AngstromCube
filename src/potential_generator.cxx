@@ -830,9 +830,14 @@ namespace potential_generator {
                       } // eigensolver_method
 
                       // add to density
-                      stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
-                                     psi_k.data(), energies[ikpoint], gc, na, op, nbands, nkpoints, echo);
-
+                      { // scope
+                          std::vector<uint32_t> coeff_starts;
+                          auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
+                                                    psi_k.data(), gc.all(), na, op, nbands, 1, echo);
+                          stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
+                                                    energies[ikpoint], psi_k.data(), atom_coeff.data(), 
+                                                    coeff_starts.data(), na, gc, nbands, 1, echo, nullptr);
+                      } // scope
                   } // ikpoint
 
                   // generate a new density from the eigenstates

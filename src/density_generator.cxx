@@ -23,7 +23,9 @@ namespace density_generator {
       std::iota(wave.begin(), wave.end(), 0);
       fermi_distribution::FermiLevel_t eF(1);
       double spectrum[] = {0};
-      return density(rho.data(), nullptr, eF, wave.data(), spectrum, g, natoms, op, 1, 1, echo);
+      return density(rho.data(), nullptr, eF, spectrum, wave.data(),
+                     wave.data(), // this is only passed to match the interface
+                     nullptr, natoms, g, 1, 1, echo);
   } // test_init
 
   status_t all_tests(int const echo) {

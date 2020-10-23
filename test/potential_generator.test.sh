@@ -185,6 +185,7 @@ for spacing in `seq 1 1 1`; do
   $exe -test potential_generator. \
         +control.file=control.sh \
         +basis=grid \
+        $1 \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
 #         +element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax $spacing V=parabola" \
@@ -198,6 +199,7 @@ for numax in `seq 4 2 3`; do
         +control.file=control.sh \
         +basis=sho \
         +sho_hamiltonian.test.numax=$numax \
+        $1 \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
@@ -210,6 +212,7 @@ for ecut in `seq 1 1 0`; do
         +control.file=control.sh \
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \
+        $1 \
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
