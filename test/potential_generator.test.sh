@@ -100,7 +100,7 @@ echo "C  0 0 0" >> $geometry_file
 cat > control.sh << EOF
 
 # configuration of atomic PAW setups
-element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
 
 # verbosity of the log files
 verbosity=7
@@ -133,14 +133,16 @@ single_atom.init.scf.maxit=0
 
 # logarithmic derivatives
 logder.unit=Ha
-logder.start=-2
+logder.start=2
 logder.stop=1
 logder.step=1e-2
 
-# configuration for basis=grid
 bands.per.atom=10
-eigensolver=cg
-repeat.eigensolver=1
+
+# configuration for basis=grid
+# method of the grid eigensolver {cg, Davidson, none}
+grid.eigensolver=cg
+grid.eigensolver.repeat=1
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
@@ -150,11 +152,7 @@ start.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
-#sho_hamiltonian.test.sigma=2.0
-#sho_hamiltonian.test.sigma=1.0
-#sho_hamiltonian.test.sigma=0.7752
 sho_hamiltonian.test.sigma=.5
-#sho_hamiltonian.test.sigma=.308
 
 # configuration for basis=sho or basis=pw
 hamiltonian.test.kpoints=1
@@ -162,8 +160,7 @@ hamiltonian.test.kpoints=1
 hamiltonian.floating.point.bits=64
 
 # configuration for basis=pw
-pw_hamiltonian.density=1        0=no 1=yes
-# pw_hamiltonian.solver= { auto both direct iterative }
+# pw_hamiltonian.solver {auto, both, direct, iterative}
 pw_hamiltonian.solver=direct
 davidson_solver.max.iterations=19
 pw_hamiltonian.iterative.solver.ratio=2.0
@@ -207,7 +204,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 2 8`; do
+for ecut in `seq 2 2 6`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

@@ -16,6 +16,7 @@ namespace pw_hamiltonian {
       view2D<std::complex<double>> coeff; // atom projection coefficients coeff[nbands][ncoeff+]
       std::vector<double> energies; // energies[nbands]
       std::vector<uint32_t> offset; // offset[natoms + 1], marks the separations between atoms in the coefficient vectors
+      double kpoint_weight;
       int ng[3];  // number of grid points
       int ncoeff; // total number of coefficients
       int nbands;
@@ -29,9 +30,11 @@ namespace pw_hamiltonian {
           , int const nBands=0
           , int const nAtoms=0
           , int const nCoeff=0
+          , double k_weight=1.
           , int const echo=0 // log-level
-//    ) : ncoeff(nCoeff), nbands(nBands), natoms(nAtoms) {
+//    ) : kpoint_weight(k_weight), ncoeff(nCoeff), nbands(nBands), natoms(nAtoms) {
       ) {
+          kpoint_weight = k_weight;
           ncoeff = nCoeff;
           nbands = nBands;
           natoms = nAtoms;

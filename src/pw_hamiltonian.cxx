@@ -442,11 +442,17 @@ namespace pw_hamiltonian {
       if (run_solver[1]) solver_stat += dense_solver::solve(HSm, x_axis, echo, nbands, eigenenergies.data());
       // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
-      int const gen_density = control::get("pw_hamiltonian.density", 0.);
-      if (gen_density || export_rho) {
+      if (export_rho) {
+          double const kpoint_weight = 1; // depends on ikpoint, ToDo
+          export_rho->constructor(nG, nbands, natoms_PAW, nC, kpoint_weight, echo);
+          export_rho->energies.assign(eigenenergies.begin(), eigenenergies.begin() + nbands);
+          export_rho->offset.assign(offset.begin(), offset.end());
+          assert(export_rho->offset.size() == export_rho->natoms + 1);
 
+          auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
+#if 0
           double const n_electrons = control::get("valence.electrons", 0.);
-          double const kT = control::get("electronic.temperature", 9.765625e-4);
+          double const kT = control::get("electronic.temperature", 1e-3);
           // determine the occupation numbers
           view2D<double> occupation(2, nbands, 0.0);
           double Fermi_energy{-9e99};
@@ -454,7 +460,6 @@ namespace pw_hamiltonian {
               eigenenergies.data(), nbands, kT, n_electrons, 2, echo + 9, occupation[1]);
           solver_stat += stat;
 
-          auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
           view3D<double> rho(nG[2], nG[1], nG[0], 0.0);
           std::vector<int> ncoeff(natoms_PAW, 0), ncoeff2(natoms_PAW, 0);
           for(int ka = 0; ka < natoms_PAW; ++ka) {
@@ -462,25 +467,20 @@ namespace pw_hamiltonian {
               ncoeff2[ka] = pow2(ncoeff[ka]);
           } // ka
           data_list<double> atom_rho(ncoeff2);
+#endif // 0
           std::complex<double> const zero(0);
-          std::vector<std::complex<double>> atom_coeff(nC);
+          std::vector<std::complex<double>> atom_coeff(nC, zero);
           view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
           view3D<std::complex<double>> psi_r(nG[2], nG[1], nG[0]); // real space array
 
-          if (export_rho) {
-              export_rho->constructor(nG, nbands, natoms_PAW, nC, echo);
-              export_rho->energies.assign(eigenenergies.begin(), eigenenergies.begin() + nbands);
-              export_rho->offset.assign(offset.begin(), offset.end());
-              assert(export_rho->offset.size() == export_rho->natoms + 1);
-          } // export_rho != nullptr
-
-          double const kpoint_weight = 1; // depends on ikpoint, ToDo
           for(int iband = 0; iband < nbands; ++iband) {
+#if 0
               double const band_occupation = 2*occupation(0,iband); // factor 2 for spin-paired
               double const weight_nk = band_occupation * kpoint_weight;
               if (export_rho || weight_nk > 1e-16) {
                   if (echo > 6) { printf("# band #%i, energy= %g %s, occupation= %g, response= %g, weight= %g\n",
                       iband, eigenenergies[iband]*eV,_eV, occupation(0,iband), occupation(1,iband), weight_nk); fflush(stdout); }
+#endif // 0
                   // fill psi_G
                   set(psi_G.data(), nG_all, zero);
                   set(atom_coeff.data(), nC, zero);
@@ -496,7 +496,7 @@ namespace pw_hamiltonian {
                           atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
                       } // iC
                   } // iB
-                  if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
+//                if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
 
                   auto const fft_stat = fourier_transform::fft(psi_r.data(), psi_G.data(), nG, false, echo);
                   if (echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
@@ -505,7 +505,7 @@ namespace pw_hamiltonian {
                       set(export_rho->psi_r[iband], nG_all, psi_r.data()); // copy real-space grid representation of the density
                       set(export_rho->coeff[iband], nC, atom_coeff.data()); // copy atomic projection coefficients
                   } // export_rho != nullptr
-                    
+#if 0
                   // accumulate real-space density rho(r) = |psi(r)|^2
                   for(int iz = 0; iz < nG[2]; ++iz) {
                   for(int iy = 0; iy < nG[1]; ++iy) {
@@ -527,10 +527,11 @@ namespace pw_hamiltonian {
                           } // jc
                       } // ic
                   } // ka
-
               } // weight nonzero
+#endif // 0
           } // iband
 
+#if 0
           double rho_sum{0};
           for(size_t izyx = 0; izyx < nG_all; ++izyx) {
               rho_sum += rho(0,0)[izyx]; // avoid index checking
@@ -552,9 +553,10 @@ namespace pw_hamiltonian {
               } // ia
           } // echo
 #endif // DEVEL
-          
-      } // gen_density
-      
+     
+#endif // 0
+      } // export_rho != nullptr
+
       return solver_stat;
   } // solve_k
 
