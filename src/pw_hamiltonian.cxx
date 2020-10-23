@@ -96,16 +96,16 @@ namespace pw_hamiltonian {
 
   
   template<typename complex_t>
-  status_t iterative_solve(view3D<complex_t> const & SHm, char const *x_axis="",
+  status_t iterative_solve(view3D<complex_t> const & HSm, char const *x_axis="",
       int const echo=0, int const nbands=10, float const direct_ratio=2) {
       //
       // An iterative solver using the Davidson method
       //
       status_t stat(0);
-      int constexpr H=1, S=0;
+      int constexpr H=0, S=1;
 
-      int const nPW  = SHm.dim1();
-      int const nPWa = SHm.stride();
+      int const nPW  = HSm.dim1();
+      int const nPWa = HSm.stride();
 
       if (echo > 6) {
           printf("# %s for the lowest %d bands of a %d x %d Hamiltonian (stride %d)\n",
@@ -126,8 +126,8 @@ namespace pw_hamiltonian {
           int const nsub = std::min(nsubspace, nPW);
           view3D<complex_t> SHmat_b(2, nsub, align<2>(nsub));
           for(int ib = 0; ib < nsub; ++ib) {
-              set(SHmat_b(S,ib), nsub, SHm(S,ib));
-              set(SHmat_b(H,ib), nsub, SHm(H,ib));
+              set(SHmat_b(S,ib), nsub, HSm(S,ib));
+              set(SHmat_b(H,ib), nsub, HSm(H,ib));
           } // ib
 
           // assume that plane waves are energy ordered and solve for the nsub * nsub sub-Hamiltonian
@@ -154,7 +154,7 @@ namespace pw_hamiltonian {
       if (echo > 6) { printf("# %s construct a dense operator for the %d x %d Hamiltonian (stride %d)\n",
                               __func__, nPW, nPW, nPWa); fflush(stdout); }
       // construct a dense-matrix operator op
-      dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, SHm(H,0), SHm(S,0));
+      dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
 
       char const method = *control::get("pw_hamiltonian.iterative.solver", "Davidson") | 32;
 
@@ -289,7 +289,7 @@ namespace pw_hamiltonian {
       //   -- non-local PAW charge-deficit contributions
       //
 
-      int constexpr S=0, H=1; // static indices for S:overlap matrix, H:Hamiltonian matrix
+      int constexpr H=0, S=1; // static indices for H:Hamiltonian matrix, S:overlap matrix
 
       std::vector<uint32_t> offset(natoms_PAW + 1, 0); // prefetch sum
       for(int ka = 0; ka < natoms_PAW; ++ka) {
@@ -344,14 +344,13 @@ namespace pw_hamiltonian {
                   for(int kb = 0; kb < nSHO; ++kb) { // contract
                       int const kC = offset[ka] + kb;
                       auto const p = P_jl(iB,kC); // ToDo: do we need to conjugate here instead of below?
-                      // Mind that hs_PAW matrices are ordered {0:H,1:S}
-                      s += p * real_t(hs_PAW[ka](1,kb,lb));
-                      h += p * real_t(hs_PAW[ka](0,kb,lb));
+                      h += p * real_t(hs_PAW[ka](H,kb,lb));
+                      s += p * real_t(hs_PAW[ka](S,kb,lb));
 //                    printf("# non-local matrices atom=%i i=%i j=%i ovl= %g hmt= %g %s\n",
-//                            ka, lb, kb, hs_PAW[ka](1,kb,lb), hs_PAW[ka](0,kb,lb)*eV, _eV);
+//                            ka, lb, kb, hs_PAW[ka](S,kb,lb), hs_PAW[ka](H,kb,lb)*eV, _eV);
                   } // kb
-                  Psh_il(S,iB,iC) = s;
                   Psh_il(H,iB,iC) = h;
+                  Psh_il(S,iB,iC) = s;
               } // lb
           } // ka
       } // jB
@@ -371,7 +370,7 @@ namespace pw_hamiltonian {
 
       // allocate bulk memory for overlap and Hamiltonian
       int const nBa = align<4>(nB); // memory aligned main matrix stride
-      view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
+      view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Hamiltonian matrix H, 0:Overlap S
 
 #ifdef DEVEL
       if (echo > 9) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
@@ -396,8 +395,8 @@ namespace pw_hamiltonian {
       for(int iB = 0; iB < nB; ++iB) {
           auto const & i = pw_basis[iB];
 
-          SHm(S,iB,iB) += 1; // unity overlap matrix, plane waves are orthogonal
-          SHm(H,iB,iB) += kinetic*i.g2; // kinetic energy contribution
+          HSm(S,iB,iB) += 1; // unity overlap matrix, plane waves are orthogonal
+          HSm(H,iB,iB) += kinetic*i.g2; // kinetic energy contribution
 
           for(int jB = 0; jB < nB; ++jB) {
               auto const & j = pw_basis[jB];
@@ -407,7 +406,7 @@ namespace pw_hamiltonian {
               if ((2*std::abs(iVx) < nG[0]) && (2*std::abs(iVy) < nG[1]) && (2*std::abs(iVz) < nG[2])) {
                   int const imz = (iVz + nG[2])%nG[2], imy = (iVy + nG[1])%nG[1], imx = (iVx + nG[0])%nG[0];
                   auto const V_re = Vcoeff(0, imz, imy, imx), V_im = Vcoeff(1, imz, imy, imx);
-                  SHm(H,iB,jB) += localpot*std::complex<real_t>(V_re, V_im);
+                  HSm(H,iB,jB) += localpot*std::complex<real_t>(V_re, V_im);
               } // inside range
 
               // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
@@ -415,14 +414,14 @@ namespace pw_hamiltonian {
 
               // inner part of a matrix-matrix multiplication
               { // scope: add non-local contributions
-                  complex_t s(0), h(0);
+                  complex_t h(0), s(0);
                   for(int lC = 0; lC < nC; ++lC) { // contract
                       auto const p = conjugate(P_jl(jB,lC)); // needs a conjugation, ToDo: here or above?
-                      s += Psh_il(S,iB,lC) * p;
                       h += Psh_il(H,iB,lC) * p;
+                      s += Psh_il(S,iB,lC) * p;
                   } // lC
-                  SHm(S,iB,jB) += s * scale_s;
-                  SHm(H,iB,jB) += h * scale_h;
+                  HSm(H,iB,jB) += h * scale_h;
+                  HSm(S,iB,jB) += s * scale_s;
               } // scope: add non-local contributions
 
           } // jB
@@ -434,9 +433,9 @@ namespace pw_hamiltonian {
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
       std::vector<double> eigenenergies(nbands, -9e9);
-      if (run_solver[0]) solver_stat += iterative_solve(SHm, x_axis, echo, nbands, direct_ratio);
-      if (run_solver[1]) solver_stat += dense_solver::solve(SHm, x_axis, echo, nbands, eigenenergies.data());
-      // dense solver must runs second in case of "both" since it modifies the memory locations of SHm
+      if (run_solver[0]) solver_stat += iterative_solve(HSm, x_axis, echo, nbands, direct_ratio);
+      if (run_solver[1]) solver_stat += dense_solver::solve(HSm, x_axis, echo, nbands, eigenenergies.data());
+      // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
       int const gen_density = control::get("pw_hamiltonian.density", 0.);
       if (gen_density) {
@@ -462,6 +461,7 @@ namespace pw_hamiltonian {
           std::vector<std::complex<double>> atom_coeff(nC);
           view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
           view3D<std::complex<double>> psi_r(nG[2], nG[1], nG[0]); // real space array
+          
 
           double const kpoint_weight = 1; // depends on ikpoint, ToDo
           for(int iband = 0; iband < nbands; ++iband) {
@@ -479,7 +479,7 @@ namespace pw_hamiltonian {
                       // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
                       int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
 //                    if (echo > 66) { printf("# in Fourier space psi(x=%d,y=%d,z=%d) = eigenvector(band=%i,pw=%i)\n", iGx,iGy,iGz, iband,iB); fflush(stdout); }
-                      std::complex<double> const eigenvector_coeff = SHm(H,iband,iB);
+                      std::complex<double> const eigenvector_coeff = HSm(H,iband,iB);
                       psi_G(iGz,iGy,iGx) = eigenvector_coeff;
                       for(int iC = 0; iC < nC; ++iC) {
                           atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 

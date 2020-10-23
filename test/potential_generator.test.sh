@@ -181,7 +181,7 @@ single_atom.export.xml=1
 EOF
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

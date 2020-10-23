@@ -68,20 +68,8 @@ namespace atom_image {
       ) {
           assert(0 == h0s1 || 1 == h0s1); // 0:hamiltonian H, 1:overlap S (or I, contains charge deficit)
           assert(ncoeff <= stride_values);
+          assert(_ncoeff <= _stride); // sanity check
 
-//           std::vector<double> rescale(_ncoeff);
-//           {   
-//               int ii{0};
-//               for(int z = 0; z <= _numax; ++z) {
-//                   for(int y = 0; y <= _numax - z; ++y) {
-//                       for(int x = 0; x <= _numax - z - y; ++x) {
-//                           rescale[ii] = sho_projection::sho_prefactor(x, y, z, _sigma); // ToDo: can be replaced by the factorized version
-//                           ++ii;
-//                       } // x
-//                   } // y
-//               } // z
-//               assert( _ncoeff == ii );
-//           } // rescale because projector functions used in a fast SHO-transform are not normalized, could be moved out
           auto const rescale = sho_projection::get_sho_prefactors<double>(_numax, _sigma);
 
           for(int ij = 0; ij < _ncoeff*_stride; ++ij) {
