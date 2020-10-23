@@ -502,7 +502,7 @@ namespace pw_hamiltonian {
                   if (echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
 
                   if (export_rho) {
-                      set(export_rho->psi_r[iband], nG_all, psi_r.data()); // copy real-space grid representation of the density
+                      set(export_rho->psi_r[iband], nG_all, psi_r.data(), norm_factor); // copy real-space grid representation of the density
                       set(export_rho->coeff[iband], nC, atom_coeff.data()); // copy atomic projection coefficients
                   } // export_rho != nullptr
 #if 0
