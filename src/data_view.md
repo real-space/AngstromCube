@@ -79,8 +79,26 @@ for views that were constructed as a wrap around a plain pointer `p`.
 Also, the `view`s are not memory owners, i.e. they are not responsible for
 freeing the memory when destructed.
 
-When passing `view`s to external interfaces, we can access the memory directly by
+When passing `view`s to external interfaces (e.g. BLAS), we can access the memory
+directly via the `.data()` method known from `std::vector`.
 ```C++
-    view2D<double> a2(N, M); // allocates N*M doubles
+    view2D<double> C(N, M), B(N, K), A(K, M); // allocate N*M, N*K, K*M doubles
+    dgemm_(&'n', &'n', &M, &N, &K, &1.0, A.data(), &A.stride(),
+            B.data(), &B.stride(), &0.0, C.data(), &C.stride());
 ```
+Mind that parts of the sample code (like `&A.stride()`) are symbolic and do not compile!
+We might needs some temporary storage to satisfy the call-by-reference interface.
+Therefore, a generic `gemm` routine for matrix-matrix multiplication of `view2D`s is 
+offered (featuring a naive triple loop implementation).
+
+*Transposition*
+For `view2D<T>` a function `transpose` is offered which creates a transposed copy:
+```C++
+    view2D<T> a2(n1, n0); // allocates memory, n1*n0*sizeof(T)
+    auto const a2_transposed = transpose(a2, n1); // allocated extra memory, n0*n1*sizeof(T)
+```
+Here, we have to pass `n1` manually since it cannot be queried from `a2`.
+Mind that, although views to data are in principle capable to avoid deep copies
+during transposition, this model has not been implemented here.
+
 

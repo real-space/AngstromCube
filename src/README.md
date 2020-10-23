@@ -64,3 +64,7 @@ Certainly, `set` is templated, so where `x` and `b` are pointers, not necessaily
 ```C++
     set(x, n, b, scalar_factor); set(b, n, scalar_value);
 ```
+
+The largest feature-envy for Fortran90, however, are the intrinsic support of
+multi-dimensional arrays with support for run-time checking of index-out-of-bounds.
+Please see `data_view.md` for more details.
