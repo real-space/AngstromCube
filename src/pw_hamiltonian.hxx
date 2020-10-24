@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // printf, std::snprintf
 
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>
@@ -21,8 +21,8 @@ namespace pw_hamiltonian {
       int ncoeff; // total number of coefficients
       int nbands;
       int natoms;
-      char tag[4];
-      
+      char tag[32];
+
 //    DensityIngredients() {} // default constructor
 
       void constructor( // constructor
@@ -31,10 +31,11 @@ namespace pw_hamiltonian {
           , int const nAtoms=0
           , int const nCoeff=0
           , double k_weight=1.
+          , int const kpoint_id=-1
           , int const echo=0 // log-level
 //    ) : kpoint_weight(k_weight), ncoeff(nCoeff), nbands(nBands), natoms(nAtoms) {
       ) {
-          kpoint_weight = k_weight;
+          kpoint_weight = std::max(0.0, k_weight);
           ncoeff = nCoeff;
           nbands = nBands;
           natoms = nAtoms;
@@ -47,7 +48,7 @@ namespace pw_hamiltonian {
           std::complex<double> const zero(0);
           psi_r = view2D<std::complex<double>>(nbands, nG_aligned, zero);
           coeff = view2D<std::complex<double>>(nbands, nC_aligned, zero);
-          tag[0] = 0; // empty string
+          std::snprintf(tag, 31, "kpoint #%i weight %g", kpoint_id, kpoint_weight);
        } // constructor
 
   }; // DensityIngredients

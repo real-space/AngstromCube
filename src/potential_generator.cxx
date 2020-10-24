@@ -806,6 +806,7 @@ namespace potential_generator {
 
                   std::vector<double> rho_valence_gc(gc.all(), 0.0); // new valence density on the coarse grid
 
+                  double charges[4] = {0, 0, 0, 0};
                   for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
                       auto psi_k = psi[ikpoint]; // get a sub-view
 
@@ -837,9 +838,11 @@ namespace potential_generator {
                                                     psi_k.data(), gc.all(), na, op, nbands, 1, echo);
                           stat += density_generator::density(rho_valence_gc.data(), atom_rho.data(), Fermi,
                                                     energies[ikpoint], psi_k.data(), atom_coeff.data(), 
-                                                    coeff_starts.data(), na, gc, nbands, 1, echo, nullptr);
+                                                    coeff_starts.data(), na, gc, nbands, 1, echo, nullptr, charges);
                       } // scope
                   } // ikpoint
+                  if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
+                                  charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());
 
                   stat += multi_grid::interpolate3D(rho_valence_new.data(), g, rho_valence_gc.data(), gc);
 
@@ -849,12 +852,25 @@ namespace potential_generator {
 
                   stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
 
+                  double charges[4] = {0, 0, 0, 0};
                   for(auto & x : export_rho) {
                       if (echo > 1) { printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(), 
-                                                x.offset.data(), x.natoms, g, x.nbands, 1, echo, nullptr);
+                                                x.offset.data(), x.natoms, g, x.nbands, 1, echo, nullptr, charges);
                   } // ikpoint
+                  if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
+                                  charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());
+                  if (charges[0] > 0 && std::abs(charges[0] - 1.0) > 1e-15) {
+                      double const sf = 1./charges[0];
+                      if (echo > 2) printf("# %s: renormalize density and density matrices by %.15f\n", __func__, sf);
+                      scale(rho_valence_new.data(), g.all(), sf);
+                      for(int ia = 0; ia < na; ++ia) {
+                          scale(atom_rho[ia], pow2(sho_tools::nSHO(numax[ia])), sf);
+                      } // ia
+                      scale(charges, 3, sf);
+                  } // normalize by sum of k-weights
+
                   here;
               } else { // SHO local orbitals
                   here;
@@ -867,7 +883,7 @@ namespace potential_generator {
               
               if (echo > 1) print_stats(rho_valence_new.data(), g.all(), g.dV(), "\n# Total new valence density");
 
-#if 0
+#if 1
               if (1) { // update take_atomic_valence_densities
                   float take_some_spherical_valence_density = 0.5f;
                   stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_some_spherical_valence_density);
@@ -879,11 +895,12 @@ namespace potential_generator {
           } // scope: Kohn-Sham
 
           if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
+#if 0
               auto const progress = scf_iteration/spherical_valence_decay;
               take_atomic_valence_densities = (progress >= 1) ? 0 : 2*pow3(progress) - 3*pow2(progress) + 1; // smooth transition function
               stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
+#endif // 0
           } // spherical_valence_decay
-
           here;
       } // scf_iteration
       here;

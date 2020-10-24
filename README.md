@@ -18,31 +18,33 @@
     The idea is to have a code that is 
 	- highly parallel
     	- can make use of GPUs
-    	- does not require more input than the atomic coordinates
+   	- does not require more input than the atomic coordinates
+        - can scale linearly
 
 **Current Status**
     These features are planned but have so far not been addressed:
-    - different versions of LDA, GGA, meta-GGA (currenly only one LSDA: PZ81)
+    - different versions of LDA, GGA, meta-GGA (currenly only the PZ81-LDA implemented)
     - efficient eigensolver for the grid Hamiltonian (currently inefficient subspace rotation method)
-    - MPI parallelization
-    - OpenMP parallelization
+    - MPI parallelization (currenly none)
+    - OpenMP parallelization (currently none)
     - GPU acceleration (currently none)
-    - complex wave functions, k-points
-    - fancy boundary conditions
-    - total energy
-    - forces
-    - self-consistency (so far on the radial grids only)
-    - magnetism
+    - complex wave functions, k-points (currently boundary phases are missing for real-space)
+    - fancy boundary conditions (currently only periodic and isolated)
+    - total energy (currently only some energy contributions)
+    - forces (currently none)
+    - self-consistency (currenly only on radial grids)
+    - magnetism, collinear and non-collinear (currenly none)
     These features are ready:
-    - potential generation (non-magnetic)
-    - multigrid Poisson solver for the electrostatics (serial)
-    - SHO-projector PAW with all-electron atoms (non-magnetic)
-    Some features are build in only for development:
-    - FFT Poisson solver for the electrostatic problem
-    - plane wave basis set using a dense eigensolver
-    These feautures are not intended to be implemented ever:
+    - potential generation (currently only non-magnetic)
+    - multigrid Poisson solver for the electrostatics (currently only serial)
+    - SHO-projector PAW with all-electron atoms (currently only non-magnetic)
+    Some features are build in only for development purposes:
+    - a stable FFT Poisson solver for the electrostatic problem
+    - plane wave basis set using a dense matrix eigensolver (LAPACK) or iterative (in development)
+    These features are not intended to be implemented ever:
     - Strain
     - phonons
+    - exact exchange
 
 **Reuse existing code modules**
     In order not to re-program and validate everything, we

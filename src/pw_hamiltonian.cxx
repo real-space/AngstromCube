@@ -152,7 +152,23 @@ namespace pw_hamiltonian {
           } // ib
           
       } // scope
-      
+
+      // construct a preconditioner
+      std::vector<complex_t> precond(nPWa, complex_t(0));
+      {
+          double diag_min{9e99}; int imin{-1};
+          for(int iB = 0; iB < nPW; ++iB) {
+              double const diag = std::real(HSm(H,iB,iB));
+              if (diag < diag_min) imin = iB;
+              diag_min = std::min(diag_min, diag);
+          } // iB
+          if (echo > 6) { printf("# %s smallest diagonal element is %g %s at index #%i of %d\n",
+                                    __func__, diag_min*eV,_eV, imin, nPW); fflush(stdout); }
+          complex_t const diag_shift = diag_min - 1.0; // 1.0 Ha below the lowest diagonal element
+          for(int iB = 0; iB < nPW; ++iB) {
+              precond[iB] = complex_t(1)/(HSm(H,iB,iB) - diag_shift);
+          } // iB
+      } // ToDo: pass precond to dense_operator_t constructor
 
       if (echo > 6) { printf("# %s construct a dense operator for the %d x %d Hamiltonian (stride %d)\n",
                               __func__, nPW, nPW, nPWa); fflush(stdout); }
@@ -215,6 +231,7 @@ namespace pw_hamiltonian {
           , int const nbands=10 // number of bands (needed for iterative solver)
           , float const direct_ratio=2.f // try to get good start waves by envoking a dense solver on a (2.0*nbands)x(2.0*nbands) sub-Hamiltonian
           , DensityIngredients *export_rho=nullptr
+          , int const kpoint_id=-1 // global identifyer of kpoints
       ) { // number of bands (needed by iterative solver)
 
       using real_t = decltype(std::real(complex_t(1)));
@@ -444,7 +461,7 @@ namespace pw_hamiltonian {
 
       if (export_rho) {
           double const kpoint_weight = 1; // depends on ikpoint, ToDo
-          export_rho->constructor(nG, nbands, natoms_PAW, nC, kpoint_weight, echo);
+          export_rho->constructor(nG, nbands, natoms_PAW, nC, kpoint_weight, kpoint_id, echo);
           export_rho->energies.assign(eigenenergies.begin(), eigenenergies.begin() + nbands);
           export_rho->offset.assign(offset.begin(), offset.end());
           assert(export_rho->offset.size() == export_rho->natoms + 1);

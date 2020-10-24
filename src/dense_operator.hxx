@@ -23,8 +23,8 @@ namespace dense_operator {
       typedef wave_function_t complex_t;
 
     private:
-      complex_t const *Hmt, *Smt;
-      complex_t const *Cnd;
+      complex_t const *Hmt, *Smt; // Hamiltonian matrix, Overlap matrix
+      complex_t const *Cnd; // Preconditioning operator
       int nB, nBa;
       
       inline status_t matrix_vector_multiplication(complex_t mvec[]
@@ -35,11 +35,13 @@ namespace dense_operator {
 
     public:
 
-      dense_operator_t(int const nB, int const stride
-                  , complex_t const *Hmt          // Hamiltonian
-                  , complex_t const *Smt=nullptr  // Overlap matrix
-                  , complex_t const *Cnd=nullptr) // diagonal preconditioner
-        : Hmt{Hmt}, Smt{Smt}, Cnd{Cnd}, nB{nB}, nBa{stride}
+      dense_operator_t(
+            int const nB                 // dimension (number of Basis functions)
+          , int const stride             // access stride (must be >= nB)
+          , complex_t const *Hmt         // Hamiltonian
+          , complex_t const *Smt=nullptr // Overlap matrix, optional
+          , complex_t const *Cnd=nullptr // diagonal preconditioner, optional
+      ) : Hmt{Hmt}, Smt{Smt}, Cnd{Cnd}, nB{nB}, nBa{stride}
       { assert( nB <= nBa ); } // constructor
 
       status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
@@ -51,7 +53,7 @@ namespace dense_operator {
       } // Overlapping
 
       status_t Conditioner(complex_t Cpsi[], complex_t const psi[], int const echo=0) const {
-          if (use_precond()) product(Cpsi, nB, Cnd, psi); 
+          if (use_precond()) product(Cpsi, nB, Cnd, psi); // diagonal preconditioner
           return 0;
       } // Pre-Conditioner
 

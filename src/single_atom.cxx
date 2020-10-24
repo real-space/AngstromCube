@@ -1021,7 +1021,7 @@ namespace single_atom {
     
     
     void update_spherical_states(float const mixing[3], int const echo=0) {
-        if (echo > 1) printf("\n# %s %s Z= %g\n", label, __func__, Z_core);
+        if (echo > 1) printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU].n;
         std::vector<double> r2rho(nr);
@@ -2340,26 +2340,26 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
-        //   Then, contract with the Gaunt tensor over m_1 and m_2
+        //   Now, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
 
         set(rho_tensor, nlm, 0.0); // clear
         for(auto gnt : gaunt) {
-            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto G = gnt.G;
-            // if (0 == lm) assert(std::abs(G - Y00*(lm1 == lm2)) < 1e-12); // make sure that G_00ij = delta_ij*Y00
-            if (0 == lm) G = Y00*(lm1 == lm2); // make sure that G_00ij = delta_ij*Y00
-            if ((lm < nlm) && (lm1 < mlm) && (lm2 < mlm)) {
-                for(int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {
+            int const lm = gnt.lm, ilm = gnt.lm1, jlm = gnt.lm2; auto G = gnt.G;
+            // if (0 == lm) assert(std::abs(G - Y00*(ilm == jlm)) < 1e-12); // make sure that G_00ij = delta_ij*Y00
+            if (0 == lm) G = Y00*(ilm == jlm); // make sure that G_00ij = delta_ij*Y00
+            if ((lm < nlm) && (ilm < mlm) && (jlm < mlm)) {
+                for(int ilmn = lmn_begin[ilm]; ilmn < lmn_end[ilm]; ++ilmn) {
                     int const iln = ln_index_list[ilmn];
-                    for(int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
+                    for(int jlmn = lmn_begin[jlm]; jlmn < lmn_end[jlm]; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
                         rho_tensor(lm,iln,jln) += G * radial_density_matrix(ilmn,jlmn);
-#ifdef DEVEL
+#ifdef FULL_DEBUG
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
 //                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij*Y00inv, lm, iln, jln);
-#endif // DEVEL
+#endif // FULL_DEBUG
                     } // jlmn
                 } // ilmn
             } // limits
@@ -2367,7 +2367,7 @@ namespace single_atom {
 
 #ifdef DEVEL
 // #ifdef FULL_DEBUG
-        if (1) {
+        if (echo > 0) {
             int const nln = sho_tools::nSHO_radial(numax);
             for(int lm = 0; lm < 1; ++lm) {
                 for(int iln = 0; iln < nln; ++iln) {
@@ -2375,12 +2375,12 @@ namespace single_atom {
                         auto const rho_ij = rho_tensor(lm,iln,jln);
                         if (std::abs(rho_ij) > 2e-16) {
                             printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
-                                   label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
+                                label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
                         } // rho_ij > 0
                     } // jln
                 } // iln
             } // lm
-        } // 1
+        } // echo
 // #endif // FULL_DEBUG
 #endif // DEVEL
     } // get_rho_tensor
@@ -2420,7 +2420,11 @@ namespace single_atom {
                                 if (partial_wave_active[jln]) {
                                     auto const wave_j = partial_wave[jln].wave[ts];
                                     double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
-                                    if (00 == lm && ts == TRU) printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, lm, iln, jln);
+#ifdef FULL_DEBUG
+                                    if (echo > 0  && 00 == lm && ts == TRU && std::abs(rho_ij) > 2e-16) 
+                                        printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n",
+                                            label, rho_ij*Y00inv, lm, iln, jln);
+#endif // FULL_DEBUG
                                     add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
                                 } // active
                             } // jln
@@ -2444,8 +2448,10 @@ namespace single_atom {
                         for(int jln = 0; jln < nln; ++jln) {
                             double const rho_ij = density_tensor(lm,iln,jln);
 #ifdef FULL_DEBUG
-                            if (std::abs(rho_ij) > 1e-9) printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n", label, rho_ij*Y00inv, ell, emm, iln, jln);
-#endif // FULL_DEBUG                       
+                            if (echo > 0 && std::abs(rho_ij) > 1e-9)
+                                printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n",
+                                    label, rho_ij*Y00inv, ell, emm, iln, jln);
+#endif // FULL_DEBUG
                             rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                                - charge_deficit(ell,SMT,iln,jln) );
                             tru_lm += rho_ij *   charge_deficit(ell,TRU,iln,jln)  ; // only for display
@@ -2456,7 +2462,7 @@ namespace single_atom {
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
                 qlm_compensator[lm] = rho_lm * mix_valence_density;
-                if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm, smt_lm);
+                if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm*Y00inv, smt_lm*Y00inv);
 
             } // emm
         } // ell
@@ -3110,7 +3116,7 @@ namespace single_atom {
           float const density_mixing[3] // mixing of the density according to its class (0:core, 1:semicore, 2:valence)
         , int const echo=0 // log-level
     ) {
-        if (echo > 2) printf("\n# %s\n", __func__);
+        if (echo > 2) printf("\n# %s Z=%g\n", __func__, Z_core);
         update_spherical_states(density_mixing, echo);
         update_energy_parameters(echo);
         update_partial_waves(echo); // create new partial waves for the valence description

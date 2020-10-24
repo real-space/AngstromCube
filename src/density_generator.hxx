@@ -169,6 +169,7 @@ namespace density_generator {
       , int const nkpoints=1
       , int const echo=0
       , double *const *const d_atom_rho=nullptr // result atomic density matrices derived
+      , double charges[]=nullptr // nominal charge accumulators: 0:kpoint_denominator, 1:charge, 2:d_charge
   ) {
       // density generation for eigenstates represented on the real-space grid
 
@@ -192,10 +193,14 @@ namespace density_generator {
       double constexpr occ_threshold = 1e-16;
       double const kT = Fermi.get_temperature(); // for display
       int const spinfactor = Fermi.get_spinfactor(); // 1 or 2
+      if (echo > 3) printf("# %s spin factor %d and temperature %g %s\n", __func__, spinfactor, kT*Kelvin, _Kelvin);
+
+      double charge[3] = {0, 0, 0}; // {kpoint weights, charge of all bands, derivative}
 
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-          double const weight_sk = spinfactor * 1; // ToDo: depends on ikpoint
+          double const weight_k = 1; // depends on ikpoint, ToDo
+          double const weight_sk = spinfactor * weight_k;
           auto const psi_k = psi[ikpoint];
 
           // determine the occupation numbers
@@ -205,12 +210,14 @@ namespace density_generator {
 
           int ilub{nbands}; // index of lowest completely unoccupied band
           double old_charge{0};
+          double charge_k[3] = {1, 0, 0}; // {1, charge of bands, derivative}
           for(int iband = 0; iband < nbands; ++iband) {
               auto const psi_nk = psi_k[iband];
 
               if (occupation[iband] > occ_threshold) {
+                  charge_k[1] += occupation[iband]*spinfactor;
                   double const weight_nk = occupation[iband] * weight_sk;
-                  if (echo > 6) printf("# %s: k-point #%i bands #%i \toccupation= %.6f d_occ= %.6f\n",
+                  if (echo > 6) printf("# %s: k-point #%i bands #%i \toccupation= %.6f d_occ= %g\n",
                                 __func__, ikpoint, iband, occupation[iband], d_occupation[iband]*kT);
 
                   add_to_density(rho, g.all(), psi_nk, weight_nk, echo, iband, ikpoint);
@@ -226,6 +233,7 @@ namespace density_generator {
                                   coeff_starts, natoms, weight_nk, echo, iband, ikpoint);
 
                   if (d_occupation[iband] > occ_threshold) {
+                      charge_k[2] += d_occupation[iband]*spinfactor;
                       double const d_weight_nk = d_occupation[iband] * weight_sk;
 
                       add_to_density(d_rho.data(), g.all(), psi_nk, d_weight_nk, echo, iband, ikpoint);
@@ -246,11 +254,14 @@ namespace density_generator {
               if (echo > 6) printf("# %s: k-point #%i band #%i at %g %s and above did not"
                   " contribute to the density\n", __func__, ikpoint, ilub, ene(ikpoint,ilub)*eV,_eV);
           } // some bands did not contribute to the density as they are too high above the Fermi energy
+          if (echo > 5) printf("# %s: k-point #%i has charge %g electrons and derivative %g\n",
+                                  __func__, ikpoint, charge_k[1], charge_k[2]*kT); 
+          add_product(charge, 3, charge_k, weight_k);
       } // ikpoint
-
+      if (charges) add_product(charges, 3, charge, 1.0);
       if (echo > 1) { printf("\n# Total valence density "); print_stats(rho, g.all(), g.dV()); }
       if (echo > 3) { printf("# Total response density"); print_stats(d_rho.data(), g.all(), g.dV(), "", kT); }
-#ifdef DEVEL
+#if 0
       if (echo > 6) {
           for(int ia = 0; ia < natoms; ++ia) {
               int const ncoeff = coeff_starts[ia + 1] - coeff_starts[ia];

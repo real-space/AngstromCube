@@ -12,18 +12,18 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
-# project_base=pg.C-dimer
-# printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
-# echo "C  0 0 -0.65" >> $geometry_file
-# echo "C  0 0  0.65" >> $geometry_file
+project_base=pg.C-dimer
+printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
+echo "C  -0.65 0 0" >> $geometry_file
+echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -122,10 +122,10 @@ electrostatic.solver=fft
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=8
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=8
-single_atom.init.echo=7
+single_atom.echo=3
+single_atom.init.echo=0
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
-single_atom.echo.mask=-1
+single_atom.echo.mask=1
 single_atom.optimize.sigma=1
 single_atom.init.scf.maxit=0
 
@@ -155,25 +155,28 @@ start.waves=waves.dat
 sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
-hamiltonian.test.kpoints=1
+hamiltonian.test.kpoints=3
 # start.waves.scale.sigma=1
-hamiltonian.floating.point.bits=64
+hamiltonian.floating.point.bits=32
 
 # configuration for basis=pw
 # pw_hamiltonian.solver {auto, both, direct, iterative}
 pw_hamiltonian.solver=direct
-davidson_solver.max.iterations=19
-pw_hamiltonian.iterative.solver.ratio=2.0
+
+#pw_hamiltonian.solver=iterative
+davidson_solver.max.iterations=9
+pw_hamiltonian.iterative.solver.ratio=4.0
+pw_hamiltonian.iterative.solver=cg
 
 # also compute the eigenvalues of the overlap matrix?
-dense_solver.test.overlap.eigvals=1
+#dense_solver.test.overlap.eigvals=0
 
 # analyze the potentials up to vtot
-potential_generator.use.bessel.projection=0
-potential_generator.direct.projection=0
+#potential_generator.use.bessel.projection=0
+#potential_generator.direct.projection=0
 
 single_atom.init.scf.maxit=1
-single_atom.export.xml=1
+#single_atom.export.xml=1
 
 EOF
 
@@ -204,7 +207,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 6`; do
+for ecut in `seq 6 2 8`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

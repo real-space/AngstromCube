@@ -51,20 +51,30 @@ The saying above moques about the *bad* programming style many Fortran programs
 are written in. However, there are some nice things in Fortran90 that come handy
 so they were re-introduced into the C++ of this project:
 ```Fortran90
-    x(:) = b(:)
+    vec(:) = b(:)
 ```
 However, to keep it as basic as possible, it can be done by
 ```C++
     #include "inline_math.hxx" // set
-    set(x, n, b);
+    set(vec, n, b);
 ```
 but we have to know the length of the arrays.
 Certainly, `set` is templated, so where `x` and `b` are pointers, not necessaily of the same type.
 `set` also supports scaling and assignment of a scalar value
 ```C++
-    set(x, n, b, scalar_factor); set(b, n, scalar_value);
+    set(vec, n, vector, scalar_factor);
+    set(vec, n, scalar_value);
+```
+More vector functionality can be found in `inline_math.hxx` as e.g.
+```C++
+    scale(vec, n, scalar_factor);
+    scale(vec, n, vector[, scalar_factor]);
+    product(vec, n, vector, vector_factors [, vector_factors][, scalar_factor]);
+    add_product(vec, n, vector, scalar_factor);
+    add_product(vec, n, vector, vector_factors[, scalar_factor]);
 ```
 
+
 The largest feature-envy for Fortran90, however, are the intrinsic support of
-multi-dimensional arrays with support for run-time checking of index-out-of-bounds.
+multi-dimensional arrays including run-time checking of index-out-of-bounds.
 Please see `data_view.md` for more details.
