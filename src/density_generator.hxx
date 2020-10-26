@@ -167,6 +167,7 @@ namespace density_generator {
       , real_space::grid_t const & g
       , int const nbands=1
       , int const nkpoints=1
+      // ToDo: insert kmesh here or at least the kpoint under consideration (including its weight)
       , int const echo=0
       , double *const *const d_atom_rho=nullptr // result atomic density matrices derived
       , double charges[]=nullptr // nominal charge accumulators: 0:kpoint_denominator, 1:charge, 2:d_charge

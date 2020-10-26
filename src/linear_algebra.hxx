@@ -291,7 +291,7 @@ namespace linear_algebra {
       if (0) {
           printf("# zgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
                           transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
-          fflush(stdout);
+          std::fflush(stdout);
       } // echo
       zgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
       return 0;
@@ -314,7 +314,7 @@ namespace linear_algebra {
 
           printf("# cgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
                           transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
-          fflush(stdout);
+          std::fflush(stdout);
       } 
       if (0) { // triple loop naive implementation
           if (('n' == (transa | 32)) && ('n' == (transb | 32))) {

@@ -1,7 +1,7 @@
 #pragma once
 
+#include <cstdio> // printf, std::fflush, stdout
 #include <complex> // std::real
-#include <cstdio> // printf
 
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
@@ -221,7 +221,7 @@ namespace conjugate_gradients {
                       // prepending '\r' means that the next printf will overwrite the last line when outputting to terminal
                       printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i", 
                                 ib, energy[ib]*eV, _eV, (energy[ib] - prev_energy)*eV, residual[ib], iiter);
-                      fflush(stdout);
+                      std::fflush(stdout);
                   } // echo
                   prev_energy = energy[ib];
 

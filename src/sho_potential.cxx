@@ -442,7 +442,7 @@ namespace sho_potential {
               } // ja
           } // ia
         
-          if (echo > 2) { printf("\n# %s method=2 seems symmetric!\n", __func__); fflush(stdout); }
+          if (echo > 2) { printf("\n# %s method=2 seems symmetric!\n", __func__); std::fflush(stdout); }
           
           method_active[Between] = true;
       } // scope: Method 2
@@ -475,7 +475,7 @@ namespace sho_potential {
               // determine numax_V dynamically, depending on sigma_a and the grid spacing, (external parameter lmax is ignored)
               int const numax_V = std::floor(kinetic_energy*pow2(sigmas[ia]) - 1.5);
               if (echo > 5) printf("# atom #%i expand potential up to numax=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
-              if (echo > 5) fflush(stdout);
+              if (echo > 5) std::fflush(stdout);
               int const nbV = sho_tools::nSHO(numax_V);
               std::vector<double> Vcoeff(nbV, 0.0);
 
@@ -508,7 +508,7 @@ namespace sho_potential {
               // determine the size of the auxiliary basis
               int const numax_k = numaxs[ia] + numax_V; // triangle rule
               if (echo > 5) printf("# atom #%i auxiliary basis up to numax=%d with sigma=%g %s\n", ia, numax_k, sigmas[ia]*Ang, _Ang);
-              if (echo > 5) fflush(stdout);
+              if (echo > 5) std::fflush(stdout);
               
               int const nbi = sho_tools::nSHO(numaxs[ia]);
               int const nbk = sho_tools::nSHO(numax_k);

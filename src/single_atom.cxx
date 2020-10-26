@@ -4,11 +4,11 @@
  */
 #endif // not DEVEL
 
-#include <cstdio> // printf, std::snprintf
+#include <cstdio> // printf, std::snprintf, std::fflush, stdout
 #include <cstring> // std::strncpy
 #include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
-#include <algorithm> // std::max
+#include <algorithm> // std::max, std::min
 
 #include "single_atom.hxx"
 
@@ -1718,7 +1718,7 @@ namespace single_atom {
                         } else {
                             // matching coefficient - how much of the homogeneous solution do we need to add to match logder
                             auto const denom =    vgtru*dghom - dgtru*vghom; // ToDo: check if denom is not too small
-                            if (echo > 17) { printf("# %s LINE= %d    %g * %g - %g * %g = %g\n", label, __LINE__, vgtru, dghom, dgtru, vghom, denom); fflush(stdout); }
+                            if (echo > 17) { printf("# %s LINE= %d    %g * %g - %g * %g = %g\n", label, __LINE__, vgtru, dghom, dgtru, vghom, denom); std::fflush(stdout); }
                             assert(std::abs(denom) > 1e-300);
                             auto const c_hom = - (vgtru*dginh - dgtru*vginh) / denom;
 
@@ -3120,7 +3120,7 @@ namespace single_atom {
             for(int ir = 0; ir < rg[SMT].n; ++ir) {
                 Vsmt[ir] = potential[SMT][ir]*rg[SMT].rinv[ir] - V_rmax;
             } // ir
-            if (echo > 1) printf("\n\n# %s %s eigenstate_analysis\n", label, __func__);
+            if (echo > 1) printf("\n\n# %s %s: eigenstate_analysis\n", label, __func__);
             if (echo > 5) printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
@@ -3130,7 +3130,7 @@ namespace single_atom {
         }
 
         if (1) {
-            if (echo > 1) printf("\n\n# %s %s logarithmic_derivative\n", label, __func__);
+            if (echo > 1) printf("\n\n# %s %s: logarithmic_derivative\n", label, __func__);
             double const *const rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, rV, sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);

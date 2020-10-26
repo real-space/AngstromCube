@@ -8,9 +8,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "Al   0 0 0" >> $geometry_file
 
-# project_base=pg.C-sc
-# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-sc
+printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.C-atom
 # printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
@@ -50,13 +50,15 @@ geometry_file=atoms.xyz
 # echo "Al    1.0 -1.0  1.0" >> $geometry_file
 # echo "Al   -1.0  1.0  1.0" >> $geometry_file
 
-project_base=pg.Cu-fcc
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
-printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
-echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
-echo "Cu    .8805  .8805 -.8805" >> $geometry_file
-echo "Cu    .8805 -.8805  .8805" >> $geometry_file
-echo "Cu   -.8805  .8805  .8805" >> $geometry_file
+# project_base=pg.Cu-fcc
+# printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
+# echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
+# echo "Cu    .8805  .8805 -.8805" >> $geometry_file
+# echo "Cu    .8805 -.8805  .8805" >> $geometry_file
+# echo "Cu   -.8805  .8805  .8805" >> $geometry_file
+
+### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
 
 # project_base=potential_generator.P-sc
 # printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
@@ -119,7 +121,7 @@ cat > control.sh << EOF
 # configuration of atomic PAW setups
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
 element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
+#element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
 
 # verbosity of the log files
 verbosity=7
@@ -129,7 +131,8 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 # grid spacing of the dense grid (in Bohr)
-potential_generator.grid.spacing=0.23622
+#potential_generator.grid.spacing=0.23622
+potential_generator.grid.spacing=0.208
 #potential_generator.grid.spacing=0.1772   ## dense grid
 
 # max number of self-consistency iterations
@@ -139,13 +142,13 @@ potential_generator.max.scf=1
 electrostatic.solver=fft
 
 #single_atom.local.potential.method=sinc
-single_atom.nn.limit=1
+single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
 single_atom.echo=7
 single_atom.init.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
-single_atom.optimize.sigma=0
+#single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
 
 #smooth.radial.grid.from=0
@@ -174,7 +177,8 @@ export.waves=waves.dat
 sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
-hamiltonian.test.kpoints=5
+#hamiltonian.test.kpoints=5
+hamiltonian.test.kmesh=7
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
@@ -226,7 +230,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 10 2 10`; do
+for ecut in `seq 2 2 20`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

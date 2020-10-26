@@ -338,7 +338,8 @@ namespace potential_generator {
 
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
       view2D<double> periodic_images;
-      int const n_periodic_images = boundary_condition::periodic_images(periodic_images, cell, g.boundary_conditions(), rcut, echo - 4);
+      int const n_periodic_images = boundary_condition::periodic_images(periodic_images,
+                                       cell, g.boundary_conditions(), rcut, echo - 4);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
       
@@ -371,7 +372,7 @@ namespace potential_generator {
       std::vector<double> rho_valence(run*g.all(), 0.0);
      
       char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
-      if (echo > 0) printf("\n# initial.valence.density =%s\n", initial_valence_density_method);
+      if (echo > 0) printf("\n# initial.valence.density=%s\n", initial_valence_density_method);
 
       auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero., never if 0
       float take_atomic_valence_densities{0};

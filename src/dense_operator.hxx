@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, fflush, stdout
+#include <cstdio> // printf, std::fflush, stdout
 
 #include "status.hxx" // status_t
 
@@ -29,7 +29,7 @@ namespace dense_operator {
       
       inline status_t matrix_vector_multiplication(complex_t mvec[]
                      , complex_t const mat[], complex_t const vec[], int const echo=0) const {
-          if (echo > 19) { printf("# %s<%s> gemm\n", __func__, complex_name<complex_t>()); fflush(stdout); }
+          if (echo > 19) { printf("# %s<%s> gemm\n", __func__, complex_name<complex_t>()); std::fflush(stdout); }
           return linear_algebra::gemm(nB, 1, nB, mvec, nB, vec, nB, mat, nBa);
       } // matrix_vector_multiplication
 

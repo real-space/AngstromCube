@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // printf, std::fflush, stdout
 #include <cassert> // assert
 #include <cstdint> // uint8_t
 #include <vector> // std::vector<T>
@@ -268,8 +268,8 @@ namespace scattering_test {
       double const dE = std::copysign(std::max(1e-9, std::abs(energy_range[1])), energy_range[1]);
       int const nen = int(std::ceil((energy_range[2] - energy_range[0])/dE));
 
-      if (echo > 1) printf("\n# %s %s energy range from %g to %g %s in %d steps of %g %s, lmax=%d\n", 
-          label, __func__, energy_range[0]*eV, energy_range[2]*eV, _eV, 1 + nen, dE*eV, _eV, lmax);
+      if (echo > 1) printf("# %s %s energy range from %g to %g %s in %d steps of %g %s, lmax=%d%c\n", 
+          label, __func__, energy_range[0]*eV, energy_range[2]*eV, _eV, 1 + nen, dE*eV, _eV, lmax, (nen < 0)?'\n':' ');
 
       if (nen < 0) return stat; // empty range
 
@@ -369,7 +369,7 @@ namespace scattering_test {
                       } else {
                           printf("# %s no %c-resonances found below %g %s\n", label, ellchar[ell], energy_range[2]*eV, _eV);
                       } // ndiff > 0
-                      fflush(stdout);
+                      std::fflush(stdout);
                   } // echo
               } // ell
 
@@ -421,7 +421,7 @@ namespace scattering_test {
       status_t stat(0);
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
-      if (echo > 1) printf("\n# %s %s %s dr=%g nr=%i rmax=%g %s\n", label, __FILE__, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
+      if (echo > 1) printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
       
       auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
@@ -455,7 +455,7 @@ namespace scattering_test {
 
       int constexpr nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
-      if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", __FILE__, __func__, nFD); 
+      if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD); 
 
       for(int ell = 0; ell <= lmax; ++ell) {
           int const nn = (numax + 2 - ell)/2;

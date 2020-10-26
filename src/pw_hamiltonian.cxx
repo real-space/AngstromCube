@@ -1,4 +1,4 @@
-#include <cstdio> // printf, fflush, stdout
+#include <cstdio> // printf, std::fflush, stdout
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
@@ -34,6 +34,7 @@
 #include "conjugate_gradients.hxx" // ::eigensolve
 #include "dense_operator.hxx" // ::dense_operator_t
 #include "fermi_distribution.hxx" // ::Fermi_level
+#include "brillouin_zone.hxx" // ::get_kpoint_mesh
 
 #ifdef DEVEL
     #include "print_tools.hxx" // printf_vector(fmt, vec, n [, final, scale, add])
@@ -113,7 +114,7 @@ namespace pw_hamiltonian {
       if (echo > 6) {
           printf("# %s for the lowest %d bands of a %d x %d Hamiltonian (stride %d)\n",
                     __func__, nbands, nPW, nPW, nPWa);
-          fflush(stdout);
+          std::fflush(stdout);
       } // echo
 
       // create nbands start waves
@@ -135,7 +136,7 @@ namespace pw_hamiltonian {
 
           // assume that plane waves are energy ordered and solve for the nsub * nsub sub-Hamiltonian
           if (echo > 6) { printf("# %s get %d start waves from diagonalization of a %d x %d Hamiltonian (stride %d)\n",
-                                  __func__, nbands, nsub, nsub, SHmat_b.stride()); fflush(stdout); }
+                                  __func__, nbands, nsub, nsub, SHmat_b.stride()); std::fflush(stdout); }
           auto const stat_eig = dense_solver::solve(SHmat_b, "# start waves "); // mute
           if (stat_eig != 0) {
               warn("diagonalization of the %d x %d sub-Hamiltonian returned status= %i", nsub, nsub, int(stat_eig));
@@ -145,7 +146,7 @@ namespace pw_hamiltonian {
           // after the dense solver, the Hamiltonian matrix contains the eigenvectors
 
           if (echo > 6) { printf("# %s copy %d start waves from eigenstates of the %d x %d Hamiltonian (stride %d)\n",
-                                  __func__, nbands, nsub, nsub, SHmat_b.stride()); fflush(stdout); }
+                                  __func__, nbands, nsub, nsub, SHmat_b.stride()); std::fflush(stdout); }
           // copy eigenvectors into low PW coefficients of start waves
           for(int ib = 0; ib < nbands; ++ib) {
               set(waves[ib], nsub, SHmat_b(H,ib));
@@ -163,7 +164,7 @@ namespace pw_hamiltonian {
               diag_min = std::min(diag_min, diag);
           } // iB
           if (echo > 6) { printf("# %s smallest diagonal element is %g %s at index #%i of %d\n",
-                                    __func__, diag_min*eV,_eV, imin, nPW); fflush(stdout); }
+                                    __func__, diag_min*eV,_eV, imin, nPW); std::fflush(stdout); }
           complex_t const diag_shift = diag_min - 1.0; // 1.0 Ha below the lowest diagonal element
           for(int iB = 0; iB < nPW; ++iB) {
               precond[iB] = complex_t(1)/(HSm(H,iB,iB) - diag_shift);
@@ -171,7 +172,7 @@ namespace pw_hamiltonian {
       } // ToDo: pass precond to dense_operator_t constructor
 
       if (echo > 6) { printf("# %s construct a dense operator for the %d x %d Hamiltonian (stride %d)\n",
-                              __func__, nPW, nPW, nPWa); fflush(stdout); }
+                              __func__, nPW, nPW, nPWa); std::fflush(stdout); }
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
 
@@ -182,15 +183,15 @@ namespace pw_hamiltonian {
       status_t stat_slv(0);
       if ('c' == method) {
           int const nit = control::get("pw_hamiltonian.max.cg.iterations", 3.);
-          if (echo > 6) { printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); fflush(stdout); }
+          if (echo > 6) { printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for(int it = 0; it < nit && (0 == stat_slv); ++it) {
-              if (echo > 6) { printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); fflush(stdout); }
+              if (echo > 6) { printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
               stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10);
               stat += stat_slv;
           } // it
       } else { // method
           int const nit = control::get("davidson_solver.max.iterations", 1.);
-          if (echo > 6) { printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); fflush(stdout); }
+          if (echo > 6) { printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.5f, nit, 1e-2);
       } // method
 
@@ -199,7 +200,7 @@ namespace pw_hamiltonian {
               dense_solver::display_spectrum(eigvals.data(), nbands, x_axis, eV, _eV);
               if (echo > 4) printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n", 
                                       eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
-              fflush(stdout);
+              std::fflush(stdout);
           } // echo
       } else {
           warn("Davidson solver for the plane wave Hamiltonian failed with status= %i", int(stat_slv));
@@ -224,7 +225,7 @@ namespace pw_hamiltonian {
           , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
           , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
 
-          , double const kpoint[3] // vector inside the Brillouin zone, all 3 components in [-.5, .5]
+          , double const kpoint[4] // vector inside the Brillouin zone, all 3 components in [-.5, .5], 4th component is the weight
           , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
           , int & nPWs // export number of plane waves
           , int const echo=0 // log-level
@@ -276,7 +277,7 @@ namespace pw_hamiltonian {
           float const minutes = 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB), seconds = 60*(minutes - int(minutes));
           printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %d:%02d minutes)\n",
                  __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, int(minutes), int(seconds));
-          fflush(stdout);
+          std::fflush(stdout);
       } // echo
 #endif // DEVEL
 
@@ -383,7 +384,7 @@ namespace pw_hamiltonian {
               printf("# ^2-norm of the projector of atom #%i ", la);
               int const nSHO = sho_tools::nSHO(numax_PAW[la]);
               printf_vector(" %g", &P2_l[offset[la]], nSHO);
-              fflush(stdout);
+              std::fflush(stdout);
           } // la
       } // echo
 #endif // DEVEL
@@ -460,7 +461,7 @@ namespace pw_hamiltonian {
       // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
       if (export_rho) {
-          double const kpoint_weight = 1; // depends on ikpoint, ToDo
+          double const kpoint_weight = kpoint[3];
           export_rho->constructor(nG, nbands, natoms_PAW, nC, kpoint_weight, kpoint_id, echo);
           export_rho->energies.assign(eigenenergies.begin(), eigenenergies.begin() + nbands);
           export_rho->offset.assign(offset.begin(), offset.end());
@@ -487,7 +488,7 @@ namespace pw_hamiltonian {
                       atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
                   } // iC
               } // iB
-//            if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); fflush(stdout); }
+//            if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); std::fflush(stdout); }
 
               // back-transform to real-space
               auto const fft_stat = fourier_transform::fft(export_rho->psi_r[iband], psi_G.data(), nG, false, echo);
@@ -565,7 +566,7 @@ namespace pw_hamiltonian {
           if (echo > 5) printf("# used FFT on %d x %d x %d to transform local potential into space of plane-wave differences\n", nG[0], nG[1], nG[2]);
       } else
       { // scope: Fourier transform the local potential "by hand"
-          if (echo > 5) { printf("# FFT failed, transform local potential manually\n"); fflush(stdout); }
+          if (echo > 5) { printf("# FFT failed, transform local potential manually\n"); std::fflush(stdout); }
           SimpleTimer timer(__FILE__, __LINE__, "manual Fourier transform (not FFT)");
           double const two_pi = 2*constants::pi;
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
@@ -615,15 +616,17 @@ namespace pw_hamiltonian {
 
       auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
       float const iterative_direct_ratio = control::get("pw_hamiltonian.iterative.solver.ratio", 2.);
-      auto const nkpoints = int(control::get("hamiltonian.test.kpoints", 17.));
+      auto const kmesh_size = int(control::get("hamiltonian.test.kmesh", 2.));
+      view2D<double> kmesh;
+      auto const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh, kmesh_size, echo);
       if (export_rho) export_rho->resize(nkpoints);
 
       // all preparations done, start k-point loop
 
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
-          double const kpoint[3] = {ikp*.5/std::max(1., nkpoints - 1.), 0, 0};
-          char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", kpoint[0]);
+          double const *kpoint = kmesh[ikp];
+          char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0],kpoint[1],kpoint[2]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
           bool can_be_real{false}; // real only with inversion symmetry
@@ -646,7 +649,7 @@ namespace pw_hamiltonian {
               } // floating_point_bits
               nPW_stats.add(nPWs);
           } // !can_be_real
-          if (echo > 0) fflush(stdout);
+          if (echo > 0) std::fflush(stdout);
           tPW_stats.add(timer.stop());
       } // ikp
 

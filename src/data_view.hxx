@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // printf, std::fflush, stdout
 #include <cassert> // assert
 #include <cstdint> // uint32_t --> replace size_t with this?
 #include <algorithm> // std::fill
@@ -455,7 +455,7 @@ namespace data_view {
           } // irep
       } // timer
       printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
-      fflush(stdout);
+      std::fflush(stdout);
       {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)");
           for(int irep = 0; irep < nrep; ++irep) {
               a(1,1) = a(1,0);
@@ -465,7 +465,7 @@ namespace data_view {
           } // irep
       } // timer
       printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
-      fflush(stdout);
+      std::fflush(stdout);
 #endif
       return 0;
   } // test_bench_view2D

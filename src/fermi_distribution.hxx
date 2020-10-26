@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // printf, std::fflush, stdout
 #include <cassert> // assert
 #include <cmath> // std::exp
 #include <vector> // std::vector<T>
@@ -102,7 +102,7 @@ namespace fermi_distribution {
               e[i01] += sgn*change*delta_e; change = 1; delta_e *= 1.125;
               ne[i01] = count_electrons(nb, energies, e[i01], kTinv);
               if (echo > 5) { printf("# %s correct %ser start energy to %g %s --> %g electrons\n", 
-                            __func__, i01?"upp":"low", e[i01]*eV, _eV, spinfactor*ne[i01]); fflush(stdout); }
+                            __func__, i01?"upp":"low", e[i01]*eV, _eV, spinfactor*ne[i01]); std::fflush(stdout); }
           } while(sgn*ne[i01] < sgn*n_electrons);
       } // i01
 
@@ -124,7 +124,7 @@ namespace fermi_distribution {
                                                       __func__, ndigits_energy, _eV, ndigits_charge);
 //            printf("# %s fmt= %s\n", __func__, fmt);
               printf(fmt, em*eV, spinfactor*nem);
-              fflush(stdout);
+              std::fflush(stdout);
           } // echo
           int const i01 = (nem > n_electrons);
           e[i01] = em;
@@ -148,16 +148,11 @@ namespace fermi_distribution {
   status_t density_of_states(int const n, double const energies[], double const kT, double const eF=0, double const de=3e-4, int const echo=9) {
       if (n < 1) return 0;
       double const kTinv = 1./std::max(1e-9, kT);
-      double e_min{9e307}, e_max{-e_min}; //, e_stat[4] = {0,0,0,0};
+      simple_stats::Stats<double> stats;
       for(int i = 0; i < n; ++i) {
-          auto const ei = energies[i] - eF;
-          e_min = std::min(e_min, ei);
-          e_max = std::max(e_max, ei);
-//           e_stat[0] += 1;
-//           e_stat[1] += ei;
-//           e_stat[2] += pow2(ei);
-//           e_stat[3] += pow3(ei);
+          stats.add(energies[i] - eF);
       } // i
+      double const e_min = stats.min(), e_max = stats.max();
       if (echo > 4) printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
 
       double const per_eV = 1./eV;
@@ -199,8 +194,7 @@ namespace fermi_distribution {
       {
           if (echo > 0) printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
           set_temperature(kT, echo);
-//           set_accumulators();
-          
+          _accu.clear();
       } // constructor
 
       bool set_temperature(double const kT=default_temperature, int const echo=0) {
@@ -218,16 +212,6 @@ namespace fermi_distribution {
       inline double minimum_temperature() const { return 1e-9; }
 
       inline bool is_initialized() const { return (Fermi_level_not_initialized != _mu); }
-
-//       void set_accumulators(double const values[]=nullptr, int const echo=0) {
-//           if (nullptr == values) {
-//               set(_accu, 4, 0.0); // reset accumulators
-//               return;
-//           }
-//           set(_accu, 4, values);
-//           if (echo > 3) printf("# FermiLevel %s(%g, %g %s, %g, %g)\n",
-//                   __func__,  _accu[0], _accu[1]*eV,_eV, _accu[2], _accu[3]);
-//       } // set_accumulators
       
       void set_Fermi_level(double const E_Fermi, int const echo=0) {
           _mu = E_Fermi;
@@ -273,6 +257,7 @@ namespace fermi_distribution {
           _mu = _accu.avg(); // average
           if (echo > 0) printf("# %s old= %g, new= %g %s\n", __func__,
               old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
+          _accu.clear(); // reset for the next SCF iteration
           return 0; // result not implemented, yet, TODO
       } // correct_Fermi_level
 
@@ -283,7 +268,7 @@ namespace fermi_distribution {
       double _mu; // the chemical potential
       double _kT; // temperature times Boltzmann factor
       double _kTinv;
-      simple_stats::Stats<double> _accu;
+      simple_stats::Stats<double> _accu; // mean Fermi-level accumulator
       int _spinfactor; // 2:spin-paired, 1:spin-resolved
 
   }; // class FermiLevel_t
