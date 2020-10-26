@@ -302,6 +302,9 @@ namespace potential_generator {
       // project the total effective potential to each center using bessel_transforms
       // feed back potential shifts into single_atom
 
+      auto const check = int(control::get("check", 0.0));
+      auto const run = std::min(std::max(0, 1 - check), 1);
+
       double constexpr Y00 = solid_harmonics::Y00;
       double constexpr Y00inv = solid_harmonics::Y00inv;
       double constexpr Y00sq = pow2(solid_harmonics::Y00);
@@ -309,7 +312,8 @@ namespace potential_generator {
       status_t stat(0);
       
       char h_line[32]; set(h_line, 31, '='); h_line[31] = '\0'; // a horizontal line of 31x '='
-      if (echo > 0) printf("\n\n# %s\n# Initialize\n# %s\n\n", h_line, h_line);      
+      if (echo > 0) printf("\n\n# %s\n# Initialize\n# +check=%i run= %i\n# %s\n\n",
+                            h_line, check, run, h_line);      
 
       view2D<double> xyzZ_noconst;
       real_space::grid_t g;
@@ -364,7 +368,7 @@ namespace potential_generator {
       } // scope
 
 
-      std::vector<double> rho_valence(g.all(), 0.0);
+      std::vector<double> rho_valence(run*g.all(), 0.0);
      
       char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
       if (echo > 0) printf("\n# initial.valence.density =%s\n", initial_valence_density_method);
@@ -403,7 +407,7 @@ namespace potential_generator {
       { // scope: determine the number of valence electrons
           if ('a' == (*control::get("valence.electrons", "auto") | 32)) {
               nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
-              if (echo > 0) printf("\n# found %g valence electrons\n\n", nve);
+              if (echo > 0) printf("\n# valence.electrons=auto --> %g valence electrons\n\n", nve);
           } else {
               nve = control::get("valence.electrons", 0.0);
               if (echo > 0) printf("\n# valence.electrons=%g\n\n", nve);
@@ -440,11 +444,11 @@ namespace potential_generator {
       sho_unitary::Unitary_SHO_Transform<double> const unitary(numax_unitary);
 
       // allocations of grid quantities
-      std::vector<double>  rho(g.all()); // [augmented] charge density
-      std::vector<double>  Vxc(g.all()); // exchange-correlation potential
-      std::vector<double>  cmp(g.all()); // compensation charge densities
-      std::vector<double>  Ves(g.all(), 0.0); // electrostatic potential
-      std::vector<double> Vtot(g.all()); // total effective potential
+      std::vector<double>  rho(run*g.all()); // [augmented] charge density
+      std::vector<double>  Vxc(run*g.all()); // exchange-correlation potential
+      std::vector<double>  cmp(run*g.all()); // compensation charge densities
+      std::vector<double>  Ves(run*g.all(), 0.0); // electrostatic potential
+      std::vector<double> Vtot(run*g.all()); // total effective potential
 
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n', 'm', 'M'}
@@ -502,7 +506,7 @@ namespace potential_generator {
               view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
                   auto const start_wave_file = control::get("start.waves", "");
-                  psi = view3D<wave_function_t>(nkpoints, nbands, gc.all(), wave_function_t(0)); // get memory (potentially large)
+                  psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), wave_function_t(0)); // get memory (potentially large)
                   if (0 == *start_wave_file) {
                       if (echo > 1) printf("# initialize grid wave functions as %d atomic orbitals, %g orbitals per atom\n", nbands, nbands_per_atom);
                       float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
@@ -518,15 +522,17 @@ namespace potential_generator {
                           if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
                           int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
                           single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set noramlization depending on s,p,ds*
-                          op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
+                          if (run) op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
                           single_atomic_orbital[ia][isho] = 0; // reset
     //                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
                       } // iband
                   } else {
                       if (is_complex<wave_function_t>()) error("not prepared for complex wave function reading!");
                       if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
-                      auto const nerrors = debug_tools::read_from_file(psi.data(), start_wave_file, nbands, gc.all(), gc.all(), "wave functions", echo);
-                      if (nerrors) error("failed to read start wave functions from file \'%s\'", start_wave_file);
+                      if (run) {
+                          auto const nerrors = debug_tools::read_from_file(psi.data(), start_wave_file, nbands, gc.all(), gc.all(), "wave functions", echo);
+                          if (nerrors) error("failed to read start wave functions from file \'%s\'", start_wave_file);
+                      } // run
                   } // start wave method
               } // scope
 
@@ -537,6 +543,11 @@ namespace potential_generator {
       // KS solver prepared
       
       
+      if (run != 1) { 
+          if (echo > 0) printf("# +check=%i --> done\n", check);
+          stat += single_atom::atom_update("memory cleanup", na);
+          return stat;
+      } // run
 
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
