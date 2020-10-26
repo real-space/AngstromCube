@@ -326,7 +326,7 @@ namespace fermi_distribution {
       for(double eF = -1.5; eF < 2; eF += 0.25) {
           mu.add(eF, 1, echo - 5);
       } // eF
-      mu.set_Fermi_level(mu.average(), echo);
+      mu.set_Fermi_level(mu.get_Fermi_level(), echo);
       int const nb = n_electrons*1.5; // number of bands
       std::vector<double> ene(nb, 0.0), occ(nb), docc(nb);
       for(int ib = 0; ib < nb; ++ib) ene[ib] = ib*.01;
