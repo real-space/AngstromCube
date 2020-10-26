@@ -233,18 +233,8 @@ namespace fermi_distribution {
           _mu = E_Fermi;
           if (echo > 0) printf("# FermiLevel set to %g %s\n", _mu*eV,_eV);
       } // set_Fermi_level
-
-      double average() const { return _accu.avg(); } // (_accu[0] > 0) ? _accu[1]/_accu[0] : 0; }
       
-      double add(double const E_Fermi, double const weight=1, int const echo=0) {
-          double const w8 = std::max(weight, 0.0);
-          _accu.add(E_Fermi, w8);
-//           _accu[0] += w8;
-//           _accu[1] += w8 * E_Fermi;
-//           _accu[2] += w8 * pow2(E_Fermi);
-//           _accu[3] += w8 * pow3(E_Fermi);
-          return _accu.avg();
-      } // add
+      void add(double const E_Fermi, double const weight=1, int const echo=0) { _accu.add(E_Fermi, std::max(weight, 0.0)); }
       
       template <typename real_t>
       double get_occupations( // returns the density of state contribution at the Fermi level
@@ -280,7 +270,7 @@ namespace fermi_distribution {
       ) {
           // we need to fulfill this:        charge + a*response == n_electrons
           auto const old_mu = _mu;
-          _mu = average();
+          _mu = _accu.avg(); // average
           if (echo > 0) printf("# %s old= %g, new= %g %s\n", __func__,
               old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
           return 0; // result not implemented, yet, TODO
@@ -294,7 +284,6 @@ namespace fermi_distribution {
       double _kT; // temperature times Boltzmann factor
       double _kTinv;
       simple_stats::Stats<double> _accu;
-//       double _accu[4]; // Fermi level accumulator
       int _spinfactor; // 2:spin-paired, 1:spin-resolved
 
   }; // class FermiLevel_t
@@ -334,9 +323,6 @@ namespace fermi_distribution {
       double const n_electrons = 12;
       auto mu = FermiLevel_t(n_electrons);
       mu.set_temperature(.01, echo);
-//       double const a[] = {1., -1., 2., 3.3};
-//       mu.set_accumulators(a, echo);
-//       mu.set_accumulators(); // reset
       for(double eF = -1.5; eF < 2; eF += 0.25) {
           mu.add(eF, 1, echo - 5);
       } // eF
