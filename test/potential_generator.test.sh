@@ -16,14 +16,18 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
+# project_base=pg.Cu-atom
+# printf " 1 \n#cell 2 2 2 p p p \n" > $geometry_file
+# echo "Cu  0 0 0" >> $geometry_file
+
 # project_base=pg.Mg-atom
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
-project_base=pg.C-dimer
-printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
-echo "C  -0.65 0 0" >> $geometry_file
-echo "C   0.65 0 0" >> $geometry_file
+# project_base=pg.C-dimer
+# printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
+# echo "C  -0.65 0 0" >> $geometry_file
+# echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -45,6 +49,14 @@ echo "C   0.65 0 0" >> $geometry_file
 # echo "Al    1.0  1.0 -1.0" >> $geometry_file
 # echo "Al    1.0 -1.0  1.0" >> $geometry_file
 # echo "Al   -1.0  1.0  1.0" >> $geometry_file
+
+project_base=pg.Cu-fcc
+### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
+printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
+echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
+echo "Cu    .8805  .8805 -.8805" >> $geometry_file
+echo "Cu    .8805 -.8805  .8805" >> $geometry_file
+echo "Cu   -.8805  .8805  .8805" >> $geometry_file
 
 # project_base=potential_generator.P-sc
 # printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
@@ -80,7 +92,6 @@ echo "C   0.65 0 0" >> $geometry_file
 #element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #single_atom.partial.wave.energy=1.1 good for carbon with 2s*
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
@@ -95,12 +106,20 @@ echo "C   0.65 0 0" >> $geometry_file
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 
+### Copper: for the occupation setting 4s 1 3d 10, the d-states should be 1.5 eV below the s-state
+### element_Cu="4s 2 4p 2e-99 3d 5 4 | 2.0 sigma .651 V=sinc" (seems to work well with GRID, but
+###                          fails with PW, s-state below d-states, ss-density matrix entry tiny)
+### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
+
+
 
 ### generate a control file
 cat > control.sh << EOF
 
 # configuration of atomic PAW setups
-element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
 
 # verbosity of the log files
 verbosity=7
@@ -120,13 +139,13 @@ potential_generator.max.scf=1
 electrostatic.solver=fft
 
 #single_atom.local.potential.method=sinc
-single_atom.nn.limit=8
+single_atom.nn.limit=1
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=3
-single_atom.init.echo=0
+single_atom.echo=7
+single_atom.init.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
-single_atom.optimize.sigma=1
+single_atom.optimize.sigma=0
 single_atom.init.scf.maxit=0
 
 #smooth.radial.grid.from=0
@@ -135,29 +154,29 @@ single_atom.init.scf.maxit=0
 logder.unit=Ha
 logder.start=2
 logder.stop=1
-logder.step=1e-2
+logder.step=1e-4
 
 bands.per.atom=10
 
 # configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none}
 grid.eigensolver=cg
-grid.eigensolver.repeat=1
+grid.eigensolver.repeat=11
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-#export.waves=waves.dat
-start.waves=waves.dat
+export.waves=waves.dat
+#start.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
 sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
-hamiltonian.test.kpoints=3
+hamiltonian.test.kpoints=5
 # start.waves.scale.sigma=1
-hamiltonian.floating.point.bits=32
+hamiltonian.floating.point.bits=64
 
 # configuration for basis=pw
 # pw_hamiltonian.solver {auto, both, direct, iterative}
@@ -207,7 +226,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 6 2 8`; do
+for ecut in `seq 10 2 10`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

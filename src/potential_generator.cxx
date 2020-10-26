@@ -902,6 +902,9 @@ namespace potential_generator {
 #endif // 0
           } // spherical_valence_decay
           here;
+          
+          Fermi.correct_Fermi_level(nullptr, echo); // ToDo: pass in charge and its derivative w.r.t. the Fermi level here
+
       } // scf_iteration
       here;
 

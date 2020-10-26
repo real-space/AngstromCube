@@ -16,16 +16,18 @@ establish duality by Gram-Schmidt again
   - projector coefficients are not necessarily orthogonal!
 
     non-local potential |~p_i> H_ij <~p_j|,      i,j < n_partial_waves[ell]
-    expand in SHO functions:
+    expand projectors in SHO functions:
     = |SHO_k> <SHO_k|~p_i> H_ij <~p_j|SHO_l> <SHO_l|,     k,l < nn_max[ell]
     n_partial_waves[ell] <= nn_max[ell]
     = |SHO_k> H_kl <SHO_l|
 
-    density_matrix_ij = sum_n w_n <~Psi_n|~p_i> <~p_j|~Psi_n>,   Psi_n eigenstate of H
+    density_matrix_ij = sum_n w_n <~Psi_n|~p_i> <~p_j|~Psi_n>,   ~Psi_n eigenstate of H
     insert SHO basis:
     density_matrix_ij = sum_n w_n <~Psi_n|SHO_k> <SHO_k|~p_i> <~p_j|SHO_l> <SHO_l|~Psi_n>
-    density matrix in SHO space
-    density_matrix_kl = sum_n w_n <~Psi_n|SHO_k> <SHO_l|~Psi_n>,  uses sho_projection coefficients
-    transform to
-    density_matrix_ij = <SHO_k|~p_i>^T density_matrix_kl <~p_j|SHO_l>^T (already implemented)
+    change ordering
+    density_matrix_ij = sum_n w_n <SHO_k|~p_i> <~Psi_n|SHO_k> <SHO_l|~Psi_n> <~p_j|SHO_l>
+    write as
+    density_matrix_ij = <SHO_k|~p_i> density_matrix_kl <~p_j|SHO_l>
+    with the density matrix in SHO space
+    density_matrix_kl = sum_n w_n <~Psi_n|SHO_k> <SHO_l|~Psi_n>,  uses sho_projector coefficients
 

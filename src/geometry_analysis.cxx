@@ -498,7 +498,7 @@ namespace geometry_analysis {
               vec3 const pos_ia = xyzZ[ia];
               int const isi = ispecies[ia];
               int const Z_ia = Z_of_species[isi];
-              if (echo > 8) printf("# [ia=%d] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_ia);
+              if (echo > 8) printf("# [ia=%i] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_ia);
               //========================================================================================================
               vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
 #ifdef  GEO_ORDER_N2
@@ -510,7 +510,7 @@ namespace geometry_analysis {
                   vec3 const pos_ja = xyzZ[ja];
                   int const isj = ispecies[ja];
                   int const Z_ja = Z_of_species[isj];
-                  if (echo > 9) printf("# [ia=%d, ja=%d] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_ja);
+                  if (echo > 9) printf("# [ia=%i, ja=%i] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_ja);
                   //========================================================================================================
                   vec3 const diff = pos_ja + pos_ii_minus_ia;
                   auto const d2 = norm(diff);
@@ -519,7 +519,11 @@ namespace geometry_analysis {
                   } else if (d2 < 1e-6) {
                       if (ia == ja) {
                           ++nzero; // ok - self interaction
-                      } else ++nstrange; // ?
+                      } else {
+                          ++nstrange; // ?
+                          if (echo > 0) printf("# %s found a strange atom pair: ia=%i ja=%i shift= %g %g %g a.u. distance= %g %s\n",
+                                                  __func__, ia, ja, pos_ii[0],pos_ii[1],pos_ii[2], std::sqrt(d2)*Ang, _Ang);
+                      }
                       ++near;
                   } else {
                       ++near;

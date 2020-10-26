@@ -8,23 +8,23 @@ namespace simple_stats {
   class Stats {
     public:
 
-    void clear() { mn = 1e38; mx = -1e38; for(int p = 0; p < 4; ++p) v[p] = 0; times = 0; }
-    
     Stats() { clear(); } // default constructor
     
+    void clear() { mini = 1e38; maxi = -1e38; for(int p = 0; p < 4; ++p) v[p] = 0; times = 0; }
+
     void add(real_t const x, real_t const weight=1) {
         auto const w8 = std::abs(weight);
         v[0] += w8;
         v[1] += w8*x;
         v[2] += w8*x*x;
         v[3] += w8*x*x*x; // not used so far, beware of overflows
-        mx = std::max(mx, x);
-        mn = std::min(mn, x);
+        maxi = std::max(maxi, x);
+        mini = std::min(mini, x);
         ++times;
     } // add
 
-    real_t min() const { return mn; }
-    real_t max() const { return mx; }
+    real_t min() const { return mini; }
+    real_t max() const { return maxi; }
     real_t num() const { return v[0]; }
     real_t sum() const { return v[1]; }
     real_t avg() const { return (v[0] > 0) ? v[1]/v[0] : 0; } // aka mean
@@ -36,7 +36,7 @@ namespace simple_stats {
 
     private:
       real_t v[4];
-      real_t mn, mx;
+      real_t mini, maxi;
       size_t times;
   }; // class Stats<T>
 

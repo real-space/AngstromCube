@@ -9,6 +9,7 @@
 #include "simple_math.hxx" // ::random
 #include "display_units.h" // eV, _eV
 #include "recorded_warnings.hxx" // warn
+#include "simple_stats.hxx" // ::Stats
 
 #include "status.hxx" // status_t
 
@@ -198,7 +199,8 @@ namespace fermi_distribution {
       {
           if (echo > 0) printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
           set_temperature(kT, echo);
-          set_accumulators();
+//           set_accumulators();
+          
       } // constructor
 
       bool set_temperature(double const kT=default_temperature, int const echo=0) {
@@ -217,34 +219,31 @@ namespace fermi_distribution {
 
       inline bool is_initialized() const { return (Fermi_level_not_initialized != _mu); }
 
-      void set_accumulators(double const values[]=nullptr, int const echo=0) {
-          if (nullptr == values) {
-              set(_accu, 4, 0.0); // reset accumulators
-              return;
-          }
-          set(_accu, 4, values);
-          if (echo > 3) printf("# FermiLevel %s(%g, %g %s, %g, %g)\n",
-                  __func__,  _accu[0], _accu[1]*eV,_eV, _accu[2], _accu[3]);
-      } // set_accumulators
+//       void set_accumulators(double const values[]=nullptr, int const echo=0) {
+//           if (nullptr == values) {
+//               set(_accu, 4, 0.0); // reset accumulators
+//               return;
+//           }
+//           set(_accu, 4, values);
+//           if (echo > 3) printf("# FermiLevel %s(%g, %g %s, %g, %g)\n",
+//                   __func__,  _accu[0], _accu[1]*eV,_eV, _accu[2], _accu[3]);
+//       } // set_accumulators
       
       void set_Fermi_level(double const E_Fermi, int const echo=0) {
-          double const a[] = {1, E_Fermi, 0, 0};
-          set_accumulators(a);
-          if (echo > 0) printf("# FermiLevel set to %g %s\n", E_Fermi*eV,_eV);
+          _mu = E_Fermi;
+          if (echo > 0) printf("# FermiLevel set to %g %s\n", _mu*eV,_eV);
       } // set_Fermi_level
 
-      double average() const { return (_accu[0] > 0) ? _accu[1]/_accu[0] : 0; }
+      double average() const { return _accu.avg(); } // (_accu[0] > 0) ? _accu[1]/_accu[0] : 0; }
       
       double add(double const E_Fermi, double const weight=1, int const echo=0) {
           double const w8 = std::max(weight, 0.0);
-          _accu[0] += w8;
-          _accu[1] += w8 * E_Fermi;
-          _accu[2] += w8 * pow2(E_Fermi);
-          _accu[3] += w8 * pow3(E_Fermi);
-          auto const avg = average();
-          if (echo > 0) printf("# FermiLevel %s(%g, weight=%g), new average= %g %s\n",
-                            __func__, E_Fermi*eV, w8, avg*eV,_eV);
-          return avg;
+          _accu.add(E_Fermi, w8);
+//           _accu[0] += w8;
+//           _accu[1] += w8 * E_Fermi;
+//           _accu[2] += w8 * pow2(E_Fermi);
+//           _accu[3] += w8 * pow3(E_Fermi);
+          return _accu.avg();
       } // add
       
       template <typename real_t>
@@ -252,24 +251,40 @@ namespace fermi_distribution {
             double occupations[] // output occupation numbers[nbands]
           , real_t const energies[] // energies[nbands]
           , int const nbands // number of bands
+          , double const kpoint_weight // weight of the k-point
           , int const echo=9
           , double response_occ[]=nullptr // optional output, derivative of occupation numbers[nbands]
       ) {
             if (echo > 0) printf("# FermiLevel %s for %d bands\n", __func__, nbands);
-            double DoS{0}; // density of states at the Fermi energy
+            double eF{0}, DoS{0}; // density of states at the Fermi energy
             if (Fermi_level_not_initialized == _mu) {
                 if (echo > 0) printf("# FermiLevel has not been initialized\n", __func__, nbands);
-                double eF;
                 Fermi_level(eF, occupations, energies, nbands, _kT, _ne, _spinfactor, echo, response_occ, &DoS);
-//              _mu = eF;
             } else {
                 if (echo > 0) printf("# FermiLevel %s at %g %s\n", __func__, _mu*eV,_eV);
                 count_electrons(nbands, energies, _mu, _kTinv, nullptr, &DoS, occupations, response_occ);
+                eF = _mu;
             } // initialized?
+            add(eF, kpoint_weight, echo); // accumulate to compute the average Fermi level later
             return DoS;
       } // get_occupations
-      
+
       double get_Fermi_level() const { return _mu; }
+
+      // after all k-points of the 1st SCF iteration have been processed, we have to set it
+      double correct_Fermi_level( // returns the fraction of how much of the response density needs to be added to the density
+            double const charges[] // charge[0] is the sum of kpoint weights
+                                   // charge[1] is the charge*charge[0] of the system
+                                   // charge[2] is the response*charge[0] of the system
+          , int const echo=0 // log-level
+      ) {
+          // we need to fulfill this:        charge + a*response == n_electrons
+          auto const old_mu = _mu;
+          _mu = average();
+          if (echo > 0) printf("# %s old= %g, new= %g %s\n", __func__,
+              old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
+          return 0; // result not implemented, yet, TODO
+      } // correct_Fermi_level
 
     private:
 
@@ -278,7 +293,8 @@ namespace fermi_distribution {
       double _mu; // the chemical potential
       double _kT; // temperature times Boltzmann factor
       double _kTinv;
-      double _accu[4]; // Fermi level accumulator
+      simple_stats::Stats<double> _accu;
+//       double _accu[4]; // Fermi level accumulator
       int _spinfactor; // 2:spin-paired, 1:spin-resolved
 
   }; // class FermiLevel_t
@@ -317,10 +333,10 @@ namespace fermi_distribution {
       if (echo > 6) printf("\n# %s %s\n", __FILE__, __func__);
       double const n_electrons = 12;
       auto mu = FermiLevel_t(n_electrons);
-      double const a[] = {1., -1., 2., 3.3};
       mu.set_temperature(.01, echo);
-      mu.set_accumulators(a, echo);
-      mu.set_accumulators(); // reset
+//       double const a[] = {1., -1., 2., 3.3};
+//       mu.set_accumulators(a, echo);
+//       mu.set_accumulators(); // reset
       for(double eF = -1.5; eF < 2; eF += 0.25) {
           mu.add(eF, 1, echo - 5);
       } // eF
@@ -328,7 +344,7 @@ namespace fermi_distribution {
       int const nb = n_electrons*1.5; // number of bands
       std::vector<double> ene(nb, 0.0), occ(nb), docc(nb);
       for(int ib = 0; ib < nb; ++ib) ene[ib] = ib*.01;
-      mu.get_occupations(occ.data(), ene.data(), nb, echo, docc.data());
+      mu.get_occupations(occ.data(), ene.data(), nb, 1, echo, docc.data());
       double sum_occ{0};
       for(int ib = 0; ib < nb; ++ib) {
           if (echo > 9) printf("# %s: band #%d \tenergy= %.6f %s \toccupation= %.6f \td/dE occ= %.3f\n",
@@ -337,7 +353,7 @@ namespace fermi_distribution {
       } // ib
       if (echo > 6) printf("# %s %s eF= %g %s for %g electrons, sum(occupations)= %g\n",
                         __FILE__, __func__, mu.get_Fermi_level()*eV,_eV, n_electrons, sum_occ);
-      mu.get_occupations(occ.data(), ene.data(), nb, echo, docc.data());
+      mu.get_occupations(occ.data(), ene.data(), nb, 1, echo, docc.data());
       return 0;
   } // test_FermiLevel_class
 

@@ -10,12 +10,12 @@
 
 namespace dense_solver {
 
-  template<typename real_t>
+  template <typename real_t>
   inline real_t Lorentzian(real_t const re, real_t const im) { return -im/(pow2(im) + pow2(re)); }
 
-  template<typename real_t>
+  template <typename real_t>
   inline void display_spectrum(real_t const eigvals[], int const nB, char const *x_axis
-      , double const u=1, char const *_u="", char const *matrix_name="", int const mB=10) {
+      , double const u=1, char const *_u="", char const *matrix_name="", int const mB=32) {
       if (nB < 2) return;
       printf("%s%s", x_axis, matrix_name);
       // show at most the (mB - 2) lowest + 2 highest eigenvalues
@@ -194,7 +194,7 @@ namespace dense_solver {
               } else if (nB > 0) {
                   double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];
                   if (echo > 2) {
-                      display_spectrum(eigvals.data(), nB, x_axis, u, _u, h0s1?matrix_name:"", 10);
+                      display_spectrum(eigvals.data(), nB, x_axis, u, _u, h0s1?matrix_name:"");
                   } // echo
                   if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s, respectively\n", 
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);

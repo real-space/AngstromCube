@@ -636,13 +636,13 @@ namespace pw_hamiltonian {
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo,
                           nbands, iterative_direct_ratio, 
-                          export_rho ? &((*export_rho)[ikp]) : nullptr);
+                          export_rho ? &((*export_rho)[ikp]) : nullptr, ikp);
               } else {
                   stat += solve_k<std::complex<double>>(ecut, reci_matrix, Vcoeffs, nG, svol,
                           natoms_PAW, xyzZ, grid_offset, numax_PAW.data(), sigma_PAW.data(), hs_PAW.data(),
                           kpoint, x_axis, nPWs, echo,
                           nbands, iterative_direct_ratio, 
-                          export_rho ? &((*export_rho)[ikp]) : nullptr);
+                          export_rho ? &((*export_rho)[ikp]) : nullptr, ikp);
               } // floating_point_bits
               nPW_stats.add(nPWs);
           } // !can_be_real

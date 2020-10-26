@@ -443,14 +443,16 @@ namespace single_atom {
             sigma = std::abs(ec.sigma);
             r_cut = std::abs(ec.rcut);
             // get numax from nn[]
-            numax = ec.numax; // -1 means choose the minimum automatically
+            int nu_max = ec.numax; // -1 means choose the minimum automatically
             for(int ell = 0; ell < 8; ++ell) {
                 if (ec.nn[ell] > 0) {
                     nn[ell] = std::min(int(ec.nn[ell]), nn_limiter); // take a smaller number of partial waves
                     int const numaxmin = 2*nn[ell] - 2 + ell; // this is the minimum numax that we need to get ec.nn[ell]
-                    numax = std::max(int(numax), numaxmin);
+                    nu_max = std::max(nu_max, numaxmin);
                 } // nn > 0
             } // ell
+            numax = nu_max;
+            assert(numax >= 0);
             for(int inl = 0; inl < 32; ++inl) {
                 custom_occ[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
             } // inl enn-ell all-electron orbital index
@@ -577,7 +579,10 @@ namespace single_atom {
             set(max_energy, 4, -9e9);
             set(min_energy, 4,  9e9);
 
-            int ics{0}, highest_occupied_core_state_index{-1}; 
+            int highest_occupied_core_state_index{-1};
+            double E_hfos{-9e9}, E_hpos{-9e9}; // energy of the highest fully/partially occupied state
+            int  ics_hfos{-1}, ics_hpos{-1}; // indices  
+            int ics{0};
             double n_electrons{Z_core - ionization}; // init number of electrons to be distributed
             for(int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number, allows Z up to 120
                 enn_QN_t enn = (nq_aux + 1)/2; // init principal quantum number n
@@ -654,6 +659,12 @@ namespace single_atom {
                                     label, enn, ellchar[ell], csv_name[csv_auto], csv_name[csv_cust], csv_name[cs.csv]);
                                 // ToDo: find out if it would be better to look at the q_out (charge outside rcut) for each state instead of its energy.
                             }
+                            
+                            if (std::abs(occ - max_occ) < 1e-15) { // spherical state is fully occupied
+                                if (E > E_hfos) { E_hfos = E; ics_hfos = ics; }
+                            } else if (occ > 1e-15) { // this state is partically occupied (considerably)
+                                if (E > E_hpos) { E_hpos = E; ics_hpos = ics; }
+                            }
 
                             highest_occupied_core_state_index = ics; // store the index of the highest occupied core state
                             if (echo > 0) printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
@@ -662,7 +673,7 @@ namespace single_atom {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
                             csv_charge[cs.csv] += occ;
-                            
+
                             min_energy[cs.csv] = std::min(min_energy[cs.csv], E);
                             max_energy[cs.csv] = std::max(max_energy[cs.csv], E);
 
@@ -684,6 +695,14 @@ namespace single_atom {
             } // nq_aux
             ncorestates = highest_occupied_core_state_index + 1; // correct the number of core states to those occupied
             spherical_state.resize(ncorestates); // destruct unused core states
+
+//             if (echo > 0) printf("# %s ics_hfos= %i E_hfos= %g ics_hpos= %i E_hpos= %g %s\n",
+//                                     label, ics_hfos, E_hfos*eV, ics_hpos, E_hpos*eV,_eV);
+            if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
+                warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
+                    spherical_state[ics_hpos].tag, spherical_state[ics_hpos].energy*eV, spherical_state[ics_hfos].energy*eV, _eV,
+                    spherical_state[ics_hfos].tag);
+            } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
 
             for(int csl = core; csl <= semicore; ++csl) {
                 for(int svh = csl + 1; svh <= valence; ++svh) {
@@ -1138,7 +1157,26 @@ namespace single_atom {
         printf("\n");
     } // show_ell_block_diagonal
 
-    
+
+    void show_projector_coefficients(char const *attribute="", int const echo=0) {
+        for(int ell = 0; ell <= numax; ++ell) {
+            int const nmx = sho_tools::nn_max(numax, ell);
+            for(int irn = 0; irn < nn[ell]; ++irn) {
+                int const iln = sho_tools::ln_index(numax, ell, irn);
+                auto const norm2 = dot_product(nmx, projector_coeff[ell][irn], projector_coeff[ell][irn]);
+                if (norm2 > 0) {
+                    if (echo > 0) {
+                        auto const length = std::sqrt(norm2);
+                        printf("# %s %scoefficients of the %s-projector: %.6e * [", label, attribute, partial_wave[iln].tag, length);
+                        printf_vector(" %9.6f", projector_coeff[ell][irn], nmx, " ]\n", 1./length);
+                    } // echo
+                } else {
+                    warn("%s failed to normalize %s-projector coefficients", label, partial_wave[iln].tag);
+                } // norm2 > 0
+            } // irn
+        } // ell
+    } // show_projector_coefficients 
+
 
 
     double update_sigma( // returns optimized sigma, if optimization was active
@@ -1374,22 +1412,15 @@ namespace single_atom {
 
             for(int irn = 0; irn < nn[ell]; ++irn) {
                 int const iln = sho_tools::ln_index(numax, ell, irn);
-                auto const norm2 = dot_product(nmx, prj_coeff[iln], prj_coeff[iln]);
-                if (norm2 > 0) {
-                    if (echo > 6) {
-                        auto const length = std::sqrt(norm2);
-                        printf("# %s %scoefficients of the %s-projector: %.6e * [", label, optimized, partial_wave[iln].tag, length);
-                        printf_vector(" %9.6f", prj_coeff[iln], nmx, " ]\n", 1./length);
-                    } // echo
-                } else {
-                    warn("%s failed to normalize %s-projector coefficients", label, partial_wave[iln].tag);
-                } // norm2 > 0
-
+                
+                // display
                 assert(nmx == projector_coeff[ell].stride());
                 set(projector_coeff[ell][irn], nmx, prj_coeff[iln]); // copy into member variable
+
             } // irn
 
         } // ell
+        show_projector_coefficients(optimized, echo - 6); // and warn if not normalizable
 
 #ifdef DEVEL
         if (optimize_sigma < -9) {
@@ -2097,6 +2128,8 @@ namespace single_atom {
 
         } // ell
 
+        show_projector_coefficients("orthogonalized ", echo - 6); // and warn if not normalizable
+        
     } // update_partial_waves
 
 
@@ -2895,6 +2928,7 @@ namespace single_atom {
                 if (echo > 5) printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
                 scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
                   (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, matrices_ln(0,0), matrices_ln(1,0), 384, V_rmax, label, echo);
+                std::fflush(stdout);
             } else if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
             if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
@@ -2908,6 +2942,7 @@ namespace single_atom {
                 if (echo > 1) printf("\n# %s %s logarithmic_derivative\n\n", label, __func__);
                 scattering_test::logarithmic_derivative // scan the logarithmic derivatives
                   (rg, rV, sigma, int(numax + 1), numax, matrices_ln(0,0), matrices_ln(1,0), logder_energy_range, label, echo);
+                std::fflush(stdout);
             } else if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 #endif // NEVER
             
@@ -3089,6 +3124,7 @@ namespace single_atom {
             if (echo > 5) printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+            std::fflush(stdout);
         } else {
             if (echo > 0) printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         }
@@ -3098,6 +3134,7 @@ namespace single_atom {
             double const *const rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, rV, sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
+            std::fflush(stdout);
         } else {
             if (echo > 0) printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
         }

@@ -54,8 +54,8 @@ namespace density_generator {
           for(int i = 0; i < ncoeff; ++i) {
               auto const c_i = conjugate(atom_coeff[offset + i]);
 #ifdef DEVEL
-              if (echo > 16) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g\n",
-                                  ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i));
+              if (echo > 16) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g |c|= %g\n",
+                                  ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), std::abs(c_i));
 #endif // DEVEL
               for(int j = 0; j < ncoeff; ++j) {
                   auto const c_j = atom_coeff[offset + j];
@@ -206,7 +206,7 @@ namespace density_generator {
           // determine the occupation numbers
           std::vector<double> occupation(nbands, 0.0);
           std::vector<double> d_occupation(nbands, 0.0); // derivative of occupation number w.r.t. E_Fermi
-          Fermi.get_occupations(occupation.data(), ene[ikpoint], nbands, echo, d_occupation.data());
+          Fermi.get_occupations(occupation.data(), ene[ikpoint], nbands, weight_k, echo, d_occupation.data());
 
           int ilub{nbands}; // index of lowest completely unoccupied band
           double old_charge{0};
@@ -261,7 +261,7 @@ namespace density_generator {
       if (charges) add_product(charges, 3, charge, 1.0);
       if (echo > 1) { printf("\n# Total valence density "); print_stats(rho, g.all(), g.dV()); }
       if (echo > 3) { printf("# Total response density"); print_stats(d_rho.data(), g.all(), g.dV(), "", kT); }
-#if 0
+#if 1
       if (echo > 6) {
           for(int ia = 0; ia < natoms; ++ia) {
               int const ncoeff = coeff_starts[ia + 1] - coeff_starts[ia];
