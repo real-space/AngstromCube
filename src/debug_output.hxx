@@ -2,6 +2,7 @@
 
 #include <cstdio> // printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::fflush, stdout
 #include "display_units.h" // Ang, _Ang
+#include "complex_tools.hxx" // is_complex
 
 #define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
 
@@ -22,7 +23,7 @@ int dump_to_file(
         return 1;
     } // failed to open
 
-    std::fprintf(f, "# %s\n", title); // print this line also if title==nullptr
+    std::fprintf(f, "#%s %s\n", (is_complex<real_t>())?"complex":"", title); // print this line also if title==nullptr
 
     for(int i = 0; i < N; i++) {
         if (nullptr != x_axis) {
@@ -31,7 +32,12 @@ int dump_to_file(
             std::fprintf(f, "%d ", i);
         } // x_axis given
         for(int j = 0; j < M; ++j) {
-            std::fprintf(f, "%g ", y_data[i*Stride + j]);
+            auto const y = y_data[i*Stride + j];
+            if (is_complex<real_t>()) {
+                std::fprintf(f, "  %g %g", std::real(y), std::imag(y));
+            } else {
+                std::fprintf(f, " %g", y);
+            } // is_complex
         } // j
         std::fprintf(f, "\n"); // new line
     } // i

@@ -56,6 +56,8 @@
 // #include "fourier_poisson.hxx" // ::fourier_solve
 // #include "iterative_poisson.hxx" // ::solve
 
+#include "brillouin_zone.hxx" // ::get_kpoint_mesh
+
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 #include "print_tools.hxx" // print_stats, printf_vector
 
@@ -294,14 +296,11 @@ namespace potential_generator {
       if ('a' == *initial_valence_density_method) { // atomic
           if (echo > 1) printf("# include spherical atomic valence densities in the smooth core densities\n");
           take_atomic_valence_densities = 1; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
-      } else
-      if ('l' == *initial_valence_density_method) { // load
+      } else if ('l' == *initial_valence_density_method) { // load
           error("initial.valence.density=load has not been implemented yet");
-      } else
-      if ('n' == *initial_valence_density_method) { // none
+      } else if ('n' == *initial_valence_density_method) { // none
           warn("initial.valence.density=none may cause problems");
-      } else
-      {
+      } else {
           warn("initial.valence.density=%s is unknown, valence density is zero", initial_valence_density_method);
       } // initial_valence_density_method
 
@@ -318,19 +317,16 @@ namespace potential_generator {
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
       stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
-      double nve{0};
-      { // scope: determine the number of valence electrons
-          if ('a' == (*control::get("valence.electrons", "auto") | 32)) {
-              nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
-              if (echo > 0) printf("\n# valence.electrons=auto --> %g valence electrons\n\n", nve);
-          } else {
-              nve = control::get("valence.electrons", 0.0);
-              if (echo > 0) printf("\n# valence.electrons=%g\n\n", nve);
-          } // auto
-      } // scope
-      double const n_valence_electrons = nve;
-      // ToDo: pass n_valence_electrons to the density generation routines, workround --> use the global variable environment
-      control::set("valence.electrons", n_valence_electrons);
+      
+      double nve{0}; // determine the number of valence electrons
+      if ('a' == (*control::get("valence.electrons", "auto") | 32)) {
+          nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
+          if (echo > 0) printf("\n# valence.electrons=auto --> %g valence electrons\n\n", nve);
+      } else {
+          nve = control::get("valence.electrons", 0.0);
+          if (echo > 0) printf("\n# valence.electrons=%g\n\n", nve);
+      } // auto
+      double const n_valence_electrons = nve; // do not use nve beyond this point
 
       data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat;
       if (1) { // scope: set up data_list items
@@ -366,7 +362,7 @@ namespace potential_generator {
       std::vector<double> Vtot(run*g.all()); // total effective potential
 
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
-      auto const es_solver_method = poisson_solver::solver_method(es_solver_name); // should be one of {'f', 'i', 'n', 'm', 'M'}
+      auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2,
@@ -376,6 +372,10 @@ namespace potential_generator {
       auto const basis_method = control::get("basis", "grid");
       bool const plane_waves = ((*basis_method | 32) == 'p');
       bool const psi_on_grid = ((*basis_method | 32) == 'g');
+
+      // ============================================================================================
+      // == prepaprations for the KS Solver on the real-space grid ==================================
+      // ============================================================================================
               // create a coarse grid descriptor
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
@@ -406,16 +406,19 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-//               using real_wave_function_t = float; // decide here if float or double precision
-              using real_wave_function_t = double;
-//            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
-              using wave_function_t = real_wave_function_t;               // decide here if real or complex
+              using real_wave_function_t = float; // decide here if float or double precision
+//            using real_wave_function_t = double;
+              using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
+//            using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
-              
 
-              int const nkpoints = 1; // ToDo
+
+              view2D<double> kmesh; // kmesh(nkpoints, 4);
+              int const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
+              if (echo > 0) printf("# k-point mesh has %d points\n", nkpoints);
+
               double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
               int const nbands = int(nbands_per_atom*na);
               view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
@@ -442,7 +445,7 @@ namespace potential_generator {
     //                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
                       } // iband
                   } else {
-                      if (is_complex<wave_function_t>()) error("not prepared for complex wave function reading!");
+//                    if (is_complex<wave_function_t>()) error("not prepared for complex wave function reading!");
                       if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
                       if (run) {
                           auto const nerrors = debug_tools::read_from_file(psi.data(), start_wave_file, nbands, gc.all(), gc.all(), "wave functions", echo);
@@ -456,6 +459,7 @@ namespace potential_generator {
               auto const grid_eigensolver_method = control::get("grid.eigensolver", "cg");
               auto const nrepeat = int(control::get("grid.eigensolver.repeat", 1.)); // repetitions of the solver
       // KS solver prepared
+      // ============================================================================================
       
       
       if (run != 1) { 
@@ -736,7 +740,7 @@ namespace potential_generator {
                   here;
 
                   stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
-                  // ToDo: implement density generation
+                  warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
 
                   here;
               } // psi_on_grid
@@ -770,17 +774,13 @@ namespace potential_generator {
 
       if (psi_on_grid) {
           auto const export_wave_file = control::get("export.waves", "");
-          if (0 != export_wave_file[0]) {
-              if (!is_complex<wave_function_t>()) {
-                  auto const nerrors = dump_to_file(export_wave_file,
-                      nbands, psi.data(), 0, gc.all(), gc.all(), "wave functions", echo);
-                  if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, export_wave_file); 
-              } else {
-                  warn("storing for complex wave functions not implemented");
-              } // is complex
+          if ((nullptr != export_wave_file) && ('\0' != export_wave_file[0])) {
+              auto const nerrors = dump_to_file(export_wave_file,
+                  nbands, psi.data(), 0, gc.all(), gc.all(), "wave functions", echo);
+              if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, export_wave_file); 
           } // filename not empty
-      } // wave functions on Cartesian real space grid
-      
+      } // wave functions on Cartesian real-space grid
+
 #ifdef DEVEL
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
@@ -837,7 +837,8 @@ namespace potential_generator {
               if (echo > 1) { printf("\n# real-space stats of %s:", array_name); print_stats(values, g.all(), g.dV()); }
 
               for(int ia = 0; ia < na; ++ia) {
-                  float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
+                  float const dq = 1.f/16;
+                  int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
                   std::vector<double> qc(nq, 0.0);
 
                   { // scope: Bessel core

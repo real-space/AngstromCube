@@ -616,13 +616,16 @@ namespace pw_hamiltonian {
 
       auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
       float const iterative_direct_ratio = control::get("pw_hamiltonian.iterative.solver.ratio", 2.);
-      unsigned kmesh_sizes[3] = {1, 1, 1};
-      auto const kmesh_size = int(control::get("hamiltonian.test.kmesh", 1.)); // isotropic
-      kmesh_sizes[0] = int(control::get("hamiltonian.test.kmesh.x", double(kmesh_size)));
-      kmesh_sizes[1] = int(control::get("hamiltonian.test.kmesh.y", double(kmesh_size)));
-      kmesh_sizes[2] = int(control::get("hamiltonian.test.kmesh.z", double(kmesh_size)));
+
+//       unsigned kmesh_sizes[3] = {1, 1, 1};
+//       auto const kmesh_size = int(control::get("hamiltonian.test.kmesh", 1.)); // isotropic
+//       kmesh_sizes[0] = int(control::get("hamiltonian.test.kmesh.x", double(kmesh_size)));
+//       kmesh_sizes[1] = int(control::get("hamiltonian.test.kmesh.y", double(kmesh_size)));
+//       kmesh_sizes[2] = int(control::get("hamiltonian.test.kmesh.z", double(kmesh_size)));
       view2D<double> kmesh;
-      auto const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh, kmesh_sizes, echo);
+      auto const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
+      if (echo > 3) printf("# k-point mesh has %d points\n", nkpoints);
+
       if (export_rho) export_rho->resize(nkpoints);
 
       // all preparations done, start k-point loop

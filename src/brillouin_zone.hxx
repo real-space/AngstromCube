@@ -10,6 +10,8 @@
 #include "inline_math.hxx" // set, pow2, product
 #include "print_tools.hxx" // printf_vector
 
+#include "control.hxx" // ::get
+
 namespace brillouin_zone {
 
   inline
@@ -110,6 +112,18 @@ namespace brillouin_zone {
   ) {
       unsigned const nv[] = {n, n, n};
       return get_kpoint_mesh(mesh, nv, echo);
+  } // get_kpoint_mesh
+
+  inline
+  int get_kpoint_mesh(
+        view2D<double> & mesh
+  ) {
+      auto const n = int(control::get("hamiltonian.kmesh", 1.)); // isotropic
+      unsigned nv[3];
+      nv[0] = int(control::get("hamiltonian.kmesh.x", double(n)));
+      nv[1] = int(control::get("hamiltonian.kmesh.y", double(n)));
+      nv[2] = int(control::get("hamiltonian.kmesh.z", double(n)));
+      return get_kpoint_mesh(mesh, nv);
   } // get_kpoint_mesh
 
 

@@ -8,13 +8,13 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "Al   0 0 0" >> $geometry_file
 
-project_base=pg.C-sc
-printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
-
-# project_base=pg.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# project_base=pg.C-sc
+# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
+
+project_base=pg.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Cu-atom
 # printf " 1 \n#cell 2 2 2 p p p \n" > $geometry_file
@@ -164,21 +164,20 @@ bands.per.atom=10
 # configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none}
 grid.eigensolver=cg
-grid.eigensolver.repeat=11
+grid.eigensolver.repeat=1
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-export.waves=waves.dat
-#start.waves=waves.dat
+#export.waves=waves.dat
+start.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
 sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
-#hamiltonian.test.kpoints=5
-hamiltonian.test.kmesh.x=33
+hamiltonian.kmesh.x=1
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
@@ -204,7 +203,7 @@ single_atom.init.scf.maxit=1
 EOF
 
 
-for spacing in `seq 1 1 0`; do
+for spacing in `seq 1 1 1`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -230,7 +229,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 2 4`; do
+for ecut in `seq 4 2 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
