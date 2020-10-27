@@ -131,8 +131,8 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 # grid spacing of the dense grid (in Bohr)
-#potential_generator.grid.spacing=0.23622
-potential_generator.grid.spacing=0.208
+potential_generator.grid.spacing=0.23622
+#potential_generator.grid.spacing=0.208
 #potential_generator.grid.spacing=0.1772   ## dense grid
 
 # max number of self-consistency iterations
@@ -144,8 +144,8 @@ electrostatic.solver=fft
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=7
-single_atom.init.echo=7
+single_atom.echo=0
+single_atom.init.echo=0
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
 #single_atom.optimize.sigma=0
@@ -164,13 +164,13 @@ bands.per.atom=10
 # configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none}
 grid.eigensolver=cg
-grid.eigensolver.repeat=1
+grid.eigensolver.repeat=3
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-#export.waves=waves.dat
 start.waves=waves.dat
+store.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr

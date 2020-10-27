@@ -305,7 +305,6 @@ namespace potential_generator {
       } // initial_valence_density_method
 
       
-      std::vector<double>  n_electrons_a(na, 0.); // number of valence electrons brought in by each atom
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
       std::vector<int32_t> numax(na, -1); // init with 0 projectors
       std::vector<int32_t> lmax_qlm(na, -1);
@@ -316,10 +315,11 @@ namespace potential_generator {
       stat += single_atom::atom_update("lmax qlm",   na, nullptr,    lmax_qlm.data(), &take_atomic_valence_densities);
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
-      stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
-      
+
       double nve{0}; // determine the number of valence electrons
       if ('a' == (*control::get("valence.electrons", "auto") | 32)) {
+          std::vector<double> n_electrons_a(na, 0.); // number of valence electrons brought in by each atom
+          stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
           nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
           if (echo > 0) printf("\n# valence.electrons=auto --> %g valence electrons\n\n", nve);
       } else {
@@ -380,12 +380,17 @@ namespace potential_generator {
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
               gc.set_boundary_conditions(g.boundary_conditions());
+              if (echo > 1) {
+                  printf("# use  %d x %d x %d  coarse grid points\n", gc[0], gc[1], gc[2]);
+                  printf("# use  %g %g %g  %s  coarse grid spacing\n", gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang);
+              } // echo
 
               // create a list of atoms
               auto list_of_atoms = grid_operators::empty_list_of_atoms();
               std::vector<double> sigma_a(na, .5);
               { // scope: collect information for projectors and construct a list of atoms
-                  {   std::vector<int32_t> numax_a(na, 3);
+                  { // scope: get the numax for each atom
+                      std::vector<int32_t> numax_a(na, 3);
                       stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
                       for(int ia = 0; ia < na; ++ia) {
                           assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
@@ -408,8 +413,8 @@ namespace potential_generator {
               // construct grid-based Hamiltonian and overlap operator descriptor
               using real_wave_function_t = float; // decide here if float or double precision
 //            using real_wave_function_t = double;
-              using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
-//            using wave_function_t = real_wave_function_t;               // decide here if real or complex
+//            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
+              using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
@@ -449,7 +454,11 @@ namespace potential_generator {
                       if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
                       if (run) {
                           auto const nerrors = debug_tools::read_from_file(psi.data(), start_wave_file, nbands, gc.all(), gc.all(), "wave functions", echo);
-                          if (nerrors) error("failed to read start wave functions from file \'%s\'", start_wave_file);
+                          if (nerrors) {
+                              error("failed to read start wave functions from file \'%s\'", start_wave_file);
+                          } else {
+                              if (echo > 1) printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
+                          } 
                       } // run
                   } // start wave method
               } // scope
@@ -621,7 +630,7 @@ namespace potential_generator {
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
 #ifdef DEVEL
-              if (echo > 6) {
+              if (echo > 8) {
                   for(int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
@@ -654,7 +663,7 @@ namespace potential_generator {
                       multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
                       if (echo > 1) print_stats(v_dcd.data(), g.all(), g.dV(), "\n# Total effective potential (interpolated to dense grid)   ", eV);
                   } // scope
-                  
+
                   if (echo > 0) {
                       if (control::get("potential_generator.direct.projection", 0.) > 0) {
                           double cnt0[3]; if (na > 0) for(int d = 0; d < 3; ++d) cnt0[d] = center(0,d) + 0.5*(g.h[d] - gc.h[d]);
@@ -773,11 +782,11 @@ namespace potential_generator {
       here;
 
       if (psi_on_grid) {
-          auto const export_wave_file = control::get("export.waves", "");
-          if ((nullptr != export_wave_file) && ('\0' != export_wave_file[0])) {
-              auto const nerrors = dump_to_file(export_wave_file,
+          auto const store_wave_file = control::get("store.waves", "");
+          if ((nullptr != store_wave_file) && ('\0' != store_wave_file[0])) {
+              auto const nerrors = dump_to_file(store_wave_file,
                   nbands, psi.data(), 0, gc.all(), gc.all(), "wave functions", echo);
-              if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, export_wave_file); 
+              if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, store_wave_file); 
           } // filename not empty
       } // wave functions on Cartesian real-space grid
 
