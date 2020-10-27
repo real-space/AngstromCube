@@ -604,7 +604,7 @@ int integrate_outwards( // return the number of nodes
   status_t all_tests(int const echo) {
       status_t stat(0);
       auto const g = *radial_grid::create_exponential_radial_grid(512);
-      double const Z = 1;
+//    double const Z = 1;
 //    stat += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), Z, echo);
 //    stat += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), Z, echo);
       stat += test_Bessel_functions(g, echo);

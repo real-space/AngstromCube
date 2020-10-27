@@ -522,7 +522,7 @@ namespace potential_generator {
                           auto const q = qn[io];
                           if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
                           int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
-                          single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set noramlization depending on s,p,ds*
+                          single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
                           if (run) op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
                           single_atomic_orbital[ia][isho] = 0; // reset
     //                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");

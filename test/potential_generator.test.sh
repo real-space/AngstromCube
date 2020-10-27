@@ -178,7 +178,7 @@ sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
 #hamiltonian.test.kpoints=5
-hamiltonian.test.kmesh=7
+hamiltonian.test.kmesh.x=33
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
