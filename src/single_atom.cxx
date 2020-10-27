@@ -47,6 +47,7 @@
 #include "debug_tools.hxx" // here
 #include "print_tools.hxx" // printf_vector<T>(fmt, vec, n, final="\n", scale=1, add=0)
 
+#include "recorded_warnings.hxx" // warn, error, abort
 #include "pseudo_tools.hxx" // ::pseudize_local_potential, ::pseudize_function, ...
                             // ::pseudize_spherical_density, ::perform_Gram_Schmidt
 
@@ -952,10 +953,7 @@ namespace single_atom {
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
             if (maxit_scf < 1) warn("exported paw file although no setup SCF iterations executed");
-            if (export_xml < 0) {
-                if (echo > 0) printf("\n\n# single_atom.export.xml=%d (negative leads to a stop)\n\n", export_xml);
-                std::exit(0);
-            } // stop after export
+            if (export_xml < 0) abort("single_atom.export.xml=%d (negative leads to a stop)", export_xml);
         } // export_xml
 
         // show the smooth and true potential
@@ -1044,19 +1042,23 @@ namespace single_atom {
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU].n;
         std::vector<double> r2rho(nr);
+        auto const rV_tru = potential[TRU].data();
         view2D<double> new_r2density(3, nr, 0.0); // new TRU densities for {core, semicore, valence}
         double nelectrons[3] = {0, 0, 0}; // core, semicore, valence
+        double band_energy[3] = {0, 0, 0}; // core, semicore, valence
+        double kinetic_energy[3] = {0, 0, 0}; // core, semicore, valence
+        double Coulomb_energy[3] = {0, 0, 0}; // core, semicore, valence
 #ifdef DEVEL
         if (echo > 7) {
             printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
             printf("\n## %s %s: r, -Zeff(r)\n", label, __func__);
-            print_compressed(rg[TRU].r, potential[TRU].data(), rg[TRU].n);
+            print_compressed(rg[TRU].r, rV_tru, rg[TRU].n);
         } // echo
 #endif // DEVEL
         for(int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate
             int constexpr SRA = 1; // 1:scalar relativistic approximation
-            radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
+            radial_eigensolver::shooting_method(SRA, rg[TRU], rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU].dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             auto const scal = pow2(norm_factor)*std::abs(cs.occupation); // scaling factor for the density contribution of this state
@@ -1064,17 +1066,25 @@ namespace single_atom {
             // and normalize the core level wave function to one
             scale(cs.wave[TRU], nr, rg[TRU].rinv, norm_factor);
             // create wKin for the computation of the kinetic energy density
-            product(cs.wKin[TRU], nr, potential[TRU].data(), cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
+            product(cs.wKin[TRU], nr, rV_tru, cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
             add_product(cs.wKin[TRU], nr, rg[TRU].r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
+            cs.kinetic_energy = dot_product(nr, cs.wKin[TRU], cs.wave[TRU], rg[TRU].rdr);
+            // for more precision, we could eval
+            //    auto const E_pot = dot_product(nr, rho, rV_tru, rg[TRU].rdr);
+            //    cs.kinetic_energy = cs.energy - Epot;
+            // with rho=pow2(norm_factor)*r2rho/r^2
 
             if (scal > 0) {
                 int const csv = cs.csv; assert(0 <= csv && csv <= 2); // {core, semicore, valence}
                 add_product(new_r2density[csv], nr, r2rho.data(), scal);
-                nelectrons[csv] += std::max(0.0, std::abs(cs.occupation));
+                nelectrons[csv] += std::abs(cs.occupation);
+                band_energy[csv] += std::abs(cs.occupation)*cs.energy;
+                kinetic_energy[csv] += std::abs(cs.occupation)*cs.kinetic_energy;
             } // scal > 0
             show_state_analysis(echo, label, rg[TRU], cs.wave[TRU], cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
         } // ics
 
+        
         // report integrals
         for(int csv = 0; csv < 3; ++csv) { // core, semicore, valence
             double const old_charge = dot_product(nr, rg[TRU].r2dr, spherical_density[TRU][csv]);
@@ -1089,17 +1099,19 @@ namespace single_atom {
                 mix_new *= rescale;
             } // rescale
 
-            double density_change{0}, density_change2{0}, nuclear_energy{0}; // some stats
+            double density_change{0}, density_change2{0}, Coulomb_change{0}; // some stats
             for(int ir = 0; ir < nr; ++ir) {
                 double const r2inv = pow2(rg[TRU].rinv[ir]);
                 auto const new_rho = new_r2density(csv,ir)*r2inv; // *r^{-2}
                 auto const old_rho = spherical_density[TRU](csv,ir);
                 density_change  += std::abs(new_rho - old_rho)*rg[TRU].r2dr[ir];
                 density_change2 +=     pow2(new_rho - old_rho)*rg[TRU].r2dr[ir];
-                nuclear_energy  +=         (new_rho - old_rho)*rg[TRU].rdr[ir]; // Coulomb integral change
+                Coulomb_change  +=         (new_rho - old_rho)*rg[TRU].rdr[ir]; // Coulomb integral change
+                Coulomb_energy[csv] +=      new_rho           *rg[TRU].rdr[ir]; // Coulomb integral
                 spherical_density[TRU](csv,ir) = mix_new*new_rho + mix_old*old_rho;
             } // ir
-            nuclear_energy *= -Z_core; // to get an energy estimate
+            Coulomb_energy[csv] *= -Z_core;
+            Coulomb_change      *= -Z_core; // to get an energy estimate
 
             int echo_pseudo{0};
             if ((old_charge > 0) || (new_charge > 0)) {
@@ -1114,8 +1126,10 @@ namespace single_atom {
                     if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, csv_name[csv], new_q);
                 } // debug
 #endif // DEVEL
-                if (echo > 0) printf("# %s %s density change %g e (rms %g e) bare Coulomb energy change %g %s\n", 
-                    label, csv_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), nuclear_energy*eV,_eV);
+                if (echo > 0) printf("# %s %-8s density change %g e (rms %g e) Coulomb energy change %g %s\n", 
+                    label, csv_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), Coulomb_change*eV,_eV);
+                if (echo > 3) printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
+                    label, csv_name[csv], Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV,_eV);
             } // output only for contributing densities
 
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
@@ -1123,6 +1137,14 @@ namespace single_atom {
                 spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
 
         } // csv
+
+        if (echo > 1) {
+            double const w111[] = {1, 1, 1};
+            printf("# %s total    E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n",
+                    label, dot_product(3, w111, Coulomb_energy)*eV,
+                           dot_product(3, w111, band_energy)*eV, 
+                           dot_product(3, w111, kinetic_energy)*eV, _eV);
+        } // echo
 
     } // update_spherical_states
 
@@ -1423,11 +1445,7 @@ namespace single_atom {
         show_projector_coefficients(optimized, echo - 6); // and warn if not normalizable
 
 #ifdef DEVEL
-        if (optimize_sigma < -9) {
-            if (echo > 0) printf("\n\n# %s stop after sigma optimization\n\n", __func__);
-            std::exit(0);
-        } // stop after sigma optimization
-
+        if (optimize_sigma < -9) abort("after sigma optimization");
 
         // experimental
         int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
@@ -2639,7 +2657,6 @@ namespace single_atom {
             add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_cmp, sigma_compensator);
 
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
-//                 double v_test[1];
                 std::vector<double> v_test(pow2(1 + ellmax_cmp), 0.0);
                 add_or_project_compensators<1>(Ves, v_test.data(), rg[SMT], ellmax_cmp, sigma_compensator); // project to compensators with ellmax_cmp=0
                 if (echo > 7) {
@@ -2660,7 +2677,7 @@ namespace single_atom {
                 } // echo
             } else {
                 if (echo > 8) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n",
-                                label, Ves(00,1)*(rg[TRU].r[1])*Y00, -Z_core);
+                                        label, Ves(00,1)*(rg[TRU].r[1])*Y00, -Z_core);
                 if (echo > 5) {
                       auto const Enuc = -Z_core*dot_product(nr, full_density[TRU][00], rg[ts].rdr)*Y00inv;
                       printf("# %s unscreened Coulomb energy is %.15g %s\n", label, Enuc*eV, _eV);

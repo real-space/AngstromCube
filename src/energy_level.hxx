@@ -9,6 +9,7 @@
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves
       double* wKin[Pseudo]; // kinetic energy operator onto wave, r*T*wave
       double energy; // energy level in Hartree atomic units
+      double kinetic_energy; // true kinetic energy
       double occupation; // occupation number
       char tag[8]; // label
       enn_QN_t enn; // main quantum_number

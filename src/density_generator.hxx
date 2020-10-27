@@ -222,14 +222,14 @@ namespace density_generator {
                                 __func__, ikpoint, iband, occupation[iband], d_occupation[iband]*kT);
 
                   add_to_density(rho, g.all(), psi_nk, weight_nk, echo, iband, ikpoint);
-#if 1
+#ifdef DEBUG
                   if (echo > 0) { 
                       printf("# valence density ");
                       auto const new_charge = print_stats(rho, g.all(), g.dV());
                       printf("# valence density of band #%i added %g electrons\n", iband, new_charge - old_charge);
                       old_charge = new_charge;
                   } // echo
-#endif // 1
+#endif // DEBUG
                   add_to_density_matrices(atom_rho, a_coeff(ikpoint,iband),
                                   coeff_starts, natoms, weight_nk, echo, iband, ikpoint);
 

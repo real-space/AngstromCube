@@ -12,9 +12,13 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
+# project_base=pg.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
+
+project_base=pg.Og-atom
 printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+echo "Og  0 0 0" >> $geometry_file
 
 # project_base=pg.Cu-atom
 # printf " 1 \n#cell 2 2 2 p p p \n" > $geometry_file
@@ -144,8 +148,8 @@ electrostatic.solver=fft
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=0
-single_atom.init.echo=0
+single_atom.echo=7
+single_atom.init.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
 #single_atom.optimize.sigma=0

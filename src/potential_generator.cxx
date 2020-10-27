@@ -711,7 +711,7 @@ namespace potential_generator {
                                                     psi_k.data(), gc.all(), na, op, nbands, 1, echo);
                           stat += density_generator::density(rho_valence_gc.data(), atom_rho.data(), Fermi,
                                                     energies[ikpoint], psi_k.data(), atom_coeff.data(), 
-                                                    coeff_starts.data(), na, gc, nbands, 1, echo, nullptr, charges);
+                                                    coeff_starts.data(), na, gc, nbands, 1, echo - 4, nullptr, charges);
                       } // scope
                   } // ikpoint
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 

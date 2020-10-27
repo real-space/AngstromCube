@@ -190,6 +190,7 @@ namespace fermi_distribution {
         : _ne(std::max(0.0, n_electrons))
         , _mu(Fermi_level_not_initialized)
         , _kT(kT)
+        , _bandsum(0.0)
         , _spinfactor(std::min(std::max(1, spinfactor), 2))
       {
           if (echo > 0) printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
@@ -239,11 +240,13 @@ namespace fermi_distribution {
                 count_electrons(nbands, energies, _mu, _kTinv, nullptr, &DoS, occupations, response_occ);
                 eF = _mu;
             } // initialized?
+            _bandsum = _spinfactor * dot_product(nbands, energies, occupations);
             add(eF, kpoint_weight, echo); // accumulate to compute the average Fermi level later
             return DoS;
       } // get_occupations
 
       double get_Fermi_level() const { return _mu; }
+      double get_band_sum() const { return _bandsum; }
 
       // after all k-points of the 1st SCF iteration have been processed, we have to set it
       double correct_Fermi_level( // returns the fraction of how much of the response density needs to be added to the density
@@ -268,6 +271,7 @@ namespace fermi_distribution {
       double _mu; // the chemical potential
       double _kT; // temperature times Boltzmann factor
       double _kTinv;
+      double _bandsum; // occupation (and spin) weighted sum of band energies
       simple_stats::Stats<double> _accu; // mean Fermi-level accumulator
       int _spinfactor; // 2:spin-paired, 1:spin-resolved
 

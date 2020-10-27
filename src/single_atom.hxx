@@ -2,8 +2,6 @@
 
 #include <cstdint> // int32_t
 
-#include "radial_grid.h" // radial_grid_t
-
 #include "status.hxx" // status_t
 
 namespace single_atom {

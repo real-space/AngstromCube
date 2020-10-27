@@ -14,13 +14,18 @@ namespace recorded_warnings {
 
 #define error(...) { \
     recorded_warnings::show_warnings(9); \
-    recorded_warnings::_print_error_message(stdout, __FILE__, __LINE__, __VA_ARGS__ ); \
-    recorded_warnings::_print_error_message(stderr, __FILE__, __LINE__, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stdout, "Error", __FILE__, __LINE__, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stderr, "Error", __FILE__, __LINE__, __VA_ARGS__ ); \
+    exit(__LINE__); }
+
+#define abort(...) { \
+    recorded_warnings::show_warnings(9); \
+    recorded_warnings::_print_error_message(stdout, "Abort", __FILE__, __LINE__, __VA_ARGS__ ); \
     exit(__LINE__); }
 
   template <class... Args>
-  void _print_error_message(FILE* os, char const *srcfile, int const srcline, Args &&... args) {
-        std::fprintf(os, "\n\n# Error in %s:%i  Message:\n#   ", srcfile, srcline);
+  void _print_error_message(FILE* os, char const *error, char const *srcfile, int const srcline, Args &&... args) {
+        std::fprintf(os, "\n\n# %s in %s:%i  Message:\n#   ", error, srcfile, srcline);
         std::fprintf(os, std::forward<Args>(args)...);
         std::fprintf(os, "\n\n");
         std::fflush(os);

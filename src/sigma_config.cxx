@@ -142,7 +142,7 @@ namespace sigma_config {
             case 115: return "7s 2 7p 3 0 7d | 2. sigma .5";                            // Mc
             case 116: return "7s 2 7p 3 1 7d | 2. sigma .5";                            // Lv
             case 117: return "7s 2 7p 3 2 7d | 3. sigma .9";                            // Ts
-            case 118: return "7s 2 7p 6 7d | 3. sigma .9";                              // Og
+            case 118: return "7s 2 7p 6 7d | 3. sigma .8";                              // Og
             case 119: return "7s 2 8s 1 0 7p 6 6d 10 6f | 3. sigma .9";                 // ue
             case 120: return "7s 2 8s 2 7p 6 6d 10 6f | 3. sigma .9";                   // u0
             case 121: /* ================================== */                          // u1
