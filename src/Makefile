@@ -24,6 +24,7 @@ OBJ = \
 	iterative_poisson.o \
 	recorded_warnings.o \
 	potential_generator.o \
+	poisson_solver.o \
 	chemical_symbol.o \
 	sigma_config.o \
 	atom_core.o \

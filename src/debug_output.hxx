@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdio> // printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::fflush, stdout
+#include "display_units.h" // Ang, _Ang
+
+#define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
 
 template <typename real_t>
 int dump_to_file(
@@ -39,4 +42,19 @@ int dump_to_file(
     return 0;
 } // dump_to_file
 
-#define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
+namespace debug_output {
+
+  template <typename real_t>
+  status_t write_array_to_file(
+        char const *filename // file name to write to
+      , real_t const array[]  // array pointer
+      , int const nx, int const ny, int const nz // grid dimensions
+      , int const echo=0 // log-level
+      , char const *arrayname="" // some description to appear in the file
+  ) {
+      char title[128]; std::sprintf(title, "%i x %i x %i  %s", nz, ny, nx, arrayname);
+      auto const size = size_t(nz) * size_t(ny) * size_t(nx);
+      return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
+  } // write_array_to_file
+  
+} // namespace debug_output
