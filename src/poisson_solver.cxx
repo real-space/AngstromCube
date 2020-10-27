@@ -44,7 +44,7 @@ namespace poisson_solver {
         double Ves[] // output electrostatic potential
       , double const rho[] // input density
       , real_space::grid_t const & g // Cartesian real-space grid descriptor
-      , double const center[3] // center around which to expand, e.g. an atomic position
+      , double const center[3]=nullptr // center around which to expand, e.g. an atomic position
       , int const echo=0 // log-level
   ) {
       if (!g.is_Cartesian()) error("Bessel-Poisson solver only implemented for Cartesian grids");
@@ -57,6 +57,9 @@ namespace poisson_solver {
 
       // report extremal values of what is stored on the grid
       if (echo > 1) print_stats(rho, g.all(), g.dV(), "# real-space stats of input density:   ");
+      
+      double const grid_center[] = {(g[0] - 1)*g.h[0], (g[1] - 1)*g.h[1], (g[2] - 1)*g.h[2]};
+      if (nullptr == center) center = grid_center;
       
       if (echo > 5) printf("# Bessel j0 projection around position %g %g %g %s\n",
                               center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
@@ -140,15 +143,13 @@ namespace poisson_solver {
         double Ves[] // result electrostatic potential
       , double const rho[] // charge density, typically augmented density, should be charge neutral
       , real_space::grid_t const & g // grid descriptor
+      , char const method // ='m' solver method     
       , int const echo // log-level
       , double const Bessel_center[] // =nullptr
   ) {
-      char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
-      auto const es_solver_method = solver_method(es_solver_name); // should be one of {'f', 'i', 'n', 'm', 'M'}
+      char const es_solver_name = method;
 
       status_t stat(0);
-
-//    double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
 
       if (echo > 1) print_stats(rho, g.all(), g.dV(), "\n# input charge density:");
 
@@ -161,7 +162,7 @@ namespace poisson_solver {
           } // echo
 #endif // DEVEL
 
-          if ('f' == (es_solver_method | 32)) { // "fft", "fourier" 
+          if ('f' == (method | 32)) { // "fft", "fourier" 
               // solve the Poisson equation using a Fast Fourier Transform
               int ng[3]; double reci[3][4]; 
               for(int d = 0; d < 3; ++d) { 
@@ -170,11 +171,12 @@ namespace poisson_solver {
                   reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
               } // d
               stat += fourier_poisson::solve(Ves, rho, ng, reci);
-          } else if ('M' == es_solver_method) { // "Multi-grid" (upper case!)
+          } else
+          if ('M' == method) { // "Multi-grid" (upper case!)
 #ifdef DEVEL
               // create a 2x denser grid descriptor
               real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
-              if (echo > 2) printf("# electrostatic.solver = %s is a multi-grid solver"
+              if (echo > 2) printf("# electrostatic.solver=%c (Multi-grid) is a multi-grid solver"
                       " on a %d x %d x %d grid\n", es_solver_name, gd[0], gd[1], gd[2]);
               gd.set_grid_spacing(g.h[0]/2, g.h[1]/2, g.h[2]/2);
               gd.set_boundary_conditions(g.boundary_conditions());
@@ -187,32 +189,35 @@ namespace poisson_solver {
               // restrict the electrostatic potential to grid g
               multi_grid::restrict3D(Ves, g, Ves_dense.data(), gd, echo);
 #else  // DEVEL
-              error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
+              error("electrostatic.solver=%c (Multi-grid) only available in the development branch!", es_solver_name); 
 #endif // DEVEL
-          } else if ('B' == es_solver_method) { // "Bessel0" (upper case!)
+          } else
+          if ('B' == method) { // "Bessel0" (upper case!)
 #ifdef DEVEL
               if (echo > 0) printf("# use a spherical Bessel solver for the Poisson equation\n");
               auto const st = Bessel_Poisson_solver(Ves, rho, g, Bessel_center, echo);
               if (st) warn("Bessel Poisson solver failed with status=%i", int(st));
               stat += st;
 #else  // DEVEL
-              error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
+              error("electrostatic.solver=%c (Bessel) only available in the development branch!", es_solver_name); 
 #endif // DEVEL
-          } else if ('l' == (es_solver_method | 32)) { // "load"
+          } else
+          if ('l' == (method | 32)) { // "load"
 #ifdef DEVEL
               auto const Ves_in_filename = control::get("electrostatic.potential.from.file", "v_es.dat");
               auto const nerrors = debug_tools::read_from_file(Ves, Ves_in_filename, g.all(), 1, 1, "electrostatic potential", echo);
-              if (nerrors) warn("electrostatic.solver = %s from file %s had %d errors", es_solver_name, Ves_in_filename, nerrors); 
+              if (nerrors) warn("electrostatic.solver=%c (load) from file %s had %d errors", es_solver_name, Ves_in_filename, nerrors); 
 #else  // DEVEL
-              error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
+              error("electrostatic.solver=%c (load) only available in the development branch!", es_solver_name); 
 #endif // DEVEL
-          } else if ('n' == (es_solver_method | 32)) { // "none"
-              warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
+          } else
+          if ('n' == (method | 32)) { // "none"
+              warn("electrostatic.solver=%c (none) may lead to unphysical results!", es_solver_name); 
 
           } else { // default
-              if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
-              stat += iterative_poisson::solve(Ves, rho, g, es_solver_method, echo);
-          } // es_solver_method
+              if (echo > 2) printf("# electrostatic.solver=%c\n", es_solver_name);
+              stat += iterative_poisson::solve(Ves, rho, g, method, echo);
+          } // method
 
           if (echo > 1) print_stats(Ves, g.all(), g.dV(), "\n# electrostatic potential", eV);
 #ifdef DEVEL
@@ -231,8 +236,10 @@ namespace poisson_solver {
 #ifdef DEVEL
       { // scope: export electrostatic potential to ASCII file
           auto const Ves_out_filename = control::get("electrostatic.potential.to.file", "");
-          if (*Ves_out_filename) stat += debug_output::write_array_to_file(Ves_out_filename, Ves, 
-                                                        g[0], g[1], g[2], echo, "electrostatic potential");
+          if (Ves_out_filename && *Ves_out_filename) {
+              stat += debug_output::write_array_to_file(Ves_out_filename, Ves, 
+                            g[0], g[1], g[2], echo, "electrostatic potential");
+          }
       } // scope
 #endif // DEVEL
 
@@ -260,7 +267,8 @@ namespace poisson_solver {
   status_t test_solve(int const echo=3) {
       real_space::grid_t g(12, 14, 16);
       std::vector<double> Ves(g.all()), rho(g.all(), 0.0);
-      return solve(Ves.data(), rho.data(), g, echo);
+      auto const method = solver_method(control::get("electrostatic.solver", "multi-grid"));
+      return solve(Ves.data(), rho.data(), g, method, echo);
   } // test_init
 
   status_t all_tests(int const echo) {

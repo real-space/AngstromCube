@@ -12,7 +12,7 @@
 #include "inline_tools.hxx" // align<n>
 #include "constants.hxx" // ::sqrtpi, ::pi
 #include "solid_harmonics.hxx" // ::Y00
-#include "real_space.hxx" // ::grid_t, ::add_function, ::Bessel_projection
+#include "real_space.hxx" // ::grid_t, ::add_function
 #include "radial_grid.hxx" // ::radial_grid_t
 #include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
@@ -20,8 +20,7 @@
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
-#include "fourier_poisson.hxx" // ::fourier_solve
-#include "iterative_poisson.hxx" // ::solve
+
 #include "finite_difference.hxx" // ::stencil_t, ::derive
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
 #include "simple_timer.hxx" // // SimpleTimer
@@ -32,6 +31,7 @@
 #include "debug_tools.hxx" // ::read_from_file
 
 #ifdef DEVEL
+    #include "real_space.hxx" // ::Bessel_projection
     #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file
     #include "radial_r2grid.hxx" // radial_r2grid_t
@@ -51,6 +51,10 @@
 #include "sho_hamiltonian.hxx" // ::solve
 #include "pw_hamiltonian.hxx" // ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t
+
+#include "poisson_solver.hxx" // ::solve, ::solver_method
+// #include "fourier_poisson.hxx" // ::fourier_solve
+// #include "iterative_poisson.hxx" // ::solve
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 #include "print_tools.hxx" // print_stats, printf_vector
@@ -164,98 +168,6 @@ namespace potential_generator {
   } // add_smooth_quantities
 
   
-  
-  status_t Bessel_Poisson_solver(
-        double Ves[] // output electrostatic potential
-      , real_space::grid_t const & g // Cartesian real-space grid descriptor
-      , double const rho[] // input density
-      , double const center[3] // center around which to expand, e.g. an atomic position
-      , int const echo=0 // log-level
-  ) {
-      // solve the Poisson equation for spherically symmetric geometries using a Bessel trasform
-      status_t stat(0);
-      if (g.number_of_boundary_conditions(Isolated_Boundary) < 3) {
-          warn("Bessel Poisson solver requires 3 isolated boundary conditions");
-          return -1;
-      } // failed
-        
-      // report extremal values of what is stored on the grid
-      if (echo > 1) print_stats(rho, g.all(), g.dV(), "# real-space stats of input density:   ");
-      
-      if (echo > 5) printf("# Bessel j0 projection around position %g %g %g %s\n",
-                              center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
-      float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
-      std::vector<double> qc(nq, 0.0);
-      stat += real_space::Bessel_projection(qc.data(), nq, dq, rho, g, center);
-      qc[0] = 0; // stabilize charge neutrality, q=0-component must vanish
-
-      double const by4pi = .25/constants::pi; // 1/(4*pi)
-
-      if (echo > 19) {
-          printf("\n## Bessel coeff of {density, Ves}:\n");
-          for(int iq = 0; iq < nq; ++iq) {
-              double const q = iq*dq;
-              printf("%g %g %g\n", q, qc[iq]*by4pi, qc[iq]/(q*q + 1e-12));
-          } // iq
-          printf("\n\n");
-      } // echo
-
-      double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
-      scale(qc.data(), nq, sqrt2pi*dq);
-
-      // expand electrostatic potential onto grid
-      double rho_abs{0}, rho_squ{0}, rho_max{0};
-      for(int iz = 0; iz < g[2]; ++iz) {
-          double const z = iz*g.h[2] - center[2], z2 = z*z;
-          for(int iy = 0; iy < g[1]; ++iy) {
-              double const y = iy*g.h[1] - center[1], y2 = y*y; 
-              for(int ix = 0; ix < g[0]; ++ix) {
-                  double const x = ix*g.h[0] - center[0], x2 = x*x;
-                  double const r = std::sqrt(x2 + y2 + z2);
-                  int const izyx = (iz*g[1] + iy)*g[0] + ix;
-                  double ves_r{0}, rho_r{0};
-                  for(int iq = 0; iq < nq; ++iq) {
-                      double const q = iq*dq;
-                      double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
-                      ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
-                      rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
-                  } // iq
-                  Ves[izyx] = ves_r; // store
-                  // check how much the density deviates from a spherical density
-                  double const rho_dif = std::abs(rho[izyx] - rho_r);
-                  rho_max = std::max(rho_max, rho_dif);
-                  rho_abs += rho_dif;
-                  rho_squ += pow2(rho_dif);
-              } // ix
-          } // iy
-      } // iz
-      rho_abs *= g.dV();
-      rho_squ = std::sqrt(rho_squ)*g.dV();
-
-      if (echo > 1) print_stats(Ves, g.all(), g.dV(), "# real-space stats of output potential:", eV);
-
-      if (echo > 3) printf("# Bessel_Poisson deviation from a spherical density: "
-          "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ);
-
-      if (echo > 17) {
-          printf("\n## Bessel_Poisson: r, Ves, rho (in a.u.):\n");
-          for(int ir = 0; ir < 99; ++ir) {
-              double const r = .1*ir;
-              double ves_r{0}, rho_r{0};
-              for(int iq = 0; iq < nq; ++iq) {
-                  double const q = iq*dq;
-                  double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
-                  ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
-                  rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
-              } // iq
-              printf("%g %g %g \n", r, ves_r, rho_r);
-          } // ir
-          printf("\n\n");
-      } // echo
-      
-      return stat;
-  } // Bessel_Poisson_solver
-
   template <typename real_t>
   void print_direct_projection(
         real_t const array[]
@@ -290,10 +202,12 @@ namespace potential_generator {
       } // iz
       printf("# radii in %s\n\n", _Ang);
   } // print_direct_projection
-  
-  
-  status_t init(float const ion=0.f, int const echo=0) {
-    
+
+
+  status_t init(
+        float const ion=0.f // ionization between first and last atom
+      , int const echo=0 // log-level
+  ) {
       // compute the self-consistent solution of a single_atom, all states in the core
       // get the spherical core_density and bring it to the 3D grid
       // get the ell=0 compensator charge and add it to the 3D grid
@@ -342,7 +256,7 @@ namespace potential_generator {
                                        cell, g.boundary_conditions(), rcut, echo - 4);
       if (echo > 1) printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
-      
+
       std::vector<double> Za(na);        // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
@@ -452,7 +366,7 @@ namespace potential_generator {
       std::vector<double> Vtot(run*g.all()); // total effective potential
 
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
-      char const es_solver_method = *es_solver_name; // should be one of {'f', 'i', 'n', 'm', 'M'}
+      auto const es_solver_method = poisson_solver::solver_method(es_solver_name); // should be one of {'f', 'i', 'n', 'm', 'M'}
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2,
@@ -611,7 +525,6 @@ namespace potential_generator {
               add_product(rho.data(), g.all(), cmp.data(), 1.);
               if (echo > 1) print_stats(rho.data(), g.all(), g.dV(), "\n# augmented charge density:");
 
-              
               { // scope: solve the Poisson equation: Laplace Ves == -4 pi rho
                   SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
 #ifdef DEVEL
@@ -620,72 +533,7 @@ namespace potential_generator {
                       std::fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
                   } // echo
 #endif // DEVEL     
-                  if ('f' == (es_solver_method | 32)) { // "fft", "fourier" 
-                      // solve the Poisson equation using a Fast Fourier Transform
-                      int ng[3]; double reci[3][4]; 
-                      for(int d = 0; d < 3; ++d) { 
-                          ng[d] = g[d];
-                          set(reci[d], 4, 0.0);
-                          reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
-                      } // d
-                      stat += fourier_poisson::solve(Ves.data(), rho.data(), ng, reci);
-                  } else if ('M' == es_solver_method) { // "Multi-grid" (upper case!)
-#ifdef DEVEL
-                      // create a 2x denser grid descriptor
-                      real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
-                      if (echo > 2) printf("# electrostatic.solver = %s is a multi-grid solver"
-                              " on a %d x %d x %d grid\n", es_solver_name, gd[0], gd[1], gd[2]);
-                      gd.set_grid_spacing(g.h[0]/2, g.h[1]/2, g.h[2]/2);
-                      gd.set_boundary_conditions(g.boundary_conditions());
-
-                      std::vector<double> Ves_dense(gd.all()), rho_dense(gd.all());
-                      multi_grid::interpolate3D(rho_dense.data(), gd, rho.data(), g, echo);
-
-                      iterative_poisson::solve(Ves_dense.data(), rho_dense.data(), gd, 'M', echo);
-
-                      // restrict the electrostatic potential to grid g
-                      multi_grid::restrict3D(Ves.data(), g, Ves_dense.data(), gd, echo);
-#else  // DEVEL
-                      error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
-#endif // DEVEL
-                  } else if ('B' == es_solver_method) { // "Bessel0" (upper case!)
-#ifdef DEVEL
-                      if (echo > 0) printf("# use a spherical Bessel solver for the Poisson equation\n");
-                      assert(1 == na); // must be exactly one atom
-                      auto const st = Bessel_Poisson_solver(Ves.data(), g, rho.data(), center[0], echo);
-                      if (st) warn("Bessel Poisson solver failed with status=%i", int(st));
-                      stat += st;
-#else  // DEVEL
-                      error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
-#endif // DEVEL
-                  } else if ('l' == (es_solver_method | 32)) { // "load"
-#ifdef DEVEL
-                      auto const Ves_in_filename = control::get("electrostatic.potential.from.file", "v_es.dat");
-                      auto const nerrors = debug_tools::read_from_file(Ves.data(), Ves_in_filename, g.all(), 1, 1, "electrostatic potential", echo);
-                      if (nerrors) warn("electrostatic.solver = %s from file %s had %d errors", es_solver_name, Ves_in_filename, nerrors); 
-#else  // DEVEL
-                      error("electrostatic.solver = %s only available in the development branch!", es_solver_name); 
-#endif // DEVEL
-                  } else if ('n' == (es_solver_method | 32)) { // "none"
-                      warn("electrostatic.solver = %s may lead to unphysical results!", es_solver_name); 
-
-                  } else { // default
-                      if (echo > 2) printf("# electrostatic.solver = %s\n", es_solver_name);
-                      stat += iterative_poisson::solve(Ves.data(), rho.data(), g, es_solver_method, echo);
-                  } // es_solver_method
-
-                  if (echo > 1) print_stats(Ves.data(), g.all(), g.dV(), "\n# electrostatic potential", eV);
-#ifdef DEVEL
-                  if (echo > 6) {
-                      printf("# electrostatic potential at grid corners:");
-                      for(int iz = 0; iz < g[2]; iz += g[2] - 1) {
-                      for(int iy = 0; iy < g[1]; iy += g[1] - 1) {
-                      for(int ix = 0; ix < g[0]; ix += g[0] - 1) {
-                          printf(" %g", Ves[(iz*g[1] + iy)*g[0] + ix]*eV);
-                      }}} // ix iy iz
-                      printf(" %s\n", _eV);
-                  } // echo
-#endif // DEVEL
+                  stat += poisson_solver::solve(Ves.data(), rho.data(), g, es_solver_method, echo, (na > 0)? center[0] : nullptr);
               } // scope
               here;
 

@@ -11,13 +11,14 @@ namespace poisson_solver {
         double Ves[] // result electrostatic potential
       , double const rho[] // charge density, typically augmented density, should be charge neutral
       , real_space::grid_t const & g // grid descriptor
+      , char const method='m' // default method is multi-grid
       , int const echo=0 // log-level
       , double const Bessel_center[]=nullptr
   ); // declaration only
 
   inline
   char solver_method(char const *method) { return *method; }
-  
+
   template <typename real_t>
   void print_direct_projection(
         real_t const array[]
