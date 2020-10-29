@@ -261,7 +261,7 @@ namespace finite_difference {
             typename complex_in_t, // input comes in this precision
             typename real_fd_t> // computations are executed in this precision
   status_t apply(complex_out_t out[], complex_in_t const in[], real_space::grid_t const & g, 
-                     stencil_t<real_fd_t> const & fd, double const factor=1, complex_in_t const boundary_phase[3]=nullptr) {
+                     stencil_t<real_fd_t> const & fd, double const factor=1, complex_in_t const boundary_phase[3][2]=nullptr) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
       std::vector<int> list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
@@ -283,8 +283,8 @@ namespace finite_difference {
               phas[d][n16 + j] = 1;
           } // j
 
-          complex_in_t const phase_low = boundary_phase ? boundary_phase[d] : 1;
-          complex_in_t const phase_upp = complex_in_t(1)/phase_low;
+          complex_in_t const phase_low = boundary_phase ? boundary_phase[d][0] : 1;
+          complex_in_t const phase_upp = boundary_phase ? boundary_phase[d][1] : 1;
 
           // lower boundary
           if (Periodic_Boundary == bc) { // periodic BC

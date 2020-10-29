@@ -8,10 +8,10 @@
 #include "atom_image.hxx" // ::sho_atom_t
 #include "real_space.hxx" // ::grid_t
 #include "finite_difference.hxx" // ::stencil_t<real_t>
-#include "vector_math.hxx" // ::vec<N,T>
 #include "boundary_condition.hxx" // ::periodic_images
 #include "recorded_warnings.hxx" // error, warn
 #include "complex_tools.hxx" // conjugate, to_complex_t
+#include "inline_math.hxx" // intpow
 
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
@@ -25,14 +25,25 @@
 
 namespace grid_operators {
 
-  template<typename complex_t, typename real_fd_t=double>
+  template <typename complex_t>
+  complex_t Bloch_phase(complex_t const boundary_phase[3][2], int8_t const idx[3], int const inv=0) {
+      complex_t Bloch_factor(1);
+      for(int d = 0; d < 3; ++d) {
+          int i01 = ((idx[d] < 0) + inv) & 0x1;
+          Bloch_factor *= intpow(boundary_phase[d][i01], std::abs(idx[d]));
+      } // d
+      return Bloch_factor;
+  } // Bloch_phase
+
+  
+  template <typename complex_t, typename real_fd_t=double>
   status_t _grid_operation(
         complex_t Hpsi[] // result
       , complex_t const psi[] // input wave functions
-      , real_space::grid_t const &g // 3D Cartesian grid descriptor
-      , std::vector<atom_image::sho_atom_t> const &a // atoms
+      , real_space::grid_t const & g // 3D Cartesian grid descriptor
+      , std::vector<atom_image::sho_atom_t> const & a // atoms
       , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
-      , complex_t const *boundary_phase=nullptr // phase shifts at the boundary [optional]
+      , complex_t const boundary_phase[3][2] // phase shifts at the boundary
       , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
       , double const *potential=nullptr // diagonal potential operator [optional]
       , int const echo=0
@@ -42,13 +53,13 @@ namespace grid_operators {
   ) {
       using real_t = decltype(std::real(complex_t(1)));
       using atom_matrix_t = decltype(std::real(real_fd_t(1)));
-      
+
       status_t stat(0);
 
       if (Hpsi) {
           if (kinetic) {
               if (psi) {
-                  stat += finite_difference::apply(Hpsi, psi, g, *kinetic, 1, boundary_phase); // prefactor -0.5 moved into finite-difference-coefficients
+                  stat += finite_difference::apply(Hpsi, psi, g, *kinetic, 1, boundary_phase);
                   if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
               } // psi != nullptr
           } else {
@@ -68,12 +79,13 @@ namespace grid_operators {
       int const echo_sho = 0*(nullptr != atomic_projection_coefficients);
 
       if (h0s1 >= 0) {
-        
-          int const na = a.size(); // number of atoms
-          std::vector<std::vector<complex_t>> atom_coeff(na);
-          
-          for(int ia = 0; ia < na; ++ia) {
+
+          int const natoms = a.size(); // number of atoms
+          std::vector<std::vector<complex_t>> atom_coeff(natoms);
+
+          for(int ia = 0; ia < natoms; ++ia) {
               int const numax = a[ia].numax();
+              auto const sigma = a[ia].sigma();
               int const ncoeff = sho_tools::nSHO(numax);
               atom_coeff[ia] = std::vector<complex_t>(ncoeff, complex_t(0));
 
@@ -81,10 +93,10 @@ namespace grid_operators {
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
                           std::vector<complex_t> image_coeff(ncoeff, 0.0); // can we omit the initialization?
-                      
-                          stat += sho_projection::sho_project(image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma(), psi, g, echo_sho);
 
-                          complex_t const Bloch_factor = 1.0; // ToDo: use k-dependent Bloch-factors
+                          stat += sho_projection::sho_project(image_coeff.data(), numax, a[ia].pos(ii), sigma, psi, g, echo_sho);
+
+                          complex_t const Bloch_factor = Bloch_phase(boundary_phase, a[ia].idx(ii));
                           add_product(atom_coeff[ia].data(), ncoeff, image_coeff.data(), Bloch_factor);
                       } // ii
 #ifdef DEBUG
@@ -96,7 +108,7 @@ namespace grid_operators {
                       stat += sho_projection::sho_project(atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma(), psi, g, echo_sho);
                   } // need_images
               } // psi != nullptr
-              
+
               if (atomic_projection_coefficients) {
                   set(atomic_projection_coefficients[ia], ncoeff, atom_coeff[ia].data()); // export
               } // atomic_projection_coefficients
@@ -104,8 +116,9 @@ namespace grid_operators {
 
           if (Hpsi) {
 
-              for(int ia = 0; ia < na; ++ia) {
+              for(int ia = 0; ia < natoms; ++ia) {
                   int const numax = (start_wave_coeffs) ? 3 : a[ia].numax();
+                  auto const sigma = a[ia].sigma()*scale_sigmas;
                   int const ncoeff = sho_tools::nSHO(numax);
                   std::vector<complex_t> V_atom_coeff_ia(ncoeff);
 
@@ -139,24 +152,24 @@ namespace grid_operators {
                           V_atom_coeff_ia[i] = ci;
                       } // i
                       // scope
-                      
+
                   } // start_wave_coeffs
 
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
-                          complex_t const inv_Bloch_factor = 1.0; // ToDo: use k-dependent inverse Bloch-factors
+                          complex_t const inv_Bloch_factor = Bloch_phase(boundary_phase, a[ia].idx(ii), 1);
                           std::vector<complex_t> V_image_coeff(ncoeff);
                           set(V_image_coeff.data(), ncoeff, V_atom_coeff_ia.data(), inv_Bloch_factor);
 
-                          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), a[ia].sigma()*scale_sigmas, echo_sho);
+                          stat += sho_projection::sho_add(Hpsi, g, V_image_coeff.data(), numax, a[ia].pos(ii), sigma, echo_sho);
                       } // ii
                   } else {
                       // Gamma point, no periodic images
-                      stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff_ia.data(), numax, a[ia].pos(), a[ia].sigma()*scale_sigmas, echo_sho);
+                      stat += sho_projection::sho_add(Hpsi, g, V_atom_coeff_ia.data(), numax, a[ia].pos(), sigma, echo_sho);
                   } // need images
-                  
+
               } // ia
-              
+
           } // Hpsi != nullptr
 
       } // h0s1 >= 0
@@ -171,7 +184,7 @@ namespace grid_operators {
   //
   
   inline status_t set_nonlocal_potential(std::vector<atom_image::sho_atom_t> & a
-                , double const *const *const atom_matrices // data layout am[na][2*ncoeff[ia]^2]
+                , double const *const *const atom_matrices // data layout am[natoms][2*ncoeff[ia]^2]
                 , int const echo=0) {
       status_t stat(0);
       assert(atom_matrices); // may not be nullptr
@@ -194,8 +207,8 @@ namespace grid_operators {
       } // ia
       return stat;
   } // set_nonlocal_potential
-  
-  
+
+
   // prepare the sho_atoms for grid_operator_t
   inline // ToDo: move body to grid_operators.cxx since this is not templated
   std::vector<atom_image::sho_atom_t> list_of_atoms(
@@ -335,20 +348,21 @@ namespace grid_operators {
                   k_point[d] = kpoint[d];
                   if (is_complex<complex_t>()) {
                       std::complex<double> phase = std::pow(minus1, 2*k_point[d]);
-                      boundary_phase[d] = to_complex_t<complex_t, double>(phase);
+                      boundary_phase[d][0] = to_complex_t<complex_t, double>(phase);
                   } else {
                       int const kk = std::round(2*k_point[d]);
                       assert(2*k_point[d] == kk);
-                      boundary_phase[d] = kk ? -1 : 1;
+                      boundary_phase[d][0] = kk ? -1 : 1;
                   } // real phase factor
+                  boundary_phase[d][1] = conjugate(boundary_phase[d][0]);
                   if (echo > 5) printf("   %c: %g ph(%g, %g)", 'x'+d, k_point[d],
-                      std::real(boundary_phase[d]), std::imag(boundary_phase[d]));
+                      std::real(boundary_phase[d][0]), std::imag(boundary_phase[d][0]));
               } // d
               if (echo > 5) printf("\n");
           } else {
               if (echo > 6) printf("# grid_operator.%s resets kpoint to Gamma\n", __func__);
               set(k_point, 3, 0.0);
-              set(boundary_phase, 3, complex_t(1));
+              set(boundary_phase[0], 3*2, complex_t(1));
           } // nullptr
       } // set_kpoint
 
@@ -389,11 +403,26 @@ namespace grid_operators {
           if (stat && (echo > 0)) printf("# %s %s returns status=%i\n", __FILE__, __func__, int(stat));
           return stat;
       } // set_potential
+      
+      void construct_dense_operator(complex_t Hmat[], complex_t Smat[], size_t const stride, int const echo=0) {
+          // assume shapes Hmat[][stride], Smat[][stride]
+          size_t const ndof = grid.all();
+          if (echo > 1) { printf("\n# %s with %ld x %ld (stride %ld)\n", __func__, ndof, ndof, stride); std::fflush(stdout); }
+          assert(ndof <= stride);
+          std::vector<complex_t> psi(ndof);
+          for(size_t dof = 0; dof < ndof; ++dof) {
+              set(psi.data(), ndof, complex_t(0));
+              psi[dof] = 1;
+              Hamiltonian(&Hmat[dof*stride], psi.data(), echo);
+              Overlapping(&Smat[dof*stride], psi.data(), echo);
+          } // dof
+          if (echo > 1) printf("# %s done\n\n", __func__);
+      } // construct_dense_operator
 
     private:
       real_space::grid_t grid;
       std::vector<atom_image::sho_atom_t> atoms;
-      complex_t boundary_phase[3];
+      complex_t boundary_phase[3][2];
       double k_point[3];
       std::vector<double> potential;
 //    std::vector<complex_t> scale_factors;

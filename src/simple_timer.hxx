@@ -31,9 +31,7 @@
           return 1e-6*musec;
       } // stop
 
-      ~SimpleTimer() {
-          stop(echo);
-      } // destructor
+      ~SimpleTimer() { stop(echo); } // destructor
 
   }; // class SimpleTimer
   

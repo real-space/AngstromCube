@@ -8,17 +8,17 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "Al   0 0 0" >> $geometry_file
 
-# project_base=pg.C-sc
-# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-sc
+printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.C-atom
 # printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.Og-atom
-printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
-echo "Og  0 0 0" >> $geometry_file
+# project_base=pg.Og-atom
+# printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
+# echo "Og  0 0 0" >> $geometry_file
 
 # project_base=pg.Cu-atom
 # printf " 1 \n#cell 2 2 2 p p p \n" > $geometry_file
@@ -123,7 +123,7 @@ echo "Og  0 0 0" >> $geometry_file
 cat > control.sh << EOF
 
 # configuration of atomic PAW setups
-#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
 
@@ -135,7 +135,8 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 # grid spacing of the dense grid (in Bohr)
-potential_generator.grid.spacing=0.23622
+#potential_generator.grid.spacing=0.23622
+potential_generator.grid.spacing=.197
 #potential_generator.grid.spacing=0.208
 #potential_generator.grid.spacing=0.1772   ## dense grid
 
@@ -166,14 +167,15 @@ logder.step=1e-4
 bands.per.atom=10
 
 # configuration for basis=grid
-# method of the grid eigensolver {cg, Davidson, none}
-grid.eigensolver=cg
-grid.eigensolver.repeat=3
+# method of the grid eigensolver {cg, Davidson, none, explicit}
+#grid.eigensolver=cg
+grid.eigensolver=explicit
+grid.eigensolver.repeat=5
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-start.waves=waves.dat
+#start.waves=waves.dat
 store.waves=waves.dat
 
 # configuration for basis=sho
@@ -181,7 +183,8 @@ store.waves=waves.dat
 sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
-hamiltonian.kmesh.x=4
+hamiltonian.kmesh.echo=9
+hamiltonian.kmesh.x=16
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
@@ -233,7 +236,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 2 0`; do
+for ecut in `seq 20 2 20`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

@@ -128,12 +128,13 @@ namespace brillouin_zone {
   int get_kpoint_mesh(
         view2D<double> & mesh
   ) {
-      auto const n = int(control::get("hamiltonian.kmesh", 1.)); // isotropic
+      int const echo = int(control::get("hamiltonian.kmesh.echo", 0.));
+      auto const n = int(control::get("hamiltonian.kmesh", 1.)); // isotropic default value
       unsigned nv[3];
       nv[0] = int(control::get("hamiltonian.kmesh.x", double(n)));
       nv[1] = int(control::get("hamiltonian.kmesh.y", double(n)));
       nv[2] = int(control::get("hamiltonian.kmesh.z", double(n)));
-      return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, 99);
+      return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, echo);
   } // get_kpoint_mesh
 
 

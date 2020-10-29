@@ -115,6 +115,7 @@ namespace atom_image {
       int     stride()  const { return _stride; }
       int     nimages() const { return _images.size(); }
       double const * pos(int const ii=0) const { assert(ii >= 0); assert(ii < _images.size()); return _images[ii].pos(); }
+      int8_t const * idx(int const ii=0) const { assert(ii >= 0); assert(ii < _images.size()); return _images[ii].index(); }
 
     private:
       double  _sigma{1.};

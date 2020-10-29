@@ -60,6 +60,9 @@
 
 #include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
 #include "print_tools.hxx" // print_stats, printf_vector
+#include "dense_solver.hxx" // ::display_spectrum
+#include "dense_solver.hxx" // ::solve
+#include "complex_tools.hxx" // complex_name
 
 #define DEBUG
 #ifdef  DEBUG
@@ -411,14 +414,14 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-              using real_wave_function_t = float; // decide here if float or double precision
-//            using real_wave_function_t = double;
-//            using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
-              using wave_function_t = real_wave_function_t;               // decide here if real or complex
+//               using real_wave_function_t = float; // decide here if float or double precision
+              using real_wave_function_t = double;
+              using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
+//               using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
-
+              if (echo > 0) printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
 
               view2D<double> kmesh; // kmesh(nkpoints, 4);
               int const nkpoints = brillouin_zone::get_kpoint_mesh<is_complex<wave_function_t>()>(kmesh);
@@ -688,7 +691,9 @@ namespace potential_generator {
                   double charges[4] = {0, 0, 0, 0};
                   for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                       op.set_kpoint(kmesh[ikpoint], echo);
+                      char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
                       auto psi_k = psi[ikpoint]; // get a sub-view
+                      bool display_spectrum{true};
 
                       // solve the Kohn-Sham equation using various solvers
                       if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
@@ -705,14 +710,21 @@ namespace potential_generator {
                               stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else
+                      if ('e' == *grid_eigensolver_method) { // "explicit" dense matrix solver
+                          view3D<wave_function_t> HSm(2, gc.all(), align<4>(gc.all()), 0.0); // get memory for the dense representation
+                          op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), echo);
+                          stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
+                          display_spectrum = false; // the dense solver will display on its own
+                      } else
                       if ('n' == *grid_eigensolver_method) { // "none"
                           if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
                       } else {
                           ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
                       } // grid_eigensolver_method
 
-                      // add to density
-                      { // scope
+                      if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
+                      
+                      { // scope: add to density
                           std::vector<uint32_t> coeff_starts;
                           auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
                                                     psi_k.data(), gc.all(), na, op, nbands, 1, echo);
