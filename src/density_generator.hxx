@@ -167,7 +167,7 @@ namespace density_generator {
       , real_space::grid_t const & g
       , int const nbands=1
       , int const nkpoints=1
-      // ToDo: insert kmesh here or at least the kpoint under consideration (including its weight)
+      , double const k_weight[]=nullptr
       , int const echo=0
       , double *const *const d_atom_rho=nullptr // result atomic density matrices derived
       , double charges[]=nullptr // nominal charge accumulators: 0:kpoint_denominator, 1:charge, 2:d_charge
@@ -200,7 +200,7 @@ namespace density_generator {
 
 // #pragma omp parallel
       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-          double const weight_k = 1; // depends on ikpoint, ToDo
+          double const weight_k = k_weight ? k_weight[ikpoint] : 1;
           double const weight_sk = spinfactor * weight_k;
           auto const psi_k = psi[ikpoint];
 

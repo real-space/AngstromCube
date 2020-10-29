@@ -715,6 +715,10 @@ namespace potential_generator {
                           op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), echo);
                           stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
                           display_spectrum = false; // the dense solver will display on its own
+                          wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor? 
+                          for(int iband = 0; iband < nbands; ++iband) {
+                              set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
+                          } // iband
                       } else
                       if ('n' == *grid_eigensolver_method) { // "none"
                           if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
@@ -730,7 +734,7 @@ namespace potential_generator {
                                                     psi_k.data(), gc.all(), na, op, nbands, 1, echo);
                           stat += density_generator::density(rho_valence_gc.data(), atom_rho.data(), Fermi,
                                                     energies[ikpoint], psi_k.data(), atom_coeff.data(), 
-                                                    coeff_starts.data(), na, gc, nbands, 1, echo - 4, nullptr, charges);
+                                                    coeff_starts.data(), na, gc, nbands, 1, &kmesh(ikpoint,3), echo - 4, nullptr, charges);
                       } // scope
                   } // ikpoint
                   op.set_kpoint<double>(); // reset to Gamma
@@ -750,7 +754,7 @@ namespace potential_generator {
                       if (echo > 1) { printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(), 
-                                                x.offset.data(), x.natoms, g, x.nbands, 1, echo, nullptr, charges);
+                                                x.offset.data(), x.natoms, g, x.nbands, 1, nullptr, echo, nullptr, charges);
                   } // ikpoint
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                                   charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());

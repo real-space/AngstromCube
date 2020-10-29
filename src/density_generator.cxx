@@ -25,7 +25,7 @@ namespace density_generator {
       double spectrum[] = {0};
       return density(rho.data(), nullptr, eF, spectrum, wave.data(),
                      wave.data(), // this is only passed to match the interface
-                     nullptr, natoms, g, 1, 1, echo);
+                     nullptr, natoms, g, 1, 1, nullptr, echo);
   } // test_init
 
   status_t all_tests(int const echo) {
