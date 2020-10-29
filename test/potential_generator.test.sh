@@ -17,7 +17,7 @@ geometry_file=atoms.xyz
 # echo "C  0 0 0" >> $geometry_file
 
 project_base=pg.Og-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
 echo "Og  0 0 0" >> $geometry_file
 
 # project_base=pg.Cu-atom
@@ -124,7 +124,7 @@ cat > control.sh << EOF
 
 # configuration of atomic PAW setups
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
-element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
 
 # verbosity of the log files
@@ -159,7 +159,7 @@ single_atom.init.scf.maxit=0
 
 # logarithmic derivatives
 logder.unit=Ha
-logder.start=2
+logder.start=3
 logder.stop=1
 logder.step=1e-4
 
@@ -181,7 +181,7 @@ store.waves=waves.dat
 sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
-hamiltonian.kmesh.x=1
+hamiltonian.kmesh.x=4
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 

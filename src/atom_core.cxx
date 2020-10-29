@@ -56,7 +56,7 @@ namespace atom_core {
       E_est,     // electrostatic: E_Htr + E_Cou
       NumEnergyContributions };
 
-  void rad_pot(double rV[], radial_grid_t const & g, double const rho4pi[], double const Z, double *energies) {
+  void rad_pot(double rV[], radial_grid_t const & g, double const rho4pi[], double const Z, double energies[]) {
       double Eexc{0}, Evxc{0}, EHtr{0};
       double const ECou = -Z*radial_potential::Hartree_potential(rV, g, rho4pi); // set rV to the Hartree potential
       double const fpi = .25/constants::pi; // 1/(4*pi)
@@ -319,7 +319,7 @@ namespace atom_core {
                   energies[E_tot] = energies[E_eig] - energies[E_Htr]
                                   + energies[E_exc] - energies[E_vxc]; // total energy
 
-                  ++icyc;
+                  ++icyc; // transit to the next SCF iteration
                   auto const which = E_est; // monitor the change on some energy contribution which depends on the density only
                   res = std::abs(energies[which] - previous_energy);
                   previous_energy = energies[which]; // store for the next iteration

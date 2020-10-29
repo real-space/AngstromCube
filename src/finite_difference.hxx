@@ -7,6 +7,7 @@
 #include "real_space.hxx" // grid_t
 #include "boundary_condition.hxx" // *_Boundary
 #include "recorded_warnings.hxx" // warn
+#include "inline_math.hxx" // intpow
 
 #include "status.hxx" // status_t
 
@@ -259,39 +260,71 @@ namespace finite_difference {
   template <typename complex_out_t, // result is stored in this precision 
             typename complex_in_t, // input comes in this precision
             typename real_fd_t> // computations are executed in this precision
-  status_t apply(complex_out_t out[], complex_in_t const in[], real_space::grid_t const &g, 
-                     stencil_t<real_fd_t> const &fd, double const factor=1) {
+  status_t apply(complex_out_t out[], complex_in_t const in[], real_space::grid_t const & g, 
+                     stencil_t<real_fd_t> const & fd, double const factor=1, complex_in_t const boundary_phase[3]=nullptr) {
 
-      int const n16 = nnArraySize; // max number of finite difference neighbors
+      int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
       std::vector<int> list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
+      std::vector<complex_in_t> phas[3];
       for(int d = 0; d < 3; ++d) {
           int const n  = g[d];
+          // ToDo: check that n is smaller than the upper limit of int
           int const bc = g.boundary_condition(d);
           int const nf = fd.nearest_neighbors(d);
+          assert(nf <= n);
+          assert(nf <= n16);
           int const nh = n16 + n + n16; // number including largest halos
-          list[d] = std::vector<int>(nh, -1); // get memory, init as non-existing
-          for(int i = 0; i < n; ++i) list[d][n16 + i] = i; // core region
+          list[d] = std::vector<int>(nh, -1); // get memory, init as -1:non-existing
+          phas[d] = std::vector<complex_in_t>(nh, 0); // get memory, init neutral
+
+          // core region
+          for(int j = 0; j < n; ++j) {
+              list[d][n16 + j] = j;
+              phas[d][n16 + j] = 1;
+          } // j
+
+          complex_in_t const phase_low = boundary_phase ? boundary_phase[d] : 1;
+          complex_in_t const phase_upp = complex_in_t(1)/phase_low;
 
           // lower boundary
           if (Periodic_Boundary == bc) { // periodic BC
-              for(int i = n16 - nf; i < n16; ++i) list[d][i] = n + i - n16; // wrap around
+              for(int j = -nf; j < 0; ++j) {
+                  list[d][n16 + j] = (n + j) % n; // wrap around
+                  phas[d][n16 + j] = phase_low; // incorrect if nf > n
+              } // j
           } else if (Mirrored_Boundary == bc) { // mirror BC
-              for(int i = n16 - nf; i < n16; ++i) list[d][i] = n16 - 1 - i; // wrap around and mirror
+              for(int j = -nf; j < 0; ++j) {
+                  list[d][n16 + j] = - 1 - j; // mirror at -1 | 0
+                  phas[d][n16 + j] = phase_low; // incorrect if nf > n
+              } // j
           } // else open BC, list[:] = -1
-          
+
           // upper boundary
           if (Periodic_Boundary == bc) { // periodic BC
-              for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = i; // wrap around
+              for(int j = 0; j < nf; ++j) { 
+                  list[d][n16 + n + j] = (n + j) % n; // wrap around
+                  phas[d][n16 + n + j] = phase_upp; // incorrect if nf > n
+              } // j
           } else if (Mirrored_Boundary == bc) { // mirror BC
-              for(int i = 0; i < nf; ++i) list[d][n16 + n + i] = n - 1 - i; // wrap around and mirror
+              for(int j = 0; j < nf; ++j) { 
+                  list[d][n16 + n + j] = n - 1 - j; // mirror at n-1 | n
+                  phas[d][n16 + n + j] = phase_upp; // incorrect if nf > n
+              } // j
           } // else open BC, list[:] = -1
-  
-          if (0) { // DEBUG: show indirection list
-              printf("# indirection list for %c  ", 120+d);
-              for(int i = n16 - nf; i < n16 + n + nf; ++i) {
-                  if ((n16 == i) || (n16 + n) == i) printf(" |");
-                  printf(" %i", list[d][i]);
-              }   printf("\n");
+
+          if (0) { // DEBUG: show indirection list and phase factors
+              printf("# indirection list for %c-direction ", 'x'+d);
+              for(int j = n16 - nf; j < n16 + n + nf; ++j) {
+                  if (n16 == j || n16 + n == j) printf(" |");
+                  printf(" %i", list[d][j]);
+              } // j
+              printf("\n");
+              printf("# phase factor list for %c-direction ", 'x'+d);
+              for(int j = n16 - nf; j < n16 + n + nf; ++j) {
+                  if (n16 == j || n16 + n == j) printf(" |");
+                  printf("  %g %g", std::real(phas[d][j]), std::imag(phas[d][j]));
+              } // j
+              printf("\n");
           } // show indirection list
 
       } // spatial direction d
@@ -313,9 +346,9 @@ namespace finite_difference {
                           int const index = list[d][n16 + j];
                           if (index >= 0) {
                               zyx[d] = index;
-                              int const zyx_prime = (zyx[2]*g('y') + zyx[1])*g('x') + zyx[0];
+                              int const j_zyx = (zyx[2]*g('y') + zyx[1])*g('x') + zyx[0];
                               auto const coeff = fd.c2nd[d][std::abs(jmi)];
-                              t += in[zyx_prime] * coeff;
+                              t += (phas[d][n16 + j] * in[j_zyx]) * coeff;
                           } // index exists
                       } // jmi
                   } // d direction of the derivative

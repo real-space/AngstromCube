@@ -421,7 +421,7 @@ namespace potential_generator {
 
 
               view2D<double> kmesh; // kmesh(nkpoints, 4);
-              int const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
+              int const nkpoints = brillouin_zone::get_kpoint_mesh<is_complex<wave_function_t>()>(kmesh);
               if (echo > 0) printf("# k-point mesh has %d points\n", nkpoints);
 
               double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
@@ -429,7 +429,7 @@ namespace potential_generator {
               view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
               if (psi_on_grid) { // scope: generate start waves from atomic orbitals
                   auto const start_wave_file = control::get("start.waves", "");
-                  psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), wave_function_t(0)); // get memory (potentially large)
+                  psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), 0.0); // get memory (potentially large)
                   if (0 == *start_wave_file) {
                       if (echo > 1) printf("# initialize grid wave functions as %d atomic orbitals, %g orbitals per atom\n", nbands, nbands_per_atom);
                       float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
@@ -445,15 +445,15 @@ namespace potential_generator {
                           if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
                           int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
                           single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
-                          if (run) op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo);
+                          if (run) op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo); // Gamma point only
                           single_atomic_orbital[ia][isho] = 0; // reset
     //                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
                       } // iband
+
                   } else {
-//                    if (is_complex<wave_function_t>()) error("not prepared for complex wave function reading!");
                       if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
                       if (run) {
-                          auto const nerrors = debug_tools::read_from_file(psi.data(), start_wave_file, nbands, gc.all(), gc.all(), "wave functions", echo);
+                          auto const nerrors = debug_tools::read_from_file(psi(0,0), start_wave_file, nbands, psi.stride(), gc.all(), "wave functions", echo);
                           if (nerrors) {
                               error("failed to read start wave functions from file \'%s\'", start_wave_file);
                           } else {
@@ -461,6 +461,12 @@ namespace potential_generator {
                           } 
                       } // run
                   } // start wave method
+
+                  for(int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
+                      if (echo > 3) { printf("# copy %d bands for kpoint #%i from kpoint #0\n", nbands, ikpoint); std::fflush(stdout); }
+                      if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
+                  } // ikpoints
+
               } // scope
 
               view2D<double> energies(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
@@ -680,7 +686,8 @@ namespace potential_generator {
                   std::vector<double> rho_valence_gc(gc.all(), 0.0); // new valence density on the coarse grid
 
                   double charges[4] = {0, 0, 0, 0};
-                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) { // ToDo: implement k-points
+                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                      op.set_kpoint(kmesh[ikpoint], echo);
                       auto psi_k = psi[ikpoint]; // get a sub-view
 
                       // solve the Kohn-Sham equation using various solvers
@@ -714,6 +721,7 @@ namespace potential_generator {
                                                     coeff_starts.data(), na, gc, nbands, 1, echo - 4, nullptr, charges);
                       } // scope
                   } // ikpoint
+                  op.set_kpoint<double>(); // reset to Gamma
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                                   charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());
 
@@ -785,7 +793,7 @@ namespace potential_generator {
           auto const store_wave_file = control::get("store.waves", "");
           if ((nullptr != store_wave_file) && ('\0' != store_wave_file[0])) {
               auto const nerrors = dump_to_file(store_wave_file,
-                  nbands, psi.data(), 0, gc.all(), gc.all(), "wave functions", echo);
+                  nbands, psi(0,0), nullptr, psi.stride(), gc.all(), "wave functions", echo);
               if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, store_wave_file); 
           } // filename not empty
       } // wave functions on Cartesian real-space grid

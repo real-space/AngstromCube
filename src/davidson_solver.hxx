@@ -100,9 +100,9 @@ namespace davidson_solver {
   template <class operator_t>
   status_t eigensolve(
       typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
-    , double *const energies // export eigenenergies
+    , double energies[] // export eigenenergies
     , int const nbands // number of bands
-    , operator_t const &op
+    , operator_t const & op
     , int const echo=0 // log output level
     , float const mbasis=2
     , unsigned const niterations=2
@@ -327,9 +327,9 @@ namespace davidson_solver {
   template<class operator_t>
   status_t rotate(
       typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
-    , double *const energies // export eigenenergies
+    , double energies[] // export eigenenergies
     , int const nbands // number of bands
-    , operator_t const &op
+    , operator_t const & op
     , int const echo=0
   ) {
       return eigensolve(waves, energies, nbands, op, echo, 1, 1);

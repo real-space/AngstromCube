@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // printf
-#include <algorithm> // std::max
+#include <algorithm> // std::max, std::min
 #include <cmath> // std::round
 
 #include "status.hxx" // status_t
@@ -14,17 +14,27 @@
 
 namespace brillouin_zone {
 
-  inline
+  template <bool ComplexPhaseFactors=true>
   int get_kpoint_mesh(
         view2D<double> & mesh
       , unsigned const nv[3]
       , int const echo=0 // log-level
   ) {
+      unsigned n[3];
+      int ishift[3]; // could also be double
+      for(int d = 0; d < 3; ++d) {
+          n[d] = std::max(1u, nv[d]);
+          ishift[d] = int(n[d]) - 1;
+          if (!ComplexPhaseFactors) {
+              n[d] = std::min(n[d], 2u); // only Gamma and X point lead to real phase factors
+              ishift[d] = 0;
+          } // d
+      } // phase factors must be real
+
       int constexpr WEIGHT=3, COUNT=0, WRITE=1;
-      unsigned const n[] = {std::max(1u, nv[0]), std::max(1u, nv[1]), std::max(1u, nv[2])};
+      
       size_t const nfull = n[2]*n[1]*n[0];
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
-      int const ishift[] = {int(n[0] - 1), int(n[1] - 1), int(n[2] - 1)}; // could also be double
       double const denom[] = {.5/n[0], .5/n[1], .5/n[2]};
       double xyzw[] = {0, 0, 0, 1};
       for(int iz = 0; iz < n[2]; ++iz) {  xyzw[2] = (2*iz - ishift[2])*denom[2];
@@ -104,17 +114,17 @@ namespace brillouin_zone {
       return nmesh;
   } // get_kpoint_mesh
 
-  inline
+  template <bool ComplexPhaseFactors=true>
   int get_kpoint_mesh(
         view2D<double> & mesh
       , unsigned const n
       , int const echo=0 // log-level
   ) {
       unsigned const nv[] = {n, n, n};
-      return get_kpoint_mesh(mesh, nv, echo);
+      return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, echo);
   } // get_kpoint_mesh
 
-  inline
+  template <bool ComplexPhaseFactors=true>
   int get_kpoint_mesh(
         view2D<double> & mesh
   ) {
@@ -123,7 +133,7 @@ namespace brillouin_zone {
       nv[0] = int(control::get("hamiltonian.kmesh.x", double(n)));
       nv[1] = int(control::get("hamiltonian.kmesh.y", double(n)));
       nv[2] = int(control::get("hamiltonian.kmesh.z", double(n)));
-      return get_kpoint_mesh(mesh, nv);
+      return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, 99);
   } // get_kpoint_mesh
 
 

@@ -9,7 +9,7 @@
 
 namespace chemical_symbol {
 
-  template<typename int_t>
+  template <typename int_t>
   inline int8_t mod128(int_t const Z) { return static_cast<int8_t>(Z & 127); } // Z % (2^7)
 
   // public:
@@ -17,8 +17,8 @@ namespace chemical_symbol {
       if (nullptr == Sy) return -1; // error code -1: result pointer is null
       int const iZ = std::round(Z);
       auto const z7 = mod128(iZ);
-      char const S = element_symbols[2*z7 + 0];
-      char const y = element_symbols[2*z7 + 1];
+      char const S = element_symbols[z7*2 + 0];
+      char const y = element_symbols[z7*2 + 1];
       Sy[0] = S;
       Sy[1] = (' ' == y) ? blank : y;
       Sy[2] = blank;

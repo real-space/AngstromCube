@@ -73,7 +73,7 @@ namespace conjugate_gradients {
     , double eigenvalues[] // export results
     , int const nbands // number of bands
     , operator_t const & op // grid operator descriptor
-    , int const echo=9 // log output level
+    , int const echo=0 // log output level
     , float const threshold=1e-8f // convergence criterion
   ) {
       using complex_t = typename operator_t::complex_t; // abbreviate
@@ -318,7 +318,7 @@ namespace conjugate_gradients {
 
       return stat;
   } // eigensolve
-  
+
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

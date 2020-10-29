@@ -11,7 +11,7 @@
 #include "vector_math.hxx" // ::vec<N,T>
 #include "boundary_condition.hxx" // ::periodic_images
 #include "recorded_warnings.hxx" // error, warn
-#include "complex_tools.hxx" // conjugate
+#include "complex_tools.hxx" // conjugate, to_complex_t
 
 #include "chemical_symbol.hxx" // ::get
 #include "display_units.h" // Ang, _Ang
@@ -32,7 +32,7 @@ namespace grid_operators {
       , real_space::grid_t const &g // 3D Cartesian grid descriptor
       , std::vector<atom_image::sho_atom_t> const &a // atoms
       , int const h0s1 // index controlling which matrix of a[ia] we are multiplying, 0:Hamiltonian or 1:overlap
-      , double const *boundary_phase=nullptr // phase shifts at the boundary [optional]
+      , complex_t const *boundary_phase=nullptr // phase shifts at the boundary [optional]
       , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
       , double const *potential=nullptr // diagonal potential operator [optional]
       , int const echo=0
@@ -48,8 +48,7 @@ namespace grid_operators {
       if (Hpsi) {
           if (kinetic) {
               if (psi) {
-                  stat += finite_difference::apply(Hpsi, psi, g, *kinetic); // prefactor -0.5 moved into finite-difference-coefficients
-                  // ToDo: FD needs boundary_phase as well
+                  stat += finite_difference::apply(Hpsi, psi, g, *kinetic, 1, boundary_phase); // prefactor -0.5 moved into finite-difference-coefficients
                   if (echo > 8) printf("# %s Apply Laplacian, status=%i\n", __func__, stat);
               } // psi != nullptr
           } else {
@@ -291,6 +290,8 @@ namespace grid_operators {
 #endif // DEVEL
           set_potential(local_potential, g.all(), nullptr, echo);
 
+          set_kpoint<double>(); // set Gamma point, silent
+
 //        printf("\n# here: %s %s:%d\n\n", __func__, __FILE__, __LINE__);
 
           // this simple grid-based preconditioner is a diffusion stencil
@@ -303,27 +304,53 @@ namespace grid_operators {
       } // constructor with atoms
 
       status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
-          return _grid_operation(Hpsi, psi, grid, atoms, 0, boundary_phase.data(), &kinetic, potential.data(), echo);
+          return _grid_operation(Hpsi, psi, grid, atoms, 0, boundary_phase, &kinetic, potential.data(), echo);
       } // Hamiltonian
 
       status_t Overlapping(complex_t Spsi[], complex_t const psi[], int const echo=0) const {
-          return _grid_operation<complex_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase.data(), nullptr, nullptr, echo);
+          return _grid_operation<complex_t, real_fd_t>(Spsi, psi, grid, atoms, 1, boundary_phase, nullptr, nullptr, echo);
       } // Overlapping
 
       status_t Conditioner(complex_t Cpsi[], complex_t const psi[], int const echo=0) const {
-          return _grid_operation(Cpsi, psi, grid, atoms, -1, boundary_phase.data(), &preconditioner, nullptr, echo);
+          return _grid_operation(Cpsi, psi, grid, atoms, -1, boundary_phase, &preconditioner, nullptr, echo);
       } // Pre-Conditioner
 
       status_t get_atom_coeffs(complex_t *const *const atom_coeffs, complex_t const psi[], int const echo=0) const {
-          return _grid_operation<complex_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, atom_coeffs);
+          return _grid_operation<complex_t, real_fd_t>(nullptr, psi, grid, atoms, 0, boundary_phase, nullptr, nullptr, echo, atom_coeffs);
       } // get_atom_coeffs
 
       status_t get_start_waves(complex_t psi0[], complex_t const *const *const atom_coeffs, float const scale_sigmas=1, int const echo=0) const {
-          return _grid_operation<complex_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase.data(), nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
+          return _grid_operation<complex_t, real_fd_t>(psi0, nullptr, grid, atoms, 0, boundary_phase, nullptr, nullptr, echo, nullptr, atom_coeffs, scale_sigmas);
       } // get_start_waves
 
       double get_volume_element() const { return grid.dV(); }
       size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
+
+      template <typename real_t>
+      void set_kpoint(real_t const kpoint[3]=nullptr, int const echo=0) {
+          if (nullptr != kpoint) {
+              std::complex<double> const minus1(-1);
+              if (echo > 5) printf("# grid_operator.%s", __func__);
+              for(int d = 0; d < 3; ++d) {
+                  k_point[d] = kpoint[d];
+                  if (is_complex<complex_t>()) {
+                      std::complex<double> phase = std::pow(minus1, 2*k_point[d]);
+                      boundary_phase[d] = to_complex_t<complex_t, double>(phase);
+                  } else {
+                      int const kk = std::round(2*k_point[d]);
+                      assert(2*k_point[d] == kk);
+                      boundary_phase[d] = kk ? -1 : 1;
+                  } // real phase factor
+                  if (echo > 5) printf("   %c: %g ph(%g, %g)", 'x'+d, k_point[d],
+                      std::real(boundary_phase[d]), std::imag(boundary_phase[d]));
+              } // d
+              if (echo > 5) printf("\n");
+          } else {
+              if (echo > 6) printf("# grid_operator.%s resets kpoint to Gamma\n", __func__);
+              set(k_point, 3, 0.0);
+              set(boundary_phase, 3, complex_t(1));
+          } // nullptr
+      } // set_kpoint
 
       status_t set_potential(
             double const *local_potential=nullptr
@@ -366,9 +393,10 @@ namespace grid_operators {
     private:
       real_space::grid_t grid;
       std::vector<atom_image::sho_atom_t> atoms;
-      std::vector<double> boundary_phase; // could be complex_t or real_fd_t in the future
+      complex_t boundary_phase[3];
+      double k_point[3];
       std::vector<double> potential;
-      std::vector<complex_t> scale_factors;
+//    std::vector<complex_t> scale_factors;
       finite_difference::stencil_t<real_fd_t> kinetic;
       finite_difference::stencil_t<complex_t> preconditioner;
       bool has_precond;

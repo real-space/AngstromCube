@@ -84,10 +84,9 @@ namespace single_atom {
         int const n // dimension
       , view2D<double> & A // kinetic energy operator
       , view2D<double> & B // overlap operator
-      , double* lowest=nullptr // export coefficient
+      , double* lowest=nullptr // optional export coefficient
   ) {
       // solve a generalized eigenvalue problem to find the lowest eigenvector coefficient
-
       if (n < 1) return 0;
       std::vector<double> eigs(n);
       auto const info = linear_algebra::eigenvalues(eigs.data(), n, A.data(), A.stride(), B.data(), B.stride());
@@ -206,7 +205,7 @@ namespace single_atom {
           printf("# %s lmn_begin-lmn_end ", label);
           for(int ilm = 0; ilm < mlm; ++ilm) {
               printf(" %i", lmn_begin[ilm]);
-              if (lmn_end[ilm] - 1 > lmn_begin[ilm]) printf("-%i", lmn_end[ilm] - 1); // do not display e.g. " 7-7" but only " 7"
+              if (lmn_begin[ilm] < lmn_end[ilm] - 1) printf("-%i", lmn_end[ilm] - 1); // do not display e.g. " 7-7" but only " 7"
           } // ilm
           printf("\n");
       } // echo
@@ -425,7 +424,7 @@ namespace single_atom {
         take_spherical_density[valence] = atomic_valence_density ? 1 : 0;
 
 
-        std::vector<double> custom_occ(32, 0.0); // customized occupation numbers for the radial states
+        std::vector<double> occ_custom(32, 0.0); // customized occupation numbers for the radial states
         set(nn, 1 + ELLMAX, uint8_t(0)); // clear
         bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
@@ -455,7 +454,7 @@ namespace single_atom {
             numax = nu_max;
             assert(numax >= 0);
             for(int inl = 0; inl < 32; ++inl) {
-                custom_occ[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
+                occ_custom[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
             } // inl enn-ell all-electron orbital index
             std::strncpy(local_potential_method, ec.method, 15);
 
@@ -644,14 +643,14 @@ namespace single_atom {
                                                     label, chem_symbol, inl, enn, ellchar[ell], real_core_hole_charge);
                         } // core hole active
 
-                        int const csv_cust = (custom_occ[inl] < 0) ? core : valence; // in custom_config, negative occupation numbers for core electrons, positive for valence
+                        int const csv_cust = (occ_custom[inl] < 0) ? core : valence; // in custom_config, negative occupation numbers for core electrons, positive for valence
                         cs.csv = custom_config ? csv_cust : csv_auto;
                         
                         if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states!");
 
                         if (2 == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
-                        double const occ = custom_config ? std::abs(custom_occ[inl]) : occ_auto;
+                        double const occ = custom_config ? std::abs(occ_custom[inl]) : occ_auto;
                         cs.occupation = occ;
                         if (occ > 0) {
                           
@@ -802,7 +801,7 @@ namespace single_atom {
                     }
 
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
-                    double occ{custom_occ[inl]};
+                    double occ{occ_custom[inl]};
                     if (partial_wave_active[iln]) {
                         double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
                         if (nrn > 0) E = std::max(E, partial_wave[iln - 1].energy); // higher than previous energy

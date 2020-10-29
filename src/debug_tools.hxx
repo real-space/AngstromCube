@@ -16,13 +16,13 @@ namespace debug_tools {
   int read_from_file(
         real_t y_data[] // 2D-data array [N*Stride]
       , char const *filename
-      , int const N // expected number of rows
-      , int const Stride=1 // Stride, default=1 for 1D functions
-      , int const M=1 // number of columns to fill
+      , size_t const N // expected number of rows
+      , size_t const Stride=1 // Stride, default=1 for 1D functions
+      , size_t const M=1 // number of columns to fill
       , char const *title=nullptr // title (only for display to log)
       , int const echo=0 // report writing to stdout, 0: suppress report
   ) {
-      assert(M <= Stride);
+      assert(Stride >= M);
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {
           if (echo > 1) printf("# %s Error opening file %s!\n", __func__, filename);
