@@ -210,7 +210,7 @@ namespace density_generator {
           Fermi.get_occupations(occupation.data(), ene[ikpoint], nbands, weight_k, echo, d_occupation.data());
 
           int ilub{nbands}; // index of lowest completely unoccupied band
-          double old_charge{0};
+//        double old_charge{0};
           double charge_k[3] = {1, 0, 0}; // {1, charge of bands, derivative}
           for(int iband = 0; iband < nbands; ++iband) {
               auto const psi_nk = psi_k[iband];
@@ -222,7 +222,7 @@ namespace density_generator {
                                 __func__, ikpoint, iband, occupation[iband], d_occupation[iband]*kT);
 
                   add_to_density(rho, g.all(), psi_nk, weight_nk, echo, iband, ikpoint);
-#ifdef DEBUG
+#if 0 // def DEBUG
                   if (echo > 0) { 
                       printf("# valence density ");
                       auto const new_charge = print_stats(rho, g.all(), g.dV());

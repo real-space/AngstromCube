@@ -46,10 +46,10 @@ namespace grid_operators {
       , complex_t const boundary_phase[3][2] // phase shifts at the boundary
       , finite_difference::stencil_t<real_fd_t> const *kinetic=nullptr // finite difference [optional]
       , double const *potential=nullptr // diagonal potential operator [optional]
-      , int const echo=0
-      , complex_t       *const *const atomic_projection_coefficients=nullptr
-      , complex_t const *const *const start_wave_coeffs=nullptr
-      , float const scale_sigmas=1 // only during addition (used for start wave functions)
+      , int const echo=0 // log-level [optional]
+      , complex_t       *const *const atomic_projection_coefficients=nullptr // [optional]
+      , complex_t const *const *const start_wave_coeffs=nullptr // [optional]
+      , float const scale_sigmas=1 // only during addition (used for start wave functions) [optional]
   ) {
       using real_t = decltype(std::real(complex_t(1)));
       using atom_matrix_t = decltype(std::real(real_fd_t(1)));

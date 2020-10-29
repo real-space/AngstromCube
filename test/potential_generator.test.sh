@@ -10,7 +10,7 @@ geometry_file=atoms.xyz
 
 project_base=pg.C-sc
 printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+echo "C  -1.25 -1.25 -1.25" >> $geometry_file
 
 # project_base=pg.C-atom
 # printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
@@ -184,7 +184,7 @@ sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
 hamiltonian.kmesh.echo=9
-hamiltonian.kmesh.x=5
+hamiltonian.kmesh.x=17
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
@@ -236,7 +236,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 20 2 20`; do
+for ecut in `seq 30 2 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

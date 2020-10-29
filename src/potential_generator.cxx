@@ -421,7 +421,14 @@ namespace potential_generator {
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
-              if (echo > 0) printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
+              { // scope: report wave function type
+                  if (echo > 0) printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
+                  auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
+                  if ((floating_point_bits == 32) != (sizeof(real_wave_function_t) == 4)) {
+                      warn("hamiltonian.floating.point.bits=%d but wave_function_t is %s", 
+                          floating_point_bits, complex_name<wave_function_t>());
+                  } // requested precision does not match chose precision
+              } // scope
 
               view2D<double> kmesh; // kmesh(nkpoints, 4);
               int const nkpoints = brillouin_zone::get_kpoint_mesh<is_complex<wave_function_t>()>(kmesh);
@@ -753,8 +760,8 @@ namespace potential_generator {
                   for(auto & x : export_rho) {
                       if (echo > 1) { printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
-                                                x.energies.data(), x.psi_r.data(), x.coeff.data(), 
-                                                x.offset.data(), x.natoms, g, x.nbands, 1, nullptr, echo, nullptr, charges);
+                                                x.energies.data(), x.psi_r.data(), x.coeff.data(),
+                                                x.offset.data(), x.natoms, g, x.nbands, 1, &x.kpoint_weight, echo, nullptr, charges);
                   } // ikpoint
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                                   charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());

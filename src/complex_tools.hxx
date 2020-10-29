@@ -8,6 +8,10 @@
   template<typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
   template<typename T> constexpr bool is_complex() { return is_complex_t<T>::value; } // not needed when using C++14
 
+//   template<typename T> constexpr bool is_double()             { return false; }
+//   template<> constexpr bool is_double<std::complex<double>>() { return true; }
+//   template<> constexpr bool is_double<double>()               { return true; }
+
   template<typename real_t> char const * complex_name(real_t const x=0);
   template<> inline char const * complex_name<double>(double const x) { return "double"; }
   template<> inline char const * complex_name<float> (float  const x) { return "float"; }
