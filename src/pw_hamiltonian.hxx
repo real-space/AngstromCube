@@ -17,6 +17,7 @@ namespace pw_hamiltonian {
       std::vector<double> energies; // energies[nbands]
       std::vector<uint32_t> offset; // offset[natoms + 1], marks the separations between atoms in the coefficient vectors
       double kpoint_weight;
+      int kpoint_index;
       int ng[3];  // number of grid points
       int ncoeff; // total number of coefficients
       int nbands;
@@ -33,12 +34,13 @@ namespace pw_hamiltonian {
           , double k_weight=1.
           , int const kpoint_id=-1
           , int const echo=0 // log-level
-//    ) : kpoint_weight(k_weight), ncoeff(nCoeff), nbands(nBands), natoms(nAtoms) {
+//    ) : kpoint_weight(k_weight), ncoeff(nCoeff), nbands(nBands), natoms(nAtoms), kpoint_index(kpoint_id) {
       ) {
           kpoint_weight = std::max(0.0, k_weight);
           ncoeff = nCoeff;
           nbands = nBands;
           natoms = nAtoms;
+          kpoint_index = kpoint_id;
           set(ng, 3, nG);
           auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
           auto const nG_aligned = align<0>(nG_all);

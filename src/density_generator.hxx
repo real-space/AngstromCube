@@ -54,7 +54,7 @@ namespace density_generator {
           for(int i = 0; i < ncoeff; ++i) {
               auto const c_i = conjugate(atom_coeff[offset + i]);
 #ifdef DEVEL
-              if (echo > 16) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g |c|= %g\n",
+              if (echo > 16) printf("# k-point #%i band #%i atom #%i coeff[%i]= %.6e %g |c|= %g\n",
                                   ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i), std::abs(c_i));
 #endif // DEVEL
               for(int j = 0; j < ncoeff; ++j) {
@@ -79,28 +79,28 @@ namespace density_generator {
 
   
   template <class grid_operator_t>
-  view3D<typename grid_operator_t::complex_t> atom_coefficients(
+  view2D<typename grid_operator_t::complex_t> atom_coefficients(
         std::vector<uint32_t> & coeff_starts
       , typename grid_operator_t::complex_t const eigenfunctions[]
-      , size_t const nzyx
-      , int const natoms
       , grid_operator_t const & op
       , int const nbands=1
-      , int const nkpoints=1
-      , int const echo=0
+      , int const echo=0 // log-level
+      , int const ikpoint=-1 // log-info
   ) {
       // density generation for eigenstates represented on the real-space grid
       using complex_t = typename grid_operator_t::complex_t; // abbreviate
       using real_t    = decltype(std::real(complex_t(1)));
 
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
-      status_t stat{0};
+      status_t stat(0);
 
       assert(eigenfunctions); // may not be nullptr
-      
-      if (echo > 3) printf("# %s assume %d k-points and %d bands\n", __func__, nkpoints, nbands);
-      assert(natoms == op.get_natoms());
 
+      auto const natoms = op.get_natoms();
+      auto const nzyx   = op.get_degrees_of_freedom();
+      if (echo > 3) printf("# %s assume %d atoms and %d bands with %ld grid elements\n", __func__, natoms, nbands, nzyx);
+
+      // the preparation of prefactors is the the same for each kpoint
       std::vector<std::vector<real_t>> scale_factors(natoms);
       std::vector<uint16_t> natom_coeff(natoms);
       for(int ia = 0; ia < natoms; ++ia) {
@@ -115,32 +115,31 @@ namespace density_generator {
 
       coeff_starts = prefetch_sum(natom_coeff);
       int const n_all_coeff = coeff_starts[natoms];
-      int const stride = align<0>(n_all_coeff);
+      int const stride = align<0>(n_all_coeff); // ToDo: test if we get the same result if we use alignment here
       if (echo > 3) printf("# %s %d atoms have %d coefficients, stride %d\n", __func__, natoms, n_all_coeff, stride);
-      if (echo > 3) printf("# %s coefficients(%d,%d,%d)\n", __func__, nkpoints, nbands, stride);
-      view3D<complex_t> coeff(nkpoints, nbands, stride, complex_t(0)); // get memory
+      if (echo > 3) printf("# %s coefficients(%d,%d of %d)\n", __func__, nbands, n_all_coeff, stride);
+      view2D<complex_t> coeff(nbands, stride, complex_t(0)); // get memory
 
-      if (echo > 3) printf("# %s assume psi(%d,%d,%ld)\n", __func__, nkpoints, nbands, nzyx);
-      view3D<complex_t const> const psi(eigenfunctions, nbands, nzyx); // wrap
+      if (echo > 3) printf("# %s assume psi(%d,%ld)\n", __func__, nbands, nzyx);
+      view2D<complex_t const> const psi_k(eigenfunctions, nzyx); // wrap
 
       data_list<complex_t> atom_coeff(natom_coeff); // get temporary memory
 
-      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+      { // ikpoint
           for(int iband = 0; iband < nbands; ++iband) {
 
               // project grid-represented eigenstates onto atomic projector functions
-              stat += op.get_atom_coeffs(atom_coeff.data(), psi(ikpoint,iband), echo/2); // project
+              stat += op.get_atom_coeffs(atom_coeff.data(), psi_k[iband], echo/2); // project
 
               // scale the coefficients (real-space grid only)
               for(int ia = 0; ia < natoms; ++ia) {
-                  // scale(atom_coeff[ia], natom_coeff[ia], scale_factors[ia].data());
-                  auto const c_ia = &coeff(ikpoint,iband,coeff_starts[ia]);
+                  auto const c_ia = &coeff(iband,coeff_starts[ia]);
                   product(c_ia, natom_coeff[ia], atom_coeff[ia], scale_factors[ia].data());
 #ifdef DEVEL
                   for(int i = 0; i < natom_coeff[ia]; ++i) {
                       auto const c_i = c_ia[i];
-                      if (echo > 16) printf("# kpoint #%i band #%i atom #%i coeff[%i]= %.6e %g new\n",
-                                      ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i));
+                      if (echo > 16) printf("# k-point #%i band #%i atom #%i coeff[%i]= %.6e %g new\n",
+                                                ikpoint, iband, ia, i, std::real(c_i), std::imag(c_i));
                   } // i
 #endif // DEVEL
               } // ia
@@ -159,36 +158,33 @@ namespace density_generator {
         double rho[]                   // result density on grid
       , double *const *const atom_rho  // result atomic density matrices
       , fermi_distribution::FermiLevel_t & Fermi
-      , double const eigenenergies[]     // assumed shape [nkpoint][nbands]
-      , complex_t const eigenfunctions[] // assumed shape [nkpoint][nbands][g.all()]
-      , complex_t const atom_coeff[]     // assumed shape [nkpoint][nbands][n_all_coeff]
-      , uint32_t const coeff_starts[]   // shape[natom + 1]
+      , double const eigenenergies[]     // assumed shape [nbands]
+      , complex_t const eigenfunctions[] // assumed shape [nbands][g.all()]
+      , complex_t const atom_coeff[]     // assumed shape [nbands][n_all_coeff]
+      , uint32_t const coeff_starts[]    // shape[natoms + 1]
       , int const natoms
       , real_space::grid_t const & g
       , int const nbands=1
-      , int const nkpoints=1
-      , double const k_weight[]=nullptr
-      , int const echo=0
+      , double const weight_k=1
+      , int const echo=0 // log-level
+      , int const ikpoint=-1 // log-info
       , double *const *const d_atom_rho=nullptr // result atomic density matrices derived
       , double charges[]=nullptr // nominal charge accumulators: 0:kpoint_denominator, 1:charge, 2:d_charge
   ) {
       // density generation for eigenstates represented on the real-space grid
 
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
-      status_t stat{0};
+      status_t stat(0);
 
       if (nullptr == eigenfunctions) { warn("eigenfunctions received are nullptr"); return -1; }
       
-      if (echo > 3) printf("# %s assume %d k-points and %d bands\n", __func__, nkpoints, nbands);
-      if (echo > 3) printf("# %s assume eigenfunctions on a %d x %d x %d grid\n",
-                              __func__, g('x'), g('y'), g('z'));
+      if (echo > 3) printf("# %s assume %d bands on a %d x %d x %d grid\n", __func__, nbands, g('x'), g('y'), g('z'));
 
       auto const n_all_coeff = coeff_starts[natoms];
-      if (echo > 3) printf("# %s assume psi(%d,%d,%ld)\n", __func__, nkpoints, nbands, g.all());
-      view3D<complex_t const> const psi(eigenfunctions, nbands, g.all()); // wrap
+      if (echo > 3) printf("# %s assume psi(%d,%ld)\n", __func__, nbands, g.all());
+      view2D<complex_t const> const psi_k(eigenfunctions, g.all()); // wrap
       if (echo > 3) printf("# %s assume atom_coeff with stride %d\n", __func__, n_all_coeff);
-      view3D<complex_t const> const a_coeff(atom_coeff, nbands, n_all_coeff); // wrap
-      view2D<double const>    const ene(eigenenergies,  nbands); // wrap
+      view2D<complex_t const> const a_coeff(atom_coeff, n_all_coeff); // wrap
       std::vector<double> d_rho(g.all(), 0.0); // get memory
 
       double constexpr occ_threshold = 1e-16;
@@ -198,16 +194,13 @@ namespace density_generator {
 
       double charge[3] = {0, 0, 0}; // {kpoint weights, charge of all bands, derivative}
 
-// #pragma omp parallel
-      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-          double const weight_k = k_weight ? k_weight[ikpoint] : 1;
+      { // ikpoint
           double const weight_sk = spinfactor * weight_k;
-          auto const psi_k = psi[ikpoint];
 
           // determine the occupation numbers
           std::vector<double> occupation(nbands, 0.0);
           std::vector<double> d_occupation(nbands, 0.0); // derivative of occupation number w.r.t. E_Fermi
-          Fermi.get_occupations(occupation.data(), ene[ikpoint], nbands, weight_k, echo, d_occupation.data());
+          Fermi.get_occupations(occupation.data(), eigenenergies, nbands, weight_k, echo, d_occupation.data());
 
           int ilub{nbands}; // index of lowest completely unoccupied band
 //        double old_charge{0};
@@ -218,8 +211,8 @@ namespace density_generator {
               if (occupation[iband] > occ_threshold) {
                   charge_k[1] += occupation[iband]*spinfactor;
                   double const weight_nk = occupation[iband] * weight_sk;
-                  if (echo > 6) printf("# %s: k-point #%i bands #%i \toccupation= %.6f d_occ= %g\n",
-                                __func__, ikpoint, iband, occupation[iband], d_occupation[iband]*kT);
+                  if (echo > 6) printf("# %s: k-point #%i bands #%i \toccupation= %.6f d_occ= %g E= %g %s\n",
+                      __func__, ikpoint, iband, occupation[iband], d_occupation[iband]*kT, eigenenergies[iband]*eV, _eV);
 
                   add_to_density(rho, g.all(), psi_nk, weight_nk, echo, iband, ikpoint);
 #if 0 // def DEBUG
@@ -230,7 +223,7 @@ namespace density_generator {
                       old_charge = new_charge;
                   } // echo
 #endif // DEBUG
-                  add_to_density_matrices(atom_rho, a_coeff(ikpoint,iband),
+                  add_to_density_matrices(atom_rho, a_coeff[iband],
                                   coeff_starts, natoms, weight_nk, echo, iband, ikpoint);
 
                   if (d_occupation[iband] > occ_threshold) {
@@ -240,7 +233,7 @@ namespace density_generator {
                       add_to_density(d_rho.data(), g.all(), psi_nk, d_weight_nk, echo, iband, ikpoint);
 
                       if (d_atom_rho) {
-                          add_to_density_matrices(d_atom_rho, a_coeff(ikpoint,iband),
+                          add_to_density_matrices(d_atom_rho, a_coeff[iband],
                                   coeff_starts, natoms, d_weight_nk, echo, iband, ikpoint);
                       } // d_atom_rho != nullptr
 
@@ -253,7 +246,7 @@ namespace density_generator {
           } // iband
           if (ilub < nbands) {
               if (echo > 6) printf("# %s: k-point #%i band #%i at %g %s and above did not"
-                  " contribute to the density\n", __func__, ikpoint, ilub, ene(ikpoint,ilub)*eV,_eV);
+                  " contribute to the density\n", __func__, ikpoint, ilub, eigenenergies[ilub]*eV,_eV);
           } // some bands did not contribute to the density as they are too high above the Fermi energy
           if (echo > 5) printf("# %s: k-point #%i has charge %g electrons and derivative %g\n",
                                   __func__, ikpoint, charge_k[1], charge_k[2]*kT); 

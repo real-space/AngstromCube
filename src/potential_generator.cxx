@@ -523,7 +523,7 @@ namespace potential_generator {
                   Edc += rho[i]*Vxc[i]; // double counting correction
               } // i
               Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
-              if (echo > 2) printf("# exchange-correlation energy on grid %.12g %s, double counting %.12g %s\n", Exc*eV,_eV, Edc*eV,_eV);
+              if (echo > 2) printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", Exc*eV,_eV, Edc*eV,_eV);
           } // scope
           here;
 
@@ -613,9 +613,6 @@ namespace potential_generator {
           } // scope
           here;
 
-#ifdef DEVEL
-//        exit(__LINE__);
-#endif // DEVEL
           
           // communicate vlm to the atoms, get zero potential, atom-centered Hamiltonian and overlap
           float potential_mixing_ratio[] = {.5}; // {potential}
@@ -738,10 +735,10 @@ namespace potential_generator {
                       { // scope: add to density
                           std::vector<uint32_t> coeff_starts;
                           auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
-                                                    psi_k.data(), gc.all(), na, op, nbands, 1, echo);
+                                                    psi_k.data(), op, nbands, echo, ikpoint);
                           stat += density_generator::density(rho_valence_gc.data(), atom_rho.data(), Fermi,
-                                                    energies[ikpoint], psi_k.data(), atom_coeff.data(), 
-                                                    coeff_starts.data(), na, gc, nbands, 1, &kmesh(ikpoint,3), echo - 4, nullptr, charges);
+                                                    energies[ikpoint], psi_k.data(), atom_coeff.data(),
+                                                    coeff_starts.data(), na, gc, nbands, kmesh(ikpoint,3), echo - 4, ikpoint, nullptr, charges);
                       } // scope
                   } // ikpoint
                   op.set_kpoint<double>(); // reset to Gamma
@@ -761,7 +758,7 @@ namespace potential_generator {
                       if (echo > 1) { printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new.data(), atom_rho.data(), Fermi,
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(),
-                                                x.offset.data(), x.natoms, g, x.nbands, 1, &x.kpoint_weight, echo, nullptr, charges);
+                                                x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo, x.kpoint_index, nullptr, charges);
                   } // ikpoint
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                                   charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());
