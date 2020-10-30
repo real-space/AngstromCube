@@ -10,7 +10,7 @@ geometry_file=atoms.xyz
 
 project_base=pg.C-sc
 printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-echo "C  -1.25 -1.25 -1.25" >> $geometry_file
+echo "C 0 0 0" >> $geometry_file
 
 # project_base=pg.C-atom
 # printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file

@@ -62,16 +62,17 @@
 */
 
 	// creates name _live_atom_initialize_ in single_atom.o
-	fortran_callable(initialize)(int32_t const *na 
-		, double const Z_core[]
+	fortran_callable(initialize)
+        ( int32_t const *na // number of atoms
+		, double const Z_core[] // core charges
 		, int32_t const atom_id[] // no effect
-		, int32_t const numax[]
+		, int32_t const numax[] // SHO basis sizes
 		, double const sigma[] // no effect
 		, double const rcut[] // no effect
 		, int8_t const nn[][8] // no effect
 		, double const ionization[]
 		, double const magnetization[] // layout [na], no effect
-		, char const *xc_key // ToDo
+		, char const *xc_key // ToDo: exchange-correlation model
 		, int32_t *stride // result
 		, int32_t lmax_qlm[] // result
 		, int32_t lmax_vlm[] // result
@@ -86,7 +87,7 @@
 			ion[ia] = ionization[ia];
 			sigma_cmp[ia] = rcut[ia]*convert_rcut_to_sigma_cmp;
 		} // ia
-		*status = single_atom::atom_update("initialize", *na, (double *)Z_core, (int*)numax, ion.data());
+		*status = single_atom::atom_update("initialize", *na, (double*)Z_core, (int*)numax, ion.data());
 
 		int const numax_max = 3; // should come out of update
 		*stride = align<2>(sho_tools::nSHO(numax_max));
@@ -98,13 +99,14 @@
 		printf("# Initialized %d LiveAtoms\n"
 			"# ToDo: need to deal with atom_id, sigma, nn,\n"
 			"# magnetization, xc_key and n_valence_e\n\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_initialize_
 #else
 	;
 #endif
 
-	fortran_callable(set_env)(char const *varname
+	fortran_callable(set_env)
+        ( char const *varname
 		, char const *newvalue
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
@@ -112,26 +114,28 @@
 		printf("# set environment variable for LiveAtoms  %s = %s\n", 
 												varname, newvalue);
 		control::set(varname, newvalue);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_set_env_
 #else
 	;
 #endif
 
-	fortran_callable(get_core_density)(int32_t const *na
+	fortran_callable(get_core_density)
+        ( int32_t const *na
 		, double rhoc[] // layout [na][4096]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
 		*status = single_atom::atom_update("?", *na);;
 		printf("# got_core_density for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_get_core_density_
 #else
 	;
 #endif
 
-	fortran_callable(get_start_waves)(int32_t const *na
+	fortran_callable(get_start_waves)
+        ( int32_t const *na
 		, double waves[]      // layout [na][6][4096]
 		, double occupation[] // layout [na][6][2], can be magnetic
 		, int32_t *status)
@@ -139,98 +143,105 @@
 	{
 		*status = single_atom::atom_update("?", *na);;
 		printf("# got_start_waves for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_get_start_waves_
 #else
 	;
 #endif
 
-	fortran_callable(set_density_matrix)(int32_t const *na
+	fortran_callable(set_density_matrix)
+        ( int32_t const *na
 		, double const density_matrices[] // layout [na][stride][stride]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("d", *na);;
 		printf("# density_matrices set for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_set_density_matrix_
 #else
 	;
 #endif
 
-	fortran_callable(get_compensation_charge)(int32_t const *na
+	fortran_callable(get_compensation_charge)
+        ( int32_t const *na
 		, double qlm[] // layout [na][(1 + maxval(lmax_qlm))^2]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("q", *na);;
 		printf("# got_compensation_charge %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_get_compensation_charge_
 #else
 	;
 #endif
 
-	fortran_callable(set_potential_multipole)(int32_t const *na
+	fortran_callable(set_potential_multipole)
+        ( int32_t const *na
 		, double const vlm[] // layout [na][(1 + maxval(lmax_vlm))^2]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("v", *na);;
 		printf("# potential_multipoles set for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_set_potential_multipole_
 #else
 	;
 #endif
 
-	fortran_callable(get_zero_potential)(int32_t const *na
+	fortran_callable(get_zero_potential)
+        ( int32_t const *na
 		, double vbar[] // layout [na][4096]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("z", *na);;
 		printf("# got_zero_potential for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_get_zero_potential_
 #else
 	;
 #endif
 
-	fortran_callable(get_hamiltonian_matrix)(int32_t const *na
+	fortran_callable(get_hamiltonian_matrix)
+        ( int32_t const *na
 		, double hamiltonian_matrices[] // layout [na][stride][stride]
 		, double overlap_matrices[]     // layout [na][stride][stride]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("h", *na);;
 		printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_get_hamiltonian_matrix_
 #else
 	;
 #endif
 
-	fortran_callable(get_energy_contributions)(int32_t const *na
+	fortran_callable(get_energy_contributions)
+        ( int32_t const *na
 		, double energies[] // layout [na][...]
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("e", *na);;
 		printf("# got_energy_contributions for %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_get_energy_contributions_
 #else
 	;
 #endif
 
-	fortran_callable(finalize)(int32_t const *na
+	fortran_callable(finalize)
+        ( int32_t const *na
 		, int32_t *status)
 #ifndef SINGLE_ATOM_HEADER_ONLY
 	{
-		*status = single_atom::atom_update("?", *na);;
+		*status = single_atom::atom_update("memory cleanup", *na);;
 		printf("# finalized %d LiveAtoms\n", *na);
-		fflush(stdout);
+		std::fflush(stdout);
 	} // _live_atom_finalize_
 #else
 	;

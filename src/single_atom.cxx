@@ -2184,17 +2184,20 @@ namespace single_atom {
     } // update_charge_deficit
 
 
-    void transform_SHO(double out[], int const out_stride,
-                  double const in[], int const in_stride,
-                  bool const in_Cartesian, double const alpha=1) const {
+    void transform_SHO(
+          double out[]
+        , int const out_stride
+        , double const in[]
+        , int const in_stride
+        , bool const in_Cartesian
+    ) const {
 
         int const N = unitary_zyx_lmn.stride();
-        view2D<double> const uni(unitary_zyx_lmn.data(), N); // wrap
-        view2D<double> tmp(N, N); // get memory
-        view2D<double const> const inp(in, in_stride); // wrap
+        view2D<double const> const inp(in, in_stride); // wrap input
+        view2D<double> const uni(unitary_zyx_lmn.data(), N); // wrap transformation matrix
         view2D<double> res(out, out_stride); // wrap
+        view2D<double> tmp(N, N); // get memory
 
-        assert(1 == alpha);
         auto const uni_transposed = transpose(uni, N);
 
         if (in_Cartesian) {
@@ -2216,18 +2219,41 @@ namespace single_atom {
     
     
     
-    view2D<double> unfold_projector_coefficients() const {
+    view2D<double> unfold_projector_coefficients(emm_QN_t const m=-1) const {
 
         int const nln = sho_tools::nSHO_radial(numax);
-        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
+        std::vector<int16_t> ln_offset(nln, -1);
+        std::vector<int8_t>   ell_list(nln, -1);
         for(int ell = 0; ell <= numax; ++ell) {
             for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                int const iln  = sho_tools::ln_index(numax, ell, nrn);
                 ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
                 ell_list[iln] = ell;
             } // nrn
         } // ell
-        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
+        for(int iln = 0; iln < nln; ++iln) { 
+            assert(ln_offset[iln] != -1); // assert coverage
+            assert(ell_list[iln]  != -1); // assert coverage
+        } // iln
+
+        if (emm_Degenerate == m) { 
+            view2D<double> u_proj(nln, nln, 0.0);
+            for(int iln = 0; iln < nln; ++iln) {
+                int const ell = ell_list[iln];
+                int const nrn = iln - ln_offset[iln];
+                if (nrn < nn[ell]) {
+                    assert(nrn >= 0);
+                    for(int jln = 0; jln < nln; ++jln) {
+                        if (ell == ell_list[jln]) {
+                            int const mrn = jln - ln_offset[jln];
+                            assert(mrn >= 0);
+                            u_proj(iln,jln) = projector_coeff[ell](nrn,mrn);
+                        } // ell-diagonal
+                    } // jln
+                } // active
+            } // iln
+            return u_proj;
+        } // emm_Degenerate
 
         int const nlmn = sho_tools::nSHO(numax);
         view2D<double> u_proj(nlmn, nlmn, 0.0);
@@ -2237,49 +2263,21 @@ namespace single_atom {
             int const ell = ell_list[iln];
             int const nrn = iln - ln_offset[iln];
             if (nrn < nn[ell]) {
+                assert(nrn >= 0);
                 for(int jlmn = 0; jlmn < nlmn; ++jlmn) {
                     int const jln = ln_index_list[jlmn];
                     if (ilm == lm_index_list[jlmn]) {
                         int const mrn = jln - ln_offset[jln];
+                        assert(mrn >= 0);
                         u_proj(ilmn,jlmn) = projector_coeff[ell](nrn,mrn);
                     } // ell-diagonal
                 } // jlmn
-            } // nrn
+            } // active
         } // ilmn
 
         return u_proj;
     } // unfold_projector_coefficients
-    
-    view2D<double> unfold_projector_coefficients_emm_degenerate() const {
 
-        int const nln = sho_tools::nSHO_radial(numax);
-        std::vector<int16_t> ln_offset(nln, -1), ell_list(nln, -1);
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
-                ln_offset[iln] = sho_tools::ln_index(numax, ell, 0);
-                ell_list[iln] = ell;
-            } // nrn
-        } // ell
-        for(int iln = 0; iln < nln; ++iln) { assert(ln_offset[iln] != -1); } // assert coverage
-
-        view2D<double> u_proj(nln, nln, 0.0);
-        for(int iln = 0; iln < nln; ++iln) {
-            int const ell = ell_list[iln];
-            int const nrn = iln - ln_offset[iln];
-            if (nrn < nn[ell]) {
-                assert(nrn >= 0);
-                for(int jln = 0; jln < nln; ++jln) {
-                    if (ell == ell_list[jln]) {
-                        int const mrn = jln - ln_offset[jln];
-                        u_proj(iln,jln) = projector_coeff[ell](nrn,mrn);
-                    } // ell-diagonal
-                } // jln
-            } // nrn
-        } // iln
-
-        return u_proj;
-    } // unfold_projector_coefficients_emm_degenerate
     
     
     void get_rho_tensor(
@@ -3065,7 +3063,7 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
-        auto const u_proj = unfold_projector_coefficients_emm_degenerate();
+        auto const u_proj = unfold_projector_coefficients(emm_Degenerate);
 
 #ifdef DEVEL
         if (echo > 2) { // display

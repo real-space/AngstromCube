@@ -154,9 +154,8 @@ namespace sigma_config {
             case 127: return "1s -1 | 1.0 sigma .25 Z= -1";                             // e
             case   0: return "1s | 1.0 sigma .25";                                      // __
 #endif
-            default:
-                     warn("no default element configuration given for Z=%d", iZ);
-                     return "";
+            default:  warn("no default element configuration given for Z=%d", iZ);
+                      return "";
         } // switch
   } // default config
 
