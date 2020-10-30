@@ -508,7 +508,7 @@ namespace atom_core {
     double const Z_inc   = control::get("atom_core.test.Z.inc", 1.); // default: sample only integer values
     double const Z_end   = control::get("atom_core.test.Z.end", Z_begin + Z_inc); // default: only one core
     if (echo > 0) printf("\n# %s:%d  %s(echo=%d) from %g to %g in steps of %g\n\n",
-                    __FILE__, __LINE__, __func__, echo, Z_begin, Z_end, Z_inc);
+                    __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
     status_t stat{0};
     char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
     for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {

@@ -393,6 +393,14 @@ namespace single_atom {
       std::vector<int16_t> lmn_end; // lm_index_list[lmn_end[ilm] - 1] == ilm
       
       
+      // energy contributions
+      double energy_xc[TRU_AND_SMT]; // exchange-correlation[ts]
+      double energy_dc[TRU_AND_SMT]; // double counting[ts]
+      double energy_kin[4][TRU_AND_SMT]; // kinetic[csv][ts], csv=3 --> non-spherical
+      double energy_es[TRU_AND_SMT]; // electrostatic[ts]
+      double energy_tot[TRU_AND_SMT]; // total energy
+
+      
   public:
 
     // constructor method:
@@ -541,7 +549,8 @@ namespace single_atom {
 #endif // DEVEL
 
         std::vector<int8_t> as_valence(96, -1);
-        enn_QN_t enn_core_ell[16] = {0,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0}; // enn-QN of the highest occupied core level
+        enn_QN_t enn_core_ell[16]; // enn-QN of the highest occupied core level
+        set(enn_core_ell, 16, enn_QN_t(0));
 
         
 
@@ -948,7 +957,9 @@ namespace single_atom {
             auto const stat = paw_xml_export::write_to_file(Z_core, rg, 
                 partial_wave, partial_wave_active.data(),
                 kinetic_energy, csv_charge, spherical_density, projectors,
-                r_cut, sigma_compensator, zero_potential.data(), echo);
+                r_cut, sigma_compensator, zero_potential.data(), echo,
+                energy_kin[core][TRU], energy_kin[core][TRU] + energy_kin[valence][TRU],
+                energy_xc[TRU], energy_es[TRU], energy_tot[TRU]);
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
             if (maxit_scf < 1) warn("exported paw file although no setup SCF iterations executed");
@@ -1098,13 +1109,12 @@ namespace single_atom {
                 mix_new *= rescale;
             } // rescale
 
-            double density_change{0}, density_change2{0}, Coulomb_change{0}; // some stats
+            double density_change{0}, Coulomb_change{0}; // some stats
             for(int ir = 0; ir < nr; ++ir) {
                 double const r2inv = pow2(rg[TRU].rinv[ir]);
                 auto const new_rho = new_r2density(csv,ir)*r2inv; // *r^{-2}
                 auto const old_rho = spherical_density[TRU](csv,ir);
                 density_change  += std::abs(new_rho - old_rho)*rg[TRU].r2dr[ir];
-                density_change2 +=     pow2(new_rho - old_rho)*rg[TRU].r2dr[ir];
                 Coulomb_change  +=         (new_rho - old_rho)*rg[TRU].rdr[ir]; // Coulomb integral change
                 Coulomb_energy[csv] +=      new_rho           *rg[TRU].rdr[ir]; // Coulomb integral
                 spherical_density[TRU](csv,ir) = mix_new*new_rho + mix_old*old_rho;
@@ -1125,11 +1135,14 @@ namespace single_atom {
                     if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, csv_name[csv], new_q);
                 } // debug
 #endif // DEVEL
-                if (echo > 0) printf("# %s %-8s density change %g e (rms %g e) Coulomb energy change %g %s\n", 
-                    label, csv_name[csv], density_change, std::sqrt(std::max(0.0, density_change2)), Coulomb_change*eV,_eV);
+                if (echo > 0) printf("# %s %-8s density change %g e Coulomb energy change %g %s\n", 
+                    label, csv_name[csv], density_change, Coulomb_change*eV,_eV);
                 if (echo > 3) printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
                     label, csv_name[csv], Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV,_eV);
             } // output only for contributing densities
+
+            energy_kin[csv][SMT] = 0;
+            energy_kin[csv][TRU] = kinetic_energy[csv]; // store
 
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
@@ -2185,14 +2198,14 @@ namespace single_atom {
 
 
     void transform_SHO(
-          double out[]
+          double out[] // assumed shape [N][out_stride]
         , int const out_stride
-        , double const in[]
+        , double const in[] // assumed shape [N][in_stride]
         , int const in_stride
-        , bool const in_Cartesian
+        , bool const in_Cartesian // true: Cartesian to Radial, false: Radial to Cartesian
     ) const {
 
-        int const N = unitary_zyx_lmn.stride();
+        int const N = unitary_zyx_lmn.stride(); // assumed shape [N][N]
         view2D<double const> const inp(in, in_stride); // wrap input
         view2D<double> const uni(unitary_zyx_lmn.data(), N); // wrap transformation matrix
         view2D<double> res(out, out_stride); // wrap
@@ -2388,6 +2401,22 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
+        // compute the kinetic energy contribution
+        double E_kin[TRU_AND_SMT] = {0, 0};
+        for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
+            int const iln = ln_index_list[ilmn];
+            if (partial_wave_active[iln]) {
+                for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
+                    int const jln = ln_index_list[jlmn];
+                    if (partial_wave_active[jln]) {
+                        E_kin[TRU] += radial_density_matrix(ilmn,jlmn) * kinetic_energy(TRU,iln,jln);
+                        E_kin[SMT] += radial_density_matrix(ilmn,jlmn) * kinetic_energy(SMT,iln,jln);
+                    } // active_j
+                } // jlmn
+            } // active_i
+        } // ilmn
+        set(energy_kin[3], TRU_AND_SMT, E_kin); // non-spherical kinetic energy contribution
+
         //   Now, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
@@ -2557,7 +2586,7 @@ namespace single_atom {
         int const nlm = pow2(1 + ellmax_rho);
         assert(ellmax_rho == ellmax_pot);
         int const npt = angular_grid::Lebedev_grid_size(std::max(ellmax_rho, ellmax_pot));
-        std::vector<double> vlm(nlm, 0.0);
+        std::vector<double> vlm(nlm, 0.0); // potential shifts
         for(int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts].n;
             auto const mr = full_density[ts].stride();
@@ -2594,11 +2623,16 @@ namespace single_atom {
                         if (echo > 7) printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
                                                             label, full_potential[SMT](00,0)*Y00*eV,_eV);
                     } // SMT only
+                    
+                    double E_dc{0}, E_xc{0};
+
                     auto const Edc00 = dot_product(nr, full_potential[ts][00], full_density[ts][00], rg[ts].r2dr); // dot_product with diagonal metric
-                    if (echo > 5) printf("# %s double counting correction  in %s 00 channel %.12g %s\n",
+                    E_dc += Edc00;
+                    if (echo > 5) printf("# %s double counting correction  in %s 00 channel %.9f %s\n",
                                             label, ts_name[ts], Edc00*eV,_eV);
                     auto const Exc00 = dot_product(nr, exc_lm[00], full_density[ts][00], rg[ts].r2dr); // dot_product with diagonal metric
-                    if (echo > 5) printf("# %s exchange-correlation energy in %s 00 channel %.12g %s\n",
+                    E_xc += Exc00;
+                    if (echo > 5) printf("# %s exchange-correlation energy in %s 00 channel %.9f %s\n",
                                             label, ts_name[ts], Exc00*eV,_eV);
                     for(int ell = 1; ell <= std::min(ellmax_rho, ellmax_pot); ++ell) {
                         double Edc_L{0}, Exc_L{0};
@@ -2607,11 +2641,16 @@ namespace single_atom {
                             Edc_L += dot_product(nr, full_potential[ts][ilm], full_density[ts][ilm], rg[ts].r2dr); // dot_product with diagonal metric
                             Exc_L += dot_product(nr, exc_lm[ilm], full_density[ts][ilm], rg[ts].r2dr); // dot_product with diagonal metric
                         } // emm
-                        if (echo > 5 + ell) printf("# %s double counting correction  in %s ell=%i channel %.12g %s\n",
+                        if (echo > 5 + ell) printf("# %s double counting correction  in %s ell=%i channel %g %s\n",
                                         label, ts_name[ts], ell, Edc_L*eV,_eV);
-                        if (echo > 5 + ell) printf("# %s exchange-correlation energy in %s ell=%i channel %.12g %s\n",
+                        if (echo > 5 + ell) printf("# %s exchange-correlation energy in %s ell=%i channel %g %s\n",
                                         label, ts_name[ts], ell, Exc_L*eV,_eV);
+                        E_dc += Edc_L;
+                        E_xc += Exc_L;
                     } // ell
+
+                    energy_dc[ts] = E_dc;
+                    energy_xc[ts] = E_xc;
 
                 } // scope
             } // scope: quantities on the angular grid
@@ -2653,6 +2692,13 @@ namespace single_atom {
 
             add_or_project_compensators<2>(Ves, vlm.data(), rg[ts], ellmax_cmp, sigma_compensator);
 
+            
+            double E_Hartree{0};
+            for(int ilm = 0; ilm < pow2(1 + ellmax_pot); ++ilm) {
+                E_Hartree += 0.5*dot_product(nr, Ves[ilm], rho_aug[ilm], rg[ts].r2dr);
+            } // ilm
+            energy_es[ts] = E_Hartree;
+            
             if (SMT == ts) { // debug: project again to see if the correction worked out for the ell=0 channel
                 std::vector<double> v_test(pow2(1 + ellmax_cmp), 0.0);
                 add_or_project_compensators<1>(Ves, v_test.data(), rg[SMT], ellmax_cmp, sigma_compensator); // project to compensators with ellmax_cmp=0
@@ -2672,13 +2718,15 @@ namespace single_atom {
                         printf("\n\n");
                     } // show radial function of Ves[00]*Y00 to be compared to projections of the 3D electrostatic potential
                 } // echo
+                if (echo > 5) printf("# %s smooth Hartree energy %.9f %s\n", label, energy_es[SMT]*eV, _eV);
             } else {
+                // TRU
                 if (echo > 8) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n",
                                         label, Ves(00,1)*(rg[TRU].r[1])*Y00, -Z_core);
-                if (echo > 5) {
-                      auto const Enuc = -Z_core*dot_product(nr, full_density[TRU][00], rg[ts].rdr)*Y00inv;
-                      printf("# %s unscreened Coulomb energy is %.15g %s\n", label, Enuc*eV, _eV);
-                } // echo
+                auto const E_Coulomb = -Z_core*dot_product(nr, full_density[TRU][00], rg[TRU].rdr)*Y00inv;
+                if (echo > 5) printf("# %s true Hartree energy %.9f Coulomb energy %.9f %s\n",
+                                        label, (energy_es[TRU] - 0.5*E_Coulomb)*eV, E_Coulomb*eV, _eV);
+                energy_es[TRU] += 0.5*E_Coulomb; // the other half is included in E_Hartree
             } // ts
 
             add_product(full_potential[ts].data(), nlm*mr, Ves.data(), 1.0); // add the electrostatic potential, scale_factor=1.0
@@ -3159,6 +3207,35 @@ namespace single_atom {
 
 
 
+    void total_energy_contributions(double E_tot[TRU_AND_SMT], int const echo=0) const {
+        set(E_tot, TRU_AND_SMT, 0.0);
+        for(int csv = core; csv <= valence; ++csv) {
+            add_product(E_tot, TRU_AND_SMT, energy_kin[csv], take_spherical_density[csv]);
+        } // csv
+        add_product(E_tot, TRU_AND_SMT, energy_kin[3], 1 - take_spherical_density[valence]);
+        add_product(E_tot, TRU_AND_SMT, energy_es, 1.0);
+        add_product(E_tot, TRU_AND_SMT, energy_xc, 1.0);
+        
+        if (echo > 0) {
+            printf("\n# %s\n", label);
+            printf("# %s Total energy contributions (%s) true and smooth:\n", label, _eV);
+            for(int csv = core; csv <= valence; ++csv) {
+                if (csv_charge[csv] > 0) {
+                    printf("# %s %-8s Kinetic true%20.9f %20.9f\n", label,
+                        csv_name[csv], energy_kin[csv][TRU]*eV, energy_kin[csv][SMT]*eV);
+                } // csv_charge
+            } // csv
+            printf("# %s Valence  Kinetic true%20.9f %20.9f\n", label, energy_kin[3][TRU]*eV, energy_kin[3][SMT]*eV);
+            printf("# %s es    true%20.9f %20.9f\n", label, energy_es[TRU]*eV, energy_es[SMT]*eV);
+            printf("# %s xc    true%20.9f %20.9f\n", label, energy_xc[TRU]*eV, energy_xc[SMT]*eV);
+            printf("# %s dc    true%20.9f %20.9f\n", label, energy_dc[TRU]*eV, energy_dc[SMT]*eV);
+            printf("# %s\n", label);
+            printf("# %s Total true%20.9f %20.9f %s\n", label, E_tot[TRU]*eV, E_tot[SMT]*eV, _eV);
+            printf("# %s\n\n", label);
+        } // echo
+        // ToDo: introduce a reference atom energy which is fixed at start-up
+        // So that the contributions are always taken w.r.t the reference atom
+    } // total_energy_contributions
 
 
 
@@ -3194,12 +3271,11 @@ namespace single_atom {
     ) {
         if (echo > 2) printf("\n# %s %s\n", label, __func__);
         update_full_potential(potential_mixing, ves_multipoles, echo);
+        total_energy_contributions(energy_tot, echo);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
-
-
-
+    double get_total_energy() const { return energy_tot[TRU] - atom_core::neutral_atom_total_energy(Z_core) - energy_tot[SMT]; }
 
     status_t get_smooth_spherical_quantity(
           double qnt[] // result array: function on an r2-grid
@@ -3585,11 +3661,15 @@ namespace single_atom {
           }
           break;
 
-          case 'e': // interface usage: atom_update("energies", natoms, null, null, null, atom_ene);
+//        case 'e': // interface usage: atom_update("energies", natoms, null, null, null, atom_ene);
+          case 'e': // interface usage: atom_update("energies", natoms, atom_ene, null, null, null);
           {
-              double *const *const atom_ene = dpp; assert(nullptr != atom_ene);
-              warn("atomic energy contributions have not been calculated!");
-              assert(!dp); assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
+              // double *const *const atom_ene = dpp; assert(nullptr != atom_ene);
+              for(int ia = 0; ia < a.size(); ++ia) {
+                  dp[ia] = a[ia]->get_total_energy();
+              } // ia
+              assert(!dpp); // assert(!dp);
+              assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
           }
           break;
           

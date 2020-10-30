@@ -493,6 +493,10 @@ namespace potential_generator {
           return stat;
       } // run
 
+      
+      // total energy contributions
+      double grid_electrostatic_energy{0}, total_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
+      
       int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
@@ -516,14 +520,15 @@ namespace potential_generator {
           here;
 
           { // scope: eval the XC potential and energy
-              double Exc{0}, Edc{0};
+              double E_xc{0}, E_dc{0};
               for(size_t i = 0; i < g.all(); ++i) {
                   auto const exc_i = exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
-                  Exc += rho[i]*exc_i;
-                  Edc += rho[i]*Vxc[i]; // double counting correction
+                  E_xc += rho[i]*exc_i;
+                  E_dc += rho[i]*Vxc[i]; // double counting correction
               } // i
-              Exc *= g.dV(); Edc *= g.dV(); // scale with volume element
-              if (echo > 2) printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", Exc*eV,_eV, Edc*eV,_eV);
+              E_xc *= g.dV(); E_dc *= g.dV(); // scale with volume element
+              if (echo > 2) printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", E_xc*eV,_eV, E_dc*eV,_eV);
+              grid_xc_energy = E_xc;
           } // scope
           here;
 
@@ -605,10 +610,10 @@ namespace potential_generator {
 #endif // DEVEL
               } // ia
 
-              if (echo > 3) {
-                  double const Ees = 0.5*dot_product(g.all(), rho.data(), Ves.data())*g.dV();
-                  printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
-              } // echo
+              
+              double const E_es = 0.5*dot_product(g.all(), rho.data(), Ves.data())*g.dV();
+              grid_electrostatic_energy = E_es; // store
+              if (echo > 3) printf("# smooth electrostatic grid energy %.9f %s\n", E_es*eV,_eV);
 
           } // scope
           here;
@@ -805,6 +810,14 @@ namespace potential_generator {
           here;
           
           Fermi.correct_Fermi_level(nullptr, echo); // ToDo: pass in charge and its derivative w.r.t. the Fermi level here
+          
+          // compute the total energy
+          std::vector<double> atomic_energy_diff(na, 0.0);
+          stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
+          double atomic_energy_corrections{0};
+          for(int ia = 0; ia < na; ++ia) atomic_energy_corrections += atomic_energy_diff[ia];
+          total_energy = total_kinetic_energy + grid_xc_energy + grid_electrostatic_energy + atomic_energy_corrections;
+          if (echo > 0) printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV);
 
       } // scf_iteration
       here;

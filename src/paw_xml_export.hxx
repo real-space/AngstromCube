@@ -22,11 +22,15 @@ namespace paw_xml_export {
       , double const sigma_cmp=.5
       , double const zero_potential[]=nullptr
       , int const echo=0 // log-level
+      , double const core_kinetic_energy=0
+      , double const kinetic_energy=0
+      , double const xc_energy=0
+      , double const es_energy=0
+      , double const total_energy=0
       , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
   ) {
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
-      double const E[8] = {0, 0, 0, 0,   0, 0, 0, 0}; // ToDo
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
       char const ts_tag[TRU_AND_SMT][4] = {"ae", "ps"};
 
@@ -59,8 +63,8 @@ namespace paw_xml_export {
       std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"Koelling-Harmon\">\n");
       std::fprintf(f, "     %s\n  </generator>\n", config_string);
       std::fprintf(f, "  <ae_energy kinetic=\"%.6f\" xc=\"%.6f\"\n             "
-                          "electrostatic=\"%.6f\" total=\"%.6f\"/>\n", E[3], E[2], E[1], E[0]);
-      std::fprintf(f, "  <core_energy kinetic=\"%.6f\"/>\n", E[4]);
+                          "electrostatic=\"%.6f\" total=\"%.6f\"/>\n", kinetic_energy, xc_energy, es_energy, total_energy);
+      std::fprintf(f, "  <core_energy kinetic=\"%.6f\"/>\n", core_kinetic_energy);
       
       std::fprintf(f, "  <valence_states>\n");
       for(size_t iln = 0; iln < valence_states.size(); ++iln) {

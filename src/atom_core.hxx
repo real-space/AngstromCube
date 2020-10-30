@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::sprintf
-#include <cmath> // std::exp
+#include <cmath> // std::exp, std::sqrt
 
 #include "radial_grid.h" // radial_grid_t
 #include "quantum_numbers.h" // ell_QN_t
@@ -46,6 +46,10 @@ namespace atom_core {
       if (ell < 3) return special_ellchars[ell];
       return 99 + ell; // "fghijk ..." // ToDo: actually 'i' does not belong in here
   } // ellchar
+  
+  inline double neutral_atom_total_energy(double const Z) {
+      return -Z*Z*(0.340771*std::sqrt(Z) + 0.315296 - Z*7.23434e-3 + Z*Z*3.96626e-5);
+  } // neutral_atom_total_energy
   
   status_t all_tests(int const echo=0);
 

@@ -8,13 +8,13 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "Al   0 0 0" >> $geometry_file
 
-project_base=pg.C-sc
-printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-echo "C 0 0 0" >> $geometry_file
+# project_base=pg.C-sc
+# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+# echo "C 0 0 0" >> $geometry_file
 
-# project_base=pg.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Og-atom
 # printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
@@ -154,7 +154,7 @@ single_atom.init.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
 #single_atom.optimize.sigma=0
-single_atom.init.scf.maxit=0
+single_atom.init.scf.maxit=2
 
 #smooth.radial.grid.from=0
 
@@ -205,12 +205,12 @@ pw_hamiltonian.iterative.solver=cg
 #potential_generator.direct.projection=0
 
 single_atom.init.scf.maxit=1
-#single_atom.export.xml=1
+single_atom.export.xml=-1
 
 EOF
 
 
-for spacing in `seq 1 1 1`; do
+for spacing in `seq 1 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -236,7 +236,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 30 2 30`; do
+for ecut in `seq 2 2 4`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
