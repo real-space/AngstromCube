@@ -19,21 +19,30 @@ namespace conjugate_gradients {
   template<> inline double tiny<float> () { return 1.18e-38; }
 
   template<typename doublecomplex_t, typename complex_t>
-  doublecomplex_t inner_product(size_t const ndof
-                   , complex_t const bra[] // assumed shape [ndof]
-                   , complex_t const ket[] // assumed shape [ndof]
-                   , doublecomplex_t const factor) { // the factor needs to be complex to derive the result type
-              doublecomplex_t tmp{0};
-              for(size_t dof = 0; dof < ndof; ++dof) {
-                  tmp += doublecomplex_t(conjugate(bra[dof])) * doublecomplex_t(ket[dof]);
-              } // dof
-              return tmp*factor; // init
+  doublecomplex_t inner_product(
+        size_t const ndof
+      , complex_t const bra[] // assumed shape [ndof]
+      , complex_t const ket[] // assumed shape [ndof]
+      , doublecomplex_t const factor
+  ) { // the factor needs to be complex to derive the result type
+      doublecomplex_t tmp{0};
+      for(size_t dof = 0; dof < ndof; ++dof) {
+          tmp += doublecomplex_t(conjugate(bra[dof])) * doublecomplex_t(ket[dof]);
+      } // dof
+      return tmp*factor; // init
   } // inner_product
 
   template<typename complex_t>
-  void show_matrix(complex_t const mat[], int const stride, int const n, int const m,
-      char const *name=nullptr, complex_t const unit=1, char const initchar='#', char const final_newline='\n')
-  {
+  void show_matrix(
+        complex_t const mat[]
+      , int const stride
+      , int const n
+      , int const m
+      , char const *name=nullptr
+      , complex_t const unit=1
+      , char const initchar='#'
+      , char const final_newline='\n'
+  ) {
       if (is_complex<complex_t>()) return;
       printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
@@ -67,9 +76,10 @@ namespace conjugate_gradients {
       }
       return gamma;
   } // submatrix2x2
-  
+
   template<class operator_t>
-  status_t eigensolve(typename operator_t::complex_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
+  status_t eigensolve(
+      typename operator_t::complex_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , double eigenvalues[] // export results
     , int const nbands // number of bands
     , operator_t const & op // grid operator descriptor
@@ -130,7 +140,7 @@ namespace conjugate_gradients {
           if (echo > 4) printf("# CG start outer iteration #%i\n", outer_iteration);
 
           for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
-              if (echo > 8) printf("# start CG for band #%i\n", ib);
+              if (echo > 8) printf("\n# start CG for band #%i\n", ib);
 
               // apply Hamiltonian and Overlap operator
 //            stat += op.Hamiltonian(Hs, s[ib], echo);

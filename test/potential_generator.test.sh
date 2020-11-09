@@ -123,8 +123,8 @@ echo "C  0 0 0" >> $geometry_file
 cat > control.sh << EOF
 
 # configuration of atomic PAW setups
-element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
-#element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
+element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
 #element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
 
 # verbosity of the log files
@@ -136,7 +136,7 @@ output.length.unit=Bohr
 
 # grid spacing of the dense grid (in Bohr)
 #potential_generator.grid.spacing=0.23622
-potential_generator.grid.spacing=.197
+potential_generator.grid.spacing=.189
 #potential_generator.grid.spacing=0.208
 #potential_generator.grid.spacing=0.1772   ## dense grid
 
@@ -149,8 +149,8 @@ electrostatic.solver=fft
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 single_atom.partial.wave.method=energy_ordering
-single_atom.echo=7
 single_atom.init.echo=7
+single_atom.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
 #single_atom.optimize.sigma=0
@@ -184,7 +184,7 @@ sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
 hamiltonian.kmesh.echo=9
-hamiltonian.kmesh.x=5
+# hamiltonian.kmesh.x=1
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 
@@ -193,9 +193,11 @@ hamiltonian.floating.point.bits=64
 pw_hamiltonian.solver=direct
 
 #pw_hamiltonian.solver=iterative
-davidson_solver.max.iterations=9
-pw_hamiltonian.iterative.solver.ratio=4.0
-pw_hamiltonian.iterative.solver=cg
+pw_hamiltonian.iterative.solver.ratio=8.0
+pw_hamiltonian.iterative.solver=CG
+conjugate_gradients.max.iter=2
+pw_hamiltonian.max.cg.iterations=12
+davidson_solver.max.iterations=7
 
 # also compute the eigenvalues of the overlap matrix?
 #dense_solver.test.overlap.eigvals=0
@@ -205,7 +207,7 @@ pw_hamiltonian.iterative.solver=cg
 #potential_generator.direct.projection=0
 
 single_atom.init.scf.maxit=1
-single_atom.export.xml=-1
+single_atom.export.xml=1
 
 EOF
 
@@ -236,7 +238,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 4`; do
+for ecut in `seq 2 2 6`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

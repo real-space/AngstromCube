@@ -17,7 +17,7 @@
   real_t intpow(real_t const x, unsigned const nexp) {
       // power function using recursive doubling, only non-negative powers possible
       unsigned n = nexp;
-      real_t xbin = x, xpow = (real_t)1;
+      real_t xbin = x, xpow = real_t(1);
       while (n) {
           if (n & 1) xpow *= xbin; // if n modulo 2 == 1
           n >>= 1; // divide n by 2

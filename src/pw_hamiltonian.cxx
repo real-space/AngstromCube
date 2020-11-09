@@ -97,7 +97,8 @@ namespace pw_hamiltonian {
   
   template<typename complex_t>
   status_t iterative_solve(
-        view3D<complex_t> const & HSm
+        double eigenenergies[]
+      , view3D<complex_t> const & HSm
       , char const *x_axis=""
       , int const echo=0
       , int const nbands=10
@@ -188,11 +189,15 @@ namespace pw_hamiltonian {
               if (echo > 6) { printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
               stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10);
               stat += stat_slv;
+              davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, echo - 10);
           } // it
       } else { // method
           int const nit = control::get("davidson_solver.max.iterations", 1.);
           if (echo > 6) { printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
-          stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.5f, nit, 1e-2);
+          for(int it = 0; it < nit && (0 == stat_slv); ++it) {
+              stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.0f, 2);
+              stat += stat_slv;
+          } // it
       } // method
 
       if (0 == stat_slv) {
@@ -206,6 +211,8 @@ namespace pw_hamiltonian {
           warn("Davidson solver for the plane wave Hamiltonian failed with status= %i", int(stat_slv));
       } // stat_slv
 
+      set(eigenenergies, nbands, eigvals.data()); // copy
+      
       return stat;
   } // iterative_solve
   
@@ -456,11 +463,11 @@ namespace pw_hamiltonian {
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
       std::vector<double> eigenenergies(nbands, -9e9);
-      if (run_solver[0]) solver_stat += iterative_solve(HSm, x_axis, echo, nbands, direct_ratio); // ToDo: needs to export eigenenergies
+      if (run_solver[0]) solver_stat += iterative_solve(eigenenergies.data(), HSm, x_axis, echo, nbands, direct_ratio); // ToDo: needs to export eigenenergies
       if (run_solver[1]) solver_stat += dense_solver::solve(HSm, x_axis, echo, nbands, eigenenergies.data());
       // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
-      if (export_rho) {
+      if (export_rho && (run_solver[0] || run_solver[1])) { // at least one of both solvers needs to have executed
           double const kpoint_weight = kpoint[3];
           export_rho->constructor(nG, nbands, natoms_PAW, nC, kpoint_weight, kpoint_id, echo);
           export_rho->energies.assign(eigenenergies.begin(), eigenenergies.begin() + nbands);
