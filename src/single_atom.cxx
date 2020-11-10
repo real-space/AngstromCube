@@ -1770,7 +1770,7 @@ namespace single_atom {
 //                     if (echo > 1) printf("# %s for ell=%i create a smooth partial wave by pseudization of the true partial wave\n", label, ell);
 //                 } // preliminary partial waves
                 
-                
+#if 0                
                 if (recreate_second == method && '*' == partial_wave_char[iln] && nrn > 0) {
                     if (echo > 0) printf("\n# %s recreate_second for %s\n", label, vs.tag);
                     int const iln0 = ln_off + (nrn - 1); // index of the previous partial wave
@@ -1807,7 +1807,7 @@ namespace single_atom {
                     } // mrn
                     
                 } // recreate_second
-                
+#endif
 
                 // idea: make this module flexible enough so it can load a potential and
                 //       generate PAW data in XML format (GPAW, ABINIT) using the SHO method
@@ -3251,27 +3251,33 @@ namespace single_atom {
             { // scope:
                 for(int ell = 0; ell <= numax; ++ell) {
 
-                    if (nn[ell] > 0) {
-                        std::vector<double> eigvals(nn[ell] + 1, 0.0);
+                    int const n = nn[ell];
+                    if (n > 0) {
+                        std::vector<double> eigvals(n + 1, 0.0);
                         // create a copy since the eigenvalue routine modifies the memory regions
-                        view2D<double> ovl_nn(nn[ell], nn[ell]); 
-                        for(int irn = 0; irn < nn[ell]; ++irn) {
+                        view2D<double> ovl_nn(n, n); 
+                        for(int irn = 0; irn < n; ++irn) {
                             int const iln = sho_tools::ln_index(numax, ell, irn);
-                            set(ovl_nn[irn], nn[ell], overlap_ln[iln]); // copy rows
+                            int const jln = sho_tools::ln_index(numax, ell, 0);
+                            set(ovl_nn[irn], n, &overlap_ln(iln,jln)); // copy ell-diagonal blocks
                         } // irn
+                        
+//                      if (echo > 0) printf("%s charge deficit operator for ell=%c is [%g %g, %g %g]\n",
+//                          label, ellchar[ell], ovl_nn(0,0), ovl_nn(0,n-1), ovl_nn(n-1,0), ovl_nn(n-1,n-1));
 
                         // the eigenvalues of the non-local part of the overlap operator may not be <= -1
-                        linear_algebra::eigenvalues(eigvals.data(), nn[ell], ovl_nn.data(), ovl_nn.stride());
+                        auto const info = linear_algebra::eigenvalues(eigvals.data(), n, ovl_nn.data(), ovl_nn.stride());
+                        if (0 != info) warn("%s when trying to diagonalize %dx%d charge deficit operator info= %i", label, n, n, info);
 
                         if (eigvals[0] <= -0.9) {
                             auto const classification = (eigvals[0] <= -1) ? "instable" : "critical";
-                            warn("%s eigenvalues of charge deficit matrix for ell=%c %s! %g and %g", label, ellchar[ell], classification, eigvals[0], eigvals[1]);
+                            warn("%s eigenvalues of charge deficit operator for ell=%c %s! %g and %g", label, ellchar[ell], classification, eigvals[0], eigvals[1]);
                         } // warning
-                        
-                        if (echo > 0) printf("%s eigenvalues of charge deficit matrix for ell=%c are %g and %g\n", label, ellchar[ell], eigvals[0], eigvals[1]);
-//                         error("eigenvalues of the %c-charge deficit matrix are %g and %g", ellchar[ell], eigvals[0], eigvals[1]); // DEBUG
 
-                    } // nn[ell]
+                        if (echo > 0) printf("# %s eigenvalues of charge deficit operator for ell=%c are %g and %g\n", label, ellchar[ell], eigvals[0], eigvals[1]);
+//                         error("eigenvalues of the %c-charge deficit operator are %g and %g", ellchar[ell], eigvals[0], eigvals[1]); // DEBUG
+
+                    } // n > 0
 
                 } // ell
             } // scope

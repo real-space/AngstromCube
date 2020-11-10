@@ -19,7 +19,7 @@
 #include "radial_integrator.hxx" // ::integrate_outwards<SRA>
 #include "constants.hxx" // ::pi
 #include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
-#include "data_view.hxx" // view2D
+#include "data_view.hxx" // view2D<T>
 #include "print_tools.hxx" // printf_vector
 #include "status.hxx" // status_t
 
@@ -544,7 +544,7 @@ namespace scattering_test {
                           } // echo
 
                           if (echo > 7) {
-                              printf("# %s projection analysis for ell=%i eigenvalue (#%i)%10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
+                              printf("# %s projection analysis for ell=%i eigenvalue (#%i) %10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
                               for(int nrn = 0; nrn < nn; ++nrn) {
                                   printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
                               } // nrn

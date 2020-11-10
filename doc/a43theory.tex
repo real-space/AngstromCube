@@ -1386,7 +1386,6 @@ when increasing the energy splitting to much higher values, way above the valenc
 
 \begin{figure} [ht]
   \centering
-  %% how to generate this plot: ~/runfort zam044:~/Codes/a43/doc/fig/plot/mask.F90
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/N_eigenvalues_of_charge-deficit_operator} %% .agr .pdf
   \end{minipage}\hfill
@@ -1400,6 +1399,27 @@ when increasing the energy splitting to much higher values, way above the valenc
 
 This effect has been observed for 5 first-row elements (Li -- N).
 
+\newpage
+
+In order to define energy derivatives, we revisit their derivation for true partial waves:
+\begin{equation}
+  \left( \hat H - \varepsilon \right) \phi_\varepsilon(r) = 0
+\end{equation}
+The entire equation, i.e.~both sides are derived w.r.t.~$\varepsilon$. This leads to
+\begin{equation}
+  \left( \hat H - \varepsilon \right) \frac{\partial}{\partial \varepsilon} \phi_\varepsilon(r) = \phi_\varepsilon(r)
+\end{equation}
+an inhomogeneous equation.
+For the smooth partial waves, we try to fullfill
+\begin{equation}
+  \left( \tilde H\um{loc} - \varepsilon + \sum_{ij} \ket{\tilde p_i} (h_{ij} - \varepsilon q_{ij} ) \bra{\tilde p_j} \right) \tilde{\phi}_\varepsilon(r) = 0
+\end{equation}
+so in analogy to above
+\begin{equation}
+  \left( \tilde H\um{loc} - \varepsilon + \sum_{ij} \ket{\tilde p_i} (h_{ij} - \varepsilon q_{ij} ) \bra{\tilde p_j} \right) 
+  \frac{\partial}{\partial \varepsilon} \tilde{\phi}_\varepsilon(r) = \left( 1 + \sum_{ij} \ket{\tilde p_i} q_{ij} \bra{\tilde p_j} \right) \tilde{\phi}_\varepsilon(r)
+\end{equation}
+assuming that the projector functions are not $\varepsilon$-dependent.
 
 \newpage
 

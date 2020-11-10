@@ -125,8 +125,8 @@ cat > control.sh << EOF
 # configuration of atomic PAW setups
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
 #element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-#element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
-element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
 
 #element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
@@ -172,7 +172,8 @@ output.length.unit=Bohr
 
 # grid spacing of the dense grid (in Bohr)
 #potential_generator.grid.spacing=0.23622
-potential_generator.grid.spacing=.189
+#potential_generator.grid.spacing=.189
+potential_generator.grid.spacing=.1182
 #potential_generator.grid.spacing=0.208
 #potential_generator.grid.spacing=0.1772   ## dense grid
 
@@ -205,14 +206,14 @@ bands.per.atom=10
 
 # configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
-#grid.eigensolver=cg
-grid.eigensolver=explicit
-grid.eigensolver.repeat=5
+grid.eigensolver=cg
+#grid.eigensolver=explicit
+grid.eigensolver.repeat=15
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-#start.waves=waves.dat
+start.waves=waves.dat
 store.waves=waves.dat
 
 # configuration for basis=sho
@@ -243,8 +244,8 @@ davidson_solver.max.iterations=7
 #potential_generator.use.bessel.projection=0
 #potential_generator.direct.projection=0
 
-single_atom.init.scf.maxit=1
-single_atom.export.xml=1
+single_atom.init.scf.maxit=0
+single_atom.export.xml=0
 
 ###! the same radial grid is used to represent true and smooth quantities
 ### smooth.radial.grid.from=0
@@ -252,7 +253,7 @@ single_atom.export.xml=1
 EOF
 
 
-for spacing in `seq 1 1 0`; do
+for spacing in `seq 2 1 2`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -278,7 +279,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 10`; do
+for ecut in `seq 2 2 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
