@@ -124,8 +124,44 @@ cat > control.sh << EOF
 
 # configuration of atomic PAW setups
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
-element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+#element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+#element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+
 #element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
+
+## rcut 1.1
+#element_C="2s 2 3s 2e-99 2p 2 0 | 1.1 numax 2 sigma 0.392734 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.1 numax 2 sigma 0.392734 V=parabola"
+
+## rcut 1.0
+#element_C="2s 2 3s 2e-99 2p 2 0 | 1.0 numax 2 sigma 0.358427 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.0 numax 2 sigma 0.358427 V=parabola"
+
+## rcut 1.3
+#element_C="2s 2 3s 2e-99 2p 2 0 | 1.3 numax 2 sigma 0.467127 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.3 numax 2 sigma 0.467127 V=parabola"
+
+#element_B="2s 2 3s 2e-99 2p 1 0 | 1.2 numax 2 sigma .421744 V=parabola"
+element_B="2s 2 2p 1 0 | 1.2 numax 2 sigma .421744 V=parabola"
+#element_Be="2s 2 3s 2e-99 2p 2e-99 | 1.5 numax 2 sigma .45 V=parabola"
+element_Be="2s 2 2p 2e-99 | 1.5 numax 2 sigma .45 V=parabola"
+
+#element_Li="2s 1 3s 2e-99 2p 2e-99 | 2.0 numax 2 sigma 0.593874 V=parabola"
+element_Li="2s 1 2p 2e-99 | 2.0 numax 2 sigma 0.593874 V=parabola"
+
+#element_N="2s 2 3s 2e-99 2p 3 0 | 1.1 numax 2 sigma 0.395356 V=parabola"
+#element_N="2s 2 2p 3 0 | 1.1 numax 2 sigma 0.395356 V=parabola"
+element_N="2s* 2 2p 3 0 | 1.1 numax 2 sigma 0.395356 V=parabola"
+
+#element_O="2s 2 3s 2e-99 2p 3 1 | 1.13 numax 2 sigma 0.398484 V=parabola"
+element_O="2s 2 2p 3 1 | 1.13 numax 2 sigma 0.398484 V=sinc"
+#element_O="2s 2 2p 3 1 | 1.13 numax 1 sigma 0.398484 V=parabola"
+#element_O="2s 2 2p 3 1 | 1.13 numax 9 sigma 0.4 V=parabola"
+
+element_Mg="2s 2 3s 2 2p 6 | 1.96 numax 2 sigma 0.658581 V=sinc"
+
 
 # verbosity of the log files
 verbosity=7
@@ -153,7 +189,7 @@ single_atom.init.echo=7
 single_atom.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
-#single_atom.optimize.sigma=0
+single_atom.optimize.sigma=1
 single_atom.init.scf.maxit=2
 
 #smooth.radial.grid.from=0
@@ -209,6 +245,9 @@ davidson_solver.max.iterations=7
 single_atom.init.scf.maxit=1
 single_atom.export.xml=1
 
+###! the same radial grid is used to represent true and smooth quantities
+### smooth.radial.grid.from=0
+
 EOF
 
 
@@ -238,7 +277,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 6`; do
+for ecut in `seq 2 2 2`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -250,6 +289,20 @@ for ecut in `seq 2 2 6`; do
         > $project.out
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
+
+# for E_split in `seq 1.0 0.01 1.0`; do
+#   project=$project_base.dE$E_split
+#   (cd ../src/ && make -j) && \
+#   echo "# start calculation $project" && \
+#   $exe -test potential_generator. \
+#         +control.file=control.sh \
+#         +basis=pw \
+#         +pw_hamiltonian.cutoff.energy=2 \
+#         +single_atom.partial.wave.energy=$E_split \
+#         $1 \
+#         > $project.out
+# done
+
 
 ## results for C-dimer
 ### QE-spectrum          -19.6629 -10.5856  -7.2179  -7.2179  -7.1693  -0.4972  -0.4972  -0.1544 eV (self-consistent result)

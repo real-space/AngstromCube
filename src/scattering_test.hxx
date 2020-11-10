@@ -422,7 +422,7 @@ namespace scattering_test {
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
-      
+
       auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
           int const nq = nr/2; double const dq = .125;
@@ -479,7 +479,7 @@ namespace scattering_test {
               // in the radial representation, the usual Laplacian d^2/dr^2 can be applied 
               // for the radial component if the wave functions are in r*phi(r) representation
           } // ir
-          
+
           view2D<double const> rprj1((ln_off < nln)?(rprj[ln_off] + 1):nullptr, rprj.stride()); 
           // forward the rprj-pointer by one so that ir=0 will access the first non-zero radius
 
@@ -502,10 +502,6 @@ namespace scattering_test {
 #ifdef DEVEL
           if (echo > 19) { // debug
               printf("# %s: projector norm of ell=%i is ", __func__, ell);
-//               for(int nrn = 0; nrn < nn; ++nrn) {
-//                   printf(" %g", projector_norm[nrn]);
-//               } // nrn
-//               printf("\n");
               printf_vector(" %g", projector_norm, nn);
           } // echo
 
@@ -522,17 +518,14 @@ namespace scattering_test {
           set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
 
           { // scope: diagonalize
-              bool diagonalize_overlap_matrix = true; // true:always, false:if GEP fails (GEP=generalized eigenvalue problem)
+              bool diagonalize_overlap_matrix{true}; // true:always, false:if GEP fails (GEP=generalized eigenvalue problem)
               // solve the generalized eigenvalue problem
               auto const info = linear_algebra::eigenvalues(eigs.data(), nr, Ham.data(), Ham.stride(), Ovl.data(), Ovl.stride());
               if (0 == int(info)) {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
-                  if (echo > 1) {
+                  if (echo > 1 && nev > 0) {
                       printf("# %s lowest %c-eigenvalues ", label, ellchar[ell]);
-//                       for(int iev = 0; iev < nev; ++iev) {
-//                           printf("  %.6f", eigs[iev]*eV);
-//                       } // iev
                       printf_vector("  %.6f", eigs.data(), nev, "", eV);
                       printf("  %s\n", _eV);
                   } // echo
@@ -574,10 +567,6 @@ namespace scattering_test {
                   } // overlap matrix is not positive definite
                   if (echo > 8) {
                       printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
-//                       for(int iev = 0; iev < 8; ++iev) {
-//                           printf(" %g", eigs[iev]);
-//                       } // iev
-//                       printf("\n");
                       printf_vector(" %g", eigs.data(), 8);
                   } // echo
               } // info
