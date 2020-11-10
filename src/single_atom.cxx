@@ -1649,6 +1649,16 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
+        char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
+        char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+        char const method = *control::get("single_atom.partial.wave.method", "m");
+        char const recreate_second = 'r';      // ToDo: describe this
+#ifdef DEVEL
+        char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
+        char const orthogonalize_first = '1';       // ToDo
+#endif // DEVEL
+
+
         for(int ell = 0; ell <= numax; ++ell) {
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
             int const n = nn[ell]; // abbreviation
@@ -1676,6 +1686,7 @@ namespace single_atom {
                 auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
                 int constexpr SRA = 1;
 
+                // create the true partial wave
                 set(vs.wave[TRU], nr, 0.0); // clear
 #ifndef DEVEL
                 double const normalize = 1;
@@ -1758,6 +1769,44 @@ namespace single_atom {
 //                 if (prelim_waves & (1 << ell)) {
 //                     if (echo > 1) printf("# %s for ell=%i create a smooth partial wave by pseudization of the true partial wave\n", label, ell);
 //                 } // preliminary partial waves
+                
+                
+                if (recreate_second == method && '*' == partial_wave_char[iln] && nrn > 0) {
+                    if (echo > 0) printf("\n# %s recreate_second for %s\n", label, vs.tag);
+                    int const iln0 = ln_off + (nrn - 1); // index of the previous partial wave
+                    // project the previous smooth partial wave onto the radial SHO basis
+                    double co[8] = {0,0,0,0, 0,0,0,0};
+                    double cp[8] = {0,0,0,0, 0,0,0,0};
+                    for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
+                        co[irn] = dot_product(rg[SMT].n, partial_wave[iln0].wave[SMT], radial_sho_basis[ln_off + irn], rg[SMT].rdr);
+                        cp[irn] = projector_coeff[ell](nrn - 1,irn);
+                    } // irn
+                    // the new projector for the excited partial wave needs to have a projector
+                    // orthogonal to the lower partial wave and linear independent of the lower projector
+                    // lucky shot: orthogonalize the projector coefficients of the lower partial wave, cp
+                    double const cocp = dot_product(8, co, cp);
+                    double const coco = dot_product(8, co, co);
+                    if (echo > 0) printf("# %s recreate_second for %s: inner products %g and %g\n", label, vs.tag, cocp, coco);
+                    add_product(cp, 8, co, -cocp/coco);
+                    double const cocp_check = dot_product(8, co, cp);
+                    if (echo > 0) printf("# %s recreate_second for %s: inner product after orthogonalization %.1e\n", label, vs.tag, cocp_check);
+                    for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
+                        projector_coeff[ell](nrn,irn) = cp[irn]; // store in member variable
+                        if (echo > 0) printf("# %s recreate_second for %s coefficient #%i is %g\n", label, vs.tag, irn, cp[irn]);
+                    } // irn
+
+                    // reconstruct the second projector
+                    set(projectors_ell[nrn], projectors_ell.stride(), 0.0);
+                    for(int mrn = 0; mrn < sho_tools::nn_max(numax, ell); ++mrn) { // radial SHO basis size
+                        auto const c = projector_coeff[ell](nrn,mrn);
+                        if (0.0 != c) {
+                            add_product(projectors_ell[nrn], rg[SMT].n, radial_sho_basis[ln_off + mrn], c);
+                            if (echo > 5) printf("# %s re-construct  %s projector by taking %9.6f of the %c%i radial SHO basis function\n",
+                                                    label, partial_wave[iln].tag, c, ellchar[ell],mrn);
+                        } // coefficient non-zero
+                    } // mrn
+                    
+                } // recreate_second
                 
 
                 // idea: make this module flexible enough so it can load a potential and
@@ -1852,18 +1901,12 @@ namespace single_atom {
                         } // krn > 0
                     } // krn
 
-                    char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
-                    char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-                    char const method = *control::get("single_atom.partial.wave.method", "m");
-#ifdef DEVEL
-                    char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
-                    char const orthogonalize_first = '1';       // ToDo
-#endif // DEVEL
 
                     std::vector<double> evec(n, 0.0);
                     evec[nrn] = 1.0; // this is everything that needs to be done for method==energy_ordering
+                    if (recreate_second == method) { evec[nrn] = 0; evec[0] = 1; }
                     if (n > 1) {
-                        
+
                         if (method == minimize_radial_curvature) { 
                             view2D<double> Ekin(     3*n , n);
                             view2D<double> Olap(Ekin[1*n], n);
@@ -1975,6 +2018,10 @@ namespace single_atom {
                         if (method == energy_ordering) {
                             assert(1 == evec[nrn]);
                         } // energy_ordering
+                        
+                        if (method == recreate_second) {
+                            assert(1 == evec[0]);
+                        } // recreate_second
 
                     } // n > 1 more than one partial wave
 
@@ -2030,8 +2077,8 @@ namespace single_atom {
                         for(int jrn = 0; jrn < n; ++jrn) { // number of partial waves
                             int const jln = jrn + ln_off;
                             ovl(irn,jrn) = dot_product(nr, projectors_ell[irn], partial_wave[jln].wave[SMT], rg[SMT].rdr);
-                            if (echo > 4) printf("# %s smooth partial %c-wave #%d with %c-projector #%d has overlap %g\n",
-                                                  label, ellchar[ell], irn, ellchar[ell], jrn, ovl(irn,jrn));
+                            if (echo > 4) printf("# %s %c-projector #%i with partial wave #%i has overlap %g\n",
+                                                  label, ellchar[ell], irn, jrn, ovl(irn,jrn));
                         } // jrn
                     } // irn
 

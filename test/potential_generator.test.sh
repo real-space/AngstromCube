@@ -184,7 +184,8 @@ electrostatic.solver=fft
 
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
-single_atom.partial.wave.method=energy_ordering
+#single_atom.partial.wave.method=energy_ordering
+single_atom.partial.wave.method=recreate_second
 single_atom.init.echo=7
 single_atom.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
@@ -277,7 +278,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 2`; do
+for ecut in `seq 2 2 10`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

@@ -1347,6 +1347,63 @@ where also the case $j = i$ is excluded (although due to a divergent expression)
 
 %% We could do the same to all components of the total energy ...
 
+\newpage
+
+\section*{Energy derivative of partial waves}
+The Bl\"{o}chl scheme to generate projector functions starts out from given smooth partial waves
+$\tilde{\phi}_i(r)$ that already fullfill the requirements of pseudo waves, i.e.~they 
+are smooth and match the true partial waves $\phi_i(r)$ at $r\um{cut}$. 
+Bl\"{o}chl suggests to use a prelimnary projector function
+\begin{equation}
+  \tilde{p'}_i(r) = \left( \hat T + \tilde{V}\um{loc}(r) - \varepsilon_i \right) \tilde{\phi}_i(r)
+\end{equation}
+This equation assures that applying the non-local Hamiltonian part does not lead out of
+the space of smooth functions spanned by $\tilde{\phi}$ and $\tilde{p}$.
+
+In practice, however, the situation for two partial waves (in the $s$-channel) exhibits
+very similar preliminary projector functions which reflects in a very small determinant
+of the 2x2 matrix which is LU-decomposed in the Gram-Schmidt orthogonalization procedure
+that ensures duality $\braket{\tilde{\phi}_i}{\tilde{p}_j} = \delta_{ij}$.
+Typical determinant values are $10^{-6}$ which leads to large coefficients for the
+higher orthogonalized projector.
+
+The BaumeisterTsukamotoPASC19 approach sugggests to invert the equation above
+and solve for the smooth partial waves given smooth projector functions.
+
+Using projector functions from Bloechls approach, SHO-filtering allows to represent
+these functions as a linear combination of two radial SHO eigenfunctions.
+
+This together leads to a set of partial waves and projectors
+that produce an almost singular PAW overlap operator $\mathcal S$:
+\begin{align}
+  \mathcal S &= \mathbf 1  + \ket{\tilde{p}_i} q_{ij} \bra{\tilde{p}_j} \qquad \text{with}
+  \\ q_{ij} &= \braket{\phi_i}{\phi_j} - \braket{\tilde\phi_i}{\tilde\phi_j}
+\end{align}
+In particular if the energy spliting $\varepsilon_1 - \varepsilon_0$ is the usual 1 Hartree,
+the eigenvalues of $\mathcal S$ are as close as $10^{-3}$ and only slowly recovers to stable values
+when increasing the energy splitting to much higher values, way above the valence energy window
+, see fig.~\ref{fig:eigenvalues_of_charge-deficit_operator}.
+
+\begin{figure} [ht]
+  \centering
+  %% how to generate this plot: ~/runfort zam044:~/Codes/a43/doc/fig/plot/mask.F90
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/N_eigenvalues_of_charge-deficit_operator} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \caption{Eigenvalues of the charge deficit operator $\ket{\tilde{p}_i} q_{ij} \bra{\tilde{p}_j}$.
+  For small values of the energy splitting, the lowest eigenvalue is close to -1 which translates
+  to a singular eigenvalue of the PAW overlap operator.
+  } \label{fig:eigenvalues_of_charge-deficit_operator}
+\end{figure}
+
+This effect has been observed for 5 first-row elements (Li -- N).
+
+
+\newpage
+
+
 
 % ==============================================================================
 \bibliographystyle{splncs03} \bibliography{literature}
