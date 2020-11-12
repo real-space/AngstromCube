@@ -1195,20 +1195,25 @@ namespace single_atom {
     
     
     void show_projector_coefficients(char const *attribute="", double const sigma=0, int const echo=0) {
+        // Total energy of SHO state is (nu + 3/2) sigma^-2 in Hartree, nu=ell+2*nrn
+        // Kinetic energy is half of the total energy (due to x <--> p symmetry)
         double const f_kin = (sigma > 0) ? 0.5/pow2(sigma) : 0;
-        double kinetic[8];
+        double kinetic_coeff[8];
         for(int ell = 0; ell <= numax; ++ell) {
             int const nmx = sho_tools::nn_max(numax, ell);
+            assert(nmx <= 8);
             for(int irn = 0; irn < nn[ell]; ++irn) {
                 int const iln = sho_tools::ln_index(numax, ell, irn);
                 auto const norm2 = dot_product(nmx, projector_coeff[ell][irn], projector_coeff[ell][irn]);
-                for(int i = 0; i < nmx; ++i) kinetic[i] = f_kin*();
-                auto const E_kin = dot_product(nmx, projector_coeff[ell][irn], projector_coeff[ell][irn], kinetic);
+                for(int i = 0; i < nmx; ++i) kinetic_coeff[i] = f_kin * (ell + 2*irn + 1.5) * projector_coeff[ell][irn][i];
+                auto const E_kin = dot_product(nmx, projector_coeff[ell][irn], kinetic_coeff);
                 if (norm2 > 0) {
                     if (echo > 0) {
                         auto const length = std::sqrt(norm2);
                         printf("# %s %scoefficients of the %s-projector: %.6e * [", label, attribute, partial_wave[iln].tag, length);
-                        printf_vector(" %9.6f", projector_coeff[ell][irn], nmx, " ]\n", 1./length);
+                        printf_vector(" %9.6f", projector_coeff[ell][irn], nmx, " ]", 1./length);
+                        if (sigma > 0) printf(", %g %s", E_kin/norm2*eV, _eV); // display the required plane wave cutoff
+                        printf("\n");
                     } // echo
                 } else {
                     warn("%s failed to normalize %s-projector coefficients", label, partial_wave[iln].tag);
