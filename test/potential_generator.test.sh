@@ -12,9 +12,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C 0 0 0" >> $geometry_file
 
-# project_base=pg.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Og-atom
 # printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
@@ -28,10 +28,10 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
-project_base=pg.C-dimer
-printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  -0.65 0 0" >> $geometry_file
-echo "C   0.65 0 0" >> $geometry_file
+# project_base=pg.C-dimer
+# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  -0.65 0 0" >> $geometry_file
+# echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -208,13 +208,13 @@ bands.per.atom=10
 # method of the grid eigensolver {cg, Davidson, none, explicit}
 grid.eigensolver=cg
 #grid.eigensolver=explicit
-grid.eigensolver.repeat=15
+grid.eigensolver.repeat=1
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
 start.waves=waves.dat
-store.waves=waves.dat
+#store.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
@@ -245,7 +245,7 @@ davidson_solver.max.iterations=7
 #potential_generator.direct.projection=0
 
 single_atom.init.scf.maxit=0
-single_atom.export.xml=0
+single_atom.export.xml=1
 
 ###! the same radial grid is used to represent true and smooth quantities
 ### smooth.radial.grid.from=0

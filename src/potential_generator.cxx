@@ -385,7 +385,9 @@ namespace potential_generator {
               gc.set_boundary_conditions(g.boundary_conditions());
               if (echo > 1) {
                   printf("# use  %d x %d x %d  coarse grid points\n", gc[0], gc[1], gc[2]);
-                  printf("# use  %g %g %g  %s  coarse grid spacing\n", gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang);
+                  double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
+                  printf("# use  %g %g %g  %s  coarse grid spacing, corresponds to %.3f Ry\n",
+                            gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
               } // echo
 
               // create a list of atoms
