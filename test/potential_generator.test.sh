@@ -12,9 +12,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C 0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Og-atom
 # printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
@@ -28,10 +28,10 @@ echo "C  0 0 0" >> $geometry_file
 # printf " 1 \n#cell 6 6 6 p p p \n" > $geometry_file
 # echo "Mg  0 0 0" >> $geometry_file
 
-# project_base=pg.C-dimer
-# printf " 2 \n#cell 8 8 8 p p p \n" > $geometry_file
-# echo "C  -0.65 0 0" >> $geometry_file
-# echo "C   0.65 0 0" >> $geometry_file
+project_base=pg.C-dimer
+printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  -0.65 0 0" >> $geometry_file
+echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file

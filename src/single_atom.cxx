@@ -1194,12 +1194,16 @@ namespace single_atom {
     
     
     
-    void show_projector_coefficients(char const *attribute="", int const echo=0) {
+    void show_projector_coefficients(char const *attribute="", double const sigma=0, int const echo=0) {
+        double const f_kin = (sigma > 0) ? 0.5/pow2(sigma) : 0;
+        double kinetic[8];
         for(int ell = 0; ell <= numax; ++ell) {
             int const nmx = sho_tools::nn_max(numax, ell);
             for(int irn = 0; irn < nn[ell]; ++irn) {
                 int const iln = sho_tools::ln_index(numax, ell, irn);
                 auto const norm2 = dot_product(nmx, projector_coeff[ell][irn], projector_coeff[ell][irn]);
+                for(int i = 0; i < nmx; ++i) kinetic[i] = f_kin*();
+                auto const E_kin = dot_product(nmx, projector_coeff[ell][irn], projector_coeff[ell][irn], kinetic);
                 if (norm2 > 0) {
                     if (echo > 0) {
                         auto const length = std::sqrt(norm2);
@@ -1317,6 +1321,8 @@ namespace single_atom {
         // Construct partial waves and preliminary projectors the classical way
         //    leading to numerically given projector functions fully localized
         //    inside the augmentation sphere.
+        //
+        // ToDo: unify this with functional elements of update_partial_waves
         //
         for(int ell = 0; ell <= numax; ++ell) {
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // partial waves
@@ -1461,13 +1467,13 @@ namespace single_atom {
                                               label, ellchar[ell], irn, p_coeff, jrn);
                                 } // echo
 
-                                auto const coeff = LU_inv(1,jrn,irn);
-                                add_product(ttmp[irn],   tphi.stride(), tphi[jrn + ln_off], coeff);
-                                add_product(stmp(irn,0), sphi.stride(), sphi[jrn + ln_off], coeff);
-                                add_product(stmp(irn,1), skin.stride(), skin[jrn + ln_off], coeff);
-                                if (echo_GS > 9 && coeff != 0) {
+                                auto const w_coeff = LU_inv(1,jrn,irn);
+                                add_product(ttmp[irn],   tphi.stride(), tphi[jrn + ln_off], w_coeff);
+                                add_product(stmp(irn,0), sphi.stride(), sphi[jrn + ln_off], w_coeff);
+                                add_product(stmp(irn,1), skin.stride(), skin[jrn + ln_off], w_coeff);
+                                if (echo_GS > 9 && w_coeff != 0) {
                                     printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n",
-                                              label, ellchar[ell], irn, coeff, jrn);
+                                              label, ellchar[ell], irn, w_coeff, jrn);
                                 } // echo
 
                             } // jrn
@@ -1560,7 +1566,7 @@ namespace single_atom {
             } // irn
 
         } // ell
-        show_projector_coefficients(optimized, echo - 6); // and warn if not normalizable
+        show_projector_coefficients(optimized, sigma_out, echo - 6); // and warn if not normalizable
 
 #ifdef DEVEL
         if (optimize_sigma < -9) abort("after sigma optimization");
@@ -2127,14 +2133,14 @@ namespace single_atom {
                             set(partial_wave[iln].wave[ts], nrts, 0.0); // clear
                             set(partial_wave[iln].wKin[ts], nrts, 0.0); // clear
                             for(int jrn = 0; jrn < n; ++jrn) {
-                                auto const coeff = LU_inv(1,jrn,irn);
-                                if (coeff != 0) {
+                                auto const w_coeff = LU_inv(1,jrn,irn);
+                                if (w_coeff != 0) {
                                     if (ts == TRU && echo_GS > 3) {
                                         printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n",
-                                                  label, ellchar[ell], irn, coeff, jrn);
+                                                  label, ellchar[ell], irn, w_coeff, jrn);
                                     } // echo
-                                    add_product(partial_wave[iln].wave[ts], nrts, waves(0,jrn), coeff);
-                                    add_product(partial_wave[iln].wKin[ts], nrts, waves(1,jrn), coeff);
+                                    add_product(partial_wave[iln].wave[ts], nrts, waves(0,jrn), w_coeff);
+                                    add_product(partial_wave[iln].wKin[ts], nrts, waves(1,jrn), w_coeff);
                                 } // coeff nonzero
                             } // jrn
                         } // irn
@@ -2256,7 +2262,7 @@ namespace single_atom {
 
         } // ell
 
-        show_projector_coefficients("orthogonalized ", echo - 6); // and warn if not normalizable
+        show_projector_coefficients("orthogonalized ", sigma, echo - 6); // and warn if not normalizable
         
     } // update_partial_waves
 
