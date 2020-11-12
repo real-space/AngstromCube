@@ -79,7 +79,7 @@ namespace recorded_warnings {
 
 
   std::pair<char*,int> _manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
-    if (echo > 6) printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
+    if (echo > 8) printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
                       __FILE__, __LINE__, __func__, file, line, echo);
 
     static std::map<uint64_t,WarningRecord> map_;

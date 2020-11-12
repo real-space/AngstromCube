@@ -186,7 +186,8 @@ electrostatic.solver=fft
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 #single_atom.partial.wave.method=energy_ordering
-single_atom.partial.wave.method=recreate_second
+#single_atom.partial.wave.method=recreate_second
+single_atom.partial.wave.method=classical
 single_atom.init.echo=7
 single_atom.echo=7
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
@@ -208,13 +209,13 @@ bands.per.atom=10
 # method of the grid eigensolver {cg, Davidson, none, explicit}
 grid.eigensolver=cg
 #grid.eigensolver=explicit
-grid.eigensolver.repeat=1
+grid.eigensolver.repeat=15
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
 start.waves=waves.dat
-#store.waves=waves.dat
+store.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr

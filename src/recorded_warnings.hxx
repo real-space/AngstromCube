@@ -13,13 +13,13 @@ namespace recorded_warnings {
   std::pair<char*,int> _new_warning(char const *file, int const line, char const *func); // hidden, please use the macro above
 
 #define error(...) { \
-    recorded_warnings::show_warnings(9); \
+    recorded_warnings::show_warnings(8); \
     recorded_warnings::_print_error_message(stdout, "Error", __FILE__, __LINE__, __VA_ARGS__ ); \
     recorded_warnings::_print_error_message(stderr, "Error", __FILE__, __LINE__, __VA_ARGS__ ); \
     exit(__LINE__); }
 
 #define abort(...) { \
-    recorded_warnings::show_warnings(9); \
+    recorded_warnings::show_warnings(8); \
     recorded_warnings::_print_error_message(stdout, "Abort", __FILE__, __LINE__, __VA_ARGS__ ); \
     exit(__LINE__); }
 

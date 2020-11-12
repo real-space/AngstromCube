@@ -169,7 +169,7 @@ namespace paw_xml_export {
           } // iln
           std::fprintf(f, "  </kinetic_energy_differences>\n");
       } // scope
-      
+
       std::fprintf(f, "  <!-- exact_exchange_X_matrix not included -->\n");
       std::fprintf(f, "  <exact_exchange core-core=\"0\"/>\n");
 

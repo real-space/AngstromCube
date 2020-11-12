@@ -962,7 +962,7 @@ namespace single_atom {
                 energy_xc[TRU], energy_es[TRU], energy_tot[TRU]);
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
-            if (maxit_scf < 1) warn("exported paw file although no setup SCF iterations executed");
+            if (maxit_scf < 1) warn("exported PAW file although no setup SCF iterations executed");
             if (export_xml < 0) abort("single_atom.export.xml=%d (negative leads to a stop)", export_xml);
         } // export_xml
 
@@ -1310,216 +1310,10 @@ namespace single_atom {
         // we could also define sphi(nn[ell], nr_smt) and skin inside the ell-loop, however, 
         // this does not apply to the projectors since they will all be need later in the fitting.
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-        view2D<double> tphi(nln, align<2>(rg[TRU].n), 0.0); // get memory for r*phi_tru
-        view2D<double> sphi(nln, align<2>(rg[SMT].n), 0.0); // get memory for r*phi_smt
-        view2D<double> rprj(nln, align<2>(rg[SMT].n), 0.0); // get memory for r*projector
-        view2D<double> skin(nln, align<2>(rg[SMT].n), 0.0); // get memory for r*T*phi_smt
 
         std::vector<double> occ_ln(nln, 0.0);
         double total_occ{0};
 
-// #define OLD_VERSION
-#ifdef  OLD_VERSION
-        std::vector<double> norms(nln, 0.0);
-
-        auto const Gram_Schmidt_iterations = int(control::get("single_atom.gram.schmidt.repeat", 1.));
-        
-        //
-        // Construct partial waves and preliminary projectors the classical way
-        //    leading to numerically given projector functions fully localized
-        //    inside the augmentation sphere.
-        //
-        // ToDo: unify this with functional elements of update_partial_waves
-        //
-        for(int ell = 0; ell <= numax; ++ell) {
-            for(int nrn = 0; nrn < nn[ell]; ++nrn) { // partial waves
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
-                auto const energy = partial_wave[iln].energy;
-                auto const occ    = partial_wave[iln].occupation;
-                auto const tag    = partial_wave[iln].tag;
-
-                if ('D' == partial_wave_char[iln]) error("energy derivative not supported!");
-                // integrate outwards homogeneously
-                // (^T + V - E) phi(r) == 0
-                int constexpr SRA = 1; // scalar relativistic approximation
-                
-                if (partial_wave_char[iln] >= '1' && partial_wave_char[iln] <= '9') {
-                    // if the energy matches an eigenenergy of the spherical potential, we can use this integrator and normalize
-                    int nnodes{0};
-                    // integrate SRA equation (^T + V(r) - E) phi(r) = 0 outwards homogeneously
-                    auto const kink = radial_integrator::shoot(SRA, rg[TRU], potential[TRU].data(), ell, energy, nnodes, tphi[iln]);
-                    if (echo > 1) printf("# %s for the %s-partial wave use the eigenstate at E= %g %s, kink= %g\n", label, tag, energy*eV, _eV, kink);
-                } else {
-                    view2D<double> ff(1, rg[TRU].n);
-                    if (echo > 1) printf("# %s for the %s-partial wave integrate outwards at E= %g %s\n", label, tag, energy*eV, _eV);
-                    radial_integrator::integrate_outwards<SRA>(rg[TRU], potential[TRU].data(), ell, energy, tphi[iln], ff[0]);
-                } // eigenstate or unbound state
-
-                norms[iln] = dot_product(rg[TRU].n, tphi[iln], tphi[iln], rg[TRU].dr);
-                // tphi contains r*phi_true(r)
-                if (occ > 1e-24) { // relevant occupation
-                    if (norms[iln] > 1e-99) {
-                        scale(tphi[iln], rg[TRU].n, 1./std::sqrt(norms[iln]));
-                        norms[iln] = 1;
-                    } else {
-                        warn("cannot normalize true %s-partial wave although occupied with %g electrons", partial_wave[iln].tag, occ);
-                    }
-                } // occupied
-
-                // copy the tail of the TRU wave function into the SMT wave function
-                set(sphi[iln], rg[SMT].n, tphi[iln] + nr_diff);
-
-                // pseudize by matching a polynomial r^(ell + 1)*(c_0 + c_1 r^2 + c_2 r^4 + c_3 r^6)
-                double coeff[4]; // matching polynomial coefficients
-                auto const stat = pseudo_tools::pseudize_function(sphi[iln], rg[SMT].r, ir_cut[SMT], 4, ell + 1, coeff);
-                assert(0 == stat);
-
-                // construct a preliminary projector according to the Bloechl scheme:
-                //    ~p(r) = (^T + ~V - E) ~phi(r)
-                std::vector<double> rkin(rg[SMT].n); // get memory for the kinetic wave
-                double ckin[3]; // coefficients of the kinetic wave
-                // The kinetic energy operator is
-                //    ^T = .5*( ell(ell+1)/r^2 - d^2/dr^2 ) when acting onto r*wave(r)
-                for(int k = 1; k < 4; ++k) {
-                    ckin[k - 1] = 0.5*( ell*(ell + 1) - (ell + 2*k)*(ell + 1 + 2*k) )*coeff[k];
-                } // k
-
-                if (echo > 19) printf("\n## %s classical method for %c%i: r, smooth r*wave, smooth r*Twave, true r*wave, true r*Twave, projector:\n", label, ellchar[ell], nrn);
-                // expand kinetic wave up to r_cut
-                for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
-                    double const r = rg[SMT].r[ir], r2 = pow2(r), rl1 = intpow(r, ell + 1);
-                    rkin[ir] = rl1*(ckin[0] + r2*(ckin[1] + r2*ckin[2])); // expand polynomial ...
-                    // ... describing the kinetic energy operator times the smooth wave function
-                    // Here, we construct the preliminary projector functions accoding to the Bloechl scheme
-                    rprj(iln,ir) = rkin[ir] + (potential[SMT][ir]*rg[SMT].rinv[ir] - energy)*sphi(iln,ir);
-                    int const ir_tru = ir + nr_diff;
-                    double const rkin_tru = (energy - potential[TRU][ir_tru]*rg[TRU].rinv[ir_tru])*tphi(iln,ir_tru);
-                    if (echo > 19) printf("%g %g %g %g %g %g\n", r, sphi(iln,ir), rkin[ir], tphi(iln,ir_tru), rkin_tru, 
-                        rprj(iln,ir)*rg[SMT].rinv[ir]);
-                } // ir
-                // beyond the cutoff radius, sphi and tphi are identical
-                if (echo > 19) printf("\n## %s classical method for %c%i: r, smooth/true r*wave, smooth/true r*Twave:\n", label, ellchar[ell], nrn);
-                for(int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
-                    int const ir_tru = ir + nr_diff;
-                    rkin[ir] = (energy - potential[TRU][ir_tru]*rg[TRU].rinv[ir_tru])*tphi(iln,ir_tru);
-                    if (echo > 19) printf("%g %g %g\n", rg[SMT].r[ir], sphi(iln,ir), rkin[ir]);
-                } // ir
-                if (echo > 19) printf("\n\n");
-
-                set(skin[iln], rg[SMT].n, rkin.data()); // store for later usage (needed for sugestion of a potential shape)
-
-                // check that the two functions match smoothly at r_cut, seems ok
-                //
-                // this technique produces projectors that go to zero smoothly at r_cut, however,
-                // they feature high frequency components due to the strict localization
-                //
-                // now expand the projectors in SHO projectors and minimize the deviation by optimizing sigma.
-                // the total deviation is weighted with the ell-channel-summed occupation numbers, occ_ell.
-                occ_ln[iln] = occ;
-                total_occ  += occ;
-            } // nrn
-
-            if (0) {
-                printf("\n## %s smooth partial %c-waves and preliminary projectors:\n", label, ellchar[ell]);
-                for(int ir = 1; ir < rg[SMT].n; ++ir) {
-                    printf("%g", rg[SMT].r[ir]);
-                    auto const by_r = rg[SMT].rinv[ir];
-                    for(int nrn = 0; nrn < nn[ell]; ++nrn) { // partial waves
-                        int const iln = sho_tools::ln_index(numax, ell, nrn);
-                        printf("  %g %g", sphi(iln,ir)*by_r, rprj(iln,ir)*by_r);
-                    } // iln
-                    printf("\n");
-                } // ir
-                printf("\n\n");
-            } // dump smooth partial waves and projectors
-
-            // establish duality according to the Gram-Schmidt scheme
-            // leaving the lowest projector and lowest partial wave unchanged (except for scaling)
-            int const ln_off = sho_tools::ln_index(numax, ell, 0); // irn=0, offset of partial wave indices
-            int const n = nn[ell];
-            if (n > 0) {
-                view2D<double> ovl(n, n, 0.0);
-                for(int iGS = 0; iGS < Gram_Schmidt_iterations; ++iGS) {
-                    int const echo_GS = echo - 4*iGS; // higher iterations usually bring only tiny corrections -. less interesting
-
-                    // compute the overlap of projectors and smooth partial waves
-                    for(int irn = 0; irn < n; ++irn) {        int const iln = irn + ln_off;
-                        for(int jrn = 0; jrn < n; ++jrn) {    int const jln = jrn + ln_off;
-                            ovl(irn,jrn) = dot_product(rg[SMT].n, rprj[iln], sphi[jln], rg[SMT].dr);
-                        } // jrn
-                    } // irn
-
-                    if (echo_GS > 6) { // show overlap
-                        printf("\n# %s (numeric projectors) %c-overlap before Gram-Schmidt:\n", label, ellchar[ell]);
-                        for(int irn = 0; irn < n; ++irn) {
-                            printf("# %s ell=%c", label, ellchar[ell]);
-                            printf_vector(" %11.6f", ovl[irn], n);
-                        } // irn
-                        printf("\n");
-                    } // echo
-
-                    view3D<double> LU_inv(2, n, n, 0.0);
-                    pseudo_tools::perform_Gram_Schmidt(n, LU_inv, ovl, label, ellchar[ell], echo_GS);
-
-                    if (1) { // scope: orthogonalize partial waves and numerical projectors
-                        view2D<double> ttmp(n, tphi.stride(), 0.0);
-                        view3D<double> stmp(n, 3, sphi.stride(), 0.0);
-                        for(int irn = 0; irn < n; ++irn) {
-                            for(int jrn = 0; jrn < n; ++jrn) {
-      
-                                auto const p_coeff = LU_inv(0,irn,jrn);
-                                if (p_coeff != 0) {
-                                    add_product(stmp(irn,2), rprj.stride(), rprj[jrn + ln_off], p_coeff);
-                                    if (echo_GS > 9) printf("# %s create orthogonalized %c-projector #%i with %g * projector #%i\n",
-                                                                label, ellchar[ell], irn, p_coeff, jrn);
-                                } // p_coeff non-zero
-
-                                auto const w_coeff = LU_inv(1,jrn,irn);
-                                if (w_coeff != 0) {
-                                    add_product(ttmp[irn],   tphi.stride(), tphi[jrn + ln_off], w_coeff);
-                                    add_product(stmp(irn,0), sphi.stride(), sphi[jrn + ln_off], w_coeff);
-                                    add_product(stmp(irn,1), skin.stride(), skin[jrn + ln_off], w_coeff);
-                                    if (echo_GS > 9) printf("# %s create orthogonalized partial %c-wave #%i with %g * wave #%i\n",
-                                                                label, ellchar[ell], irn, w_coeff, jrn);
-                                } // w_coeff non-zero
-
-                            } // jrn
-                        } // irn
-
-                        // copy back
-                        for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
-                            set(tphi[iln], tphi.stride(), ttmp[irn]);
-                            set(sphi[iln], sphi.stride(), stmp(irn,0));
-                            set(skin[iln], skin.stride(), stmp(irn,1));
-
-                            set(rprj[iln], rprj.stride(), stmp(irn,2));
-                        } // irn
-                    } // scope
-
-                } // iGS - can be done 0, 1 or even more times
-
-                if (echo > 7) { // show overlap (should be unity now)
-                    printf("\n# %s (numeric projectors) %c-overlap after %dx Gram-Schmidt:\n",
-                                label, ellchar[ell], Gram_Schmidt_iterations);
-                    for(int irn = 0; irn < n; ++irn) {  int const iln = irn + ln_off;
-                        printf("# %s ", label, ellchar[ell]);
-                        for(int jrn = 0; jrn < n; ++jrn) {      int const jln = jrn + ln_off;
-                            printf(" %11.6f", dot_product(rg[SMT].n, rprj[iln], sphi[jln], rg[SMT].dr));
-                        } // jrn
-                        printf("\n");
-                    } // irn
-                    printf("\n");
-                } // echo
-
-            } // nn[ell] > 0
-            
-        } // ell
-        
-        #define _rprj_ rprj
-
-#else  // OLD_VERSION
-
-        #define _rprj_ projectors
 
         // get weights only
         for(int ell = 0; ell <= numax; ++ell) {
@@ -1532,10 +1326,8 @@ namespace single_atom {
             } // nrn
         } // ell
 
-        update_partial_waves(echo + 4, 'c', 1); // create partial waves with polynomials like GPAW and preliminary projectors as suggested by Bloechl
+        update_partial_waves(echo - 6, 'C', 2); // create partial waves with polynomials like GPAW and preliminary projectors as suggested by Bloechl
 
-#endif // OLD_VERSION
-        
         char const *optimized{""};
         auto const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.)); // 0:no, 1:use optimized, -1:optimize and display only
 #ifdef DEVEL
@@ -1550,7 +1342,7 @@ namespace single_atom {
             while (bisection.root(sigma_now, gradient, echo/2))
             {
                 weighted_quality = expand_numerical_projectors_in_SHO_basis(gradient,
-                    sigma_now, numax, nn, rg[SMT], _rprj_, occ_ln.data(), label, echo);
+                    sigma_now, numax, nn, rg[SMT], projectors, occ_ln.data(), label, echo);
             } // while
             double const best_weighted_quality = weighted_quality;
             sigma_opt = sigma_now;
@@ -1565,9 +1357,9 @@ namespace single_atom {
 
             optimized = "optimized ";
         } // optimize_sigma
-        double const sigma_out = sigma_opt;
+        double const sigma_out = sigma_opt; // return value
 #else  // DEVEL
-        double const sigma_out = sigma;
+        double const sigma_out = sigma; // return value
         if (optimize_sigma) warn("single_atom.optimize.sigma active only with -D DEVEL");
 #endif // DEVEL
 
@@ -1576,11 +1368,10 @@ namespace single_atom {
         { // scope: fill prj_coeff
             double gradient{0};
             auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(gradient, 
-                sigma_out, numax, nn, rg[SMT], _rprj_, occ_ln.data(), label, echo, prj_coeff.data());
+                sigma_out, numax, nn, rg[SMT], projectors, occ_ln.data(), label, echo, prj_coeff.data());
             if (echo > 3) printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
                                           weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
         } // scope: fill prj_coeff
-#undef  _rprj_
         
         for(int ell = 0; ell <= numax; ++ell) {
             int const nmx = sho_tools::nn_max(numax, ell); assert(nmx <= 8 && "numax > hard limit 15");
@@ -1599,34 +1390,6 @@ namespace single_atom {
 
 #ifdef DEVEL
         if (optimize_sigma < -9) abort("after sigma optimization");
-#endif // DEVEL
-
-#if 0
-        // experimental
-        int const suggest_vloc = int(control::get("single_atom.suggest.local.potential", -1.));
-        if (suggest_vloc > -1) {
-            int const nln = sho_tools::nSHO_radial(numax);
-            view2D<double> prj_sho(nln, align<2>(rg[SMT].n), 0.0); // get memory for r*projector
-            // if we dictate the shape of the projectors
-            scattering_test::expand_sho_projectors(prj_sho.data(), prj_sho.stride(), rg[SMT], sigma_opt, numax, 1, echo/2); // r*projector
-            // and we want the shape of the smooth partial wave given by sphi[ell nrn=0]
-            int const ell = suggest_vloc;
-            assert(ell <= numax);
-            int const jln = sho_tools::ln_index(numax, ell, 0); // nrn=0 // radial SHO index
-            int const iln = sho_tools::ln_index(numax, ell, 0); // nrn=0 // partial wave index
-            // then the local potential can be found from the inversion:
-            //      ~V(r) = E + ( ~p(r) - ^T ~phi(r) )/~phi(r)
-            // where we need to respect the duality: < ~p | ~phi > = 1 which fixes the scaling
-            double const duality = 1./dot_product(rg[SMT].n, prj_sho[jln], sphi[iln], rg[SMT].dr);
-            if (echo > 0) printf("\n## %s suggested local potential for ell=%i (%c) and currently used potential (Bohr, Ha, Ha):\n", label, ell, ellchar[ell]);
-            for(int ir = 0; ir < rg[SMT].n; ++ir) {
-                double const denom = (std::abs(sphi(iln,ir)) < 1e-6) ? 1 : sphi(iln,ir);
-                double const pot = partial_wave[iln].energy + ( prj_sho(jln,ir)*duality - skin(iln,ir) ) / denom;
-                if (echo > 0) printf("%g %g %g\n", rg[SMT].r[ir], pot, potential[SMT][ir]*rg[SMT].rinv[ir]);
-            } // ir
-            if (echo > 0) printf("\n\n");
-            error("terminate after task single_atom.suggest.local.potential=%i", suggest_vloc);
-        } // suggest smooth local potential shape
 #endif // DEVEL
 
         return sigma_out;
@@ -1648,13 +1411,13 @@ namespace single_atom {
     ) {
         // generate new smooth partial waves given fixed projector functions
 
-        auto const Gram_Schmidt_iterations = (GS_iterations < 0) ? int(control::get("single_atom.gram.schmidt.repeat", 2.)) : 1;
+        auto const Gram_Schmidt_iterations = (GS_iterations < 1) ? int(control::get("single_atom.gram.schmidt.repeat", 2.)) : GS_iterations;
 
         char const method = ('?' != generation_method) ? generation_method : *control::get("single_atom.partial.wave.method", "m");
         char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
         char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-        char const classical_scheme = 'c';          // find partial waves by fitting a polynomial and evaluate preliminary projector functions
-        char const classical_partial_waves = 'C';   // find partial waves by fitting a polynomial, projector functions unchanged
+        char const classical_scheme = 'C';          // find partial waves by fitting a polynomial and evaluate preliminary projector functions
+        char const classical_partial_waves = 'c';   // find partial waves by fitting a polynomial, projector functions unchanged
         char const recreate_second = 'r';           // use the lowest projector as inhomogeneiety for the higher partial wave
 #ifdef DEVEL
         char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
@@ -1815,11 +1578,6 @@ namespace single_atom {
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
-
-//                 int const prelim_waves = control::get("single_atom.preliminary.partial.waves", 0.); // 0:none, -1:all, e.g. 5: s and d
-//                 if (prelim_waves & (1 << ell)) {
-//                     if (echo > 1) printf("# %s for ell=%i create a smooth partial wave by pseudization of the true partial wave\n", label, ell);
-//                 } // preliminary partial waves
                 
 #if 0                
                 if (recreate_second == method && '*' == partial_wave_char[iln] && nrn > 0) {
@@ -1859,9 +1617,6 @@ namespace single_atom {
                     
                 } // recreate_second
 #endif
-
-                // idea: make this module flexible enough so it can load a potential and
-                //       generate PAW data in XML format (GPAW, ABINIT) using the SHO-revPAW or classical methods
 
                 if (method == classical_scheme || method == classical_partial_waves) {
                     bool const modify_projectors = (method == classical_scheme);

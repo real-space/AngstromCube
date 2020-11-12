@@ -164,21 +164,24 @@ but it is planned to interface \ttt{libxc} with access to most existing function
 
 \subsection{Getting the Code}
 \codename{} will be public domain software under the MIT license
-and will available to clone or download at \ttt{github.com}. 
+and will be available to clone or download at \ttt{github.com}. 
 \todo[inline]{get GitHub account}
-\todo[inline]{Add MIT license header}
+\todo[inline]{Add MIT license headers}
 
 \subsection{Building the Application} \label{sec:compiling}
 A \ttt{Makefile} is contained in the program package that works with current GNU compilers, e.g.~\ttt{g++ 7.4.0}.
 %% and \ttt{nvcc from CUDA 10}
 
-The application, while being written in C++, relies a lot onto plane old data types, i.e.~classes without constructors or destructors as known from C-structs.
-Furthermore, it makes use of generic programming in the form of template
-mainly used to maintain a single functions supporting different precision (\ttt{float} or\ttt{double}), difference vector lengths and in some situations different physics. This helps to keep the code maintainable.
+The application, while being written in C++, relies strongly onto plane-old-data types,
+i.e.~classes without constructors or destructors as known from C-structs.
+Furthermore, it makes use of generic programming in the form of templates
+mainly used to maintain a single functions supporting different precision (\ttt{float} or \ttt{double}), 
+difference vector lengths and in some situations different physics. 
+This helps to keep the code base small and, hence, maintainable.
 
 \section{Basic Handling}
 \codename{} comes as a single executable named \ttt{a43} which
-offers many functions accessible by options. Type \ttt{./a43 -h}
+offers many functionalities accessible by options. Type \ttt{./a43 -h}
 to get a first help function:
 \begin{verbatim}
 Usage ./a43 [OPTION]
@@ -187,23 +190,24 @@ Usage ./a43 [OPTION]
    +<var>=<val> Modify variable environment
 \end{verbatim}
 
-An important functionality after building the application (see section \ref{sec:compiling}) is to run a self test of the available modules.
-In order to get a list of all modules, 
+An important functionality after building the application (see section \ref{sec:compiling}) 
+is to run a self test of the available modules.
+In order to get a rough list of potential modules, 
 use \ttt{ls *.hxx} in the \ttt{src/}-directory.
-Pass the name of the module to run its self test like this
+Pass the name of the module to run a self test like this
 \begin{verbatim}
 ./a43 -t geometry_analysis.
 \end{verbatim}
 Mind that we need to skip the file suffix \ttt{hxx} or \ttt{cxx} but not the dot.
 We can also run all module tests, however, for this we might want to reduce
-the amount of output to \ttt{stdout}. For this, we use the variable environment
-which couples to the command line interface:
+the amount of output to \ttt{stdout}. 
+Simply, we use the variable environment which couples to the command line interface:
 \begin{verbatim}
 ./a43 +verbosity=1 -t
 \end{verbatim}
 The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently.
-However, there is a ground rule that higher \ttt{verbosity} means more output
-and \ttt{verbosity=0} suppresses output except for fatal errors.
+However, the ground rule says that higher \ttt{verbosity} means more output
+and \ttt{verbosity=0} suppresses all output except for fatal errors.
 
 \subsection{Atomic Units, Input and Output}
 Internally the code makes use of atomic Hartree units:
@@ -217,30 +221,38 @@ However, we can change the length and energy units used for output like this:
 \begin{verbatim}
 ./a43 +output.energy.unit=eV +output.length.unit=Ang ...
 \end{verbatim}
-Available output units are \ttt{eV}, \ttt{Ry} or \ttt{Ha} (default in the development branch) for energies and \ttt{nm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths.
-Input length units are \AA{} as this is most convenient for molecular structure viewers
-(\ttt{VESTA}, \ttt{jmol}, etc.)
+Available output units are \ttt{eV}, \ttt{Ry} or \ttt{Ha} (default in the development branch) for energies 
+and \ttt{nm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths.
+Input length units are \AA{} in the geometry file as this is most convenient for molecular structure viewers
+(\ttt{VESTA}, \ttt{jmol}, etc.). Other input quantities may have flexible input units, for example
+\begin{verbatim}
+./a43 +logder.unit=Ry +logder.step=1e-3
+\end{verbatim}
+which means that the energy spacing for checking of the logarithmic derivatives is milliRydberg.
+% The same input unit is assumed for \ttt{+logder.start} and \ttt{+logder.stop}.
+
 
 Experimental parts of the code may not support all the unit conversion
-factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the logg files.
-Most standard functionality, however, supports unit conversion so that logg files
+factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the log files.
+Most standard functionality, however, supports unit conversion so that log files
 show \ttt{eV} or \ttt{Ry} and \ttt{Ang}$ = $\AA{} or \ttt{nm}, depending on the users choice.
-
+Some quantities are displayed in characteristic units, e.g., plane wave cutoffs typically in Rydberg.
 
 
 \subsection{Try a first structure}
-Make sure there is an \ttt{.xyz} file and run
+Make sure there is structure file \ttt{atoms.xyz} file and run
 \begin{verbatim}
-./a43 -t geometry_analysis. \
-        +geometry.file=molecule.xyz +verbosity=4
+./a43 -t geometry_analysis.
 \end{verbatim}
-in order to check if your geometry looks ok. Look out for warnings.
-There will be a summary of all warnings launched during the execution at the end of the logg.
-If we are free of severe warnings, continue with the next step:
-Let's say we have Aluminum in our system, the run:
+in order to check if your geometry looks ok.
+Search the log file for warnings using \ttt{grep}.
+There will also be a summary of all warnings launched during the execution at the end of the log file.
+Once free of warnings, continue with the next step:
+Let's say we want Aluminum in our system, then run:
 \begin{verbatim}
-./a43 -t single_atom. +single_atom.test.Z=13 +verbosity=3
+./a43 -t single_atom. +single_atom.test.Z=13
 \end{verbatim}
+
 
 \codename{} will the try to access a database of initial atomic potentials
 (full spherically, spin-degenerate) which are stored in \ttt{pot/Zeff.}$Z$
@@ -249,13 +261,12 @@ where $Z$ is a 3-digit integer atomic number.
 You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{xc} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
 If the loading fails because of a missing file, you can bootstrap it:
 \begin{verbatim}
-./a43 -t atom_core. +atom_core.test.Z=13 +verbosity=2
+./a43 -t atom_core. +atom_core.test.Z=13
 \end{verbatim}
 or if the entire database was lost,
 \begin{verbatim}
 ./a43 -t atom_core. \
-        +atom_core.test.Z=1 +atom_core.test.Z.end=99 \
-        +verbosity=0
+        +atom_core.test.Z=1 +atom_core.test.Z.end=99
 \end{verbatim}
 
 Now, run the \ttt{single\_atom.} test for each of the elements in the system to see if there are warnings before you continue like this
@@ -268,12 +279,11 @@ Now, run the \ttt{single\_atom.} test for each of the elements in the system to 
 For the advanced user, we recommend to inspect the logarithmic derivatives by
 \begin{verbatim}
 ./a43 -t single_atom. +single_atom.test.Z=13 \
-        +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0 \
-        +verbosity=7
+        +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
 \end{verbatim}
 The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
 For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
-start, stop and stepping in units of $e$Volt.
+start, stop and step in units of $e$Volt.
 
 \subsection{Parallel Computing}
 Currently, some parts of \codename{} support shared memory parallelism 
@@ -295,7 +305,7 @@ about how to control the different levels of parallelism.
 Kohn-Sham eigenstates have very different character depending on their energy level: core states, valence states and depending on the species also semicore states.
 \subsubsection{Treatment of Core States}
 Core states are very low in energy and strongly bound 
-to the atomic core. 
+to the atomic core.
 Their spatial extent is so strongly localized 
 in the vicinity of the atomic nucleus 
 that they feel almost exclusively the strong attractive 
@@ -336,23 +346,24 @@ In particular projected radial coordinates, we can find up to $6$ nodes
 the closer we move towards the core.
 These rapid oscillations are difficult to represent
 on the same footing that gets the behaviour in the interstitial regions correct. 
-We will review some the most common approaches:
+We will review some of the most common approaches:
 
 Local orbital methods use radial eigenfunctions 
 of the spherically averaged atomic potential as atom-centered basis functions.
 This captures the behaviour in the core region well
 but shows a slow and not systematic convergence behaviour in the interstitial region. 
-An advantage is that atomic orbital basis sets can be rather small
-and localized which casts the Hamiltonian into a block-sparse matrix operator with small block dimensions ($~ 30$).
+An advantage is that atomic orbital basis sets can be rather compact
+and localized which casts the Hamiltonian into a block-sparse matrix operator with small block dimensions ($\approx 30$).
 The drawback is that the description in the interstitial region determines the
 quality of description for bandstructures, bonds and forces.
 
 LAPW (Linearized Augmented Plane Wave) methods take the best of two worlds:
 In order to construct efficient basis functions, 
 they assume a spherical potential inside an atomic sphere (solutions are radial)
-and a constant potential inside the interstitial region (solutions are plane waves). On the boundary spheres between the two regions, the basis function components need to be matched.
-Due to the \ac{pw}-character, the basis functions are fully delocalized and the
-Hamiltonian becomes dense.
+and a constant potential inside the interstitial region (solutions are plane waves). 
+On the boundary spheres between the two regions, the basis function components need to be matched.
+Due to the \ac{pw}-character, the basis functions are fully delocalized and 
+the Hamiltonian becomes dense.
 
 Using \ac{pw}s as a basis for the entire space shifts the problem to the representation of the valence wave function in the core region.
 The \ac{paw} method is a successful generalization of the family of pseudopotential methods with allows a full-potential access.
@@ -365,7 +376,8 @@ a non-local potential.
 
 Real-space grid based methods for \ac{dft}
 feature an improved scalablity on massively parallel \ac{hpc} systems at the same level of accuracy as \ac{pw} basis sets. 
-The \ac{paw} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which does not involve Fourier transforms when applied to a wave function.
+The \ac{paw} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, 
+hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which does not involve Fourier transforms when applied to a wave function.
 
 
 \codename{} implements Cartesian real-space grids 
