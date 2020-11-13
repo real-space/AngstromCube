@@ -10,8 +10,8 @@ namespace geometry_analysis {
 
   inline double fold_back(double const position, double const cell_extend) { 
       double x{position};
-      while(x >= 0.5*cell_extend) x -= cell_extend;
-      while(x < -0.5*cell_extend) x += cell_extend;
+      while (x >= 0.5*cell_extend) x -= cell_extend;
+      while (x < -0.5*cell_extend) x += cell_extend;
       return x;
   } // fold_back
 

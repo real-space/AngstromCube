@@ -1255,15 +1255,14 @@ namespace single_atom {
             for(int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
-                
+
                 char const c = partial_wave_char[iln];
                 assert ('_' != c);
                 if ('e' == c) {
                     // energy parameter, vs.energy has already been set earlier
                     if (echo > 3) printf("# %s the %s partial wave uses energy parameter E= %g %s\n", 
                                             label, vs.tag, vs.energy*eV, _eV);
-                } else
-                if ('D' == c) {
+                } else if ('D' == c) {
 #ifndef DEVEL                  
                     error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
 #else
@@ -1273,19 +1272,16 @@ namespace single_atom {
                     if (echo > 3) printf("# %s the %s partial wave is an energy derivative at E= %g %s\n", 
                                             label, vs.tag, vs.energy*eV, _eV);
 #endif // DEVEL
-                } else
-                if ('*' == c) {
+                } else if ('*' == c) {
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy + partial_wave_energy_split[ell];
                     if (echo > 3) printf("# %s the %s partial wave is at E= %g %s\n", label, vs.tag, vs.energy*eV, _eV);
 
-                } else
-                if ('p' == c) {
+                } else if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
                     if (echo > 3) printf("# %s the %s partial wave is at E= %g %s, copy %c-energy\n", 
                                         label, vs.tag, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
-
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
@@ -1293,12 +1289,12 @@ namespace single_atom {
                     assert(vs.wave[TRU] != nullptr);
                     radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
                     if (echo > 3) printf("# %s the %s partial wave is at E= %g %s, the %i%c-eigenvalue\n",
-                                          label, vs.tag, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
-                }
+                                            label, vs.tag, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
+                } // c
                 if (0 == nrn) previous_ell_energy = vs.energy;
             } // nrn
         } // ell
-        
+
     } // update_energy_parameters
 
 
@@ -2068,6 +2064,8 @@ namespace single_atom {
                 } // echo
 #endif // DEVEL
 
+
+#if 0
                 // compute kinetic energy difference matrix from wKin
                 for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     int const nr_cut = rg[ts].n; // integration over the entire grid -. diagonal elements then appear positive.
@@ -2133,6 +2131,8 @@ namespace single_atom {
                 } // echo
 #endif // DEVEL
 
+#endif // 0
+
             } // scope: establish dual orthgonality with [SHO] projectors
 
         } // ell
@@ -2143,6 +2143,81 @@ namespace single_atom {
         
     } // update_partial_waves
 
+    
+    void update_kinetic_energy_deficit(int const echo=0) {
+
+        for(int ell = 0; ell <= numax; ++ell) {
+            int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
+            int const n = nn[ell]; // abbreviation
+      
+            // compute kinetic energy difference matrix from wKin
+            for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                int const nr_cut = rg[ts].n; // integration over the entire grid -. diagonal elements then appear positive.
+                for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
+                    for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
+                        kinetic_energy(ts,iln,jln) = dot_product(nr_cut,
+                            partial_wave[iln].wKin[ts],
+                            partial_wave[jln].wave[ts], rg[ts].rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
+                    } // j
+                } // i
+            } // ts
+
+#ifdef DEVEL       
+            // display
+            for(int i = 0; i < n; ++i) {
+                for(int j = 0; j < n; ++j) {
+                    auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
+                    auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
+                    if (echo > 19) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
+                        label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
+                } // j
+            } // i
+#endif // DEVEL
+
+            if (1) { // symmetrize the kinetic energy tensor
+                for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
+                    for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
+                        if (1) { // usual
+                            for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                                symmetrize(kinetic_energy(ts,iln,jln), kinetic_energy(ts,jln,iln));
+                            } // ts
+                        } else {
+                            // actually we do not need to symmetrize each contribution kinetic_energy[ts]
+                            // but it would be enough to symmetrize the difference matrix kinetic_energy[TRU] - kinetic_energy[SMT]
+                            // -. symmetrize only the difference
+                            for(int twice = 0; twice < 2; ++twice) { // do this twice for numerical accuracy
+                                auto const dij = kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln);
+                                auto const dji = kinetic_energy(TRU,jln,iln) - kinetic_energy(SMT,jln,iln);
+                                auto const asy = 0.5*(dij - dji); // asymmetry
+                                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                                    int const sign = (TRU == ts) ? -1 : 1;
+                                    kinetic_energy(ts,iln,jln) += 0.5*sign*asy;
+                                    kinetic_energy(ts,jln,iln) -= 0.5*sign*asy;
+                                } // ts
+                            } // twice
+                            // however, it should at the end not make a difference since only the difference enters the Hamiltonian
+                            // and the energy contributions are computed with the density matrix which is symmetric.
+                        } // symmetrize only the difference?
+                    } // j
+                } // i
+            } // symmetrization active?
+
+#ifdef DEVEL                
+            if (echo > 19) { // display
+                for(int i = 0; i < n; ++i) {
+                    for(int j = 0; j < n; ++j) {
+                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
+                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
+                        printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
+                            label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
+                    } // j
+                } // i
+            } // echo
+#endif // DEVEL
+
+        } // ell
+      
+    } // update_kinetic_energy_deficit
 
 
     void update_charge_deficit(int const echo=0) {
@@ -3221,7 +3296,7 @@ namespace single_atom {
         add_product(E_tot, TRU_AND_SMT, energy_kin[3], 1. - take_spherical_density[valence]);
         add_product(E_tot, TRU_AND_SMT, energy_es, 1.0);
         add_product(E_tot, TRU_AND_SMT, energy_xc, 1.0);
-        E_tot[SMT] += energy_dm;
+        E_tot[SMT] += energy_dm * (1. - take_spherical_density[valence]);
 
         if (echo > 1) {
             printf("\n# %s\n", label);
@@ -3260,11 +3335,18 @@ namespace single_atom {
     ) {
         if (echo > 2) printf("\n# %s Z=%g\n", __func__, Z_core);
         update_spherical_states(density_mixing, echo); // compute core level shifts
+
         if (regenerate_partial_waves) {
+            // create new partial waves for the valence description
             update_energy_parameters(echo);
-            update_partial_waves(echo); // create new partial waves for the valence description
-            update_charge_deficit(echo); // update quantities derived from the partial waves
-            check_spherical_matrix_elements(echo); // check scattering properties for the reference potential
+            update_partial_waves(echo);
+            
+            // update quantities derived from the partial waves
+            update_kinetic_energy_deficit(echo);
+            update_charge_deficit(echo);
+            
+            // check scattering properties for the reference potential
+            check_spherical_matrix_elements(echo); 
             if (freeze_partial_waves) {
                 regenerate_partial_waves = false;
                 if (echo > 0) printf("# %s single_atom.freeze.partial.waves=1\n", label);

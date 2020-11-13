@@ -63,6 +63,17 @@ echo "C 0 0 0" >> $geometry_file
 # echo "Cu   -.8805  .8805  .8805" >> $geometry_file
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
+# project_base=pg.C-diamond
+# printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $geometry_file
+# ## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
+# echo "C  -1.326 -1.326 -1.326" >> $geometry_file
+# echo "C   0.442  0.442 -1.326" >> $geometry_file
+# echo "C  -0.442 -0.442 -0.442" >> $geometry_file
+# echo "C   1.326  1.326 -0.442" >> $geometry_file
+# echo "C  -1.326  0.442  0.442" >> $geometry_file
+# echo "C   0.442 -1.326  0.442" >> $geometry_file
+# echo "C  -0.442  1.326  1.326" >> $geometry_file
+# echo "C   1.326 -0.442  1.326" >> $geometry_file
 
 # project_base=potential_generator.P-sc
 # printf " 1 \n#cell 3.0 3.0 3.0 p p p \n" > $geometry_file
@@ -173,12 +184,16 @@ output.length.unit=Bohr
 # grid spacing of the dense grid (in Bohr)
 #potential_generator.grid.spacing=0.23622
 #potential_generator.grid.spacing=.189
-potential_generator.grid.spacing=.1182
+#potential_generator.grid.spacing=.1182
 #potential_generator.grid.spacing=0.208
 #potential_generator.grid.spacing=0.1772   ## dense grid
+#potential_generator.grid.spacing=.148   == 4.72431 / 32
+#potential_generator.grid.spacing=.197  == 4.72431 / 24
+potential_generator.grid.spacing=.14  == 6.682 / 48
+
 
 # max number of self-consistency iterations
-potential_generator.max.scf=15
+potential_generator.max.scf=1
 
 # Poisson solver {mg, fft, none, cg, sd} and {MG, load, Bessel0} in development
 electrostatic.solver=fft
@@ -186,8 +201,8 @@ electrostatic.solver=fft
 #single_atom.local.potential.method=sinc
 single_atom.nn.limit=2
 #single_atom.partial.wave.method=energy_ordering
-#single_atom.partial.wave.method=recreate_second
-single_atom.partial.wave.method=classical
+single_atom.partial.wave.method=recreate_second
+#single_atom.partial.wave.method=classical
 single_atom.freeze.partial.waves=1
 single_atom.init.echo=7
 single_atom.echo=5
@@ -199,24 +214,24 @@ single_atom.synthetic.density.matrix=1
 #smooth.radial.grid.from=0
 
 # logarithmic derivatives
-logder.unit=Ha
-logder.start=3
-logder.stop=1
-logder.step=1e-4
+logder.unit=eV
+logder.start=90
+logder.stop=50
+logder.step=1e-2
 
 bands.per.atom=10
 
 # configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
 grid.eigensolver=cg
-#grid.eigensolver=explicit
 grid.eigensolver.repeat=5
+#grid.eigensolver=explicit
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 atomic.valence.decay=0
-start.waves=waves.dat
-store.waves=waves.dat
+#start.waves=waves.dat
+#store.waves=waves.dat
 
 # configuration for basis=sho
 # spread of the SHO basis functions in Bohr
@@ -224,7 +239,7 @@ sho_hamiltonian.test.sigma=.5
 
 # configuration for basis=sho or basis=pw
 hamiltonian.kmesh.echo=9
-# hamiltonian.kmesh.x=1
+hamiltonian.kmesh.x=9 513
 # start.waves.scale.sigma=1
 hamiltonian.floating.point.bits=64
 

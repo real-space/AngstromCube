@@ -90,7 +90,7 @@ namespace debug_tools {
               if (echo > 1) printf("# %s<%c> unable to open file \"%s\"for writing!\n", __func__, write_read_delete, filename);
               return 1;
           } // failed to open
-          std::fprintf(f, "%d", number);
+          std::fprintf(f, "%d   is the max. number of self-consistency iterations, user may modify", number);
           return std::fclose(f);
       } else
       if ('r' == (write_read_delete | 32)) {

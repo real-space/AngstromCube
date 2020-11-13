@@ -416,21 +416,21 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-              using real_wave_function_t = float; // decide here if single or double precision
-//               using real_wave_function_t = double;
-//               using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
-              using wave_function_t = real_wave_function_t;               // decide here if real or complex
+              using real_wave_function_t = float;  // decide here if single or double precision
+//               using real_wave_function_t = double; // decide here if single or double precision
+              using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
+//               using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
-              { // scope: report wave function type
+              if (psi_on_grid) {
                   if (echo > 0) printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
                   auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
                   if ((floating_point_bits == 32) != (sizeof(real_wave_function_t) == 4)) {
                       warn("hamiltonian.floating.point.bits=%d but wave_function_t is %s", 
                           floating_point_bits, complex_name<wave_function_t>());
                   } // requested precision does not match chose precision
-              } // scope
+              } // psi_on_grid
 
               view2D<double> kmesh; // kmesh(nkpoints, 4);
               int const nkpoints = brillouin_zone::get_kpoint_mesh<is_complex<wave_function_t>()>(kmesh);
@@ -449,18 +449,20 @@ namespace potential_generator {
                       sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
                       std::vector<int32_t> ncoeff_a(na, 20);
                       data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
-                      for(int iband = 0; iband < nbands; ++iband) {
-                          int const ia = iband % na; // which atom?
-                          int const io = iband / na; // which orbital?
-                          if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands_per_atom);
-                          auto const q = qn[io];
-                          if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
-                          int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
-                          single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
-                          if (run) op.get_start_waves(psi(0,iband), single_atomic_orbital.data(), scale_sigmas, echo); // Gamma point only
-                          single_atomic_orbital[ia][isho] = 0; // reset
-    //                    if (echo > 17) print_stats(psi(0,iband), gc.all(), gc.dV(), "# single band stats:");
-                      } // iband
+                      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                          op.set_kpoint(kmesh[ikpoint], echo);
+                          for(int iband = 0; iband < nbands; ++iband) {
+                              int const ia = iband % na; // which atom?
+                              int const io = iband / na; // which orbital?
+                              if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands_per_atom);
+                              auto const q = qn[io];
+                              if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
+                              int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
+                              single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
+                              if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), scale_sigmas, echo);
+                              single_atomic_orbital[ia][isho] = 0; // reset
+                          } // iband
+                      } // ikpoint
 
                   } else {
                       if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
@@ -470,14 +472,13 @@ namespace potential_generator {
                               error("failed to read start wave functions from file \'%s\'", start_wave_file);
                           } else {
                               if (echo > 1) printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
-                          } 
+                          }
                       } // run
+                      for(int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
+                          if (echo > 3) { printf("# copy %d bands for kpoint #%i from kpoint #0\n", nbands, ikpoint); std::fflush(stdout); }
+                          if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
+                      } // ikpoints
                   } // start wave method
-
-                  for(int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
-                      if (echo > 3) { printf("# copy %d bands for kpoint #%i from kpoint #0\n", nbands, ikpoint); std::fflush(stdout); }
-                      if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
-                  } // ikpoints
 
               } // scope
 
