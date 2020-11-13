@@ -50,7 +50,8 @@ namespace fermi_distribution {
       assert(nullptr == weights); // not implemented!
       for(int i = 0; i < n; ++i) {
           double ddx_f;
-          double const x = (energies[i] - eF)*kTinv;
+          double const E = energies[i];
+          double const x = (E - eF)*kTinv;
           double const f = FermiDirac(x, &ddx_f);
           double const w8 = weights ? weights[i] : 1;
           ne     += f     *w8;
@@ -74,6 +75,7 @@ namespace fermi_distribution {
       , int const echo=9
       , double response_occ[]=nullptr
       , double *DoS_at_eF=nullptr
+      , double band_energy[2]=nullptr
   ) {
       double const n_electrons = number_of_electrons/spinfactor;
       // ToDo: count the states with weights, check if there are enough states to host n_electrons
@@ -190,11 +192,11 @@ namespace fermi_distribution {
         : _ne(std::max(0.0, n_electrons))
         , _mu(Fermi_level_not_initialized)
         , _kT(kT)
-        , _bandsum(0.0)
         , _spinfactor(std::min(std::max(1, spinfactor), 2))
       {
           if (echo > 0) printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
           set_temperature(kT, echo);
+          set(_band_energy, 2, 0.0);
           _accu.clear();
       } // constructor
 
@@ -240,13 +242,14 @@ namespace fermi_distribution {
                 count_electrons(nbands, energies, _mu, _kTinv, nullptr, &DoS, occupations, response_occ);
                 eF = _mu;
             } // initialized?
-            _bandsum = _spinfactor * dot_product(nbands, energies, occupations);
+            _band_energy[0] += _spinfactor * kpoint_weight * dot_product(nbands, energies, occupations);
+            _band_energy[1] += _spinfactor * kpoint_weight * dot_product(nbands, energies, response_occ);
             add(eF, kpoint_weight, echo); // accumulate to compute the average Fermi level later
             return DoS;
       } // get_occupations
 
       double get_Fermi_level() const { return _mu; }
-      double get_band_sum() const { return _bandsum; }
+      double get_band_sum(int const i=0) const { return _band_energy[i & 1]; }
 
       // after all k-points of the 1st SCF iteration have been processed, we have to set it
       double correct_Fermi_level( // returns the fraction of how much of the response density needs to be added to the density
@@ -261,6 +264,7 @@ namespace fermi_distribution {
           if (echo > 0) printf("# %s old= %g, new= %g %s\n", __func__,
               old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
           _accu.clear(); // reset for the next SCF iteration
+          set(_band_energy, 2, 0.0);
           return 0; // result not implemented, yet, TODO
       } // correct_Fermi_level
 
@@ -271,7 +275,7 @@ namespace fermi_distribution {
       double _mu; // the chemical potential
       double _kT; // temperature times Boltzmann factor
       double _kTinv;
-      double _bandsum; // occupation (and spin) weighted sum of band energies
+      double _band_energy[2]; // occupation (and spin) weighted sum of band energies and its derivative
       simple_stats::Stats<double> _accu; // mean Fermi-level accumulator
       int _spinfactor; // 2:spin-paired, 1:spin-resolved
 

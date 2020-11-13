@@ -21,6 +21,8 @@
       return n_chars_written;
   } // printf_vector
 
+
+
   template <typename real_t>
   double print_stats(
         real_t const values[] // input values
@@ -36,6 +38,7 @@
           gsum  += values[i];
           gsum2 += pow2(values[i]);
       } // i
-      printf("%s grid stats min %g max %g integral %g avg %g\n", prefix, gmin*unit, gmax*unit, gsum*dV*unit, gsum/all*unit);
+      printf("%s grid stats min %g max %g avg %g%c", prefix, gmin*unit, gmax*unit, gsum/all*unit, (dV > 0)?' ':'\n');
+      if (dV > 0) printf("integral %g\n", gsum*dV*unit);
       return gsum*dV;
   } // print_stats

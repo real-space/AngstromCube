@@ -29,7 +29,7 @@
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
-#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, spherical_orbital_t, partial_wave_t
+#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, TRU_ONLY, spherical_orbital_t, partial_wave_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "unit_system.hxx" // ::energy_unit
 #include "simple_math.hxx" // ::invert
@@ -381,6 +381,9 @@ namespace single_atom {
       char   partial_wave_char[32]; // [iln]
       double partial_wave_energy_split[1 + ELLMAX]; // [ell]
       char   local_potential_method[16];
+      
+      bool freeze_partial_waves;
+      bool regenerate_partial_waves;
 
       view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
@@ -395,10 +398,12 @@ namespace single_atom {
       
       // energy contributions
       double energy_xc[TRU_AND_SMT]; // exchange-correlation[ts]
-      double energy_dc[TRU_AND_SMT]; // double counting[ts]
+      double energy_dc[TRU_AND_SMT]; // xc double counting[ts]
+      double energy_dm; // atomic density matrix double counting, SMT only
       double energy_kin[4][TRU_AND_SMT]; // kinetic[csv][ts], csv=3 --> non-spherical
       double energy_es[TRU_AND_SMT]; // electrostatic[ts]
-      double energy_tot[TRU_AND_SMT]; // total energy
+      double energy_tot[TRU_AND_SMT]; // total energy[ts]
+      double energy_ref[TRU_ONLY]; // reference energy
 
       
   public:
@@ -421,7 +426,7 @@ namespace single_atom {
 
         char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
         if (atom_id >= 0) {
-            std::snprintf(label, 15, "%s#%d", chem_symbol, atom_id); 
+            std::snprintf(label, 15, "%s#%i", chem_symbol, atom_id); 
         } else {
             std::snprintf(label, 15, "%s", chem_symbol); 
         } // atom_id
@@ -477,7 +482,7 @@ namespace single_atom {
             
             std::snprintf(Sy_config, 31, "%s_numax", chem_symbol);
             numax = int(control::get(Sy_config, double(nu_max)));
-            
+
             // get nn[] from numax
             for(int ell = 0; ell <= ELLMAX; ++ell) {
                 int const nn_suggested = std::max(0, sho_tools::nn_max(numax, ell)); // suggest
@@ -512,6 +517,8 @@ namespace single_atom {
         } // echo
         assert( numax <= ELLMAX );
 
+        energy_ref[TRU] = atom_core::neutral_atom_total_energy(Z_core);
+        
         // now Z_core may not change any more
         rg[TRU] = *radial_grid::create_default_radial_grid(Z_core);
         // create a radial grid descriptor which has less points at the origin
@@ -935,23 +942,30 @@ namespace single_atom {
                 spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
         } // csv
 
-        int const maxit_scf = control::get("single_atom.init.scf.maxit", 0.);
+        regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
+        freeze_partial_waves = (control::get("single_atom.freeze.partial.waves", 0.) > 0);
+        
+        auto const export_xml = int(control::get("single_atom.export.xml", 0.));
+        auto const maxit_scf = std::max(int(control::get("single_atom.init.scf.maxit", 0.)), std::abs(export_xml));
         float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
-          // ... that is taken to relax the spherical potential from which core states and partial wave are computed
+        // ... that is taken to relax the spherical potential from which spherical states and true partial wave are computed
         float const density_mixing[3] = {.25, .25, .25}; // [csv]
 
-        update_density(density_mixing, echo); // run the density update at least once
+        update_density(density_mixing, echo); // run the density update at least once to generate partial waves
+        
+        if (echo > 1) printf("# %s run %d initial scf-iterations\n", label, maxit_scf);
         for(int scf = 0; scf < maxit_scf; ++scf) {
-            if (echo > 1) printf("\n\n# %s SCF-iteration %d\n\n", label, scf);
-            int const echo_scf = echo*(scf >= maxit_scf - 1); // turn on output only for the last iteration
+            if (echo > 1) printf("\n\n# %s SCF-iteration %d\n", label, scf);
+            int const echo_scf = 1 + (echo - 1)*(scf > maxit_scf - 2); // turn on output only for the last iteration
             update_density(density_mixing, echo_scf);
             double const *const ves_multipoles = nullptr; // no potential shifts
             update_potential(potential_mixing, ves_multipoles, echo_scf);
         } // self-consistency iterations
+        
+        
 
 #ifdef DEVEL
 
-        auto const export_xml = int(control::get("single_atom.export.xml", 0.));
         if (export_xml) {
             if (echo > 0) printf("\n\n# %s export configuration to file\n", label);
             auto const stat = paw_xml_export::write_to_file(Z_core, rg, 
@@ -1091,7 +1105,7 @@ namespace single_atom {
                 band_energy[csv] += std::abs(cs.occupation)*cs.energy;
                 kinetic_energy[csv] += std::abs(cs.occupation)*cs.kinetic_energy;
             } // scal > 0
-            show_state_analysis(echo, label, rg[TRU], cs.wave[TRU], cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
+            show_state_analysis(echo - 5, label, rg[TRU], cs.wave[TRU], cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
         } // ics
 
         
@@ -1133,9 +1147,9 @@ namespace single_atom {
                     if (echo > 4) printf("# %s new spherical %s density has %g electrons\n", label, csv_name[csv], new_q);
                 } // debug
 #endif // DEVEL
-                if (echo > 0) printf("# %s %-8s density change %g e Coulomb energy change %g %s\n", 
+                if (echo > 3) printf("# %s %-8s density change %g e Coulomb energy change %g %s\n", 
                     label, csv_name[csv], density_change, Coulomb_change*eV,_eV);
-                if (echo > 3) printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
+                if (echo > 5) printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
                     label, csv_name[csv], Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV,_eV);
             } // output only for contributing densities
 
@@ -1148,7 +1162,7 @@ namespace single_atom {
 
         } // csv
 
-        if (echo > 1) {
+        if (echo > 2) {
             double const w111[] = {1, 1, 1};
             printf("# %s total    E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n",
                     label, dot_product(3, w111, Coulomb_energy)*eV,
@@ -1427,7 +1441,7 @@ namespace single_atom {
         if (echo > 2) printf("\n# %s %s Z=%g method=\'%c\' echo=%d\n", label, __func__, Z_core, method, echo);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 
-        if (method != classical_scheme && method != classical_partial_waves) {
+        if (method != classical_scheme) {
             sigma = update_sigma(echo); // run optimization on sigma
         } // not classical
 
@@ -1577,7 +1591,7 @@ namespace single_atom {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
+                show_state_analysis(echo - 5, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
                 
 #if 0                
                 if (recreate_second == method && '*' == partial_wave_char[iln] && nrn > 0) {
@@ -2279,6 +2293,12 @@ namespace single_atom {
         view2D<double> radial_density_matrix;
 
         if (sho_tools::order_zyx == order) {
+          
+            energy_dm = 0; // double counting correction (with old matrix elements)
+            for(int izyx = 0; izyx < nSHO; ++izyx) {
+                energy_dm += dot_product(nSHO, rho_matrix[izyx], hamiltonian[izyx]);
+            } // izyx
+
             // we need to transform from Cartesian to Radial first
 
             // now transform the rho_matrix[izyx][jzyx]
@@ -2309,7 +2329,7 @@ namespace single_atom {
         } // order
 
 #ifdef DEVEL
-        if (echo > 6) {
+        if (echo > 6 && take_spherical_density[valence] < 1) {
             printf("# %s Radial SHO density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
             view2D<char> labels(sho_tools::nSHO(numax), 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
@@ -2320,7 +2340,7 @@ namespace single_atom {
             printf("\n");
         } // echo
         
-        if (echo > 2) {
+        if (echo > 12) {
             int const nlnr = sho_tools::nSHO_radial(numax);
             view2D<double> density_matrix_ln(nlnr,nlnr);
             scattering_test::emm_average(density_matrix_ln.data(), radial_density_matrix.data(), int(numax), 0);
@@ -2343,22 +2363,28 @@ namespace single_atom {
         } // scope
         
 #ifdef DEVEL
-        if (echo > 6) {
-            printf("# %s Radial density matrix in partial waves:\n", label);
+        auto const n_modify = 1 + int(control::get("single_atom.synthetic.density.matrix", 0.0));
+        for(int i_modify = 0; i_modify < n_modify; ++i_modify) {
+            if (i_modify > 0 && echo > 1) printf("\n# %s create a synthetic radial density matrix\n", label);
+            if (echo > 6) printf("# %s Radial density matrix in partial waves:\n", label);
             for(int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 int const iln = ln_index_list[ilmn];
                 if (partial_wave_active[iln]) {
-                    printf("# %s %-8s ", label, partial_wave[iln].tag);
+                    auto const ell = partial_wave[iln].ell;
+                    double const occ = partial_wave[iln].occupation/(2*ell + 1.);
+                    if (echo > 6) printf("# %s %-8s ", label, partial_wave[iln].tag);
                     for(int jlmn = 0; jlmn < nSHO; ++jlmn) {
                         if (partial_wave_active[ln_index_list[jlmn]]) {
-                              printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
+                            if (i_modify > 0) radial_density_matrix(ilmn,jlmn) = (ilmn == jlmn)*occ;
+                            if (echo > 6) printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
                         } // active_j
                     } // jlmn
-                    printf("\n");
+                    if (echo > 6) printf("\n");
                 } // active_i
             } // ilmn
-            printf("\n");
-        } // echo
+            if (echo > 6) printf("\n");
+        } // i_modify
+        
 
         if (echo > 2) {
             int const nlnr = sho_tools::nSHO_radial(numax);
@@ -2417,7 +2443,7 @@ namespace single_atom {
                 for(int iln = 0; iln < nln; ++iln) {
                     for(int jln = 0; jln < nln; ++jln) {
                         auto const rho_ij = rho_tensor(lm,iln,jln);
-                        if (std::abs(rho_ij) > 2e-16) {
+                        if (std::abs(rho_ij) > 2e-16 && echo > 11) {
                             printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
                                 label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
                         } // rho_ij > 0
@@ -2506,7 +2532,7 @@ namespace single_atom {
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
                 qlm_compensator[lm] = rho_lm * mix_valence_density;
-                if (0 == ell && echo > 0) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm*Y00inv, smt_lm*Y00inv);
+                if (0 == ell && echo > 2) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm*Y00inv, smt_lm*Y00inv);
 
             } // emm
         } // ell
@@ -3143,7 +3169,7 @@ namespace single_atom {
                             warn("%s eigenvalues of charge deficit operator for ell=%c %s! %g and %g", label, ellchar[ell], classification, eigvals[0], eigvals[1]);
                         } // warning
 
-                        if (echo > 0) printf("# %s eigenvalues of charge deficit operator for ell=%c are %g and %g\n", label, ellchar[ell], eigvals[0], eigvals[1]);
+                        if (echo > 1) printf("# %s eigenvalues of charge deficit operator for ell=%c are %g and %g\n", label, ellchar[ell], eigvals[0], eigvals[1]);
 //                         error("eigenvalues of the %c-charge deficit operator are %g and %g", ellchar[ell], eigvals[0], eigvals[1]); // DEBUG
 
                     } // n > 0
@@ -3184,32 +3210,43 @@ namespace single_atom {
 
 
 
-    void total_energy_contributions(double E_tot[TRU_AND_SMT], int const echo=0) const {
-        set(E_tot, TRU_AND_SMT, 0.0);
+    void total_energy_contributions(
+          double E_tot[TRU_AND_SMT] // result
+        , int const echo=0 // log-level
+    ) const {
+        set(E_tot, TRU_AND_SMT, 0.0); // init
         for(int csv = core; csv <= valence; ++csv) {
             add_product(E_tot, TRU_AND_SMT, energy_kin[csv], take_spherical_density[csv]);
         } // csv
-        add_product(E_tot, TRU_AND_SMT, energy_kin[3], 1 - take_spherical_density[valence]);
+        add_product(E_tot, TRU_AND_SMT, energy_kin[3], 1. - take_spherical_density[valence]);
         add_product(E_tot, TRU_AND_SMT, energy_es, 1.0);
         add_product(E_tot, TRU_AND_SMT, energy_xc, 1.0);
-        
-        if (echo > 0) {
+        E_tot[SMT] += energy_dm;
+
+        if (echo > 1) {
             printf("\n# %s\n", label);
             printf("# %s Total energy contributions (%s) true and smooth:\n", label, _eV);
             for(int csv = core; csv <= valence; ++csv) {
-                if (csv_charge[csv] > 0) {
-                    printf("# %s %-8s Kinetic true%20.9f %20.9f\n", label,
-                        csv_name[csv], energy_kin[csv][TRU]*eV, energy_kin[csv][SMT]*eV);
+                if (csv_charge[csv] > 0) { // do not display core or semicore electrons if there are none
+                    printf("# %s %-8s  %20.9f    spherical kinetic%6.1f %%\n", label,
+                        csv_name[csv], energy_kin[csv][TRU]*eV, take_spherical_density[csv]*100);
                 } // csv_charge
             } // csv
-            printf("# %s Valence  Kinetic true%20.9f %20.9f\n", label, energy_kin[3][TRU]*eV, energy_kin[3][SMT]*eV);
+            // kinetic valence energy correction from the atomic density matrix:
+            printf("# %s kinetic   %20.9f %20.9f%6.1f %%\n", label, energy_kin[3][TRU]*eV, 
+                            energy_kin[3][SMT]*eV, (1. - take_spherical_density[valence])*100); 
             printf("# %s es    true%20.9f %20.9f\n", label, energy_es[TRU]*eV, energy_es[SMT]*eV);
             printf("# %s xc    true%20.9f %20.9f\n", label, energy_xc[TRU]*eV, energy_xc[SMT]*eV);
-            printf("# %s dc    true%20.9f %20.9f\n", label, energy_dc[TRU]*eV, energy_dc[SMT]*eV);
+            if (echo > 7) // so far, the xc-dc term does not contribute
+            printf("# %s dc    true%20.9f %20.9f\n", label, energy_dc[TRU]*eV, energy_dc[SMT]*eV); 
+            printf("# %s dm    diff                     %20.9f\n", label, energy_dm*eV);
             printf("# %s\n", label);
-            printf("# %s Total true%20.9f %20.9f %s\n", label, E_tot[TRU]*eV, E_tot[SMT]*eV, _eV);
-            printf("# %s\n\n", label);
+            printf("# %s reference %20.9f\n", label, energy_ref[TRU]*eV);
         } // echo
+        if (echo > 0) {
+            printf("# %s Total true%20.9f %20.9f %s\n", label, E_tot[TRU]*eV, E_tot[SMT]*eV, _eV);
+        } // echo
+        if (echo > 1) printf("# %s\n\n", label);
         // ToDo: introduce a reference atom energy which is fixed at start-up
         // So that the contributions are always taken w.r.t the reference atom
     } // total_energy_contributions
@@ -3222,12 +3259,19 @@ namespace single_atom {
         , int const echo=0 // log-level
     ) {
         if (echo > 2) printf("\n# %s Z=%g\n", __func__, Z_core);
-        update_spherical_states(density_mixing, echo);
-        update_energy_parameters(echo);
-        update_partial_waves(echo); // create new partial waves for the valence description
-        update_charge_deficit(echo); // update quantities derived from the partial waves
+        update_spherical_states(density_mixing, echo); // compute core level shifts
+        if (regenerate_partial_waves) {
+            update_energy_parameters(echo);
+            update_partial_waves(echo); // create new partial waves for the valence description
+            update_charge_deficit(echo); // update quantities derived from the partial waves
+            check_spherical_matrix_elements(echo); // check scattering properties for the reference potential
+            if (freeze_partial_waves) {
+                regenerate_partial_waves = false;
+                if (echo > 0) printf("# %s single_atom.freeze.partial.waves=1\n", label);
+            } // freeze_partial_waves
+        } // regenerate_partial_waves
+
         int const nln = sho_tools::nSHO_radial(numax);
-        check_spherical_matrix_elements(echo); // check scattering properties for the reference potential
         int const lmax = std::max(ellmax_rho, ellmax_cmp);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
@@ -3252,7 +3296,8 @@ namespace single_atom {
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
-    double get_total_energy() const { return energy_tot[TRU] - atom_core::neutral_atom_total_energy(Z_core) - energy_tot[SMT]; }
+    double get_total_energy() const { return energy_tot[TRU] - energy_ref[TRU] - energy_tot[SMT]; }
+    // the reference energy is substracted to make the numeric values smaller and the total energy human readable
 
     status_t get_smooth_spherical_quantity(
           double qnt[] // result array: function on an r2-grid
@@ -3320,7 +3365,7 @@ namespace single_atom {
 #endif // DEVEL
         return stat;
     } // get_smooth_spherical_quantity
-    
+
     radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return &rg[SMT]; }
 
     double get_number_of_electrons(char const csv='v') const {
@@ -3621,17 +3666,6 @@ namespace single_atom {
                       if (h1hs2 > 1)
                       set(&atom_mat[ia][(1*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->overlap[i]);
                       set(&atom_mat[ia][(0*ncoeff + i)*ncoeff + 0], ncoeff, a[ia]->hamiltonian[i]);
-#if 0
-                      if (echo > 0) {
-                          for(int j = 0; j < ncoeff; ++j) {
-                              printf("# atom_mat[a=%i](i=%i,j=%i) = %.6f %.6f %s overlap= %.6f %.6f\n", ia, i, j, 
-                                  atom_mat[ia][(0*ncoeff + i)*ncoeff + j]*eV,
-                                  a[ia]->hamiltonian(i,j)*eV,_eV,
-                                  atom_mat[ia][(1*ncoeff + i)*ncoeff + j],
-                                  a[ia]->overlap(i,j)                     );
-                          } // j
-                      } // echo
-#endif // 0
                   } // i
               } // ia
               assert(!dp); assert(!fp); // all other arguments must be nullptr (by default)

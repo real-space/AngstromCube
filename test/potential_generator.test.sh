@@ -8,13 +8,13 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "Al   0 0 0" >> $geometry_file
 
-# project_base=pg.C-sc
-# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-# echo "C 0 0 0" >> $geometry_file
+project_base=pg.C-sc
+printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+echo "C 0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.Og-atom
 # printf " 1 \n#cell 8 8 8 p p p \n" > $geometry_file
@@ -125,8 +125,8 @@ cat > control.sh << EOF
 # configuration of atomic PAW setups
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .43 V=parabola"
 #element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
-#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+#element_C="2s 2 3s 2e-99 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
 
 #element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .742455 V=parabola"
@@ -178,7 +178,7 @@ potential_generator.grid.spacing=.1182
 #potential_generator.grid.spacing=0.1772   ## dense grid
 
 # max number of self-consistency iterations
-potential_generator.max.scf=1
+potential_generator.max.scf=15
 
 # Poisson solver {mg, fft, none, cg, sd} and {MG, load, Bessel0} in development
 electrostatic.solver=fft
@@ -188,12 +188,13 @@ single_atom.nn.limit=2
 #single_atom.partial.wave.method=energy_ordering
 #single_atom.partial.wave.method=recreate_second
 single_atom.partial.wave.method=classical
+single_atom.freeze.partial.waves=1
 single_atom.init.echo=7
-single_atom.echo=7
+single_atom.echo=5
 ### bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
 single_atom.optimize.sigma=1
-single_atom.init.scf.maxit=2
+single_atom.synthetic.density.matrix=1
 
 #smooth.radial.grid.from=0
 
@@ -209,7 +210,7 @@ bands.per.atom=10
 # method of the grid eigensolver {cg, Davidson, none, explicit}
 grid.eigensolver=cg
 #grid.eigensolver=explicit
-grid.eigensolver.repeat=15
+grid.eigensolver.repeat=5
 conjugate_gradients.max.iter=19
 # for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
@@ -254,7 +255,7 @@ single_atom.export.xml=1
 EOF
 
 
-for spacing in `seq 2 1 2`; do
+for spacing in `seq 2 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -280,7 +281,7 @@ for numax in `seq 4 2 3`; do
         ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 0`; do
+for ecut in `seq 2 2 2`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

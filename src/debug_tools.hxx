@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // printf, std::remove, std::FILE
 #include <cassert> // assert
 #include <fstream> // std::ifstream
 #include <sstream> // std::istringstream
@@ -9,6 +9,7 @@
 #include <complex> // std::complex<T>
 #include "complex_tools.hxx" // is_complex, to_complex_t
 #include "recorded_warnings.hxx" // warn
+#include "status.hxx" // status_t
 
 namespace debug_tools {
 
@@ -79,5 +80,36 @@ namespace debug_tools {
                               ix, N, M, Stride, title?" for ":"", title, filename);
       return ix - N; // 0 if number of lines + 1 matched the expected number of rows
   } // read_from_file
+
+
+  template <char const write_read_delete='w'>
+  status_t manage_stop_file(int & number, int const echo=0, char const *filename="running.a43") {
+      if ('w' == (write_read_delete | 32)) {
+          std::FILE *f = std::fopen(filename, "w");
+          if (nullptr == f) {
+              if (echo > 1) printf("# %s<%c> unable to open file \"%s\"for writing!\n", __func__, write_read_delete, filename);
+              return 1;
+          } // failed to open
+          std::fprintf(f, "%d", number);
+          return std::fclose(f);
+      } else
+      if ('r' == (write_read_delete | 32)) {
+          std::ifstream infile(filename, std::ifstream::in);
+          if (infile.fail()) {
+              if (echo > 0) printf("# %s<%c> unable to find file \"%s\" for reading\n", __func__, write_read_delete, filename);
+              return 1; // error
+          }
+          infile >> number;
+          if (echo > 1) printf("# %s<%c> found number=%d in file \"%s\" \n", __func__, write_read_delete, number, filename);
+          return 0;
+      } else
+      if ('d' == (write_read_delete | 32)) {
+          if (echo > 0) printf("# %s<%c> removes file \"%s\"\n", __func__, write_read_delete, filename);
+          return std::remove(filename);
+      } else {
+          if (echo > 0) printf("# %s<%c> only 'w'/'W'/write, 'r'/'R'/read or 'd'/'D'/delete implemented!\n", __func__, write_read_delete);
+          return -1; // error
+      }
+  } // manage_stop_file
 
 } // namespace debug_tools

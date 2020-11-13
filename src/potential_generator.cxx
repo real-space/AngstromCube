@@ -28,7 +28,7 @@
 
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
 #include "bessel_transform.hxx" // ::Bessel_j0
-#include "debug_tools.hxx" // ::read_from_file
+#include "debug_tools.hxx" // ::read_from_file, ::manage_stop_file
 
 #ifdef DEVEL
     #include "real_space.hxx" // ::Bessel_projection
@@ -405,7 +405,7 @@ namespace potential_generator {
                   if (psi_on_grid) {
                       view2D<double> xyzZinso(na, 8);
                       for(int ia = 0; ia < na; ++ia) {
-                          set(xyzZinso[ia], 4, xyzZ[ia]); // copy
+                          set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
                           xyzZinso(ia,4) = ia;  // global_atom_id
                           xyzZinso(ia,5) = numax[ia];
                           xyzZinso(ia,6) = sigma_a[ia];
@@ -416,7 +416,7 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-              using real_wave_function_t = float; // decide here if float or double precision
+              using real_wave_function_t = float; // decide here if single or double precision
 //               using real_wave_function_t = double;
 //               using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
               using wave_function_t = real_wave_function_t;               // decide here if real or complex
@@ -485,21 +485,26 @@ namespace potential_generator {
 
               auto const grid_eigensolver_method = control::get("grid.eigensolver", "cg");
               auto const nrepeat = int(control::get("grid.eigensolver.repeat", 1.)); // repetitions of the solver
-      // KS solver prepared
+      // KS solver on grid prepared
       // ============================================================================================
       
-      
+
+      // total energy contributions
+      double grid_electrostatic_energy{0}, grid_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
+              
       if (run != 1) { 
           if (echo > 0) printf("# +check=%i --> done\n", check);
           stat += single_atom::atom_update("memory cleanup", na);
           return stat;
       } // run
 
-      
-      // total energy contributions
-      double grid_electrostatic_energy{0}, total_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
-      
-      int const max_scf_iterations = control::get("potential_generator.max.scf", 1.);
+      int const max_scf_iterations_input = control::get("potential_generator.max.scf", 1.);
+      int max_scf_iterations{max_scf_iterations_input}; // non-const, may be modified by the stop file during the run
+      { // scope: create a stop file with standard name
+          auto const stat = debug_tools::manage_stop_file<'w'>(max_scf_iterations, echo);
+          if (stat != 0) error("failed to write/create a stop file");
+      } // scope
+
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", h_line, scf_iteration, h_line);
@@ -512,13 +517,18 @@ namespace potential_generator {
               printf("# valence density in iteration #%i:", scf_iteration);
               print_stats(rho_valence.data(), g.all(), g.dV());
           } // echo
-          
+
           set(rho.data(), g.all(), rho_valence.data(), 1. - take_atomic_valence_densities);
+
+          if (echo > 4) print_stats(rho.data(), g.all(), g.dV(), "# density before adding smooth atom densities:");
 
           // add contributions from smooth core densities, and optionally spherical valence densities
           stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, 0, Y00sq, "smooth core density");
+          
+          if (echo > 4) print_stats(rho.data(), g.all(), g.dV(), "# density  after adding smooth atom densities:");
+
           here;
 
           { // scope: eval the XC potential and energy
@@ -526,15 +536,17 @@ namespace potential_generator {
               for(size_t i = 0; i < g.all(); ++i) {
                   auto const exc_i = exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
                   E_xc += rho[i]*exc_i;
-                  E_dc += rho[i]*Vxc[i]; // double counting correction
+                  E_dc += rho[i]*Vxc[i]; // double counting correction 
+                  // E_dc is computed just for display so we can compare E_dc between grid and atomic[SMT] contributions in calculation with a single atom
               } // i
               E_xc *= g.dV(); E_dc *= g.dV(); // scale with volume element
               if (echo > 2) printf("# exchange-correlation energy on grid %.9f %s, double counting %.9f %s\n", E_xc*eV,_eV, E_dc*eV,_eV);
               grid_xc_energy = E_xc;
           } // scope
+
           here;
 
-          set(cmp.data(), g.all(), 0.0); // init compensation charge density
+          set(cmp.data(), g.all(), 0.0); // init compensation charge density, contains a smooth proton density and charge deficit compensators
           { // scope: solve the Poisson equation
 
               // add compensation charges cmp
@@ -557,7 +569,7 @@ namespace potential_generator {
 #endif // DEVEL
               } // ia
 
-              // add compensators cmp to rho
+              // add compensators cmp to rho, so now rho == rho_aug
               add_product(rho.data(), g.all(), cmp.data(), 1.);
               if (echo > 1) print_stats(rho.data(), g.all(), g.dV(), "\n# augmented charge density:");
 
@@ -629,14 +641,14 @@ namespace potential_generator {
 
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), g.dV(), "\n# Total effective potential (before adding zero potentials)", eV);
+          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential (before adding zero potentials)", eV);
 
           // now also add the zero potential vbar to Vtot
           stat += add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), g.dV(), "\n# Total effective potential  (after adding zero potentials)", eV);
+          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential  (after adding zero potentials)", eV);
           here;
 
          
@@ -646,6 +658,7 @@ namespace potential_generator {
 
           
           std::vector<double> rhov_new(g.all(), 0.0); // new valence density
+          double double_counting_correction{0};
 
           { // scope: solve the Kohn-Sham equation with the given Hamiltonian
               SimpleTimer KS_timer(__FILE__, __LINE__, "solving KS-equation", echo);
@@ -675,13 +688,13 @@ namespace potential_generator {
                   // restrict the local effective potential to the coarse grid
                   std::vector<double> Veff(gc.all());
                   multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, 0); // mute
-                  if (echo > 1) print_stats(Veff.data(), gc.all(), gc.dV(), "\n# Total effective potential  (restricted to coarse grid)   ", eV);
+                  if (echo > 1) print_stats(Veff.data(), gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 #ifdef DEVEL
                   if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
                     // in order to test the interpolation routine
                       std::vector<double> v_dcd(g.all(), 0.0);
                       multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
-                      if (echo > 1) print_stats(v_dcd.data(), g.all(), g.dV(), "\n# Total effective potential (interpolated to dense grid)   ", eV);
+                      if (echo > 1) print_stats(v_dcd.data(), g.all(), 0, "\n# Total effective potential (interpolated to dense grid)   ", eV);
                   } // scope
 
                   if (echo > 0) {
@@ -751,9 +764,12 @@ namespace potential_generator {
                   op.set_kpoint<double>(); // reset to Gamma
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                                   charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());
+                  
+                  auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc.data(), Veff.data()) * gc.dV();
+                  if (echo > 4) printf("\n# double counting (coarse grid) %.9f %s\n", dcc_coarse*eV, _eV);
 
                   stat += multi_grid::interpolate3D(rho_valence_new.data(), g, rho_valence_gc.data(), gc);
-
+                  
               } else if (plane_waves) {
                   std::vector<pw_hamiltonian::DensityIngredients> export_rho;
                   here;
@@ -770,7 +786,7 @@ namespace potential_generator {
                   if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                                   charges[1]/charges[0], charges[2]/charges[0]*Fermi.get_temperature());
                   if (charges[0] > 0 && std::abs(charges[0] - 1.0) > 1e-15) {
-                      double const sf = 1./charges[0];
+                      double const sf = 1./charges[0]; // scale factor
                       if (echo > 2) printf("# %s: renormalize density and density matrices by %.15f\n", __func__, sf);
                       scale(rho_valence_new.data(), g.all(), sf);
                       for(int ia = 0; ia < na; ++ia) {
@@ -790,15 +806,21 @@ namespace potential_generator {
               } // psi_on_grid
               
               if (echo > 1) print_stats(rho_valence_new.data(), g.all(), g.dV(), "\n# Total new valence density");
+              double_counting_correction = dot_product(g.all(), rho_valence_new.data(), Vtot.data()) * g.dV();
+              if (echo > 4) printf("\n# double counting (dense grid) %.9f %s\n\n", double_counting_correction*eV, _eV);
 
-#if 1
+#if 0
               if (1) { // update take_atomic_valence_densities
-                  float take_some_spherical_valence_density = 0.5f;
-                  stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_some_spherical_valence_density);
+                  take_atomic_valence_densities = 0.5f;
+                  stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
+                  if (echo > 0) printf("# set take_atomic_valence_densities = %g %%\n", take_atomic_valence_densities*100);
               }
               float rho_mixing_ratios[] = {.5, .5, .5}; // {core_density, semicore_density, valence_density}             
               stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
 #endif // 0
+
+              // density mixing
+              set(rho_valence.data(), g.all(), rho_valence_new.data()); // mix 100%
 
           } // scope: Kohn-Sham
 
@@ -810,19 +832,43 @@ namespace potential_generator {
 #endif // 0
           } // spherical_valence_decay
           here;
-          
+
+          if (echo > 1) printf("\n# grid double counting %.9f %s\n\n", double_counting_correction*eV, _eV);
+          double const band_energy_sum = Fermi.get_band_sum();
+          if (echo > 1) printf("\n# sum of eigenvalues %.9f %s\n\n", band_energy_sum*eV, _eV);
+          grid_kinetic_energy = band_energy_sum - double_counting_correction;
+          if (echo > 1) printf("\n# grid kinetic energy %.9f %s (take %.1f %%)\n\n", 
+              grid_kinetic_energy*eV, _eV, (1. - take_atomic_valence_densities)*100);
+          // the grid_kinetic_energy differs from the total_valence_kinetic_energy by the term -sum_ij D_ij h_ij which is evaluated inside the spheres
+
           Fermi.correct_Fermi_level(nullptr, echo); // ToDo: pass in charge and its derivative w.r.t. the Fermi level here
-          
+
           // compute the total energy
           std::vector<double> atomic_energy_diff(na, 0.0);
           stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
           double atomic_energy_corrections{0};
           for(int ia = 0; ia < na; ++ia) atomic_energy_corrections += atomic_energy_diff[ia];
-          total_energy = total_kinetic_energy + grid_xc_energy + grid_electrostatic_energy + atomic_energy_corrections;
-          if (echo > 0) printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV);
+          total_energy = grid_kinetic_energy * (1. - take_atomic_valence_densities)
+                       + grid_xc_energy
+                       + grid_electrostatic_energy
+                       + atomic_energy_corrections;
+          if (echo > 0) { printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV); std::fflush(stdout); }
+
+          { // scope: read the stop file with standard name, max_scf_iterations may be modified
+              auto const stat = debug_tools::manage_stop_file<'r'>(max_scf_iterations, echo);
+              if (stat != 0) warn("failed to read the stop file");
+              if (max_scf_iterations_input != max_scf_iterations) {
+                  warn("the max. number of SCF iterations has been modified from %d to %d "
+                       "by the stop file during SCF iteration #%i", 
+                       max_scf_iterations_input, max_scf_iterations, scf_iteration);
+              } // stop file has been used
+          } // scope
 
       } // scf_iteration
+
       here;
+
+      if (0 != debug_tools::manage_stop_file<'d'>(max_scf_iterations, echo)) warn("failed to delete stop file");
 
       if (psi_on_grid) {
           auto const store_wave_file = control::get("store.waves", "");
