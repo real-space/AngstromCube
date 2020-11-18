@@ -943,7 +943,7 @@ namespace single_atom {
         } // csv
 
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
-        freeze_partial_waves = (control::get("single_atom.freeze.partial.waves", 0.) > 0);
+        freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
         
         auto const export_xml = int(control::get("single_atom.export.xml", 0.));
         auto const maxit_scf = std::max(int(control::get("single_atom.init.scf.maxit", 0.)), std::abs(export_xml));
@@ -1632,6 +1632,11 @@ namespace single_atom {
                     bool const modify_projectors = (method == classical_scheme);
 
                     // Bloechl scheme
+                    
+                    // Caveat:
+                    // We can use the usual pseudized partial waves together with SHO-filtered projectors,
+                    // however, the PAW equation is not fullfilled and we can observe small deviations in
+                    // the logarithmic_derivative, e.g. for C -.1 eV in the s- and +.3 eV in the p-channel
 
                     // copy the tail of the true wave function into the smooth wave function
                     set(vs.wave[SMT], rg[SMT].n, vs.wave[TRU] + nr_diff);
@@ -2063,75 +2068,6 @@ namespace single_atom {
                     } // irn
                 } // echo
 #endif // DEVEL
-
-
-#if 0
-                // compute kinetic energy difference matrix from wKin
-                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                    int const nr_cut = rg[ts].n; // integration over the entire grid -. diagonal elements then appear positive.
-                    for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
-                        for(int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
-                            kinetic_energy(ts,iln,jln) = dot_product(nr_cut,
-                                partial_wave[iln].wKin[ts],
-                                partial_wave[jln].wave[ts], rg[ts].rdr); // we only need rdr here since wKin is defined as r*(E - V(r))*wave(r)
-                        } // j
-                    } // i
-                } // ts
-
-#ifdef DEVEL       
-                // display
-                for(int i = 0; i < n; ++i) {
-                    for(int j = 0; j < n; ++j) {
-                        auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
-                        auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
-                        if (echo > 19) printf("# %s %c-channel <%d|T|%d> kinetic energy [unsymmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
-                            label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
-                    } // j
-                } // i
-#endif // DEVEL
-
-                if (1) { // symmetrize the kinetic energy tensor
-                    for(int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
-                        for(int jln = 0 + ln_off; jln < iln; ++jln) { // triangular loop excluding the diagonal elements
-                            if (1) { // usual
-                                for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                                    symmetrize(kinetic_energy(ts,iln,jln), kinetic_energy(ts,jln,iln));
-                                } // ts
-                            } else {
-                                // actually we do not need to symmetrize each contribution kinetic_energy[ts]
-                                // but it would be enough to symmetrize the difference matrix kinetic_energy[TRU] - kinetic_energy[SMT]
-                                // -. symmetrize only the difference
-                                for(int twice = 0; twice < 2; ++twice) { // do this twice for numerical accuracy
-                                    auto const dij = kinetic_energy(TRU,iln,jln) - kinetic_energy(SMT,iln,jln);
-                                    auto const dji = kinetic_energy(TRU,jln,iln) - kinetic_energy(SMT,jln,iln);
-                                    auto const asy = 0.5*(dij - dji); // asymmetry
-                                    for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                                        int const sign = (TRU == ts) ? -1 : 1;
-                                        kinetic_energy(ts,iln,jln) += 0.5*sign*asy;
-                                        kinetic_energy(ts,jln,iln) -= 0.5*sign*asy;
-                                    } // ts
-                                } // twice
-                                // however, it should at the end not make a difference since only the difference enters the Hamiltonian
-                                // and the energy contributions are computed with the density matrix which is symmetric.
-                            } // symmetrize only the difference?
-                        } // j
-                    } // i
-                } // symmetrization active?
-
-#ifdef DEVEL                
-                if (echo > 19) { // display
-                    for(int i = 0; i < n; ++i) {
-                        for(int j = 0; j < n; ++j) {
-                            auto const E_kin_tru = kinetic_energy(TRU,i+ln_off,j+ln_off);
-                            auto const E_kin_smt = kinetic_energy(SMT,i+ln_off,j+ln_off);
-                            printf("# %s %c-channel <%d|T|%d> kinetic energy [symmetrized] (true) %g and (smooth) %g (diff) %g %s\n",
-                                label, ellchar[ell], i, j, E_kin_tru*eV, E_kin_smt*eV, (E_kin_tru - E_kin_smt)*eV, _eV);
-                        } // j
-                    } // i
-                } // echo
-#endif // DEVEL
-
-#endif // 0
 
             } // scope: establish dual orthgonality with [SHO] projectors
 
@@ -3349,7 +3285,7 @@ namespace single_atom {
             check_spherical_matrix_elements(echo); 
             if (freeze_partial_waves) {
                 regenerate_partial_waves = false;
-                if (echo > 0) printf("# %s single_atom.freeze.partial.waves=1\n", label);
+                if (echo > 0) printf("# %s single_atom.relax.partial.waves=0\n", label);
             } // freeze_partial_waves
         } // regenerate_partial_waves
 
