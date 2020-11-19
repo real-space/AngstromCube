@@ -53,33 +53,38 @@ namespace pw_hamiltonian {
     private:
   }; // class PlaneWave
 
-  void Hermite_Gauss_projectors(double pzyx[], int const numax, double const sigma, double const gv[3]) {
+  void Hermite_Gauss_projectors(std::complex<double> pzyx[], int const numax, double const sigma, double const gv[3]) {
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for(int d = 0; d < 3; ++d) {
-            double const x = -gv[d]*sigma; // -x because the Fourier transform of HG_n(x) is (-1)^n HG_n(k) = HG(-k) [for sigma=1]
+            double const x = gv[d]*sigma; // the Fourier transform of HG_n(x) is (-i)^n HG_n(k) [for sigma=1]
             hermite_polys(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
 
         { // scope: normalize Hermite_Gauss functions
             double nfactorial{1};
             for(int n = 0; n <= numax; ++n) {
-                double const nrmf = std::sqrt(sigma/(constants::sqrtpi*nfactorial));
+                double const norm_factor = std::sqrt(sigma/(constants::sqrtpi*nfactorial));
                 for(int d = 0; d < 3; ++d) {
-                    Hermite_Gauss(d,n) *= nrmf; // scale
+                    Hermite_Gauss(d,n) *= norm_factor; // scale
                 } // d
                 nfactorial *= (n + 1)*0.5; // update nfactorial * 2^-n
             } // n
         } // scope
+        
+        std::complex<double> constexpr mi(0, -1);
+        std::complex<double> imaginary[4] = {1, mi, pow2(mi), pow3(mi)}; // (-i)^n --> [n%4]
 
         // generate projection coefficient for factorized SHO projectors in zyx_order
         int lb{0};
         for(        int lz = 0; lz <= numax;           ++lz) {
             for(    int ly = 0; ly <= numax - lz;      ++ly) {
                 for(int lx = 0; lx <= numax - lz - ly; ++lx) {
+                    int const nu = lx + ly + lz;
                     pzyx[lb] = Hermite_Gauss(0,lx) *
                                Hermite_Gauss(1,ly) *
-                               Hermite_Gauss(2,lz);
+                               Hermite_Gauss(2,lz) *
+                               imaginary[nu & 0x3]; // nu%4
                     ++lb;
                 } // lx
             } // ly
@@ -343,6 +348,7 @@ namespace pw_hamiltonian {
           double const gv[3] = {(pw.x + kpoint[0])*reci[0][0],
                                 (pw.y + kpoint[1])*reci[1][1],
                                 (pw.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci-matrix assumed here
+
           for(int ka = 0; ka < natoms_PAW; ++ka) {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
@@ -353,7 +359,8 @@ namespace pw_hamiltonian {
 //            printf("\n# effective position"); for(int d = 0; d < 3; ++d) printf(" %g", grid_offset[d] + xyzZ_PAW(ka,d));
               std::complex<double> const phase(std::cos(arg), std::sin(arg));
 
-              {   std::vector<double> pzyx(nSHO);
+              { // scope: compose projection coefficients of each plane wave gv
+                  std::vector<std::complex<double>> pzyx(nSHO);
                   Hermite_Gauss_projectors(pzyx.data(), numax_PAW[ka], sigma_PAW[ka], gv);
                   auto const fgf = Fourier_Gauss_factor_3D();
 
@@ -361,10 +368,10 @@ namespace pw_hamiltonian {
                       int const lC = offset[ka] + lb;
                       P_jl(jB,lC) = complex_t(phase * pzyx[lb] * fgf * norm_factor);
 #ifdef DEVEL
-                      P2_l[lC] += pow2(pzyx[lb]);
+                      P2_l[lC] += std::norm(pzyx[lb]);
 #endif // DEVEL
                   } // lb
-              }
+              } // scope
 
               // multiply P from left to hs_PAW (block diagonal --> ka == la)
               auto const iB = jB;
@@ -383,6 +390,7 @@ namespace pw_hamiltonian {
                   Psh_il(S,iB,iC) = s;
               } // lb
           } // ka
+
       } // jB
 
 #ifdef DEVEL
@@ -425,8 +433,8 @@ namespace pw_hamiltonian {
       for(int iB = 0; iB < nB; ++iB) {
           auto const & i = pw_basis[iB];
 
-          HSm(S,iB,iB) += 1; // unity overlap matrix, plane waves are orthogonal
-          HSm(H,iB,iB) += kinetic*i.g2; // kinetic energy contribution
+          HSm(S,iB,iB) += 1; // unity overlap matrix, plane waves without atoms are orthogonal
+          HSm(H,iB,iB) += kinetic*i.g2; // diagonal kinetic energy contribution
 
           for(int jB = 0; jB < nB; ++jB) {
               auto const & j = pw_basis[jB];
@@ -686,7 +694,7 @@ namespace pw_hamiltonian {
 
       auto const vtotfile = control::get("sho_hamiltonian.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
-      std::vector<double> vtot; // total smooth potential
+      std::vector<double> vtot; // total smooth potential on Cartesian grid
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
@@ -702,7 +710,7 @@ namespace pw_hamiltonian {
       view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap for simpler usage
 
       real_space::grid_t g(dims);
-      g.set_boundary_conditions(bc);
+      g.set_boundary_conditions(bc); // is assumed periodic anyway
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
       if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
@@ -717,10 +725,9 @@ namespace pw_hamiltonian {
       // when evaluated on a dense Cartesian mesh (in reciprocal space).
       // this is useful information as due to the Plancherel theorem,
       // this implies the right scaling of the projectors in both spaces.
-      status_t stat(0);
-
       auto const nSHO = sho_tools::nSHO(numax);
-      std::vector<double> pzyx(nSHO), p2(nSHO, 0.0);
+      std::vector<std::complex<double>> pzyx(nSHO);
+      view2D<std::complex<double>> pp(nSHO, nSHO, 0.0); // orthogonality
       double constexpr dg = 0.125, d3g = pow3(dg);
       int constexpr ng = 40;
       for(int iz = -ng; iz <= ng; ++iz) {
@@ -728,12 +735,34 @@ namespace pw_hamiltonian {
       for(int ix = -ng; ix <= ng; ++ix) {
           double const gv[3] = {dg*ix, dg*iy, dg*iz};
           Hermite_Gauss_projectors(pzyx.data(), numax, 1.0, gv);
-          add_product(p2.data(), nSHO, pzyx.data(), pzyx.data()); // += |p^2|
-      }}} // ig
+          for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+//               auto const pic = std::conj(pzyx[iSHO]);
+//               for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
+//                   pp(iSHO,jSHO) += pic * pzyx[jSHO];
+//               } // jSHO
+              add_product(pp[iSHO], nSHO, pzyx.data(), std::conj(pzyx[iSHO]));
+          } // iSHO
+      }}} // ix iy iz
+      std::vector<double> p2(nSHO);
+      for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+          p2[iSHO] = pp(iSHO,iSHO).real()*d3g;
+      } // iSHO
       printf("\n# %s: norms ", __func__);
-      printf_vector(" %g", p2.data(), nSHO, "\n", d3g);
-
-      return stat;
+      printf_vector(" %g", p2.data(), nSHO);
+      double maxdev{0};
+      for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+          for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
+              auto const dev = std::abs(pp(iSHO,jSHO) * d3g - double(iSHO == jSHO));
+              maxdev = std::max(maxdev, dev);
+              p2[jSHO] = dev; // for display
+          } // jSHO
+          if (echo > 8) {
+              printf("# %s: orthogonality ", __func__);
+              printf_vector(" %.1e", p2.data(), nSHO);
+          } // echo
+      } // iSHO
+      printf("# %s: orthogonality max dev %.1e\n", __func__, maxdev);
+      return 0;
   } // test_Hermite_Gauss_normalization
 
   status_t all_tests(int const echo) {

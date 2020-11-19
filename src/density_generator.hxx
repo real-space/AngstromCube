@@ -208,7 +208,7 @@ namespace density_generator {
           for(int iband = 0; iband < nbands; ++iband) {
               auto const psi_nk = psi_k[iband];
 
-              if (occupation[iband] > occ_threshold) {
+              if (occupation[iband] >= occ_threshold) {
                   charge_k[1] += occupation[iband]*spinfactor;
                   double const weight_nk = occupation[iband] * weight_sk;
                   if (echo > 6) printf("# %s: k-point #%i bands #%i \toccupation= %.6f d_occ= %g E= %g %s\n",
@@ -226,7 +226,7 @@ namespace density_generator {
                   add_to_density_matrices(atom_rho, a_coeff[iband],
                                   coeff_starts, natoms, weight_nk, echo, iband, ikpoint);
 
-                  if (d_occupation[iband] > occ_threshold) {
+                  if (d_occupation[iband] >= occ_threshold) {
                       charge_k[2] += d_occupation[iband]*spinfactor;
                       double const d_weight_nk = d_occupation[iband] * weight_sk;
 

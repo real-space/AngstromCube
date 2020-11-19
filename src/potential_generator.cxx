@@ -383,9 +383,9 @@ namespace potential_generator {
               real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
               gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
               gc.set_boundary_conditions(g.boundary_conditions());
-              if (echo > 1) {
+              if (psi_on_grid && echo > 1) {
                   printf("# use  %d x %d x %d  coarse grid points\n", gc[0], gc[1], gc[2]);
-                  double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
+                  double const max_grid_spacing = std::max(std::max(gc.h[0], gc.h[1]), gc.h[2]);
                   printf("# use  %g %g %g  %s  coarse grid spacing, corresponds to %.3f Ry\n",
                             gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
               } // echo
