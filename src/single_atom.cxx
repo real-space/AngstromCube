@@ -242,9 +242,13 @@ namespace single_atom {
       double const qinv = (q > 0) ? 1./q : 0;
       double const charge_outside = qout*qinv;
 
-      if (echo > 0) printf("# %s %-9s  %-4s%6.1f E=%16.6f %s  <r>=%g rms=%g %s <r^-1>=%g %s q_out=%.3g e\n", label,
-              csv_class, tag, occ, energy*eV,_eV, 
-              qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV, charge_outside);
+      if (echo > 0) {
+          printf("# %s %-9s  %-4s%6.1f E=%16.6f %s ", label, csv_class, tag, occ, energy*eV,_eV);
+          if (echo > 4) { // detailed information
+              printf(" <r>=%g rms=%g %s <r^-1>=%g %s", qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV);
+          } // echo
+          printf(" q_out=%.3g e\n", charge_outside);
+      } // echo
 
       return charge_outside; // percentage of charge outside the augmentation radius
   } // show_state_analysis
@@ -430,7 +434,7 @@ namespace single_atom {
         } else {
             std::snprintf(label, 15, "%s", chem_symbol); 
         } // atom_id
-        if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization=%g\n", label, Z_core, ionization);
+        if (echo > 0) printf("\n\n#\n# %s LiveAtom with %g protons, ionization= %g e\n", label, Z_core, ionization);
 
         take_spherical_density[core] = 1; // must always be 1, since we can represent the true core density only on the radial grid.
         take_spherical_density[semicore] = 1;
@@ -447,8 +451,8 @@ namespace single_atom {
         double core_hole_charge{0}, core_hole_charge_used{0};
         
         if (custom_config) {
-            if (echo > 0) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
-            auto const ec = sigma_config::get(Z_core, echo);
+            if (echo > 8) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
+            auto const ec = sigma_config::get(Z_core, echo - 4);
             if (echo > 0) printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
 
             if (ec.Z != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_core, ec.Z);
@@ -917,9 +921,8 @@ namespace single_atom {
         get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), int(numax), label, echo);
 
         { // scope: specify the range of the logarithmic derivative analysis
-            auto const logder_energy_unit_name = control::get("logder.unit", "Ha");
             char const *_eu;
-            auto const eu = unit_system::energy_unit(logder_energy_unit_name, &_eu);
+            auto const eu = unit_system::energy_unit(control::get("logder.unit", "Ha"), &_eu);
             auto const in_eu = 1./eu;
             logder_energy_range[0] = control::get("logder.start", -2.0*eu)*in_eu;
             logder_energy_range[1] = control::get("logder.step",  1e-2*eu)*in_eu; // ToDo: these getter calls should be moved to the main function
@@ -1306,7 +1309,7 @@ namespace single_atom {
     
     
 
-    double update_sigma( // returns optimized sigma, if optimization was active
+    double update_projector_coefficients( // returns optimized sigma, if optimization was active
         int const echo=0 // log-level
     ) {
         // create smooth partial waves according to Bloechl/GPAW and corresponding
@@ -1336,7 +1339,9 @@ namespace single_atom {
             } // nrn
         } // ell
 
-        update_partial_waves(echo - 6, 'C', 2); // create partial waves with polynomials like GPAW and preliminary projectors as suggested by Bloechl
+        // create partial waves with polynomials like GPAW
+        // and preliminary projectors as suggested by Bloechl
+        update_partial_waves(echo - 6, 'C', 2); 
 
         char const *optimized{""};
         auto const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.)); // 0:no, 1:use optimized, -1:optimize and display only
@@ -1367,7 +1372,7 @@ namespace single_atom {
 
             optimized = "optimized ";
         } // optimize_sigma
-        double const sigma_out = sigma_opt; // return value
+        double const sigma_out = (optimize_sigma > 0) ? sigma_opt : sigma_old; // return value
 #else  // DEVEL
         double const sigma_out = sigma; // return value
         if (optimize_sigma) warn("single_atom.optimize.sigma active only with -D DEVEL");
@@ -1403,7 +1408,7 @@ namespace single_atom {
 #endif // DEVEL
 
         return sigma_out;
-    } // update_sigma
+    } // update_projector_coefficients
 
 
 
@@ -1438,7 +1443,7 @@ namespace single_atom {
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 
         if (method != classical_scheme) {
-            sigma = update_sigma(echo); // run optimization on sigma
+            sigma = update_projector_coefficients(echo); // and potentially run optimization on sigma
         } // not classical
 
         int const nln = sho_tools::nSHO_radial(numax);
@@ -2936,7 +2941,7 @@ namespace single_atom {
 
         auto const u_proj = unfold_projector_coefficients();
 #ifdef DEVEL
-        if (echo > 2) { // display
+        if (echo > 8) { // display
             printf("\n# %s lmn-based projector matrix:\n", label);
             int const mlmn = display_delimiter(numax, nn, 'm');
             for(int ilmn = 0; ilmn < nlmn; ++ilmn) {

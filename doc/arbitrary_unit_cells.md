@@ -5,8 +5,8 @@ input Bravais matrix
     a21 a22 a23
     a31 a32 a33
 
-Assert that a11 is non-zero
 Always transform into an upper triangular matrix by row ops
+Assert that a11 is non-zero
     a11 a12 a13
      0  b22 b23
      0   0  c33
@@ -23,4 +23,3 @@ Assert that b22 is non-zero
 
 Then, we have a geometry which can be represented by a rectangular cell (a11 x b22 x c33)
 with shift-boundary-conditions according to a12, a13 and b23
-

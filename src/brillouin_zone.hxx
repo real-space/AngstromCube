@@ -41,7 +41,7 @@ namespace brillouin_zone {
       for(int iy = 0; iy < n[1]; ++iy) {  xyzw[1] = (2*iy - ishift[1])*denom[1];
       for(int ix = 0; ix < n[0]; ++ix) {  xyzw[0] = (2*ix - ishift[0])*denom[0];
           set(full(iz, iy, ix), 4, xyzw);
-          if (echo > 18) printf("# kpoint mesh entry %9.6f %9.6f %9.6f weight= %g\n", xyzw[0],xyzw[1],xyzw[2], xyzw[3]);
+          if (echo > 18) printf("# k-point mesh entry %9.6f %9.6f %9.6f weight= %g\n", xyzw[0],xyzw[1],xyzw[2], xyzw[3]);
       }}} // iz iy iz
 
 //       int const nsymmetries = 1;
@@ -61,7 +61,7 @@ namespace brillouin_zone {
           } // d
           int const jx = jxyz[0], jy = jxyz[1], jz = jxyz[2];
           if (echo > 16) {
-              printf("# symmetry #%i maps kpoint", 0);
+              printf("# symmetry #%i maps k-point", 0);
               printf_vector(" %9.6f", full(iz,iy,ix), 3, " to");
               printf_vector(" %9.6f", full(jz,jy,jx), 3);
           } // echo
@@ -75,7 +75,7 @@ namespace brillouin_zone {
                   full(iz,iy,ix,WEIGHT) += w8;
                   full(jz,jy,jx,WEIGHT) -= w8;
                   if (echo > 14) {
-                      printf("# transfer kpoint weight %g from", w8);
+                      printf("# transfer k-point weight %g from", w8);
                       printf_vector(" %9.6f", full(jz,jy,jx), 3, " to");
                       printf_vector(" %9.6f", full(iz,iy,ix), 3);
                   } // echo
@@ -105,12 +105,12 @@ namespace brillouin_zone {
               assert(nmesh == imesh && "1st and 2nd time counting did not agree");
           } else {
               nmesh = imesh;
-              if (echo > 8) printf("# %d kpoints have positive weight, sum = 1 + %.1e\n", nmesh, w8sum*wfull - 1);
+              if (echo > 8) printf("# %d k-points have positive weight, weight sum = 1 + %.1e\n", nmesh, w8sum*wfull - 1);
               mesh = view2D<double>(nmesh, 4); // get memory
           } // COUNT or WRITE
       } // twice
 
-      if (echo > 3) printf("# kpoint mesh with %d x %d x %d has %d points\n", n[0],n[1],n[2], nmesh);
+      if (echo > 3) printf("# k-point mesh with %d x %d x %d has %d points\n", n[0],n[1],n[2], nmesh);
       return nmesh;
   } // get_kpoint_mesh
 

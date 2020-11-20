@@ -51,6 +51,7 @@
 #include "sho_hamiltonian.hxx" // ::solve
 #include "pw_hamiltonian.hxx" // ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t
+#include "unit_system.hxx" // ::length_unit
 
 #include "poisson_solver.hxx" // ::solve, ::solver_method
 // #include "fourier_poisson.hxx" // ::fourier_solve
@@ -80,9 +81,18 @@ namespace potential_generator {
 
 
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
-  inline int n_grid_points(double const suggest) { return (int)even((int)std::ceil(suggest)); }
-  
-  
+  inline int n_grid_points(double const suggest) { return int(even(int(std::ceil(suggest)))); }
+
+//   template <typename T, int N>
+//   void control_get_xyz(T vec[N], char const *const keyword, double const default, char const x='x') {
+//       double const iso = control::get(keyword, default);
+//       char keyword_x[96];
+//       for(int d = 0; d < N; ++d) { // e.g. directions x, y, z
+//           std::snprintf(keyword_x, 95, "%s.%c", keyword, x + d);
+//           vec[d] = control::get(keyword_x, iso);
+//       } // d
+//   } // control_get_xyz
+
   status_t init_geometry_and_grid(
         real_space::grid_t & g // output grid descriptor
       , view2D<double> & xyzZ // output atom coordinates and core charges Z
@@ -98,12 +108,60 @@ namespace potential_generator {
       int bc[3]; // boundary conditions
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
 
-      double const h = control::get("potential_generator.grid.spacing", 0.23622);
-      g = real_space::grid_t(n_grid_points(cell[0]/h), n_grid_points(cell[1]/h), n_grid_points(cell[2]/h));
+      { // scope: determine grid spacings and number of grid points
+        
+          // precedence: 
+          //    highest:  grid.points.x, .y, .z
+          //           :  grid.points
+          //           :  grid.spacing.x, .y, .z
+          //     lowest:  grid.spacing             default value = 0.125 Angstrom
+
+          auto const grid_spacing_unit_name = control::get("potential_generator.grid.spacing.unit", "Bohr");
+          char const *_lu;
+          auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
+          auto const in_lu = 1./lu;
+
+          auto const default_grid_spacing = 0.23621577; // = 0.125 Angstrom
+          auto const keyword_ng = "potential_generator.grid.points";
+          auto const keyword_hg = "potential_generator.grid.spacing";
+          auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
+          auto const hg_iso = control::get(keyword_hg, default_grid_spacing*lu);
+
+          int default_grid_spacing_used{0};
+          int ng[3] = {0, 0, 0};
+          for(int d = 0; d < 3; ++d) { // directions x, y, z
+              char keyword[96];
+              std::snprintf(keyword, 95, "%s.%c", keyword_ng, 'x'+d);
+              ng[d] = int(control::get(keyword, ng_iso));
+              if (ng[d] < 1) {
+                  std::snprintf(keyword, 95, "%s.%c", keyword_hg, 'x'+d);
+                  double const hg_lu = control::get(keyword, hg_iso);
+                  bool const is_default_grid_spacing = (hg_lu == hg_iso);
+                  double const hg = hg_lu*in_lu;
+                  if (echo > 8) printf("# grid spacing in %c-direction is %g %s = %g %s%s\n",
+                      'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
+                  default_grid_spacing_used += is_default_grid_spacing;
+                  if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
+                  ng[d] = n_grid_points(cell[d]/hg);
+                  if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
+              } // ng < 1
+              // ToDo: give a warning if grid.points or grid.points.d is overwriting a user specified grid.spacing
+              ng[d] = even(ng[d]); // if odd, increment to nearst higher even number
+              if (echo > 8) printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
+          } // d
+          if (default_grid_spacing_used > 0) {
+              if (echo > 6) printf("# default grid spacing %g %s used for %d directions\n", 
+                                default_grid_spacing*Ang, _Ang, default_grid_spacing_used);
+          } // default_grid_spacing_used
+          g = real_space::grid_t(ng[0], ng[1], ng[2]);
+      } // scope
+
       if (echo > 1) printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
       g.set_boundary_conditions(bc[0], bc[1], bc[2]);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
-      if (echo > 1) printf("# use  %g %g %g  %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
+      double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
+      if (echo > 1) printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
+            g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
       for(int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
               warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
@@ -307,6 +365,27 @@ namespace potential_generator {
           warn("initial.valence.density=%s is unknown, valence density is zero", initial_valence_density_method);
       } // initial_valence_density_method
 
+
+      // how to solve the KS-equation
+      auto const basis_method = control::get("basis", "grid");
+      bool const plane_waves = ((*basis_method | 32) == 'p');
+      bool const psi_on_grid = ((*basis_method | 32) == 'g');
+
+      // ============================================================================================
+      // prepare for solving the Kohn-Sham equation on the real-space grid
+      // create a coarse grid descriptor (this could be done later but we want a better overview in the log file)
+      real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
+      gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
+      gc.set_boundary_conditions(g.boundary_conditions());
+      if (psi_on_grid && echo > 1) {
+          printf("# use  %d x %d x %d  coarse grid points\n", gc[0], gc[1], gc[2]);
+          double const max_grid_spacing = std::max(std::max(gc.h[0], gc.h[1]), gc.h[2]);
+          printf("# use  %g %g %g  %s  coarse grid spacing, corresponds to %.2f Ry\n",
+                    gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
+      } // echo
+      // ============================================================================================
+      
+      
       
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
       std::vector<int32_t> numax(na, -1); // init with 0 projectors
@@ -371,24 +450,10 @@ namespace potential_generator {
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2,
               control::get("electronic.temperature", 1e-3), echo);
 
-      // prepare for solving the Kohn-Sham equation on the real-space grid
-      auto const basis_method = control::get("basis", "grid");
-      bool const plane_waves = ((*basis_method | 32) == 'p');
-      bool const psi_on_grid = ((*basis_method | 32) == 'g');
-
+              
       // ============================================================================================
-      // == prepaprations for the KS Solver on the real-space grid ==================================
+      // == preparations for the KS Solver on the real-space grid ===================================
       // ============================================================================================
-              // create a coarse grid descriptor
-              real_space::grid_t gc(g[0]/2, g[1]/2, g[2]/2); // divide the dense grid numbers by two
-              gc.set_grid_spacing(cell[0]/gc[0], cell[1]/gc[1], cell[2]/gc[2]); // alternative: 2*g.h[]
-              gc.set_boundary_conditions(g.boundary_conditions());
-              if (psi_on_grid && echo > 1) {
-                  printf("# use  %d x %d x %d  coarse grid points\n", gc[0], gc[1], gc[2]);
-                  double const max_grid_spacing = std::max(std::max(gc.h[0], gc.h[1]), gc.h[2]);
-                  printf("# use  %g %g %g  %s  coarse grid spacing, corresponds to %.3f Ry\n",
-                            gc.h[0]*Ang, gc.h[1]*Ang, gc.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-              } // echo
 
               // create a list of atoms
               auto list_of_atoms = grid_operators::empty_list_of_atoms();
@@ -416,10 +481,10 @@ namespace potential_generator {
               } // scope
 
               // construct grid-based Hamiltonian and overlap operator descriptor
-              using real_wave_function_t = float;  // decide here if single or double precision
-//               using real_wave_function_t = double; // decide here if single or double precision
-              using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
-//               using wave_function_t = real_wave_function_t;               // decide here if real or complex
+//               using real_wave_function_t = float;  // decide here if single or double precision
+              using real_wave_function_t = double; // decide here if single or double precision
+//               using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
+              using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
@@ -435,6 +500,7 @@ namespace potential_generator {
               view2D<double> kmesh; // kmesh(nkpoints, 4);
               int const nkpoints = brillouin_zone::get_kpoint_mesh<is_complex<wave_function_t>()>(kmesh);
               if (echo > 0) printf("# k-point mesh has %d points\n", nkpoints);
+              // ToDo: warn if boundary_condition is isolated but there is more than 1 kpoint
 
               double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
               int const nbands = int(nbands_per_atom*na);
@@ -475,7 +541,7 @@ namespace potential_generator {
                           }
                       } // run
                       for(int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
-                          if (echo > 3) { printf("# copy %d bands for kpoint #%i from kpoint #0\n", nbands, ikpoint); std::fflush(stdout); }
+                          if (echo > 3) { printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
                           if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
                       } // ikpoints
                   } // start wave method
@@ -699,7 +765,7 @@ namespace potential_generator {
                   } // scope
 
                   if (echo > 0) {
-                      if (control::get("potential_generator.direct.projection", 0.) > 0) {
+                      if (control::get("potential_generator.use.direct.projection", 0.) > 0) {
                           double cnt0[3]; if (na > 0) for(int d = 0; d < 3; ++d) cnt0[d] = center(0,d) + 0.5*(g.h[d] - gc.h[d]);
                           printf("\n## all values of Vtot in %s (on the coarse grid, unordered) as function of the distance to %s\n",
                                                             _eV, (na > 0) ? "atom #0" : "the cell center");
@@ -709,7 +775,7 @@ namespace potential_generator {
 #endif // DEVEL
 
                   // copy the local potential and non-local atom matrices into the grid operator descriptor
-                  op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo);
+                  op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo*0); // muted
 
                   std::vector<double> rho_valence_gc(gc.all(), 0.0); // new valence density on the coarse grid
 
@@ -810,7 +876,7 @@ namespace potential_generator {
               double_counting_correction = dot_product(g.all(), rho_valence_new.data(), Vtot.data()) * g.dV();
               if (echo > 4) printf("\n# double counting (dense grid) %.9f %s\n\n", double_counting_correction*eV, _eV);
 
-#if 0
+#if 1
               if (1) { // update take_atomic_valence_densities
                   take_atomic_valence_densities = 0.5f;
                   stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
