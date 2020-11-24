@@ -110,7 +110,11 @@ potential_generator.grid.spacing.unit=Ang
 potential_generator.grid.points=96
 
 ## max. number of self-consistency iterations
-potential_generator.max.scf=1
+potential_generator.max.scf=9
+potential_generator.mix.density=0.25
+atomic.valence.decay=5
+## compute the Fermi level {exact, linearized}
+fermi.level=exact
 
 ## analyze the potentials up to vtot (DEBUG)
 #potential_generator.use.bessel.projection=0
@@ -125,7 +129,8 @@ electrostatic.solver=fft
 ##
 
 ## configurations of elements
-element_C="2s* 2 2p 2 0 3d | 1.2 numax 2 sigma .4304 V=parabola"
+#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
 
 ## partial wave method {energy_ordering, recreate_second, classical, ...}
 single_atom.partial.wave.method=recreate_second
@@ -134,10 +139,10 @@ single_atom.partial.wave.method=recreate_second
 single_atom.relax.partial.waves=0
 
 ## special verbosity for PAW setup
-single_atom.init.echo=3
+single_atom.init.echo=0
 
 ## special verbosity for PAW update
-single_atom.echo=5
+single_atom.echo=3
 
 ## default for local potential method {parabola, sinc}
 #single_atom.local.potential.method=sinc
@@ -149,7 +154,7 @@ single_atom.echo.mask=1
 single_atom.optimize.sigma=1
 
 ## debug options
-single_atom.synthetic.density.matrix=1
+single_atom.synthetic.density.matrix=0
 single_atom.init.scf.maxit=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
@@ -180,12 +185,11 @@ hamiltonian.floating.point.bits=64
 # method of the grid eigensolver {cg, Davidson, none, explicit}
 #grid.eigensolver=explicit
 grid.eigensolver=cg
-conjugate_gradients.max.iter=3
+conjugate_gradients.max.iter=1
 grid.eigensolver.repeat=1
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
-atomic.valence.decay=0
 
 ## load start waves from file, store wave functions to file
 start.waves=waves.dat

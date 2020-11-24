@@ -2345,7 +2345,7 @@ namespace single_atom {
         } // order
 
 #ifdef DEVEL
-        if (echo > 6 && take_spherical_density[valence] < 1) {
+        if (echo > 7 && take_spherical_density[valence] < 1) {
             printf("# %s Radial SHO density matrix in %s-order:\n", label, SHO_order2string(sho_tools::order_lmn).c_str());
             view2D<char> labels(sho_tools::nSHO(numax), 8, '\0');
             sho_tools::construct_label_table(labels.data(), numax, sho_tools::order_lmn);
@@ -2355,7 +2355,7 @@ namespace single_atom {
             } // ilmn
             printf("\n");
         } // echo
-        
+
         if (echo > 12) {
             int const nlnr = sho_tools::nSHO_radial(numax);
             view2D<double> density_matrix_ln(nlnr,nlnr);
@@ -2363,7 +2363,7 @@ namespace single_atom {
             show_ell_block_diagonal(density_matrix_ln, "emm-summed SHO density matrix", 1, true, true);
         } // echo
 #endif // DEVEL
-        
+
         { // scope
             //   ToDo:  Introduce the projector_coeff to bring
             //          the iln,jln indices of rho_tensor 
@@ -2400,7 +2400,7 @@ namespace single_atom {
             } // ilmn
             if (echo > 6) printf("\n");
         } // i_modify
-        
+
 
         if (echo > 2) {
             int const nlnr = sho_tools::nSHO_radial(numax);
@@ -2485,18 +2485,18 @@ namespace single_atom {
         for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             size_t const nr = rg[ts].n;
             assert(full_density[ts].stride() >= nr);
-            set(full_density[ts], nlm, 0.0); // clear
             for(int lm = 0; lm < nlm; ++lm) {
+                set(full_density[ts][lm], full_density[ts].stride(), 0.0); // clear
                 if (00 == lm) {
                     // add spherical densities, in particular the core density
-                    for(int csv = 0; csv < 3; ++csv) {
+                    for(int csv = core; csv <= valence; ++csv) {
                         if ((take_spherical_density[csv] > 0) && (csv_charge[csv] > 0)) {
-                            add_product(full_density[ts][lm], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
+                            add_product(full_density[ts][00], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
                             // needs scaling with Y00 since core_density has a factor 4*pi
                             if (echo > 1) printf("# %s %s density has %g electrons after adding the spherical %s density\n",
-                                label, ts_name[ts], dot_product(nr, full_density[ts][lm], rg[ts].r2dr)*Y00inv, csv_name[csv]);
+                                label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y00inv, csv_name[csv]);
                         } // take
-                    } // spherical {core, semicore, valence} densities
+                    } // csv, spherical {core, semicore, valence} densities
                 } // 00 == lm
                 if (mix_valence_density > 0) {
                     for(int iln = 0; iln < nln; ++iln) {
@@ -2566,11 +2566,21 @@ namespace single_atom {
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_cmp, sigma_compensator);
-            double const aug_charge = dot_product(rg[SMT].n, rg[SMT].r2dr, aug_density[00]); // only aug_density[00==lm]
-            if (echo > 2) printf("# %s augmented density shows an ionization of %g electrons\n", label, aug_charge*Y00inv); // this value should be small
+
+            { // scope: measure the ionization inside the sphere, should be small
+                double sph_charge{0};
+                for(int csv = core; csv <= valence; ++csv) {
+                    sph_charge += dot_product(ir_cut[TRU] + 1, rg[TRU].r2dr, spherical_density[TRU][csv]);
+                } // csv
+                if (echo > 9) printf("# %s true spherical density has %g electrons inside the sphere\n", label, sph_charge);
+                sph_charge -= Z_core; // subtract the number of protons
+                double const aug_charge = dot_product(ir_cut[SMT] + 1, rg[SMT].r2dr, aug_density[00])*Y00inv; // only aug_density[00==lm]
+                if (echo > 2) printf("# %s augmented density shows an ionization of %g electrons inside the sphere\n", label, aug_charge - sph_charge);
+            } // scope
 
             double const tru_charge = dot_product(rg[TRU].n, rg[TRU].r2dr, full_density[TRU][00]); // only full_density[0==lm]
-            if (echo > 3) printf("# %s true density has %g electrons\n", label, tru_charge*Y00inv); // this value should be of the order of Z
+            if (echo > 3) printf("# %s true density has %g electrons\n", label, tru_charge*Y00inv); // this value can differ ...
+            // ... from Z_core since we integrate over the entire grid
         } // scope
 
     } // update_full_density
@@ -2585,7 +2595,7 @@ namespace single_atom {
 
 
     void update_full_potential(
-          float const mixing
+          float const mixing // how much of the true potential is transferred to the spherical potential
         , double const ves_multipole[]
         , int const echo=0
     ) {
@@ -3028,7 +3038,7 @@ namespace single_atom {
         // Mind that this transform is unitary and assumes square-normalized SHO-projectors
         // ... which might require proper normalization factors f(i)*f(j) to be multiplied in, see sho_projection::sho_prefactor
 #ifdef DEVEL
-        if (echo > 6) { // display
+        if (echo > 7) { // display
             printf("\n# %s SHO-transformed Hamiltonian elements (%s-order) in %s:\n",
                         label, sho_tools::SHO_order2string(sho_tools::order_zyx).c_str(), _eV);
             view2D<char> zyx_label(nSHO, 8);
@@ -3271,7 +3281,7 @@ namespace single_atom {
 
 
     void update_density(
-          float const density_mixing[3] // mixing of the density according to its class (0:core, 1:semicore, 2:valence)
+          float const density_mixing[3] // mixing of the spherical {core,semicore,valence} density
         , int const echo=0 // log-level
     ) {
         if (echo > 2) printf("\n# %s Z=%g\n", __func__, Z_core);
@@ -3563,13 +3573,13 @@ namespace single_atom {
           case 'z': // interface usage: atom_update("zero potentials",   natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
-              if ('v' == how) assert(nullptr != dp);
+//               if ('v' == how) assert(nullptr != dp);
               for(int ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != qnt[ia]);
                   int   const nr2 = ip ? ip[ia] : nr2_default;
                   float const ar2 = fp ? fp[ia] : ar2_default;
                   stat += a[ia]->get_smooth_spherical_quantity(qnt[ia], ar2, nr2, how);
-                  if ('v' == how) dp[ia] = a[ia]->spherical_charge_deficit[valence];
+//                   if ('v' == how) dp[ia] = a[ia]->spherical_charge_deficit[valence];
               } // ia
               if ('v' != how && nullptr != dp) warn("please use \'%s\'-interface with nullptr as 3rd argument", what);
           }

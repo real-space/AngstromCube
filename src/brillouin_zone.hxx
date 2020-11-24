@@ -14,6 +14,9 @@
 
 namespace brillouin_zone {
 
+  int constexpr WEIGHT = 3; // the weight is stored in the 3rd component
+                            // while components 0,1,2 carry the kvector
+
   template <bool ComplexPhaseFactors=true>
   int get_kpoint_mesh(
         view2D<double> & mesh

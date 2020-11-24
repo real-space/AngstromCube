@@ -155,7 +155,7 @@ namespace density_generator {
 
   template <typename complex_t>
   status_t density(
-        double rho[]                   // result density on grid
+        double *const rho              // result density on grid
       , double *const *const atom_rho  // result atomic density matrices
       , fermi_distribution::FermiLevel_t & Fermi
       , double const eigenenergies[]     // assumed shape [nbands]
@@ -168,6 +168,7 @@ namespace density_generator {
       , double const weight_k=1
       , int const echo=0 // log-level
       , int const ikpoint=-1 // log-info
+      , double *const d_rho=nullptr             // result response density
       , double *const *const d_atom_rho=nullptr // result atomic density matrices derived
       , double charges[]=nullptr // nominal charge accumulators: 0:kpoint_denominator, 1:charge, 2:d_charge
   ) {
@@ -185,7 +186,6 @@ namespace density_generator {
       view2D<complex_t const> const psi_k(eigenfunctions, g.all()); // wrap
       if (echo > 3) printf("# %s assume atom_coeff with stride %d\n", __func__, n_all_coeff);
       view2D<complex_t const> const a_coeff(atom_coeff, n_all_coeff); // wrap
-      std::vector<double> d_rho(g.all(), 0.0); // get memory
 
       double constexpr occ_threshold = 1e-16;
       double const kT = Fermi.get_temperature(); // for display
@@ -230,7 +230,9 @@ namespace density_generator {
                       charge_k[2] += d_occupation[iband]*spinfactor;
                       double const d_weight_nk = d_occupation[iband] * weight_sk;
 
-                      add_to_density(d_rho.data(), g.all(), psi_nk, d_weight_nk, echo, iband, ikpoint);
+                      if (d_rho) {
+                          add_to_density(d_rho, g.all(), psi_nk, d_weight_nk, echo, iband, ikpoint);
+                      } // d_rho != nullptr
 
                       if (d_atom_rho) {
                           add_to_density_matrices(d_atom_rho, a_coeff[iband],
@@ -254,7 +256,7 @@ namespace density_generator {
       } // ikpoint
       if (charges) add_product(charges, 3, charge, 1.0);
       if (echo > 1) { printf("\n# Total valence density "); print_stats(rho, g.all(), g.dV()); }
-      if (echo > 3) { printf("# Total response density"); print_stats(d_rho.data(), g.all(), g.dV(), "", kT); }
+      if (echo > 3) { printf("# Total response density"); print_stats(d_rho, g.all(), g.dV(), "", kT); }
 #if 1
       if (echo > 6) {
           for(int ia = 0; ia < natoms; ++ia) {
