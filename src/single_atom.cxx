@@ -73,7 +73,7 @@ namespace single_atom {
   char const ts_name[][8] = {"true", "smooth"};  // TRU:true, SMT:smooth
 
   double constexpr Y00    = solid_harmonics::Y00; // == 1./sqrt(4*pi)
-  double constexpr Y00inv = solid_harmonics::Y00inv; // == sqrt(4*pi)
+  double constexpr Y004pi = solid_harmonics::Y00inv; // == sqrt(4*pi)
 
   template <typename real_t>
   inline void symmetrize(real_t &left, real_t &right) {
@@ -2440,7 +2440,7 @@ namespace single_atom {
 #ifdef FULL_DEBUG
 //                         auto const rho_ij = rho_tensor[lm][iln][jln];
 //                         if (std::abs(rho_ij) > 1e-9)
-//                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij*Y00inv, lm, iln, jln);
+//                             printf("# LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", __LINE__, rho_ij*Y004pi, lm, iln, jln);
 #endif // FULL_DEBUG
                     } // jlmn
                 } // ilmn
@@ -2457,7 +2457,7 @@ namespace single_atom {
                         auto const rho_ij = rho_tensor(lm,iln,jln);
                         if (std::abs(rho_ij) > 2e-16 && echo > 11) {
                             printf("# %s LINE=%d rho_ij = %g for lm=%d iln=%d jln=%d\n", 
-                                label, __LINE__, rho_ij*Y00inv, lm, iln, jln);
+                                label, __LINE__, rho_ij*Y004pi, lm, iln, jln);
                         } // rho_ij > 0
                     } // jln
                 } // iln
@@ -2490,7 +2490,7 @@ namespace single_atom {
                             add_product(full_density[ts][00], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
                             // needs scaling with Y00 since core_density has a factor 4*pi
                             if (echo > 1) printf("# %s %s density has %g electrons after adding the spherical %s density\n",
-                                label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y00inv, csv_name[csv]);
+                                label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi, csv_name[csv]);
                         } // take
                     } // csv, spherical {core, semicore, valence} densities
                 } // 00 == lm
@@ -2505,7 +2505,7 @@ namespace single_atom {
 #ifdef FULL_DEBUG
                                     if (echo > 0  && 00 == lm && ts == TRU && std::abs(rho_ij) > 2e-16) 
                                         printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n",
-                                            label, rho_ij*Y00inv, lm, iln, jln);
+                                            label, rho_ij*Y004pi, lm, iln, jln);
 #endif // FULL_DEBUG
                                     add_product(full_density[ts][lm], nr, wave_i, wave_j, rho_ij);
                                 } // active
@@ -2515,7 +2515,7 @@ namespace single_atom {
                 } // mix_valence_density
             } // lm
             if (echo > 1) printf("# %s %s density has %g electrons\n",
-                      label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y00inv);
+                      label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi);
 
         } // true and smooth
 
@@ -2532,7 +2532,7 @@ namespace single_atom {
 #ifdef FULL_DEBUG
                             if (echo > 0 && std::abs(rho_ij) > 1e-9)
                                 printf("# %s rho_ij = %g for ell=%d emm=%d iln=%d jln=%d\n",
-                                    label, rho_ij*Y00inv, ell, emm, iln, jln);
+                                    label, rho_ij*Y004pi, ell, emm, iln, jln);
 #endif // FULL_DEBUG
                             rho_lm += rho_ij * ( charge_deficit(ell,TRU,iln,jln)
                                                - charge_deficit(ell,SMT,iln,jln) );
@@ -2544,7 +2544,7 @@ namespace single_atom {
                 assert(lm >= 0);
                 assert(lm < nlm_cmp);
                 qlm_compensator[lm] = rho_lm * mix_valence_density;
-                if (0 == ell && echo > 2) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm*Y00inv, smt_lm*Y00inv);
+                if (0 == ell && echo > 2) printf("# %s valence density matrix proposes %g true, %g smooth electrons\n", label, tru_lm*Y004pi, smt_lm*Y004pi);
 
             } // emm
         } // ell
@@ -2553,7 +2553,20 @@ namespace single_atom {
         assert(1 == take_spherical_density[core]); // must always be 1 since we can compute the core density only on the radial grid
         double const spherical_charge_deficits = dot_product(3, spherical_charge_deficit, take_spherical_density);
         qlm_compensator[00] += (spherical_charge_deficits - Z_core)*Y00;
-        if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[00]*Y00inv);
+        if (echo > 5) printf("# %s compensator monopole charge is %g electrons\n", label, qlm_compensator[00]*Y004pi);
+        
+        
+        { // scope: measure the ionization inside the sphere, should be small
+            double sph_charge{0};
+            for(int csv = core; csv <= valence; ++csv) {
+                sph_charge += dot_product(ir_cut[TRU] + 1, rg[TRU].r2dr, spherical_density[TRU][csv]);
+            } // csv
+            if (echo > 2) printf("# %s true spherical density has %g electrons inside the sphere\n", label, sph_charge);
+            double const s00_charge = dot_product(ir_cut[TRU] + 1, rg[TRU].r2dr, full_density[TRU][00])*Y004pi;
+            if (echo > 2) printf("# %s true full density has %g electrons inside the sphere\n", label, s00_charge);
+            if (echo > 2) printf("# %s density shows an ionization of %g electrons inside the sphere\n", label, s00_charge - sph_charge);
+        } // scope
+            
 
         { // scope: construct the augmented density
             int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
@@ -2562,35 +2575,22 @@ namespace single_atom {
             set(aug_density, nlm_aug, 0.0); // clear all entries
             set(aug_density.data(), nlm*mr, full_density[SMT].data()); // copy smooth full_density, need spin summation?
             add_or_project_compensators<0>(aug_density, qlm_compensator.data(), rg[SMT], ellmax_cmp, sigma_compensator);
-
-            { // scope: measure the ionization inside the sphere, should be small
-                // radius to stop integration must be as large as compensation charge is full enclosed
-                double const r_aug = std::max(r_cut, 9*sigma_compensator);
-                int ir_aug[TRU_AND_SMT];
-                ir_aug[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
-                ir_aug[TRU] = ir_aug[SMT] + nr_diff;
-//              int const ir_aug[TRU_AND_SMT] = {rg[TRU].n - 1, rg[SMT].n - 1}; double const r_aug = rg[TRU].r[ir_aug[TRU]]; // full grid
-
-                if (echo > 1) printf("# %s check ionization by integration up to r= %g %s, indices %i and %i\n",
-                                        label, r_aug*Ang, _Ang, ir_aug[TRU], ir_aug[SMT]);
-
-                double sph_charge{0};
-                for(int csv = core; csv <= valence; ++csv) {
-                    sph_charge += dot_product(ir_aug[TRU] + 1, rg[TRU].r2dr, spherical_density[TRU][csv]);
-                } // csv
-                if (echo > 2) printf("# %s true spherical density has %g electrons inside r= %g %s\n", label, sph_charge, r_aug*Ang, _Ang);
-                sph_charge -= Z_core; // subtract the number of protons
-                if (echo > 2) printf("# %s true spherical density has charge %g inside r= %g %s\n", label, sph_charge, r_aug*Ang, _Ang);
-
-                double const aug_charge = dot_product(ir_aug[SMT] + 1, rg[SMT].r2dr, aug_density[00])*Y00inv; // only aug_density[00==lm]
-                if (echo > 2) printf("# %s augmented density has charge %g inside r= %g %s\n", label, aug_charge, r_aug*Ang, _Ang);
-                if (echo > 2) printf("# %s augmented density shows an ionization of %g electrons inside the sphere\n", label, aug_charge - sph_charge);
-                double const aug_charge_full = dot_product(rg[SMT].n, rg[SMT].r2dr, aug_density[00])*Y00inv; // only aug_density[00==lm]
-                if (echo > 2) printf("# %s augmented density has %g electrons on the entire grid\n", label, aug_charge_full);
-            } // scope
+             
+#ifdef DEVEL
+            if (echo > 19) {
+                printf("\n## r, aug_density, true_density, smooth_density, spherical_density:\n");
+                for(int ir = 0; ir < rg[SMT].n; ++ir) {
+                    int const ir_tru = ir + nr_diff;
+                    printf("%g %g %g %g %g\n", rg[SMT].r[ir], aug_density(00,ir),
+                          full_density[TRU](00,ir_tru), full_density[SMT](00,ir),
+                          (spherical_density[TRU](core,ir_tru) + spherical_density[TRU](valence,ir_tru))*Y00);
+                } // ir
+                printf("\n\n");
+            } // echo
+#endif // DEVEL
 
             double const tru_charge = dot_product(rg[TRU].n, rg[TRU].r2dr, full_density[TRU][00]); // only full_density[0==lm]
-            if (echo > 3) printf("# %s true density has %g electrons\n", label, tru_charge*Y00inv); // this value can differ ...
+            if (echo > 3) printf("# %s true density has %g electrons\n", label, tru_charge*Y004pi); // this value can differ ...
             // ... from Z_core since we integrate over the entire grid
         } // scope
 
@@ -2753,7 +2753,7 @@ namespace single_atom {
                 // TRU
                 if (echo > 8) printf("# %s local true electrostatic potential*r at origin is %g (should match -Z=%.1f)\n",
                                         label, Ves(00,1)*(rg[TRU].r[1])*Y00, -Z_core);
-                auto const E_Coulomb = -Z_core*dot_product(nr, full_density[TRU][00], rg[TRU].rdr)*Y00inv;
+                auto const E_Coulomb = -Z_core*dot_product(nr, full_density[TRU][00], rg[TRU].rdr)*Y004pi;
                 if (echo > 5) printf("# %s true Hartree energy %.9f Coulomb energy %.9f %s\n",
                                         label, (energy_es[TRU] - 0.5*E_Coulomb)*eV, E_Coulomb*eV, _eV);
                 energy_es[TRU] += 0.5*E_Coulomb; // the other half is included in E_Hartree
@@ -2842,7 +2842,7 @@ namespace single_atom {
 #ifdef DEVEL
         if (0) { // scope: test: use the spherical routines from atom_core::rad_pot(output=r*V(r), input=rho(r)*4pi)
             std::vector<double> rho4pi(rg[TRU].n);
-            set(rho4pi.data(), rg[TRU].n, full_density[TRU][00], Y00inv);
+            set(rho4pi.data(), rg[TRU].n, full_density[TRU][00], Y004pi);
             printf("\n# WARNING: use rad_pot to construct the r*V_tru(r) [for DEBUGGING]\n\n");
             atom_core::rad_pot(potential[TRU].data(), rg[TRU], rho4pi.data(), Z_core);
         } // scope

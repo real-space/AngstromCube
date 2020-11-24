@@ -117,6 +117,8 @@ namespace fermi_distribution {
           e[0] = std::min(e[0], energy);
           e[1] = std::max(e[1], energy);
       } // ib
+      e[0] -= 9*kT + .5;
+      e[1] += 9*kT + .5;
 
       // ToDo: k-point weights
 

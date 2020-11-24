@@ -1020,27 +1020,9 @@ namespace potential_generator {
 
           } // scope: Kohn-Sham
 
-#if 0
-          if (1) { // update take_atomic_valence_densities
-              take_atomic_valence_densities = 0.f; // 0.99f;
-              if (echo > 0) printf("# set take_atomic_valence_densities = %g %%\n", take_atomic_valence_densities*100);
-              stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
-          } // 1
-#endif // 0
-
           float rho_mixing_ratios[] = {.5, .5, .5}; // for spherical {core, semicore, valence} density             
           stat += single_atom::atom_update("atomic density matrices", na, 0, 0, rho_mixing_ratios, atom_rho.data());
-
-          if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
-#if 1
-              auto const x = scf_iteration/spherical_valence_decay; // progress x
-              take_atomic_valence_densities = (x >= 1) ? 0 : 2*pow3(x) - 3*pow2(x) + 1; // smooth transition function
-              if (echo > 0) printf("# set take_atomic_valence_densities = %g %%\n", take_atomic_valence_densities*100);
-              stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
-#endif // 1
-          } // spherical_valence_decay
-          here;
-
+          
 
           // compute the total energy
           std::vector<double> atomic_energy_diff(na, 0.0);
@@ -1093,6 +1075,29 @@ namespace potential_generator {
                        + atomic_energy_corrections;
           if (echo > 0) { printf("\n# total energy %.9f %s\n\n", total_energy*eV, _eV); std::fflush(stdout); }
 
+          
+          
+          
+#if 0
+          if (1) { // update take_atomic_valence_densities
+              take_atomic_valence_densities = 0.f; // 0.99f;
+              if (echo > 0) printf("# set take_atomic_valence_densities = %g %%\n", take_atomic_valence_densities*100);
+              stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
+          } // 1
+#endif // 0
+
+          if (spherical_valence_decay > 0) { // update take_atomic_valence_densities
+#if 1
+              auto const x = scf_iteration/spherical_valence_decay; // progress x
+              take_atomic_valence_densities = (x >= 1) ? 0 : 2*pow3(x) - 3*pow2(x) + 1; // smooth transition function
+              if (echo > 0) printf("# set take_atomic_valence_densities = %g %%\n", take_atomic_valence_densities*100);
+              stat += single_atom::atom_update("lmax qlm", na, 0, lmax_qlm.data(), &take_atomic_valence_densities);
+#endif // 1
+          } // spherical_valence_decay
+          here;
+          
+          
+          
           { // scope: read the stop file with standard name, max_scf_iterations may be modified
               auto const stat = debug_tools::manage_stop_file<'r'>(max_scf_iterations, echo);
               if (stat != 0) warn("failed to read the stop file");

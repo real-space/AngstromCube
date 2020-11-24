@@ -7,14 +7,18 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C 0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.vacuum
+# printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
+# echo "__  0 0 0" >> $geometry_file
 
-# project_base=pg.C-dimer
-# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  -0.65 0 0" >> $geometry_file
-# echo "C   0.65 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
+
+project_base=pg.C-dimer
+printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  -0.65 0 0" >> $geometry_file
+echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -105,9 +109,9 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 ## grid spacing or number of grid points of the dense grid
-#potential_generator.grid.spacing.unit=Ang
-#potential_generator.grid.spacing=0.1042
-potential_generator.grid.points=96
+potential_generator.grid.spacing.unit=Ang
+potential_generator.grid.spacing=0.083334
+#potential_generator.grid.points=96
 
 ## max. number of self-consistency iterations
 potential_generator.max.scf=3
@@ -132,6 +136,8 @@ electrostatic.solver=fft
 #element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
 element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
 
+#element___="1s 1e-6 2p 0 | 1.0 numax 1 sigma .5 V=parabola"
+
 ## partial wave method {energy_ordering, recreate_second, classical, ...}
 single_atom.partial.wave.method=recreate_second
 
@@ -154,7 +160,7 @@ single_atom.echo.mask=1
 single_atom.optimize.sigma=1
 
 ## debug options
-single_atom.synthetic.density.matrix=1
+#single_atom.synthetic.density.matrix=1
 single_atom.init.scf.maxit=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
@@ -193,7 +199,7 @@ start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
 start.waves=$project_base.waves.dat
-store.waves=$project_base.waves.dat
+#store.waves=$project_base.waves.dat
 
 ## configuration for basis=pw
 #pw_hamiltonian.solver {auto, both, direct, iterative}
