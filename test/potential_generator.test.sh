@@ -7,14 +7,14 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
 # echo "C 0 0 0" >> $geometry_file
 
-# project_base=pg.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-dimer
-printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  -0.65 0 0" >> $geometry_file
-echo "C   0.65 0 0" >> $geometry_file
+# project_base=pg.C-dimer
+# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  -0.65 0 0" >> $geometry_file
+# echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -105,14 +105,14 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 ## grid spacing or number of grid points of the dense grid
-potential_generator.grid.spacing.unit=Ang
+#potential_generator.grid.spacing.unit=Ang
 #potential_generator.grid.spacing=0.1042
 potential_generator.grid.points=96
 
 ## max. number of self-consistency iterations
-potential_generator.max.scf=9
+potential_generator.max.scf=3
 potential_generator.mix.density=0.25
-atomic.valence.decay=5
+atomic.valence.decay=1
 ## compute the Fermi level {exact, linearized}
 fermi.level=exact
 
@@ -154,7 +154,7 @@ single_atom.echo.mask=1
 single_atom.optimize.sigma=1
 
 ## debug options
-single_atom.synthetic.density.matrix=0
+single_atom.synthetic.density.matrix=1
 single_atom.init.scf.maxit=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
@@ -192,8 +192,8 @@ grid.eigensolver.repeat=1
 start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
-start.waves=waves.dat
-#store.waves=waves.dat
+start.waves=$project_base.waves.dat
+store.waves=$project_base.waves.dat
 
 ## configuration for basis=pw
 #pw_hamiltonian.solver {auto, both, direct, iterative}
@@ -201,7 +201,7 @@ pw_hamiltonian.solver=direct
 
 #pw_hamiltonian.solver=iterative
 #pw_hamiltonian.iterative.solver.ratio=8.0
-#pw_hamiltonian.iterative.solver=CG
+#pw_hamiltonian.iterative.solver=cg
 #conjugate_gradients.max.iter=2
 #pw_hamiltonian.max.cg.iterations=12
 #davidson_solver.max.iterations=7

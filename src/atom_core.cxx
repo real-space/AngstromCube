@@ -534,8 +534,20 @@ namespace atom_core {
     return stat;
   } // test_Zeff_file_compression
 
+  status_t test_neutral_atom_total_energy(int const echo=0) {
+    if (echo < 7) return 0;
+    printf("\n\n## %s\n", __func__);
+    for(int iZ = -1; iZ <= 120*2; ++iZ) {
+        double const Z = iZ*0.5;
+        printf("%g %.9f\n", Z, neutral_atom_total_energy(Z));
+    } // Z
+    printf("\n# %s\n\n", __func__);
+    return 0;
+  } // test_neutral_atom_total_energy
+
   status_t all_tests(int const echo) {
     status_t stat{0};
+    stat += test_neutral_atom_total_energy(echo);
     stat += test_initial_density(echo);
     stat += test_nl_index(echo);
     stat += test_core_solver(echo);

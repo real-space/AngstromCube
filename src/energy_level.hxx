@@ -3,6 +3,7 @@
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 
   int constexpr TRU=0, SMT=1, TRU_AND_SMT=2, TRU_ONLY=1;
+//  int constexpr REF=2, TRU_SMT_REF=3;
 
   template<int Pseudo> // Pseudo: see description at instanciation
   struct energy_level {

@@ -291,7 +291,7 @@ namespace scattering_test {
       
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(rg[SMT], Rlog_over_sigma*sigma), rg[SMT].n - 2);
       double const Rlog = rg[SMT].r[ir_stop[SMT]];
-      if (echo > 0) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
+      if (echo > 1) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
       view3D<float> gncs(1 + nen, 1 + lmax, TRU_AND_SMT);

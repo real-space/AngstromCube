@@ -40,6 +40,7 @@
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
 #include "single_atom.hxx" // ::atom_update
+#include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 // ToDo: restructure: move this into a separate compilation unit
 #include "atom_image.hxx"// ::sho_atom_t
@@ -101,7 +102,7 @@ namespace potential_generator {
   ) {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat(0);
-      
+
       natoms = 0;
       double cell[3];
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
@@ -873,7 +874,7 @@ namespace potential_generator {
                           } // ikpoint
                           double const eF = fermi_distribution::Fermi_level(occupations.data(), 
                                           energies.data(), kweights.data(), nkpoints*nbands,
-                                          Fermi.get_temperature(), n_valence_electrons, Fermi.get_spinfactor(), echo + 10);
+                                          Fermi.get_temperature(), n_valence_electrons, Fermi.get_spinfactor(), echo);
                           Fermi.set_Fermi_level(eF, echo);
                       } // scope
                   } // occupation_method "exact"
@@ -992,13 +993,19 @@ namespace potential_generator {
               if (echo > 1) print_stats(rho_valence_new[0], g.all(), g.dV(), "\n# Total new valence density");
               
               
+              // display the sum of new valence eigenvalues
               if (echo > 1) printf("\n# sum of eigenvalues %.9f %s\n\n", band_energy_sum*eV, _eV);
+              // in order to compute the kinetic energy of valence states, we need to subtract 
+              // the expectation value of the potential which consists of two parts: the grid part 
               double_counting_correction = dot_product(g.all(), rho_valence_new[0], Vtot.data()) * g.dV();
               if (echo > 1) printf("\n# grid double counting %.9f %s\n\n", double_counting_correction*eV, _eV);
+              // and the atom part: for each atom sum_ij D_ij v_ij where v_ij + t_ij = h_ij, 
+              // with h_ij being the atomic non-local correction to the Hamiltonian
+              // and D_ij the atomic valence density matrix.
+
               grid_kinetic_energy = band_energy_sum - double_counting_correction;
               if (echo > 1) printf("\n# grid kinetic energy %.9f %s (take %.1f %%)\n\n", 
                   grid_kinetic_energy*eV, _eV, (1. - take_atomic_valence_densities)*100);
-              // the grid_kinetic_energy differs from the total_valence_kinetic_energy by the term -sum_ij D_ij h_ij which is evaluated inside the spheres
               
               // valence density mixing
               double const mix_old = 1 - density_mixing;
@@ -1037,9 +1044,49 @@ namespace potential_generator {
 
           // compute the total energy
           std::vector<double> atomic_energy_diff(na, 0.0);
-          stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
+
+          bool const total_energy_details = true;
+          if (total_energy_details) {
+              int const nE = align<1>(energy_contribution::max_number);
+              std::vector<int32_t> nEa(na, nE);
+              data_list<double> atom_contrib(nEa, 0.0);
+              stat += single_atom::atom_update("energies", na, atomic_energy_diff.data(), 0, 0, atom_contrib.data());
+              std::vector<double> Ea(nE, 0.0);
+              for(int ia = 0; ia < na; ++ia) {
+                  add_product(Ea.data(), nE, atom_contrib[ia], 1.0); // all atomic weight factors are 1.0
+              } // ia
+              for(int i01 = 0; i01 < 2; ++i01) {
+                  if (echo > 3 + 4*(1 - i01)) {
+                      char const *const without_with = i01 ? "" : "out";
+                      printf("\n# sum of atomic energy contributions with%s grid contributions (%s)\n", without_with, _eV);
+                      printf("# kinetic       %32.9f\n", Ea[energy_contribution::KINETIC]*eV);
+                      printf("# electrostatic %32.9f\n", Ea[energy_contribution::ELECTROSTATIC]*eV);
+                      printf("# XC            %32.9f\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV);
+                      printf("# true total    %32.9f\n", Ea[energy_contribution::TOTAL]*eV);
+                      printf("# reference     %32.9f\n", Ea[energy_contribution::REFERENCE]*eV);
+                      double E_tot = Ea[energy_contribution::KINETIC] + Ea[energy_contribution::ELECTROSTATIC]
+                                   + Ea[energy_contribution::EXCHANGE_CORRELATION] - Ea[energy_contribution::REFERENCE];
+                      printf("# total         %32.9f\n", E_tot*eV);
+                  } // echo
+                  
+                  // now add grid contributions
+                  Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
+                  Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
+                  Ea[energy_contribution::ELECTROSTATIC] += grid_electrostatic_energy;
+                  // reconstruct total energy from its contributions KINETIC + ES + XC
+                  Ea[energy_contribution::TOTAL] = Ea[energy_contribution::KINETIC] 
+                                                 + Ea[energy_contribution::ELECTROSTATIC]
+                                                 + Ea[energy_contribution::EXCHANGE_CORRELATION];
+                                                 
+              } // show without and with grid contributions
+          } else {
+              stat += single_atom::atom_update("energies", na, atomic_energy_diff.data());
+          } // total_energy_details
+
           double atomic_energy_corrections{0};
-          for(int ia = 0; ia < na; ++ia) atomic_energy_corrections += atomic_energy_diff[ia];
+          for(int ia = 0; ia < na; ++ia) {
+              atomic_energy_corrections += atomic_energy_diff[ia];
+          } // ia
           total_energy = grid_kinetic_energy * (1. - take_atomic_valence_densities)
                        + grid_xc_energy
                        + grid_electrostatic_energy
