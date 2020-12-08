@@ -314,15 +314,15 @@ namespace finite_difference {
 
           if (0) { // DEBUG: show indirection list and phase factors
               printf("# indirection list for %c-direction ", 'x'+d);
-              for(int j = n16 - nf; j < n16 + n + nf; ++j) {
-                  if (n16 == j || n16 + n == j) printf(" |");
-                  printf(" %i", list[d][j]);
+              for(int j = -nf; j < n + nf; ++j) {
+                  if (0 == j || n == j) printf(" |");
+                  printf(" %i", list[d][n16 + j]);
               } // j
               printf("\n");
               printf("# phase factor list for %c-direction ", 'x'+d);
-              for(int j = n16 - nf; j < n16 + n + nf; ++j) {
-                  if (n16 == j || n16 + n == j) printf(" |");
-                  printf("  %g %g", std::real(phas[d][j]), std::imag(phas[d][j]));
+              for(int j = -nf; j < n + nf; ++j) {
+                  if (0 == j || n == j) printf(" |");
+                  printf("  %g %g", std::real(phas[d][n16 + j]), std::imag(phas[d][n16 + j]));
               } // j
               printf("\n");
           } // show indirection list

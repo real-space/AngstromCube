@@ -20,7 +20,7 @@ namespace finite_difference {
       status_t stat = 0;
       int const mantissa_bits = (sizeof(real_t) > 4)? 52 : 23; // 23:float, 52:double
       double const precision = 4./(1ul << mantissa_bits);
-      if (echo > 4) printf("# expected precision for real_%ld is %g\n", sizeof(real_t), precision);
+      if (echo > 4) printf("# expected precision for real_%ld is %.1e\n", sizeof(real_t), precision);
       int const M = 16;
       double maxdev = 0; int maxdev_nn = -99;
       real_t c[M];
@@ -48,7 +48,7 @@ namespace finite_difference {
   template<typename real_t>
   status_t test_Laplacian(int const echo=3) {
       status_t stat(0);
-      double const h[3] = {1,1,1};
+      double const h[3] = {1, 1, 1}; // unit grid spacings
       for(int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           stencil_t<real_t> Laplacian(h, nn);
@@ -62,7 +62,7 @@ namespace finite_difference {
           if (echo > 5) printf("\n# in, result, ref values:\n");
           double dev{0};
           for(size_t i = 0; i < g.all(); ++i) {
-              double const ref = -k*k*values[i]; // analytic solution to the Laplacian operator applied to a plane wave
+              auto const ref = -k*k*values[i]; // analytic solution to the Laplacian operator applied to a plane wave
               if (echo > 5) printf("%ld %g %g %g\n", i, values[i], result[i], ref);
               // compare in the middle range result and ref values
               dev += std::abs(result[i] - ref);
@@ -71,6 +71,39 @@ namespace finite_difference {
       } // direction
       return stat;
   } // test_Laplacian
+
+  template<typename real_t>
+  status_t test_Bloch_wave(int const echo=3) {
+      status_t stat(0);
+      double const h[3] = {1, 1, 1}; // unit grid spacings
+      std::complex<real_t> boundary_phase[3][2] = {{-1,-1}, {-1,-1}, {-1,-1}};
+      for(int dir = 0; dir < 3; ++dir) {
+          int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
+          stencil_t<real_t> Laplacian(h, nn);
+          int dims[] = {1,1,1}; dims[dir] = 127 + dir;
+          real_space::grid_t g(dims);
+          g.set_boundary_conditions(Periodic_Boundary);
+          std::vector<std::complex<real_t>> values(g.all()), result(g.all());
+          for(int iphase = 0; iphase <= 180; iphase += 20) {
+              double const k = (1 + dir + iphase/360.)*2*constants::pi/g[dir]; // wave vector of a single plane wave
+              boundary_phase[dir][0] = std::complex<real_t>(std::cos(iphase*constants::pi/180.),
+                                                           -std::sin(iphase*constants::pi/180.));
+              boundary_phase[dir][1] = real_t(1)/boundary_phase[dir][0];
+              for(size_t i = 0; i < g.all(); ++i) {
+                  values[i] = std::complex<real_t>(std::cos(k*i), std::sin(k*i));
+              } // i
+              stat += finite_difference::apply(result.data(), values.data(), g, Laplacian, 1, boundary_phase);
+              double dev{0};
+              for(size_t i = 0; i < g.all(); ++i) {
+                  auto const ref = -k*k*values[i]; // analytic solution to the Laplacian operator applied to a plane wave
+                  // compare in the middle range result and ref values
+                  dev += std::abs(result[i] - ref);
+              } // i
+              if (echo > 2) printf("# %s %c-direction: dev = %g\n", __func__, 120+dir, dev);
+          } // iphase
+      } // direction
+      return stat;
+  } // test_Bloch_wave
 
   status_t test_dispersion(int const echo=9) {
       if (echo < 7) return 0; // this function is only plotting
@@ -95,6 +128,7 @@ namespace finite_difference {
       stat += test_coefficients<float>(echo);
       stat += test_create_and_destroy(echo);
       stat += test_Laplacian<double>(echo);
+      stat += test_Bloch_wave<double>(echo);
       recorded_warnings::clear_warnings(); // clear
       stat += test_dispersion(echo);
       return stat;

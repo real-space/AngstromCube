@@ -224,9 +224,9 @@ namespace fermi_distribution {
       } // set_temperature
 
       double get_temperature() const { return _kT; }
+      double get_n_electrons() const { return _ne; }
+      int    get_spinfactor()  const { return _spinfactor; }
 
-      int get_spinfactor() const { return _spinfactor; }
-      
       inline double minimum_temperature() const { return 1e-9; }
 
       inline bool is_initialized() const { return (Fermi_level_not_initialized != _mu); }
@@ -251,14 +251,13 @@ namespace fermi_distribution {
           , int const echo=9
           , double response_occ[]=nullptr // optional output, derivative of occupation numbers[nbands]
       ) {
-            if (echo > 0) printf("# FermiLevel %s for %d bands\n", __func__, nbands);
             double eF{0}, DoS{0}; // density of states at the Fermi energy
             if (Fermi_level_not_initialized == _mu) {
-                if (echo > 0) printf("# FermiLevel has not been initialized\n", __func__, nbands);
+                if (echo > 0) printf("# FermiLevel %s for %d bands, FermiLevel has not been initialized\n", __func__, nbands);
                 std::vector<double> weights(nbands, kpoint_weight);
                 eF = Fermi_level(occupations, energies, weights.data(), nbands, _kT, _ne, _spinfactor, echo, response_occ, &DoS);
             } else {
-                if (echo > 0) printf("# FermiLevel %s at %g %s\n", __func__, _mu*eV,_eV);
+                if (echo > 0) printf("# FermiLevel %s for %d bands at %g %s\n", __func__, nbands, _mu*eV,_eV);
                 count_electrons(nbands, energies, _mu, _kTinv, nullptr, &DoS, occupations, response_occ);
                 eF = _mu;
             } // initialized?

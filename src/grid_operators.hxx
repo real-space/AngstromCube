@@ -339,7 +339,7 @@ namespace grid_operators {
       double get_volume_element() const { return grid.dV(); }
       size_t get_degrees_of_freedom() const { return size_t(grid[2]) * size_t(grid[1]) * size_t(grid[0]); }
 
-      template <typename real_t>
+      template <typename real_t=double>
       void set_kpoint(real_t const kpoint[3]=nullptr, int const echo=0) {
           if (nullptr != kpoint) {
               std::complex<double> const minus1(-1);
@@ -348,15 +348,15 @@ namespace grid_operators {
                   k_point[d] = kpoint[d];
                   if (is_complex<complex_t>()) {
                       std::complex<double> phase = std::pow(minus1, 2*k_point[d]);
-                      boundary_phase[d][0] = to_complex_t<complex_t, double>(phase);
+                      boundary_phase[d][1] = to_complex_t<complex_t, double>(phase);
                   } else {
                       int const kk = std::round(2*k_point[d]);
                       assert(2*k_point[d] == kk);
-                      boundary_phase[d][0] = kk ? -1 : 1;
+                      boundary_phase[d][1] = kk ? -1 : 1;
                   } // real phase factor
-                  boundary_phase[d][1] = conjugate(boundary_phase[d][0]);
+                  boundary_phase[d][0] = conjugate(boundary_phase[d][1]);
                   if (echo > 5) printf("   %c: %g ph(%g, %g)", 'x'+d, k_point[d],
-                      std::real(boundary_phase[d][0]), std::imag(boundary_phase[d][0]));
+                      std::real(boundary_phase[d][1]), std::imag(boundary_phase[d][1]));
               } // d
               if (echo > 5) printf("\n");
           } else {

@@ -256,7 +256,9 @@ namespace density_generator {
       } // ikpoint
       if (charges) add_product(charges, 3, charge, 1.0);
       if (echo > 1) { printf("\n# Total valence density "); print_stats(rho, g.all(), g.dV()); }
-      if (echo > 3) { printf("# Total response density"); print_stats(d_rho, g.all(), g.dV(), "", kT); }
+      if (d_rho) {
+          if (echo > 3) { printf("# Total response density"); print_stats(d_rho, g.all(), g.dV(), "", kT); }
+      } // d_rho != nullptr
 #if 1
       if (echo > 6) {
           for(int ia = 0; ia < natoms; ++ia) {

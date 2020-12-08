@@ -1405,7 +1405,7 @@ namespace single_atom {
         show_projector_coefficients(optimized, sigma_out, echo - 6); // and warn if not normalizable
 
 #ifdef DEVEL
-        if (optimize_sigma < -9) abort("after sigma optimization");
+        if (optimize_sigma < -9) abort("%s after sigma optimization, sigma= %g %s", label, sigma_out*Ang, _Ang);
 #endif // DEVEL
 
         return sigma_out;
@@ -2421,6 +2421,9 @@ namespace single_atom {
             } // active_i
         } // ilmn
         set(energy_kin_csvn[3], TRU_AND_SMT, E_kin); // non-spherical kinetic energy contribution
+        // energy_kin_csvn[3] and energy_dm have the problem that they use the mixed density matrix
+        // while they should use the new density matrix to compute the term integral V_ij*D_ij
+        
 
         //   Now, contract with the Gaunt tensor over m_1 and m_2
         //   rho_tensor[lm][iln][jln] =

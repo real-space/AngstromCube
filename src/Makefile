@@ -36,6 +36,7 @@ OBJ = \
 	angular_grid.o \
 	control.o \
 	main.o
+# 	structure_solver.o \
 
 ifdef NO_UNIT_TESTS
 else

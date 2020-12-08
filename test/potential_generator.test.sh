@@ -3,9 +3,9 @@
 exe=../src/a43
 geometry_file=atoms.xyz
 
-# project_base=pg.C-sc.2kp
-# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-# echo "C 0 0 0" >> $geometry_file
+project_base=pg.C-sc
+printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+echo "C 0 0 0" >> $geometry_file
 
 # project_base=pg.vacuum
 # printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
@@ -15,10 +15,10 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
 # echo "C  0 0 0" >> $geometry_file
 
-project_base=pg.C-dimer
-printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  -0.65 0 0" >> $geometry_file
-echo "C   0.65 0 0" >> $geometry_file
+# project_base=pg.C-dimer
+# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  -0.65 0 0" >> $geometry_file
+# echo "C   0.65 0 0" >> $geometry_file
 ## test translational invariance
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
@@ -110,7 +110,8 @@ output.length.unit=Bohr
 
 ## grid spacing or number of grid points of the dense grid
 potential_generator.grid.spacing.unit=Ang
-potential_generator.grid.spacing=0.083334
+#potential_generator.grid.spacing=0.083334
+potential_generator.grid.spacing=0.10416667
 #potential_generator.grid.points=96
 
 ## max. number of self-consistency iterations
@@ -184,22 +185,23 @@ bands.per.atom=10
 
 ## sampling of the Brillouin zone
 hamiltonian.kmesh.echo=9
-hamiltonian.kmesh.x=0
+#hamiltonian.kmesh.x=3
+hamiltonian.kmesh=4
 hamiltonian.floating.point.bits=64
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
-#grid.eigensolver=explicit
-grid.eigensolver=cg
-conjugate_gradients.max.iter=1
-grid.eigensolver.repeat=1
+grid.eigensolver=explicit
+#grid.eigensolver=cg
+#conjugate_gradients.max.iter=1
+#grid.eigensolver.repeat=1
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
-start.waves=$project_base.waves.dat
-#store.waves=$project_base.waves.dat
+#start.waves=$project_base.waves.dat
+store.waves=$project_base.waves.dat
 
 ## configuration for basis=pw
 #pw_hamiltonian.solver {auto, both, direct, iterative}
@@ -242,7 +244,7 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 2 2 0`; do
+for ecut in `seq 30 2 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

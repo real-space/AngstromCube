@@ -489,8 +489,8 @@ namespace potential_generator {
               // construct grid-based Hamiltonian and overlap operator descriptor
 //               using real_wave_function_t = float;  // decide here if single or double precision
               using real_wave_function_t = double; // decide here if single or double precision
-//               using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
-              using wave_function_t = real_wave_function_t;               // decide here if real or complex
+              using wave_function_t = std::complex<real_wave_function_t>; // decide here if real or complex
+//               using wave_function_t = real_wave_function_t;               // decide here if real or complex
               grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op(gc, list_of_atoms);
               // Mind that local potential and atom matrices of op are still unset!
               list_of_atoms.clear();
@@ -535,7 +535,7 @@ namespace potential_generator {
                               single_atomic_orbital[ia][isho] = 0; // reset
                           } // iband
                       } // ikpoint
-
+                      op.set_kpoint(); // reset k-point
                   } else {
                       if (echo > 1) printf("# try to read start waves from file \'%s\'\n", start_wave_file);
                       if (run) {
@@ -584,10 +584,7 @@ namespace potential_generator {
           if (echo > 1) printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", h_line, scf_iteration, h_line);
 
           if (take_atomic_valence_densities > 0) {
-              if (echo > 4) { // report extremal values of the valence density on the grid
-                  printf("# previous valence density in iteration #%i:", scf_iteration);
-                  print_stats(rho_valence.data(), g.all(), g.dV());
-              } // echo
+              if (echo > 4) print_stats(rho_valence.data(), g.all(), g.dV(), "# previous valence density");
 
               if (echo > 4) printf("# compose valence density with %g %% of the atomic valence densities\n", take_atomic_valence_densities*100);
               scale(rho_valence.data(), g.all(), 1. - take_atomic_valence_densities); // mix old
@@ -598,10 +595,7 @@ namespace potential_generator {
                                     echo, 0, Y00sq*take_atomic_valence_densities, "smooth valence density");
           } // take_atomic_valence_densities
 
-          if (echo > 4) { // report extremal values of the valence density on the grid
-              printf("# valence density in iteration #%i:", scf_iteration);
-              print_stats(rho_valence.data(), g.all(), g.dV());
-          } // echo
+          if (echo > 4) print_stats(rho_valence.data(), g.all(), g.dV(), "# valence density");
 
           set(rho.data(), g.all(), rho_valence.data());
 
@@ -849,52 +843,44 @@ namespace potential_generator {
                       } // grid_eigensolver_method
 
                       if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
-                      
-//                       if ('e' != (occupation_method | 32)) {
-//                           // if we used the fermi.level=linearized option, 
-//                           // we could combine the KS equation solving for a k-point with the evaluation of the density
-//                           std::vector<uint32_t> coeff_starts;
-//                           auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
-//                                                     psi_k.data(), op, nbands, echo, ikpoint);
-//                           double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-//                           stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
-//                                                     energies[ikpoint], psi_k.data(), atom_coeff.data(),
-//                                                     coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
-//                                                              rho_valence_gc[1], atom_rho_new[1].data(), charges);
-//                       } // occupation_method "linearized"
+
+//                       if we used the fermi.level=linearized option, 
+//                       we could combine the KS equation solving for a k-point with the evaluation of the density
 
                   } // ikpoint
+                  op.set_kpoint(); // reset to Gamma
+
+                  here;
 
                   if ('e' == (occupation_method | 32)) {
-                      { // scope: determine the exact Fermi level as a function of all energies and kmesh_weights
-                          view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
-                          for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                              double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-                              set(kweights[ikpoint], nbands, kpoint_weight);
-                          } // ikpoint
-                          double const eF = fermi_distribution::Fermi_level(occupations.data(), 
-                                          energies.data(), kweights.data(), nkpoints*nbands,
-                                          Fermi.get_temperature(), n_valence_electrons, Fermi.get_spinfactor(), echo);
-                          Fermi.set_Fermi_level(eF, echo);
-                      } // scope
+                      // determine the exact Fermi level as a function of all energies and kmesh_weights
+                      view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
+                      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                          double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
+                          set(kweights[ikpoint], nbands, kpoint_weight);
+                      } // ikpoint
+                      double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+                                      energies.data(), kweights.data(), nkpoints*nbands,
+                                      Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
+                      Fermi.set_Fermi_level(eF, echo);
                   } // occupation_method "exact"
+
+                  here;
 
                   // density generation
                   for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                       op.set_kpoint(kmesh[ikpoint], echo);
                       double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-                      auto psi_k = psi[ikpoint]; // get a sub-view
                       std::vector<uint32_t> coeff_starts;
                       auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
-                                                psi_k.data(), op, nbands, echo, ikpoint);
+                                                psi(ikpoint,0), op, nbands, echo, ikpoint);
                       stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
-                                                energies[ikpoint], psi_k.data(), atom_coeff.data(),
+                                                energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
                                                 coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
                                                          rho_valence_gc[1], atom_rho_new[1].data(), charges);
                   } // ikpoint
+                  op.set_kpoint(); // reset to Gamma
 
-                  op.set_kpoint<double>(); // reset to Gamma
-                  
                   here;
 
                   auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc[0], Veff.data()) * gc.dV();
@@ -910,26 +896,28 @@ namespace potential_generator {
 
                   stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
 
+                  here;
+                  
                   if ('e' == (occupation_method | 32)) {
-                      { // scope: determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
-                          view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
-                          for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                              set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
-                              set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
-                          } // ikpoint
-                          double const eF = fermi_distribution::Fermi_level(occupations.data(), 
-                                          energies.data(), kweights.data(), nkpoints*nbands,
-                                          Fermi.get_temperature(), n_valence_electrons, Fermi.get_spinfactor(), echo);
-                          Fermi.set_Fermi_level(eF, echo);
-                          warn("not tested");
-                      } // scope
+                      // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
+                      view2D<double> kweights(nkpoints, nbands, 0.0), occupations(nkpoints, nbands);
+                      for(int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
+                          set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
+                          set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
+                      } // ikpoint
+                      double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+                                      energies.data(), kweights.data(), nkpoints*nbands,
+                                      Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
+                      Fermi.set_Fermi_level(eF, echo);
                   } // occupation_method "exact"
+
+                  here;
 
                   for(auto & x : export_rho) {
                       if (echo > 1) { printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(),
-                                                x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo, x.kpoint_index, 
+                                                x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
                                                          rho_valence_new[1], atom_rho_new[1].data(), charges);
                   } // ikpoint
 
@@ -954,6 +942,7 @@ namespace potential_generator {
                   double const renormalization_factor = 1./charges[0];
                   if (echo > 2) printf("# %s: renormalize density and density matrices by %.15f\n", __func__, renormalization_factor);
                   scale(rho_valence_new[0], g.all(), renormalization_factor);
+                  scale(rho_valence_new[1], g.all(), renormalization_factor);
                   for(int ia = 0; ia < na; ++ia) {
                       scale(atom_rho_new[0][ia], n_atom_rho[ia], renormalization_factor);
                       scale(atom_rho_new[1][ia], n_atom_rho[ia], renormalization_factor);
@@ -963,11 +952,11 @@ namespace potential_generator {
               
               if (echo > 2) printf("# %s: total charge %g electrons and derivative %g\n", __func__, 
                               charges[1], charges[2]*Fermi.get_temperature());
-              
+
               // now correct for using the old Fermi level during density generation
-              if (std::abs(charges[1] - n_valence_electrons) > 1e-15) {
+              if (std::abs(charges[1] - Fermi.get_n_electrons()) > 1e-15) {
                   if (std::abs(charges[2]) > 0) {
-                      double const alpha = (n_valence_electrons - charges[1]) / charges[2];
+                      double const alpha = (Fermi.get_n_electrons() - charges[1]) / charges[2];
                       if (echo > 1) printf("# shift Fermi level by %g %s\n", alpha*eV, _eV);
                       // correct by energy difference alpha
                       add_product(rho_valence_new[0], g.all(), rho_valence_new[1], alpha);
@@ -979,20 +968,14 @@ namespace potential_generator {
                       Fermi.set_Fermi_level(Fermi.get_Fermi_level() + alpha, echo);
                   } else {
                       warn("in SCF iteration #%i number of valence electrons %g deviates from %g but response is zero",
-                               scf_iteration, charges[1], n_valence_electrons);
+                               scf_iteration, charges[1], Fermi.get_n_electrons());
                   } // response is non-zero
               } // the number of valence electrons does not match the requested number
 
               if (echo > 2) printf("# %s: total charge %g electrons\n", __func__, charges[1]);
 
-              if (echo > 4) { // report extremal values of the valence density on the grid
-                  printf("# new valence density in iteration #%i:", scf_iteration);
-                  print_stats(rho_valence_new[0], g.all(), g.dV());
-              } // echo
-
               if (echo > 1) print_stats(rho_valence_new[0], g.all(), g.dV(), "\n# Total new valence density");
-              
-              
+
               // display the sum of new valence eigenvalues
               if (echo > 1) printf("\n# sum of eigenvalues %.9f %s\n\n", band_energy_sum*eV, _eV);
               // in order to compute the kinetic energy of valence states, we need to subtract 
