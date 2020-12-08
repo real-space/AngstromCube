@@ -186,7 +186,7 @@ bands.per.atom=10
 ## sampling of the Brillouin zone
 hamiltonian.kmesh.echo=9
 #hamiltonian.kmesh.x=3
-hamiltonian.kmesh=4
+hamiltonian.kmesh=0
 hamiltonian.floating.point.bits=64
 
 ## configuration for basis=grid

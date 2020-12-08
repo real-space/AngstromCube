@@ -419,6 +419,80 @@ namespace grid_operators {
           if (echo > 1) printf("# %s done\n\n", __func__);
       } // construct_dense_operator
 
+      int write_to_file(
+            int const echo=0
+          , double const energy_min_max_Fermi[3]=nullptr
+          , char const *filename=nullptr // filename, nullptr: use a default name
+          , char const *pathname="."
+      ) {
+#ifdef DEVEL
+          char file_name_buffer[512];
+          if (nullptr == filename) {
+              std::snprintf(file_name_buffer, 511, "%s/%s.xml", pathname, "Hmt");
+              filename = file_name_buffer;
+          } // generate a default file name
+          if (echo > 0) printf("# %s filename=%s\n", __func__, filename);
+
+          std::FILE *const f = std::fopen(filename, "w");
+          if (nullptr == f) {
+              if (echo > 0) printf("# %s Error opening file %s!\n", __func__, filename);
+              return __LINE__;
+          } // failed to open
+
+          // XML file header
+          std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
+          std::fprintf(f, "<grid_Hamiltonian version=\"%.1f\">\n", 0.);
+          std::fprintf(f, "  <!-- Units: Hartree and Bohr radii. -->\n");
+          if (nullptr != energy_min_max_Fermi) {
+              std::fprintf(f, "  <spectrum min=\"%.6f\" max=\"%.6f\" Fermi=\"%.6f\"/>\n",
+                  energy_min_max_Fermi[0], energy_min_max_Fermi[1], energy_min_max_Fermi[2]);
+          } // energy_min_max_Fermi
+
+          std::fprintf(f, "  <sho_atoms number=\"%d\">\n", atoms.size());
+          for(int ia = 0; ia < atoms.size(); ++ia) {
+              std::fprintf(f, "  <atom gid=\"%i\">\n", atoms[ia].atom_id());
+              auto const pos = atoms[ia].pos();
+              std::fprintf(f, "    <position x=\"%.12f\" y=\"%.12f\" z=\"%.12f\"/>\n", pos[0], pos[1], pos[2]);
+              int const numax = atoms[ia].numax();
+              std::fprintf(f, "    <projectors type=\"sho\" numax=\"%d\" sigma=\"%.12f\"/>\n",
+                                                            numax, atoms[ia].sigma());
+              int const nSHO = sho_tools::nSHO(numax);
+              for(int h0s1 = 0; h0s1 < 2; ++h0s1) {
+                  auto const mat = atoms[ia].template get_matrix<double>(h0s1);
+                  auto const tag = h0s1 ? "overlap" : "hamiltonian";
+                  std::fprintf(f, "    <%s>\n", tag);
+                  for(int i = 0; i < nSHO; ++i) {
+                      std::fprintf(f, "      ");
+                      for(int j = 0; j < nSHO; ++j) {
+                          std::fprintf(f, " %.15e", mat[i*nSHO + j]);
+                      } // j
+                      std::fprintf(f, "\n");
+                  } // i
+                  std::fprintf(f, "    </%s>\n", tag);
+              } // h0s1
+              std::fprintf(f, "  </atom>\n");
+          } // ia
+          std::fprintf(f, "  </sho_atoms>\n");
+
+          std::fprintf(f, "  <spacing x=\"%.17f\" y=\"%.17f\" z=\"%.17f\"/>\n", grid.h[0], grid.h[1], grid.h[2]);
+          std::fprintf(f, "  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\">", grid[0], grid[1], grid[2]);
+          for(int izyx = 0; izyx < grid.all(); ++izyx) {
+              if (0 == (izyx & 3)) std::fprintf(f, "\n    ");
+              std::fprintf(f, " %.15f", potential[izyx]);
+          } // ia
+          std::fprintf(f, "\n  </potential>\n");
+
+          // XML file tail
+          std::fprintf(f, "</grid_Hamiltonian>\n");
+          std::fclose(f);
+          
+          if (echo > 3) printf("# file %s written\n", filename);
+          return 0; // 0:success
+#else
+          return -1; // avtivate -D DEVEL for export function
+#endif // DEVEL
+      } // write_to_file
+      
     private:
       real_space::grid_t grid;
       std::vector<atom_image::sho_atom_t> atoms;

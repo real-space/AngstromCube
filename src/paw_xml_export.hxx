@@ -29,6 +29,7 @@ namespace paw_xml_export {
       , double const total_energy=0
       , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
+      , bool const show_radial_grid_values=false
   ) {
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
@@ -52,13 +53,17 @@ namespace paw_xml_export {
 
       // XML file header
       std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
-      std::fprintf(f, "<paw_setup version=\"%.1f\">\n", 0.6);
+      std::fprintf(f, "<paw_setup version=\"%.1f\">\n", 0.6); // ABINIT: paw_dataset version="0.7"
       std::fprintf(f, "  <!-- Z=%g %s setup for the Projector Augmented Wave method. -->\n", Z, Sy);
       std::fprintf(f, "  <!-- Units: Hartree and Bohr radii.                      -->\n");
       
 
       std::fprintf(f, "  <atom symbol=\"%s\" Z=\"%g\" core=\"%g\" semicore=\"%g\" valence=\"%g\"/>\n",
                                         Sy,  Z,  n_electrons[0], n_electrons[1], n_electrons[2]);
+      
+      // ABINIT energy cutoff recommendation <pw_ecut low="12.00" medium="12.00" high="15.00"/> // in Hartree
+      std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12, 12, 15); // ToDo: get an estimate
+
       std::fprintf(f, "  <xc_functional type=\"LDA\" name=\"PZ81\"/>\n");
       std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"Koelling-Harmon\">\n");
       std::fprintf(f, "     %s\n  </generator>\n", config_string);
@@ -79,13 +84,32 @@ namespace paw_xml_export {
       } // iln
       std::fprintf(f, "  </valence_states>\n");
 
+      char ts_grid[TRU_AND_SMT][8]; // grid tags for TRU and SMT
       double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
       for(int ts = TRU; ts <= SMT; ++ts) {
-          std::fprintf(f, "  <radial_grid eq=\"r=f*(exp(d*i)-1)\""
-              " d=\"%g\" f=\"%.15e\" n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"/>\n",
-              rg[TRU].anisotropy, prefactor, rg[ts].n - 1, 1 + rg[TRU].n - rg[ts].n, rg[TRU].n - 1, ts_tag[ts]);
+          std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
+          if (ts == TRU || rg[SMT].n < rg[TRU].n) {
+              char const final = show_radial_grid_values ? ' ' : '/';
+              std::fprintf(f, "  <radial_grid eq=\"r=a*(exp(d*i)-1)\" a=\"%.15e\" d=\"%g\" "
+                  "n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n", prefactor, rg[TRU].anisotropy,
+                  rg[ts].n - 1, 1 + rg[TRU].n - rg[ts].n, rg[TRU].n - 1, ts_tag[ts], final);
+              if ('/' != final) {
+                  // pass the radial grid values explictly, as done for ABINIT
+                  std::fprintf(f, "    <values>\n      ");
+                  for(int ir = 1; ir < rg[ts].n; ++ir) {
+                      std::fprintf(f, " %.15e\n", rg[ts].r[ir]);
+                  } // ir
+                  std::fprintf(f, "    </values>\n    <derivative>\n      ");
+                  for(int ir = 1; ir < rg[ts].n; ++ir) {
+                      std::fprintf(f, " %.15e\n", rg[ts].dr[ir]);
+                  } // ir
+                  std::fprintf(f, "    </derivative>\n  </radial_grid>\n");
+              } // final
+          } else { // second grid
+              std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[TRU]);
+          }
       } // ts
-      
+
       // the shapefunction of compensation charges are generalized Gaussians
       std::fprintf(f, "  <shape_function type=\"gauss\" rc=\"%.12e\"/>\n",
           sigma_cmp*std::sqrt(2.)); // exp(-(r/rc)^2) == exp(-r^2/(2*sigma_cmp^2))
@@ -98,7 +122,7 @@ namespace paw_xml_export {
           for(int rk = 0; rk < 1; ++rk) { // rk==0 density, rk==1 kinetic energy density, ToDo
               auto const rk_tag = rk ? "_kinetic_energy" : "";
               for(int ts = TRU; ts <= SMT; ++ts) {
-                  std::fprintf(f, "  <%s_core%s_density grid=\"g_%s\">\n    ", ts_label[ts], rk_tag, ts_tag[ts]);
+                  std::fprintf(f, "  <%s_core%s_density grid=\"%s\">\n    ", ts_label[ts], rk_tag, ts_grid[ts]);
                   for(int ir = 1; ir < rg[ts].n*m; ++ir) {
                       std::fprintf(f, " %.12e", spherical_density[ts](csv,ir)*Y00);
                   } // ir
@@ -111,7 +135,7 @@ namespace paw_xml_export {
       if (n_electrons[2] > 0) {
           int constexpr csv = 2; // 2:valence
           {   auto const ts = SMT; // (smooth only)
-              std::fprintf(f, "  <%s_valence_density grid=\"g_%s\">\n    ", ts_label[ts], ts_tag[ts]);
+              std::fprintf(f, "  <%s_valence_density grid=\"%s\">\n    ", ts_label[ts], ts_grid[ts]);
               for(int ir = 1; ir < rg[ts].n*m; ++ir) {
                   std::fprintf(f, " %.12e", spherical_density[ts](csv,ir)*Y00);
               } // ir
@@ -121,7 +145,7 @@ namespace paw_xml_export {
 
       if (zero_potential != nullptr) { // scope: zero potential
           auto const ts = SMT;
-          std::fprintf(f, "  <zero_potential grid=\"g_%s\">\n    ", ts_tag[ts]);
+          std::fprintf(f, "  <zero_potential grid=\"%s\">\n    ", ts_grid[ts]);
           for(int ir = 1; ir < rg[ts].n*m; ++ir) {
               std::fprintf(f, " %.12e", zero_potential[ir]);
           } // ir
@@ -132,7 +156,7 @@ namespace paw_xml_export {
           if (valence_states_active[iln]) {
               auto const & vs = valence_states[iln];
               for(int ts = TRU; ts <= SMT; ++ts) {
-                  std::fprintf(f, "  <%s_partial_wave state=\"%s-%s\" grid=\"g_%s\">\n    ", ts_label[ts], Sy,vs.tag, ts_tag[ts]);
+                  std::fprintf(f, "  <%s_partial_wave state=\"%s-%s\" grid=\"%s\">\n    ", ts_label[ts], Sy,vs.tag, ts_grid[ts]);
                   if (nullptr == vs.wave[ts]) {
                       if (echo > 0) printf("# %s found nullptr in partial wave iln=%i\n", __func__, iln);
                       return __LINE__; // error
@@ -143,7 +167,7 @@ namespace paw_xml_export {
                   std::fprintf(f, "\n  </%s_partial_wave>\n", ts_label[ts]);
               } // ts
               {   auto const ts = SMT;
-                  std::fprintf(f, "  <projector_function state=\"%s-%s\" grid=\"g_%s\">\n    ", Sy,vs.tag, ts_tag[ts]);
+                  std::fprintf(f, "  <projector_function state=\"%s-%s\" grid=\"%s\">\n    ", Sy,vs.tag, ts_grid[ts]);
                   for(int ir = 1; ir < rg[ts].n*m; ++ir) {
                       std::fprintf(f, " %.12e", projector_functions(iln,ir)*rg[ts].rinv[ir]);
                   } // ir
@@ -174,7 +198,7 @@ namespace paw_xml_export {
       std::fprintf(f, "  <exact_exchange core-core=\"0\"/>\n");
 
       // XML file tail
-      std::fprintf(f, "</paw_setup>\n");
+      std::fprintf(f, "</paw_setup>\n"); // ABINIT: paw_dataset
       std::fclose(f);
       
       if (echo > 3) printf("# file %s written\n", filename);
