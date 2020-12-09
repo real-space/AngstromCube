@@ -92,6 +92,7 @@ FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
 FEAFLAGS += -D_GIT_KEY=$(GITKEY) 
 FEAFLAGS += -D HAS_RAPIDXML
+FEAFLAGS += -D HAS_RAPIDJSON
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS += ###-fopenmp -fno-omit-frame-pointer
 

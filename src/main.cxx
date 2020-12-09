@@ -28,7 +28,6 @@
 #include "fourier_transform.hxx" // ::all_tests
 #include "iterative_poisson.hxx" // ::all_tests
 // #include "structure_solver.hxx" // ::all_tests
-#include "xml_reading.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
 #include "parallel_domains.hxx" // ::all_tests
@@ -58,6 +57,8 @@
 #include "simple_timer.hxx" // ::all_tests
 #include "sigma_config.hxx" // ::all_tests
 #include "dense_solver.hxx" // ::all_tests
+#include "json_reading.hxx" // ::all_tests
+#include "xml_reading.hxx" // ::all_tests
 #include "unit_system.hxx" // ::all_tests
 #include "simple_math.hxx" // ::all_tests
 #include "sho_overlap.hxx" // ::all_tests
@@ -147,6 +148,7 @@
           module_test("simple_timer.",               simple_timer::all_tests);
           module_test("sigma_config.",               sigma_config::all_tests);
           module_test("dense_solver.",               dense_solver::all_tests);
+          module_test("json_reading.",               json_reading::all_tests);
           module_test("xml_reading.",                 xml_reading::all_tests);
           module_test("unit_system.",                 unit_system::all_tests);
           module_test("simple_math.",                 simple_math::all_tests);

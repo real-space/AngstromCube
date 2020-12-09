@@ -805,7 +805,7 @@ namespace potential_generator {
 
                   auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
                   if (export_Hamiltonian) {
-                      op.write_to_file(echo);
+                      op.write_to_file(echo, "json");
                       if (export_Hamiltonian < 0) abort("Hamiltonian exported!");
                   } // export_Hamiltonian
 

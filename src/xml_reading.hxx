@@ -2,14 +2,17 @@
 
 #ifdef HAS_RAPIDXML
 //   #include <string>
-  #include <cstdlib> // std::strtod
+  #include <cstdlib> // std::atof, std::strtod
 //   #include <fstream>
 //   #include <streambuf>
   #include <cstring> // std::strcmp
+
+  // from https://sourceforge.net/projects/rapidxml/files/latest/download
   #include "tools/rapidxml-1.13/rapidxml.hpp" // ::xml_document<>
   #include "tools/rapidxml-1.13/rapidxml_utils.hpp" // ::file<>
 #endif
 
+#include <cerrno> // errno, ERANGE
 
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -50,6 +53,28 @@ namespace xml_reading {
     } // find_attribute 
 
 #endif
+
+    template <typename real_t>
+    std::vector<real_t> read_sequence(
+          char const *sequence
+        , int const echo=0
+        , size_t const reserve=0
+    ) {
+        char *end;
+        char const *seq{sequence};
+        std::vector<real_t> v;
+        v.reserve(reserve);
+        for (double f = std::strtod(seq, &end); seq != end; f = std::strtod(seq, &end)) {
+            seq = end;
+            if (errno == ERANGE){
+                warn("range error, got %g", f);
+                errno = 0;
+            } else {
+                v.push_back(real_t(f));
+            }
+        } // f
+        return v;
+    } // read_sequence
 
   
 #ifdef  NO_UNIT_TESTS
@@ -96,7 +121,7 @@ namespace xml_reading {
               {
                   auto const value = find_attribute(projectors, "sigma", "-1");
                   if (*value != '\0') {
-                      sigma = std::strtod(value);
+                      sigma = std::atof(value);
                       printf("# sigma= %g\n", sigma);
                   } // value != ""
               }
@@ -108,44 +133,46 @@ namespace xml_reading {
                   if (nullptr == matrix) {
                       warn("atom with global_id=%s has no %s matrix!", gid, matrix_name);
                   } else {
-//                       printf("# %s.values= %s\n", matrix_name, matrix->value());
+//                    printf("# %s.values= %s\n", matrix_name, matrix->value());
+                      auto const v = read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
+                      printf("# %s matrix has %d values, expect %d x %d = %d\n", 
+                          matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                   }
               } // h0s1
 
           } // atom
       } else warn("no <sho_atoms> found in grid_Hamiltonian");
 
-      { 
-          {
-              auto const spacing = find_child(grid_Hamiltonian, "spacing", echo);
-              for(int d = 0; d < 3; ++d) {
-                  char axyz[] = {0, 0}; axyz[0] = 'x' + d; // "x", "y", "z"
-                  auto const value = find_attribute(spacing, axyz);
-                  if (*value != '\0') {
-                      double const hxyz = std::atof(value);
-                      printf("# h%s = %.15g\n", axyz, hxyz);
-                  } // value != ""
-              } // d
-          }
-          {
-              auto const potential = find_child(grid_Hamiltonian, "potential", echo);
-              for(int d = 0; d < 3; ++d) {
-                  char axyz[] = {'n', 0, 0}; axyz[1] = 'x' + d; // "nx", "ny", "nz"
-                  auto const value = find_attribute(potential, axyz);
-                  if (*value != '\0') {
-                      int const nxyz = std::atoi(value);
-                      printf("# %s = %d\n", axyz, nxyz);
-                  } // value != ""
-              } // d
-              if (nullptr == potential) {
-                  warn("grid_Hamiltonian has no potential!");
-              } else {
-//                   printf("# potential.values= %s\n", potential->value());
-              }              
-          }
-      }
-              
-      
+      { // scope:
+          auto const spacing = find_child(grid_Hamiltonian, "spacing", echo);
+          for(int d = 0; d < 3; ++d) {
+              char axyz[] = {0, 0}; axyz[0] = 'x' + d; // "x", "y", "z"
+              auto const value = find_attribute(spacing, axyz);
+              if (*value != '\0') {
+                  double const hxyz = std::atof(value);
+                  printf("# h%s = %.15g\n", axyz, hxyz);
+              } // value != ""
+          } // d
+          
+          auto const potential = find_child(grid_Hamiltonian, "potential", echo);
+          int ng[3] = {0, 0, 0};
+          for(int d = 0; d < 3; ++d) {
+              char axyz[] = {'n', 0, 0}; axyz[1] = 'x' + d; // "nx", "ny", "nz"
+              auto const value = find_attribute(potential, axyz);
+              if (*value != '\0') {
+                  ng[d] = std::atoi(value);
+                  printf("# %s = %d\n", axyz, ng[d]);
+              } // value != ""
+          } // d
+          if (nullptr == potential) {
+              warn("grid_Hamiltonian has no potential!");
+          } else {
+//            printf("# potential.values= %s\n", potential->value());
+              auto const v = read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
+              printf("# potential has %d values, expect %d x %d x %d = %d\n",
+                  v.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
+          } // potential
+      } // scope
 
             
 #else
