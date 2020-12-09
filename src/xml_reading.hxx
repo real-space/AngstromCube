@@ -1,9 +1,10 @@
 #pragma once
 
 #ifdef HAS_RAPIDXML
-  #include <string>
-  #include <fstream>
-  #include <streambuf>
+//   #include <string>
+  #include <cstdlib> // std::strtod
+//   #include <fstream>
+//   #include <streambuf>
   #include <cstring> // std::strcmp
   #include "tools/rapidxml-1.13/rapidxml.hpp" // ::xml_document<>
   #include "tools/rapidxml-1.13/rapidxml_utils.hpp" // ::file<>
@@ -81,7 +82,7 @@ namespace xml_reading {
                       printf("# %s = %.15g\n", axyz, pxyz);
                   } // value != ""
               } // d
-              
+
               auto const projectors = find_child(atom, "projectors", echo);
               int numax{-1};
               double sigma{-1};
@@ -95,7 +96,7 @@ namespace xml_reading {
               {
                   auto const value = find_attribute(projectors, "sigma", "-1");
                   if (*value != '\0') {
-                      sigma = std::atof(value);
+                      sigma = std::strtod(value);
                       printf("# sigma= %g\n", sigma);
                   } // value != ""
               }
