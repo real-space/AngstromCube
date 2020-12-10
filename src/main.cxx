@@ -39,6 +39,7 @@
 #include "fourier_poisson.hxx" // ::all_tests
 #include "solid_harmonics.hxx" // ::all_tests
 #include "bisection_tools.hxx" // ::all_tests
+#include "green_function.hxx" // ::all_tests
 #include "poisson_solver.hxx" // ::all_tests
 #include "brillouin_zone.hxx" // ::all_tests
 #include "pw_hamiltonian.hxx" // ::all_tests
@@ -130,6 +131,7 @@
           module_test("fourier_poisson.",         fourier_poisson::all_tests);
           module_test("solid_harmonics.",         solid_harmonics::all_tests);
           module_test("bisection_tools.",         bisection_tools::all_tests);
+          module_test("green_function.",           green_function::all_tests);
           module_test("poisson_solver.",           poisson_solver::all_tests);
           module_test("brillouin_zone.",           brillouin_zone::all_tests);
           module_test("pw_hamiltonian.",           pw_hamiltonian::all_tests);

@@ -517,7 +517,7 @@ namespace grid_operators {
                       for(int i = 0; i < nSHO; ++i) {
                           std::fprintf(f, "        %c", i?',':'['); // open row
                           for(int j = 0; j < nSHO; ++j) {
-                              if (0 == (j & 3)) std::fprintf(f, "\n          ");
+                              if (0 == (j & 0x3)) std::fprintf(f, "\n          ");
                               std::fprintf(f, "%c%.15e", j?',':'[', mat[i*nSHO + j]);
                           } // j
                           std::fprintf(f, "]\n"); // close row
@@ -534,7 +534,7 @@ namespace grid_operators {
               std::fprintf(f, "    \"grid\": [%d, %d, %d]\n", grid[0], grid[1], grid[2]);
               std::fprintf(f, "   ,\"values\":");
               for(int izyx = 0; izyx < grid.all(); ++izyx) {
-                  if (0 == (izyx & 3)) std::fprintf(f, "\n    ");
+                  if (0 == (izyx & 0x3)) std::fprintf(f, "\n    ");
                   std::fprintf(f, "%c%.15f", izyx?',':'[', potential[izyx]);
               } // ia
               std::fprintf(f, "]\n"); // close values
