@@ -137,17 +137,20 @@ namespace green_function {
       if (echo > 0) printf("# total number of source blocks is %d\n", nRHSs);
       view2D<int16_t> RHS_coords(nRHSs, 4, 0);
       double center_of_mass_RHS[3] = {0, 0, 0};
-      double center_of_RHSs[3] = {0, 0, 0};
-      int16_t min_source_coords[3] = {0, 0, 0}, max_source_coords[3] = {0, 0, 0};
-      double max_distance_from_comass{0}, max_distance_from_center{0};
+      double center_of_RHSs[3]     = {0, 0, 0};
+      int16_t min_source_coords[3] = {0, 0, 0};
+      int16_t max_source_coords[3] = {0, 0, 0};
+      double max_distance_from_comass{0};
+      double max_distance_from_center{0};
+      double farest_from_center{0};
       { // scope:
           int iRHS{0};
           for(int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
           for(int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
           for(int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
-              RHS_coords(iRHS,0) = ibx;
-              RHS_coords(iRHS,1) = iby;
-              RHS_coords(iRHS,2) = ibz;
+              RHS_coords(iRHS,X) = ibx;
+              RHS_coords(iRHS,Y) = iby;
+              RHS_coords(iRHS,Z) = ibz;
               for(int d = 0; d < 3; ++d) {
                   int16_t const rhs_coord = RHS_coords(iRHS,d);
                   center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d];
@@ -168,7 +171,9 @@ namespace green_function {
               double d2m{0}, d2c{0};
               for(int d = 0; d < 3; ++d) {
                   d2m += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
-                  d2c += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
+                  auto const dv = (RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d];
+                  d2c += pow2(dv);
+                  farest_from_center = std::max(farest_from_center, std::abs(dv));
               } // d
               max_d2_from_center = std::max(max_d2_from_center, d2c);
               max_d2_from_comass = std::max(max_d2_from_comass, d2m);
@@ -186,27 +191,11 @@ namespace green_function {
       // truncation radius
       double const r_trunc = control::get("green.function.truncation.radius", 10.);
       if (echo > 0) printf("# green.function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
-      double const r2trunc = pow2(r_trunc);
 
-      int16_t  min_target_coords[3] = {0, 0, 0}, max_target_coords[3] = {0, 0, 0};
-      uint16_t num_target_coords[3] = {0, 0, 0};
-      size_t product_target_blocks{0};
-      { // scope:
-          auto const radius = r_trunc + max_distance_from_center;
-          for(int d = 0; d < 3; ++d) {
-              double const inv_hg = 1./(4*hg[d]);
-              min_target_coords[d] = std::floor((center_of_mass_RHS[d] - radius)*inv_hg);
-              max_target_coords[d] = std::floor((center_of_mass_RHS[d] + radius)*inv_hg);
-              num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
-          } // d
-          product_target_blocks = num_target_coords[Z]*num_target_coords[Y]*num_target_coords[X];
-          if (echo > 0) printf("# all sources within (%i, %i, %i) and (%i, %i, %i) --> %ld\n",
-              min_target_coords[X], min_target_coords[Y], min_target_coords[Z],
-              max_target_coords[X], max_target_coords[Y], max_target_coords[Z], product_target_blocks);
-      } // scope
+      
       
       // count the number of green function elements for each target block
-      std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
+      std::vector<std::vector<uint16_t>> column_indices; // [product_target_blocks];
       size_t nnz{0}; // number of non-zero BRS entries
       uint32_t nRows{0}; // number of rows
       std::vector<uint16_t> ColIndex; // [nnz]
@@ -214,39 +203,74 @@ namespace green_function {
 
       view2D<int16_t> target_coords; // [nRows][4]
       std::vector<int64_t> target_indices; // [nRows]
-
+      
+      
+      uint16_t num_target_coords[3] = {0, 0, 0};
+      int16_t  min_target_coords[3] = {0, 0, 0};
+      int16_t  max_target_coords[3] = {0, 0, 0};
+      size_t product_target_blocks{0};
       { // scope:
-          auto const rtrunc = std::max(0.0, r_trunc);
-          int16_t const itr[3] = {int16_t(std::floor(rtrunc/(4*hg[X]))),
-                                  int16_t(std::floor(rtrunc/(4*hg[Y]))),
-                                  int16_t(std::floor(rtrunc/(4*hg[Z])))};
+          auto const radius = std::max(0.0, r_trunc) + r_block_circumscribing_sphere + farest_from_center;
+          auto const rtrunc = std::max(0.0, r_trunc) + r_block_circumscribing_sphere;
+          int16_t const itr[3] = {int16_t(std::ceil(rtrunc/(4*hg[X]))),
+                                  int16_t(std::ceil(rtrunc/(4*hg[Y]))),
+                                  int16_t(std::ceil(rtrunc/(4*hg[Z])))};
+          auto const r2trunc = pow2(rtrunc);
+
+          for(int d = 0; d < 3; ++d) {
+//            double const inv_hg = 1./(4*hg[d]);
+              min_target_coords[d] = min_source_coords[d] - itr[d];
+              max_target_coords[d] = max_source_coords[d] + itr[d];
+              num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
+          } // d
+          product_target_blocks = num_target_coords[Z]*num_target_coords[Y]*num_target_coords[X];
+          if (echo > 0) printf("# all targets within (%i, %i, %i) and (%i, %i, %i) --> %d x %d x %d = %ld\n",
+              min_target_coords[X], min_target_coords[Y], min_target_coords[Z],
+              max_target_coords[X], max_target_coords[Y], max_target_coords[Z], 
+              num_target_coords[X], num_target_coords[Y], num_target_coords[Z], product_target_blocks);
+          column_indices.resize(product_target_blocks);
+
           assert(nRHSs < 65536 && "the integer type of ColIndex is uint16_t!");
           std::vector<std::vector<bool>> sparsity_pattern(nRHSs);
           for(uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
               sparsity_pattern[iRHS] = std::vector<bool>(product_target_blocks, false);
               int16_t const *const source_coords = RHS_coords[iRHS];
+              simple_stats::Stats<> stats[3];
+              int inside{0}, outside{0};
               for(int16_t bz = -itr[Z]; bz <= itr[Z]; ++bz) {
               for(int16_t by = -itr[Y]; by <= itr[Y]; ++by) {
               for(int16_t bx = -itr[X]; bx <= itr[X]; ++bx) {
-                  int16_t const bxyz[3] = {bx, by, bz};
+                  int16_t const bxyz[3] = {bx, by, bz}; // difference vector
+                  int16_t target_coords[3];
                   for(int d = 0; d < 3; ++d) {
-                      assert(source_coords[d] + bxyz[d] >= min_target_coords[d]);
-                      assert(source_coords[d] + bxyz[d] <= max_target_coords[d]);
+                      target_coords[d] = source_coords[d] + bxyz[d];
+                      assert(target_coords[d] >= min_target_coords[d]);
+                      assert(target_coords[d] <= max_target_coords[d]);
                   } // d
-                  double const d2 = pow2(bx*hg[X])
-                                  + pow2(by*hg[Y])
-                                  + pow2(bz*hg[Z]);
-                  if (d2 < r2trunc) {
+                  double const d2 = pow2(bx*4*hg[X]) + pow2(by*4*hg[Y]) + pow2(bz*4*hg[Z]);
+                  if (d2 < r2trunc) { // inside
                       int16_t idx[3];
                       for(int d = 0; d < 3; ++d) {
-                          idx[d] = source_coords[d] + bxyz[d] - min_target_coords[d];
+                          idx[d] = target_coords[d] - min_target_coords[d];
                           assert(idx[d] >= 0);
+                          assert(idx[d] < num_target_coords[d]);
+                          stats[d].add(target_coords[d]);
                       } // d
                       auto const idx3 = index3D(num_target_coords, idx);
+                      assert(idx3 < product_target_blocks);
                       column_indices[idx3].push_back(iRHS);
                       sparsity_pattern[iRHS][idx3] = true;
+                      ++inside;
+                  } else { // inside
+                      ++outside;
                   } // inside
               }}} // xyz
+              if (echo > 7) printf("# RHS at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n",
+                      RHS_coords(iRHS,X), RHS_coords(iRHS,Y), RHS_coords(iRHS,Z),
+                      stats[X].min(), stats[Y].min(), stats[Z].min(),
+                      stats[X].max(), stats[Y].max(), stats[Z].max());
+//               if (echo > 7) printf("# RHS has %d and %d of %d blocks inside and outside, respectively\n",
+//                                               inside, outside, inside + outside);
           } // iRHS
 
           // create a histogram
@@ -257,6 +281,7 @@ namespace green_function {
           for(uint16_t x = 0; x < num_target_coords[X]; ++x) {
               uint16_t const idx[3] = {x, y, z};
               auto const idx3 = index3D(num_target_coords, idx);
+              assert(idx3 < product_target_blocks);
               
               int32_t jdx[3];
               set(jdx, 3, idx);
@@ -302,13 +327,13 @@ namespace green_function {
                       // copy the target block coordinates
                       set(target_coords[iRow], 3, box_target_coords[idx3]);
                       target_indices[iRow] = global_coordinates(target_coords[iRow]);
-                      
+
                       int32_t idx[3];
                       set(idx, 3, box_target_coords[idx3]);
                       add_product(idx, 3, min_target_coords, -1);
                       for(int d = 0; d < 3; ++d) { assert(idx[d] >= 0); assert(idx[d] < num_target_coords[d]); }
                       iRow_of_coords(idx[Z], idx[Y], idx[X]) = iRow;
-                      
+
                       // count up the number of active rows
                       ++iRow;
                   } // n > 0
@@ -342,10 +367,11 @@ namespace green_function {
           
           // prepare the finite-difference sequence lists
           for(int dd = 0; dd < 3; ++dd) { // direction of derivative
-              int num[4] = {1, 1, 1, nRHSs};
+              int num[3];
               set(num, 3, num_target_coords);
+              int const num_dd = num[dd];
               num[dd] = 1;
-              if (echo > 0) printf("# FD lists for the %c-direction %d %d %d\n", 'x'+dd, num[X], num[Y], num[Z]);
+              if (echo > 0) printf("# FD lists for the %c-direction %d %d %d\n", 'x' + dd, num[X], num[Y], num[Z]);
               simple_stats::Stats<> length_stats;
               std::vector<std::vector<int32_t>> list;
               int const max_lists = nRHSs*num[Z]*num[Y]*num[X];
@@ -354,11 +380,11 @@ namespace green_function {
               for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
 //                if (echo > 0) printf("# FD list for RHS #%i\n", iRHS);
                   auto const & sparsity_RHS = sparsity_pattern[iRHS];
-                  for(int iz = 0; iz < num[Z]; ++iz) {
-                  for(int iy = 0; iy < num[Y]; ++iy) {
-                  for(int ix = 0; ix < num[X]; ++ix) {
+                  for(int iz = 0; iz < num[Z]; ++iz) { //  
+                  for(int iy = 0; iy < num[Y]; ++iy) { //   only 2 of these 3 loops have a range > 1
+                  for(int ix = 0; ix < num[X]; ++ix) { // 
                       int idx[3] = {ix, iy, iz};
-                      for(int id = 0; id < num_target_coords[dd]; ++id) {
+                      for(int id = 0; id < num_dd; ++id) {
                           idx[dd] = id;
 //                           if (echo > 0) printf("# FD list for RHS #%i test coordinates %i %i %i\n",
 //                                                   iRHS, idx[X], idx[Y], idx[Z]);
@@ -366,7 +392,7 @@ namespace green_function {
                           if (sparsity_RHS[idx3]) {
                               auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
                               assert(iRow >= 0);
-                              
+
                               int inz_found{-1};
                               for(int inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
                                   if (ColIndex[inz] == iRHS) {
@@ -375,13 +401,17 @@ namespace green_function {
                                   } // found
                               } // search
                               assert(inz_found >= 0);
+
+                              assert(ilist < max_lists);
                               list[ilist].push_back(inz_found);
                           } // sparsity pattern
                       } // id
                       int const list_length = list[ilist].size();
                       if (list_length > 0) {
                           length_stats.add(list_length);
-                          // add end marker
+//                           if (echo > 0) printf("# FD list of length %d for the %c-direction %i %i %i\n",
+//                                                   list_length, 'x' + dd, idx[X], idx[Y], idx[Z]);
+                          // add end markers
                           list[ilist].push_back(-1);
                           list[ilist].push_back(-1);
                           
