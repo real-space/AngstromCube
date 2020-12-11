@@ -82,3 +82,10 @@ namespace dense_operator {
 #endif // NO_UNIT_TESTS
 
 } // namespace dense_operator
+
+#ifdef DEBUG
+  #undef DEBUG
+#endif
+#ifdef FULL_DEBUG
+  #undef FULL_DEBUG
+#endif

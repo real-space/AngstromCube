@@ -577,3 +577,10 @@ namespace grid_operators {
 #endif // NO_UNIT_TESTS
 
 } // namespace grid_operators
+
+#ifdef DEBUG
+  #undef DEBUG
+#endif
+#ifdef FULL_DEBUG
+  #undef FULL_DEBUG
+#endif

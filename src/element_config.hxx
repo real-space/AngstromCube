@@ -107,3 +107,10 @@ namespace element_config {
 #endif // NO_UNIT_TESTS
 
 } // namespace element_config
+
+#ifdef DEBUG
+  #undef DEBUG
+#endif
+#ifdef FULL_DEBUG
+  #undef FULL_DEBUG
+#endif

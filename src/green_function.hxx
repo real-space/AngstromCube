@@ -16,41 +16,39 @@
 #include "control.hxx" // ::get
 #include "simple_stats.hxx" // ::Stats
 #include "sho_tools.hxx" // ::nSHO
+#include "global_coordinates.hxx" // ::get
 
 namespace green_function {
   
   double const GByte = 1e-9; char const *const _GByte = "GByte";
-  
-  inline int64_t global_coordinates(int32_t x, int32_t y, int32_t z) {
-      // interleaved bit pattern of the lowest 21 bits to 63 bits
-      int64_t i63{0};
-      for(int b21 = 0; b21 < 21; ++b21) {
-          int32_t const i3 = (x & 0x1) + 2*(y & 0x1) + 4*(z & 0x1);
-          x >>= 1; y >>= 1; z >>= 1; // delete the least significant bit of the coordinates
-          int64_t const i3_shifted = int64_t(i3) << (b21*3);
-          i63 |= i3_shifted;
-      } // b21
-      return i63; // when printing i63, use format %22.22lo
-  } // global_coordinates
 
-  template <typename int_t>
-  inline int64_t global_coordinates(int_t const xyz[3]) {
-      return global_coordinates(xyz[0], xyz[1], xyz[2]);
-  } // global_coordinates
+  template <typename T>
+  T* get_memory(size_t const size=1) {
+#ifdef DEBUG
+      printf("# managed memory: %lu x %.3f kByte = \t%.6f %s\n", size, 1e-3*sizeof(T), size*sizeof(T)*GByte, _GByte);
+#endif
+      T* d{nullptr};
+#ifdef HAS_CUDA
+      CCheck(cudaMallocManaged(&d, size*sizeof(T)));
+#else
+      d = new T[size];
+#endif     
+      return d;
+  } // get_memory
 
-  inline status_t global_coordinates(uint32_t xyz[3], int64_t i63) {
-      // retrieve global_coordinates from i63 identifyer
-      // mind that the coordinates will be cast into the half-open range [0, 2^21)
-      uint32_t x{0}, y{0}, z{0};
-      for(int b21 = 0; b21 < 21; ++b21) {
-          x |= (i63 & 0x1) << b21;   i63 >>= 1;
-          y |= (i63 & 0x1) << b21;   i63 >>= 1;
-          z |= (i63 & 0x1) << b21;   i63 >>= 1;
-      } // b21
-      xyz[0] = x; xyz[1] = y; xyz[2] = z;
-      return status_t(i63 & 0x1); // this is 0 if i63 >= 0
-  } // global_coordinates
+  template <typename T>
+  void free_memory(T*& d) {
+#ifdef HAS_CUDA
+      CCheck(cudaFree(d));
+#else
+      delete[] d;
+#endif
+      d = nullptr;
+  } // free_memory
 
+
+
+#if 0
   template <typename T>
   class block4 {
   public:
@@ -68,6 +66,7 @@ namespace green_function {
   private:
       T _data[4][4][4];
   }; // class
+#endif  
 
 //   typedef struct {
 //       double pos[3];
@@ -76,8 +75,10 @@ namespace green_function {
 //       int8_t iZ;
 //   } atom_t;
 
-  template <typename uint_t, typename int_t>
-  inline size_t index3D(uint_t const n[3], int_t const i[3]) { return size_t(i[2]*n[1] + i[1])*n[0] + i[0]; }
+
+
+  template <typename uint_t, typename int_t> inline
+  size_t index3D(uint_t const n[3], int_t const i[3]) { return size_t(i[2]*n[1] + i[1])*n[0] + i[0]; }
 
   inline status_t construct_Green_function(
         int const ng[3]
@@ -101,9 +102,11 @@ namespace green_function {
 
       assert(Veff.size() == ng[Z]*ng[Y]*ng[X]);
 
-//    view3D<block4<double>> Vtot_blocks(n_original_Veff_blocks[2], n_original_Veff_blocks[1], n_original_Veff_blocks[0]);
+//    view3D<block4<double>> Vtot_blocks(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X]);
+      size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
       
-      view4D<double> Vtot(n_original_Veff_blocks[2], n_original_Veff_blocks[1], n_original_Veff_blocks[0], 64, 0.0);
+      auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64);
+      view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
       { // scope: reorder Veff into block-structured Vtot
           for(int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
           for(int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
@@ -121,8 +124,11 @@ namespace green_function {
           }}} // xyz
       } // scope
 
+      // since we do not use it now:
+      free_memory(Vtot_gpu);
+
       // Cartesian cell parameters for the unit cell in which the potential is defined
-      double const cell[3] = {ng[0]*hg[0], ng[1]*hg[1], ng[2]*hg[2]};
+      double const cell[3] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
 
       // assume periodic boundary conditions and an infinite host crystal,
       // so there is no need to consider k-points
@@ -133,7 +139,7 @@ namespace green_function {
       double const r_block_circumscribing_sphere = 2*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
 
       // assume that the source blocks lie compact in space
-      int const nRHSs = n_original_Veff_blocks[2] * n_original_Veff_blocks[1] * n_original_Veff_blocks[0];
+      int const nRHSs = n_original_Veff_blocks[Z] * n_original_Veff_blocks[Y] * n_original_Veff_blocks[X];
       if (echo > 0) printf("# total number of source blocks is %d\n", nRHSs);
       view2D<int16_t> RHS_coords(nRHSs, 4, 0);
       double center_of_mass_RHS[3] = {0, 0, 0};
@@ -142,7 +148,6 @@ namespace green_function {
       int16_t max_source_coords[3] = {0, 0, 0};
       double max_distance_from_comass{0};
       double max_distance_from_center{0};
-      double farest_from_center{0};
       { // scope:
           int iRHS{0};
           for(int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
@@ -171,9 +176,7 @@ namespace green_function {
               double d2m{0}, d2c{0};
               for(int d = 0; d < 3; ++d) {
                   d2m += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
-                  auto const dv = (RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d];
-                  d2c += pow2(dv);
-                  farest_from_center = std::max(farest_from_center, std::abs(dv));
+                  d2c += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
               } // d
               max_d2_from_center = std::max(max_d2_from_center, d2c);
               max_d2_from_comass = std::max(max_d2_from_comass, d2m);
@@ -198,8 +201,9 @@ namespace green_function {
       std::vector<std::vector<uint16_t>> column_indices; // [product_target_blocks];
       size_t nnz{0}; // number of non-zero BRS entries
       uint32_t nRows{0}; // number of rows
-      std::vector<uint16_t> ColIndex; // [nnz]
-      std::vector<uint32_t> RowStart; // [nRows + 1]
+      uint16_t *ColIndex{nullptr}; // [nnz]
+      uint32_t *RowStart{nullptr}; // [nRows + 1]
+      uint32_t *veff_index{nullptr}; // [nRows]
 
       view2D<int16_t> target_coords; // [nRows][4]
       std::vector<int64_t> target_indices; // [nRows]
@@ -210,15 +214,13 @@ namespace green_function {
       int16_t  max_target_coords[3] = {0, 0, 0};
       size_t product_target_blocks{0};
       { // scope:
-          auto const radius = std::max(0.0, r_trunc) + r_block_circumscribing_sphere + farest_from_center;
           auto const rtrunc = std::max(0.0, r_trunc) + r_block_circumscribing_sphere;
-          int16_t const itr[3] = {int16_t(std::ceil(rtrunc/(4*hg[X]))),
-                                  int16_t(std::ceil(rtrunc/(4*hg[Y]))),
-                                  int16_t(std::ceil(rtrunc/(4*hg[Z])))};
+          int16_t const itr[3] = {int16_t(std::floor(rtrunc/(4*hg[X]))),
+                                  int16_t(std::floor(rtrunc/(4*hg[Y]))),
+                                  int16_t(std::floor(rtrunc/(4*hg[Z])))};
           auto const r2trunc = pow2(rtrunc);
 
           for(int d = 0; d < 3; ++d) {
-//            double const inv_hg = 1./(4*hg[d]);
               min_target_coords[d] = min_source_coords[d] - itr[d];
               max_target_coords[d] = max_source_coords[d] + itr[d];
               num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
@@ -273,6 +275,8 @@ namespace green_function {
 //                                               inside, outside, inside + outside);
           } // iRHS
 
+          std::vector<uint32_t> vtot_index(product_target_blocks);
+          
           // create a histogram
           std::vector<uint32_t> hist(nRHSs + 1, 0);
           view2D<int16_t> box_target_coords(product_target_blocks, 4);
@@ -287,30 +291,44 @@ namespace green_function {
               set(jdx, 3, idx);
               add_product(jdx, 3, min_target_coords, 1);
               set(box_target_coords[idx3], 3, jdx);
+              
+              { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
+                  int32_t mod[3];
+                  for(int d = 0; d < 3; ++d) {
+                      mod[d] = jdx[d] % n_original_Veff_blocks[d];
+                      mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
+                  } // d
+                  vtot_index[idx3] = index3D(n_original_Veff_blocks, mod);
+              } // scope
 
               int const n = column_indices[idx3].size();
               ++hist[n];
           }}} // xyz
+          
+          // eval the histogram
           size_t nall{0};
           for(int n = 0; n <= nRHSs; ++n) {
               nall += hist[n];
               nnz  += hist[n]*n;
           } // n
-          if (echo > 0) { printf("# histogram total=%ld  ", nall); printf_vector(" %d", hist.data(), nRHSs + 1); }
+          if (echo > 5) { printf("# histogram total=%ld  ", nall); printf_vector(" %d", hist.data(), nRHSs + 1); }
           assert(nall == product_target_blocks);
           nRows = nall - hist[0]; // the target block ntries with no RHS do not create a row
           assert(nRows >= 0);
-          if (echo > 0) printf("# total number of Green function blocks is %.3f k, average %.1f per source block\n", nnz*.001, nnz/double(nRHSs));
-          if (echo > 0) printf("# %d of %d (%.1f %%) target blocks are active\n", nRows, product_target_blocks, nRows/(product_target_blocks*.01));
+          if (echo > 0) printf("# total number of Green function blocks is %.3f k, "
+                               "average %.1f per source block\n", nnz*.001, nnz/double(nRHSs));
+          if (echo > 0) printf("# %.3f k (%.1f %% of %d) target blocks are active\n", 
+              nRows*.001, nRows/(product_target_blocks*.01), product_target_blocks);
 
           assert(nnz < (uint64_t(1) << 32) && "the integer type or RowStart is uint32_t!");
 
           // resize BSR tables: (Block-compressed Sparse Row format)
           if (echo > 3) { printf("# memory of Green function is %.6f %s (float, twice for double)\n",
                               nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
-          ColIndex.resize(nnz);
-          RowStart.resize(nRows + 1);
+          ColIndex = get_memory<uint16_t>(nnz);
+          RowStart = get_memory<uint32_t>(nRows + 1);
           RowStart[0] = 0;
+          veff_index = get_memory<uint32_t>(nRows);
           target_coords = view2D<int16_t>(nRows, 4, 0);
           target_indices.resize(nRows);
           
@@ -326,8 +344,11 @@ namespace green_function {
                       set(&ColIndex[RowStart[iRow]], n, column_indices[idx3].data());
                       // copy the target block coordinates
                       set(target_coords[iRow], 3, box_target_coords[idx3]);
-                      target_indices[iRow] = global_coordinates(target_coords[iRow]);
+                      target_indices[iRow] = global_coordinates::get(target_coords[iRow]);
+                      // target_indices will be needed to collect the local potential data from other MPI processes
 
+                      veff_index[iRow] = vtot_index[idx3];
+                      
                       int32_t idx[3];
                       set(idx, 3, box_target_coords[idx3]);
                       add_product(idx, 3, min_target_coords, -1);
@@ -342,10 +363,11 @@ namespace green_function {
               assert(nnz == RowStart[nRows]);
           } // scope
           column_indices.clear(); // not needed beyond this point
+          vtot_index.clear(); // not needed beyond this point
 
           if (echo > 1) { // measure the difference in the number of target blocks of each RHS
               std::vector<uint32_t> nt(nRHSs, 0);
-              // traverse BSR structure
+              // traverse the BSR structure
               for(uint32_t iRow = 0; iRow < nRows; ++iRow) {
                   for(auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
                       auto const iCol = ColIndex[inz];
@@ -362,9 +384,12 @@ namespace green_function {
           
           // Green function is stored sparse 
           // as std::complex<real_t> green[nnz][64][64] 
-          // or real_t green[nnz][2]64][64] for the GPU;
+          // or real_t green[nnz][2][64][64] for the GPU;
 
-          
+          uint32_t n_lists_xyz[3] = {0, 0, 0};
+          uint32_t *prefix_xyz[3] = {nullptr, nullptr, nullptr};
+          int32_t *fd_list_xyz[3] = {nullptr, nullptr, nullptr};
+
           // prepare the finite-difference sequence lists
           for(int dd = 0; dd < 3; ++dd) { // direction of derivative
               int num[3];
@@ -423,12 +448,38 @@ namespace green_function {
               if (echo > 0) printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
                                     number_of_lists, 'x' + dd, number_of_lists/(max_lists*.01),
                                     length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
+
+              // store in managed memory
+              auto const prefix = get_memory<uint32_t>(number_of_lists + 1); // create in GPU memory
+              prefix[0] = 0;
+              for(int ilist = 0; ilist < number_of_lists; ++ilist) {
+                  int const n = list[ilist].size();
+                  prefix[ilist + 1] = prefix[ilist] + n;
+              } // ilist
+              size_t const ntotal = prefix[number_of_lists];
+              if (echo > 0) printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
+                                      'x' + dd, ntotal, ntotal*sizeof(uint32_t)*1e-3);
+              auto const fd_list = get_memory<int32_t>(ntotal);
+              for(int ilist = 0; ilist < number_of_lists; ++ilist) {
+                  int const n = list[ilist].size();
+                  set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory
+              } // ilist
+
+              n_lists_xyz[dd] = number_of_lists;
+               prefix_xyz[dd] = prefix;
+              fd_list_xyz[dd] = fd_list;
+              
+              // since we do not need them right now
+              free_memory(fd_list_xyz[dd]);
+              free_memory( prefix_xyz[dd]);
           } // dd
-          
+
       } // scope
       
-      
-      
+      // since we do not need them right now
+      free_memory(RowStart);
+      free_memory(ColIndex);
+      free_memory(veff_index);
       
       
       // compute which atoms will contribute
@@ -443,7 +494,8 @@ namespace green_function {
       view2D<double> atom_coords;
       uint32_t nai{0}; // corrected number of all relevant atoms
       uint32_t napc{0}; // number of all projection coefficients
-      std::vector<uint32_t> apc_start; // [nai + 1]
+      uint32_t *ApcStart{nullptr};
+      
       { // scope:
           auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius;
           int const iimage[3] = {int(std::ceil(radius/cell[X])),
@@ -451,8 +503,7 @@ namespace green_function {
                                  int(std::ceil(radius/cell[Z]))};
           auto const nimages = size_t(iimage[Z]*2 + 1)*size_t(iimage[Y]*2 + 1)*size_t(iimage[X]*2 + 1);
           auto const natom_images = natoms*nimages;
-          apc_start.resize(natom_images + 1); // probably larger than needed
-          apc_start[0] = 0;
+          std::vector<uint32_t> apc_start(natom_images + 1, 0); // probably larger than needed, should be [nai + 1]
           atom_coords = view2D<double>(natom_images, 4);
           size_t iai{0};
           for(int z = -iimage[Z]; z <= iimage[Z]; ++z) {
@@ -474,7 +525,7 @@ namespace green_function {
                   double const r_projection = pow2(9*sigma); // atom-dependent
                   double const r2projection = pow2(r_projection);
                   double const r2projection_plus_block = pow2(r_projection + r_block_circumscribing_sphere);
-                  
+
                   // check all target blocks if they are inside the projection radius
                   uint32_t ntb{0}; // number of target blocks
                   for(uint32_t iRow = 0; (iRow < nRows) && (0 == ntb); ++iRow) {
@@ -488,7 +539,7 @@ namespace green_function {
                           // do more precise checking
 //                           if (echo > 9) printf("# target block #%i at %i %i %i gets corner check\n",
 //                                           iRow, target_block[X], target_block[Y], target_block[Z]);
-                          bool any_corner{false};
+                          int num_corners{0};
                           for(int iz = 0; iz < 4; iz += 3) {
                           for(int iy = 0; iy < 4; iy += 3) {
                           for(int ix = 0; ix < 4; ix += 3) {
@@ -499,19 +550,20 @@ namespace green_function {
                                   d2i += pow2(grid_point - pos[d]);
                               } // d
                               if (d2i < r2projection) {
-                                  any_corner = true; // at least one corner of the block 
+                                  ++num_corners; // at least one corner of the block 
                                   // ... is inside the projection radius of this atom
                               } // inside the projection radius
                           }}} // ixyz
-                          if (any_corner) {
+                          // three different cases: 0, 1...7, 8
+                          if (num_corners > 0) {
                               // atom image contributes
                               ++ntb; // stop outer loop
 //                               if (echo > 7) printf("# target block #%i at %i %i %i is inside\n",
 //                                       iRow, target_block[X], target_block[Y], target_block[Z]);
-                          } else { // any_corner
+                          } else { // num_corners
 //                               if (echo > 9) printf("# target block #%i at %i %i %i is outside\n",
 //                                       iRow, target_block[X], target_block[Y], target_block[Z]);
-                          } // any_corner
+                          } // num_corners
                       } else { // d2
 //                           if (echo > 21) printf("# target block #%i at %i %i %i is far outside\n",
 //                                       iRow, target_block[X], target_block[Y], target_block[Z]);
@@ -521,9 +573,7 @@ namespace green_function {
                   if (ntb > 0) {
                       // atom image contributes
                       // at least one target block has an intersection with the projection sphere of this atom image
-                      for(int d = 0; d < 3; ++d) {
-                          atom_coords(iai,d) = pos[d];
-                      } // d
+                      set(atom_coords[iai], 3, pos);
                       atom_coords(iai,3) = atom_id; // global atom index
 //                       if (echo > 5) printf("# image of atom #%i at %g %g %g %s contributes to %d target blocks\n",
 //                                                 atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang, ntb);
@@ -546,7 +596,12 @@ namespace green_function {
           // or real_t apc[napc][nRHSs][2][64] for the GPU
           if (echo > 3) printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
                                   napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
+          ApcStart = get_memory<uint32_t>(nai + 1);
+          set(ApcStart, nai + 1, apc_start.data()); // copy into GPU memory
       } // scope
+
+      // since we dont need to now:
+      free_memory(ApcStart);
       
       // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
       // indicies named after H_{ij} G_{jk} = HG_{ik}
@@ -613,6 +668,9 @@ namespace green_function {
       //                  }
       //
 
+      
+      
+      
       return 0;
   } // construct_Green_function
   
@@ -620,50 +678,16 @@ namespace green_function {
   inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t test_global_coordinates(int const echo=0) {
-      status_t stat(0);
-      int const n_tested = (1 << 12);
-      for(int i = 0; i < n_tested; ++i) {
-          int32_t ixyz[3]; // input coordinates
-          for(int d = 0; d < 3; ++d) {
-              ixyz[d] = simple_math::random(0, 0x1fffff); // [0, 2^21 - 1]
-          } // d
-          int64_t const i63 = global_coordinates(ixyz);
-          uint32_t oxyz[3]; // output coordinates
-          status_t is = global_coordinates(oxyz, i63);
-          // the output format for i63 indices is octal with 22 digits.
-          // exactly 21 octal digits represent the bit-interleaved 3D coordinates
-          // and one leading 0 indices the octal notation for non-negative i63
-          if (echo > 11) printf("# global_coordinates(%i, %i, %i)\t--> %22.22lo --> (%i, %i, %i)\n",
-                                  ixyz[0], ixyz[1], ixyz[2], i63, oxyz[0], oxyz[1], oxyz[2]);
-          for(int d = 0; d < 3; ++d) {
-              is += (ixyz[d] != oxyz[d]);
-          } // d
-          if (is != 0) {
-              if (echo > 1) printf("# global_coordinates(%i, %i, %i)\t--> %22.22lo --> (%i, %i, %i) failed!\n",
-                                  ixyz[0], ixyz[1], ixyz[2], i63, oxyz[0], oxyz[1], oxyz[2]);
-              ++stat;
-          } // is
-      } // i
-      if (echo > 3) printf("# %s tested %.3f k random coordinate tuples, found %d errors\n", 
-                              __func__, n_tested*.001, int(stat));
-      if (echo > 9) {
-          int64_t const i63 = -1; // show how invalid i63 indices are displayed
-          printf("# global_coordinates(impossible coordinates)\t--> %22.22lo == %d\n", i63, i63);
-      } // echo
-      return stat;
-  } // test_global_coordinates
-
   inline status_t test_Green_function(int const echo=0) {
       status_t stat(0);
+      warn("to test green_function. functionality, use --test xml_reading.");
       stat = STATUS_TEST_NOT_INCLUDED; // ToDo: not implemented
       return stat;
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_global_coordinates(echo);
-//    stat += test_Green_function(echo); // deactivated for now
+      stat += test_Green_function(echo); // deactivated for now
       return stat;
   } // all_tests
 

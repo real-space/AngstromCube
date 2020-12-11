@@ -19,6 +19,7 @@
 #include "spherical_harmonics.hxx" // ::all_tests
 #include "conjugate_gradients.hxx" // ::all_tests
 #include "potential_generator.hxx" // ::all_tests
+#include "global_coordinates.hxx" // ::all_tests
 #include "fermi_distribution.hxx" // ::all_tests
 #include "radial_eigensolver.hxx" // ::all_tests
 #include "boundary_condition.hxx" // ::all_tests
@@ -111,6 +112,7 @@
           module_test("spherical_harmonics.", spherical_harmonics::all_tests);
           module_test("conjugate_gradients.", conjugate_gradients::all_tests);
           module_test("potential_generator.", potential_generator::all_tests);
+          module_test("global_coordinates.",   global_coordinates::all_tests);
           module_test("radial_eigensolver.",   radial_eigensolver::all_tests);
           module_test("boundary_condition.",   boundary_condition::all_tests);
           module_test("fermi_distribution.",   fermi_distribution::all_tests);
