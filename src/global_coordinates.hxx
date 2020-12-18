@@ -11,6 +11,9 @@
 #endif
 
 namespace global_coordinates {
+  // global coordinates make a unique identifyer from each tuple of 3D integer coordinates.
+  // Each coordinate is in the range [0, 2^21)
+  // Negative values are allowed as input but will be folded back into the positive range.
 
   inline int64_t get(int32_t x, int32_t y, int32_t z) {
       // interleaved bit pattern of the lowest 21 bits to 63 bits
@@ -41,7 +44,7 @@ namespace global_coordinates {
       xyz[0] = x; xyz[1] = y; xyz[2] = z;
       return status_t(i63 & 0x1); // this is 0 if i63 >= 0
   } // get
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

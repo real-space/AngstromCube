@@ -125,7 +125,7 @@
           module_test("radial_potential.",       radial_potential::all_tests);
           module_test("bessel_transform.",       bessel_transform::all_tests);
           module_test("parallel_domains.",       parallel_domains::all_tests);
-//           module_test("structure_solver.",       structure_solver::all_tests);
+//        module_test("structure_solver.",       structure_solver::all_tests);
           module_test("scattering_test.",         scattering_test::all_tests);
           module_test("davidson_solver.",         davidson_solver::all_tests);
           module_test("chemical_symbol.",         chemical_symbol::all_tests);

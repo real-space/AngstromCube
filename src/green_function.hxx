@@ -5,6 +5,7 @@
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
 #include <vector> // std::vector<T>
+#include <cstdio> // printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "recorded_warnings.hxx" // warn
@@ -18,8 +19,17 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "global_coordinates.hxx" // ::get
 
+#ifdef HAS_TFQMRGPU
+  #include "tfqmrgpu_core.hxx" // solve<action_t>
+  #include "tfqmrgpu_memWindow.h" // memWindow_t
+#else
+  #include <utility> // std::pair<T>
+  typedef std::pair<size_t,size_t> memWindow_t;
+  typedef size_t cudaStream_t;
+#endif // HAS_TFQMRGPU
+
 namespace green_function {
-  
+
   double const GByte = 1e-9; char const *const _GByte = "GByte";
 
   template <typename T>
@@ -38,12 +48,14 @@ namespace green_function {
 
   template <typename T>
   void free_memory(T*& d) {
+      if (nullptr != d) {
 #ifdef HAS_CUDA
-      CCheck(cudaFree(d));
+          CCheck(cudaFree(d));
 #else
-      delete[] d;
+          delete[] d;
 #endif
-      d = nullptr;
+          d = nullptr;
+      } // d
   } // free_memory
 
 
@@ -68,6 +80,43 @@ namespace green_function {
   }; // class
 #endif  
 
+  struct TruncationMask4 {
+      // this is a struct that tells us if source and target grid point are too distant or not.
+      // the data is stored in a 3D bitarray[8][8][8] --> 64 Byte
+
+      TruncationMask4(
+            int bx, int by, int bz // block coordinate differences
+          , double const h[3] // grid spacings
+          , double const rc2 // truncation radius squared
+      ) {                    
+          for(int i8x8 = 0; i8x8 < 8*8; ++i8x8) {
+              _data[0][i8x8] = 0; // clear, faster using memset
+          } // i8x8
+          for(int iz = -3; iz < 4; ++iz) {
+              double const z = (bz*4 + iz)*h[2], z2 = z*z - rc2;
+              // if z2 > 0, skip the following loop
+              for(int iy = -3; iy < 4; ++iy) {
+                  double const y = (by*4 + iy)*h[1], y2z2 = y*y + z2;
+                  // if y2z2 > 0, skip the following loop
+                  int i8{0};
+                  for(int ix = -3; ix < 4; ++ix) {
+                      double const x = (bx*4 + ix)*h[0], r2 = x*x + y2z2;
+                      i8 |= (int(r2 < 0.0) << (ix & 0x7)); // if inside rc^2, switch bit on
+                  } // ix
+                  _data[iz & 0x7][iy & 0x7] = i8; // store
+              } // iy
+          } // iz
+      } // constructor
+
+      // access operators (i0, i1, i2) with i0,i1,i2 in [-3, 3]
+      bool const operator () (int i0, int i1, int i2) const
+          { return (_data[i2 & 0x7][i1 & 0x7] >> (i0 & 0x7)) & 0x1; }
+
+  private:
+      int8_t _data[8][8];
+  }; // class
+
+
 //   typedef struct {
 //       double pos[3];
 //       int32_t gid;
@@ -75,10 +124,207 @@ namespace green_function {
 //       int8_t iZ;
 //   } atom_t;
 
-
-
   template <typename uint_t, typename int_t> inline
-  size_t index3D(uint_t const n[3], int_t const i[3]) { return size_t(i[2]*n[1] + i[1])*n[0] + i[0]; }
+  size_t index3D(uint_t const n[3], int_t const i[3]) {
+      // usual 3D indexing
+      return size_t(i[2]*n[1] + i[1])*n[0] + i[0];
+  } // index3D
+
+
+  class finite_difference_plan_t {
+  private:
+      uint32_t *prefix; // in managed memory
+      int32_t *fd_list; // in managed memory
+      uint32_t n_lists;
+
+  public:
+      finite_difference_plan_t() : prefix(0), fd_list(0), n_lists(0) {}
+
+      finite_difference_plan_t(
+            int const dd // direction of derivative
+          , uint16_t const num_target_coords[3]
+          , uint32_t const RowStart[]
+          , uint16_t const ColIndex[]
+          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X)
+          , std::vector<bool> const sparsity_pattern[]
+          , unsigned const nRHSs=1
+          , int const echo=0
+      ) {
+          int constexpr X=0, Y=1, Z=2;
+          // prepare the finite-difference sequence lists
+          char const direction = 'x' + dd;
+          assert(X == dd || Y == dd || Z == dd); 
+          int num[3];
+          set(num, 3, num_target_coords);
+          int const num_dd = num[dd];
+          num[dd] = 1; // replace number of target blocks in derivative direction
+          if (echo > 0) printf("# FD lists for the %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
+          simple_stats::Stats<> length_stats;
+          std::vector<std::vector<int32_t>> list;
+          size_t const max_lists = nRHSs*size_t(num[Z])*num[Y]*num[X];
+          list.resize(max_lists);
+          int ilist{0};
+          for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
+//                if (echo > 0) printf("# FD list for RHS #%i\n", iRHS);
+              auto const & sparsity_RHS = sparsity_pattern[iRHS];
+              for(int iz = 0; iz < num[Z]; ++iz) { //  
+              for(int iy = 0; iy < num[Y]; ++iy) { //   only 2 of these 3 loops have a range > 1
+              for(int ix = 0; ix < num[X]; ++ix) { // 
+                  int idx[3] = {ix, iy, iz};
+                  for(int id = 0; id < num_dd; ++id) { // loop over direction to derive
+                      idx[dd] = id; // replace index in the derivate direction
+//                           if (echo > 0) printf("# FD list for RHS #%i test coordinates %i %i %i\n",
+//                                                   iRHS, idx[X], idx[Y], idx[Z]);
+                      auto const idx3 = index3D(num_target_coords, idx);
+                      if (sparsity_RHS[idx3]) {
+                          auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
+                          assert(iRow >= 0);
+
+                          int32_t inz_found{-1};
+                          for(auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+                              if (ColIndex[inz] == iRHS) {
+                                  inz_found = inz; // store where it was found
+                                  inz = RowStart[iRow + 1]; // stop search loop
+                              } // found
+                          } // search
+                          assert(inz_found >= 0); // fails at inconsitency between sparsity_pattern and the BSR tables
+
+                          assert(ilist < max_lists);
+                          list[ilist].push_back(inz_found);
+                      } // sparsity pattern
+                  } // id
+                  int const list_length = list[ilist].size();
+                  if (list_length > 0) {
+                      length_stats.add(list_length);
+//                           if (echo > 0) printf("# FD list of length %d for the %c-direction %i %i %i\n",
+//                                                   list_length, direction, idx[X], idx[Y], idx[Z]);
+                      // add end-of-sequence markers
+                      list[ilist].push_back(-1);
+                      
+                      ++ilist; // create a new list index
+                  } // list_length > 0
+              }}} // ixyz
+          } // iRHS
+          n_lists = ilist;
+          if (echo > 0) printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
+                                n_lists, direction, n_lists/(max_lists*.01),
+                                length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
+
+          // store in managed memory
+          prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory
+          prefix[0] = 0;
+          for(int ilist = 0; ilist < n_lists; ++ilist) {
+              int const n = list[ilist].size();
+              prefix[ilist + 1] = prefix[ilist] + n;
+          } // ilist
+          size_t const ntotal = prefix[n_lists];
+          if (echo > 0) printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
+                                  direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
+          fd_list = get_memory<int32_t>(ntotal);
+          for(int ilist = 0; ilist < n_lists; ++ilist) {
+              int const n = list[ilist].size();
+              set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory
+          } // ilist
+ 
+      } // constructor
+      
+      ~finite_difference_plan_t() {
+          free_memory(fd_list);
+          free_memory(prefix);
+      } // destructor
+
+  }; // class finite_difference_plan_t
+
+
+
+  struct plan_t {
+
+      // for the inner products and axpy/xpay
+      std::vector<uint16_t> colindx; // [nnzbX]
+      memWindow_t colindxwin; // column indices in GPU memory
+
+      // for the matrix-matrix subtraction Y -= B:
+      std::vector<uint32_t> subset; // [nnzbB], list of inzbX-indices where B is also non-zero
+      memWindow_t matBwin; // data of the right hand side operator B
+      memWindow_t subsetwin; // subset indices in GPU memory
+
+      uint32_t nRows, cCols; // number of block rows and block columns, max 65,536 columns
+      std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transfered to the GPU
+
+      // for memory management:
+      size_t gpu_mem; // device memory requirement in Byte
+
+      // stats:
+      double residuum_reached;
+      double flops_performed;
+      double flops_performed_all;
+      int iterations_needed;
+
+      // memory positions
+      memWindow_t matXwin; // solution vector in GPU memory
+      memWindow_t vec3win; // random number vector in GPU memory
+
+      plan_t() {
+          printf("# construct %s\n", __func__);
+      } // constructor
+
+      ~plan_t() {
+          printf("# destruct %s\n", __func__); std::fflush(stdout);
+      } // destructor
+
+  }; // plan_t
+
+  template <typename floating_point_t=float>
+  class action_t {
+  public:
+      std::vector<uint32_t> veff_index; // [nRows] does not need to be transfered to the GPU
+      finite_difference_plan_t fd_plan[3];
+  public:
+      typedef floating_point_t real_t;
+      static int constexpr LM = 64;
+      //
+      // This action is an implicit linear operator onto block-sparse structured data.
+      // compatible with the core algorithm of the tfqmrgpu-2.0 library.
+      // Blocks are sized [LM][LM].
+      // Arithmetic according to complex<real_t> 
+      // with real_t either float or double
+      //
+      action_t() {
+          printf("# construct %s\n", __func__);
+      } // constructor
+
+      ~action_t() {
+          printf("# destruct %s\n", __func__); std::fflush(stdout);
+      } // destructor
+      
+      void take_memory(char* &buffer) {}
+
+      void transfer(char* const buffer, cudaStream_t const streamId=0) {}
+
+      bool has_preconditioner() const { return false; }
+
+      double multiply( // returns the number of flops performed
+            real_t         (*const __restrict y)[2][LM][LM] // result, y[nnzbY][2][LM][LM]
+          , real_t   const (*const __restrict x)[2][LM][LM] // input,  x[nnzbX][2][LM][LM]
+          , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
+          , uint32_t const nnzbY // == nnzbX
+          , uint32_t const nCols=1
+          , unsigned const l2nX=0
+          , cudaStream_t const streamId=0
+          , bool const precondition=false
+      ) {
+          return 0; // no flops performed so far
+      } // multiply
+
+      plan_t* get_plan() { return &p; }
+
+    private: // members
+
+      plan_t p;
+
+  }; // class action_t
+
+
 
   inline status_t construct_Green_function(
         int const ng[3]
@@ -92,6 +338,9 @@ namespace green_function {
       int constexpr X=0, Y=1, Z=2;
       if (echo > 0) printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
 
+      action_t<float> action; // new action object
+      auto const plan = action.get_plan();
+
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for(int d = 0; d < 3; ++d) {
           assert((0 == (ng[d] & 0x3)) && "All grid dimensions must be a multiple of 4!");
@@ -104,19 +353,21 @@ namespace green_function {
 
 //    view3D<block4<double>> Vtot_blocks(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X]);
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
-      
-      auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64);
-      view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
+
+//    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64); // does not really work flawlessly
+//    view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
+      view4D<double> Vtot(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // get memory
+
       { // scope: reorder Veff into block-structured Vtot
           for(int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
           for(int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
           for(int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
               auto const Vtot_xyz = Vtot(ibz,iby,ibx); // get a view1D, i.e. double*
-              size_t const of[3] = {ibx*4ul, iby*4ul, ibz*4ul}; // offsets
+              int const of[3] = {ibx*4, iby*4, ibz*4}; // offsets
               for(int i64 = 0; i64 < 64; ++i64) {
-                  size_t const coords[3] = {(i64 & 0x3) + of[X],
-                                     ((i64 >> 2) & 0x3) + of[Y],
-                                             (i64 >> 4) + of[Z]};
+                  int const coords[3] = {(i64 & 0x3) + of[X],
+                                  ((i64 >> 2) & 0x3) + of[Y],
+                                          (i64 >> 4) + of[Z]};
                   size_t const izyx = (coords[Z]*ng[Y] + coords[Y])*ng[X] + coords[X];
                   assert(izyx < ng[Z]*ng[Y]*ng[X]);
                   Vtot_xyz[i64] = Veff[izyx];
@@ -125,7 +376,7 @@ namespace green_function {
       } // scope
 
       // since we do not use it now:
-      free_memory(Vtot_gpu);
+//       free_memory(Vtot_gpu);
 
       // Cartesian cell parameters for the unit cell in which the potential is defined
       double const cell[3] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
@@ -135,7 +386,7 @@ namespace green_function {
       
       // determine the largest and smallest indices of target blocks
       // given a max distance r_trunc between source blocks and target blocks
-      
+
       double const r_block_circumscribing_sphere = 2*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
 
       // assume that the source blocks lie compact in space
@@ -148,41 +399,45 @@ namespace green_function {
       int16_t max_source_coords[3] = {0, 0, 0};
       double max_distance_from_comass{0};
       double max_distance_from_center{0};
-      { // scope:
-          int iRHS{0};
-          for(int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-          for(int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
-          for(int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
-              RHS_coords(iRHS,X) = ibx;
-              RHS_coords(iRHS,Y) = iby;
-              RHS_coords(iRHS,Z) = ibz;
-              for(int d = 0; d < 3; ++d) {
-                  int16_t const rhs_coord = RHS_coords(iRHS,d);
-                  center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d];
-                  min_source_coords[d] = std::min(min_source_coords[d], rhs_coord);
-                  max_source_coords[d] = std::max(max_source_coords[d], rhs_coord);
-              } // d
-              ++iRHS;
-          }}} // xyz
-          assert(nRHSs == iRHS);
+      { // scope: determine min, max, center
+          {   int iRHS{0};
+              for(int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
+              for(int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
+              for(int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
+                  RHS_coords(iRHS,X) = ibx;
+                  RHS_coords(iRHS,Y) = iby;
+                  RHS_coords(iRHS,Z) = ibz;
+                  for(int d = 0; d < 3; ++d) {
+                      int16_t const rhs_coord = RHS_coords(iRHS,d);
+                      center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d];
+                      min_source_coords[d] = std::min(min_source_coords[d], rhs_coord);
+                      max_source_coords[d] = std::max(max_source_coords[d], rhs_coord);
+                  } // d
+                  ++iRHS;
+              }}} // xyz
+              assert(nRHSs == iRHS);
+          } // iRHS
           for(int d = 0; d < 3; ++d) {
               center_of_mass_RHS[d] /= std::max(1, nRHSs);
-              center_of_RHSs[d] = ((0.5*(min_source_coords[d] + max_source_coords[d]))*4 + 1.5)*hg[d];
+              auto const middle2 = min_source_coords[d] + max_source_coords[d];
+              center_of_RHSs[d] = ((middle2*0.5)*4 + 1.5)*hg[d];
           } // d
 
-          // compute also the largest distance from the center or center of mass
-          double max_d2_from_comass{0}, max_d2_from_center{0};
-          for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
-              double d2m{0}, d2c{0};
-              for(int d = 0; d < 3; ++d) {
-                  d2m += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
-                  d2c += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
-              } // d
-              max_d2_from_center = std::max(max_d2_from_center, d2c);
-              max_d2_from_comass = std::max(max_d2_from_comass, d2m);
-          } // iRHS
-          max_distance_from_center = std::sqrt(max_d2_from_center);
-          max_distance_from_comass = std::sqrt(max_d2_from_comass);
+          { // scope: compute also the largest distance from the center or center of mass
+              double max_d2m{0}, max_d2c{0};
+              for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
+                  double d2m{0}, d2c{0};
+                  for(int d = 0; d < 3; ++d) {
+                      d2m += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
+                      d2c += pow2((RHS_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
+                  } // d
+                  max_d2c = std::max(max_d2c, d2c);
+                  max_d2m = std::max(max_d2m, d2m);
+              } // iRHS
+              max_distance_from_center = std::sqrt(max_d2c);
+              max_distance_from_comass = std::sqrt(max_d2m);
+          } // scope
+
       } // scope
       if (echo > 0) printf("# center of mass of RHS blocks is %g %g %g %s\n",
           center_of_mass_RHS[0]*Ang, center_of_mass_RHS[1]*Ang, center_of_mass_RHS[2]*Ang, _Ang);
@@ -212,20 +467,19 @@ namespace green_function {
       uint16_t num_target_coords[3] = {0, 0, 0};
       int16_t  min_target_coords[3] = {0, 0, 0};
       int16_t  max_target_coords[3] = {0, 0, 0};
-      size_t product_target_blocks{0};
       { // scope:
           auto const rtrunc = std::max(0.0, r_trunc) + r_block_circumscribing_sphere;
-          int16_t const itr[3] = {int16_t(std::floor(rtrunc/(4*hg[X]))),
-                                  int16_t(std::floor(rtrunc/(4*hg[Y]))),
-                                  int16_t(std::floor(rtrunc/(4*hg[Z])))};
           auto const r2trunc = pow2(rtrunc);
-
+          int16_t itr[3]; // range [-32768, 32767] should be enough
           for(int d = 0; d < 3; ++d) {
+              itr[d] = int16_t(std::floor(rtrunc/(4*hg[d])));
               min_target_coords[d] = min_source_coords[d] - itr[d];
               max_target_coords[d] = max_source_coords[d] + itr[d];
               num_target_coords[d] = max_target_coords[d] + 1 - min_target_coords[d];
           } // d
-          product_target_blocks = num_target_coords[Z]*num_target_coords[Y]*num_target_coords[X];
+          auto const product_target_blocks = size_t(num_target_coords[Z])*
+                                             size_t(num_target_coords[Y])*
+                                             size_t(num_target_coords[X]);
           if (echo > 0) printf("# all targets within (%i, %i, %i) and (%i, %i, %i) --> %d x %d x %d = %ld\n",
               min_target_coords[X], min_target_coords[Y], min_target_coords[Z],
               max_target_coords[X], max_target_coords[Y], max_target_coords[Z], 
@@ -236,6 +490,7 @@ namespace green_function {
           std::vector<std::vector<bool>> sparsity_pattern(nRHSs);
           for(uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
               sparsity_pattern[iRHS] = std::vector<bool>(product_target_blocks, false);
+              auto & sparsity_RHS = sparsity_pattern[iRHS];
               int16_t const *const source_coords = RHS_coords[iRHS];
               simple_stats::Stats<> stats[3];
               int inside{0}, outside{0};
@@ -261,7 +516,7 @@ namespace green_function {
                       auto const idx3 = index3D(num_target_coords, idx);
                       assert(idx3 < product_target_blocks);
                       column_indices[idx3].push_back(iRHS);
-                      sparsity_pattern[iRHS][idx3] = true;
+                      sparsity_RHS[idx3] = true;
                       ++inside;
                   } else { // inside
                       ++outside;
@@ -286,12 +541,12 @@ namespace green_function {
               uint16_t const idx[3] = {x, y, z};
               auto const idx3 = index3D(num_target_coords, idx);
               assert(idx3 < product_target_blocks);
-              
+
               int32_t jdx[3];
               set(jdx, 3, idx);
               add_product(jdx, 3, min_target_coords, 1);
               set(box_target_coords[idx3], 3, jdx);
-              
+
               { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
                   int32_t mod[3];
                   for(int d = 0; d < 3; ++d) {
@@ -386,6 +641,7 @@ namespace green_function {
           // as std::complex<real_t> green[nnz][64][64] 
           // or real_t green[nnz][2][64][64] for the GPU;
 
+#if 1
           uint32_t n_lists_xyz[3] = {0, 0, 0};
           uint32_t *prefix_xyz[3] = {nullptr, nullptr, nullptr};
           int32_t *fd_list_xyz[3] = {nullptr, nullptr, nullptr};
@@ -468,12 +724,21 @@ namespace green_function {
               n_lists_xyz[dd] = number_of_lists;
                prefix_xyz[dd] = prefix;
               fd_list_xyz[dd] = fd_list;
-              
+
               // since we do not need them right now
               free_memory(fd_list_xyz[dd]);
-              free_memory( prefix_xyz[dd]);
+              free_memory(prefix_xyz[dd]);
           } // dd
-
+#else
+          for(int dd = 0; dd < 3; ++dd) {
+              action.fd_plan[dd] = finite_difference_plan_t(dd
+                , num_target_coords
+                , RowStart, ColIndex
+                , iRow_of_coords
+                , sparsity_pattern.data()
+                , nRHSs, echo);
+          } // dd
+#endif
       } // scope
       
       // since we do not need them right now
@@ -502,7 +767,7 @@ namespace green_function {
       uint32_t nai{0}; // corrected number of all relevant atoms
       uint32_t napc{0}; // number of all projection coefficients
       uint32_t *ApcStart{nullptr};
-      
+
       { // scope:
           auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius;
           int const iimage[3] = {int(std::ceil(radius/cell[X])),
