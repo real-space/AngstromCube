@@ -53,6 +53,7 @@
 #include "complex_tools.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
+#include "mpi_parallel.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
 #include "pseudo_tools.hxx" // ::all_tests
 #include "inline_tools.hxx" // ::all_tests
@@ -146,6 +147,7 @@
           module_test("complex_tools.",             complex_tools::all_tests);
           module_test("vector_layout.",             vector_layout::all_tests);
           module_test("sho_potential.",             sho_potential::all_tests);
+          module_test("mpi_parallel.",               mpi_parallel::all_tests);
           module_test("angular_grid.",               angular_grid::all_tests);
           module_test("inline_tools.",               inline_tools::all_tests);
           module_test("pseudo_tools.",               pseudo_tools::all_tests);

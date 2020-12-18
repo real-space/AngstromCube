@@ -480,8 +480,15 @@ namespace green_function {
       free_memory(RowStart);
       free_memory(ColIndex);
       free_memory(veff_index);
-      
-      
+
+
+
+
+
+
+
+      if (echo > 2) printf("\n#\n# %s: Start atom part\n#\n", __func__);
+
       // compute which atoms will contribute
       double max_projection_radius{0};
       for(int ia = 0; ia < natoms; ++ia) {
@@ -602,7 +609,7 @@ namespace green_function {
 
       // since we dont need to now:
       free_memory(ApcStart);
-      
+
       // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
       // indicies named after H_{ij} G_{jk} = HG_{ik}
       //

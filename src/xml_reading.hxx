@@ -8,8 +8,8 @@
   #include <cstring> // std::strcmp
 
   // from https://sourceforge.net/projects/rapidxml/files/latest/download
-  #include "tools/rapidxml-1.13/rapidxml.hpp" // ::xml_document<>
-  #include "tools/rapidxml-1.13/rapidxml_utils.hpp" // ::file<>
+  #include "tools/rapidxml/rapidxml.hpp" // ::xml_document<>
+  #include "tools/rapidxml/rapidxml_utils.hpp" // ::file<>
 #endif
 
 #include <cerrno> // errno, ERANGE
