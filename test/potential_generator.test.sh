@@ -3,9 +3,9 @@
 exe=../src/a43
 geometry_file=atoms.xyz
 
-project_base=pg.C-sc
-printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-echo "C 0 0 0" >> $geometry_file
+# project_base=pg.C-sc
+# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
+# echo "C 0 0 0" >> $geometry_file
 
 # project_base=pg.vacuum
 # printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
@@ -38,12 +38,12 @@ echo "C 0 0 0" >> $geometry_file
 # echo "Al   -1.0  1.0  1.0" >> $geometry_file
 
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
-# project_base=pg.Cu-fcc
-# printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
-# echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
-# echo "Cu    .8805  .8805 -.8805" >> $geometry_file
-# echo "Cu    .8805 -.8805  .8805" >> $geometry_file
-# echo "Cu   -.8805  .8805  .8805" >> $geometry_file
+project_base=pg.Cu-fcc
+printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
+echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
+echo "Cu    .8805  .8805 -.8805" >> $geometry_file
+echo "Cu    .8805 -.8805  .8805" >> $geometry_file
+echo "Cu   -.8805  .8805  .8805" >> $geometry_file
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
 # project_base=pg.C-diamond
@@ -111,11 +111,11 @@ output.length.unit=Bohr
 ## grid spacing or number of grid points of the dense grid
 potential_generator.grid.spacing.unit=Ang
 #potential_generator.grid.spacing=0.083334
-potential_generator.grid.spacing=0.10416667
-#potential_generator.grid.points=96
+#potential_generator.grid.spacing=0.10416667
+potential_generator.grid.points=24
 
 ## max. number of self-consistency iterations
-potential_generator.max.scf=3
+potential_generator.max.scf=1
 potential_generator.mix.density=0.25
 atomic.valence.decay=1
 ## compute the Fermi level {exact, linearized}
@@ -191,7 +191,8 @@ hamiltonian.floating.point.bits=64
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
-grid.eigensolver=explicit
+grid.eigensolver=none
+#grid.eigensolver=explicit
 #grid.eigensolver=cg
 #conjugate_gradients.max.iter=1
 #grid.eigensolver.repeat=1
@@ -216,6 +217,9 @@ pw_hamiltonian.solver=direct
 
 ## also compute the eigenvalues of the overlap matrix?
 #dense_solver.test.overlap.eigvals=0
+
+export.hamiltonian=-1
+export.hamiltonian.format=xml
 
 EOF
 

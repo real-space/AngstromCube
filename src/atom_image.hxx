@@ -11,8 +11,7 @@
 
 namespace atom_image {
   
-  class atom_image_t 
-  {
+  class atom_image_t {
     public:
 
       atom_image_t(void) {} // default constructor
@@ -37,8 +36,7 @@ namespace atom_image {
   }; // class atom_image_t
 
 
-  class sho_atom_t // an atom with SHO-projectors
-  { 
+  class sho_atom_t { // an atom with SHO-projectors
     public:
       
       sho_atom_t(void) : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor

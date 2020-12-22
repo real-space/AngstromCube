@@ -191,7 +191,7 @@ namespace xml_reading {
 
       } else warn("no grid_Hamiltonian found");
 
-      return green_function::construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, natoms, echo);
+      return green_function::construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, echo);
 #else
       warn("Unable to check usage of rapidxml when compiled without -D HAS_RAPIDXML");
 #endif
