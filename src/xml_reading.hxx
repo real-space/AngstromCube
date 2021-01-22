@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cstdio> // std::printf, std::snprintf, std::fprintf, std::fopen, std::close, std::remove
+#include <vector> // std::vector<T>
+#include <ctime> // std::strftime, ::tm, ::gmtime
 
 #ifdef HAS_RAPIDXML
 //   #include <string>
@@ -13,7 +15,6 @@
   #include "tools/rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "tools/rapidxml/rapidxml_utils.hpp" // ::file<>
   
-  #include <ctime> // std::strftime, ::tm, ::gmtime
 
 #endif
 

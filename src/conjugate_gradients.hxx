@@ -2,8 +2,9 @@
 
 #include <cstdio> // printf, std::fflush, stdout
 #include <complex> // std::real
+#include <vector> // std::vector<T>
 
-#include "status.hxx" // status_t
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
 #include "inline_math.hxx" // set, pow2
 #include "data_view.hxx" // view2D<T>, view3D<T>

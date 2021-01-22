@@ -2,6 +2,8 @@
 
 #include <cstdio> // std::sprintf
 #include <cmath> // std::exp, std::sqrt
+#include <cassert> // assert
+#include <algorithm> // std::max
 
 #include "radial_grid.h" // radial_grid_t
 #include "quantum_numbers.h" // ell_QN_t

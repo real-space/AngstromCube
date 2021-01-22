@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint> // int8_t, uint8_t
+#include <cassert> // assert
 
 #include "status.hxx" // status_t
 

@@ -3,6 +3,8 @@
 #include <cstdio> // printf
 #include <cassert> // assert
 
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+
 template <typename real_t>
 class VecLayout { 
   // VecLayout for vectorized dense Green functions

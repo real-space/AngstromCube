@@ -4,6 +4,8 @@
 #include <type_traits> // std::true_type, std::false_type
 #include <complex> // std::complex<real_t>
 
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+
   template <typename T> struct is_complex_t                  : public std::false_type {};
   template <typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
   template <typename T> constexpr bool is_complex() { return is_complex_t<T>::value; } // not needed when using C++14
@@ -43,26 +45,32 @@
 
 namespace complex_tools {
 
-    inline char const * bool2string(bool const b) { return b ? "true" : "false"; }
+#ifdef  NO_UNIT_TESTS
+  status_t inline all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
 
-    template <typename complex_t>
-    inline status_t test_complex(bool const expect_complex, int const echo=0) {
-        bool const is = is_complex<complex_t>();
-        if (echo > 0) printf("# %s is_complex<%s>() = %s\n", __func__,
-                                complex_name<complex_t>(), bool2string(is));
-        if (echo > 1) printf("# typeof(conjugate(%s x)) = %s\n",
-                                complex_name<complex_t>(),
-                                complex_name<decltype(conjugate(complex_t(1)))>());
-        return (expect_complex != is);
-    } // test_complex
+  inline char const * bool2string(bool const b) { return b ? "true" : "false"; }
 
-    inline status_t all_tests(int const echo=0) {
-        status_t stat(0);
-        stat += test_complex<std::complex<double>>(true, echo);
-        stat += test_complex<std::complex<float>> (true, echo);
-        stat += test_complex<double>(false, echo);
-        stat += test_complex<float> (false, echo);
-        return stat;
-    } // all_tests
+  template <typename complex_t>
+  inline status_t test_complex(bool const expect_complex, int const echo=0) {
+      bool const is = is_complex<complex_t>();
+      if (echo > 0) printf("# %s is_complex<%s>() = %s\n", __func__,
+                              complex_name<complex_t>(), bool2string(is));
+      if (echo > 1) printf("# typeof(conjugate(%s x)) = %s\n",
+                              complex_name<complex_t>(),
+                              complex_name<decltype(conjugate(complex_t(1)))>());
+      return (expect_complex != is);
+  } // test_complex
+
+  inline status_t all_tests(int const echo=0) {
+      status_t stat(0);
+      stat += test_complex<std::complex<double>>(true, echo);
+      stat += test_complex<std::complex<float>> (true, echo);
+      stat += test_complex<double>(false, echo);
+      stat += test_complex<float> (false, echo);
+      return stat;
+  } // all_tests
+
+#endif // NO_UNIT_TESTS
 
 } // namespace complex_tools

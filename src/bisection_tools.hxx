@@ -2,6 +2,7 @@
 
 #include <cstdio> // printf
 #include <cassert> // assert
+#include <cmath> // std::sqrt, std::abs
 
 #include "status.hxx" // status_t
 
@@ -123,7 +124,7 @@ namespace bisection_tools {
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
-  
+
   inline status_t test_bisection_zero(int const echo=3) {
       bisector_t<double> b(0., 3., 1e-15);
       double x, y{0};
@@ -136,6 +137,7 @@ namespace bisection_tools {
   } // test_bisection_zero
 
   inline status_t test_bisection_maximum(int const echo=3) {
+#ifdef DEVEL
       bisector_t<double> b(0., 3., 1e-15);
       double x, y{0};
       while(b.extremum(x, y, echo)) {
@@ -143,6 +145,7 @@ namespace bisection_tools {
       } // while bisection
       if (echo > 0) printf("# %s solution y = sin(x= %.15f) = %g needed %d iterations\n",
                               __func__, x, y, b.get_iterations_needed());
+#endif // DEVEL
       return 0;
   } // test_bisection_maximum
 

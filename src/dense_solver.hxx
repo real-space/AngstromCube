@@ -9,6 +9,8 @@
 #include "constants.hxx" // ::pi
 #include "data_view.hxx" // view2D<T>
 #include "display_units.h" // eV, _eV, Kelvin, _Kelvin
+#include "control.hxx" // ::get
+#include "recorded_warnings.hxx" // warn
 
 #ifndef NO_UNIT_TESTS
   #include "simple_math.hxx" // ::random<real_t>

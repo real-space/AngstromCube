@@ -1,7 +1,11 @@
 #pragma once
 
+#include <cstdio> // printf
 #include <cmath> // std::sqrt, std::sin, std::cos
+#include <cassert> // assert
+
 #include "constants.hxx" // constants::pi
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace solid_harmonics {
 

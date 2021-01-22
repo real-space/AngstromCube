@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cmath> // std::sqrt
+#include <cassert> // assert
 
 #include "constants.hxx" // sqrtpi
 

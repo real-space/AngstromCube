@@ -17,7 +17,6 @@
 #include "data_view.hxx" // view2D<T>
 #include "inline_tools.hxx" // required_bits
 #include "vector_math.hxx" // ::vec<n,T>
-// #include "chemical_symbol.h" // element_symbols
 #include "chemical_symbol.hxx" // ::decode
 #include "recorded_warnings.hxx" // warn, error
 #include "simple_timer.hxx" // SimpleTimer
@@ -227,17 +226,7 @@ namespace geometry_analysis {
           char const *Sy = Symbol.c_str();
           char const S = Sy[0], y = (Sy[1])? Sy[1] : ' ';
           if (echo > 7) printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, px, py, pz);
-#if 0
-          int iZ = -1;
-          { // scope: search matching iZ
-              for(int Z = 0; Z < 128; ++Z) {
-                  if ((S == element_symbols[2*Z + 0]) &&
-                      (y == element_symbols[2*Z + 1])) iZ = Z;
-              } // Z
-          } // scope
-#else
           int const iZ = chemical_symbol::decode(S, y);
-#endif
           xyzZ(na,0) = px*Angstrom2Bohr;
           xyzZ(na,1) = py*Angstrom2Bohr;
           xyzZ(na,2) = pz*Angstrom2Bohr;
@@ -442,16 +431,6 @@ namespace geometry_analysis {
                       if (occurrence[Z] > 0) {
                           species_of_Z[Z] = nspecies;
                           Z_of_species[nspecies] = Z;
-#if 0                          
-                          char const S = element_symbols[2*Z + 0],
-                                     y = element_symbols[2*Z + 1];
-                          set(Sy_of_species[nspecies], 4, char(0));
-                          Sy_of_species[nspecies][0] = S;
-                          Sy_of_species[nspecies][1] = y;
-                          set(Sy_of_species_right[nspecies], 4, char(0));
-                          Sy_of_species_right[nspecies][0] = (' ' == y) ? ' ' : S;
-                          Sy_of_species_right[nspecies][1] = (' ' == y) ?  S  : y;
-#else
                           chemical_symbol::get(Sy_of_species_null[nspecies], Z);
                           chemical_symbol::get(Sy_of_species[nspecies], Z, ' ');
                           set(Sy_of_species_right[nspecies], 4, Sy_of_species[nspecies]);
@@ -459,7 +438,6 @@ namespace geometry_analysis {
                               std::swap(Sy_of_species_right[nspecies][0], Sy_of_species_right[nspecies][1]);
                           } // swap
                           Sy_of_species_right[nspecies][2] = '\0';
-#endif
                           ++nspecies;
                       } // non-zero count
                   } // Z

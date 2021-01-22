@@ -21,7 +21,7 @@
 #include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
 #include "data_view.hxx" // view2D<T>
 #include "print_tools.hxx" // printf_vector
-#include "status.hxx" // status_t
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace scattering_test {
 
@@ -83,7 +83,10 @@ namespace scattering_test {
 #endif // DEVEL
       if (echo > 18) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
       for(int ir = 0; ir < rg.n; ++ir) { // parallel over ir
-          double const r = rg.r[ir], r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
+          double const r = rg.r[ir];
+#ifdef DEVEL
+          double const r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
+#endif
 //        double const dr = 0.03125, r = dr*ir, r2dr = r*r*dr; // use an equidistant grid
           double const r_pow_rpow = intpow(r, rpow);
 

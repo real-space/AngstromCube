@@ -388,7 +388,8 @@ namespace pseudo_tools {
 
       auto L_inv = LU_inv[0], U_inv = LU_inv[1];
       double const det_U = simple_math::invert(n, U_inv.data(), U_inv.stride(), U.data(), n);
-      double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(),  L.data(), n);
+      double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(), L.data(), n);
+      if (echo > 91) printf("# %s: |U|= %g, |L|= %g\n", __func__, det_U, det_L);
 
 #ifdef DEVEL
       if (echo > 11) { // check that the factorization worked

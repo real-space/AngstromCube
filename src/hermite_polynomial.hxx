@@ -2,6 +2,17 @@
 
 #include <cmath> // std::exp
 
+#ifndef NO_UNIT_TESTS
+    #include <cstdio> // printf
+    #include <algorithm> // std::max
+    #include <cmath> // std::abs, std::sqrt
+    #include <cassert> // assert
+
+    #include "constants.hxx" // constants::pi
+#endif // NO_UNIT_TESTS
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+
+
   template<typename real_t>
   inline void hermite_polys(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
       // Hermite-polynomials times Gauss function, not normalized!
@@ -21,15 +32,6 @@
       } // nu
 
   } // hermite_polys
-
-#ifndef NO_UNIT_TESTS
-    #include <cstdio> // printf
-    #include <algorithm> // std::max
-    #include <cmath> // std::abs, std::sqrt
-    #include <cassert> // assert
-
-    #include "constants.hxx" // constants::pi
-#endif // NO_UNIT_TESTS
 
 namespace hermite_polynomial {
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert> // assert
+
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
 #include "status.hxx" // status_t
 #include "recorded_warnings.hxx" // warn

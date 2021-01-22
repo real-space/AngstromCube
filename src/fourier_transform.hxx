@@ -6,7 +6,7 @@
 #include <vector> // std::vector<T>
 #include <complex> // std::complex<real_t>
 
-#ifndef HAS_no_MKL
+#ifndef HAS_NO_MKL
   #include "mkl_dfti.h" // Dfti* (discrete Fourier transform interface of the Intel(c) Math Kernel Library)
 #endif
 
@@ -19,6 +19,7 @@ extern "C" {
 #ifndef NO_UNIT_TESTS
   #include "constants.hxx" // ::pi
 #endif
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace fourier_transform {
 
@@ -31,7 +32,7 @@ namespace fourier_transform {
              , bool const forward=true
              , int const echo=0
               ) { // log level
-#ifndef HAS_no_MKL
+#ifndef HAS_NO_MKL
       MKL_LONG status;
       MKL_LONG const l[3] = {ng[2], ng[1], ng[0]};
       size_t const ngall = l[2]*l[1]*l[0];
@@ -48,7 +49,7 @@ namespace fourier_transform {
       DftiFreeDescriptor(&my_desc_handle); // cleanup, can be moved out
       if (status != 0 && echo > 0) printf("# MKL-FFT returns status=%li\n", status);
       return status;
-#else // not defined HAS_no_MKL
+#else // not defined HAS_NO_MKL
 
 #ifdef HAS_FFTW
       size_t const ngall = size_t(ng[2]) * size_t(ng[1]) * size_t(ng[0]);
@@ -70,7 +71,7 @@ namespace fourier_transform {
 #endif // defined HAS_FFTW
 
       return -1; // has no FFT library
-#endif // defined HAS_no_MKL     
+#endif // defined HAS_NO_MKL     
   } // fft
 
   inline status_t fft(std::complex<double> out[] // (out) indexing out[(iz*ng[1] + iy)*ng[0] + ix]
@@ -78,11 +79,11 @@ namespace fourier_transform {
                , int const ng[3] // grid numbers
                , bool const forward=true
                , int const echo=0) { // log level
-#ifndef HAS_no_MKL
+#ifndef HAS_NO_MKL
       status_t status(-1);
       if (echo > 0) printf("# MKL-FFT returns status=%i, not implemented\n", int(status));
       return status;
-#else // not defined HAS_no_MKL
+#else // not defined HAS_NO_MKL
 
 #ifdef HAS_FFTW
       auto const plan = fftw_plan_dft_3d(ng[2], ng[1], ng[0], (fftw_complex*) in, 
@@ -95,7 +96,7 @@ namespace fourier_transform {
 #endif // defined HAS_FFTW
 
       return -1; // has no FFT library
-#endif // defined HAS_no_MKL     
+#endif // defined HAS_NO_MKL     
   } // fft
   
   

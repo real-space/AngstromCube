@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdio> // printf, std::snprintf
+#include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>

@@ -86,93 +86,95 @@
       double eV  = 1; char const *_eV  = ""; // dynamic energy unit
       double Ang = 1; char const *_Ang = ""; // dynamic length unit
       // end global variables
-#endif
+#endif // _Output_Units_Fixed
 
   status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
       status_t status(0);
 #ifdef  NO_UNIT_TESTS
       error("version was compiled with -D NO_UNIT_TESTS");
       status = -1;
-#else
+#else // NO_UNIT_TESTS
       bool const all = (nullptr == module);
       auto const m = std::string(all ? "" : module);
-      if (all) { if (echo > 0) printf("\n# run all tests!\n\n"); } 
-      else     { if (echo > 0) printf("# run unit tests for module '%s'\n\n", m.c_str()); }
+      if (echo > 0) printf("# run unit tests for %s%s\n\n", 
+                           all?"all modules":"module ", m.c_str());
 
       std::vector<std::pair<std::string,status_t>> run;
       { // testing scope
-#define   module_test(NAME, FUN) \
-          if (all || (0 == std::string(NAME).compare(m))) { \
-              SimpleTimer timer("module test for", 0, NAME, 0); \
-              if (all && echo > 3) printf("\n\n\n# ============= Module test for %s ==================\n\n", NAME); \
-              run.push_back(make_pair(std::string(NAME), FUN(echo))); \
+#define   add_module_test(MODULE_NAME) \
+          if (all || (0 == m.compare(#MODULE_NAME))) { \
+              SimpleTimer timer("module test for", 0, #MODULE_NAME, 0); \
+              if (all && echo > 3) { \
+                  printf("\n\n\n# ============= Module test for " \
+                         #MODULE_NAME " ==================\n\n"); \
+              } \
+              run.push_back(make_pair(std::string(#MODULE_NAME), MODULE_NAME::all_tests(echo))); \
           }
-//            if (echo > -1) printf("\n# Module test for %s\n\n", NAME);
-          module_test("recorded_warnings.",     recorded_warnings::all_tests);
-          module_test("finite_difference.",     finite_difference::all_tests);
-          module_test("hermite_polynomial.",   hermite_polynomial::all_tests);
-          module_test("spherical_harmonics.", spherical_harmonics::all_tests);
-          module_test("conjugate_gradients.", conjugate_gradients::all_tests);
-          module_test("potential_generator.", potential_generator::all_tests);
-          module_test("global_coordinates.",   global_coordinates::all_tests);
-          module_test("radial_eigensolver.",   radial_eigensolver::all_tests);
-          module_test("boundary_condition.",   boundary_condition::all_tests);
-          module_test("fermi_distribution.",   fermi_distribution::all_tests);
-          module_test("radial_integrator.",     radial_integrator::all_tests);
-          module_test("geometry_analysis.",     geometry_analysis::all_tests);
-          module_test("density_generator.",     density_generator::all_tests);
-          module_test("fourier_transform.",     fourier_transform::all_tests);
-          module_test("iterative_poisson.",     iterative_poisson::all_tests);
-          module_test("radial_potential.",       radial_potential::all_tests);
-          module_test("bessel_transform.",       bessel_transform::all_tests);
-          module_test("parallel_domains.",       parallel_domains::all_tests);
-//        module_test("structure_solver.",       structure_solver::all_tests);
-          module_test("scattering_test.",         scattering_test::all_tests);
-          module_test("davidson_solver.",         davidson_solver::all_tests);
-          module_test("chemical_symbol.",         chemical_symbol::all_tests);
-          module_test("linear_operator.",         linear_operator::all_tests);
-          module_test("sho_hamiltonian.",         sho_hamiltonian::all_tests);
-          module_test("fourier_poisson.",         fourier_poisson::all_tests);
-          module_test("solid_harmonics.",         solid_harmonics::all_tests);
-          module_test("bisection_tools.",         bisection_tools::all_tests);
-          module_test("green_function.",           green_function::all_tests);
-          module_test("poisson_solver.",           poisson_solver::all_tests);
-          module_test("brillouin_zone.",           brillouin_zone::all_tests);
-          module_test("pw_hamiltonian.",           pw_hamiltonian::all_tests);
-          module_test("sho_projection.",           sho_projection::all_tests);
-          module_test("shift_boundary.",           shift_boundary::all_tests);
-          module_test("linear_algebra.",           linear_algebra::all_tests);
-          module_test("grid_operators.",           grid_operators::all_tests);
-          module_test("dense_operator.",           dense_operator::all_tests);
-          module_test("element_config.",           element_config::all_tests);
-          module_test("complex_tools.",             complex_tools::all_tests);
-          module_test("vector_layout.",             vector_layout::all_tests);
-          module_test("sho_potential.",             sho_potential::all_tests);
-          module_test("mpi_parallel.",               mpi_parallel::all_tests);
-          module_test("angular_grid.",               angular_grid::all_tests);
-          module_test("pseudo_tools.",               pseudo_tools::all_tests);
-          module_test("inline_tools.",               inline_tools::all_tests);
-          module_test("simple_timer.",               simple_timer::all_tests);
-          module_test("sigma_config.",               sigma_config::all_tests);
-          module_test("dense_solver.",               dense_solver::all_tests);
-          module_test("json_reading.",               json_reading::all_tests);
-          module_test("xml_reading.",                 xml_reading::all_tests);
-          module_test("unit_system.",                 unit_system::all_tests);
-          module_test("simple_math.",                 simple_math::all_tests);
-          module_test("sho_overlap.",                 sho_overlap::all_tests);
-          module_test("radial_grid.",                 radial_grid::all_tests);
-          module_test("single_atom.",                 single_atom::all_tests);
-          module_test("inline_math.",                 inline_math::all_tests);
-          module_test("sho_unitary.",                 sho_unitary::all_tests);
-          module_test("atom_image.",                   atom_image::all_tests);
-          module_test("real_space.",                   real_space::all_tests);
-          module_test("multi_grid.",                   multi_grid::all_tests);
-          module_test("sho_radial.",                   sho_radial::all_tests);
-          module_test("sho_tools.",                     sho_tools::all_tests);
-          module_test("atom_core.",                     atom_core::all_tests);
-          module_test("data_view.",                     data_view::all_tests);
-          module_test("control.",                         control::all_tests);
-#undef    module_test
+          add_module_test(recorded_warnings);  
+          add_module_test(finite_difference);  
+          add_module_test(hermite_polynomial); 
+          add_module_test(spherical_harmonics);
+          add_module_test(conjugate_gradients);
+          add_module_test(potential_generator);
+          add_module_test(global_coordinates); 
+          add_module_test(radial_eigensolver); 
+          add_module_test(boundary_condition); 
+          add_module_test(fermi_distribution); 
+          add_module_test(radial_integrator);  
+          add_module_test(geometry_analysis);  
+          add_module_test(density_generator);  
+          add_module_test(fourier_transform);  
+          add_module_test(iterative_poisson);  
+          add_module_test(radial_potential);   
+          add_module_test(bessel_transform);   
+          add_module_test(parallel_domains);   
+//        add_module_test(structure_solver);   
+          add_module_test(scattering_test);    
+          add_module_test(davidson_solver);    
+          add_module_test(chemical_symbol);    
+          add_module_test(linear_operator);    
+          add_module_test(sho_hamiltonian);    
+          add_module_test(fourier_poisson);    
+          add_module_test(solid_harmonics);    
+          add_module_test(bisection_tools);    
+          add_module_test(green_function);     
+          add_module_test(poisson_solver);     
+          add_module_test(brillouin_zone);     
+          add_module_test(pw_hamiltonian);     
+          add_module_test(sho_projection);     
+          add_module_test(shift_boundary);     
+          add_module_test(linear_algebra);     
+          add_module_test(grid_operators);     
+          add_module_test(dense_operator);     
+          add_module_test(element_config);     
+          add_module_test(complex_tools);      
+          add_module_test(vector_layout);      
+          add_module_test(sho_potential);      
+          add_module_test(mpi_parallel);       
+          add_module_test(angular_grid);       
+          add_module_test(pseudo_tools);       
+          add_module_test(inline_tools);       
+          add_module_test(simple_timer);       
+          add_module_test(sigma_config);       
+          add_module_test(dense_solver);       
+          add_module_test(json_reading);       
+          add_module_test(xml_reading);        
+          add_module_test(unit_system);        
+          add_module_test(simple_math);        
+          add_module_test(sho_overlap);        
+          add_module_test(radial_grid);        
+          add_module_test(single_atom);        
+          add_module_test(inline_math);        
+          add_module_test(sho_unitary);        
+          add_module_test(atom_image);         
+          add_module_test(real_space);         
+          add_module_test(multi_grid);         
+          add_module_test(sho_radial);         
+          add_module_test(sho_tools);          
+          add_module_test(atom_core);          
+          add_module_test(data_view);          
+          add_module_test(control);            
+#undef    add_module_test
       } // testing scope
 
       if (run.size() < 1) { // nothing has been tested
@@ -190,7 +192,7 @@
               if (status > 0) printf("# Warning! At least one module test failed!\n");
           } // echo
       } // something has been tested
-#endif
+#endif // NO_UNIT_TESTS
       return status;
   } // run_unit_tests
 
@@ -200,7 +202,7 @@
         "   --version            \tShow version number\n"
 #ifndef  NO_UNIT_TESTS
         "   --test <module.> [-t]\tTest module\n"
-#endif
+#endif // NO_UNIT_TESTS
         "   --verbose        [-v]\tIncrement verbosity level\n"
         "   +<name>=<value>      \tModify variable environment\n"
         "\n", executable);
@@ -215,7 +217,7 @@
       printf("%s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
       #undef  stringify
       #undef  macro2string
-#endif
+#endif // _GIT_KEY
       return 0;
   } // show_version
   

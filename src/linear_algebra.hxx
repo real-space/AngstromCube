@@ -3,9 +3,9 @@
 #include <complex> // std::complex<real_t>, std::norm
 #include <vector> // std::vector<T>
 
-#ifndef HAS_no_MKL
+#ifndef HAS_NO_MKL
 	#define HAS_MKL
-#endif
+#endif // HAS_NO_MKL
 
 #ifndef NO_UNIT_TESTS
   #include "simple_math.hxx" // ::random<T>

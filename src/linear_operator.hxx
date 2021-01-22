@@ -1,10 +1,14 @@
 #pragma once
 #include <cstdio> // printf
+
+#include <vector> // std::vector<T>
+
 // #define CRTP_printf(...) printf(__VA_ARGS__)
 #define CRTP_printf(...)
 
 #include "vector_layout.hxx" // VecLayout<real_t>
 #include "inline_tools.hxx" // real_t_name<real_t>
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 template <class CRTP_t, typename real_t>
 class LinOp {

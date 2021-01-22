@@ -1,8 +1,8 @@
 #pragma once
 
+#include <cstddef> // size_t
 
-  #include "status.hxx" // status_t
-
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
   template<typename T> inline int constexpr sgn(T const val) {
       return (T(0) < val) - (val < T(0));

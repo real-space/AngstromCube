@@ -1,6 +1,9 @@
 #pragma once
 
-#include <cstdint> // uint64_t
+#include <cstdint> // uint64_t, int64_t
+#include <cstddef> // size_t
+
+#include "status.hxx" // status_t
 
 template<int nbits> size_t inline align(int64_t const in) 
          { return ((((in - 1) >> nbits) + 1) << nbits); }
