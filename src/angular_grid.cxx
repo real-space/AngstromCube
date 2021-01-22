@@ -24,8 +24,8 @@ extern "C" {
 
 namespace angular_grid {
 
-// #define LARGE_GRIDS
-#ifdef  LARGE_GRIDS
+// #define LARGE_ANGULAR_GRIDS
+#ifdef  LARGE_ANGULAR_GRIDS
   int constexpr ellmax_implemented = 65; // highest Lebedev-Laikov grid implemented
 #else
   int constexpr ellmax_implemented = 20; // highest Lebedev-Laikov grid implemented
@@ -519,7 +519,7 @@ namespace angular_grid {
       m += gen_oh6(nc, .1713904507106709E-2, xyzw + m, .3791035407695563, .1720795225656878);
       m += gen_oh6(nc, .1555213603396808E-2, xyzw + m, .2778673190586244, .0821302158193251);
       m += gen_oh6(nc, .1802239128008525E-2, xyzw + m, .5033564271075117, .0899920584207488);
-#ifdef  LARGE_GRIDS
+#ifdef  LARGE_ANGULAR_GRIDS
     break; case 770:
       m += gen_oh1(nc, .2192942088181184E-3, xyzw + m);
       m += gen_oh2(nc, .1436433617319080E-2, xyzw + m);
@@ -1690,9 +1690,9 @@ namespace angular_grid {
 #endif
     break; default:
         if(echo > 0) printf("# %s A Lebedev-Laikov grid with %i points for ellmax= %i is not available!\n", __func__, n_corrected, ellmax);
-#ifdef  LARGE_GRIDS
+#ifdef  LARGE_ANGULAR_GRIDS
 #else
-        if(echo > 0 && n_corrected >= 770) printf("# %s Please activate -D LARGE_GRIDS in %s\n", __func__, __FILE__);
+        if(echo > 0 && n_corrected >= 770) printf("# %s Please activate -D LARGE_ANGULAR_GRIDS in %s\n", __func__, __FILE__);
 #endif
         return -1;
     } // switch n
@@ -1853,7 +1853,7 @@ namespace angular_grid {
       return stat;
   } // test_generation
 
-  int test_orthogonality(int const echo=9, int const lmax=20) { // terribly slow
+  int test_orthogonality(int const echo=9, int const lmax=24) { // terribly slow
       if (echo > 3) printf("\n# %s: \n", __func__);
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);

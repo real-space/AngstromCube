@@ -1,10 +1,16 @@
 #pragma once
 
-#include <complex> // std::complex<real_t>
+#include <complex> // std::complex<real_t>, std::norm
 #include <vector> // std::vector<T>
 
 #ifndef HAS_no_MKL
 	#define HAS_MKL
+#endif
+
+#ifndef NO_UNIT_TESTS
+  #include "simple_math.hxx" // ::random<T>
+  #include "inline_math.hxx" // set
+  #include "complex_tools.hxx" // conjugate, to_complex_t
 #endif
 
 
@@ -41,7 +47,7 @@ extern "C" {
     			std::complex<float> b[], int const *ldb, float w[],
                 std::complex<float> work[], int const *lwork, float rwork[], int *info);
     
-    // LU decomoposition of a general matrix
+    // LU decomposition of a general matrix
     void dgetrf_(int const *m, int const *n, double a[], int const *lda, int ipiv[], int *info);
     void sgetrf_(int const *m, int const *n, float  a[], int const *lda, int ipiv[], int *info);
     void zgetrf_(int const *m, int const *n, std::complex<double> a[], int const *lda, int ipiv[], int *info);
@@ -264,12 +270,12 @@ namespace linear_algebra {
 #endif
   } // generalized_eigenvalues
 
-    template<typename real_t> // for symmetric [generalized] eigenvalue problems
+    template <typename real_t> // for symmetric [generalized] eigenvalue problems
     inline status_t eigenvalues(real_t w[], int const n, real_t a[], int const lda,
                                                  real_t b[]=nullptr, int const ldb=0) {
         return b ? _generalized_eigenvalues(n, a, lda, b, (ldb < n)?lda:ldb, w) : _eigenvalues(n, a, lda, w); }
 
-    template<typename real_t> // for hermitian [generalized] eigenvalue problems
+    template <typename real_t> // for hermitian [generalized] eigenvalue problems
     inline status_t eigenvalues(real_t w[], int const n, std::complex<real_t> a[], int const lda,
                                                  std::complex<real_t> b[]=nullptr, int const ldb=0) {
         return b ? _generalized_eigenvalues(n, a, lda, b, (ldb < n)?lda:ldb, w) : _eigenvalues(n, a, lda, w); }
@@ -334,7 +340,112 @@ namespace linear_algebra {
       return 0;
   } // gemm
 
-
+#ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
+#else  // NO_UNIT_TESTS
+
+
+  template <typename complex_t>
+  inline double matrix_deviation(
+        int const n
+      , int const m
+      , complex_t const A[]
+      , complex_t const from[]=nullptr
+      , int const echo=0
+  ) {
+      // measure the deviation of A from a given matrix (or the unit matrix if no matrix is given)
+      double dev{0};
+      for(int i = 0; i < n; ++i) {
+          if (echo > 0) printf("# %s: A[%2i]  ", __func__, i);
+          for(int j = 0; j < m; ++j) {
+              complex_t const reference = from ? from[i*m + j] : complex_t(i == j);
+              dev = std::max(dev, double(std::norm(A[i*m + j] - reference)));
+              if (echo > 0) {
+                  printf(" %g", std::real(A[i*m + j]));
+                  if (is_complex<complex_t>())
+                  printf(",%g ", std::imag(A[i*m + j]));
+              } // echo
+          } // j
+          if (echo > 0) printf("\n");
+      } // i
+      return dev;
+  } // matrix_deviation
+
+  template <typename complex_t>
+  inline double inverse_deviation(int const n, complex_t const A[], complex_t const Ainv[], int const echo=0) {
+      std::vector<complex_t> AinvA(n*n, 0);
+      gemm(n, n, n, AinvA.data(), n, A, n, Ainv, n);
+      return matrix_deviation(n, n, AinvA.data());
+  } // inverse_deviation
+
+  template <int N=4, typename complex_t=std::complex<double>>
+  inline status_t basic_tests(int const echo=0) {
+      status_t stat(0);
+      using real_t = decltype(std::real(complex_t(1)));
+      double const prec = (sizeof(real_t) > 4) ? 1e-24 : 1e-10;
+      complex_t A[N][N];
+      // fill A with random values
+      for(int ij = 0; ij < N*N; ++ij) {
+          auto const rr = simple_math::random(-1., 1.),
+                     ri = simple_math::random(-1., 1.);
+          auto const rc = std::complex<double>(rr, ri);
+          A[0][ij] = to_complex_t<complex_t, double>(rc);
+      } // ij
+
+      { // scope: test inversion and matrix-matrix multiplication
+          complex_t Ainv[N][N];
+          set(Ainv[0], N*N, A[0]); // copy
+          stat += inverse(N, Ainv[0], N);
+          auto const dev0 = inverse_deviation(N, A[0], Ainv[0]);
+          auto const dev1 = inverse_deviation(N, Ainv[0], A[0]);
+          if(echo > 8) printf("# %s<%s>: GETRF: deviate %.1e and %.1e, respectively\n",
+                                 __func__, complex_name<complex_t>(), dev0, dev1);
+          stat += (dev0 > prec) + (dev1 > prec);
+      } // scope
+
+      { // scope: test eigenvector algorithms
+          // make A symmetric/hermitian
+          for(int i = 0; i < N; ++i) {
+              A[i][i] = real_t(std::real(A[i][i]));
+              for(int j = 0; j < i; ++j) { // triangular loop without diagonal
+                  A[j][i] = conjugate(A[i][j]);
+              } // j
+          } // i
+
+          real_t Eval[N]; // eigenvalues
+          complex_t Evec[N][N], Dvec[N][N], Anew[N][N], Atrp[N][N];
+          set(Evec[0], N*N, A[0]); // copy
+          // eigenvalue decomposition into Evec^T * diag(Eval) * Evec
+          stat += eigenvalues(Eval, N, Evec[0], N);
+
+          for(int i = 0; i < N; ++i) {
+              set(Dvec[i], N, Evec[i], complex_t(Eval[i])); // scale eigenvectors with corresponding eigenvalue
+              for(int j = 0; j < N; ++j) Atrp[j][i] = conjugate(A[i][j]);
+          } // i
+
+          // create Anew = V^T*(D*V)
+          stat += gemm(N, N, N, Anew[0], N, Evec[0], N, Dvec[0], N, 1, 0, 'n', 'c');
+          auto const dev0 = matrix_deviation(N, N, Anew[0], Atrp[0]);
+          // create Anew^T = V*(D*V)^T
+          stat += gemm(N, N, N, Anew[0], N, Dvec[0], N, Evec[0], N, 1, 0, 'n', 'c');
+          auto const dev1 = matrix_deviation(N, N, Anew[0], A[0]);
+          if(echo > 2) printf("# %s<%s>: %sGV: deviate %.1e and %.1e respectively\n",
+              __func__, complex_name<complex_t>(), is_complex<complex_t>()?"HE":"SY", dev0, dev1);
+          stat += (dev0 > prec) + (dev1 > prec);
+      } // scope
+      
+      return stat;
+  } // basic_tests
+
+  inline status_t all_tests(int const echo=0) {
+      status_t stat(0);
+      int constexpr N = 8;
+      stat += basic_tests<N, std::complex<double>>(echo);
+      stat += basic_tests<N, std::complex<float >>(echo);
+      stat += basic_tests<N, double>(echo);
+      stat += basic_tests<N, float >(echo);
+      return stat;
+  } // all_tests
+#endif // NO_UNIT_TESTS
 
 } // namespace linear_algebra

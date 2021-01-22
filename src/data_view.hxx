@@ -9,7 +9,7 @@
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // conjugate
 
-// #define debug_printf(...) printf(__VA_ARGS__)  
+// #define debug_printf(...) printf(__VA_ARGS__)
 #define debug_printf(...)
 
 #ifdef DEVEL
@@ -275,7 +275,7 @@ public:
     : _data(ptr), _n0(stride), _n1(n1), _n2(n2), _n3(DimUnknown) { } // constructor
 
   view4D(size_t const n3, size_t const n2, size_t const n1, size_t const stride, T const init_value={0}) 
-    : _data(new T[n3*n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _n3(n3) {
+    : _data(new T[n3*n2*n1*stride]), _n0(stride), _n1(n1), _n2(n2), _n3(n3), _mem(n3*n2*n1*stride*sizeof(T)) {
       debug_printf("# view4D(n3=%i, n2=%i, n1=%i, stride=%i [, init_value]) constructor allocates %g kByte\n", n3, n2, n1, stride, _mem*.001);
       std::fill(_data, _data + n3*n2*n1*stride, init_value); // warning! first touch here!
   } // memory owning constructor
@@ -481,3 +481,5 @@ namespace data_view {
 #endif // NO_UNIT_TESTS  
 
 } // namespace data_view
+
+#undef debug_printf

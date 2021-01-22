@@ -38,12 +38,13 @@ namespace sho_projection {
       // determine the limitations of the projection domain
       int off[3], end[3], num[3];
       for(int d = 0; d < 3; ++d) {
+          if (echo > 9) printf("# %c-direction: center= %g, rcut= %g", 120+d, center[d]*g.inv_h[d], rcut*g.inv_h[d]);
           off[d] = std::ceil((center[d] - rcut)*g.inv_h[d]);
           end[d] = std::ceil((center[d] + rcut)*g.inv_h[d]);
-          if (echo > 9) printf("# prelim for %c-direction are [%d, %d)\n", 120+d, off[d], end[d]);
+          if (echo > 9) printf(", prelim limits [%d, %d)", off[d], end[d]);
           off[d] = std::max(off[d], 0); // lower
           end[d] = std::min(end[d], g[d]); // upper boundary
-          if (echo > 9) printf("# limits for %c-direction are [%d, %d)\n", 120+d, off[d], end[d]);
+          if (echo > 9) printf(", limits [%d, %d)\n", off[d], end[d]);
           num[d] = std::max(0, end[d] - off[d]);
       } // d
       auto const nvolume = (size_t(num[0]) * num[1]) * num[2];

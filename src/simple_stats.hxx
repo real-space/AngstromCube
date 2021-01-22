@@ -1,10 +1,11 @@
 #pragma once
 
 #include <algorithm> // std::min, std::max
+#include <cmath> // std::sqrt
 
 namespace simple_stats {
 
-  template<typename real_t=double>
+  template <typename real_t=double>
   class Stats {
     public:
 

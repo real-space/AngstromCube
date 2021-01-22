@@ -4,6 +4,8 @@
 #ifdef HAS_RAPIDJSON
   #include <cassert> // assert
 //   #include <cstdlib> // std::atof, std::strtod
+  #include <fstream> // std::ifstream
+  #include <sstream> // std::ostringstream
 
   // git clone https://github.com/Tencent/rapidjson.git
   #include "tools/rapidjson/include/rapidjson/document.h" // rapidjson::Document
@@ -32,8 +34,8 @@ namespace json_reading {
 
       rapidjson::Document doc;
       doc.Parse(infile.data());
-//    assert(doc.IsObject());
-      
+      assert(doc.IsObject());
+
       assert(doc["comment"].IsString());
       assert(doc["spacing"].IsArray());
       assert(doc["sho_atoms"].IsObject());

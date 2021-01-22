@@ -48,14 +48,14 @@ namespace grid_operators {
       , double const *potential=nullptr // diagonal potential operator [optional]
       , int const echo=0 // log-level [optional]
       , complex_t       *const *const atomic_projection_coefficients=nullptr // [optional]
-      , complex_t const *const *const start_wave_coeffs=nullptr // [optional]
+      , complex_t const *const *const start_wave_coefficients=nullptr // [optional]
       , float const scale_sigmas=1 // only during addition (used for start wave functions) [optional]
   ) {
       using real_t = decltype(std::real(complex_t(1)));
       using atom_matrix_t = decltype(std::real(real_fd_t(1)));
 
       status_t stat(0);
-
+      
       if (Hpsi) {
           if (kinetic) {
               if (psi) {
@@ -73,10 +73,15 @@ namespace grid_operators {
                   real_t const V = potential ? potential[izyx] : 1; // apply potential or the unity operation of the overlap operator
                   Hpsi[izyx] += V * psi[izyx];
               } // izyx
-          } // psi != nullptr
+          } else {
+              if (echo > 18) printf("# %s has no input function\n", __func__);
+          } // psi != nullptr 
+      } else {
+          if (echo > 18) printf("# %s has no output function\n", __func__);
       } // Hpsi != nullptr
 
-      int const echo_sho = 0*(nullptr != atomic_projection_coefficients);
+      int const echo_sho = 0*(nullptr != atomic_projection_coefficients)
+                         + 0*(nullptr != start_wave_coefficients);
 
       if (h0s1 >= 0) {
 
@@ -117,20 +122,20 @@ namespace grid_operators {
           if (Hpsi) {
 
               for(int ia = 0; ia < natoms; ++ia) {
-                  int const numax = (start_wave_coeffs) ? 3 : a[ia].numax();
+                  int const numax = (start_wave_coefficients) ? 3 : a[ia].numax();
                   auto const sigma = a[ia].sigma()*scale_sigmas;
                   int const ncoeff = sho_tools::nSHO(numax);
                   std::vector<complex_t> V_atom_coeff_ia(ncoeff);
 
-                  if (start_wave_coeffs) {
+                  if (start_wave_coefficients) {
                       assert( 3 == numax ); // this option is only used for start wave functions.
 #ifdef DEVEL
                       if (echo > 19) {
                           printf("# %s atomic addition coefficients for atom #%i are", __func__, ia);
-                          printf_vector(" %g", start_wave_coeffs[ia], ncoeff);
+                          printf_vector(" %g", start_wave_coefficients[ia], ncoeff);
                       } // echo
 #endif // DEVEL
-                      set(V_atom_coeff_ia.data(), ncoeff, start_wave_coeffs[ia]); // import
+                      set(V_atom_coeff_ia.data(), ncoeff, start_wave_coefficients[ia]); // import
                   } else {
 
                       // scope: V_atom_coeff = matrix * atom_coeff
@@ -153,7 +158,7 @@ namespace grid_operators {
                       } // i
                       // scope
 
-                  } // start_wave_coeffs
+                  } // start_wave_coefficients
 
                   if (a[ia].nimages() > 1) {
                       for(int ii = 0; ii < a[ia].nimages(); ++ii) {
@@ -436,7 +441,7 @@ namespace grid_operators {
 
           std::FILE *const f = std::fopen(filename, "w");
           if (nullptr == f) {
-              if (echo > 0) printf("# %s Error opening file %s!\n", __func__, filename);
+              if (echo > 0) printf("# %s Error opening file %s for writing!\n", __func__, filename);
               return __LINE__;
           } // failed to open
 

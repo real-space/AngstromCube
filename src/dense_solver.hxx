@@ -2,11 +2,17 @@
 
 #include <cstdio> // printf
 
+
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // complex_name, is_complex, conjugate, to_complex_t
 #include "linear_algebra.hxx" // ::eigenvalues, ::generalized_eigenvalues, ::inverse
+#include "constants.hxx" // ::pi
 #include "data_view.hxx" // view2D<T>
 #include "display_units.h" // eV, _eV, Kelvin, _Kelvin
+
+#ifndef NO_UNIT_TESTS
+  #include "simple_math.hxx" // ::random<real_t>
+#endif
 
 namespace dense_solver {
 

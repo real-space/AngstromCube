@@ -11,9 +11,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
 # echo "__  0 0 0" >> $geometry_file
 
-# project_base=pg.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=pg.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.C-dimer
 # printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
@@ -38,12 +38,12 @@ geometry_file=atoms.xyz
 # echo "Al   -1.0  1.0  1.0" >> $geometry_file
 
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
-project_base=pg.Cu-fcc
-printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
-echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
-echo "Cu    .8805  .8805 -.8805" >> $geometry_file
-echo "Cu    .8805 -.8805  .8805" >> $geometry_file
-echo "Cu   -.8805  .8805  .8805" >> $geometry_file
+# project_base=pg.Cu-fcc
+# printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
+# echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
+# echo "Cu    .8805  .8805 -.8805" >> $geometry_file
+# echo "Cu    .8805 -.8805  .8805" >> $geometry_file
+# echo "Cu   -.8805  .8805  .8805" >> $geometry_file
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
 # project_base=pg.C-diamond

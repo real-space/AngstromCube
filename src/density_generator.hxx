@@ -181,7 +181,7 @@ namespace density_generator {
       
       if (echo > 3) printf("# %s assume %d bands on a %d x %d x %d grid\n", __func__, nbands, g('x'), g('y'), g('z'));
 
-      auto const n_all_coeff = coeff_starts[natoms];
+      auto const n_all_coeff = coeff_starts ? coeff_starts[natoms] : 0;
       if (echo > 3) printf("# %s assume psi(%d,%ld)\n", __func__, nbands, g.all());
       view2D<complex_t const> const psi_k(eigenfunctions, g.all()); // wrap
       if (echo > 3) printf("# %s assume atom_coeff with stride %d\n", __func__, n_all_coeff);

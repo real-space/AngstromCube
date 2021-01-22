@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio> // printf
 #include <complex> // std::complex<real_t>
 #include <cmath> // std::sqrt
 #include <vector> // std::vector<T>

@@ -4,6 +4,9 @@
 #include <cstring> // ::strcpy
 
 #include "status.hxx" // status_t
+#ifndef NO_UNIT_TESTS
+  #include "simple_stats.hxx" // Stats<T>
+#endif
 
   class SimpleTimer {
     // This timer object prints the time elapsed between construction and destruction 
@@ -44,18 +47,34 @@ namespace simple_timer {
   inline int64_t fibonacci(int64_t const n) { if (n < 3) return 1; return fibonacci(n - 1) + fibonacci(n - 2); }
 
   inline status_t test_usage(int const echo=3) {
-      int64_t result, inp = 42;
-      {   SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
+      int64_t result, inp = 40;
+      { // scope: create a timer, do some work, destroy the timer
+          SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
           result = fibonacci(inp);
-      } // timer destructor is envoked at the end of this scope
+          // timer destructor is envoked at the end of this scope
+      } // scope
       if (echo > 0) printf("# fibonacci(%ld) = %ld\n", inp, result);
       return 0;
   } // test_usage
+
+  inline status_t test_stop_function(int const echo=3) {
+      int64_t result, inp = 40;
+      simple_stats::Stats<> s;
+      for(int i = 0; i < 5; ++i) {
+          SimpleTimer timer(__FILE__, __LINE__, "", 0);
+          result = fibonacci(inp);
+          s.add(timer.stop());
+          // timer destructor is envoked at the end of this scope
+      } // scope
+      if (echo > 0) printf("# fibonacci(%ld) = %ld took %g +/- %g seconds\n", inp, result, s.avg(), s.var());
+      return 0;
+  } // test_stop_function
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       status += test_usage(echo);
+      status += test_stop_function(echo);
       return status;
   } // all_tests
 

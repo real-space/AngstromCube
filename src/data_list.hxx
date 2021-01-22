@@ -7,8 +7,8 @@
 #include <algorithm> // std::fill
 // #include <utility> // std::move
 
-// #define debug_printf(...) printf(__VA_ARGS__)  
-// #define debug_printf(...)
+// #define debug_printf(...) printf(__VA_ARGS__)
+#define debug_printf(...)
 
 template<typename T>
 class data_list // a container for matrices with a variable number of columns per row
@@ -96,3 +96,5 @@ public:
   size_t fill(T const value={0}) { std::fill(_data.begin(), _data.end(), value); return _data.size(); } // set value
 
 }; // data_list
+
+#undef debug_printf

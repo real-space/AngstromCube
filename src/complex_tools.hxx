@@ -4,35 +4,35 @@
 #include <type_traits> // std::true_type, std::false_type
 #include <complex> // std::complex<real_t>
 
-  template<typename T> struct is_complex_t                  : public std::false_type {};
-  template<typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
-  template<typename T> constexpr bool is_complex() { return is_complex_t<T>::value; } // not needed when using C++14
+  template <typename T> struct is_complex_t                  : public std::false_type {};
+  template <typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
+  template <typename T> constexpr bool is_complex() { return is_complex_t<T>::value; } // not needed when using C++14
 
-//   template<typename T> constexpr bool is_double()             { return false; }
-//   template<> constexpr bool is_double<std::complex<double>>() { return true; }
-//   template<> constexpr bool is_double<double>()               { return true; }
+//   template <typename T> constexpr bool is_double()             { return false; }
+//   template <> constexpr bool is_double<std::complex<double>>() { return true; }
+//   template <> constexpr bool is_double<double>()               { return true; }
 
-  template<typename real_t> char const * complex_name(real_t const x=0);
-  template<> inline char const * complex_name<double>(double const x) { return "double"; }
-  template<> inline char const * complex_name<float> (float  const x) { return "float"; }
-  template<> inline char const * complex_name<std::complex<double>>(std::complex<double> const x) { return "complex<double>"; }
-  template<> inline char const * complex_name<std::complex<float>> (std::complex<float>  const x) { return "complex<float>"; }
+  template <typename complex_t> char const * complex_name(complex_t const x=0);
+  template <> inline char const * complex_name<double>(double const x) { return "double"; }
+  template <> inline char const * complex_name<float> (float  const x) { return "float"; }
+  template <> inline char const * complex_name<std::complex<double>>(std::complex<double> const x) { return "complex<double>"; }
+  template <> inline char const * complex_name<std::complex<float>> (std::complex<float>  const x) { return "complex<float>"; }
 
-  template<typename real_t> real_t conjugate(real_t const x);
-  template<> inline double conjugate<double>(double const x) { return x; };
-  template<> inline float  conjugate<float> (float  const x) { return x; };
-  template<typename real_t>
+  template <typename real_t> real_t conjugate(real_t const x);
+  template <> inline double conjugate<double>(double const x) { return x; };
+  template <> inline float  conjugate<float> (float  const x) { return x; };
+  template <typename real_t>
   std::complex<real_t> inline conjugate(std::complex<real_t> const x) { return std::conj(x); }
 
-  template<typename complex_t, typename real_t> inline
+  template <typename complex_t, typename real_t> inline
   complex_t to_complex_t(std::complex<real_t> const x); // no generic implementation given
-  template<> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
-  template<> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
-  template<> inline double               to_complex_t(std::complex<double> const x) { return x.real(); }
-  template<> inline float                to_complex_t(std::complex<float>  const x) { return x.real(); }
+  template <> inline std::complex<double> to_complex_t(std::complex<double> const x) { return x; }
+  template <> inline std::complex<float>  to_complex_t(std::complex<float>  const x) { return x; }
+  template <> inline double               to_complex_t(std::complex<double> const x) { return x.real(); }
+  template <> inline float                to_complex_t(std::complex<float>  const x) { return x.real(); }
 
-  template<> inline float                to_complex_t(std::complex<double> const x) { return x.real(); }
-  template<> inline std::complex<float>  to_complex_t(std::complex<double> const x) { return std::complex<float>(x.real(), x.imag()); }
+  template <> inline float                to_complex_t(std::complex<double> const x) { return x.real(); }
+  template <> inline std::complex<float>  to_complex_t(std::complex<double> const x) { return std::complex<float>(x.real(), x.imag()); }
   
   // use this function to extract the type of matrix elements e.g. 
   //    using double_complex_t = decltype(to_double_complex_t(complex_t(1)));
@@ -45,7 +45,7 @@ namespace complex_tools {
 
     inline char const * bool2string(bool const b) { return b ? "true" : "false"; }
 
-    template<typename complex_t>
+    template <typename complex_t>
     inline status_t test_complex(bool const expect_complex, int const echo=0) {
         bool const is = is_complex<complex_t>();
         if (echo > 0) printf("# %s is_complex<%s>() = %s\n", __func__,

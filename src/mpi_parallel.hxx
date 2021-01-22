@@ -83,6 +83,7 @@ namespace mpi_parallel {
   
   
   // MPI utilities
+
   int initialize(int const argc=0, char *argv[]=nullptr) { // forward the arguments of main
       int argument_count{argv ? argc : 0};
       char **argument_values{(argc > 0) ? argv : nullptr};

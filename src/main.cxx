@@ -20,18 +20,18 @@
 #include "conjugate_gradients.hxx" // ::all_tests
 #include "potential_generator.hxx" // ::all_tests
 #include "global_coordinates.hxx" // ::all_tests
-#include "fermi_distribution.hxx" // ::all_tests
 #include "radial_eigensolver.hxx" // ::all_tests
 #include "boundary_condition.hxx" // ::all_tests
+#include "fermi_distribution.hxx" // ::all_tests
 #include "radial_integrator.hxx" // ::all_tests
 #include "geometry_analysis.hxx" // ::all_tests
 #include "density_generator.hxx" // ::all_tests
 #include "fourier_transform.hxx" // ::all_tests
 #include "iterative_poisson.hxx" // ::all_tests
-// #include "structure_solver.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
 #include "parallel_domains.hxx" // ::all_tests
+//  #include "structure_solver.hxx" // ::all_tests
 #include "scattering_test.hxx" // ::all_tests
 #include "davidson_solver.hxx" // ::all_tests
 #include "chemical_symbol.hxx" // ::all_tests
@@ -104,6 +104,7 @@
 #define   module_test(NAME, FUN) \
           if (all || (0 == std::string(NAME).compare(m))) { \
               SimpleTimer timer("module test for", 0, NAME, 0); \
+              if (all && echo > 3) printf("\n\n\n# ============= Module test for %s ==================\n\n", NAME); \
               run.push_back(make_pair(std::string(NAME), FUN(echo))); \
           }
 //            if (echo > -1) printf("\n# Module test for %s\n\n", NAME);
@@ -149,8 +150,8 @@
           module_test("sho_potential.",             sho_potential::all_tests);
           module_test("mpi_parallel.",               mpi_parallel::all_tests);
           module_test("angular_grid.",               angular_grid::all_tests);
-          module_test("inline_tools.",               inline_tools::all_tests);
           module_test("pseudo_tools.",               pseudo_tools::all_tests);
+          module_test("inline_tools.",               inline_tools::all_tests);
           module_test("simple_timer.",               simple_timer::all_tests);
           module_test("sigma_config.",               sigma_config::all_tests);
           module_test("dense_solver.",               dense_solver::all_tests);
