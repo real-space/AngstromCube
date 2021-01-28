@@ -245,7 +245,7 @@ namespace simple_math {
       return 0;
   } // test inversion
   
-  inline status_t all_tests(int const echo=2) {
+  inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       status += std::abs(int(test_invert<float>(echo)));

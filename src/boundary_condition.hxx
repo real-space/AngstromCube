@@ -114,10 +114,10 @@ namespace boundary_condition {
   } // fromString
   
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t test_periodic_images(int const echo=7) {
+  inline status_t test_periodic_images(int const echo=0) {
       if (echo > 2) printf("\n# %s %s \n", __FILE__, __func__);
       double const cell[] = {1,2,3}, rcut = 6.f;
       int const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
@@ -128,7 +128,7 @@ namespace boundary_condition {
       return 0;
   } // test_periodic_images
 
-  inline status_t all_tests(int const echo=7) {
+  inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       status += test_periodic_images(echo);

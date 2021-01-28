@@ -100,13 +100,14 @@ namespace hermite_polynomial {
       return (max_dev[0] + max_dev[1] > threshold);
   } // test_hermite_polynomials
 
-  inline status_t all_tests(int const echo=3) {
+  inline status_t all_tests(int const echo=0) {
     if (echo > 0) printf("\n# %s: %s\n\n", __FILE__, __func__);
     status_t stat{0};
     stat += test_hermite_polynomials<float>(echo, 3.5e-6);
     stat += test_hermite_polynomials<double>(echo);
     return stat;
   } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace hermite_polynomial

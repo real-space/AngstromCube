@@ -297,7 +297,7 @@ namespace shift_boundary {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t all_tests(int const echo=3) {
+  inline status_t all_tests(int const echo=0) {
       if (echo > 1) printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat{0};
       for(int structure = 1; structure <= 4; ++structure) {

@@ -55,6 +55,6 @@ namespace sho_overlap {
       , double const sigma0=1.0
   ); // declaration only
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace sho_overlap

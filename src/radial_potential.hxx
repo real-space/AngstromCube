@@ -21,6 +21,6 @@ namespace radial_potential {
             double const q0=0, // singularity
             double const qlm[]=nullptr); // external boundary conditions, functionality redundant
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace radial_potential

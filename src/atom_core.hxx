@@ -84,6 +84,6 @@ namespace atom_core {
       return wm1*ym1 + w_0*y_0 + wp1*yp1;
   } // neutral_atom_total_energy
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace atom_core

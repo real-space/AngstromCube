@@ -187,7 +187,7 @@ namespace solid_harmonics {
       return 0;
   } // test_indices
 
-  inline status_t all_tests(int const echo=3) {
+  inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       assert( Y00 * Y00inv == 1.0 ); // should be exact

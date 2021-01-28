@@ -153,7 +153,7 @@ namespace inline_math {
       return stat;
   } // test_factorials
 
-  inline status_t all_tests(int const echo=3) {
+  inline status_t all_tests(int const echo=0) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
     status_t status(0);
     status += test_intpow<float>(echo, 6e-6);
@@ -161,6 +161,7 @@ namespace inline_math {
     status += test_factorials(echo);
     return status;
   } // all_tests
+
 #endif // NO_UNIT_TESTS  
 
 } // namespace inline_math

@@ -11,6 +11,6 @@ namespace exchange_correlation {
       real_t const mag=0,     // [optional in] magnetization
       real_t *Vup=nullptr);   // [optional out] up-spin potential
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace exchange_correlation

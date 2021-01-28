@@ -23,6 +23,6 @@ namespace angular_grid {
   template<int lmax>
   status_t create_numerical_Gaunt(std::vector<gaunt_entry_t> & gaunt, int const echo=0);
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace angular_grid

@@ -14,7 +14,7 @@ namespace single_atom {
       float   *fp=nullptr,  // (i)in ionization, (c/v/z)in ar2, (u)opt-in {mix_pot, mix_rho}
       double *const *dpp=nullptr); // (c/v/z)out quantities on r2-grid, (u)in vlm, (q)out qlm, (h)out: aHm, aSm, (a)in aDm
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace single_atom
 

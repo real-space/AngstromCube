@@ -383,7 +383,7 @@ inline void set(view4D<T> & y, size_t const n3, T const a) {
 namespace data_view {
 
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline int test_view2D(int const echo=9) {

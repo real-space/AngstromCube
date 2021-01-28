@@ -24,6 +24,6 @@ namespace sigma_config {
 
   inline int nl_index(int const enn, int const ell) { assert(ell < enn); return (enn*(enn - 1))/2 + ell; }
   
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace sigma_config

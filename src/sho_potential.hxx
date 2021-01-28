@@ -755,7 +755,7 @@ namespace sho_potential {
       return stat;
   } // test_local_potential_matrix_elements
 
-  inline status_t all_tests(int const echo) {
+  inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_local_potential_matrix_elements(echo); // expensive
       return stat;

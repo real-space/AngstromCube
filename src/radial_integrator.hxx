@@ -43,6 +43,6 @@ namespace radial_integrator {
       double *dg=nullptr, // derivative at end point
       double const *rp=nullptr); // inhomogeneity*r, only outward
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace radial_integrator

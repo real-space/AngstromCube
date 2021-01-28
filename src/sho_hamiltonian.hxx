@@ -16,6 +16,6 @@ namespace sho_hamiltonian {
           , double *const *const atom_mat=nullptr // PAW charge-deficit and Hamiltonian correction matrices
           , int const echo=0); // log-level
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace sho_hamiltonian

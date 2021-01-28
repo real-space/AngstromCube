@@ -55,6 +55,6 @@ namespace poisson_solver {
   } // print_direct_projection
   
   
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace poisson_solver

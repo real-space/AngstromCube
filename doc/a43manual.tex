@@ -196,7 +196,7 @@ In order to get a rough list of potential modules,
 use \ttt{ls *.hxx} in the \ttt{src/}-directory.
 Pass the name of the module to run a self test like this
 \begin{verbatim}
-./a43 -t geometry_analysis.
+./a43 -t geometry_analysis
 \end{verbatim}
 Mind that we need to skip the file suffix \ttt{hxx} or \ttt{cxx} but not the dot.
 We can also run all module tests, however, for this we might want to reduce
@@ -242,7 +242,7 @@ Some quantities are displayed in characteristic units, e.g., plane wave cutoffs 
 \subsection{Try a first structure}
 Make sure there is structure file \ttt{atoms.xyz} file and run
 \begin{verbatim}
-./a43 -t geometry_analysis.
+./a43 -t geometry_analysis
 \end{verbatim}
 in order to check if your geometry looks ok.
 Search the log file for warnings using \ttt{grep}.
@@ -250,7 +250,7 @@ There will also be a summary of all warnings launched during the execution at th
 Once free of warnings, continue with the next step:
 Let's say we want Aluminum in our system, then run:
 \begin{verbatim}
-./a43 -t single_atom. +single_atom.test.Z=13
+./a43 -t single_atom +single_atom.test.Z=13
 \end{verbatim}
 
 
@@ -261,24 +261,24 @@ where $Z$ is a 3-digit integer atomic number.
 You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{xc} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
 If the loading fails because of a missing file, you can bootstrap it:
 \begin{verbatim}
-./a43 -t atom_core. +atom_core.test.Z=13
+./a43 -t atom_core +atom_core.test.Z=13
 \end{verbatim}
 or if the entire database was lost,
 \begin{verbatim}
-./a43 -t atom_core. \
+./a43 -t atom_core \
         +atom_core.test.Z=1 +atom_core.test.Z.end=99
 \end{verbatim}
 
 Now, run the \ttt{single\_atom.} test for each of the elements in the system to see if there are warnings before you continue like this
 \begin{verbatim}
-./a43 -t potential_generator. \
+./a43 -t potential_generator \
         +geometry.file=molecule.xyz +verbosity=3
 \end{verbatim}
 \todo[inline]{we have not yet defined a functionality of main! only tests so far}
 
 For the advanced user, we recommend to inspect the logarithmic derivatives by
 \begin{verbatim}
-./a43 -t single_atom. +single_atom.test.Z=13 \
+./a43 -t single_atom +single_atom.test.Z=13 \
         +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
 \end{verbatim}
 The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.

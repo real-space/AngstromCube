@@ -4,7 +4,7 @@ SYSTEM ?= zam044
 ENABLE_GPU := $(shell command -v nvcc 2> /dev/null)
 #ENABLE_GPU := $() # Use this line to test non-CUDA version on a system with CUDA installed
 
-#NO_UNIT_TESTS=1
+# NO_UNIT_TESTS=1
 
 # For reproducability compile the git key (hash) into the code
 GITKEY=$(shell git log | head -1 | sed -e 's/commit //g')
@@ -49,7 +49,6 @@ else
 	davidson_solver.o \
 	sho_projection.o \
 	sho_radial.o \
-	sho_tools.o \
 	sho_unitary.o
 endif
 

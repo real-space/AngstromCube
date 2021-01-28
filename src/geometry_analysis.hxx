@@ -21,6 +21,6 @@ namespace geometry_analysis {
       return x;
   } // fold_back
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace geometry_analysis

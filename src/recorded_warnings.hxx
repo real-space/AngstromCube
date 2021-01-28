@@ -61,6 +61,6 @@ namespace recorded_warnings {
 
   status_t clear_warnings(int const echo=1);
   
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace recorded_warnings

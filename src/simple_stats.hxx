@@ -45,7 +45,7 @@ namespace simple_stats {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t all_tests(int const echo=2) {
+  inline status_t all_tests(int const echo=0) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
     status_t status(0);
 //  status += ToDo

@@ -69,6 +69,6 @@ namespace pw_hamiltonian {
       , std::vector<DensityIngredients> *export_rho=nullptr        
   ); 
 
-  status_t all_tests(int const echo=0);
+  status_t all_tests(int const echo=0); // declaration only
 
 } // namespace pw_hamiltonian

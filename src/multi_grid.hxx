@@ -274,7 +274,7 @@ namespace multi_grid {
   
   
 #ifdef  NO_UNIT_TESTS
-  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+  inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline int64_t grid_point_id(uint32_t const x, uint32_t const y, uint32_t const z) {
