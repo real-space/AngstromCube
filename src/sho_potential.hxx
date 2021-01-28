@@ -12,13 +12,13 @@
 #include "linear_algebra.hxx" // ::inverse
 #include "display_units.h" // Ang, _Ang
 
-#if 0 // ndef NO_UNIT_TESTS
+#ifndef NO_UNIT_TESTS
   #include "control.hxx" // ::get
   #include "real_space.hxx" // ::grid_t
   #include "sho_projection.hxx" // ::sho_project, ::sho_add
   #include "geometry_analysis.hxx" // ::read_xyz_file
   #include "print_tools.hxx" // printf_vector
-#endif
+#endif // NO_UNIT_TESTS
 
 namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
@@ -296,14 +296,11 @@ namespace sho_potential {
       } // scope
       return stat;
   } // load_local_potential
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
-  status_t all_tests(int const echo=0); // declaration only
-#endif // NO_UNIT_TESTS
 
-#if 0
   inline status_t test_local_potential_matrix_elements(int const echo=5) {
       status_t stat(0);
       

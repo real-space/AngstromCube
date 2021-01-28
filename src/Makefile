@@ -46,7 +46,6 @@ else
 	###
 	OBJ += \
 	bessel_transform.o \
-	sho_potential.o \
 	conjugate_gradients.o \
 	fourier_poisson.o \
 	davidson_solver.o \
