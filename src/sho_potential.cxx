@@ -7,18 +7,18 @@
 #include <cassert> // assert
 
 #include "sho_potential.hxx"
+// #include "display_units.h" // eV, _eV, Ang, _Ang
+// #include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::quantum_number_table
+// #include "sho_overlap.hxx" // ::generate_product_tensor, ::generate_overlap_matrix, ::generate_potential_tensor
+// #include "boundary_condition.hxx" // Isolated_Boundary
+// #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
+// #include "linear_algebra.hxx" // ::inverse
+// #include "inline_math.hxx" // dot_product
 
 #include "control.hxx" // ::get
-#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "real_space.hxx" // ::grid_t
 #include "sho_projection.hxx" // ::sho_project, ::sho_add
-#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::order_*, ::quantum_number_table
-#include "sho_overlap.hxx" // ::generate_product_tensor, ::generate_overlap_matrix, ::generate_potential_tensor
 #include "geometry_analysis.hxx" // ::read_xyz_file
-#include "boundary_condition.hxx" // Isolated_Boundary
-#include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
-#include "linear_algebra.hxx" // ::inverse
-#include "inline_math.hxx" // dot_product
 #include "print_tools.hxx" // printf_vector
 
 // #define FULL_DEBUG
@@ -38,181 +38,9 @@
 #endif
 
 namespace sho_potential {
-  // computes potential matrix elements between to SHO basis functions
+
+#ifndef NO_UNIT_TESTS
   
-  template <typename real_t>
-  status_t multiply_potential_matrix(
-        view2D<real_t> & Vmat // result Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
-      , view3D<real_t> const & ovl1D  // input ovl1D(dir,j,k)
-      , view2D<real_t> const & Vaux // input Vaux(i,k)
-      , int const numax_i // size of SHO basis
-      , int const numax_j // size of SHO basis
-      , int const numax_k // size of SHO basis
-  ) {
-      // contract Vaux with a 3D factorizable overlap tensor
-      int const ni = sho_tools::nSHO(numax_i);
-      int const nj = sho_tools::nSHO(numax_j);
-      int const nk = sho_tools::nSHO(numax_k);
-      assert( sho_tools::n1HO(numax_k) <= ovl1D.stride() );
-      assert( sho_tools::n1HO(numax_j) <= ovl1D.dim1() );
-      assert( nk <= Vaux.stride() );
-      assert( nj <= Vmat.stride() );
-
-      for(int izyx = 0; izyx < ni; ++izyx) {
-        
-          int jzyx{0};
-          for    (int jz = 0; jz <= numax_j; ++jz) {
-            for  (int jy = 0; jy <= numax_j - jz; ++jy) {
-              for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
-
-                  double tmp{0};
-                  int kzyx{0}; // contraction index
-                  for    (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(2,jz,kz);
-                    for  (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(1,jy,ky) * tz;
-                      for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl1D(0,jx,kx) * tyz;
-
-                          tmp += Vaux(izyx,kzyx) * txyz;
-
-                          ++kzyx;
-                      } // kx
-                    } // ky
-                  } // kz
-                  assert( nk == kzyx );
-
-                  Vmat(izyx,jzyx) = tmp;
-                  
-                  ++jzyx;
-              } // jx
-            } // jy
-          } // jz
-          assert( nj == jzyx );
-
-      } // izyx
-      
-      return 0;
-  } // multiply_potential_matrix
-
-
-
-  status_t normalize_potential_coefficients(
-        double coeff[] // coefficients[nSHO(numax)], input: in zyx_order, output in Ezyx_order
-      , int const numax // SHO basis size
-      , double const sigma // SHO basis spread
-      , int const echo // log-level
-  ) {
-      // from SHO projection coefficients we find the coefficients for a representation in moments x^{m_x} y^{m_y} z^{m_z}
-
-      status_t stat(0);
-      int const nc = sho_tools::nSHO(numax);
-      int const m = sho_tools::n1HO(numax);
-      
-      view2D<double> inv3D(nc, nc, 0.0); // get memory
-      view2D<double> mat1D(m, m, 0.0); // get memory
-      stat += sho_overlap::moment_normalization(mat1D.data(), mat1D.stride(), sigma, echo);
-
-      int constexpr debug_check = 1;
-      view2D<double> mat3D_copy(debug_check*nc, nc, 0.0); // get memory
-      { // scope: set up mat3D
-          view2D<double> mat3D(inv3D.data(), inv3D.stride()); // wrap
-          int mzyx{0}; // moments
-          for    (int mz = 0; mz <= numax; ++mz) {
-            for  (int my = 0; my <= numax - mz; ++my) {
-              for(int mx = 0; mx <= numax - mz - my; ++mx) {
-
-                // mat1D(n,m) = <H(n)|x^m>
-                // a specialty of the result matrix mat1D is that only matrix elements 
-                //    connecting even-even or odd-odd indices are non-zero
-                //    ToDo: this could be exploited in the following pattern
-                int kzyx{0}; // Hermite coefficients
-                for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = mat1D(kz,mz);
-                  for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = mat1D(ky,my) * tz;
-                    for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = mat1D(kx,mx) * tyz;
-
-                      // despite the name
-                      mat3D(kzyx,mzyx) = txyz;
-                      if (debug_check) mat3D_copy(kzyx,mzyx) = txyz;
-
-                      ++kzyx;
-                }}} assert( nc == kzyx );
-
-                ++mzyx;
-          }}} assert( nc == mzyx );
-
-          // now invert the 3D matrix
-          auto const stat = linear_algebra::inverse(nc, mat3D.data(), mat3D.stride());
-          if (stat) {
-              warn("Maybe factorization failed, status=%i", int(stat));
-              return stat;
-          } // inversion returned non-zero status
-          // inverse is stored in inv3D due o pointer overlap
-      } // scope
-
-      std::vector<double> c_new(nc, 0.0); // get memory
-
-      view2D<char> zyx_label;
-      if (echo > 4) {
-          printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang,_Ang);
-          zyx_label = view2D<char>(nc, 8);
-          sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
-      } // echo
-
-      // just a matrix-vector multiplication
-      for(int mzyx = 0; mzyx < nc; ++mzyx) {
-//           double cc{0};
-//           for(int kzyx = 0; kzyx < nc; ++kzyx) {
-//               cc += inv3D(mzyx,kzyx) * coeff[kzyx];
-//           } // kzyx
-//           c_new[mzyx] = cc; // store
-          c_new[mzyx] = dot_product(nc, inv3D[mzyx], coeff);
-      } // mzyx
-
-      if (debug_check) {
-          // check if the input vector comes out again
-          double dev{0};
-          for(int kzyx = 0; kzyx < nc; ++kzyx) {
-//               double cc{0};
-//               for(int mzyx = 0; mzyx < nc; ++mzyx) {
-//                   cc += mat3D_copy(kzyx,mzyx) * c_new[mzyx];
-//               } // mzyx
-              double const cc = dot_product(nc, mat3D_copy[kzyx], c_new.data());
-              dev = std::max(dev, std::abs(cc - coeff[kzyx]));
-          } // kzyx
-          if (echo > 4) printf("# %s debug_check dev %.1e a.u.\n", __func__, dev);
-      } // debug check
-
-      if (echo > 4) printf("# %s\n\n", __func__);
-
-      { // scope: coeff := c_new[reordered]
-          int mzyx{0};
-          for    (int mz = 0; mz <= numax;           ++mz) {
-            for  (int my = 0; my <= numax - mz;      ++my) {
-              for(int mx = 0; mx <= numax - mz - my; ++mx) {
-                int const Ezyx = sho_tools::Ezyx_index(mx, my, mz);
-                coeff[Ezyx] = c_new[mzyx]; // reorder
-                ++mzyx;
-              } // mx
-            } // my
-          } // mz
-          assert( nc == mzyx );
-      } // scope
-
-      // Discussion:
-      // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)
-      // one could investigate if the factorization property stays
-      // but probably not because of the range of indices is not a cube but a tetrahedron.
-      // We could use a linear equation solver instead of matrix inverson,
-      // however, the inversion only needs to be done once per (sigma,numax)
-      // and also here the dependency on sigma can probably be moved out
-      //
-      // we can also precompute the translation table for order_zyx --> order_Ezyx
-      
-      return stat;
-  } // normalize_potential_coefficients
-
-#ifdef  NO_UNIT_TESTS
-  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
-#else // NO_UNIT_TESTS
-
   status_t test_local_potential_matrix_elements(int const echo=5) {
       status_t stat(0);
       

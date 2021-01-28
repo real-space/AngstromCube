@@ -7,7 +7,7 @@
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
-#include "unit_system.hxx" // ::set_input_units, ::set_output_units
+#include "unit_system.hxx" // ::set_output_units
 #include "control.hxx" // ::command_line_interface
 
 #include "status.hxx" // status_t

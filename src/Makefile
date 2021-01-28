@@ -31,7 +31,6 @@ OBJ = \
 	single_atom.o \
 	pw_hamiltonian.o \
 	sho_overlap.o \
-	sho_potential.o \
 	sho_hamiltonian.o \
 	angular_grid.o \
 	control.o \
@@ -47,6 +46,7 @@ else
 	###
 	OBJ += \
 	bessel_transform.o \
+	sho_potential.o \
 	conjugate_gradients.o \
 	fourier_poisson.o \
 	davidson_solver.o \
@@ -105,7 +105,7 @@ endif
 
 ## include also code which is not meant for release,
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
-FEAFLAGS += -D DEVEL 
+FEAFLAGS += -D DEVEL
 
 # normal mode
 # OPTFLAGS = -Ofast 
