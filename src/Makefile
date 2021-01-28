@@ -45,7 +45,6 @@ else
 	### 	objects do not need to be compiled nor linked.
 	###
 	OBJ += \
-	conjugate_gradients.o \
 	davidson_solver.o \
 	sho_projection.o \
 	sho_radial.o \
