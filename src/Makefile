@@ -45,7 +45,6 @@ else
 	### 	objects do not need to be compiled nor linked.
 	###
 	OBJ += \
-	davidson_solver.o \
 	sho_projection.o \
 	sho_radial.o \
 	sho_unitary.o
