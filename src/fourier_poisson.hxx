@@ -111,7 +111,7 @@ namespace fourier_poisson {
       return stat;
   } // test_FFT_Poisson_solver
 
-  inline status_t all_tests(int const echo) {
+  inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_FFT_Poisson_solver(echo);
       return stat;

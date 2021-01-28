@@ -45,12 +45,10 @@ else
 	### 	objects do not need to be compiled nor linked.
 	###
 	OBJ += \
-	bessel_transform.o \
 	conjugate_gradients.o \
 	davidson_solver.o \
 	grid_operators.o \
 	pseudo_tools.o \
-	finite_difference.o \
 	density_generator.o \
 	sho_projection.o \
 	sho_radial.o \
@@ -82,7 +80,8 @@ CXX    = g++
 # CXX = mpic++
 
 SRC ?= ./src
-INC = -I/usr/local/cuda/include
+INC =
+# INC += -I/usr/local/cuda/include
 
 
 ERRFLAGS =
