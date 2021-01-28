@@ -34,21 +34,11 @@ OBJ = \
 	sho_hamiltonian.o \
 	angular_grid.o \
 	control.o \
+	sho_projection.o \
+	sho_unitary.o \
 	main.o
 # 	structure_solver.o \
 
-ifdef NO_UNIT_TESTS
-else
-	###
-	### For the following modules all relevant functionality 
-	### 	is contained in the .hxx header file so that the
-	### 	objects do not need to be compiled nor linked.
-	###
-	OBJ += \
-	sho_projection.o \
-	sho_radial.o \
-	sho_unitary.o
-endif
 
 ifdef ENABLE_GPU
 	OBJ += \

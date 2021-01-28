@@ -1519,7 +1519,7 @@ namespace single_atom {
                 // create the true partial wave
                 set(vs.wave[TRU], nr, 0.0); // clear
 #ifndef DEVEL
-                double const normalize = 1;
+                double normalize{1};
 #else
                 double normalize{1};
                 bool orthogonalize{false};

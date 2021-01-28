@@ -4,7 +4,11 @@
 #include "display_units.h" // Ang, _Ang
 #include "complex_tools.hxx" // is_complex
 
-#define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
+#ifdef DEBUG
+    #define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
+#else
+    #define here
+#endif
 
 template <typename real_t>
 int dump_to_file(

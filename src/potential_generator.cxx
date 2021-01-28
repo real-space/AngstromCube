@@ -284,8 +284,10 @@ namespace potential_generator {
       auto const run = std::min(std::max(0, 1 - check), 1);
 
       double constexpr Y00 = solid_harmonics::Y00;
+      double constexpr Y00sq = pow2(Y00);
+#ifdef DEVEL
       double constexpr Y00inv = solid_harmonics::Y00inv;
-      double constexpr Y00sq = pow2(solid_harmonics::Y00);
+#endif // DEVEL
 
       status_t stat(0);
       

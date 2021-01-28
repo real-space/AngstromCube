@@ -12,7 +12,9 @@
 
 namespace sho_projection {
 
-#ifndef NO_UNIT_TESTS
+#ifdef  NO_UNIT_TESTS
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
 
   inline constexpr char const * _diag(bool const diagonal) { return diagonal ? "diagonal" : "off-diag"; }
 

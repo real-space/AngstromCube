@@ -20,7 +20,7 @@ undefs=""\
 " -U FULL_DEBUG"\
 " -U DEVEL"\
 " -U OLD_SINGLE_ATOM_UPDATE_INTERFACE"\
-" -U LARGE_GRIDS"\
+" -U LARGE_ANGULAR_GRIDS"\
 " -U NEVER"
 
 echo "Generation of a release version,"
@@ -37,8 +37,14 @@ sed '/DEVEL/d' Makefile > $target_dir/Makefile
 ### maybe some additional modifications of the FEATUREFLAGS in the Makefile 
 ### will be necessary
 
+echo "/*" > tmp_license_header_start
+echo "*/" > tmp_license_header_end
 for xxFile in `ls *.*xx *.h`
 do
   # echo "$partial_preprocessor $defs $undefs $xxFile $target_dir"
     $partial_preprocessor $defs $undefs $xxFile $target_dir
+  # Here, we could add a license header
+  cat tmp_license_header_start ../LICENSE tmp_license_header_end $target_dir/$xxFile > tmp
+  mv tmp $target_dir/$xxFile
 done
+rm tmp_license_header_*
