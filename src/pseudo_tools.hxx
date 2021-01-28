@@ -432,7 +432,13 @@ namespace pseudo_tools {
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
-  status_t all_tests(int const echo=0); // declaration only
+
+  inline status_t all_tests(int const echo=0) {
+      status_t stat{0};
+      // ToDo
+      return stat;
+  } // all_tests
+
 #endif // NO_UNIT_TESTS
 
 } // namespace pseudo_tools

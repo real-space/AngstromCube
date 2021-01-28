@@ -15,8 +15,9 @@
 
 
 namespace sho_projection {
+  // Projection and expansion (aka addition) operations using factorizable 
+  // Hermite Gauss functions, here called Spherical Harmonic Oscillator basis.
 
-  
   template <typename real_t>
   inline real_t truncation_radius(real_t const sigma, int const numax=-1) { return 9*sigma; }
   

@@ -5,10 +5,10 @@
 #include <vector> // std::vector<T>
 
 #include "sho_projection.hxx"
+// #include "inline_math.hxx" // factorial<real_or_int_t>
+// #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
-#include "inline_math.hxx" // factorial<real_or_int_t>
 #include "solid_harmonics.hxx" // ::rlXlm
-#include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
 namespace sho_projection {
 

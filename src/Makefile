@@ -47,9 +47,6 @@ else
 	OBJ += \
 	conjugate_gradients.o \
 	davidson_solver.o \
-	grid_operators.o \
-	pseudo_tools.o \
-	density_generator.o \
 	sho_projection.o \
 	sho_radial.o \
 	sho_tools.o \
