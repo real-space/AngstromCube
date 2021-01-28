@@ -50,8 +50,7 @@ else
 	sho_projection.o \
 	sho_radial.o \
 	sho_tools.o \
-	sho_unitary.o \
-	real_space.o
+	sho_unitary.o
 endif
 
 ifdef ENABLE_GPU
