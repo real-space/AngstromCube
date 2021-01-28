@@ -47,7 +47,6 @@ else
 	OBJ += \
 	bessel_transform.o \
 	conjugate_gradients.o \
-	fourier_poisson.o \
 	davidson_solver.o \
 	grid_operators.o \
 	pseudo_tools.o \
