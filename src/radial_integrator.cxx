@@ -75,8 +75,8 @@ namespace radial_integrator {
   
 
   void power_series_by_Horner_scheme(
-        double & gg // result: large component
-      , double & ff // result: small component
+        double & gg // result: large component*r
+      , double & ff // result: small component*r
       , double const ps[][2] // polynomial coefficients
       , double const rpow // power for radius
       , double const r // radius
@@ -149,30 +149,32 @@ namespace radial_integrator {
         
         // double const c0 = 137.0359895; // speed of light
         double constexpr c0m2 = 5.325136192159324e-05; // 1/c0^2
-        double const mrel = m0 * ((0 == SRA) ? 1 :
-              ((2 == SRA) ?      (1 + 0.5*Ekin*c0m2)    // approximation for sqrt(1 + Ekin/(m0 c0^2))
-                          : std::sqrt(1 + Ekin*c0m2))); // scalar relativistic mass
+        double const mrel = m0 * (
+               (0 == SRA) ?  1 :                 // non-relativistic mass
+              ((2 == SRA) ? (1 + Ekin*c0m2*0.5)  // approximation for sqrt(1 + Ekin/(m0 c0^2))
+                 : std::sqrt(1 + Ekin*c0m2))     // scalar relativistic mass
+                                 );
         s[0][0] = dr/r;      // 1/r
         s[0][1] = dr*mrel;   // m(r)
         s[1][0] = dr*(llp1/(mrel*r*r) - 2*Ekin); // 2W with m(r)
         s[1][1] = -s[0][0];  // = -dr/r  !! -1/r
-//         full_debug(printf("# %s: \t%g  \t%g\n#\t%g  \t%g\n", __func__, s[0][0], s[0][1], s[1][0], s[1][1]));
+//      full_debug(printf("# %s: \t%g  \t%g\n#\t%g  \t%g\n", __func__, s[0][0], s[0][1], s[1][0], s[1][1]));
     } // sra
 
 template <int SRA>
 int integrate_inwards( // return the number of nodes
-    radial_grid_t const &g, // radial grid descriptor
-    double const rV[], // radial potential r*V_Hxc(r) - e^2*Z
-    ell_QN_t const ell, // angular momentum quantum number
-    double const E, // energy (eigen-)value in Hartree
-    double gg[], // large component*r
-    double ff[], // small component*r
-    double const valder[2], // defaults to nullptr
-    double *dg, // derivative at end point, defaults to nullptr
-    int *ir_stopped, // index at which the inwards integration stopped, defaults to nullptr
-    int const ir_start, // start index, -1:(g.n - 1), default is -1
-    int const ir_stop) // latest stop index, default is 4
-{
+      double gg[] // large component*r
+    , double ff[] // small component*r
+    , radial_grid_t const & g // radial grid descriptor
+    , double const rV[] // radial potential r*V_Hxc(r) - e^2*Z
+    , ell_QN_t const ell // angular momentum quantum number
+    , double const E // energy (eigen-)value in Hartree
+    , double const valder[2] // defaults to nullptr
+    , double *dg // =nullptr // derivative at end point
+    , int *ir_stopped // =nullptr // index at which the inwards integration stopped
+    , int const ir_start // start index, -1:(g.n - 1), default is -1
+    , int const ir_stop // latest stop index, default is 4
+) {
     int constexpr Step = -1;
     float const llp1 = ell*(ell + 1.f);
     double dG[3], dF[3]; // Adam''s Moulton multistep derivatives
@@ -317,16 +319,16 @@ int integrate_inwards( // return the number of nodes
 
 template <int SRA>
 int integrate_outwards( // return the number of nodes
-    radial_grid_t const &g, // radial grid descriptor
-    double const rV[], // radial potential r*V_Hxc(r) - e^2*Z
-    ell_QN_t const ell, // angular momentum quantum number
-    double const E, // energy (eigen-)value in Hartree
-    double gg[], // large component*r
-    double ff[], // small component*r
-    int const ir_stop, // latest stop index, -1:(g.n - 1), default is -1
-    double *dg, // derivative at end point, defaults to nullptr
-    double const *rp) // inhomogeneity*r, only outward, defaults to nullptr
-{
+      double gg[] // result: large component*r
+    , double ff[] // result: small component*r
+    , radial_grid_t const & g // radial grid descriptor
+    , double const rV[] // radial potential r*V_Hxc(r) - e^2*Z
+    , ell_QN_t const ell // angular momentum quantum number
+    , double const E // energy (eigen-)value in Hartree
+    , int const ir_stop // latest stop index, -1:(g.n - 1), default is -1
+    , double *dg // derivative at end point, defaults to nullptr
+    , double const *rp // =nullptr // optional input: inhomogeneity*r
+) {
     int constexpr Step = 1;
     float const llp1 = ell*(ell + 1.f);
     double dG[3], dF[3]; // Adam''s Moulton multistep derivatives
@@ -445,19 +447,20 @@ int integrate_outwards( // return the number of nodes
 } // integrate_outwards
 
   template // explicit template instantiation needed for logarithmic derivatives
-  int integrate_outwards<1>(radial_grid_t const &g, double const rV[], ell_QN_t const ell, double const E,
-            double gg[], double ff[], int const ir_stop=-1, double *dg=nullptr, double const *rp=nullptr);
+  int integrate_outwards<1>(double gg[], double ff[],
+        radial_grid_t const &g, double const rV[], ell_QN_t const ell, double const E,
+        int const ir_stop=-1, double *dg=nullptr, double const *rp=nullptr);
 
   template <int SRA>
   double shoot_sra( // returns the kink
-      radial_grid_t const &g, // radial grid descriptor
-      double const rV[], // radial potential r*V_Hxc(r) - e^2*Z
-      ell_QN_t const ell, // angular momentum quantum number
-      double const E, // energy (eigen-)value in Hartree
-      int &nnodes, // number of nodes
-      double* rf=nullptr, // radial wave function*r
-      double* r2rho=nullptr) // density of that wave function*r^2
-  {
+        radial_grid_t const & g // radial grid descriptor
+      , double const rV[] // radial potential r*V_Hxc(r) - e^2*Z
+      , ell_QN_t const ell // angular momentum quantum number
+      , double const E // energy (eigen-)value in Hartree
+      , int & nnodes // number of nodes
+      , double* rf=nullptr // radial wave function*r
+      , double* r2rho=nullptr // density of that wave function*r^2
+  ) {
 #ifdef  DEBUG
       printf("# %s: l=%d E= %.9f %s\n", __func__, ell, E*eV, _eV);
 #endif
@@ -472,7 +475,7 @@ int integrate_outwards( // return the number of nodes
 
       // integrate the Schrodinger equation or SRA equation inwards until
       // the first extremum (maximum/minimum) is reached
-      nnodes = integrate_inwards<SRA>(g, rV, ell, E, gg_inw, ff_inw, nullptr, &dg_inw, &ir_x);
+      nnodes = integrate_inwards<SRA>(gg_inw, ff_inw, g, rV, ell, E, nullptr, &dg_inw, &ir_x);
 #ifdef  DEBUG
       printf("# %s: extremum at r[%d]= %g %s\n", __func__, ir_x, g.r[ir_x]*Ang, _Ang);
 #endif
@@ -483,7 +486,7 @@ int integrate_outwards( // return the number of nodes
 
       // integrate the Schrodinger equation or SRA equation outwards
       // stopping at the extremum at r(ir)
-      nnodes += integrate_outwards<SRA>(g, rV, ell, E, gg_out, ff_out, ir_x, &dg_out);
+      nnodes += integrate_outwards<SRA>(gg_out, ff_out, g, rV, ell, E, ir_x, &dg_out);
 
       // match and scale the tail
       auto const s = gg_out[ir_x] / gg_inw[ir_x];
@@ -524,15 +527,15 @@ int integrate_outwards( // return the number of nodes
     } // shoot_sra
 
   double shoot( // returns the kink
-    int const sra, // 1:scalar relativistic approximation, 0:Schroedinger equation
-    radial_grid_t const &g, // radial grid descriptor
-    double const rV[], // radial potential r*V_Hxc(r) - e^2*Z
-    ell_QN_t const ell, // angular momentum quantum number
-    double const E, // energy (eigen-)value in Hartree
-    int &nn, // number of nodes
-    double* rf, // [optional, out] radial wave function*r
-    double* r2rho) // [optional, out] density of that wave function*r^2
-  {
+        int const sra // 1:scalar relativistic approximation, 0:Schroedinger equation
+      , radial_grid_t const & g // radial grid descriptor
+      , double const rV[] // radial potential r*V_Hxc(r) - e^2*Z
+      , ell_QN_t const ell // angular momentum quantum number
+      , double const E // energy (eigen-)value in Hartree
+      , int & nn // number of nodes
+      , double* rf // [optional, out] radial wave function*r
+      , double* r2rho // [optional, out] density of that wave function*r^2
+  ) {
     if (0 == sra) return shoot_sra<0>(g, rV, ell, E, nn, rf, r2rho); // non relativistic mass
     if (1 == sra) return shoot_sra<1>(g, rV, ell, E, nn, rf, r2rho); // scalar relativistic mass
     if (2 == sra) return shoot_sra<2>(g, rV, ell, E, nn, rf, r2rho); // approx relativistic mass 
@@ -584,7 +587,7 @@ int integrate_outwards( // return the number of nodes
       std::vector<double> rV(g.n, 0); // fill all potential values with r*V(r) == 0 everywhere
       std::vector<double> rf(g.n), rg(g.n); // rf = large component of the radial function
       double const k = 1;
-      integrate_outwards<0>(g, rV.data(), 0, 0.5*k*k, rf.data(), rg.data());
+      integrate_outwards<0>(rf.data(), rg.data(), g, rV.data(), 0, 0.5*k*k);
       if (echo > 0) {
           printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
           for(auto ir = 1; ir < g.n; ++ir) {
@@ -609,7 +612,7 @@ int integrate_outwards( // return the number of nodes
       } // ir
       double E{0.5}, dg;
       for(ell_QN_t ell = 0; ell < 4; ++ell) { // loop must run serial and forward
-          integrate_outwards<0>(g, rV, ell, E/(ell + 1.), gg, ff, -1, &dg, rp);
+          integrate_outwards<0>(gg, ff, g, rV, ell, E/(ell + 1.), -1, &dg, rp);
           if (echo > 3) printf("\n## %s for ell=%d: r, f(r), inhomogeneity(r):\n", __func__, ell);
           for(int ir = 0; ir < g.n; ++ir) {
               if (echo > 3 && ir > 0) printf("%g %g %g\n", g.r[ir], gg[ir], rp[ir]); //, ff[ir], rV[ir]);

@@ -1533,8 +1533,8 @@ namespace single_atom {
                     product(inh.data(), rg[TRU].n, partial_wave[iln - 1].wave[TRU], rg[TRU].r);
                     double dg;
                     if (echo > 1) printf("# %s for ell=%i use energy derivative at E= %g %s\n", label, ell, vs.energy*eV, _eV);
-                    radial_integrator::integrate_outwards<SRA>(rg[TRU], potential[TRU].data(), ell, vs.energy,
-                                                               vs.wave[TRU], ff.data(), -1, &dg, inh.data());
+                    radial_integrator::integrate_outwards<SRA>(vs.wave[TRU], ff.data(),
+                        rg[TRU], potential[TRU].data(), ell, vs.energy, -1, &dg, inh.data());
                     // and T Psi_1 = (E - V) Psi_1 + Psi_0 for the kinetic part later
                     normalize = 0; // do not normalize
                     orthogonalize = true;
@@ -1550,7 +1550,7 @@ namespace single_atom {
                 } else {
                     view2D<double> ff(1, rg[TRU].n);
                     if (echo > 1) printf("# %s for the %s-partial wave integrate outwards at E= %g %s\n", label, vs.tag, vs.energy*eV, _eV);
-                    radial_integrator::integrate_outwards<SRA>(rg[TRU], potential[TRU].data(), ell, vs.energy, vs.wave[TRU], ff[0]);
+                    radial_integrator::integrate_outwards<SRA>(vs.wave[TRU], ff[0], rg[TRU], potential[TRU].data(), ell, vs.energy);
                     product(r2rho.data(), rg[TRU].n, vs.wave[TRU], vs.wave[TRU]); // ToDo: maybe ff needs to be addded for a correct norm
                     normalize = 1; // dot_product(ir_cut[TRU], r2rho.data(), rg[TRU].dr); // normalize to have unit charge inside rcut
                 }
@@ -1726,8 +1726,8 @@ namespace single_atom {
 
                         double dg; // derivative at end point
                         // solve inhomgeneous equation and match true wave in value and derivative
-                        radial_integrator::integrate_outwards<SRA>(rg[SMT], potential[SMT].data(), ell, vs.energy,
-                                                                   rphi[krn], ff.data(), -1, &dg, projector);
+                        radial_integrator::integrate_outwards<SRA>(rphi[krn], ff.data(),
+                            rg[SMT], potential[SMT].data(), ell, vs.energy, -1, &dg, projector);
 
                         auto const vginh = rphi(krn,ir_match[SMT]);
                         auto const dginh = rphi(krn,ir_match[SMT] - 1) - vginh;

@@ -159,7 +159,7 @@ namespace scattering_test {
   ) {
       int constexpr SRA = 1; // use the scalar relativistic approximation
       double deriv{0};
-      radial_integrator::integrate_outwards<SRA>(rg, rV, ell, energy, gg, ff, ir_stop, &deriv, inh);
+      radial_integrator::integrate_outwards<SRA>(gg, ff, rg, rV, ell, energy, ir_stop, &deriv, inh);
       return deriv;
   } // find_outwards_solution
 
