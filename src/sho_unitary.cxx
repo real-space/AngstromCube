@@ -7,7 +7,7 @@
 // #include <sstream> // std::istringstream
 // #include <vector> // std::vector
 // #include <numeric> // std::iota
-#include "sho_unitary.hxx" // Unitary_SHO_Transform
+#include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
 #include "sho_tools.hxx" // ::order_*
 

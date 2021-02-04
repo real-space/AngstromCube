@@ -18,7 +18,7 @@ namespace sho_projection {
 
   inline constexpr char const * _diag(bool const diagonal) { return diagonal ? "diagonal" : "off-diag"; }
 
-  template<typename real_t>
+  template <typename real_t>
   inline status_t _analyze_row(int const i, real_t const out[], int const nj, double maxdev[2], int const echo=0) {
       status_t stat = 0;
       double const threshold = (8 == sizeof(real_t)) ? 1e-8 : 2e-5;
@@ -35,7 +35,7 @@ namespace sho_projection {
       return stat;
   } // _analyze_row
   
-  template<typename real_t>
+  template <typename real_t>
   status_t test_L2_orthogonality(int const echo=2, int const numax=5, double const sigma=1.05) {
       if (echo > 0) printf("\n# %s<%s>\n", __func__, (8 == sizeof(real_t))?"double":"float");
       int const dims[] = {42, 41, 40};

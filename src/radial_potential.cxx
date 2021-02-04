@@ -16,18 +16,18 @@
 
 namespace radial_potential {
   
-  double Hartree_potential(
-            double rV[],            // r*Hartree-potential(r)
-            radial_grid_t const &g, // radial grid descriptor
-            double const rho4pi[]) { // 4*pi*density(r)
-
-      double vH1 = 0;
+  double Hartree_potential( // returns the Coulomb integral
+        double rV[] // result: r*Hartree-potential(r)
+      , radial_grid_t const & g // radial grid descriptor
+      , double const rho4pi[] // 4*\pi*density(r)
+  ) {
+      double vH1{0};
       for(int ir = 0; ir < g.n; ++ir) {
           vH1 += rho4pi[ir]*g.rdr[ir];
       } // ir
-      double const Coulomb = vH1; // return value
+      double const Coulomb = vH1; // the value to be returned
 
-      double vH2 = 0;
+      double vH2{0};
       rV[0] = 0;
       for(int ir = 1; ir < g.n; ++ir) { // start from 1 since for some radial grids r[ir=0] == 0
           vH2 += rho4pi[ir]*g.r2dr[ir];
@@ -40,24 +40,20 @@ namespace radial_potential {
 
   
   void Hartree_potential(
-            double vHt[], // Hartree-potential_lm(r)
-            radial_grid_t const &g, // radial grid descriptor
-            double const rho[],  // density_lm(r)
-            int const stride, // stride between differen lm-compenents in rho and V
-            ell_QN_t const ellmax,
-            double const q0, // defaults to zero
-            double const qlm[]) { // defaults to nullptr
-    
-      auto const rl = new double[g.n];
-      auto const rm = new double[g.n];
-
+        double vHt[] // result: Hartree-potential_lm(r)
+      , radial_grid_t const & g // radial grid descriptor
+      , double const rho[] // density_lm(r)
+      , int const stride // stride between differen lm-compenents in rho and V
+      , ell_QN_t const ellmax // largest angular momentum quantum number
+      , double const q0 // =0 // singularity
+      , double const qlm[] // =nullptr // external boundary conditions, functionality redundant
+  ) {
+      std::vector<double> rm(g.n), rl(g.n, 1.0);
       for(int ell = 0; ell <= ellmax; ++ell) { // run forward and serial
-          double const f = (4*constants::pi)/(2.*ell + 1.);
 
           if (0 == ell) {
-//            rl[0] = 0; rm[0] = 0;
               for(int ir = 0; ir < g.n; ++ir) {
-                  rl[ir] = 1; // r^{0}
+//                rl[ir] = 1; // r^{0} --> already done at initialization
                   rm[ir] = g.rinv[ir]; // r^{-1}
               } // ir
           } else {
@@ -67,6 +63,7 @@ namespace radial_potential {
               } // ir
           } // 0 == ell
 
+          double const factor = (4*constants::pi)/(2*ell + 1);
           for(int emm = -ell; emm <= ell; ++emm) {
               int const lm = solid_harmonics::lm_index(ell, emm);
 
@@ -80,7 +77,7 @@ namespace radial_potential {
               for(int ir = g.n - 1; ir >= 0; --ir) {
                   vHt[lm*stride + ir] += charge1*rl[ir]; // beware: it makes a difference if we put this line before the next
                   charge1 += rho[lm*stride + ir]*rm[ir]*g.r2dr[ir];
-                  vHt[lm*stride + ir] *= f;
+                  vHt[lm*stride + ir] *= factor;
               } // ir
 
           } // emm

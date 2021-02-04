@@ -30,14 +30,15 @@ namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between two SHO basis functions
   // including a PAW non-local contribution
   
-  template<typename complex_t, typename phase_t>
-  status_t kinetic_matrix(view2D<complex_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
-                       , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator in 1D
-                       , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator in 1D
-                       , int const numax_i, int const numax_j
-                       , phase_t const phase=1 // typically phase_t is double or complex<double>
-                       , double const prefactor=0.5) { // typical prefactor of the kinetic energy in Hartree atomic units
-
+  template <typename complex_t, typename phase_t>
+  status_t kinetic_matrix(
+        view2D<complex_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
+      , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator in 1D
+      , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator in 1D
+      , int const numax_i, int const numax_j
+      , phase_t const phase=1 // typically phase_t is double or complex<double>
+      , double const prefactor=0.5 // typical prefactor of the kinetic energy in Hartree atomic units
+  ) {
       auto const phase_f = phase * prefactor;
 
       int izyx{0};
@@ -67,27 +68,28 @@ namespace sho_hamiltonian {
       return 0;
   } // kinetic_matrix
 
-  template<typename complex_t, typename phase_t>
-  status_t solve_k(int const natoms // number of SHO basis centers
-          , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
-          , int    const numaxs[] // spreads of the SHO basis
-          , double const sigmas[] // cutoffs of the SHO basis
-          , int const n_periodic_images // number of periodic images
-          , view2D<double> const & periodic_image // periodic image coordinates
-          , view2D<int8_t> const & periodic_shift // periodic image shifts
-          , std::vector<double> const Vcoeffs[] // Vcoeff[ic][0..Ezyx..nSHO(numax_V)]
-          , view4D<int> const & center_map // ic = center_map(ia,ja,ip,0),  numax_V = center_map(ia,ja,ip,1)
-          , int const nB, int const nBa // basis size and matrix stride
-          , int const offset[] // beginning of matrix blocks
-          , int const natoms_PAW // number of PAW centers
-          , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
-          , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
-          , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
-          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
-          , phase_t const Bloch_phase[3]
-          , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
-          , int const echo=0) { // log-level
-            
+  template <typename complex_t, typename phase_t>
+  status_t solve_k(
+        int const natoms // number of SHO basis centers
+      , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
+      , int    const numaxs[] // spreads of the SHO basis
+      , double const sigmas[] // cutoffs of the SHO basis
+      , int const n_periodic_images // number of periodic images
+      , view2D<double> const & periodic_image // periodic image coordinates
+      , view2D<int8_t> const & periodic_shift // periodic image shifts
+      , std::vector<double> const Vcoeffs[] // Vcoeff[ic][0..Ezyx..nSHO(numax_V)]
+      , view4D<int> const & center_map // ic = center_map(ia,ja,ip,0),  numax_V = center_map(ia,ja,ip,1)
+      , int const nB, int const nBa // basis size and matrix stride
+      , int const offset[] // beginning of matrix blocks
+      , int const natoms_PAW // number of PAW centers
+      , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
+      , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
+      , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
+      , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
+      , phase_t const Bloch_phase[3]
+      , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
+      , int const echo=0 // log-level
+  ) {
       using real_t = decltype(std::real(complex_t(1))); // base type
         
       status_t stat(0);
@@ -263,16 +265,17 @@ namespace sho_hamiltonian {
 
 
 
-  status_t solve(int const natoms // number of SHO basis centers
-          , view2D<double const> const & xyzZ // (natoms, 4)
-          , real_space::grid_t const & g // Cartesian grid descriptor for vtot
-          , double const *const vtot // total effective potential on grid
-          , int const natoms_prj // =-1 number of PAW atoms
-          , double const *const sigma_prj // =nullptr
-          , int    const *const numax_prj // =nullptr
-          , double *const *const atom_mat // =nullptr
-          , int const echo) { // log-level
-    
+  status_t solve(
+        int const natoms // number of SHO basis centers
+      , view2D<double const> const & xyzZ // (natoms, 4)
+      , real_space::grid_t const & g // Cartesian grid descriptor for vtot
+      , double const *const vtot // total effective potential on grid
+      , int const natoms_prj // =-1 number of PAW atoms
+      , double const *const sigma_prj // =nullptr
+      , int    const *const numax_prj // =nullptr
+      , double *const *const atom_mat // =nullptr
+      , int const echo // log-level
+  ) {
       status_t stat(0);
       SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
 
@@ -574,7 +577,7 @@ namespace sho_hamiltonian {
 
   status_t test_Hamiltonian(int const echo=5) {
       status_t stat(0);
-      
+
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
