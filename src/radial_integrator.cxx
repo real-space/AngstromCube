@@ -36,40 +36,51 @@ namespace radial_integrator {
   // integrates the radial SRA equation inwards and outwards,
   // accepts Z_effective(r) instead of a spherical potential V(r) or r*V(r)
 
-  double relativistic_power_series(float const Z, ell_QN_t const ell, double const V0mE, double ps[][2]) {
-    double constexpr c0 = 137.0359895; // speed of light
-    auto const llp1 = ell*(ell + 1.);
-    auto const aa = -std::max(Z, 1.f)/c0;
-
-    // gf[G:F] = (sum_{i=0}^{10} ps[i][G:F] * r^(i+s))
-    double const s = std::sqrt(llp1 + 1 - aa*aa);
-
-    auto const bb = llp1 - aa*aa;
-    auto const p21 = V0mE/c0;
-    auto const p12 = 2*c0 - p21;
-    int constexpr G=0, F=1;
-    ps[0][G] = 1.; ps[0][F] = (1. - s)/aa; // for exponent 0
-    full_debug(printf("# %s: Z=%g l=%d V=%g %s coeff G,F  %g,%g", __func__, Z, ell, V0mE*eV, _eV, ps[0][G], ps[0][F]));
-    for(auto k = 1; k < 9; ++k) {
-        auto const alfa = p12*ps[k - 1][F];
-        auto beta =    aa*p21*ps[k - 1][G];
-        if (ell) {
-          beta -= p12*(aa*ps[k - 1][G] - (k + s)*ps[k - 1][F]);
-          if (k > 1) beta -= p12*p21*ps[k - 2][G];
-        } // ell
-        auto const detinv = 1./(k*(k + 2*s)*aa);
-        ps[k][G] = (alfa*(k + s + 1) - beta)*aa*detinv;
-        ps[k][F] = (beta*(k + s - 1) - bb*alfa)*detinv;
-        full_debug(printf("  %g,%g", ps[k][G], ps[k][F]));
-    } // k
-    full_debug(printf("\n"));
-    for(auto k = 9; k < 11; ++k) { ps[k][G] = 0; ps[k][F] = 0; }
-    return s;
+  double relativistic_power_series( // returns exponent
+        double const Z // number of protons
+      , ell_QN_t const ell // angular momentum quantum number
+      , double const V0mE // V(r=0) - E
+      , double ps[][2] // large and small component
+  ) {
+      int constexpr G=0, F=1;
+      double constexpr c0 = 137.0359895; // speed of light
+      auto const llp1 = ell*(ell + 1.);
+      auto const aa = -std::max(Z, 1.)/c0;
+      // gf[G:F] = (sum_{i=0}^{10} ps[i][G:F] * r^(i+s))
+      double const s = std::sqrt(llp1 + 1 - aa*aa);
+      auto const bb = llp1 - aa*aa;
+      auto const p21 = V0mE/c0;
+      auto const p12 = 2*c0 - p21;
+      ps[0][G] = 1.; ps[0][F] = (1. - s)/aa; // for exponent 0
+      full_debug(printf("# %s: Z=%g l=%d V=%g %s coeff G,F  %g,%g", __func__, Z, ell, V0mE*eV, _eV, ps[0][G], ps[0][F]));
+      for(auto k = 1; k < 9; ++k) {
+          auto const alfa = p12*ps[k - 1][F];
+          auto beta =    aa*p21*ps[k - 1][G];
+          if (ell > 0) {
+            beta -= p12*(aa*ps[k - 1][G] - (k + s)*ps[k - 1][F]);
+            if (k > 1) beta -= p12*p21*ps[k - 2][G];
+          } // ell > 0
+          auto const detinv = 1./(k*(k + 2*s)*aa);
+          ps[k][G] = (alfa*(k + s + 1) - beta)*aa*detinv;
+          ps[k][F] = (beta*(k + s - 1) - bb*alfa)*detinv;
+          full_debug(printf("  %g,%g", ps[k][G], ps[k][F]));
+      } // k
+      full_debug(printf("\n"));
+      for(auto k = 9; k < 11; ++k) {
+          ps[k][G] = 0;
+          ps[k][F] = 0;
+      } // k
+      return s;
   } // relativistic_power_series
   
 
-  void power_series_by_Horner_scheme(double &gg, double &ff,
-      double const ps[][2], double const rpow, double const r) {
+  void power_series_by_Horner_scheme(
+        double & gg // result: large component
+      , double & ff // result: small component
+      , double const ps[][2] // polynomial coefficients
+      , double const rpow // power for radius
+      , double const r // radius
+  ) {
         int constexpr G=0, F=1; // constants
         gg = ps[10][G];
         ff = ps[10][F];
@@ -124,8 +135,15 @@ namespace radial_integrator {
   //   !!            2m(r) r^2
   //   !! Hartree atomic units, m_0=1, e^2=1, c_0=1/alpha=137.036
 
-    template <int SRA>
-    void sra(float const llp1, double const rV, double const E, double const r, double const dr, double s[][2]) {
+    template <int SRA> // 0:non_relativistic, 1:scalar_relativistic, 2:sqrt_approximated
+    void sra(
+          double s[][2] // result see above
+        , float const llp1 // ell*(ell + 1)
+        , double const rV
+        , double const E // energy
+        , double const r // radius
+        , double const dr // radial grid spacing
+    ) {
         double constexpr m0 = 1; // the rest mass of the electron
         double const Ekin = E - rV/r; // = (E - (V_Hxc(r) - e^2*Z/r)) kinetic energy
         
@@ -133,7 +151,7 @@ namespace radial_integrator {
         double constexpr c0m2 = 5.325136192159324e-05; // 1/c0^2
         double const mrel = m0 * ((0 == SRA) ? 1 :
               ((2 == SRA) ?      (1 + 0.5*Ekin*c0m2)    // approximation for sqrt(1 + Ekin/(m0 c0^2))
-                          : std::sqrt(1 + Ekin*c0m2))); // fully relativistic mass
+                          : std::sqrt(1 + Ekin*c0m2))); // scalar relativistic mass
         s[0][0] = dr/r;      // 1/r
         s[0][1] = dr*mrel;   // m(r)
         s[1][0] = dr*(llp1/(mrel*r*r) - 2*Ekin); // 2W with m(r)
@@ -180,7 +198,7 @@ int integrate_inwards( // return the number of nodes
             vd[1] = -std::sqrt(std::max(1., 2*(rV[ir]/g.r[ir] - E))) * vd[0];
         } // valder
         
-        sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
+        sra<SRA>(s, llp1, rV[ir], E, g.r[ir], g.dr[ir]);
         gg[ir] =  vd[0];
         ff[ir] = (vd[1]*g.dr[ir] + s[1][1]*vd[0]) / s[0][1];
 
@@ -198,7 +216,7 @@ int integrate_inwards( // return the number of nodes
         double const  ri12 = (3* g.r[ir + 1] + 6* g.r[ir] -  g.r[ir - 1])/8.;
         double const rVi12 = (3*  rV[ir + 1] + 6*  rV[ir] -   rV[ir - 1])/8.;
 
-        sra<SRA>(llp1, rVi12, E, ri12, dri12, s); // half step
+        sra<SRA>(s, llp1, rVi12, E, ri12, dri12); // half step
 
         bG = gg[ir - Step] - 0.5*aG[0];
         bF = ff[ir - Step] - 0.5*aF[0];
@@ -212,7 +230,7 @@ int integrate_inwards( // return the number of nodes
         aG[2] = s[0][0] * bG + s[0][1] * bF;
         aF[2] = s[1][0] * bG + s[1][1] * bF;
 
-        sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
+        sra<SRA>(s, llp1, rV[ir], E, g.r[ir], g.dr[ir]);
 
         bG = gg[ir - Step] - 1.0*aG[2];
         bF = ff[ir - Step] - 1.0*aF[2];
@@ -246,7 +264,7 @@ int integrate_inwards( // return the number of nodes
         printf("# %s: loop ir=%d r= %g %s\n", __func__, ir, g.r[ir]*Ang, _Ang);
 #endif
 
-        sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
+        sra<SRA>(s, llp1, rV[ir], E, g.r[ir], g.dr[ir]);
 
         // b = (24/h*gf(:,ir-h) +19*d(:,1) -5*d(:,2) + d(:,3) ) / 9.
         // Integrator weights for Adams Moulton multistep (3-step)
@@ -349,7 +367,7 @@ int integrate_outwards( // return the number of nodes
         nnodes += (sign_gg * sign_gg_prev < 0); // count nodes of the greater component
         sign_gg_prev = sign_gg; // for the next iteration
 
-        sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
+        sra<SRA>(s, llp1, rV[ir], E, g.r[ir], g.dr[ir]);
 
         dG[2 - i3] = s[0][0] * bG + s[0][1] * bF;
         dF[2 - i3] = s[1][0] * bG + s[1][1] * bF;
@@ -382,7 +400,7 @@ int integrate_outwards( // return the number of nodes
             bF -= (2*8./3.)*g.dr[ir]*rp[ir]; // inhomogeneity comes in here
         } // rp
 
-        sra<SRA>(llp1, rV[ir], E, g.r[ir], g.dr[ir], s);
+        sra<SRA>(s, llp1, rV[ir], E, g.r[ir], g.dr[ir]);
 
         // determinant(8/3h - s)
         double const eight3rds = 8./(3.*Step);
@@ -516,7 +534,7 @@ int integrate_outwards( // return the number of nodes
     double* r2rho) // [optional, out] density of that wave function*r^2
   {
     if (0 == sra) return shoot_sra<0>(g, rV, ell, E, nn, rf, r2rho); // non relativistic mass
-    if (1 == sra) return shoot_sra<1>(g, rV, ell, E, nn, rf, r2rho); // fully relativistic mass
+    if (1 == sra) return shoot_sra<1>(g, rV, ell, E, nn, rf, r2rho); // scalar relativistic mass
     if (2 == sra) return shoot_sra<2>(g, rV, ell, E, nn, rf, r2rho); // approx relativistic mass 
     printf("Error in %s, sra=%d not implemented!\n", __func__, sra); exit(__LINE__);
   } // shoot

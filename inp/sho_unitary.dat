@@ -1,5 +1,5 @@
 # unitary transform from Cartesian to radial SHO states for lmax = 9
-# nx ny nz ell emm nrn den nom
+# nx ny nz ell emm nrn sign*nominator^2 denominator^2
 0 0 0 0 0 0 1 1 
 
 1 0 0 1 -1 0 1 1 

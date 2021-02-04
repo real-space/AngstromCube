@@ -1,8 +1,9 @@
 #pragma once
 
+#include <vector> // std::vector
+
 #include "angular_grid.h" // angular_grid_t
 #include "gaunt_entry.h" // gaunt_entry_t
-#include <vector> // std::vector
 
 #include "status.hxx" // status_t
 

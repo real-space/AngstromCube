@@ -57,7 +57,7 @@ namespace angular_grid {
       } // in range
 
 //       if (ellmax < 0) { // memory cleanup
-//           if (echo > 2) printf("# %s: memory cleanup!\n", __func__);
+//           if (echo > 2) printf("# %s: memory cleanup!\n", __FILE__);
 //           for(int ell = 0; ell <= ellmax_implemented; ++ell) {
 //               auto g = &grids[ell];
 //               if ((g.npoints > 0) && (g.ellmax == ell)) {

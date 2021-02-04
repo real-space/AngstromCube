@@ -74,7 +74,7 @@ public:
   //     debug_printf("# view2D& operator= (view2D<T> const & rhs);\n");
   //     _data = rhs._data;
   //     _n0   = rhs._n0; 
-  //     _n1   = rhs._n0;
+  //     _n1   = rhs._n1;
   //     _mem  = 0; // we are just a shallow copy
   //     return *this;
   // } // move assignment
