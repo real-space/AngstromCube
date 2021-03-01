@@ -47,14 +47,14 @@ namespace green_function {
   template <typename T>
   T* get_memory(size_t const size=1) {
 #ifdef DEBUG
-      printf("# managed memory: %lu x %.3f kByte = \t%.6f %s\n", size, 1e-3*sizeof(T), size*sizeof(T)*GByte, _GByte);
+      std::printf("# managed memory: %lu x %.3f kByte = \t%.6f %s\n", size, 1e-3*sizeof(T), size*sizeof(T)*GByte, _GByte);
 #endif
       T* d{nullptr};
 #ifdef HAS_CUDA
       CCheck(cudaMallocManaged(&d, size*sizeof(T)));
 #else
       d = new T[size];
-#endif     
+#endif
       return d;
   } // get_memory
 
@@ -174,14 +174,14 @@ namespace green_function {
           set(num, 3, num_target_coords);
           int const num_dd = num[dd];
           num[dd] = 1; // replace number of target blocks in derivative direction
-          if (echo > 0) printf("# FD lists for the %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
+          if (echo > 0) std::printf("# FD lists for the %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
           simple_stats::Stats<> length_stats;
           std::vector<std::vector<int32_t>> list;
           size_t const max_lists = nRHSs*size_t(num[Z])*num[Y]*num[X];
           list.resize(max_lists);
           int ilist{0};
           for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
-//                if (echo > 0) printf("# FD list for RHS #%i\n", iRHS);
+//                if (echo > 0) std::printf("# FD list for RHS #%i\n", iRHS);
               auto const & sparsity_RHS = sparsity_pattern[iRHS];
               for(int iz = 0; iz < num[Z]; ++iz) { //  
               for(int iy = 0; iy < num[Y]; ++iy) { //   only 2 of these 3 loops have a range > 1
@@ -189,7 +189,7 @@ namespace green_function {
                   int idx[3] = {ix, iy, iz};
                   for(int id = 0; id < num_dd; ++id) { // loop over direction to derive
                       idx[dd] = id; // replace index in the derivate direction
-//                           if (echo > 0) printf("# FD list for RHS #%i test coordinates %i %i %i\n",
+//                           if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n",
 //                                                   iRHS, idx[X], idx[Y], idx[Z]);
                       auto const idx3 = index3D(num_target_coords, idx);
                       if (sparsity_RHS[idx3]) {
@@ -212,7 +212,7 @@ namespace green_function {
                   int const list_length = list[ilist].size();
                   if (list_length > 0) {
                       length_stats.add(list_length);
-//                           if (echo > 0) printf("# FD list of length %d for the %c-direction %i %i %i\n",
+//                           if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n",
 //                                                   list_length, direction, idx[X], idx[Y], idx[Z]);
                       // add end-of-sequence markers
                       list[ilist].push_back(-1);
@@ -221,8 +221,8 @@ namespace green_function {
                   } // list_length > 0
               }}} // ixyz
           } // iRHS
-          n_lists = ilist;
-          if (echo > 0) printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
+          n_lists = ilist; assert(n_lists == ilist);
+          if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
                                 n_lists, direction, n_lists/(max_lists*.01),
                                 length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
 
@@ -234,7 +234,7 @@ namespace green_function {
               prefix[ilist + 1] = prefix[ilist] + n;
           } // ilist
           size_t const ntotal = prefix[n_lists];
-          if (echo > 0) printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
+          if (echo > 0) std::printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
                                   direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
           fd_list = get_memory<int32_t>(ntotal);
           for(int ilist = 0; ilist < n_lists; ++ilist) {
@@ -245,7 +245,7 @@ namespace green_function {
       } // constructor
 
       finite_difference_plan_t& operator= (finite_difference_plan_t && rhs) {
-          // printf("# finite_difference_plan_t& operator= (finite_difference_plan_t && rhs);\n");
+          // std::printf("# finite_difference_plan_t& operator= (finite_difference_plan_t && rhs);\n");
           std::swap(fd_list, rhs.fd_list);
           std::swap(prefix , rhs.prefix);
           std::swap(n_lists, rhs.n_lists);
@@ -253,7 +253,7 @@ namespace green_function {
       } // move assignment
       
       finite_difference_plan_t(finite_difference_plan_t && rhs) = delete;
-//       {   printf("# finite_difference_plan_t(finite_difference_plan_t && rhs);\n");
+//       {   std::printf("# finite_difference_plan_t(finite_difference_plan_t && rhs);\n");
 //           *this = std::move(rhs);
 //       } // move constructor
 
@@ -262,7 +262,7 @@ namespace green_function {
       finite_difference_plan_t& operator= (finite_difference_plan_t const & rhs) = delete; // move assignment
 
       ~finite_difference_plan_t() {
-          // printf("# destruct %s, pointers= %p and %p\n", __func__, fd_list, prefix); std::fflush(stdout);
+          // std::printf("# destruct %s, pointers= %p and %p\n", __func__, fd_list, prefix); std::fflush(stdout);
           free_memory(fd_list);
           free_memory(prefix);
       } // destructor
@@ -324,11 +324,11 @@ namespace green_function {
       double *grid_spacing = nullptr;
 
       plan_t() {
-          printf("# construct %s\n", __func__); std::fflush(stdout);
+          std::printf("# construct %s\n", __func__); std::fflush(stdout);
       } // constructor
 
       ~plan_t() {
-          printf("# destruct %s\n", __func__); std::fflush(stdout);
+          std::printf("# destruct %s\n", __func__); std::fflush(stdout);
           free_memory(ApcStart);
           free_memory(RowStart);
           free_memory(rowindx);
@@ -357,13 +357,13 @@ namespace green_function {
       action_t(plan_t *plan) 
         : p(plan), apc(nullptr), aac(nullptr)
       {
-          printf("# construct %s\n", __func__); std::fflush(stdout);
+          std::printf("# construct %s\n", __func__); std::fflush(stdout);
           char* buffer{nullptr};
           take_memory(buffer);
       } // constructor
 
       ~action_t() {
-          printf("# destruct %s\n", __func__); std::fflush(stdout);
+          std::printf("# destruct %s\n", __func__); std::fflush(stdout);
           free_memory(apc);
           free_memory(aac);
       } // destructor
@@ -373,6 +373,7 @@ namespace green_function {
           auto const nac = p->ApcStart[p->natom_images];
           auto const n = size_t(nac) * size_t(p->nCols);
           // ToDo: could be using GPU memory taking it from the buffer
+          // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
           apc = get_memory<real_t[2][LM]>(n);
           aac = get_memory<real_t[2][LM]>(n);
       } // take_memory
@@ -403,7 +404,8 @@ namespace green_function {
       ) {
 
       // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
-      // indicies named after H_{ij} G_{jk} = HG_{ik}
+      // indicies named according to H_{ij} G_{jk} = HG_{ik}
+      //                          or A_{ij} X_{jk} =  Y_{ik}
       //
       //      projection:
       //      apc.set(0); // clear
@@ -423,7 +425,7 @@ namespace green_function {
               // project at position p->atom_data[iai].pos
               // into apc[(p->ApcStart[iai]:p->ApcStart[iai + 1])*p->nCols][2][64]
           } // iai
-          
+
       //
       //      meanwhile: kinetic energy including the local potential
       //      HG = finite_difference_kinetic_energy(G);
@@ -439,14 +441,14 @@ namespace green_function {
       //                      HG[inz][ri][i4,j16][k64] +=
       //                       G[jnz][ri][j4,j16][k64] * T_FD[|imj|]
       //                  }
-          
+
           // clear y
           for(size_t inz = 0; inz < nnzbY; ++inz) {
               for(int cij = 0; cij < 2*LM*LM; ++cij) {
                   y[inz][0][0][cij] = 0;
               } // cij
           } // inz
-          
+
           // kinetic energy
           for(int dd = 0; dd < 3; ++dd) { // derivative direction
 //            simple_stats::Stats<> ts;
@@ -456,8 +458,8 @@ namespace green_function {
                   //
                   // Warning: this implementation of the finite-difference stencil
                   // is only correct for LM==1, where it performs the lowest order
-                  // kinetic energy stencil -0.5*[1 -2 1], but is features the same 
-                  // memory traffic profile as an 8th order FD-stencil for LM=64.
+                  // kinetic energy stencil -0.5*[1 -2 1], but it features the same 
+                  // memory traffic profile as an 8th order FD-stencil for LM=64=4*4*4.
                   //
                   auto const *const list = fd.list(il); // we will load at least 2 indices from list
                   int ilist{0}; // counter for index list
@@ -465,7 +467,7 @@ namespace green_function {
 
                   real_t block[4][2][LM][LM]; // 4 temporary blocks
                   
-                  set(block[1][0][0], 2*LM*LM, real_t(0)); // initialize non-existing block
+                  set(block[1][0][0], 2*LM*LM, real_t(0)); // initialize zero, a non-existing block
 
                   // initially load one block in advance
                   assert(inext > -1 && "the 1st index must be valid!");
@@ -491,8 +493,8 @@ namespace green_function {
 //                ts.add(list_timer.stop());
 //                ts.add(ilist - 1); // how many blocks have been loaded and computed?
               } // il
-//            printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.avg(), ts.var(), ts.min(), ts.max());
-//            printf("# derivative in %c-direction: %g +/- %g in [%g, %g] indices\n", 'x'+dd, ts.avg(), ts.var(), ts.min(), ts.max());
+//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.avg(), ts.var(), ts.min(), ts.max());
+//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] indices\n", 'x'+dd, ts.avg(), ts.var(), ts.min(), ts.max());
               // ===== synchronize to avoid race conditions on y ========
           } // dd
 
@@ -544,7 +546,7 @@ namespace green_function {
           float const hg[3] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
           
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
-          
+
           for(uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
               real_t V[LM]; // buffer, probably best using shared memory of the SMx
               set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
@@ -578,7 +580,7 @@ namespace green_function {
                           float const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
 
                           stats_d2.add(d2);
-//                           if (d2 > 71.18745) printf("# d2= %g iCol=%i (%i %i %i)*4 + (%i %i %i)  iRow=%i (%i %i %i)*4 + (%i %i %i)\n", d2,
+//                           if (d2 > 71.18745) std::printf("# d2= %g iCol=%i (%i %i %i)*4 + (%i %i %i)  iRow=%i (%i %i %i)*4 + (%i %i %i)\n", d2,
 //                               iCol, source_coords[0], source_coords[1], source_coords[2], i4x, i4y, i4z,
 //                               iRow, target_coords[0], target_coords[1], target_coords[2], j4x, j4y, j4z);
 
@@ -613,22 +615,22 @@ namespace green_function {
               } // inz
           } // iRow
 
-          printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
+          std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
           // how many grid points do we expect?
           double const f = 4*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
           double const Vi = pow3(p->r_Vconfinement)*f;
           double const Vo = pow3(p->r_truncation)*f;
-          printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
-          printf("# stats  inner %g conf %g outer %g grid points\n", 
+          std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
+          std::printf("# stats  inner %g conf %g outer %g grid points\n", 
                   stats_inner.num(), stats_Vconf.num(), stats_outer.num());
           
-          printf("# stats       distance^2 %g [%g, %g] Bohr^2\n",
+          std::printf("# stats       distance^2 %g [%g, %g] Bohr^2\n",
                   stats_d2.avg(), stats_d2.min(), stats_d2.max());
-          printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n",
+          std::printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n",
                   stats_inner.avg(), stats_inner.min(), stats_inner.max());
-          printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n",
+          std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n",
                   stats_conf.avg(), stats_conf.min(), stats_conf.max());
-          printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n",
+          std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n",
                   stats_outer.avg(), stats_outer.min(), stats_outer.max());
 
           return 0; // no flops performed so far
@@ -658,7 +660,7 @@ namespace green_function {
       , std::complex<double> const *energy_parameter=nullptr
   ) {
       int constexpr X=0, Y=1, Z=2;
-      if (echo > 0) printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
+      if (echo > 0) std::printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
@@ -666,11 +668,11 @@ namespace green_function {
 
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for(int d = 0; d < 3; ++d) {
-          assert((0 == (ng[d] & 0x3)) && "All grid dimensions must be a multiple of 4!");
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
+          assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
       } // d
 
-      if (echo > 3) { printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
+      if (echo > 3) { std::printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
 
       assert(Veff.size() == ng[Z]*ng[Y]*ng[X]);
 
@@ -712,11 +714,11 @@ namespace green_function {
       // given a max distance r_trunc between source blocks and target blocks
 
       double const r_block_circumscribing_sphere = 1.5*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
-      if (echo > 0) printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
+      if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
       // assume that the source blocks lie compact in space
       int const nRHSs = n_original_Veff_blocks[Z] * n_original_Veff_blocks[Y] * n_original_Veff_blocks[X];
-      if (echo > 0) printf("# total number of source blocks is %d\n", nRHSs);
+      if (echo > 0) std::printf("# total number of source blocks is %d\n", nRHSs);
       view2D<uint32_t> global_source_coords(nRHSs, 4, 0); // unsigned since they must be in [0, 2^21) anyway
       p->global_source_indices.resize(nRHSs); // [nRHSs]
       p->nCols = nRHSs;
@@ -735,6 +737,7 @@ namespace green_function {
                   global_source_coords(iRHS,X) = ibx;
                   global_source_coords(iRHS,Y) = iby;
                   global_source_coords(iRHS,Z) = ibz;
+                  global_source_coords(iRHS,3) = 0; // unused
                   p->global_source_indices[iRHS] = global_coordinates::get(ibx, iby, ibz);
                   for(int d = 0; d < 3; ++d) {
                       int32_t const rhs_coord = global_source_coords(iRHS,d);
@@ -754,7 +757,7 @@ namespace green_function {
               center_of_RHSs[d] = ((middle2*0.5)*4 + 1.5)*hg[d];
           } // d
           
-          if (echo > 0) printf("# internal and global coordinates differ by %d %d %d\n",
+          if (echo > 0) std::printf("# internal and global coordinates differ by %d %d %d\n",
               internal_global_offset[X], internal_global_offset[Y], internal_global_offset[Z]);
 
           p->source_coords = get_memory<int16_t[4]>(nRHSs); // internal coordindates
@@ -776,17 +779,17 @@ namespace green_function {
           } // scope
 
       } // scope
-      if (echo > 0) printf("# center of mass of RHS blocks is %g %g %g %s\n",
+      if (echo > 0) std::printf("# center of mass of RHS blocks is %g %g %g %s\n",
           center_of_mass_RHS[X]*Ang, center_of_mass_RHS[Y]*Ang, center_of_mass_RHS[Z]*Ang, _Ang);
-      if (echo > 0) printf("# center of of RHS blocks is %g %g %g %s\n",
+      if (echo > 0) std::printf("# center of of RHS blocks is %g %g %g %s\n",
           center_of_RHSs[X]*Ang, center_of_RHSs[Y]*Ang, center_of_RHSs[Z]*Ang, _Ang);
-      if (echo > 0) printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
+      if (echo > 0) std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
                               max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
 
       
       // truncation radius
       double const r_trunc = control::get("green.function.truncation.radius", 10.);
-      if (echo > 0) printf("# green.function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
+      if (echo > 0) std::printf("# green.function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
       p->r_truncation = std::max(0., r_trunc);
       p->r_Vconfinement = std::min(std::max(0., r_trunc - 2.0), p->r_truncation);
 
@@ -811,8 +814,8 @@ namespace green_function {
           auto const rtrunc       = std::max(0., r_trunc);
           auto const rtrunc_plus  =              rtrunc + 2*r_block_circumscribing_sphere;
           auto const rtrunc_minus = std::max(0., rtrunc - 2*r_block_circumscribing_sphere);
-          if (echo > 0) printf("# truncation radius %g, search within %g %s\n", rtrunc*Ang, rtrunc_plus*Ang, _Ang);
-          if (echo > 0) printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
+          if (echo > 0) std::printf("# truncation radius %g, search within %g %s\n", rtrunc*Ang, rtrunc_plus*Ang, _Ang);
+          if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
           int16_t itr[3]; // range [-32768, 32767] should be enough
           for(int d = 0; d < 3; ++d) {
@@ -827,52 +830,65 @@ namespace green_function {
           auto const product_target_blocks = size_t(num_target_coords[Z])*
                                              size_t(num_target_coords[Y])*
                                              size_t(num_target_coords[X]);
-          if (echo > 0) printf("# all targets within (%i, %i, %i) and (%i, %i, %i) --> %d x %d x %d = %.3f k\n",
+          if (echo > 0) std::printf("# all targets within (%i, %i, %i) and (%i, %i, %i) --> %d x %d x %d = %.3f k\n",
               min_target_coords[X], min_target_coords[Y], min_target_coords[Z],
               max_target_coords[X], max_target_coords[Y], max_target_coords[Z], 
               num_target_coords[X], num_target_coords[Y], num_target_coords[Z], product_target_blocks*.001);
           std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
 
-          double const r2trunc       = pow2(rtrunc),
-                       r2trunc_plus  = pow2(rtrunc_plus),
-                       r2trunc_minus = pow2(rtrunc_minus);
+          double const r2trunc        = pow2(rtrunc),
+                       r2trunc_plus   = pow2(rtrunc_plus),
+                       r2trunc_minus  = pow2(rtrunc_minus);
+          double const r2block_circum = pow2(r_block_circumscribing_sphere*3);
 
           std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
           assert(nRHSs < 65536 && "the integer type of ColIndex is uint16_t!");
-          std::vector<std::vector<bool>> sparsity_pattern(nRHSs);
+          std::vector<std::vector<bool>> sparsity_pattern(nRHSs); // vector<bool> is a memory-saving bit-array
 
           for(uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
               sparsity_pattern[iRHS] = std::vector<bool>(product_target_blocks, false);
-              auto & sparsity_RHS = sparsity_pattern[iRHS];
-              auto const *const source_coords = p->source_coords[iRHS]; // internal coordinates
+              auto & sparsity_RHS = sparsity_pattern[iRHS]; // abbreviate
+              auto const *const source_coords = p->source_coords[iRHS]; // internal source block coordinates
               simple_stats::Stats<> stats[3];
-              uint32_t hist[9] = {0,0,0,0, 0,0,0,0, 0}; // distribution of nci
-              simple_stats::Stats<> stats_d2[9];
+              int constexpr max_nci = 27;
+              std::vector<int> hist(1 + max_nci, 0); // distribution of nci
+              simple_stats::Stats<> stats_d2[1 + max_nci];
               for(int16_t bz = -itr[Z]; bz <= itr[Z]; ++bz) {
               for(int16_t by = -itr[Y]; by <= itr[Y]; ++by) {
               for(int16_t bx = -itr[X]; bx <= itr[X]; ++bx) {
-                  int16_t const bxyz[3] = {bx, by, bz}; // difference vector
-                  int16_t target_coords[3]; // internal target coordinates
+                  int16_t const bxyz[3] = {bx, by, bz}; // block difference vector
+                  int16_t target_coords[3]; // internal target block coordinates
                   for(int d = 0; d < 3; ++d) {
                       target_coords[d] = source_coords[d] + bxyz[d];
                       assert(target_coords[d] >= min_target_coords[d]);
                       assert(target_coords[d] <= max_target_coords[d]);
                   } // d
+                  // distance^2 of the block centers
                   double const d2 = pow2(bx*4*hg[X]) + pow2(by*4*hg[Y]) + pow2(bz*4*hg[Z]);
-                  uint8_t nci{0}; // number of corners inside
+
+                  uint8_t nci{0}; // init number of corners inside
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 corner cases
-//                    if (d2 < r2trunc_minus) { nci = 8; } else // skip the 8-corners test for inner blocks -> some speedup
+                      int const far = (d2 > r2block_circum);
+//                    if (d2 < r2trunc_minus) { nci = max_nci; } else // skip the 8-corners test for inner blocks -> some speedup
                       { // scope: 8 corner test
-                          // i = i4 - j4 --> i in [-3, 3], test only the 8 combinations of {-3, 3}
-                          for(int iz = -3; iz < 4; iz += 6) {
-                          for(int iy = -3; iy < 4; iy += 6) {
-                          for(int ix = -3; ix < 4; ix += 6) {
-                              double const d2c = pow2((bx*4 + ix)*hg[X]) + pow2((by*4 + iy)*hg[Y]) + pow2((bz*4 + iz)*hg[Z]);
+                         // i = i4 - j4 --> i in [-3, 3], 
+                         //     if two blocks are far from each other, we test only the 8 combinations of {-3, 3}
+                         //     for blocks close to each other, we test all 27 combinations of {-3, 0, 3}
+                          for(int iz = -3; iz <= 3; iz += 3 + 3*far) {
+                          for(int iy = -3; iy <= 3; iy += 3 + 3*far) {
+                          for(int ix = -3; ix <= 3; ix += 3 + 3*far) {
+                              double const d2c = pow2((bx*4 + ix)*hg[X])
+                                               + pow2((by*4 + iy)*hg[Y])
+                                               + pow2((bz*4 + iz)*hg[Z]);
+//                               if (0 == iRHS && (d2c < r2trunc)) {
+//                                   std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
+//                                       __func__, bx,by,bz, ix,iy,iz, d2c, (d2c < r2trunc)?"in":"out");
+//                               }
                               nci += (d2c < r2trunc);
-                          }}} // ixyz
+                          }}}
                       } // scope
 
-                      if (d2 < r2trunc_minus) assert(8 == nci); // for these, we could skip the 8-corners test
+                      if (d2 < r2trunc_minus) assert(27 + far*(8 - 27) == nci); // for these, we could skip the 8-corners test
                   } // d2
 
                   if (nci > 0) { 
@@ -895,20 +911,26 @@ namespace green_function {
                   stats_d2[nci].add(d2);
 
               }}} // xyz
-              if (echo > 7) printf("# RHS at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n",
+              if (echo > 7) {
+                  std::printf("# RHS at %i %i %i reaches from (%g, %g, %g) to (%g, %g, %g)\n",
                       global_source_coords(iRHS,X), global_source_coords(iRHS,Y), global_source_coords(iRHS,Z),
                       stats[X].min(), stats[Y].min(), stats[Z].min(),
                       stats[X].max(), stats[Y].max(), stats[Z].max());
-              
+              } // echo
               if (echo > 2) {
                   if (0 == iRHS) {
-                      auto const partial = hist[1] + hist[2] + hist[3] + hist[4] + hist[5] + hist[6] + hist[7];
-                      printf("# RHS has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
-                                    hist[8]*.001, partial*.001, hist[0]*.001, (hist[0] + partial + hist[8])*.001);
-                      for(int nci = 0; nci <= 8; ++nci) {
-                          printf("# RHS has%9.3f k cases with %d corners inside, d2 stats: %g +/- %g in [%g, %g] Bohr^2\n",
-                              hist[nci]*.001, nci, stats_d2[nci].avg(), stats_d2[nci].var(), stats_d2[nci].min(), stats_d2[nci].max());
+                      int total_checked{0};
+                      // list in detail
+                      for(int nci = 0; nci <= max_nci; ++nci) {
+                          if (hist[nci] > 0) {
+                              std::printf("# RHS has%9.3f k cases with %d corners inside, d2 stats: %g +/- %g in [%g, %g] Bohr^2\n",
+                                  hist[nci]*.001, nci, stats_d2[nci].avg(), stats_d2[nci].var(), stats_d2[nci].min(), stats_d2[nci].max());
+                              total_checked += hist[nci];
+                          } // hist[nci] > 0
                       } // nci
+                      auto const partial = total_checked - hist[0] - hist[max_nci];
+                      std::printf("# RHS has %.3f k inside, %.3f k partial and %.3f k outside (of %.3f k checked blocks)\n",
+                                    hist[max_nci]*.001, partial*.001, hist[0]*.001, total_checked*.001);
                   } // RHS #0
               } // echo
           } // iRHS
@@ -926,19 +948,19 @@ namespace green_function {
               nall += hist[n];
               nnz  += hist[n]*n;
           } // n
-          if (echo > 5) { printf("# histogram total=%.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
+          if (echo > 5) { std::printf("# histogram total=%.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
           assert(nall == product_target_blocks); // sanity check
 
           p->nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
-          if (echo > 0) printf("# total number of Green function blocks is %.3f k, "
+          if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
                                "average %.1f per source block\n", nnz*.001, nnz/double(nRHSs));
-          if (echo > 0) printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
+          if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
               p->nRows*.001, p->nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
           assert(nnz < (uint64_t(1) << 32) && "the integer type or RowStart is uint32_t!");
 
           // resize BSR tables: (Block-compressed Sparse Row format)
-          if (echo > 3) { printf("# memory of Green function is %.6f %s (float, twice for double)\n",
+          if (echo > 3) { std::printf("# memory of Green function is %.6f %s (float, twice for double)\n",
                               nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
           auto & ColIndex = p->colindx;
           ColIndex.resize(nnz);
@@ -1014,7 +1036,7 @@ namespace green_function {
               }}} // idx
               assert(p->nRows == iRow);
               assert(nnz == RowStart[p->nRows]);
-              printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.avg(), st.var(), st.min(), st.max());
+              std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.avg(), st.var(), st.min(), st.max());
           } // scope
           column_indices.clear(); // not needed beyond this point
 
@@ -1032,7 +1054,7 @@ namespace green_function {
               for(uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
                   st.add(nt[iRHS]);
               } // iRHS
-              printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.avg(), st.var(), st.min(), st.max());
+              std::printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.avg(), st.var(), st.min(), st.max());
           } // echo
 
           // Green function is stored sparse 
@@ -1063,7 +1085,7 @@ namespace green_function {
 
 
       int const natoms = atom_mat.size();
-      if (echo > 2) printf("\n#\n# %s: Start atom part, %d atoms\n#\n", __func__, natoms);
+      if (echo > 2) std::printf("\n#\n# %s: Start atom part, %d atoms\n#\n", __func__, natoms);
 
       // compute which atoms will contribute, the list of natoms atoms may contain a subset of all atoms
       double max_projection_radius{0};
@@ -1072,7 +1094,7 @@ namespace green_function {
           auto const projection_radius = std::max(0.0, 6*sigma);
           max_projection_radius = std::max(max_projection_radius, projection_radius);
       } // ia
-      if (echo > 3) printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
+      if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
 
 
       p->ApcStart = nullptr;
@@ -1089,11 +1111,11 @@ namespace green_function {
               nimages *= (iimage[d]*2 + 1);
           } // d
           auto const natom_images = natoms*nimages;
-          if (echo > 3) printf("# replicate %d %d %d atom images, %.3f k total\n", 
+          if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k total\n", 
                                   iimage[X], iimage[Y], iimage[Z], nimages*.001);
 
-          std::vector<uint32_t> ApcStart(natom_images + 1, 0); // probably larger than needed, should be [nai + 1] later
-          std::vector<atom_t> atom_data(natom_images);
+          std::vector<uint32_t> ApcStart(natom_images + 1, 0); // probably larger than needed, should call resize(nai + 1) later
+          std::vector<atom_t>  atom_data(natom_images);
           std::vector<uint8_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
 
           simple_stats::Stats<> nc_stats;
@@ -1104,7 +1126,7 @@ namespace green_function {
           for(int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
           for(int y = -iimage[Y]; y <= iimage[Y]; ++y) { // serial
           for(int x = -iimage[X]; x <= iimage[X]; ++x) { // serial
-//            if (echo > 3) printf("# periodic shifts  %d %d %d\n", x, y, z);
+//            if (echo > 3) std::printf("# periodic shifts  %d %d %d\n", x, y, z);
               int const xyz[3] = {x, y, z};
               for(int ia = 0; ia < natoms; ++ia) { // loop over atoms in the unit cell, serial
                   // suggest a new atomic image position
@@ -1115,7 +1137,7 @@ namespace green_function {
                   auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); 
                   auto const numax =       int(xyzZinso[ia*8 + 5]);
                   auto const sigma =           xyzZinso[ia*8 + 6];
-//                   if (echo > 5) printf("# image of atom #%i at %g %g %g %s\n", atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang);
+//                   if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s\n", atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang);
 
                   double const r_projection = pow2(6*sigma); // atom-dependent, precision dependent, assume float here
                   double const r2projection = pow2(r_projection);
@@ -1133,7 +1155,7 @@ namespace green_function {
 //                    if (d2 < r2projection_plus) {
                       if (1) {
                           // do more precise checking
-//                           if (echo > 9) printf("# target block #%i at %i %i %i gets corner check\n",
+//                           if (echo > 9) std::printf("# target block #%i at %i %i %i gets corner check\n",
 //                                           iRow, target_block[X], target_block[Y], target_block[Z]);
                           int nci{0}; // number of corners inside
                           // check 8 corners
@@ -1159,15 +1181,15 @@ namespace green_function {
                               sparse += nCols;
                               dense  += p->nCols; // all columns
                               
-//                               if (echo > 7) printf("# target block #%i at %i %i %i is inside\n",
+//                               if (echo > 7) std::printf("# target block #%i at %i %i %i is inside\n",
 //                                       iRow, target_block[X], target_block[Y], target_block[Z]);
                           } else { // nci
-//                               if (echo > 9) printf("# target block #%i at %i %i %i is outside\n",
+//                               if (echo > 9) std::printf("# target block #%i at %i %i %i is outside\n",
 //                                       iRow, target_block[X], target_block[Y], target_block[Z]);
                           } // nci
 
                       } else { // d2
-//                           if (echo > 21) printf("# target block #%i at %i %i %i is far outside\n",
+//                           if (echo > 21) std::printf("# target block #%i at %i %i %i is far outside\n",
 //                                       iRow, target_block[X], target_block[Y], target_block[Z]);
                       } // d2
                   } // iRow
@@ -1190,32 +1212,32 @@ namespace green_function {
                       atom.numax = numax;
 
                       
-//                       if (echo > 5) printf("# image of atom #%i at %g %g %g %s contributes to %d target blocks\n",
+//                       if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s contributes to %d target blocks\n",
 //                                                 atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang, ntb);
                       ApcStart[iai + 1] = ApcStart[iai] + atom.nc;
                       ++iai;
                   } else {
-//                       if (echo > 15) printf("# image of atom #%i at %g %g %g %s does not contribute\n",
+//                       if (echo > 15) std::printf("# image of atom #%i at %g %g %g %s does not contribute\n",
 //                                                 atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang);
                   } // ntb > 0
               } // ia
           }}} // xyz
 
           auto const nai = iai; // corrected number of atomic images
-          if (echo > 3) printf("# %d of %d (%.2f %%) atom images have an overlap with projection spheres\n",
+          if (echo > 3) std::printf("# %d of %d (%.2f %%) atom images have an overlap with projection spheres\n",
                                   nai, natom_images, nai/(natom_images*.01));
           auto const napc = ApcStart[nai];
 
-          if (echo > 3 && 0 == COUNT) printf("# sparse %g and dense %g\n", sparse, dense);
+          if (echo > 3 && 0 == COUNT) std::printf("# sparse %g and dense %g\n", sparse, dense);
 
-          if (echo > 3) printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
+          if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
                                 nc_stats.avg(), nc_stats.var(), nc_stats.min(), nc_stats.max());
           
-          if (echo > 3) printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
+          if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
           // projection coefficients for the non-local PAW operations are stored
           // as std::complex<real_t> apc[napc][nRHSs][64]
           // or real_t apc[napc][nRHSs][2][64] for the GPU
-          if (echo > 3) printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
+          if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
                                   napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
           p->natom_images = nai;
           p->ApcStart = get_memory<uint32_t>(nai + 1);
@@ -1267,24 +1289,30 @@ namespace green_function {
 
       } // scope
 
-      { // scope: try out the operator
+      int const n_iterations = control::get("green.function.benchmark.iterations", -1.); 
+                      // -1: no iterations, 0:run memory initilziation only, >0: iterate
+      if (n_iterations >= 0) { // scope: try out the operator
           typedef float real_t;
           int constexpr LM = 64;
           action_t<real_t,LM> action(p);
           auto const nnzbX = p->colindx.size();
           auto x = get_memory<real_t[2][LM][LM]>(nnzbX);
           auto y = get_memory<real_t[2][LM][LM]>(nnzbX);
-          for(size_t i = 0; i < nnzbX*2*LM*LM; ++i) x[0][0][0][i] = 0; // init x
+          for(size_t i = 0; i < nnzbX*2*LM*LM; ++i) {
+              x[0][0][0][i] = 0; // init x
+          } // i
 
           // benchmark the action
-          for(int iteration = 0; iteration < 1; ++iteration) {
-              if (echo > 5) { printf("# iteration #%i\n", iteration); std::fflush(stdout); }
+          for(int iteration = 0; iteration < n_iterations; ++iteration) {
+              if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
               action.multiply(y, x, p->colindx.data(), nnzbX, p->nCols);
               std::swap(x, y);
           } // iteration
 
-      } // scope
-      
+      } else {
+          if (echo > 2) std::printf("# green.function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
+      } // n_iterations >= 0
+
       return 0;
   } // construct_Green_function
   
@@ -1311,14 +1339,14 @@ namespace green_function {
           auto const sho_atoms = xml_reading::find_child(grid_Hamiltonian, "sho_atoms", echo);
           if (sho_atoms) {
               auto const number = xml_reading::find_attribute(sho_atoms, "number", "0", echo);
-              if (echo > 5) printf("# found number=%s\n", number);
+              if (echo > 5) std::printf("# found number=%s\n", number);
               natoms = std::atoi(number);
               xyzZinso.resize(natoms*8);
               atom_mat.resize(natoms);
               int ia{0};
               for (auto atom = sho_atoms->first_node(); atom; atom = atom->next_sibling()) {
                   auto const gid = xml_reading::find_attribute(atom, "gid", "-1");
-                  if (echo > 5) printf("# <%s gid=%s>\n", atom->name(), gid);
+                  if (echo > 5) std::printf("# <%s gid=%s>\n", atom->name(), gid);
                   xyzZinso[ia*8 + 4] = std::atoi(gid);
 
                   double pos[3] = {0, 0, 0};
@@ -1328,7 +1356,7 @@ namespace green_function {
                       auto const value = xml_reading::find_attribute(position, axyz);
                       if (*value != '\0') {
                           pos[d] = std::atof(value);
-                          if (echo > 5) printf("# %s = %.15g\n", axyz, pos[d]);
+                          if (echo > 5) std::printf("# %s = %.15g\n", axyz, pos[d]);
                       } // value != ""
                       xyzZinso[ia*8 + d] = pos[d];
                   } // d
@@ -1339,7 +1367,7 @@ namespace green_function {
                       auto const value = xml_reading::find_attribute(projectors, "numax", "-1");
                       if (*value != '\0') {
                           numax = std::atoi(value);
-                          if (echo > 5) printf("# numax= %d\n", numax);
+                          if (echo > 5) std::printf("# numax= %d\n", numax);
                       } // value != ""
                   }
                   double sigma{-1};
@@ -1347,7 +1375,7 @@ namespace green_function {
                       auto const value = xml_reading::find_attribute(projectors, "sigma", "-1");
                       if (*value != '\0') {
                           sigma = std::atof(value);
-                          if (echo > 5) printf("# sigma= %g\n", sigma);
+                          if (echo > 5) std::printf("# sigma= %g\n", sigma);
                       } // value != ""
                   }
                   xyzZinso[ia*8 + 5] = numax;
@@ -1358,9 +1386,9 @@ namespace green_function {
                       auto const matrix_name = h0s1 ? "overlap" : "hamiltonian";
                       auto const matrix = xml_reading::find_child(atom, matrix_name, echo);
                       if (matrix) {
-                          if (echo > 22) printf("# %s.values= %s\n", matrix_name, matrix->value());
+                          if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
                           auto const v = xml_reading::read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
-                          if (echo > 5) printf("# %s matrix has %d values, expect %d x %d = %d\n",
+                          if (echo > 5) std::printf("# %s matrix has %d values, expect %d x %d = %d\n",
                               matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
                           set(atom_mat[ia].data() + h0s1*nSHO*nSHO, nSHO*nSHO, v.data()); // copy
@@ -1377,7 +1405,7 @@ namespace green_function {
               auto const value = xml_reading::find_attribute(spacing, axyz);
               if (*value != '\0') {
                   hg[d] = std::atof(value);
-                  if (echo > 5) printf("# h%s = %.15g\n", axyz, hg[d]);
+                  if (echo > 5) std::printf("# h%s = %.15g\n", axyz, hg[d]);
               } // value != ""
           } // d
 
@@ -1388,12 +1416,12 @@ namespace green_function {
                   auto const value = xml_reading::find_attribute(potential, axyz);
                   if (*value != '\0') {
                       ng[d] = std::atoi(value);
-                      if (echo > 5) printf("# %s = %d\n", axyz, ng[d]);
+                      if (echo > 5) std::printf("# %s = %d\n", axyz, ng[d]);
                   } // value != ""
               } // d
-              if (echo > 33) printf("# potential.values= %s\n", potential->value());
+              if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               Veff = xml_reading::read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
-              if (echo > 5) printf("# potential has %d values, expect %d x %d x %d = %d\n",
+              if (echo > 5) std::printf("# potential has %d values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
           } else warn("grid_Hamiltonian has no potential!");

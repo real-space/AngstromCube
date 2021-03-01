@@ -1,4 +1,4 @@
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cstdlib> // std::abs
 #include <vector> // std::vector
@@ -96,7 +96,7 @@
 #else // NO_UNIT_TESTS
       bool const all = (nullptr == module);
       auto const m = std::string(all ? "" : module);
-      if (echo > 0) printf("# run unit tests for %s%s\n\n", 
+      if (echo > 0) std::printf("# run unit tests for %s%s\n\n", 
                            all?"all modules":"module ", m.c_str());
 
       std::vector<std::pair<std::string,status_t>> run;
@@ -105,7 +105,7 @@
           if (all || (0 == m.compare(#MODULE_NAME))) { \
               SimpleTimer timer("module test for", 0, #MODULE_NAME, 0); \
               if (all && echo > 3) { \
-                  printf("\n\n\n# ============= Module test for " \
+                  std::printf("\n\n\n# ============= Module test for " \
                          #MODULE_NAME " ==================\n\n"); \
               } \
               run.push_back(make_pair(std::string(#MODULE_NAME), MODULE_NAME::all_tests(echo))); \
@@ -178,18 +178,18 @@
       } // testing scope
 
       if (run.size() < 1) { // nothing has been tested
-          if (echo > 0) printf("# ERROR: test for '%s' not found!\n", module);
+          if (echo > 0) std::printf("# ERROR: test for '%s' not found!\n", module);
           status = -1;
       } else {
-          if (echo > 0) printf("\n\n#%3ld modules have been tested:\n", run.size());
+          if (echo > 0) std::printf("\n\n#%3ld modules have been tested:\n", run.size());
           for(auto r : run) {
               auto const stat = r.second;
-              if (echo > 0) printf("#    module= %-24s status= %i\n", r.first.c_str(), int(stat));
+              if (echo > 0) std::printf("#    module= %-24s status= %i\n", r.first.c_str(), int(stat));
               status += std::abs(int(stat));
           } // r
           if (echo > 0) {
-              printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), int(status));
-              if (status > 0) printf("# Warning! At least one module test failed!\n");
+              std::printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), int(status));
+              if (status > 0) std::printf("# Warning! At least one module test failed!\n");
           } // echo
       } // something has been tested
 #endif // NO_UNIT_TESTS
@@ -197,7 +197,7 @@
   } // run_unit_tests
 
   int show_help(char const *executable) {
-      printf("Usage %s [OPTION]\n"
+      std::printf("Usage %s [OPTION]\n"
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
 #ifndef  NO_UNIT_TESTS
@@ -209,25 +209,28 @@
       return 0;
   } // show_help
 
-  int show_version(char const *executable="#") {
+  int show_version(char const *executable="#", int const echo=0) {
 #ifdef _GIT_KEY
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
       #define stringify(b) #b
-      printf("%s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
+      if (echo > 0) { 
+          std::printf("%s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
+      } // echo
+      control::set("git.key", macro2string(_GIT_KEY), 0);
       #undef  stringify
       #undef  macro2string
 #endif // _GIT_KEY
       return 0;
   } // show_version
-  
+
   int main(int const argc, char const *argv[]) {
       status_t stat(0);
-      char const *test_unit = nullptr; // the name of the unit to be tested
+      char const *test_unit{nullptr}; // the name of the unit to be tested
       int run_tests{0};
       int verbosity{3}; // set default verbosity low
       if (argc < 2) {
-          printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
+          std::printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
           return -1;
       } // no argument passed to executable
       for(int iarg = 1; iarg < argc; ++iarg) {
@@ -283,13 +286,14 @@
           } // ci0
 
       } // iarg
+      //
       int echo = int(control::get("verbosity", double(verbosity))); // define verbosity for repeating arguments and control file entries
       if (echo > 0) {
-          printf("\n#");
+          std::printf("\n#");
           for(int iarg = 0; iarg < argc; ++iarg) {
-              printf(" %s", argv[iarg]); // repeat the command line arguments
+              std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
           } // iarg
-          printf("\n");
+          std::printf("\n");
       } // echo
       //
       // in addition to command_line_interface, we can modify the control environment by a file
@@ -297,11 +301,10 @@
       //
       echo = int(control::get("verbosity", double(echo))); // verbosity may have been redefined in the control file
       //
-      if (echo > 0) {
-          printf("\n");
-          show_version();
-          printf("\n# verbosity = %d\n", echo);
-      } // echo
+      show_version();
+      //
+      if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
+      //
       stat += unit_system::set_output_units(
                   control::get("output.energy.unit", "Ha"),
                   control::get("output.length.unit", "Bohr"));

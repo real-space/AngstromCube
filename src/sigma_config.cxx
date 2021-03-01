@@ -252,13 +252,14 @@ namespace sigma_config {
         int8_t mrn;
     } parsed_word_t;
 
-    element_t & get(double const Zcore, int const echo) {
+    element_t & get(double const Zcore, int const echo, char const **configuration) {
 
         char symbol[4];
         int const iZ = chemical_symbol::get(symbol, Zcore);
         char element_Sy[16];
         std::snprintf(element_Sy, 15, "element_%s", symbol);
         auto const config = control::get(element_Sy, default_config(iZ));
+        if (configuration) *configuration = config;
 
         if (echo > 3) printf("# for Z=%g use configuration +%s=\"%s\"\n", Zcore, element_Sy, config);
         // now convert config into an element_t

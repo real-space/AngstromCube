@@ -5,6 +5,7 @@
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
 #include "energy_level.hxx" // partial_wave_t, TRU, SMT, TRU_AND_SMT
+#include "control.hxx" // ::get
 
 namespace paw_xml_export {
 
@@ -27,6 +28,7 @@ namespace paw_xml_export {
       , double const xc_energy=0
       , double const es_energy=0
       , double const total_energy=0
+      , char const *custom_configuration_string=nullptr
       , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
       , bool const show_radial_grid_values=false
@@ -43,7 +45,6 @@ namespace paw_xml_export {
           filename = file_name_buffer;
       } // generate a default file name
       if (echo > 0) printf("# %s Sy=%s Z=%g iZ=%d filename=%s\n", __func__, Sy, Z, iZ, filename);
-      char const *const config_string=Sy; // ToDo: insert the config string here
 
       std::FILE *const f = std::fopen(filename, "w");
       if (nullptr == f) {
@@ -62,11 +63,13 @@ namespace paw_xml_export {
                                         Sy,  Z,  n_electrons[0], n_electrons[1], n_electrons[2]);
       
       // ABINIT energy cutoff recommendation <pw_ecut low="12.00" medium="12.00" high="15.00"/> // in Hartree
-      std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12, 12, 15); // ToDo: get an estimate
+      std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12, 12, 15); // ToDo: get a better estimate
 
       std::fprintf(f, "  <xc_functional type=\"LDA\" name=\"PZ81\"/>\n");
-      std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"Koelling-Harmon\">\n");
-      std::fprintf(f, "     %s\n  </generator>\n", config_string);
+      std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"A43\" git=\"%s\">\n",
+                                                                control::get("git.key", ""));
+      std::fprintf(f, "     %s\n", custom_configuration_string ? custom_configuration_string : Sy);
+      std::fprintf(f, "  </generator>\n");
       std::fprintf(f, "  <ae_energy kinetic=\"%.6f\" xc=\"%.6f\"\n             "
                           "electrostatic=\"%.6f\" total=\"%.6f\"/>\n", kinetic_energy, xc_energy, es_energy, total_energy);
       std::fprintf(f, "  <core_energy kinetic=\"%.6f\"/>\n", core_kinetic_energy);

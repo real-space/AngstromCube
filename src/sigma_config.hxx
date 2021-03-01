@@ -20,7 +20,7 @@ namespace sigma_config {
       int8_t  inl_core_hole; // state index where to insert the core hole
   } element_t;
 
-  element_t & get(double const Zcore, int const echo=0);
+  element_t & get(double const Zcore, int const echo=0, char const **configuration=nullptr);
 
   inline int nl_index(int const enn, int const ell) { assert(ell < enn); return (enn*(enn - 1))/2 + ell; }
   

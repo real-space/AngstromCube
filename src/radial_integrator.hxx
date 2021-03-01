@@ -28,7 +28,7 @@ namespace radial_integrator {
       , double const E // energy (eigen-)value in Hartree
       , double const valder[2]=nullptr
       , double *dg=nullptr // optional result: derivative at end point
-      , int *ir_stopped=nullptr // index at which the inwards integration stopped
+      , int *ir_stopped=nullptr // optional result: index at which the inwards integration stopped
       , int const ir_start=-1 // start index, -1:(g.n - 1)
       , int const ir_stop=4 // latest stop index
   ); // declaration only
@@ -43,7 +43,7 @@ namespace radial_integrator {
       , double const E // energy (eigen-)value in Hartree
       , int const ir_stop=-1 // latest stop index, -1:(g.n - 1)
       , double *dg=nullptr // optional result: derivative at end point
-      , double const *rp=nullptr // inhomogeneity*r, only outward
+      , double const *rp=nullptr // optional input: inhomogeneity*r
   ); // declaration only
 
   status_t all_tests(int const echo=0); // declaration only

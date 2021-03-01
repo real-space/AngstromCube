@@ -452,10 +452,11 @@ namespace single_atom {
         
         int inl_core_hole{-1};
         double core_hole_charge{0}, core_hole_charge_used{0};
+        char const *custom_configuration{nullptr};
         
         if (custom_config) {
             if (echo > 8) printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
-            auto const ec = sigma_config::get(Z_core, echo - 4);
+            auto const ec = sigma_config::get(Z_core, echo - 4, &custom_configuration);
             if (echo > 0) printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
 
             if (ec.Z != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_core, ec.Z);
@@ -977,7 +978,8 @@ namespace single_atom {
                 kinetic_energy, csv_charge, spherical_density, projectors,
                 r_cut, sigma_compensator, zero_potential.data(), echo,
                 energy_kin_csvn[core][TRU],
-                energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU]);
+                energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU],
+                custom_configuration);
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
             if (maxit_scf < 1) warn("exported PAW file although no setup SCF iterations executed");
