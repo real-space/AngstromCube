@@ -9,17 +9,17 @@
 #include <cstdio> // printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "recorded_warnings.hxx" // warn
-#include "simple_math.hxx" // ::random
-#include "print_tools.hxx" // printf_vector
-#include "data_view.hxx" // view4D<T>, view2D<T>
-#include "display_units.h" // Ang, _Ang
-#include "inline_math.hxx" // pow2
-#include "control.hxx" // ::get
-#include "simple_stats.hxx" // ::Stats
-#include "sho_tools.hxx" // ::nSHO
-#include "global_coordinates.hxx" // ::get
-#include "constants.hxx" // ::pi
+// #include "recorded_warnings.hxx" // warn
+// #include "simple_math.hxx" // ::random
+// #include "print_tools.hxx" // printf_vector
+// #include "data_view.hxx" // view4D<T>, view2D<T>
+// #include "display_units.h" // Ang, _Ang
+// #include "inline_math.hxx" // pow2
+// #include "control.hxx" // ::get
+// #include "simple_stats.hxx" // ::Stats
+// #include "sho_tools.hxx" // ::nSHO
+// #include "global_coordinates.hxx" // ::get
+// #include "constants.hxx" // ::pi
 #include "simple_timer.hxx" // SimpleTimer
 
 #ifdef HAS_RAPIDXML
@@ -31,624 +31,14 @@
 #endif
 #include "xml_reading.hxx" // ::read_sequence
 
-#ifdef HAS_TFQMRGPU
-  #include "tfqmrgpu_core.hxx" // solve<action_t>
-  #include "tfqmrgpu_memWindow.h" // memWindow_t
-#else
-  #include <utility> // std::pair<T>
-  typedef std::pair<size_t,size_t> memWindow_t;
-  typedef size_t cudaStream_t;
-#endif // HAS_TFQMRGPU
+
+#include "green_memory.hxx" // get_memory, free_memory
+#include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
+#include "green_action.hxx" // ::plan_t, ::action_t
 
 namespace green_function {
 
   double const GByte = 1e-9; char const *const _GByte = "GByte";
-
-  template <typename T>
-  T* get_memory(size_t const size=1) {
-#ifdef DEBUG
-      std::printf("# managed memory: %lu x %.3f kByte = \t%.6f %s\n", size, 1e-3*sizeof(T), size*sizeof(T)*GByte, _GByte);
-#endif
-      T* d{nullptr};
-#ifdef HAS_CUDA
-      CCheck(cudaMallocManaged(&d, size*sizeof(T)));
-#else
-      d = new T[size];
-#endif
-      return d;
-  } // get_memory
-
-  template <typename T>
-  void free_memory(T* &d) {
-      if (nullptr != d) {
-#ifdef HAS_CUDA
-          CCheck(cudaFree(d));
-#else
-          delete[] d;
-#endif
-      } // d
-      d = nullptr;
-  } // free_memory
-
-
-
-#if 0
-  template <typename T>
-  class block4 {
-  public:
-      block4(T const initial_value=T(0)) {
-          for(int i = 0; i < 64; ++i) { _data[0][0][i] = initial_value; }
-      } // constructor
-
-      // access operators (i2,i1,i0) with i0,i1,i2 in [0, 3]
-      T const & operator () (int i2, int i1, int i0) const { return _data[i2 & 0x3][i1 & 0x3][i0 & 0x3]; }
-      T       & operator () (int i2, int i1, int i0)       { return _data[i2 & 0x3][i1 & 0x3][i0 & 0x3]; }
-      // access operators [i] with i in [0, 63]
-      T const & operator [] (int i64) const { return _data[0][0][i64 & 0x3f]; }
-      T       & operator [] (int i64)       { return _data[0][0][i64 & 0x3f]; }
-
-  private:
-      T _data[4][4][4];
-  }; // class
-#endif  
-
-  struct TruncationMask4 {
-      // this is a struct that tells us if source and target grid point are too distant or not.
-      // the data is stored in a 3D bitarray[8][8][8] --> 64 Byte
-
-      TruncationMask4(
-            int bx, int by, int bz // block coordinate differences, block size 4x4x4
-          , double const h[3] // grid spacings
-          , double const rc2 // truncation radius squared
-      ) {                    
-          for(int i8x8 = 0; i8x8 < 8*8; ++i8x8) {
-              _data[0][i8x8] = 0; // clear, ToDo: faster using memset
-          } // i8x8
-          for(int iz = -3; iz < 4; ++iz) {
-              double const z = (bz*4 + iz)*h[2], z2 = z*z - rc2;
-              // if z2 > 0, skip the following loop
-              for(int iy = -3; iy < 4; ++iy) {
-                  double const y = (by*4 + iy)*h[1], y2z2 = y*y + z2;
-                  // if y2z2 > 0, skip the following loop
-                  int i8{0};
-                  for(int ix = -3; ix < 4; ++ix) {
-                      double const x = (bx*4 + ix)*h[0], r2 = x*x + y2z2;
-                      i8 |= (int(r2 < 0.0) << (ix & 0x7)); // if inside rc^2, switch bit on
-                  } // ix
-                  _data[iz & 0x7][iy & 0x7] = i8; // store
-              } // iy
-          } // iz
-      } // constructor
-
-      // access operators (ix, iy, iz) with ix,iy,iz in [-3, 3]
-      bool const operator () (int const ix, int const iy, int const iz) const
-          { return (_data[iz & 0x7][iy & 0x7] >> (ix & 0x7)) & 0x1; }
-
-  private:
-      int8_t _data[8][8]; // 8x8x8 bit
-  }; // class
-
-
-  typedef struct {
-      double pos[3];
-      double sigma;
-      int32_t gid;
-      int32_t ia; // local atom index
-      int16_t shifts[3];
-      uint8_t nc; // number of coefficients
-      int8_t numax;
-  } atom_t;
-  
-
-  template <typename uint_t, typename int_t> inline
-  size_t index3D(uint_t const n[3], int_t const i[3]) {
-      // usual 3D indexing
-      return size_t(i[2]*n[1] + i[1])*n[0] + i[0];
-  } // index3D
-
-
-  class finite_difference_plan_t {
-  private:
-      uint32_t *prefix; // in managed memory
-      int32_t *fd_list; // in managed memory
-      uint32_t n_lists;
-
-  public:
-      finite_difference_plan_t() : prefix(nullptr), fd_list(nullptr), n_lists(0) {}
-
-      finite_difference_plan_t(
-            int const dd // direction of derivative
-          , uint16_t const num_target_coords[3]
-          , uint32_t const RowStart[]
-          , uint16_t const ColIndex[]
-          , view3D<int32_t> const & iRow_of_coords // (Z,Y,X)
-          , std::vector<bool> const sparsity_pattern[]
-          , unsigned const nRHSs=1
-          , int const echo=0
-      ) {
-          int constexpr X=0, Y=1, Z=2;
-          // prepare the finite-difference sequence lists
-          char const direction = 'x' + dd;
-          assert(X == dd || Y == dd || Z == dd); 
-          int num[3];
-          set(num, 3, num_target_coords);
-          int const num_dd = num[dd];
-          num[dd] = 1; // replace number of target blocks in derivative direction
-          if (echo > 0) std::printf("# FD lists for the %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
-          simple_stats::Stats<> length_stats;
-          std::vector<std::vector<int32_t>> list;
-          size_t const max_lists = nRHSs*size_t(num[Z])*num[Y]*num[X];
-          list.resize(max_lists);
-          int ilist{0};
-          for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
-//                if (echo > 0) std::printf("# FD list for RHS #%i\n", iRHS);
-              auto const & sparsity_RHS = sparsity_pattern[iRHS];
-              for(int iz = 0; iz < num[Z]; ++iz) { //  
-              for(int iy = 0; iy < num[Y]; ++iy) { //   only 2 of these 3 loops have a range > 1
-              for(int ix = 0; ix < num[X]; ++ix) { // 
-                  int idx[3] = {ix, iy, iz};
-                  for(int id = 0; id < num_dd; ++id) { // loop over direction to derive
-                      idx[dd] = id; // replace index in the derivate direction
-//                           if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n",
-//                                                   iRHS, idx[X], idx[Y], idx[Z]);
-                      auto const idx3 = index3D(num_target_coords, idx);
-                      if (sparsity_RHS[idx3]) {
-                          auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
-                          assert(iRow >= 0);
-
-                          int32_t inz_found{-1};
-                          for(auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-                              if (ColIndex[inz] == iRHS) {
-                                  inz_found = inz; // store where it was found
-                                  inz = RowStart[iRow + 1]; // stop search loop
-                              } // found
-                          } // search
-                          assert(inz_found >= 0); // fails at inconsistency between sparsity_pattern and the BSR tables
-
-                          assert(ilist < max_lists);
-                          list[ilist].push_back(inz_found);
-                      } // sparsity pattern
-                  } // id
-                  int const list_length = list[ilist].size();
-                  if (list_length > 0) {
-                      length_stats.add(list_length);
-//                           if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n",
-//                                                   list_length, direction, idx[X], idx[Y], idx[Z]);
-                      // add end-of-sequence markers
-                      list[ilist].push_back(-1);
-                      
-                      ++ilist; // create a new list index
-                  } // list_length > 0
-              }}} // ixyz
-          } // iRHS
-          n_lists = ilist; assert(n_lists == ilist);
-          if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
-                                n_lists, direction, n_lists/(max_lists*.01),
-                                length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
-
-          // store in managed memory
-          prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory
-          prefix[0] = 0;
-          for(int ilist = 0; ilist < n_lists; ++ilist) {
-              int const n = list[ilist].size();
-              prefix[ilist + 1] = prefix[ilist] + n;
-          } // ilist
-          size_t const ntotal = prefix[n_lists];
-          if (echo > 0) std::printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
-                                  direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
-          fd_list = get_memory<int32_t>(ntotal);
-          for(int ilist = 0; ilist < n_lists; ++ilist) {
-              int const n = list[ilist].size();
-              set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory
-          } // ilist
- 
-      } // constructor
-
-      finite_difference_plan_t& operator= (finite_difference_plan_t && rhs) {
-          // std::printf("# finite_difference_plan_t& operator= (finite_difference_plan_t && rhs);\n");
-          std::swap(fd_list, rhs.fd_list);
-          std::swap(prefix , rhs.prefix);
-          std::swap(n_lists, rhs.n_lists);
-          return *this;
-      } // move assignment
-      
-      finite_difference_plan_t(finite_difference_plan_t && rhs) = delete;
-//       {   std::printf("# finite_difference_plan_t(finite_difference_plan_t && rhs);\n");
-//           *this = std::move(rhs);
-//       } // move constructor
-
-      finite_difference_plan_t(finite_difference_plan_t const & rhs) = delete; // copy constructor
-
-      finite_difference_plan_t& operator= (finite_difference_plan_t const & rhs) = delete; // move assignment
-
-      ~finite_difference_plan_t() {
-          // std::printf("# destruct %s, pointers= %p and %p\n", __func__, fd_list, prefix); std::fflush(stdout);
-          free_memory(fd_list);
-          free_memory(prefix);
-      } // destructor
-
-      uint32_t size() const { return n_lists; } // number of lists
-      int32_t const * list(uint32_t const i) const { return fd_list + prefix[i]; }
-      
-  }; // class finite_difference_plan_t
-
-
-
-  struct plan_t {
-
-      // for the inner products and axpy/xpay
-      std::vector<uint16_t> colindx; // [nnzbX]
-      memWindow_t colindxwin; // column indices in GPU memory
-
-      // for the matrix-matrix subtraction Y -= B:
-      std::vector<uint32_t> subset; // [nnzbB], list of inzbX-indices where B is also non-zero
-      memWindow_t matBwin; // data of the right hand side operator B
-      memWindow_t subsetwin; // subset indices in GPU memory
-
-      uint32_t nRows, nCols; // number of block rows and block columns, max 65,536 columns
-      std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transfered to the GPU
-
-      // for memory management:
-      size_t gpu_mem; // device memory requirement in Byte
-
-      // stats:
-      double residuum_reached;
-      double flops_performed;
-      double flops_performed_all;
-      int iterations_needed;
-
-      // memory positions
-      memWindow_t matXwin; // solution vector in GPU memory
-      memWindow_t vec3win; // random number vector in GPU memory
-      
-      
-      // new members to define the action
-      std::vector<int64_t> global_target_indices; // [nRows]
-      std::vector<int64_t> global_source_indices; // [nCols]
-      double r_truncation = 9e18; // radius beyond which the Green function is truncated
-      double r_Vconfinement = 9e18; // radius beyond which the confinement potential is added
-      double Vconfinement = 0; // potential_prefactor in Hartree
-
-      finite_difference_plan_t fd_plan[3];
-      uint32_t natom_images = 0;
-      uint32_t* ApcStart = nullptr; // [natom_images + 1]
-      uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
-      uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
-      int16_t (*source_coords)[4] = nullptr; // [nCols][4] internal coordinates
-      int16_t (*target_coords)[4] = nullptr; // [nRows][4] internal coordinates
-      double  (*Veff)[64] = nullptr; // effective potential
-      uint32_t* veff_index = nullptr; // [nRows] indirection list
-      uint32_t natoms = 0;
-      double (**atom_mat)[2] = nullptr; // [natoms][nc*nc][2] atomic matrices
-      atom_t* atom_data = nullptr; // [natom_images]
-      double *grid_spacing = nullptr;
-
-      plan_t() {
-          std::printf("# construct %s\n", __func__); std::fflush(stdout);
-      } // constructor
-
-      ~plan_t() {
-          std::printf("# destruct %s\n", __func__); std::fflush(stdout);
-          free_memory(ApcStart);
-          free_memory(RowStart);
-          free_memory(rowindx);
-          free_memory(source_coords);
-          free_memory(target_coords);
-          free_memory(Veff);
-          free_memory(veff_index);
-          free_memory(atom_mat);
-          free_memory(atom_data);
-      } // destructor
-
-  }; // plan_t
-
-  template <typename floating_point_t=float, unsigned block_size=64>
-  class action_t {
-  public:
-      typedef floating_point_t real_t;
-      static int constexpr LM = block_size;
-      //
-      // This action is an implicit linear operator onto block-sparse structured data.
-      // compatible with the core algorithm of the tfqmrgpu-2.0 library.
-      // Blocks are sized [LM][LM].
-      // Arithmetic according to complex<real_t> 
-      // with real_t either float or double
-      //
-      action_t(plan_t *plan) 
-        : p(plan), apc(nullptr), aac(nullptr)
-      {
-          std::printf("# construct %s\n", __func__); std::fflush(stdout);
-          char* buffer{nullptr};
-          take_memory(buffer);
-      } // constructor
-
-      ~action_t() {
-          std::printf("# destruct %s\n", __func__); std::fflush(stdout);
-          free_memory(apc);
-          free_memory(aac);
-      } // destructor
-
-      void take_memory(char* &buffer) {
-          assert(p->ApcStart);
-          auto const nac = p->ApcStart[p->natom_images];
-          auto const n = size_t(nac) * size_t(p->nCols);
-          // ToDo: could be using GPU memory taking it from the buffer
-          // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
-          apc = get_memory<real_t[2][LM]>(n);
-          aac = get_memory<real_t[2][LM]>(n);
-      } // take_memory
-
-      void transfer(char* const buffer, cudaStream_t const streamId=0) {
-          // no transfers needed since we are using managed memory
-          // but we could fill matB with unit blocks here
-          // assert(p->subset.size() == p->nCols);
-          // clear_on_gpu<real_t[2][LM][LM]>(matB, p->nCols);
-          // for(int icol = 0; icol < p->nCols; ++icol) {
-          //     for(int i = 0; i < LM; ++i) {
-          //        matB[icol][0][i][i] = real_t(1);
-          //     } // i
-          // } // icol
-      } // transfer
-
-      bool has_preconditioner() const { return false; }
-
-      double multiply( // returns the number of flops performed
-            real_t         (*const __restrict y)[2][LM][LM] // result, y[nnzbY][2][LM][LM]
-          , real_t   const (*const __restrict x)[2][LM][LM] // input,  x[nnzbX][2][LM][LM]
-          , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
-          , uint32_t const nnzbY // == nnzbX
-          , uint32_t const nCols=1 // should match with p->nCols
-          , unsigned const l2nX=0
-          , cudaStream_t const streamId=0
-          , bool const precondition=false
-      ) {
-
-      // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
-      // indicies named according to H_{ij} G_{jk} = HG_{ik}
-      //                          or A_{ij} X_{jk} =  Y_{ik}
-      //
-      //      projection:
-      //      apc.set(0); // clear
-      //      for(jRow < nRows) // reduction
-      //        for(RowStart[jRow] <= jnz < Rowstart[jRow + 1]) // reduction
-      //          for(jai < nai) // parallel (with data-reuse on Green function element)
-      //             for(jprj < nSHO(jai))
-      //                for(k64 < 64) // vector parallel
-      //                  for(ri < 2) // vector parallel
-      //                    for(j64 < 64) // reduction
-      //                    {
-      //                        apc[apc_start[jai] + jprj][ColIndex[jnz]][ri][k64] +=
-      //                        sho_projector[jprj][j64] *
-      //                        G[jnz][ri][j64][k64];
-      //                    }
-          for(int iai = 0; iai < p->natom_images; ++iai) {
-              // project at position p->atom_data[iai].pos
-              // into apc[(p->ApcStart[iai]:p->ApcStart[iai + 1])*p->nCols][2][64]
-          } // iai
-
-      //
-      //      meanwhile: kinetic energy including the local potential
-      //      HG = finite_difference_kinetic_energy(G);
-      //      for(d < 3) // serial
-      //        for(istick < nstick[d]) // parallel
-      //          while(jnz >= 0, jnz from index_list[d][istick])
-      //            for(j4 < 4) // serial (data-reuse)
-      //              for(-8 <= imj <= 8) // reduction
-      //                for(j16 < 16) // parallel
-      //                for(ri < 2) // vector parallel
-      //                  for(k64 < 64) // vector parallel
-      //                  {
-      //                      HG[inz][ri][i4,j16][k64] +=
-      //                       G[jnz][ri][j4,j16][k64] * T_FD[|imj|]
-      //                  }
-
-          // clear y
-          for(size_t inz = 0; inz < nnzbY; ++inz) {
-              for(int cij = 0; cij < 2*LM*LM; ++cij) {
-                  y[inz][0][0][cij] = 0;
-              } // cij
-          } // inz
-
-          // kinetic energy
-          for(int dd = 0; dd < 3; ++dd) { // derivative direction
-//            simple_stats::Stats<> ts;
-              auto const & fd = p->fd_plan[dd];
-              for(uint32_t il = 0; il < fd.size(); ++il) {
-//                SimpleTimer list_timer(__FILE__, __LINE__, "FD-list", 0);
-                  //
-                  // Warning: this implementation of the finite-difference stencil
-                  // is only correct for LM==1, where it performs the lowest order
-                  // kinetic energy stencil -0.5*[1 -2 1], but it features the same 
-                  // memory traffic profile as an 8th order FD-stencil for LM=64=4*4*4.
-                  //
-                  auto const *const list = fd.list(il); // we will load at least 2 indices from list
-                  int ilist{0}; // counter for index list
-                  int inext = list[ilist++]; // load next index of x
-
-                  real_t block[4][2][LM][LM]; // 4 temporary blocks
-                  
-                  set(block[1][0][0], 2*LM*LM, real_t(0)); // initialize zero, a non-existing block
-
-                  // initially load one block in advance
-                  assert(inext > -1 && "the 1st index must be valid!");
-                  set(block[2][0][0], 2*LM*LM, x[inext][0][0]); // initial load of an existing block
-
-                  // main loop
-                  while (inext > -1) {
-                      auto const ihere = inext; // central index of x == index of y
-                      inext = list[ilist++]; // get next index
-                      // now ilist == 2 in the first iteration
-                      if (inext > -1) {
-                          set(block[(ilist + 1) & 0x3][0][0], 2*LM*LM, x[inext][0][0]);
-                      } else {
-                          set(block[(ilist + 1) & 0x3][0][0], 2*LM*LM, real_t(0)); // non-existing block
-                      } // load
-
-                      // compute
-                      set(        y[ihere][0][0], 2*LM*LM, block[ ilist      % 0x3][0][0]); // coefficient -0.5*c_{0} == 1
-                      add_product(y[ihere][0][0], 2*LM*LM, block[(ilist - 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
-                      add_product(y[ihere][0][0], 2*LM*LM, block[(ilist + 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
-                      
-                  } // while ip > -1
-//                ts.add(list_timer.stop());
-//                ts.add(ilist - 1); // how many blocks have been loaded and computed?
-              } // il
-//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.avg(), ts.var(), ts.min(), ts.max());
-//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] indices\n", 'x'+dd, ts.avg(), ts.var(), ts.min(), ts.max());
-              // ===== synchronize to avoid race conditions on y ========
-          } // dd
-
-      //
-      //      when projection is done: multiply atomic matrices to projection coefficients
-      //      aac.set(0); // clear
-      //      for(iai < nai) // parallel
-      //        for(iRHS < nRHSs) // parallel
-      //          for(iprj < nSHO(iai)) // parallel
-      //            for(jprj < nSHO(iai)) // reduction
-      //              for(kprj < nSHO(iai)) // parallel
-      //                for(k64 < 64) // vector parallel
-      //                {
-      //                    aac[apc_start[iai] + iprj][iRHS][complex][k64] +=
-      //                    atom_matrix[ia[iai]][iprj][jprj][complex] *
-      //                    apc[apc_start[iai] + jprj][iRHS][complex][k64];
-      //                 }
-      //                 // with indirection list ia[iai]
-      //
-      //      after both, addition:
-      //      for(iRow < nRows) // parallel
-      //        for(RowStart[iRow] <= inz < Rowstart[iRow + 1]) // parallel
-      //          for(iai < nai) // reduction
-      //            for(iprj < nSHO(iai)) // reduction
-      //              for(i64 < 64)
-      //                for(ri < 2) // vector parallel
-      //                  for(k64 < 64) // vector parallel
-      //                  {
-      //                      HG[inz][ri][i64][k64] += 
-      //                      aac[apc_start[iai] + iprj][ColIndex[inz]][ri][k64] *
-      //                      sho_projector[iprj][i64];
-      //                  }
-      //
-      //
-      //    furthermore, we have to multiply the local potential Veff[veff_index[iRow]],
-      //    the confinement potential and apply the truncation mask
-      //    which can be computed on the fly using source_coords[icol][0:2] and target_coords[iRow][0:2]
-      //    here, we need 3 numbers: inner_radius^2, truncation_radius^2, potential_prefactor and potential_power
-      //    then, if we determined d2 as the distance between any point in the source block from any other
-      //    point in the target block, we add the confinement potential
-      //        (d2 > inner_radius2)*potential_prefactor*(d2 - inner_radius2)^potential_power
-      //    where potential_power should be a template argument and then apply the mask
-      //        HG[...] *= (d2 < truncation_radius2)
-      //    to make the truncation sphere perfectly round. inner_radius2 < truncation_radius2 assumed.
-          float const truncation_radius2 = pow2(p->r_truncation);
-          float const inner_radius2      = pow2(p->r_Vconfinement);
-          float const potential_prefactor = p->Vconfinement;
-
-          float const hg[3] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
-          
-          simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
-
-          for(uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
-              real_t V[LM]; // buffer, probably best using shared memory of the SMx
-              set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
-              auto const *const target_coords = p->target_coords[iRow];
-              
-              for(auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
-                  // apply the local effective potential to all elements in this row
-                  for(int i = 0; i < LM; ++i) {
-                      add_product(y[inz][0][i], LM, x[inz][0][i], V); // real
-                      add_product(y[inz][1][i], LM, x[inz][1][i], V); // imag
-                  } // i
-
-                  // apply i,j-dependent potentials like the confinement and truncation mask
-                  
-                  int const iCol = p->colindx[inz];
-                  auto const *const source_coords = p->source_coords[iCol];
-                  int const block_coord_diff[3] = {
-                      source_coords[0] - target_coords[0],
-                      source_coords[1] - target_coords[1],
-                      source_coords[2] - target_coords[2]};
-                  int constexpr n4 = (64 == LM)? 4 : ((8 == LM) ? 2 : 0);
-                  for(int i4z = 0; i4z < n4; ++i4z) {
-                  for(int i4y = 0; i4y < n4; ++i4y) {
-                  for(int i4x = 0; i4x < n4; ++i4x) {
-                      int const i64 = (i4z*n4 + i4y)*n4 + i4x;
-                      float vec[3];
-                      for(int j4z = 0; j4z < n4; ++j4z) { vec[2] = (block_coord_diff[2]*n4 + i4z - j4z)*hg[2];
-                      for(int j4y = 0; j4y < n4; ++j4y) { vec[1] = (block_coord_diff[1]*n4 + i4y - j4y)*hg[1];
-                      for(int j4x = 0; j4x < n4; ++j4x) { vec[0] = (block_coord_diff[0]*n4 + i4x - j4x)*hg[0];
-                          int const j64 = (j4z*n4 + j4y)*n4 + j4x;
-                          float const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
-
-                          stats_d2.add(d2);
-//                           if (d2 > 71.18745) std::printf("# d2= %g iCol=%i (%i %i %i)*4 + (%i %i %i)  iRow=%i (%i %i %i)*4 + (%i %i %i)\n", d2,
-//                               iCol, source_coords[0], source_coords[1], source_coords[2], i4x, i4y, i4z,
-//                               iRow, target_coords[0], target_coords[1], target_coords[2], j4x, j4y, j4z);
-
-                          // confinement potential
-                          if (d2 >= inner_radius2) {
-                              // truncation mask (hard)
-                              if (d2 >= truncation_radius2) { // mask
-                                  for(int c = 0; c < 2; ++c) { // real and imag
-                                      y[inz][c][i64][j64] = 0;
-                                  } // c
-                                  stats_outer.add(d2);
-                              } else {
-                                  real_t const V_confinement = potential_prefactor * pow4(d2 - inner_radius2);
-                                  for(int c = 0; c < 2; ++c) { // real and imag
-                                      y[inz][c][i64][j64] += x[inz][c][i64][j64] * V_confinement;
-                                  } // c
-                                  stats_Vconf.add(V_confinement);
-                                  stats_conf.add(d2);
-                              }
-                          } else { // inner_radius
-                              stats_inner.add(d2);
-                          }
-                          // we can also define a soft mask: 
-                          //    for d2 < truncation_radius2: 
-                          //        y *= pow4(d2/truncation_radius2 - 1)
-                          //    else
-                          //        y = 0
-
-                      }}} // j4xyz
-                  }}} // i4xyz
-
-              } // inz
-          } // iRow
-
-          std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
-          // how many grid points do we expect?
-          double const f = 4*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
-          double const Vi = pow3(p->r_Vconfinement)*f;
-          double const Vo = pow3(p->r_truncation)*f;
-          std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
-          std::printf("# stats  inner %g conf %g outer %g grid points\n", 
-                  stats_inner.num(), stats_Vconf.num(), stats_outer.num());
-          
-          std::printf("# stats       distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_d2.avg(), stats_d2.min(), stats_d2.max());
-          std::printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_inner.avg(), stats_inner.min(), stats_inner.max());
-          std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_conf.avg(), stats_conf.min(), stats_conf.max());
-          std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_outer.avg(), stats_outer.min(), stats_outer.max());
-
-          return 0; // no flops performed so far
-      } // multiply
-
-      plan_t* get_plan() { return p; }
-
-    private: // members
-
-      plan_t* p; // the plan is independent of real_t
-
-      // temporary device memory needed for non-local operations
-      real_t (*apc)[2][LM]; // atomic projection coefficients apc[n_all_projection_coefficients][nCols][2][64]
-      real_t (*aac)[2][LM]; // atomic addition   coefficients aac[n_all_projection_coefficients][nCols][2][64]
-
-  }; // class action_t
-
-
 
   inline status_t construct_Green_function(
         int const ng[3]
@@ -664,7 +54,7 @@ namespace green_function {
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
-      auto const p = new plan_t(); // create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+      auto const p = new green_action::plan_t(); // create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
 
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for(int d = 0; d < 3; ++d) {
@@ -1063,7 +453,7 @@ namespace green_function {
 
           for(int dd = 0; dd < 3; ++dd) { // derivate direction
               // create lists for the finite-difference derivatives
-              p->fd_plan[dd] = finite_difference_plan_t(dd
+              p->fd_plan[dd] = green_kinetic::finite_difference_plan_t(dd
                 , num_target_coords
                 , RowStart, ColIndex.data()
                 , iRow_of_coords
@@ -1115,7 +505,7 @@ namespace green_function {
                                   iimage[X], iimage[Y], iimage[Z], nimages*.001);
 
           std::vector<uint32_t> ApcStart(natom_images + 1, 0); // probably larger than needed, should call resize(nai + 1) later
-          std::vector<atom_t>  atom_data(natom_images);
+          std::vector<green_action::atom_t> atom_data(natom_images);
           std::vector<uint8_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
 
           simple_stats::Stats<> nc_stats;
@@ -1256,9 +646,9 @@ namespace green_function {
           } // ia
           int const nac = iac;
           global_atom_index.resize(nac);
-          
+
           // now store the atomic positions in GPU memory
-          p->atom_data = get_memory<atom_t>(nai);
+          p->atom_data = get_memory<green_action::atom_t>(nai);
           for(int iai = 0; iai < nai; ++iai) {
               p->atom_data[iai] = atom_data[iai]; // copy
               // translate index
@@ -1294,7 +684,7 @@ namespace green_function {
       if (n_iterations >= 0) { // scope: try out the operator
           typedef float real_t;
           int constexpr LM = 64;
-          action_t<real_t,LM> action(p);
+          green_action::action_t<real_t,LM> action(p);
           auto const nnzbX = p->colindx.size();
           auto x = get_memory<real_t[2][LM][LM]>(nnzbX);
           auto y = get_memory<real_t[2][LM][LM]>(nnzbX);
@@ -1437,7 +827,7 @@ namespace green_function {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_Green_function(echo); // deactivated for now
+      stat += test_Green_function(echo);
       return stat;
   } // all_tests
 
