@@ -415,7 +415,8 @@ namespace green_action {
 
       plan_t* p; // the plan is independent of real_t
 
-      // temporary device memory needed for non-local operations
+      // temporary device memory needed for non-local operations 
+      // (we could live with a single copy if the application of the atom-centered matrices is in-place)
       real_t (*apc)[2][LM]; // atomic projection coefficients apc[n_all_projection_coefficients][nCols][2][64]
       real_t (*aac)[2][LM]; // atomic addition   coefficients aac[n_all_projection_coefficients][nCols][2][64]
 

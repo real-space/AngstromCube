@@ -8,7 +8,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "inline_tools.hxx" // align<n>
 
-namespace pw_hamiltonian {
+namespace plane_waves {
 
   class DensityIngredients {
     public:
@@ -71,4 +71,4 @@ namespace pw_hamiltonian {
 
   status_t all_tests(int const echo=0); // declaration only
 
-} // namespace pw_hamiltonian
+} // namespace plane_waves

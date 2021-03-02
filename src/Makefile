@@ -29,7 +29,7 @@ OBJ = \
 	sigma_config.o \
 	atom_core.o \
 	single_atom.o \
-	pw_hamiltonian.o \
+	plane_waves.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
 	angular_grid.o \

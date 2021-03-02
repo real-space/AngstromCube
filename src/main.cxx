@@ -43,7 +43,6 @@
 #include "green_function.hxx" // ::all_tests
 #include "poisson_solver.hxx" // ::all_tests
 #include "brillouin_zone.hxx" // ::all_tests
-#include "pw_hamiltonian.hxx" // ::all_tests
 #include "sho_projection.hxx" // ::all_tests
 #include "shift_boundary.hxx" // ::all_tests
 #include "linear_algebra.hxx" // ::all_tests
@@ -62,6 +61,7 @@
 #include "dense_solver.hxx" // ::all_tests
 #include "json_reading.hxx" // ::all_tests
 #include "xml_reading.hxx" // ::all_tests
+#include "plane_waves.hxx" // ::all_tests
 #include "unit_system.hxx" // ::all_tests
 #include "simple_math.hxx" // ::all_tests
 #include "sho_overlap.hxx" // ::all_tests
@@ -140,7 +140,6 @@
           add_module_test(green_function);     
           add_module_test(poisson_solver);     
           add_module_test(brillouin_zone);     
-          add_module_test(pw_hamiltonian);     
           add_module_test(sho_projection);     
           add_module_test(shift_boundary);     
           add_module_test(linear_algebra);     
@@ -159,6 +158,7 @@
           add_module_test(dense_solver);       
           add_module_test(json_reading);       
           add_module_test(xml_reading);        
+          add_module_test(plane_waves);     
           add_module_test(unit_system);        
           add_module_test(simple_math);        
           add_module_test(sho_overlap);        

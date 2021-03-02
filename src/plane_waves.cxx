@@ -7,7 +7,7 @@
 #include <set> // std::set<key>
 #include <numeric> // std::iota
 
-#include "pw_hamiltonian.hxx"
+#include "plane_waves.hxx"
 
 #include "sho_potential.hxx" // ::load_local_potential
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
@@ -40,7 +40,7 @@
     #include "print_tools.hxx" // printf_vector(fmt, vec, n [, final, scale, add])
 #endif // DEVEL
 
-namespace pw_hamiltonian {
+namespace plane_waves {
   // computes Hamiltonian matrix elements for plane waves
   // including a PAW non-local contribution
   
@@ -182,13 +182,13 @@ namespace pw_hamiltonian {
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
 
-      char const method = *control::get("pw_hamiltonian.iterative.solver", "Davidson") | 32;
+      char const method = *control::get("plane_waves.iterative.solver", "Davidson") | 32;
 
       // solve using the Davidson eigensolver
       std::vector<double> eigvals(nbands);
       status_t stat_slv(0);
       if ('c' == method) {
-          int const nit = control::get("pw_hamiltonian.max.cg.iterations", 3.);
+          int const nit = control::get("plane_waves.max.cg.iterations", 3.);
           if (echo > 6) { printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for(int it = 0; it < nit && (0 == stat_slv); ++it) {
               if (echo > 6) { printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
@@ -465,8 +465,8 @@ namespace pw_hamiltonian {
           } // jB
       } // iB
 
-      int  const nB_auto = control::get("pw_hamiltonian.dense.solver.below", 999.);
-      char const solver = *control::get("pw_hamiltonian.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
+      int  const nB_auto = control::get("plane_waves.dense.solver.below", 999.);
+      char const solver = *control::get("plane_waves.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
       bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
@@ -567,9 +567,9 @@ namespace pw_hamiltonian {
       if (echo > 1) printf("# normalization factor for plane waves is %g a.u.\n", svol);
 
       char const *_ecut_u{nullptr};
-      auto const ecut_u = unit_system::energy_unit(control::get("pw_hamiltonian.cutoff.energy.unit", "Ha"), &_ecut_u);
-      auto const ecut = control::get("pw_hamiltonian.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) printf("# pw_hamiltonian.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
+      auto const ecut_u = unit_system::energy_unit(control::get("plane_waves.cutoff.energy.unit", "Ha"), &_ecut_u);
+      auto const ecut = control::get("plane_waves.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
+      if (echo > 1) printf("# plane_waves.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
       int const nG[3] = {g[0], g[1], g[2]}; // same as the numbers of real-space grid points
@@ -630,7 +630,7 @@ namespace pw_hamiltonian {
       int const nbands = int(nbands_per_atom*natoms_PAW);
 
       auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
-      float const iterative_direct_ratio = control::get("pw_hamiltonian.iterative.solver.ratio", 2.);
+      float const iterative_direct_ratio = control::get("plane_waves.iterative.solver.ratio", 2.);
 
 //       unsigned kmesh_sizes[3] = {1, 1, 1};
 //       auto const kmesh_size = int(control::get("hamiltonian.test.kmesh", 1.)); // isotropic
@@ -774,4 +774,4 @@ namespace pw_hamiltonian {
 
 #endif // NO_UNIT_TESTS  
 
-} // namespace pw_hamiltonian
+} // namespace plane_waves

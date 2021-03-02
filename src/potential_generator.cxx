@@ -50,7 +50,7 @@
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
 #include "density_generator.hxx" // ::density
 #include "sho_hamiltonian.hxx" // ::solve
-#include "pw_hamiltonian.hxx" // ::solve
+#include "plane_waves.hxx" // ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t
 #include "unit_system.hxx" // ::length_unit
 
@@ -900,10 +900,10 @@ namespace potential_generator {
                   stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
 
               } else if (plane_waves) {
-                  std::vector<pw_hamiltonian::DensityIngredients> export_rho;
+                  std::vector<plane_waves::DensityIngredients> export_rho;
                   here;
 
-                  stat += pw_hamiltonian::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+                  stat += plane_waves::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
 
                   here;
                   
