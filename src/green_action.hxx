@@ -9,17 +9,6 @@
 #include <cstdio> // printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-// #include "recorded_warnings.hxx" // warn
-// #include "simple_math.hxx" // ::random
-// #include "print_tools.hxx" // printf_vector
-// #include "data_view.hxx" // view4D<T>, view2D<T>
-// #include "display_units.h" // Ang, _Ang
-// #include "inline_math.hxx" // pow2
-// #include "control.hxx" // ::get
-// #include "simple_stats.hxx" // ::Stats
-// #include "sho_tools.hxx" // ::nSHO
-// #include "global_coordinates.hxx" // ::get
-// #include "constants.hxx" // ::pi
 #include "simple_timer.hxx" // SimpleTimer
 
 #include "green_memory.hxx" // get_memory, free_memory

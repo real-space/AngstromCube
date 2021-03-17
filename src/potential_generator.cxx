@@ -17,7 +17,7 @@
 #include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
 #include "sho_tools.hxx" // ::quantum_number_table
-#include "exchange_correlation.hxx" // ::lda_PZ81_kernel
+#include "exchange_correlation.hxx" // ::LDA_kernel
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
 
@@ -55,8 +55,6 @@
 #include "unit_system.hxx" // ::length_unit
 
 #include "poisson_solver.hxx" // ::solve, ::solver_method
-// #include "fourier_poisson.hxx" // ::fourier_solve
-// #include "iterative_poisson.hxx" // ::solve
 
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh
 
@@ -617,7 +615,7 @@ namespace potential_generator {
           { // scope: eval the XC potential and energy
               double E_xc{0}, E_dc{0};
               for(size_t i = 0; i < g.all(); ++i) {
-                  auto const exc_i = exchange_correlation::lda_PZ81_kernel(rho[i], Vxc[i]);
+                  auto const exc_i = exchange_correlation::LDA_kernel(rho[i], Vxc[i]);
                   E_xc += rho[i]*exc_i;
                   E_dc += rho[i]*Vxc[i]; // double counting correction 
                   // E_dc is computed just for display so we can compare E_dc between grid and atomic[SMT] contributions in calculation with a single atom
@@ -918,7 +916,7 @@ namespace potential_generator {
                                       energies.data(), kweights.data(), nkpoints*nbands,
                                       Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
                       Fermi.set_Fermi_level(eF, echo);
-                  } // occupation_method "exact"
+                  } // occupation_method == "exact"
 
                   here;
 
@@ -928,13 +926,14 @@ namespace potential_generator {
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(),
                                                 x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
                                                          rho_valence_new[1], atom_rho_new[1].data(), charges);
-                  } // ikpoint
+                  } // x
 
                   here;
               } else { // SHO local orbitals
                   here;
 
                   stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+
                   warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
 
                   here;
@@ -1117,6 +1116,16 @@ namespace potential_generator {
       } // wave functions on Cartesian real-space grid
 
 #ifdef DEVEL
+
+
+
+
+
+
+
+
+
+
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
 

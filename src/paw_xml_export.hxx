@@ -29,9 +29,9 @@ namespace paw_xml_export {
       , double const es_energy=0
       , double const total_energy=0
       , char const *custom_configuration_string=nullptr
+      , char const *xc_functional="LDA"
       , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
-      , bool const show_radial_grid_values=false
   ) {
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
@@ -65,7 +65,7 @@ namespace paw_xml_export {
       // ABINIT energy cutoff recommendation <pw_ecut low="12.00" medium="12.00" high="15.00"/> // in Hartree
       std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12, 12, 15); // ToDo: get a better estimate
 
-      std::fprintf(f, "  <xc_functional type=\"LDA\" name=\"PZ81\"/>\n");
+      std::fprintf(f, "  <xc_functional type=\"LDA\" name=\"%s\"/>\n", xc_functional);
       std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"A43\" git=\"%s\">\n",
                                                                 control::get("git.key", ""));
       std::fprintf(f, "     %s\n", custom_configuration_string ? custom_configuration_string : Sy);
@@ -89,6 +89,7 @@ namespace paw_xml_export {
 
       char ts_grid[TRU_AND_SMT][8]; // grid tags for TRU and SMT
       double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
+      bool const show_radial_grid_values = (control::get("paw_xml_export.abinit", 0.) > 0);
       for(int ts = TRU; ts <= SMT; ++ts) {
           std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
           if (ts == TRU || rg[SMT].n < rg[TRU].n) {

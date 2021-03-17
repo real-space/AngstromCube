@@ -13,7 +13,7 @@
 #include "radial_grid.hxx" // ::create_default_radial_grid
 #include "display_units.h" // eV, _eV
 #include "radial_potential.hxx" // ::Hartree_potential
-#include "exchange_correlation.hxx" // ::lda_PZ81_kernel
+#include "exchange_correlation.hxx" // ::LDA_kernel
 #include "inline_math.hxx" // pow2, set, scale, product, add_product, dot_product
 #include "radial_eigensolver.hxx" // ::shooting_method
 #include "constants.hxx" // ::pi
@@ -69,7 +69,7 @@ namespace atom_core {
       for(int ir = 0; ir < g.n; ++ir) {
           EHtr += rho4pi[ir]*rV[ir]*g.rdr[ir];
           double Vxc{0};
-          double const Exc = exchange_correlation::lda_PZ81_kernel(fpi*rho4pi[ir], Vxc);
+          double const Exc = exchange_correlation::LDA_kernel(fpi*rho4pi[ir], Vxc);
           rV[ir] += g.r[ir]*Vxc; // add the exchange correlation potential
           Eexc += Exc*rho4pi[ir]*g.r2dr[ir]; // exchange correlation energy
           Evxc += Vxc*rho4pi[ir]*g.r2dr[ir]; // double counting correction

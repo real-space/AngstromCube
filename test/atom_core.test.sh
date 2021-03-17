@@ -11,9 +11,9 @@ for Z in {1..120}; do
 
 # echo "# Z = $Z" ## show progress in terminal
   $exe +verbosity=5 \
-    -test atom_core. \
-        +atom_core.test.Z=$Z \
-        +atom_core.occupations=auto \
+    -test atom_core \
+         +atom_core.test.Z=$Z \
+         +atom_core.occupations=auto \
         >> $out_Z
 
   grep ', E_tot= ' $out_Z

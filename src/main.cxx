@@ -18,6 +18,7 @@
 #include "hermite_polynomial.hxx" // ::all_tests
 #include "spherical_harmonics.hxx" // ::all_tests
 #include "conjugate_gradients.hxx" // ::all_tests
+#include "exchange_correlation.hxx" // ::all_tests
 #include "potential_generator.hxx" // ::all_tests
 #include "global_coordinates.hxx" // ::all_tests
 #include "radial_eigensolver.hxx" // ::all_tests
@@ -115,6 +116,7 @@
           add_module_test(hermite_polynomial); 
           add_module_test(spherical_harmonics);
           add_module_test(conjugate_gradients);
+          add_module_test(exchange_correlation);
           add_module_test(potential_generator);
           add_module_test(global_coordinates); 
           add_module_test(radial_eigensolver); 

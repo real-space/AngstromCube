@@ -979,7 +979,8 @@ namespace single_atom {
                 r_cut, sigma_compensator, zero_potential.data(), echo,
                 energy_kin_csvn[core][TRU],
                 energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU],
-                custom_configuration);
+                custom_configuration,
+                exchange_correlation::default_LDA);
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
             if (maxit_scf < 1) warn("exported PAW file although no setup SCF iterations executed");
@@ -1368,7 +1369,7 @@ namespace single_atom {
                                   label, bisection.get_iterations_needed(), sigma_opt*Ang, _Ang, gradient);
 
             // the upper limit for the weighted quality is the number of valence electrons
-            if (echo > 5) printf("\n# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax,
+            if (echo > 2) printf("\n# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax,
                                       best_weighted_quality, total_occ, best_weighted_quality*100/std::max(1., total_occ));
             if (sigma_range[1] == sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
             if (sigma_range[0] == sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
