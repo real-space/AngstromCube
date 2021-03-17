@@ -550,7 +550,7 @@ namespace single_atom {
         } // true and smooth
 
         auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
-        if (load_stat) error("loading of potential file failed for Z= %g", Z_core);
+        if (load_stat) error("loading of potential file failed for Z= %g\n#   use -t atom_core +atom_core.test.Z=%g", Z_core, Z_core);
 
 #ifdef DEVEL
         // show the loaded Zeff(r) == -r*V(r)

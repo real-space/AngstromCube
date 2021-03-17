@@ -518,7 +518,7 @@ namespace atom_core {
                                   __FILE__, __LINE__, zz, q, dev);
           maxdev = std::max(maxdev, std::abs(dev));
       } // zz
-      if (echo > 1) printf("# %s max. deviation of %g electrons\n", __func__, maxdev);
+      if (echo > 1) printf("# %s: max. deviation of %g electrons\n", __func__, maxdev);
       return (maxdev > 2e-5);
   } // test_initial_density
 

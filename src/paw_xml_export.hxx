@@ -4,6 +4,7 @@
 
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
+#include "radial_grid.hxx" // ::get_prefactor
 #include "energy_level.hxx" // partial_wave_t, TRU, SMT, TRU_AND_SMT
 #include "control.hxx" // ::get
 
@@ -88,14 +89,15 @@ namespace paw_xml_export {
       std::fprintf(f, "  </valence_states>\n");
 
       char ts_grid[TRU_AND_SMT][8]; // grid tags for TRU and SMT
-      double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
+//    double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
+      double const prefactor = radial_grid::get_prefactor(rg[TRU]);
       bool const show_radial_grid_values = (control::get("paw_xml_export.abinit", 0.) > 0);
       for(int ts = TRU; ts <= SMT; ++ts) {
           std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
           if (ts == TRU || rg[SMT].n < rg[TRU].n) {
               char const final = show_radial_grid_values ? ' ' : '/';
-              std::fprintf(f, "  <radial_grid eq=\"r=a*(exp(d*i)-1)\" a=\"%.15e\" d=\"%g\" "
-                  "n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n", prefactor, rg[TRU].anisotropy,
+              std::fprintf(f, "  <radial_grid eq=\"%s\" a=\"%.15e\" d=\"%g\" "
+                  "n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n", rg[ts].equation, prefactor, rg[TRU].anisotropy,
                   rg[ts].n - 1, 1 + rg[TRU].n - rg[ts].n, rg[TRU].n - 1, ts_tag[ts], final);
               if ('/' != final) {
                   // pass the radial grid values explictly, as done for ABINIT

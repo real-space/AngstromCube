@@ -14,6 +14,7 @@ typedef struct {
     double*  rinv;  // r^-1
     float anisotropy = 0.f;
     bool  memory_owner;
+    char const* equation;
 } radial_grid_t;
 
 #ifdef __cplusplus
