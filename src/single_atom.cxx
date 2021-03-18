@@ -549,8 +549,23 @@ namespace single_atom {
             full_potential[ts] = view2D<double>(pow2(1 + ellmax_pot), mr, 0.0); // get memory
         } // true and smooth
 
-        auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
-        if (load_stat) error("loading of potential file failed for Z= %g\n#   use -t atom_core +atom_core.test.Z=%g", Z_core, Z_core);
+        { // scope to load potential[TRU]
+            char start_potentials = *control::get("single_atom.start.potentials", "file") | 32; // 'f':from_file, 'g':generate_if_missing
+            for (int i01 = 0; i01 < 2; ++i01) {
+                auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
+                if (0 != load_stat) {
+                    if ('g' == start_potentials) {
+                        if (echo > 0) printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
+                        auto const gen_stat = atom_core::solve(Z_core, echo/2, 'c'); // custom config
+                        if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
+                        start_potentials = 'f'; // should be able to read from file now
+                    } else {
+                        error("loading of potential file failed for Z= %g\n"
+                              "#   use -t atom_core +atom_core.test.Z=%g", Z_core, Z_core);
+                    } // start.potentials=generate
+                } // load_stat
+            } // twice
+        } // scope
 
 #ifdef DEVEL
         // show the loaded Zeff(r) == -r*V(r)
@@ -1826,7 +1841,7 @@ namespace single_atom {
                             if (echo > 7) {
     //                          printf("\n");
                                 for(int krn = 0; krn < n; ++krn) {
-                                    printf("# %s curvature (%s) and overlap for i=%i ", label, eV, krn);
+                                    printf("# %s curvature (%s) and overlap for i=%i ", label, _eV, krn);
                                     printf_vector(" %g", Ekin[krn], n, "\t\t", eV);
                                     printf_vector(" %g", Olap[krn], n);
                                 } // krn

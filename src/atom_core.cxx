@@ -177,8 +177,8 @@ namespace atom_core {
           return 0; // success
       } else {
           if (echo > 1) printf("# %s  Z=%g  failed to open file %s for writing\n",  __func__, Z, filename);
+          return 1; // failure
       } // is_open
-      return -1; // failure
   } // store_Zeff_to_file
 
 
@@ -196,6 +196,7 @@ namespace atom_core {
       , int const echo // log output level
       , double const occupations[][2] // =nullptr
   ) {
+      status_t stat(0);
       if (echo > 7) printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
 
       int constexpr sra = 1; // scalar-relativistic
@@ -383,29 +384,27 @@ namespace atom_core {
 
       } // while run
 
-      if (echo > 0) {
-          if (res > THRESHOLD) {
-              printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n",
-                        __func__, Z, icyc, res);
-          } else {
+      if (res > THRESHOLD) {
+          if (echo > 0) printf("# %s  Z=%g  Warning! Did not converge in %d iterations, res=%.1e\n", __func__, Z, icyc, res);
+          stat += 9;
+      } else {
+          if (echo > 1) {
               printf("# %s  Z=%g  converged in %d iterations to res=%.1e, E_tot= %.9f %s\n",
                       __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
-
               printf("# %s  Z=%g  E_kin= %.9f E_xc= %.9f E_es= %.9f %s\n", __func__, Z, 
                       energies[E_kin]*eV, energies[E_exc]*eV, energies[E_est]*eV, _eV);
               printf("# %s  Z=%g  E_Coulomb= %.9f E_Hartree= %.9f %s\n", __func__, Z, 
                       energies[E_Cou]*eV, energies[E_Htr]*eV, _eV);
-
-              store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1);
-
-              if (echo > 1) {
-                  for(int i = 0; i <= imax; ++i) {
-                      printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
-                  } // i
-                  printf("\n");
-              }
-          } // converged?
-      } // echo
+          } // echo
+          if (echo > 2) {
+              for(int i = 0; i <= imax; ++i) {
+                  printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
+              } // i
+              printf("\n");
+          }
+          
+          stat += store_Zeff_to_file(rV_old.data(), g.r, g.n, Z, "pot/Zeff", -1);
+      } // converged?
 
       // dump_to_file("rV_converged.dat", g.n, rV_old, g.r);
       // ToDo: export the converged potential rV_old and the position of energies
@@ -464,7 +463,7 @@ namespace atom_core {
           } // ir
       } // show_state_diagram
 
-      return (res > THRESHOLD);
+      return stat;
   } // scf_atom
 
 
@@ -497,10 +496,25 @@ namespace atom_core {
           } // ir
           assert(i == new_n); // after running RDP, there must be exactly new_n true entries left
       } // scope
-      stat += store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "pot/Zeff", 1., echo);
+      stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "pot/Zeff", 1., echo));
       return stat;
   } // simplify_Zeff_file
 
+  
+  status_t solve(
+        double const Z
+      , int const echo
+      , char const config
+      , radial_grid_t* rg
+  ) {
+      if (nullptr == rg) rg = radial_grid::create_default_radial_grid(Z);
+      if ('a' == config) { // "auto"
+          return scf_atom(*rg, Z, echo);
+      } else {
+          auto const element = sigma_config::get(Z, echo);
+          return scf_atom(*rg, Z, echo, element.occ);
+      }
+  } // solve      
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
@@ -544,13 +558,7 @@ namespace atom_core {
       status_t stat{0};
       char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
       for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
-          auto const rg = *radial_grid::create_default_radial_grid(Z);
-          if (custom_config == 'a') { // "auto"
-              stat += scf_atom(rg, Z, echo);
-          } else {
-              auto const element = sigma_config::get(Z, echo);
-              stat += scf_atom(rg, Z, echo, element.occ);
-          }
+          stat += solve(Z, echo, custom_config);
       } // Z
       return stat;
   } // test_core_solver

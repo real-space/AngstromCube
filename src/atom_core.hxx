@@ -12,6 +12,13 @@
 
 namespace atom_core {
 
+  status_t solve(
+        double const Z
+      , int const echo=0
+      , char const config='a' // a:auto or custom
+      , radial_grid_t* rg=nullptr
+  ); // declaration only
+  
   status_t scf_atom(
         radial_grid_t const & g // radial grid descriptor
       , double const Z // number of protons
