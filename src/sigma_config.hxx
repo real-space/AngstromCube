@@ -8,7 +8,7 @@
 namespace sigma_config {
 
   typedef struct {
-      double  occ[32][2]; // occupation numbers up nl-index 31 (8f-orbital)
+      double  occ[32][2]; // occupation numbers up to nl-index 31 (8f-orbital)
       double  Z; // number of protons in the core
       double  rcut; // cutoff-radius
       double  sigma; // Gaussian spread parameter for SHO-type projectors

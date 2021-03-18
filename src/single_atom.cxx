@@ -556,7 +556,7 @@ namespace single_atom {
                 if (0 != load_stat) {
                     if ('g' == start_potentials) {
                         if (echo > 0) printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
-                        auto const gen_stat = atom_core::solve(Z_core, echo/2, 'c'); // custom config
+                        auto const gen_stat = atom_core::solve(Z_core, echo/2, custom_config?'c':'a');
                         if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
                         start_potentials = 'f'; // should be able to read from file now
                     } else {
