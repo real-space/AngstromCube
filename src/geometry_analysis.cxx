@@ -648,7 +648,7 @@ namespace geometry_analysis {
           for(int js = 0; js < nspecies; ++js) {
               printf("%8d", spec_sum[js]);
           } // js
-          printf("   total= %ld\n", nbonds);
+          printf("   total= %lld\n", nbonds);
           if (check_nbonds != nbonds) error("Checksum for bonds does not agree: %d vs %d", check_nbonds, nbonds);
           printf("\n");
 

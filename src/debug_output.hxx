@@ -40,7 +40,7 @@ int dump_to_file(
             if (is_complex<real_t>()) {
                 std::fprintf(f, "  %g %g", std::real(y), std::imag(y));
             } else {
-                std::fprintf(f, " %g", y);
+                std::fprintf(f, " %g", std::real(y));
             } // is_complex
         } // j
         std::fprintf(f, "\n"); // new line
@@ -48,7 +48,7 @@ int dump_to_file(
     std::fprintf(f, "\n"); // new line at the end of the file
 
     std::fclose(f);
-    if (echo > 3) printf("# file %s written with %d x %d (of %d) data entries.\n", filename, N, M, Stride);
+    if (echo > 3) printf("# file %s written with %lu x %lu (of %lu) data entries.\n", filename, N, M, Stride);
     return 0;
 } // dump_to_file
 

@@ -158,7 +158,7 @@ namespace conjugate_gradients {
                   if (echo > 7 && ib > 0) printf("# orthogonalize band #%i against %d lower bands\n", ib, ib);
                   for(int jb = 0; jb < ib; ++jb) {
                       auto const a = inner_product(nv, s[ib], Ss[jb], dV);
-                      if (echo > 8) printf("# orthogonalize band #%i against band #%i with %g\n", ib, jb, a);
+                      if (echo > 8) printf("# orthogonalize band #%i against band #%i with %g %g\n", ib, jb, std::real(a), std::imag(a));
                       add_product( s[ib], nv,  s[jb], complex_t(-a));
                       if (use_overlap) {
                           add_product(Ss[ib], nv, Ss[jb], complex_t(-a));
@@ -218,7 +218,7 @@ namespace conjugate_gradients {
                       if (echo > 7) printf("# orthogonalize gradient against %d bands\n", ib + 1);
                       for(int jb = 0; jb <= ib; ++jb) {
                           auto const a = inner_product(nv, Pgrd, Ss[jb], dV);
-                          if (echo > 8) printf("# orthogonalize gradient against band #%i with %g\n", jb, a);
+                          if (echo > 8) printf("# orthogonalize gradient against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
                           add_product(Pgrd, nv, s[jb], complex_t(-a));
                       } // jb
                   } // orthogonalize Pgrd against s[0...ib]
@@ -244,7 +244,7 @@ namespace conjugate_gradients {
                   if (use_cg) { // operations specific for the conjugate gradients method
                     
                       complex_t const f = ((std::abs(res_new) > tiny<real_t>()) ? res_old/res_new : 0);
-                      if (echo > 7) printf("# CG step with old/new = %g/%g = %g\n", res_old, res_new, f);
+                      if (echo > 7) printf("# CG step with old/new = %g/%g = %g\n", res_old, res_new, std::real(f));
 
                       scale(dir, nv, f);
                       add_product(dir, nv, Pgrd, complex_t(1));
@@ -261,7 +261,7 @@ namespace conjugate_gradients {
                           if (echo > 7) printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
                           for(int jb = 0; jb <= ib; ++jb) {
                               auto const a = inner_product(nv, con, Ss[jb], dV);
-                              if (echo > 8) printf("# orthogonalize conjugate direction against band #%i with %g\n", jb, a);
+                              if (echo > 8) printf("# orthogonalize conjugate direction against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
                               add_product(con,  nv,  s[jb], complex_t(-a));
                               if (use_overlap) {
                                   add_product(Scon, nv, Ss[jb], complex_t(-a));

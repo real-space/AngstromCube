@@ -456,7 +456,7 @@ namespace grid_operators {
                       energy_min_max_Fermi[0], energy_min_max_Fermi[1], energy_min_max_Fermi[2]);
               } // energy_min_max_Fermi
 
-              std::fprintf(f, "  <sho_atoms number=\"%d\">\n", atoms.size());
+              std::fprintf(f, "  <sho_atoms number=\"%ld\">\n", atoms.size());
               for(int ia = 0; ia < atoms.size(); ++ia) {
                   std::fprintf(f, "    <atom gid=\"%i\">\n", atoms[ia].atom_id());
                   auto const pos = atoms[ia].pos();
@@ -505,7 +505,7 @@ namespace grid_operators {
               } // energy_min_max_Fermi
 
               std::fprintf(f, " ,\"sho_atoms\":\n  {\n");
-              std::fprintf(f, "    \"number\": %d\n", atoms.size());
+              std::fprintf(f, "    \"number\": %ld\n", atoms.size());
               std::fprintf(f, "   ,\"atoms\": [\n");
               for(int ia = 0; ia < atoms.size(); ++ia) {
                   std::fprintf(f, "     %c{\"atom_id\": %i,\n", ia?',':' ', atoms[ia].atom_id());
@@ -527,7 +527,7 @@ namespace grid_operators {
                           } // j
                           std::fprintf(f, "]\n"); // close row
                       } // i
-                      std::fprintf(f, "        ]\n", tag); // close matrix
+                      std::fprintf(f, "        ]\n"); // close matrix
                   } // h0s1
                   std::fprintf(f, "      }\n"); // close atom
               } // ia

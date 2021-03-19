@@ -130,7 +130,7 @@ namespace xml_reading {
       for(int ia = 0; ia < 1; ++ia) {
           print2file("    <atom gid=\"%i\">\n", ia);
           print2file("      <position x=\"%.6f\" y=\"%.6f\" z=\"%.6f\"/>\n", 0., 0., 0.);
-          print2file("      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.3f\"/>\n", 1, 1);
+          print2file("      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.3f\"/>\n", 1, 1.);
           int const nSHO = 4;
           for(int h0s1 = 0; h0s1 < 2; ++h0s1) {
               auto const tag = h0s1 ? "overlap" : "hamiltonian";
@@ -248,7 +248,7 @@ namespace xml_reading {
                       if (matrix) {
                           if (echo > 22) printf("# %s.values= %s\n", matrix_name, matrix->value());
                           auto const v = read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
-                          if (echo > 5) printf("# %s matrix has %d values, expect %d x %d = %d\n",
+                          if (echo > 5) printf("# %s matrix has %ld values, expect %d x %d = %d\n",
                               matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
                           for(int ij = 0; ij < nSHO*nSHO; ++ij) {
@@ -283,7 +283,7 @@ namespace xml_reading {
               } // d
               if (echo > 33) printf("# potential.values= %s\n", potential->value());
               Veff = read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
-              if (echo > 5) printf("# potential has %d values, expect %d x %d x %d = %d\n",
+              if (echo > 5) printf("# potential has %ld values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
           } else warn("grid_Hamiltonian has no potential!");

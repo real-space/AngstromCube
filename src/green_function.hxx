@@ -603,7 +603,7 @@ namespace green_function {
           }}} // xyz
 
           auto const nai = iai; // corrected number of atomic images
-          if (echo > 3) std::printf("# %d of %d (%.2f %%) atom images have an overlap with projection spheres\n",
+          if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
                                   nai, natom_images, nai/(natom_images*.01));
           auto const napc = ApcStart[nai];
 
@@ -767,7 +767,7 @@ namespace green_function {
                       if (matrix) {
                           if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
                           auto const v = xml_reading::read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
-                          if (echo > 5) std::printf("# %s matrix has %d values, expect %d x %d = %d\n",
+                          if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",
                               matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
                           set(atom_mat[ia].data() + h0s1*nSHO*nSHO, nSHO*nSHO, v.data()); // copy
@@ -800,7 +800,7 @@ namespace green_function {
               } // d
               if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               Veff = xml_reading::read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
-              if (echo > 5) std::printf("# potential has %d values, expect %d x %d x %d = %d\n",
+              if (echo > 5) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
           } else warn("grid_Hamiltonian has no potential!");

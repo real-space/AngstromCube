@@ -53,7 +53,7 @@ namespace simple_timer {
           result = fibonacci(inp);
           // timer destructor is envoked at the end of this scope
       } // scope
-      if (echo > 0) printf("# fibonacci(%ld) = %ld\n", inp, result);
+      if (echo > 0) printf("# fibonacci(%lld) = %lld\n", inp, result);
       return 0;
   } // test_usage
 
@@ -66,7 +66,7 @@ namespace simple_timer {
           s.add(timer.stop());
           // timer destructor is envoked at the end of this scope
       } // scope
-      if (echo > 0) printf("# fibonacci(%ld) = %ld took %g +/- %g seconds\n", inp, result, s.avg(), s.var());
+      if (echo > 0) printf("# fibonacci(%lld) = %lld took %g +/- %g seconds\n", inp, result, s.avg(), s.var());
       return 0;
   } // test_stop_function
 

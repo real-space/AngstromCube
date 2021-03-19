@@ -109,7 +109,7 @@ namespace green_kinetic {
               prefix[ilist + 1] = prefix[ilist] + n;
           } // ilist
           size_t const ntotal = prefix[n_lists];
-          if (echo > 0) std::printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
+          if (echo > 0) std::printf("# FD lists for the %c-direction require %ld uint32_t, i.e. %.3f kByte\n",
                                   direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
           fd_list = get_memory<int32_t>(ntotal);
           for(int ilist = 0; ilist < n_lists; ++ilist) {

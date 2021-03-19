@@ -64,7 +64,7 @@ namespace paw_xml_export {
                                         Sy,  Z,  n_electrons[0], n_electrons[1], n_electrons[2]);
       
       // ABINIT energy cutoff recommendation <pw_ecut low="12.00" medium="12.00" high="15.00"/> // in Hartree
-      std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12, 12, 15); // ToDo: get a better estimate
+      std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12., 12., 15.); // ToDo: get a better estimate
 
       std::fprintf(f, "  <xc_functional type=\"LDA\" name=\"%s\"/>\n", xc_functional);
       std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"A43\" git=\"%s\">\n",
@@ -164,7 +164,7 @@ namespace paw_xml_export {
               for(int ts = TRU; ts <= SMT; ++ts) {
                   std::fprintf(f, "  <%s_partial_wave state=\"%s-%s\" grid=\"%s\">\n    ", ts_label[ts], Sy,vs.tag, ts_grid[ts]);
                   if (nullptr == vs.wave[ts]) {
-                      if (echo > 0) printf("# %s found nullptr in partial wave iln=%i\n", __func__, iln);
+                      if (echo > 0) printf("# %s found nullptr in partial wave iln=%li\n", __func__, iln);
                       return __LINE__; // error
                   } // error
                   for(int ir = 1; ir < rg[ts].n*m; ++ir) {

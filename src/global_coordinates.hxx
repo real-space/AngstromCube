@@ -63,13 +63,13 @@ namespace global_coordinates {
           // the output format for i63 indices is octal with 22 digits.
           // exactly 21 octal digits represent the bit-interleaved 3D coordinates
           // and one leading 0 indices the octal notation for non-negative i63
-          if (echo > 11) printf("# global_coordinates(%i, %i, %i)\t--> %22.22lo --> (%i, %i, %i)\n",
+          if (echo > 11) printf("# global_coordinates(%i, %i, %i)\t--> %22.22llo --> (%i, %i, %i)\n",
                                   ixyz[0], ixyz[1], ixyz[2], i63, oxyz[0], oxyz[1], oxyz[2]);
           for(int d = 0; d < 3; ++d) {
               is += (ixyz[d] != oxyz[d]);
           } // d
           if (is != 0) {
-              if (echo > 1) printf("# global_coordinates(%i, %i, %i)\t--> %22.22lo --> (%i, %i, %i) failed!\n",
+              if (echo > 1) printf("# global_coordinates(%i, %i, %i)\t--> %22.22llo --> (%i, %i, %i) failed!\n",
                                   ixyz[0], ixyz[1], ixyz[2], i63, oxyz[0], oxyz[1], oxyz[2]);
               ++stat;
           } // is
@@ -78,7 +78,7 @@ namespace global_coordinates {
                               __func__, n_tested*.001, int(stat));
       if (echo > 9) {
           int64_t const i63 = -1; // show how invalid i63 indices are displayed
-          printf("# global_coordinates(impossible coordinates)\t--> %22.22lo == %d\n", i63, i63);
+          printf("# global_coordinates(impossible coordinates)\t--> %22.22llo == %lld\n", i63, i63);
       } // echo
       return stat;
   } // test_global_coordinates

@@ -580,7 +580,7 @@ namespace sigma_config {
   } // show_default_config
 
   status_t test_sizeof_struct(int const echo=0) {
-      if (echo > 0) printf("# sizeof(element_t) = %d Byte\n", sizeof(element_t));
+      if (echo > 0) printf("# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
       return 0;
   } // test_sizeof_struct
   

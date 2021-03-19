@@ -91,7 +91,7 @@ namespace sho_projection {
           if (echo > 6) {
               printf("# addition coefficients ");
               for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                  printf(" %g", coeff[iSHO]);
+                  printf(" %g", std::real(coeff[iSHO]));
               } // iSHO
               printf("\n\n");
           } // echo
@@ -138,7 +138,7 @@ namespace sho_projection {
           if (echo > 6) {
               printf("# projection coefficients ");
               for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                  printf(" %g", coeff[iSHO]);
+                  printf(" %g", std::real(coeff[iSHO]));
               } // iSHO
               printf("\n\n");
           } // echo

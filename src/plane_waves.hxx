@@ -47,7 +47,7 @@ namespace plane_waves {
           auto const nG_aligned = align<0>(nG_all);
           int  const nC_aligned = align<0>(ncoeff);
           if (echo > 8) printf("# DensityIngredients allocates %.3f MByte for wave functions + %.3f kByte for coefficients\n",
-                                  __func__, nbands*16e-6*nG_aligned, nbands*16e-3*nC_aligned);
+                                                               nbands*16e-6*nG_aligned, nbands*16e-3*nC_aligned);
           std::complex<double> const zero(0);
           psi_r = view2D<std::complex<double>>(nbands, nG_aligned, zero);
           coeff = view2D<std::complex<double>>(nbands, nC_aligned, zero);

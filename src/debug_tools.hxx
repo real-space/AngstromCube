@@ -76,7 +76,7 @@ namespace debug_tools {
           } // switch
           ++linenumber;
       } // while
-      if (echo > 3) printf("# %d (of %d) x %d (of %d) data entries%s%s read from file %s\n", 
+      if (echo > 3) printf("# %d (of %ld) x %ld (of %ld) data entries%s%s read from file %s\n", 
                               ix, N, M, Stride, title?" for ":"", title, filename);
       return ix - N; // 0 if number of lines + 1 matched the expected number of rows
   } // read_from_file

@@ -311,7 +311,7 @@ namespace multi_grid {
           auto const id = grid_point_id(xyz[0], xyz[1], xyz[2]);
           stat += grid_point_xyz(abc[0], abc[1], abc[2], id);
           for(int d = 0; d < 3; ++d) stat += (abc[d] != xyz[d]);
-          if (echo > 9) printf("# %s %5d %5d %5d --> %ld --> %5d %5d %5d\n",
+          if (echo > 9) printf("# %s %5d %5d %5d --> %lld --> %5d %5d %5d\n",
               __func__, xyz[0], xyz[1], xyz[2], id, abc[0], abc[1], abc[2]);
       } // n
       int32_t abc[3];

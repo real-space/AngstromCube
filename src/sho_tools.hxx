@@ -383,7 +383,7 @@ namespace sho_tools {
                   order_nlm, order_Elnm, order_ln, order_Enl, order_nl};
       for(int io = 0; io < 9; ++io) {
           SHO_order_t const oi = ord[io];
-          if (echo > 3) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10li  %s-ordered emm-%s %s\n",
+          if (echo > 3) printf("# %s: SHO_order_t %s\t= 0x%x\t= %10lli  %s-ordered emm-%s %s\n",
                       __func__, SHO_order2string(oi).c_str(), (unsigned)oi, oi
                        , is_energy_ordered(oi)?"energy":"  loop"
                        , is_emm_degenerate(oi)?"degenerate":"resolved  "

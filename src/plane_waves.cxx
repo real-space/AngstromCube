@@ -141,7 +141,7 @@ namespace plane_waves {
           } // ib
 
           // assume that plane waves are energy ordered and solve for the nsub * nsub sub-Hamiltonian
-          if (echo > 6) { printf("# %s get %d start waves from diagonalization of a %d x %d Hamiltonian (stride %d)\n",
+          if (echo > 6) { printf("# %s get %d start waves from diagonalization of a %d x %d Hamiltonian (stride %lu)\n",
                                   __func__, nbands, nsub, nsub, SHmat_b.stride()); std::fflush(stdout); }
           auto const stat_eig = dense_solver::solve(SHmat_b, "# start waves "); // mute
           if (stat_eig != 0) {
@@ -151,7 +151,7 @@ namespace plane_waves {
           stat += stat_eig;
           // after the dense solver, the Hamiltonian matrix contains the eigenvectors
 
-          if (echo > 6) { printf("# %s copy %d start waves from eigenstates of the %d x %d Hamiltonian (stride %d)\n",
+          if (echo > 6) { printf("# %s copy %d start waves from eigenstates of the %d x %d Hamiltonian (stride %lu)\n",
                                   __func__, nbands, nsub, nsub, SHmat_b.stride()); std::fflush(stdout); }
           // copy eigenvectors into low PW coefficients of start waves
           for(int ib = 0; ib < nbands; ++ib) {
@@ -411,7 +411,7 @@ namespace plane_waves {
       view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Hamiltonian matrix H, 0:Overlap S
 
 #ifdef DEVEL
-      if (echo > 9) printf("# assume dimensions of Vcoeff(%d, %d, %d, %d)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
+      if (echo > 9) printf("# assume dimensions of Vcoeff(%d, %ld, %ld, %ld)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
       assert( nG[0] <= Vcoeff.stride() );
       assert( nG[1] <= Vcoeff.dim1() );
       assert( nG[2] <= Vcoeff.dim2() );
