@@ -47,7 +47,7 @@ namespace poisson_solver {
       , double const center[3]=nullptr // center around which to expand, e.g. an atomic position
       , int const echo=0 // log-level
   ) {
-      if (!g.is_Cartesian()) error("Bessel-Poisson solver only implemented for Cartesian grids");
+      if (!g.is_Cartesian()) error("Bessel-Poisson solver only implemented for Cartesian grids", 0);
       // solve the Poisson equation for spherically symmetric geometries using a Bessel trasform
       status_t stat(0);
       if (g.number_of_boundary_conditions(Isolated_Boundary) < 3) {

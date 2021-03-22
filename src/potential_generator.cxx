@@ -359,9 +359,9 @@ namespace potential_generator {
           if (echo > 1) printf("# include spherical atomic valence densities in the smooth core densities\n");
           take_atomic_valence_densities = 1; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
       } else if ('l' == *initial_valence_density_method) { // load
-          error("initial.valence.density=load has not been implemented yet");
+          error("initial.valence.density=load has not been implemented yet, found %s", initial_valence_density_method);
       } else if ('n' == *initial_valence_density_method) { // none
-          warn("initial.valence.density=none may cause problems");
+          warn("initial.valence.density=none may cause problems, found %s", initial_valence_density_method);
       } else {
           warn("initial.valence.density=%s is unknown, valence density is zero", initial_valence_density_method);
       } // initial_valence_density_method
@@ -576,7 +576,7 @@ namespace potential_generator {
       int max_scf_iterations{max_scf_iterations_input}; // non-const, may be modified by the stop file during the run
       { // scope: create a stop file with standard name
           auto const stat = debug_tools::manage_stop_file<'w'>(max_scf_iterations, echo);
-          if (stat != 0) error("failed to write/create a stop file");
+          if (stat != 0) error("failed to write/create a stop file, status= %i", int(stat));
       } // scope
 
       for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
@@ -806,7 +806,7 @@ namespace potential_generator {
                   auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
                   if (export_Hamiltonian) {
                       op.write_to_file(echo, control::get("export.hamiltonian.format", "xml"));
-                      if (export_Hamiltonian < 0) abort("Hamiltonian exported!");
+                      if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian = %g < 0", export_Hamiltonian);
                   } // export_Hamiltonian
 
                   view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density

@@ -651,10 +651,10 @@ namespace plane_waves {
           char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0],kpoint[1],kpoint[2]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
-          bool can_be_real{false}; // real only with inversion symmetry
+          bool constexpr can_be_real{false}; // real only with inversion symmetry
           if (can_be_real) {
-              error("PW only implemented with complex");
-          } else { // replace this "else" by "if(true)" to test if real and complex version agree
+              error("PW only implemented with complex", 0);
+          } else {
               int nPWs{0};
               if (32 == floating_point_bits) {
                   stat += solve_k<std::complex<float>>(

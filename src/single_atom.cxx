@@ -685,7 +685,7 @@ namespace single_atom {
                         int const csv_cust = (occ_custom[inl] < 0) ? core : valence; // in custom_config, negative occupation numbers for core electrons, positive for valence
                         cs.csv = custom_config ? csv_cust : csv_auto;
                         
-                        if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states!");
+                        if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states, found inl=%i", inl_core_hole);
 
                         if (2 == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 

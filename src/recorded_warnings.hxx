@@ -12,21 +12,28 @@ namespace recorded_warnings {
   
   std::pair<char*,int> _new_warning(char const *file, int const line, char const *func); // hidden, please use the macro above
 
-#define error(...) { \
+#define error(MESSAGE, ...) { \
     recorded_warnings::show_warnings(8); \
-    recorded_warnings::_print_error_message(stdout, "Error", __FILE__, __LINE__, __VA_ARGS__ ); \
-    recorded_warnings::_print_error_message(stderr, "Error", __FILE__, __LINE__, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stdout, "Error", __FILE__, __LINE__, MESSAGE, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stderr, "Error", __FILE__, __LINE__, MESSAGE, __VA_ARGS__ ); \
     exit(__LINE__); }
 
-#define abort(...) { \
+#define abort(MESSAGE, ...) { \
     recorded_warnings::show_warnings(8); \
-    recorded_warnings::_print_error_message(stdout, "Abort", __FILE__, __LINE__, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stdout, "Abort", __FILE__, __LINE__, MESSAGE, __VA_ARGS__ ); \
     exit(__LINE__); }
 
   template <class... Args>
-  void _print_error_message(FILE* os, char const *error, char const *srcfile, int const srcline, Args &&... args) {
-        std::fprintf(os, "\n\n# %s in %s:%i  Message:\n#   ", error, srcfile, srcline);
-        std::fprintf(os, std::forward<Args>(args)...);
+  void _print_error_message(
+        FILE* os
+      , char const *type
+      , char const *srcfile
+      , int const srcline
+      , char const *message
+      , Args &&... args
+  ) {
+        std::fprintf(os, "\n\n# %s in %s:%i  Message:\n#   ", type, srcfile, srcline);
+        std::fprintf(os, message, std::forward<Args>(args)...);
         std::fprintf(os, "\n\n");
         std::fflush(os);
   } // _print_error_message

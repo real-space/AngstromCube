@@ -354,7 +354,7 @@ namespace iterative_poisson {
 
     // |Ax> := A|x>
     ist = finite_difference::apply(ax, x, g, Laplacian);
-    if (ist) error("CG_solve: Laplacian failed!");
+    if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
     // dump_to_file("cg_start", nall, x, nullptr, 1, 1, "x", echo);
     
@@ -375,7 +375,7 @@ namespace iterative_poisson {
     if (use_precond) {
         ist = (nn_precond > 0) ? finite_difference::apply(z, r, g, precond) 
                                : multi_grid_precond(z, r, g, echo);
-        if (ist) error("CG_solve: Preconditioner failed!");
+        if (ist) error("CG_solve: Preconditioner failed with status %i", int(ist));
     } else assert(z == r);
 
     // rz_old = <r|z>
@@ -396,7 +396,7 @@ namespace iterative_poisson {
 
         // |ap> = A|p>
         ist = finite_difference::apply(ap, p, g, Laplacian);
-        if (ist) error("CG_solve: Laplacian failed!");
+        if (ist) error("CG_solve: Laplacian failed with status %i", int(ist));
 
         double const pAp = scalar_product(p, ap, nall) * g.dV(); // g.comm
 
@@ -420,7 +420,7 @@ namespace iterative_poisson {
         if (0 == it % restart) {
             // |Ax> = A|x>
             ist = finite_difference::apply(ax, x, g, Laplacian);
-            if (ist) error("CG_solve: Laplace failed!")
+            if (ist) error("CG_solve: Laplace failed with status %i", int(ist))
             // |r> = |b> - A|x> = |b> - |ax>
             set(r, nall, b); add_product(r, nall, ax, real_t(-1));
         } else {
@@ -435,7 +435,7 @@ namespace iterative_poisson {
         if (use_precond) {
             ist = (nn_precond > 0) ? finite_difference::apply(z, r, g, precond) 
                                    : multi_grid_precond(z, r, g, echo);
-            if (ist) error("CG_solve: Preconditioner failed!");
+            if (ist) error("CG_solve: Preconditioner failed with status %i", int(ist));
         } else assert(z == r);
 
         // rz_new = <r|z>
