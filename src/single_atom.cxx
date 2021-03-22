@@ -792,7 +792,7 @@ namespace single_atom {
         double constexpr energy_derivative = -8.0;
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher, special function for -8.0:energy derivative
 #ifndef DEVEL
-        if (energy_derivative == excited_energy) warn("energy derivative for partial wave only with -D DEVEL");
+        if (energy_derivative == excited_energy) warn("energy derivative for partial wave feature only with -D DEVEL", 0);
 #endif // DEVEL
         set(partial_wave_energy_split, 1 + ELLMAX, excited_energy);
 
@@ -1394,7 +1394,7 @@ namespace single_atom {
         double const sigma_out = (optimize_sigma > 0) ? sigma_opt : sigma_old; // return value
 #else  // DEVEL
         double const sigma_out = sigma; // return value
-        if (optimize_sigma) warn("single_atom.optimize.sigma active only with -D DEVEL");
+        if (optimize_sigma) warn("single_atom.optimize.sigma=%i active only with -D DEVEL", optimize_sigma);
 #endif // DEVEL
 
         // show expansion coefficients of the projectors
