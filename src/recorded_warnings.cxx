@@ -99,7 +99,8 @@ namespace recorded_warnings {
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
                         auto const n_times = w.get_times();
-                        printf("# \tin %s:%d %s (%ld times) \t%s\n", w.get_sourcefile(), 
+                        printf("# \tin %s:%d %s (%ld times)\n"
+                               "# \t\t%s\n", w.get_sourcefile(), 
                             w.get_sourceline(), w.get_functionname(), 
                             n_times, w.get_message_pointer());
                         total_count += n_times;

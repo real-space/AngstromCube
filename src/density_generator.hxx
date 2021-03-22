@@ -177,8 +177,8 @@ namespace density_generator {
       // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat(0);
 
-      if (nullptr == eigenfunctions) { warn("eigenfunctions received are nullptr"); return -1; }
-      
+      if (nullptr == eigenfunctions) { warn("no eigenfunctions received, expect %d", nbands); return -1; }
+
       if (echo > 3) printf("# %s assume %d bands on a %d x %d x %d grid\n", __func__, nbands, g('x'), g('y'), g('z'));
 
       auto const n_all_coeff = coeff_starts ? coeff_starts[natoms] : 0;

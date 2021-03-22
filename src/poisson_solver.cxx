@@ -50,10 +50,14 @@ namespace poisson_solver {
       if (!g.is_Cartesian()) error("Bessel-Poisson solver only implemented for Cartesian grids", 0);
       // solve the Poisson equation for spherically symmetric geometries using a Bessel trasform
       status_t stat(0);
-      if (g.number_of_boundary_conditions(Isolated_Boundary) < 3) {
-          warn("Bessel Poisson solver requires 3 isolated boundary conditions");
-          return -1;
-      } // failed
+
+      { // scope: check that we have 3 isolated boundary conditions
+          int const nibc = g.number_of_boundary_conditions(Isolated_Boundary);
+          if (nibc < 3) {
+              warn("Bessel Poisson solver requires 3 but found only %d isolated boundary conditions", nibc);
+              return -1;
+          } // failed
+      } // scope
 
       // report extremal values of what is stored on the grid
       if (echo > 1) print_stats(rho, g.all(), g.dV(), "# real-space stats of input density:   ");

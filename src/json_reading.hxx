@@ -42,7 +42,7 @@ namespace json_reading {
       assert(doc["potential"].IsObject());
 
 #else
-      warn("Unable to check usage of rapidjson when compiled without -D HAS_RAPIDJSON");
+      warn("Unable to check usage of rapidjson when compiled without -D HAS_RAPIDJSON", 0);
 #endif
       return stat;
   } // test_json_reader

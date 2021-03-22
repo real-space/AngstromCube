@@ -638,7 +638,10 @@ namespace multi_grid {
           }
           avg += b[i];
       } // i
-      avg /= g; for(int i = 0; i < g; ++i) { b[i] -= avg; } // make b charge neutral
+      avg /= g;
+      for(int i = 0; i < g; ++i) { 
+          b[i] -= avg; // make b charge neutral
+      } // i
 
       if (echo > 0) printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
       double const h = 1./g;
@@ -662,8 +665,8 @@ namespace multi_grid {
   } // test_mg_cycle
 
   inline status_t all_tests(int const echo=0) {
-      int n{0}; int const t = control::get("multi_grid.select.test", -1.); // -1:all
       status_t stat(0);
+      int n{0}; int const t = control::get("multi_grid.select.test", -1.); // -1:all
       if (t & (1 << n++)) stat += test_mg_cycle<double>(echo);
       if (t & (1 << n++)) stat += test_transfer(echo);
       if (t & (1 << n++)) stat += test_analysis(echo);

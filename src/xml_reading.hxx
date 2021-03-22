@@ -116,6 +116,7 @@ namespace xml_reading {
       #define print2file(...) std::fprintf(f, __VA_ARGS__)
 #else
 
+      char const *filename = "<interal buffer>";
       size_t const buffer = 2048;
       char mutable_string[buffer]; // internal file
       size_t nchars{0};
@@ -259,7 +260,7 @@ namespace xml_reading {
                   ++ia; // count up the number of atoms
               } // atom
               assert(natoms == ia); // sanity
-          } else warn("no <sho_atoms> found in grid_Hamiltonian");
+          } else warn("no <sho_atoms> found in grid_Hamiltonian in file %s", filename);
 
           auto const spacing = find_child(grid_Hamiltonian, "spacing", echo);
           for(int d = 0; d < 3; ++d) {
@@ -286,13 +287,13 @@ namespace xml_reading {
               if (echo > 5) printf("# potential has %ld values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
-          } else warn("grid_Hamiltonian has no potential!");
+          } else warn("grid_Hamiltonian has no potential in file %s", filename);
 
-      } else warn("no grid_Hamiltonian found");
+      } else warn("no grid_Hamiltonian found in file %s", filename);
 
       return stat;
 #else
-      warn("Unable to check usage of rapidxml when compiled without -D HAS_RAPIDXML");
+      warn("Unable to check usage of rapidxml when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #endif
   } // test_xml_reader

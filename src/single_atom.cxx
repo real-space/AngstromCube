@@ -998,7 +998,7 @@ namespace single_atom {
                 exchange_correlation::default_LDA);
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
             if (echo > 0) printf("# %s exported configuration to file\n", label);
-            if (maxit_scf < 1) warn("exported PAW file although no setup SCF iterations executed");
+            if (maxit_scf < 1) warn("exported PAW file although %i setup SCF iterations executed", maxit_scf);
             if (export_xml < 0) abort("single_atom.export.xml=%d (negative leads to a stop)", export_xml);
         } // export_xml
 

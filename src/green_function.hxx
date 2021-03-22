@@ -701,7 +701,8 @@ namespace green_function {
 
   inline status_t test_Green_function(int const echo=0) {
 #ifdef HAS_RAPIDXML
-      rapidxml::file<> infile("Hmt.xml");
+      char const *filename = "Hmt.xml";
+      rapidxml::file<> infile(filename);
 
       rapidxml::xml_document<> doc;
       doc.parse<0>(infile.data());
@@ -776,7 +777,7 @@ namespace green_function {
                   ++ia; // count up the number of atoms
               } // atom
               assert(natoms == ia); // sanity
-          } else warn("no <sho_atoms> found in grid_Hamiltonian");
+          } else warn("no <sho_atoms> found in grid_Hamiltonian in file %s", filename);
 
           auto const spacing = xml_reading::find_child(grid_Hamiltonian, "spacing", echo);
           for(int d = 0; d < 3; ++d) {
@@ -803,13 +804,13 @@ namespace green_function {
               if (echo > 5) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
-          } else warn("grid_Hamiltonian has no potential!");
+          } else warn("grid_Hamiltonian has no potential in file %s", filename);
 
-      } else warn("no grid_Hamiltonian found");
+      } else warn("no grid_Hamiltonian found in file %s", filename);
 
       return construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, echo);
 #else
-      warn("Unable to test Green function construction when compiled without -D HAS_RAPIDXML");
+      warn("Unable to test Green function construction when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #endif
   } // test_Green_function

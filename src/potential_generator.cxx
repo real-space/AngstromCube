@@ -448,7 +448,7 @@ namespace potential_generator {
 
       char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
-      
+
       char const occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
 
       // create a FermiLevel object
@@ -843,9 +843,9 @@ namespace potential_generator {
                           } // iband
                       } else
                       if ('n' == *grid_eigensolver_method) { // "none"
-                          if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
+                          if (take_atomic_valence_densities < 1) warn("no new valence density for grid.eigensolver=%s", grid_eigensolver_method);
                       } else {
-                          ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
+                          ++stat; error("unknown grid.eigensolver=%s", grid_eigensolver_method);
                       } // grid_eigensolver_method
 
                       if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
@@ -1091,7 +1091,7 @@ namespace potential_generator {
           
           { // scope: read the stop file with standard name, max_scf_iterations may be modified
               auto const stat = debug_tools::manage_stop_file<'r'>(max_scf_iterations, echo);
-              if (stat != 0) warn("failed to read the stop file");
+              if (stat) warn("failed to read the stop file, status= %i", int(stat));
               if (max_scf_iterations_input != max_scf_iterations) {
                   warn("the max. number of SCF iterations has been modified from %d to %d "
                        "by the stop file during SCF iteration #%i", 
@@ -1104,7 +1104,9 @@ namespace potential_generator {
 
       here;
 
-      if (0 != debug_tools::manage_stop_file<'d'>(max_scf_iterations, echo)) warn("failed to delete stop file");
+      {   auto const stat = debug_tools::manage_stop_file<'d'>(max_scf_iterations, echo);
+          if (stat) warn("failed to delete stop file, status= %i", int(stat));
+      }
 
       if (psi_on_grid) {
           auto const store_wave_file = control::get("store.waves", "");
