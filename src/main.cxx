@@ -252,7 +252,7 @@
                       return show_help(argv[0]);
                   } else 
                   if ("version" == option) {
-                      return show_version(argv[0]);
+                      return show_version(argv[0], 1);
                   } else 
                   if ("verbose" == option) {
                       verbosity = 6; // set default verbosity high
@@ -304,7 +304,7 @@
       //
       echo = int(control::get("verbosity", double(echo))); // verbosity may have been redefined in the control file
       //
-      show_version();
+      show_version(argv[0], echo);
       //
       if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
       //
