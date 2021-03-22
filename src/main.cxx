@@ -99,7 +99,6 @@
       auto const m = std::string(all ? "" : module);
       if (echo > 0) std::printf("# run unit tests for %s%s\n\n", 
                            all?"all modules":"module ", m.c_str());
-
       std::vector<std::pair<std::string,status_t>> run;
       { // testing scope
 #define   add_module_test(MODULE_NAME) \
@@ -184,14 +183,16 @@
           status = -1;
       } else {
           if (echo > 0) std::printf("\n\n#%3ld modules have been tested:\n", run.size());
+          int nonzero_status{0};
           for(auto r : run) {
               auto const stat = r.second;
               if (echo > 0) std::printf("#    module= %-24s status= %i\n", r.first.c_str(), int(stat));
               status += std::abs(int(stat));
+              nonzero_status += (0 != stat);
           } // r
           if (echo > 0) {
               std::printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), int(status));
-              if (status > 0) std::printf("# Warning! At least one module test failed!\n");
+              if (status > 0) warn("# Warning! Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
           } // echo
       } // something has been tested
 #endif // NO_UNIT_TESTS

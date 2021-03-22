@@ -3,3 +3,4 @@ del/*
 lib/
 not/*
 release/*
+.DS_Store

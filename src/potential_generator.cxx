@@ -1262,7 +1262,8 @@ namespace potential_generator {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_init(echo);
+      int n{0}; int const t = control::get("potential_generator.select.test", -1.); // -1:all
+      if (t & (1 << n++)) stat += test_init(echo);
       return stat;
   } // all_tests
 

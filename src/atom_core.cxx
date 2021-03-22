@@ -520,6 +520,17 @@ namespace atom_core {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  status_t test_neutral_atom_total_energy(int const echo=0) {
+      if (echo < 7) return 0;
+      printf("\n\n## %s\n", __func__);
+      for(int iZ = -1; iZ <= 120*2; ++iZ) {
+          double const Z = iZ*0.5;
+          printf("%g %.9f\n", Z, neutral_atom_total_energy(Z));
+      } // Z
+      printf("\n# %s\n\n", __func__);
+      return 0;
+  } // test_neutral_atom_total_energy
+
   status_t test_initial_density(int const echo=0) {
       if (echo > 3) printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
       double maxdev{0};
@@ -573,17 +584,6 @@ namespace atom_core {
       } // Z
       return stat;
   } // test_Zeff_file_compression
-
-  status_t test_neutral_atom_total_energy(int const echo=0) {
-      if (echo < 7) return 0;
-      printf("\n\n## %s\n", __func__);
-      for(int iZ = -1; iZ <= 120*2; ++iZ) {
-          double const Z = iZ*0.5;
-          printf("%g %.9f\n", Z, neutral_atom_total_energy(Z));
-      } // Z
-      printf("\n# %s\n\n", __func__);
-      return 0;
-  } // test_neutral_atom_total_energy
 
   status_t all_tests(int const echo) {
       status_t stat(0);
