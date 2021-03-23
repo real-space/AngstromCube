@@ -219,7 +219,8 @@ pw_hamiltonian.solver=direct
 #dense_solver.test.overlap.eigvals=0
 
 export.hamiltonian=-1
-export.hamiltonian.format=xml
+# export.hamiltonian.format=xml
+export.hamiltonian.format=json
 
 EOF
 

@@ -1,6 +1,5 @@
 #pragma once
 
-
 #ifdef HAS_RAPIDJSON
   #include <cassert> // assert
 //   #include <cstdlib> // std::atof, std::strtod
@@ -32,14 +31,33 @@ namespace json_reading {
           infile = ss.str();
       } // file_stream
 
+#if 0
+      if (echo > 0) {
+          char head[512];
+          std::strncpy(head, infile.data(), std::min(infile.size(), size_t(511)));
+          head[511] = '\0';
+          std::printf("# %s: after reading json file:\n# %s\n", __func__, head);
+      } // echo
+#endif // NEVER
+
       rapidjson::Document doc;
-      doc.Parse(infile.data());
-      assert(doc.IsObject());
+      if (doc.Parse(infile.data()).HasParseError()) {
+          if (echo > 0) std::printf("# %s: rapidjson.Parse failed, try in situ parsing!\n", __func__);
+          std::vector<char> json(infile.size() + 1);
+          std::strncpy(json.data(), infile.data(), json.size());
+          if (doc.ParseInsitu(json.data()).HasParseError()) {
+              if (echo > 0) std::printf("# %s: rapidjson.ParseInsitu failed!\n", __func__);
+              return -1;
+          } // ParseInsitu
+      } // Parse
+      assert(doc.IsObject()); // fails although documentation says this should not
 
       assert(doc["comment"].IsString());
       assert(doc["spacing"].IsArray());
-      assert(doc["sho_atoms"].IsObject());
       assert(doc["potential"].IsObject());
+      assert(doc["sho_atoms"].IsObject());
+      assert(doc.HasMember("potential"));
+      assert(doc.HasMember("sho_atoms"));
 
 #else
       warn("Unable to check usage of rapidjson when compiled without -D HAS_RAPIDJSON", 0);

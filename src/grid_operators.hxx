@@ -19,7 +19,7 @@
 
 #ifdef DEVEL
   #include "control.hxx" // ::get
-#endif
+#endif // DEVEL
 
 #define DEBUG
 
@@ -107,7 +107,7 @@ namespace grid_operators {
 #ifdef DEBUG
                   } else if (a[ia].nimages() < 1) {
                       error("atom #%i has no image!", a[ia].atom_id());
-#endif
+#endif // DEBUG
                   } else {
                       // Gamma point, no periodic images
                       stat += sho_projection::sho_project(atom_coeff[ia].data(), numax, a[ia].pos(), a[ia].sigma(), psi, g, echo_sho);
@@ -198,9 +198,9 @@ namespace grid_operators {
       double const scale_hs[] = {control::get("hamiltonian.scale.nonlocal.h", 1.),
                                  control::get("hamiltonian.scale.nonlocal.s", 1.)};
       if (1 != scale_hs[0] || 1 != scale_hs[1]) warn("scale PAW contributions to H and S by %g and %g, respectively", scale_hs[0], scale_hs[1]);
-#else
+#else  // DEVEL
       double constexpr scale_hs[] = {1, 1};
-#endif
+#endif // DEVEL
 
       for(size_t ia = 0; ia < a.size(); ++ia) {
           // set atomic Hamiltonian and charge deficit matrices
@@ -384,9 +384,9 @@ namespace grid_operators {
 #ifdef DEVEL
                   double const scale_p = control::get("hamiltonian.scale.potential", 1.);
                   if (1 != scale_p) warn("local potential is scaled by %g", scale_p);
-#else
+#else  // DEVEL
                   double constexpr scale_p = 1;
-#endif
+#endif // DEVEL
                   set(potential.data(), ng, local_potential, scale_p); // copy data in
                   if (echo > 0) printf("# %s %s local potential copied (%ld elements)\n", __FILE__, __func__, ng);
               } else {
@@ -508,7 +508,7 @@ namespace grid_operators {
               std::fprintf(f, "    \"number\": %ld\n", atoms.size());
               std::fprintf(f, "   ,\"atoms\": [\n");
               for(int ia = 0; ia < atoms.size(); ++ia) {
-                  std::fprintf(f, "     %c{\"atom_id\": %i,\n", ia?',':' ', atoms[ia].atom_id());
+                  std::fprintf(f, "     %c{\"atom_id\": %i\n", ia?',':' ', atoms[ia].atom_id());
                   auto const pos = atoms[ia].pos();
                   std::fprintf(f, "      ,\"position\": [%.12f, %.12f, %.12f]\n", pos[0], pos[1], pos[2]);
                   int const numax = atoms[ia].numax();
@@ -550,8 +550,8 @@ namespace grid_operators {
           std::fclose(f);
           if (echo > 3) printf("# file %s written\n", filename);
           return 0; // 0:success
-#else
-          return -1; // avtivate -D DEVEL for export function
+#else  // DEVEL
+          return -1; // activate -D DEVEL for export function
 #endif // DEVEL
       } // write_to_file
       
