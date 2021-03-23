@@ -19,7 +19,7 @@ for a in 0   1000    100 010 001     200 110 020 101 011 002      300 210 120 03
 
 (cd ../src/ && make -j) && \
   $exe +verbosity=11 \
-    -test sho_potential. \
+    -test sho_potential \
     +sho_potential.test.numax=3 \
     +sho_potential.test.sigma=2.0 \
     +sho_potential.test.method=3 \

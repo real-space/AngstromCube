@@ -1,7 +1,8 @@
 #pragma once
 
-#include <chrono> // ::high_resolution_clock
-#include <cstring> // ::strcpy
+#include <chrono> // std::chrono::high_resolution_clock
+#include <cstring> // std::strcpy
+#include <cstdio> // std::printf
 
 #include "status.hxx" // status_t
 #ifndef NO_UNIT_TESTS
@@ -30,7 +31,7 @@
       double stop(int const stop_echo=0) const { 
           auto const stop_time = std::chrono::high_resolution_clock::now(); // stop
           auto const musec = std::chrono::duration_cast<std::chrono::microseconds>(stop_time - start_time).count();
-          if (stop_echo > 0) printf("# timer started at %s:%d %s took %.5f sec\n", file, line, func, 1e-6*musec);
+          if (stop_echo > 0) std::printf("# timer started at %s:%d %s took %.5f sec\n", file, line, func, 1e-6*musec);
           return 1e-6*musec;
       } // stop
 
@@ -53,7 +54,7 @@ namespace simple_timer {
           result = fibonacci(inp);
           // timer destructor is envoked at the end of this scope
       } // scope
-      if (echo > 0) printf("# fibonacci(%lld) = %lld\n", inp, result);
+      if (echo > 0) std::printf("# fibonacci(%lld) = %lld\n", inp, result);
       return 0;
   } // test_usage
 
@@ -66,12 +67,12 @@ namespace simple_timer {
           s.add(timer.stop());
           // timer destructor is envoked at the end of this scope
       } // scope
-      if (echo > 0) printf("# fibonacci(%lld) = %lld took %g +/- %g seconds\n", inp, result, s.avg(), s.var());
+      if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %g seconds\n", inp, result, s.avg(), s.var());
       return 0;
   } // test_stop_function
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       status += test_usage(echo);
       status += test_stop_function(echo);

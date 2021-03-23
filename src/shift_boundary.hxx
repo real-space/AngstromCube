@@ -5,13 +5,14 @@
   #include <cstdint> // int64_t, std::sif (echo > 3) printf, uint8_t
   #include <string> // std::string
   #include <vector> // std::vector<T>
-
 #endif // NO_UNIT_TESTS
+
+#include <cmath> // std::sqrt
+#include <algorithm> // std::max
 
 #include "constants.hxx" // ::pi
 #include "display_units.h" // Ang, _Ang
 #include "inline_math.hxx" // set
-
 #include "status.hxx" // status_t
 
 namespace shift_boundary {

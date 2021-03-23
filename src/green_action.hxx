@@ -11,8 +11,10 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
 
+#include "constants.hxx" // ::pi
 #include "green_memory.hxx" // get_memory, free_memory
 #include "green_kinetic.hxx" // ::finite_difference_plan_t
+#include "simple_stats.hxx" // ::Stats<>
 
 #ifdef HAS_TFQMRGPU
   #include "tfqmrgpu_core.hxx" // solve<action_t>

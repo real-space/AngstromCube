@@ -6,6 +6,7 @@
 #include "inline_tools.hxx" // align
 #include "vector_math.hxx" // vec<n,T>
 #include "constants.hxx" // ::pi
+#include "inline_math.hxx" // pow2
 
 namespace fourier_poisson {
 

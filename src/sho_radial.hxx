@@ -5,7 +5,13 @@
 
 #include "constants.hxx" // ::sqrtpi
 
+#ifndef NO_UNIT_TESTS
+  #include <cstdio> // std::printf
+  #include <algorithm> // std::max
+#endif
+
 #include "status.hxx" // status_t
+#include "quantum_numbers.h" // ell_QN_t
 
 namespace sho_radial {
 
@@ -106,7 +112,7 @@ namespace sho_radial {
   inline status_t test_orthonormality(int const echo=1) {
       int const numax = 9;
       int const n = (numax*(numax + 4) + 4)/4; // sho_tools::nSHO_radial(numax);
-      if (echo > 1) printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
+      if (echo > 1) std::printf("# %s  numax= %d has %d different radial SHO states\n", __func__, numax, n);
       
       double c[n][8]; // polynomial coefficients
 
@@ -128,7 +134,7 @@ namespace sho_radial {
               double const fac = radial_normalization(c[i], nrn, ell);
               assert(std::abs(fac - radial_normalization<double>(nrn, ell)) < 1e-12); // check that the other interface produces the same value,with -O0 we can even check for ==
               fac_list[i] = fac;
-              if (echo > 2) printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
+              if (echo > 2) std::printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
               radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficent series with the normalized onces
 
               ++i; // count the number of states
@@ -150,15 +156,15 @@ namespace sho_radial {
                           assert(std::abs(delta_ji - delta_ij) < 1e-15);
                       } // i != j
                   } // sanity check
-                  if (echo > 4 - i_equals_j) printf("%g ", delta_ij - i_equals_j);
+                  if (echo > 4 - i_equals_j) std::printf("%g ", delta_ij - i_equals_j);
                   // measure the deviation from unity for diagonal elements
                   dev[i_equals_j] = std::max(dev[i_equals_j], std::abs(delta_ij - i_equals_j));
               } // ell matches
           } // j
-          if (echo > 3) printf("\n");
+          if (echo > 3) std::printf("\n");
       } // i
-      if (echo > 0) printf("# normalization of radial SHO eigenfunctions differs by %g from unity\n", dev[1]); // summary
-      if (echo > 0) printf("# orthogonality of radial SHO eigenfunctions differs by %g from zero\n",  dev[0]); // summary
+      if (echo > 0) std::printf("# normalization of radial SHO eigenfunctions differs by %g from unity\n", dev[1]); // summary
+      if (echo > 0) std::printf("# orthogonality of radial SHO eigenfunctions differs by %g from zero\n",  dev[0]); // summary
       return (dev[0] + dev[1] > 5e-11);
   } // test_orthonormality
 

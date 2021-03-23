@@ -9,9 +9,10 @@ for asy in 1; do
 
 (cd ../src/ && make -j) && \
   $exe +verbosity=10 \
-    -test sho_hamiltonian. \
+    -test sho_hamiltonian \
     +sho_hamiltonian.test.numax=2 \
     +sho_hamiltonian.test.sigma=1.5 \
+    +element_Al= \
     +sho_hamiltonian.test.sigma.asymmetry=$asy \
     +sho_hamiltonian.scale.kinetic=1 \
     +sho_hamiltonian.scale.potential=1 \

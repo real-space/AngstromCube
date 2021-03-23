@@ -228,7 +228,7 @@ for spacing in `seq 2 1 2`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
-  $exe -test potential_generator. \
+  $exe -test potential_generator \
         +control.file=control.sh \
         +basis=grid \
         $1 > $project.out
@@ -239,7 +239,7 @@ for numax in `seq 4 2 0`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
-  $exe -test potential_generator. \
+  $exe -test potential_generator \
         +control.file=control.sh \
         +basis=sho \
         +sho_hamiltonian.test.numax=$numax \
@@ -252,7 +252,7 @@ for ecut in `seq 30 2 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
-  $exe -test potential_generator. \
+  $exe -test potential_generator \
         +control.file=control.sh \
         +basis=pw \
         +pw_hamiltonian.cutoff.energy=$ecut \

@@ -1,28 +1,29 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cmath> // std::ceil, std::sqrt
 #include <cstdint> // int8_t
 
 #include "inline_math.hxx"
-#include "recorded_warnings.hxx" // warn
 #include "data_view.hxx" // view2D<T>
 #include "status.hxx" // status_t
+#include "recorded_warnings.hxx" // warn
 
   int constexpr Periodic_Boundary =  1;
   int constexpr Isolated_Boundary =  0;
   int constexpr Mirrored_Boundary = -1;
-  int constexpr Invalid_Boundary  = -9;
+  int constexpr Invalid_Boundary  = -2;
 
 namespace boundary_condition {
 
-  inline int periodic_images(view2D<double> & ipos // pointer to array of periodic positions (n,4)
-                           , double const cell[3] // orthorhombic cell parameters
-                           , int const bc[3] // boundary condition selectors
-                           , float const rcut // truncation radius
-                           , int const echo=0 // log-level
-                           , view2D<int8_t> *iidx=nullptr // pointer to array of indices (n,4)
-                            ) { // log-level
+  inline int periodic_images(
+        view2D<double> & ipos // array of periodic positions (n,4)
+      , double const cell[3]  // orthorhombic cell parameters
+      , int const bc[3]       // boundary condition selectors
+      , float const rcut      // truncation radius
+      , int const echo=0      // log-level
+      , view2D<int8_t> *iidx=nullptr // optional: pointer to array of indices (n,4)
+  ) {
       double const cell_diagonal2 = pow2(rcut)
                                   + pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]);
       int ni_xyz[3], ni_max{1};
@@ -31,14 +32,14 @@ namespace boundary_condition {
           if (Periodic_Boundary == bc[d]) {
               ni_xyz[d] = std::max(0, int(std::ceil(rcut/cell[d])));
               assert( ni_xyz[d] <= 127 ); // warning: int8_t has range [-128, 127]
-              ni_max *= (ni_xyz[d] + 1 + ni_xyz[d]);
+              ni_max *= (ni_xyz[d]*2 + 1);
           } else {
               // other boundary conditions, e.g. isolated
               ni_xyz[d] = 0;
           } // periodic
       } // d
-      if (echo > 5) printf("# %s: check %d x %d x %d = %d images max.\n",
-          __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
+      if (echo > 5) std::printf("# %s: check %d x %d x %d = %d images max.\n",
+              __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
       view2D<double> pos(ni_max, 4, 0.0); // get memory
       view2D<int8_t> idx(ni_max, 4, 0); // get memory
       int ni = 1; // at least one periodic images is always there: (0,0,0)
@@ -48,7 +49,7 @@ namespace boundary_condition {
                   auto const d2 = pow2(px) + pow2(py) + pow2(pz);
 #ifdef DEVEL
                   char mark{' '};
-#endif
+#endif // DEVEL
                   if (d2 < cell_diagonal2) {
                       if (d2 > 0) { // exclude the origin (that is already index #0)
                           pos(ni,0) = px;
@@ -65,23 +66,23 @@ namespace boundary_condition {
                           mark = 'o';
                       } else {
                           mark = 'x';
-#endif
+#endif // DEVEL
                       } // d2 > 0
                   } // d2 < cell_diagonal2
 #ifdef DEVEL
                   if (echo > 6) {
                       if (ix == -ni_xyz[0]) {
-                          if (iy == -ni_xyz[1]) printf("# %s z=%i\n", __func__, iz);
-                          printf("#%4i  | ", iy); // before first x
+                          if (iy == -ni_xyz[1]) std::printf("# %s z=%i\n", __func__, iz);
+                          std::printf("#%4i  | ", iy); // before first x
                       } // first x
-                      printf("%c", mark);
-                      if (ix == ni_xyz[0]) printf(" |\n"); // after last x
+                      std::printf("%c", mark);
+                      if (ix == ni_xyz[0]) std::printf(" |\n"); // after last x
                   } // echo
-#endif
+#endif // DEVEL
               } // ix
           } // iy
       } // iz
-      if (echo > 1) printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
+      if (echo > 1) std::printf("# %s: found %d of %d images\n", __func__, ni, ni_max);
       
       // export array of periodic positions
       ipos = view2D<double>(ni, 4); // get memory
@@ -94,45 +95,45 @@ namespace boundary_condition {
       
       return ni;
   } // periodic_images
-  
+
   inline int fromString(char const *string, int const echo=0, char const dir='?') {
-      char const first = *string;
-      switch (first | 32) { // ignore case with | 32
-        case 'p': case '1':
-            if (echo > 0) printf("# interpret \"%s\" as periodic boundary condition in %c-direction\n", string, dir);
-            return Periodic_Boundary;
-        case 'i': case '0':
-            if (echo > 0) printf("# interpret \"%s\" as isolated boundary condition in %c-direction\n", string, dir);
-            return Isolated_Boundary;
-        case 'm': case '-':
-            if (echo > 0) printf("# interpret \"%s\" as mirror boundary condition in %c-direction\n", string, dir);
-            return Mirrored_Boundary;
-        default :
-            if (echo > 0) printf("# cannot interpret \"%s\" as boundary condition in %c-direction\n", string, dir);
-            return Invalid_Boundary;
-      } // switch
+      int bc{Invalid_Boundary};
+      if (nullptr != string) {
+          char const first = *string;
+          switch (first | 32) { // ignore case with | 32
+              case 'p': case '1': bc = Periodic_Boundary; break;
+              case 'i': case '0': bc = Isolated_Boundary; break;
+              case 'm': case '-': bc = Mirrored_Boundary; break;
+          } // switch
+      } // nullptr != string
+      if (echo > 0) {
+          char const bc_names[][12] = {"isolated", "periodic", "invalid", "mirror"};
+          std::printf("# interpret \"%s\" as %s boundary condition in %c-direction\n", 
+                      string, bc_names[bc & 0x3], dir);
+      } // echo
+      return bc;
   } // fromString
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   inline status_t test_periodic_images(int const echo=0) {
-      if (echo > 2) printf("\n# %s %s \n", __FILE__, __func__);
+      if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
       double const cell[] = {1,2,3}, rcut = 6.f;
       int const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
       view2D<double> ipos;
       view2D<int8_t> iidx;
       auto const nai = periodic_images(ipos, cell, bc, rcut, echo, &iidx);
-      if (echo > 2) printf("# found %d images\n", nai);
+      if (echo > 2) std::printf("# found %d periodic images\n", nai);
       return 0;
   } // test_periodic_images
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-      status_t status(0);
-      status += test_periodic_images(echo);
-      return status;
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
+      status_t stat(0);
+      stat += test_periodic_images(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

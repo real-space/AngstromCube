@@ -4,6 +4,10 @@
 #include <cstdint> // int64_t
 #include <string> // std::string
 
+#ifndef NO_UNIT_TESTS
+  #include <vector> // std::vector<T>
+#endif
+
 #include "status.hxx" // status_t
 #include "inline_math.hxx" // pow2, pow3
 

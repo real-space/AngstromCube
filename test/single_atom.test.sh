@@ -16,7 +16,7 @@ for Z in {6..6}; do
 
         ## experiment: check the optimized sigma as a function of rcut, with parameter numax
         $exe +verbosity=3 \
-              -test single_atom. \
+              -test single_atom \
               +single_atom.test.Z=$Z \
               +logder.start=2 +logder.stop=1 \
               +single_atom.nn.limit=1 \
@@ -83,7 +83,7 @@ for Z in {1..47}; do
 
   echo "# Z = $Z" ## show progress in terminal
   $exe +verbosity=7  \
-  -test single_atom. \
+  -test single_atom \
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \
        +single_atom.nn.limit=2 \
@@ -132,7 +132,7 @@ for Z in {1..120}; do
 
   echo "# Z = $Z" ## show progress in terminal
   $exe +verbosity=7 \
-    -test single_atom. \
+    -test single_atom \
         +single_atom.test.Z=$Z \
         +single_atom.config=custom \
         +single_atom.test.atomic.valence.density=1 \
@@ -166,7 +166,7 @@ for Z in {117..117}; do
 
   echo "# Z = $Z" ## show progress in terminal
   $exe +verbosity=7 \
-    -test single_atom. \
+    -test single_atom \
         +single_atom.test.Z=$Z \
         +single_atom.partial.wave.method=m \
         +single_atom.partial.wave.energy.derivative=0 \

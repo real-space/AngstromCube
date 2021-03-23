@@ -8,6 +8,7 @@
 #include <vector> // std::vector<T>
 #include <cstdio> // printf
 
+
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
 
@@ -20,10 +21,16 @@
 #endif
 #include "xml_reading.hxx" // ::read_sequence
 
+#include "unit_system.hxx" // eV, _eV, Ang, _Ang
+
+#include "print_tools.hxx" // printf_vector
+#include "global_coordinates.hxx" // ::get
 
 #include "green_memory.hxx" // get_memory, free_memory
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
 #include "green_action.hxx" // ::plan_t, ::action_t
+#include "sho_tools.hxx" // ::nSHO
+#include "control.hxx" // ::get
 
 namespace green_function {
 
