@@ -37,7 +37,7 @@ OBJ = \
 	sho_projection.o \
 	sho_unitary.o \
 	main.o
-# 	structure_solver.o \
+	structure_solver.o \
 
 
 ifdef ENABLE_GPU

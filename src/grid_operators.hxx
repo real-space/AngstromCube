@@ -404,7 +404,7 @@ namespace grid_operators {
           } else {
               if (echo > 0) printf("# %s %s no non-local matrices given!\n", __FILE__, __func__);
               ++stat;
-          }
+          } // atom_matrices
           if (stat && (echo > 0)) printf("# %s %s returns status=%i\n", __FILE__, __func__, int(stat));
           return stat;
       } // set_potential
@@ -446,7 +446,7 @@ namespace grid_operators {
           } // failed to open
 
           if ('x' == (*fileformat | 32)) {
-            
+
               // XML file format
               std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
               std::fprintf(f, "<grid_Hamiltonian version=\"%.1f\">\n", 0.);
@@ -545,6 +545,9 @@ namespace grid_operators {
               std::fprintf(f, "]\n"); // close values
               std::fprintf(f, "  }\n"); // close potential
               std::fprintf(f, "}\n"); // close grid_Hamiltonian
+              
+              // get the result file checked at https://jsonlint.com
+
           } // .xml or .json
 
           std::fclose(f);
