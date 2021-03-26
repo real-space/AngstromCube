@@ -93,12 +93,13 @@ namespace structure_solver {
                       uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
                       sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
                       std::vector<int32_t> ncoeff_a(na, 20);
+                      int const na1 = std::max(na, 1); // na1 is save for divide and modulo operations
                       data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
                       for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                           op.set_kpoint(kmesh[ikpoint], echo);
                           for(int iband = 0; iband < nbands; ++iband) {
-                              int const ia = iband % na; // which atom?
-                              int const io = iband / na; // which orbital?
+                              int const ia = iband % na1; // which atom?
+                              int const io = iband / na1; // which orbital?
                               if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
                               auto const q = qn[io];
                               if (echo > 7) printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
@@ -470,9 +471,10 @@ namespace structure_solver {
   status_t test_free_electrons(int const echo) {
       status_t stat(0);
       real_space::grid_t g(8, 8, 8);
-      std::vector<atom_image::sho_atom_t> list_of_atoms(0);
+      std::vector<atom_image::sho_atom_t> list_of_atoms(1);
+      list_of_atoms[0] = atom_image::sho_atom_t();
       RealSpaceKohnSham KS(g, list_of_atoms, 1, echo);
-      std::vector<int32_t> n_atom_rho(0);
+      std::vector<int32_t> n_atom_rho(1, 1);
       data_list<double> atom_mat(n_atom_rho);
       fermi_distribution::FermiLevel_t Fermi;
       std::vector<double> Vtot(g.all(), 0.0);
