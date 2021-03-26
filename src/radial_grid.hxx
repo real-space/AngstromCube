@@ -10,7 +10,7 @@ namespace radial_grid {
 
   float constexpr default_anisotropy = 0.01;
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
-  float constexpr default_Rmax = 480.;
+  float constexpr default_Rmax = 94.5/2;
 #else
   float constexpr default_Rmax = 9.45;
 #endif

@@ -1,14 +1,11 @@
 
-#include <stdlib.h> // abs
-#include <cmath> // fabs, exp
-#include <cstdio> // printf
-#include <algorithm> // min, max
+#include <cmath> // std::abs, std::exp
+#include <cstdio> // std::printf
+#include <algorithm> // std::min, std::max
 
-#include "radial_grid.hxx"
-#include "radial_grid.h" // radial_grid_t
+#include "radial_grid.hxx" // radial_grid_t
 
 #include "inline_tools.hxx" // align
-
 
 namespace radial_grid {
   
@@ -29,7 +26,7 @@ namespace radial_grid {
           g.rdr[ir] = r*dr;
           g.r2dr[ir] = r*r*dr;
           g.rinv[ir] = (ir)? 1./r : 0;
-//        printf("%g %g\n", r, dr); // DEBUG
+//        std::printf("%g %g\n", r, dr); // DEBUG
       } // ir
   } // set_derived_grid_quantities
 
@@ -48,6 +45,11 @@ namespace radial_grid {
       int const n_aligned = align<2>(n); // padded to multiples of 4
       auto const g = get_memory(n_aligned);
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
+      bool static warn_reciprocal{true};
+      if (warn_reciprocal) {
+          std::printf("# -D USE_RECIPROCAL_RADIAL_GRID\n");
+          warn_reciprocal = false;
+      } // warn_reciprocal
       for (auto i = 0; i < n; ++i) {
           double const rec = 1./(n*(n - i));
           g->r[i]  = R*i*rec;
@@ -112,7 +114,7 @@ namespace radial_grid {
   ) {
       // find a suitable grid point to start from
       int ir{0}; while (tru.r[ir] < r_min) { ++ir; }
-      if (echo > 3) printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
+      if (echo > 3) std::printf("# start pseudo grid from r[%d]=%g Bohr\n", ir, tru.r[ir]);
       int const nr_diff = ir;
 
       auto g = new radial_grid_t;
@@ -131,7 +133,7 @@ namespace radial_grid {
   } // create_pseudo_radial_grid
 
   void destroy_radial_grid(radial_grid_t* g, char const *name) {
-//    printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
+//    std::printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
       if (g->memory_owner) delete [] g->r;
       g->n = 0;
   } // destroy
@@ -150,23 +152,25 @@ namespace radial_grid {
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
-      if (echo > 0) printf("\n# %s: \n", __func__);
+      if (echo > 0) std::printf("\n# %s: \n", __func__);
       auto g = create_exponential_radial_grid(1 << 11);
       destroy_radial_grid(g);
       return 0;
   } // test_create_and_destroy
 
   status_t test_exp_grid(int const echo=3) {
-      if (echo > 0) printf("\n# %s: \n", __func__);
+      if (echo > 0) std::printf("\n# %s: \n", __func__);
       int const n = 1 << 11;
       auto const & g = *create_exponential_radial_grid(n);
       if (echo > 9) {
-          printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s): r, dr, 1/r, integrals over {1,r,r^2}\n", 
-                    n, g.anisotropy, g.rmax*1.0, " Bohr");
+          std::printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s):"
+              " r, dr, 1/r, integrals over {1,r,r^2}, r, r^2/2, r^3/3\n", n, g.anisotropy, g.rmax*1.0, " Bohr");
           double integ[] = {0, 0, 0};
           for(int ir = 0; ir < g.n; ++ir) {
               if (echo > 11 || ir < 3 || ir > g.n - 4) {
-                  printf("%g %g %g %g %g %g\n", g.r[ir], g.dr[ir], g.rinv[ir], integ[0], integ[1], integ[2]);
+                  auto const r = g.r[ir];
+                  std::printf("%g %g %g %g %g %g %g %g %g\n", r, g.dr[ir], g.rinv[ir],
+                        integ[0], integ[1], integ[2], r, 0.5*r*r, r*r*r/3);
               } // echo
               integ[0] += g.dr[ir];
               integ[1] += g.rdr[ir];

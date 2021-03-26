@@ -45,7 +45,7 @@ namespace paw_xml_export {
           std::snprintf(file_name_buffer, 511, "%s/%s.xml", pathname, Sy);
           filename = file_name_buffer;
       } // generate a default file name
-      if (echo > 0) printf("# %s Sy=%s Z=%g iZ=%d filename=%s\n", __func__, Sy, Z, iZ, filename);
+      if (echo > 0) printf("# %s chem.symbol=%s Z=%g iZ=%d filename=%s\n", __func__, Sy, Z, iZ, filename);
 
       std::FILE *const f = std::fopen(filename, "w");
       if (nullptr == f) {

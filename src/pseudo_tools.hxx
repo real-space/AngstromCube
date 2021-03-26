@@ -276,12 +276,13 @@ namespace pseudo_tools {
           int iterations_needed{0};
           for (int iter = max_iter; (std::abs(k_s - k_s_prev) > 1e-15) && (iter > 0); --iter) {
               k_s_prev = k_s;
-              double const sin = std::sin(k_s*r_cut);
-              double const cos = std::cos(k_s*r_cut);
-              V_s = d2/(-k_s*k_s*sin);
-              V_0 = d1 - V_s*k_s*cos;
-              double const d0_new = 0.5*d0 + 0.5*(V_s*sin + r_cut*V_0); // 50% mixing
-              if (echo > 27) printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", label, iter, V_s, k_s, V_0, d0, d0 - d0_new);
+              double const sin_kr = std::sin(k_s*r_cut);
+              double const cos_kr = std::cos(k_s*r_cut);
+              V_s = d2/(-k_s*k_s*sin_kr);
+              V_0 = d1 - V_s*k_s*cos_kr;
+              double const d0_new = 0.5*d0 + 0.5*(V_s*sin_kr + r_cut*V_0); // 50% mixing
+              if (echo > 27) printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", 
+                                       label, max_iter - iter, V_s, k_s, V_0, d0, d0 - d0_new);
               k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
               ++iterations_needed;
           } // while
@@ -294,11 +295,11 @@ namespace pseudo_tools {
                           label, r_cut*Ang, _Ang, yi[0]/r_cut*df*eV, _eV);
 
           if (echo > 3) printf("# %s smooth potential value of sinc-fit at origin is %g %s\n", label, (V_s*k_s + V_0)*df*eV, _eV);
-          
+
           // now modify the smooth local potential
           for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
               double const r = rg[SMT].r[ir];
-              V_smt[ir] = (V_s*sin(r*k_s) + r*V_0)*(rpow ? 1 : rg[SMT].rinv[ir]); // set values to the fitted sinc-function
+              V_smt[ir] = (V_s*std::sin(k_s*r) + r*V_0)*(rpow ? 1 : rg[SMT].rinv[ir]); // set values to the fitted sinc-function
           } // ir
           for(int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
               V_smt[ir] = V_tru[ir + nr_diff]; // copy the tail

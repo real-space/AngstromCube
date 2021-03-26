@@ -550,7 +550,7 @@ namespace single_atom {
         } // true and smooth
 
         { // scope to load potential[TRU]
-            char start_potentials = *control::get("single_atom.start.potentials", "file") | 32; // 'f':from_file, 'g':generate_if_missing
+            char start_potentials = *control::get("single_atom.start.potentials", "gen") | 32; // 'f':from_file, 'g':generate_if_missing
             for (int i01 = 0; i01 < 2; ++i01) {
                 auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
                 if (0 != load_stat) {
