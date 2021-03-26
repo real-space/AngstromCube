@@ -145,7 +145,7 @@ namespace scattering_test {
   
   
 // #define _SELECTED_ENERGIES_LOGDER
-  
+
   inline
   double find_outwards_solution(
         radial_grid_t const & rg // radial grid descriptor

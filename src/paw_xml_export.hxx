@@ -91,7 +91,7 @@ namespace paw_xml_export {
       char ts_grid[TRU_AND_SMT][8]; // grid tags for TRU and SMT
 //    double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
       double const prefactor = radial_grid::get_prefactor(rg[TRU]);
-      bool const show_radial_grid_values = (control::get("paw_xml_export.abinit", 0.) > 0);
+      bool const show_radial_grid_values = (control::get("paw_xml_export.show.radial.grid", 0.) > 0); // abinit needs this
       for(int ts = TRU; ts <= SMT; ++ts) {
           std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
           if (ts == TRU || rg[SMT].n < rg[TRU].n) {
