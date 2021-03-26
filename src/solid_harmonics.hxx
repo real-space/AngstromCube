@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cmath> // std::sqrt, std::sin, std::cos
 #include <cassert> // assert
 
@@ -13,7 +13,7 @@ namespace solid_harmonics {
   double constexpr Y00inv = 3.5449077018110318, // == sqrt(4*pi)
                       Y00 = .28209479177387817; // == 1./Y00inv;
 
-  template<typename real_t>
+  template <typename real_t>
   void rlXlm_implementation(real_t xlm[], int const ellmax,
                           real_t const cth, real_t const sth,
                           real_t const cph, real_t const sph,
@@ -26,11 +26,6 @@ namespace solid_harmonics {
 // !          m.weinert   january 1982
 // !     modified by R. Podloucky (added in xnorm); July 1989
 // !     cleaned up    mw 1995
-// !
-// !     modified to make use of f90 constructs. note that
-// !     the normalization is an internal subroutine and hence
-// !     can only be called from here. also, no need to dimension
-// !     arrays for xnorm, done dynamically.          mw 1999
 // !************************************************************
 
 // !---> check whether  or not normalizations are needed
@@ -42,7 +37,7 @@ namespace solid_harmonics {
           if (nullptr != xnorm) {
               delete[] xnorm;
 #ifdef DEBUG
-              printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
+              std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
 #endif
           } // resize
           xnorm = new real_t[(1 + ellmax)*(1 + ellmax)];
@@ -128,12 +123,12 @@ namespace solid_harmonics {
 
   } // Xlm_implementation
 
-  template<typename real_t>
+  template <typename real_t>
   void Xlm(real_t xlm[], int const ellmax, double const theta, double const phi) {
       rlXlm_implementation(xlm, ellmax, std::cos(theta), std::sin(theta), std::cos(phi), std::sin(phi));
   } // Xlm
 
-  template<typename real_t, typename vector_real_t>
+  template <typename real_t, typename vector_real_t>
   void Xlm(real_t xlm[], int const ellmax, vector_real_t const v[3]) {
       real_t constexpr small = 1e-12;
       auto const x = v[0], y = v[1], z = v[2];
@@ -160,16 +155,16 @@ namespace solid_harmonics {
       rlXlm_implementation(xlm, ellmax, cth, sth, cph, sph);
   } // Xlm
 
-  template<typename real_t, typename vector_real_t>
+  template <typename real_t, typename vector_real_t>
   void rlXlm(real_t xlm[], int const ellmax, vector_real_t const v[3]) {
       real_t const x = v[0], y = v[1], z = v[2], r2 = x*x + y*y + z*z;
       rlXlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
   } // rlXlm
 
-  template<typename real_t>
+  template <typename real_t>
   void cleanup() { real_t z{0}; rlXlm_implementation(&z, -1, z, z, z, z); } // free internal memory
 
-  inline int find_ell(int const lm) { int lp1 = 0; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
+  inline int find_ell(int const lm) { int lp1{0}; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
   inline int find_emm(int const lm, int const ell) { return lm - (ell*ell + ell); }
   inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
   inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
@@ -181,14 +176,14 @@ namespace solid_harmonics {
   inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
       for(int lm = -3; lm < 64; ++lm) {
           int const ell = find_ell(lm), emm = find_emm(lm, ell);
-          if (echo > 4) printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
+          if (echo > 4) std::printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
           assert(lm_index(ell, emm) == lm);
       } // lm
       return 0;
   } // test_indices
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       assert( Y00 * Y00inv == 1.0 ); // should be exact
       status += test_indices(echo);

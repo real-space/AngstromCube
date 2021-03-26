@@ -32,7 +32,7 @@
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
 #include "parallel_domains.hxx" // ::all_tests
-//  #include "structure_solver.hxx" // ::all_tests
+#include "structure_solver.hxx" // ::all_tests
 #include "scattering_test.hxx" // ::all_tests
 #include "davidson_solver.hxx" // ::all_tests
 #include "chemical_symbol.hxx" // ::all_tests
@@ -129,7 +129,7 @@
           add_module_test(radial_potential);   
           add_module_test(bessel_transform);   
           add_module_test(parallel_domains);   
-//        add_module_test(structure_solver);   
+          add_module_test(structure_solver);   
           add_module_test(scattering_test);    
           add_module_test(davidson_solver);    
           add_module_test(chemical_symbol);    

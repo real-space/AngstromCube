@@ -7,7 +7,7 @@
 #include "status.hxx" // status_t
 // #include "complex_tools.hxx" // complex_name, is_complex, conjugate, to_complex_t
 #include "data_view.hxx" // view2D, view4D
-#include "inline_math.hxx" // set, pow2, product
+#include "inline_math.hxx" // set, pow2, product, is_integer
 #include "print_tools.hxx" // printf_vector
 
 #include "control.hxx" // ::get
@@ -18,19 +18,19 @@ namespace brillouin_zone {
                             // while components 0,1,2 carry the kvector
 
   template <bool ComplexPhaseFactors=true>
-  int get_kpoint_mesh(
+  int get_kpoint_mesh( // returns the number of k-points
         view2D<double> & mesh
       , unsigned const nv[3]
       , int const echo=0 // log-level
   ) {
       unsigned n[3];
-      int ishift[3]; // could also be double
+      double shift[3];
       for(int d = 0; d < 3; ++d) {
           n[d] = std::max(1u, nv[d]);
-          ishift[d] = int(n[d]) - 1;
+          shift[d] = n[d] - 1.;
           if (!ComplexPhaseFactors) {
               n[d] = std::min(n[d], 2u); // only Gamma and X point lead to real phase factors
-              ishift[d] = 0;
+              shift[d] = 0;
           } // d
       } // phase factors must be real
 
@@ -40,9 +40,9 @@ namespace brillouin_zone {
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
       double const denom[] = {.5/n[0], .5/n[1], .5/n[2]};
       double xyzw[] = {0, 0, 0, 1};
-      for(int iz = 0; iz < n[2]; ++iz) {  xyzw[2] = (2*iz - ishift[2])*denom[2];
-      for(int iy = 0; iy < n[1]; ++iy) {  xyzw[1] = (2*iy - ishift[1])*denom[1];
-      for(int ix = 0; ix < n[0]; ++ix) {  xyzw[0] = (2*ix - ishift[0])*denom[0];
+      for(int iz = 0; iz < n[2]; ++iz) {  xyzw[2] = (2*iz - shift[2])*denom[2];
+      for(int iy = 0; iy < n[1]; ++iy) {  xyzw[1] = (2*iy - shift[1])*denom[1];
+      for(int ix = 0; ix < n[0]; ++ix) {  xyzw[0] = (2*ix - shift[0])*denom[0];
           set(full(iz, iy, ix), 4, xyzw);
           if (echo > 18) printf("# k-point mesh entry %9.6f %9.6f %9.6f weight= %g\n", xyzw[0],xyzw[1],xyzw[2], xyzw[3]);
       }}} // iz iy iz
@@ -60,7 +60,7 @@ namespace brillouin_zone {
           // convert to nearest integers
           int jxyz[3];
           for(int d = 0; d < 3; ++d) {
-              jxyz[d] = int(std::round(n[d]*xyz[d] + 0.5*ishift[d]));
+              jxyz[d] = int(std::round(n[d]*xyz[d] + 0.5*shift[d]));
           } // d
           int const jx = jxyz[0], jy = jxyz[1], jz = jxyz[2];
           if (echo > 16) {
@@ -131,15 +131,30 @@ namespace brillouin_zone {
   int get_kpoint_mesh(
         view2D<double> & mesh
   ) {
-      int const echo = int(control::get("hamiltonian.kmesh.echo", 0.));
-      auto const n = int(control::get("hamiltonian.kmesh", 1.)); // isotropic default value
+      int const echo = control::get("hamiltonian.kmesh.echo", 0.);
+      int const n    = control::get("hamiltonian.kmesh", 1.); // isotropic default value
       unsigned nv[3];
-      nv[0] = int(control::get("hamiltonian.kmesh.x", double(n)));
-      nv[1] = int(control::get("hamiltonian.kmesh.y", double(n)));
-      nv[2] = int(control::get("hamiltonian.kmesh.z", double(n)));
+      nv[0] = control::get("hamiltonian.kmesh.x", double(n));
+      nv[1] = control::get("hamiltonian.kmesh.y", double(n));
+      nv[2] = control::get("hamiltonian.kmesh.z", double(n));
       return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, echo);
   } // get_kpoint_mesh
 
+  inline bool needs_complex(double const kp[3]) {
+      return !(is_integer(2*kp[0]) 
+            && is_integer(2*kp[1])
+            && is_integer(2*kp[2]));
+  } // needs_complex
+
+  inline bool needs_complex(
+        view2D<double> const & mesh
+      , int const nmesh
+  ) {
+      for(int ik = 0; ik < nmesh; ++ik) {
+          if (needs_complex(mesh[ik])) return true;
+      } // ik
+      return false;
+  } // needs_complex
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

@@ -21,6 +21,7 @@ for module in \
   radial_potential \
   bessel_transform \
   parallel_domains \
+  structure_solver \
   scattering_test \
   davidson_solver \
   chemical_symbol \
@@ -32,7 +33,6 @@ for module in \
   green_function \
   poisson_solver \
   brillouin_zone \
-  plane_waves \
   sho_projection \
   shift_boundary \
   linear_algebra \
@@ -57,6 +57,7 @@ for module in \
   radial_grid \
   single_atom \
   inline_math \
+  plane_waves \
   sho_unitary \
   atom_image \
   real_space \

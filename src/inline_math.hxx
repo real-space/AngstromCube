@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef> // size_t
+#include <cmath> // std::round, std::pow (for reference)
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
@@ -92,14 +93,12 @@
       return dot;
   } // dot_product
   
-  
+   inline bool is_integer(double const f) { return (f == std::round(f)); }
+
     #include <cstdio> // printf
 #ifndef NO_UNIT_TESTS
     #include <cassert> // assert
-    #include <cmath> // std::round, std::pow (for reference)
     #include <algorithm> // std::max
-   
-   inline bool is_integer(double const f) { return (f == std::round(f)); }
 
 #endif // NO_UNIT_TESTS
 

@@ -199,7 +199,7 @@ namespace fermi_distribution {
       static double constexpr default_temperature = 9.765625e-4; // k*T in Hartree units
 
       FermiLevel_t( // constructor
-            double const n_electrons
+            double const n_electrons=0.0
           , int const spinfactor=2
           , double const kT=default_temperature
           , int const echo=9 // log-level
