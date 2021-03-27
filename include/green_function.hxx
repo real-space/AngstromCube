@@ -14,11 +14,12 @@
 
 #ifdef HAS_RAPIDXML
   // from https://sourceforge.net/projects/rapidxml/files/latest/download
-  #include "tools/rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "tools/rapidxml/rapidxml_utils.hpp" // ::file<>
+  #include "rapidxml/rapidxml.hpp" // ::xml_document<>
+  #include "rapidxml/rapidxml_utils.hpp" // ::file<>
 
   #include "xml_reading.hxx" // ::find_attribute, ::find_child
-#endif
+#endif // HAS_RAPIDXML
+
 #include "xml_reading.hxx" // ::read_sequence
 
 #include "unit_system.hxx" // eV, _eV, Ang, _Ang

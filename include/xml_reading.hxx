@@ -5,18 +5,12 @@
 #include <ctime> // std::strftime, ::tm, ::gmtime
 
 #ifdef HAS_RAPIDXML
-//   #include <string>
   #include <cstdlib> // std::atof, std::strtod
-//   #include <fstream>
-//   #include <streambuf>
   #include <cstring> // std::strcmp
-
-  // from https://sourceforge.net/projects/rapidxml/files/latest/download
-  #include "tools/rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "tools/rapidxml/rapidxml_utils.hpp" // ::file<>
-  
-
-#endif
+  // git clone https://github.com/dwd/rapidxml
+  #include "rapidxml/rapidxml.hpp" // ::xml_document<>
+  #include "rapidxml/rapidxml_utils.hpp" // ::file<>
+#endif // HAS_RAPIDXML
 
 #include <cerrno> // errno, ERANGE
 

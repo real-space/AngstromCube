@@ -65,6 +65,7 @@ CXX    = g++
 SRC ?= ./src
 INC ?=
 INC += -I../include
+INC += -I../external
 # INC += -I/usr/local/cuda/include
 
 
