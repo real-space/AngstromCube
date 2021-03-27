@@ -63,7 +63,8 @@ CXX    = g++
 # CXX = mpic++
 
 SRC ?= ./src
-INC =
+INC ?=
+INC += -I../include
 # INC += -I/usr/local/cuda/include
 
 
