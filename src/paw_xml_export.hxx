@@ -4,7 +4,7 @@
 
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::get_prefactor
+#include "radial_grid.hxx" // ::get_prefactor, ::find_grid_index
 #include "energy_level.hxx" // partial_wave_t, TRU, SMT, TRU_AND_SMT
 #include "control.hxx" // ::get
 
@@ -33,7 +33,11 @@ namespace paw_xml_export {
       , char const *xc_functional="LDA"
       , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
-  ) {
+  )
+      /**
+            Export Projector Augmented Wave data in XML format
+       */
+  {
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
       char const ts_tag[TRU_AND_SMT][4] = {"ae", "ps"};
@@ -120,12 +124,12 @@ namespace paw_xml_export {
       std::fprintf(f, "  <shape_function type=\"gauss\" rc=\"%.12e\"/>\n",
           sigma_cmp*std::sqrt(2.)); // exp(-(r/rc)^2) == exp(-r^2/(2*sigma_cmp^2))
 
-      auto constexpr m = 1; // 0.005; // DEBUG, scale the number of radial grid entries down to say one line
+      auto constexpr m = 1; // 0.005; // DEBUG, scale the number of radial grid entries down to a few lines
 
       // core electron density
       if (n_electrons[0] > 0) {
           int constexpr csv = 0; // 0:core
-          for(int rk = 0; rk < 1; ++rk) { // rk==0 density, rk==1 kinetic energy density, ToDo
+          for(int rk = 0; rk < 1; ++rk) { // rk==0 density, rk==1 kinetic energy density, ToDo for metaGGA
               auto const rk_tag = rk ? "_kinetic_energy" : "";
               for(int ts = TRU; ts <= SMT; ++ts) {
                   std::fprintf(f, "  <%s_core%s_density grid=\"%s\">\n    ", ts_label[ts], rk_tag, ts_grid[ts]);
@@ -137,6 +141,14 @@ namespace paw_xml_export {
           } // rk
       } // core electrons present
 
+      // semicore electron density
+      {   int constexpr csv = 1; // 1:semicore is not supported by the codes that read PAWXML
+          int const ir = radial_grid::find_grid_index(rg[TRU], r_cut);
+          if (0 != spherical_density[TRU](csv,ir) && echo > 0) {
+              printf("# %s Z=%g semicore density must vanish!", __func__, Z);
+          } // launch a warning
+      } // semicore electrons present
+
       // spherical valence density
       if (n_electrons[2] > 0) {
           int constexpr csv = 2; // 2:valence
@@ -147,7 +159,7 @@ namespace paw_xml_export {
               } // ir
               std::fprintf(f, "\n  </%s_valence_density>\n", ts_label[ts]);
           } // ts
-      } // valence electrons presents
+      } // valence electrons present
 
       if (zero_potential != nullptr) { // scope: zero potential
           auto const ts = SMT;
