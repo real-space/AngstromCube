@@ -32,7 +32,7 @@ self_consistency.grid.spacing.unit=Ang
 self_consistency.grid.points=24
 
 ## max. number of self-consistency iterations
-self_consistency.max.scf=1
+self_consistency.max.scf=3
 self_consistency.mix.density=0.25
 atomic.valence.decay=1
 ## compute the Fermi level {exact, linearized}
@@ -108,9 +108,9 @@ hamiltonian.floating.point.bits=64
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
-grid.eigensolver=none
+#grid.eigensolver=none
 #grid.eigensolver=explicit
-#grid.eigensolver=cg
+grid.eigensolver=cg
 #conjugate_gradients.max.iter=1
 #grid.eigensolver.repeat=1
 
@@ -135,9 +135,12 @@ pw_hamiltonian.solver=direct
 ## also compute the eigenvalues of the overlap matrix?
 #dense_solver.test.overlap.eigvals=0
 
-export.hamiltonian=1            # 0:not, 1:yes, -1:yes+abort
-# xml or json
+# Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
+export.hamiltonian=1            
 export.hamiltonian.format=xml
+
+# Make structure_solver produce the same as potential_generator
+structure_solver.complex=1
 
 EOF
 

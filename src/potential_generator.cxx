@@ -292,7 +292,7 @@ namespace potential_generator {
               finite_difference::stencil_t<double> const fd(g.h, nfd, -.25/constants::pi);
               {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
                   stat += finite_difference::apply(Laplace_Ves.data(), Ves, g, fd);
-                  { // Laplace_Ves should match rho
+                  { // scope: Laplace_Ves should match rho
                       double res_a{0}, res_2{0};
                       for(size_t i = 0; i < g.all(); ++i) {
                           res_a += std::abs(Laplace_Ves[i] - rho[i]);
@@ -300,7 +300,7 @@ namespace potential_generator {
                       } // i
                       res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
                       if (echo > 1) std::printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e (FD-order=%i)\n", res_a, res_2, nfd);
-                  }
+                  } // scope
               } // timer
           } // nfd
 
@@ -327,11 +327,11 @@ namespace potential_generator {
           double const* const value_pointers[] = {Ves, Vxc, Vtot, rho, cmp, Laplace_Ves.data()};
           char const *  array_names[] = {"Ves", "Vxc", "Vtot", "rho", "cmp", "LVes"};
           //     Ves; // analyze the electrostatic potential
-          //     rho; // analyze the augmented density
-          //     Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
-          //     cmp; // analyze only the compensator density
           //     Vxc; // analyze the xc potential
           //     Vtot; // analyze the total potential: Vxc + Ves
+          //     rho; // analyze the augmented density
+          //     cmp; // analyze only the compensator density
+          //     Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
 
           for(int iptr = 0; iptr < std::min(6, use_Bessel_projection); ++iptr) {
               // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
@@ -513,8 +513,8 @@ namespace potential_generator {
 
       // how to solve the KS-equation
       auto const basis_method = control::get("basis", "grid");
-      bool const plane_waves = ((*basis_method | 32) == 'p');
-      bool const psi_on_grid = ((*basis_method | 32) == 'g');
+      bool const plane_waves = ('p' == (*basis_method | 32));
+      bool const psi_on_grid = ('g' == (*basis_method | 32));
 
       // ============================================================================================
       // prepare for solving the Kohn-Sham equation on the real-space grid

@@ -300,8 +300,8 @@ namespace self_consistency {
 
       // how to solve the KS-equation
       auto const basis_method = control::get("basis", "grid");
-      bool const plane_waves = ((*basis_method | 32) == 'p');
-      bool const psi_on_grid = ((*basis_method | 32) == 'g');
+      bool const plane_waves = ('p' == (*basis_method | 32));
+      bool const psi_on_grid = ('g' == (*basis_method | 32));
 
       
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
@@ -910,7 +910,7 @@ namespace self_consistency {
 
   status_t test_init(int const echo=3) {
       float const ion = control::get("self_consistency.test.ion", 0.);
-      return init(ion, echo); // ionization of Al-P dimer by -ion electrons
+      return init(ion, echo);
   } // test_init
 
   status_t all_tests(int const echo) {

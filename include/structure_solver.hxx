@@ -296,8 +296,14 @@ namespace structure_solver {
         nkpoints = brillouin_zone::get_kpoint_mesh<true>(kmesh);
         if (echo > 1) std::printf("# k-point mesh has %d points\n", nkpoints);
         // ToDo: warn if boundary_condition is isolated but there is more than 1 kpoint
+
         bool const needs_complex = brillouin_zone::needs_complex(kmesh, nkpoints);
         if (echo > 3) std::printf("# k-point %s wavefunctions\n", needs_complex?"needs complex":"allows real");
+
+        int const force_complex = control::get("structure_solver.complex", 0.);
+        if (echo > 3 && (0 != force_complex)) std::printf("# complex wavefunctions enforced by structure_solver.complex=%d\n", force_complex);
+
+        bool const use_complex = needs_complex | (0 != force_complex);
 
         occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
 
@@ -326,9 +332,9 @@ namespace structure_solver {
             
             int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
             if (32 == floating_point_bits) {
-                key = needs_complex ? 'c' : 's';
+                key = use_complex ? 'c' : 's';
             } else if (64 == floating_point_bits) {
-                key = needs_complex ? 'z' : 'd';
+                key = use_complex ? 'z' : 'd';
             } else {
                 error("hamiltonian.floating.point.bits=%d must be 32 or 64 (default)", floating_point_bits);
             }
@@ -350,19 +356,17 @@ namespace structure_solver {
     } // constructor
     
     ~RealSpaceKohnSham() { // destructor
-       if (psi_on_grid) {
-            // call destructors
-            if ('z' == key && nullptr != z) z->~KohnShamStates();
-            if ('c' == key && nullptr != c) c->~KohnShamStates();
-            if ('d' == key && nullptr != d) d->~KohnShamStates();
-            if ('s' == key && nullptr != s) s->~KohnShamStates();
-        } // psi_on_grid
+        // call destructors
+        if (nullptr != z) z->~KohnShamStates();
+        if (nullptr != c) c->~KohnShamStates();
+        if (nullptr != d) d->~KohnShamStates();
+        if (nullptr != s) s->~KohnShamStates();
     } // destructor
 
     status_t solve(
-          view2D<double> & rho_valence_new
-        , data_list<double> atom_rho_new[2]
-        , double charges[]
+          view2D<double> & rho_valence_new  // new valence and response density
+        , data_list<double> atom_rho_new[2] // new valence and response density matrices
+        , double charges[] // 0:kpoint_denominator, 1:charge, 2:d_charge
         , fermi_distribution::FermiLevel_t & Fermi
         , real_space::grid_t const & g // dense grid
         , double const Vtot[] // local effective potential
@@ -374,42 +378,34 @@ namespace structure_solver {
     ) {
         status_t stat(0);
 #ifdef DEVEL
-              if (echo > 0) {
-                  std::printf("\n\n#\n# Solve Kohn-Sham equation\n# \n\n");
-                  std::fflush(stdout);
-              } // echo
+        if (echo > 0) {
+            std::printf("\n\n#\n# Solve Kohn-Sham equation\n# \n\n");
+            std::fflush(stdout);
+        } // echo
 #endif // DEVEL
 
-//           double double_counting_correction{0}; // ToDo
-
-//            view2D<double> rho_valence_new(2, g.all(), 0.0); // new valence density and response
-              assert(g.all() == rho_valence_new.stride());
-
-//               data_list<double> atom_rho_new[2];
-//               atom_rho_new[0] = data_list<double>(n_atom_rho, 0.0); // new valence density matrices
-//               atom_rho_new[1] = data_list<double>(n_atom_rho, 0.0); // and valence response matrices
-//               double charges[4] = {0, 0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:d_charge, 3:unused
+        assert(g.all() == rho_valence_new.stride());
 
         if (psi_on_grid) {
 
-                  // restrict the local effective potential to the coarse grid
-                  view2D<double> Veff(1, gc.all());
-                  multi_grid::restrict3D(Veff[0], gc, Vtot, *gd, 0); // mute
-                  if (echo > 1) print_stats(Veff[0], gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
+            // restrict the local effective potential to the coarse grid
+            view2D<double> Veff(1, gc.all());
+            multi_grid::restrict3D(Veff[0], gc, Vtot, *gd, 0); // mute
+            if (echo > 1) print_stats(Veff[0], gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 
-                  view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
-                  
-                  if ('z' == key) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
-                  if ('c' == key) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
-                  if ('d' == key) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
-                  if ('s' == key) s->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
+            view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
+            
+            if ('z' == key) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
+            if ('c' == key) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
+            if ('d' == key) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
+            if ('s' == key) s->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
 
-                  auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc[0], Veff.data()) * gc.dV();
-                  if (echo > 4) std::printf("\n# double counting (coarse grid) %.9f %s\n", dcc_coarse*eV, _eV);
-                  // beware: if fermi.level=linearized, dcc_coarse is computed from uncorrected densities
+            auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc[0], Veff.data()) * gc.dV();
+            if (echo > 4) std::printf("\n# double counting (coarse grid) %.9f %s\n", dcc_coarse*eV, _eV);
+            // beware: if fermi.level=linearized, dcc_coarse is computed from uncorrected densities
 
-                  stat += multi_grid::interpolate3D(rho_valence_new[0], g, rho_valence_gc[0], gc);
-                  stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
+            stat += multi_grid::interpolate3D(rho_valence_new[0], g, rho_valence_gc[0], gc);
+            stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
 
         } // psi_on_grid
 #if 0
