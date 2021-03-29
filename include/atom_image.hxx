@@ -40,9 +40,15 @@ namespace atom_image {
     public:
       
       sho_atom_t(void) : _sigma(1.), _numax(-1), _atom_id(-1) {} // default constructor
-      sho_atom_t(double const sigma, int const numax, 
-                 int32_t const atom_id, double const *pos=nullptr, int8_t const Zi=-128)
-          : _sigma(sigma), _numax(numax), _atom_id(atom_id), _images(0) {
+      sho_atom_t(
+            double const sigma
+          , int const numax 
+          , int32_t const atom_id
+          , double const *pos=nullptr
+          , int8_t const Zi=-128
+      )
+          : _sigma(sigma), _numax(numax), _atom_id(atom_id), _images(0)
+      {
           assert(sigma > 0);
           _ncoeff = sho_tools::nSHO(_numax);
           _stride = align<2>(_ncoeff);
@@ -87,8 +93,12 @@ namespace atom_image {
           return (ncoeff != _ncoeff); // report mismatch
       } // set_matrix
 
-      status_t set_image_positions(double const atom_position[3], int const nimages=1
-          , view2D<double> const *periodic_positions=nullptr, view2D<int8_t> const *indices=nullptr) {
+      status_t set_image_positions(
+            double const atom_position[3]
+          , int const nimages=1
+          , view2D<double> const *periodic_positions=nullptr
+          , view2D<int8_t> const *indices=nullptr
+      ) {
           if (nullptr == periodic_positions) {
               _images.resize(1);
               _images[0] = atom_image_t(atom_position[0], atom_position[1], atom_position[2], _atom_id, 0,0,0);
@@ -127,18 +137,18 @@ namespace atom_image {
       
       std::vector<atom_image_t> _images;
   }; // class sho_atom_t
-  
-      template <> // specialization for real_t=double
-      inline double const * sho_atom_t::get_matrix<double>(int const h0s1) const { 
-          assert((0 == h0s1) || (1 == h0s1));
-          return &_matrix64[h0s1*_ncoeff*_stride];
-      } // get_matrix
 
-      template <> // specialization for real_t=float
-      inline float  const * sho_atom_t::get_matrix<float> (int const h0s1) const { 
-          assert((0 == h0s1) || (1 == h0s1));
-          return &_matrix32[h0s1*_ncoeff*_stride];
-      } // get_matrix
+  template <> // specialization for real_t=double
+  inline double const * sho_atom_t::get_matrix<double>(int const h0s1) const { 
+      assert((0 == h0s1) || (1 == h0s1));
+      return &_matrix64[h0s1*_ncoeff*_stride];
+  } // get_matrix
+
+  template <> // specialization for real_t=float
+  inline float  const * sho_atom_t::get_matrix<float> (int const h0s1) const { 
+      assert((0 == h0s1) || (1 == h0s1));
+      return &_matrix32[h0s1*_ncoeff*_stride];
+  } // get_matrix
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

@@ -21,6 +21,7 @@ OBJ = \
 	radial_potential.o \
 	exchange_correlation.o \
 	geometry_analysis.o \
+	self_consistency.o \
 	iterative_poisson.o \
 	recorded_warnings.o \
 	potential_generator.o \

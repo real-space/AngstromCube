@@ -284,7 +284,7 @@ namespace grid_operators {
 
       grid_operator_t(
             real_space::grid_t const & g // real space grid descriptor
-          , std::vector<atom_image::sho_atom_t> const &a // is moved to atoms
+          , std::vector<atom_image::sho_atom_t> const & a // is moved to atoms
           , double const *local_potential=nullptr // effective local potential
           , int const nn_precond=1 // range of the preconditioner
           , int const nn_kinetic=8

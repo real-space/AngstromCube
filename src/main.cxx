@@ -29,6 +29,7 @@
 #include "density_generator.hxx" // ::all_tests
 #include "fourier_transform.hxx" // ::all_tests
 #include "iterative_poisson.hxx" // ::all_tests
+#include "self_consistency.hxx" // ::all_tests
 #include "radial_potential.hxx" // ::all_tests
 #include "bessel_transform.hxx" // ::all_tests
 #include "parallel_domains.hxx" // ::all_tests
@@ -103,78 +104,79 @@
       { // testing scope
 #define   add_module_test(MODULE_NAME) \
           if (all || (0 == m.compare(#MODULE_NAME))) { \
-              SimpleTimer timer("module test for", 0, #MODULE_NAME, 0); \
+              SimpleTimer timer("module test for", 0, #MODULE_NAME, 0);\
               if (all && echo > 3) { \
                   std::printf("\n\n\n# ============= Module test for " \
-                         #MODULE_NAME " ==================\n\n"); \
+                         #MODULE_NAME " ==================\n\n");\
               } \
-              run.push_back(make_pair(std::string(#MODULE_NAME), MODULE_NAME::all_tests(echo))); \
+              run.push_back(make_pair(std::string(#MODULE_NAME), MODULE_NAME::all_tests(echo)));\
           }
-          add_module_test(recorded_warnings);  
-          add_module_test(finite_difference);  
-          add_module_test(hermite_polynomial); 
+          add_module_test(recorded_warnings);
+          add_module_test(finite_difference);
+          add_module_test(hermite_polynomial);
           add_module_test(spherical_harmonics);
           add_module_test(conjugate_gradients);
           add_module_test(exchange_correlation);
           add_module_test(potential_generator);
-          add_module_test(global_coordinates); 
-          add_module_test(radial_eigensolver); 
-          add_module_test(boundary_condition); 
-          add_module_test(fermi_distribution); 
-          add_module_test(radial_integrator);  
-          add_module_test(geometry_analysis);  
-          add_module_test(density_generator);  
-          add_module_test(fourier_transform);  
-          add_module_test(iterative_poisson);  
-          add_module_test(radial_potential);   
-          add_module_test(bessel_transform);   
-          add_module_test(parallel_domains);   
-          add_module_test(structure_solver);   
-          add_module_test(scattering_test);    
-          add_module_test(davidson_solver);    
-          add_module_test(chemical_symbol);    
-          add_module_test(linear_operator);    
-          add_module_test(sho_hamiltonian);    
-          add_module_test(fourier_poisson);    
-          add_module_test(solid_harmonics);    
-          add_module_test(bisection_tools);    
-          add_module_test(green_function);     
-          add_module_test(poisson_solver);     
-          add_module_test(brillouin_zone);     
-          add_module_test(sho_projection);     
-          add_module_test(shift_boundary);     
-          add_module_test(linear_algebra);     
-          add_module_test(grid_operators);     
-          add_module_test(dense_operator);     
-          add_module_test(element_config);     
-          add_module_test(complex_tools);      
-          add_module_test(vector_layout);      
-          add_module_test(sho_potential);      
-          add_module_test(mpi_parallel);       
-          add_module_test(angular_grid);       
-          add_module_test(pseudo_tools);       
-          add_module_test(inline_tools);       
-          add_module_test(simple_timer);       
-          add_module_test(sigma_config);       
-          add_module_test(dense_solver);       
-          add_module_test(json_reading);       
-          add_module_test(xml_reading);        
-          add_module_test(plane_waves);     
-          add_module_test(unit_system);        
-          add_module_test(simple_math);        
-          add_module_test(sho_overlap);        
-          add_module_test(radial_grid);        
-          add_module_test(single_atom);        
-          add_module_test(inline_math);        
-          add_module_test(sho_unitary);        
-          add_module_test(atom_image);         
-          add_module_test(real_space);         
-          add_module_test(multi_grid);         
-          add_module_test(sho_radial);         
-          add_module_test(sho_tools);          
-          add_module_test(atom_core);          
-          add_module_test(data_view);          
-          add_module_test(control);            
+          add_module_test(global_coordinates);
+          add_module_test(radial_eigensolver);
+          add_module_test(boundary_condition);
+          add_module_test(fermi_distribution);
+          add_module_test(radial_integrator);
+          add_module_test(geometry_analysis);
+          add_module_test(density_generator);
+          add_module_test(fourier_transform);
+          add_module_test(iterative_poisson);
+          add_module_test(self_consistency);
+          add_module_test(radial_potential);
+          add_module_test(bessel_transform);
+          add_module_test(parallel_domains);
+          add_module_test(structure_solver);
+          add_module_test(scattering_test);
+          add_module_test(davidson_solver);
+          add_module_test(chemical_symbol);
+          add_module_test(linear_operator);
+          add_module_test(sho_hamiltonian);
+          add_module_test(fourier_poisson);
+          add_module_test(solid_harmonics);
+          add_module_test(bisection_tools);
+          add_module_test(green_function);
+          add_module_test(poisson_solver);
+          add_module_test(brillouin_zone);
+          add_module_test(sho_projection);
+          add_module_test(shift_boundary);
+          add_module_test(linear_algebra);
+          add_module_test(grid_operators);
+          add_module_test(dense_operator);
+          add_module_test(element_config);
+          add_module_test(complex_tools);
+          add_module_test(vector_layout);
+          add_module_test(sho_potential);
+          add_module_test(mpi_parallel);
+          add_module_test(angular_grid);
+          add_module_test(pseudo_tools);
+          add_module_test(inline_tools);
+          add_module_test(simple_timer);
+          add_module_test(sigma_config);
+          add_module_test(dense_solver);
+          add_module_test(json_reading);
+          add_module_test(xml_reading);
+          add_module_test(plane_waves);
+          add_module_test(unit_system);
+          add_module_test(simple_math);
+          add_module_test(sho_overlap);
+          add_module_test(radial_grid);
+          add_module_test(single_atom);
+          add_module_test(inline_math);
+          add_module_test(sho_unitary);
+          add_module_test(atom_image);
+          add_module_test(real_space);
+          add_module_test(multi_grid);
+          add_module_test(sho_radial);
+          add_module_test(sho_tools);
+          add_module_test(atom_core);
+          add_module_test(data_view);
+          add_module_test(control);
 #undef    add_module_test
       } // testing scope
 
@@ -233,7 +235,7 @@
       int run_tests{0};
       int verbosity{3}; // set default verbosity low
       if (argc < 2) {
-          std::printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]); 
+          std::printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]);
           return -1;
       } // no argument passed to executable
       for(int iarg = 1; iarg < argc; ++iarg) {
@@ -242,12 +244,12 @@
           if ('-' == ci0) {
 
               // options (short or long)
-              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #i
+              char const ci1 = *(argv[iarg] + 1);// char #1 of command line argument #i
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
 
                   // long options with "--"
-                  std::string option(argv[iarg] + 2); // + 2 to remove "--" in front
+                  std::string option(argv[iarg] + 2);// + 2 to remove "--" in front
                   if ("help" == option) {
                       return show_help(argv[0]);
                   } else 
@@ -270,7 +272,7 @@
                       return show_help(argv[0]);
                   } else
                   if ('v' == (ci1 | IgnoreCase)) {
-                      verbosity += 1 + 3*('V' == ci1); // increment by 'V':4, 'v':1
+                      verbosity += 1 + 3*('V' == ci1);// increment by 'V':4, 'v':1
                   } else
                   if ('t' == (ci1 | IgnoreCase)) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
@@ -282,7 +284,7 @@
 
           } else // ci0
           if ('+' == ci0) {
-              stat += control::command_line_interface(argv[iarg] + 1); // start after the '+' char
+              stat += control::command_line_interface(argv[iarg] + 1);// start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
               ++stat; warn("# ignored command line argument \'%s\'", argv[iarg]);
@@ -290,11 +292,11 @@
 
       } // iarg
       //
-      int echo = int(control::get("verbosity", double(verbosity))); // define verbosity for repeating arguments and control file entries
+      int echo = int(control::get("verbosity", double(verbosity)));// define verbosity for repeating arguments and control file entries
       if (echo > 0) {
           std::printf("\n#");
           for(int iarg = 0; iarg < argc; ++iarg) {
-              std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
+              std::printf(" %s", argv[iarg]);// repeat all command line arguments for completeness of the log file
           } // iarg
           std::printf("\n");
       } // echo
@@ -302,7 +304,7 @@
       // in addition to command_line_interface, we can modify the control environment by a file
       stat += control::read_control_file(control::get("control.file", ""), echo);
       //
-      echo = int(control::get("verbosity", double(echo))); // verbosity may have been redefined in the control file
+      echo = int(control::get("verbosity", double(echo)));// verbosity may have been redefined in the control file
       //
       show_version(argv[0], echo);
       //

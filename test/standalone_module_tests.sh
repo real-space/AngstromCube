@@ -7,6 +7,8 @@ for module in \
   finite_difference \
   hermite_polynomial \
   spherical_harmonics \
+  structure_solver \
+  self_consistency \
   conjugate_gradients \
   potential_generator \
   global_coordinates \
@@ -77,7 +79,7 @@ for module in \
 
     ## compile
     g++ -std=c++11 \
-        -I../src/ \
+        -I../include/ \
         -g -pedantic -Wall -O0 \
               -D HAS_NO_MKL \
               -D DEVEL \

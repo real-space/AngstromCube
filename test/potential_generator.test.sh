@@ -218,9 +218,9 @@ pw_hamiltonian.solver=direct
 ## also compute the eigenvalues of the overlap matrix?
 #dense_solver.test.overlap.eigvals=0
 
-export.hamiltonian=-1
-# export.hamiltonian.format=xml
-export.hamiltonian.format=json
+export.hamiltonian=1            # 0:not, 1:yes, -1:yes+abort
+# xml or json
+export.hamiltonian.format=xml
 
 EOF
 
