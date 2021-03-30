@@ -17,4 +17,3 @@ namespace single_atom {
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace single_atom
-

@@ -1,13 +1,13 @@
-#include <cstdio> // printf, std::snprintf
+#include <cstdio> // std::printf, std::snprintf
 #include <cmath> // std::floor
 #include <cstdint> // int8_t
 #include <vector> // std::vector<T>
 #include <cassert> // assert
 
-#include "sigma_config.hxx"
+#include "sigma_config.hxx" // ::element_t, ::get, ::all_tests
 
-#include "inline_math.hxx" // set
 #include "status.hxx" // status_t
+#include "inline_math.hxx" // set
 #include "chemical_symbol.hxx" // ::get
 #include "control.hxx" // ::get
 #include "recorded_warnings.hxx" // warn, error
@@ -93,7 +93,7 @@ namespace sigma_config {
             case 68: return "5s 2 6s 2 5p* 6 5d* 0 4f 7 5 | 2. sigma .6";               // Er
             case 69: return "5s 2 6s 2 5p* 6 5d* 0 4f 7 6 | 2. sigma .6";               // Tm
             case 70: return "5s 2 6s 2 5p* 6 5d* 0 4f 7 7 | 2. sigma .6";               // Yb
-#endif
+#endif // EXPERIMENTAL
             case 71: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 1 0 | 2.4 sigma .6";           // Lu  
             case 72: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 2 0 | 2.47 sigma .6077";       // Hf  
             case 73: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 3 0 | 2.47 sigma .6";          // Ta  
@@ -153,7 +153,7 @@ namespace sigma_config {
             case 126: return "warning_not_configured";                                  // u6
             case 127: return "1s -1 | 1.0 sigma .25 Z= -1";                             // e
             case   0: return "1s | 1.0 sigma .25";                                      // __
-#endif
+#endif // EXPERIMENTAL
             default:  warn("no default element configuration given for Z=%d", iZ);
                       return "";
         } // switch
@@ -203,7 +203,8 @@ namespace sigma_config {
     
     
     int8_t constexpr KeyHole = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
-      KeyMethod = -4, KeyIgnore = -5, KeyWarn = -6, KeyNumax = -7, KeyUndef = -8, KeyNumeric = -9;
+                     KeyMethod = -4, KeyIgnore = -5, KeyWarn = -6,
+                     KeyNumax = -7, KeyUndef = -8, KeyNumeric = -9;
 //  char constexpr Key2Char[] = "h|sZV_WnU$"; // negative keys needed: [-key]
     char const Key2String[][8] = {"hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "undef", "numeric"};
 
@@ -235,7 +236,13 @@ namespace sigma_config {
             default : return c - '0'; // enn quantum number of an orbital
         } // switch
     } // char2key
-    
+
+    // same definition as atom_core::nl_index
+    inline int nl_index(int const enn, int const ell) { 
+        assert(ell < enn);
+        return (enn*(enn - 1))/2 + ell;
+    } // nl_index
+
     template<typename int_t>
     inline void set_default_core_shells(int_t ncmx[4], double const Z) {
         ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
@@ -252,8 +259,12 @@ namespace sigma_config {
         int8_t mrn;
     } parsed_word_t;
 
-    element_t & get(double const Zcore, int const echo, char const **configuration) {
-
+    
+    element_t & get(
+          double const Zcore // nuclear charge
+        , int const echo // =0 log-level
+        , char const **configuration // =nullptr string that has been parsed
+    ) {
         char symbol[4];
         int const iZ = chemical_symbol::get(symbol, Zcore);
         char element_Sy[16];
@@ -261,7 +272,7 @@ namespace sigma_config {
         auto const config = control::get(element_Sy, default_config(iZ));
         if (configuration) *configuration = config;
 
-        if (echo > 3) printf("# for Z=%g use configuration +%s=\"%s\"\n", Zcore, element_Sy, config);
+        if (echo > 3) std::printf("# for Z=%g use configuration +%s=\"%s\"\n", Zcore, element_Sy, config);
         // now convert config into an element_t
         auto & e = *(new element_t);
 
@@ -288,7 +299,7 @@ namespace sigma_config {
         char const * string{config + ('"' == *config)}; // drop first char if it is '"'
         char c0{*string};
         while(c0) {
-//          if (echo > 0) printf("# start from '%s'\n", string);
+            if (echo > 11) std::printf("# start from '%s'\n", string);
 
             words.push_back(parsed_word_t());
             auto & word = words[iword];
@@ -299,7 +310,7 @@ namespace sigma_config {
             bool try_numeric{false};
             char const cn = *string;
             auto key = char2key(cn);
-//                 if (echo > 0) printf("# found key=%i in '%s'\n", key, string);
+            if (echo > 10) std::printf("# found key=%i in '%s'\n", key, string);
             if (key > 0) {
                 // the first non-blank char was a digit larger than 0
                 int const enn = key;
@@ -314,7 +325,7 @@ namespace sigma_config {
                     
                     char const *asterisk{string + 2};
                     int mrn{0}; while ('*' == *asterisk) { ++mrn; ++asterisk; } // count the '*' chars 
-                    if (echo > 9) printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
+                    if (echo > 9) std::printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
 
                     word.enn = enn; // store
                     word.ell = ell; // store
@@ -328,16 +339,16 @@ namespace sigma_config {
                     try_numeric = true;
                 } else if (KeyMethod == key) {
                     std::strncpy(local_potential_method, string, 31);
-                    if (echo > 7) printf("# found local potential method '%s'\n", local_potential_method);
+                    if (echo > 7) std::printf("# found local potential method '%s'\n", local_potential_method);
                 } else {
-                    if (echo > 8) printf("# found special '%s'\n", string);
+                    if (echo > 8) std::printf("# found special '%s'\n", string);
                 }
             }
             word.key = key; // store
 
             if (try_numeric) {
                 double const value = std::atof(string);
-                if (echo > 8) printf("# found numeric value %g in '%s'\n", value, string);
+                if (echo > 8) std::printf("# found numeric value %g in '%s'\n", value, string);
                 word.value = value; // store
                 word.key = KeyNumeric; // -9:numeric
             } // try_numeric
@@ -354,30 +365,30 @@ namespace sigma_config {
             }
         } // while;
         int const nwords = iword; // how many words were in the string
-        if (echo > 8) printf("# process %d words\n", nwords);
+        if (echo > 8) std::printf("# process %d words\n", nwords);
         
         if (echo > 7) {
             // repeat what was just parsed
-            printf("# repeat config string '");
+            std::printf("# repeat config string '");
             char const mrn2string[][4] = {"", "*", "**"};
             for (int iword = 0; iword < nwords; ++iword) {
                 auto const & word = words[iword];
                 auto const key = word.key;
                 if (key > 0) {
                     assert(word.enn == key); // orbital
-                    printf("%i%c%s ", word.enn, ellchar[word.ell], mrn2string[word.mrn]);
+                    std::printf("%i%c%s ", word.enn, ellchar[word.ell], mrn2string[word.mrn]);
                 } else if (KeyHole == key) {
-                    printf("%i%chole ", word.enn, ellchar[word.ell]);
+                    std::printf("%i%chole ", word.enn, ellchar[word.ell]);
                 } else if (KeyNumeric == key) {
-                    printf("%g ", word.value);
+                    std::printf("%g ", word.value);
                 } else if (KeyIgnore == key) {
                     // do not print anything
                 } else {
                     assert(key <= 0);
-                    printf("%s ", Key2String[-key]);
+                    std::printf("%s ", Key2String[-key]);
                 }
             } // iword
-            printf("'\n");
+            std::printf("'\n");
         } // echo
 
         int constexpr max_enn = 9, max_inl = (max_enn*(max_enn + 1))/2;
@@ -389,29 +400,29 @@ namespace sigma_config {
         int nstack{0};
 
         // process the parsed contents backwards
-        for(int iword = nwords - 1; iword >= 0; --iword) {
+        for (int iword = nwords - 1; iword >= 0; --iword) {
             auto const & word = words[iword];
             auto const key = word.key;
             if (KeyNumeric == key) {
-//                 if (echo > 0) printf("# nstack=%i push\n", nstack);
+                if (echo > 21) std::printf("# nstack=%i push\n", nstack);
                 assert(nstack < max_nstack);
                 stack[nstack++] = word.value; // push to the stack
-//                 if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
+                if (echo > 21) std::printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
             } else if (KeyMethod == key) {
 //                 warn("method specifier in config string for %s ignored : %s", symbol, config);
                 std::strncpy(e.method, local_potential_method + 2, 15);
-                if (echo > 9) printf("# found local potential method = \'%s\'\n", e.method);
+                if (echo > 9) std::printf("# found local potential method = \'%s\'\n", e.method);
             } else if (KeyWarn == key) {
                 warn("config string for %s may be experimental: %s", symbol, config);
             } else if (KeyIgnore == key) {
                 // do not modify the stack!
-                if (echo > 6) printf("# white spaces are ignored for Z= %g\n", e.Z);
+                if (echo > 6) std::printf("# white spaces are ignored for Z= %g\n", e.Z);
             } else {
                 double value{0};
                 if (nstack > 0) {
-//                     if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
+                    if (echo > 21) std::printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
                     value = stack[--nstack]; // pop the stack
-//                     if (echo > 0) printf("# nstack=%i popped\n", nstack);
+                    if (echo > 21) std::printf("# nstack=%i popped\n", nstack);
                 }
                 if (key >= KeyHole) { // orbital
                     int const ell = word.ell;
@@ -422,9 +433,9 @@ namespace sigma_config {
                     double occs[2] = {0, 0};
                     if (nstack > 0) {
                         occs[0] = value;
-//                         if (echo > 0) printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
+                        if (echo > 21) std::printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
                         value = stack[--nstack]; // pop the stack a 2nd time
-//                         if (echo > 0) printf("# nstack=%i popped\n", nstack);
+                        if (echo > 21) std::printf("# nstack=%i popped\n", nstack);
                         occs[1] = value;
                     } else {
                         set(occs, 2, .5*value);
@@ -444,9 +455,9 @@ namespace sigma_config {
                     if (key == KeyHole) {
                         set(e.q_core_hole, 2, occs);
                         e.inl_core_hole = inl;
-                        if (echo > 2) printf("# found a %i%c-core hole of charges = %g %g in %s\n", enn,ellchar[ell], occs[0],occs[1], symbol);
+                        if (echo > 2) std::printf("# found a %i%c-core hole of charges = %g %g in %s\n", enn,ellchar[ell], occs[0],occs[1], symbol);
                     } else {
-                        if (echo > 9) printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occs[0], occs[1], inl);
+                        if (echo > 9) std::printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occs[0], occs[1], inl);
                         assert(key > 0); // this is a valence orbital specification
                         set(occ[inl], 2, occs); // set valence occupation numbers positive
                         if (ell < 8) e.nn[ell] += 1 + word.mrn;
@@ -455,20 +466,20 @@ namespace sigma_config {
 
                 } else if (KeyRcut == key) {
                     e.rcut = value;
-                    if (echo > 9) printf("# found cutoff radius rcut = %g\n", e.rcut);
+                    if (echo > 9) std::printf("# found cutoff radius rcut = %g\n", e.rcut);
                     if (e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
                 } else if (KeySigma == key) {
                     e.sigma = value;
-                    if (echo > 9) printf("# found projector spread sigma = %g\n", e.sigma);
+                    if (echo > 9) std::printf("# found projector spread sigma = %g\n", e.sigma);
                     if (e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
                 } else if (KeyNumax == key) {
                     e.numax = int(value);
-                    if (echo > 9) printf("# found SHO projector cutoff numax = %d\n", e.numax);
+                    if (echo > 9) std::printf("# found SHO projector cutoff numax = %d\n", e.numax);
                     if (std::abs(e.numax - value) > 1e-6) warn("numax must be a positive integer found %g --> %d", value, e.numax);
                 } else if (KeyZcore == key) {
                     e.Z = value;
                     set_default_core_shells(e.ncmx, e.Z); // adjust default core shells
-                    if (echo > 9) printf("# found core charge Z= %g for %s\n", e.Z, symbol);
+                    if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
                 } else {
                     warn("key unknown: key= %d", key);
@@ -480,16 +491,16 @@ namespace sigma_config {
 
         // fill the core
         if (echo > 6) {
-            printf("# fill the core up to the principal quantum number n=");
-            for(int ell = 0; ell < 4; ++ell) {
-                printf(" %d", e.ncmx[ell]*(e.ncmx[ell] > ell)); // show zeros if there are no core electrons
+            std::printf("# fill the core up to the principal quantum number n=");
+            for (int ell = 0; ell < 4; ++ell) {
+                std::printf(" %d", e.ncmx[ell]*(e.ncmx[ell] > ell)); // show zeros if there are no core electrons
             } // ell
-            printf(" for s,p,d,f\n");
+            std::printf(" for s,p,d,f\n");
         } // echo
         for (int ell = 0; ell < 4; ++ell) {
-            for(int enn = ell + 1; enn <= e.ncmx[ell]; ++enn) {
+            for (int enn = ell + 1; enn <= e.ncmx[ell]; ++enn) {
                 int const inl = nl_index(enn, ell);
-                for(int spin = 0; spin < 2; ++spin) {
+                for (int spin = 0; spin < 2; ++spin) {
                     if (occ[inl][spin] <= 0) occ[inl][spin] = -(2*ell + 1); // negative occupation numbers indicate core electrons
                 } // spin
             } // enn
@@ -498,14 +509,14 @@ namespace sigma_config {
         { // scope: introduce a core hole
             int const inl = e.inl_core_hole;
             if (inl >= 0) {
-                if (echo > 2) printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e.q_core_hole[0], e.q_core_hole[1]);
+                if (echo > 2) std::printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e.q_core_hole[0], e.q_core_hole[1]);
                 occ[inl][0] += e.q_core_hole[0]; // add because core occupation numbers are negative
                 occ[inl][1] += e.q_core_hole[1];
             } // inl valid
         } // scope
 
         double nve{0}, nce{0}, ncv{0}; // number of valence and core electrons, others?
-        for(int inl = 0; inl < max_inl; ++inl) {
+        for (int inl = 0; inl < max_inl; ++inl) {
             nve += std::max(0.0, occ[inl][0]) + std::max(0.0, occ[inl][1]);
             nce -= std::min(0.0, occ[inl][0]) + std::min(0.0, occ[inl][1]);
             if (inl < 32) {
@@ -516,23 +527,23 @@ namespace sigma_config {
         } // inl
 
         if (echo > 11) { // show all occupation numbers
-            printf("# Z=%3i occ=", iZ);
-            for(int inl = 0; inl < 30; ++inl) {
-                printf("%3i", int(std::abs(occ[inl][0]) + std::abs(occ[inl][1])));
+            std::printf("# Z=%3i occ=", iZ);
+            for (int inl = 0; inl < 30; ++inl) {
+                std::printf("%3i", int(std::abs(occ[inl][0]) + std::abs(occ[inl][1])));
             } // inl
-            printf("\n");
+            std::printf("\n");
         } // echo
 
         double const nelectrons = nve + nce;
-        if (echo > 4) printf("# found %g electrons = %g core + %g valence electrons for Z= %g protons\n", nelectrons, nce, nve, e.Z);
+        if (echo > 4) std::printf("# found %g electrons = %g core + %g valence electrons for Z= %g protons\n", nelectrons, nce, nve, e.Z);
         if (ncv) warn("lost %g electrons for Z= %g\n", ncv, e.Z);
 
         if (echo > 4) {
-            printf("# PAW setup for %s (Z=%g) suggests", symbol, e.Z);
-            for(int ell = 0; ell < 8; ++ell) {
-                printf(" %d", e.nn[ell]);
+            std::printf("# PAW setup for %s (Z=%g) suggests", symbol, e.Z);
+            for (int ell = 0; ell < 8; ++ell) {
+                std::printf(" %d", e.nn[ell]);
             } // ell
-            printf(" partial waves for s,p,d,...\n");
+            std::printf(" partial waves for s,p,d,...\n");
         } // echo
         
         if (std::abs(nelectrons - e.Z) > 1e-12 && e.Z > 0) warn("PAW setup for %s (Z=%g) is charged with %g electrons", symbol, e.Z, nelectrons - e.Z);
@@ -544,51 +555,52 @@ namespace sigma_config {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  status_t test_86(int const echo=0) {
-      for (int iZ = 86; iZ > 0; --iZ) {
-          if (std::abs(iZ - 64) >= 7) {
-              if (echo > 4) printf("\n");
-              auto const e = get(iZ, echo);
-              if (echo > 3) printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
-          } // without 58 through 70
-      } // iZ
-#ifdef EXPERIMENTAL
-      if (echo > 3) printf("\n\n# EXPERIMENTAL elements 58--70, 87--128\n\n");
-      for (int iZ = 58; iZ <= 120; ++iZ) {
-          if (std::abs(iZ - 64) < 7 || iZ > 86) {
-              if (echo > 4) printf("\n");
-              auto const e = get(iZ & 127, echo);
-              if (echo > 3) printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
-          } // with 58 through 70 and more
-      } // iZ
-#endif
-      return 0;
-  } // test_86
+  status_t test_parsing(int const echo=0) {
 
-  status_t show_default_config(int const echo=0) {
-      if (echo > 0) {
-          int const iZ_default=29;
-          auto const iZ = int(control::get("sigma_config.show.Z", iZ_default*1.)) & 127;
-          printf("\n# running with +sigma_config.show.Z=%i (default=%i)\n", iZ, iZ_default);
-          char Sy[4] = {0,0,0,0}; chemical_symbol::get(Sy, iZ);
-          printf("\n+element_%s=\"%s\"\n\n", Sy, default_config(iZ));
-          // parse the current config string
+      int const iZ_show = control::get("sigma_config.show.Z", -120); // use -128 to check also the custom configuration strings and vacuum
+      if (iZ_show >= 0) {
+
+          // show and parse one selected element
+          if (echo > 0) std::printf("\n# running with +sigma_config.show.Z=%i\n", iZ_show);
+          char Sy[4];
+          auto const iZ = chemical_symbol::get(Sy, iZ_show);
+          // show the current/default configuration for this elements
+          if (echo > 0) std::printf("\n+element_%s=\"%s\"\n\n", Sy, default_config(iZ));
+          // parse the current configuration string and watch for warnings
           auto const e = get(iZ, echo);
-          printf("# found Z= %g\n", e.Z);
-      } // echo
-      return 0;
-  } // show_default_config
+          if (echo > 0) std::printf("# found Z= %g\n", e.Z);
 
-  status_t test_sizeof_struct(int const echo=0) {
-      if (echo > 0) printf("# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
+      } else { // iZ_show >= 0
+
+          if (echo > 2) std::printf("\n\n# parse configuration strings for elements 1--57, 71--86\n\n");
+          for (int iZ = 86; iZ > 0; --iZ) {
+              if (std::abs(iZ - 64) >= 7) {
+                  if (echo > 4) std::printf("\n");
+                  auto const e = get(iZ, echo);
+                  if (echo > 4) std::printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
+              } // without 58 through 70
+          } // iZ
+
+#ifdef EXPERIMENTAL
+          int const Z_max = -iZ_show;
+          if (echo > 2) std::printf("\n\n# EXPERIMENTAL elements 58--70, 87--%d\n\n", Z_max);
+          for (int iZ = 58; iZ <= Z_max; ++iZ) {
+              if (std::abs(iZ - 64) < 7 || iZ > 86) {
+                  if (echo > 4) std::printf("\n");
+                  auto const e = get(iZ & 127, echo);
+                  if (echo > 4) std::printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
+              } // with 58 through 70 and more
+          } // iZ
+          if (echo > 0) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
+#endif // EXPERIMENTAL
+
+      } // iZ_show >= 0
       return 0;
-  } // test_sizeof_struct
+  } // test_parsing
   
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_86(echo);
-      stat += show_default_config(echo);
-      stat += test_sizeof_struct(echo);
+      stat += test_parsing(echo);
       return stat;
   } // all_tests
 

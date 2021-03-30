@@ -221,22 +221,27 @@ However, we can change the length and energy units used for output like this:
 \begin{verbatim}
 ./a43 +output.energy.unit=eV +output.length.unit=Ang ...
 \end{verbatim}
+%% sigma_config uses Bohr always (as input and output unit) on purpose
 Available output units are \ttt{eV}, \ttt{Ry} or \ttt{Ha} (default in the development branch) for energies 
-and \ttt{nm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths.
+and \ttt{nm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths. Run
+\begin{verbatim}
+./a43 -t unit_system
+\end{verbatim}
+to verify this.
 Input length units are \AA{} in the geometry file as this is most convenient for molecular structure viewers
 (\ttt{VESTA}, \ttt{jmol}, etc.). Other input quantities may have flexible input units, for example
 \begin{verbatim}
 ./a43 +logder.unit=Ry +logder.step=1e-3
 \end{verbatim}
-which means that the energy spacing for checking of the logarithmic derivatives is milliRydberg.
-% The same input unit is assumed for \ttt{+logder.start} and \ttt{+logder.stop}.
+which means that the energy spacing for checking of the logarithmic derivatives is $10^{-3}$Rydberg.
+The same input unit is assumed for \ttt{+logder.start} and \ttt{+logder.stop}.
 
 
-Experimental parts of the code may not support all the unit conversion
-factors for output. Then you should be able to find at least \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the log files.
+Experimental parts of the code may not support the flexible unit conversion
+factors for output. Then you should be able to find at least indications as \ttt{Ha}, \ttt{Bohr} or simply \ttt{a.u.} in the log files.
 Most standard functionality, however, supports unit conversion so that log files
 show \ttt{eV} or \ttt{Ry} and \ttt{Ang}$ = $\AA{} or \ttt{nm}, depending on the users choice.
-Some quantities are displayed in characteristic units, e.g., plane wave cutoffs typically in Rydberg.
+Some quantities are displayed in characteristic units, e.g., plane wave cutoffs are typically shown in Rydberg.
 
 
 \subsection{Try a first structure}
@@ -245,13 +250,14 @@ Make sure there is structure file \ttt{atoms.xyz} file and run
 ./a43 -t geometry_analysis
 \end{verbatim}
 in order to check if your geometry looks ok.
-Search the log file for warnings using \ttt{grep}.
-There will also be a summary of all warnings launched during the execution at the end of the log file.
+You can search the log file for warnings using \ttt{grep} but
+there will also be a summary of all warnings launched during the execution at the end of the log file.
 Once free of warnings, continue with the next step:
-Let's say we want Aluminum in our system, then run:
+Let's say we want aluminum in our system, then run:
 \begin{verbatim}
 ./a43 -t single_atom +single_atom.test.Z=13
 \end{verbatim}
+\todo[inline]{Currently, aluminum produces a critical charge deficit operator eigenvalues}
 
 
 \codename{} will the try to access a database of initial atomic potentials
@@ -266,7 +272,7 @@ If the loading fails because of a missing file, you can bootstrap it:
 or if the entire database was lost,
 \begin{verbatim}
 ./a43 -t atom_core \
-        +atom_core.test.Z=1 +atom_core.test.Z.end=99
+        +atom_core.test.Z=1 +atom_core.test.Z.end=86
 \end{verbatim}
 
 Now, run the \ttt{single\_atom.} test for each of the elements in the system to see if there are warnings before you continue like this

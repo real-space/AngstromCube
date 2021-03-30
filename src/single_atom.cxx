@@ -1,6 +1,6 @@
 #ifndef DEVEL
 /*
- *  Make sure to modify this file in the development branch
+ *  Make sure to modify this file only in the development branch
  */
 #endif // not DEVEL
 

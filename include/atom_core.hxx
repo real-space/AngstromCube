@@ -77,7 +77,8 @@ namespace atom_core {
   } // guess_energy
 
   inline int nl_index(int const enn, int const ell) { 
-      assert(ell >= 0); assert(enn > ell); // atomic eigenstates
+      assert(ell >= 0 && "angular momentum quantum number");
+      assert(enn > ell && "atomic quantum numbers"); 
       return (enn*(enn - 1))/2 + ell;
   } // nl_index
 
@@ -111,7 +112,7 @@ namespace atom_core {
       if (Z <= 0) return 0;
       if (Z > 16) return neutral_atom_total_energy_LDA(Z);
       int const iZ = int(Z);
-      assert(iZ >= 0 && iZ <= 16);
+      assert(iZ >= 0 && iZ <= 16 && "internal error");
       // compute weights for a cubic Lagrange polynomial through E[iZ-1], E[iZ] and E[iZ+1]
       double const xm1 = iZ - 1, x_0 = iZ, xp1 = iZ + 1;
       double const wm1 = ((Z - x_0)*(Z - xp1))/((xm1 - x_0)*(xm1 - xp1));

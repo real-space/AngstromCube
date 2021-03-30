@@ -20,10 +20,12 @@ namespace sigma_config {
       int8_t  inl_core_hole; // state index where to insert the core hole
   } element_t;
 
-  element_t & get(double const Zcore, int const echo=0, char const **configuration=nullptr);
+  element_t & get(
+        double const Zcore // nuclear charge
+      , int const echo=0 // log-level
+      , char const **configuration=nullptr // string that has been parsed
+  ); // declaration only
 
-  inline int nl_index(int const enn, int const ell) { assert(ell < enn); return (enn*(enn - 1))/2 + ell; }
-  
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace sigma_config
