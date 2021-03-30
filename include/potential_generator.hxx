@@ -119,6 +119,48 @@ namespace potential_generator {
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file
   
+  inline status_t add_smooth_quantities(
+        double values[] // add to this function on a 3D grid
+      , real_space::grid_t const & g // Cartesian real-space grid descriptor
+      , int const na, int32_t const nr2[], float const ar2[] // r2-grid descriptor
+      , view2D<double> const & center // (natoms, 4) center coordinates
+      , int const n_periodic_images, view2D<double> const & periodic_images
+      , double const *const *const atom_qnt // atom data on r2-grids
+      , int const echo=0 // log-level
+      , int const echo_q=0 // log-level for the charge
+      , double const factor=1 // multipliyer
+      , char const *quantity="???" // description for log-messages
+  ) {
+      // add contributions from smooth core densities
+
+      status_t stat(0);
+      for(int ia = 0; ia < na; ++ia) {
+#ifdef DEVEL
+          if (echo > 11) {
+              std::printf("\n## r, %s of atom #%i\n", quantity, ia);
+              print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
+          } // echo
+#endif // DEVEL
+          double q_added{0};
+          for(int ii = 0; ii < n_periodic_images; ++ii) {
+              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
+              double q_added_image = 0;
+              stat += real_space::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
+              if (echo_q > 11) std::printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
+              q_added += q_added_image;
+          } // periodic images
+#ifdef DEVEL
+          if (echo_q > 0) {
+              std::printf("# after adding %g electrons %s of atom #%d:", q_added, quantity, ia);
+              print_stats(values, g.all(), g.dV());
+          } // echo
+          if (echo_q > 3) std::printf("# added %s for atom #%d is  %g electrons\n", quantity, ia, q_added);
+//        if (echo_q > 3) std::printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
+#endif // DEVEL
+      } // ia
+      return stat;
+  } // add_smooth_quantities
+  
 #ifdef DEVEL
 
   template <typename real_t>
