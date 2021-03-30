@@ -136,7 +136,7 @@ pw_hamiltonian.solver=direct
 #dense_solver.test.overlap.eigvals=0
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
-export.hamiltonian=1            
+export.hamiltonian=1
 export.hamiltonian.format=xml
 
 # Make structure_solver produce the same as potential_generator

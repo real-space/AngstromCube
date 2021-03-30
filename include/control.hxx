@@ -18,4 +18,24 @@ namespace control {
 
   status_t all_tests(int const echo=0); // declaration only
 
+#if 0
+  template <typename T>
+  void control_get_xyz(
+        T vec[]
+      , int const n
+      , char const *const keyword
+      , double const default
+      , char const x='x'
+  )
+    // specify entire vectors, e.g. spacing.x, spacing.y, ... or coeff.a, coeff.b, ...
+  {
+      double const default_value = control::get(keyword, default);
+      char keyword_x[96];
+      for (int d = 0; d < n; ++d) {
+          std::snprintf(keyword_x, 95, "%s.%c", keyword, x + d);
+          vec[d] = control::get(keyword_x, default_value);
+      } // d
+  } // control_get_xyz
+#endif
+
 } // namespace control

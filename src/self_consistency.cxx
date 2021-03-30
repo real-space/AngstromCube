@@ -283,7 +283,7 @@ namespace self_consistency {
       char const *initial_valence_density_method = control::get("initial.valence.density", "atomic"); // {"atomic", "load", "none"}
       if (echo > 0) std::printf("\n# initial.valence.density=%s\n", initial_valence_density_method);
 
-      auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero., never if 0
+      auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero, never if 0
       float take_atomic_valence_densities{0};
 
       if ('a' == *initial_valence_density_method) { // atomic
@@ -372,6 +372,7 @@ namespace self_consistency {
               control::get("electronic.temperature", 1e-3), echo);
 
       double density_mixing{1};
+      double const density_mixing_fixed = control::get("self_consistency.mix.density", 0.25);
 
       std::vector<double> sigma_a(na, .5);
       { // scope: collect information for projectors and construct a list of atoms
@@ -476,7 +477,9 @@ namespace self_consistency {
                   if (echo > 6) std::printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
                   std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
+#ifdef DEVEL
 //                if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
+#endif // DEVEL
                   for(int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
@@ -583,117 +586,15 @@ namespace self_consistency {
               double charges[4] = {0, 0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:d_charge, 3:unused
 
               if (psi_on_grid) {
-#if 1
+
                   KS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
                             g, Vtot.data(), n_atom_rho, atom_mat,
                             occupation_method, scf_iteration, echo);
-#else
-                  // restrict the local effective potential to the coarse grid
-                  std::vector<double> Veff(gc.all());
-                  multi_grid::restrict3D(Veff.data(), gc, Vtot.data(), g, 0); // mute
-                  if (echo > 1) print_stats(Veff.data(), gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 
-                  // copy the local potential and non-local atom matrices into the grid operator descriptor
-                  op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo*0); // muted
-
-                  auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
-                  if (export_Hamiltonian) {
-                      op.write_to_file(echo, control::get("export.hamiltonian.format", "xml"));
-                      if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian = %g < 0", export_Hamiltonian);
-                  } // export_Hamiltonian
-
-                  view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
-                  
-                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                      op.set_kpoint(kmesh[ikpoint], echo);
-                      char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
-                      auto psi_k = psi[ikpoint]; // get a sub-view
-                      bool display_spectrum{true};
-
-                      // solve the Kohn-Sham equation using various solvers
-                      if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
-                          stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              if (echo > 6) { std::printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
-                              stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo - 5);
-                              stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          } // irepeat
-                      } else
-                      if ('d' == *grid_eigensolver_method) { // "davidson"
-                          for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              if (echo > 6) { std::printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
-                              stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          } // irepeat
-                      } else
-                      if ('e' == *grid_eigensolver_method) { // "explicit" dense matrix solver
-                          view3D<wave_function_t> HSm(2, gc.all(), align<4>(gc.all()), 0.0); // get memory for the dense representation
-                          op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), echo);
-                          stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
-                          display_spectrum = false; // the dense solver will display on its own
-                          wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor? 
-                          for(int iband = 0; iband < nbands; ++iband) {
-                              set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
-                          } // iband
-                      } else
-                      if ('n' == *grid_eigensolver_method) { // "none"
-                          if (take_atomic_valence_densities < 1) warn("no new valence density for grid.eigensolver=%s", grid_eigensolver_method);
-                      } else {
-                          ++stat; error("unknown grid.eigensolver=%s", grid_eigensolver_method);
-                      } // grid_eigensolver_method
-
-                      if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
-
-//                       if we used the fermi.level=linearized option, 
-//                       we could combine the KS equation solving for a k-point with the evaluation of the density
-
-                  } // ikpoint
-                  op.set_kpoint(); // reset to Gamma
-                  
-
-                  here;
-
-                  if ('e' == (occupation_method | 32)) {
-                      // determine the exact Fermi level as a function of all energies and kmesh_weights
-                      view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
-                      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                          double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-                          set(kweights[ikpoint], nbands, kpoint_weight);
-                      } // ikpoint
-                      double const eF = fermi_distribution::Fermi_level(occupations.data(), 
-                                      energies.data(), kweights.data(), nkpoints*nbands,
-                                      Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
-                      Fermi.set_Fermi_level(eF, echo);
-                  } // occupation_method "exact"
-
-                  here;
-
-                  // density generation
-                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                      op.set_kpoint(kmesh[ikpoint], echo);
-                      double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-                      std::vector<uint32_t> coeff_starts;
-                      auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
-                                                psi(ikpoint,0), op, nbands, echo, ikpoint);
-                      stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
-                                                energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
-                                                coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
-                                                         rho_valence_gc[1], atom_rho_new[1].data(), charges);
-                  } // ikpoint
-                  op.set_kpoint(); // reset to Gamma
-
-                  here;
-
-                  auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc[0], Veff.data()) * gc.dV();
-                  if (echo > 4) std::printf("\n# double counting (coarse grid) %.9f %s\n", dcc_coarse*eV, _eV);
-                  // beware: if fermi.level=linearized, dcc_coarse is computed from uncorrected densities
-
-                  stat += multi_grid::interpolate3D(rho_valence_new[0], g, rho_valence_gc[0], gc);
-                  stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
-#endif // replaced by structure_solver
               } else 
-#if 1
               if (plane_waves) {
                   here;
+#if 1
                   error("please use -t potential_generator to run plane waves, basis=%s\n", basis_method);
 #else // currently inactive
                   std::vector<plane_waves::DensityIngredients> export_rho;
@@ -727,8 +628,8 @@ namespace self_consistency {
                   } // x
 
                   here;
+#endif // currently inactive
               } else { // SHO local orbitals
-#endif
                   here;
 
                   stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
@@ -886,7 +787,7 @@ namespace self_consistency {
                        max_scf_iterations_input, max_scf_iterations, scf_iteration);
               } // stop file has been used
           } // scope
-          density_mixing = control::get("self_consistency.mix.density", 0.25); // for the next iteration
+          density_mixing = density_mixing_fixed;
 
       } // scf_iteration
 

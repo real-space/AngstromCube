@@ -109,10 +109,10 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 ## grid spacing or number of grid points of the dense grid
-potential_generator.grid.spacing.unit=Ang
-#potential_generator.grid.spacing=0.083334
-#potential_generator.grid.spacing=0.10416667
-potential_generator.grid.points=24
+grid.spacing.unit=Ang
+#grid.spacing=0.083334
+#grid.spacing=0.10416667
+grid.points=24
 
 ## max. number of self-consistency iterations
 potential_generator.max.scf=3
