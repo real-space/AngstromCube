@@ -96,20 +96,30 @@
       error("version was compiled with -D NO_UNIT_TESTS");
       status = -1;
 #else // NO_UNIT_TESTS
-      bool const all = (nullptr == module);
-      auto const m = std::string(all ? "" : module);
+      bool all{false}, run{true};
+      if (nullptr == module) {
+          all = true;
+      } else {
+          if ('?' == *module) { all = true; run = false; } // availability check
+      } // module
+      std::string const name_string(all ? "" : module);
       if (echo > 0) std::printf("# run unit tests for %s%s\n\n", 
-                           all?"all modules":"module ", m.c_str());
-      std::vector<std::pair<std::string,status_t>> run;
+                        all?"all modules":"module ", name_string.c_str());
+
+      std::vector<std::pair<std::string,status_t>> results;
       { // testing scope
 #define   add_module_test(MODULE_NAME) \
-          if (all || (0 == m.compare(#MODULE_NAME))) { \
-              SimpleTimer timer("module test for", 0, #MODULE_NAME, 0);\
-              if (all && echo > 3) { \
-                  std::printf("\n\n\n# ============= Module test for " \
-                         #MODULE_NAME " ==================\n\n");\
+          if (all || (0 == name_string.compare(#MODULE_NAME))) { \
+              status_t stat(0); \
+              if (run) { \
+                  SimpleTimer timer("module test for", 0, #MODULE_NAME, 0); \
+                  if (all && echo > 3) { \
+                      std::printf("\n\n\n# ============= Module test for " \
+                            #MODULE_NAME " ==================\n\n"); \
+                  } \
+                  stat = MODULE_NAME::all_tests(echo); \
               } \
-              run.push_back(make_pair(std::string(#MODULE_NAME), MODULE_NAME::all_tests(echo)));\
+              results.push_back(make_pair(std::string(#MODULE_NAME), stat)); \
           }
           add_module_test(recorded_warnings);
           add_module_test(finite_difference);
@@ -180,22 +190,28 @@
 #undef    add_module_test
       } // testing scope
 
-      if (run.size() < 1) { // nothing has been tested
-          if (echo > 0) std::printf("# ERROR: test for '%s' not found!\n", module);
+      int const nmodules = results.size();
+      if (nmodules < 1) { // nothing has been tested
+          if (echo > 0) std::printf("# ERROR: test for '%s' not found, use -t '?' to see available modules!\n", module);
           status = -1;
       } else {
-          if (echo > 0) std::printf("\n\n#%3ld modules have been tested:\n", run.size());
+          if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, run?"have been":"can be");
           int nonzero_status{0};
-          for(auto r : run) {
-              auto const stat = r.second;
-              if (echo > 0) std::printf("#    module= %-24s status= %i\n", r.first.c_str(), int(stat));
+          for(auto result : results) {
+              auto const stat = result.second;
+              if (echo > 0) std::printf("#    module= %-24s status= %i\n", result.first.c_str(), int(stat));
               status += std::abs(int(stat));
               nonzero_status += (0 != stat);
-          } // r
-          if (echo > 0) {
-              std::printf("\n#%3ld modules have been tested,  total status= %d\n\n", run.size(), int(status));
-              if (status > 0) warn("# Warning! Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
-          } // echo
+          } // result
+          if (!run) {
+              if (echo > 0) std::printf("\n");
+              warn("Display only, none of %d modules has been tested", nmodules);
+          } else { // !run
+              if (nmodules > 1 && echo > 0) {
+                  std::printf("\n#%3d modules have been tested,  total status= %d\n\n", nmodules, int(status));
+              } // show total status if many modules have been tested
+              if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
+          } // !run
       } // something has been tested
 #endif // NO_UNIT_TESTS
       return status;
@@ -206,9 +222,9 @@
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
 #ifndef  NO_UNIT_TESTS
-        "   --test <module.> [-t]\tTest module\n"
+        "   --test <module>  [-t]\tTest module\n"
 #endif // NO_UNIT_TESTS
-        "   --verbose        [-v]\tIncrement verbosity level\n"
+        "   --verbose        [-V]\tIncrement verbosity level\n"
         "   +<name>=<value>      \tModify variable environment\n"
         "\n", executable);
       return 0;
@@ -257,7 +273,7 @@
                       return show_version(argv[0], 1);
                   } else 
                   if ("verbose" == option) {
-                      verbosity = 6; // set default verbosity high
+                      verbosity = 6; // set verbosity high
                   } else
                   if ("test" == option) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];

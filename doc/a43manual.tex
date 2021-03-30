@@ -12,21 +12,21 @@
 \usepackage{pgfplots}
 
 \usepackage{acronym} %% for abbreviations
-\acrodef{dft}[DFT]{density functional theory}
-\acrodef{xc}[XC]{exchange-correlation}
-\acrodef{sho}[SHO]{spherical harmonic oscillator}
-\acrodef{dos}[DoS]{density of states}
-\acrodef{ho}[HO]{harmonic oscillator}
-\acrodef{pw}[PW]{plane wave}
-\acrodef{gp}[GP]{grid point}
-\acrodef{ae}[AE]{all-electron}
-\acrodef{paw}[PAW]{Projector Augmented Wave}
+\acrodef{DFT}[DFT]{density functional theory}
+\acrodef{XC}[XC]{exchange-correlation}
+\acrodef{SHO}[SHO]{spherical harmonic oscillator}
+\acrodef{DOS}[DoS]{density of states}
+\acrodef{HO}[HO]{harmonic oscillator}
+\acrodef{PW}[PW]{plane wave}
+\acrodef{GP}[GP]{grid point}
+\acrodef{AE}[AE]{all-electron}
+\acrodef{PAW}[PAW]{Projector Augmented Wave}
 
-\acrodef{cpu}[CPU]{central processing unit}
-\acrodef{gpu}[GPU]{graphical processing unit}
-\acrodef{hpc}[HPC]{high performance computing}
-\acrodef{omp}[OpenMP]{OpenMP}
-\acrodef{mpi}[MPI]{message passing interface}
+\acrodef{CPU}[CPU]{central processing unit}
+\acrodef{GPU}[GPU]{graphical processing unit}
+\acrodef{HPC}[HPC]{high performance computing}
+\acrodef{OMP}[OpenMP]{OpenMP}
+\acrodef{MPI}[MPI]{message passing interface}
 
 
 \setlength{\tabcolsep}{6pt}
@@ -83,14 +83,14 @@ makes use of will need be covered in order to explain the handling.
 % ==============================================================================
 %
 \subsection{Density Functional Theory}
-\codename{} is an implementation for performing calculations in the framework of \ac{dft}.
+\codename{} is an implementation for performing calculations in the framework of \ac{DFT}.
 A fair number of books and a vast number of articles in the scientific 
-literature is on \ac{dft}, therefore, we will only give a brief recap 
+literature is on \ac{DFT}, therefore, we will only give a brief recap 
 of the very basics needed to understand what kind of physics can be
 simulated with \codename{} and also, where the limitations of predictive power
 are.
 
-\ac{dft} is a ground state method, this means that in principle we have to
+\ac{DFT} is a ground state method, this means that in principle we have to
 assume zero Kelvin. However, you will see later that for special situations 
 finite temperatures are applied to smear out the Fermi-Dirac distribution 
 for electronic occupation numbers in order to improve convergence.
@@ -127,14 +127,14 @@ This implies that e.g.~a two electrons wave function $\Psi(\vec r_1,\vec r_2)$ m
 the anti-symmetry constraint.
 This lowers the repulsion energy of a real two-electrons system compared to a
 system of independent charged particles.
-In \ac{dft} the construction of independent single-particle states is an approximation that requires to model the exchange interaction.
+In \ac{DFT} the construction of independent single-particle states is an approximation that requires to model the exchange interaction.
 
 Furthermore, there are correlation effects of true many-body electron systems
-which also cannot be easily captured in standard \ac{dft}.
+which also cannot be easily captured in standard \ac{DFT}.
 Both together are modelled in the contribution $V\um{xc}(\vec r)$ 
 to the total effective potential and a corresponding energy density $\epsilon\um{xc}$ for the evaluation of a total energy.
 
-Different parametrizations of the \ac{xc} functional are available.
+Different parametrizations of the \ac{XC} functional are available.
 \codename{} focusses onto the three classes of local (non-orbital dependent) functionals: 
 \begin{itemize}
 	\item Local (Spin) Density Approximations, LDA/LSDA, 
@@ -164,19 +164,19 @@ but it is planned to interface \ttt{libxc} with access to most existing function
 
 \subsection{Getting the Code}
 \codename{} will be public domain software under the MIT license
-and will be available to clone or download at \ttt{github.com}. 
+and will be available to clone or download at \ttt{github.com/real-space/A43}. 
 \todo[inline]{get GitHub account}
-\todo[inline]{Add MIT license headers}
 
 \subsection{Building the Application} \label{sec:compiling}
 A \ttt{Makefile} is contained in the program package that works with current GNU compilers, e.g.~\ttt{g++ 7.4.0}.
+\todo[inline]{get CMake to work}
 %% and \ttt{nvcc from CUDA 10}
 
-The application, while being written in C++, relies strongly onto plane-old-data types,
+The application \codename{}, while being written in C++, relies strongly on plane-old-data types,
 i.e.~classes without constructors or destructors as known from C-structs.
 Furthermore, it makes use of generic programming in the form of templates
-mainly used to maintain a single functions supporting different precision (\ttt{float} or \ttt{double}), 
-difference vector lengths and in some situations different physics. 
+mainly used to maintain a single function supporting different precision (\ttt{float} or \ttt{double}), 
+difference vector lengths, \ttt{real} and \ttt{complex} and in some situations different physics.
 This helps to keep the code base small and, hence, maintainable.
 
 \section{Basic Handling}
@@ -191,26 +191,55 @@ Usage ./a43 [OPTION]
 \end{verbatim}
 
 An important functionality after building the application (see section \ref{sec:compiling}) 
-is to run a self test of the available modules.
-In order to get a rough list of potential modules, 
-use \ttt{ls *.hxx} in the \ttt{src/}-directory.
-Pass the name of the module to run a self test like this
+is to run the unit tests of the available modules.
+In order to get a list of available modules, use 
 \begin{verbatim}
-./a43 -t geometry_analysis
+./a43 -t '?'
 \end{verbatim}
-Mind that we need to skip the file suffix \ttt{hxx} or \ttt{cxx} but not the dot.
-We can also run all module tests, however, for this we might want to reduce
-the amount of output to \ttt{stdout}. 
-Simply, we use the variable environment which couples to the command line interface:
+where the high quotes are necessary so your shell does not try to interpret the question mark.
+Pass the name of one of the listed modules to run a module unit test like this:
+\begin{verbatim}
+./a43 -t complex_tools
+\end{verbatim}
+We can also run the unit test of all modules, however, for this we might want to reduce
+the amount of output to \ttt{stdout}.
+We may use the variable environment which couples to the command line interface
 \begin{verbatim}
 ./a43 +verbosity=1 -t
 \end{verbatim}
+to change the \ttt{verbosity} to minimal when running all unit tests.
+
+\todo[inline]{Ensure that all modules have some meaningful unit tests or at least say that they don't}
+
 The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently.
 However, the ground rule says that higher \ttt{verbosity} means more output
 and \ttt{verbosity=0} suppresses all output except for fatal errors.
+We can also use the options \ttt{--verbose} to set \ttt{verbosity=6} (high)
+or fine tune the verbosity level by adding +1 for every \ttt{-v} and +4 for every \ttt{-V}.
+Table \ref{tab:verbosity-level-meaning} gives a rough overview on verbosity levels. 
+
+\begin{table}[ht!]
+\caption[Meaning of verbosity levels]{
+Meaning of verbosity levels
+\todo[inline]{Is this table needed?}
+} \label{tab:verbosity-level-meaning}
+\centering
+\begin{tabular}{|r|l|}
+\hline
+  \ttt{verbosity} & Meaning   \\
+\hline
+     0 & No output whatsoever \\
+     1 & Minimal output       \\
+     3 & Default low          \\
+   5-7 & High detail          \\
+ $>$ 8 & Debugging            \\
+\hline
+\end{tabular}
+\end{table}
+
 
 \subsection{Atomic Units, Input and Output}
-Internally the code makes use of atomic Hartree units:
+Internally \codename{} makes use of Hartree atomic units:
 \begin{equation}
 	\hbar = m_e = e = 1
 \end{equation}
@@ -264,7 +293,7 @@ Let's say we want aluminum in our system, then run:
 (full spherically, spin-degenerate) which are stored in \ttt{pot/Zeff.}$Z$
 where $Z$ is a 3-digit integer atomic number.
 \todo[inline]{make the path to pot/ configurable}
-You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{xc} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
+You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{XC} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
 If the loading fails because of a missing file, you can bootstrap it:
 \begin{verbatim}
 ./a43 -t atom_core +atom_core.test.Z=13
@@ -275,10 +304,10 @@ or if the entire database was lost,
         +atom_core.test.Z=1 +atom_core.test.Z.end=86
 \end{verbatim}
 
-Now, run the \ttt{single\_atom.} test for each of the elements in the system to see if there are warnings before you continue like this
+Now, run the \ttt{single\_atom} test for each of the elements in the system to see if there are warnings before you continue like this
 \begin{verbatim}
 ./a43 -t potential_generator \
-        +geometry.file=molecule.xyz +verbosity=3
+        +geometry.file=molecule.xyz
 \end{verbatim}
 \todo[inline]{we have not yet defined a functionality of main! only tests so far}
 
@@ -289,21 +318,22 @@ For the advanced user, we recommend to inspect the logarithmic derivatives by
 \end{verbatim}
 The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
 For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
-start, stop and step in units of $e$Volt.
+\ttt{start}, \ttt{stop} and \ttt{step} in units of $e$Volt.
+
 
 \subsection{Parallel Computing}
-Currently, some parts of \codename{} support shared memory parallelism 
-via \ttt{omp} threads on the \ac{cpu}.
-In order to target current \ac{hpc} systems 
-the goal is to incorporate the \ac{mpi}
+Currently, only the \ttt{geometry\_analysis} part of \codename{} supports shared memory parallelism 
+via \ttt{omp} threads on the \ac{CPU}.
+In order to target current \ac{HPC} systems 
+the goal is to incorporate the \ac{MPI}
 for inter-node communication
-and the \ttt{CUDA} programming model for acceleration by a \ac{gpu}.
+and the \ttt{CUDA} programming model for acceleration by a \ac{GPU}.
 \todo[inline]{MPI parallelize}
 \todo[inline]{Import CUDA finite-difference from ReSpawN}
 \todo[inline]{Import CUDA sho-transform from ReSpawN}
 \todo[inline]{Import CUDA tfqmr from tfQMRgpu}
 
-Please consult with your \ac{hpc} system administrator for support
+Please consult with your \ac{HPC} system administrator for support
 about how to control the different levels of parallelism.
 
 \section{Representation of Wave Functions}
@@ -337,7 +367,7 @@ and crystal field splittings or even bands with small dispersion can be observed
 It is planned to implement semicore states with a separate energy window
 and either tight-binding like derived from atomic orbitals 
 (eigenfunctions of the spherically averaged potential) 
-or with a full \ac{paw} treatment as follows for the valence states.
+or with a full \ac{PAW} treatment as follows for the valence states.
 
 \subsubsection{Treatment of Valence States}
 Valence states are high in energy, by definition up to the Fermi
@@ -368,28 +398,28 @@ In order to construct efficient basis functions,
 they assume a spherical potential inside an atomic sphere (solutions are radial)
 and a constant potential inside the interstitial region (solutions are plane waves). 
 On the boundary spheres between the two regions, the basis function components need to be matched.
-Due to the \ac{pw}-character, the basis functions are fully delocalized and 
+Due to the \ac{PW}-character, the basis functions are fully delocalized and 
 the Hamiltonian becomes dense.
 
-Using \ac{pw}s as a basis for the entire space shifts the problem to the representation of the valence wave function in the core region.
-The \ac{paw} method is a successful generalization of the family of pseudopotential methods with allows a full-potential access.
+Using \ac{PW}s as a basis for the entire space shifts the problem to the representation of the valence wave function in the core region.
+The \ac{PAW} method is a successful generalization of the family of pseudopotential methods with allows a full-potential access.
 A pseudopotential replaces the true deep full potential in the core region
-by some potential which can be represented with a finite number of \ac{pw}s
+by some potential which can be represented with a finite number of \ac{PW}s
 and approximates the scattering properties (phase shifts) in the typical energy
 range of valence states.
 In most cases the construction of such a potential only succeeds in the form of
 a non-local potential.
 
-Real-space grid based methods for \ac{dft}
-feature an improved scalablity on massively parallel \ac{hpc} systems at the same level of accuracy as \ac{pw} basis sets. 
-The \ac{paw} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, 
+Real-space grid based methods for \ac{DFT}
+feature an improved scalablity on massively parallel \ac{HPC} systems at the same level of accuracy as \ac{PW} basis sets. 
+The \ac{PAW} method can be utilized and comes at the advantage that the projector functions are localized around the atoms, 
 hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which does not involve Fourier transforms when applied to a wave function.
 
 
 \codename{} implements Cartesian real-space grids 
-in combination with a revision of the \ac{paw} method (revPAW) suitable for
+in combination with a revision of the \ac{PAW} method (revPAW) suitable for
 a reduced memory capacity consumption and lower memory bandwidth requirements.
-%% ToDo: cite Baumeister, Tsukamoto, PASC19
+\todo[inline]{cite Baumeister, Tsukamoto, PASC19 proceedings}
 
 
 % ==============================================================================

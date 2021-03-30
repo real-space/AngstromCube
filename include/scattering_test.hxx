@@ -174,7 +174,7 @@ namespace scattering_test {
       , int const ir_stop // radius where to stop
       , int const echo=0 // log-level
   ) {
-      if (echo > 9) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
+      if (echo > 19) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
       int nnodes{0}; if (NodeCount) nnodes = count_nodes(gg, ir_stop + 1);
@@ -203,7 +203,7 @@ namespace scattering_test {
       view2D<double> waves(NodeCount ? (1 + n) : 0, align<2>(ir_stop + 1)); // get memory
 
       for(int jrn = n; jrn >= 0; --jrn) { // >0:inhomogeneous, 0: homogeneous
-          if (echo > 9) printf("# find smooth %shomgeneous solution for ell=%i E=%g %s (%i)\n", (jrn > 0)?"in":"", ell, energy*eV,_eV, jrn-1);
+          if (echo > 19) printf("# find smooth %shomgeneous solution for ell=%i E=%g %s (%i)\n", (jrn > 0)?"in":"", ell, energy*eV,_eV, jrn-1);
           auto const ggj = NodeCount ? waves[jrn] : gg;
           deriv[jrn] = find_outwards_solution(rg, rV, ell, energy, ggj, ff, ir_stop, (jrn > 0) ? rprj[jrn - 1] : nullptr);
           value[jrn] = ggj[ir_stop]; // value of the greater component at Rlog
