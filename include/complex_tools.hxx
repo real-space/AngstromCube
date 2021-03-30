@@ -10,10 +10,6 @@
   template <typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
   template <typename T> constexpr bool is_complex() { return is_complex_t<T>::value; } // not needed when using C++14
 
-//   template <typename T> constexpr bool is_double()             { return false; }
-//   template <> constexpr bool is_double<std::complex<double>>() { return true; }
-//   template <> constexpr bool is_double<double>()               { return true; }
-
   template <typename complex_t> char const * complex_name(complex_t const x=0);
   template <> inline char const * complex_name<double>(double const x) { return "double"; }
   template <> inline char const * complex_name<float> (float  const x) { return "float"; }
@@ -49,18 +45,23 @@ namespace complex_tools {
   status_t inline all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline char const * bool2string(bool const b) { return b ? "true" : "false"; }
-
   template <typename complex_t>
   inline status_t test_complex(bool const expect_complex, int const echo=0) {
       bool const is = is_complex<complex_t>();
       if (echo > 0) printf("# %s is_complex<%s>() = %s\n", __func__,
-                              complex_name<complex_t>(), bool2string(is));
-      if (echo > 1) printf("# typeof(conjugate(%s x)) = %s\n",
+                              complex_name<complex_t>(), is?"true":"false");
+      if (echo > 1) printf("# %s typeof(conjugate(%s x)) = %s\n", __func__,
                               complex_name<complex_t>(),
                               complex_name<decltype(conjugate(complex_t(1)))>());
       return (expect_complex != is);
   } // test_complex
+
+  template <typename real_t>
+  inline status_t test_conjugate(int const echo=0) {
+      std::complex<real_t> x(0, 1); // ==imaginary unit
+      auto const xpxc = x + conjugate(x);
+      return (0 != xpxc.real()) + (0 != xpxc.imag());
+  } // test_conjugate
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
@@ -68,6 +69,8 @@ namespace complex_tools {
       stat += test_complex<std::complex<float>> (true, echo);
       stat += test_complex<double>(false, echo);
       stat += test_complex<float> (false, echo);
+      stat += test_conjugate<double>(echo);
+      stat += test_conjugate<float> (echo);
       return stat;
   } // all_tests
 
