@@ -43,6 +43,8 @@
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
+// #include "potential_generator.hxx" // ::init_geometry_and_grid
+#include "potential_generator.hxx" // ::add_smooth_quantities
 
 // ToDo: restructure: move this into a separate compilation unit
 #include "atom_image.hxx"// ::sho_atom_t
@@ -80,7 +82,7 @@ namespace self_consistency {
   // their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
 
-
+#if 1
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return int(even(int(std::ceil(suggest)))); }
 
@@ -166,50 +168,7 @@ namespace self_consistency {
 
       return stat;
   } // init_geometry_and_grid
-  
-
-  // ToDo: include from potential_generator
-  status_t add_smooth_quantities(
-        double values[] // add to this function on a 3D grid
-      , real_space::grid_t const & g // Cartesian real-space grid descriptor
-      , int const na, int32_t const nr2[], float const ar2[] // r2-grid descriptor
-      , view2D<double> const & center // (natoms, 4) center coordinates
-      , int const n_periodic_images, view2D<double> const & periodic_images
-      , double const *const *const atom_qnt // atom data on r2-grids
-      , int const echo=0 // log-level
-      , int const echo_q=0 // log-level for the charge
-      , double const factor=1 // multipliyer
-      , char const *quantity="???" // description for log-messages
-  ) {
-      // add contributions from smooth core densities
-
-      status_t stat(0);
-      for(int ia = 0; ia < na; ++ia) {
-#ifdef DEVEL
-          if (echo > 11) {
-              std::printf("\n## r, %s of atom #%i\n", quantity, ia);
-              print_compressed(radial_r2grid::r_axis(nr2[ia], ar2[ia]).data(), atom_qnt[ia], nr2[ia]);
-          } // echo
-#endif // DEVEL
-          double q_added{0};
-          for(int ii = 0; ii < n_periodic_images; ++ii) {
-              double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-              double q_added_image = 0;
-              stat += real_space::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
-              if (echo_q > 11) std::printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
-              q_added += q_added_image;
-          } // periodic images
-#ifdef DEVEL
-          if (echo_q > 0) {
-              std::printf("# after adding %g electrons %s of atom #%d:", q_added, quantity, ia);
-              print_stats(values, g.all(), g.dV());
-          } // echo
-          if (echo_q > 3) std::printf("# added %s for atom #%d is  %g electrons\n", quantity, ia, q_added);
-//        if (echo_q > 3) std::printf("#    00 compensator charge for atom #%d is %g electrons\n", ia, atom_qlm[ia][00]*Y00inv);
-#endif // DEVEL
-      } // ia
-      return stat;
-  } // add_smooth_quantities
+#endif
 
 
   status_t init(
@@ -241,6 +200,7 @@ namespace self_consistency {
       view2D<double> xyzZ_noconst;
       real_space::grid_t g;
       int na_noconst{0};
+      // ToDo: when including potential_generator::init_geometry_and_grid, the code hangs!
       stat += init_geometry_and_grid(g, xyzZ_noconst, na_noconst, echo);
       int const na{na_noconst};
       view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap as (na,4)
@@ -286,19 +246,19 @@ namespace self_consistency {
       auto const spherical_valence_decay = control::get("atomic.valence.decay", 10.); // after SCF iteration # 10, take_atomic_valence_densities is zero, never if 0
       float take_atomic_valence_densities{0};
 
-      if ('a' == *initial_valence_density_method) { // atomic
+      if ('a' == *initial_valence_density_method) { // "atomic"
           if (echo > 1) std::printf("# include spherical atomic valence densities in the smooth core densities\n");
           take_atomic_valence_densities = 1; // 100% of the smooth spherical atomic valence densities is included in the smooth core densities
-      } else if ('l' == *initial_valence_density_method) { // load
+      } else if ('l' == *initial_valence_density_method) { // "load"
           error("initial.valence.density=load has not been implemented yet, found %s", initial_valence_density_method);
-      } else if ('n' == *initial_valence_density_method) { // none
+      } else if ('n' == *initial_valence_density_method) { // "none"
           warn("initial.valence.density=none may cause problems, found %s", initial_valence_density_method);
       } else {
           warn("initial.valence.density=%s is unknown, valence density is zero", initial_valence_density_method);
       } // initial_valence_density_method
 
 
-      // how to solve the KS-equation
+      // determine how to solve the Kohn-Sham equation
       auto const basis_method = control::get("basis", "grid");
       bool const plane_waves = ('p' == (*basis_method | 32));
       bool const psi_on_grid = ('g' == (*basis_method | 32));
@@ -430,7 +390,7 @@ namespace self_consistency {
               scale(rho_valence.data(), g.all(), 1. - take_atomic_valence_densities); // mix old
               // add contributions from smooth core densities, and optionally spherical valence densities
               stat += single_atom::atom_update("valence densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
-              stat += add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
+              stat += potential_generator::add_smooth_quantities(rho_valence.data(), g, na, nr2.data(), ar2.data(), 
                                     center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                     echo, 0, Y00sq*take_atomic_valence_densities, "smooth valence density");
           } // take_atomic_valence_densities
@@ -444,7 +404,7 @@ namespace self_consistency {
           stat += single_atom::atom_update("core densities", na, 0, nr2.data(), ar2.data(), atom_rhoc.data());
           stat += single_atom::atom_update("qlm charges", na, 0, 0, 0, atom_qlm.data());
           // add contributions from smooth core densities
-          stat += add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
+          stat += potential_generator::add_smooth_quantities(rho.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_rhoc.data(),
                                 echo, 0, Y00sq, "smooth core density");
 
@@ -554,7 +514,7 @@ namespace self_consistency {
           if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential (before adding zero potentials)", eV);
 
           // now also add the zero potential vbar to Vtot
-          stat += add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
+          stat += potential_generator::add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
 
@@ -597,6 +557,8 @@ namespace self_consistency {
 #if 1
                   error("please use -t potential_generator to run plane waves, basis=%s\n", basis_method);
 #else // currently inactive
+                  // ToDo: move this into the KS-solver
+                  
                   std::vector<plane_waves::DensityIngredients> export_rho;
                   here;
 
@@ -639,7 +601,7 @@ namespace self_consistency {
               } // psi_on_grid
               
               
-              double band_energy_sum = Fermi.get_band_sum();
+              double band_energy_sum = Fermi.get_band_sum(); // non-const since we might need to correct this
 
               Fermi.correct_Fermi_level(nullptr, echo); // clear the accumulators
               
@@ -799,6 +761,12 @@ namespace self_consistency {
 
       if (KS) KS->store(control::get("store.waves", ""), echo);
       
+#ifdef DEVEL
+      stat += potential_generator::potential_projections(g, cell, 
+                  Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(),
+                  na, &center, rcut, echo);
+#endif // DEVEL
+
       stat += single_atom::atom_update("memory cleanup", na);
 
       return stat;
