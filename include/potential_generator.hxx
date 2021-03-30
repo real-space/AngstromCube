@@ -10,6 +10,7 @@
 #include "display_units.h" // Ang, _Ang
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "debug_output.hxx" // dump_to_file
+#include "radial_r2grid.hxx" // ::r_axis
 
 #ifdef DEVEL
   #include "finite_difference.hxx" // ::stencil_t
