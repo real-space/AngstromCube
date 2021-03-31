@@ -1074,11 +1074,12 @@ namespace single_atom {
 
     
 
-    status_t initialize_Gaunt() {
-        if (gaunt_init) return 0; // success
-        auto const stat = angular_grid::create_numerical_Gaunt<6>(gaunt);
-        gaunt_init = (0 == int(stat));
-        return stat;
+    status_t initialize_Gaunt(int const echo=0) {
+        if (!gaunt_init) {
+            gaunt = angular_grid::create_numerical_Gaunt<6>(echo);
+            gaunt_init = true;
+        } // not initialized
+        return 0;
     } // initialize_Gaunt
 
     

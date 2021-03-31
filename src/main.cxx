@@ -222,7 +222,7 @@
         "   --help           [-h]\tThis help message\n"
         "   --version            \tShow version number\n"
 #ifndef  NO_UNIT_TESTS
-        "   --test <module>  [-t]\tTest module\n"
+        "   --test <module>  [-t]\tRun module unit test\n"
 #endif // NO_UNIT_TESTS
         "   --verbose        [-V]\tIncrement verbosity level\n"
         "   +<name>=<value>      \tModify variable environment\n"

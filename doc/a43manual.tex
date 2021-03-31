@@ -186,7 +186,7 @@ to get a first help function:
 \begin{verbatim}
 Usage ./a43 [OPTION]
    -h, -H       This help message
-   -t <module>  Test module
+   -t <module>  Run module unit test
    +<var>=<val> Modify variable environment
 \end{verbatim}
 
@@ -203,7 +203,9 @@ Pass the name of one of the listed modules to run a module unit test like this:
 \end{verbatim}
 We can also run the unit test of all modules, however, for this we might want to reduce
 the amount of output to \ttt{stdout}.
-We may use the variable environment which couples to the command line interface
+We may use the variable environment 
+(mind: this \codename{} internal variable environment is not linked to that of the shell) 
+which couples to the command line interface with a leading \{+}. For example use
 \begin{verbatim}
 ./a43 +verbosity=1 -t
 \end{verbatim}
