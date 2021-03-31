@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::fprintf, std::sprintf, stdout, stderr, std::fflush
+#include <cstdio> // std::printf, std::fprintf, std::snprintf, stdout, stderr, std::fflush
 #include <utility> // std::forward, std::pair<T1,T1>
 #include <cstring> // std::strrchr
 
@@ -46,6 +46,8 @@ namespace recorded_warnings {
       return has_slash ? (has_slash + 1) : path_and_file;
   } // after_last_slash
 
+  int constexpr MaxMessageLength = 255;
+  
   template <class... Args>
   int _print_warning_message(
         char const *srcfile
@@ -56,24 +58,27 @@ namespace recorded_warnings {
   ) {
       auto const str_int = _new_warning(srcfile, srcline, srcfunc);
       char* message = str_int.first;
-      int const flags = str_int.second;
       // generate the warning message
-      int const nchars = std::sprintf(message, format, std::forward<Args>(args)...);
+      int const nchars = std::snprintf(message, MaxMessageLength, format, std::forward<Args>(args)...);
 
       // check decisions if the message should be printed
-      if (flags & 1) { // warning to stdout
-            printf("# Warning: %s\n", message);
-            if(flags & 4) printf("# This warning will not be shown again!\n");
+      int const flags = str_int.second;
+
+      if (flags & 0x1) { // warning to stdout
+            std::printf("# Warning: %s\n", message);
+            if (flags & 0x4) std::printf("# This warning will not be shown again!\n");
       } // message to stdout
-      if (flags & 2) {
+      
+      if (flags & 0x2) { // warning to stderr
           std::fprintf(stderr, "%s:%d warn(\"%s\")\n", after_last_slash(srcfile), srcline, message);
       } // message to stderr
-      if (flags & 1) printf("\n"); // give more optical weight to the warning lines
 
-      return nchars;
+      if (flags & 0x1) std::printf("\n"); // give more optical weight to the warning lines in stdout
+
+      return nchars*(flags & 0x1);
   } // _print_warning_message
 
-  status_t clear_warnings(int const echo=1);
+  status_t clear_warnings(int const echo=1); // declaration only
   
   status_t all_tests(int const echo=0); // declaration only
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::fflush, stdout
+#include <cstdio> // std::printf, std::fflush, stdout
 #include <cassert> // assert
 #include <cstdint> // uint8_t
 #include <vector> // std::vector<T>
@@ -81,12 +81,12 @@ namespace scattering_test {
 #ifdef DEVEL
       std::vector<double> norm(nln, 0.0);
 #endif // DEVEL
-      if (echo > 18) printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
+      if (echo > 18) std::printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
       for(int ir = 0; ir < rg.n; ++ir) { // parallel over ir
           double const r = rg.r[ir];
 #ifdef DEVEL
           double const r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
-#endif
+#endif // DEVEL
 //        double const dr = 0.03125, r = dr*ir, r2dr = r*r*dr; // use an equidistant grid
           double const r_pow_rpow = intpow(r, rpow);
 
@@ -99,7 +99,7 @@ namespace scattering_test {
           double const ddx_x2 = 2*x; // d/dx x^2 = 2x
           double const dds_x = -x*sigma_inv; // d/dsigma x = d/dsigma r/sigma = -r/sigma^2 = -x/sigma
 
-          if (echo > 18) printf("%g ", r);
+          if (echo > 18) std::printf("%g ", r);
           double x_pow_ell{1}; // x^ell
           double ddx_x_pow_ell{0}; // ell*x^(ell - 1)
           for(int ell = 0; ell <= numax; ++ell) { // serial loop, must run forward 
@@ -108,12 +108,13 @@ namespace scattering_test {
                   double const poly_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2);
                   double const projector_value = poly_value * Gaussian * x_pow_ell;
 #ifdef DEVEL
-                  if (echo > 18) printf(" %g", projector_value);
+                  if (echo > 18) std::printf(" %g", projector_value);
                   norm[iln] += pow2(projector_value) * r2dr;
 #endif // DEVEL
                   prj[iln*stride + ir] = projector_value * r_pow_rpow; // store
 
                   if (nullptr != dprj) {
+                      // construct the derivative w.r.t. sigma
                       double const ddx2_poly_value = sho_radial::expand_poly(ddx2_poly[iln], nrn, x2);
                       double const ddx_poly_value = ddx_x2 * ddx2_poly_value;
                       double const dds_projector_value =
@@ -123,19 +124,19 @@ namespace scattering_test {
                                             poly_value * Gaussian * ddx_x_pow_ell);
 
                       dprj[iln*stride + ir] = dds_projector_value * r_pow_rpow; // store derivative
-                  } // compute also the derivatives w.r.t. sigma
+                  } // compute also the derivative w.r.t. sigma
               } // nrn
 
               // update x^ell and its derivative for the next ell-iteration
               ddx_x_pow_ell = (ell + 1)*x_pow_ell;
               x_pow_ell *= x;
           } // ell
-          if (echo > 18) printf("\n");
+          if (echo > 18) std::printf("\n");
       } // ir
-      if (echo > 18) printf("\n\n");
+      if (echo > 18) std::printf("\n\n");
 #ifdef DEVEL
       if (echo > 9) {
-          printf("# projector normalizations are ");
+          std::printf("# projector normalizations are ");
           printf_vector(" %g", norm.data(), nln);
       } // echo
 #endif // DEVEL
@@ -174,7 +175,7 @@ namespace scattering_test {
       , int const ir_stop // radius where to stop
       , int const echo=0 // log-level
   ) {
-      if (echo > 19) printf("# find true homgeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
+      if (echo > 19) std::printf("# find true homogeneous solution for ell=%i E=%g %s\n", ell, energy*eV,_eV); // DEBUG
       double const deriv = find_outwards_solution(rg, rV, ell, energy, gg, ff, ir_stop, nullptr);
       double const value = gg[ir_stop]; // value of the greater component at Rlog
       int nnodes{0}; if (NodeCount) nnodes = count_nodes(gg, ir_stop + 1);
@@ -202,8 +203,8 @@ namespace scattering_test {
 
       view2D<double> waves(NodeCount ? (1 + n) : 0, align<2>(ir_stop + 1)); // get memory
 
-      for(int jrn = n; jrn >= 0; --jrn) { // >0:inhomogeneous, 0: homogeneous
-          if (echo > 19) printf("# find smooth %shomgeneous solution for ell=%i E=%g %s (%i)\n", (jrn > 0)?"in":"", ell, energy*eV,_eV, jrn-1);
+      for(int jrn = n; jrn >= 0; --jrn) { // 0:homogeneous, >0:inhomogeneous
+          if (echo > 19) std::printf("# find smooth %shomogeneous solution for ell=%i E=%g %s (%i)\n", (jrn > 0)?"in":"", ell, energy*eV,_eV, jrn-1);
           auto const ggj = NodeCount ? waves[jrn] : gg;
           deriv[jrn] = find_outwards_solution(rg, rV, ell, energy, ggj, ff, ir_stop, (jrn > 0) ? rprj[jrn - 1] : nullptr);
           value[jrn] = ggj[ir_stop]; // value of the greater component at Rlog
@@ -271,7 +272,7 @@ namespace scattering_test {
       double const dE = std::copysign(std::max(1e-9, std::abs(energy_range[1])), energy_range[1]);
       int const nen = int(std::ceil((energy_range[2] - energy_range[0])/dE));
 
-      if (echo > 1) printf("# %s %s energy range from %g to %g %s in %d steps of %g %s, lmax=%d%c\n", 
+      if (echo > 1) std::printf("# %s %s energy range from %g to %g %s in %d steps of %g %s, lmax=%d%c\n", 
           label, __func__, energy_range[0]*eV, energy_range[2]*eV, _eV, 1 + nen, dE*eV, _eV, lmax, (nen < 0)?'\n':' ');
 
       if (nen < 0) return stat; // empty range
@@ -294,39 +295,39 @@ namespace scattering_test {
       
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(rg[SMT], Rlog_over_sigma*sigma), rg[SMT].n - 2);
       double const Rlog = rg[SMT].r[ir_stop[SMT]];
-      if (echo > 1) printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
+      if (echo > 1) std::printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
       ir_stop[TRU] = ir_stop[SMT] + nr_diff;
 
       view3D<float> gncs(1 + nen, 1 + lmax, TRU_AND_SMT);
       for(int ien = 0; ien <= nen; ++ien) {
           auto const energy = energy_range[0] + ien*dE;
-//        if (echo > 0) printf("# node-count at %.6f %s", energy*eV, _eV);
+//        if (echo > 0) std::printf("# node-count at %.6f %s", energy*eV, _eV);
 
-          if (echo > 22) printf("%.6f", energy*eV);
+          if (echo > 22) std::printf("%.6f", energy*eV);
           for(int ell = 0; ell <= lmax; ++ell) 
           { // ell-loop
               int const nn = (numax + 2 - ell)/2;
               int const iln_off = sho_tools::ln_index(numax, ell, 0);
               for(int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                   double const gnc = (TRU == ts) ?
-                     generalized_node_count_TRU(rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo) :
+                     generalized_node_count_TRU(rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts], echo/2) :
                      generalized_node_count_SMT(rg[ts], rV[ts], ell, energy, gg.data(), ff.data(), ir_stop[ts],
                                                 view2D<double>((iln_off < nln)?rprj[iln_off]:nullptr, rprj.stride()), nn,
                                                 &aHm[iln_off*nln + iln_off],
-                                                &aSm[iln_off*nln + iln_off], nln, echo);
+                                                &aSm[iln_off*nln + iln_off], nln, echo/2);
                   gncs(ien,ell,ts) = gnc;
-                  if (echo > 22) printf("%c%.6f", (ts)?' ':'\t', gnc);
+                  if (echo > 22) std::printf("%c%.6f", (ts)?' ':'\t', gnc);
               } // ts
-//            if (echo > 0) printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
+//            if (echo > 0) std::printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
 
           } // ell
-          if (echo > 22) printf("\n");
+          if (echo > 22) std::printf("\n");
       } // ien
 
       // analyze and show a compressed summary
       if (echo > 1) { // show summary
           if (dE > 0) {
-              if (echo > 2) printf("\n# %s logder at %.3f %s, summary for %.3f to %.3f %s, dE= %.1f m%s\n",
+              if (echo > 2) std::printf("\n# %s logder at %.3f %s, summary for %.3f to %.3f %s, dE= %.1f m%s\n",
                   label, Rlog*Ang, _Ang, energy_range[0]*eV, energy_range[2]*eV, _eV, dE*1000*eV, _eV);
               int constexpr mres = 8;
               double at_energy[TRU_AND_SMT][mres];
@@ -347,12 +348,12 @@ namespace scattering_test {
                       } // ien
                       int const nshow = nres[ts];
                       if (nshow > 0 && echo > 3) {
-                          printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
+                          std::printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
 //                           for(int ires = 0; ires < nshow; ++ires) {
-//                               printf("\t%.3f", at_energy[ts][ires]*eV);
+//                               std::printf("\t%.3f", at_energy[ts][ires]*eV);
 //                           } // ires
                           printf_vector("\t%.3f", at_energy[ts], nshow, "", eV);
-                          printf(" %s\n", _eV);
+                          std::printf(" %s\n", _eV);
                       } // echo
                   } // ts
                   double const res_diff = at_energy[SMT][0] - at_energy[TRU][0]; // check the lowest resonance only
@@ -364,40 +365,40 @@ namespace scattering_test {
                   int const ndiff = std::min(nres[TRU], nres[SMT]);
                   if (echo > 2) {
                       if (ndiff > 0) {
-                          printf("# %s %c-resonance differences", label, ellchar[ell]);
+                          std::printf("# %s %c-resonance differences", label, ellchar[ell]);
                           for(int ires = 0; ires < ndiff; ++ires) {
-                              printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
+                              std::printf("\t%.1f", (at_energy[SMT][ires] - at_energy[TRU][ires])*1000*eV);
                           } // ires
-                          printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
+                          std::printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
                       } else {
-                          printf("# %s no %c-resonances found below %g %s\n", label, ellchar[ell], energy_range[2]*eV, _eV);
+                          std::printf("# %s no %c-resonances found below %g %s\n", label, ellchar[ell], energy_range[2]*eV, _eV);
                       } // ndiff > 0
                       std::fflush(stdout);
                   } // echo
               } // ell
 
               if (ell_max_diff >= 0) { // now the most useful summary line:
-                  printf("# %s absolute largest logder difference is %g %s = %d * %g m%s found in %c-channel\n\n",
+                  std::printf("# %s absolute largest logder difference is %g %s = %d * %g m%s found in %c-channel\n\n",
                       label, max_diff*eV, _eV, int(std::round(max_diff/dE)), dE*1000*eV, _eV, ellchar[ell_max_diff]);
               } // ell valid
 
           } else { // dE > 0
-              printf("# %s logarithmic_derivative summary needs a positive logder.step, found %g %s\n\n", label, dE*eV, _eV);
+              std::printf("# %s logarithmic_derivative summary needs a positive logder.step, found %g %s\n\n", label, dE*eV, _eV);
           } // dE > 0
       } // echo
 
       if (echo > 7) { // display logarithmic derivatives or generalized node counts
-          printf("\n\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
+          std::printf("\n\n## %s logarithmic_derivative from %.3f to %.3f in %i steps of %g %s\n", 
                 label, energy_range[0]*eV, (energy_range[0] + nen*dE)*eV, nen + 1, dE*eV, _eV);
           for(int ien = 0; ien <= nen; ++ien) {
               auto const energy = energy_range[0] + ien*dE;
-              printf("%.6f", energy*eV);
+              std::printf("%.6f", energy*eV);
               for(int ell = 0; ell <= lmax; ++ell) { // ell-loop
-                  printf("\t%.6f %.6f", gncs(ien,ell,TRU), gncs(ien,ell,SMT));
+                  std::printf("\t%.6f %.6f", gncs(ien,ell,TRU), gncs(ien,ell,SMT));
               } // ell
-              printf("\n");
+              std::printf("\n");
           } // ien
-          printf("\n\n");
+          std::printf("\n\n");
       } // echo
       
       return stat;
@@ -424,7 +425,7 @@ namespace scattering_test {
       status_t stat(0);
       auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
-      if (echo > 1) printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
+      if (echo > 1) std::printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
 
       auto Vloc = std::vector<double>(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
@@ -436,9 +437,9 @@ namespace scattering_test {
               Vloc[ir] += Vshift;
           } // ir
           if (echo > 8) {
-              printf("\n## Vsmt:\n"); for(int ir = 1; ir < gV.n; ++ir) printf("%g %g\n", gV.r[ir], Vsmt[ir]); printf("\n\n");
-              printf("\n## Vq:\n");   for(int iq = 0; iq < nq; ++iq) printf("%g %g\n", iq*dq, Vq[iq]); printf("\n\n");
-              printf("\n## Vloc:\n"); for(int ir = 1; ir < nr; ++ir) printf("%g %g\n", g.r[ir], Vloc[ir]); printf("\n\n");
+              std::printf("\n## Vsmt:\n"); for(int ir = 1; ir < gV.n; ++ir) std::printf("%g %g\n", gV.r[ir], Vsmt[ir]); std::printf("\n\n");
+              std::printf("\n## Vq:\n");   for(int iq = 0; iq < nq; ++iq) std::printf("%g %g\n", iq*dq, Vq[iq]); std::printf("\n\n");
+              std::printf("\n## Vloc:\n"); for(int ir = 1; ir < nr; ++ir) std::printf("%g %g\n", g.r[ir], Vloc[ir]); std::printf("\n\n");
           } // echo
       } // scope
 
@@ -458,7 +459,7 @@ namespace scattering_test {
 
       int constexpr nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
-      if (echo > 3) printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD); 
+      if (echo > 3) std::printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD); 
 
       for(int ell = 0; ell <= lmax; ++ell) {
           int const nn = (numax + 2 - ell)/2;
@@ -504,20 +505,20 @@ namespace scattering_test {
 
 #ifdef DEVEL
           if (echo > 19) { // debug
-              printf("# %s: projector norm of ell=%i is ", __func__, ell);
+              std::printf("# %s: projector norm of ell=%i is ", __func__, ell);
               printf_vector(" %g", projector_norm, nn);
           } // echo
 
           if (nn > 0 && echo > 9) { // debug
-              printf("# %s: charge deficits for ell=%i are ", __func__, ell);
+              std::printf("# %s: charge deficits for ell=%i are ", __func__, ell);
               for(int nrn = 0; nrn < nn; ++nrn) {
                   for(int mrn = nrn; mrn < nn; ++mrn) { // triangular loop
-                      printf(" %g", aSm_ell(nrn,mrn));
+                      std::printf(" %g", aSm_ell(nrn,mrn));
                   } // mrn
               } // nrn
-              printf("\n");
+              std::printf("\n");
           } // echo
-#endif
+#endif // DEVEL
           set(Ovl_copy.data(), nr*stride, Ovl.data()); // copy
 
           { // scope: diagonalize
@@ -528,9 +529,9 @@ namespace scattering_test {
 
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
                   if (echo > 1 && nev > 0) {
-                      printf("# %s lowest %c-eigenvalues ", label, ellchar[ell]);
+                      std::printf("# %s lowest %c-eigenvalues ", label, ellchar[ell]);
                       printf_vector("  %.6f", eigs.data(), nev, "", eV);
-                      printf("  %s\n", _eV);
+                      std::printf("  %s\n", _eV);
                   } // echo
 
                   if (echo > 2) {
@@ -539,25 +540,25 @@ namespace scattering_test {
                       for(int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
                           if (echo > 9) {
-                              printf("\n## %s %s ell=%i eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
+                              std::printf("\n## %s %s ell=%i eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
                               for(int ir = 0; ir < nr; ++ir) {
-                                  printf("%g %g\n", g.r[ir + 1], evec(iev,ir));
+                                  std::printf("%g %g\n", g.r[ir + 1], evec(iev,ir));
                               } // ir 
-                              printf("\n\n");
+                              std::printf("\n\n");
                           } // echo
 
                           if (echo > 7) {
-                              printf("# %s projection analysis for ell=%i eigenvalue (#%i) %10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
+                              std::printf("# %s projection analysis for ell=%i eigenvalue (#%i) %10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
                               for(int nrn = 0; nrn < nn; ++nrn) {
-                                  printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
+                                  std::printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
                               } // nrn
-                              printf("\n");
+                              std::printf("\n");
                           } // echo
                       } // iev
                   } // echo
                   
               } else { // info
-                  if (echo > 2) printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
+                  if (echo > 2) std::printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
                   diagonalize_overlap_matrix = true;
                   ++stat;
               }
@@ -566,10 +567,10 @@ namespace scattering_test {
                   // diagonalize Ovl_copy, standard eigenvalue problem
                   linear_algebra::eigenvalues(eigs.data(), nr, Ovl_copy.data(), Ovl_copy.stride());
                   if (eigs[0] <= 0) { // warn
-                      if (echo > 0) printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
+                      if (echo > 0) std::printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
                   } // overlap matrix is not positive definite
                   if (echo > 8) {
-                      printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
+                      std::printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
                       printf_vector(" %g", eigs.data(), 8);
                   } // echo
               } // info
@@ -590,7 +591,7 @@ namespace scattering_test {
       , int const echo=0 // log-level
       , int const stride=-1 // optional stride for Mlmn, defaults to nlmn
   ) {
-      if (echo > 4) printf("# %s: numax = %i\n", __func__, numax);
+      if (echo > 4) std::printf("# %s: numax = %i\n", __func__, numax);
       int const nln = sho_tools::nSHO_radial(numax);
       int const nlmn = sho_tools::nSHO(numax);
       int const M_stride = (stride < 0) ? nlmn : stride;
@@ -598,14 +599,14 @@ namespace scattering_test {
       auto lf_list = std::vector<real_t>(nln, 0);
       // fill the ln_list
 
-      if (echo > 6) printf("# %s: ln_list ", __func__);
+      if (echo > 6) std::printf("# %s: ln_list ", __func__);
       for(int ell = 0; ell <= numax; ++ell) {
           for(int emm = -ell; emm <= ell; ++emm) {
               for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                   int const ilmn = sho_tools::lmn_index(numax, ell, emm, nrn);
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
                   ln_list[ilmn] = iln;
-                  if (echo > 6) printf(" %i", ln_list[ilmn]);
+                  if (echo > 6) std::printf(" %i", ln_list[ilmn]);
               } // nrn
           } // emm
           for(int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
@@ -613,13 +614,13 @@ namespace scattering_test {
               lf_list[iln] = real_t(1)/std::sqrt(avg2sum0*ell + real_t(1));
           } // nrn
       } // ell
-      if (echo > 6) printf("\n");
+      if (echo > 6) std::printf("\n");
       if (echo > 5) {
-          printf("# %s: l2p1_list ", __func__);
+          std::printf("# %s: l2p1_list ", __func__);
           for(int iln = 0; iln < nln; ++iln) {
-              printf(" %.1f", (lf_list[iln] > 0) ? 1./pow2(lf_list[iln]) : 0);
+              std::printf(" %.1f", (lf_list[iln] > 0) ? 1./pow2(lf_list[iln]) : 0);
           } // iln
-          printf("\n");
+          std::printf("\n");
       } // echo
 
       set(Mln, nln*nln, real_t(0)); // clear
@@ -646,7 +647,7 @@ namespace scattering_test {
 #else // NO_UNIT_TESTS
   
   inline status_t test_eigenstate_analysis(int const echo=3, int const lmax=7) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
       auto const rg = *radial_grid::create_default_radial_grid(0);
       int const nln = sho_tools::nSHO_radial(lmax);
@@ -678,19 +679,19 @@ namespace scattering_test {
           double max_dev{0};
           for(int ell = 0; ell <= numax; ++ell) { // ell-block diagonal
               for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
-                  if (echo > 7) printf("# %s %c%d ", __func__, ellchar[ell], irn);
+                  if (echo > 7) std::printf("# %s %c%d ", __func__, ellchar[ell], irn);
                   int const iln = sho_tools::ln_index(numax, ell, irn);
                   for(int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
                       int const jln = sho_tools::ln_index(numax, ell, jrn);
                       auto const aij = dot_product(rg.n, prj(k,iln), prj(k,jln), rg.r2dr);
                       auto const dev = aij - (irn == jrn);
                       max_dev = std::max(max_dev, std::abs(dev));
-                      if (echo > 7) printf(" %8.1e", dev);
+                      if (echo > 7) std::printf(" %8.1e", dev);
                   } // jrn
-                  if (echo > 7) printf("\n");
+                  if (echo > 7) std::printf("\n");
               } // irn
           } // ell
-          if (echo > 4) printf("# %s: largest deviation from unit matrix for numax= %d is %.1e\n", __func__, numax, max_dev);
+          if (echo > 4) std::printf("# %s: largest deviation from unit matrix for numax= %d is %.1e\n", __func__, numax, max_dev);
       } // k
 #endif // DEVEL
 
@@ -702,35 +703,35 @@ namespace scattering_test {
           double max_dev{0};
           for(int ell = 0; ell <= numax; ++ell) {
               for(int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {
-                  if (echo > 5) printf("# %s: %c%d ", __func__, ellchar[ell], irn);
+                  if (echo > 5) std::printf("# %s: %c%d ", __func__, ellchar[ell], irn);
                   int const iln = sho_tools::ln_index(numax, ell, irn);
                   for(int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {
                       int const jln = sho_tools::ln_index(numax, ell, jrn);
                       auto const ana_ij = dot_product(rg.n, prj(0,iln), prj(4,jln), rg.r2dr);
                       auto const num_ij = dot_product(rg.n, prj(0,iln), prj(3,jln), rg.r2dr);
-                      if (echo > 5) printf(" %11.6f", ana_ij);
-//                       if (echo > 5) printf(" %11.6f", num_ij);
+                      if (echo > 5) std::printf(" %11.6f", ana_ij);
+//                       if (echo > 5) std::printf(" %11.6f", num_ij);
                       auto const dev = ana_ij - num_ij;
                       max_dev = std::max(max_dev, std::abs(dev));
-                      if (echo > 5) printf(" %8.1e", dev);
+                      if (echo > 5) std::printf(" %8.1e", dev);
                   } // jrn
-                  if (echo > 5) printf("\n");
+                  if (echo > 5) std::printf("\n");
               } // irn
           } // ell
-          if (echo > 4) printf("# %s: largest deviation |analytical - numerical| is %.1e\n", __func__, max_dev);
+          if (echo > 4) std::printf("# %s: largest deviation |analytical - numerical| is %.1e\n", __func__, max_dev);
       } // scope
 
 #ifdef DEVEL
       if (echo > 21) {
-          printf("\n## %s: plot numerical and analytical derivative\n", __func__);
+          std::printf("\n## %s: plot numerical and analytical derivative\n", __func__);
           for(int ir = 0; ir < rg.n; ++ir) {
-              printf("%g", rg.r[ir]);
+              std::printf("%g", rg.r[ir]);
               for(int irn = 0; irn < nln; ++irn) {
-                  printf("  %g %g", prj(3,irn,ir), prj(4,irn,ir));
+                  std::printf("  %g %g", prj(3,irn,ir), prj(4,irn,ir));
               } // irn
-              printf("\n");
+              std::printf("\n");
           } // ir
-          printf("\n\n");
+          std::printf("\n\n");
       } // echo
 #endif // DEVEL
 
@@ -738,7 +739,7 @@ namespace scattering_test {
   } // test_expand_sho_projectors_derivative
   
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
       stat += test_eigenstate_analysis(echo);
       stat += test_expand_sho_projectors_derivative(echo);

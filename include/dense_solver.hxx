@@ -328,7 +328,7 @@ namespace dense_solver {
 #else // NO_UNIT_TESTS
 
   template<typename real_t>
-  status_t test_inverse(int const echo=0) {
+  inline status_t test_inverse(int const echo=0) {
       status_t status(0);
       int constexpr N = 5;
       real_t dev{0};

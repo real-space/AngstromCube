@@ -7,7 +7,7 @@
 #include <set> // std::set<key>
 #include <numeric> // std::iota
 
-#include "plane_waves.hxx"
+#include "plane_waves.hxx" // DensityIngredients
 
 #include "sho_potential.hxx" // ::load_local_potential
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
@@ -34,7 +34,7 @@
 #include "conjugate_gradients.hxx" // ::eigensolve
 #include "dense_operator.hxx" // ::dense_operator_t
 #include "fermi_distribution.hxx" // ::Fermi_level
-#include "brillouin_zone.hxx" // ::get_kpoint_mesh
+#include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::needs_complex
 
 #ifdef DEVEL
     #include "print_tools.hxx" // printf_vector(fmt, vec, n [, final, scale, add])
@@ -624,12 +624,12 @@ namespace plane_waves {
           } // atom_mat
           // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
-      if (nullptr == atom_mat) warn("atomic PAW correction matrices were not passed for %d atoms", natoms_PAW); 
+      if (nullptr == atom_mat) warn("atomic PAW matrices were not passed for %d atoms", natoms_PAW); 
 
       double const nbands_per_atom = control::get("bands.per.atom", 10.);
       int const nbands = int(nbands_per_atom*natoms_PAW);
 
-      auto const floating_point_bits = int(control::get("hamiltonian.floating.point.bits", 64.)); // double by default
+      int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
       float const iterative_direct_ratio = control::get("plane_waves.iterative.solver.ratio", 2.);
 
 //       unsigned kmesh_sizes[3] = {1, 1, 1};
@@ -647,10 +647,11 @@ namespace plane_waves {
 
       simple_stats::Stats<double> nPW_stats, tPW_stats;
       for(int ikp = 0; ikp < nkpoints; ++ikp) {
-          double const *kpoint = kmesh[ikp];
+          auto const *kpoint = kmesh[ikp];
           char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0],kpoint[1],kpoint[2]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
 
+//        bool const could_be_real = brillouin_zone::needs_complex(kpoint);
           bool constexpr can_be_real{false}; // real only with inversion symmetry
           if (can_be_real) {
               error("PW only implemented with complex", 0);
@@ -738,10 +739,6 @@ namespace plane_waves {
           double const gv[3] = {dg*ix, dg*iy, dg*iz};
           Hermite_Gauss_projectors(pzyx.data(), numax, 1.0, gv);
           for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-//               auto const pic = std::conj(pzyx[iSHO]);
-//               for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
-//                   pp(iSHO,jSHO) += pic * pzyx[jSHO];
-//               } // jSHO
               add_product(pp[iSHO], nSHO, pzyx.data(), std::conj(pzyx[iSHO]));
           } // iSHO
       }}} // ix iy iz

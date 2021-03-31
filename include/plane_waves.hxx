@@ -67,7 +67,7 @@ namespace plane_waves {
       , double *const *const atom_mat=nullptr // PAW charge-deficit and Hamiltonian correction matrices
       , int const echo=0 // log-level
       , std::vector<DensityIngredients> *export_rho=nullptr        
-  ); 
+  ); // declaration only
 
   status_t all_tests(int const echo=0); // declaration only
 

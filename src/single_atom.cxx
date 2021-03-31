@@ -3812,16 +3812,19 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test_LiveAtom(int const echo=9) {
-      int const numax = int(control::get("single_atom.test.numax", 3.)); // default 3: ssppdf
-      bool const avd = (control::get("single_atom.test.atomic.valence.density", 1.) > 0); // atomic valence density
-//     for(int Z = 0; Z <= 109; ++Z) { // all elements
-//     for(int Z = 109; Z >= 0; --Z) { // all elements backwards
-//        if (echo > 1) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
-      {   double const Z   = control::get("single_atom.test.Z", 29.); // default copper
-          double const ion = control::get("single_atom.test.ion", 0.); // default neutral
-          if (echo > 1) printf("\n# Z = %g\n", Z);
+      int  const numax   = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
+      bool const avd     = control::get("single_atom.test.atomic.valence.density", 1.) > 0; // atomic valence density
+      auto const ion     = control::get("single_atom.test.ion", 0.); // default neutral
+
+      auto const Z_begin = control::get("single_atom.test.Z", 29.); // default copper
+      auto const Z_inc   = control::get("single_atom.test.Z.inc", 1.); // default: sample only integer values
+      auto const Z_end   = control::get("single_atom.test.Z.end", Z_begin + Z_inc); // default: only one atom
+      for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
+          if (echo > 3) printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+          if (echo > 1) printf("\n# %s: Z = %g\n", __func__, Z);
           LiveAtom a(Z, numax, avd, ion, -1, echo); // envoke constructor
       } // Z
+      if (Z_begin >= Z_end) warn("Empty range for Z in [%g, %g]", Z_begin, Z_end);
       return 0;
   } // test_LiveAtom
 

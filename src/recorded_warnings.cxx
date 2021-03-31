@@ -1,12 +1,12 @@
 #include <cstdint> // uint64_t
 #include <string> // std::string
 #include <cstring> // std::strrchr
-#include <cstdio> // printf, sprintf
+#include <cstdio> // std::printf, std::sprintf
 #include <cassert> // assert
 #include <map> // std::map
 #include <utility> // std::pair<T1,T1>, std::make_pair
 
-#include "recorded_warnings.hxx"
+#include "recorded_warnings.hxx" // MaxMessageLength
 
 namespace recorded_warnings {
 
@@ -26,11 +26,10 @@ namespace recorded_warnings {
       return (simple_string_hash(file) << LineBits) | (line & ((1ul << LineBits) - 1));
   } // combinded_hash
 
-  class WarningRecord 
-  {
+  class WarningRecord {
   private:
-      char*     message_;
-      uint64_t  hash_;
+      char*       message_;
+      uint64_t    hash_;
       std::string source_file_name_;
       std::string function_name_;
       uint64_t    times_overwritten_;
@@ -38,30 +37,29 @@ namespace recorded_warnings {
       uint32_t    source_file_line_;
       // ToDo: we can include the time of last overwrite, but then, log files differ between two executions
   public:
-      static const int DefaultMessageLength = 400;
 
-      WarningRecord(char const *file, int const line, char const *func=nullptr, 
-                    int const message_length=DefaultMessageLength)
-        : source_file_name_(file)
+      WarningRecord(char const *file, int const line, char const *func=nullptr)
+        : message_(new char[MaxMessageLength + 1]) // this memory is never released again
+        , hash_(combined_hash(file, line))
+        , source_file_name_(file)
         , function_name_(func)
         , times_overwritten_(0)   
         , times_printed_(0)
         , source_file_line_(line)
       {
-          hash_ = combined_hash(file, line);
-          message_ = new char[message_length];
-#ifdef  DEBUG          
-          if (1) printf("# WarningRecord:constructor allocates a new warning message string with max. %d chars"
-              " at %p\n# ... for warnings launched at %s:%d --> hash = %16llx\n", 
-          message_length, (void*)message_, file, line, hash_);
-#endif
+#ifdef  DEBUG
+          std::printf("# WarningRecord:constructor allocates a new warning message string with"
+              " max. %d chars at %p\n# ... for warnings launched at %s:%d --> hash = %16llx\n",
+                     message_length, (void*)message_,             file,line,  hash_);
+#endif // DEBUG
       } // constructor
       
       ~WarningRecord(void) {
 #ifdef  DEBUG          
-          if (1) printf("# WarningRecord:destructor: old warning message at %p for warnings launched at %s:%d reads:\n#\t%s\n", 
-                            (void*)message_, get_sourcefile(), source_file_line_, message_);
-#endif        
+          std::printf("# WarningRecord:destructor: old warning message"
+                      " at %p for warnings launched at %s:%d reads:\n#\t%s\n", 
+                      (void*)message_, get_sourcefile(), source_file_line_, message_);
+#endif // DEBUG
           // delete[] message_; // seems like this happens automagically
       } // destructor
 
@@ -79,7 +77,7 @@ namespace recorded_warnings {
 
 
   std::pair<char*,int> _manage_warnings(char const *file, int const line, char const *func, int const echo=0) {
-    if (echo > 8) printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
+    if (echo > 8) std::printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
                       __FILE__, __LINE__, __func__, file, line, echo);
 
     static std::map<uint64_t,WarningRecord> map_;
@@ -92,25 +90,25 @@ namespace recorded_warnings {
                 auto const nw = map_.size();
                 if ((echo < 3) || (nw < 1)) { 
                     // only give a summary of how many
-                    printf("# %ld warnings have been recorded.\n", nw);
+                    std::printf("# %ld warnings have been recorded.\n", nw);
                 } else {
-                    printf("\n#\n# recorded %ld warnings:\n", nw);
+                    std::printf("\n#\n# recorded %ld warnings:\n", nw);
                     size_t total_count = 0;
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
                         auto const n_times = w.get_times();
-                        printf("# \tin %s:%d %s (%ld times)\n"
+                        std::printf("# \tin %s:%d %s (%ld times)\n"
                                "# \t\t%s\n", w.get_sourcefile(), 
                             w.get_sourceline(), w.get_functionname(), 
                             n_times, w.get_message_pointer());
                         total_count += n_times;
                     } // w
-                    if (nw > 0) printf("# %ld warnings in total\n", total_count);
+                    if (nw > 0) std::printf("# %ld warnings in total\n", total_count);
                 } // summary
             } // echo
         } else {
             // clear_warnings() has been called
-            if (echo > 1) printf("# clear all %ld warnings from records\n", map_.size());
+            if (echo > 1) std::printf("# clear all %ld warnings from records\n", map_.size());
             map_.clear();
         }
         return std::make_pair(nullptr, 0);
@@ -126,10 +124,10 @@ namespace recorded_warnings {
         WarningRecord *w;
         auto const search = map_.find(hash);
         if (map_.end() != search) {
-            if (echo > 1) printf("# %s: found entry for hash %16llx\n", __func__, hash);
+            if (echo > 1) std::printf("# %s: found entry for hash %16llx\n", __func__, hash);
             w = & search->second;
         } else {
-            if (echo > 1) printf("# %s: insert new entry for hash %16llx\n", __func__, hash);
+            if (echo > 1) std::printf("# %s: insert new entry for hash %16llx\n", __func__, hash);
             auto const iit = map_.insert({hash, WarningRecord(short_file, line, func)});
             w = & iit.first->second;
         } // found
@@ -158,6 +156,7 @@ namespace recorded_warnings {
   } // _manage_warnings
 
   std::pair<char*,int> _new_warning(char const *file, int const line, char const *func=nullptr) {
+      assert(line >= 0 && "line numbers created by the preprocessor start from 1");
       return _manage_warnings(file, line, func);
   } // _new_warning
 
@@ -175,25 +174,28 @@ namespace recorded_warnings {
 #else // NO_UNIT_TESTS
 
   status_t test_create_and_destroy(int const echo=9) {
-      if (echo > 1) printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
+      if (echo > 1) std::printf("\n# %s:%d  %s\n\n", __FILE__, __LINE__, __func__);
       WarningRecord wr(__FILE__,__LINE__,__func__);
       auto const msg = wr.get_message();
-      sprintf(msg, "This is a non-recorded warning! Text created in %s:%d", __FILE__, __LINE__);
-      return 0;
+      auto const nchars = std::sprintf(msg, "This is a non-recorded warning"
+                                      " from %s:%d", __FILE__, __LINE__);
+      return (nchars > MaxMessageLength);
   } // test_create_and_destroy
 
   status_t test_preprocessor_macro(int const echo=9) {
-      if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
-      warn("This is a test warning from %s:%d", __FILE__, __LINE__);
-      return 0;
+      if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+      auto const nchars = warn("This is a test warning from %s:%d", __FILE__, __LINE__);
+      return (nchars < 30); // error if the warning is not printed
   } // test_preprocessor_macro
 
   status_t test_overwriting(int const echo=9) {
-      if (echo > 1) printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+      if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
+      int nchars{0};
       for(int i = 0; i < 9; ++i) {
-          warn("This is a test warning from inside a loop, iteration #%d", i);
+          nchars = warn("This is a test warning from inside a loop, iteration #%d", i);
+          if (echo > 19) std::printf("# %s: warning message had %d characters\n", __func__, nchars);
       } // i
-      return 0;
+      return nchars; // returns 0 if the warnings were muted before the 9th iteration
   } // test_overwriting
 
   status_t all_tests(int const echo) {
@@ -202,8 +204,9 @@ namespace recorded_warnings {
       stat += test_preprocessor_macro(echo);
       stat += test_overwriting(echo);
       // clean up
-      stat += show_warnings(echo); // display those warnings that have been launched for test purposes
-      stat += clear_warnings(echo); // clear test warnings from record
+      stat += show_warnings(echo); // display those warnings launched for test purposes
+      stat += clear_warnings(echo); // clear test warnings from record, this is necessary
+                                    // so they do not appear when running all unit tests
       return stat;
   } // all_tests
 

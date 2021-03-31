@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 #include <fstream> // std::ifstream
 
@@ -41,18 +42,18 @@ namespace sho_potential {
       assert( nk <= Vaux.stride() );
       assert( nj <= Vmat.stride() );
 
-      for(int izyx = 0; izyx < ni; ++izyx) {
+      for (int izyx = 0; izyx < ni; ++izyx) {
         
           int jzyx{0};
-          for    (int jz = 0; jz <= numax_j; ++jz) {
-            for  (int jy = 0; jy <= numax_j - jz; ++jy) {
-              for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {
+          for     (int jz = 0; jz <= numax_j; ++jz) {
+            for   (int jy = 0; jy <= numax_j - jz; ++jy) {
+              for (int jx = 0; jx <= numax_j - jz - jy; ++jx) {
 
                   double tmp{0};
                   int kzyx{0}; // contraction index
-                  for    (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(2,jz,kz);
-                    for  (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(1,jy,ky) * tz;
-                      for(int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl1D(0,jx,kx) * tyz;
+                  for     (int kz = 0; kz <= numax_k; ++kz) {              auto const tz   = ovl1D(2,jz,kz);
+                    for   (int ky = 0; ky <= numax_k - kz; ++ky) {         auto const tyz  = ovl1D(1,jy,ky) * tz;
+                      for (int kx = 0; kx <= numax_k - kz - ky; ++kx) {    auto const txyz = ovl1D(0,jx,kx) * tyz;
 
                           tmp += Vaux(izyx,kzyx) * txyz;
 
@@ -97,18 +98,18 @@ namespace sho_potential {
       { // scope: set up mat3D
           view2D<double> mat3D(inv3D.data(), inv3D.stride()); // wrap
           int mzyx{0}; // moments
-          for    (int mz = 0; mz <= numax; ++mz) {
-            for  (int my = 0; my <= numax - mz; ++my) {
-              for(int mx = 0; mx <= numax - mz - my; ++mx) {
+          for     (int mz = 0; mz <= numax; ++mz) {
+            for   (int my = 0; my <= numax - mz; ++my) {
+              for (int mx = 0; mx <= numax - mz - my; ++mx) {
 
                 // mat1D(n,m) = <H(n)|x^m>
                 // a specialty of the result matrix mat1D is that only matrix elements 
                 //    connecting even-even or odd-odd indices are non-zero
                 //    ToDo: this could be exploited in the following pattern
                 int kzyx{0}; // Hermite coefficients
-                for    (int kz = 0; kz <= numax; ++kz) {            auto const tz   = mat1D(kz,mz);
-                  for  (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = mat1D(ky,my) * tz;
-                    for(int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = mat1D(kx,mx) * tyz;
+                for     (int kz = 0; kz <= numax; ++kz) {            auto const tz   = mat1D(kz,mz);
+                  for   (int ky = 0; ky <= numax - kz; ++ky) {       auto const tyz  = mat1D(ky,my) * tz;
+                    for (int kx = 0; kx <= numax - kz - ky; ++kx) {  auto const txyz = mat1D(kx,mx) * tyz;
 
                       // despite the name
                       mat3D(kzyx,mzyx) = txyz;
@@ -133,15 +134,15 @@ namespace sho_potential {
 
       view2D<char> zyx_label;
       if (echo > 4) {
-          printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang,_Ang);
+          std::printf("\n# %s numax=%i nc=%i sigma=%g %s\n", __func__, numax, nc, sigma*Ang,_Ang);
           zyx_label = view2D<char>(nc, 8);
           sho_tools::construct_label_table(zyx_label.data(), numax, sho_tools::order_zyx);
       } // echo
 
       // just a matrix-vector multiplication
-      for(int mzyx = 0; mzyx < nc; ++mzyx) {
+      for (int mzyx = 0; mzyx < nc; ++mzyx) {
 //           double cc{0};
-//           for(int kzyx = 0; kzyx < nc; ++kzyx) {
+//           for (int kzyx = 0; kzyx < nc; ++kzyx) {
 //               cc += inv3D(mzyx,kzyx) * coeff[kzyx];
 //           } // kzyx
 //           c_new[mzyx] = cc; // store
@@ -151,24 +152,24 @@ namespace sho_potential {
       if (debug_check) {
           // check if the input vector comes out again
           double dev{0};
-          for(int kzyx = 0; kzyx < nc; ++kzyx) {
+          for (int kzyx = 0; kzyx < nc; ++kzyx) {
 //               double cc{0};
-//               for(int mzyx = 0; mzyx < nc; ++mzyx) {
+//               for (int mzyx = 0; mzyx < nc; ++mzyx) {
 //                   cc += mat3D_copy(kzyx,mzyx) * c_new[mzyx];
 //               } // mzyx
               double const cc = dot_product(nc, mat3D_copy[kzyx], c_new.data());
               dev = std::max(dev, std::abs(cc - coeff[kzyx]));
           } // kzyx
-          if (echo > 4) printf("# %s debug_check dev %.1e a.u.\n", __func__, dev);
+          if (echo > 4) std::printf("# %s debug_check dev %.1e a.u.\n", __func__, dev);
       } // debug check
 
-      if (echo > 4) printf("# %s\n\n", __func__);
+      if (echo > 4) std::printf("# %s\n\n", __func__);
 
       { // scope: coeff := c_new[reordered]
           int mzyx{0};
           for    (int mz = 0; mz <= numax;           ++mz) {
             for  (int my = 0; my <= numax - mz;      ++my) {
-              for(int mx = 0; mx <= numax - mz - my; ++mx) {
+              for (int mx = 0; mx <= numax - mz - my; ++mx) {
                 int const Ezyx = sho_tools::Ezyx_index(mx, my, mz);
                 coeff[Ezyx] = c_new[mzyx]; // reorder
                 ++mzyx;
@@ -212,22 +213,22 @@ namespace sho_potential {
       assert( Vmat.stride() >= sho_tools::nSHO(numax_j) );
 
       int mzyx{0}; // contraction index
-      for    (int mu = 0; mu <= numax_m; ++mu) { // shell index for order_Ezyx
-        for  (int mz = 0; mz <= mu;      ++mz) {
-          for(int mx = 0; mx <= mu - mz; ++mx) {
+      for     (int mu = 0; mu <= numax_m; ++mu) { // shell index for order_Ezyx
+        for   (int mz = 0; mz <= mu;      ++mz) {
+          for (int mx = 0; mx <= mu - mz; ++mx) {
             int const my = mu - mz - mx;
 
             auto const phase_Vcoeff_m = phase * Vcoeff[mzyx];
 
             int izyx{0};
-            for    (int iz = 0; iz <= numax_i;           ++iz) {
-              for  (int iy = 0; iy <= numax_i - iz;      ++iy) {
-                for(int ix = 0; ix <= numax_i - iz - iy; ++ix) {
+            for     (int iz = 0; iz <= numax_i;           ++iz) {
+              for   (int iy = 0; iy <= numax_i - iz;      ++iy) {
+                for (int ix = 0; ix <= numax_i - iz - iy; ++ix) {
 
                   int jzyx{0};
-                  for    (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t1D(dir01*2,mz,iz,jz);
-                    for  (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t1D(dir01*1,my,iy,jy) * tz;
-                      for(int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t1D(      0,mx,ix,jx) * tyz;
+                  for     (int jz = 0; jz <= numax_j;           ++jz) {  auto const tz   = t1D(dir01*2,mz,iz,jz);
+                    for   (int jy = 0; jy <= numax_j - jz;      ++jy) {  auto const tyz  = t1D(dir01*1,my,iy,jy) * tz;
+                      for (int jx = 0; jx <= numax_j - jz - jy; ++jx) {  auto const txyz = t1D(      0,mx,ix,jx) * tyz;
 
                         Vmat(izyx,jzyx) += phase_Vcoeff_m * txyz;
 
@@ -269,13 +270,13 @@ namespace sho_potential {
           std::ifstream infile(filename);
           size_t npt = 0; 
           if (!infile.is_open()) {
-              if (echo > 1) printf("# %s failed to open file '%s'\n",  __func__, filename);
+              warn("# failed to open file '%s'", filename);
               return 1; // failure
-          }
-          for(int d = 2; d >= 0; --d) {
+          } // is_open
+          for (int d = 2; d >= 0; --d) {
               char sep;
               infile >> sep >> dims[d];
-              if (echo > 3) printf("# found dim %c with %i grid points\n", 120+d, dims[d]);
+              if (echo > 3) std::printf("# found dim %c with %i grid points\n", 120+d, dims[d]);
           } // d
           size_t const all = dims[2]*dims[1]*dims[0];
           vtot.reserve(all);
@@ -289,9 +290,9 @@ namespace sho_potential {
           if (npt < all) {
               warn("when loading local potential from file '%s' found only %ld entries while expected %ld", filename, vtot.size(), all);
               ++stat;
-              if (echo > 3) printf("# %s: use %.3f k < %.3f k values from file '%s'\n", __func__, npt*.001, all*.001, filename);
+              if (echo > 3) std::printf("# %s: use %.3f k < %.3f k values from file '%s'\n", __func__, npt*.001, all*.001, filename);
           } else {
-              if (echo > 3) printf("# %s: use all %i x %i x %i values from file '%s'\n", __func__, dims[2], dims[1], dims[0], filename);
+              if (echo > 3) std::printf("# %s: use all %i x %i x %i values from file '%s'\n", __func__, dims[2], dims[1], dims[0], filename);
           } // not enough entries
       } // scope
       return stat;
@@ -316,23 +317,23 @@ namespace sho_potential {
       int bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
           stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
-          if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
+          if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
       
-//    for(int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
+//    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
 
       real_space::grid_t g(dims);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
-      if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
-      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
+      if (echo > 1) std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
+      if (echo > 1) std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
 
       view2D<double> center(natoms, 4); // list of atomic centers
-      for(int ia = 0; ia < natoms; ++ia) {
-          for(int d = 0; d < 3; ++d) {
+      for (int ia = 0; ia < natoms; ++ia) {
+          for (int d = 0; d < 3; ++d) {
               center(ia,d) = xyzZ(ia,d) + origin[d]; // w.r.t. to the center of grid point (0,0,0)
           }   center(ia,3) = 0; // 4th component is not used
       } // ia
@@ -342,14 +343,14 @@ namespace sho_potential {
           int const mx = (artificial_potential /   1) % 10;
           int const my = (artificial_potential /  10) % 10;
           int const mz = (artificial_potential / 100) % 10;
-          if (echo > 0) printf("# artificial potential z^%i y^%i x^%i\n", mz, my, mx);
-          for(int iz = 0; iz < g[2]; ++iz) {
+          if (echo > 0) std::printf("# artificial potential z^%i y^%i x^%i\n", mz, my, mx);
+          for (int iz = 0; iz < g[2]; ++iz) {
               auto const z = iz*g.h[2] - origin[2];
               auto const zmz = intpow(z, mz);
-              for(int iy = 0; iy < g[1]; ++iy) {
+              for (int iy = 0; iy < g[1]; ++iy) {
                   auto const y = iy*g.h[1] - origin[1];
                   auto const ymy = intpow(y, my);
-                  for(int ix = 0; ix < g[0]; ++ix) {
+                  for (int ix = 0; ix < g[0]; ++ix) {
                       auto const x = ix*g.h[0] - origin[0];
                       auto const xmx = intpow(x, mx);
                       
@@ -369,15 +370,15 @@ namespace sho_potential {
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
 //       --numaxs[natoms - 1]; // manipulate the basis size
       int numax_max{0};
-      for(int ia = 0; ia < natoms; ++ia) {
-          if (echo > 0) printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%g %s numax=%d\n", 
+      for (int ia = 0; ia < natoms; ++ia) {
+          if (echo > 0) std::printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%g %s numax=%d\n", 
                 ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, 
                 sigmas[ia]*Ang, _Ang, numaxs[ia]);
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
 
       std::vector<view2D<char>> labels(16);
-      for(int nu = 0; nu < 16; ++nu) {
+      for (int nu = 0; nu < 16; ++nu) {
           labels[nu] = view2D<char>(sho_tools::nSHO(nu), 8);
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
@@ -392,7 +393,7 @@ namespace sho_potential {
       int const mxb = sho_tools::nSHO(numax_max);
       
       if (1 & method) { // scope:
-          if (echo > 2) printf("\n# %s Method=1\n", __func__);
+          if (echo > 2) std::printf("\n# %s Method=1\n", __func__);
           // Method 1) fully numerical integration (expensive)
           //    for each pair of atoms and basis functions,
           //    add one basis function to an empty grid,
@@ -405,10 +406,10 @@ namespace sho_potential {
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           view2D<double> Sdiag(natoms, mxb, 0.0);
           
-          for(int ja = 0; ja < natoms; ++ja) {
+          for (int ja = 0; ja < natoms; ++ja) {
               int const nbj = sho_tools::nSHO(numaxs[ja]);
               std::vector<double> coeff(nbj, 0.0);
-              for(int jb = 0; jb < nbj; ++jb) {
+              for (int jb = 0; jb < nbj; ++jb) {
                   set(coeff.data(), nbj, 0.0); coeff[jb] = 1; // Kronecker-delta
                   set(basis.data(), g.all(), 0.0); // clear
                   stat += sho_projection::sho_add(basis.data(), g, coeff.data(), numaxs[ja], center[ja], sigmas[ja], 0);
@@ -416,13 +417,13 @@ namespace sho_potential {
                   // multiply Vtot to the basis function
                   product(Vbasis.data(), basis.size(), basis.data(), vtot.data());
 
-                  for(int ia = 0; ia < natoms; ++ia) {
+                  for (int ia = 0; ia < natoms; ++ia) {
                       int const nbi = sho_tools::nSHO(numaxs[ia]);
                       std::vector<double> Scoeff(nbi, 0.0);
                       std::vector<double> Vcoeff(nbi, 0.0);
                       stat += sho_projection::sho_project(Scoeff.data(), numaxs[ia], center[ia], sigmas[ia],  basis.data(), g, 0);
                       stat += sho_projection::sho_project(Vcoeff.data(), numaxs[ia], center[ia], sigmas[ia], Vbasis.data(), g, 0);
-                      for(int ib = 0; ib < nbi; ++ib) {
+                      for (int ib = 0; ib < nbi; ++ib) {
                           Smat(ia,ja,ib,jb) = Scoeff[ib]; // copy result into large array
                           Vmat(ia,ja,ib,jb) = Vcoeff[ib]; // copy result into large array
                       } // ib
@@ -433,10 +434,10 @@ namespace sho_potential {
           } // ja
 
           if (1) { // normalize with diagonal elements of the overlap matrix
-                  for(int ia = 0; ia < natoms; ++ia) {        int const nbi = sho_tools::nSHO(numaxs[ia]);
-                      for(int ja = 0; ja < natoms; ++ja) {    int const nbj = sho_tools::nSHO(numaxs[ja]);
-                          for(int ib = 0; ib < nbi; ++ib) {
-                              for(int jb = 0; jb < nbj; ++jb) {
+                  for (int ia = 0; ia < natoms; ++ia) {        int const nbi = sho_tools::nSHO(numaxs[ia]);
+                      for (int ja = 0; ja < natoms; ++ja) {    int const nbj = sho_tools::nSHO(numaxs[ja]);
+                          for (int ib = 0; ib < nbi; ++ib) {
+                              for (int jb = 0; jb < nbj; ++jb) {
                                   double const f = 1 / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
                                   Vmat(ia,ja,ib,jb) *= f;
                                   Smat(ia,ja,ib,jb) *= f;
@@ -446,13 +447,13 @@ namespace sho_potential {
                   } // ia
           } // normalize wih diagonal elements of the overlap matrix
           
-          if (echo > 2) printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
+          if (echo > 2) std::printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
           
           method_active[Numerical] = true;
       } // scope: Method 1
 
       if (2 & method) { // scope:
-          if (echo > 2) printf("\n# %s Method=2\n", __func__);
+          if (echo > 2) std::printf("\n# %s Method=2\n", __func__);
           // Method 2) analytical (cheap to compute)
           //    for each pair of atoms, find the center of weight,
           //    expand the potential in a SHO basis with sigma_V^-2 = sigma_1^-2 + sigma_2^-2
@@ -464,8 +465,8 @@ namespace sho_potential {
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           
-          for(int ia = 0; ia < natoms; ++ia) {
-              for(int ja = 0; ja < natoms; ++ja) {
+          for (int ia = 0; ia < natoms; ++ia) {
+              for (int ja = 0; ja < natoms; ++ja) {
                   double const alpha_i = 1/pow2(sigmas[ia]);
                   double const alpha_j = 1/pow2(sigmas[ja]);
                   double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
@@ -473,20 +474,20 @@ namespace sho_potential {
                   double const wj = alpha_j*pow2(sigma_V);
                   assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
                   double cnt[3]; // center of weight
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       cnt[d] = wi*xyzZ(ia,d) + wj*xyzZ(ja,d);
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
-                  if (echo > 1) printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
+                  if (echo > 1) std::printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
                                           cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       cnt[d] += origin[d];
                   } // d
                   int const nucut_i = sho_tools::n1HO(numaxs[ia]);
                   int const nucut_j = sho_tools::n1HO(numaxs[ja]);
 
                   view4D<double> t(3, sho_tools::n1HO(numax_V), nucut_i, nucut_j, 0.0);
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       auto const distance = center[ia][d] - center[ja][d];
                       stat += sho_overlap::moment_tensor(t[d].data(), distance, nucut_i, nucut_j, 
                                                                      sigmas[ia], sigmas[ja], numax_V);
@@ -501,18 +502,18 @@ namespace sho_potential {
 #ifdef FULL_DEBUG
                   if (echo > 9) {
                       int mzyx{0};
-                      for    (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
-                        for  (int mz = 0; mz <= mu;      ++mz) {
-                          for(int mx = 0; mx <= mu - mz; ++mx) {
+                      for     (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
+                        for   (int mz = 0; mz <= mu;      ++mz) {
+                          for (int mx = 0; mx <= mu - mz; ++mx) {
                               int const my = mu - mz - mx;
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7)
-                                  printf("# V_coeff ai#%i aj#%i %x%x%x %16.6f\n", ia, ja, mz,my,mx, v);
+                                  std::printf("# V_coeff ai#%i aj#%i %x%x%x %16.6f\n", ia, ja, mz,my,mx, v);
                               ++mzyx;
                           } // mx
                         } // my
                       } // mz
-                      printf("\n");
+                      std::printf("\n");
                       assert(Vcoeff.size() == mzyx);
                   } // echo
 #endif
@@ -530,13 +531,13 @@ namespace sho_potential {
               } // ja
           } // ia
         
-          if (echo > 2) { printf("\n# %s method=2 seems symmetric!\n", __func__); std::fflush(stdout); }
+          if (echo > 2) { std::printf("\n# %s method=2 seems symmetric!\n", __func__); std::fflush(stdout); }
           
           method_active[Between] = true;
       } // scope: Method 2
 
       if (4 & method) { // scope:
-          if (echo > 2) printf("\n# %s Method=4\n", __func__);
+          if (echo > 2) std::printf("\n# %s Method=4\n", __func__);
           // Method 4) approximated
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
@@ -554,15 +555,15 @@ namespace sho_potential {
           auto const percentage = control::get("sho_potential.test.method4.percentage", 3.125); // specific for Method4
           auto const kinetic_energy = (percentage*.01) * highest_kinetic_energy;
 
-          if (echo > 3) printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
+          if (echo > 3) std::printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
               coarsest_grid_spacing*Ang, _Ang, highest_kinetic_energy*eV, _eV, kinetic_energy*eV, _eV, percentage);
           
-          for(int ia = 0; ia < natoms; ++ia) {
+          for (int ia = 0; ia < natoms; ++ia) {
               double const sigma_V = sigmas[ia]*std::sqrt(.5);
 //               int const numax_V = 3*numaxs[ia]; // ToDo: is this the best choice? Better:
               // determine numax_V dynamically, depending on sigma_a and the grid spacing, (external parameter lmax is ignored)
               int const numax_V = std::floor(kinetic_energy*pow2(sigmas[ia]) - 1.5);
-              if (echo > 5) printf("# atom #%i expand potential up to numax=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
+              if (echo > 5) std::printf("# atom #%i expand potential up to numax=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
               if (echo > 5) std::fflush(stdout);
               int const nbV = sho_tools::nSHO(numax_V);
               std::vector<double> Vcoeff(nbV, 0.0);
@@ -577,25 +578,25 @@ namespace sho_potential {
 #if 1
               if (echo > 9) {
                   int mzyx{0};
-                  for    (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
-                    for  (int mz = 0; mz <= mu;      ++mz) {
-                      for(int mx = 0; mx <= mu - mz; ++mx) {
+                  for     (int mu = 0; mu <= numax_V; ++mu) { // shell index for order_Ezyx
+                    for   (int mz = 0; mz <= mu;      ++mz) {
+                      for (int mx = 0; mx <= mu - mz; ++mx) {
                           int const my = mu - mz - mx;
                           auto const v = Vcoeff[mzyx];
-                          if (std::abs(v) > 5e-7) printf("# V_coeff ai#%i %x%x%x %16.6f\n", ia, mz,my,mx, v);
-//                        printf("#V_coeff_all %d %g ai#%i  %d %d %d\n", mz+my+mx, v, ia, mz,my,mx); // for plotting
+                          if (std::abs(v) > 5e-7) std::printf("# V_coeff ai#%i %x%x%x %16.6f\n", ia, mz,my,mx, v);
+//                        std::printf("#V_coeff_all %d %g ai#%i  %d %d %d\n", mz+my+mx, v, ia, mz,my,mx); // for plotting
                           ++mzyx;
                       } // mx
                     } // my
                   } // mz
-                  printf("\n");
+                  std::printf("\n");
                   assert(Vcoeff.size() == mzyx);
               } // echo
 #endif
       
               // determine the size of the auxiliary basis
               int const numax_k = numaxs[ia] + numax_V; // triangle rule
-              if (echo > 5) printf("# atom #%i auxiliary basis up to numax=%d with sigma=%g %s\n", ia, numax_k, sigmas[ia]*Ang, _Ang);
+              if (echo > 5) std::printf("# atom #%i auxiliary basis up to numax=%d with sigma=%g %s\n", ia, numax_k, sigmas[ia]*Ang, _Ang);
               if (echo > 5) std::fflush(stdout);
               
               int const nbi = sho_tools::nSHO(numaxs[ia]);
@@ -615,42 +616,43 @@ namespace sho_potential {
               stat += potential_matrix(Vaux, t, Vcoeff.data(), numax_V, numaxs[ia], numax_k, 1.0, isotropic);
 #ifdef DEVEL
               if (echo > 17) {
-                  printf("\n# Vaux for the atom #%i:\n", ia);
-                  printf("# i-legend   ");
-                  for(int izyx = 0; izyx < nbi; ++izyx) {
-                      printf(" %-7s", (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][izyx]);
-                  }   printf("\n");
-                  for(int kzyx = 0; kzyx < nbk; ++kzyx) {
-                      printf("# Vaux %s  ", (numax_k > 15) ? "???" : labels[numax_k][kzyx]);
-                      for(int izyx = 0; izyx < nbi; ++izyx) {
-                          printf(" %7.4f", Vaux(izyx,kzyx));
-                      } // i
-                      printf("\n");
+                  std::printf("\n# Vaux for the atom #%i:\n", ia);
+                  std::printf("# i-legend   ");
+                  for (int izyx = 0; izyx < nbi; ++izyx) {
+                      std::printf(" %-7s", (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][izyx]);
+                  } // izyx
+                  std::printf("\n");
+                  for (int kzyx = 0; kzyx < nbk; ++kzyx) {
+                      std::printf("# Vaux %s  ", (numax_k > 15) ? "???" : labels[numax_k][kzyx]);
+                      for (int izyx = 0; izyx < nbi; ++izyx) {
+                          std::printf(" %7.4f", Vaux(izyx,kzyx));
+                      } // izyx
+                      std::printf("\n");
                   } // k
-                  printf("\n");
+                  std::printf("\n");
               } // echo
 #endif
 
-              for(int ja = 0; ja < natoms; ++ja) {
-                  if (echo > 9) printf("# ai#%i aj#%i\n", ia, ja);
+              for (int ja = 0; ja < natoms; ++ja) {
+                  if (echo > 9) std::printf("# ai#%i aj#%i\n", ia, ja);
 
                   int const nucut_j = sho_tools::n1HO(numaxs[ja]);
                   view3D<double> ovl(3, nucut_j, nucut_k); // get memory, index order (dir,j,k)
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       auto const distance = center[ja][d] - center[ia][d];
                       sho_overlap::overlap_matrix(ovl[d].data(), distance, nucut_j, nucut_k, sigmas[ja], sigmas[ia]);
 #ifdef DEVEL
                       if (echo > 19) {
-                          printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
-                          for(int j = 0; j < nucut_j; ++j) {
-                              printf("# ovl j%c=%x  ", 'x' + d, j);
-//                               for(int k = 0; k < nucut_k; ++k) {
-//                                   printf("%8.4f", ovl(d,j,k));
+                          std::printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
+                          for (int j = 0; j < nucut_j; ++j) {
+                              std::printf("# ovl j%c=%x  ", 'x' + d, j);
+//                               for (int k = 0; k < nucut_k; ++k) {
+//                                   std::printf("%8.4f", ovl(d,j,k));
 //                               } // k
-//                               printf("\n");
+//                               std::printf("\n");
                               printf_vector(" %7.4f", ovl(d,j), nucut_k);
                           } // j
-                          printf("\n");
+                          std::printf("\n");
                       } // echo
 #endif // DEVEL
                   } // d
@@ -666,8 +668,8 @@ namespace sho_potential {
                       view2D<uint8_t> idx(nbi, 4), jdx(nbj, 4);
                       stat += sho_tools::quantum_number_table(idx.data(), numaxs[ia], sho_tools::order_zyx, echo);
                       stat += sho_tools::quantum_number_table(jdx.data(), numaxs[ja], sho_tools::order_zyx, echo);
-                      for(int ib = 0; ib < nbi; ++ib) {        auto const i = idx[ib];
-                          for(int jb = 0; jb < nbj; ++jb) {    auto const j = jdx[jb];
+                      for (int ib = 0; ib < nbi; ++ib) {        auto const i = idx[ib];
+                          for (int jb = 0; jb < nbj; ++jb) {    auto const j = jdx[jb];
                               Smat(ia,ja,ib,jb) = ovl(0,j[0],i[0]) * ovl(1,j[1],i[1]) * ovl(2,j[2],i[2]);
                               Vmat(ia,ja,ib,jb) = Vmat_iaja(ib,jb);
                           } // jb
@@ -677,7 +679,7 @@ namespace sho_potential {
               } // ja
           } // ia
           
-          if (echo > 2) printf("\n# %s method=4 seems asymmetric!\n", __func__);
+          if (echo > 2) std::printf("\n# %s method=4 seems asymmetric!\n", __func__);
           method_active[Onsite] = true;
       } // scope: Method 4
 
@@ -699,38 +701,38 @@ namespace sho_potential {
       // now display all of these methods interleaved
       if (echo > 0) {
           auto const sv_start = int(control::get("sho_potential.test.show.potential.only", 0.)); // 0:show S and V, 1: V only
-          for(int sv = sv_start; sv < 2; ++sv) {
+          for (int sv = sv_start; sv < 2; ++sv) {
               auto const sv_char = sv?'V':'S';
-              if (echo > 7) printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
+              if (echo > 7) std::printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
               
               double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};
-              for(int ia = 0; ia < natoms; ++ia) {
+              for (int ia = 0; ia < natoms; ++ia) {
                   int const nbi = sho_tools::nSHO(numaxs[ia]);
-                  for(int ja = 0; ja < natoms; ++ja) {
+                  for (int ja = 0; ja < natoms; ++ja) {
                       int const nbj = sho_tools::nSHO(numaxs[ja]);
                       if (echo > 1) {
-                          printf("\n# ai#%i aj#%i        ", ia, ja);
-                          for(int jb = 0; jb < nbj; ++jb) {
-                              printf(" %-7s", (numaxs[ja] > 15) ? "???" : labels[numaxs[ja]][jb]); // column legend
+                          std::printf("\n# ai#%i aj#%i        ", ia, ja);
+                          for (int jb = 0; jb < nbj; ++jb) {
+                              std::printf(" %-7s", (numaxs[ja] > 15) ? "???" : labels[numaxs[ja]][jb]); // column legend
                           } // jb
-                          printf("\n");
+                          std::printf("\n");
                       } // echo
-                      for(int ib = 0; ib < nbi; ++ib) {
-                          for(int m = 0; m < 3; ++m) { // method
+                      for (int ib = 0; ib < nbi; ++ib) {
+                          for (int m = 0; m < 3; ++m) { // method
                               if (method_active[m]) {
-                                  printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
+                                  std::printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
                                   double abs_dev{0};
                                   int const rm = ref_method[m]; // reference method
-                                  for(int jb = 0; jb < nbj; ++jb) {
+                                  for (int jb = 0; jb < nbj; ++jb) {
                                       auto const v = SV_matrix[sv][m](ia,ja,ib,jb);
-                                      printf(" %7.4f", v);
+                                      std::printf(" %7.4f", v);
                                       auto const ref = method_active[rm] ? SV_matrix[sv][rm](ia,ja,ib,jb) : 0;
                                       auto const d = v - ref;
                                       abs_dev = std::max(std::abs(d), abs_dev);
                                   } // jb
-                                  printf(" %s", method_name[m]);
-                                  if (noReference != rm) printf(", dev=%.1e", abs_dev);
-                                  printf("\n");
+                                  std::printf(" %s", method_name[m]);
+                                  if (noReference != rm) std::printf(", dev=%.1e", abs_dev);
+                                  std::printf("\n");
                                   int const diag = (ia == ja);
                                   max_abs_dev[m][diag] = std::max(max_abs_dev[m][diag], abs_dev);
                               } // active?
@@ -739,11 +741,11 @@ namespace sho_potential {
                   } // ja
               } // ia
 
-              for(int m = 0; m < 3; ++m) { // method
+              for (int m = 0; m < 3; ++m) { // method
                   if (method_active[m]) {
                       int const rm = ref_method[m]; // reference method
                       if (noReference != rm) {
-                          printf("\n# %c largest abs deviation of '%s' to '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
+                          std::printf("\n# %c largest abs deviation of '%s' to '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
                               sv_char, method_name[m], method_name[rm], max_abs_dev[m][1], max_abs_dev[m][0], artificial_potential);
                       } // no reference
                   } // active

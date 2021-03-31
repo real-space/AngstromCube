@@ -93,7 +93,7 @@
   status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
       status_t status(0);
 #ifdef  NO_UNIT_TESTS
-      error("version was compiled with -D NO_UNIT_TESTS");
+      error("version was compiled with -D NO_UNIT_TESTS", 0);
       status = -1;
 #else // NO_UNIT_TESTS
       bool all{false}, run{true};

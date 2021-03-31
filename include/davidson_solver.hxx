@@ -330,7 +330,7 @@ namespace davidson_solver {
 #else // NO_UNIT_TESTS
 
   template <typename complex_t>
-  status_t test_solver(int const echo=9) { // ToDo: unify this solver benchmark with that of conjugate_gradients.cxx
+  inline status_t test_solver(int const echo=9) { // ToDo: unify this solver benchmark with that of conjugate_gradients.cxx
       int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
       if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
       status_t stat{0};
