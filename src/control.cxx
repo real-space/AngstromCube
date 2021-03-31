@@ -170,11 +170,11 @@ namespace control {
   status_t test_control(int const echo=9) {
       if (echo > 1) std::printf("\n# %s: %s\n", __FILE__, __func__);
       status_t stat(0);
-      // manage_variables("a", "5"); // set
-      // auto const five = manage_variables("a"); // get
+      // _manage_variables("a", "5"); // manual set
+      // auto const five = _manage_variables("a"); // manual get
       // if (echo > 1) std::printf("# a = %s\n", five);
-      // auto const defined = manage_variables("b"); // get
-      // if (echo > 1) std::printf("# b = %s (%p)\n", defined, defined);
+      // auto const b_defined = _manage_variables("b"); // get
+      // if (echo > 1) std::printf("# b = %s (%p)\n", b_defined, b_defined);
 
       set("a", "5");
       command_line_interface("a=6");

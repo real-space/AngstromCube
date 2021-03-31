@@ -1,0 +1,3 @@
+# Test case particle in a box, 8x8x8 grid points, isolated BC, no atoms
+# ./a43 -t davidson_solver +davidson_solver.test.num.bands=8
+# Vector=Eigenvalues (Ha) 0.192 0.386 0.386 0.386 0.580 0.580 0.580 0.774 1.778 1.778 1.778 1.977 1.977 1.977 2.179 2.622

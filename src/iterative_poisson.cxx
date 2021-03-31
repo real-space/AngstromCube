@@ -1,4 +1,4 @@
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 #include <vector> // std::vector<T>
 #include <algorithm> // std::swap<T>
@@ -28,15 +28,26 @@ namespace iterative_poisson {
   
   double constexpr m1over4pi = -.25/constants::pi; // -4*constants::pi is the electrostatics prefactor in Hartree atomic units
 
-  template<typename real_t>
-  double norm2(real_t const v[], size_t const n) { double s{0}; for(size_t i{0}; i < n; ++i) { s += pow2(v[i]); } return s; }
-//   { return dot_product(n, v, v); }
+  template <typename real_t>
+  double norm2(real_t const v[], size_t const n) {
+      double s{0};
+      for (size_t i{0}; i < n; ++i) { 
+          s += pow2(v[i]);
+      } return s;
+  } // norm2
 
-  template<typename real_t>
-  double norm1(real_t const v[], size_t const n) { double s{0}; for(size_t i{0}; i < n; ++i) { s += v[i]; } return s; }
+  template <typename real_t>
+  double norm1(real_t const v[], size_t const n) {
+      double s{0};
+      for (size_t i{0}; i < n; ++i) {
+          s += v[i];
+      }
+      return s;
+  } // norm1
 
-  template<typename real_t>
-  double scalar_product(real_t const v[], real_t const w[], size_t const n) { return dot_product(n, v, w); }
+  template <typename real_t>
+  double scalar_product(real_t const v[], real_t const w[], size_t const n) 
+      { return dot_product(n, v, w); }
 
   // Multi-grid method relies on a short range stencil [1 -2 1]
   // in order to speed this up, the analysis of the grid sizes could
@@ -49,12 +60,14 @@ namespace iterative_poisson {
   // methods which are xyz --> Xyz --> XYz --> XYZ or specific interpolations routines
   // that do it in one step (e.g. for the case when all 3 grid dimensions are divisible by 2)
   
-  template<typename real_t>
-  double multi_grid_smoothen( real_t x[] // on entry x, on exit a slightly better to A*x == b
-                            , real_t r[] // on exit r == b - A*x
-                            , real_t const b[] // right hand side
-                            , real_space::grid_t const &g
-                            , int const echo=0) {
+  template <typename real_t>
+  double multi_grid_smoothen( 
+        real_t x[] // on entry x, on exit slightly better to fullfil A*x == b
+      , real_t r[] // on exit r == b - A*x residual vector
+      , real_t const b[] // right hand side
+      , real_space::grid_t const & g // Cartesian grid descriptor
+      , int const echo=0 // log-level
+  ) {
       size_t const n = g.all();
       finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // 1:lowest order FD stencil
       double const c0 = A.c2nd[0][0] + A.c2nd[1][0] + A.c2nd[2][0]; // diagonal element
@@ -65,29 +78,29 @@ namespace iterative_poisson {
       add_product(r, n, b, real_t(-1)); // now r = A*x - b
       add_product(x, n, r, real_t(-omega/c0));
       scale(r, n, real_t(-1)); // now r = b - A*x
-      if (g.number_of_boundary_conditions(Periodic_Boundary) == 3) {
+      if (3 == g.number_of_boundary_conditions(Periodic_Boundary)) {
           real_t const x_avg = norm1(x, n)/n;
           real_t const r_avg = norm1(r, n)/n;
-          for(size_t i = 0; i < n; ++i) {
+          for (size_t i = 0; i < n; ++i) {
               x[i] -= x_avg;
               r[i] -= r_avg;
           } // i
       } // stabilize periodic
       return norm2(r, n);
   } // multi_grid_smoothen
-  
+
   inline int multi_grid_level_number(real_space::grid_t const &g) {
       return int(std::ceil(std::log2(std::max(std::max(g[0], g[1]), g[2]))));
   } // multi_grid_level_number
-      
+
   void multi_grid_level_label(char *label, real_space::grid_t const &g) {
       auto const lev = multi_grid_level_number(g);
       auto lab{label};
-      for(int l = 0; l < 2*lev; ++l) *(lab++) = ' '; // indent two spaces per level to indicate the V-cyle visually in the log-output
+      for (int l = 0; l < 2*lev; ++l) *(lab++) = ' '; // indent two spaces per level to indicate the V-cyle visually in the log-output
       std::sprintf(lab, "level=%i", lev);
   } // multi_grid_level_label
 
-  template<typename real_t>
+  template <typename real_t>
   status_t multi_grid_exact(real_t x[] // on entry x, on exit a slightly better to A*x == b
                   , real_t const b[] // right hand side
                   , real_space::grid_t const &g
@@ -102,7 +115,7 @@ namespace iterative_poisson {
       set(b8, n, b); // convert b into double (if real_t==float)
       if (peri) {
           double const b_avg = norm1(b8, n)/n;
-          for(int i = 0; i < n; ++i) b8[i] -= b_avg; // make charge neutral
+          for (int i = 0; i < n; ++i) b8[i] -= b_avg; // make charge neutral
       } // periodic
 #ifdef DEVEL
       double c8[8]; set(c8, 8, b8);
@@ -112,15 +125,15 @@ namespace iterative_poisson {
       // construct the explicit matrix operator
       finite_difference::stencil_t<real_t> const A(g.h, 1, m1over4pi); // 1:lowest order FD stencil
       view2D<double> a88(8, 8, 0.0); // get memory
-      for(int iz = 0; iz < g[2]; ++iz) {
-          for(int iy = 0; iy < g[1]; ++iy) {
-              for(int ix = 0; ix < g[0]; ++ix) {
+      for (int iz = 0; iz < g[2]; ++iz) {
+          for (int iy = 0; iy < g[1]; ++iy) {
+              for (int ix = 0; ix < g[0]; ++ix) {
                   int const ixyz = (iz*g[1] + iy)*g[0] + ix;
                   assert(ixyz < n);
                   int const ixiyiz[] = {ix, iy, iz};
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       int const id = ixiyiz[d];
-                      for(int ij = -1; ij <= 1; ++ij) {
+                      for (int ij = -1; ij <= 1; ++ij) {
                           double f{1};
                           int jd = id + ij;
                           if (0 == g.boundary_condition(d)) {
@@ -151,22 +164,22 @@ namespace iterative_poisson {
       double x_avg{0};
       if (peri) {
           x_avg = norm1(x8, n)/n;
-          for(int i = 0; i < n; ++i) x8[i] -= x_avg; // make neutral
+          for (int i = 0; i < n; ++i) x8[i] -= x_avg; // make neutral
       } // periodic
 
 #ifdef DEVEL
       if (echo > 9) {
-          printf("\n# %s for %dx%dx%d=%d status=%i\n", __func__, g[0],g[1],g[2], n, info);
-          for(int i = 0; i < n; ++i) {
+          std::printf("\n# %s for %dx%dx%d=%d status=%i\n", __func__, g[0],g[1],g[2], n, info);
+          for (int i = 0; i < n; ++i) {
               double b8i{0}; // check that A_ij*x_j == b_i
-              printf("#%3i ", i);
-              for(int j = 0; j < n; ++j) {
-                  printf(" %g", c88(i,j));
+              std::printf("#%3i ", i);
+              for (int j = 0; j < n; ++j) {
+                  std::printf(" %g", c88(i,j));
                   b8i += c88(i,j) * x8[j];
               } // j
-              printf(" \tx=%g \tb=%g \tAx=%g \tx-<x>=%g\n", x8[i] + x_avg, c8[i], b8i, x8[i]);
+              std::printf(" \tx=%g \tb=%g \tAx=%g \tx-<x>=%g\n", x8[i] + x_avg, c8[i], b8i, x8[i]);
           } // i
-          printf("\n");
+          std::printf("\n");
       } // echo
 #endif
 
@@ -176,7 +189,7 @@ namespace iterative_poisson {
       return info;
   } // multi_grid_exact
   
-  template<typename real_t>
+  template <typename real_t>
   status_t multi_grid_cycle(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
                             , real_space::grid_t const &g
@@ -198,14 +211,14 @@ namespace iterative_poisson {
 
       if (as_solver) {
           float rn2{9e9}; // residual 2-norm
-          for(int p = 0; p < n_pre; ++p) {
+          for (int p = 0; p < n_pre; ++p) {
               rn2 = multi_grid_smoothen(x, r, b, g);
-              if (echo > 19) printf("# %s %s  pre-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
+              if (echo > 19) std::printf("# %s %s  pre-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
           } // p
-          if (echo > 6) printf("# %s %s  pre-smoothen to residual norm %.1e\n", __func__, label, rn2);
+          if (echo > 6) std::printf("# %s %s  pre-smoothen to residual norm %.1e\n", __func__, label, rn2);
       } else {
           rd = b;
-          if (echo > 5) printf("# %s %s            input residual norm %.1e\n", __func__, label, norm2(rd, g.all()));
+          if (echo > 5) std::printf("# %s %s            input residual norm %.1e\n", __func__, label, norm2(rd, g.all()));
       } // n pre > 0
 
       uint32_t ngc[3];
@@ -221,18 +234,18 @@ namespace iterative_poisson {
 
       if (as_solver && n_post > 0) {
           float rn2{9e9}; // residual 2-norm
-          for(int p = 0; p < n_post && rn2 > tol2; ++p) {
+          for (int p = 0; p < n_post && rn2 > tol2; ++p) {
               rn2 = multi_grid_smoothen(x, r, b, g);
-              if (echo > 19) printf("# %s %s post-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
+              if (echo > 19) std::printf("# %s %s post-smoothen step %i residual norm %.1e\n", __func__, label, p, rn2);
           } // p
-          if (echo > 5) printf("# %s %s post-smoothen to residual norm %.1e\n", __func__, label, rn2);
+          if (echo > 5) std::printf("# %s %s post-smoothen to residual norm %.1e\n", __func__, label, rn2);
           if (residual) *residual = std::sqrt(rn2*g.dV()); // in units of the density
       } // n_post > 0
 
       return stat;
   } // multi_grid_cycle
 
-  template<typename real_t>
+  template <typename real_t>
   status_t multi_grid_solve(real_t x[] // one exit solution to Laplace(x)/(-4*pi) == b
                 , real_t const b[] //
                 , real_space::grid_t const &g
@@ -243,16 +256,16 @@ namespace iterative_poisson {
   ) {
       status_t stat(0);
       float res{9e9};
-      for(int iter = 0; iter < maxiter && res > threshold; ++iter) {
-//        if (echo > 0) printf("# %s iteration #%i\n", __func__, iter);
+      for (int iter = 0; iter < maxiter && res > threshold; ++iter) {
+//        if (echo > 0) std::printf("# %s iteration #%i\n", __func__, iter);
           stat += multi_grid_cycle(x, b, g, echo - 2, true, &res); // 'V'-cycle
-          if (echo > 0) printf("# %s iteration #%i residual = %.1e a.u.\n", __func__, iter, res);
+          if (echo > 0) std::printf("# %s iteration #%i residual = %.1e a.u.\n", __func__, iter, res);
       } // iter
       if (residual) *residual = res;
       return stat;
   } // multi_grid_solve
   
-  template<typename real_t>
+  template <typename real_t>
   status_t multi_grid_precond(real_t x[] // approx. solution to Laplace(x)/(-4*pi) == b
                             , real_t const b[] //
                             , real_space::grid_t const &g
@@ -260,7 +273,7 @@ namespace iterative_poisson {
       return multi_grid_cycle(x, b, g, echo, false);
   } // multi_grid_precond
   
-  template<typename real_t>
+  template <typename real_t>
   status_t solve(real_t x[] // result to Laplace(x)/(-4*pi) == b
                 , real_t const b[] // right hand side b
                 , real_space::grid_t const &g // grid descriptor
@@ -284,9 +297,9 @@ namespace iterative_poisson {
         auto const x32 = xb[0], b32 = xb[1];
         set(b32, nall, b); // convert to float
         set(x32, nall, x); // convert to float
-        if (echo > 5) printf("# %s solve in <float> precision first\n", __FILE__);
+        if (echo > 5) std::printf("# %s solve in <float> precision first\n", __FILE__);
         ist += solve(x32, b32, g, method, echo, threshold, residual, maxiter >> 4, miniter, restart);
-        if (echo > 5) printf("# %s switch back to <double> precision\n", __FILE__);
+        if (echo > 5) std::printf("# %s switch back to <double> precision\n", __FILE__);
         set(x, nall, x32); // convert to double
     } // real_t==double
 
@@ -307,22 +320,22 @@ namespace iterative_poisson {
         precond = finite_difference::stencil_t<real_t>(g.h, nn_precond);
         auto const nn = precond.nearest_neighbors();
         double nrm{0};
-        for(int d = 0; d < 3; ++d) {
-            for(int i = 0; i < nn[d]; ++i) {
+        for (int d = 0; d < 3; ++d) {
+            for (int i = 0; i < nn[d]; ++i) {
                 precond.c2nd[d][i] = std::abs(precond.c2nd[d][i]);
                 nrm += precond.c2nd[d][i] * (1 + (i > 0));
             } // i
         } // d
         nrm = 1./nrm;
-        for(int d = 0; d < 3; ++d) {
-            for(int i = 0; i < nn[d]; ++i) {
+        for (int d = 0; d < 3; ++d) {
+            for (int i = 0; i < nn[d]; ++i) {
                 precond.c2nd[d][i] *= nrm;
             } // i
         } // d
-        if (echo > 6) printf("# %s use a diffusion preconditioner with %d %d %d neighbors\n", 
+        if (echo > 6) std::printf("# %s use a diffusion preconditioner with %d %d %d neighbors\n", 
                                 __FILE__, nn[0], nn[1], nn[2]);
     } else if (use_precond) {
-        if (echo > 4) printf("# %s use a multi-grid preconditioner starting at level %d\n", 
+        if (echo > 4) std::printf("# %s use a multi-grid preconditioner starting at level %d\n", 
                                 __FILE__, multi_grid_level_number(g));
     } // use_precond
     
@@ -360,7 +373,7 @@ namespace iterative_poisson {
     
     if (g.number_of_boundary_conditions(Periodic_Boundary) == 3) {
         double const bnorm = norm1(b, nall)/nall * g.dV(); // g.comm
-        if (echo > 8) printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
+        if (echo > 8) std::printf("# %s all boundary conditions are periodic but system is charged with %g electrons\n", __FILE__, bnorm);
     } // all_boundary_conditions_periodic
 
     // |r> = |b> - A|x> = |b> - |Ax>
@@ -369,7 +382,7 @@ namespace iterative_poisson {
     // res^2 = <r|r>
     double res2 = norm2(r, nall) * g.dV(); // g.comm
     double const res_start = std::sqrt(res2/cell_volume); // store staring residual
-    if (echo > 8) printf("# %s start residual=%.1e\n", __FILE__, res_start);
+    if (echo > 8) std::printf("# %s start residual=%.1e\n", __FILE__, res_start);
 
     // |z> = |Pr> = P|r>
     if (use_precond) {
@@ -413,7 +426,7 @@ namespace iterative_poisson {
             double const xnorm = norm1(x, nall)/nall; // g.comm
   //        xnorm = xnorm/real( g%ng_all(1)*g%ng_all(2)*g%ng_all(3) )
             // subtract the average potential
-            for(size_t i{0}; i < nall; ++i) x[i] -= xnorm;
+            for (size_t i{0}; i < nall; ++i) x[i] -= xnorm;
         } // 3 periodic BCs
 //       !============================================================
 
@@ -452,8 +465,8 @@ namespace iterative_poisson {
             add_product(p, nall, z, real_t(1));
         } // rz_old < tiny
 
-        if (echo > 9) printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
-        if (echo > 7) printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
+        if (echo > 9) std::printf("# %s it=%i alfa=%g beta=%g\n", __FILE__, it, alpha, beta);
+        if (echo > 7) std::printf("# %s it=%i res=%.2e E=%.15f\n", __FILE__, it, 
             std::sqrt(res2/cell_volume), scalar_product(x, b, nall) * g.dV());
 
         // rz_old = rz_new
@@ -472,9 +485,9 @@ namespace iterative_poisson {
     if (residual) *residual = res; // export
 
     // show the result
-    if (echo > 2) printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", __FILE__,
+    if (echo > 2) std::printf("# %s %.2e -> %.2e e/Bohr^3%s in %d%s iterations\n", __FILE__,
         res_start, res, (res < threshold)?" converged":"", it, (it < maxiter)?"":" (maximum)");
-    if (echo > 5) printf("# %s inner product <x|b> = %.15f\n", __FILE__, scalar_product(x, b, nall) * g.dV());
+    if (echo > 5) std::printf("# %s inner product <x|b> = %.15f\n", __FILE__, scalar_product(x, b, nall) * g.dV());
 
     return (res > threshold);
   } // solve
@@ -497,16 +510,16 @@ namespace iterative_poisson {
       double constexpr c1 = 1, a1=.125, c2 = -8 + 1.28414e-7, a2=.5;
       double const cnt[3] = {.5*ng, .5*ng, .5*ng};
       double integral{0};
-      for(int iz = 0; iz < ng; ++iz) {
-      for(int iy = 0; iy < ng; ++iy) {
-      for(int ix = 0; ix < ng; ++ix) {
+      for (int iz = 0; iz < ng; ++iz) {
+      for (int iy = 0; iy < ng; ++iy) {
+      for (int ix = 0; ix < ng; ++ix) {
           size_t const izyx = ix + ng*(iy + ng*iz);
           double const r2 = pow2(ix - cnt[0]) + pow2(iy - cnt[1]) + pow2(iz - cnt[2]);
           double const rho = c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2);
           b[izyx] = rho;
           integral += rho;
       }}} // ix iy iz
-      if (echo > 2) printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
+      if (echo > 2) std::printf("# %s integrated density %g\n", __FILE__, integral*g.dV());
 
       float const threshold = (sizeof(real_t) > 4) ? 3e-8 : 5e-6;
       status_t const stat = solve(x, b, g, 'M', echo, threshold); // method=M:multi_grid
@@ -515,7 +528,7 @@ namespace iterative_poisson {
           auto const rg = *radial_grid::create_equidistant_radial_grid(150, 15.);
 
           view2D<double> f_ref(2, rg.n, 0.0); // 0:x, 1:b
-          for(int ir = 0; ir < rg.n; ++ir) {
+          for (int ir = 0; ir < rg.n; ++ir) {
               double const r2 = pow2(rg.r[ir]);
               f_ref(1,ir) = 4*constants::pi*(c1*std::exp(-a1*r2) + c2*std::exp(-a2*r2));
           } // ir
@@ -526,16 +539,17 @@ namespace iterative_poisson {
               float const dq = 1.f/16; // spacing in reciprocal space
               int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
               std::vector<double> q_coeff(nq, 0.0);
-              for(int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
+              for (int x0b1 = 0; x0b1 < 2; ++x0b1) { // loop over {0:solution==potential, 1:right-hand-side==density}
                   real_space::Bessel_projection(q_coeff.data(), nq, dq, xb[x0b1], g, cnt);
                   bessel_transform::transform_s_function(f_prj[x0b1], q_coeff.data(), rg, nq, dq, true); // transform back to real-space again
               } // x0b1
           } // scope
 
-          printf("\n## r, Ves, Ves_ref, rho, rho_ref (all in a.u.)\n");
-          for(int ir = 0; ir < rg.n; ++ir) {
-              printf("%g %g %g %g %g\n", rg.r[ir], f_prj(0,ir), f_ref(0,ir), f_prj(1,ir), f_ref(1,ir));
-          }   printf("\n\n");
+          std::printf("\n## r, Ves, Ves_ref, rho, rho_ref (all in a.u.)\n");
+          for (int ir = 0; ir < rg.n; ++ir) {
+              std::printf("%g %g %g %g %g\n", rg.r[ir], f_prj(0,ir), f_ref(0,ir), f_prj(1,ir), f_ref(1,ir));
+          } // ir   
+          std::printf("\n\n");
       } // echo
       return stat;
   } // test_solver

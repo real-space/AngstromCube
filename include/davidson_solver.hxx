@@ -1,7 +1,5 @@
 #pragma once
 
-#include "grid_operators.hxx" // ::grid_operator_t
-
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::eigenvalues
@@ -9,6 +7,12 @@
 #include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
 #include "display_units.h" // eV, _eV
 #include "print_tools.hxx" // printf_vector
+
+#ifndef NO_UNIT_TESTS
+  #include "complex_tools.hxx" // complex_name
+  #include "simple_math.hxx" // ::random
+  #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
+#endif
 
 namespace davidson_solver {
   // An iterative eigensolver using the Davidson subspace method
@@ -235,19 +239,19 @@ namespace davidson_solver {
                   } // i
                   vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
                                                with_overlap ? spsi.data() : nullptr, dV);
-                  if (1) {
-                      printf("# Davidson: unsorted residual norms^2 ");
-                      printf_vector(" %.1e", residual_norm2s.data(), sub_space);
-                  } // 1
+#ifdef DEBUG
+                  printf("# Davidson: unsorted residual norms^2 ");
+                  printf_vector(" %.1e", residual_norm2s.data(), sub_space);
+#endif // DEBUG
 
                   std::vector<double> res_norm2_sort(sub_space);              
                   set(res_norm2_sort.data(), sub_space, residual_norm2s.data()); // copy
                   std::sort(res_norm2_sort.rbegin(), res_norm2_sort.rend()); // sort in place, reversed
                   // reverse as we seek for the largest residuals
-                  if (1) {
-                      printf("# Davidson: largest residual norms^2 ");
-                      printf_vector(" %.1e", res_norm2_sort.data(), sub_space);
-                  } // 1
+#ifdef DEBUG
+                  printf("# Davidson: largest residual norms^2 ");
+                  printf_vector(" %.1e", res_norm2_sort.data(), sub_space);
+#endif // DEBUG
 
                   // now select the threshold epsi with the largest residual and add them to the basis
                   int const max_bands = max_space - sub_space; // not more than this many
@@ -314,7 +318,7 @@ namespace davidson_solver {
       return stat;
   } // eigensolve
 
-  template<class operator_t>
+  template <class operator_t>
   status_t rotate(
       typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double energies[] // export eigenenergies
@@ -329,9 +333,12 @@ namespace davidson_solver {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  // ToDo: write this test (particle_in_box) such that 
+  //       conjugate_gradients and
+  //       davidson_solver can be tested, e.g. with a functor
   template <typename complex_t>
-  inline status_t test_solver(int const echo=9) { // ToDo: unify this solver benchmark with that of conjugate_gradients.cxx
-      int const nbands = std::min(8, int(control::get("davidson_solver.num.bands", 4)));
+  inline status_t test_solver(int const echo=9) {
+      int const nbands = std::min(8, int(control::get("davidson_solver.test.num.bands", 4)));
       if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
       status_t stat{0};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
@@ -340,10 +347,10 @@ namespace davidson_solver {
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
       real_space::grid_t const g(8, 8, 8); // boundary conditions are isolated by default
-      view2D<complex_t> psi(nbands, g.all(), complex_t(0));
-      std::vector<double> energies(nbands, 0.0);
+      view2D<complex_t> psi(nbands, g.all(), complex_t(0)); // get wave functions
+      std::vector<double> energies(nbands, 0.0); // vector for eigenenergies
 
-      int const swm = control::get("davidson_solver.start.waves", 0.);
+      int const swm = control::get("davidson_solver.test.start.waves", 0.);
       if (0 == swm) { // scope: create good start wave functions
           double const k = constants::pi/8.78; // ground state wave vector
           double wxyz[8] = {1, 0,0,0, 0,0,0, 0};
@@ -361,7 +368,7 @@ namespace davidson_solver {
                   psi(iband,izyx) = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-          if (echo > 2) printf("\n# %s: use cosine solutions as start vectors\n", __func__);
+          if (echo > 2) printf("\n# %s: use cosine functions as start vectors\n", __func__);
       } else if (1 == swm) {
           for(int iband = 0; iband < nbands; ++iband) {
               for(int izyx = 0; izyx < g.all(); ++izyx) {
@@ -377,10 +384,11 @@ namespace davidson_solver {
       } // swm (start wave method)
 
       // create a real-space grid Hamiltonian without atoms and with a flat local potential (at zero)
-      auto const loa = grid_operators::list_of_atoms(nullptr, 0, 8, g); // empty list
-      grid_operators::grid_operator_t<complex_t> const op(g, loa);
+      using real_t = decltype(std::real(complex_t(1)));
+      auto const loa = grid_operators::empty_list_of_atoms();
+      grid_operators::grid_operator_t<complex_t,real_t> const op(g, loa); 
 
-      int const nit = control::get("davidson_solver.max.iterations", 1.);
+      int const nit = control::get("davidson_solver.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
           stat += eigensolve(psi.data(), energies.data(), nbands, op, echo);
       } // it

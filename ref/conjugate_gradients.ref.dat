@@ -1,0 +1,10 @@
+# Test case particle in a box, 8x8x8 grid points, isolated BC, no atoms
+# ./a43 -t conjugate_gradients +conjugate_gradients.test.num.bands=8
+# CG energy of band #0 is 0.192199 Ha
+# CG energy of band #1 is 0.384345 Ha
+# CG energy of band #2 is 0.384345 Ha
+# CG energy of band #3 is 0.384345 Ha
+# CG energy of band #4 is 0.57649 Ha
+# CG energy of band #5 is 0.57649 Ha
+# CG energy of band #6 is 0.57649 Ha
+# CG energy of band #7 is 0.768635 Ha

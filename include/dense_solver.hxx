@@ -368,14 +368,15 @@ namespace dense_solver {
                                 __func__, n, devN, devT);
           dev = std::max(dev, std::max(devN, devT));
       } // n
-      if (echo > 0) printf("# %s up to N= %d deviations from unity are %.2e\n\n", __func__, N, dev);
-      return status;
+      if (echo > 0) printf("# %s<%s>(N= %d) deviations from unity are %.1e\n\n",
+                              __func__, complex_name<real_t>(), N, dev);
+      return status + (dev > 1e-5);
   } // test_inverse
-  
+
   inline status_t all_tests(int const echo=0) {
       status_t status(0);
       status += test_inverse<double>(echo);
-      status += test_inverse<float>(echo);
+      status += test_inverse<float >(echo);
       return status;
   } // all_tests
 

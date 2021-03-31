@@ -1,4 +1,4 @@
-#include <cstdio> // printf, std::snprintf
+#include <cstdio> // std::printf, std::snprintf
 #include <cassert> // assert
 #include <cmath> // std::abs
 #include <vector> // std::vector<T>
@@ -195,35 +195,35 @@ namespace chemical_symbol {
   status_t test_consistency(int const echo=5) {
       // check that decode(ChemSymbol[Z]) == Z
       status_t stat(0);
-      if (echo > 1) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 1) std::printf("\n# %s %s\n", __FILE__, __func__);
       for(int Z = 0; Z < 128; ++Z) {
           char const S = element_symbols[2*Z + 0], y = element_symbols[2*Z + 1];
           if (0) {
               // code-gen with explicit integers, needs to paste the generated code again if encode_16bit or element_symbols changes
-              if (echo > 8) printf("          case %5i: return %3i; // \"%c%c\"\n", encode_16bit(S,y), Z, S,y);
+              if (echo > 8) std::printf("          case %5i: return %3i; // \"%c%c\"\n", encode_16bit(S,y), Z, S,y);
           } else {
               // code-gen with constexpr function encode_16bit, needs to paste the generated code again only if element_symbols changes
-              if (echo > 8) printf("          case encode_16bit(\'%c\',\'%c\'): return %3i; // \"%c%c\"\n", S,y, Z, S,y); // code-gen
+              if (echo > 8) std::printf("          case encode_16bit(\'%c\',\'%c\'): return %3i; // \"%c%c\"\n", S,y, Z, S,y); // code-gen
           }
           int const failed = (decode(S, y) != Z);
-          if (failed && echo > 1) printf("# %s: failed for Z=%i Sy=%c%c\n", __func__, Z, S,y); 
+          if (failed && echo > 1) std::printf("# %s: failed for Z=%i Sy=%c%c\n", __func__, Z, S,y); 
           stat += failed;
       } // Z
-      if ((echo > 0) && (stat > 0)) printf("# %s %s failed for %i cases, run code generation again (verbosity > 8)!\n", __FILE__, __func__, stat);
+      if ((echo > 0) && (stat > 0)) std::printf("# %s %s failed for %i cases, run code generation again (verbosity > 8)!\n", __FILE__, __func__, stat);
       return stat;
   } // test_consistency
 
   status_t test_digit_reading(int const echo=5) {
       // check that decode(ChemSymbol[Z]) == Z
       status_t stat(0);
-      if (echo > 1) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 1) std::printf("\n# %s %s\n", __FILE__, __func__);
       for(int iZ = -10; iZ < 100*int(allow_digit_reading); ++iZ) {
           bool const leading_zero = (iZ < 0); // the test cases [-10, -1] check if "09", ..., "00" are decoded correctly 
           int const Z = leading_zero ? 1 - iZ : iZ;
           char Sy[4];
           std::snprintf(Sy, 3, leading_zero ? "%2.2i" : "%i", Z);
           int const failed = (decode(Sy[0], Sy[1]) != Z);
-          if (failed && echo > 1) printf("# %s: failed for Z=%i Sy=%s\n", __func__, Z, Sy); 
+          if (failed && echo > 1) std::printf("# %s: failed for Z=%i Sy=%s\n", __func__, Z, Sy); 
           stat += failed;
       } // Z
       return stat;

@@ -15,16 +15,16 @@
 #ifndef NO_UNIT_TESTS
   #include "complex_tools.hxx" // complex_name
   #include "simple_math.hxx" // ::random
-  #include "grid_operators.hxx" // ::grid_operator_t
+  #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
 #endif
 
 namespace conjugate_gradients {
 
-  template<typename complex_t> inline double tiny();
-  template<> inline double tiny<double>() { return 2.25e-308; }
-  template<> inline double tiny<float> () { return 1.18e-38; }
+  template <typename complex_t> inline double tiny();
+  template <> inline double tiny<double>() { return 2.25e-308; }
+  template <> inline double tiny<float> () { return 1.18e-38; }
 
-  template<typename doublecomplex_t, typename complex_t>
+  template <typename doublecomplex_t, typename complex_t>
   doublecomplex_t inner_product(
         size_t const ndof
       , complex_t const bra[] // assumed shape [ndof]
@@ -38,7 +38,7 @@ namespace conjugate_gradients {
       return tmp*factor; // init
   } // inner_product
 
-  template<typename complex_t>
+  template <typename complex_t>
   void show_matrix(
         complex_t const mat[]
       , int const stride
@@ -63,7 +63,7 @@ namespace conjugate_gradients {
 
   
   
-  template<typename complex_t>
+  template <typename complex_t>
   double submatrix2x2(double const sAs, complex_t const sAp, double const pAp, complex_t & alpha, double & beta) {
       // lowest eigenvalue of the 2 x 2 matrix ( sAs , pAs )
       //                                       ( sAp , pAp )
@@ -83,7 +83,7 @@ namespace conjugate_gradients {
       return gamma;
   } // submatrix2x2
 
-  template<class operator_t>
+  template <class operator_t>
   status_t eigensolve(
       typename operator_t::complex_t eigenstates[] // on entry start wave functions, on exit improved eigenfunctions
     , double eigenvalues[] // export results
@@ -339,6 +339,9 @@ namespace conjugate_gradients {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  // ToDo: write this test (particle_in_box) such that 
+  //       conjugate_gradients and
+  //       davidson_solver can be tested, e.g. with a functor
   template <typename complex_t>
   inline status_t test_solver(int const echo=9) {
       int const nbands = std::min(8, int(control::get("conjugate_gradients.test.num.bands", 4)));
@@ -351,7 +354,8 @@ namespace conjugate_gradients {
       //                           3*(pi/8)**2         = 0.231
       // first excitation energies should be 2*(pi/9)**2 + (2*pi/9)**2 = 0.384 Hartree (3-fold degenerate)
       real_space::grid_t g(dims);
-      std::vector<complex_t> psi(nbands*g.all(), 0.0);
+      std::vector<complex_t> psi(nbands*g.all(), 0.0); // get wave functions
+      std::vector<double> energies(nbands, 0.0); // vector for eigenenergies
 
       char const swm = *control::get("conjugate_gradients.test.start.waves", "a"); // 'a':good, 'r':random
       if ('a' == swm) { // scope: create good start wave functions
@@ -371,7 +375,7 @@ namespace conjugate_gradients {
                   psi[iband*g.all() + ixyz] = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-          if (echo > 2) printf("\n# %s: use cosine solutions as start vectors\n", __func__);
+          if (echo > 2) printf("\n# %s: use cosine functions as start vectors\n", __func__);
       } else if ('r' == swm) {
           for(size_t i = 0; i < nbands*g.all(); ++i) {
               psi[i] = simple_math::random(-1., 1.); // random wave functions (most probably not very good)
@@ -386,13 +390,12 @@ namespace conjugate_gradients {
 
       // construct Hamiltonian and Overlap operator
       using real_t = decltype(std::real(complex_t(1)));
-      auto const loa = grid_operators::list_of_atoms(nullptr, 0, 8, g); // empty list
+      auto const loa = grid_operators::empty_list_of_atoms();
       grid_operators::grid_operator_t<complex_t,real_t> const op(g, loa); 
 
-      std::vector<double> eigenvalues(nbands, 0.0);
       int const nit = control::get("conjugate_gradients.test.max.iterations", 1.);
       for(int it = 0; it < nit; ++it) {
-          stat += eigensolve(psi.data(), eigenvalues.data(), nbands, op, echo);
+          stat += eigensolve(psi.data(), energies.data(), nbands, op, echo);
       } // it
       return stat;
   } // test_solver

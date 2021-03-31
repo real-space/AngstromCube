@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cmath> // std::abs, std::pow, std::exp, std::sqrt
 #include <algorithm> // std::max, std::fill
@@ -52,18 +52,18 @@ namespace sho_unitary {
                       int nx, ny, nz, ell, emm, nrn;
                       int64_t nom, den;
                       if (!(iss >> nx >> ny >> nz >> ell >> emm >> nrn >> nom >> den)) {
-                          printf("# Failed to read integer number from \"%s\"!\n", line.c_str());
+                          std::printf("# Failed to read integer number from \"%s\"!\n", line.c_str());
                           break;
                       } // error
 
                       real_t const u_entry = signed_sqrt(nom/((real_t)den));
-                      if (echo > 8) printf("%d %d %d    %d %2d %d  %.15f\n", nx, ny, nz, ell, emm, nrn, u_entry);
+                      if (echo > 8) std::printf("%d %d %d    %d %2d %d  %.15f\n", nx, ny, nz, ell, emm, nrn, u_entry);
                       int const nzyx = sho_tools::Ezyx_index(nx, ny, nz);
                       int const nlnm = sho_tools::Elnm_index(ell, nrn, emm);
                       int const nu_xyz = sho_tools::get_nu(nx, ny, nz);
                       int const nu_rad = sho_tools::get_nu(ell, nrn);
                       if (nu_xyz != nu_rad) {
-                          printf("# off-block entry found in file <%s>: nx=%d ny=%d nz=%d (nu=%d)  ell=%d emm=%d nrn=%d (nu=%d)\n",
+                          std::printf("# off-block entry found in file <%s>: nx=%d ny=%d nz=%d (nu=%d)  ell=%d emm=%d nrn=%d (nu=%d)\n",
                                  filename, nx, ny, nz, nu_xyz, ell, emm, nrn, nu_rad);
                           return 1; // error
                       } // nu matches
@@ -81,7 +81,7 @@ namespace sho_unitary {
                   }
                   // process pair (a,b)
               } // while
-        if (n_ignored && (echo > 2)) printf("# ignored %d lines in file <%s> reading up to nu=%d\n", n_ignored, filename, numax);
+        if (n_ignored && (echo > 2)) std::printf("# ignored %d lines in file <%s> reading up to nu=%d\n", n_ignored, filename, numax);
         return 0;
   } // read_unitary_matrix_from_file
 
@@ -130,7 +130,7 @@ namespace sho_unitary {
           int const nu = sho_tools::get_nu(nzyx);
           if (nu != sho_tools::get_nu(nlnm)) return 0;
 //               if (nu > numax_) return 0; // warn and return, ToDo: warning
-          if (nu > numax_) printf("# Assumption nu <= numax failed: <numax=%d> nzyx=%d nlnm=%d nu=%d\n", numax_, nzyx, nlnm, nu);
+          if (nu > numax_) std::printf("# Assumption nu <= numax failed: <numax=%d> nzyx=%d nlnm=%d nu=%d\n", numax_, nzyx, nlnm, nu);
           assert(nu <= numax_);
           assert(nu >= 0);
           int const nb = sho_tools::n2HO(nu); // dimension of block
@@ -177,19 +177,19 @@ namespace sho_unitary {
           status_t stat(0);
           int const nSHO = sho_tools::nSHO(nu_max);
 
-          bool const c2r = sho_tools::is_Cartesian(inp_order); // input is Cartesian, tranform to radial
-          assert(    c2r ^ sho_tools::is_Cartesian(out_order) ); // either input or output may be Cartesian
-          if ( sho_tools::is_emm_degenerate(inp_order) || sho_tools::is_emm_degenerate(out_order) ) {
-              if (echo > 0) printf("# %s cannot operate on emm-degenerate orders, inp:order_%s out:order_%s\n", __func__,
+          bool const c2r = sho_tools::is_Cartesian(inp_order); // if input is Cartesian, tranform to radial and vice versa
+          assert(    c2r ^ sho_tools::is_Cartesian(out_order)); // either input or output must be Cartesian
+          if (sho_tools::is_emm_degenerate(inp_order) || sho_tools::is_emm_degenerate(out_order)) {
+              if (echo > 0) std::printf("# %s cannot operate on emm-degenerate orders, inp:order_%s out:order_%s\n", __func__,
                   sho_tools::SHO_order2string(inp_order).c_str(), sho_tools::SHO_order2string(out_order).c_str());
               return -1;
           } // emm-degeneracy found
 
-          if (echo > 1) printf("# %s: from order_%s to order_%s with numax=%i\n", __func__,
+          if (echo > 1) std::printf("# %s: from order_%s to order_%s with numax=%i\n", __func__,
               sho_tools::SHO_order2string(inp_order).c_str(), sho_tools::SHO_order2string(out_order).c_str(), nu_max);
 
           std::vector<char> inp_label, e_inp_label, e_out_label, out_label;
-          if (echo > 3) {
+          if (echo > 7) {
               inp_label   = std::vector<char>(nSHO*8);
               e_inp_label = std::vector<char>(nSHO*8);
               e_out_label = std::vector<char>(nSHO*8);
@@ -203,14 +203,14 @@ namespace sho_unitary {
           std::vector<real_vec_t> ti, to;
           auto e_inp = inp; // e_inp is an input vector with energy ordered coefficients
           if (!sho_tools::is_energy_ordered(inp_order)) {
-              if (echo > 3) printf("# %s: energy-order input vector from order_%s\n",
+              if (echo > 3) std::printf("# %s: energy-order input vector from order_%s\n",
                                     __func__, sho_tools::SHO_order2string(inp_order).c_str());
               ti.resize(nSHO);
               std::vector<int16_t> inp_index(nSHO);
               stat += sho_tools::construct_index_table(inp_index.data(), nu_max, inp_order);
               for(int i = 0; i < nSHO; ++i) {
                   ti[inp_index[i]] = inp[i]; // reorder to be energy ordered
-                  if (echo > 8) printf("# %s: inp[%s] = %g\n", __func__, &inp_label[i*8], inp[i]);
+                  if (echo > 8) std::printf("# %s: inp[%s] = %g\n", __func__, &inp_label[i*8], inp[i]);
               } // i
               e_inp = ti.data();
           } // input is not energy ordered
@@ -234,24 +234,24 @@ namespace sho_unitary {
                       int const ij = i*ib + j*jb;
                       assert( 0 <= ij );
                       assert( ij < nb*nb );
-//                        if (echo > 9) printf("# %s: u[nu=%i][%i*%i + %i*%i] = %g\n", __func__, nu, i, ib, j, jb, u_[nu][ij]);
+//                    if (echo > 9) std::printf("# %s: u[nu=%i][%i*%i + %i*%i] = %g\n", __func__, nu, i, ib, j, jb, u_[nu][ij]);
                       tmp += u_[nu][ij] * e_inp[offset + j]; // matrix-vector multiplication, block-diagonal in nu
                   } // j
                   e_out[offset + i] = tmp;
-                  if (echo > 7) printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__,
+                  if (echo > 7) std::printf("# %s: nu=%i e_inp[%s] = %g \t e_out[%s] = %g\n", __func__,
                                   nu, &e_inp_label[(offset + i)*8], e_inp[offset + i],
                                       &e_out_label[(offset + i)*8], e_out[offset + i]);
               } // i
           } // nu
 
           if (!sho_tools::is_energy_ordered(out_order)) {
-              if (echo > 3) printf("# %s: restore output vector order_%s\n",
+              if (echo > 3) std::printf("# %s: restore output vector order_%s\n",
                                 __func__, sho_tools::SHO_order2string(out_order).c_str());
               std::vector<int16_t> out_index(nSHO);
               stat += sho_tools::construct_index_table(out_index.data(), nu_max, out_order);
               for(int i = 0; i < nSHO; ++i) {
                   out[i] = e_out[out_index[i]];
-                  if (echo > 8) printf("# %s: out[%s] = %g\n", __func__, &out_label[i*8], out[i]);
+                  if (echo > 8) std::printf("# %s: out[%s] = %g\n", __func__, &out_label[i*8], out[i]);
               } // i
           } // output is not energy ordered
 
@@ -269,26 +269,26 @@ namespace sho_unitary {
                       double uuT = 0, uTu = 0;
                       for(int kb = 0; kb < nb; ++kb) {
                           uuT += u_[nu][ib*nb + kb] * u_[nu][jb*nb + kb]; // contraction over radial index
-                          uTu += u_[nu][kb*nb + ib] * u_[nu][kb*nb + jb]; // contraction over cartesian index
+                          uTu += u_[nu][kb*nb + ib] * u_[nu][kb*nb + jb]; // contraction over Cartesian index
                       } // contraction index for matrix matrix multiplication
-                      if (echo > 8) printf("# nu=%d ib=%d jb=%d uuT=%g uTu=%g\n", nu, ib, jb, uuT, uTu);
+                      if (echo > 8) std::printf("# nu=%d ib=%d jb=%d uuT=%g uTu=%g\n", nu, ib, jb, uuT, uTu);
                       int const diag = (ib == jb); // 0:offdiagonal, 1:diagonal
                       mxd[0][diag] = std::max(std::abs(uuT - diag), mxd[0][diag]);
                       mxd[1][diag] = std::max(std::abs(uTu - diag), mxd[1][diag]);
                       maxdevall = std::max(maxdevall, std::max(mxd[0][diag], mxd[1][diag]));
                   } // jb
               } // ib
-              if (echo > 1) printf("# U<nu=%d> radial deviations (uuT) %g (%g on diagonal), Cartesian (uTu) %g (%g)\n",
-                                    nu, mxd[0][0], mxd[0][1], mxd[1][0], mxd[1][1]);
+              if (echo > 3) std::printf("# U<nu=%d> deviations: Radial (uuT) %g (%g on diagonal), Cartesian (uTu) %g (%g)\n",
+                                                nu, mxd[0][0], mxd[0][1], mxd[1][0], mxd[1][1]);
           } // nu
           return maxdevall;
       } // test_unitarity
 
   inline int numax() const { return numax_; }
 
-  private:
+  private: // members
       real_t **u_; // block diagonal matrix entries
-      int numax_; // largest ell
+      int numax_;  // largest ell
 
   }; // class Unitary_SHO_Transform
 
