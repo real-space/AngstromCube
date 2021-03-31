@@ -1,7 +1,6 @@
 #include <vector> // std::vector
-#include <cstdio> // std::printf
+#include <cstdio> // std::printf, std::snprintf
 #include <cstdlib> // std::abs
-#include <cmath> // std::sqrt
 
 #include "radial_eigensolver.hxx"
 
@@ -144,7 +143,7 @@ namespace radial_eigensolver {
 #ifdef  FULL_DEBUG
           std::printf("# %s: found kink = %g, adjust %s limit: [%.9f, %.9f] %s\n", __func__, kink, (ib)? "upper" : "lower", ene[0]*eV, ene[1]*eV, _eV);
 #endif
-          auto const res = fabs(E - E_prev); // calculate energy change
+          auto const res = std::abs(E - E_prev); // calculate energy change
           E_prev = E;
 
           converged = (res < threshold);
@@ -179,34 +178,35 @@ namespace radial_eigensolver {
 #else // NO_UNIT_TESTS
 
   status_t test_hydrogen_like_potential(
-        radial_grid_t const g // radial grid descriptor
-      , double const Z // atomic number
-      , int const echo=7) { // number of protons in the nucleus
-
+        int const echo=5 // log-level
+      , double const Z=100 // atomic number, number of protons in the nucleus
+  ) {
       status_t status(0);
-      auto rV = std::vector<double>(g.n, -Z); // fill all potential values with r*V(r) == -Z
-      auto const rf = new double[g.n];
-      for(auto sra = 1; sra <= 1; ++sra) { // 0:non-relativistic, 1:scalar-relativistic, 2:scalar-rel-with-linearized-sqrt
-          if (echo > 0) std::printf("\n\n# %s %s SRA approximation level = %d\n", __FILE__, __func__, sra);
+      auto const g = *radial_grid::create_exponential_radial_grid(2610);
+      std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
+      std::vector<double> rf(g.n);
+      char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
+      for(auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
+          if (echo > 0) std::printf("\n\n# %s %s (Z= %g) %s\n", __FILE__, __func__, Z, SRA_name[sra]);
           for(auto enn = 1; enn <= 9; ++enn) {
               for(auto ell = 0; ell < enn; ++ell) {
-                  double E = -.5*pow2(Z/enn); // guess energy for hydrogen like atoms
-                  status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf)));
-                  if (echo > 1) std::printf("%2d%c energy for Z = %.3f found at E = %.12f %s\n", enn, ellchar[ell], Z, E*eV, _eV);
+                  double E = -.5*pow2(Z/enn); // guess a start energy for hydrogen like atoms
+                  status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data())));
+                  if (echo > 1) std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
 #ifdef  DEBUG
-                  char filename[32]; sprintf(filename, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
-                  dump_to_file(filename, g.n, rf, g.r);
-#endif
+                  char filename[32]; std::snprintf(filename, 31, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
+                  dump_to_file(filename, g.n, rf.data(), g.r);
+#endif // DEBUG
               } // ell
           } // enn
       } // sra
       return status;
   } // test_hydrogen_like_potential
-  
-  
+
+
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_hydrogen_like_potential(*radial_grid::create_exponential_radial_grid(2610), 100, echo);
+      stat += test_hydrogen_like_potential(echo);
       return stat;
   } // all_tests
 

@@ -18,6 +18,7 @@
   #include "single_atom.hxx" // ::atom_update
   #include "print_tools.hxx" // print_stats
   #include "lossful_compression.hxx" // print_compressed
+  #include "simple_timer.hxx" // SimpleTimer
 #endif // DEVEL
 
 namespace potential_generator {

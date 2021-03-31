@@ -1,7 +1,7 @@
 #pragma once
 
 #include "radial_grid.h" // radial_grid_t
-#include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
+#include "quantum_numbers.h" // ell_QN_t
 
 #include "status.hxx" // status_t
 
@@ -26,7 +26,7 @@ namespace radial_integrator {
       , double const rV[] // radial potential r*V_Hxc(r) - e^2*Z
       , ell_QN_t const ell // angular momentum quantum number
       , double const E // energy (eigen-)value in Hartree
-      , double const valder[2]=nullptr
+      , double const valder[2]=nullptr // optional: value and derivative
       , double *dg=nullptr // optional result: derivative at end point
       , int *ir_stopped=nullptr // optional result: index at which the inwards integration stopped
       , int const ir_start=-1 // start index, -1:(g.n - 1)

@@ -153,7 +153,7 @@ namespace radial_grid {
 
   status_t test_create_and_destroy(int const echo=9) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
-      auto g = create_exponential_radial_grid(1 << 11);
+      auto const g = create_exponential_radial_grid(1 << 11);
       destroy_radial_grid(g);
       return 0;
   } // test_create_and_destroy
@@ -161,23 +161,22 @@ namespace radial_grid {
   status_t test_exp_grid(int const echo=3) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
       int const n = 1 << 11;
-      auto const & g = *create_exponential_radial_grid(n);
-      if (echo > 9) {
-          std::printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s):"
+      auto & g = *create_exponential_radial_grid(n);
+      double integ[] = {0, 0, 0};
+      if (echo > 3) std::printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s):"
               " r, dr, 1/r, integrals over {1,r,r^2}, r, r^2/2, r^3/3\n", n, g.anisotropy, g.rmax*1.0, " Bohr");
-          double integ[] = {0, 0, 0};
-          for(int ir = 0; ir < g.n; ++ir) {
-              if (echo > 11 || ir < 3 || ir > g.n - 4) {
-                  auto const r = g.r[ir];
-                  std::printf("%g %g %g %g %g %g %g %g %g\n", r, g.dr[ir], g.rinv[ir],
-                        integ[0], integ[1], integ[2], r, 0.5*r*r, r*r*r/3);
-              } // echo
-              integ[0] += g.dr[ir];
-              integ[1] += g.rdr[ir];
-              integ[2] += g.r2dr[ir];
-          } // ir
-      } // echo
-      return 0;
+      for(int ir = 0; ir < g.n; ++ir) {
+          if (echo > 3 && (ir < 3 || ir > g.n - 4 || echo > 11)) {
+              auto const r = g.r[ir];
+              std::printf("%g %g %g %g %g %g %g %g %g\n", r, g.dr[ir], g.rinv[ir],
+                    integ[0], integ[1], integ[2], r, 0.5*r*r, r*r*r/3);
+          } // echo
+          integ[0] += g.dr[ir];
+          integ[1] += g.rdr[ir];
+          integ[2] += g.r2dr[ir];
+      } // ir
+      destroy_radial_grid(&g);
+      return (std::abs(integ[0] - g.rmax) > .05); // integral dr up to Rmax should match Rmax
   } // test_exp_grid
 
   status_t all_tests(int const echo) {
