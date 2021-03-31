@@ -36,7 +36,7 @@ namespace radial_potential {
       } // ir
 
       return Coulomb; // the integral 4 \pi rho(r) * r dr is needed for the Coulomb energy
-  } // Hartree_potential _spherical
+  } // Hartree_potential (spherical)
 
   
   void Hartree_potential(
@@ -81,35 +81,37 @@ namespace radial_potential {
               } // ir
 
           } // emm
-          
       } // ell
 
-  } // Hartree_potential_ell
+  } // Hartree_potential (ell-emm resolved)
   
   
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  status_t test_radial_potential(int const echo, radial_grid_t const g) { // radial grid descriptor
-      std::vector<double> const rho(g.n, 1);
+  status_t test_radial_Hartree_potential(int const echo, radial_grid_t const g) { // radial grid descriptor
+      std::vector<double> const rho(g.n, 1); // a constant density rho(r) == 1
       std::vector<double> rVH(g.n), vHt(g.n);
-      Hartree_potential(rVH.data(), g, rho.data());
-      Hartree_potential(vHt.data(), g, rho.data(), 0, 0);
-      double const R = g.rmax;
-      auto const V0 = .50754*R*R; // small correction by 1.5%
-      if (echo > 0) printf("# Rmax = %g V0 = %g \n", R, V0);
+      Hartree_potential(rVH.data(), g, rho.data()); // spherical version
+      Hartree_potential(vHt.data(), g, rho.data(), 0, 0); //  lm-version
+      double const R = g.rmax, V0 = .50754*R*R; // a small correction by 1.5% is needed here
+      if (echo > 3) printf("\n# %s: Rmax = %g Bohr, V0 = %g Ha\n", __func__, R, V0);
+      if (echo > 4) printf("## r, r*V_spherical(r), r*V_00(r), r*analytical(r) in a.u.:\n");
+      double dev{0};
       for(int ir = 0; ir < g.n; ++ir) {
           auto const r = g.r[ir];
-          double const model = V0 - r*r/6;
-          if (echo > 1) printf("%g %g %g %g\n", r, rVH[ir], r*model, r*vHt[ir]/(4*constants::pi));
+          double const analytical = V0 - r*r/6;
+          double const rV00 = r*vHt[ir]/(4*constants::pi);
+          dev = rVH[ir] - rV00;
+          if (echo > 4) printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
       } // ir
-      return 0;
-  } // test_radial_potential
+      return (std::abs(dev) > 2e-13);
+  } // test_radial_Hartree_potential
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_radial_potential(echo, *radial_grid::create_exponential_radial_grid(512));
+      stat += test_radial_Hartree_potential(echo, *radial_grid::create_exponential_radial_grid(512));
       return stat;
   } // all_tests
 
