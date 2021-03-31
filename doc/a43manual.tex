@@ -305,6 +305,8 @@ or if the entire database was lost,
 ./a43 -t atom_core \
         +atom_core.test.Z=1 +atom_core.test.Z.end=86
 \end{verbatim}
+This may take some minutes. To track the progress, \ttt{verbosity=5} is recommended.
+\todo[inline]{OpenMP would be good here}
 
 Now, run the \ttt{single\_atom} test for each of the elements in the system to see if there are warnings before you continue like this
 \begin{verbatim}

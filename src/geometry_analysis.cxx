@@ -63,7 +63,7 @@ namespace geometry_analysis {
           int hnh[3];
           int nbx = 1; // number of all boxes, including halos
           int mbx = 1; // number of central boxes, no halos
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               assert(cell[d] > 0);
               nboxes[d] = std::max(1, (int)(cell[d]/radius));
               box_size[d] = cell[d]/nboxes[d];
@@ -85,7 +85,7 @@ namespace geometry_analysis {
               for        (int jz = 0; jz < hnh[Z]; ++jz) {  int const iz = get_center_box<Z>(jz - nhalo[Z]);
                   for    (int jy = 0; jy < hnh[Y]; ++jy) {  int const iy = get_center_box<Y>(jy - nhalo[Y]);
                       if (echo > 9) printf("# %s: indirection(iz=%2d, iy=%2d):", __func__, jz - nhalo[Z], jy - nhalo[Y]);                        
-                      for(int jx = 0; jx < hnh[X]; ++jx) {  int const ix = get_center_box<X>(jx - nhalo[X]);
+                      for (int jx = 0; jx < hnh[X]; ++jx) {  int const ix = get_center_box<X>(jx - nhalo[X]);
                           int ib = get_center_index(ix, iy, iz);
                           int const jb = (jz*hnh[Y] + jy)*hnh[X] + jx;
                           image_index[jb*4 + X] = (int)std::floor((jx - nhalo[X])/((double)nboxes[X]));
@@ -105,7 +105,7 @@ namespace geometry_analysis {
           atom_index.resize(mbx);
           size_t const estimate = std::ceil(natoms/(mbx*.875));
           if (echo > 2) printf("# %s: use %ld atoms as box balance estimate\n", __func__, estimate);
-          for(int ib = 0; ib < mbx; ++ib) {
+          for (int ib = 0; ib < mbx; ++ib) {
               atom_index[ib].reserve(estimate);
           } // ib
           
@@ -114,14 +114,14 @@ namespace geometry_analysis {
               if (echo > 8) printf("# %s: inverse box size is %g %g %g\n", 
                                       __func__, inv_box_size[X], inv_box_size[Y], inv_box_size[Z]);
               double min_coords[3] = {9e99, 9e99, 9e99};
-              for(size_t ia = 0; ia < natoms; ++ia) {
-                  for(int d = 0; d < 3; ++d) {
+              for (size_t ia = 0; ia < natoms; ++ia) {
+                  for (int d = 0; d < 3; ++d) {
                       min_coords[d] = std::min(min_coords[d], xyzZ[ia][d]);
                   } // d
               } // ia
               double const offset[3] = {-min_coords[X], -min_coords[Y], -min_coords[Z]};
               
-              for(size_t ia = 0; ia < natoms; ++ia) {
+              for (size_t ia = 0; ia < natoms; ++ia) {
                   int const iz = get_center_box<Z>((int)std::floor((xyzZ[ia][Z] + offset[Z])*inv_box_size[Z]));
                   int const iy = get_center_box<Y>((int)std::floor((xyzZ[ia][Y] + offset[Y])*inv_box_size[Y]));
                   int const ix = get_center_box<X>((int)std::floor((xyzZ[ia][X] + offset[X])*inv_box_size[X]));
@@ -132,7 +132,7 @@ namespace geometry_analysis {
               } // ia
           } else {
               if (echo > 2) printf("# %s: only 1 box, list is trivial\n", __func__);
-              for(size_t ia = 0; ia < natoms; ++ia) {
+              for (size_t ia = 0; ia < natoms; ++ia) {
                   atom_index[0].push_back(ia);
               } // ia
           } // mbx > 1
@@ -141,7 +141,7 @@ namespace geometry_analysis {
           { // scope: get some stats
               simple_stats::Stats<> stats;
               double den = 0, sum = 0, squ = 0, mn = 9e99, mx = -mn;
-              for(size_t ib = 0; ib < atom_index.size(); ++ib) {
+              for (size_t ib = 0; ib < atom_index.size(); ++ib) {
                   double const val = atom_index[ib].size();
                   stats.add(val);
                   mn = std::min(mn, val); mx = std::max(mx, val);
@@ -162,7 +162,7 @@ namespace geometry_analysis {
           assert(jy >= -nhalo[Y]); assert(jy < nboxes[Y] + nhalo[Y]);
           assert(jz >= -nhalo[Z]); assert(jz < nboxes[Z] + nhalo[Z]);
           int const jb = ((jz + nhalo[Z])*hnh[Y] + (jy + nhalo[Y]))*hnh[X] + (jx + nhalo[X]);
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               if (ii != nullptr) ii[d] = image_index[jb*4 + d];
           } // d
           int const ib = indirection[jb];
@@ -203,7 +203,7 @@ namespace geometry_analysis {
           std::string Cell, B[3];
           double L[3]; // positions
           iss >> Cell >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2];
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               if (nullptr != cell) {
                   cell[d] = L[d] * Angstrom2Bohr;
                   assert(cell[d] > 0);
@@ -304,7 +304,7 @@ namespace geometry_analysis {
 
       std::vector<int_t> ivalues(na);
       std::vector<int_t> occurrence(na, 1); // init all counters as 1, will be modified later
-      for(int_t ia = 0; ia < na; ++ia) {
+      for (int_t ia = 0; ia < na; ++ia) {
 //           ivalues[ia] = int_t(values[ia]*grid_factor + 0.5); // integerize value
           ivalues[ia] = std::round(values[ia]*grid_factor); // integerize value
           if (ia > 0) {
@@ -317,7 +317,7 @@ namespace geometry_analysis {
       } // ia
 
       int nbytes{0}; // init return value
-      for(int_t ia = 0; ia < na; ++ia) {
+      for (int_t ia = 0; ia < na; ++ia) {
           int_t  const count = occurrence[ia];
           double const value = ivalues[ia]*display_factor;
           if (count > 0) {
@@ -346,7 +346,7 @@ namespace geometry_analysis {
 
       std::vector<real_t> bond_length(nb);
       { // scope: compute all bond lengths
-          for(int ib = 0; ib < nb; ++ib) {    auto const bvi = bv[ib];
+          for (int ib = 0; ib < nb; ++ib) {    auto const bvi = bv[ib];
               auto const d2i = pow2(bvi[0]) + pow2(bvi[1]) + pow2(bvi[2]);
 //               max_len2 = std::max(max_len2, d2i);
 //               min_len2 = std::min(min_len2, d2i);
@@ -362,8 +362,8 @@ namespace geometry_analysis {
       std::vector<real_t> bond_angle(na);
       { // scope: compute all possible bond angles
           int ia{0};
-          for(int ib = 0; ib < nb; ++ib) {      auto const bvi = bv[ib];
-              for(int jb = 0; jb < ib; ++jb) {  auto const bvj = bv[jb];
+          for (int ib = 0; ib < nb; ++ib) {      auto const bvi = bv[ib];
+              for (int jb = 0; jb < ib; ++jb) {  auto const bvj = bv[jb];
                   auto const dot = bvj[0]*bvi[0] + bvj[1]*bvi[1] + bvj[2]*bvi[2];
                   auto const bliblj = bond_length[ib]*bond_length[jb];
                   bond_angle[ia] = (-dot < bliblj) ? std::acos(dot/bliblj) 
@@ -385,7 +385,7 @@ namespace geometry_analysis {
   
   status_t analysis(view2D<double> const & xyzZ, index_t const natoms, 
                     double const cell[3], int const bc[3], int const echo=6) {
-      status_t stat = 0;
+      status_t stat(0);
       if (echo > 1) printf("\n# %s:%s\n", __FILE__, __func__);
       
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
@@ -415,8 +415,8 @@ namespace geometry_analysis {
       int nspecies{0}; // number of different species
 
       { // scope: fill ispecies and species_of_Z
-          for(int first = 1; first >= 0; --first) {
-              for(index_t ia = 0; ia < natoms; ++ia) {
+          for (int first = 1; first >= 0; --first) {
+              for (index_t ia = 0; ia < natoms; ++ia) {
                   int const Z_ia = std::round(xyzZ[ia][3]);
                   int const Z_ia_mod = Z_ia & 127; // modulo 128
                   if (first) {
@@ -427,14 +427,14 @@ namespace geometry_analysis {
               } // ia
               if (first) {
                   // evaluate the histogram only in the first iteration
-                  for(int Z = 0; Z < 128; ++Z) {
+                  for (int Z = 0; Z < 128; ++Z) {
                       if (occurrence[Z] > 0) {
                           species_of_Z[Z] = nspecies;
                           Z_of_species[nspecies] = Z;
                           chemical_symbol::get(Sy_of_species_null[nspecies], Z);
                           chemical_symbol::get(Sy_of_species[nspecies], Z, ' ');
                           set(Sy_of_species_right[nspecies], 4, Sy_of_species[nspecies]);
-                          if(' ' == Sy_of_species[nspecies][1]) {
+                          if (' ' == Sy_of_species[nspecies][1]) {
                               std::swap(Sy_of_species_right[nspecies][0], Sy_of_species_right[nspecies][1]);
                           } // swap
                           Sy_of_species_right[nspecies][2] = '\0';
@@ -448,7 +448,7 @@ namespace geometry_analysis {
       
       if (echo > 2) {
           printf("# Found %d different elements for %d atoms:  ", nspecies, natoms);
-          for(int is = 0; is < nspecies; ++is) {
+          for (int is = 0; is < nspecies; ++is) {
               printf("  %dx %s", occurrence[Z_of_species[is]], Sy_of_species_null[is]); 
           } // is
           printf("\n");
@@ -475,29 +475,29 @@ namespace geometry_analysis {
       if (echo > 2) printf("# use N^2-algorithm, expect to visit %.1e atom pairs\n", nimages*pow2(double(natoms)));
 
       {{{{{ // open 5 scopes because the box structure has 5 loops
-      for(int ii = 0; ii < nimages; ++ii) { // includes self-interaction
+      for (int ii = 0; ii < nimages; ++ii) { // includes self-interaction
           vec3 const pos_ii = image_pos[ii];
           auto const shift = image_shift[ii]; // not tested
-          for(int ia = 0; ia < natoms; ++ia) {
+          for (int ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else
       BoxStructure<index_t> box(cell, bc, rcut, natoms, xyzZ);
 
-      for(int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
-      for(int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {
-      for(int ibx = 0; ibx < box.get_number_of_boxes(0); ++ibx) {
+      for (int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
+      for (int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {
+      for (int ibx = 0; ibx < box.get_number_of_boxes(0); ++ibx) {
         index_t const *list_i;
         int const na_i = box.get_atom_list(&list_i, ibx, iby, ibz);
-        for(int jbz = ibz - box.get_halo_thickness(2); jbz <= ibz + box.get_halo_thickness(2); ++jbz) {
-        for(int jby = iby - box.get_halo_thickness(1); jby <= iby + box.get_halo_thickness(1); ++jby) {
-        for(int jbx = ibx - box.get_halo_thickness(0); jbx <= ibx + box.get_halo_thickness(0); ++jbx) {
+        for (int jbz = ibz - box.get_halo_thickness(2); jbz <= ibz + box.get_halo_thickness(2); ++jbz) {
+        for (int jby = iby - box.get_halo_thickness(1); jby <= iby + box.get_halo_thickness(1); ++jby) {
+        for (int jbx = ibx - box.get_halo_thickness(0); jbx <= ibx + box.get_halo_thickness(0); ++jbx) {
           index_t const *list_j;
           int shift[3];
           int const na_j = box.get_atom_list(&list_j, jbx, jby, jbz, shift);
           double const ppos_i[3] = {shift[0]*cell[0], shift[1]*cell[1], shift[2]*cell[2]}; // periodic shift if applicable
           vec3 const pos_ii = ppos_i; // convert to vector
 
-          for(int iia = 0; iia < na_i; ++iia) { index_t const ia = list_i[iia];
+          for (int iia = 0; iia < na_i; ++iia) { index_t const ia = list_i[iia];
               //========================================================================================================
 #endif
               //========================================================================================================
@@ -508,9 +508,9 @@ namespace geometry_analysis {
               //========================================================================================================
               vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
 #ifdef  GEO_ORDER_N2
-              for(int ja = 0; ja < natoms; ++ja) {
+              for (int ja = 0; ja < natoms; ++ja) {
 #else
-              for(int ija = 0; ija < na_j; ++ija) { index_t const ja = list_j[ija];
+              for (int ija = 0; ija < na_j; ++ija) { index_t const ja = list_j[ija];
 #endif
                   //========================================================================================================
                   vec3 const pos_ja = xyzZ[ja];
@@ -577,7 +577,7 @@ namespace geometry_analysis {
       assert(0 == nstrange);
 
       float minimum_distance = 9e9;
-      for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
+      for (int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
           minimum_distance = std::min(minimum_distance, smallest_distance[ijs]);
       } // ijs
       if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
@@ -590,10 +590,10 @@ namespace geometry_analysis {
           if (num_bins > 0) {
               printf("\n## distance histogram (in %s)\n", _Ang);
               int last_bins[4] = {0, -1, -1, -1}; // show the first bin always, -1: do not show
-              for(int ibin = 0; ibin < num_bins; ++ibin) {
+              for (int ibin = 0; ibin < num_bins; ++ibin) {
 #if 1
                   bool nonzero = false; // sparsify the plotting of the distance histogram
-                  for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
+                  for (int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
                       nonzero = nonzero || (dist_hist[ibin*nspecies*nspecies + ijs] > 0); // analyze dist_hist[ibin]
                   } // ijs
                   if (nonzero) {
@@ -609,7 +609,7 @@ namespace geometry_analysis {
                   if (jbin >= 0) {
                       float const dist = (jbin + 0.5)*bin_width; // display the center of the bin
                       printf("%.3f ", dist*Ang);
-//                       for(int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
+//                       for (int ijs = 0; ijs < nspecies*nspecies; ++ijs) {
 //                           printf(" %d", dist_hist[jbin*nspecies*nspecies + ijs]);
 //                       } // ijs
 //                       printf("\n");
@@ -623,16 +623,16 @@ namespace geometry_analysis {
       if (echo > 2) {
       
           printf("\n# bond counts");
-          for(int js = 0; js < nspecies; ++js) {
+          for (int js = 0; js < nspecies; ++js) {
               printf("      %s", Sy_of_species_right[js]); // create legend
           } // js
           std::vector<int> spec_sum(nspecies, 0);
           printf("\n");
           int64_t check_nbonds = 0;
-          for(int is = 0; is < nspecies; ++is) {
+          for (int is = 0; is < nspecies; ++is) {
               int row_sum{0};
               printf("# bond count ");
-              for(int js = 0; js < nspecies; ++js) {
+              for (int js = 0; js < nspecies; ++js) {
                   check_nbonds += bond_hist[is*nspecies + js];
                   spec_sum[js] += bond_hist[is*nspecies + js];
                   row_sum      += bond_hist[is*nspecies + js];
@@ -645,7 +645,7 @@ namespace geometry_analysis {
               printf("  %ssum= %d\n", Sy_of_species[is], row_sum);
           } // is
           printf("# bond counts");
-          for(int js = 0; js < nspecies; ++js) {
+          for (int js = 0; js < nspecies; ++js) {
               printf("%8d", spec_sum[js]);
           } // js
           printf("   total= %lld\n", nbonds);
@@ -653,13 +653,13 @@ namespace geometry_analysis {
           printf("\n");
 
           printf("# shortest distances");
-          for(int js = 0; js < nspecies; ++js) {
+          for (int js = 0; js < nspecies; ++js) {
               printf("     %s", Sy_of_species[js]); // create legend
           } // js
           printf("     in %s\n", _Ang);
-          for(int is = 0; is < nspecies; ++is) {
+          for (int is = 0; is < nspecies; ++is) {
               printf("# shortest distance ");
-              for(int js = 0; js < nspecies; ++js) {
+              for (int js = 0; js < nspecies; ++js) {
                   if (js >= is) {
                       if (smallest_distance[is*nspecies + js] < too_large) {
                           printf("%8.3f", smallest_distance[is*nspecies + js]*Ang);
@@ -680,15 +680,15 @@ namespace geometry_analysis {
           int cn_exceeds{0};
           int const max_cn = 24;
           view2D<int> cn_hist(nspecies, max_cn, 0);
-          for(index_t ia = 0; ia < natoms; ++ia) {
+          for (index_t ia = 0; ia < natoms; ++ia) {
               int const isi = ispecies[ia];
               int const cni = coordination_number[ia];
               if (cni < max_cn) ++cn_hist(isi,cni); else ++cn_exceeds;
           } // ia
           printf("\n# coordination numbers (radius in %s)\n", _Ang);
-          for(int is = 0; is < nspecies; ++is) {
+          for (int is = 0; is < nspecies; ++is) {
               printf("# coordination number for %s(%.3f)", Sy_of_species[is], default_bond_length(Z_of_species[is])*Ang);
-              for(int cn = 0; cn < max_cn; ++cn) {
+              for (int cn = 0; cn < max_cn; ++cn) {
                   if (cn_hist(is,cn) > 0) {
                       printf("  %dx%d", cn_hist(is,cn), cn);
                   } // histogram count non-zero
@@ -709,12 +709,12 @@ namespace geometry_analysis {
               if (echo > 2) printf("# show a bond structure analysis:\n"
                                    "# bond lengths are in %s, angles in degree\n\n",_Ang);
 // #pragma omp parallel for
-              for(index_t ia = 0; ia < natoms_BP; ++ia) {
+              for (index_t ia = 0; ia < natoms_BP; ++ia) {
                   int const cn = std::min(int(coordination_number[ia]), MaxBP);
                   double const xyz_ia[3] = {xyzZ[ia][0], xyzZ[ia][1], xyzZ[ia][2]}; // load center coordinates
                   assert(cn == bond_partner[ia].size());
                   view2D<float> coords(cn, 4, 0.0); // get memory, decide float or double for the bond structure analysis
-                  for(int ip = 0; ip < cn; ++ip) {
+                  for (int ip = 0; ip < cn; ++ip) {
                       auto const &partner = bond_partner[ia][ip];
                       auto const ja = partner.ia; assert(ja >= 0); 
                       coords[ip][0] = xyzZ[ja][0] + partner.ix*cell[0] - xyz_ia[0];
@@ -748,7 +748,7 @@ namespace geometry_analysis {
   status_t test_analysis(int const echo=9) {
       status_t stat(0);
       view2D<double> xyzZ;
-      int natoms = 0;
+      int natoms{0};
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
       double cell[3] = {0, 0, 0};
       int bc[3] = {-7, -7, -7};
