@@ -1,8 +1,10 @@
 #pragma once
 
-#include <cstdio> // printf, std::fflush, stdout
-#include <complex> // std::real
+#include <cstdio> // std::printf, std::fflush, stdout, std::snprintf
+#include <complex> // std::real, std::imag
 #include <vector> // std::vector<T>
+#include <cmath> // std::sqrt
+#include <algorithm> // std::max
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
@@ -10,12 +12,13 @@
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "display_units.h" // eV, _eV
 #include "recorded_warnings.hxx" // warn
-
 #include "control.hxx" // ::get
+
 #ifndef NO_UNIT_TESTS
-  #include "complex_tools.hxx" // complex_name
-  #include "simple_math.hxx" // ::random
-  #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
+//  #include <complex> // std::complex
+//  #include "complex_tools.hxx" // complex_name
+    #include "simple_math.hxx" // ::random
+    #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
 #endif
 
 namespace conjugate_gradients {
@@ -50,15 +53,15 @@ namespace conjugate_gradients {
       , char const final_newline='\n'
   ) {
       if (is_complex<complex_t>()) return;
-      printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
+      std::printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
       for(int i = 0; i < n; ++i) {
-          if (n > 1) printf("#%4i ", i);
+          if (n > 1) std::printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
-              printf("%9.3f", mat[i*stride + j]*unit);
+              std::printf("%9.3f", mat[i*stride + j]*unit);
           } // j 
-          printf("\n");
+          std::printf("\n");
       } // i
-      if (final_newline) printf("%c", final_newline);
+      if (final_newline) std::printf("%c", final_newline);
   } // show_matrix
 
   
@@ -100,7 +103,7 @@ namespace conjugate_gradients {
       int const maxiter = control::get("conjugate_gradients.max.iter", 132);
       int const restart_every_n_iterations = std::max(1, 4);
       
-      if (echo > 0) printf("# start CG onto %d bands\n", nbands);
+      if (echo > 0) std::printf("# start CG onto %d bands\n", nbands);
 
       doublecomplex_t const dV = op.get_volume_element();
       size_t const nv = op.get_degrees_of_freedom();
@@ -115,7 +118,7 @@ namespace conjugate_gradients {
       view2D<complex_t> Ss(eigenstates, nv); // wrap
       // this is not optimal for performance, because e.g. inner_product cannot get a restrict attribute
       if (use_overlap) {
-          if (echo > 8) printf("# %s allocate %.3f MByte for %d adjoint wave functions\n", 
+          if (echo > 8) std::printf("# %s allocate %.3f MByte for %d adjoint wave functions\n", 
                                   __func__, nbands*nv*1e-6*sizeof(complex_t), nbands);
           Ss = view2D<complex_t>(nbands, nv, 0.0); // get temporary memory for adjoint wave functions
       } // use_overlap
@@ -124,7 +127,7 @@ namespace conjugate_gradients {
 
       // get memory for single vectors:
       int const nsinglevectors = 4 + (use_precond?1:0) + (use_cg?1:0) + (use_overlap?3:0);
-      if (echo > 8) printf("# %s allocate %.3f MByte for %d single vectors\n", 
+      if (echo > 8) std::printf("# %s allocate %.3f MByte for %d single vectors\n", 
                               __func__, nsinglevectors*nv*1e-6*sizeof(complex_t), nsinglevectors);
       view2D<complex_t> mem(nsinglevectors, nv, 0.0);
       int imem{0};
@@ -134,19 +137,19 @@ namespace conjugate_gradients {
                 con=use_cg        ? mem[imem++] : Pgrd,
                 Scon=use_overlap  ? mem[imem++] : con,
                 Sdir=use_overlap  ? mem[imem++] : dir;
-      if (echo > 9) printf("# CG vectors: Hs=%p, Hcon=%p, grd=%p, dir=%p, \n#   Pgrd=%p, SPgrd=%p, con=%p, Scon=%p, Sdir=%p\n",
+      if (echo > 9) std::printf("# CG vectors: Hs=%p, Hcon=%p, grd=%p, dir=%p, \n#   Pgrd=%p, SPgrd=%p, con=%p, Scon=%p, Sdir=%p\n",
           (void*)Hs, (void*)Hcon, (void*)grd, (void*)dir, (void*)Pgrd, (void*)SPgrd, (void*)con, (void*)Scon, (void*)Sdir);
-      if (echo > 8 && nsinglevectors > imem) printf("# %s only needed %d of %d single vectors\n", __func__, imem, nsinglevectors);
+      if (echo > 8 && nsinglevectors > imem) std::printf("# %s only needed %d of %d single vectors\n", __func__, imem, nsinglevectors);
       assert(nsinglevectors >= imem);
 
       std::vector<double> energy(nbands, 0.0), residual(nbands, 9.9e99);
 
       int const num_outer_iterations = control::get("conjugate_gradients.num.outer.iterations", 1.);
       for(int outer_iteration = 0; outer_iteration < num_outer_iterations; ++outer_iteration) {
-          if (echo > 4) printf("# CG start outer iteration #%i\n", outer_iteration);
+          if (echo > 4) std::printf("# CG start outer iteration #%i\n", outer_iteration);
 
           for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
-              if (echo > 8) printf("\n# start CG for band #%i\n", ib);
+              if (echo > 8) std::printf("\n# start CG for band #%i\n", ib);
 
               // apply Hamiltonian and Overlap operator
 //            stat += op.Hamiltonian(Hs, s[ib], echo);
@@ -155,10 +158,10 @@ namespace conjugate_gradients {
               } else assert(Ss[ib] == s[ib]);
 
               for(int iortho = 0; iortho < northo[0]; ++iortho) {
-                  if (echo > 7 && ib > 0) printf("# orthogonalize band #%i against %d lower bands\n", ib, ib);
+                  if (echo > 7 && ib > 0) std::printf("# orthogonalize band #%i against %d lower bands\n", ib, ib);
                   for(int jb = 0; jb < ib; ++jb) {
                       auto const a = inner_product(nv, s[ib], Ss[jb], dV);
-                      if (echo > 8) printf("# orthogonalize band #%i against band #%i with %g %g\n", ib, jb, std::real(a), std::imag(a));
+                      if (echo > 8) std::printf("# orthogonalize band #%i against band #%i with %g %g\n", ib, jb, std::real(a), std::imag(a));
                       add_product( s[ib], nv,  s[jb], complex_t(-a));
                       if (use_overlap) {
                           add_product(Ss[ib], nv, Ss[jb], complex_t(-a));
@@ -166,7 +169,7 @@ namespace conjugate_gradients {
                   } // jb
 
                   auto const snorm = std::real(inner_product(nv, s[ib], Ss[ib], dV));
-                  if (echo > 7) printf("# norm^2 of band #%i is %g\n", ib, snorm);
+                  if (echo > 7) std::printf("# norm^2 of band #%i is %g\n", ib, snorm);
                   if (snorm < 1e-12) {
                       warn("CG failed for band #%i", ib);
                       return 1;
@@ -203,22 +206,22 @@ namespace conjugate_gradients {
                   } // (re)start
                 
                   energy[ib] = std::real(inner_product(nv, s[ib], Hs, dV));
-                  if (echo > 7) printf("# CG energy of band #%i is %g %s in iteration #%i\n", 
+                  if (echo > 7) std::printf("# CG energy of band #%i is %g %s in iteration #%i\n", 
                                                               ib, energy[ib]*eV, _eV, iiter);
                   
                   // compute gradient = - ( H\psi - E*S\psi )
                   set(grd, nv, Hs, complex_t(-1)); add_product(grd, nv, Ss[ib], complex_t(energy[ib]));
-                  if (echo > 7) printf("# norm^2 (no S) of gradient %.e\n", std::real(inner_product(nv, grd, grd, dV)));
+                  if (echo > 7) std::printf("# norm^2 (no S) of gradient %.e\n", std::real(inner_product(nv, grd, grd, dV)));
 
                   if (use_precond) {
                       op.Conditioner(Pgrd, grd, echo);
                   } else assert(Pgrd == grd);
 
                   for(int iortho = 0; iortho < northo[1]; ++iortho) {
-                      if (echo > 7) printf("# orthogonalize gradient against %d bands\n", ib + 1);
+                      if (echo > 7) std::printf("# orthogonalize gradient against %d bands\n", ib + 1);
                       for(int jb = 0; jb <= ib; ++jb) {
                           auto const a = inner_product(nv, Pgrd, Ss[jb], dV);
-                          if (echo > 8) printf("# orthogonalize gradient against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
+                          if (echo > 8) std::printf("# orthogonalize gradient against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
                           add_product(Pgrd, nv, s[jb], complex_t(-a));
                       } // jb
                   } // orthogonalize Pgrd against s[0...ib]
@@ -229,13 +232,13 @@ namespace conjugate_gradients {
                   } else assert(SPgrd == Pgrd);
                   
                   double const res_new = std::real(inner_product(nv, Pgrd, SPgrd, dV));
-                  if (echo > 7) printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", res_new);
+                  if (echo > 7) std::printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", res_new);
 
                   residual[ib] = std::abs(res_new); // store
                   if (echo > 6) {
-                      if (last_printf_line == __LINE__) printf("\r"); else last_printf_line = __LINE__; 
+                      if (last_printf_line == __LINE__) std::printf("\r"); else last_printf_line = __LINE__; 
                       // prepending '\r' means that the next printf will overwrite the last line when outputting to terminal
-                      printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i", 
+                      std::printf("# CG band #%i energy %g %s changed %g residual %.2e in iteration #%i", 
                                 ib, energy[ib]*eV, _eV, (energy[ib] - prev_energy)*eV, residual[ib], iiter);
                       std::fflush(stdout);
                   } // echo
@@ -244,7 +247,7 @@ namespace conjugate_gradients {
                   if (use_cg) { // operations specific for the conjugate gradients method
                     
                       complex_t const f = ((std::abs(res_new) > tiny<real_t>()) ? res_old/res_new : 0);
-                      if (echo > 7) printf("# CG step with old/new = %g/%g = %g\n", res_old, res_new, std::real(f));
+                      if (echo > 7) std::printf("# CG step with old/new = %g/%g = %g\n", res_old, res_new, std::real(f));
 
                       scale(dir, nv, f);
                       add_product(dir, nv, Pgrd, complex_t(1));
@@ -255,13 +258,13 @@ namespace conjugate_gradients {
                           set(Scon, nv, Sdir); // copy
                       } else { assert(Sdir == dir); assert(Scon == con); };
 
-                      if (echo > 7) printf("# norm^2 of con %.e\n", std::real(inner_product(nv, con, Scon, dV)));
+                      if (echo > 7) std::printf("# norm^2 of con %.e\n", std::real(inner_product(nv, con, Scon, dV)));
                       
                       for(int iortho = 0; iortho < northo[2]; ++iortho) {
-                          if (echo > 7) printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
+                          if (echo > 7) std::printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
                           for(int jb = 0; jb <= ib; ++jb) {
                               auto const a = inner_product(nv, con, Ss[jb], dV);
-                              if (echo > 8) printf("# orthogonalize conjugate direction against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
+                              if (echo > 8) std::printf("# orthogonalize conjugate direction against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
                               add_product(con,  nv,  s[jb], complex_t(-a));
                               if (use_overlap) {
                                   add_product(Scon, nv, Ss[jb], complex_t(-a));
@@ -272,7 +275,7 @@ namespace conjugate_gradients {
                   } else { assert(Scon == SPgrd); assert(con == Pgrd); } // steepest descent method
 
                   double const cnorm = std::real(inner_product(nv, con, Scon, dV));
-                  if (echo > 7) printf("# norm^2 of conjugate direction is %.e\n", cnorm);
+                  if (echo > 7) std::printf("# norm^2 of conjugate direction is %.e\n", cnorm);
                   if (cnorm < 1e-12) {
                       it_converged = iiter; // converged, stop the iiter loop
                   } else { 
@@ -315,8 +318,8 @@ namespace conjugate_gradients {
               } // evaluate only the energy so the display is correct
               
               if (echo > 4) {
-                  if (last_printf_line > 0) printf("\r"); // carriage return to line start
-                  printf("# CG energy of band #%i is %.9g %s, residual %.1e %s in %d iterations                \n", 
+                  if (last_printf_line > 0) std::printf("\r"); // carriage return to line start
+                  std::printf("# CG energy of band #%i is %.9g %s, residual %.1e %s in %d iterations                \n", 
                                 ib, energy[ib]*eV, _eV, residual[ib],
                                 it_converged ? "converged" : "reached", 
                                 it_converged ? std::abs(it_converged) : maxiter);
@@ -345,7 +348,7 @@ namespace conjugate_gradients {
   template <typename complex_t>
   inline status_t test_solver(int const echo=9) {
       int const nbands = std::min(8, int(control::get("conjugate_gradients.test.num.bands", 4)));
-      if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
+      if (echo > 3) std::printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
       status_t stat{0};
       int const dims[] = {8, 8, 8};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
@@ -375,17 +378,17 @@ namespace conjugate_gradients {
                   psi[iband*g.all() + ixyz] = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-          if (echo > 2) printf("\n# %s: use cosine functions as start vectors\n", __func__);
+          if (echo > 2) std::printf("\n# %s: use cosine functions as start vectors\n", __func__);
       } else if ('r' == swm) {
           for(size_t i = 0; i < nbands*g.all(); ++i) {
               psi[i] = simple_math::random(-1., 1.); // random wave functions (most probably not very good)
           } // i
-          if (echo > 2) printf("\n# %s: use random values as start vectors\n", __func__);
+          if (echo > 2) std::printf("\n# %s: use random values as start vectors\n", __func__);
       } else {
           for(int iband = 0; iband < nbands; ++iband) {
               psi[iband*g.all() + iband] = 1; // bad start wave functions
           } // iband
-          if (echo > 2) printf("\n# %s: use as start vectors some delta functions at the boundary\n", __func__);
+          if (echo > 2) std::printf("\n# %s: use as start vectors some delta functions at the boundary\n", __func__);
       } // swm (start wave method)
 
       // construct Hamiltonian and Overlap operator

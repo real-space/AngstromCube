@@ -4,11 +4,10 @@
 
 for module in \
   recorded_warnings \
+  self_consistency \
   finite_difference \
   hermite_polynomial \
   spherical_harmonics \
-  structure_solver \
-  self_consistency \
   conjugate_gradients \
   potential_generator \
   global_coordinates \
@@ -74,18 +73,18 @@ for module in \
     echo $module
 
     ## generate a short main function including the header
-    echo "#include \"$module.hxx\" // ::all_tests"       > test_me.cxx
-    echo "int main() { return $module::all_tests(6); }" >> test_me.cxx
+    echo "#include \"$module.hxx\" // ::all_tests"            > test_me.cxx
+    echo "int main() { return int($module::all_tests(6)); }" >> test_me.cxx
 
-    ## compile
+    ## compile to check for missing include files
     g++ -std=c++11 \
         -I../include/ \
         -g -pedantic -Wall -O0 \
               -D HAS_NO_MKL \
               -D DEVEL \
               -D HAS_NO_MPI \
-              -D NO_UNIT_TESTS \
               -c test_me.cxx
+#               -D NO_UNIT_TESTS \
 
     ## cleanup
     rm -f test_me.cxx test_me.o

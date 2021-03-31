@@ -1,5 +1,11 @@
 #pragma once
 
+#include <cstdio> // std::printf
+#include <complex> // std::real, std::norm
+#include <vector> // std::vector<T>
+#include <algorithm> // std::swap, std::max, std::min, std::sort
+#include <cmath> // std::ceil, std::sqrt
+
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>, view3D<T>
 #include "linear_algebra.hxx" // ::eigenvalues
@@ -7,11 +13,14 @@
 #include "complex_tools.hxx" // conjugate, is_complex, to_double_complex_t
 #include "display_units.h" // eV, _eV
 #include "print_tools.hxx" // printf_vector
+#include "recorded_warnings.hxx" // warn, error
 
 #ifndef NO_UNIT_TESTS
-  #include "complex_tools.hxx" // complex_name
-  #include "simple_math.hxx" // ::random
-  #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
+//  #include <cmath> // std::cos
+//  #include <complex> // std::complex
+//  #include "complex_tools.hxx" // complex_name
+    #include "simple_math.hxx" // ::random
+    #include "grid_operators.hxx" // ::grid_operator_t, ::empty_list_of_atoms
 #endif
 
 namespace davidson_solver {
@@ -40,7 +49,7 @@ namespace davidson_solver {
               s[ibra*stride + jket] = tmp*factor; // init
           } // jket
 #ifdef NEVER
-          printf("\n# davidson_solver: inner_products: coeffs (%i,:) ", ibra);
+          std::printf("\n# davidson_solver: inner_products: coeffs (%i,:) ", ibra);
           printf_vector("%g ", &s[ibra*stride], mstates);
 #endif // NEVER
       } // ibra
@@ -81,18 +90,18 @@ namespace davidson_solver {
       if (n < 1) return;
       if (is_complex<real_t>()) return;
       if (1 == n) {
-          printf("# Vector=%s (%s)", name, _unit);
+          std::printf("# Vector=%s (%s)", name, _unit);
       } else {
-          printf("\n# %dx%d Matrix=%s (%s)\n", n, m, name, _unit);
+          std::printf("\n# %dx%d Matrix=%s (%s)\n", n, m, name, _unit);
       } // n == 1
       for(int i = 0; i < n; ++i) {
-          if (n > 1) printf("#%4i ", i);
+          if (n > 1) std::printf("#%4i ", i);
           for(int j = 0; j < m; ++j) {
-              printf((1 == n)?" %.3f":" %7.3f", std::real(mat[i*stride + j])*unit);
+              std::printf((1 == n)?" %.3f":" %7.3f", std::real(mat[i*stride + j])*unit);
           } // j
-          printf("\n");
+          std::printf("\n");
       } // i
-      printf("\n");
+      std::printf("\n");
   } // show_matrix
 
   template <class operator_t>
@@ -115,9 +124,9 @@ namespace davidson_solver {
       double const dV = op.get_volume_element();
       size_t const ndof = op.get_degrees_of_freedom(); // bad naming since e.g. complex numbers bear 2 DoF in it
 
-      int const max_space = int(std::ceil(mbasis*nbands));
+      int const max_space = std::ceil(mbasis*nbands);
       int sub_space{nbands}; // init with the waves from the input
-      if (echo > 0) printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
+      if (echo > 0) std::printf("# start Davidson with %d bands, subspace size up to %d bands\n", sub_space, max_space);
 
       double const threshold2 = pow2(threshold); // do not add residual vectors with a norm < 1e-4
 
@@ -138,7 +147,7 @@ namespace davidson_solver {
 
       unsigned niter{niterations};
       for(unsigned iteration = 0; iteration < niter; ++iteration) {
-          if (echo > 9) printf("# Davidson iteration %i\n", iteration);
+          if (echo > 9) std::printf("# Davidson iteration %i\n", iteration);
 
           int n_drop{0};
           do {
@@ -169,21 +178,21 @@ namespace davidson_solver {
                           } // j
                       } // i
                       auto const dev = std::sqrt(std::max(0.0, dev2)); // since std::norm(z) generates |z|^2
-                      if (echo > 9 && dev > 1e-14) printf("# Davidson: the %d x %d overlap matrix deviates from %s by %.1e\n",
+                      if (echo > 9 && dev > 1e-14) std::printf("# Davidson: the %d x %d overlap matrix deviates from %s by %.1e\n",
                           sub_space, sub_space, is_complex<doublecomplex_t>() ? "Hermitian" : "symmetric", dev);
                       if (dev > 1e-12) warn("the overlap matrix deviates by %.1e from symmetric/Hermitian", dev);
                   } // check if the overlap matrix is symmetric/Hermitian
 
                   auto const info = linear_algebra::eigenvalues(eigval.data(), sub_space, Ovl_copy.data(), Ovl_copy.stride());
                   if (1) {
-                      printf("# Davidson: lowest eigenvalues of the %d x %d overlap matrix ", sub_space, sub_space);
+                      std::printf("# Davidson: lowest eigenvalues of the %d x %d overlap matrix ", sub_space, sub_space);
                       for(int i = 0; i < std::min(9, sub_space) - 1; ++i) {
-                          printf(" %.3g", eigval[i]);
+                          std::printf(" %.3g", eigval[i]);
                       } // i
-                      if (sub_space > 9) printf(" ...");
-                      printf(" %g", eigval[sub_space - 1]);
-                      if (0 != info) printf(", info= %i\n", int(info));
-                      printf("\n");
+                      if (sub_space > 9) std::printf(" ...");
+                      std::printf(" %g", eigval[sub_space - 1]);
+                      if (0 != info) std::printf(", info= %i\n", int(info));
+                      std::printf("\n");
                   } // 1
                   if (eigval[0] <= 0.0) {
                       warn("overlap matrix is not positive definite, lowest eigenvalue is %g", eigval[0]);
@@ -192,7 +201,7 @@ namespace davidson_solver {
                   int drop_bands{0}; while (eigval[drop_bands] < 1e-4) ++drop_bands;
                   n_drop = drop_bands;
                   if (n_drop > 0) {
-                      if (echo > 0) printf("# Davidson: drop %d bands to stabilize the overlap\n", n_drop);
+                      if (echo > 0) std::printf("# Davidson: drop %d bands to stabilize the overlap\n", n_drop);
                       for(int i = 0; i < sub_space - n_drop; ++i) {
                           int const ii = i + n_drop;
                           set(epsi[i], ndof, zero);
@@ -240,7 +249,7 @@ namespace davidson_solver {
                   vector_norm2s(residual_norm2s.data(), ndof, epsi.data(), sub_space, 
                                                with_overlap ? spsi.data() : nullptr, dV);
 #ifdef DEBUG
-                  printf("# Davidson: unsorted residual norms^2 ");
+                  std::printf("# Davidson: unsorted residual norms^2 ");
                   printf_vector(" %.1e", residual_norm2s.data(), sub_space);
 #endif // DEBUG
 
@@ -249,7 +258,7 @@ namespace davidson_solver {
                   std::sort(res_norm2_sort.rbegin(), res_norm2_sort.rend()); // sort in place, reversed
                   // reverse as we seek for the largest residuals
 #ifdef DEBUG
-                  printf("# Davidson: largest residual norms^2 ");
+                  std::printf("# Davidson: largest residual norms^2 ");
                   printf_vector(" %.1e", res_norm2_sort.data(), sub_space);
 #endif // DEBUG
 
@@ -268,9 +277,9 @@ namespace davidson_solver {
                   } // i
                   int const add_bands = new_bands;
                   if (echo > 0) {
-                      printf("# Davidson: in iteration #%i add %d residual vectors", iteration, add_bands);
-                      if (add_bands > 0) printf(" with norm2 above %.3e", thres2);
-                      printf("\n");
+                      std::printf("# Davidson: in iteration #%i add %d residual vectors", iteration, add_bands);
+                      if (add_bands > 0) std::printf(" with norm2 above %.3e", thres2);
+                      std::printf("\n");
                   } // echo
 
                   std::vector<short> indices(add_bands);
@@ -286,7 +295,7 @@ namespace davidson_solver {
                   } // i
 
                   if (echo > 9 && add_bands > 0) {
-                      printf("# Davidson: add %d residual vectors: ", add_bands);
+                      std::printf("# Davidson: add %d residual vectors: ", add_bands);
                       printf_vector(" %i", indices.data(), new_band);
                   } // echo
                   if (new_band != add_bands) error("new_bands=%d != %d=add_bands", new_band, add_bands);
@@ -339,7 +348,7 @@ namespace davidson_solver {
   template <typename complex_t>
   inline status_t test_solver(int const echo=9) {
       int const nbands = std::min(8, int(control::get("davidson_solver.test.num.bands", 4)));
-      if (echo > 3) printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
+      if (echo > 3) std::printf("\n# %s %s<%s> with %d bands\n", __FILE__, __func__, complex_name<complex_t>(), nbands);
       status_t stat{0};
       // particle in a box: lowest mode: sin(xyz*pi/L)^3 --> k_x=k_y=k_z=pi/L
       // --> ground state energy = 3*(pi/9)**2 Rydberg = 0.182 Hartree
@@ -368,19 +377,19 @@ namespace davidson_solver {
                   psi(iband,izyx) = wxyz[iband]*cos_x*cos_y*cos_z; // good start wave functions
               } // iband
           }}} // ix iy iz
-          if (echo > 2) printf("\n# %s: use cosine functions as start vectors\n", __func__);
+          if (echo > 2) std::printf("\n# %s: use cosine functions as start vectors\n", __func__);
       } else if (1 == swm) {
           for(int iband = 0; iband < nbands; ++iband) {
               for(int izyx = 0; izyx < g.all(); ++izyx) {
                   psi(iband,izyx) = simple_math::random(-1.f, 1.f); // random wave functions (most probably not very good)
               } // izyx
           } // iband
-          if (echo > 2) printf("\n# %s: use random values as start vectors\n", __func__);
+          if (echo > 2) std::printf("\n# %s: use random values as start vectors\n", __func__);
       } else {
           for(int iband = 0; iband < nbands; ++iband) {
               psi(iband,iband) = 1; // bad start wave functions
           } // iband
-          if (echo > 2) printf("\n# %s: use as start vectors some delta functions at the boundary\n", __func__);
+          if (echo > 2) std::printf("\n# %s: use as start vectors some delta functions at the boundary\n", __func__);
       } // swm (start wave method)
 
       // create a real-space grid Hamiltonian without atoms and with a flat local potential (at zero)

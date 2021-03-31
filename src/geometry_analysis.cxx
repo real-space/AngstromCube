@@ -15,7 +15,7 @@
 #include "inline_math.hxx" // set, pow2
 #include "constants.hxx" // ::pi
 #include "data_view.hxx" // view2D<T>
-#include "inline_tools.hxx" // required_bits
+// #include "inline_tools.hxx" // required_bits
 #include "vector_math.hxx" // ::vec<n,T>
 #include "chemical_symbol.hxx" // ::decode
 #include "recorded_warnings.hxx" // warn, error

@@ -42,7 +42,7 @@
 namespace complex_tools {
 
 #ifdef  NO_UNIT_TESTS
-  status_t inline all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+  inline status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   template <typename complex_t>
