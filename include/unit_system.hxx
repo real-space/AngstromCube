@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdio> // std::printf
 #include <cassert> // assert
 
 #include "display_units.h" // eV, _eV, Ang, _Ang, Kelvin, _Kelvin
@@ -46,7 +47,9 @@ namespace unit_system {
       } // w
   } // length_unit
 
-  inline status_t set_output_units(char const *energy, char const *length) {
+
+  inline status_t set_output_units(char const *energy, char const *length, int const echo) {
+      if (echo > 5) std::printf("# Set output units to {%s, %s}\n", energy, length);
 #ifdef _Output_Units_Fixed
       if ('H' != *energy || 'B' != *length) {
           warn("output units cannot be changed to {%s, %s} at runtime", energy, length);
@@ -73,22 +76,22 @@ namespace unit_system {
           for(int iu = 0; iu < 3; ++iu) {
               char const *_si;
               auto const f = el ? length_unit(sy[el][iu], &_si) : energy_unit(sy[el][iu], &_si);
-              if (echo > 2) printf("# %s unit factor %.12f for %s\n", el_name[el], f, _si);
+              if (echo > 2) std::printf("# %s unit factor %.12f for %s\n", el_name[el], f, _si);
               auto const fi = 1./f;
               for(int ou = 0; ou < 3; ++ou) {
                   char const *_so;
                   auto const fo = el ? length_unit(sy[el][ou], &_so) : energy_unit(sy[el][ou], &_so);
-                  if (echo > 3) printf("# %s unit factors %.9f * %.9f = %.9f %s/%s\n", el_name[el], fo, fi, fo*fi, _si, _so);
+                  if (echo > 3) std::printf("# %s unit factors %.9f * %.9f = %.9f %s/%s\n", el_name[el], fo, fi, fo*fi, _si, _so);
                   stat += (iu == ou)*((fo*fi - 1)*(fo*fi - 1) > 4e-32); // check that inverse factors produce 1.0 exactly
               } // ou
           } // iu input unit
-          if (echo > 2) printf("#\n");
+          if (echo > 2) std::printf("#\n");
       } // el {energy, length}
       return stat;
   } // test_all_combinations
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
       stat += test_all_combinations(echo);
       return stat;

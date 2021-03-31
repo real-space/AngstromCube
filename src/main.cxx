@@ -3,12 +3,12 @@
 #include <cstdlib> // std::abs
 #include <vector> // std::vector
 #include <string> // std::string
-#include <utility> // std::pair
+#include <utility> // std::pair, std::make_pair
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
 #include "unit_system.hxx" // ::set_output_units
-#include "control.hxx" // ::command_line_interface
+#include "control.hxx" // ::command_line_interface, ::get
 
 #include "status.hxx" // status_t
 
@@ -90,37 +90,60 @@
       // end global variables
 #endif // _Output_Units_Fixed
 
+      
+  status_t run_module_test(
+        char const *module_name
+      , status_t  (*module_tests)(int) // function pointer
+      , int const echo // log-level
+  ) {
+      SimpleTimer timer(module_name, 0, "", echo*0); // silent
+      if (echo > 3) std::printf("\n\n\n# ============= Module test"
+                     " for %s ==================\n\n", module_name);
+      return module_tests(echo);
+  } // run_module_test
+
   status_t run_unit_tests(char const *module=nullptr, int const echo=0) {
       status_t status(0);
 #ifdef  NO_UNIT_TESTS
       error("version was compiled with -D NO_UNIT_TESTS", 0);
       status = -1;
 #else // NO_UNIT_TESTS
-      bool all{false}, run{true};
-      if (nullptr == module) {
-          all = true;
-      } else {
-          if ('?' == *module) { all = true; run = false; } // availability check
-      } // module
-      std::string const name_string(all ? "" : module);
-      if (echo > 0) std::printf("# run unit tests for %s%s\n\n", 
-                        all?"all modules":"module ", name_string.c_str());
+      std::string const input_name(module ? module : "");
+      bool const run = ('?' != input_name[0]);
+      bool const all = ( 0  == input_name[0]) || (!run);
+      if (echo > 0) {
+          if (!run) { printf("\n# show available module tests:\n"); } else
+          if (all)  { printf("\n# run all tests!\n\n"); }
+          else      { printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
+      } // echo
 
-      std::vector<std::pair<std::string,status_t>> results;
+      std::vector<std::pair<char const*, status_t>> results;
       { // testing scope
+// #define   add_module_test(MODULE_NAME) \
+//           {                                                                                \
+//               char const *const module_name = #MODULE_NAME;                                \
+//               if (all || (0 == input_name.compare(module_name))) {                         \
+//                   status_t stat(0);                                                        \
+//                   if (run) {                                                               \
+//                       SimpleTimer timer("module test for", 0, module_name, 0);             \
+//                       if (all && echo > 3) std::printf("\n\n\n# ============= Module test" \
+//                                            " for %s ==================\n\n", module_name); \
+//                       stat = MODULE_NAME::all_tests(echo);                                 \
+//                   }                                                                        \
+//                   results.push_back(std::make_pair(module_name, stat));                    \
+//               }                                                                            \
+//           }
+
+          // alternative (probably cleaner)
 #define   add_module_test(MODULE_NAME) \
-          if (all || (0 == name_string.compare(#MODULE_NAME))) { \
-              status_t stat(0); \
-              if (run) { \
-                  SimpleTimer timer("module test for", 0, #MODULE_NAME, 0); \
-                  if (all && echo > 3) { \
-                      std::printf("\n\n\n# ============= Module test for " \
-                            #MODULE_NAME " ==================\n\n"); \
-                  } \
-                  stat = MODULE_NAME::all_tests(echo); \
-              } \
-              results.push_back(make_pair(std::string(#MODULE_NAME), stat)); \
+          {                                                                             \
+              char const *const module_name = #MODULE_NAME;                             \
+              if (all || (0 == input_name.compare(module_name))) {                      \
+                  results.push_back(std::make_pair(module_name, run ?                   \
+                      run_module_test(module_name, MODULE_NAME::all_tests, echo) : 0)); \
+              }                                                                         \
           }
+
           add_module_test(recorded_warnings);
           add_module_test(finite_difference);
           add_module_test(hermite_polynomial);
@@ -197,9 +220,12 @@
       } else {
           if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, run?"have been":"can be");
           int nonzero_status{0};
-          for(auto result : results) {
+          for (auto result : results) {
               auto const stat = result.second;
-              if (echo > 0) std::printf("#    module= %-24s status= %i\n", result.first.c_str(), int(stat));
+              if (echo > 0) {
+                  if (run) { std::printf("#    module= %-24s status= %i\n", result.first, int(stat)); }
+                  else     { std::printf("#    module= %s\n", result.first); }
+              } // echo
               status += std::abs(int(stat));
               nonzero_status += (0 != stat);
           } // result
@@ -254,24 +280,24 @@
           std::printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]);
           return -1;
       } // no argument passed to executable
-      for(int iarg = 1; iarg < argc; ++iarg) {
+      for (int iarg = 1; iarg < argc; ++iarg) {
           assert(nullptr != argv[iarg]);
           char const ci0 = *argv[iarg]; // char #0 of command line argument #i
           if ('-' == ci0) {
 
               // options (short or long)
-              char const ci1 = *(argv[iarg] + 1);// char #1 of command line argument #i
+              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #i
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
 
                   // long options with "--"
-                  std::string option(argv[iarg] + 2);// + 2 to remove "--" in front
+                  std::string option(argv[iarg] + 2); // + 2 to remove "--" in front
                   if ("help" == option) {
                       return show_help(argv[0]);
-                  } else 
+                  } else
                   if ("version" == option) {
                       return show_version(argv[0], 1);
-                  } else 
+                  } else
                   if ("verbose" == option) {
                       verbosity = 6; // set verbosity high
                   } else
@@ -288,7 +314,7 @@
                       return show_help(argv[0]);
                   } else
                   if ('v' == (ci1 | IgnoreCase)) {
-                      verbosity += 1 + 3*('V' == ci1);// increment by 'V':4, 'v':1
+                      verbosity += 1 + 3*('V' == ci1); // increment by 'V':4, 'v':1
                   } else
                   if ('t' == (ci1 | IgnoreCase)) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
@@ -300,7 +326,7 @@
 
           } else // ci0
           if ('+' == ci0) {
-              stat += control::command_line_interface(argv[iarg] + 1);// start after the '+' char
+              stat += control::command_line_interface(argv[iarg] + 1); // start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
               ++stat; warn("# ignored command line argument \'%s\'", argv[iarg]);
@@ -308,11 +334,11 @@
 
       } // iarg
       //
-      int echo = int(control::get("verbosity", double(verbosity)));// define verbosity for repeating arguments and control file entries
+      int echo = control::get("verbosity", double(verbosity)); // define verbosity for repeating arguments and control file entries
       if (echo > 0) {
           std::printf("\n#");
-          for(int iarg = 0; iarg < argc; ++iarg) {
-              std::printf(" %s", argv[iarg]);// repeat all command line arguments for completeness of the log file
+          for (int iarg = 0; iarg < argc; ++iarg) {
+              std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
           } // iarg
           std::printf("\n");
       } // echo
@@ -320,7 +346,7 @@
       // in addition to command_line_interface, we can modify the control environment by a file
       stat += control::read_control_file(control::get("control.file", ""), echo);
       //
-      echo = int(control::get("verbosity", double(echo)));// verbosity may have been redefined in the control file
+      echo = control::get("verbosity", double(echo)); // verbosity may have been redefined in the control file
       //
       show_version(argv[0], echo);
       //
@@ -328,7 +354,8 @@
       //
       stat += unit_system::set_output_units(
                   control::get("output.energy.unit", "Ha"),
-                  control::get("output.length.unit", "Bohr"));
+                  control::get("output.length.unit", "Bohr"),
+                  echo);
       if (run_tests) stat += run_unit_tests(test_unit, echo);
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
