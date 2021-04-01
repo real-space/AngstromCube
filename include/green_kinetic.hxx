@@ -1,12 +1,12 @@
 #pragma once
 
+#include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
 #include <utility> // std::swap //, std::move
 #include <vector> // std::vector<T>
-#include <cstdio> // printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory
@@ -128,7 +128,7 @@ namespace green_kinetic {
           std::swap(n_lists, rhs.n_lists);
           return *this;
       } // move assignment
-      
+
       finite_difference_plan_t(finite_difference_plan_t && rhs) = delete;
 //       {   std::printf("# finite_difference_plan_t(finite_difference_plan_t && rhs);\n");
 //           *this = std::move(rhs);

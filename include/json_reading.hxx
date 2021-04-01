@@ -1,6 +1,6 @@
 #pragma once
 
-#ifdef HAS_RAPIDJSON
+#ifdef  HAS_RAPIDJSON
   #include <cassert> // assert
 //   #include <cstdlib> // std::atof, std::strtod
   #include <fstream> // std::ifstream
@@ -20,7 +20,7 @@ namespace json_reading {
 
   inline status_t test_json_reader(int const echo=0) {
       status_t stat(0);
-#ifdef HAS_RAPIDJSON
+#ifdef  HAS_RAPIDJSON
 
       std::string infile;
       std::ifstream file_stream("Hmt.json"); // taking file as inputstream
@@ -58,9 +58,9 @@ namespace json_reading {
       assert(doc.HasMember("potential"));
       assert(doc.HasMember("sho_atoms"));
 
-#else
+#else  // HAS_RAPIDJSON
       warn("Unable to check usage of rapidjson when compiled without -D HAS_RAPIDJSON", 0);
-#endif
+#endif // HAS_RAPIDJSON
       return stat;
   } // test_json_reader
 

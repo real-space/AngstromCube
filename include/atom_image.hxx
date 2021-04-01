@@ -54,7 +54,7 @@ namespace atom_image {
           _stride = align<2>(_ncoeff);
           _matrix64 = std::vector<double>(2*_ncoeff*_stride, 0.0);
           _matrix32 = std::vector<float> (2*_ncoeff*_stride, 0.f);
-          if (pos) {
+          if (nullptr != pos) {
               _images.resize(1); // only the one base image
               _images[0] = atom_image::atom_image_t(pos[0], pos[1], pos[2], atom_id, 0,0,0, Zi);
           } // pos
@@ -129,12 +129,10 @@ namespace atom_image {
       double  _sigma{1.};
       int32_t _numax{-1};
       int32_t _atom_id{-1};
-
-      std::vector<double> _matrix64; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
-      std::vector<float>  _matrix32; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
       int32_t _ncoeff{0};
       int32_t _stride{0};
-      
+      std::vector<double> _matrix64; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
+      std::vector<float>  _matrix32; // data layout matrix[Hmt0_Ovl1][ncoeff][stride], SHO-coefficient layout is order_zyx
       std::vector<atom_image_t> _images;
   }; // class sho_atom_t
 

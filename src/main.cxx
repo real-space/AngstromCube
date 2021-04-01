@@ -51,6 +51,7 @@
 #include "grid_operators.hxx" // ::all_tests
 #include "dense_operator.hxx" // ::all_tests
 #include "element_config.hxx" // ::all_tests
+#include "green_kinetic.hxx" // ::all_tests
 #include "complex_tools.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
@@ -165,6 +166,7 @@
           add_module_test(grid_operators);
           add_module_test(dense_operator);
           add_module_test(element_config);
+          add_module_test(green_kinetic);
           add_module_test(complex_tools);
           add_module_test(vector_layout);
           add_module_test(sho_potential);
