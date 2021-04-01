@@ -13,8 +13,7 @@
 #include "finite_difference.hxx" // ::set_Laplacian_coefficients
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "inline_tools.hxx" // align<nBits>
-#include "inline_math.hxx" // set, add_product, dot_product
+#include "inline_math.hxx" // set, add_product, dot_product, align<nBits>
 #include "sho_tools.hxx" // ::nSHO, ::nSHO_radial
 #include "radial_integrator.hxx" // ::integrate_outwards<SRA>
 #include "constants.hxx" // ::pi

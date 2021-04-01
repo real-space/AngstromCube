@@ -7,8 +7,7 @@
 #include "poisson_solver.hxx" // ::all_tests, ::solve, ::print_direct_projection
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "inline_math.hxx" // set, pow2
-#include "inline_tools.hxx" // align<n>
+#include "inline_math.hxx" // set, pow2, align<nBits>
 // #include "constants.hxx" // ::sqrtpi, ::pi
 #include "solid_harmonics.hxx" // ::Y00
 #include "real_space.hxx" // ::grid_t, ::Bessel_projection

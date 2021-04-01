@@ -20,7 +20,7 @@
 #include "sho_overlap.hxx" // ::
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
 #include "data_list.hxx" // data_list<T>
-#include "inline_tools.hxx" // align<nbits>
+#include "inline_math.hxx" // align<nBits>
 #include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
 #include "hermite_polynomial.hxx" // hermite_polys

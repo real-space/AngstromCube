@@ -3,10 +3,9 @@
 #include "status.hxx" // status_t
 
 #include "fourier_transform.hxx" // ::fft
-#include "inline_tools.hxx" // align
 #include "vector_math.hxx" // vec<n,T>
 #include "constants.hxx" // ::pi
-#include "inline_math.hxx" // pow2
+#include "inline_math.hxx" // pow2, align<nBits>
 
 namespace fourier_poisson {
 

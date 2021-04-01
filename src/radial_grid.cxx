@@ -5,7 +5,7 @@
 
 #include "radial_grid.hxx" // radial_grid_t
 
-#include "inline_tools.hxx" // align
+#include "inline_math.hxx" // align
 
 namespace radial_grid {
   

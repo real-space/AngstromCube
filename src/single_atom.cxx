@@ -20,8 +20,7 @@
 #include "radial_integrator.hxx" // ::integrate_outwards
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 
-#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow, dot_product
-#include "inline_tools.hxx" // align<nbits>
+#include "inline_math.hxx" // pow2, pow3, set, scale, product, add_product, intpow, dot_product, align<nBits>
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 #include "sho_tools.hxx" // ::lnm_index, ::nSHO, ??? some more, ::nSHO_radial

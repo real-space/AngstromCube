@@ -4,7 +4,7 @@
 #include <cstdio> // printf
 #include <vector> // std::vector<T>
 #include "sho_tools.hxx" // ::nSHO, ::construct_index_table, ::order_zyx
-#include "inline_tools.hxx" // align<N_bits>
+#include "inline_math.hxx" // align<N_bits>
 #include "sho_projection.hxx" // ::sho_prefactor
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED

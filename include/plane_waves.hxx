@@ -6,7 +6,7 @@
 #include "status.hxx" // status_t
 #include "data_view.hxx" // view2D<T>
 #include "real_space.hxx" // ::grid_t
-#include "inline_tools.hxx" // align<n>
+#include "inline_math.hxx" // align<n>
 
 namespace plane_waves {
 

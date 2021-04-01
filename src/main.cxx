@@ -57,7 +57,6 @@
 #include "mpi_parallel.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
 #include "pseudo_tools.hxx" // ::all_tests
-#include "inline_tools.hxx" // ::all_tests
 #include "simple_timer.hxx" // ::all_tests
 #include "sigma_config.hxx" // ::all_tests
 #include "dense_solver.hxx" // ::all_tests
@@ -172,7 +171,6 @@
           add_module_test(mpi_parallel);
           add_module_test(angular_grid);
           add_module_test(pseudo_tools);
-          add_module_test(inline_tools);
           add_module_test(simple_timer);
           add_module_test(sigma_config);
           add_module_test(dense_solver);

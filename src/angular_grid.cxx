@@ -7,13 +7,12 @@
 #include "angular_grid.hxx"
 
 #include "angular_grid.h" // angular_grid_t
-#include "inline_tools.hxx" // align<>
-#include "inline_math.hxx" // pow2
-// #include "spherical_harmonics.hxx" // ::Ylm, Ylm_t
+#include "status.hxx" // status_t
+#include "constants.hxx" // ::pi
+#include "inline_math.hxx" // pow2, align<nBits>
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 #include "gaunt_entry.h" // gaunt_entry_t
-#include "constants.hxx" // ::pi
-#include "status.hxx" // status_t
+// #include "spherical_harmonics.hxx" // ::Ylm, Ylm_t
 
 extern "C" {
    // BLAS interface to matrix matrix multiplication

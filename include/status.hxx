@@ -3,20 +3,13 @@
 
   int constexpr STATUS_TEST_NOT_INCLUDED = -1;
 
-#ifndef STATUS_WITH_MESSAGE
+#ifndef   STATUS_WITH_MESSAGE
+
   typedef int status_t;
   
-//   template <class... Args>
-//   inline status_t set_status(char const *fmt, Args &&... args) { return 1; }
-//   inline char const * status_message(status_t const & code) { 
-//       char * _msg = new char[16]; // this memory is never free'd
-//       if (code) std::sprintf(_msg, "%i", code); else _msg[0] = 0;
-//       return _msg;
-//   } // status_message
+#else  // STATUS_WITH_MESSAGE
 
-#else
-
-#include <cstdio> // printf, std::sprintf
+#include <cstdio> // std::sprintf
 #include <utility> // std::forward
 #include <cstdint> // int32_t
 

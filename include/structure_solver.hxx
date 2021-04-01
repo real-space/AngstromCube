@@ -6,8 +6,7 @@
 #include <complex> // std::complex<real_t>
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "inline_math.hxx" // set, pow2
-#include "inline_tools.hxx" // align<n>
+#include "inline_math.hxx" // set, pow2, align<n>
 
 #include "real_space.hxx" // ::grid_t
 #include "sho_tools.hxx" // ::quantum_number_table

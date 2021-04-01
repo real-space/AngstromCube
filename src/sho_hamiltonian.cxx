@@ -19,8 +19,7 @@
 #include "boundary_condition.hxx" // Isolated_Boundary, ::periodic_image
 #include "sho_overlap.hxx" // ::overlap_matrix, ::nabla2_matrix, ::moment_tensor
 #include "data_view.hxx" // view2D<T>, view3D<T>, view4D<T>
-#include "inline_tools.hxx" // align<nbits>
-#include "simple_math.hxx" // ::random<real_t>
+#include "simple_math.hxx" // ::random<real_t>, align<nBits>
 #include "simple_stats.hxx" // ::Stats
 #include "simple_timer.hxx" // SimpleTimer
 #include "vector_math.hxx" // ::vec<N,T>

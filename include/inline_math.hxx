@@ -5,6 +5,10 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
+  template <int nBits> inline 
+  size_t align(int64_t const in) { return ((((in - 1) >> nBits) + 1) << nBits); }
+// template<int nBits> size_t inline align(int64_t const in) { return in; } // alignment switched off
+
   template <typename T> inline int constexpr sgn(T const val) {
       return (T(0) < val) - (val < T(0));
   } // sgn
@@ -163,11 +167,36 @@ namespace inline_math {
       return stat;
   } // test_factorials
 
+  inline status_t test_align(int const echo=1) {
+      status_t stat(0);
+      for (int i = 0; i < 99; ++i) {
+          stat += (align<0>(i) != i); // error if align<0> does not reproduce itself
+      } // i
+      for (int i = 1; i < (1 << 30); i *= 2) {
+          if (echo > 15) std::printf("# align<%d>(%d) = %ld\n", 1, i, align<1>(i));
+          stat += (align<0>(i) != i);
+          stat += (align<1>(i) != i && i > 1);
+          stat += (align<2>(i) != i && i > 2);
+          stat += (align<3>(i) != i && i > 4);
+      } // i
+      stat += (align<1>(1) != 2);
+      stat += (align<1>(3) != 4);
+      stat += (align<1>(7) != 8);
+      stat += (align<2>(1) != 4);
+      stat += (align<2>(3) != 4);
+      stat += (align<2>(7) != 8);
+      stat += (align<3>(1) != 8);
+      stat += (align<3>(3) != 8);
+      stat += (align<3>(7) != 8);
+      return stat;
+  } // test_align
+
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
       stat += test_intpow<float>(echo, 6e-6);
       stat += test_intpow<double>(echo);
+      stat += test_align(echo);
       stat += test_factorials(echo);
       return stat;
   } // all_tests

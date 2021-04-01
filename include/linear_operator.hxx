@@ -7,7 +7,7 @@
 #define CRTP_printf(...)
 
 #include "vector_layout.hxx" // VecLayout<real_t>
-#include "inline_tools.hxx" // real_t_name<real_t>
+#include "complex_tools.hxx" // complex_name<real_t/complex_t>
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 template <class CRTP_t, typename real_t>
@@ -23,17 +23,17 @@ class LinOp {
   public:
 
     inline void apply(real_t Ax[], real_t const x[]) const {
-        CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, real_t_name<real_t>());
+        CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, complex_name<real_t>());
         return static_cast<CRTP_t const *>(this)->_apply(Ax, x);
     } // apply
 
     inline void axpby(real_t y[], real_t const x[], real_t const *a=nullptr, real_t const *b=nullptr) const {
-        CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, real_t_name<real_t>());
+        CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, complex_name<real_t>());
         return static_cast<CRTP_t const *>(this)->layout_.axpby(y, x, a, b);
     } // axpby
 
     inline void inner(real_t d[], real_t const x[], real_t const *y=nullptr) const {
-        CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, real_t_name<real_t>());
+        CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, complex_name<real_t>());
         return static_cast<CRTP_t const *>(this)->layout_.inner(d, x, y);
     } // inner
 
@@ -59,11 +59,11 @@ namespace linear_operator {
       DiagOp(VecLayout<real_t> const & layout) 
         : layout_(layout) // clone
         , diagonal_(layout.ndof(), 3.0) { // values on the diagonal could in principle differ
-          CRTP_printf("# %s:%i %s<%s> (constructor)\n", __FILE__, __LINE__, __func__, real_t_name<real_t>());
+          CRTP_printf("# %s:%i %s<%s> (constructor)\n", __FILE__, __LINE__, __func__, complex_name<real_t>());
       } // constructor
 
       void _apply(real_t Dx[], real_t const x[]) const {
-          CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, real_t_name<real_t>());
+          CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, complex_name<real_t>());
           auto const m = layout_.stride(); // stride can be larger than nrhs_ for alignment
           for(int i = 0; i < layout_.ndof(); ++i) {
               for(int j = 0; j < layout_.nrhs(); ++j) {
