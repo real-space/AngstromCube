@@ -54,17 +54,17 @@ namespace green_kinetic {
           if (echo > 0) std::printf("# FD lists for the %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
           simple_stats::Stats<> length_stats;
           std::vector<std::vector<int32_t>> list;
-          size_t const max_lists = nRHSs*size_t(num[Z])*num[Y]*num[X];
+          size_t const max_lists = nRHSs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
           list.resize(max_lists);
-          int ilist{0};
-          for(int iRHS = 0; iRHS < nRHSs; ++iRHS) {
+          size_t ilist{0};
+          for (int iRHS = 0; iRHS < nRHSs; ++iRHS) {
 //                if (echo > 0) std::printf("# FD list for RHS #%i\n", iRHS);
               auto const & sparsity_RHS = sparsity_pattern[iRHS];
-              for(int iz = 0; iz < num[Z]; ++iz) { //  
-              for(int iy = 0; iy < num[Y]; ++iy) { //   only 2 of these 3 loops have a range > 1
-              for(int ix = 0; ix < num[X]; ++ix) { // 
+              for (int iz = 0; iz < num[Z]; ++iz) { //  
+              for (int iy = 0; iy < num[Y]; ++iy) { //   only 2 of these 3 loops have a range > 1
+              for (int ix = 0; ix < num[X]; ++ix) { // 
                   int idx[3] = {ix, iy, iz};
-                  for(int id = 0; id < num_dd; ++id) { // loop over direction to derive
+                  for (int id = 0; id < num_dd; ++id) { // loop over direction to derive
                       idx[dd] = id; // replace index in the derivate direction
 //                           if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n",
 //                                                   iRHS, idx[X], idx[Y], idx[Z]);
@@ -74,7 +74,7 @@ namespace green_kinetic {
                           assert(iRow >= 0);
 
                           int32_t inz_found{-1};
-                          for(auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
+                          for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
                               if (ColIndex[inz] == iRHS) {
                                   inz_found = inz; // store where it was found
                                   inz = RowStart[iRow + 1]; // stop search loop
@@ -98,7 +98,7 @@ namespace green_kinetic {
                   } // list_length > 0
               }}} // ixyz
           } // iRHS
-          n_lists = ilist; assert(n_lists == ilist);
+          n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
           if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
                                 n_lists, direction, n_lists/(max_lists*.01),
                                 length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
@@ -106,7 +106,7 @@ namespace green_kinetic {
           // store in managed memory
           prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory
           prefix[0] = 0;
-          for(int ilist = 0; ilist < n_lists; ++ilist) {
+          for (int ilist = 0; ilist < n_lists; ++ilist) {
               int const n = list[ilist].size();
               prefix[ilist + 1] = prefix[ilist] + n;
           } // ilist
@@ -114,7 +114,7 @@ namespace green_kinetic {
           if (echo > 0) std::printf("# FD lists for the %c-direction require %ld uint32_t, i.e. %.3f kByte\n",
                                   direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
           fd_list = get_memory<int32_t>(ntotal);
-          for(int ilist = 0; ilist < n_lists; ++ilist) {
+          for (int ilist = 0; ilist < n_lists; ++ilist) {
               int const n = list[ilist].size();
               set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory
           } // ilist
