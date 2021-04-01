@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::fflush, stdout
+#include <cstdio> // std::printf, std::fflush, stdout
 
 #include "status.hxx" // status_t
 
@@ -8,11 +8,11 @@
 #include "inline_math.hxx" // product
 #include "complex_tools.hxx" // complex_name
 
-#define DEBUG
+// #define DEBUG
 
 namespace dense_operator {
 
-  template<typename wave_function_t> // choose from {float, double, complex<float>, complex<double>}
+  template <typename wave_function_t> // choose from {float, double, complex<float>, complex<double>}
   class dense_operator_t {
     //
     //  An operator offering the action of dense-stored 
@@ -29,7 +29,10 @@ namespace dense_operator {
       
       inline status_t matrix_vector_multiplication(complex_t mvec[]
                      , complex_t const mat[], complex_t const vec[], int const echo=0) const {
-          if (echo > 19) { printf("# %s<%s> gemm\n", __func__, complex_name<complex_t>()); std::fflush(stdout); }
+          if (echo > 19) {
+              std::printf("# %s<%s> gemm\n", __func__, complex_name<complex_t>());
+              std::fflush(stdout);
+          } // echo
           return linear_algebra::gemm(nB, 1, nB, mvec, nB, vec, nB, mat, nBa);
       } // matrix_vector_multiplication
 
@@ -41,8 +44,11 @@ namespace dense_operator {
           , complex_t const *Hmt         // Hamiltonian
           , complex_t const *Smt=nullptr // Overlap matrix, optional
           , complex_t const *Cnd=nullptr // diagonal preconditioner, optional
-      ) : Hmt{Hmt}, Smt{Smt}, Cnd{Cnd}, nB{nB}, nBa{stride}
-      { assert( nB <= nBa ); } // constructor
+      ) 
+        : Hmt{Hmt}, Smt{Smt}, Cnd{Cnd}, nB{nB}, nBa{stride}
+      { 
+          assert( nB <= nBa );
+      } // constructor
 
       status_t Hamiltonian(complex_t Hpsi[], complex_t const psi[], int const echo=0) const {
           return matrix_vector_multiplication(Hpsi, Hmt, psi, echo); // multiply Hpsi = Hmt*psi
@@ -85,7 +91,4 @@ namespace dense_operator {
 
 #ifdef DEBUG
   #undef DEBUG
-#endif
-#ifdef FULL_DEBUG
-  #undef FULL_DEBUG
 #endif

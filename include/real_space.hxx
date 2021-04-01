@@ -162,7 +162,7 @@ namespace real_space {
 
   template <typename real_t>
   status_t Bessel_projection(
-      double q_coeff[] // result Bessel coefficients
+        double q_coeff[] // result Bessel coefficients
       , int const nq // number of coefficients
       , float const dq // wave number spacing in reciprocal space
       , real_t const values[] // grid array

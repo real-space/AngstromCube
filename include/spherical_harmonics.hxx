@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // printf
-#include <complex> // std::complex<real_t>
+#include <complex> // std::complex<real_t>, std::conj
 #include <cmath> // std::sqrt
 #include <vector> // std::vector<T>
 
@@ -10,9 +10,13 @@
 
 namespace spherical_harmonics {
 
-  template<typename real_t, typename vector_real_t>
-  void Ylm(std::complex<real_t> ylm[], int const ellmax, vector_real_t const v[3]) {
-    if (ellmax < 0) return;
+  template <typename real_t, typename vector_real_t>
+  inline void Ylm(
+        std::complex<real_t> ylm[]
+      , int const ellmax
+      , vector_real_t const v[3]
+  ) {
+      if (ellmax < 0) return;
 // !************************************************************
 // !     generate the spherical harmonics for the vector v
 // !     using a stable upward recursion in l.  (see notes
@@ -39,23 +43,24 @@ namespace spherical_harmonics {
           if (nullptr != ynorm) {
               delete[] ynorm;
 #ifdef DEBUG
-              printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
-#endif
+              printf("# %s: resize table of normalization constants from %d to %d\n",
+                  __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
+#endif // DEBUG
           } // resize
-          ynorm = new real_t[(1 + ellmax)*(1 + ellmax)];
+          ynorm = new real_t[pow2(1 + ellmax)];
 
 // !********************************************************************
 // !     normalization constants for ylm (internal subroutine has access
 // !     to ellmax and ynorm from above)
 // !********************************************************************
           {   double const fpi = 4*constants::pi; // 4*pi
-              for(int l = 0; l <= ellmax; ++l) {
+              for (int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
-                  double cd = 1;
+                  double cd{1};
                   ynorm[lm0] = a;
-                  double sgn = -1;
-                  for(int m = 1; m <= l; ++m) {
+                  double sgn{-1};
+                  for (int m = 1; m <= l; ++m) {
                       cd /= ((l + 1. - m)*(l + m));
                       auto const yn = a*std::sqrt(cd);
                       ynorm[lm0 + m] = yn;
@@ -75,35 +80,30 @@ namespace spherical_harmonics {
       auto const r = std::sqrt(xy2 + z*z);
       auto const rxy = std::sqrt(xy2);
 
-      real_t cth, sth, cph, sph;
+      real_t cth{1}, sth{0};
       if (r > small) {
          cth = z/r;
          sth = rxy/r;
-      } else {
-         sth = 0;
-         cth = 1;
       }
+      real_t cph{1}, sph{0};
       if (rxy > small) {
          cph = x/rxy;
          sph = y/rxy;
-      } else {
-         cph = 1;
-         sph = 0;
       }
 
       int const S = (1 + ellmax); // stride for p, the array of associated legendre functions
       std::vector<real_t> p((1 + ellmax)*S);
 
       // generate associated legendre functions for m >= 0
-      real_t fac = 1;
+      real_t fac{1};
       // loop over m values
-      for(int m = 0; m < ellmax; ++m) {
+      for (int m = 0; m < ellmax; ++m) {
           fac *= (1 - 2*m);
           p[m     + S*m] = fac;
           p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
           // recurse upward in l
-          for(int l = m + 2; l <= ellmax; ++l) {
-              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*p[l - 2 + S*m])/((real_t)(l - m));
+          for (int l = m + 2; l <= ellmax; ++l) {
+              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*p[l - 2 + S*m])/real_t(l - m);
           } // l
           fac *= sth;
       } // m
@@ -115,15 +115,15 @@ namespace spherical_harmonics {
       if (ellmax > 0) {
           c[1] = cph; s[1] = sph;
           auto const cph2 = 2*cph;
-          for(int m = 2; m <= ellmax; ++m) {
+          for (int m = 2; m <= ellmax; ++m) {
               s[m] = cph2*s[m - 1] - s[m - 2];
               c[m] = cph2*c[m - 1] - c[m - 2];
           } // m
       } // ellmax > 0
 
       // multiply in the normalization factors
-      for(int m = 0; m <= ellmax; ++m) {
-          for(int l = m; l <= ellmax; ++l) {
+      for (int m = 0; m <= ellmax; ++m) {
+          for (int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;
               auto const ylms = p[l + S*m]*std::complex<real_t>(c[m], s[m]);
               ylm[lm0 + m] = ynorm[lm0 + m]*ylms;
@@ -140,9 +140,9 @@ namespace spherical_harmonics {
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-      status_t status(0);
+      status_t stat(0);
       if (echo > 0) printf("\n# %s    no test implemented!\n\n", __FILE__);
-      return status;
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

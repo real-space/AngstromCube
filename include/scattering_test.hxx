@@ -66,7 +66,7 @@ namespace scattering_test {
       for (int ell = 0; ell <= numax; ++ell) {
           for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // number of radial nodes
               int const iln = sho_tools::ln_index(numax, ell, nrn);
-              stat += sho_radial::radial_eigenstates(poly[iln], nrn, ell); //  a polynomial in x^2
+              sho_radial::radial_eigenstates(poly[iln], nrn, ell); //  a polynomial in x^2
               double const norm_factor = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
               scale(poly[iln], nrn + 1, norm_factor);
               for (int p = 1; p <= nrn; ++p) {

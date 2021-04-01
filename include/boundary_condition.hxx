@@ -42,7 +42,7 @@ namespace boundary_condition {
               __func__, 1+2*ni_xyz[0], 1+2*ni_xyz[1], 1+2*ni_xyz[2], ni_max);
       view2D<double> pos(ni_max, 4, 0.0); // get memory
       view2D<int8_t> idx(ni_max, 4, 0); // get memory
-      int ni = 1; // at least one periodic images is always there: (0,0,0)
+      int ni{1}; // at least one periodic images is always there: (0,0,0)
       for         (int iz = -ni_xyz[2]; iz <= ni_xyz[2]; ++iz) {  auto const pz = iz*cell[2];
           for     (int iy = -ni_xyz[1]; iy <= ni_xyz[1]; ++iy) {  auto const py = iy*cell[1];
               for (int ix = -ni_xyz[0]; ix <= ni_xyz[0]; ++ix) {  auto const px = ix*cell[0];
@@ -92,7 +92,7 @@ namespace boundary_condition {
           *iidx = view2D<int8_t>(ni, 4); // get memory
           set(iidx->data(), ni*4, idx.data()); // copy
       } // export indices
-      
+
       return ni;
   } // periodic_images
 
@@ -120,13 +120,15 @@ namespace boundary_condition {
 
   inline status_t test_periodic_images(int const echo=0) {
       if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
-      double const cell[] = {1,2,3}, rcut = 6.f;
+      double const cell[] = {1,2,3};
+      float const rcut = 6;
       int const bc[] = {Periodic_Boundary, Periodic_Boundary, Isolated_Boundary};
       view2D<double> ipos;
       view2D<int8_t> iidx;
       auto const nai = periodic_images(ipos, cell, bc, rcut, echo, &iidx);
       if (echo > 2) std::printf("# found %d periodic images\n", nai);
-      return 0;
+      auto const nai2 = periodic_images(ipos, cell, bc, rcut);
+      return (nai2 - nai);
   } // test_periodic_images
 
   inline status_t all_tests(int const echo=0) {

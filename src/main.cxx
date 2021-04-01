@@ -164,8 +164,8 @@
           add_module_test(shift_boundary);
           add_module_test(linear_algebra);
           add_module_test(grid_operators);
-          add_module_test(dense_operator);
-          add_module_test(element_config);
+          add_module_test(dense_operator); // used?
+          add_module_test(element_config); // not used
           add_module_test(green_kinetic);
           add_module_test(complex_tools);
           add_module_test(vector_layout);

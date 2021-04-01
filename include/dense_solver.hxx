@@ -1,7 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
-
+#include <cstdio> // std::printf
 
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // complex_name, is_complex, conjugate, to_complex_t
@@ -10,6 +9,7 @@
 #include "data_view.hxx" // view2D<T>
 #include "display_units.h" // eV, _eV, Kelvin, _Kelvin
 #include "control.hxx" // ::get
+#include "inline_math.hxx" // pow2
 #include "recorded_warnings.hxx" // warn
 
 #ifndef NO_UNIT_TESTS
@@ -25,63 +25,63 @@ namespace dense_solver {
   inline void display_spectrum(real_t const eigvals[], int const nB, char const *x_axis
       , double const u=1, char const *_u="", char const *matrix_name="", int const mB=32) {
       if (nB < 2) return;
-      printf("%s%s", x_axis, matrix_name);
+      std::printf("%s%s", x_axis, matrix_name);
       // show at most the (mB - 2) lowest + 2 highest eigenvalues
-      for(int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
-          printf(" %g", eigvals[iB]*u);
+      for (int iB = 0; iB < std::min(nB - 2, mB - 2); ++iB) {
+          std::printf(" %g", eigvals[iB]*u);
       } // iB
-      if (nB > mB) printf(" ..."); // there are more eigenvalues than we display
-      printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
+      if (nB > mB) std::printf(" ..."); // there are more eigenvalues than we display
+      std::printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
   } // display_spectrum
   
   
   template <typename complex_t>
   inline status_t solve(
-        view3D<complex_t> & HSm // Hamiltonian and Overlap both[nB,stride]
+        view3D<complex_t> & HSm // Hamiltonian and Overlap, both[nB,stride]
       , char const *x_axis
       , int const echo=0 // log-level
-      , int const nbands=0
+      , int const nbands=0 // number of bands
       , double *eigenenergies=nullptr // export nbands eigenvalues
   ) {
-            
+   
       using real_t = decltype(std::real(complex_t(1))); // base type
 
       int constexpr H=0, S=1; // static indices for H:Hamiltonian matrix, S:overlap matrix
 
       status_t stat(0);
-      
+
       int const nB  = HSm.dim1(); // number of basis functions
       int const nBa = HSm.stride();
       assert(nBa >= nB && "stride may not be smaller than the dimension of the two square matrices");
 
       std::vector<real_t> eigvals(nB, 0.0);
-      auto const ovl_eig = int(control::get("dense_solver.test.overlap.eigvals", 0.));
+      int const ovl_eig = control::get("dense_solver.test.overlap.eigvals", 0.);
 #ifdef DEVEL
       char const hermitian = *control::get("dense_solver.test.hermitian", "none") | 32; // 'n':none, 's':overlap, 'h':Hamiltonian, 'b':both
-#endif
+#endif // DEVEL
       real_t const E_imag = control::get("electronic.temperature", 9.765625e-4);
       double const f_dos = -1./constants::pi;
       double const energy_range[2] = {-1, 1}; // ToDo: external input
 
-      auto const nE = int(control::get("dense_solver.test.green.function", 0.));
+      int const nE = control::get("dense_solver.test.green.function", 0.);
       if (nE > 0) {
           if (!is_complex<complex_t>()) {
               warn("# Green functions can only be computed in complex versions", 0); return stat;
           } // is not complex
 
           double const dE = (energy_range[1] - energy_range[0])/nE;
-          if (echo > 0) printf("\n## E_real (%s), DoS:\n", _eV);
+          if (echo > 0) std::printf("\n## E_real (%s), DoS:\n", _eV);
           view2D<complex_t> ESmH(nB, nBa, complex_t(0)); // get memory
-          for(int iE = 0; iE <= nE; ++iE) {
+          for (int iE = 0; iE <= nE; ++iE) {
               real_t const E_real = iE*dE + energy_range[0];
               auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
-              if (echo > 9) printf("# Green function for energy point (%g %s, %g %s)\n",
+              if (echo > 9) std::printf("# Green function for energy point (%g %s, %g %s)\n",
                                         std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin);
               int constexpr check = 1; // 1:do checks, 0:no checks
               view2D<complex_t> ESmH_copy(check*nB, nBa, complex_t(0)); // get memory
               view2D<complex_t> Sinv(nB, nBa, complex_t(0)); // get memory
               // construct matrix to be inverted: E*S - H
-              for(int iB = 0; iB < nB; ++iB) {
+              for (int iB = 0; iB < nB; ++iB) {
                   set(Sinv[iB], nB, HSm(S,iB)); // copy S
                   set(ESmH[iB], nB, HSm(H,iB), real_t(-1)); // -H
                   add_product(ESmH[iB], nB, HSm(S,iB), E); // +E*S
@@ -97,31 +97,31 @@ namespace dense_solver {
 #ifdef DEVEL
               if (check) {
                   real_t devN(0), devT(0);
-                  for(int iB = 0; iB < nB; ++iB) {
-                      for(int jB = 0; jB < nB; ++jB) {
+                  for (int iB = 0; iB < nB; ++iB) {
+                      for (int jB = 0; jB < nB; ++jB) {
                           complex_t cN(0), cT(0);
-                          for(int kB = 0; kB < nB; ++kB) {
+                          for (int kB = 0; kB < nB; ++kB) {
                               cN += Green(iB,kB) * ESmH_copy(kB,jB); 
                               cT += ESmH_copy(iB,kB) * Green(kB,jB); 
                           } // kB
                           complex_t const diag = (iB == jB);
                           devN = std::max(devN, std::abs(cN - diag));
                           devT = std::max(devT, std::abs(cT - diag));
-                          if (echo > 99) printf("# iB=%i jB=%i cN= %g %g, dev= %.1e,\tcT= %g %g, dev= %.1e\n", iB, jB,
+                          if (echo > 99) std::printf("# iB=%i jB=%i cN= %g %g, dev= %.1e,\tcT= %g %g, dev= %.1e\n", iB, jB,
                               std::real(cN), std::imag(cN), std::abs(cN - diag), std::real(cT), std::imag(cT), std::abs(cT - diag));
                       } // jB
                   } // iB
                   if ((echo > 19) || ((echo > 0) && (devN + devT > 1e-7))) {
-                      printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
-                  }
+                      std::printf("# deviation of G * (ES-H) from unity is %.2e and %.2e transposed\n", devN, devT);
+                  } // echo && dev
               } // check
-#endif
+#endif // DEVEL
 
               view2D<complex_t> GreenS(nB, nBa, complex_t(0)); // get memory
-              for(int iB = 0; iB < nB; ++iB) {
-                  for(int jB = 0; jB < nB; ++jB) {
+              for (int iB = 0; iB < nB; ++iB) {
+                  for (int jB = 0; jB < nB; ++jB) {
                       complex_t c(0);
-                      for(int kB = 0; kB < nB; ++kB) {
+                      for (int kB = 0; kB < nB; ++kB) {
                           c += Green(iB,kB) * HSm(S,kB,jB); 
                       } // kB
                       GreenS(iB,jB) = c;
@@ -130,41 +130,41 @@ namespace dense_solver {
 
               // density of states
               double density{0};
-              for(int iB = 0; iB < nB; ++iB) {
+              for (int iB = 0; iB < nB; ++iB) {
                   density += f_dos*std::imag(GreenS(iB,iB));
               } // iB
-              if (echo > 0) printf("%g %g\n", std::real(E)*eV, density);
-              if (echo > 99) printf("# DoS for energy point (%g %s, %g %s) %g\n",
+              if (echo > 0) std::printf("%g %g\n", std::real(E)*eV, density);
+              if (echo > 99) std::printf("# DoS for energy point (%g %s, %g %s) %g\n",
                   std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin, density);
-            
+
           } // iE
-          if (echo > 0) printf("\n");
+          if (echo > 0) std::printf("\n");
       } // green_function
       
       
       status_t stat_eig(0);
-      for(int h0s1 = 1; h0s1 >= 0; --h0s1) { // loop must run down and serial
-          if (echo > 0) printf("\n");
+      for (int h0s1 = 1; h0s1 >= 0; --h0s1) { // loop must run down and serial
+          if (echo > 0) std::printf("\n");
           auto const matrix_name = h0s1 ? "overlap" : "Hamiltonian";
           real_t const  u = h0s1 ?  1 :  eV; // output unit conversion factor 
           auto   const _u = h0s1 ? "" : _eV; // unit symbol
 #ifdef DEVEL
           // display H and S
           if (echo > 28 + h0s1) {
-              printf("\n# %s matrix (%s)", matrix_name, _u);
-//               printf(" for Bloch phase");
-//               for(int d = 0; d < 3; ++d) {
-//                   printf(" %g+i*%g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
+              std::printf("\n# %s matrix (%s)", matrix_name, _u);
+//               std::printf(" for Bloch phase");
+//               for (int d = 0; d < 3; ++d) {
+//                   std::printf(" %g+i*%g ", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]));
 //               } // d
-              printf(":\n");
-              for(int iB = 0; iB < nB; ++iB) {
-                  printf("# row%3i ", iB);
-                  for(int jB = 0; jB < nB; ++jB) {
-                      printf(" %7.3f %g", std::real(HSm(h0s1,iB,jB))*u, std::imag(HSm(h0s1,iB,jB))*u);
+              std::printf(":\n");
+              for (int iB = 0; iB < nB; ++iB) {
+                  std::printf("# row%3i ", iB);
+                  for (int jB = 0; jB < nB; ++jB) {
+                      std::printf(" %7.3f %g", std::real(HSm(h0s1,iB,jB))*u, std::imag(HSm(h0s1,iB,jB))*u);
                   } // jB
-                  printf("\n");
+                  std::printf("\n");
               } // iB
-              printf("\n");
+              std::printf("\n");
           } // echo
 
           // check if the matrix is symmetric/Hermitian
@@ -172,15 +172,15 @@ namespace dense_solver {
               real_t diag{0}; // imaginary part of diagonal elements
               real_t offr{0}; // off-diagonal elements real part
               real_t offi{0}; // off-diagonal elements imaginary part
-              for(int iB = 0; iB < nB; ++iB) {
+              for (int iB = 0; iB < nB; ++iB) {
                   diag = std::max(diag, std::abs(std::imag(HSm(h0s1,iB,iB))));
-                  for(int jB = iB + 1; jB < nB; ++jB) { // triangular loop
+                  for (int jB = iB + 1; jB < nB; ++jB) { // triangular loop
                       auto const dev = HSm(h0s1,iB,jB) - conjugate(HSm(h0s1,jB,iB));
                       offr = std::max(offr, std::abs(std::real(dev)));
                       offi = std::max(offi, std::abs(std::imag(dev)));
                   } // jB
               } // iB
-              if (echo > 1) printf("# %s deviates from hermitian: imag(diag)= %.1e  imag(off)= %.1e  real(off)= %.1e\n",
+              if (echo > 1) std::printf("# %s deviates from hermitian: imag(diag)= %.1e  imag(off)= %.1e  real(off)= %.1e\n",
                                       matrix_name, diag, offi, offr);
           } // check hermiticity
 #endif // DEVEL
@@ -204,7 +204,7 @@ namespace dense_solver {
                   if (echo > 2) {
                       display_spectrum(eigvals.data(), nB, x_axis, u, _u, h0s1?matrix_name:"");
                   } // echo
-                  if (echo > 4) printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s, respectively\n", 
+                  if (echo > 4) std::printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s, respectively\n", 
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
                   if (S == h0s1) {
                       if (lowest_eigenvalue <= 0) {
@@ -219,18 +219,18 @@ namespace dense_solver {
                       if (nE > 0) {
                           double const dE = (energy_range[1] - energy_range[0])/nE;
                           // from the eigenvalues, we can plot the density of states via the Lehmann representation
-                          if (echo > 0) printf("\n## E_real (%s), DoS (from Lehmann representation):\n", _eV);
-                          for(int iE = 0; iE <= nE; ++iE) {
+                          if (echo > 0) std::printf("\n## E_real (%s), DoS (from Lehmann representation):\n", _eV);
+                          for (int iE = 0; iE <= nE; ++iE) {
                               real_t const E_real = iE*dE + energy_range[0];
                               double density{0};
-                              for(int iB = 0; iB < nB; ++iB) {
+                              for (int iB = 0; iB < nB; ++iB) {
                                   density += f_dos*Lorentzian(E_real - eigvals[iB], E_imag);
                               } // density
-                              if (echo > 0) printf("%g %g\n", E_real*eV, density);
+                              if (echo > 0) std::printf("%g %g\n", E_real*eV, density);
                           } // iE
-                          if (echo > 0) printf("\n");
+                          if (echo > 0) std::printf("\n");
                       } // nE > 0
-#endif
+#endif // DEVEL
                   } // S == h0s1
               } // stat_eig
           } // H or ovl_eig
@@ -290,7 +290,7 @@ namespace dense_solver {
 
                   // assume that (now) E_Fermi is given
                   double q_density{0}, q_response{0};
-                  for(int iB = 0; iB < nB; ++iB) {
+                  for (int iB = 0; iB < nB; ++iB) {
                       double dfdE;
                       double const x = (eigval[iB] - E_Fermi)*beta; // beta is the inverse temperature
                       double const f_FD = fermi_distribution::FermiDirac(x, dfdE);
@@ -313,7 +313,7 @@ namespace dense_solver {
                   //    After k-point summation E_Fermi_sum/weightsum will be a good guess
                   //    for the Fermi level at the end of the first SCF iteration
                   // But we could also just compute the correct Fermi level from all eigenvalues! Probably better
-#endif
+#endif // 0
       } // success
 
       if (eigenenergies) {
@@ -327,16 +327,16 @@ namespace dense_solver {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  template<typename real_t>
+  template <typename real_t>
   inline status_t test_inverse(int const echo=0) {
       status_t status(0);
       int constexpr N = 5;
       real_t dev{0};
       view2D<std::complex<real_t>> mat(N, N, 0), inv(N, N);
-      for(int n = 1; n <= N; ++n) { // dimension
+      for (int n = 1; n <= N; ++n) { // dimension
           // fill with random values
-          for(int i = 0; i < n; ++i) {
-              for(int j = 0; j < n; ++j) {
+          for (int i = 0; i < n; ++i) {
+              for (int j = 0; j < n; ++j) {
                   auto const Re = simple_math::random<real_t>(-1, 1);
                   auto const Im = simple_math::random<real_t>(-1, 1);
                   mat(i,j) = std::complex<real_t>(Re, Im);
@@ -349,35 +349,35 @@ namespace dense_solver {
           status += stat;
 
           real_t devN{0}, devT{0};
-          for(int i = 0; i < n; ++i) {
-              for(int j = 0; j < n; ++j) {
+          for (int i = 0; i < n; ++i) {
+              for (int j = 0; j < n; ++j) {
                   std::complex<real_t> cN(0), cT(0);
-                  for(int k = 0; k < n; ++k) {
+                  for (int k = 0; k < n; ++k) {
                       cN += mat(i,k) * inv(k,j);
                       cT += inv(i,k) * mat(k,j);
                   } // k
                   std::complex<real_t> const diag = (i == j);
                   devN = std::max(devN, std::abs(cN - diag));
                   devT = std::max(devT, std::abs(cT - diag));
-                  if (echo > 9) printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,        
+                  if (echo > 9) std::printf("# i=%i j=%i a=%g %g \tinv=%g %g \tcN=%g %g \tcT=%g %g\n", i, j,        
                       std::real(mat(i,j)), std::imag(mat(i,j)), std::real(inv(i,j)), std::imag(inv(i,j)),
                       std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
               } // j
           } // i
-          if (echo > 3) printf("# %s n= %d deviations from unity are %.2e and %.2e transposed\n",
-                                __func__, n, devN, devT);
+          if (echo > 3) std::printf("# %s n= %d deviations from unity are %.2e and %.2e transposed\n",
+                                      __func__, n, devN, devT);
           dev = std::max(dev, std::max(devN, devT));
       } // n
-      if (echo > 0) printf("# %s<%s>(N= %d) deviations from unity are %.1e\n\n",
-                              __func__, complex_name<real_t>(), N, dev);
+      if (echo > 0) std::printf("# %s<%s>(N= %d) deviations from unity are %.1e\n\n",
+                                  __func__, complex_name<real_t>(), N, dev);
       return status + (dev > 1e-5);
   } // test_inverse
 
   inline status_t all_tests(int const echo=0) {
-      status_t status(0);
-      status += test_inverse<double>(echo);
-      status += test_inverse<float >(echo);
-      return status;
+      status_t stat(0);
+      stat += test_inverse<double>(echo);
+      stat += test_inverse<float >(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS
