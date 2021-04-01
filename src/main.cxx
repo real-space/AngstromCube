@@ -109,40 +109,24 @@
       status = -1;
 #else // NO_UNIT_TESTS
       std::string const input_name(module ? module : "");
-      bool const run = ('?' != input_name[0]);
-      bool const all = ( 0  == input_name[0]) || (!run);
+      bool const show = ('?' == input_name[0]);
+      bool const all  = ( 0  == input_name[0]) || show;
       if (echo > 0) {
-          if (!run) { printf("\n# show available module tests:\n"); } else
+          if (show) { printf("\n# show available module tests:\n"); } else
           if (all)  { printf("\n# run all tests!\n\n"); }
           else      { printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
       } // echo
 
       std::vector<std::pair<char const*, status_t>> results;
       { // testing scope
-// #define   add_module_test(MODULE_NAME) \
-//           {                                                                                \
-//               char const *const module_name = #MODULE_NAME;                                \
-//               if (all || (0 == input_name.compare(module_name))) {                         \
-//                   status_t stat(0);                                                        \
-//                   if (run) {                                                               \
-//                       SimpleTimer timer("module test for", 0, module_name, 0);             \
-//                       if (all && echo > 3) std::printf("\n\n\n# ============= Module test" \
-//                                            " for %s ==================\n\n", module_name); \
-//                       stat = MODULE_NAME::all_tests(echo);                                 \
-//                   }                                                                        \
-//                   results.push_back(std::make_pair(module_name, stat));                    \
-//               }                                                                            \
-//           }
 
-          // alternative (probably cleaner)
-#define   add_module_test(MODULE_NAME) \
-          {                                                                             \
-              char const *const module_name = #MODULE_NAME;                             \
-              if (all || (0 == input_name.compare(module_name))) {                      \
-                  results.push_back(std::make_pair(module_name, run ?                   \
-                      run_module_test(module_name, MODULE_NAME::all_tests, echo) : 0)); \
-              }                                                                         \
-          }
+#define   add_module_test(MODULE_NAME) {                                            \
+              char const *const module_name = #MODULE_NAME;                         \
+              if (all || input_name == module_name) {                               \
+                  results.push_back(std::make_pair(module_name, show ? 0 :          \
+                      run_module_test(module_name, MODULE_NAME::all_tests, echo))); \
+              }                                                                     \
+          } // add_module_test
 
           add_module_test(recorded_warnings);
           add_module_test(finite_difference);
@@ -218,26 +202,26 @@
           if (echo > 0) std::printf("# ERROR: test for '%s' not found, use -t '?' to see available modules!\n", module);
           status = -1;
       } else {
-          if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, run?"have been":"can be");
+          if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, show?"can be":"have been");
           int nonzero_status{0};
           for (auto result : results) {
               auto const stat = result.second;
               if (echo > 0) {
-                  if (run) { std::printf("#    module= %-24s status= %i\n", result.first, int(stat)); }
-                  else     { std::printf("#    module= %s\n", result.first); }
+                  if (show) { std::printf("#    module= %s\n", result.first); }
+                  else      { std::printf("#    module= %-24s status= %i\n", result.first, int(stat)); }
               } // echo
               status += std::abs(int(stat));
               nonzero_status += (0 != stat);
           } // result
-          if (!run) {
+          if (show) {
               if (echo > 0) std::printf("\n");
               warn("Display only, none of %d modules has been tested", nmodules);
-          } else { // !run
+          } else { // show
               if (nmodules > 1 && echo > 0) {
                   std::printf("\n#%3d modules have been tested,  total status= %d\n\n", nmodules, int(status));
               } // show total status if many modules have been tested
               if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
-          } // !run
+          } // show
       } // something has been tested
 #endif // NO_UNIT_TESTS
       return status;
