@@ -153,7 +153,7 @@ namespace atom_image {
 #else // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {
-      return (3*8 + 4 + 4*1 != sizeof(atom_image_t)); // make sure that this struct has 32 Byte
+      return (3*8 + 1*4 + 4*1 != sizeof(atom_image_t)); // make sure that this struct has 32 Byte
   } // all_tests
 
 #endif // NO_UNIT_TESTS

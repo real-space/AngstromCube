@@ -246,7 +246,7 @@
       #define macro2string(a) stringify(a)
       #define stringify(b) #b
       if (echo > 0) { 
-          std::printf("%s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
+          std::printf("# %s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
       } // echo
       control::set("git.key", macro2string(_GIT_KEY), 0);
       #undef  stringify
