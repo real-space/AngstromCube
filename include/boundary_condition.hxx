@@ -7,7 +7,11 @@
 #include "inline_math.hxx"
 #include "data_view.hxx" // view2D<T>
 #include "status.hxx" // status_t
-#include "recorded_warnings.hxx" // warn
+#ifndef STANDALONE_TEST
+  #include "recorded_warnings.hxx" // warn
+#else
+  #define warn std::printf
+#endif
 
   int constexpr Periodic_Boundary =  1;
   int constexpr Isolated_Boundary =  0;
@@ -16,7 +20,7 @@
 
 namespace boundary_condition {
 
-  inline int periodic_images(
+  inline int periodic_images( // returns the number of images found
         view2D<double> & ipos // array of periodic positions (n,4)
       , double const cell[3]  // orthorhombic cell parameters
       , int const bc[3]       // boundary condition selectors
@@ -96,7 +100,11 @@ namespace boundary_condition {
       return ni;
   } // periodic_images
 
-  inline int fromString(char const *string, int const echo=0, char const dir='?') {
+  inline int fromString(
+        char const *string
+      , int const echo=0
+      , char const dir='?'
+  ) {
       int bc{Invalid_Boundary};
       if (nullptr != string) {
           char const first = *string;
@@ -131,10 +139,35 @@ namespace boundary_condition {
       return (nai2 - nai);
   } // test_periodic_images
 
+  inline status_t test_fromString_single(char const bc_strings[][16], int const echo=0) {
+      if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
+      status_t stat(0);
+      for (int bc = Invalid_Boundary; bc <= Periodic_Boundary; ++bc) {
+          stat += (bc != fromString(bc_strings[bc & 0x3], echo));
+      } // bc
+      return stat;
+  } // test_fromString_single
+
+  inline status_t test_fromString(int const echo=0) {
+      // test the parser with different strings
+      if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
+      status_t stat(0);
+      {   char const bc_strings[][16] = {"isolated", "periodic", "?invalid", "mirror"}; // {0, 1, -2, -1}
+          stat += test_fromString_single(bc_strings, echo);   }
+      {   char const bc_strings[][16] = {"i", "p", "_", "m"}; // {0, 1, -2, -1}
+          stat += test_fromString_single(bc_strings, echo);   }
+      {   char const bc_strings[][16] = {"I", "P", "#", "M"}; // {0, 1, -2, -1}
+          stat += test_fromString_single(bc_strings, echo);   }
+      {   char const bc_strings[][16] = {"0", "1", "*", "-"}; // {0, 1, -2, -1}
+          stat += test_fromString_single(bc_strings, echo);   }
+      return stat;
+  } // test_fromString
+
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
       stat += test_periodic_images(echo);
+      stat += test_fromString(echo);
       return stat;
   } // all_tests
 
