@@ -43,10 +43,10 @@ for module in \
   complex_tools \
   vector_layout \
   sho_potential \
+  simple_timer \
   mpi_parallel \
   angular_grid \
   pseudo_tools \
-  inline_tools \
   simple_timer \
   sigma_config \
   dense_solver \

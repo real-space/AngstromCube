@@ -55,6 +55,7 @@
 #include "complex_tools.hxx" // ::all_tests
 #include "vector_layout.hxx" // ::all_tests
 #include "sho_potential.hxx" // ::all_tests
+#include "simple_stats.hxx" // ::all_tests
 #include "mpi_parallel.hxx" // ::all_tests
 #include "angular_grid.hxx" // ::all_tests
 #include "pseudo_tools.hxx" // ::all_tests
@@ -170,6 +171,7 @@
           add_module_test(complex_tools);
           add_module_test(vector_layout);
           add_module_test(sho_potential);
+          add_module_test(simple_stats);
           add_module_test(mpi_parallel);
           add_module_test(angular_grid);
           add_module_test(pseudo_tools);

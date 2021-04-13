@@ -22,18 +22,18 @@ namespace sho_unitary {
 //    return generate_unitary_transform(9, echo);
   } // test_generation
 
-  template<typename real_t>
+  template <typename real_t>
   status_t test_loading(int const echo=1, int const numax=9) {
       Unitary_SHO_Transform<real_t> U(numax);
       auto const dev = U.test_unitarity(echo);
-      if (echo > 0) std::printf("# Unitary_SHO_Transform<%s>.test_unitarity = %.1e\n", 
+      if (echo > 2) std::printf("# Unitary_SHO_Transform<%s>.test_unitarity = %.1e\n", 
                                   (8 == sizeof(real_t))?"double":"float", dev);
       return (dev > 2e-7); // error if deviations are too large
   } // test_loading
 
   status_t test_vector_transform(int const echo=9, int const numax=3) {
       Unitary_SHO_Transform<double> U(numax);
-      if (echo > 0) std::printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
+      if (echo > 3) std::printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
       int const nc = sho_tools::nSHO(numax);
       std::vector<double> vi(nc), vo(nc, 0);
       std::iota(vi.begin(), vi.end(), 0); // ascending sequence

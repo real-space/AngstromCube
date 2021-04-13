@@ -166,6 +166,7 @@ namespace mpi_parallel {
       stat += test_wrappers(echo);
       return stat;
   } // all_tests
+
 #endif
 
 } // namespace mpi_parallel

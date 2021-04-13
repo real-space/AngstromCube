@@ -21,8 +21,8 @@ namespace sho_overlap {
       , double const distance
       , int const n1
       , int const n0
-      , double const sigma1 // =1.0
-      , double const sigma0 // =1.0
+      , double const sigma1=1.0
+      , double const sigma0=1.0
   ) {
       return moment_tensor(matrix, distance, n1, n0, sigma1, sigma0, 0);
   } // overlap_matrix
@@ -33,8 +33,8 @@ namespace sho_overlap {
       , double const distance
       , int const n1
       , int const n0
-      , double const sigma1 // =1.0
-      , double const sigma0 // =1.0
+      , double const sigma1=1.0
+      , double const sigma0=1.0
   ) {
       return moment_tensor(matrix, distance, n1, n0, sigma1, sigma0, -2);
   } // nabla2_matrix

@@ -1,13 +1,15 @@
 #pragma once
 
-#include <cstddef> // size_t
+#include <cstdlib> // size_t
 #include <cmath> // std::round
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
   template <int nBits> inline 
-  size_t align(int64_t const in) { return ((((in - 1) >> nBits) + 1) << nBits); }
-// template<int nBits> size_t inline align(int64_t const in) { return in; } // alignment switched off
+  size_t align(int64_t const in) {
+//    return in; // alignment switched off
+      return ((((in - 1) >> nBits) + 1) << nBits);
+  } // align
 
   template <typename T> inline int constexpr sgn(T const val) {
       return (T(0) < val) - (val < T(0));
@@ -132,13 +134,13 @@ namespace inline_math {
                                         __func__,                     ipower, max_dev);
           max_all_dev = std::max(max_all_dev, max_dev);
       } // ipower
-      if (echo > 1) std::printf("\n# %s: max. relative deviation for <real_%ld>^<int> is %.1e\n",
+      if (echo > 3) std::printf("\n# %s: max. relative deviation for <real_%ld>^<int> is %.1e\n",
                                       __func__,                  sizeof(real_t),    max_all_dev);
       return (max_all_dev > threshold);
   } // test_intpow
 
   inline status_t test_factorials(int const echo=4, double const threshold=9e-14) {
-      if (echo > 2) std::printf("\n# %s %s \n", __FILE__, __func__);
+      if (echo > 3) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
       double fac{1};
       for (int n = 0; n < 171; ++n) {

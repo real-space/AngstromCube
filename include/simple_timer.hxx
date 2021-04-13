@@ -45,38 +45,44 @@ namespace simple_timer {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline int64_t fibonacci(int64_t const n) { if (n < 3) return 1; return fibonacci(n - 1) + fibonacci(n - 2); }
+  inline int64_t fibonacci(int64_t const n) { 
+      if (n < 3) return 1; 
+      return fibonacci(n - 1) + fibonacci(n - 2); 
+  } // fibonacci
 
-  inline status_t test_usage(int const echo=3) {
-      int64_t result, inp = 40;
+  inline status_t test_basic_usage(int const echo=3) {
+      int64_t result;
+      int64_t const inp = 40, reference = 102334155;
       { // scope: create a timer, do some work, destroy the timer
           SimpleTimer timer(__FILE__, __LINE__, "comment=fibonacci", echo);
           result = fibonacci(inp);
-          // timer destructor is envoked at the end of this scope
+          // timer destructor is envoked at the end of this scope, timing printed to log
       } // scope
       if (echo > 0) std::printf("# fibonacci(%lld) = %lld\n", inp, result);
-      return 0;
-  } // test_usage
+      return (reference != result);
+  } // test_basic_usage
 
   inline status_t test_stop_function(int const echo=3) {
-      int64_t result, inp = 40;
+      int64_t result;
+      int64_t const inp = 40, reference = 102334155;
       simple_stats::Stats<> s;
-      for(int i = 0; i < 5; ++i) {
+      for (int i = 0; i < 5; ++i) {
           SimpleTimer timer(__FILE__, __LINE__, "", 0);
           result = fibonacci(inp);
           s.add(timer.stop());
-          // timer destructor is envoked at the end of this scope
       } // scope
-      if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %g seconds\n", inp, result, s.avg(), s.var());
-      return 0;
+      auto const average_time = s.avg();
+      if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %.1e seconds per iteration\n", 
+                                             inp, result, average_time, s.var());
+      return (average_time < 0) + (reference != result);
   } // test_stop_function
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
-      status_t status(0);
-      status += test_usage(echo);
-      status += test_stop_function(echo);
-      return status;
+      if (echo > 2) std::printf("\n# %s %s\n\n", __FILE__, __func__);
+      status_t stat(0);
+      stat += test_basic_usage(echo);
+      stat += test_stop_function(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

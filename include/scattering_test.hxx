@@ -13,7 +13,7 @@
 #include "finite_difference.hxx" // ::set_Laplacian_coefficients
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
 #include "display_units.h" // eV, _eV, Ang, _Ang
-#include "inline_math.hxx" // set, add_product, dot_product, align<nBits>
+#include "inline_math.hxx" // set, add_product, dot_product, align<nBits>, product, pow4
 #include "sho_tools.hxx" // ::nSHO, ::nSHO_radial
 #include "radial_integrator.hxx" // ::integrate_outwards<SRA>
 #include "constants.hxx" // ::pi
@@ -36,8 +36,8 @@ namespace scattering_test {
   size_t count_nodes(real_t const f[], int const n) {
       size_t nnodes{0};
       for (int i = 1; i < n; ++i) {
-          nnodes += (f[i - 1]*f[i] < 0);
-      };
+          nnodes += ((f[i - 1]*f[i]) < 0);
+      } // i
       return nnodes;
   } // count_nodes
 
@@ -53,8 +53,6 @@ namespace scattering_test {
       , int const echo=0 // log-level
       , real_t dprj[]=nullptr // derivative of projectors w.r.t. sigma
   ) {
-
-      status_t stat(0);
       assert(sigma > 0);
       double const sigma_inv = 1./sigma;
       double const sigma_m23 = std::sqrt(pow3(sigma_inv)); // == sigma^{-3/2}
@@ -139,15 +137,13 @@ namespace scattering_test {
           printf_vector(" %g", norm.data(), nln);
       } // echo
 #endif // DEVEL
-      return stat;
+      return 0;
   } // expand_sho_projectors
-  
   
   
 // #define _SELECTED_ENERGIES_LOGDER
 
-  inline
-  double find_outwards_solution(
+  inline double find_outwards_solution( // returns derivative at maximum
         radial_grid_t const & rg // radial grid descriptor
       , double const rV[] // effective potential r*V(r)
       , int const ell // angular moment quantum number
@@ -251,8 +247,7 @@ namespace scattering_test {
       return (nnodes + 0.5 - one_over_pi*arcus_tangent(der, val));
   } // generalized_node_count_SMT
 
-  inline
-  status_t logarithmic_derivative(
+  inline status_t logarithmic_derivative(
         radial_grid_t const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
       , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
       , double const sigma // sigma spread of SHO projectors
@@ -265,7 +260,6 @@ namespace scattering_test {
       , int const echo=0 // log-level
       , float const Rlog_over_sigma=6.f
   ) {
-
       status_t stat(0);
       
       double const dE = std::copysign(std::max(1e-9, std::abs(energy_range[1])), energy_range[1]);
@@ -291,7 +285,7 @@ namespace scattering_test {
       view2D<double> rprj(nln, stride); // mr might be much larger than needed since mr is taken from the TRU grid
       // preparation for the projector functions
       stat += expand_sho_projectors(rprj.data(), rprj.stride(), rg[SMT], sigma, numax, 1, 0);
-      
+
       ir_stop[SMT] = std::min(radial_grid::find_grid_index(rg[SMT], Rlog_over_sigma*sigma), rg[SMT].n - 2);
       double const Rlog = rg[SMT].r[ir_stop[SMT]];
       if (echo > 1) std::printf("# %s %s check at radius %g %s\n", label, __func__, Rlog*Ang, _Ang);
@@ -407,8 +401,7 @@ namespace scattering_test {
   
   
   
-  inline
-  status_t eigenstate_analysis(
+  inline status_t eigenstate_analysis(
         radial_grid_t const & gV // radial grid descriptor for Vsmt
       , double const Vsmt[] // smooth potential given on radial grid
       , double const sigma // sigma spread of SHO projectors
@@ -560,7 +553,7 @@ namespace scattering_test {
                   if (echo > 2) std::printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
                   diagonalize_overlap_matrix = true;
                   ++stat;
-              }
+              } // info
 
               if (diagonalize_overlap_matrix) {
                   // diagonalize Ovl_copy, standard eigenvalue problem
@@ -572,15 +565,16 @@ namespace scattering_test {
                       std::printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
                       printf_vector(" %g", eigs.data(), 8);
                   } // echo
-              } // info
+              } // diagonalize_overlap_matrix
+
           } // scope: diagonalize
 
       } // ell
 
       return stat;
   } // eigenstate_analysis
-  
-  
+
+
   template <typename real_t>
   status_t emm_average(
         real_t Mln[] // output emm-averaged or emm-summed array[nln*nln]
@@ -650,16 +644,19 @@ namespace scattering_test {
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
       auto const rg = *radial_grid::create_default_radial_grid(0);
       int const nln = sho_tools::nSHO_radial(lmax);
-      std::vector<double> V(rg.n, 0.0);
       double const sigma = 1.0; // if the rmax ~= 10, lmax = 7, sigma <= 1.5, otherwise projectors leak out
-      for (int ir = 0; ir < rg.n; ++ir) V[ir] = 0.5*(pow2(rg.r[ir]) - pow2(rg.rmax))/pow4(sigma); // harmonic potential 
-      std::vector<double> const aHm(nln*nln, 0.0);
+      std::vector<double> const aHm(nln*nln, 0.0); // dummy non-local matrices (constant at zero)
+      std::vector<double> V(rg.n, 0.0);
+      product(V.data(), rg.n, rg.r, rg.r, 0.5/pow4(sigma)); // harmonic potential
       return eigenstate_analysis(rg, V.data(), sigma, lmax, lmax, aHm.data(), aHm.data(), 128, 0.0, "", echo);
-      // expected result: eigenstates at E0 + (2*nrn + ell)*sigma^-2 Hartree
+      // expected result: eigenstates at (1.5 + 2*nrn + ell)*sigma^-2 Hartree
+      // needs to be checked by human, ToDo: how to export the result?
   } // test_eigenstate_analysis
 
   inline status_t test_expand_sho_projectors_derivative(int const echo=0
-            , int const numax=9, double const sigma=1.0) {
+      , int const numax=9
+      , double const sigma=1.0
+  ) {
       status_t stat(0);
       auto const rg = *radial_grid::create_default_radial_grid(0);
       int const nr = align<2>(rg.n);
@@ -691,6 +688,7 @@ namespace scattering_test {
               } // irn
           } // ell
           if (echo > 4) std::printf("# %s: largest deviation from unit matrix for numax= %d is %.1e\n", __func__, numax, max_dev);
+          stat += (max_dev > 5e-13);
       } // k
 #endif // DEVEL
 
@@ -718,6 +716,7 @@ namespace scattering_test {
               } // irn
           } // ell
           if (echo > 4) std::printf("# %s: largest deviation |analytical - numerical| is %.1e\n", __func__, max_dev);
+          stat += (max_dev > 2e-6);
       } // scope
 
 #ifdef DEVEL
@@ -736,7 +735,7 @@ namespace scattering_test {
 
       return stat;
   } // test_expand_sho_projectors_derivative
-  
+
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);

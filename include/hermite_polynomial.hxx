@@ -14,7 +14,7 @@
 
 
   template <typename real_t>
-  inline void hermite_polys(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
+  inline void Hermite_polynomials(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
       // Hermite-polynomials times Gauss function, not normalized!
       real_t const H0 = (x*x < rcut*rcut) ? std::exp(-0.5*x*x) : 0; // Gaussian envelope function
 
@@ -31,7 +31,7 @@
           Hnum1 = Hnu; Hnu = Hnup1; // ordering is important here
       } // nu
 
-  } // hermite_polys
+  } // Hermite_polynomials
 
 namespace hermite_polynomial {
 
@@ -40,8 +40,8 @@ namespace hermite_polynomial {
 #else // NO_UNIT_TESTS
 
   template <typename real_t>
-  inline status_t test_hermite_polynomials(int const echo=4, double const threshold=7e-15) {
-      // confirm that the implementation hermite_polys produces orthogonal functions
+  inline status_t test_Hermite_polynomials(int const echo=4, double const threshold=7e-15) {
+      // confirm that Hermite_polynomials() produces orthogonal functions
       int constexpr nx = 1 << 13;
       int constexpr numax = 7, M = 1 + numax;
       double const hg = 1.25/(1 << 9);
@@ -52,7 +52,7 @@ namespace hermite_polynomial {
       for (int ix = 0; ix < nx; ++ix) {
           real_t const x = (ix - .5*(nx - 1))*hg;
           real_t hp[M];
-          hermite_polys(hp, x, numax);
+          Hermite_polynomials(hp, x, numax);
           for (int i = 0; i < M; ++i) {
               for (int j = 0; j < M; ++j) {
                   hh[i][j] += hp[i]*hp[j]; // integrate overlap matrix
@@ -101,13 +101,13 @@ namespace hermite_polynomial {
       if (echo > 1) std::printf("# %s<%s> largest deviation from unit matrix is %.1e and %.1e on the"
           " diagonal\n", __func__, (sizeof(real_t) == 8)?"double":"float", max_dev[0], max_dev[1]);
       return (max_dev[0] + max_dev[1] > threshold);
-  } // test_hermite_polynomials
+  } // test_Hermite_polynomials
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s: %s\n\n", __FILE__, __func__);
       status_t stat(0);
-      stat += test_hermite_polynomials<float>(echo, 3.5e-6);
-      stat += test_hermite_polynomials<double>(echo);
+      stat += test_Hermite_polynomials<float>(echo, 3.5e-6);
+      stat += test_Hermite_polynomials<double>(echo);
       return stat;
   } // all_tests
 

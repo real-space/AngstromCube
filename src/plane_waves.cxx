@@ -23,7 +23,7 @@
 #include "inline_math.hxx" // align<nBits>
 #include "simple_math.hxx" // ::random<real_t>
 #include "vector_math.hxx" // ::vec<N,T>
-#include "hermite_polynomial.hxx" // hermite_polys
+#include "hermite_polynomial.hxx" // ::Hermite_polynomials
 #include "simple_stats.hxx" // ::Stats
 #include "simple_timer.hxx" // SimpleTimer
 #include "dense_solver.hxx" // ::solve
@@ -58,7 +58,7 @@ namespace plane_waves {
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
         for(int d = 0; d < 3; ++d) {
             double const x = gv[d]*sigma; // the Fourier transform of HG_n(x) is (-i)^n HG_n(k) [for sigma=1]
-            hermite_polys(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
+            Hermite_polynomials(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
 
         { // scope: normalize Hermite_Gauss functions

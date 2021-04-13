@@ -1,16 +1,16 @@
 #pragma once
 
 #include <cstdint> // uint32_t
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <complex> // std::real
 
 #include "status.hxx" // status_t
 
-#include "sho_tools.hxx" // sho_tools::nSHO, sho_tools::get_nu, sho_tools::order_zyx
-#include "real_space.hxx" // real_space::grid_t<D0>
-#include "hermite_polynomial.hxx" // hermite_polys
+#include "sho_tools.hxx" // ::nSHO, ::get_nu, ::order_zyx
+#include "real_space.hxx" // ::grid_t<D0>
+#include "hermite_polynomial.hxx" // ::Hermite_polynomials
 #include "inline_math.hxx" // pow3, factorial<T>
-#include "constants.hxx" // sqrtpi
+#include "constants.hxx" // ::sqrtpi
 #include "sho_unitary.hxx" // Unitary_SHO_Transform
 
 
@@ -38,19 +38,19 @@ namespace sho_projection {
       double const sigma_inv = 1./sigma;
       // determine the limitations of the projection domain
       int off[3], end[3], num[3];
-      for(int d = 0; d < 3; ++d) {
-          if (echo > 9) printf("# %c-direction: center= %g, rcut= %g", 120+d, center[d]*g.inv_h[d], rcut*g.inv_h[d]);
+      for (int d = 0; d < 3; ++d) {
+          if (echo > 9) std::printf("# %c-direction: center= %g, rcut= %g", 120+d, center[d]*g.inv_h[d], rcut*g.inv_h[d]);
           off[d] = std::ceil((center[d] - rcut)*g.inv_h[d]);
           end[d] = std::ceil((center[d] + rcut)*g.inv_h[d]);
-          if (echo > 9) printf(", prelim limits [%d, %d)", off[d], end[d]);
+          if (echo > 9) std::printf(", prelim limits [%d, %d)", off[d], end[d]);
           off[d] = std::max(off[d], 0); // lower
           end[d] = std::min(end[d], g[d]); // upper boundary
-          if (echo > 9) printf(", limits [%d, %d)\n", off[d], end[d]);
+          if (echo > 9) std::printf(", limits [%d, %d)\n", off[d], end[d]);
           num[d] = std::max(0, end[d] - off[d]);
       } // d
       auto const nvolume = (size_t(num[0]) * num[1]) * num[2];
       if ((nvolume < 1) && (echo < 7)) return 0; // no range
-      if (echo > 2) printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n", 
+      if (echo > 2) std::printf("# %s on rectangular sub-domain x:[%d, %d) y:[%d, %d) y:[%d, %d) = %d * %d * %d = %ld points\n", 
                            (0 == PROJECT0_OR_ADD1)?"project":"add", off[0], end[0], off[1], end[1], off[2], end[2],
                            num[0], num[1], num[2], nvolume);
 
@@ -63,23 +63,23 @@ namespace sho_projection {
 
       int const M = sho_tools::n1HO(numax);
       std::vector<real_t> H1d[3];
-      for(int dir = 0; dir < 3; ++dir) {
+      for (int dir = 0; dir < 3; ++dir) {
           H1d[dir] = std::vector<real_t>(num[dir]*M); // get memory
           auto const h1d = H1d[dir].data();
 
           double const grid_spacing = g.h[dir];
-          if (echo > 55) printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
-          for(int ii = 0; ii < num[dir]; ++ii) {
+          if (echo > 55) std::printf("\n# Hermite polynomials for %c-direction:\n", 120+dir);
+          for (int ii = 0; ii < num[dir]; ++ii) {
               int const ix = ii + off[dir]; // offset
               real_t const x = (ix*grid_spacing - center[dir])*sigma_inv;
-              hermite_polys(h1d + ii*M, x, numax);
+              Hermite_polynomials(h1d + ii*M, x, numax);
 #ifdef DEVEL
               if (echo > 55) {
-                  printf("%g\t", x);
-                  for(int nu = 0; nu <= numax; ++nu) {
-                      printf(" %11.6f", h1d[ii*M + nu]);
+                  std::printf("%g\t", x);
+                  for (int nu = 0; nu <= numax; ++nu) {
+                      std::printf(" %11.6f", h1d[ii*M + nu]);
                   } // nu
-                  printf("\n");
+                  std::printf("\n");
               } // echo
 #endif // DEVEL
           } // i
@@ -89,28 +89,28 @@ namespace sho_projection {
 #ifdef DEVEL
       if (1 == PROJECT0_OR_ADD1) {
           if (echo > 6) {
-              printf("# addition coefficients ");
-              for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                  printf(" %g", std::real(coeff[iSHO]));
+              std::printf("# addition coefficients ");
+              for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
+                  std::printf(" %g", std::real(coeff[iSHO]));
               } // iSHO
-              printf("\n\n");
+              std::printf("\n\n");
           } // echo
       } // ADD
 #endif // DEVEL
    
    
-      for(        int iz = 0; iz < num[2]; ++iz) {
-          for(    int iy = 0; iy < num[1]; ++iy) {
-              for(int ix = 0; ix < num[0]; ++ix) {
+      for (        int iz = 0; iz < num[2]; ++iz) {
+          for (    int iy = 0; iy < num[1]; ++iy) {
+              for (int ix = 0; ix < num[0]; ++ix) {
                   int const ixyz = ((iz + off[2])*g('y') + (iy + off[1]))*g('x') + (ix + off[0]);
                   
                   complex_t val = values[ixyz]; // load
                   if (true) {
-//                    if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
+//                    if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       int iSHO{0};
-                      for(int nz = 0; nz <= numax; ++nz) {                    auto const H1d_z = H1d[2][iz*M + nz];
-                          for(int ny = 0; ny <= numax - nz; ++ny) {           auto const H1d_y = H1d[1][iy*M + ny];
-                              for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const H1d_x = H1d[0][ix*M + nx];
+                      for (int nz = 0; nz <= numax; ++nz) {                    auto const H1d_z = H1d[2][iz*M + nz];
+                          for (int ny = 0; ny <= numax - nz; ++ny) {           auto const H1d_y = H1d[1][iy*M + ny];
+                              for (int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const H1d_x = H1d[0][ix*M + nx];
                                   auto const H3d = H1d_z * H1d_y * H1d_x;
                                   if (1 == PROJECT0_OR_ADD1) {
                                       val += coeff[iSHO] * H3d; // here, the addition happens                                          
@@ -136,11 +136,11 @@ namespace sho_projection {
 #ifdef DEVEL
       if (0 == PROJECT0_OR_ADD1) {
           if (echo > 6) {
-              printf("# projection coefficients ");
-              for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-                  printf(" %g", std::real(coeff[iSHO]));
+              std::printf("# projection coefficients ");
+              for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
+                  std::printf(" %g", std::real(coeff[iSHO]));
               } // iSHO
-              printf("\n\n");
+              std::printf("\n\n");
           } // echo
       } // PROJECT
 #endif // DEVEL
@@ -194,9 +194,9 @@ namespace sho_projection {
       int const nSHO = sho_tools::nSHO(numax);
       std::vector<real_t> f(nSHO);
       int iSHO{0};
-      for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
-          for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
-              for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
+      for (int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
+          for (int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
+              for (int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
                   f[iSHO] = fx * fy * fz;
                   ++iSHO;
               } // nx
@@ -205,8 +205,8 @@ namespace sho_projection {
       assert(nSHO == iSHO);
       return f;
   } // get_sho_prefactors
-  
-  
+
+
   template <typename real_t> inline
   status_t renormalize_coefficients(
         real_t out[] // normalized with sho_prefactor [and energy ordered], de-normalized if inverse
@@ -215,9 +215,9 @@ namespace sho_projection {
       , double const sigma
   ) {
       int iSHO{0};
-      for(int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
-          for(int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
-              for(int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
+      for (int nz = 0; nz <= numax; ++nz) {                    auto const fz = sho_1D_prefactor(nz, sigma);
+          for (int ny = 0; ny <= numax - nz; ++ny) {           auto const fy = sho_1D_prefactor(ny, sigma);
+              for (int nx = 0; nx <= numax - nz - ny; ++nx) {  auto const fx = sho_1D_prefactor(nx, sigma);
                   auto const f = fx * fy * fz;
                   out[iSHO] = in[iSHO] * f;
                   ++iSHO;
@@ -246,9 +246,9 @@ namespace sho_projection {
       , int const ellmax
       , double const sigma
   ) {
-      for(int ell = 0; ell <= ellmax; ++ell) { // angular momentum quantum number
+      for (int ell = 0; ell <= ellmax; ++ell) { // angular momentum quantum number
           auto const pfc = radial_L1_prefactor(ell, sigma) / radial_L2_prefactor(ell, sigma); // prefactor correction
-          for(int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
+          for (int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
               int const lm = sho_tools::lm_index(ell, emm);
               out[lm] = pfc * in[lm]; // scale and set only nrn==0 contributions
           } // emm

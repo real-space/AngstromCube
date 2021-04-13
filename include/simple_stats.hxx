@@ -3,6 +3,12 @@
 #include <algorithm> // std::min, std::max
 #include <cmath> // std::sqrt
 
+#ifndef NO_UNIT_TESTS
+    #include <cstdio> // std::printf
+#endif // NO_UNIT_TESTS
+
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+
 namespace simple_stats {
 
   template <typename real_t=double>
@@ -11,7 +17,14 @@ namespace simple_stats {
 
     Stats() { clear(); } // default constructor
     
-    void clear() { mini = 1e38; maxi = -1e38; for(int p = 0; p < 4; ++p) v[p] = 0; times = 0; }
+    void clear() {
+        for (int p = 0; p < 4; ++p) {
+            v[p] = 0;
+        } // p
+        mini =  1e38;
+        maxi = -1e38;
+        times = 0;
+    } // clear
 
     void add(real_t const x, real_t const weight=1) {
         auto const w8 = std::abs(weight);
@@ -28,12 +41,14 @@ namespace simple_stats {
     real_t max() const { return maxi; }
     real_t num() const { return v[0]; }
     real_t sum() const { return v[1]; }
-    real_t avg() const { return (v[0] > 0) ? v[1]/v[0] : 0; } // aka mean
-    real_t var() const { 
-      auto const mean = avg();
-      return (times > 0 && v[0] > 0) ?
-          std::sqrt(std::max(real_t(0), v[2]/v[0] - mean*mean)) : 0;
-    } // sqrt(variance)
+    size_t tim() const { return times; }
+    double avg() const { return (v[0] > 0) ? v[1]/double(v[0]) : 0.0; } // aka mean
+    double variance() const {
+        auto const mean = avg();
+        return (times > 0 && v[0] > 0) ?
+            std::max(0.0, v[2]/v[0] - mean*mean) : 0.0;
+    } // variance
+    double var() const { return std::sqrt(variance()); }
 
     private:
       real_t v[4];
@@ -45,11 +60,24 @@ namespace simple_stats {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  template <typename real_t>
+  inline status_t test_basic(int const echo=0) {
+      Stats<real_t> s;
+      int const begin=0, end=100; double const ref[] = {49.5, 833.25}; // {mean, variance}
+      for (int i = begin; i < end; ++i) {
+          s.add(i);
+      } // i
+      auto const mean = s.avg();
+      if (echo > 3) std::printf("# %s: from %d to %d: %g +/- %g\n",
+                      __func__, begin, end - 1, mean, s.var());
+      return (ref[0] != mean) + (ref[1] != s.variance());
+  } // test_basic
+
   inline status_t all_tests(int const echo=0) {
     if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
-    status_t status(0);
-//  status += ToDo
-    return status;
+    status_t stat(0);
+    stat += test_basic<double>(echo);
+    return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  
