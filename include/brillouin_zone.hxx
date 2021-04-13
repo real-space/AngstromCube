@@ -1,11 +1,10 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <algorithm> // std::max, std::min
 #include <cmath> // std::round
 
 #include "status.hxx" // status_t
-// #include "complex_tools.hxx" // complex_name, is_complex, conjugate, to_complex_t
 #include "data_view.hxx" // view2D, view4D
 #include "inline_math.hxx" // set, pow2, product, is_integer
 #include "print_tools.hxx" // printf_vector
@@ -19,13 +18,13 @@ namespace brillouin_zone {
 
   template <bool ComplexPhaseFactors=true>
   int get_kpoint_mesh( // returns the number of k-points
-        view2D<double> & mesh
-      , unsigned const nv[3]
+        view2D<double> & mesh // on exit shape (nkpoints, 4)
+      , unsigned const nv[3] // grid along each dimension
       , int const echo=0 // log-level
   ) {
       unsigned n[3];
       double shift[3];
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           n[d] = std::max(1u, nv[d]);
           shift[d] = n[d] - 1.;
           if (!ComplexPhaseFactors) {
@@ -40,31 +39,31 @@ namespace brillouin_zone {
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
       double const denom[] = {.5/n[0], .5/n[1], .5/n[2]};
       double xyzw[] = {0, 0, 0, 1};
-      for(int iz = 0; iz < n[2]; ++iz) {  xyzw[2] = (2*iz - shift[2])*denom[2];
-      for(int iy = 0; iy < n[1]; ++iy) {  xyzw[1] = (2*iy - shift[1])*denom[1];
-      for(int ix = 0; ix < n[0]; ++ix) {  xyzw[0] = (2*ix - shift[0])*denom[0];
+      for (int iz = 0; iz < n[2]; ++iz) {  xyzw[2] = (2*iz - shift[2])*denom[2];
+      for (int iy = 0; iy < n[1]; ++iy) {  xyzw[1] = (2*iy - shift[1])*denom[1];
+      for (int ix = 0; ix < n[0]; ++ix) {  xyzw[0] = (2*ix - shift[0])*denom[0];
           set(full(iz, iy, ix), 4, xyzw);
-          if (echo > 18) printf("# k-point mesh entry %9.6f %9.6f %9.6f weight= %g\n", xyzw[0],xyzw[1],xyzw[2], xyzw[3]);
+          if (echo > 18) std::printf("# k-point mesh entry %9.6f %9.6f %9.6f weight= %g\n", xyzw[0],xyzw[1],xyzw[2], xyzw[3]);
       }}} // iz iy iz
 
 //       int const nsymmetries = 1;
 //       view3D<int8_t> symmetry(nsymmetries, 4, 4, 0); // use only the 3x3 sub matrices of the 4x4 memory chunks
-//       for(int d = 0; d < 3; ++d) symmetry(0,d,d) = -1; // time reversal
+//       for (int d = 0; d < 3; ++d) symmetry(0,d,d) = -1; // time reversal
 
-      for(int iz = 0; iz < n[2]; ++iz) {
-      for(int iy = 0; iy < n[1]; ++iy) {
-      for(int ix = 0; ix < n[0]; ++ix) {
+      for (int iz = 0; iz < n[2]; ++iz) {
+      for (int iy = 0; iy < n[1]; ++iy) {
+      for (int ix = 0; ix < n[0]; ++ix) {
           // apply time reversal symmetry (k and -k produce the same density)
           double xyz[3];
           set(xyz, 3, full(iz,iy,ix), -1.0); // go from k --> -k, ToDo: implement symmetry operation
           // convert to nearest integers
           int jxyz[3];
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               jxyz[d] = int(std::round(n[d]*xyz[d] + 0.5*shift[d]));
           } // d
           int const jx = jxyz[0], jy = jxyz[1], jz = jxyz[2];
           if (echo > 16) {
-              printf("# symmetry #%i maps k-point", 0);
+              std::printf("# symmetry #%i maps k-point", 0);
               printf_vector(" %9.6f", full(iz,iy,ix), 3, " to");
               printf_vector(" %9.6f", full(jz,jy,jx), 3);
           } // echo
@@ -72,13 +71,15 @@ namespace brillouin_zone {
           auto const w8 = full(jz,jy,jx,WEIGHT);
           if (w8 > 0) {
               double diff2{0};
-              for(int d = 0; d < 3; ++d) diff2 += pow2(xyz[d] - full(jz,jy,jx,d));
+              for (int d = 0; d < 3; ++d) {
+                  diff2 += pow2(xyz[d] - full(jz,jy,jx,d));
+              } // d
               if (diff2 < 1e-12) {
                   // k + (-k) == nullvector, transfer weight to (iz,iy,ix)
                   full(iz,iy,ix,WEIGHT) += w8;
                   full(jz,jy,jx,WEIGHT) -= w8;
                   if (echo > 14) {
-                      printf("# transfer k-point weight %g from", w8);
+                      std::printf("# transfer k-point weight %g from", w8);
                       printf_vector(" %9.6f", full(jz,jy,jx), 3, " to");
                       printf_vector(" %9.6f", full(iz,iy,ix), 3);
                   } // echo
@@ -91,12 +92,12 @@ namespace brillouin_zone {
       double const wfull = 1./nfull;
       double const weighted[] = {1, 1, 1, wfull};
       int nmesh{0};
-      for(int i01 = COUNT; i01 <= WRITE; i01 += (WRITE - COUNT)) {
+      for (int i01 = COUNT; i01 <= WRITE; i01 += (WRITE - COUNT)) {
           double w8sum{0};
           int imesh{0};
-          for(int iz = 0; iz < n[2]; ++iz) {
-          for(int iy = 0; iy < n[1]; ++iy) {
-          for(int ix = 0; ix < n[0]; ++ix) {
+          for (int iz = 0; iz < n[2]; ++iz) {
+          for (int iy = 0; iy < n[1]; ++iy) {
+          for (int ix = 0; ix < n[0]; ++ix) {
               auto const w8 = full(iz,iy,ix,WEIGHT);
               if (w8 > 0) {
                   if (WRITE == i01) product(mesh[imesh], 4, full(iz,iy,ix), weighted); // copy and apply weight denominator
@@ -108,12 +109,12 @@ namespace brillouin_zone {
               assert(nmesh == imesh && "1st and 2nd time counting did not agree");
           } else {
               nmesh = imesh;
-              if (echo > 8) printf("# %d k-points have positive weight, weight sum = 1 + %.1e\n", nmesh, w8sum*wfull - 1);
+              if (echo > 8) std::printf("# %d k-points have positive weight, weight sum = 1 + %.1e\n", nmesh, w8sum*wfull - 1);
               mesh = view2D<double>(nmesh, 4); // get memory
           } // COUNT or WRITE
       } // twice
 
-      if (echo > 3) printf("# k-point mesh with %d x %d x %d has %d points\n", n[0],n[1],n[2], nmesh);
+      if (echo > 3) std::printf("# k-point mesh with %d x %d x %d has %d points\n", n[0],n[1],n[2], nmesh);
       return nmesh;
   } // get_kpoint_mesh
 
@@ -150,7 +151,7 @@ namespace brillouin_zone {
         view2D<double> const & mesh
       , int const nmesh
   ) {
-      for(int ik = 0; ik < nmesh; ++ik) {
+      for (int ik = 0; ik < nmesh; ++ik) {
           if (needs_complex(mesh[ik])) return true;
       } // ik
       return false;
@@ -167,11 +168,11 @@ namespace brillouin_zone {
   } // test_mesh
 
   inline status_t all_tests(int const echo=0) {
-      status_t status(0);
-      for(int n = 0; n < 9; ++n) {
-          status += test_mesh(echo, n);
+      status_t stat(0);
+      for (int n = 0; n < 9; ++n) {
+          stat += test_mesh(echo, n);
       } // n
-      return status;
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

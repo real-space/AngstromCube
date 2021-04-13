@@ -1,10 +1,12 @@
 #pragma once
 
-#include <cstdio> // printf
 #include <type_traits> // std::true_type, std::false_type
 #include <complex> // std::complex<real_t>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+#ifndef NO_UNIT_TESTS
+  #include <cstdio> // std::printf
+#endif  
 
   template <typename T> struct is_complex_t                  : public std::false_type {};
   template <typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
@@ -38,7 +40,7 @@
   inline std::complex<double> to_double_complex_t(std::complex<float>  const x) { return std::complex<double>(x.real(), x.imag()); }
   inline double               to_double_complex_t(double               const x) { return x; }
   inline double               to_double_complex_t(float                const x) { return double(x); }
-
+  
 namespace complex_tools {
 
 #ifdef  NO_UNIT_TESTS
@@ -48,9 +50,9 @@ namespace complex_tools {
   template <typename complex_t>
   inline status_t test_complex(bool const expect_complex, int const echo=0) {
       bool const is = is_complex<complex_t>();
-      if (echo > 0) printf("# %s is_complex<%s>() = %s\n", __func__,
+      if (echo > 0) std::printf("# %s is_complex<%s>() = %s\n", __func__,
                               complex_name<complex_t>(), is?"true":"false");
-      if (echo > 1) printf("# %s typeof(conjugate(%s x)) = %s\n", __func__,
+      if (echo > 1) std::printf("# %s typeof(conjugate(%s x)) = %s\n", __func__,
                               complex_name<complex_t>(),
                               complex_name<decltype(conjugate(complex_t(1)))>());
       return (expect_complex != is);
