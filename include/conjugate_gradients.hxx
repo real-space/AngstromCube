@@ -15,6 +15,8 @@
 #include "control.hxx" // ::get
 
 #ifndef NO_UNIT_TESTS
+//  // additional includes needed by test_eigensolve in particle_in_box.hxx
+//  #include <cmath> // std::cos
 //  #include <complex> // std::complex
 //  #include "complex_tools.hxx" // complex_name
     #include "simple_math.hxx" // ::random
@@ -64,8 +66,8 @@ namespace conjugate_gradients {
       if (final_newline) std::printf("%c", final_newline);
   } // show_matrix
 
-  
-  
+
+
   template <typename complex_t>
   double submatrix2x2(double const sAs, complex_t const sAp, double const pAp, complex_t & alpha, double & beta) {
       // lowest eigenvalue of the 2 x 2 matrix ( sAs , pAs )
@@ -102,7 +104,7 @@ namespace conjugate_gradients {
       status_t stat = 0;
       int const maxiter = control::get("conjugate_gradients.max.iter", 132);
       int const restart_every_n_iterations = std::max(1, 4);
-      
+
       if (echo > 0) std::printf("# start CG onto %d bands\n", nbands);
 
       doublecomplex_t const dV = op.get_volume_element();
@@ -114,7 +116,7 @@ namespace conjugate_gradients {
       bool const use_cg = (0 == cg0sd1);
 
       view2D<complex_t> s(eigenstates, nv); // set wrapper
-      
+
       view2D<complex_t> Ss(eigenstates, nv); // wrap
       // this is not optimal for performance, because e.g. inner_product cannot get a restrict attribute
       if (use_overlap) {
@@ -180,7 +182,7 @@ namespace conjugate_gradients {
                       scale(Ss[ib], nv, snrm);
                   } else assert(Ss[ib] == s[ib]);
               } // orthogonalize s[ib] against s[0...ib-1]
-              
+
               double res_old{1};
               double prev_energy{0};
               bool restart{true};
@@ -201,14 +203,14 @@ namespace conjugate_gradients {
                       if (use_overlap) {
                           set(Sdir, nv, complex_t(0)); // clear search direction
                       } else assert(Sdir == dir);
-                    
+
                       restart = false;
                   } // (re)start
-                
+
                   energy[ib] = std::real(inner_product(nv, s[ib], Hs, dV));
                   if (echo > 7) std::printf("# CG energy of band #%i is %g %s in iteration #%i\n", 
                                                               ib, energy[ib]*eV, _eV, iiter);
-                  
+
                   // compute gradient = - ( H\psi - E*S\psi )
                   set(grd, nv, Hs, complex_t(-1)); add_product(grd, nv, Ss[ib], complex_t(energy[ib]));
                   if (echo > 7) std::printf("# norm^2 (no S) of gradient %.e\n", std::real(inner_product(nv, grd, grd, dV)));
@@ -230,7 +232,7 @@ namespace conjugate_gradients {
                   if (use_overlap) {
                       stat += op.Overlapping(SPgrd, Pgrd, echo);
                   } else assert(SPgrd == Pgrd);
-                  
+
                   double const res_new = std::real(inner_product(nv, Pgrd, SPgrd, dV));
                   if (echo > 7) std::printf("# norm^2 of%s gradient %.e\n", use_precond?" preconditioned":"", res_new);
 
@@ -245,7 +247,7 @@ namespace conjugate_gradients {
                   prev_energy = energy[ib];
 
                   if (use_cg) { // operations specific for the conjugate gradients method
-                    
+
                       complex_t const f = ((std::abs(res_new) > tiny<real_t>()) ? res_old/res_new : 0);
                       if (echo > 7) std::printf("# CG step with old/new = %g/%g = %g\n", res_old, res_new, std::real(f));
 
@@ -259,7 +261,7 @@ namespace conjugate_gradients {
                       } else { assert(Sdir == dir); assert(Scon == con); };
 
                       if (echo > 7) std::printf("# norm^2 of con %.e\n", std::real(inner_product(nv, con, Scon, dV)));
-                      
+
                       for(int iortho = 0; iortho < northo[2]; ++iortho) {
                           if (echo > 7) std::printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
                           for(int jb = 0; jb <= ib; ++jb) {
@@ -271,16 +273,16 @@ namespace conjugate_gradients {
                               } else assert(Scon == con);
                           } // jb
                       } // orthogonalize con against s[0...ib]
-                      
+
                   } else { assert(Scon == SPgrd); assert(con == Pgrd); } // steepest descent method
 
                   double const cnorm = std::real(inner_product(nv, con, Scon, dV));
                   if (echo > 7) std::printf("# norm^2 of conjugate direction is %.e\n", cnorm);
                   if (cnorm < 1e-12) {
                       it_converged = iiter; // converged, stop the iiter loop
-                  } else { 
+                  } else {
                       complex_t const cf = 1./std::sqrt(cnorm);
-                      
+
                       scale(con, nv, cf);
                       if (use_overlap) {
                           if (1) {
@@ -312,11 +314,11 @@ namespace conjugate_gradients {
 
                   res_old = res_new; // pass
               } // iiter
-              
+
               if (maxiter < 1) {
                   energy[ib] = std::real(inner_product(nv, s[ib], Hs, dV));
               } // evaluate only the energy so the display is correct
-              
+
               if (echo > 4) {
                   if (last_printf_line > 0) std::printf("\r"); // carriage return to line start
                   std::printf("# CG energy of band #%i is %.9g %s, residual %.1e %s in %d iterations                \n", 

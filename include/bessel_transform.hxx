@@ -6,11 +6,11 @@
 
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_exponential_radial_grid
-#include "constants.hxx" // ::pi
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 #ifndef NO_UNIT_TESTS
     #include "inline_math.hxx" // pow2
+//  #include "constants.hxx" // ::pi
 //  #include <cmath> // std::cos, std::exp
 #endif
 
@@ -28,6 +28,7 @@ namespace bessel_transform {
       , bool const back=false
       , int const echo=3 // log-level
   ) {
+    
       if (echo > 8) std::printf("# %s(out=%p, in=%p, g=%p, nq=%d, dq=%.3f, back=%d, echo=%d);\n",
                            __func__, (void*)out, (void*)in, (void*)&g, nq, dq, back, echo);
 
@@ -58,14 +59,15 @@ namespace bessel_transform {
       if (echo > 8) std::printf("# %s    n_in=%d x_in=%p dx_in=%p n_out=%d x_out=%p\n",
                       __func__, n_in, (void*)x_in, (void*)dx_in, n_out, (void*)x_out);
 
-      double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
+      double const sqrt2overpi = .7978845608028654; // this makes the transform symmetric
+      //  assert(std::sqrt(2./constants::pi) == sqrt2overpi);
       for(int io = 0; io < n_out; ++io) {
           double tmp{0};
           for(int ii = 0; ii < n_in; ++ii) {
               double const qr = x_in[ii]*x_out[io];
               tmp += in[ii] * Bessel_j0(qr) * dx_in[ii];
           } // ii
-          out[io] = tmp*sqrt2pi;
+          out[io] = tmp*sqrt2overpi;
       } // io
 
       return 0;

@@ -6,7 +6,8 @@
 #include <cassert> // assert
 
 #include "inline_math.hxx" // set, scale
-#include "bessel_transform.hxx" // Bessel_j0
+#include "constants.hxx" // ::pi
+#include "bessel_transform.hxx" // ::Bessel_j0
 #include "recorded_warnings.hxx" // warn
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary, Mirrored_Boundary, Invalid_Boundary
 

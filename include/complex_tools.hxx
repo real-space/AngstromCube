@@ -10,7 +10,7 @@
 
   template <typename T> struct is_complex_t                  : public std::false_type {};
   template <typename T> struct is_complex_t<std::complex<T>> : public std::true_type  {};
-  template <typename T> constexpr bool is_complex() { return is_complex_t<T>::value; } // not needed when using C++14
+  template <typename T> constexpr bool is_complex(T const x=0) { return is_complex_t<T>::value; } // not needed when using C++14
 
   template <typename complex_t> char const * complex_name(complex_t const x=0);
   template <> inline char const * complex_name<double>(double const x) { return "double"; }

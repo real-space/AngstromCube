@@ -1,17 +1,22 @@
 #pragma once
 
-#include <cstdio> // printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::fflush, stdout
+#include <cstdio> // std::printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::fflush, stdout
+
 #include "display_units.h" // Ang, _Ang
 #include "complex_tools.hxx" // is_complex
 
 #ifdef DEBUG
-    #define here if (echo > 5) { printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); std::fflush(stdout); }
+    #define here \
+        if (echo > 5) { \
+            std::printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); \
+            std::fflush(stdout); \
+        }
 #else
     #define here
 #endif
 
 template <typename real_t>
-int dump_to_file(
+inline int dump_to_file(
       char const *filename
     , size_t const N // number of rows
     , real_t const y_data[] // 2D-data array [N*Stride]
@@ -23,19 +28,19 @@ int dump_to_file(
 ) {
     std::FILE *f = std::fopen(filename, "w");
     if (nullptr == f) {
-        if (echo > 1) printf("# %s Error opening file %s!\n", __func__, filename);
+        if (echo > 1) std::printf("# %s Error opening file %s!\n", __func__, filename);
         return 1;
     } // failed to open
 
     std::fprintf(f, "#%s %s\n", (is_complex<real_t>())?"complex":"", title); // print this line also if title==nullptr
 
-    for(int i = 0; i < N; i++) {
+    for (int i = 0; i < N; i++) {
         if (nullptr != x_axis) {
             std::fprintf(f, "%g ", x_axis[i]);
         } else {
             std::fprintf(f, "%d ", i);
         } // x_axis given
-        for(int j = 0; j < M; ++j) {
+        for (int j = 0; j < M; ++j) {
             auto const y = y_data[i*Stride + j];
             if (is_complex<real_t>()) {
                 std::fprintf(f, "  %g %g", std::real(y), std::imag(y));
@@ -48,14 +53,14 @@ int dump_to_file(
     std::fprintf(f, "\n"); // new line at the end of the file
 
     std::fclose(f);
-    if (echo > 3) printf("# file %s written with %lu x %lu (of %lu) data entries.\n", filename, N, M, Stride);
+    if (echo > 3) std::printf("# file %s written with %lu x %lu (of %lu) data entries.\n", filename, N, M, Stride);
     return 0;
 } // dump_to_file
 
 namespace debug_output {
 
   template <typename real_t>
-  status_t write_array_to_file(
+  inline status_t write_array_to_file(
         char const *filename // file name to write to
       , real_t const array[]  // array pointer
       , int const nx, int const ny, int const nz // grid dimensions
@@ -66,5 +71,5 @@ namespace debug_output {
       auto const size = size_t(nz) * size_t(ny) * size_t(nx);
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file
-  
+
 } // namespace debug_output

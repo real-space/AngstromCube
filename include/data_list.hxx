@@ -1,16 +1,16 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cstdint> // uint32_t
 #include <vector> // std::vector<T>
 #include <algorithm> // std::fill
 // #include <utility> // std::move
 
-// #define debug_printf(...) printf(__VA_ARGS__)
+// #define debug_printf(...) std::printf(__VA_ARGS__)
 #define debug_printf(...)
 
-template<typename T>
+template <typename T>
 class data_list // a container for matrices with a variable number of columns per row
 {
 private:
@@ -21,8 +21,8 @@ private:
   uint32_t _n;
   uint32_t _max_m;
 public:
-  
-  template<typename int_t>
+
+  template <typename int_t>
   data_list(uint32_t const n, int_t const ms[], T const init_value=T(0)) 
       : _ptrs(n, nullptr), _m(n), _mem(0), _n(n), _max_m(0) {
       assert(n == _n); // safety checks on upper limit of n
@@ -45,8 +45,9 @@ public:
       assert(num*sizeof(T) == _mem); // consistency check
   } // constructor
 
-  template<typename int_t>
-  data_list(std::vector<int_t> const &ms, T const init_value=T(0)) : data_list(ms.size(), ms.data(), init_value) {} // delegating constructor
+  template <typename int_t>
+  data_list(std::vector<int_t> const & ms, T const init_value=T(0)) 
+    : data_list(ms.size(), ms.data(), init_value) {} // delegating constructor
 
   data_list(void) : _data(0), _ptrs(0), _m(0), _mem(0), _n(0), _max_m(0) {} // default constructor
 

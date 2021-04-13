@@ -16,6 +16,7 @@
 #include "recorded_warnings.hxx" // warn, error
 
 #ifndef NO_UNIT_TESTS
+//  // additional includes needed by test_eigensolve in particle_in_box.hxx
 //  #include <cmath> // std::cos
 //  #include <complex> // std::complex
 //  #include "complex_tools.hxx" // complex_name
@@ -332,8 +333,8 @@ namespace davidson_solver {
       typename operator_t::complex_t waves[] // on entry start wave functions, on exit improved eigenfunctions
     , double energies[] // export eigenenergies
     , int const nbands // number of bands
-    , operator_t const & op
-    , int const echo=0
+    , operator_t const & op // Hamiltonian and overlap operators
+    , int const echo=0 // log-level
   ) {
       return eigensolve(waves, energies, nbands, op, echo, 1, 1);
   } // rotate

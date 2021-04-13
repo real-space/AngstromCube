@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::fflush, stdout
+#include <cstdio> // std::printf, std::fflush, stdout
 #include <cassert> // assert
 #include <cstdint> // uint32_t --> replace size_t with this?
 #include <algorithm> // std::fill
@@ -9,7 +9,7 @@
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // conjugate
 
-// #define debug_printf(...) printf(__VA_ARGS__)
+// #define debug_printf(...) std::printf(__VA_ARGS__)
 #define debug_printf(...)
 
 #ifdef DEVEL
@@ -20,7 +20,7 @@
 
 #define DimUnknown 0
 
-template<typename T>
+template <typename T>
 class view2D {
 public:
   
@@ -90,7 +90,7 @@ public:
 #endif
 
   T* operator[] (size_t const i1) const {
-    if    ((i1 < _n1) || (DimUnknown == _n1)) {} else printf("# i1=%li n1=%ld\n", i1, _n1);
+    if    ((i1 < _n1) || (DimUnknown == _n1)) {} else std::printf("# i1=%li n1=%ld\n", i1, _n1);
     assert((i1 < _n1) || (DimUnknown == _n1)); 
     return &_data[i1*_n0]; } // []
 
@@ -106,12 +106,12 @@ private:
 }; // view2D
 
 
-  template<typename T>
+  template <typename T>
   inline void set(view2D<T> & y, size_t const n1, T const a) { 
           std::fill(y.data(), y.data() + n1*y.stride(), a); }
 
          
-  template<typename T>
+  template <typename T>
   view2D<T> transpose(view2D<T> const & a // input matrix a(N
       , int const aN // assume shape a(N,M)
       , int const aM=-1 // -1:auto use a.stride()
@@ -124,8 +124,8 @@ private:
       assert( N <= a.stride() );
       bool const c = ('c' == (conj | 32)); // case insensitive: 'C' and 'c' lead to complex conjugation
       view2D<T> a_transposed(N, M);
-      for(int n = 0; n < N; ++n) {
-          for(int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+          for (int m = 0; m < M; ++m) {
               auto const a_mn = a(m,n); 
               a_transposed(n,m) = c ? conjugate(a_mn) : a_mn;
           } // m
@@ -133,7 +133,7 @@ private:
       return a_transposed;
   } // transpose
 
-  template<typename Ta, typename Tb, typename Tc>
+  template <typename Ta, typename Tb, typename Tc>
   void gemm(view2D<Tc> & c // result matrix, shape(N,M)
       , int const N, view2D<Tb> const & b //  left input matrix, shape(N,K)
       , int const K, view2D<Ta> const & a // right input matrix, shape(K,M)
@@ -149,10 +149,10 @@ private:
       assert( M <= a.stride() );
       assert( K <= b.stride() );
       assert( M <= c.stride() );
-      for(int n = 0; n < N; ++n) {
-          for(int m = 0; m < M; ++m) {
+      for (int n = 0; n < N; ++n) {
+          for (int m = 0; m < M; ++m) {
               Tc t(0);
-              for(int k = 0; k < K; ++k) { // contraction index
+              for (int k = 0; k < K; ++k) { // contraction index
                   t += b(n,k) * a(k,m);
               } // k
               if ('0' == beta) { c(n,m) = t; } else { c(n,m) += t; } // store
@@ -162,7 +162,7 @@ private:
          
          
          
-template<typename T>
+template <typename T>
 class view3D {
 public:
   
@@ -260,12 +260,12 @@ private:
 
 }; // view3D
 
-template<typename T>
+template <typename T>
 inline void set(view3D<T> & y, size_t const n2, T const a) { 
          std::fill(y.data(), y.data() + n2*y.dim1()*y.stride(), a); }
 
 
-template<typename T>
+template <typename T>
 class view4D {
 public:
   
@@ -374,7 +374,7 @@ private:
 
 }; // view4D
 
-template<typename T>
+template <typename T>
 inline void set(view4D<T> & y, size_t const n3, T const a) { 
          std::fill(y.data(), y.data() + n3*y.dim2()*y.dim1()*y.stride(), a); }
 
@@ -388,29 +388,29 @@ namespace data_view {
 
   inline int test_view2D(int const echo=9) {
       int constexpr n1 = 3, n0 = 5;
-      if (echo > 0) printf("\n# %s(%i,%i)\n", __func__, n1, n0);
+      if (echo > 0) std::printf("\n# %s(%i,%i)\n", __func__, n1, n0);
 
       // view2D<double> a(n1,8); // memory allocation
       auto a = view2D<double>(n1,8);
       assert(a.stride() >= n0);
-      for(int i = 0; i < n1; ++i) {
-          for(int j = 0; j < n0; ++j) {
+      for (int i = 0; i < n1; ++i) {
+          for (int j = 0; j < n0; ++j) {
               #ifdef _VIEW2D_HAS_PARENTHESIS
               a(i,j) = i + 0.1*j;
-              if (echo > 0) printf("# a2D(%i,%i) = %g\n", i, j, a(i,j));
+              if (echo > 0) std::printf("# a2D(%i,%i) = %g\n", i, j, a(i,j));
               assert(a.at(i,j) == a[i][j]);
               #else
               a[i][j] = i + 0.1*j;
-              if (echo > 0) printf("# a2D(%i,%i) = %g\n", i, j, a[i][j]);
+              if (echo > 0) std::printf("# a2D(%i,%i) = %g\n", i, j, a[i][j]);
               #endif
           } // j
       } // i
 
       int ii = 1;
-      if (echo > 0) printf("\n# ai = a1D[%i][:]\n", ii);
+      if (echo > 0) std::printf("\n# ai = a1D[%i][:]\n", ii);
       auto const ai = a[ii]; // pointer into contiguous memory
-      for(int j = 0; j < n0; ++j) {
-          if (echo > 0) printf("# ai[%i] = %g\n", j, ai[j]);
+      for (int j = 0; j < n0; ++j) {
+          if (echo > 0) std::printf("# ai[%i] = %g\n", j, ai[j]);
           #ifdef _VIEW2D_HAS_PARENTHESIS
           assert(a.at(ii,j) == ai[j]);
           #else
@@ -423,14 +423,14 @@ namespace data_view {
 
   inline int test_view3D(int const echo=9) {
       int constexpr n2 = 3, n1 = 2, n0 = 5;
-      if (echo > 0) printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
+      if (echo > 0) std::printf("\n# %s(%i,%i,%i)\n", __func__, n2, n1, n0);
       view3D<double> a(n2,n1,8); // memory allocation
       assert(a.stride() >= n0);
-      for(int h = 0; h < n2; ++h) {
-        for(int i = 0; i < n1; ++i) {
-          for(int j = 0; j < n0; ++j) {
+      for (int h = 0; h < n2; ++h) {
+        for (int i = 0; i < n1; ++i) {
+          for (int j = 0; j < n0; ++j) {
               a(h,i,j) = h + 0.1*i + 0.01*j;
-              if (echo > 0) printf("# a3D(%i,%i,%i) = %g\n", h, i, j, a(h,i,j));
+              if (echo > 0) std::printf("# a3D(%i,%i,%i) = %g\n", h, i, j, a(h,i,j));
               #ifdef _VIEW3D_HAS_INDEXING
               assert(a(h,i,j) == a[h][i][j]);
               #endif
@@ -447,24 +447,24 @@ namespace data_view {
       view2D<int> a(2, 2, 0);
       int const nrep = 1e7; // int(control::get("data_view.bench.nrepeat", 2e7));
       {   SimpleTimer t(__FILE__, __LINE__, "a[i][j]");
-          for(int irep = 0; irep < nrep; ++irep) {
+          for (int irep = 0; irep < nrep; ++irep) {
               a[1][1] = a[1][0];
               a[1][0] = a[0][1];
               a[0][1] = a[0][0];
               a[0][0] = irep;
           } // irep
       } // timer
-      printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
+      std::printf("# a[i][j] = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
       std::fflush(stdout);
       {   SimpleTimer t(__FILE__, __LINE__, "a(i,j)");
-          for(int irep = 0; irep < nrep; ++irep) {
+          for (int irep = 0; irep < nrep; ++irep) {
               a(1,1) = a(1,0);
               a(1,0) = a(0,1); // This version is 1.5x faster
               a(0,1) = a(0,0);
               a(0,0) = irep;
           } // irep
       } // timer
-      printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
+      std::printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
       std::fflush(stdout);
 #endif
       return 0;
