@@ -10,7 +10,7 @@ namespace iterative_poisson {
   status_t solve(
         real_t x[] // result to Laplace(x)/(-4*pi) == b
       , real_t const b[] // right hand side b
-      , real_space::grid_t const &g // grid descriptor
+      , real_space::grid_t const & g // grid descriptor
       , char const method='M' // solver method M:multi-grid, c:conjugate-gradient, s:steepest-descent
       , int const echo=0 // log level
       , float const threshold=3e-8 // convergence criterion
