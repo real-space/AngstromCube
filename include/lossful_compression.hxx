@@ -4,13 +4,18 @@
 #include <vector> // std::vector<T>
 #include <cstdio> // std::fprintf, stdout, FILE
 
-  template<typename real_t, typename y_real_t>
-  int RamerDouglasPeucker(std::vector<bool> & active
-        , real_t const x_list[], y_real_t const y_list[], int const end
-        , int const begin=0, float const epsilon=1e-6) {
+  template <typename real_t, typename y_real_t>
+  int RamerDouglasPeucker(
+      std::vector<bool> & active
+    , real_t const x_list[]
+    , y_real_t const y_list[]
+    , int const end
+    , int const begin=0
+    , float const epsilon=1e-6
+  ) {
     // Find the point with the maximum distance
-    double d2max = 0;
-    int index = -1;
+    double d2max{0};
+    int index{-1};
     // construct a straight line through the 1st and last point
     int const p0 = begin, pl = end - 1;
     assert(active[p0]); // start and end point:
@@ -68,7 +73,7 @@
         int const n1 = RamerDouglasPeucker(active, x_list, y_list, end,       index, epsilon);
         return n0 + n1 - 1;
     } else {
-        int n_off = 0;
+        int n_off{0};
         for(int i = p0 + 1; i < pl; ++i) {
             n_off += (0 != active[i]);
             active[i] = false; // switch off every point in between since the curve is sufficiently smooth there
@@ -79,15 +84,26 @@
 
   } // RamerDouglasPeucker
 
-  template<typename real_t, typename y_real_t>
-  std::vector<bool> RDP_lossful_compression(real_t const x[], y_real_t const y[], int const n, float const epsilon=1e-6) {
+  template <typename real_t, typename y_real_t>
+  std::vector<bool> RDP_lossful_compression(
+        real_t const x[]
+      , y_real_t const y[]
+      , int const n
+      , float const epsilon=1e-6
+  ) {
       std::vector<bool> mask(n, true);
       RamerDouglasPeucker(mask, x, y, n, 0, epsilon);
       return mask;
   } // RDP_lossful_compression
 
   template <typename real_t, typename real_y_t>
-  void print_compressed(real_t const x[], real_y_t const y[], int const n, float const epsilon=1e-6, FILE* os=stdout) {
+  void print_compressed(
+        real_t const x[]
+      , real_y_t const y[]
+      , int const n
+      , float const epsilon=1e-6
+      , FILE* os=stdout
+  ) {
       auto const mask = RDP_lossful_compression(x, y, n, epsilon);
       for(int i = 0; i < n; ++i) {
           if (mask[i]) std::fprintf(os, "%g %g\n", x[i], y[i]);

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 
 #include "status.hxx" // status_t
 #include "radial_grid.h" // radial_grid_t
@@ -33,29 +33,29 @@ namespace pseudo_tools {
       double Amat[4][4], bvec[4] = {0,0,0,0};
       set(Amat[0], 4*4, 0.0);
       int const nm = std::min(std::max(1, nmax), 4);
-      for(int i4 = 0; i4 < nm; ++i4) {
+      for (int i4 = 0; i4 < nm; ++i4) {
           // use up to 4 radial indices [irc-2,irc-1,irc+0,irc+1]
           int const ir = irc + i4 - nm/2; // not fully centered around irc
           double const r = rg[ir];
           double rl = intpow(r, ell);
           // set up a basis of 4 functions: r^0, r^0, r^4, r^6 at up to 4 neighboring grid points around r(irc)
-          for(int j4 = 0; j4 < nm; ++j4) {
+          for (int j4 = 0; j4 < nm; ++j4) {
               Amat[j4][i4] = rl;
               rl *= pow2(r);
           } // j4
           // b is the inhomogeneus right side of the set of linear equations
           bvec[i4] = fun[ir];
       } // i4
-      
+
 #ifdef DEVEL
       if (echo > 7) {
-          printf("\n");
-          for(int i4 = 0; i4 < nm; ++i4) {
-              printf("# %s Amat i=%i ", __func__, i4);
-              for(int j4 = 0; j4 < nm; ++j4) {
-                  printf(" %16.9f", Amat[j4][i4]);
+          std::printf("\n");
+          for (int i4 = 0; i4 < nm; ++i4) {
+              std::printf("# %s Amat i=%i ", __func__, i4);
+              for (int j4 = 0; j4 < nm; ++j4) {
+                  std::printf(" %16.9f", Amat[j4][i4]);
               } // j4
-              printf(" bvec %16.9f\n", bvec[i4]);
+              std::printf(" bvec %16.9f\n", bvec[i4]);
           } // i4
       } // echo
 #endif // DEVEL
@@ -64,13 +64,13 @@ namespace pseudo_tools {
 
 #ifdef DEVEL      
       if (echo > 7) {
-          printf("# %s xvec     ", __func__);
+          std::printf("# %s xvec     ", __func__);
           printf_vector(" %16.9f", x, nm);
       } // echo
 #endif // DEVEL
       set(x + nm, 4 - nm, 0.0); // clear the unused coefficients
       // replace the inner part of the function by the even-order polynomial
-      for(int ir = 0; ir < irc; ++ir) {
+      for (int ir = 0; ir < irc; ++ir) {
           double const r = rg[ir];
           double const rr = pow2(r);
           double const rl = intpow(r, ell);
@@ -80,7 +80,7 @@ namespace pseudo_tools {
       return info;
   } // pseudize_function
 
-  
+
   inline
   double pseudize_spherical_density(
         double smooth_density[]
@@ -101,23 +101,23 @@ namespace pseudo_tools {
       if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
 #ifdef DEVEL
       if (echo > 8) { // plot the densities
-          printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
-          for(int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
-              printf("%g %g %g\n", rg[SMT].r[ir], smooth_density[ir], true_density[ir + nr_diff]);
+          std::printf("\n## %s radius, {smooth, true} for %s density:\n", label, quantity);
+          for (int ir = 0; ir < nrs; ir += 2) { // plot only every second entry
+              std::printf("%g %g %g\n", rg[SMT].r[ir], smooth_density[ir], true_density[ir + nr_diff]);
           } // ir
-          printf("\n\n");
+          std::printf("\n\n");
       } // plot
 #endif // DEVEL
       // report integrals
       auto const tru_charge = dot_product(rg[TRU].n, rg[TRU].r2dr, true_density);
       auto const smt_charge = dot_product(rg[SMT].n, rg[SMT].r2dr, smooth_density);
       double const charge_deficit = tru_charge - smt_charge;
-      if (echo > 1) printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
+      if (echo > 1) std::printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
                               label, quantity, tru_charge, smt_charge);
 
       return charge_deficit;
   } // pseudize_spherical_density
-  
+
 
 
   template <typename real_t>
@@ -174,12 +174,12 @@ namespace pseudo_tools {
       if(value_x0) *value_x0 = d0;
       if(deriv1st) *deriv1st = d1;
       if(deriv2nd) *deriv2nd = d2;
-      
+
       return 0; // success
   } // Lagrange_derivatives
 
-  
-  
+
+
 
   template <int rpow>
   status_t pseudize_local_potential(
@@ -199,13 +199,13 @@ namespace pseudo_tools {
       assert(rg[TRU].r[nr_diff] == rg[SMT].r[0]);
       assert(r_cut == rg[SMT].r[ir_cut[SMT]]);
 
-      if (echo > 1) printf("\n# %s %s\n", label, __func__);
+      if (echo > 1) std::printf("\n# %s %s\n", label, __func__);
       status_t stat(0);
       if (n_Lagrange_points < 1) { // construct initial smooth spherical potential as parabola
           set(V_smt, rg[SMT].n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)
-          if (echo > 2) printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
+          if (echo > 2) std::printf("\n# %s construct initial smooth spherical potential as parabola\n", label);
           stat = pseudize_function(V_smt, rg[SMT].r, ir_cut[SMT], 2, rpow); // replace by a parabola
-          if (echo > 5) printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
+          if (echo > 5) std::printf("# %s match local potential to parabola at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
                           label, r_cut*Ang, _Ang, V_tru[ir_cut[TRU]]*(rpow ? 1./r_cut : 1)*df*eV, _eV);
       } else {
           assert(rpow == rpow*rpow); // rpow either 0 or 1
@@ -231,13 +231,13 @@ namespace pseudo_tools {
           } // order
 #ifdef DEVEL
           if (echo > 22) {
-              printf("\n## Lagrange-N, reference-value, Lagrange(rcut), dLagrange/dr, d^2Lagrange/dr^2, status:\n");
+              std::printf("\n## Lagrange-N, reference-value, Lagrange(rcut), dLagrange/dr, d^2Lagrange/dr^2, status:\n");
               for (int order = 1; order < 16; ++order) {
                   unsigned const Lagrange_order = 2*order + 1;
                   {
                       double d0{0}, d1{0}, d2{0};
                       auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-                      printf("%d %.15f %.15f %.15f %.15f %i\n", Lagrange_order, V_tru[ir0], d0, d1, d2, int(stat));
+                      std::printf("%d %.15f %.15f %.15f %.15f %i\n", Lagrange_order, V_tru[ir0], d0, d1, d2, int(stat));
                   }
               } // order
           } // echo
@@ -245,13 +245,13 @@ namespace pseudo_tools {
           if (echo > 27 && 1 == rpow) {
               for (int order = 1; order < 16; ++order) {
                   unsigned const Lagrange_order = 2*order + 1;
-                  printf("\n\n## r, r*V_true(r), Lagrange_fit(N=%d), dLagrange/dr, d^2Lagrange/dr^2, status:\n", Lagrange_order);
-                  for(int ir = 0; ir < rg[TRU].n; ++ir) {
+                  std::printf("\n\n## r, r*V_true(r), Lagrange_fit(N=%d), dLagrange/dr, d^2Lagrange/dr^2, status:\n", Lagrange_order);
+                  for (int ir = 0; ir < rg[TRU].n; ++ir) {
                       double d0{0}, d1{0}, d2{0};
                       auto const stat = Lagrange_derivatives(Lagrange_order, yi, xi, rg[TRU].r[ir] - x0, &d0, &d1, &d2);
-                      printf("%g %g %g %g %g %i\n", rg[TRU].r[ir], V_tru[ir], d0, d1, d2, int(stat));
+                      std::printf("%g %g %g %g %g %i\n", rg[TRU].r[ir], V_tru[ir], d0, d1, d2, int(stat));
                   } // ir
-                  printf("\n\n");
+                  std::printf("\n\n");
               } // order
           } // echo
 #endif // DEVEL
@@ -264,7 +264,7 @@ namespace pseudo_tools {
           unsigned const Lagrange_order = 1 + 2*std::min(std::max(1, n_Lagrange_points ), 15);
           double d0{0}, d1{0}, d2{0};
           stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
-          if (echo > 7) printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", 
+          if (echo > 7) std::printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", 
                                   label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
           
           if (d1 <= 0) warn("%s positive potential slope for sinc-fit expected but found %g", label, d1);
@@ -281,7 +281,7 @@ namespace pseudo_tools {
               V_s = d2/(-k_s*k_s*sin_kr);
               V_0 = d1 - V_s*k_s*cos_kr;
               double const d0_new = 0.5*d0 + 0.5*(V_s*sin_kr + r_cut*V_0); // 50% mixing
-              if (echo > 27) printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", 
+              if (echo > 27) std::printf("# %s iter=%i use V_s=%g k_s=%g V_0=%g d0=%g d0_new-d0=%g\n", 
                                        label, max_iter - iter, V_s, k_s, V_0, d0, d0 - d0_new);
               k_s += 1e-2*(d0 - d0_new); // maybe needs saturation function like atan
               ++iterations_needed;
@@ -291,36 +291,36 @@ namespace pseudo_tools {
               warn("%s sinc-fit failed!, k_s*r_cut=%g not in (2pi, 2.5pi)", label, k_s*r_cut);
           } // out of target range
 
-          if (echo > 5) printf("# %s match local potential to sinc function at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
+          if (echo > 5) std::printf("# %s match local potential to sinc function at R_cut = %g %s, V_tru(R_cut) = %g %s\n",
                           label, r_cut*Ang, _Ang, yi[0]/r_cut*df*eV, _eV);
 
-          if (echo > 3) printf("# %s smooth potential value of sinc-fit at origin is %g %s\n", label, (V_s*k_s + V_0)*df*eV, _eV);
+          if (echo > 3) std::printf("# %s smooth potential value of sinc-fit at origin is %g %s\n", label, (V_s*k_s + V_0)*df*eV, _eV);
 
           // now modify the smooth local potential
-          for(int ir = 0; ir <= ir_cut[SMT]; ++ir) {
+          for (int ir = 0; ir <= ir_cut[SMT]; ++ir) {
               double const r = rg[SMT].r[ir];
               V_smt[ir] = (V_s*std::sin(k_s*r) + r*V_0)*(rpow ? 1 : rg[SMT].rinv[ir]); // set values to the fitted sinc-function
           } // ir
-          for(int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
+          for (int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
               V_smt[ir] = V_tru[ir + nr_diff]; // copy the tail
           } // ir
 
       } // method
 #ifdef DEVEL
       if (echo > 11) {
-          printf("\n\n## %s: r in %s, r*V_tru(r), r*V_smt(r) in %s*%s:\n", __func__, _Ang, _Ang, _eV);
+          std::printf("\n\n## %s: r in %s, r*V_tru(r), r*V_smt(r) in %s*%s:\n", __func__, _Ang, _Ang, _eV);
           auto const factors = df*eV*Ang;
-          for(int ir = 0; ir < rg[SMT].n; ++ir) {
+          for (int ir = 0; ir < rg[SMT].n; ++ir) {
               double const r = rg[SMT].r[ir], r_pow = rpow ? 1 : r;
-              printf("%g %g %g\n", r*Ang, r_pow*V_tru[ir + nr_diff]*factors, r_pow*V_smt[ir]*factors);
+              std::printf("%g %g %g\n", r*Ang, r_pow*V_tru[ir + nr_diff]*factors, r_pow*V_smt[ir]*factors);
           } // ir
-          printf("\n\n");
+          std::printf("\n\n");
       } // echo
 #endif // DEVEL
       return stat;
   } // pseudize_local_potential
 
-  
+
   inline
   double perform_Gram_Schmidt( // returns the determinant |A|
         int const n // number of projectors == number of partial waves == nn[ell]
@@ -335,25 +335,25 @@ namespace pseudo_tools {
 
       if (n < 1) return 0.0; // but no warning
       double const det = simple_math::determinant(n, A.data(), A.stride());
-      if (echo > 2) printf("# %s determinant for %c-projectors is %g\n", label, ell, det);
+      if (echo > 2) std::printf("# %s determinant for %c-projectors is %g\n", label, ell, det);
       if (std::abs(det) < 1e-24) {
           warn("%s determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
           return det;
       }
       // Gram-Schmidt orthonormalization is effectively a LU-decomposition, however, we modify it here
       view2D<double> L(n, n, 0.0), U(n, n, 0.0); // get memory for LU factors
-      for(int i = 0; i < n; ++i) {
+      for (int i = 0; i < n; ++i) {
           U(i,i) = 1; // start from unit matrix
           set(L[i], n, A[i]); // start from A
       } // i
 
       // now factorize A in a custom fashion
-      for(int i = 0; i < n; ++i) {
+      for (int i = 0; i < n; ++i) {
 
           if (op[i] & 32) { // all lower case chars, e.g. 'l' or 'u'          
               auto const diag = L(i,i);
               auto const dinv = 1./diag; // ToDo: check if we can safely divide by L(i,i)
-              for(int k = 0; k < n; ++k) {
+              for (int k = 0; k < n; ++k) {
                   U(i,k) *= diag; // row operation
                   L(k,i) *= dinv; // col operation
               } // k
@@ -362,22 +362,22 @@ namespace pseudo_tools {
               // leads to U_inv(i,i) == 1.0
           } // which one to scale?
 
-          for(int j = i + 1; j < n; ++j) {
+          for (int j = i + 1; j < n; ++j) {
             
               if (op[j] & 1) { // all odd chars, e.g. 'u' or 'U'
                   // clear out upper right corner of L
                   auto const c = L(i,j)/L(i,i); // ToDo: check if we can safely divide by L(i,i)
-                  for(int k = 0; k < n; ++k) {
+                  for (int k = 0; k < n; ++k) {
                       L(k,j) -= c*L(k,i); // col operation
                       U(i,k) += c*U(j,k); // row operation
                   } // k
                   L(i,j) = 0; // clear out exactly
               } // modify col L(:,j) and row U(i,:)
-              
+
               else { // all odd chars, e.g. 'u' or 'U'
                   // clear out lower left corner of L
                   auto const c = L(j,i)/L(j,j); // ToDo: check if we can safely divide by L(j,j)
-                  for(int k = 0; k < n; ++k) {
+                  for (int k = 0; k < n; ++k) {
                       L(k,i) -= c*L(k,j); // col operation
                       U(j,k) += c*U(i,k); // row operation
                   } // k
@@ -390,45 +390,45 @@ namespace pseudo_tools {
       auto L_inv = LU_inv[0], U_inv = LU_inv[1];
       double const det_U = simple_math::invert(n, U_inv.data(), U_inv.stride(), U.data(), n);
       double const det_L = simple_math::invert(n, L_inv.data(), L_inv.stride(), L.data(), n);
-      if (echo > 91) printf("# %s: |U|= %g, |L|= %g\n", __func__, det_U, det_L);
+      if (echo > 91) std::printf("# %s: |U|= %g, |L|= %g\n", __func__, det_U, det_L);
 
 #ifdef DEVEL
       if (echo > 11) { // check that the factorization worked
-        
-          for(int i = 0; i < n; ++i) {
-              printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
+
+          for (int i = 0; i < n; ++i) {
+              std::printf("# %s  ell=%c  L(i,:) and U(i,:)  i=%2i ", label, ell, i);
               printf_vector(" %11.6f", L[i], n, "\t\t");
               printf_vector(" %11.6f", U[i], n);
           } // i
-          printf("\n");
-          
+          std::printf("\n");
+
           view2D<double> A_LU(n, n);
           gemm(A_LU, n, L, n, U);
-          for(int i = 0; i < n; ++i) {
-              printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
+          for (int i = 0; i < n; ++i) {
+              std::printf("# %s  ell=%c A, L*U, diff i=%2i ", label, ell, i);
               if (0) {
                   printf_vector(" %11.6f", A[i], n, "\t\t");
                   printf_vector(" %11.6f", A_LU[i], n, "\t\t");
               } // 0
-              for(int j = 0; j < n; ++j) {
-                  printf(" %11.6f", A_LU(i,j) - A(i,j));
+              for (int j = 0; j < n; ++j) {
+                  std::printf(" %11.6f", A_LU(i,j) - A(i,j));
               } // j
-              printf("\n");
+              std::printf("\n");
           } // i
 
-          printf("\n# %s  ell=%c  |L|= %g and |U|= %g, product= %g, |A|= %g\n",
+          std::printf("\n# %s  ell=%c  |L|= %g and |U|= %g, product= %g, |A|= %g\n",
                       label, ell, det_L, det_U, det_L*det_U, det);
-          for(int i = 0; i < n; ++i) {
-              printf("# %s  ell=%c  L^-1 and U^-1  i=%2i ", label, ell, i);
+          for (int i = 0; i < n; ++i) {
+              std::printf("# %s  ell=%c  L^-1 and U^-1  i=%2i ", label, ell, i);
               printf_vector(" %11.6f", L_inv[i], n, "\t\t\t");
               printf_vector(" %11.6f", U_inv[i], n);
           } // i
-          printf("\n");
+          std::printf("\n");
       } // echo
 #endif // DEVEL
       return det;
   } // perform_Gram_Schmidt
-  
+
 
 #ifdef NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

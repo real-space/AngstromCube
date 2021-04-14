@@ -347,7 +347,7 @@ namespace conjugate_gradients {
   #include "particle_in_box.hxx" // test_eigensolve
 
   inline status_t all_tests(int const echo=0) {
-      status_t stat{0};
+      status_t stat(0);
       stat += test_eigensolve<std::complex<double>>(echo);
       stat += test_eigensolve<std::complex<float>> (echo);
       stat += test_eigensolve<double>(echo);
