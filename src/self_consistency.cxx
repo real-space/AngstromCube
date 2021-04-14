@@ -321,7 +321,7 @@ namespace self_consistency {
       std::vector<double>  Ves(run*g.all(), 0.0); // electrostatic potential
       std::vector<double> Vtot(run*g.all()); // total effective potential
 
-      char const *es_solver_name = control::get("electrostatic.solver", "multi-grid"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
+      char const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
       char const occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
@@ -754,9 +754,10 @@ namespace self_consistency {
 
       here;
 
-      {   auto const stat = debug_tools::manage_stop_file<'d'>(max_scf_iterations, echo);
+      { // scope: delete the stop file
+          auto const stat = debug_tools::manage_stop_file<'d'>(max_scf_iterations, echo);
           if (stat) warn("failed to delete stop file, status= %i", int(stat));
-      }
+      } // scope
 
       if (KS) KS->store(control::get("store.waves", ""), echo);
       

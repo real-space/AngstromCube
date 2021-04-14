@@ -129,73 +129,95 @@
               }                                                                     \
           } // add_module_test
 
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
           add_module_test(recorded_warnings);
-          add_module_test(finite_difference);
-          add_module_test(hermite_polynomial);
-          add_module_test(spherical_harmonics);
-          add_module_test(conjugate_gradients);
-          add_module_test(exchange_correlation);
-          add_module_test(potential_generator);
-          add_module_test(global_coordinates);
-          add_module_test(radial_eigensolver);
-          add_module_test(boundary_condition);
-          add_module_test(fermi_distribution);
-          add_module_test(radial_integrator);
-          add_module_test(geometry_analysis);
-          add_module_test(density_generator);
-          add_module_test(fourier_transform);
-          add_module_test(iterative_poisson);
-          add_module_test(self_consistency);
-          add_module_test(radial_potential);
-          add_module_test(bessel_transform);
-          add_module_test(parallel_domains);
-          add_module_test(structure_solver);
-          add_module_test(scattering_test);
-          add_module_test(davidson_solver);
-          add_module_test(chemical_symbol);
-          add_module_test(linear_operator);
-          add_module_test(sho_hamiltonian);
-          add_module_test(fourier_poisson);
-          add_module_test(solid_harmonics);
-          add_module_test(bisection_tools);
-          add_module_test(green_function);
-          add_module_test(poisson_solver);
-          add_module_test(brillouin_zone);
-          add_module_test(sho_projection);
-          add_module_test(shift_boundary);
-          add_module_test(linear_algebra);
-          add_module_test(grid_operators);
-          add_module_test(dense_operator); // used?
-          add_module_test(element_config); // not used
-          add_module_test(green_kinetic);
-          add_module_test(complex_tools);
-          add_module_test(vector_layout);
-          add_module_test(sho_potential);
           add_module_test(simple_stats);
-          add_module_test(mpi_parallel);
-          add_module_test(angular_grid);
-          add_module_test(pseudo_tools);
           add_module_test(simple_timer);
-          add_module_test(sigma_config);
-          add_module_test(dense_solver);
           add_module_test(json_reading);
           add_module_test(xml_reading);
-          add_module_test(plane_waves);
-          add_module_test(unit_system);
-          add_module_test(simple_math);
-          add_module_test(sho_overlap);
-          add_module_test(radial_grid);
-          add_module_test(single_atom);
-          add_module_test(inline_math);
-          add_module_test(sho_unitary);
-          add_module_test(atom_image);
-          add_module_test(real_space);
-          add_module_test(multi_grid);
-          add_module_test(sho_radial);
-          add_module_test(sho_tools);
-          add_module_test(atom_core);
           add_module_test(data_view);
+          
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# math modules\n#\n\n\n\n");
+          add_module_test(bisection_tools);
+          add_module_test(linear_algebra);
+          add_module_test(inline_math);
+          add_module_test(complex_tools);
+          add_module_test(solid_harmonics);
+          add_module_test(hermite_polynomial);
+          add_module_test(finite_difference);
+          add_module_test(simple_math);
+          add_module_test(angular_grid);
+          add_module_test(spherical_harmonics);
+          
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# input modules\n#\n\n\n\n");
           add_module_test(control);
+          add_module_test(chemical_symbol);
+          add_module_test(boundary_condition);
+          add_module_test(shift_boundary);
+          add_module_test(geometry_analysis);
+          add_module_test(unit_system);
+          add_module_test(real_space);
+
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# parallelization modules\n#\n\n\n\n");
+          add_module_test(mpi_parallel);
+          add_module_test(parallel_domains);
+          add_module_test(global_coordinates);
+
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# electrostatics modules\n#\n\n\n\n");
+          add_module_test(fourier_transform);
+          add_module_test(fourier_poisson);
+          add_module_test(multi_grid);
+          add_module_test(radial_potential);
+          add_module_test(iterative_poisson);
+          add_module_test(poisson_solver);
+
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# radial modules\n#\n\n\n\n");
+          add_module_test(radial_grid);
+          add_module_test(radial_integrator);
+          add_module_test(radial_eigensolver);
+          add_module_test(atom_core);
+          add_module_test(sigma_config);
+          add_module_test(pseudo_tools);
+          add_module_test(bessel_transform);
+          add_module_test(scattering_test);
+          add_module_test(single_atom);
+
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# SHO-specific modules\n#\n\n\n\n");
+          add_module_test(sho_tools);
+          add_module_test(sho_unitary);
+          add_module_test(sho_overlap);
+          add_module_test(sho_projection);
+          add_module_test(sho_potential);
+          add_module_test(sho_radial);
+          add_module_test(sho_hamiltonian);
+
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# Hamiltonian modules\n#\n\n\n\n");
+          add_module_test(atom_image);
+          add_module_test(plane_waves);
+          add_module_test(grid_operators);
+          add_module_test(green_function);
+          add_module_test(green_kinetic);
+          
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
+          add_module_test(conjugate_gradients);
+          add_module_test(davidson_solver);
+          add_module_test(dense_solver);
+          add_module_test(structure_solver);
+
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# DFT-specific modules\n#\n\n\n\n");
+          add_module_test(brillouin_zone);
+          add_module_test(fermi_distribution);
+          add_module_test(exchange_correlation);
+          add_module_test(potential_generator);
+          add_module_test(density_generator);
+          add_module_test(self_consistency);
+          
+          if (all && echo > 0) std::printf("\n\n\n\n#\n# inactive modules\n#\n\n\n\n");
+          add_module_test(vector_layout);
+          add_module_test(linear_operator);
+          add_module_test(dense_operator);
+          add_module_test(element_config);
+
 #undef    add_module_test
       } // testing scope
 
