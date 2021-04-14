@@ -3,6 +3,7 @@
 #include <cmath> // std::sqrt, std::abs
 #include <algorithm> // std::max
 #include <vector> // std::vector
+#include <complex> // std::real
 
 #include "angular_grid.hxx"
 
@@ -12,7 +13,7 @@
 #include "inline_math.hxx" // pow2, align<nBits>
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 #include "gaunt_entry.h" // gaunt_entry_t
-// #include "spherical_harmonics.hxx" // ::Ylm, Ylm_t
+// #include "spherical_harmonics.hxx" // ::Ylm
 
 extern "C" {
    // BLAS interface to matrix matrix multiplication
@@ -1857,7 +1858,7 @@ namespace angular_grid {
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);
       int const M = pow2(1 + ellmax);
-//    typedef std::complex<double> Ylm_t; // complex-valued
+//       typedef std::complex<double> Ylm_t; // complex-valued
       typedef double Ylm_t; // real-valued
       std::vector<Ylm_t> yy(M);
       auto const xyzw = new double[max_size][4];
@@ -1871,10 +1872,10 @@ namespace angular_grid {
           for (int ip = 0; ip < np; ++ip) {
               auto const w8 = xyzw[ip][3] * 4*constants::pi;
 //            if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
-//            spherical_harmonics::Ylm(yy, ell, xyzw[ip]); // complex
+//               spherical_harmonics::Ylm(yy.data(), ell, xyzw[ip]); // complex
               solid_harmonics::rlXlm(yy.data(), ell, xyzw[ip]); // real
               for (int i = 0; i < m; ++i) {
-//                auto const yi = std::conj(yy[i])*w8; // complex
+//                   auto const yi = std::conj(yy[i])*w8; // complex
                   auto const yi = yy[i]*w8;
                   for (int j = 0; j < m; ++j) {
                       unity[i*M + j] += yi * yy[j];
@@ -1888,8 +1889,7 @@ namespace angular_grid {
 //                   auto const Re = unity[i*M + j].real(), Im = unity[i*M + j].imag();
 //                   if (echo > 8) std::printf("%g %g  ", Re, Im);
 //                   dev = std::max(dev, std::abs(Im));
-                  auto const Re = unity[i*M + j];
-//                   if (echo > 8) std::printf("%g ", Re);
+                  auto const Re = std::real(unity[i*M + j]);
                   if (echo > 8) std::printf("%16.9f ", Re);
                   dev = std::max(dev, std::abs(Re - (i == j))); // subtract 1 on the diagonal
               } // j
@@ -1916,7 +1916,7 @@ namespace angular_grid {
       stat += test_generation(echo);
       stat += test_orthogonality(echo);
       stat += test_numerical_Gaunt(echo);
-      solid_harmonics::cleanup<double>(); // free internal memory
+      solid_harmonics::cleanup(); // free internal memory
       return stat;
   } // all_tests
 

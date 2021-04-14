@@ -8,7 +8,7 @@
 
 #include "inline_math.hxx" // pow2
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
-#include "solid_harmonics.hxx" // ::rlXlm
+#include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 
 namespace sho_projection {
 
@@ -139,6 +139,8 @@ namespace sho_projection {
 
       sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
 
+//       solid_harmonics::cleanup();
+      
       std::vector<real_t> coeff(nSHO);
       double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat(0);
@@ -156,6 +158,7 @@ namespace sho_projection {
                               int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                               solid_harmonics::rlXlm(xlm, numax, v);
                               values[ixyz] = xlm[lm];
+//                            std::printf("# %s %s: values[%d][%d]= %g\n", __FILE__, __func__, lm,ixyz, values[ixyz]);
     //                        if (00 == lm) std::printf(" %g", values[ixyz]); // found 0.282095 == 1/sqrt(4*pi)
                           } // ix
                       } // iy
@@ -163,13 +166,16 @@ namespace sho_projection {
               } // scope
 
               stat += sho_project(coeff.data(), numax, pos, sigma, values.data(), g, 0);
+//               for (int izyx = 0; izyx < nSHO; ++izyx) {
+//                   std::printf("# %s %s: coefficients[%d][%d]= %g\n", __FILE__, __func__, lm,izyx, coeff[izyx]);
+//               } // izyx
 
               int const nlm = pow2(1 + numax);
               std::vector<double> vlm(nlm, 0.0);
               stat += renormalize_electrostatics(vlm.data(), coeff.data(), numax, sigma, u, echo);
 
               for (int ilm = 0; ilm < nlm; ++ilm) {
-                  std::printf("# %s %s: element[%d][%d]= %g\n", __FILE__, __func__, lm,ilm, vlm[ilm]);
+//                std::printf("# %s %s: element[%d][%d]= %g\n", __FILE__, __func__, lm,ilm, vlm[ilm]);
                   vlm[ilm] = std::abs(vlm[ilm]); // signs may differ
               } // ilm
               // analyze the matrix row, warning: the matrix is rectangular for numax > 1
@@ -200,7 +206,7 @@ namespace sho_projection {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_L2_prefactors(echo);
-      stat += test_renormalize_electrostatics(echo + 5);
+      stat += test_renormalize_electrostatics(echo);
       stat += test_L2_orthogonality<double>(echo); // takes a while
 //    stat += test_L2_orthogonality<float>(echo);
       if (stat) warn("status= %i", int(stat));

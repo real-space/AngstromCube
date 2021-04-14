@@ -53,7 +53,8 @@ namespace spherical_harmonics {
 // !     normalization constants for ylm (internal subroutine has access
 // !     to ellmax and ynorm from above)
 // !********************************************************************
-          {   double const fpi = 4*constants::pi; // 4*pi
+          { // scope to fill ynorm with values
+              double const fpi = 4*constants::pi; // 4*pi
               for (int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
@@ -68,7 +69,7 @@ namespace spherical_harmonics {
                       sgn = -sgn; // prepare (-1)^m for the next iteration
                   } // m
               } // l
-          } // scope to full ynorm with values
+          } // scope
           ellmaxd = ellmax; // set static variable
       } else if ((ellmax < 0) && (nullptr != ynorm)) {
           delete[] ynorm; // cleanup
@@ -111,7 +112,8 @@ namespace spherical_harmonics {
 
       std::vector<real_t> c(1 + ellmax), s(1 + ellmax);
       // determine sin and cos of phi
-      c[0] = 1; s[0] = 0;
+      c[0] = 1;
+      s[0] = 0;
       if (ellmax > 0) {
           c[1] = cph; s[1] = sph;
           auto const cph2 = 2*cph;

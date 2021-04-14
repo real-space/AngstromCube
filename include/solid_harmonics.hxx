@@ -3,8 +3,9 @@
 #include <cstdio> // std::printf
 #include <cmath> // std::sqrt, std::sin, std::cos
 #include <cassert> // assert
+#include <vector> // std::vector
 
-#include "constants.hxx" // constants::pi
+#include "constants.hxx" // ::pi
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace solid_harmonics {
@@ -32,18 +33,14 @@ namespace solid_harmonics {
 // !************************************************************
 
 // check whether  or not normalizations are needed
-      static real_t *xnorm = nullptr;
+      static std::vector<real_t> xnorm;
       static int ellmaxd = -1; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
-          // first deallocate the array if it exists
-          if (nullptr != xnorm) {
-              delete[] xnorm;
 #ifdef DEBUG
-              std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
+          if (xnorm.size() > 0) std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
 #endif
-          } // resize
-          xnorm = new real_t[(1 + ellmax)*(1 + ellmax)];
+          xnorm.resize((1 + ellmax)*(1 + ellmax));
 
 // !********************************************************************
 // !     normalization constants for ylm (internal subroutine has access
@@ -56,7 +53,7 @@ namespace solid_harmonics {
                   double const a = std::sqrt((2*l + 1.)/fpi);
                   double cd{1};
                   xnorm[lm0] = a;
-                  double sgn = -1;
+                  double sgn{-1};
                   for (int m = 1; m <= l; ++m) {
                       cd /= ((l + 1. - m)*(l + m));
                       auto const xn = a*std::sqrt(2*cd); // different from Ylm!
@@ -67,8 +64,8 @@ namespace solid_harmonics {
               } // l
           } // scope
           ellmaxd = ellmax; // set static variable
-      } else if (ellmax < 0 && nullptr != xnorm) {
-          delete[] xnorm; // cleanup
+      } else if (ellmax < 0) {
+          xnorm.resize(0); // cleanup
       }
       if (ellmax < 0) return;
 
@@ -84,7 +81,7 @@ namespace solid_harmonics {
           p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
           // recurse upward in l
           for (int l = m + 2; l <= ellmax; ++l) {
-              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*r2*p[l - 2 + S*m])/((real_t)(l - m));
+              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*r2*p[l - 2 + S*m])/real_t(l - m);
           } // l
           fac *= sth;
       } // m
@@ -167,7 +164,7 @@ namespace solid_harmonics {
       rlXlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
   } // rlXlm
 
-  template <typename real_t>
+  template <typename real_t=double>
   void cleanup() { real_t z{0}; rlXlm_implementation(&z, -1, z, z, z, z); } // free internal memory
 
   inline int find_ell(int const lm) { int lp1{0}; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
@@ -193,7 +190,7 @@ namespace solid_harmonics {
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
-      assert( Y00 * Y00inv == 1.0 ); // should be exact
+      stat += ( Y00 * Y00inv != 1.0 ); // should be exact
       stat += test_indices(echo);
       return stat;
   } // all_tests
