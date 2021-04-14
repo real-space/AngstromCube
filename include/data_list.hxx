@@ -27,7 +27,7 @@ public:
       : _ptrs(n, nullptr), _m(n), _mem(0), _n(n), _max_m(0) {
       assert(n == _n); // safety checks on upper limit of n
       size_t num{0}; // total number of elements
-      for(uint32_t i = 0; i < n; ++i) {
+      for (uint32_t i = 0; i < n; ++i) {
           auto const m = uint32_t(std::max(ms[i], int_t(0)));
           _m[i] = m;
           assert(ms[i] == _m[i]); // safety checks on upper limit of ms[i]
@@ -38,7 +38,7 @@ public:
       debug_printf("# data_list() constructor tries to allocate %.6f MByte\n", _mem*1e-6);
       _data = std::vector<T>(num, init_value);
       num = 0;
-      for(uint32_t i = 0; i < n; ++i) {
+      for (uint32_t i = 0; i < n; ++i) {
           _ptrs[i] = &_data[num];
           num += _m[i];
       } // i

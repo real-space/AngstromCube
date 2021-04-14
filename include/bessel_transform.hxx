@@ -6,6 +6,7 @@
 
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_exponential_radial_grid
+#include "radial_r2grid.hxx" // ::r_axis
 #include "status.hxx" // status_t
 
 namespace bessel_transform {
@@ -69,7 +70,7 @@ namespace bessel_transform {
   } // transform_s_function
 
   template <typename real_t>
-  inline status_t transform_to_r2_grid(
+  inline status_t transform_to_r2grid(
         real_t out[]
       , float const ar2
       , int const nr2
@@ -92,11 +93,7 @@ namespace bessel_transform {
       auto stat = transform_s_function(bt.data(), in, g, nq, dq); // transform to Bessel-space
 
       // construct a r2-grid descriptor: ir2 = ar2*r^2
-      double const ar2inv = 1./ar2;
-      std::vector<double> r(nr2);
-      for (int ir2 = 0; ir2 < nr2; ++ir2) {
-          r[ir2] = std::sqrt(ir2*ar2inv);
-      } // ir2
+      auto r = radial_r2grid::r_axis(nr2, ar2);
       radial_grid_t r2g; r2g.n = nr2; r2g.r = r.data();
 
       stat += transform_s_function(out, bt.data(), r2g, nq, dq, true); // transform back to real-space
@@ -110,7 +107,7 @@ namespace bessel_transform {
       } // echo
 
       return stat;
-  } // transform_to_r2_grid
+  } // transform_to_r2grid
 
   status_t all_tests(int const echo=0); // declaration only
 

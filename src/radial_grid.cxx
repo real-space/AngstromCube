@@ -140,7 +140,7 @@ namespace radial_grid {
 
   int find_grid_index(radial_grid_t const & g, double const radius) {
       // ToDo: if this becomes performance critical, replace by bisection algorithm
-      for(int ir = 0; ir < g.n; ++ir) {
+      for (int ir = 0; ir < g.n; ++ir) {
           if (radius < g.r[ir]) return ir - 1;
       } // ir
       return g.n - 2;
@@ -165,7 +165,7 @@ namespace radial_grid {
       double integ[] = {0, 0, 0};
       if (echo > 3) std::printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s):"
               " r, dr, 1/r, integrals over {1,r,r^2}, r, r^2/2, r^3/3\n", n, g.anisotropy, g.rmax*1.0, " Bohr");
-      for(int ir = 0; ir < g.n; ++ir) {
+      for (int ir = 0; ir < g.n; ++ir) {
           if (echo > 3 && (ir < 3 || ir > g.n - 4 || echo > 11)) {
               auto const r = g.r[ir];
               std::printf("%g %g %g %g %g %g %g %g %g\n", r, g.dr[ir], g.rinv[ir],

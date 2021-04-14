@@ -87,7 +87,7 @@ namespace radial_eigensolver {
 #ifdef  DEBUG
       int itn[2] = {0, 0};
 #endif
-      for(auto ib = 0; ib < 2; ++ib) { // ib in {0, 1} == {lower, upper}
+      for (auto ib = 0; ib < 2; ++ib) { // ib in {0, 1} == {lower, upper}
           auto const sgn_ib = (2*ib - 1); // sgn in {-1, +1}
           ene[ib] = E; // initialize with an energy which produces the correct number of nodes ...
           knk[ib] = kink; // ... and the corresponding kink value from the node-count search
@@ -186,10 +186,10 @@ namespace radial_eigensolver {
       std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       std::vector<double> rf(g.n);
       char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
-      for(auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
+      for (auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
           if (echo > 0) std::printf("\n\n# %s %s (Z= %g) %s\n", __FILE__, __func__, Z, SRA_name[sra]);
-          for(auto enn = 1; enn <= 9; ++enn) {
-              for(auto ell = 0; ell < enn; ++ell) {
+          for (auto enn = 1; enn <= 9; ++enn) {
+              for (auto ell = 0; ell < enn; ++ell) {
                   double E = -.5*pow2(Z/enn); // guess a start energy for hydrogen like atoms
                   status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data())));
                   if (echo > 1) std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);

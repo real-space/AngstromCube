@@ -66,7 +66,7 @@ namespace atom_core {
       double Eexc{0}, Evxc{0}, EHtr{0};
       double const ECou = -Z*radial_potential::Hartree_potential(rV, g, rho4pi); // set rV to the Hartree potential
       double const fpi = .25/constants::pi; // 1/(4*pi)
-      for(int ir = 0; ir < g.n; ++ir) {
+      for (int ir = 0; ir < g.n; ++ir) {
           EHtr += rho4pi[ir]*rV[ir]*g.rdr[ir];
           double Vxc{0};
           double const Exc = exchange_correlation::LDA_kernel(fpi*rho4pi[ir], Vxc);
@@ -96,7 +96,7 @@ namespace atom_core {
       auto const gamma = std::sqrt(4 + 3.2*charged);
       auto const g2 = pow3(gamma) * ((Z < 2) ? 0.5*Z : 1);
       double q{0};
-      for(auto ir = 0; ir < g.n; ++ir) {
+      for (auto ir = 0; ir < g.n; ++ir) {
           auto const r = g.r[ir];
           auto const x = alpha*r;
           auto const exa = (x < 50)? std::exp(-3*x) : 0;
@@ -171,7 +171,7 @@ namespace atom_core {
       std::ofstream outfile(filename);
       if (outfile.is_open()) {
           outfile << std::setprecision(15);
-          for(int ir = 0; ir < nr; ++ir) {
+          for (int ir = 0; ir < nr; ++ir) {
               outfile << r[ir] << " " << Zeff[ir]*factor << "\n";
           } // write to file
           return 0; // success
@@ -210,9 +210,9 @@ namespace atom_core {
       {   // prepare orbitals
           int iZ{0}; // integer atomic number needed for occupations
           int i{0}; // init shell index i
-          for(int m = 0; m < 8; ++m) { // auxiliary quantum number
+          for (int m = 0; m < 8; ++m) { // auxiliary quantum number
               int enn{(m + 1)/2};
-              for(int ell = m/2; ell >= 0; --ell) {
+              for (int ell = m/2; ell >= 0; --ell) {
                   ++enn; // main quantum number
                   int const max_occ = 2*ell + 1;
                   orb[i].enn = enn;
@@ -286,7 +286,7 @@ namespace atom_core {
                   set(r2rho4pi.data(), g.n, 0.0); // init accumulator density
                   eigenvalue_sum = 0; // reset energy accumulator
 
-                  for(int i = 0; i <= imax; ++i) {
+                  for (int i = 0; i <= imax; ++i) {
                       if (orb[i].occ > 0) {
                           previous_eigenvalues[i] = orb[i].E; // copy
                           auto const stat = radial_eigensolver::shooting_method(sra, g, rV_old.data(), orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho.data());
@@ -397,7 +397,7 @@ namespace atom_core {
                       energies[E_Cou]*eV, energies[E_Htr]*eV, _eV);
           } // echo
           if (echo > 2) {
-              for(int i = 0; i <= imax; ++i) {
+              for (int i = 0; i <= imax; ++i) {
                   std::printf("# %s  Z=%g  %d%c  E=%15.6f %s  f=%g\n",  __func__, Z, orb[i].enn, ellchar(orb[i].ell), orb[i].E*eV, _eV, orb[i].occ);
               } // i
 //            std::printf("\n"); // blank line after displaying spectrum
@@ -408,7 +408,7 @@ namespace atom_core {
       // dump_to_file("rV_converged.dat", g.n, rV_old, g.r);
       // ToDo: export the converged potential rV_old and the position of energies
 #if 0
-      for(int i = 0; i < 20; ++i) {
+      for (int i = 0; i < 20; ++i) {
           if (orb[i].occ <= 0) {
               // solve for the unoccupied states
               auto const stat = radial_eigensolver::shooting_method(sra, g, rV_old, orb[i].enn, orb[i].ell, orb[i].E);
@@ -426,13 +426,13 @@ namespace atom_core {
       int const show_state_diagram = control::get("show.state.diagram", 0.); // 0:do not show, 1:show
       if (show_state_diagram) {
           float state_diagram[30][4]; // [inl][start,end,energy,spare]
-          for(int inl = 0; inl < 30; ++inl) { 
+          for (int inl = 0; inl < 30; ++inl) { 
               state_diagram[inl][0] = 0; // start
               state_diagram[inl][1] = 0; // end
               state_diagram[inl][2] = -1e5;
           } // inl
 
-          for(int i = 0; i <= imax; ++i) {
+          for (int i = 0; i <= imax; ++i) {
               if (orb[i].occ > 0) {
                   radial_eigensolver::shooting_method(sra, g, rV_old.data(), orb[i].enn, orb[i].ell, orb[i].E, nullptr, r2rho.data());
                   double const norm = dot_product(g.n, r2rho.data(), g.dr);
@@ -451,12 +451,12 @@ namespace atom_core {
           } // i, orbitals
 
           std::printf("## state diagram for Z=%g in %s (sqrt on radius, log10 on energies)\n", Z, _eV);
-          for(int inl = 0; inl < 30; ++inl) {
+          for (int inl = 0; inl < 30; ++inl) {
               std::printf("%g %g\n%g %g\n\n", std::sqrt(state_diagram[inl][0]*Ang), -std::log10(-state_diagram[inl][2]*eV), 
                                          std::sqrt(state_diagram[inl][1]*Ang), -std::log10(-state_diagram[inl][2]*eV)); // energy level
           } // inl
           std::printf("## potential state diagram for Z=%g in %s\n", Z, _eV);
-          for(int ir = 1; ir < g.n; ++ir) {
+          for (int ir = 1; ir < g.n; ++ir) {
               double const pot = rV_old[ir]*g.rinv[ir];
               if (pot > -1e5 && pot < 0) std::printf("%g %g\n", std::sqrt(g.r[ir]*Ang), -std::log10(-pot*eV));
           } // ir
@@ -491,7 +491,7 @@ namespace atom_core {
   status_t test_neutral_atom_total_energy(int const echo=0) {
       if (echo < 7) return 0;
       std::printf("\n\n## %s\n", __func__);
-      for(int iZ = -1; iZ <= 120*2; ++iZ) {
+      for (int iZ = -1; iZ <= 120*2; ++iZ) {
           double const Z = iZ*0.5;
           std::printf("%g %.9f\n", Z, neutral_atom_total_energy(Z));
       } // Z
@@ -502,7 +502,7 @@ namespace atom_core {
   status_t test_initial_density(int const echo=0) {
       if (echo > 3) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
       double maxdev{0};
-      for(float zz = 0; zz < 128; zz += 1) {
+      for (float zz = 0; zz < 128; zz += 1) {
           auto const g = *radial_grid::create_default_radial_grid(zz);
           std::vector<double> r2rho(g.n, 0.0);
           double const q = initial_density(r2rho.data(), g, zz);
@@ -517,8 +517,8 @@ namespace atom_core {
 
   status_t test_nl_index(int const echo=2) {
       int inl{0};
-      for(int enn = 1; enn < 9; ++enn) { // principal quantum number of an atom
-          for(int ell = 0; ell < enn; ++ell) { // angular momentum quantum number
+      for (int enn = 1; enn < 9; ++enn) { // principal quantum number of an atom
+          for (int ell = 0; ell < enn; ++ell) { // angular momentum quantum number
               int const nl = nl_index(enn, ell);
               if ((inl != nl) || (echo > 8)) std::printf("# %s: %s n=%d l=%d (%d%c) nl_index %d %d\n", __FILE__, __func__, enn, ell, enn, ellchar(ell), inl, nl);
               assert(inl == nl);
@@ -572,7 +572,7 @@ namespace atom_core {
       std::vector<double> new_y(new_n, 0.0), new_r(new_n, 0.0);
       { // scope: compress y(r)
           int i{0};
-          for(int ir = 0; ir < g.n; ++ir) {
+          for (int ir = 0; ir < g.n; ++ir) {
               if (mask[ir]) {
                   new_r[i] = g.r[ir];
                   new_y[i] = y[ir];
@@ -590,7 +590,7 @@ namespace atom_core {
       if (threshold < 0) return 0; // do not do anything, silent return
       if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
       status_t stat{0};
-      for(int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
+      for (int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
           stat += simplify_Zeff_file(Z, threshold, echo); // apply RamerDouglasPeucker reduction to Z_eff(r)
       } // Z
       return stat;

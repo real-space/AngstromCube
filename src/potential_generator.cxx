@@ -33,8 +33,7 @@
 #ifdef DEVEL
     #include "real_space.hxx" // ::Bessel_projection
     #include "lossful_compression.hxx" // print_compressed
-    #include "radial_r2grid.hxx" // radial_r2grid_t
-    #include "radial_r2grid.hxx" // r2_axis
+    #include "radial_r2grid.hxx" // ::r_axis
 #endif // DEVEL
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
@@ -139,13 +138,13 @@ namespace potential_generator {
                                          0.5*(g[1] - 1)*g.h[1],
                                          0.5*(g[2] - 1)*g.h[2]};
           if (echo > 1) std::printf("\n# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               double const Z = xyzZ(ia,3);
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
               if (echo > 4) std::printf("# %s  %15.9f %15.9f %15.9f", Symbol,
                               xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang);
               Za[ia] = Z;
-              for(int d = 0; d < 3; ++d) {
+              for (int d = 0; d < 3; ++d) {
                   center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), cell[d]) + grid_offset[d]; // w.r.t. to the center of grid point (0,0,0)
               } // d
               center(ia,3) = 0; // 4th component is not used
@@ -226,7 +225,7 @@ namespace potential_generator {
       data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat;
       if (1) { // scope: set up data_list items
           view2D<int32_t> num(4, na, 0); // how many
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               num(0,ia) = pow2(1 + lmax_qlm[ia]); // qlm
               num(1,ia) = pow2(1 + lmax_vlm[ia]); // vlm
               int const ncoeff = sho_tools::nSHO(numax[ia]);
@@ -279,14 +278,14 @@ namespace potential_generator {
                   { // scope: get the numax for each atom
                       std::vector<int32_t> numax_a(na, 3);
                       stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
-                      for(int ia = 0; ia < na; ++ia) {
+                      for (int ia = 0; ia < na; ++ia) {
                           assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
                       } // ia
                   } // scope: numax_a
 
                   if (psi_on_grid) {
                       view2D<double> xyzZinso(na, 8);
-                      for(int ia = 0; ia < na; ++ia) {
+                      for (int ia = 0; ia < na; ++ia) {
                           set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
                           xyzZinso(ia,4) = ia;  // global_atom_id
                           xyzZinso(ia,5) = numax[ia];
@@ -332,9 +331,9 @@ namespace potential_generator {
                       sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
                       std::vector<int32_t> ncoeff_a(na, 20);
                       data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
-                      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                      for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                           op.set_kpoint(kmesh[ikpoint], echo);
-                          for(int iband = 0; iband < nbands; ++iband) {
+                          for (int iband = 0; iband < nbands; ++iband) {
                               int const iatom    = iband % na; // which atom?
                               int const iorbital = iband / na; // which orbital?
                               if (iorbital >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands_per_atom);
@@ -357,7 +356,7 @@ namespace potential_generator {
                               if (echo > 1) std::printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
                           }
                       } // run
-                      for(int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
+                      for (int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
                           if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
                           if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
                       } // ikpoints
@@ -390,7 +389,7 @@ namespace potential_generator {
           if (stat != 0) error("failed to write/create a stop file, status= %i", int(stat));
       } // scope
 
-      for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
+      for (int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) std::printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", h_line, scf_iteration, h_line);
 
@@ -425,7 +424,7 @@ namespace potential_generator {
 
           { // scope: eval the XC potential and energy
               double E_xc{0}, E_dc{0};
-              for(size_t i = 0; i < g.all(); ++i) {
+              for (size_t i = 0; i < g.all(); ++i) {
                   auto const exc_i = exchange_correlation::LDA_kernel(rho[i], Vxc[i]);
                   E_xc += rho[i]*exc_i;
                   E_dc += rho[i]*Vxc[i]; // double counting correction 
@@ -442,14 +441,14 @@ namespace potential_generator {
           { // scope: solve the Poisson equation
 
               // add compensation charges cmp
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
                   if (echo > 6) std::printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
                   std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
                   stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
 //                if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  for (int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
                   } // periodic images
@@ -486,12 +485,12 @@ namespace potential_generator {
 #endif // DEVEL
 
               // probe the electrostatic potential in real space, find ves_multipoles
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_vlm[ia];
                   int const nc = sho_tools::nSHO(ellmax);
                   std::vector<double> coeff(nc, 0.0);
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  for (int ii = 0; ii < n_periodic_images; ++ii) {
                       std::vector<double> coeff_image(nc, 0.0);
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += sho_projection::sho_project(coeff_image.data(), ellmax, cnt, sigma, Ves.data(), g, 0);
@@ -505,7 +504,7 @@ namespace potential_generator {
                   if (echo > 3) {
                       std::printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, atom_vlm[ia][00]*Y00*eV,_eV);
                       int const ellmax_show = std::min(ellmax, 2);
-                      for(int ell = 1; ell <= ellmax_show; ++ell) {
+                      for (int ell = 1; ell <= ellmax_show; ++ell) {
                           double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
                           int const ilm0 = sho_tools::lm_index(ell, -ell);
                           std::printf("# potential projection for atom #%d v_%im =", ia, ell);
@@ -563,17 +562,17 @@ namespace potential_generator {
 
 #ifdef DEVEL
               if (echo > 8) {
-                  for(int ia = 0; ia < na; ++ia) {
+                  for (int ia = 0; ia < na; ++ia) {
                       int const n = sho_tools::nSHO(numax[ia]);
                       view2D<double const> const aHm(atom_mat[ia], n);
                       std::printf("\n# atom-centered %d x %d Hamiltonian (in %s) for atom #%i\n", n, n, _eV, ia);
-                      for(int i = 0; i < n; ++i) {
+                      for (int i = 0; i < n; ++i) {
                           std::printf("#%3i  ", i);
                           printf_vector(" %.6f", aHm[i], n, "\n", eV);
                       } // i
                       view2D<double const> const aSm(atom_mat[ia] + n*n, n);
                       std::printf("\n# atom-centered %d x %d overlap matrix for atom #%i\n", n, n, ia);
-                      for(int i = 0; i < n; ++i) {
+                      for (int i = 0; i < n; ++i) {
                           std::printf("#%3i  ", i);
                           printf_vector(" %.6f", aSm[i], n);
                       } // i
@@ -603,7 +602,7 @@ namespace potential_generator {
 
                   if (echo > 0) {
                       if (control::get("potential_generator.use.direct.projection", 0.) > 0) {
-                          double cnt0[3]; if (na > 0) for(int d = 0; d < 3; ++d) cnt0[d] = center(0,d) + 0.5*(g.h[d] - gc.h[d]);
+                          double cnt0[3]; if (na > 0) for (int d = 0; d < 3; ++d) cnt0[d] = center(0,d) + 0.5*(g.h[d] - gc.h[d]);
                           std::printf("\n## all values of Vtot in %s (on the coarse grid, unordered) as function of the distance to %s\n",
                                                             _eV, (na > 0) ? "atom #0" : "the cell center");
                           print_direct_projection(Veff.data(), gc, eV, (na > 0) ? cnt0 : nullptr);
@@ -622,7 +621,7 @@ namespace potential_generator {
 
                   view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
                   
-                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                  for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                       op.set_kpoint(kmesh[ikpoint], echo);
                       char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
                       auto psi_k = psi[ikpoint]; // get a sub-view
@@ -631,14 +630,14 @@ namespace potential_generator {
                       // solve the Kohn-Sham equation using various solvers
                       if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
                           stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                          for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                               if (echo > 6) { std::printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
                               stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo - 5);
                               stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
                       } else
                       if ('d' == *grid_eigensolver_method) { // "davidson"
-                          for(int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                          for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
                               if (echo > 6) { std::printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
                               stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
                           } // irepeat
@@ -649,7 +648,7 @@ namespace potential_generator {
                           stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
                           display_spectrum = false; // the dense solver will display on its own
                           wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor? 
-                          for(int iband = 0; iband < nbands; ++iband) {
+                          for (int iband = 0; iband < nbands; ++iband) {
                               set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
                           } // iband
                       } else
@@ -673,7 +672,7 @@ namespace potential_generator {
                   if ('e' == (occupation_method | 32)) {
                       // determine the exact Fermi level as a function of all energies and kmesh_weights
                       view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
-                      for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                      for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                           double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
                           set(kweights[ikpoint], nbands, kpoint_weight);
                       } // ikpoint
@@ -686,7 +685,7 @@ namespace potential_generator {
                   here;
 
                   // density generation
-                  for(int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                  for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
                       op.set_kpoint(kmesh[ikpoint], echo);
                       double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
                       std::vector<uint32_t> coeff_starts;
@@ -721,7 +720,7 @@ namespace potential_generator {
                   if ('e' == (occupation_method | 32)) {
                       // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
                       view2D<double> kweights(nkpoints, nbands, 0.0), occupations(nkpoints, nbands);
-                      for(int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
+                      for (int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
                           set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
                           set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
                       } // ikpoint
@@ -733,7 +732,7 @@ namespace potential_generator {
 
                   here;
 
-                  for(auto & x : export_rho) {
+                  for (auto & x : export_rho) {
                       if (echo > 1) { std::printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(),
@@ -764,7 +763,7 @@ namespace potential_generator {
                   if (echo > 2) std::printf("# %s: renormalize density and density matrices by %.15f\n", __func__, renormalization_factor);
                   scale(rho_valence_new[0], g.all(), renormalization_factor);
                   scale(rho_valence_new[1], g.all(), renormalization_factor);
-                  for(int ia = 0; ia < na; ++ia) {
+                  for (int ia = 0; ia < na; ++ia) {
                       scale(atom_rho_new[0][ia], n_atom_rho[ia], renormalization_factor);
                       scale(atom_rho_new[1][ia], n_atom_rho[ia], renormalization_factor);
                   } // ia
@@ -781,7 +780,7 @@ namespace potential_generator {
                       if (echo > 1) std::printf("# shift Fermi level by %g %s\n", alpha*eV, _eV);
                       // correct by energy difference alpha
                       add_product(rho_valence_new[0], g.all(), rho_valence_new[1], alpha);
-                      for(int ia = 0; ia < na; ++ia) {
+                      for (int ia = 0; ia < na; ++ia) {
                           add_product(atom_rho_new[0][ia], n_atom_rho[ia], atom_rho_new[1][ia], alpha);
                       } // ia
                       charges[1] += charges[2]*alpha;
@@ -816,7 +815,7 @@ namespace potential_generator {
               scale(rho_valence.data(), g.all(), mix_old); // mix old
               add_product(rho_valence.data(), g.all(), rho_valence_new[0], density_mixing); // mix new
               // valence density matrix mixing
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   scale(atom_rho[ia], n_atom_rho[ia], mix_old); // mix old
                   add_product(atom_rho[ia], n_atom_rho[ia], atom_rho_new[0][ia], density_mixing); // mix new
               } // ia
@@ -838,10 +837,10 @@ namespace potential_generator {
               data_list<double> atom_contrib(nEa, 0.0);
               stat += single_atom::atom_update("energies", na, atomic_energy_diff.data(), 0, 0, atom_contrib.data());
               std::vector<double> Ea(nE, 0.0);
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   add_product(Ea.data(), nE, atom_contrib[ia], 1.0); // all atomic weight factors are 1.0
               } // ia
-              for(int i01 = 0; i01 < 2; ++i01) {
+              for (int i01 = 0; i01 < 2; ++i01) {
                   if (echo > 3 + 4*(1 - i01)) {
                       char const *const without_with = i01 ? "" : "out";
                       std::printf("\n# sum of atomic energy contributions with%s grid contributions (%s)\n", without_with, _eV);
@@ -870,7 +869,7 @@ namespace potential_generator {
           } // total_energy_details
 
           double atomic_energy_corrections{0};
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               atomic_energy_corrections += atomic_energy_diff[ia];
           } // ia
           total_energy = grid_kinetic_energy * (1. - take_atomic_valence_densities)

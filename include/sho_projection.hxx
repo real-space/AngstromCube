@@ -186,7 +186,7 @@ namespace sho_projection {
                         (  factorial(nx) * factorial(ny) * factorial(nz) * pow3(constants::sqrtpi * sigma) ) ); 
   } // sho_prefactor (L2-normalization)
 
-  template<typename real_t>
+  template <typename real_t>
   std::vector<real_t> get_sho_prefactors(
         int const numax
       , double const sigma
@@ -239,7 +239,7 @@ namespace sho_projection {
       return 1/std::sqrt(fm2);
   } // radial_L2_prefactor (L2-normalization)
 
-  template<typename real_t> inline
+  template <typename real_t> inline
   status_t renormalize_radial_coeff(
         real_t out[] // out[pow2(1 + ellmax)]
       , real_t const in[] // in[pow2(1 + ellmax)], assert all nrn > 0 contributions vanish

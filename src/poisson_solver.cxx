@@ -1,4 +1,4 @@
-#include <cstdio> // printf, std::sprintf
+#include <cstdio> // std::printf, std::sprintf
 #include <cassert> // assert
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
@@ -64,7 +64,7 @@ namespace poisson_solver {
       double const grid_center[] = {(g[0] - 1)*g.h[0], (g[1] - 1)*g.h[1], (g[2] - 1)*g.h[2]};
       if (nullptr == center) center = grid_center;
       
-      if (echo > 5) printf("# Bessel j0 projection around position %g %g %g %s\n",
+      if (echo > 5) std::printf("# Bessel j0 projection around position %g %g %g %s\n",
                               center[0]*Ang, center[1]*Ang, center[2]*Ang, _Ang);
       float const dq = 1.f/16; int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
       std::vector<double> qc(nq, 0.0);
@@ -74,12 +74,12 @@ namespace poisson_solver {
       double const by4pi = .25/constants::pi; // 1/(4*pi)
 
       if (echo > 19) {
-          printf("\n## Bessel coeff of {density, Ves}:\n");
-          for(int iq = 0; iq < nq; ++iq) {
+          std::printf("\n## Bessel coeff of {density, Ves}:\n");
+          for (int iq = 0; iq < nq; ++iq) {
               double const q = iq*dq;
-              printf("%g %g %g\n", q, qc[iq]*by4pi, qc[iq]/(q*q + 1e-12));
+              std::printf("%g %g %g\n", q, qc[iq]*by4pi, qc[iq]/(q*q + 1e-12));
           } // iq
-          printf("\n\n");
+          std::printf("\n\n");
       } // echo
 
       double const sqrt2pi = std::sqrt(2./constants::pi); // this makes the transform symmetric
@@ -87,16 +87,16 @@ namespace poisson_solver {
 
       // expand electrostatic potential onto grid
       double rho_abs{0}, rho_squ{0}, rho_max{0};
-      for(int iz = 0; iz < g[2]; ++iz) {
+      for (int iz = 0; iz < g[2]; ++iz) {
           double const z = iz*g.h[2] - center[2], z2 = z*z;
-          for(int iy = 0; iy < g[1]; ++iy) {
+          for (int iy = 0; iy < g[1]; ++iy) {
               double const y = iy*g.h[1] - center[1], y2 = y*y; 
-              for(int ix = 0; ix < g[0]; ++ix) {
+              for (int ix = 0; ix < g[0]; ++ix) {
                   double const x = ix*g.h[0] - center[0], x2 = x*x;
                   double const r = std::sqrt(x2 + y2 + z2);
                   int const izyx = (iz*g[1] + iy)*g[0] + ix;
                   double ves_r{0}, rho_r{0};
-                  for(int iq = 0; iq < nq; ++iq) {
+                  for (int iq = 0; iq < nq; ++iq) {
                       double const q = iq*dq;
                       double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
                       ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
@@ -116,23 +116,23 @@ namespace poisson_solver {
 
       if (echo > 1) print_stats(Ves, g.all(), g.dV(), "# real-space stats of output potential:", eV);
 
-      if (echo > 3) printf("# Bessel_Poisson deviation from a spherical density: "
+      if (echo > 3) std::printf("# Bessel_Poisson deviation from a spherical density: "
           "max %.1e a.u., abs %.1e e, rms %.1e e\n", rho_max, rho_abs, rho_squ);
 
       if (echo > 17) {
-          printf("\n## Bessel_Poisson: r, Ves, rho (in a.u.):\n");
-          for(int ir = 0; ir < 99; ++ir) {
+          std::printf("\n## Bessel_Poisson: r, Ves, rho (in a.u.):\n");
+          for (int ir = 0; ir < 99; ++ir) {
               double const r = .1*ir;
               double ves_r{0}, rho_r{0};
-              for(int iq = 0; iq < nq; ++iq) {
+              for (int iq = 0; iq < nq; ++iq) {
                   double const q = iq*dq;
                   double const bessel_kernel = bessel_transform::Bessel_j0(q*r);
                   ves_r += qc[iq]*bessel_kernel; // cheap Poisson solver
                   rho_r += qc[iq]*bessel_kernel * by4pi * q*q; // reconstruct a spherical density
               } // iq
-              printf("%g %g %g \n", r, ves_r, rho_r);
+              std::printf("%g %g %g \n", r, ves_r, rho_r);
           } // ir
-          printf("\n\n");
+          std::printf("\n\n");
       } // echo
       
       return stat;
@@ -160,7 +160,7 @@ namespace poisson_solver {
           SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
 #ifdef DEVEL
           if (echo > 0) {
-              printf("\n# Solve Poisson equation\n\n");
+              std::printf("\n# Solve Poisson equation\n\n");
               std::fflush(stdout); // if the Poisson solver takes long, we can already see the output up to here
           } // echo
 #endif // DEVEL
@@ -168,7 +168,7 @@ namespace poisson_solver {
           if ('f' == (method | 32)) { // "fft", "fourier" 
               // solve the Poisson equation using a Fast Fourier Transform
               int ng[3]; double reci[3][4]; 
-              for(int d = 0; d < 3; ++d) { 
+              for (int d = 0; d < 3; ++d) { 
                   ng[d] = g[d];
                   set(reci[d], 4, 0.0);
                   reci[d][d] = 2*constants::pi/(ng[d]*g.h[d]);
@@ -179,7 +179,7 @@ namespace poisson_solver {
 #ifdef DEVEL
               // create a 2x denser grid descriptor
               real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);
-              if (echo > 2) printf("# electrostatic.solver=%c (Multi-grid) is a multi-grid solver"
+              if (echo > 2) std::printf("# electrostatic.solver=%c (Multi-grid) is a multi-grid solver"
                       " on a %d x %d x %d grid\n", es_solver_name, gd[0], gd[1], gd[2]);
               gd.set_grid_spacing(g.h[0]/2, g.h[1]/2, g.h[2]/2);
               gd.set_boundary_conditions(g.boundary_conditions());
@@ -197,7 +197,7 @@ namespace poisson_solver {
           } else
           if ('B' == method) { // "Bessel0" (upper case!)
 #ifdef DEVEL
-              if (echo > 0) printf("# use a spherical Bessel solver for the Poisson equation\n");
+              if (echo > 0) std::printf("# use a spherical Bessel solver for the Poisson equation\n");
               auto const st = Bessel_Poisson_solver(Ves, rho, g, Bessel_center, echo);
               if (st) warn("Bessel Poisson solver failed with status=%i", int(st));
               stat += st;
@@ -218,20 +218,20 @@ namespace poisson_solver {
               warn("electrostatic.solver=%c (none) may lead to unphysical results!", es_solver_name); 
 
           } else { // default
-              if (echo > 2) printf("# electrostatic.solver=%c\n", es_solver_name);
+              if (echo > 2) std::printf("# electrostatic.solver=%c\n", es_solver_name);
               stat += iterative_poisson::solve(Ves, rho, g, method, echo);
           } // method
 
           if (echo > 1) print_stats(Ves, g.all(), g.dV(), "\n# electrostatic potential", eV);
 #ifdef DEVEL
           if (echo > 6) {
-              printf("# electrostatic potential at grid corners:");
-              for(int iz = 0; iz < g[2]; iz += g[2] - 1) {
-              for(int iy = 0; iy < g[1]; iy += g[1] - 1) {
-              for(int ix = 0; ix < g[0]; ix += g[0] - 1) {
-                  printf(" %g", Ves[(iz*g[1] + iy)*g[0] + ix]*eV);
+              std::printf("# electrostatic potential at grid corners:");
+              for (int iz = 0; iz < g[2]; iz += g[2] - 1) {
+              for (int iy = 0; iy < g[1]; iy += g[1] - 1) {
+              for (int ix = 0; ix < g[0]; ix += g[0] - 1) {
+                  std::printf(" %g", Ves[(iz*g[1] + iy)*g[0] + ix]*eV);
               }}} // ix iy iz
-              printf(" %s\n", _eV);
+              std::printf(" %s\n", _eV);
           } // echo
 #endif // DEVEL
       } // scope
@@ -248,12 +248,12 @@ namespace poisson_solver {
 
       if (echo > 3) {
           double const Ees = 0.5*dot_product(g.all(), rho, Ves)*g.dV();
-          printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
+          std::printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
       } // echo
 
       if (echo > 0) {
           if (control::get("poisson_solver.direct.projection", 0.) > 0) {
-              printf("\n## all values of Ves in %s (unordered) as function of the distance to %s\n",
+              std::printf("\n## all values of Ves in %s (unordered) as function of the distance to %s\n",
                                             _eV, (Bessel_center) ? "atom #0" : "the cell center");
               print_direct_projection(Ves, g, eV, Bessel_center);
           } // control

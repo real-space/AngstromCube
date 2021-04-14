@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cmath> // std::min, std::max
 #include <vector> // std::vector<T>
 #include <cstdint> // uint32_t
@@ -56,12 +56,12 @@ namespace multi_grid {
             real_space::grid_t const & g // coarse grid where the Kohn-Sham equation is typically solved
           , uint32_t *n_coarse
           , int const echo=0) {
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           unsigned const ng = g[d];
           unsigned const k = nearest_binary_power(ng);
           unsigned const nb = 1ull << k;
           if (nb < ng) {
-              if (echo > 2) printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", 'x'+d, ng, nb, k);
+              if (echo > 2) std::printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", 'x'+d, ng, nb, k);
               if (n_coarse) n_coarse[d] = nb;
           } else {
               // cannot be coarsened further
@@ -85,11 +85,11 @@ namespace multi_grid {
       
       if (use_special_version_for_2x && (2*go == gi)) {
           real_t const w8 = 0.5;
-          for(int io = 0; io < go; ++io) {
+          for (int io = 0; io < go; ++io) {
               set(        target[io], stride, source[2*io + 0], w8);
               add_product(target[io], stride, source[2*io + 1], w8);
           } // io
-          // printf("\n# %s specialized for m==2*n\n", __func__);
+          // std::printf("\n# %s specialized for m==2*n\n", __func__);
 
       } else { // use_special_version_for_2x
           assert(go <= gi); 
@@ -97,11 +97,11 @@ namespace multi_grid {
 
           // any other grid number ratio
           double const ratio = go/double(gi);
-          for(int io = 0; io < go; ++io) {
+          for (int io = 0; io < go; ++io) {
               real_t w8s[4] = {0,0,0,0};
               int iis[4];
               int nw8 = 0;
-              for(int ii = 0; ii < gi; ++ii) {
+              for (int ii = 0; ii < gi; ++ii) {
                   double const start = std::max((ii - 0)*ratio, double(io - 0));
                   double const end   = std::min((ii + 1)*ratio, double(io + 1));
                   double const w8 = std::max(0.0, end - start);
@@ -114,7 +114,7 @@ namespace multi_grid {
               } // ii
               assert(std::abs((w8s[0] + w8s[1] + w8s[2] + w8s[3]) - 1) < 1e-6);
               set(target[io], stride, real_t(0));
-              for(int iw8 = 0; iw8 < nw8; ++iw8) {
+              for (int iw8 = 0; iw8 < nw8; ++iw8) {
                   int const ii = iis[iw8];
                   add_product(target[io], stride, source[ii], w8s[iw8]);
               } // iw8
@@ -141,7 +141,7 @@ namespace multi_grid {
           set(buffer[0], stride, source[gi - 1]); // fill location #-1 with element #2 
       } // periodic boundary condition
 
-      if (echo > 2) printf("# %s from %d to %d grid points (inner dim %ld)\n", __func__, gi, go, stride);
+      if (echo > 2) std::printf("# %s from %d to %d grid points (inner dim %ld)\n", __func__, gi, go, stride);
       
       if ((go == 2*gi) && use_special_version_for_2x) {
           real_t const w14 = 0.25, w34 = 0.75;
@@ -150,7 +150,7 @@ namespace multi_grid {
           //       -1   |     0     |     1     |     2     |     3    in
           set(        target[0], stride, buffer[0], w14); // first dense grid point
           add_product(target[0], stride, source[0], w34); // first dense grid point
-          for(int ii = 1; ii < gi; ++ii) {
+          for (int ii = 1; ii < gi; ++ii) {
               set(        target[2*ii - 1], stride, source[ii - 1], w34); //  odd dense grid point
               add_product(target[2*ii - 1], stride, source[ii + 0], w14); //  odd dense grid point
               set(        target[2*ii + 0], stride, source[ii - 1], w14); // even dense grid point
@@ -158,13 +158,13 @@ namespace multi_grid {
           } // ii
           set(        target[go - 1], stride, source[gi - 1], w34); // last dense grid point
           add_product(target[go - 1], stride, buffer[1],      w14); // last dense grid point
-          // printf("\n# %s specialized for m==2*n\n", __func__);
+          // std::printf("\n# %s specialized for m==2*n\n", __func__);
         
       } else { // use_special_version_for_2x
         
           // any other grid number ratio
           double const ratio = gi/double(go);
-          for(int io = 0; io < go; ++io) {
+          for (int io = 0; io < go; ++io) {
               // linear interpolation between two grids with the same alignment.
               //            |  0  |  1  |  2  |  3  |  4  |    out
               //       -1   |    0    |    1    |    2    |    3    in
@@ -172,7 +172,7 @@ namespace multi_grid {
               int const ii = int(p); // index of the upper grid point on the in-array
               real_t const wu = p - ii; // upper weight onto [ii]
               real_t const wl = 1 - wu; // lower weight onto [ii - 1]
-    //           printf("# io=%i p=%g ii=%i w8s %g %g\n", io, p, ii, wl, wu); // DEBUG
+    //           std::printf("# io=%i p=%g ii=%i w8s %g %g\n", io, p, ii, wl, wu); // DEBUG
               assert(std::abs((wl + wu) - 1) < 1e-6);
               set(        target[io], stride, (ii >  0) ? source[ii - 1] : buffer[0], wl);
               add_product(target[io], stride, (ii < gi) ? source[ii]     : buffer[1], wu);
@@ -188,7 +188,7 @@ namespace multi_grid {
 #ifdef DEVEL
       if (echo < 1) return;
       auto const mm = std::minmax_element(begin, end);
-      printf("# %24s in range [%g, %g] %s\n", title, *mm.first, *mm.second, unit);
+      std::printf("# %24s in range [%g, %g] %s\n", title, *mm.first, *mm.second, unit);
 #endif
   } // print_min_max
 
@@ -201,11 +201,11 @@ namespace multi_grid {
 
       { // scope: checks
           int bc[3];
-          for(char d = 'x'; d  <= 'z'; ++d) {
+          for (char d = 'x'; d  <= 'z'; ++d) {
               assert(go(d) <= gi(d));
               bc[d-120] = gi.boundary_condition(d);
               assert(go.boundary_condition(d) == bc[d-120]);
-              if (echo > 0) printf("# %s in %c-direction from %d to %d grid points, boundary condition %d\n", 
+              if (echo > 0) std::printf("# %s in %c-direction from %d to %d grid points, boundary condition %d\n", 
                                       __func__, d, gi(d), go(d), bc[d-120]);
           } // d
       } // scope
@@ -221,7 +221,7 @@ namespace multi_grid {
 
       size_t const nx = gi('x');
       view2D<real_t> ty(go('z'), go('y')*nx); // get memory
-      for(int z = 0; z < go('z'); ++z) {
+      for (int z = 0; z < go('z'); ++z) {
           stat += restrict_to_any_grid(ty[z], go('y'),
                                        tz[z], gi('y'), nx, gi.boundary_condition('y'), echo*(z == 0));
       } // z
@@ -229,8 +229,8 @@ namespace multi_grid {
       print_min_max(ty.data(), ty.data() + go('z')*go('y')*nx, echo, "zy-restricted");
 
       view3D<real_t> tx(out, go('y'), go('x')); // wrap
-      for(int z = 0; z < go('z'); ++z) {
-          for(int y = 0; y < go('y'); ++y) {
+      for (int z = 0; z < go('z'); ++z) {
+          for (int y = 0; y < go('y'); ++y) {
               stat += restrict_to_any_grid(tx(z,y), go('x'),
                                       ty[z] + y*nx, gi('x'), 1, gi.boundary_condition('x'), echo*(z == 0)*(y == 0));
           } // y
@@ -245,14 +245,14 @@ namespace multi_grid {
   status_t interpolate3D(real_t out[], real_space::grid_t const & go
                , real_in_t const in[], real_space::grid_t const & gi, int const echo=0) {
       status_t stat(0);
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           assert(go.boundary_condition(d) == gi.boundary_condition(d));
       } // d
 
       view3D<real_in_t const> ti(in, gi('y'), gi('x')); // wrap
       view3D<real_t>     tx(gi('z'), gi('y'), go('x')); // get memory
-      for(int z = 0; z < gi('z'); ++z) {
-          for(int y = 0; y < gi('y'); ++y) {
+      for (int z = 0; z < gi('z'); ++z) {
+          for (int y = 0; y < gi('y'); ++y) {
               stat += linear_interpolation(tx(z,y), go('x'),
                                            ti(z,y), gi('x'), 1, gi.boundary_condition('x'), echo*(z == 0)*(y == 0));
           } // y
@@ -260,7 +260,7 @@ namespace multi_grid {
 
       size_t const nx = go('x');
       view2D<real_t> ty(gi('z'), go('y')*nx); // get memory
-      for(int z = 0; z < gi('z'); ++z) {
+      for (int z = 0; z < gi('z'); ++z) {
           stat += linear_interpolation(ty[z], go('y'),
                                      tx(z,0), gi('y'), nx, gi.boundary_condition('y'), echo*(z == 0));
       } // z
@@ -282,7 +282,7 @@ namespace multi_grid {
       assert(y < (1 << 21)); 
       assert(z < (1 << 21));
       int64_t id{0}; // 3D Morton number
-      for(int b = 0; b < 21; ++b) {
+      for (int b = 0; b < 21; ++b) {
           uint64_t const p = 1u << b; // probe bit #b
           id |= ((x & p) << (2*b + 0)); // bit #b of x becomes bit #3b   of id
           id |= ((y & p) << (2*b + 1)); // bit #b of y becomes bit #3b+1 of id
@@ -295,7 +295,7 @@ namespace multi_grid {
       if (id < 0) { x = -1; y = -1; z = -1; return -1; }
       x = 0; y = 0; z = 0;
       int64_t const one = 1;
-      for(int b = 0; b < 21; ++b) {
+      for (int b = 0; b < 21; ++b) {
           x |= ((id & (one << (3*b + 0))) >> (2*b + 0));
           y |= ((id & (one << (3*b + 1))) >> (2*b + 1));
           z |= ((id & (one << (3*b + 2))) >> (2*b + 2));
@@ -305,13 +305,13 @@ namespace multi_grid {
   
   inline status_t test_Morton_indices(int const echo=0) {
       status_t stat(0);
-      for(int n = 0; n < 99; ++n) {
-          uint32_t xyz[3]; for(int d = 0; d < 3; ++d) xyz[d] = simple_math::random(0, 9999);
+      for (int n = 0; n < 99; ++n) {
+          uint32_t xyz[3]; for (int d = 0; d < 3; ++d) xyz[d] = simple_math::random(0, 9999);
           int32_t abc[3];
           auto const id = grid_point_id(xyz[0], xyz[1], xyz[2]);
           stat += grid_point_xyz(abc[0], abc[1], abc[2], id);
-          for(int d = 0; d < 3; ++d) stat += (abc[d] != xyz[d]);
-          if (echo > 9) printf("# %s %5d %5d %5d --> %lld --> %5d %5d %5d\n",
+          for (int d = 0; d < 3; ++d) stat += (abc[d] != xyz[d]);
+          if (echo > 9) std::printf("# %s %5d %5d %5d --> %lld --> %5d %5d %5d\n",
               __func__, xyz[0], xyz[1], xyz[2], id, abc[0], abc[1], abc[2]);
       } // n
       int32_t abc[3];
@@ -323,7 +323,7 @@ namespace multi_grid {
   inline status_t check_general_restrict(unsigned const ng, int const echo=0, char const dir='?') {
       unsigned const k = nearest_binary_power(ng);
       unsigned const nb = 1ull << k;
-      if (echo > 2) printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", dir, ng, nb, k);
+      if (echo > 2) std::printf("# grid in %c-direction can be coarsened from %d to %d = 2^%i grid points\n", dir, ng, nb, k);
       // compute the restriction operator from ng to n2
       assert(nb < ng);
       double const rowref = 1; // each row sum must be equal to 1
@@ -331,10 +331,10 @@ namespace multi_grid {
       double const b_over_g = nb/double(ng);
       double const colref = b_over_g; // each column sum must be nb/ng
       double rowdev{0};
-      for(int ib = 0; ib < nb; ++ib) {
-          if (echo > 8) printf("# %c row%4i  ", dir, ib);
+      for (int ib = 0; ib < nb; ++ib) {
+          if (echo > 8) std::printf("# %c row%4i  ", dir, ib);
           double rowsum{0};
-          for(int ig = 0; ig < ng; ++ig) {
+          for (int ig = 0; ig < ng; ++ig) {
               // overlap between a grid compartment of length L/ng starting at ig*L/ng
               // with a grid compartment of length L/n2 starting at i2*L/n2
               //            |  0  |  1  |  2  |  3  |  4  |   g
@@ -344,7 +344,7 @@ namespace multi_grid {
               double const end   = std::min((ig + 1)*b_over_g, double(ib + 1));
               double const ovl = std::max(0.0, end - start);
               if (ovl > 0) {
-                  if (echo > 8) printf("  %i %g", ig, ovl); // show only non-zero matrix entries (with their column index) 
+                  if (echo > 8) std::printf("  %i %g", ig, ovl); // show only non-zero matrix entries (with their column index) 
                   rowsum += ovl;
                   colsum[ig] += ovl;
               } // ovl non-zero
@@ -357,14 +357,14 @@ namespace multi_grid {
               // can be operatored. Then, we should redistribute to less process elements.
               // finally solving on the master only for the coarsest level.
           } // id
-          if (echo > 8) printf(" sum=%g dev=%.1e\n", rowsum, rowsum - rowref);
+          if (echo > 8) std::printf(" sum=%g dev=%.1e\n", rowsum, rowsum - rowref);
           rowdev = std::max(rowdev, std::abs(rowsum - rowref));
       } // ib
       double coldev{0}; // column deviation
-      for(int ig = 0; ig < ng; ++ig) {
+      for (int ig = 0; ig < ng; ++ig) {
           coldev = std::max(coldev, std::abs(colsum[ig] - colref));
       } // ig
-      if (echo > 6) printf("# %c-direction largest deviation = %.1e (row) and %.1e (col)\n\n", dir, rowdev, coldev);
+      if (echo > 6) std::printf("# %c-direction largest deviation = %.1e (row) and %.1e (col)\n\n", dir, rowdev, coldev);
       return (coldev > 1e-14) + (rowdev > 1e-14);
       
       // in some cases only two coefficients per row are non-zero
@@ -381,32 +381,32 @@ namespace multi_grid {
       std::vector<double> input_c(ng), result_c(ng), result_cdc(ng);
       
       std::vector<int> dense_grids{ng, (5*ng)/3, 2*ng}; // numbers of dense grid points
-      for(auto mg : dense_grids) {
+      for (auto mg : dense_grids) {
           std::vector<double> result_d(mg), input_d(mg);
-          printf("\n## ik T (%s: interpolate from grid=%d to grid=%d)\n", __func__, ng, mg); // legend
-          for(int ik = 1; ik < 3; ++ik) {
+          std::printf("\n## ik T (%s: interpolate from grid=%d to grid=%d)\n", __func__, ng, mg); // legend
+          for (int ik = 1; ik < 3; ++ik) {
               double const k = (2*constants::pi*ik);
-              for(int ig = 0; ig < ng; ++ig) {
+              for (int ig = 0; ig < ng; ++ig) {
                   double const x = (ig + 0.5)/ng;
                   input_c[ig] = std::cos(k*x);
               } // ig
               
               stat += linear_interpolation(result_d.data(), mg, input_c.data(), ng, 1, 1);
               
-              printf("\n## x interpolate(cos(x)) cos(x) [n=%d m=%d k=%i]\n", ng, mg, ik);
-              for(int jg = 0; jg < mg; ++jg) {
+              std::printf("\n## x interpolate(cos(x)) cos(x) [n=%d m=%d k=%i]\n", ng, mg, ik);
+              for (int jg = 0; jg < mg; ++jg) {
                   double const x = (jg + 0.5)/mg;
                   input_d[jg] = std::cos(k*x);
-                  printf("%g %g %g\n", x, result_d[jg], input_d[jg]);
+                  std::printf("%g %g %g\n", x, result_d[jg], input_d[jg]);
               } // jg
               
               stat += restrict_to_any_grid(result_c.data(), ng, input_d.data(), mg, 1, 1);
               stat += restrict_to_any_grid(result_cdc.data(), ng, result_d.data(), mg, 1, 1);
 
-              printf("\n## x cos(x) restrict(interpolate(cos(x))) [n=%d m=%d k=%i]\n", ng, mg, ik);
-              for(int ig = 0; ig < ng; ++ig) {
+              std::printf("\n## x cos(x) restrict(interpolate(cos(x))) [n=%d m=%d k=%i]\n", ng, mg, ik);
+              for (int ig = 0; ig < ng; ++ig) {
                   double const x = (ig + 0.5)/ng;
-                  printf("%g %g %g %g\n", x, result_c[ig], result_cdc[ig], input_c[ig]);
+                  std::printf("%g %g %g %g\n", x, result_c[ig], result_cdc[ig], input_c[ig]);
               } // ig
               
           } // ik
@@ -417,7 +417,7 @@ namespace multi_grid {
   inline status_t test_analysis(int const echo=0) {
       status_t stat(0);
       real_space::grid_t g(63, 64, 65);
-      for(char dir = 'x'; dir <= 'z'; ++dir) {
+      for (char dir = 'x'; dir <= 'z'; ++dir) {
           stat += check_general_restrict(g(dir), echo, dir);
       } // direction
       return stat + analyze_grid_sizes(g, nullptr, echo);
@@ -452,7 +452,7 @@ namespace multi_grid {
       double const c0 = 2./(h*h), c1 = -.5*c0;
       double norm2{0}, normT{0};
       real_t r_prev = r[g - 1]; // init
-      for(int i = 0; i < g; ++i) {
+      for (int i = 0; i < g; ++i) {
           if (f) fprintf(f, "%g %g %g %g\n", i*h, x[i], r[i], b[i]);
           real_t const ri = r[i];
           real_t const r_next = r[(i + 1) % g];
@@ -461,7 +461,7 @@ namespace multi_grid {
           normT += Tr*Tr; // accumulate norm ||D^2 r||_2
       } // i
       if (f) fprintf(f, "%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
-//       if (1) printf("# residual norm (length %ld) is %g / %g = %g\n", g, normT, norm2, normT/norm2);
+//       if (1) std::printf("# residual norm (length %ld) is %g / %g = %g\n", g, normT, norm2, normT/norm2);
       return norm2/g;
   } // get_resiual_norm
   
@@ -476,7 +476,7 @@ namespace multi_grid {
 
       double norm2{0}, xavg{0}, ravg{0};
       real_t x_prev = x[g - 1]; // init
-      for(int i = 0; i < g; ++i) {
+      for (int i = 0; i < g; ++i) {
           real_t const xi = x[i];
           real_t const x_next = x[(i + 1) % g];
           
@@ -495,7 +495,7 @@ namespace multi_grid {
 
       { // scope: subtract average (necessary if all boundary_conditions are periodic)
           xavg /= g; ravg /= g;
-          for(int i = 0; i < g; ++i) {
+          for (int i = 0; i < g; ++i) {
               x[i] -= xavg;
               r[i] -= ravg; // in MG methods, the residual vector is used as rhs b on the next coarser level.
                             // since there, the same problem A*x==b is solved with the same boundary condition,
@@ -519,13 +519,13 @@ namespace multi_grid {
                     , int const level=0) { // for display
       int iter;
       double rn{1}; // residual norm
-      for(iter = 0; iter < maxiter && rn > tol; ++iter) {
+      for (iter = 0; iter < maxiter && rn > tol; ++iter) {
           rn = jacobi(x, r, b, g, h);
-          if (echo > 9) printf("# %s level=%i %ssmoothing step %i (of max %d) residual norm %g\n", __func__, level, which, iter, maxiter, std::log10(rn));
+          if (echo > 9) std::printf("# %s level=%i %ssmoothing step %i (of max %d) residual norm %g\n", __func__, level, which, iter, maxiter, std::log10(rn));
 //           if (echo > 29) get_residual_norm(r, x, b, g, h, stdout);
       } // iter
 //       rn = get_residual_norm(r, x, b, g, h, (echo > 19)?stdout:0);
-      if (echo > 0) printf("# %s level=%i %d %ssmoothing steps residual norm %.1f\n", __func__, level, iter, which, std::log10(rn));
+      if (echo > 0) std::printf("# %s level=%i %d %ssmoothing steps residual norm %.1f\n", __func__, level, iter, which, std::log10(rn));
       return 0;
   } // smoothen
 
@@ -552,7 +552,7 @@ namespace multi_grid {
           double const db = b[1] - b[0];
           double const dx = .5*c0inv*db;
           x[0] = -.5*dx; x[1] = .5*dx;
-          if (echo > -1) printf("# %s h=%g b= %g %g, x= %g %g\n", __func__, h, b[0],b[1], x[0],x[1]);
+          if (echo > -1) std::printf("# %s h=%g b= %g %g, x= %g %g\n", __func__, h, b[0],b[1], x[0],x[1]);
       } else {
           return 1; // only these two exact solvers implemented!
       }
@@ -570,7 +570,7 @@ namespace multi_grid {
                         , short const nu_pre=2, short const nu_post=2) { // pre- and post-smoothing Jacobi steps
 
 //    std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
-//    if (echo > 0) printf("# %s %s level = %i\n", __func__, tabs.data(), k);
+//    if (echo > 0) std::printf("# %s %s level = %i\n", __func__, tabs.data(), k);
       status_t stat(0);
 
       size_t const g = 1ul << k; // number of grid points
@@ -584,7 +584,7 @@ namespace multi_grid {
           stat += smoothen(x, r, b, g, h, nu_pre, echo, " pre-", 0, k);
           
           size_t const gc = 1ul << (k - 1);
-//        if (echo > 0) printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
+//        if (echo > 0) std::printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
           std::vector<real_t> uc(gc, real_t(0)), rc(gc);
           double const hc = 2*h; // coarser grid spacing
           
@@ -613,7 +613,7 @@ namespace multi_grid {
         
       } // k > min_level
 
-//    if (echo > 0) printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
+//    if (echo > 0) std::printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
       return stat;
   } // mg_cycle
 
@@ -630,7 +630,7 @@ namespace multi_grid {
       size_t const g = 1ul << k;
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
-      for(int i = 0; i < g; ++i) {
+      for (int i = 0; i < g; ++i) {
           if ('s' == (rhs | 32)) {
               b[i] = std::sin(i*2*constants::pi/g);
           } else {
@@ -639,28 +639,28 @@ namespace multi_grid {
           avg += b[i];
       } // i
       avg /= g;
-      for(int i = 0; i < g; ++i) { 
+      for (int i = 0; i < g; ++i) { 
           b[i] -= avg; // make b charge neutral
       } // i
 
-      if (echo > 0) printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
+      if (echo > 0) std::printf("\n\n\n# %s starting from 2^%i grid points\n", __func__, k);
       double const h = 1./g;
       
-      for(int it = 0; it < nit; ++it) {
+      for (int it = 0; it < nit; ++it) {
           stat += mg_cycle(x.data(), b.data(), k, h, scheme, echo, nu_pre, nu_post);
       } // it
 
       double norm2{0}; double const hm2 = 1./(h*h);
       FILE* f = (echo > 5) ? ( (echo > 9) ? stdout : fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
       if (f) fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
-      for(int i = 0; i < g; ++i) {
+      for (int i = 0; i < g; ++i) {
           double const Ax = (-x[(i - 1 + g) % g] + 2*x[i] -x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
           double const res = b[i] - Ax;
           norm2 += res*res;
           if (f) fprintf(f, "%g %g %g %g %g\n", i*h, x[i], res, b[i], Ax);
       } // i
       if (f && (f != stdout)) fclose(f);
-      if (echo > 1) printf("# %s residual %.3f\n", __func__, std::log10(norm2/g));
+      if (echo > 1) std::printf("# %s residual %.3f\n", __func__, std::log10(norm2/g));
       return stat;
   } // test_mg_cycle
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -12,9 +12,9 @@ class VecLayout {
     
     void axpby(real_t y[], real_t const x[], real_t const *a=nullptr, real_t const *b=nullptr) const {
         auto const m = stride(); // stride can be larger than nrhs_ for alignment
-        for(int j = 0; j < nrhs_; ++j) {
+        for (int j = 0; j < nrhs_; ++j) {
             auto const sx = (a? a[j] :0), sy = (b? b[j] :0);
-            for(int i = 0; i < ndof_; ++i) {
+            for (int i = 0; i < ndof_; ++i) {
                 auto const ij = i*m + j;
                 y[ij] = sx*x[ij] + sy*y[ij];
             } // i
@@ -24,9 +24,9 @@ class VecLayout {
     void inner(double d[], real_t const x[], real_t const *y=nullptr) const {
         auto const _y = y? y : x;
         auto const m = stride(); // stride can be larger than nrhs_ for alignment
-        for(int j = 0; j < nrhs_; ++j) {
+        for (int j = 0; j < nrhs_; ++j) {
             double dj = 0;
-            for(int i = 0; i < ndof_; ++i) {
+            for (int i = 0; i < ndof_; ++i) {
                 dj += x[i*m + j]*_y[i*m + j]; // needs conjugation if complex
             } // i
             d[j] = dj;
@@ -55,14 +55,14 @@ namespace vector_layout {
 #else // NO_UNIT_TESTS
 
   inline status_t test_construction_and_destruction(int const echo=9) {
-      if (echo > 0) printf("# %s\n", __func__);
+      if (echo > 0) std::printf("# %s\n", __func__);
       typedef double real_t;
       VecLayout<real_t> layout(8, 8);
       return 0;
   } // test_construction_and_destruction
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("# %s\n", __func__);
+      if (echo > 0) std::printf("# %s\n", __func__);
       status_t stat(0);
       stat += test_construction_and_destruction(echo);
       return stat;

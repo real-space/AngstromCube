@@ -1,4 +1,4 @@
-#include <cstdio> // printf, std::fflush, stdout
+#include <cstdio> // std::printf, std::fflush, stdout
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
@@ -56,30 +56,30 @@ namespace plane_waves {
   void Hermite_Gauss_projectors(std::complex<double> pzyx[], int const numax, double const sigma, double const gv[3]) {
 
         view2D<double> Hermite_Gauss(3, sho_tools::n1HO(numax));
-        for(int d = 0; d < 3; ++d) {
+        for (int d = 0; d < 3; ++d) {
             double const x = gv[d]*sigma; // the Fourier transform of HG_n(x) is (-i)^n HG_n(k) [for sigma=1]
             Hermite_polynomials(Hermite_Gauss[d], x, numax); // unnormalized Hermite-Gauss functions
         } // d
 
         { // scope: normalize Hermite_Gauss functions
             double nfactorial{1};
-            for(int n = 0; n <= numax; ++n) {
+            for (int n = 0; n <= numax; ++n) {
                 double const norm_factor = std::sqrt(sigma/(constants::sqrtpi*nfactorial));
-                for(int d = 0; d < 3; ++d) {
+                for (int d = 0; d < 3; ++d) {
                     Hermite_Gauss(d,n) *= norm_factor; // scale
                 } // d
                 nfactorial *= (n + 1)*0.5; // update nfactorial * 2^-n
             } // n
         } // scope
-        
+
         std::complex<double> constexpr mi(0, -1);
         std::complex<double> imaginary[4] = {1, mi, pow2(mi), pow3(mi)}; // (-i)^n --> [n%4]
 
         // generate projection coefficient for factorized SHO projectors in zyx_order
         int lb{0};
-        for(        int lz = 0; lz <= numax;           ++lz) {
-            for(    int ly = 0; ly <= numax - lz;      ++ly) {
-                for(int lx = 0; lx <= numax - lz - ly; ++lx) {
+        for (         int lz = 0; lz <= numax;           ++lz) {
+            for (     int ly = 0; ly <= numax - lz;      ++ly) {
+                for ( int lx = 0; lx <= numax - lz - ly; ++lx) {
                     int const nu = lx + ly + lz;
                     pzyx[lb] = Hermite_Gauss(0,lx) *
                                Hermite_Gauss(1,ly) *
@@ -100,7 +100,7 @@ namespace plane_waves {
   } //  Fourier_Gauss_factor_3D
 
   
-  template<typename complex_t>
+  template <typename complex_t>
   status_t iterative_solve(
         double eigenenergies[]
       , view3D<complex_t> const & HSm
@@ -118,7 +118,7 @@ namespace plane_waves {
       int const nPWa = HSm.stride();
 
       if (echo > 6) {
-          printf("# %s for the lowest %d bands of a %d x %d Hamiltonian (stride %d)\n",
+          std::printf("# %s for the lowest %d bands of a %d x %d Hamiltonian (stride %d)\n",
                     __func__, nbands, nPW, nPW, nPWa);
           std::fflush(stdout);
       } // echo
@@ -135,13 +135,13 @@ namespace plane_waves {
           int const nsubspace = std::max(nbands, int(direct_ratio*nbands));
           int const nsub = std::min(nsubspace, nPW);
           view3D<complex_t> SHmat_b(2, nsub, align<2>(nsub));
-          for(int ib = 0; ib < nsub; ++ib) {
+          for (int ib = 0; ib < nsub; ++ib) {
               set(SHmat_b(S,ib), nsub, HSm(S,ib));
               set(SHmat_b(H,ib), nsub, HSm(H,ib));
           } // ib
 
           // assume that plane waves are energy ordered and solve for the nsub * nsub sub-Hamiltonian
-          if (echo > 6) { printf("# %s get %d start waves from diagonalization of a %d x %d Hamiltonian (stride %lu)\n",
+          if (echo > 6) { std::printf("# %s get %d start waves from diagonalization of a %d x %d Hamiltonian (stride %lu)\n",
                                   __func__, nbands, nsub, nsub, SHmat_b.stride()); std::fflush(stdout); }
           auto const stat_eig = dense_solver::solve(SHmat_b, "# start waves "); // mute
           if (stat_eig != 0) {
@@ -151,10 +151,10 @@ namespace plane_waves {
           stat += stat_eig;
           // after the dense solver, the Hamiltonian matrix contains the eigenvectors
 
-          if (echo > 6) { printf("# %s copy %d start waves from eigenstates of the %d x %d Hamiltonian (stride %lu)\n",
+          if (echo > 6) { std::printf("# %s copy %d start waves from eigenstates of the %d x %d Hamiltonian (stride %lu)\n",
                                   __func__, nbands, nsub, nsub, SHmat_b.stride()); std::fflush(stdout); }
           // copy eigenvectors into low PW coefficients of start waves
-          for(int ib = 0; ib < nbands; ++ib) {
+          for (int ib = 0; ib < nbands; ++ib) {
               set(waves[ib], nsub, SHmat_b(H,ib));
           } // ib
           
@@ -164,20 +164,20 @@ namespace plane_waves {
       std::vector<complex_t> precond(nPWa, complex_t(0));
       {
           double diag_min{9e99}; int imin{-1};
-          for(int iB = 0; iB < nPW; ++iB) {
+          for (int iB = 0; iB < nPW; ++iB) {
               double const diag = std::real(HSm(H,iB,iB));
               if (diag < diag_min) imin = iB;
               diag_min = std::min(diag_min, diag);
           } // iB
-          if (echo > 6) { printf("# %s smallest diagonal element is %g %s at index #%i of %d\n",
+          if (echo > 6) { std::printf("# %s smallest diagonal element is %g %s at index #%i of %d\n",
                                     __func__, diag_min*eV,_eV, imin, nPW); std::fflush(stdout); }
           complex_t const diag_shift = diag_min - 1.0; // 1.0 Ha below the lowest diagonal element
-          for(int iB = 0; iB < nPW; ++iB) {
+          for (int iB = 0; iB < nPW; ++iB) {
               precond[iB] = complex_t(1)/(HSm(H,iB,iB) - diag_shift);
           } // iB
       } // ToDo: pass precond to dense_operator_t constructor
 
-      if (echo > 6) { printf("# %s construct a dense operator for the %d x %d Hamiltonian (stride %d)\n",
+      if (echo > 6) { std::printf("# %s construct a dense operator for the %d x %d Hamiltonian (stride %d)\n",
                               __func__, nPW, nPW, nPWa); std::fflush(stdout); }
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
@@ -189,17 +189,17 @@ namespace plane_waves {
       status_t stat_slv(0);
       if ('c' == method) {
           int const nit = control::get("plane_waves.max.cg.iterations", 3.);
-          if (echo > 6) { printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
-          for(int it = 0; it < nit && (0 == stat_slv); ++it) {
-              if (echo > 6) { printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
+          if (echo > 6) { std::printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
+          for (int it = 0; it < nit && (0 == stat_slv); ++it) {
+              if (echo > 6) { std::printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
               stat_slv = conjugate_gradients::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10);
               stat += stat_slv;
               davidson_solver::rotate(waves.data(), eigvals.data(), nbands, op, echo - 10);
           } // it
       } else { // method
           int const nit = control::get("davidson_solver.max.iterations", 1.);
-          if (echo > 6) { printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
-          for(int it = 0; it < nit && (0 == stat_slv); ++it) {
+          if (echo > 6) { std::printf("# %s envoke Davidson solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
+          for (int it = 0; it < nit && (0 == stat_slv); ++it) {
               stat_slv = davidson_solver::eigensolve(waves.data(), eigvals.data(), nbands, op, echo - 10, 2.0f, 2);
               stat += stat_slv;
           } // it
@@ -208,7 +208,7 @@ namespace plane_waves {
       if (0 == stat_slv) {
           if (echo > 2) {
               dense_solver::display_spectrum(eigvals.data(), nbands, x_axis, eV, _eV);
-              if (echo > 4) printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n", 
+              if (echo > 4) std::printf("# lowest and highest eigenvalue of the Hamiltonian matrix is %g and %g %s, respectively\n", 
                                       eigvals[0]*eV, eigvals[nbands - 1]*eV, _eV);
               std::fflush(stdout);
           } // echo
@@ -223,7 +223,7 @@ namespace plane_waves {
   
   
   
-  template<typename complex_t>
+  template <typename complex_t>
   status_t solve_k(double const ecut // plane wave cutoff energy
           , double const reci[3][4] // reciprocal cell matrix
           , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
@@ -250,24 +250,24 @@ namespace plane_waves {
       using real_t = decltype(std::real(complex_t(1)));
             
       int boxdim[3], max_PWs{1};
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           boxdim[d] = std::ceil(ecut/pow2(reci[d][d]));
-          if (echo > 17) printf("# %s reci[%d] = %.6f %.6f %.6f sqRy, kpoint=%9.6f\n", __func__, d, reci[d][0], reci[d][1], reci[d][2], kpoint[d]);
+          if (echo > 17) std::printf("# %s reci[%d] = %.6f %.6f %.6f sqRy, kpoint=%9.6f\n", __func__, d, reci[d][0], reci[d][1], reci[d][2], kpoint[d]);
           max_PWs *= (boxdim[d] + 1 + boxdim[d]);
       } // d
-      if (echo > 11) printf("# %s boxdim = %d x %d x %d, E_cut= %g Ry\n", __func__, boxdim[0], boxdim[1], boxdim[2], 2*ecut);
+      if (echo > 11) std::printf("# %s boxdim = %d x %d x %d, E_cut= %g Ry\n", __func__, boxdim[0], boxdim[1], boxdim[2], 2*ecut);
       std::vector<PlaneWave> pw_basis(max_PWs);
       { // scope: generate set of plane waves
           int iB{0}, outside{0};
-          for(int iGz = -boxdim[2]; iGz <= boxdim[2]; ++iGz) {
-          for(int iGy = -boxdim[1]; iGy <= boxdim[1]; ++iGy) {
-          for(int iGx = -boxdim[0]; iGx <= boxdim[0]; ++iGx) {
+          for (int iGz = -boxdim[2]; iGz <= boxdim[2]; ++iGz) {
+          for (int iGy = -boxdim[1]; iGy <= boxdim[1]; ++iGy) {
+          for (int iGx = -boxdim[0]; iGx <= boxdim[0]; ++iGx) {
               double const gv[3] = {(iGx + kpoint[0])*reci[0][0],
                                     (iGy + kpoint[1])*reci[1][1],
                                     (iGz + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci assumed here
               double const g2 = pow2(gv[0]) + pow2(gv[1]) + pow2(gv[2]);
 #ifdef FULL_DEBUG
-              if (echo > 91) printf("# %s suggest PlaneWave(%d,%d,%d) with |k+G|^2= %g Ry inside= %d\n", __func__, iGx,iGy,iGz, g2, g2 < 2*ecut);
+              if (echo > 91) std::printf("# %s suggest PlaneWave(%d,%d,%d) with |k+G|^2= %g Ry inside= %d\n", __func__, iGx,iGy,iGz, g2, g2 < 2*ecut);
 #endif // FULL_DEBUG
               if (g2 < 2*ecut) {
                   pw_basis[iB] = PlaneWave(iGx, iGy, iGz, g2);
@@ -287,7 +287,7 @@ namespace plane_waves {
 #ifdef DEVEL
       if (echo > 6) {
           float const minutes = 1.5e-11*(2 + (sizeof(real_t) > 4))*pow3(1.*nB), seconds = 60*(minutes - int(minutes));
-          printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %d:%02d minutes)\n",
+          std::printf("\n# start %s<%s> Ecut= %g %s nPW=%d (est. %d:%02d minutes)\n",
                  __func__, complex_name<complex_t>(), ecut*eV, _eV, nB, int(minutes), int(seconds));
           std::fflush(stdout);
       } // echo
@@ -300,15 +300,15 @@ namespace plane_waves {
           std::sort(pw_basis.begin(), pw_basis.end(), compare_lambda);
 #ifdef DEVEL
           if (echo > 8) { // show in ascending order
-              printf("# %s|k+G|^2 =", x_axis);
-              for(int i = 0; i < std::min(5, nPWs); ++i) {
-                  printf(" %.4f", pw_basis[i].g2);
+              std::printf("# %s|k+G|^2 =", x_axis);
+              for (int i = 0; i < std::min(5, nPWs); ++i) {
+                  std::printf(" %.4f", pw_basis[i].g2);
               } // i
-              printf(" ...");
-              for(int i = -std::min(2, nPWs); i < 0; ++i) {
-                  printf(" %.3f", pw_basis[nPWs + i].g2);
+              std::printf(" ...");
+              for (int i = -std::min(2, nPWs); i < 0; ++i) {
+                  std::printf(" %.3f", pw_basis[nPWs + i].g2);
               } // i
-              printf(" Ry\n");
+              std::printf(" Ry\n");
           } // echo
 #endif // DEVEL
       } // sort_PWs
@@ -327,7 +327,7 @@ namespace plane_waves {
 
       std::vector<uint32_t> offset(natoms_PAW + 1); // prefetch sum
       offset[0] = 0;
-      for(int ka = 0; ka < natoms_PAW; ++ka) {
+      for (int ka = 0; ka < natoms_PAW; ++ka) {
           int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
           assert( hs_PAW[ka].stride() >= nSHO );
           assert( hs_PAW[ka].dim1()   == nSHO );
@@ -343,20 +343,20 @@ namespace plane_waves {
       std::vector<double>   P2_l(nC, 0.0); // |<k+G_i|\tilde p_{la lb}>|^2
 #endif // DEVEL
       view3D<complex_t> Psh_il(2, nB, nC, 0.0); // atom-centered PAW matrices multiplied to P_jl
-      for(int jB = 0; jB < nB; ++jB) {
+      for (int jB = 0; jB < nB; ++jB) {
           auto const & pw = pw_basis[jB];
           double const gv[3] = {(pw.x + kpoint[0])*reci[0][0],
                                 (pw.y + kpoint[1])*reci[1][1],
                                 (pw.z + kpoint[2])*reci[2][2]}; // ToDo: diagonal reci-matrix assumed here
 
-          for(int ka = 0; ka < natoms_PAW; ++ka) {
+          for (int ka = 0; ka < natoms_PAW; ++ka) {
               int const nSHO = sho_tools::nSHO(numax_PAW[ka]);
 
               // phase factor related to the atomic position
               double const arg = -(  (grid_offset[0] + xyzZ_PAW(ka,0))*gv[0] 
                                    + (grid_offset[1] + xyzZ_PAW(ka,1))*gv[1] 
                                    + (grid_offset[2] + xyzZ_PAW(ka,2))*gv[2] );
-//            printf("\n# effective position"); for(int d = 0; d < 3; ++d) printf(" %g", grid_offset[d] + xyzZ_PAW(ka,d));
+//            std::printf("\n# effective position"); for (int d = 0; d < 3; ++d) std::printf(" %g", grid_offset[d] + xyzZ_PAW(ka,d));
               std::complex<double> const phase(std::cos(arg), std::sin(arg));
 
               { // scope: compose projection coefficients of each plane wave gv
@@ -364,7 +364,7 @@ namespace plane_waves {
                   Hermite_Gauss_projectors(pzyx.data(), numax_PAW[ka], sigma_PAW[ka], gv);
                   auto const fgf = Fourier_Gauss_factor_3D();
 
-                  for(int lb = 0; lb < nSHO; ++lb) {
+                  for (int lb = 0; lb < nSHO; ++lb) {
                       int const lC = offset[ka] + lb;
                       P_jl(jB,lC) = complex_t(phase * pzyx[lb] * fgf * norm_factor);
 #ifdef DEVEL
@@ -375,15 +375,15 @@ namespace plane_waves {
 
               // multiply P from left to hs_PAW (block diagonal --> ka == la)
               auto const iB = jB;
-              for(int lb = 0; lb < nSHO; ++lb) {
+              for (int lb = 0; lb < nSHO; ++lb) {
                   int const iC = offset[ka] + lb; // global PAW coefficient index
                   complex_t s(0), h(0);
-                  for(int kb = 0; kb < nSHO; ++kb) { // contract
+                  for (int kb = 0; kb < nSHO; ++kb) { // contract
                       int const kC = offset[ka] + kb;
                       auto const p = P_jl(iB,kC); // ToDo: do we need to conjugate here instead of below?
                       h += p * real_t(hs_PAW[ka](H,kb,lb));
                       s += p * real_t(hs_PAW[ka](S,kb,lb));
-//                    printf("# non-local matrices atom=%i i=%i j=%i ovl= %g hmt= %g %s\n",
+//                    std::printf("# non-local matrices atom=%i i=%i j=%i ovl= %g hmt= %g %s\n",
 //                            ka, lb, kb, hs_PAW[ka](S,kb,lb), hs_PAW[ka](H,kb,lb)*eV, _eV);
                   } // kb
                   Psh_il(H,iB,iC) = h;
@@ -395,8 +395,8 @@ namespace plane_waves {
 
 #ifdef DEVEL
       if (echo > 29) {
-          for(int la = 0; la < natoms_PAW; ++la) {
-              printf("# ^2-norm of the projector of atom #%i ", la);
+          for (int la = 0; la < natoms_PAW; ++la) {
+              std::printf("# ^2-norm of the projector of atom #%i ", la);
               int const nSHO = sho_tools::nSHO(numax_PAW[la]);
               printf_vector(" %g", &P2_l[offset[la]], nSHO);
               std::fflush(stdout);
@@ -411,7 +411,7 @@ namespace plane_waves {
       view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Hamiltonian matrix H, 0:Overlap S
 
 #ifdef DEVEL
-      if (echo > 9) printf("# assume dimensions of Vcoeff(%d, %ld, %ld, %ld)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
+      if (echo > 9) std::printf("# assume dimensions of Vcoeff(%d, %ld, %ld, %ld)\n", 2, Vcoeff.dim2(), Vcoeff.dim1(), Vcoeff.stride());
       assert( nG[0] <= Vcoeff.stride() );
       assert( nG[1] <= Vcoeff.dim1() );
       assert( nG[2] <= Vcoeff.dim2() );
@@ -430,13 +430,13 @@ namespace plane_waves {
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
       real_t const localpot = scale_p / (nG[0]*nG[1]*nG[2]);
 
-      for(int iB = 0; iB < nB; ++iB) {
+      for (int iB = 0; iB < nB; ++iB) {
           auto const & i = pw_basis[iB];
 
           HSm(S,iB,iB) += 1; // unity overlap matrix, plane waves without atoms are orthogonal
           HSm(H,iB,iB) += kinetic*i.g2; // diagonal kinetic energy contribution
 
-          for(int jB = 0; jB < nB; ++jB) {
+          for (int jB = 0; jB < nB; ++jB) {
               auto const & j = pw_basis[jB];
 
               // add the contribution of the local potential
@@ -453,7 +453,7 @@ namespace plane_waves {
               // inner part of a matrix-matrix multiplication
               { // scope: add non-local contributions
                   complex_t h(0), s(0);
-                  for(int lC = 0; lC < nC; ++lC) { // contract
+                  for (int lC = 0; lC < nC; ++lC) { // contract
                       auto const p = conjugate(P_jl(jB,lC)); // needs a conjugation, ToDo: here or above?
                       h += Psh_il(H,iB,lC) * p;
                       s += Psh_il(S,iB,lC) * p;
@@ -487,27 +487,27 @@ namespace plane_waves {
           std::complex<double> const zero(0);
           view3D<std::complex<double>> psi_G(nG[2], nG[1], nG[0]); // Fourier space array
 
-          for(int iband = 0; iband < nbands; ++iband) {
+          for (int iband = 0; iband < nbands; ++iband) {
               auto const atom_coeff = export_rho->coeff[iband];
               // clear
               set(atom_coeff, nC, zero);
               set(psi_G.data(), nG_all, zero);
               // fill psi_G and atom_coefficients
-              for(int iB = 0; iB < nB; ++iB) {
+              for (int iB = 0; iB < nB; ++iB) {
                   std::complex<double> const eigenvector_coeff = HSm(H,iband,iB);
                   auto const & i = pw_basis[iB];
                   // the eigenvectors are stored in the memory location of H if a direct solver method has been applied
                   int const iGx = (i.x + nG[0])%nG[0], iGy = (i.y + nG[1])%nG[1], iGz = (i.z + nG[2])%nG[2];
                   psi_G(iGz,iGy,iGx) = eigenvector_coeff * norm_factor;
-                  for(int iC = 0; iC < nC; ++iC) {
+                  for (int iC = 0; iC < nC; ++iC) {
                       atom_coeff[iC] += std::complex<double>(P_jl(iB,iC)) * eigenvector_coeff; 
                   } // iC
               } // iB
-//            if (echo > 6) { printf("# Fourier space array for band #%i has been filled\n", iband); std::fflush(stdout); }
+//            if (echo > 6) { std::printf("# Fourier space array for band #%i has been filled\n", iband); std::fflush(stdout); }
 
               // back-transform to real-space
               auto const fft_stat = fourier_transform::fft(export_rho->psi_r[iband], psi_G.data(), nG, false, echo);
-              if (int(fft_stat) != 0 && echo > 1) printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
+              if (int(fft_stat) != 0 && echo > 1) std::printf("# Fourier transform for band #%i returned status= %i\n", iband, int(fft_stat));
 
           } // iband
       } // export_rho != nullptr
@@ -535,9 +535,9 @@ namespace plane_waves {
 
       status_t stat(0);
       
-      for(int ia = 0; ia < natoms_PAW; ++ia) {
+      for (int ia = 0; ia < natoms_PAW; ++ia) {
           if (echo > 0) {
-              printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f %s\n",
+              std::printf("# atom#%i \tZ=%g \tposition %12.6f%12.6f%12.6f %s\n",
                   ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, _Ang);
           } // echo
       } // ia
@@ -551,25 +551,25 @@ namespace plane_waves {
       double reci_matrix[3][4];
       auto const cell_volume = simple_math::invert(3, reci_matrix[0], 4, cell_matrix[0], 4);
       scale(reci_matrix[0], 3*4, 2*constants::pi); // scale by 2\pi
-      if (echo > 0) printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
+      if (echo > 0) std::printf("# cell volume is %g %s^3\n", cell_volume*pow3(Ang),_Ang);
       if (echo > 0) {
           auto constexpr sqRy = 1; auto const _sqRy = "sqRy";
-          printf("# cell matrix in %s\t\tand\t\treciprocal matrix in %s:\n", _Ang, _sqRy);
-          for(int d = 0; d < 3; ++d) {
-              printf("# %12.6f%12.6f%12.6f    \t%12.6f%12.6f%12.6f\n",
+          std::printf("# cell matrix in %s\t\tand\t\treciprocal matrix in %s:\n", _Ang, _sqRy);
+          for (int d = 0; d < 3; ++d) {
+              std::printf("# %12.6f%12.6f%12.6f    \t%12.6f%12.6f%12.6f\n",
                 cell_matrix[d][0]*Ang,  cell_matrix[d][1]*Ang,  cell_matrix[d][2]*Ang,
                 reci_matrix[d][0]*sqRy, reci_matrix[d][1]*sqRy, reci_matrix[d][2]*sqRy);
           } // d
-          printf("\n");
+          std::printf("\n");
       } // echo
       stat += (std::abs(cell_volume) < 1e-9);
       double const svol = 1./std::sqrt(cell_volume); // normalization factor for plane waves
-      if (echo > 1) printf("# normalization factor for plane waves is %g a.u.\n", svol);
+      if (echo > 1) std::printf("# normalization factor for plane waves is %g a.u.\n", svol);
 
       char const *_ecut_u{nullptr};
       auto const ecut_u = unit_system::energy_unit(control::get("plane_waves.cutoff.energy.unit", "Ha"), &_ecut_u);
       auto const ecut = control::get("plane_waves.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) printf("# plane_waves.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
+      if (echo > 1) std::printf("# plane_waves.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
       int const nG[3] = {g[0], g[1], g[2]}; // same as the numbers of real-space grid points
@@ -578,20 +578,20 @@ namespace plane_waves {
 
       auto const fft_stat = fourier_transform::fft(Vcoeffs(0,0,0), Vcoeffs(1,0,0), vtot, vtot_Im(0,0), nG, true, echo);
       if (0 == fft_stat) {
-          if (echo > 5) printf("# used FFT on %d x %d x %d to transform local potential into space of plane-wave differences\n", nG[0], nG[1], nG[2]);
+          if (echo > 5) std::printf("# used FFT on %d x %d x %d to transform local potential into space of plane-wave differences\n", nG[0], nG[1], nG[2]);
       } else
       { // scope: Fourier transform the local potential "by hand"
-          if (echo > 5) { printf("# FFT failed, transform local potential manually\n"); std::fflush(stdout); }
+          if (echo > 5) { std::printf("# FFT failed, transform local potential manually\n"); std::fflush(stdout); }
           SimpleTimer timer(__FILE__, __LINE__, "manual Fourier transform (not FFT)");
           double const two_pi = 2*constants::pi;
           double const tpi_g[] = {two_pi/g[0], two_pi/g[1], two_pi/g[2]};
-          for(int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
-          for(int iGy = 0; iGy < nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
-          for(int iGx = 0; iGx < nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];
+          for (int iGz = 0; iGz < nG[2]; ++iGz) {  auto const Gz = iGz*tpi_g[2];
+          for (int iGy = 0; iGy < nG[1]; ++iGy) {  auto const Gy = iGy*tpi_g[1];
+          for (int iGx = 0; iGx < nG[0]; ++iGx) {  auto const Gx = iGx*tpi_g[0];
               double re{0}, im{0};
-              for(int iz = 0; iz < g[2]; ++iz) {
-              for(int iy = 0; iy < g[1]; ++iy) {
-              for(int ix = 0; ix < g[0]; ++ix) {
+              for (int iz = 0; iz < g[2]; ++iz) {
+              for (int iy = 0; iy < g[1]; ++iy) {
+              for (int ix = 0; ix < g[0]; ++ix) {
                   double const arg = -(Gz*iz + Gy*iy + Gx*ix); // argument must be negative to match the FFT
                   double const V = vtot[(iz*g[1] + iy)*g[0] + ix];
                   re += V * std::cos(arg);
@@ -603,7 +603,7 @@ namespace plane_waves {
 
       } // scope
       if (echo > 6) {
-          printf("# 000-Fourier coefficient of the potential is %g %g %s\n",
+          std::printf("# 000-Fourier coefficient of the potential is %g %g %s\n",
                             Vcoeffs(0,0,0,0)*eV, Vcoeffs(1,0,0,0)*eV, _eV); 
       } // echo
       
@@ -612,7 +612,7 @@ namespace plane_waves {
       std::vector<double>  sigma_PAW(natoms_PAW, .5);
       double maximum_sigma_PAW{0};
       std::vector<view3D<double>> hs_PAW(natoms_PAW); // atomic matrices for charge-deficit and Hamiltonian corrections
-      for(int ka = 0; ka < natoms_PAW; ++ka) {
+      for (int ka = 0; ka < natoms_PAW; ++ka) {
           if (numax_prj) numax_PAW[ka] = numax_prj[ka];
           if (sigma_prj) sigma_PAW[ka] = sigma_prj[ka];
           maximum_sigma_PAW = std::max(maximum_sigma_PAW, sigma_PAW[ka]);
@@ -639,14 +639,14 @@ namespace plane_waves {
 //       kmesh_sizes[2] = int(control::get("hamiltonian.test.kmesh.z", double(kmesh_size)));
       view2D<double> kmesh;
       auto const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
-      if (echo > 3) printf("# k-point mesh has %d points\n", nkpoints);
+      if (echo > 3) std::printf("# k-point mesh has %d points\n", nkpoints);
 
       if (export_rho) export_rho->resize(nkpoints);
 
       // all preparations done, start k-point loop
 
       simple_stats::Stats<double> nPW_stats, tPW_stats;
-      for(int ikp = 0; ikp < nkpoints; ++ikp) {
+      for (int ikp = 0; ikp < nkpoints; ++ikp) {
           auto const *kpoint = kmesh[ikp];
           char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kpoint[0],kpoint[1],kpoint[2]);
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
@@ -678,9 +678,9 @@ namespace plane_waves {
           tPW_stats.add(timer.stop());
       } // ikp
 
-      if (echo > 3) printf("\n# average number of plane waves is %.3f +/- %.3f min %g max %g\n",
+      if (echo > 3) std::printf("\n# average number of plane waves is %.3f +/- %.3f min %g max %g\n",
                       nPW_stats.avg(), nPW_stats.var(), nPW_stats.min(), nPW_stats.max());
-      if (echo > 3) printf("# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
+      if (echo > 3) std::printf("# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
                       tPW_stats.avg(), tPW_stats.var(), tPW_stats.min(), tPW_stats.max());
 
       return stat;
@@ -707,7 +707,7 @@ namespace plane_waves {
       int bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
           stat += geometry_analysis::read_xyz_file(xyzZ_noconst, natoms, geo_file, cell, bc, 0);
-          if (echo > 2) printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
+          if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
       view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap for simpler usage
@@ -715,8 +715,8 @@ namespace plane_waves {
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc); // is assumed periodic anyway
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
-      if (echo > 1) printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
-      if (echo > 1) printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
+      if (echo > 1) std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
+      if (echo > 1) std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
 
       stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, echo, nullptr);
 
@@ -733,34 +733,34 @@ namespace plane_waves {
       view2D<std::complex<double>> pp(nSHO, nSHO, 0.0); // orthogonality
       double constexpr dg = 0.125, d3g = pow3(dg);
       int constexpr ng = 40;
-      for(int iz = -ng; iz <= ng; ++iz) {
-      for(int iy = -ng; iy <= ng; ++iy) {
-      for(int ix = -ng; ix <= ng; ++ix) {
+      for (int iz = -ng; iz <= ng; ++iz) {
+      for (int iy = -ng; iy <= ng; ++iy) {
+      for (int ix = -ng; ix <= ng; ++ix) {
           double const gv[3] = {dg*ix, dg*iy, dg*iz};
           Hermite_Gauss_projectors(pzyx.data(), numax, 1.0, gv);
-          for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+          for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
               add_product(pp[iSHO], nSHO, pzyx.data(), std::conj(pzyx[iSHO]));
           } // iSHO
       }}} // ix iy iz
       std::vector<double> p2(nSHO);
-      for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
+      for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
           p2[iSHO] = pp(iSHO,iSHO).real()*d3g;
       } // iSHO
-      printf("\n# %s: norms ", __func__);
+      std::printf("\n# %s: norms ", __func__);
       printf_vector(" %g", p2.data(), nSHO);
       double maxdev{0};
-      for(int iSHO = 0; iSHO < nSHO; ++iSHO) {
-          for(int jSHO = 0; jSHO < nSHO; ++jSHO) {
+      for (int iSHO = 0; iSHO < nSHO; ++iSHO) {
+          for (int jSHO = 0; jSHO < nSHO; ++jSHO) {
               auto const dev = std::abs(pp(iSHO,jSHO) * d3g - double(iSHO == jSHO));
               maxdev = std::max(maxdev, dev);
               p2[jSHO] = dev; // for display
           } // jSHO
           if (echo > 8) {
-              printf("# %s: orthogonality ", __func__);
+              std::printf("# %s: orthogonality ", __func__);
               printf_vector(" %.1e", p2.data(), nSHO);
           } // echo
       } // iSHO
-      printf("# %s: orthogonality max dev %.1e\n", __func__, maxdev);
+      std::printf("# %s: orthogonality max dev %.1e\n", __func__, maxdev);
       return 0;
   } // test_Hermite_Gauss_normalization
 

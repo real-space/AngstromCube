@@ -57,7 +57,7 @@
 
 #endif // HAS_NO_MPI
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 
 namespace mpi_parallel {
 
@@ -71,10 +71,10 @@ namespace mpi_parallel {
       , char const* const name
   ) {
 #ifdef FULLDEBUG
-      printf("# calling %s in %s:%d returned status= %i\n", name, file, line, MPI_status);
+      std::printf("# calling %s in %s:%d returned status= %i\n", name, file, line, MPI_status);
 #endif
       if (MPI_SUCCESS != MPI_status) {
-          printf("\n# in %s:%d failed with status= %i calling %s\n", file, line, MPI_status, name);
+          std::printf("\n# in %s:%d failed with status= %i calling %s\n", file, line, MPI_status, name);
           // add here how to react to 
       } // failure
       return MPI_status; // for futher use
@@ -135,7 +135,7 @@ namespace mpi_parallel {
       int size{0};  MPI_Check(MPI_Comm_size(comm, &size));
       int rank{-1}; MPI_Check(MPI_Comm_rank(comm, &rank));
       MPI_Check(MPI_Barrier(comm));
-      if (echo > 0) printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
+      if (echo > 0) std::printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
       MPI_Check(MPI_Finalize());
 
       stat += (size < 1); // error if less than 1 process
@@ -151,7 +151,7 @@ namespace mpi_parallel {
       auto const size = mpi_parallel::size(comm);
       auto const rank = mpi_parallel::rank(comm, size);
       stat += mpi_parallel::barrier(comm);
-      if (echo > 0) printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
+      if (echo > 0) std::printf("# %s: MPI Comm_size= %d  rank= %i\n", __FILE__, size, rank);
       stat += mpi_parallel::finalize();
 
       stat += (size < 1); // error if less than 1 process

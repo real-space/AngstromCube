@@ -30,7 +30,7 @@ namespace solid_harmonics {
 
 // !---> check whether  or not normalizations are needed
       static real_t *xnorm = nullptr;
-      static int ellmaxd = -1; // -1:not_initalized
+      static int ellmaxd{-1}; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
 // !-->     first deallocate the array if it exists
@@ -47,13 +47,13 @@ namespace solid_harmonics {
 // !     to ellmax and xnorm from above)
 // !********************************************************************
           {   double const fpi = 4.0*pi;
-              for(int l = 0; l <= ellmax; ++l) {
+              for (int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
                   double cd = 1;
                   xnorm[lm0] = a;
                   double sgn = -1;
-                  for(int m = 1; m <= l; ++m) {
+                  for (int m = 1; m <= l; ++m) {
                       cd /= ((l + 1. - m)*(l + m));
                       auto const xn = a*std::sqrt(2*cd); // different from Ylm!
                       xnorm[lm0 + m] = xn;
@@ -72,14 +72,14 @@ namespace solid_harmonics {
       auto const p = new real_t[S*S]; // associated Legendre functions
 
 // !---> generate associated Legendre functions for m >= 0
-      real_t fac = 1;
+      real_t fac{1};
 // !---> loop over m values
-      for(int m = 0; m < ellmax; ++m) {
+      for (int m = 0; m < ellmax; ++m) {
           fac *= (1 - 2*m);
           p[m     + S*m] = fac;
           p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
 // !--->    recurse upward in l
-          for(int l = m + 2; l <= ellmax; ++l) {
+          for (int l = m + 2; l <= ellmax; ++l) {
               p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*r2*p[l - 2 + S*m])/((real_t)(l - m));
           } // l
           fac *= sth;
@@ -94,14 +94,14 @@ namespace solid_harmonics {
         if (ellmax > 0) {
               cs[1] = cph; sn[1] = sph;
               auto const cph2 = 2*cph;
-              for(int m = 2; m <= ellmax; ++m) {
+              for (int m = 2; m <= ellmax; ++m) {
                   // this two-step recursion formula is more accurate but does not work for r^l*X_lm
                   sn[m] = cph2*sn[m - 1] - sn[m - 2];
                   cs[m] = cph2*cs[m - 1] - cs[m - 2];
               } // m
           } // ellmax > 0
       } else {
-          for(int m = 1; m <= ellmax; ++m) {
+          for (int m = 1; m <= ellmax; ++m) {
               // addition theorem for sine and cosine
               sn[m] = cph*sn[m - 1] + cs[m - 1]*sph;
               cs[m] = cph*cs[m - 1] - sn[m - 1]*sph;
@@ -109,8 +109,8 @@ namespace solid_harmonics {
       } // cos_trick
 
 // !--->    multiply in the normalization factors
-      for(int m = 0; m <= ellmax; ++m) {
-          for(int l = m; l <= ellmax; ++l) {
+      for (int m = 0; m <= ellmax; ++m) {
+          for (int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;
               real_t const Plm = p[l + S*m];
               xlm[lm0 + m] = Plm*xnorm[lm0 + m]*sn[m]; // imag part
@@ -174,8 +174,9 @@ namespace solid_harmonics {
 #else // NO_UNIT_TESTS
 
   inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
-      for(int lm = -3; lm < 64; ++lm) {
-          int const ell = find_ell(lm), emm = find_emm(lm, ell);
+      for (int lm = -3; lm < 64; ++lm) {
+          int const ell = find_ell(lm),
+                    emm = find_emm(lm, ell);
           if (echo > 4) std::printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
           assert(lm_index(ell, emm) == lm);
       } // lm

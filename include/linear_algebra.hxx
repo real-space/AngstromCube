@@ -2,6 +2,7 @@
 
 #include <complex> // std::complex<real_t>, std::norm
 #include <vector> // std::vector<T>
+#include <cstdio> // std::printf
 
 #ifndef HAS_NO_MKL
 	#define HAS_MKL
@@ -194,7 +195,7 @@ namespace linear_algebra {
   } // (standard_)eigenvalues
   
   inline status_t _generalized_eigenvalues(int const n, double a[], int const lda, double b[], int const ldb, double w[]) {
-//    printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+//    std::printf("\n# call dsygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
       return LAPACKE_dsygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
@@ -206,7 +207,7 @@ namespace linear_algebra {
   } // generalized_eigenvalues
 
   inline status_t _generalized_eigenvalues(int const n, std::complex<double> a[], int const lda, std::complex<double> b[], int const ldb, double w[]) {
-//    printf("\n# call zhegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+//    std::printf("\n# call zhegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
       return LAPACKE_zhegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, (MKL_Complex16*)a, lda, (MKL_Complex16*)b, ldb, w );
 #else
@@ -246,7 +247,7 @@ namespace linear_algebra {
   } // (standard_)eigenvalues
   
   inline status_t _generalized_eigenvalues(int const n, float a[], int const lda, float b[], int const ldb, float w[]) {
-//    printf("\n# call ssygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+//    std::printf("\n# call ssygv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
       return LAPACKE_ssygv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, a, lda, b, ldb, w );
 #else
@@ -258,7 +259,7 @@ namespace linear_algebra {
   } // generalized_eigenvalues
 
   inline status_t _generalized_eigenvalues(int const n, std::complex<float> a[], int const lda, std::complex<float> b[], int const ldb, float w[]) {
-//    printf("\n# call chegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
+//    std::printf("\n# call chegv(1, 'v', 'u', %i, %p, %i, %p, %i, %p)\n\n",   n, a, lda, b, ldb, w);
 #ifdef  HAS_MKL
       return LAPACKE_chegv( LAPACK_COL_MAJOR, 1, 'V', 'U', n, (MKL_Complex8*)a, lda, (MKL_Complex8*)b, ldb, w );
 #else
@@ -295,7 +296,7 @@ namespace linear_algebra {
           , std::complex<double> const b[], int const ldb, std::complex<double> const a[], int const lda
           , std::complex<double> const alpha=1, std::complex<double> const beta=0, char const transa='n', char const transb='n') {
       if (0) {
-          printf("# zgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
+          std::printf("# zgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
                           transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
           std::fflush(stdout);
       } // echo
@@ -318,16 +319,16 @@ namespace linear_algebra {
 //                 for m = 0 .. M
 //                     C[n*ldc + m] += alpha * B[n*ldb + k] * A[k*lda + m];
 
-          printf("# cgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
+          std::printf("# cgemm(transa=\'%c\', transb=\'%c\', M=%d, N=%d, K=%d, alpha=(%g, %g), A[%d][%d], B[%d][%d], beta=(%g, %g), C[%d][%d])\n",
                           transa, transb, M, N, K, alpha.real(), alpha.imag(), K,lda, N,ldb, beta.real(), beta.imag(), N,ldc);
           std::fflush(stdout);
       } 
       if (0) { // triple loop naive implementation
           if (('n' == (transa | 32)) && ('n' == (transb | 32))) {
-              for(int n = 0; n < N; ++n) {
-                  for(int m = 0; m < M; ++m) {
+              for (int n = 0; n < N; ++n) {
+                  for (int m = 0; m < M; ++m) {
                       std::complex<float> cc(0);
-                      for(int k = 0; k < K; ++k) {
+                      for (int k = 0; k < K; ++k) {
                           cc += b[n*ldb + k] * a[k*lda + m];
                       } // k
                       c[n*ldc + m] = beta*c[n*ldc + m] + alpha*cc;
@@ -355,18 +356,18 @@ namespace linear_algebra {
   ) {
       // measure the deviation of A from a given matrix (or the unit matrix if no matrix is given)
       double dev{0};
-      for(int i = 0; i < n; ++i) {
-          if (echo > 0) printf("# %s: A[%2i]  ", __func__, i);
-          for(int j = 0; j < m; ++j) {
+      for (int i = 0; i < n; ++i) {
+          if (echo > 0) std::printf("# %s: A[%2i]  ", __func__, i);
+          for (int j = 0; j < m; ++j) {
               complex_t const reference = from ? from[i*m + j] : complex_t(i == j);
               dev = std::max(dev, double(std::norm(A[i*m + j] - reference)));
               if (echo > 0) {
-                  printf(" %g", std::real(A[i*m + j]));
+                  std::printf(" %g", std::real(A[i*m + j]));
                   if (is_complex<complex_t>())
-                  printf(",%g ", std::imag(A[i*m + j]));
+                  std::printf(",%g ", std::imag(A[i*m + j]));
               } // echo
           } // j
-          if (echo > 0) printf("\n");
+          if (echo > 0) std::printf("\n");
       } // i
       return dev;
   } // matrix_deviation
@@ -385,7 +386,7 @@ namespace linear_algebra {
       double const prec = (sizeof(real_t) > 4) ? 1e-24 : 1e-10;
       complex_t A[N][N];
       // fill A with random values
-      for(int ij = 0; ij < N*N; ++ij) {
+      for (int ij = 0; ij < N*N; ++ij) {
           auto const rr = simple_math::random(-1., 1.),
                      ri = simple_math::random(-1., 1.);
           auto const rc = std::complex<double>(rr, ri);
@@ -398,16 +399,16 @@ namespace linear_algebra {
           stat += inverse(N, Ainv[0], N);
           auto const dev0 = inverse_deviation(N, A[0], Ainv[0]);
           auto const dev1 = inverse_deviation(N, Ainv[0], A[0]);
-          if(echo > 8) printf("# %s<%s>: GETRF: deviate %.1e and %.1e, respectively\n",
+          if(echo > 8) std::printf("# %s<%s>: GETRF: deviate %.1e and %.1e, respectively\n",
                                  __func__, complex_name<complex_t>(), dev0, dev1);
           stat += (dev0 > prec) + (dev1 > prec);
       } // scope
 
       { // scope: test eigenvector algorithms
           // make A symmetric/hermitian
-          for(int i = 0; i < N; ++i) {
+          for (int i = 0; i < N; ++i) {
               A[i][i] = real_t(std::real(A[i][i]));
-              for(int j = 0; j < i; ++j) { // triangular loop without diagonal
+              for (int j = 0; j < i; ++j) { // triangular loop without diagonal
                   A[j][i] = conjugate(A[i][j]);
               } // j
           } // i
@@ -418,9 +419,9 @@ namespace linear_algebra {
           // eigenvalue decomposition into Evec^T * diag(Eval) * Evec
           stat += eigenvalues(Eval, N, Evec[0], N);
 
-          for(int i = 0; i < N; ++i) {
+          for (int i = 0; i < N; ++i) {
               set(Dvec[i], N, Evec[i], complex_t(Eval[i])); // scale eigenvectors with corresponding eigenvalue
-              for(int j = 0; j < N; ++j) Atrp[j][i] = conjugate(A[i][j]);
+              for (int j = 0; j < N; ++j) Atrp[j][i] = conjugate(A[i][j]);
           } // i
 
           // create Anew = V^T*(D*V)
@@ -429,7 +430,7 @@ namespace linear_algebra {
           // create Anew^T = V*(D*V)^T
           stat += gemm(N, N, N, Anew[0], N, Dvec[0], N, Evec[0], N, 1, 0, 'n', 'c');
           auto const dev1 = matrix_deviation(N, N, Anew[0], A[0]);
-          if(echo > 2) printf("# %s<%s>: %sGV: deviate %.1e and %.1e respectively\n",
+          if(echo > 2) std::printf("# %s<%s>: %sGV: deviate %.1e and %.1e respectively\n",
               __func__, complex_name<complex_t>(), is_complex<complex_t>()?"HE":"SY", dev0, dev1);
           stat += (dev0 > prec) + (dev1 > prec);
       } // scope

@@ -32,7 +32,7 @@ namespace boundary_condition {
                                   + pow2(cell[0]) + pow2(cell[1]) + pow2(cell[2]);
       int ni_xyz[3], ni_max{1};
       if (rcut < 0) warn("A negative cutoff radius leads to only one image! rcut = %g a.u.", rcut);
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           if (Periodic_Boundary == bc[d]) {
               ni_xyz[d] = std::max(0, int(std::ceil(rcut/cell[d])));
               assert( ni_xyz[d] <= 127 ); // warning: int8_t has range [-128, 127]

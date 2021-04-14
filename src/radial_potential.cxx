@@ -1,5 +1,5 @@
 #include <vector> // std::vector
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 
 #include "radial_potential.hxx"
@@ -22,14 +22,14 @@ namespace radial_potential {
       , double const rho4pi[] // 4*\pi*density(r)
   ) {
       double vH1{0};
-      for(int ir = 0; ir < g.n; ++ir) {
+      for (int ir = 0; ir < g.n; ++ir) {
           vH1 += rho4pi[ir]*g.rdr[ir];
       } // ir
       double const Coulomb = vH1; // the value to be returned
 
       double vH2{0};
       rV[0] = 0;
-      for(int ir = 1; ir < g.n; ++ir) { // start from 1 since for some radial grids r[ir=0] == 0
+      for (int ir = 1; ir < g.n; ++ir) { // start from 1 since for some radial grids r[ir=0] == 0
           vH2 += rho4pi[ir]*g.r2dr[ir];
           vH1 -= rho4pi[ir]*g.rdr[ir];
           rV[ir] = vH2 + vH1*g.r[ir];
@@ -49,32 +49,32 @@ namespace radial_potential {
       , double const qlm[] // =nullptr // external boundary conditions, functionality redundant
   ) {
       std::vector<double> rm(g.n), rl(g.n, 1.0);
-      for(int ell = 0; ell <= ellmax; ++ell) { // run forward and serial
+      for (int ell = 0; ell <= ellmax; ++ell) { // run forward and serial
 
           if (0 == ell) {
-              for(int ir = 0; ir < g.n; ++ir) {
+              for (int ir = 0; ir < g.n; ++ir) {
 //                rl[ir] = 1; // r^{0} --> already done at initialization
                   rm[ir] = g.rinv[ir]; // r^{-1}
               } // ir
           } else {
-              for(int ir = 0; ir < g.n; ++ir) {
+              for (int ir = 0; ir < g.n; ++ir) {
                   rl[ir] *= g.r[ir]; // prepare r^{\ell} for the next iteration
                   rm[ir] *= g.rinv[ir]; // prepare r^{-1-\ell} for the next iteration
               } // ir
           } // 0 == ell
 
           double const factor = (4*constants::pi)/(2*ell + 1);
-          for(int emm = -ell; emm <= ell; ++emm) {
+          for (int emm = -ell; emm <= ell; ++emm) {
               int const lm = solid_harmonics::lm_index(ell, emm);
 
               double charge2 = ell ? 0.0 : q0;
-              for(int ir = 0; ir < g.n; ++ir) {
+              for (int ir = 0; ir < g.n; ++ir) {
                   charge2 += rho[lm*stride + ir]*rl[ir]*g.r2dr[ir];
                   vHt[lm*stride + ir]  = charge2*rm[ir];
               } // ir
 
               double charge1 = qlm ? qlm[lm] : 0.0;
-              for(int ir = g.n - 1; ir >= 0; --ir) {
+              for (int ir = g.n - 1; ir >= 0; --ir) {
                   vHt[lm*stride + ir] += charge1*rl[ir]; // beware: it makes a difference if we put this line before the next
                   charge1 += rho[lm*stride + ir]*rm[ir]*g.r2dr[ir];
                   vHt[lm*stride + ir] *= factor;
@@ -96,15 +96,15 @@ namespace radial_potential {
       Hartree_potential(rVH.data(), g, rho.data()); // spherical version
       Hartree_potential(vHt.data(), g, rho.data(), 0, 0); //  lm-version
       double const R = g.rmax, V0 = .50754*R*R; // a small correction by 1.5% is needed here
-      if (echo > 3) printf("\n# %s: Rmax = %g Bohr, V0 = %g Ha\n", __func__, R, V0);
-      if (echo > 4) printf("## r, r*V_spherical(r), r*V_00(r), r*analytical(r) in a.u.:\n");
+      if (echo > 3) std::printf("\n# %s: Rmax = %g Bohr, V0 = %g Ha\n", __func__, R, V0);
+      if (echo > 4) std::printf("## r, r*V_spherical(r), r*V_00(r), r*analytical(r) in a.u.:\n");
       double dev{0};
-      for(int ir = 0; ir < g.n; ++ir) {
+      for (int ir = 0; ir < g.n; ++ir) {
           auto const r = g.r[ir];
           double const analytical = V0 - r*r/6;
           double const rV00 = r*vHt[ir]/(4*constants::pi);
           dev = rVH[ir] - rV00;
-          if (echo > 4) printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
+          if (echo > 4) std::printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
       } // ir
       return (std::abs(dev) > 2e-13);
   } // test_radial_Hartree_potential

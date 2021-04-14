@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::fflush, stdout
+#include <cstdio> // std::printf, std::fflush, stdout
 #include <cassert> // assert
 #include <cmath> // std::exp
 #include <vector> // std::vector<T>
@@ -47,7 +47,7 @@ namespace fermi_distribution {
   ) {
       double const ddeF_x = -kTinv;
       double ne{0}, ddx_ne{0};
-      for(int i = 0; i < n; ++i) {
+      for (int i = 0; i < n; ++i) {
           double ddx_f;
           double const E = energies[i];
           double const x = (E - eF)*kTinv;
@@ -87,32 +87,32 @@ namespace fermi_distribution {
 //       set(ene.data(), nb, energies); // copy
 //       std::sort(ene.begin(), ene.end()); // sort to ascending order
 //       auto const e_min = ene[0], e_max = ene[nb - 1];
-//       if (echo > 0) printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
+//       if (echo > 0) std::printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
 // 
 //       { // scope: find T=0 Fermi level, works only for a sorted spectrum and ignores weights
 //           int ieF{0};
 //           while (ieF < n_electrons) ++ieF; // ignores weights
 //           eF = (ieF < nb) ? ((ieF > 0) ? 0.5*(ene[ieF] + ene[ieF - 1]) : e_min) : e_max;
-//           if (echo > 0) printf("# %s T=0 Fermi level at %g %s\n", __func__, eF*eV, _eV);
+//           if (echo > 0) std::printf("# %s T=0 Fermi level at %g %s\n", __func__, eF*eV, _eV);
 //       } // scope
 // 
 //       
 //       double e[2] = {eF, eF}, ne[2];
 //       double delta_e = std::max(kT, 1e-3);
-//       for(int i01 = 0; i01 <= 1; ++i01) {
+//       for (int i01 = 0; i01 <= 1; ++i01) {
 //           double const sgn = 2*i01 - 1; // {-1, 1}
 //           int change{0};
 //           prepare start value for bisection
 //           do {
 //               e[i01] += sgn*change*delta_e; change = 1; delta_e *= 1.125;
 //               ne[i01] = count_electrons(nb, energies, e[i01], kTinv);
-//               if (echo > 5) { printf("# %s correct %ser start energy to %g %s --> %g electrons\n", 
+//               if (echo > 5) { std::printf("# %s correct %ser start energy to %g %s --> %g electrons\n", 
 //                             __func__, i01?"upp":"low", e[i01]*eV, _eV, spinfactor*ne[i01]); std::fflush(stdout); }
 //           } while(sgn*ne[i01] < sgn*n_electrons);
 //       } // i01
 
       double e[2] = {9e99, -9e99}, ne[2];
-      for(int ib = 0; ib < nb; ++ib) {
+      for (int ib = 0; ib < nb; ++ib) {
           double const energy = energies[ib];
           e[0] = std::min(e[0], energy);
           e[1] = std::max(e[1], energy);
@@ -131,15 +131,15 @@ namespace fermi_distribution {
           auto const em = 0.5*(e[0] + e[1]);
           auto const nem = count_electrons(nb, energies, em, kTinv, weights);
           if (echo > 7) {
-//            printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spinfactor*nem);
+//            std::printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spinfactor*nem);
               auto const ene = std::abs(e[1] - e[0]); // energy residual
               int const ndigits_energy = std::min(std::max(1, int(-std::log10(ene)) - 1), 15);
               int const ndigits_charge = std::min(std::max(1, int(-std::log10(res)) - 1), 15);
-//            printf("# %s ndigits= %d and %d\n", __func__, ndigits_energy, ndigits_charge);
+//            std::printf("# %s ndigits= %d and %d\n", __func__, ndigits_energy, ndigits_charge);
               char fmt[64]; std::snprintf(fmt, 63, "# %s with energy %%.%df %s --> %%.%df electrons\n",
                                                       __func__, ndigits_energy, _eV, ndigits_charge);
-//            printf("# %s fmt= %s\n", __func__, fmt);
-              printf(fmt, em*eV, spinfactor*nem);
+//            std::printf("# %s fmt= %s\n", __func__, fmt);
+              std::printf(fmt, em*eV, spinfactor*nem);
               std::fflush(stdout);
           } // echo
           int const i01 = (nem > n_electrons);
@@ -151,11 +151,11 @@ namespace fermi_distribution {
       double const eF = 0.5*(e[0] + e[1]);
       double DoS; // density of states at the Fermi level
       auto const nem = count_electrons(nb, energies, eF, kTinv, weights, &DoS, occupations, response_occ);
-      if (echo > 6) printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spinfactor*nem); 
+      if (echo > 6) std::printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spinfactor*nem); 
       if (res > 1e-9) {
           warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spinfactor, iter); 
       } else {
-          if (echo > 3) printf("# %s at %.9f %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS*kT*spinfactor);
+          if (echo > 3) std::printf("# %s at %.9f %s has a DOS of %g states\n", __func__, eF*eV, _eV, DoS*kT*spinfactor);
       }
       if (DoS_at_eF) *DoS_at_eF = DoS;
       return eF;
@@ -166,26 +166,26 @@ namespace fermi_distribution {
       if (n < 1) return 0;
       double const kTinv = 1./std::max(1e-9, kT);
       simple_stats::Stats<double> stats;
-      for(int i = 0; i < n; ++i) {
+      for (int i = 0; i < n; ++i) {
           stats.add(energies[i] - eF);
       } // i
       double const e_min = stats.min(), e_max = stats.max();
-      if (echo > 4) printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
+      if (echo > 4) std::printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
 
       double const per_eV = 1./eV;
-      if (echo > 8) printf("\n## energy(%s), DoS, dDoS/dE_Fermi\n", _eV);
+      if (echo > 8) std::printf("\n## energy(%s), DoS, dDoS/dE_Fermi\n", _eV);
       double integral{0};
-      for(int ie = (e_min - 18*kT)/de; ie <= (e_max + 18*kT)/de; ++ie) {
+      for (int ie = (e_min - 18*kT)/de; ie <= (e_max + 18*kT)/de; ++ie) {
           double const e = ie*de;
           double dos{0}, ddos{0};
-          for(int i = 0; i < n; ++i) {
+          for (int i = 0; i < n; ++i) {
               auto const ei = energies[i] - eF;
               dos += FermiDirac_broadening((e - ei)*kTinv);
           } // i
-          if (echo > 8) printf("%g %g %g\n", e*eV, dos*kTinv*per_eV, ddos);
+          if (echo > 8) std::printf("%g %g %g\n", e*eV, dos*kTinv*per_eV, ddos);
           integral += dos*FermiDirac(e*kTinv);
       } // ie energy
-      if (echo > 6) printf("# integrated DoS is %g\n", integral*kTinv*de);
+      if (echo > 6) std::printf("# integrated DoS is %g\n", integral*kTinv*de);
       return 0;
   } // density_of_states
 
@@ -209,7 +209,7 @@ namespace fermi_distribution {
         , _kT(kT)
         , _spinfactor(std::min(std::max(1, spinfactor), 2))
       {
-          if (echo > 0) printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
+          if (echo > 0) std::printf("\n# new %s(%g electrons, kT=%g %s)\n", __func__, _ne, kT*Kelvin, _Kelvin);
           set_temperature(kT, echo);
           set(_band_energy, 2, 0.0);
           _accu.clear();
@@ -219,7 +219,7 @@ namespace fermi_distribution {
           // change the temperature during SCF cycles
           _kT = std::max(minimum_temperature(), kT);
           if (_kT > 0) _kTinv = 1./_kT;
-          if (echo > 0) printf("# FermiLevel %s(%g Ha) --> kT= %g %s = %g m%s\n", __func__, kT, _kT*Kelvin, _Kelvin, _kT*eV*1000, _eV);
+          if (echo > 0) std::printf("# FermiLevel %s(%g Ha) --> kT= %g %s = %g m%s\n", __func__, kT, _kT*Kelvin, _Kelvin, _kT*eV*1000, _eV);
           return (kT >= 0);
       } // set_temperature
 
@@ -234,9 +234,9 @@ namespace fermi_distribution {
       void set_Fermi_level(double const E_Fermi=Fermi_level_not_initialized, int const echo=0) {
           _mu = E_Fermi;
           if (Fermi_level_not_initialized != _mu) {
-              if (echo > 0) printf("# set FermiLevel to %.9f %s\n", _mu*eV,_eV);
+              if (echo > 0) std::printf("# set FermiLevel to %.9f %s\n", _mu*eV,_eV);
           } else {
-              if (echo > 0) printf("# reset FermiLevel\n");
+              if (echo > 0) std::printf("# reset FermiLevel\n");
           }
       } // set_Fermi_level
       
@@ -253,11 +253,11 @@ namespace fermi_distribution {
       ) {
             double eF{0}, DoS{0}; // density of states at the Fermi energy
             if (Fermi_level_not_initialized == _mu) {
-                if (echo > 0) printf("# FermiLevel %s for %d bands, FermiLevel has not been initialized\n", __func__, nbands);
+                if (echo > 0) std::printf("# FermiLevel %s for %d bands, FermiLevel has not been initialized\n", __func__, nbands);
                 std::vector<double> weights(nbands, kpoint_weight);
                 eF = Fermi_level(occupations, energies, weights.data(), nbands, _kT, _ne, _spinfactor, echo, response_occ, &DoS);
             } else {
-                if (echo > 0) printf("# FermiLevel %s for %d bands at %g %s\n", __func__, nbands, _mu*eV,_eV);
+                if (echo > 0) std::printf("# FermiLevel %s for %d bands at %g %s\n", __func__, nbands, _mu*eV,_eV);
                 count_electrons(nbands, energies, _mu, _kTinv, nullptr, &DoS, occupations, response_occ);
                 eF = _mu;
             } // initialized?
@@ -280,7 +280,7 @@ namespace fermi_distribution {
           // we need to fulfill this:        charge + a*response == n_electrons
           auto const old_mu = _mu;
           _mu = _accu.avg(); // average
-          if (echo > 0) printf("# %s old= %g, new= %g %s\n", __func__,
+          if (echo > 0) std::printf("# %s old= %g, new= %g %s\n", __func__,
               old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
           _accu.clear(); // reset for the next SCF iteration
           set(_band_energy, 2, 0.0);
@@ -307,55 +307,55 @@ namespace fermi_distribution {
 #else // NO_UNIT_TESTS
 
   inline status_t test_integration(int const echo=3, int const n=580) {
-      if (echo > 6) printf("\n## %s %s (%d points)\n", __FILE__, __func__, n);
+      if (echo > 6) std::printf("\n## %s %s (%d points)\n", __FILE__, __func__, n);
       double s0{0}, s1{0}, dfde;
       double const de = .0625;
-      for(int ie = -n; ie < n; ++ie) { double const e = (ie + .5)*de;
+      for (int ie = -n; ie < n; ++ie) { double const e = (ie + .5)*de;
           double const f = FermiDirac(e, &dfde);
-          if (echo > 6) printf("%g %g %g\n", e, f, -dfde);
+          if (echo > 6) std::printf("%g %g %g\n", e, f, -dfde);
           s0 += f;
           s1 -= dfde;
       } // e
-      if (echo > 2) printf("# Fermi-Dirac distribution deviation %.1e %.1e\n", s0/n - 1, s1*de - 1);
+      if (echo > 2) std::printf("# Fermi-Dirac distribution deviation %.1e %.1e\n", s0/n - 1, s1*de - 1);
       return 0;
   } // test_integration
 
   inline status_t test_bisection(int const echo=3, int const n=99) {
-      if (echo > 6) printf("\n## %s %s (%d states)\n", __FILE__, __func__, n);
+      if (echo > 6) std::printf("\n## %s %s (%d states)\n", __FILE__, __func__, n);
       std::vector<double> ene(n), wgt(n, 1);
-      for(int i = 0; i < n; ++i) ene[i] = simple_math::random(-10., 10.);
+      for (int i = 0; i < n; ++i) ene[i] = simple_math::random(-10., 10.);
       double const eF = Fermi_level(nullptr, ene.data(), wgt.data(), n, 3e-2, n*.75, 1, echo);
       if (echo > 8) density_of_states(n, ene.data(), 3e-2, eF);
       return 0;
   } // test_bisection
 
   inline status_t test_FermiLevel_class(int const echo=0) {
-      if (echo > 6) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 6) std::printf("\n# %s %s\n", __FILE__, __func__);
       double const n_electrons = 12;
       auto mu = FermiLevel_t(n_electrons);
       mu.set_temperature(.01, echo);
-      for(double eF = -1.5; eF < 2; eF += 0.25) {
+      for (double eF = -1.5; eF < 2; eF += 0.25) {
           mu.add(eF, 1, echo - 5);
       } // eF
       mu.set_Fermi_level(mu.get_Fermi_level(), echo);
       int const nb = n_electrons*1.5; // number of bands
       std::vector<double> ene(nb, 0.0), occ(nb), docc(nb);
-      for(int ib = 0; ib < nb; ++ib) ene[ib] = ib*.01;
+      for (int ib = 0; ib < nb; ++ib) ene[ib] = ib*.01;
       mu.get_occupations(occ.data(), ene.data(), nb, 1, echo, docc.data());
       double sum_occ{0};
-      for(int ib = 0; ib < nb; ++ib) {
-          if (echo > 9) printf("# %s: band #%d \tenergy= %.6f %s \toccupation= %.6f \td/dE occ= %.3f\n",
+      for (int ib = 0; ib < nb; ++ib) {
+          if (echo > 9) std::printf("# %s: band #%d \tenergy= %.6f %s \toccupation= %.6f \td/dE occ= %.3f\n",
                 __func__, ib, ene[ib]*eV,_eV, occ[ib], docc[ib]);
           sum_occ += occ[ib];
       } // ib
-      if (echo > 6) printf("# %s %s eF= %g %s for %g electrons, sum(occupations)= %g\n",
+      if (echo > 6) std::printf("# %s %s eF= %g %s for %g electrons, sum(occupations)= %g\n",
                         __FILE__, __func__, mu.get_Fermi_level()*eV,_eV, n_electrons, sum_occ);
       mu.get_occupations(occ.data(), ene.data(), nb, 1, echo, docc.data());
       return 0;
   } // test_FermiLevel_class
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t status(0);
       status += test_integration(echo);
       status += test_bisection(echo);

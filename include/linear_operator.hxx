@@ -1,9 +1,9 @@
 #pragma once
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 
 #include <vector> // std::vector<T>
 
-// #define CRTP_printf(...) printf(__VA_ARGS__)
+// #define CRTP_printf(...) std::printf(__VA_ARGS__)
 #define CRTP_printf(...)
 
 #include "vector_layout.hxx" // VecLayout<real_t>
@@ -65,8 +65,8 @@ namespace linear_operator {
       void _apply(real_t Dx[], real_t const x[]) const {
           CRTP_printf("# %s:%i %s<%s>\n", __FILE__, __LINE__, __func__, complex_name<real_t>());
           auto const m = layout_.stride(); // stride can be larger than nrhs_ for alignment
-          for(int i = 0; i < layout_.ndof(); ++i) {
-              for(int j = 0; j < layout_.nrhs(); ++j) {
+          for (int i = 0; i < layout_.ndof(); ++i) {
+              for (int j = 0; j < layout_.nrhs(); ++j) {
                   auto const ij = i*m + j;
                   Dx[ij] = diagonal_[i]*x[ij]; // diagonal operator: just multiply
               } // j
@@ -80,7 +80,7 @@ namespace linear_operator {
 
   
   inline status_t test_DiagOp(int const echo=4) {
-    if (echo > 0) printf("# %s\n", __func__);
+    if (echo > 0) std::printf("# %s\n", __func__);
 
     typedef double real_t;
     std::vector<real_t> Hx(7*8, 0.0), x(7*8, 1.0), xHx(8, 0.0);
@@ -91,17 +91,17 @@ namespace linear_operator {
     hamiltonian.axpby(x.data(), Hx.data(), xHx.data());
 
     if (echo > 0) {
-        for(unsigned i = 0; i < xHx.size(); ++i) { 
-            printf(" %g", xHx[i]); 
-        }   printf("\n"); // show
-        // printf("# hamiltonian has been applied %ld times\n", hamiltonian.get_apply_count());
+        for (unsigned i = 0; i < xHx.size(); ++i) { 
+            std::printf(" %g", xHx[i]); 
+        }   std::printf("\n"); // show
+        // std::printf("# hamiltonian has been applied %ld times\n", hamiltonian.get_apply_count());
     } // echo
 
     return 0;
   }
 
   inline status_t all_tests(int const echo=0) {
-    if (echo > 0) printf("# %s\n", __func__);
+    if (echo > 0) std::printf("# %s\n", __func__);
     status_t stat = 0;
     stat += test_DiagOp(echo);
     return stat;

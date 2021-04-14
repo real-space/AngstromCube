@@ -37,7 +37,7 @@ namespace conjugate_gradients {
       , doublecomplex_t const factor
   ) { // the factor needs to be complex to derive the result type
       doublecomplex_t tmp{0};
-      for(size_t dof = 0; dof < ndof; ++dof) {
+      for (size_t dof = 0; dof < ndof; ++dof) {
           tmp += doublecomplex_t(conjugate(bra[dof])) * doublecomplex_t(ket[dof]);
       } // dof
       return tmp*factor; // init
@@ -56,9 +56,9 @@ namespace conjugate_gradients {
   ) {
       if (is_complex<complex_t>()) return;
       std::printf("%c %s=%s%c", initchar, (n > 1)?"Matrix":"Vector", name, (n > 1)?'\n':' ');
-      for(int i = 0; i < n; ++i) {
+      for (int i = 0; i < n; ++i) {
           if (n > 1) std::printf("#%4i ", i);
-          for(int j = 0; j < m; ++j) {
+          for (int j = 0; j < m; ++j) {
               std::printf("%9.3f", mat[i*stride + j]*unit);
           } // j 
           std::printf("\n");
@@ -147,10 +147,10 @@ namespace conjugate_gradients {
       std::vector<double> energy(nbands, 0.0), residual(nbands, 9.9e99);
 
       int const num_outer_iterations = control::get("conjugate_gradients.num.outer.iterations", 1.);
-      for(int outer_iteration = 0; outer_iteration < num_outer_iterations; ++outer_iteration) {
+      for (int outer_iteration = 0; outer_iteration < num_outer_iterations; ++outer_iteration) {
           if (echo > 4) std::printf("# CG start outer iteration #%i\n", outer_iteration);
 
-          for(int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
+          for (int ib_= 0; ib_< nbands; ++ib_) {  int const ib = ib_; // write protection to ib
               if (echo > 8) std::printf("\n# start CG for band #%i\n", ib);
 
               // apply Hamiltonian and Overlap operator
@@ -159,9 +159,9 @@ namespace conjugate_gradients {
                   stat += op.Overlapping(Ss[ib], s[ib], echo);
               } else assert(Ss[ib] == s[ib]);
 
-              for(int iortho = 0; iortho < northo[0]; ++iortho) {
+              for (int iortho = 0; iortho < northo[0]; ++iortho) {
                   if (echo > 7 && ib > 0) std::printf("# orthogonalize band #%i against %d lower bands\n", ib, ib);
-                  for(int jb = 0; jb < ib; ++jb) {
+                  for (int jb = 0; jb < ib; ++jb) {
                       auto const a = inner_product(nv, s[ib], Ss[jb], dV);
                       if (echo > 8) std::printf("# orthogonalize band #%i against band #%i with %g %g\n", ib, jb, std::real(a), std::imag(a));
                       add_product( s[ib], nv,  s[jb], complex_t(-a));
@@ -189,7 +189,7 @@ namespace conjugate_gradients {
               int last_printf_line{-1};
 
               int it_converged = 0;
-              for(int iiter = 1; (iiter <= maxiter) && (0 == it_converged); ++iiter) {
+              for (int iiter = 1; (iiter <= maxiter) && (0 == it_converged); ++iiter) {
 
                   if (0 == (iiter - 1) % restart_every_n_iterations) restart = true;
                   if (restart) {
@@ -219,9 +219,9 @@ namespace conjugate_gradients {
                       op.Conditioner(Pgrd, grd, echo);
                   } else assert(Pgrd == grd);
 
-                  for(int iortho = 0; iortho < northo[1]; ++iortho) {
+                  for (int iortho = 0; iortho < northo[1]; ++iortho) {
                       if (echo > 7) std::printf("# orthogonalize gradient against %d bands\n", ib + 1);
-                      for(int jb = 0; jb <= ib; ++jb) {
+                      for (int jb = 0; jb <= ib; ++jb) {
                           auto const a = inner_product(nv, Pgrd, Ss[jb], dV);
                           if (echo > 8) std::printf("# orthogonalize gradient against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
                           add_product(Pgrd, nv, s[jb], complex_t(-a));
@@ -262,9 +262,9 @@ namespace conjugate_gradients {
 
                       if (echo > 7) std::printf("# norm^2 of con %.e\n", std::real(inner_product(nv, con, Scon, dV)));
 
-                      for(int iortho = 0; iortho < northo[2]; ++iortho) {
+                      for (int iortho = 0; iortho < northo[2]; ++iortho) {
                           if (echo > 7) std::printf("# orthogonalize conjugate direction against %d bands\n", ib + 1);
-                          for(int jb = 0; jb <= ib; ++jb) {
+                          for (int jb = 0; jb <= ib; ++jb) {
                               auto const a = inner_product(nv, con, Ss[jb], dV);
                               if (echo > 8) std::printf("# orthogonalize conjugate direction against band #%i with %g %g\n", jb, std::real(a), std::imag(a));
                               add_product(con,  nv,  s[jb], complex_t(-a));

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <complex> // std::complex<real_t>, std::conj
 #include <cmath> // std::sqrt
 #include <vector> // std::vector<T>
@@ -43,7 +43,7 @@ namespace spherical_harmonics {
           if (nullptr != ynorm) {
               delete[] ynorm;
 #ifdef DEBUG
-              printf("# %s: resize table of normalization constants from %d to %d\n",
+              std::printf("# %s: resize table of normalization constants from %d to %d\n",
                   __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
 #endif // DEBUG
           } // resize
@@ -139,9 +139,9 @@ namespace spherical_harmonics {
 #else // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
-      if (echo > 0) printf("\n# %s    no test implemented!\n\n", __FILE__);
+      if (echo > 0) std::printf("\n# %s    no test implemented!\n\n", __FILE__);
       return stat;
   } // all_tests
 

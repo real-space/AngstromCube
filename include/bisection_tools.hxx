@@ -8,7 +8,7 @@
 
 namespace bisection_tools {
 
-  template<typename real_t=double>
+  template <typename real_t=double>
   class bisector_t
   {
       private:

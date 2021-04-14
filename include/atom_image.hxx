@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdint> // int32_t, int8_t
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 #include "sho_tools.hxx" // ::nSHO, ::construct_index_table, ::order_zyx
 #include "inline_math.hxx" // align<N_bits>
@@ -76,14 +76,14 @@ namespace atom_image {
 
           auto const rescale = sho_projection::get_sho_prefactors<double>(_numax, _sigma);
 
-          for(int ij = 0; ij < _ncoeff*_stride; ++ij) {
+          for (int ij = 0; ij < _ncoeff*_stride; ++ij) {
               _matrix64[h0s1*_ncoeff*_stride + ij] = 0; // clear
               _matrix32[h0s1*_ncoeff*_stride + ij] = 0; // clear
           } // ij
 
           int const nc = std::min(ncoeff, _ncoeff); // take the lower number of coefficients
-          for(int i = 0; i < nc; ++i) {
-              for(int j = 0; j < nc; ++j) {
+          for (int i = 0; i < nc; ++i) {
+              for (int j = 0; j < nc; ++j) {
                   int const ij = (h0s1*_ncoeff + i)*_stride + j;
                   int const ij_values = i*stride_values + j;
                   _matrix64[ij] = rescale[i] * values[ij_values]*factor * rescale[j];
@@ -106,9 +106,9 @@ namespace atom_image {
           } // nullptr
           _images.resize(nimages);
           int8_t const i000[] = {0,0,0};
-          for(int ii = 0; ii < nimages; ++ii) {
+          for (int ii = 0; ii < nimages; ++ii) {
               double p[3];
-              for(int d = 0; d < 3; ++d) {
+              for (int d = 0; d < 3; ++d) {
                   p[d] = atom_position[d] + (*periodic_positions)(ii,d);
               } // d
               int8_t const *iv = indices ? ((*indices)[ii]) : i000;

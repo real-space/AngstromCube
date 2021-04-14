@@ -53,7 +53,7 @@ namespace radial_integrator {
       ps[0][G] = 1.;          // for exponent 0
       ps[0][F] = (1. - s)/aa; // for exponent 0
       full_debug(printf("# %s: Z=%g l=%d V=%g %s coeff G,F  %g,%g", __func__, Z, ell, V0mE*eV, _eV, ps[0][G], ps[0][F]));
-      for(auto k = 1; k < 9; ++k) {
+      for (auto k = 1; k < 9; ++k) {
           auto const alfa = p12*ps[k - 1][F];
           auto beta =    aa*p21*ps[k - 1][G];
           if (ell > 0) {
@@ -66,7 +66,7 @@ namespace radial_integrator {
           full_debug(printf("  %g,%g", ps[k][G], ps[k][F]));
       } // k
       full_debug(printf("\n"));
-      for(auto k = 9; k < 11; ++k) {
+      for (auto k = 9; k < 11; ++k) {
           ps[k][G] = 0;
           ps[k][F] = 0;
       } // k
@@ -84,7 +84,7 @@ namespace radial_integrator {
         int constexpr G=0, F=1; // constants
         gg = ps[10][G];
         ff = ps[10][F];
-        for(auto ip = 9; ip >= 0; --ip) {
+        for (auto ip = 9; ip >= 0; --ip) {
             gg = gg*r + ps[ip][G];
             ff = ff*r + ps[ip][F];
         } // ip
@@ -259,7 +259,7 @@ namespace radial_integrator {
       if (nullptr != ir_stopped) *ir_stopped = ir_stop;
 
       // main loop
-      for(ir = ir0 - 4; ir >= ir_stop; ir += Step) {
+      for (ir = ir0 - 4; ir >= ir_stop; ir += Step) {
 
 #ifdef  FULL_DEBUG
           if ((ir < ir_stop + 4) || (ir > ir0 - 7))
@@ -388,7 +388,7 @@ namespace radial_integrator {
       int const ir_max = (-1 == ir_stop)? (g.n - 1) : std::min(g.n - 1, std::abs(ir_stop));
 
       // main loop
-      for(ir = 4; ir <= ir_max; ++ir) {
+      for (ir = 4; ir <= ir_max; ++ir) {
 #ifdef  FULL_DEBUG
           if ((ir < 7) || (ir > ir_max - 3))
           std::printf("# %s: loop ir=%d r= %g %s\n", __func__, ir, g.r[ir]*Ang, _Ang);
@@ -493,21 +493,21 @@ namespace radial_integrator {
 
       if (nullptr != rf) {
           // export the radial wave function*r
-          for(auto ir = 0; ir < ir_x; ++ir) {
+          for (auto ir = 0; ir < ir_x; ++ir) {
               rf[ir] = gg_out[ir];
           } // ir
-          for(auto ir = ir_x; ir < g.n; ++ir) {
+          for (auto ir = ir_x; ir < g.n; ++ir) {
               rf[ir] = gg_inw[ir] * s;
           } // ir
       } // rf
 
       if (nullptr != r2rho) {
           // create partial density*r^2 of this wave function
-          for(auto ir = 0; ir < ir_x; ++ir) {
+          for (auto ir = 0; ir < ir_x; ++ir) {
               r2rho[ir] = pow2(gg_out[ir]);
               // r2rho[ir] += pow2(ff_out[ir]); // relativistic norm correction
           } // ir
-          for(auto ir = ir_x; ir < g.n; ++ir) {
+          for (auto ir = ir_x; ir < g.n; ++ir) {
               r2rho[ir] = pow2(gg_inw[ir] * s);
               // r2rho[ir] += pow2(ff_inw[ir] * s); // relativistic norm correction
           } // ir
@@ -553,7 +553,7 @@ namespace radial_integrator {
       // this plots the kink and number of nodes as a function of energy, see doc/fig/20190313_kink_of_energy.*
       std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn_prev{-1};
-      for(int iE = 1; iE < 1e6; ++iE) {
+      for (int iE = 1; iE < 1e6; ++iE) {
           int nnn, ell{0};
           double const E = -.6e-12*pow2(iE*Z);
           auto const kink = shoot(0, g, rV.data(), ell, E, nnn);
@@ -587,7 +587,7 @@ namespace radial_integrator {
       integrate_outwards<0>(rf.data(), rg.data(), g, rV.data(), 0, 0.5*k*k);
       if (echo > 3) std::printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
       double dev{0}, norm{0};
-      for(auto ir = 1; ir < g.n; ++ir) {
+      for (auto ir = 1; ir < g.n; ++ir) {
           auto const x = k*g.r[ir];
           double const ref = std::sin(x), diff = ref - rf[ir];
           if (echo > 4) std::printf("%g %g %g %g\n", x, ref, rf[ir], diff); // compare result to x*j0(x)==sin(x)
@@ -608,15 +608,15 @@ namespace radial_integrator {
   ) {
       std::vector<double> mem(4*g.n);
       auto const gg = &mem[0], ff = &mem[g.n], rp = &mem[2*g.n], rV = &mem[3*g.n];
-      for(int ir = 0; ir < g.n; ++ir) {
+      for (int ir = 0; ir < g.n; ++ir) {
           rp[ir] = g.r[ir]*exp(-0.5*pow2(g.r[ir])); // init inhomogeneity*r
           rV[ir] = -Z; // bare hydrogen potential
       } // ir
       double E{0.5}, dg{0};
-      for(ell_QN_t ell = 0; ell < 4; ++ell) { // loop must run serial and forward
+      for (ell_QN_t ell = 0; ell < 4; ++ell) { // loop must run serial and forward
           integrate_outwards<0>(gg, ff, g, rV, ell, E/(ell + 1.), -1, &dg, rp);
           if (echo > 3) std::printf("\n## %s for ell=%d: r, f(r), inhomogeneity(r):\n", __func__, ell);
-          for(int ir = 0; ir < g.n; ++ir) {
+          for (int ir = 0; ir < g.n; ++ir) {
               if (echo > 3 && ir > 0) std::printf("%g %g %g\n", g.r[ir], gg[ir], rp[ir]); //, ff[ir], rV[ir]);
               rp[ir] *= g.r[ir]; // udate rp for the next ell-iteration
           } // ir

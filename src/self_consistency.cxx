@@ -122,7 +122,7 @@ namespace self_consistency {
 
           int default_grid_spacing_used{0};
           int ng[3] = {0, 0, 0};
-          for(int d = 0; d < 3; ++d) { // directions x, y, z
+          for (int d = 0; d < 3; ++d) { // directions x, y, z
               char keyword[96];
               std::snprintf(keyword, 95, "%s.%c", keyword_ng, 'x'+d);
               ng[d] = int(control::get(keyword, ng_iso));
@@ -155,7 +155,7 @@ namespace self_consistency {
       double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
       if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
               warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
                              'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
@@ -222,13 +222,13 @@ namespace self_consistency {
                                          0.5*(g[1] - 1)*g.h[1],
                                          0.5*(g[2] - 1)*g.h[2]};
           if (echo > 1) std::printf("\n# %s List of Atoms: (coordinates in %s)\n", __func__, _Ang);
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               double const Z = xyzZ(ia,3);
               char Symbol[4]; chemical_symbol::get(Symbol, Z, ' ');
               if (echo > 4) std::printf("# %s  %15.9f %15.9f %15.9f", Symbol,
                               xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang);
               Za[ia] = Z;
-              for(int d = 0; d < 3; ++d) {
+              for (int d = 0; d < 3; ++d) {
                   center(ia,d) = geometry_analysis::fold_back(xyzZ(ia,d), cell[d]) + grid_offset[d]; // w.r.t. to the center of grid point (0,0,0)
               } // d
               center(ia,3) = 0; // 4th component is not used
@@ -290,7 +290,7 @@ namespace self_consistency {
       data_list<double> atom_qlm, atom_vlm, atom_rho, atom_mat;
       if (1) { // scope: set up data_list items
           view2D<int32_t> num(4, na, 0); // how many
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               num(0,ia) = pow2(1 + lmax_qlm[ia]); // qlm
               num(1,ia) = pow2(1 + lmax_vlm[ia]); // vlm
               int const ncoeff = sho_tools::nSHO(numax[ia]);
@@ -337,7 +337,7 @@ namespace self_consistency {
       { // scope: collect information for projectors and construct a list of atoms
           std::vector<int32_t> numax_a(na, 3);
           stat += single_atom::atom_update("projectors", na, sigma_a.data(), numax_a.data());
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
           } // ia
       } // scope
@@ -346,7 +346,7 @@ namespace self_consistency {
       if (psi_on_grid) {
 
           view2D<double> xyzZinso(na, 8);
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
               xyzZinso(ia,4) = ia;  // global_atom_id
               xyzZinso(ia,5) = numax[ia];
@@ -378,7 +378,7 @@ namespace self_consistency {
           if (stat != 0) error("failed to write/create a stop file, status= %i", int(stat));
       } // scope
 
-      for(int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
+      for (int scf_iteration = 0; scf_iteration < max_scf_iterations; ++scf_iteration) {
           SimpleTimer scf_iteration_timer(__FILE__, __LINE__, "scf_iteration", echo);
           if (echo > 1) std::printf("\n\n# %s\n# SCF-iteration step #%i:\n# %s\n\n", h_line, scf_iteration, h_line);
 
@@ -413,7 +413,7 @@ namespace self_consistency {
 
           { // scope: eval the XC potential and energy
               double E_xc{0}, E_dc{0};
-              for(size_t i = 0; i < g.all(); ++i) {
+              for (size_t i = 0; i < g.all(); ++i) {
                   auto const exc_i = exchange_correlation::LDA_kernel(rho[i], Vxc[i]);
                   E_xc += rho[i]*exc_i;
                   E_dc += rho[i]*Vxc[i]; // double counting correction 
@@ -430,7 +430,7 @@ namespace self_consistency {
           { // scope: solve the Poisson equation
 
               // add compensation charges cmp
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
                   if (echo > 6) std::printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
@@ -439,7 +439,7 @@ namespace self_consistency {
 #ifdef DEVEL
 //                if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
 #endif // DEVEL
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  for (int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
                   } // periodic images
@@ -463,12 +463,12 @@ namespace self_consistency {
               here;
 
               // probe the electrostatic potential in real space, find ves_multipoles
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_vlm[ia];
                   int const nc = sho_tools::nSHO(ellmax);
                   std::vector<double> coeff(nc, 0.0);
-                  for(int ii = 0; ii < n_periodic_images; ++ii) {
+                  for (int ii = 0; ii < n_periodic_images; ++ii) {
                       std::vector<double> coeff_image(nc, 0.0);
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                       stat += sho_projection::sho_project(coeff_image.data(), ellmax, cnt, sigma, Ves.data(), g, 0);
@@ -482,7 +482,7 @@ namespace self_consistency {
                   if (echo > 3) {
                       std::printf("# potential projection for atom #%d v_00 = %.9f %s\n", ia, atom_vlm[ia][00]*Y00*eV,_eV);
                       int const ellmax_show = std::min(ellmax, 2);
-                      for(int ell = 1; ell <= ellmax_show; ++ell) {
+                      for (int ell = 1; ell <= ellmax_show; ++ell) {
                           double const unitfactor = Y00 * eV * std::pow(Ang, -ell);
                           int const ilm0 = sho_tools::lm_index(ell, -ell);
                           std::printf("# potential projection for atom #%d v_%im =", ia, ell);
@@ -568,7 +568,7 @@ namespace self_consistency {
                   if ('e' == (occupation_method | 32)) {
                       // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
                       view2D<double> kweights(nkpoints, nbands, 0.0), occupations(nkpoints, nbands);
-                      for(int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
+                      for (int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
                           set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
                           set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
                       } // ikpoint
@@ -580,7 +580,7 @@ namespace self_consistency {
 
                   here;
 
-                  for(auto & x : export_rho) {
+                  for (auto & x : export_rho) {
                       if (echo > 1) { std::printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
                       stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
                                                 x.energies.data(), x.psi_r.data(), x.coeff.data(),
@@ -610,7 +610,7 @@ namespace self_consistency {
                   if (echo > 2) std::printf("# %s: renormalize density and density matrices by %.15f\n", __func__, renormalization_factor);
                   scale(rho_valence_new[0], g.all(), renormalization_factor);
                   scale(rho_valence_new[1], g.all(), renormalization_factor);
-                  for(int ia = 0; ia < na; ++ia) {
+                  for (int ia = 0; ia < na; ++ia) {
                       scale(atom_rho_new[0][ia], n_atom_rho[ia], renormalization_factor);
                       scale(atom_rho_new[1][ia], n_atom_rho[ia], renormalization_factor);
                   } // ia
@@ -627,7 +627,7 @@ namespace self_consistency {
                       if (echo > 1) std::printf("# shift Fermi level by %g %s\n", alpha*eV, _eV);
                       // correct by energy difference alpha
                       add_product(rho_valence_new[0], g.all(), rho_valence_new[1], alpha);
-                      for(int ia = 0; ia < na; ++ia) {
+                      for (int ia = 0; ia < na; ++ia) {
                           add_product(atom_rho_new[0][ia], n_atom_rho[ia], atom_rho_new[1][ia], alpha);
                       } // ia
                       charges[1] += charges[2]*alpha;
@@ -662,7 +662,7 @@ namespace self_consistency {
               scale(rho_valence.data(), g.all(), mix_old); // mix old
               add_product(rho_valence.data(), g.all(), rho_valence_new[0], density_mixing); // mix new
               // valence density matrix mixing
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   scale(atom_rho[ia], n_atom_rho[ia], mix_old); // mix old
                   add_product(atom_rho[ia], n_atom_rho[ia], atom_rho_new[0][ia], density_mixing); // mix new
               } // ia
@@ -684,10 +684,10 @@ namespace self_consistency {
               data_list<double> atom_contrib(nEa, 0.0);
               stat += single_atom::atom_update("energies", na, atomic_energy_diff.data(), 0, 0, atom_contrib.data());
               std::vector<double> Ea(nE, 0.0);
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   add_product(Ea.data(), nE, atom_contrib[ia], 1.0); // all atomic weight factors are 1.0
               } // ia
-              for(int i01 = 0; i01 < 2; ++i01) {
+              for (int i01 = 0; i01 < 2; ++i01) {
                   if (echo > 3 + 4*(1 - i01)) {
                       char const *const without_with = i01 ? "" : "out";
                       std::printf("\n# sum of atomic energy contributions with%s grid contributions (%s)\n", without_with, _eV);
@@ -716,7 +716,7 @@ namespace self_consistency {
           } // total_energy_details
 
           double atomic_energy_corrections{0};
-          for(int ia = 0; ia < na; ++ia) {
+          for (int ia = 0; ia < na; ++ia) {
               atomic_energy_corrections += atomic_energy_diff[ia];
           } // ia
           total_energy = grid_kinetic_energy * (1. - take_atomic_valence_densities)

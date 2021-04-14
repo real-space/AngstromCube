@@ -243,7 +243,7 @@ namespace sigma_config {
         return (enn*(enn - 1))/2 + ell;
     } // nl_index
 
-    template<typename int_t>
+    template <typename int_t>
     inline void set_default_core_shells(int_t ncmx[4], double const Z) {
         ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
         ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);

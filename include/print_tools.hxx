@@ -1,8 +1,8 @@
 #pragma once
 
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 
-  template<typename T>
+  template <typename T>
   int printf_vector( // returns the total number of chars written
         char const *const format // printf-format, should contain '%' only once
       , T const *const vec // pointer to vector start
@@ -14,10 +14,10 @@
       // write a vector with increment +1 to stdout
 
       int n_chars_written{0};
-      for(int i{0}; i < n; ++i) {
-          n_chars_written += printf(format, vec[i]*scale + add);
+      for (int i{0}; i < n; ++i) {
+          n_chars_written += std::printf(format, vec[i]*scale + add);
       } // i
-      if (final) n_chars_written += printf(final);
+      if (final) n_chars_written += std::printf(final);
       return n_chars_written;
   } // printf_vector
 
@@ -32,13 +32,13 @@
       , real_t const unit=1 // unit conversion factor
   ) {
       real_t gmin{9e307}, gmax{-gmin}; double gsum{0}, gsum2{0};
-      for(size_t i = 0; i < all; ++i) {
+      for (size_t i = 0; i < all; ++i) {
           gmin = std::min(gmin, values[i]);
           gmax = std::max(gmax, values[i]);
           gsum  += values[i];
           gsum2 += pow2(values[i]);
       } // i
-      printf("%s grid stats min %g max %g avg %g%c", prefix, gmin*unit, gmax*unit, gsum/all*unit, (dV > 0)?' ':'\n');
-      if (dV > 0) printf("integral %g\n", gsum*dV*unit);
+      std::printf("%s grid stats min %g max %g avg %g%c", prefix, gmin*unit, gmax*unit, gsum/all*unit, (dV > 0)?' ':'\n');
+      if (dV > 0) std::printf("integral %g\n", gsum*dV*unit);
       return gsum*dV;
   } // print_stats

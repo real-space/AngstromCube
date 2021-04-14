@@ -10,13 +10,13 @@
 #include "display_units.h" // Ang, _Ang
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "debug_output.hxx" // dump_to_file
-#include "radial_r2grid.hxx" // ::r_axis
 
 #ifdef DEVEL
   #include "finite_difference.hxx" // ::stencil_t
   #include "solid_harmonics.hxx" // ::Y00
   #include "single_atom.hxx" // ::atom_update
   #include "print_tools.hxx" // print_stats
+  #include "radial_r2grid.hxx" // ::r_axis
   #include "lossful_compression.hxx" // print_compressed
   #include "simple_timer.hxx" // SimpleTimer
 #endif // DEVEL
@@ -62,7 +62,7 @@ namespace potential_generator {
 
           int default_grid_spacing_used{0};
           int ng[3] = {0, 0, 0};
-          for(int d = 0; d < 3; ++d) { // directions x, y, z
+          for (int d = 0; d < 3; ++d) { // directions x, y, z
               char keyword[96];
               std::snprintf(keyword, 95, "%s.%c", keyword_ng, 'x'+d);
               ng[d] = int(control::get(keyword, ng_iso));
@@ -95,7 +95,7 @@ namespace potential_generator {
       double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
       if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
               warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
                              'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
@@ -136,7 +136,7 @@ namespace potential_generator {
       // add contributions from smooth core densities
 
       status_t stat(0);
-      for(int ia = 0; ia < na; ++ia) {
+      for (int ia = 0; ia < na; ++ia) {
 #ifdef DEVEL
           if (echo > 11) {
               std::printf("\n## r, %s of atom #%i\n", quantity, ia);
@@ -144,7 +144,7 @@ namespace potential_generator {
           } // echo
 #endif // DEVEL
           double q_added{0};
-          for(int ii = 0; ii < n_periodic_images; ++ii) {
+          for (int ii = 0; ii < n_periodic_images; ++ii) {
               double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
               double q_added_image = 0;
               stat += real_space::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
@@ -179,17 +179,17 @@ namespace potential_generator {
       if (nullptr != center) { 
           set(cnt, 3, center); // copy
       } else {
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               cnt[d] = 0.5*(g[d] - 1)*g.h[d];
           } // d
       } // center given
       std::printf("# projection center (relative to grid point (0,0,0) is %g %g %g in units of grid spacings\n",
                 cnt[0]*g.inv_h[0], cnt[1]*g.inv_h[1], cnt[2]*g.inv_h[2]);
-      for(int iz = 0; iz < g[2]; ++iz) {
+      for (int iz = 0; iz < g[2]; ++iz) {
           double const z = iz*g.h[2] - cnt[2], z2 = z*z;
-          for(int iy = 0; iy < g[1]; ++iy) {
+          for (int iy = 0; iy < g[1]; ++iy) {
               double const y = iy*g.h[1] - cnt[1], y2 = y*y; 
-              for(int ix = 0; ix < g[0]; ++ix) {
+              for (int ix = 0; ix < g[0]; ++ix) {
                   double const x = ix*g.h[0] - cnt[0], x2 = x*x;
                   double const r = std::sqrt(x2 + y2 + z2);
                   int const izyx = (iz*g[1] + iy)*g[0] + ix;
@@ -222,13 +222,13 @@ namespace potential_generator {
       if (verify_Poisson)
       { // scope: compute the Laplacian using high-order finite-differences
 
-          for(int nfd = 1; nfd < verify_Poisson; ++nfd) {
+          for (int nfd = 1; nfd < verify_Poisson; ++nfd) {
               finite_difference::stencil_t<double> const fd(g.h, nfd, -.25/constants::pi);
               {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
                   stat += finite_difference::apply(Laplace_Ves.data(), Ves, g, fd);
                   { // scope: Laplace_Ves should match rho
                       double res_a{0}, res_2{0};
-                      for(size_t i = 0; i < g.all(); ++i) {
+                      for (size_t i = 0; i < g.all(); ++i) {
                           res_a += std::abs(Laplace_Ves[i] - rho[i]);
                           res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
                       } // i
@@ -267,7 +267,7 @@ namespace potential_generator {
           //     cmp; // analyze only the compensator density
           //     Laplace_Ves; // analyze the augmented density computed as Laplacian*Ves
 
-          for(int iptr = 0; iptr < std::min(6, use_Bessel_projection); ++iptr) {
+          for (int iptr = 0; iptr < std::min(6, use_Bessel_projection); ++iptr) {
               // SimpleTimer timer(__FILE__, __LINE__, "Bessel-projection-analysis", echo);
               auto const values = value_pointers[iptr];
               auto const array_name = array_names[iptr];
@@ -275,7 +275,7 @@ namespace potential_generator {
               // report extremal values of what is stored on the grid
               if (echo > 1) { std::printf("\n# real-space stats of %s:", array_name); print_stats(values, g.all(), g.dV()); }
 
-              for(int ia = 0; ia < na; ++ia) {
+              for (int ia = 0; ia < na; ++ia) {
                   float const dq = 1.f/16;
                   int const nq = int(constants::pi/(g.smallest_grid_spacing()*dq));
                   std::vector<double> qc(nq, 0.0);
@@ -283,7 +283,7 @@ namespace potential_generator {
                   { // scope: Bessel core
                       std::vector<double> qc_image(nq, 0.0);
                       if (nullptr != center_ptr) { auto const & center = *center_ptr;
-                          for(int ii = 0; ii < n_periodic_images; ++ii) {
+                          for (int ii = 0; ii < n_periodic_images; ++ii) {
                               double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
                               stat += real_space::Bessel_projection(qc_image.data(), nq, dq, values, g, cnt);
                               add_product(qc.data(), nq, qc_image.data(), 1.0);
@@ -294,13 +294,13 @@ namespace potential_generator {
                   scale(qc.data(), nq, Y00sq);
                   
                   std::vector<double> qcq2(nq, 0.0);
-                  for(int iq = 1; iq < nq; ++iq) { // start from 1 to avoid the q=0 term
+                  for (int iq = 1; iq < nq; ++iq) { // start from 1 to avoid the q=0 term
                       qcq2[iq] = 4*constants::pi*qc[iq]/pow2(iq*dq); // cheap Poisson solver in Bessel transform
                   } // iq
 
                   if (echo > 11) {
                       std::printf("\n# Bessel coeff of %s for atom #%d:\n", array_name, ia);
-                      for(int iq = 0; iq < nq; ++iq) {
+                      for (int iq = 0; iq < nq; ++iq) {
                           std::printf("# %g %g %g\n", iq*dq, qc[iq], qcq2[iq]);
                       } // iq
                       std::printf("\n\n");

@@ -2,7 +2,7 @@
 
 #include <cstdint> // uint32_t
 #include <algorithm> // std::max
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 
 #include "inline_math.hxx" // set, scale
@@ -34,10 +34,10 @@ namespace real_space {
           dims[3] = std::max(1, dim_outer);
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0];
           if (nnumbers > 0) {
-              if (debug) printf("# grid with %d x %d x %d * %d = %.6f M numbers\n", 
+              if (debug) std::printf("# grid with %d x %d x %d * %d = %.6f M numbers\n", 
                   dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
           } else {
-              if (debug) printf("# grid invalid: dims={%d, %d, %d,  %d}\n",
+              if (debug) std::printf("# grid invalid: dims={%d, %d, %d,  %d}\n",
                   dims[0], dims[1], dims[2], dims[3]);
           }
       } // constructor
@@ -47,14 +47,14 @@ namespace real_space {
 
       ~grid_t() {
           long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0];
-          if (debug) printf("# release a grid with %d x %d x %d * %d = %.6f M numbers\n",
+          if (debug) std::printf("# release a grid with %d x %d x %d * %d = %.6f M numbers\n",
                                       dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
       } // destructor
 
       status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
           status_t stat = 0;
           double const h3[3] = {hx, (hy<0)?hx:hy, (hz<0)?hx:hz};
-          for(int i3 = 0; i3 < 3; ++i3) {
+          for (int i3 = 0; i3 < 3; ++i3) {
               h[i3] = h3[i3]; // convert to double
               if (h[i3] > 0) {
                   inv_h[i3] = 1./h[i3]; // invert only here
@@ -113,21 +113,21 @@ namespace real_space {
       double const r2cut = rcut*rcut;
       int imn[3], imx[3];
       size_t nwindow = 1;
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
 #ifdef DEBUG
-          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
+          std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
 #endif // DEBUG
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
       assert(hcoeff > 0);
       real_t added_charge{0}; // clear
       size_t modified = 0, out_of_range = 0;
-      for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
-          for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+      for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+          for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
-                  for(int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
+                  for (int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
                       double const r2 = vz2 + vy2 + vx2;
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g('y') + iy)*g('x') + ix;
@@ -140,8 +140,8 @@ namespace real_space {
                                   values[ixyz] += factor*value_to_add;
                                   added_charge += factor*value_to_add;
 #if 0
-//        printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
-//        printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
+//        std::printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
+//        std::printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
 #endif // 0
                               ++modified;
                           } else ++out_of_range;
@@ -152,7 +152,7 @@ namespace real_space {
       } // iz
       *added = added_charge * g.dV(); // volume integral
 #ifdef DEBUG
-      printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
+      std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
               __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3); // show stats
 #endif // DEBUG
       if (out_of_range > 0) {
@@ -177,26 +177,26 @@ namespace real_space {
       double const r2cut = rcut*rcut; // stop at 10 Bohr
       int imn[3], imx[3];
       size_t nwindow = 1;
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
 #ifdef DEBUG
-          printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
+          std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
 #endif // DEBUG
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
       set(q_coeff, nq, 0.0); // clear
-      for(            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
-          for(        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+      for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+          for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
-                  for(int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
+                  for (int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
                       double const r2 = vz2 + vy2 + vx2;
                       if (r2 < r2cut) {
                           int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           double const r = std::sqrt(r2);
                           double const val = double(values[ixyz]);
-//                        printf("%g %g\n", r, val); // DEBUG
-                          for(int iq = 0; iq < nq; ++iq) {
+//                        std::printf("%g %g\n", r, val); // DEBUG
+                          for (int iq = 0; iq < nq; ++iq) {
                               double const q = iq*dq;
                               double const x = q*r;
                               double const j0 = bessel_transform::Bessel_j0(x);
@@ -204,7 +204,7 @@ namespace real_space {
                           } // iq
                       } // inside rcut
                   } // ix
-//                printf("\n"); // DEBUG
+//                std::printf("\n"); // DEBUG
               } // rcut for (y,z)
           } // iy
       } // iz
@@ -225,7 +225,7 @@ namespace real_space {
   } // test_create_and_destroy
 
   inline status_t test_add_function(int const echo=9) {
-      if (echo > 0) printf("\n# %s\n", __func__);
+      if (echo > 0) std::printf("\n# %s\n", __func__);
       int const dims[] = {32, 31, 30};
       grid_t g(dims);
       g.set_grid_spacing(0.333);
@@ -237,28 +237,28 @@ namespace real_space {
       float const rcut = 4;
       float const inv_hr2 = nr2/(rcut*rcut);
       double const hr2 = 1./inv_hr2;
-      if (echo > 4) printf("\n# values on the radial grid\n");
-      for(int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
+      if (echo > 4) std::printf("\n# values on the radial grid\n");
+      for (int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
           double const r2 = ir2*hr2, r = std::sqrt(r2);
           r2c[ir2] = std::exp(-r2); // function evaluation here
-          if (echo > 4) printf("%g %g\n", r, r2c[ir2]); // plot function value vs r
+          if (echo > 4) std::printf("%g %g\n", r, r2c[ir2]); // plot function value vs r
           rad_integral += r2c[ir2] * r;
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
-      if (echo > 2) printf("\n# add_function()\n\n");
+      if (echo > 2) std::printf("\n# add_function()\n\n");
       double added;
       auto values = new double[g.all()];
       set(values, g.all(), 0.0);
       add_function(values, g, &added, r2c, nr2, inv_hr2, cnt);
-      if (echo > 6) printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
+      if (echo > 6) std::printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
       double xyz_integral = 0;
-      for(        int iz = 0; iz < g('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
-          for(    int iy = 0; iy < g('y'); ++iy) {  double const vy = iy*g.h[1] - cnt[1];
-              for(int ix = 0; ix < g('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
+      for (        int iz = 0; iz < g('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
+          for (    int iy = 0; iy < g('y'); ++iy) {  double const vy = iy*g.h[1] - cnt[1];
+              for (int ix = 0; ix < g('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
                   auto const ixyz = (iz*g('y') + iy)*g('x') + ix;
                   auto const val = values[ixyz];
                   if (0 != val) {
-                      if (echo > 6) printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
+                      if (echo > 6) std::printf("%g %g\n", std::sqrt(vz*vz + vy*vy + vx*vx), val); // plot function value vs r
                       xyz_integral += val;
                   } // non-zero
               } // ix
@@ -266,7 +266,7 @@ namespace real_space {
       } // iz
       xyz_integral *= g.dV(); // volume element
       auto const diff = xyz_integral - rad_integral;
-      if (echo > 1) printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.2f %%)\n", 
+      if (echo > 1) std::printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.2f %%)\n", 
                                   xyz_integral, rad_integral, diff, 100*diff/rad_integral);
       return std::abs(diff/rad_integral) > 4e-4;
   } // test_add_function

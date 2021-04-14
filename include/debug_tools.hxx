@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // printf, std::remove, std::FILE
+#include <cstdio> // std::printf, std::remove, std::FILE
 #include <cassert> // assert
 #include <fstream> // std::ifstream
 #include <sstream> // std::istringstream
@@ -26,7 +26,7 @@ namespace debug_tools {
       assert(Stride >= M);
       std::ifstream infile(filename, std::ifstream::in);
       if (infile.fail()) {
-          if (echo > 1) printf("# %s Error opening file %s!\n", __func__, filename);
+          if (echo > 1) std::printf("# %s Error opening file %s!\n", __func__, filename);
           return 1;
       } // failed to open
       
@@ -41,7 +41,7 @@ namespace debug_tools {
           char const c0 = line_ptr ? line_ptr[0] : '\0';
           switch (c0) {
               case '#': {
-                  if (echo > 3) printf("# %s:%d reads \'%s\'.\n", filename, linenumber, line.c_str());
+                  if (echo > 3) std::printf("# %s:%d reads \'%s\'.\n", filename, linenumber, line.c_str());
                   char const c1 = line_ptr[1]; // this char should be 'c' if the file has complex numbers
                   bool const contains_complex = ('c' == c1);
                   if (contains_complex != read_complex) {
@@ -50,7 +50,7 @@ namespace debug_tools {
                   } // mismatch!
               } break;
               case ' ': case '\n': case '\t': case '\0': {
-                  if (echo > 9) printf("# %s:%d reads \'%s\'.\n", filename, linenumber, line.c_str());
+                  if (echo > 9) std::printf("# %s:%d reads \'%s\'.\n", filename, linenumber, line.c_str());
               } break;
               default: {
                   std::istringstream iss(line);
@@ -76,7 +76,7 @@ namespace debug_tools {
           } // switch
           ++linenumber;
       } // while
-      if (echo > 3) printf("# %d (of %ld) x %ld (of %ld) data entries%s%s read from file %s\n", 
+      if (echo > 3) std::printf("# %d (of %ld) x %ld (of %ld) data entries%s%s read from file %s\n", 
                               ix, N, M, Stride, title?" for ":"", title, filename);
       return ix - N; // 0 if number of lines + 1 matched the expected number of rows
   } // read_from_file
@@ -87,7 +87,7 @@ namespace debug_tools {
       if ('w' == (write_read_delete | 32)) {
           std::FILE *f = std::fopen(filename, "w");
           if (nullptr == f) {
-              if (echo > 1) printf("# %s<%c> unable to open file \"%s\"for writing!\n", __func__, write_read_delete, filename);
+              if (echo > 1) std::printf("# %s<%c> unable to open file \"%s\"for writing!\n", __func__, write_read_delete, filename);
               return 1;
           } // failed to open
           std::fprintf(f, "%d   is the max. number of self-consistency iterations, user may modify", number);
@@ -96,18 +96,18 @@ namespace debug_tools {
       if ('r' == (write_read_delete | 32)) {
           std::ifstream infile(filename, std::ifstream::in);
           if (infile.fail()) {
-              if (echo > 0) printf("# %s<%c> unable to find file \"%s\" for reading\n", __func__, write_read_delete, filename);
+              if (echo > 0) std::printf("# %s<%c> unable to find file \"%s\" for reading\n", __func__, write_read_delete, filename);
               return 1; // error
           }
           infile >> number;
-          if (echo > 1) printf("# %s<%c> found number=%d in file \"%s\" \n", __func__, write_read_delete, number, filename);
+          if (echo > 1) std::printf("# %s<%c> found number=%d in file \"%s\" \n", __func__, write_read_delete, number, filename);
           return 0;
       } else
       if ('d' == (write_read_delete | 32)) {
-          if (echo > 0) printf("# %s<%c> removes file \"%s\"\n", __func__, write_read_delete, filename);
+          if (echo > 0) std::printf("# %s<%c> removes file \"%s\"\n", __func__, write_read_delete, filename);
           return std::remove(filename);
       } else {
-          if (echo > 0) printf("# %s<%c> only 'w'/'W'/write, 'r'/'R'/read or 'd'/'D'/delete implemented!\n", __func__, write_read_delete);
+          if (echo > 0) std::printf("# %s<%c> only 'w'/'W'/write, 'r'/'R'/read or 'd'/'D'/delete implemented!\n", __func__, write_read_delete);
           return -1; // error
       }
   } // manage_stop_file

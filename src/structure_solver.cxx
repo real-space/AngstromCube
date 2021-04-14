@@ -24,7 +24,7 @@ namespace structure_solver {
       status_t stat(0);
       stat = STATUS_TEST_NOT_INCLUDED; // ToDo
       if (echo > 0) std::printf("# %s %s currently deactivated!\n", __FILE__, __func__);
-      
+
 //       real_space::grid_t g(8, 8, 8);
 //       std::vector<atom_image::sho_atom_t> list_of_atoms(1);
 //       list_of_atoms[0] = atom_image::sho_atom_t(1., 1, -1, nullptr, 0);

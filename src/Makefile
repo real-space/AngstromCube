@@ -64,7 +64,6 @@ CXX    = g++
 # CC  = mpicc
 # CXX = mpic++
 
-SRC ?= ./src
 INC ?=
 INC += -I../include
 INC += -I../external
@@ -74,11 +73,12 @@ INC += -I../external
 ERRFLAGS =
 FEAFLAGS =
 # FEAFLAGS += -D_Output_Units_Fixed
-FEAFLAGS += -D_GIT_KEY=$(GITKEY) 
+FEAFLAGS += -D_GIT_KEY=$(GITKEY)
 FEAFLAGS += -D HAS_NO_MPI
 # FEAFLAGS += -D USE_RECIPROCAL_RADIAL_GRID
 # FEAFLAGS += -D LARGE_ANGULAR_GRIDS
 FEAFLAGS += -D HAS_RAPIDXML
+FEAFLAGS += -D NO_UNIT_TESTS
 FEAFLAGS += -D HAS_RAPIDJSON
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
 FEAFLAGS += ###-fopenmp -fno-omit-frame-pointer
@@ -155,26 +155,12 @@ DEP=$(OBJ:%.o=%.d)
 ${EXECUTABLE}: ${OBJ}
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
 
-%.o:${SRC}/%.c %.d
-	${CC} ${CCFLAGS} ${INC} -c $<
-%.o:${SRC}/%.cu %.d
-	${CU} ${CUFLAGS} ${INC} -c $<
-%.o:${SRC}/%.cxx %.d
-	${CXX} ${CXXFLAGS} ${INC} -c $<
-
 %.o:%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
 %.o:%.cu %.d
 	${CU} ${CUFLAGS} ${INC} -c $<
 %.o:%.cxx %.d
 	${CXX} ${CXXFLAGS} ${INC} -c $<
-
-%.d:${SRC}/%.c
-	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:${SRC}/%.cu
-	${CC} -x c++ ${CFLAGS} ${INC} -MM $^ -MF $@
-%.d:${SRC}/%.cxx
-	${CXX} ${CXXFLAGS} ${INC} -MM $^ -MF $@
 
 %.d:%.c
 	${CC} ${CFLAGS} ${INC} -MM $^ -MF $@

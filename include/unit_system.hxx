@@ -72,13 +72,13 @@ namespace unit_system {
       status_t stat(0);
       char const sy[2][3][8] = {{"Ha", "Ry", "eV"}, {"Bohr", "Ang", "nm"}};
       char const el_name[][8] = {"energy", "length"};
-      for(int el = 0; el < 2; ++el) {
-          for(int iu = 0; iu < 3; ++iu) {
+      for (int el = 0; el < 2; ++el) {
+          for (int iu = 0; iu < 3; ++iu) {
               char const *_si;
               auto const f = el ? length_unit(sy[el][iu], &_si) : energy_unit(sy[el][iu], &_si);
               if (echo > 2) std::printf("# %s unit factor %.12f for %s\n", el_name[el], f, _si);
               auto const fi = 1./f;
-              for(int ou = 0; ou < 3; ++ou) {
+              for (int ou = 0; ou < 3; ++ou) {
                   char const *_so;
                   auto const fo = el ? length_unit(sy[el][ou], &_so) : energy_unit(sy[el][ou], &_so);
                   if (echo > 3) std::printf("# %s unit factors %.9f * %.9f = %.9f %s/%s\n", el_name[el], fo, fi, fo*fi, _si, _so);

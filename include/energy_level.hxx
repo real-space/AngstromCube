@@ -5,7 +5,7 @@
   int constexpr TRU=0, SMT=1, TRU_AND_SMT=2, TRU_ONLY=1;
 //  int constexpr REF=2, TRU_SMT_REF=3;
 
-  template<int Pseudo> // Pseudo: see description at instanciation
+  template <int Pseudo> // Pseudo: see description at instanciation
   struct energy_level {
       double* wave[Pseudo]; // for valence states points to the true and smooth partial waves
       double* wKin[Pseudo]; // kinetic energy operator onto wave, r*T*wave

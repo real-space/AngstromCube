@@ -6,7 +6,7 @@
 #include <algorithm> // std::max
 #include <utility> // std::swap //, std::move
 #include <vector> // std::vector<T>
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
@@ -147,8 +147,8 @@ namespace green_action {
           // but we could fill matB with unit blocks here
           // assert(p->subset.size() == p->nCols);
           // clear_on_gpu<real_t[2][LM][LM]>(matB, p->nCols);
-          // for(int icol = 0; icol < p->nCols; ++icol) {
-          //     for(int i = 0; i < LM; ++i) {
+          // for (int icol = 0; icol < p->nCols; ++icol) {
+          //     for (int i = 0; i < LM; ++i) {
           //        matB[icol][0][i][i] = real_t(1);
           //     } // i
           // } // icol
@@ -173,19 +173,19 @@ namespace green_action {
       //
       //      projection:
       //      apc.set(0); // clear
-      //      for(jRow < nRows) // reduction
-      //        for(RowStart[jRow] <= jnz < Rowstart[jRow + 1]) // reduction
-      //          for(jai < nai) // parallel (with data-reuse on Green function element)
-      //             for(jprj < nSHO(jai))
-      //                for(k64 < 64) // vector parallel
-      //                  for(ri < 2) // vector parallel
-      //                    for(j64 < 64) // reduction
+      //      for (jRow < nRows) // reduction
+      //        for (RowStart[jRow] <= jnz < Rowstart[jRow + 1]) // reduction
+      //          for (jai < nai) // parallel (with data-reuse on Green function element)
+      //             for (jprj < nSHO(jai))
+      //                for (k64 < 64) // vector parallel
+      //                  for (ri < 2) // vector parallel
+      //                    for (j64 < 64) // reduction
       //                    {
       //                        apc[apc_start[jai] + jprj][ColIndex[jnz]][ri][k64] +=
       //                        sho_projector[jprj][j64] *
       //                        G[jnz][ri][j64][k64];
       //                    }
-          for(int iai = 0; iai < p->natom_images; ++iai) {
+          for (int iai = 0; iai < p->natom_images; ++iai) {
               // project at position p->atom_data[iai].pos
               // into apc[(p->ApcStart[iai]:p->ApcStart[iai + 1])*p->nCols][2][64]
           } // iai
@@ -193,31 +193,31 @@ namespace green_action {
       //
       //      meanwhile: kinetic energy including the local potential
       //      HG = finite_difference_kinetic_energy(G);
-      //      for(d < 3) // serial
-      //        for(istick < nstick[d]) // parallel
+      //      for (d < 3) // serial
+      //        for (istick < nstick[d]) // parallel
       //          while(jnz >= 0, jnz from index_list[d][istick])
-      //            for(j4 < 4) // serial (data-reuse)
-      //              for(-8 <= imj <= 8) // reduction
-      //                for(j16 < 16) // parallel
-      //                for(ri < 2) // vector parallel
-      //                  for(k64 < 64) // vector parallel
+      //            for (j4 < 4) // serial (data-reuse)
+      //              for (-8 <= imj <= 8) // reduction
+      //                for (j16 < 16) // parallel
+      //                for (ri < 2) // vector parallel
+      //                  for (k64 < 64) // vector parallel
       //                  {
       //                      HG[inz][ri][i4,j16][k64] +=
       //                       G[jnz][ri][j4,j16][k64] * T_FD[|imj|]
       //                  }
 
           // clear y
-          for(size_t inz = 0; inz < nnzbY; ++inz) {
-              for(int cij = 0; cij < 2*LM*LM; ++cij) {
+          for (size_t inz = 0; inz < nnzbY; ++inz) {
+              for (int cij = 0; cij < 2*LM*LM; ++cij) {
                   y[inz][0][0][cij] = 0;
               } // cij
           } // inz
 
           // kinetic energy
-          for(int dd = 0; dd < 3; ++dd) { // derivative direction
+          for (int dd = 0; dd < 3; ++dd) { // derivative direction
 //            simple_stats::Stats<> ts;
               auto const & fd = p->fd_plan[dd];
-              for(uint32_t il = 0; il < fd.size(); ++il) {
+              for (uint32_t il = 0; il < fd.size(); ++il) {
 //                SimpleTimer list_timer(__FILE__, __LINE__, "FD-list", 0);
                   //
                   // Warning: this implementation of the finite-difference stencil
@@ -265,12 +265,12 @@ namespace green_action {
       //
       //      when projection is done: multiply atomic matrices to projection coefficients
       //      aac.set(0); // clear
-      //      for(iai < nai) // parallel
-      //        for(iRHS < nRHSs) // parallel
-      //          for(iprj < nSHO(iai)) // parallel
-      //            for(jprj < nSHO(iai)) // reduction
-      //              for(kprj < nSHO(iai)) // parallel
-      //                for(k64 < 64) // vector parallel
+      //      for (iai < nai) // parallel
+      //        for (iRHS < nRHSs) // parallel
+      //          for (iprj < nSHO(iai)) // parallel
+      //            for (jprj < nSHO(iai)) // reduction
+      //              for (kprj < nSHO(iai)) // parallel
+      //                for (k64 < 64) // vector parallel
       //                {
       //                    aac[apc_start[iai] + iprj][iRHS][complex][k64] +=
       //                    atom_matrix[ia[iai]][iprj][jprj][complex] *
@@ -279,13 +279,13 @@ namespace green_action {
       //                 // with indirection list ia[iai]
       //
       //      after both, addition:
-      //      for(iRow < nRows) // parallel
-      //        for(RowStart[iRow] <= inz < Rowstart[iRow + 1]) // parallel
-      //          for(iai < nai) // reduction
-      //            for(iprj < nSHO(iai)) // reduction
-      //              for(i64 < 64)
-      //                for(ri < 2) // vector parallel
-      //                  for(k64 < 64) // vector parallel
+      //      for (iRow < nRows) // parallel
+      //        for (RowStart[iRow] <= inz < Rowstart[iRow + 1]) // parallel
+      //          for (iai < nai) // reduction
+      //            for (iprj < nSHO(iai)) // reduction
+      //              for (i64 < 64)
+      //                for (ri < 2) // vector parallel
+      //                  for (k64 < 64) // vector parallel
       //                  {
       //                      HG[inz][ri][i64][k64] += 
       //                      aac[apc_start[iai] + iprj][ColIndex[inz]][ri][k64] *
@@ -311,14 +311,14 @@ namespace green_action {
           
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
 
-          for(uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
+          for (uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
               real_t V[LM]; // buffer, probably best using shared memory of the SMx
               set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
               auto const *const target_coords = p->target_coords[iRow];
               
-              for(auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
+              for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
                   // apply the local effective potential to all elements in this row
-                  for(int i = 0; i < LM; ++i) {
+                  for (int i = 0; i < LM; ++i) {
                       add_product(y[inz][0][i], LM, x[inz][0][i], V); // real
                       add_product(y[inz][1][i], LM, x[inz][1][i], V); // imag
                   } // i
@@ -332,14 +332,14 @@ namespace green_action {
                       source_coords[1] - target_coords[1],
                       source_coords[2] - target_coords[2]};
                   int constexpr n4 = (64 == LM)? 4 : ((8 == LM) ? 2 : 0);
-                  for(int i4z = 0; i4z < n4; ++i4z) {
-                  for(int i4y = 0; i4y < n4; ++i4y) {
-                  for(int i4x = 0; i4x < n4; ++i4x) {
+                  for (int i4z = 0; i4z < n4; ++i4z) {
+                  for (int i4y = 0; i4y < n4; ++i4y) {
+                  for (int i4x = 0; i4x < n4; ++i4x) {
                       int const i64 = (i4z*n4 + i4y)*n4 + i4x;
                       float vec[3];
-                      for(int j4z = 0; j4z < n4; ++j4z) { vec[2] = (block_coord_diff[2]*n4 + i4z - j4z)*hg[2];
-                      for(int j4y = 0; j4y < n4; ++j4y) { vec[1] = (block_coord_diff[1]*n4 + i4y - j4y)*hg[1];
-                      for(int j4x = 0; j4x < n4; ++j4x) { vec[0] = (block_coord_diff[0]*n4 + i4x - j4x)*hg[0];
+                      for (int j4z = 0; j4z < n4; ++j4z) { vec[2] = (block_coord_diff[2]*n4 + i4z - j4z)*hg[2];
+                      for (int j4y = 0; j4y < n4; ++j4y) { vec[1] = (block_coord_diff[1]*n4 + i4y - j4y)*hg[1];
+                      for (int j4x = 0; j4x < n4; ++j4x) { vec[0] = (block_coord_diff[0]*n4 + i4x - j4x)*hg[0];
                           int const j64 = (j4z*n4 + j4y)*n4 + j4x;
                           float const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
 
@@ -352,13 +352,13 @@ namespace green_action {
                           if (d2 >= inner_radius2) {
                               // truncation mask (hard)
                               if (d2 >= truncation_radius2) { // mask
-                                  for(int c = 0; c < 2; ++c) { // real and imag
+                                  for (int c = 0; c < 2; ++c) { // real and imag
                                       y[inz][c][i64][j64] = 0;
                                   } // c
                                   stats_outer.add(d2);
                               } else {
                                   real_t const V_confinement = potential_prefactor * pow4(d2 - inner_radius2);
-                                  for(int c = 0; c < 2; ++c) { // real and imag
+                                  for (int c = 0; c < 2; ++c) { // real and imag
                                       y[inz][c][i64][j64] += x[inz][c][i64][j64] * V_confinement;
                                   } // c
                                   stats_Vconf.add(V_confinement);

@@ -191,7 +191,7 @@ namespace recorded_warnings {
   status_t test_overwriting(int const echo=9) {
       if (echo > 1) std::printf("\n# %s:%d  %s\n", __FILE__, __LINE__, __func__);
       int nchars{0};
-      for(int i = 0; i < 9; ++i) {
+      for (int i = 0; i < 9; ++i) {
           nchars = warn("This is a test warning from inside a loop, iteration #%d", i);
           if (echo > 19) std::printf("# %s: warning message had %d characters\n", __func__, nchars);
       } // i

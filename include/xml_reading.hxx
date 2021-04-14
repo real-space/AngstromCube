@@ -99,11 +99,11 @@ namespace xml_reading {
       char filename[96], temporary[96];
       stat += temporary_file_extension(temporary, 95);
       std::snprintf(filename, 95, "test_%s.xml", temporary);
-      if (echo > 0) printf("# %s: use test file \"%s\"\n", __func__, filename);
+      if (echo > 0) std::printf("# %s: use test file \"%s\"\n", __func__, filename);
 
       std::FILE *const f = std::fopen(filename, "w");
       if (nullptr == f) {
-          if (echo > 0) printf("# %s Error opening file %s for writing!\n", __func__, filename);
+          if (echo > 0) std::printf("# %s Error opening file %s for writing!\n", __func__, filename);
           return __LINE__;
       } // failed to open
 
@@ -122,17 +122,17 @@ namespace xml_reading {
       print2file("<grid_Hamiltonian version=\"%.1f\">\n", 0.);
       print2file("  <!-- Units: Hartree and Bohr radii. -->\n");
       print2file("  <sho_atoms number=\"%d\">\n", 1);
-      for(int ia = 0; ia < 1; ++ia) {
+      for (int ia = 0; ia < 1; ++ia) {
           print2file("    <atom gid=\"%i\">\n", ia);
           print2file("      <position x=\"%.6f\" y=\"%.6f\" z=\"%.6f\"/>\n", 0., 0., 0.);
           print2file("      <projectors type=\"sho\" numax=\"%d\" sigma=\"%.3f\"/>\n", 1, 1.);
           int const nSHO = 4;
-          for(int h0s1 = 0; h0s1 < 2; ++h0s1) {
+          for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
               auto const tag = h0s1 ? "overlap" : "hamiltonian";
               print2file("      <%s>", tag);
-              for(int i = 0; i < nSHO; ++i) {
+              for (int i = 0; i < nSHO; ++i) {
                   print2file("\n        ");
-                  for(int j = 0; j < nSHO; ++j) {
+                  for (int j = 0; j < nSHO; ++j) {
                       print2file(" %.1f", i + 0.1*j);
                   } // j
               } // i
@@ -145,7 +145,7 @@ namespace xml_reading {
       print2file("  <spacing x=\"%g\" y=\"%g\" z=\"%g\"/>\n", .25, .25, .25);
       print2file("  <potential nx=\"%d\" ny=\"%d\" nz=\"%d\">", 2, 2, 2);
       int const nzyx = 2*2*2;
-      for(int izyx = 0; izyx < nzyx; ++izyx) {
+      for (int izyx = 0; izyx < nzyx; ++izyx) {
           if (0 == (izyx & 3)) print2file("\n    ");
           print2file(" %.6f", izyx*100./nzyx);
       } // ia
@@ -156,7 +156,7 @@ namespace xml_reading {
 #ifdef  USE_TEMPORARY_FILE
 
       std::fclose(f);
-      if (echo > 3) printf("# file %s written\n", filename);
+      if (echo > 3) std::printf("# file %s written\n", filename);
       
       // read the file in again
       rapidxml::file<> infile(filename);
@@ -173,12 +173,12 @@ namespace xml_reading {
       doc.parse<0>(mutable_string);
 
       if (echo > 29) { // show where rapidxml replaced '<' and '=' by '\0' 
-          printf("# %s: string after parsing (%ld chars):\n", __func__, nchars);
-          for(size_t ic = 0; ic < nchars; ++ic) {
+          std::printf("# %s: string after parsing (%ld chars):\n", __func__, nchars);
+          for (size_t ic = 0; ic < nchars; ++ic) {
               char const c = mutable_string[ic];
-              printf("%c", ('\0' == c)?' ':c); // print string characters 1-by-1 to replace '\0'-characters
+              std::printf("%c", ('\0' == c)?' ':c); // print string characters 1-by-1 to replace '\0'-characters
           } // ic
-          printf("# %s: end string\n", __func__);
+          std::printf("# %s: end string\n", __func__);
       } // echo
 
       // data to structures to be filled:
@@ -194,24 +194,24 @@ namespace xml_reading {
           auto const sho_atoms = find_child(grid_Hamiltonian, "sho_atoms", echo);
           if (sho_atoms) {
               auto const number = find_attribute(sho_atoms, "number", "0", echo);
-              if (echo > 5) printf("# found number=%s\n", number);
+              if (echo > 5) std::printf("# found number=%s\n", number);
               natoms = std::atoi(number);
               xyzZinso.resize(natoms*8);
               atom_mat.resize(natoms);
               int ia{0};
               for (auto atom = sho_atoms->first_node(); atom; atom = atom->next_sibling()) {
                   auto const gid = find_attribute(atom, "gid", "-1");
-                  if (echo > 5) printf("# <%s gid=%s>\n", atom->name(), gid);
+                  if (echo > 5) std::printf("# <%s gid=%s>\n", atom->name(), gid);
                   xyzZinso[ia*8 + 4] = std::atoi(gid);
 
                   double pos[3] = {0, 0, 0};
                   auto const position = find_child(atom, "position", echo);
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       char axyz[] = {0, 0}; axyz[0] = 'x' + d; // "x", "y", "z"
                       auto const value = find_attribute(position, axyz);
                       if (*value != '\0') {
                           pos[d] = std::atof(value);
-                          if (echo > 5) printf("# %s = %.15g\n", axyz, pos[d]);
+                          if (echo > 5) std::printf("# %s = %.15g\n", axyz, pos[d]);
                       } // value != ""
                       xyzZinso[ia*8 + d] = pos[d];
                   } // d
@@ -222,7 +222,7 @@ namespace xml_reading {
                       auto const value = find_attribute(projectors, "numax", "-1");
                       if (*value != '\0') {
                           numax = std::atoi(value);
-                          if (echo > 5) printf("# numax= %d\n", numax);
+                          if (echo > 5) std::printf("# numax= %d\n", numax);
                       } // value != ""
                   }
                   double sigma{-1};
@@ -230,23 +230,23 @@ namespace xml_reading {
                       auto const value = find_attribute(projectors, "sigma", "-1");
                       if (*value != '\0') {
                           sigma = std::atof(value);
-                          if (echo > 5) printf("# sigma= %g\n", sigma);
+                          if (echo > 5) std::printf("# sigma= %g\n", sigma);
                       } // value != ""
                   }
                   xyzZinso[ia*8 + 5] = numax;
                   xyzZinso[ia*8 + 6] = sigma;
                   int const nSHO = ((1 + numax)*(2 + numax)*(3 + numax))/6; // nSHO
                   atom_mat[ia].resize(2*nSHO*nSHO);
-                  for(int h0s1 = 0; h0s1 < 2; ++h0s1) {
+                  for (int h0s1 = 0; h0s1 < 2; ++h0s1) {
                       auto const matrix_name = h0s1 ? "overlap" : "hamiltonian";
                       auto const matrix = find_child(atom, matrix_name, echo);
                       if (matrix) {
-                          if (echo > 22) printf("# %s.values= %s\n", matrix_name, matrix->value());
+                          if (echo > 22) std::printf("# %s.values= %s\n", matrix_name, matrix->value());
                           auto const v = read_sequence<double>(matrix->value(), echo, nSHO*nSHO);
-                          if (echo > 5) printf("# %s matrix has %ld values, expect %d x %d = %d\n",
+                          if (echo > 5) std::printf("# %s matrix has %ld values, expect %d x %d = %d\n",
                               matrix_name, v.size(), nSHO, nSHO, nSHO*nSHO);
                           assert(v.size() == nSHO*nSHO);
-                          for(int ij = 0; ij < nSHO*nSHO; ++ij) {
+                          for (int ij = 0; ij < nSHO*nSHO; ++ij) {
                               atom_mat[ia][h0s1*nSHO*nSHO + ij] = v[ij]; // copy
                           } // ij
                       } else warn("atom with global_id=%s has no %s matrix!", gid, matrix_name);
@@ -257,28 +257,28 @@ namespace xml_reading {
           } else warn("no <sho_atoms> found in grid_Hamiltonian in file %s", filename);
 
           auto const spacing = find_child(grid_Hamiltonian, "spacing", echo);
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               char axyz[] = {0, 0}; axyz[0] = 'x' + d; // "x", "y", "z"
               auto const value = find_attribute(spacing, axyz);
               if (*value != '\0') {
                   hg[d] = std::atof(value);
-                  if (echo > 5) printf("# h%s = %.15g\n", axyz, hg[d]);
+                  if (echo > 5) std::printf("# h%s = %.15g\n", axyz, hg[d]);
               } // value != ""
           } // d
 
           auto const potential = find_child(grid_Hamiltonian, "potential", echo);
           if (potential) {
-              for(int d = 0; d < 3; ++d) {
+              for (int d = 0; d < 3; ++d) {
                   char axyz[] = {'n', 0, 0}; axyz[1] = 'x' + d; // "nx", "ny", "nz"
                   auto const value = find_attribute(potential, axyz);
                   if (*value != '\0') {
                       ng[d] = std::atoi(value);
-                      if (echo > 5) printf("# %s = %d\n", axyz, ng[d]);
+                      if (echo > 5) std::printf("# %s = %d\n", axyz, ng[d]);
                   } // value != ""
               } // d
-              if (echo > 33) printf("# potential.values= %s\n", potential->value());
+              if (echo > 33) std::printf("# potential.values= %s\n", potential->value());
               Veff = read_sequence<double>(potential->value(), echo, ng[2]*ng[1]*ng[0]);
-              if (echo > 5) printf("# potential has %ld values, expect %d x %d x %d = %d\n",
+              if (echo > 5) std::printf("# potential has %ld values, expect %d x %d x %d = %d\n",
                   Veff.size(), ng[0], ng[1], ng[2], ng[2]*ng[1]*ng[0]);
               assert(Veff.size() == ng[2]*ng[1]*ng[0]);
           } else warn("grid_Hamiltonian has no potential in file %s", filename);

@@ -113,9 +113,9 @@
       bool const show = ('?' == input_name[0]);
       bool const all  = ( 0  == input_name[0]) || show;
       if (echo > 0) {
-          if (show) { printf("\n# show available module tests:\n"); } else
-          if (all)  { printf("\n# run all tests!\n\n"); }
-          else      { printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
+          if (show) { std::printf("\n# show available module tests:\n"); } else
+          if (all)  { std::printf("\n# run all tests!\n\n"); }
+          else      { std::printf("\n# run unit tests for module '%s'\n\n", input_name.c_str()); }
       } // echo
 
       std::vector<std::pair<char const*, status_t>> results;

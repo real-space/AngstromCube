@@ -200,7 +200,7 @@ namespace chemical_symbol {
       // check that decode(ChemSymbol[Z]) == Z
       status_t stat(0);
       if (echo > 1) std::printf("\n# %s %s\n", __FILE__, __func__);
-      for(int Z = 0; Z < 128; ++Z) {
+      for (int Z = 0; Z < 128; ++Z) {
           char const S = element_symbols[2*Z + 0], y = element_symbols[2*Z + 1];
           if (0) {
               // code-gen with explicit integers, needs to paste the generated code again if encode_16bit or element_symbols changes
@@ -221,7 +221,7 @@ namespace chemical_symbol {
       // check that decode(ChemSymbol[Z]) == Z
       status_t stat(0);
       if (echo > 1) std::printf("\n# %s %s\n", __FILE__, __func__);
-      for(int iZ = -10; iZ < 100*int(allow_digit_reading); ++iZ) {
+      for (int iZ = -10; iZ < 100*int(allow_digit_reading); ++iZ) {
           bool const leading_zero = (iZ < 0); // the test cases [-10, -1] check if "09", ..., "00" are decoded correctly 
           int const Z = leading_zero ? 1 - iZ : iZ;
           char Sy[4];

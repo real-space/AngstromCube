@@ -58,7 +58,7 @@ namespace bessel_transform {
       } // ir
       if (echo > 4) std::printf("\n\n");
 
-      auto const stat = transform_to_r2_grid(out.data(), ar2, nr2, in.data(), g);
+      auto const stat = transform_to_r2grid(out.data(), ar2, nr2, in.data(), g);
 
       if (echo > 4) {
           std::printf("\n## %s output (as function of r^2):\n", __func__);

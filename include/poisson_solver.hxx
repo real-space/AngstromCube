@@ -34,17 +34,17 @@ namespace poisson_solver {
       if (nullptr != center) { 
           set(cnt, 3, center); // copy
       } else {
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               cnt[d] = 0.5*(g[d] - 1)*g.h[d];
           } // d
       } // center given
       if (echo > 0) std::printf("# projection center (relative to grid point (0,0,0) is %g %g %g in units of grid spacings\n",
                 cnt[0]*g.inv_h[0], cnt[1]*g.inv_h[1], cnt[2]*g.inv_h[2]);
-      for(int iz = 0; iz < g[2]; ++iz) {
+      for (int iz = 0; iz < g[2]; ++iz) {
           double const z = iz*g.h[2] - cnt[2], z2 = z*z;
-          for(int iy = 0; iy < g[1]; ++iy) {
+          for (int iy = 0; iy < g[1]; ++iy) {
               double const y = iy*g.h[1] - cnt[1], y2 = y*y; 
-              for(int ix = 0; ix < g[0]; ++ix) {
+              for (int ix = 0; ix < g[0]; ++ix) {
                   double const x = ix*g.h[0] - cnt[0], x2 = x*x;
                   double const r = std::sqrt(x2 + y2 + z2);
                   int const izyx = (iz*g[1] + iy)*g[0] + ix;

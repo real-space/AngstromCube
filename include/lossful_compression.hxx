@@ -2,7 +2,7 @@
 
 #include <cassert> // assert
 #include <vector> // std::vector<T>
-#include <cstdio> // std::fprintf, stdout, FILE
+#include <cstdio> // std::printf, std::fprintf, stdout, FILE
 
   template <typename real_t, typename y_real_t>
   int RamerDouglasPeucker(
@@ -27,7 +27,7 @@
     if (det <= 0) return -1; // failed
     double const det_inv = 1./det;
 
-    for(int i = p0 + 1; i < pl; ++i) { // loop over all points in between
+    for (int i = p0 + 1; i < pl; ++i) { // loop over all points in between
         if (active[i]) {
             double const xi = x_list[i], yi = y_list[i];
             /*
@@ -55,7 +55,7 @@
 
 //             double const d2 = pow2(yf - yi) + pow2(xf - xi); // perpendicularDistance^2
             double const d2 = si*si*det;
-    //         printf("# DouglasPeucker distance^2 = %g at point #%d\n", d2, i);
+    //         std::printf("# DouglasPeucker distance^2 = %g at point #%d\n", d2, i);
             if (d2 > d2max) {
                 index = i;
                 d2max = d2;
@@ -66,19 +66,19 @@
     // If max distance is greater than epsilon, recursively simplify
     if (d2max > epsilon*epsilon) {
         assert(index > p0); assert(index < pl);
-//      printf("#      DouglasPeucker case N, distance^2 = %g at point #%d\n", d2max, index);
+//      std::printf("#      DouglasPeucker case N, distance^2 = %g at point #%d\n", d2max, index);
         // Recursive call
-//      printf("# call DouglasPeucker on interval [%d, %d] and  [%d, %d] later \n", begin, index, index, end - 1);
+//      std::printf("# call DouglasPeucker on interval [%d, %d] and  [%d, %d] later \n", begin, index, index, end - 1);
         int const n0 = RamerDouglasPeucker(active, x_list, y_list, index + 1, begin, epsilon);
         int const n1 = RamerDouglasPeucker(active, x_list, y_list, end,       index, epsilon);
         return n0 + n1 - 1;
     } else {
         int n_off{0};
-        for(int i = p0 + 1; i < pl; ++i) {
+        for (int i = p0 + 1; i < pl; ++i) {
             n_off += (0 != active[i]);
             active[i] = false; // switch off every point in between since the curve is sufficiently smooth there
         } // i
-//      if (n_off > 0) printf("# DouglasPeucker eleminate %d points, largest distance^2 is %g\n", n_off, d2max);
+//      if (n_off > 0) std::printf("# DouglasPeucker eleminate %d points, largest distance^2 is %g\n", n_off, d2max);
         return 2;
     } // if
 
@@ -105,7 +105,7 @@
       , FILE* os=stdout
   ) {
       auto const mask = RDP_lossful_compression(x, y, n, epsilon);
-      for(int i = 0; i < n; ++i) {
+      for (int i = 0; i < n; ++i) {
           if (mask[i]) std::fprintf(os, "%g %g\n", x[i], y[i]);
       } // i
       std::fprintf(os, "\n");

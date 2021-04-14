@@ -74,7 +74,7 @@ namespace simple_stats {
   } // test_basic
 
   inline status_t all_tests(int const echo=0) {
-    if (echo > 0) printf("\n# %s %s\n", __FILE__, __func__);
+    if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
     status_t stat(0);
     stat += test_basic<double>(echo);
     return stat;

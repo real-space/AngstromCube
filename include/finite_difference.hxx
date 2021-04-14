@@ -185,7 +185,9 @@ namespace finite_difference {
 
     if (nn > nnMaxImplemented) {
         warn("Max implemented %i but requested %i finite difference neighbors in %c-direction", nnMaxImplemented, nn, direction);
-        for(int i = nnMaxImplemented + 1; i < std::min(nn + 1, nnArraySize); ++i) c[i] = 0; // clear out the others.
+        for (int i = nnMaxImplemented + 1; i < std::min(nn + 1, nnArraySize); ++i) {
+            c[i] = 0; // clear out the others
+        } // i
         return nnMaxImplemented;
     } // larger than implemented
 
@@ -201,8 +203,8 @@ namespace finite_difference {
       int8_t _nn[3]; // number of FD neighbors
       
       void _constructor(double const grid_spacing[3], int const nneighbors[3], double const scale_factor) {
-          for(int d = 0; d < 3; ++d) {
-              for(int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
+          for (int d = 0; d < 3; ++d) {
+              for (int i = 0; i < nnArraySize; ++i) c2nd[d][i] = 0; // clear
               double const h = grid_spacing[d];
               _nn[d] = set_Laplacian_coefficients(c2nd[d], nneighbors[d], h, 'x'+d);
               if (_nn[d] < nneighbors[d]) {
@@ -232,7 +234,7 @@ namespace finite_difference {
 
       double clear_diagonal_elements() { // modifies the coefficients c2nd[][]
           double diag{0};
-          for(int d = 0; d < 3; ++d) {
+          for (int d = 0; d < 3; ++d) {
               diag += c2nd[d][0];
               c2nd[d][0] = 0; // clear diagonal elements
           } // d
@@ -242,8 +244,8 @@ namespace finite_difference {
 //   private:
   public:
       void scale_coefficients(double const f[3]) {
-          for(int d = 0; d < 3; ++d) {
-              for(int i = 0; i < nnArraySize; ++i) {
+          for (int d = 0; d < 3; ++d) {
+              for (int i = 0; i < nnArraySize; ++i) {
                   c2nd[d][i] *= f[d];
               } // i
           } // d
@@ -266,7 +268,7 @@ namespace finite_difference {
       int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
       std::vector<int> list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
       std::vector<complex_in_t> phas[3];
-      for(int d = 0; d < 3; ++d) {
+      for (int d = 0; d < 3; ++d) {
           int const n  = g[d];
           // ToDo: check that n is smaller than the upper limit of int
           int const bc = g.boundary_condition(d);
@@ -278,7 +280,7 @@ namespace finite_difference {
           phas[d] = std::vector<complex_in_t>(nh, 0); // get memory, init neutral
 
           // core region
-          for(int j = 0; j < n; ++j) {
+          for (int j = 0; j < n; ++j) {
               list[d][n16 + j] = j;
               phas[d][n16 + j] = 1;
           } // j
@@ -288,12 +290,12 @@ namespace finite_difference {
 
           // lower boundary
           if (Periodic_Boundary == bc) { // periodic BC
-              for(int j = -nf; j < 0; ++j) {
+              for (int j = -nf; j < 0; ++j) {
                   list[d][n16 + j] = (n + j) % n; // wrap around
                   phas[d][n16 + j] = phase_low; // incorrect if nf > n
               } // j
           } else if (Mirrored_Boundary == bc) { // mirror BC
-              for(int j = -nf; j < 0; ++j) {
+              for (int j = -nf; j < 0; ++j) {
                   list[d][n16 + j] = - 1 - j; // mirror at -1 | 0
                   phas[d][n16 + j] = phase_low; // incorrect if nf > n
               } // j
@@ -301,12 +303,12 @@ namespace finite_difference {
 
           // upper boundary
           if (Periodic_Boundary == bc) { // periodic BC
-              for(int j = 0; j < nf; ++j) { 
+              for (int j = 0; j < nf; ++j) { 
                   list[d][n16 + n + j] = (n + j) % n; // wrap around
                   phas[d][n16 + n + j] = phase_upp; // incorrect if nf > n
               } // j
           } else if (Mirrored_Boundary == bc) { // mirror BC
-              for(int j = 0; j < nf; ++j) { 
+              for (int j = 0; j < nf; ++j) { 
                   list[d][n16 + n + j] = n - 1 - j; // mirror at n-1 | n
                   phas[d][n16 + n + j] = phase_upp; // incorrect if nf > n
               } // j
@@ -314,13 +316,13 @@ namespace finite_difference {
 
           if (0) { // DEBUG: show indirection list and phase factors
               std::printf("# indirection list for %c-direction ", 'x'+d);
-              for(int j = -nf; j < n + nf; ++j) {
+              for (int j = -nf; j < n + nf; ++j) {
                   if (0 == j || n == j) std::printf(" |");
                   std::printf(" %i", list[d][n16 + j]);
               } // j
               std::printf("\n");
               std::printf("# phase factor list for %c-direction ", 'x'+d);
-              for(int j = -nf; j < n + nf; ++j) {
+              for (int j = -nf; j < n + nf; ++j) {
                   if (0 == j || n == j) std::printf(" |");
                   std::printf("  %g %g", std::real(phas[d][n16 + j]), std::imag(phas[d][n16 + j]));
               } // j
@@ -330,18 +332,18 @@ namespace finite_difference {
       } // spatial direction d
 
       real_fd_t const scale_factor = factor;
-      for(int z = 0; z < g('z'); ++z) {
-          for(int y = 0; y < g('y'); ++y) {
-              for(int x = 0; x < g('x'); ++x) {
+      for (int z = 0; z < g('z'); ++z) {
+          for (int y = 0; y < g('y'); ++y) {
+              for (int x = 0; x < g('x'); ++x) {
                   int const i_zyx = (z*g('y') + y)*g('x') + x;
 
                   complex_out_t t(0); // init result
 
-                  for(int d = 0; d < 3; ++d) {
+                  for (int d = 0; d < 3; ++d) {
                       int const nf = fd.nearest_neighbors(d);
                       int zyx[3] = {x, y, z};
                       int const i_center = zyx[d];
-                      for(int jmi = -nf; jmi <= nf; ++jmi) {
+                      for (int jmi = -nf; jmi <= nf; ++jmi) {
                           int const j = i_center + jmi;
                           int const index = list[d][n16 + j];
                           if (index >= 0) {
@@ -375,10 +377,10 @@ namespace finite_difference {
       int const M = 16;
       double maxdev = 0; int maxdev_nn = -99;
       real_t c[M];
-      for(int nn = M - 2; nn >= -1; --nn) {
-          for(int i = 0; i < M; ++i) c[i] = 0; // clear
+      for (int nn = M - 2; nn >= -1; --nn) {
+          for (int i = 0; i < M; ++i) c[i] = 0; // clear
           set_Laplacian_coefficients(c, nn);
-          double checksum = c[0]; for(int i = 1; i < M; ++i) checksum += 2*c[i];
+          double checksum = c[0]; for (int i = 1; i < M; ++i) checksum += 2*c[i];
           if (echo > 6) std::printf("# Laplacian with nn=%d has c0 = %g,   %.1e should be zero\n", nn, c[0], checksum);
           checksum = std::abs(checksum);
           stat += (checksum > precision);
@@ -400,7 +402,7 @@ namespace finite_difference {
   inline status_t test_Laplacian(int const echo=3) {
       status_t stat(0);
       double const h[3] = {1, 1, 1}; // unit grid spacings
-      for(int dir = 0; dir < 3; ++dir) {
+      for (int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           stencil_t<real_t> Laplacian(h, nn);
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
@@ -408,11 +410,11 @@ namespace finite_difference {
           g.set_boundary_conditions(Periodic_Boundary);
           double const k = (1 + dir)*2*constants::pi/g[dir]; // wave vector of a single plane wave
           std::vector<real_t> values(g.all()), result(g.all());
-          for(size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
+          for (size_t i = 0; i < g.all(); ++i) values[i] = std::cos(k*i); // fill with some non-zero values
           stat += finite_difference::apply(result.data(), values.data(), g, Laplacian);
           if (echo > 5) std::printf("\n# in, result, ref values:\n");
           double dev{0};
-          for(size_t i = 0; i < g.all(); ++i) {
+          for (size_t i = 0; i < g.all(); ++i) {
               auto const ref = -k*k*values[i]; // analytic solution to the Laplacian operator applied to a plane wave
               if (echo > 5) std::printf("%ld %g %g %g\n", i, values[i], result[i], ref);
               // compare in the middle range result and ref values
@@ -428,24 +430,24 @@ namespace finite_difference {
       status_t stat(0);
       double const h[3] = {1, 1, 1}; // unit grid spacings
       std::complex<real_t> boundary_phase[3][2] = {{-1,-1}, {-1,-1}, {-1,-1}};
-      for(int dir = 0; dir < 3; ++dir) {
+      for (int dir = 0; dir < 3; ++dir) {
           int nn[3] = {0,0,0}; nn[dir] = 12; // switch FD off for the two perpendicular directions
           stencil_t<real_t> Laplacian(h, nn);
           int dims[] = {1,1,1}; dims[dir] = 127 + dir;
           real_space::grid_t g(dims);
           g.set_boundary_conditions(Periodic_Boundary);
           std::vector<std::complex<real_t>> values(g.all()), result(g.all());
-          for(int iphase = 0; iphase <= 180; iphase += 20) {
+          for (int iphase = 0; iphase <= 180; iphase += 20) {
               double const k = (1 + dir + iphase/360.)*2*constants::pi/g[dir]; // wave vector of a single plane wave
               boundary_phase[dir][0] = std::complex<real_t>(std::cos(iphase*constants::pi/180.),
                                                            -std::sin(iphase*constants::pi/180.));
               boundary_phase[dir][1] = real_t(1)/boundary_phase[dir][0];
-              for(size_t i = 0; i < g.all(); ++i) {
+              for (size_t i = 0; i < g.all(); ++i) {
                   values[i] = std::complex<real_t>(std::cos(k*i), std::sin(k*i));
               } // i
               stat += finite_difference::apply(result.data(), values.data(), g, Laplacian, 1, boundary_phase);
               double dev{0};
-              for(size_t i = 0; i < g.all(); ++i) {
+              for (size_t i = 0; i < g.all(); ++i) {
                   auto const ref = -k*k*values[i]; // analytic solution to the Laplacian operator applied to a plane wave
                   // compare in the middle range result and ref values
                   dev += std::abs(result[i] - ref);
@@ -458,13 +460,13 @@ namespace finite_difference {
 
   inline status_t test_dispersion(int const echo=9) {
       if (echo < 7) return 0; // this function is only plotting
-      for(int nn = 1; nn <= 13; ++nn) { // largest order implemented is 13
+      for (int nn = 1; nn <= 13; ++nn) { // largest order implemented is 13
           stencil_t<double> const fd(1.0, nn);
           std::printf("\n## finite-difference dispersion for nn=%d\n", nn);
-          for(int ik = 0; ik <= 100; ++ik) {
+          for (int ik = 0; ik <= 100; ++ik) {
               double const k = 0.01 * ik * constants::pi;
               double E_k{-0.5*fd.c2nd[0][0]};
-              for(int j = 1; j <= nn; ++j) {
+              for (int j = 1; j <= nn; ++j) {
                   E_k -= std::cos(k*j) * fd.c2nd[0][j];
               } // j
               std::printf("%g %g %g\n", k, E_k, 0.5*k*k); // in Hartree
