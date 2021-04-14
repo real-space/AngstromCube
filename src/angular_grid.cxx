@@ -1,4 +1,4 @@
-#include <cstdio> // printf
+#include <cstdio> // std::printf
 #include <cassert> // assert
 #include <cmath> // std::sqrt, std::abs
 #include <algorithm> // std::max

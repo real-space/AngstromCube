@@ -1,7 +1,8 @@
 #pragma once
 
-#include "status.hxx" // status_t
+#include <cstdio> // std::printf
 
+#include "status.hxx" // status_t
 #include "real_space.hxx" // ::grid_t
 #include "display_units.h" // Ang, _Ang
 
@@ -16,15 +17,15 @@ namespace poisson_solver {
       , double const Bessel_center[]=nullptr
   ); // declaration only
 
-  inline
-  char solver_method(char const *method) { return *method; }
+  inline char solver_method(char const *method) { return *method; }
 
   template <typename real_t>
   void print_direct_projection(
         real_t const array[]
-      , real_space::grid_t const &g
+      , real_space::grid_t const & g // grid descriptor
       , double const factor=1
       , double const *center=nullptr
+      , int const echo=1 // log-level
   ) {
       // write all values of a grid array to stdout 
       // as function of their distance to a given center
@@ -37,7 +38,7 @@ namespace poisson_solver {
               cnt[d] = 0.5*(g[d] - 1)*g.h[d];
           } // d
       } // center given
-      printf("# projection center (relative to grid point (0,0,0) is %g %g %g in units of grid spacings\n",
+      if (echo > 0) std::printf("# projection center (relative to grid point (0,0,0) is %g %g %g in units of grid spacings\n",
                 cnt[0]*g.inv_h[0], cnt[1]*g.inv_h[1], cnt[2]*g.inv_h[2]);
       for(int iz = 0; iz < g[2]; ++iz) {
           double const z = iz*g.h[2] - cnt[2], z2 = z*z;
@@ -47,14 +48,13 @@ namespace poisson_solver {
                   double const x = ix*g.h[0] - cnt[0], x2 = x*x;
                   double const r = std::sqrt(x2 + y2 + z2);
                   int const izyx = (iz*g[1] + iy)*g[0] + ix;
-                  printf("%g %g\n", r*Ang, array[izyx]*factor);
+                  if (echo > 0) std::printf("%g %g\n", r*Ang, array[izyx]*factor);
               } // ix
           } // iy
       } // iz
-      printf("# radii in %s\n\n", _Ang);
+      if (echo > 0) std::printf("# radii in %s\n\n", _Ang);
   } // print_direct_projection
-  
-  
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace poisson_solver

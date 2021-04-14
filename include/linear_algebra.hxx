@@ -433,7 +433,7 @@ namespace linear_algebra {
               __func__, complex_name<complex_t>(), is_complex<complex_t>()?"HE":"SY", dev0, dev1);
           stat += (dev0 > prec) + (dev1 > prec);
       } // scope
-      
+
       return stat;
   } // basic_tests
 

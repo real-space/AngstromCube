@@ -159,7 +159,7 @@ namespace sigma_config {
         } // switch
   } // default config
 
-  
+
 //
 // Some elements differ from the automatic choice of occupation numbers:
 //
@@ -572,16 +572,9 @@ namespace sigma_config {
 
       } else { // iZ_show >= 0
 
-          if (echo > 2) std::printf("\n\n# parse configuration strings for elements 1--57, 71--86\n\n");
-          for (int iZ = 86; iZ > 0; --iZ) {
-              if (std::abs(iZ - 64) >= 7) {
-                  if (echo > 4) std::printf("\n");
-                  auto const e = get(iZ, echo);
-                  if (echo > 4) std::printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
-              } // without 58 through 70
-          } // iZ
-
 #ifdef EXPERIMENTAL
+          if (echo > 0) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
+
           int const Z_max = -iZ_show;
           if (echo > 2) std::printf("\n\n# EXPERIMENTAL elements 58--70, 87--%d\n\n", Z_max);
           for (int iZ = 58; iZ <= Z_max; ++iZ) {
@@ -591,11 +584,19 @@ namespace sigma_config {
                   if (echo > 4) std::printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
               } // with 58 through 70 and more
           } // iZ
-          if (echo > 0) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
 #endif // EXPERIMENTAL
+        
+          if (echo > 2) std::printf("\n\n# parse configuration strings for elements 1--57, 71--86\n\n");
+          for (int iZ = 86; iZ > 0; --iZ) {
+              if (std::abs(iZ - 64) >= 7) {
+                  if (echo > 4) std::printf("\n");
+                  auto const e = get(iZ, echo);
+                  if (echo > 4) std::printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
+              } // without 58 through 70
+          } // iZ
 
       } // iZ_show >= 0
-      return 0;
+      return 0; // success (all parsing errors are fatal)
   } // test_parsing
   
   status_t all_tests(int const echo) {

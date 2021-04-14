@@ -344,8 +344,7 @@ namespace potential_generator {
   } // potential_projections
 
 #endif // DEVEL
-  
-  
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace potential_generator
