@@ -29,21 +29,14 @@
 #include "bessel_transform.hxx" // ::Bessel_j0
 #include "debug_tools.hxx" // ::read_from_file, ::manage_stop_file
 
-#ifdef DEVEL
-    #include "real_space.hxx" // ::Bessel_projection
-    #include "lossful_compression.hxx" // print_compressed
-    #include "debug_output.hxx" // dump_to_file
-    #include "radial_r2grid.hxx" // radial_r2grid_t
-    #include "radial_r2grid.hxx" // r2_axis
-#endif // DEVEL
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
 #include "single_atom.hxx" // ::atom_update
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
-// #include "potential_generator.hxx" // ::init_geometry_and_grid
-#include "potential_generator.hxx" // ::add_smooth_quantities
+// #include "potential_generator.hxx" // ::init_geometry_and_grid // FAILS when including from here
+#include "potential_generator.hxx" // ::add_smooth_quantities, ::potential_projections
 
 // ToDo: restructure: move this into a separate compilation unit
 #include "atom_image.hxx"// ::sho_atom_t

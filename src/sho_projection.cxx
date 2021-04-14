@@ -19,16 +19,22 @@ namespace sho_projection {
   inline constexpr char const * _diag(int const on) { return on ? "diagonal" : "off-diag"; }
 
   template <typename real_t>
-  inline status_t _analyze_row(int const i, real_t const out[], int const nj, double maxdev[2], int const echo=0) {
-      status_t stat = 0;
+  inline status_t _analyze_row(
+        double maxdev[2]
+      , int const i
+      , real_t const out[]
+      , int const nj
+      , int const echo=0
+  ) {
+      status_t stat(0);
       double const threshold = (8 == sizeof(real_t)) ? 1e-8 : 2e-5;
       for (int j = 0; j < nj; ++j) {
           int const d = (i == j); // d==0:off-diagonal, d==1:diagonal
           double const dev = std::abs(out[j] - d);
-          maxdev[d] = std::max(maxdev[d], std::abs(dev));
+          maxdev[d] = std::max(maxdev[d], dev);
           if (echo > 9) std::printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(d), i, j, out[j], dev);
-          if (std::abs(dev) > threshold) {
-              if (echo > 7) std::printf("# %s %s i=%i j=%i\t  %g %g\n", __func__, _diag(d), i, j, out[j], dev);
+          if (dev > threshold) {
+              if (echo > 7) std::printf("# %s %s i=%i j=%i\t  %g\tdev= %g\n", __func__, _diag(d), i, j, out[j], dev);
               ++stat;
           } // deviation large
       } // j
@@ -86,7 +92,7 @@ namespace sho_projection {
               } // nz
               std::printf("\n\n");
           } // 1
-          
+
           if (echo > 9) {
               std::vector<int> energy_ordered(nSHO, 0);
               std::vector<int> loop_ordered(nSHO, 0);
@@ -102,7 +108,7 @@ namespace sho_projection {
               std::printf("\n\n");
           } // echo
 
-          stat += _analyze_row(i, coeff.data(), nSHO, maxdev, echo);
+          stat += _analyze_row(maxdev, i, coeff.data(), nSHO, echo);
       } // i
       if (echo > 0) {      
           for (int d = 0; d <= 1; ++d) {
@@ -113,26 +119,26 @@ namespace sho_projection {
       return stat;
   } // test_L2_orthogonality
 
+  template <typename real_t=double>
   status_t test_renormalize_electrostatics(int const echo=2, int const numax=2) {
       double const sigma = 1.0;
       if (echo > 0) std::printf("\n# %s with sigma = %g\n", __func__, sigma);
       int const dims[] = {42, 41, 40};
       real_space::grid_t g(dims);
-      typedef double real_t;
       std::vector<real_t> values(g.all(), 0);
       g.set_grid_spacing(0.472432); // 0.25 Angstrom
       if (echo > 1) std::printf("# %s %s: for sigma = %g numax = %i with grid spacing %g\n", __FILE__, __func__, sigma, numax, g.h[0]);
       double const pos[] = {g[0]*.52*g.h[0], g[1]*.51*g.h[1], g[2]*.50*g.h[2]};
       int const nSHO = sho_tools::nSHO(numax);
-      
+
       std::vector<int> energy_ordered(nSHO, 0);
       std::vector<int> loop_ordered(nSHO, 0);
       sho_tools::construct_index_table(energy_ordered.data(), numax, sho_tools::order_zyx, loop_ordered.data());
 //       std::vector<char> sho_label(nSHO*8);
 //       sho_tools::construct_label_table(sho_label.data(), numax, sho_tools::order_Ezyx);
-      
+
       sho_unitary::Unitary_SHO_Transform<real_t> u(numax);
-      
+
       std::vector<real_t> coeff(nSHO);
       double maxdev[] = {0, 0}; // {off-diagonal, diagonal}
       status_t stat(0);
@@ -140,7 +146,7 @@ namespace sho_projection {
           for (int emm = -ell; emm <= ell; ++emm) { // magnetic quantum number
               int const lm = sho_tools::lm_index(ell, emm);
               
-              set(values.data(), g.all(), (real_t)0); // clear all values on the grid
+              set(values.data(), g.all(), real_t(0)); // clear all values on the grid
 
               { // scope: construct non-decaying solid harmonics on the grid r^ell*X_{ell m}
                   double v[3], xlm[64]; assert( numax < 8 ); // sufficient up to lmax=7
@@ -162,9 +168,12 @@ namespace sho_projection {
               std::vector<double> vlm(nlm, 0.0);
               stat += renormalize_electrostatics(vlm.data(), coeff.data(), numax, sigma, u, echo);
 
-              for (int ilm = 0; ilm < nlm; ++ilm) vlm[ilm] = std::abs(vlm[ilm]); // signs may differ
+              for (int ilm = 0; ilm < nlm; ++ilm) {
+                  std::printf("# %s %s: element[%d][%d]= %g\n", __FILE__, __func__, lm,ilm, vlm[ilm]);
+                  vlm[ilm] = std::abs(vlm[ilm]); // signs may differ
+              } // ilm
               // analyze the matrix row, warning: the matrix is rectangular for numax > 1
-              stat += _analyze_row(lm, vlm.data(), nlm, maxdev, echo);
+              stat += _analyze_row(maxdev, lm, vlm.data(), nlm, echo);
           } // emm
       } // ell
       if (echo > 0) {
@@ -174,7 +183,7 @@ namespace sho_projection {
       } // echo
       return stat;
   } // test_renormalize_electrostatics
-  
+
   status_t test_L2_prefactors(int const echo=0, int const numax=9) {
       double dev{0};
       for (double sigma = 0.25; sigma < 5; sigma *= 2) {
@@ -184,16 +193,17 @@ namespace sho_projection {
               dev = std::max(dev, std::abs(sho_prefactor(x, y, z, sigma) - rx*ry*rz));
           }}} // zyx
       } // sigma
-      if (echo > 3) std::printf("\n# %s deviation is %.1e\n\n", __func__, dev);
+      if (echo > 3) std::printf("\n# %s: deviation is %.1e\n\n", __func__, dev);
       return (dev > 1e-12);
   } // test_L2_prefactors
 
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_L2_prefactors(echo);
-      stat += test_renormalize_electrostatics(echo);
+      stat += test_renormalize_electrostatics(echo + 5);
       stat += test_L2_orthogonality<double>(echo); // takes a while
 //    stat += test_L2_orthogonality<float>(echo);
+      if (stat) warn("status= %i", int(stat));
       return stat;
   } // all_tests
 

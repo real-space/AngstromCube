@@ -76,7 +76,7 @@ namespace sho_unitary {
               int const nu_rad = sho_tools::get_nu(ell, nrn);
               if (nu_xyz != nu_rad) {
                   std::printf("# off-block entry found in file <%s>: nx=%d ny=%d nz=%d (nu=%d)  ell=%d emm=%d nrn=%d (nu=%d)\n",
-                          filename, nx, ny, nz, nu_xyz, ell, emm, nrn, nu_rad);
+                                  filename, nx, ny, nz, nu_xyz, ell, emm, nrn, nu_rad);
                   return 1; // error
               } // nu matches
               int const nu = nu_xyz;

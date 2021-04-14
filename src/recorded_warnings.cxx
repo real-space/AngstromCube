@@ -4,7 +4,7 @@
 #include <cstdio> // std::printf, std::sprintf
 #include <cassert> // assert
 #include <map> // std::map
-#include <utility> // std::pair<T1,T1>, std::make_pair
+#include <utility> // std::pair<T1, T2>, std::make_pair
 
 #include "recorded_warnings.hxx" // MaxMessageLength
 
@@ -12,7 +12,7 @@ namespace recorded_warnings {
 
   // a simple hash function maps only 9 out of 216000 english words onto the same integer number
   inline uint64_t simple_string_hash(char const *string) {
-      uint64_t hash = 5381;
+      uint64_t hash{5381};
       char const *c = string;
       while (*c != 0) {
          hash = hash * 33 + uint64_t(*c);
@@ -53,7 +53,7 @@ namespace recorded_warnings {
                      message_length, (void*)message_,             file,line,  hash_);
 #endif // DEBUG
       } // constructor
-      
+
       ~WarningRecord(void) {
 #ifdef  DEBUG          
           std::printf("# WarningRecord:destructor: old warning message"
@@ -71,7 +71,7 @@ namespace recorded_warnings {
       size_t get_times(void) const { return times_overwritten_; }
       int get_times_printed(void) const { return times_printed_; }
       void increment_times_printed(void) { ++times_printed_; }
-  
+
   }; // class WarningRecord
 
 
@@ -80,7 +80,7 @@ namespace recorded_warnings {
     if (echo > 8) std::printf("\n# %s:%d  %s(file=%s, line=%d, echo=%d)\n", 
                       __FILE__, __LINE__, __func__, file, line, echo);
 
-    static std::map<uint64_t,WarningRecord> map_;
+    static std::map<uint64_t, WarningRecord> map_;
     if (line < 1) { // line numbers created by the preprocessor start from 1
         assert('?' == file[0]); // make sure that we want special functionality
         
@@ -92,8 +92,8 @@ namespace recorded_warnings {
                     // only give a summary of how many
                     std::printf("# %ld warnings have been recorded.\n", nw);
                 } else {
-                    std::printf("\n#\n# recorded %ld warnings:\n", nw);
-                    size_t total_count = 0;
+                    std::printf("\n#\n# recorded %ld different warnings:\n", nw);
+                    size_t total_count{0};
                     for (auto &hw : map_) {
                         auto const &w = hw.second;
                         auto const n_times = w.get_times();
@@ -106,11 +106,11 @@ namespace recorded_warnings {
                     if (nw > 0) std::printf("# %ld warnings in total\n", total_count);
                 } // summary
             } // echo
-        } else {
+        } else { // line
             // clear_warnings() has been called
             if (echo > 1) std::printf("# clear all %ld warnings from records\n", map_.size());
             map_.clear();
-        }
+        } // line
         return std::make_pair(nullptr, 0);
 
     } else { // special functions
@@ -125,11 +125,11 @@ namespace recorded_warnings {
         auto const search = map_.find(hash);
         if (map_.end() != search) {
             if (echo > 1) std::printf("# %s: found entry for hash %16llx\n", __func__, hash);
-            w = & search->second;
+            w = &search->second;
         } else {
             if (echo > 1) std::printf("# %s: insert new entry for hash %16llx\n", __func__, hash);
             auto const iit = map_.insert({hash, WarningRecord(short_file, line, func)});
-            w = & iit.first->second;
+            w = &iit.first->second;
         } // found
 
         // output the warning to stdout and stderr when encountered the 1st time, otherwise,
@@ -149,7 +149,7 @@ namespace recorded_warnings {
         } // print to stdout
         if ((MaxWarningsToErr < 0) || (times_printed < MaxWarningsToErr)) flags |= 2; // 2: message to stderr
         if (flags) w->increment_times_printed(); // will print message to stdout or stderr
-        
+
         return std::make_pair(w->get_message(), flags);
     } // special functions
 

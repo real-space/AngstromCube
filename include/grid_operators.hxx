@@ -609,7 +609,7 @@ namespace grid_operators {
       stat += op.Conditioner(Hpsi.data(),  psi.data(), echo);
       return stat;
   } // class_with_atoms_test
-  
+
   inline status_t projector_normalization_test(int const echo=9) {
       status_t stat(0);
       real_space::grid_t g(32, 32, 32); // grid spacings = {1,1,1} by default

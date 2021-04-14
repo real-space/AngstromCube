@@ -14,11 +14,14 @@ namespace solid_harmonics {
                       Y00 = .28209479177387817; // == 1./Y00inv;
 
   template <typename real_t>
-  void rlXlm_implementation(real_t xlm[], int const ellmax,
-                          real_t const cth, real_t const sth,
-                          real_t const cph, real_t const sph,
-                          real_t const r2=1,
-                          bool const cos_trick=true) {
+  void rlXlm_implementation(
+        real_t xlm[]
+      , int const ellmax
+      , real_t const cth, real_t const sth
+      , real_t const cph, real_t const sph
+      , real_t const r2=1
+      , bool const cos_trick=true
+  ) {
 // !************************************************************
 // !     generate the spherical harmonics for the vector v
 // !     using a stable upward recursion in l.  (see notes
@@ -28,12 +31,12 @@ namespace solid_harmonics {
 // !     cleaned up    mw 1995
 // !************************************************************
 
-// !---> check whether  or not normalizations are needed
+// check whether  or not normalizations are needed
       static real_t *xnorm = nullptr;
-      static int ellmaxd{-1}; // -1:not_initalized
+      static int ellmaxd = -1; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
-// !-->     first deallocate the array if it exists
+          // first deallocate the array if it exists
           if (nullptr != xnorm) {
               delete[] xnorm;
 #ifdef DEBUG
@@ -46,11 +49,12 @@ namespace solid_harmonics {
 // !     normalization constants for ylm (internal subroutine has access
 // !     to ellmax and xnorm from above)
 // !********************************************************************
-          {   double const fpi = 4.0*pi;
+          { // scope to fill xnorm with values
+              double const fpi = 4.0*pi;
               for (int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
-                  double cd = 1;
+                  double cd{1};
                   xnorm[lm0] = a;
                   double sgn = -1;
                   for (int m = 1; m <= l; ++m) {
@@ -61,7 +65,7 @@ namespace solid_harmonics {
                       sgn = -sgn; // prepare (-1)^m for the next iteration
                   } // m
               } // l
-          } // scope to full xnorm with values
+          } // scope
           ellmaxd = ellmax; // set static variable
       } else if (ellmax < 0 && nullptr != xnorm) {
           delete[] xnorm; // cleanup
@@ -71,14 +75,14 @@ namespace solid_harmonics {
       int const S = (1 + ellmax); // stride for p, the array of associated Legendre functions
       auto const p = new real_t[S*S]; // associated Legendre functions
 
-// !---> generate associated Legendre functions for m >= 0
+      // generate associated Legendre functions for m >= 0
       real_t fac{1};
-// !---> loop over m values
+      // loop over m values
       for (int m = 0; m < ellmax; ++m) {
           fac *= (1 - 2*m);
           p[m     + S*m] = fac;
           p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
-// !--->    recurse upward in l
+          // recurse upward in l
           for (int l = m + 2; l <= ellmax; ++l) {
               p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*r2*p[l - 2 + S*m])/((real_t)(l - m));
           } // l
@@ -88,10 +92,11 @@ namespace solid_harmonics {
 
       auto const cs = new real_t[S];
       auto const sn = new real_t[S];
-// !--->    determine cos(m*phi) and sin(m*phi)
-      cs[0] = 1; sn[0] = 0;
+      // determine cos(m*phi) and sin(m*phi)
+      cs[0] = 1;
+      sn[0] = 0;
       if (cos_trick) {
-        if (ellmax > 0) {
+          if (ellmax > 0) {
               cs[1] = cph; sn[1] = sph;
               auto const cph2 = 2*cph;
               for (int m = 2; m <= ellmax; ++m) {
@@ -108,7 +113,7 @@ namespace solid_harmonics {
           } // m
       } // cos_trick
 
-// !--->    multiply in the normalization factors
+      // multiply in the normalization factors
       for (int m = 0; m <= ellmax; ++m) {
           for (int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;
@@ -136,8 +141,8 @@ namespace solid_harmonics {
       auto const r = std::sqrt(xy2 + z*z);
       auto const rxy = std::sqrt(xy2);
 
-// !--->    calculate sin and cos of theta and phi
-      real_t cth, sth, cph, sph;
+      // calculate sin and cos of theta and phi
+      real_t cth, sth;
       if (r > small) {
          cth = z/r;
          sth = rxy/r;
@@ -145,6 +150,7 @@ namespace solid_harmonics {
          cth = 1;
          sth = 0;
       }
+      real_t cph, sph;
       if (rxy > small) {
          cph = x/rxy;
          sph = y/rxy;
@@ -174,21 +180,22 @@ namespace solid_harmonics {
 #else // NO_UNIT_TESTS
 
   inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
+      status_t stat(0);
       for (int lm = -3; lm < 64; ++lm) {
           int const ell = find_ell(lm),
                     emm = find_emm(lm, ell);
           if (echo > 4) std::printf("# %s    lm=%d -> ell=%d emm=%d\n", __FILE__, lm, ell, emm);
-          assert(lm_index(ell, emm) == lm);
+          stat += (lm_index(ell, emm) != lm);
       } // lm
-      return 0;
+      return stat;
   } // test_indices
 
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
-      status_t status(0);
+      status_t stat(0);
       assert( Y00 * Y00inv == 1.0 ); // should be exact
-      status += test_indices(echo);
-      return status;
+      stat += test_indices(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS

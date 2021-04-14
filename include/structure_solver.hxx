@@ -461,8 +461,8 @@ namespace structure_solver {
                     if ('s' == key) nerrors += s->store(filename, echo);
                 } // psi_on_grid
                 if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, filename); 
-            } else warn("filename is empty", 0);
-        } else warn("filename is null", 0);
+            } else warn("filename for storing wave functions is empty", 0);
+        } else warn("filename for storing wave functions is null", 0);
         return nerrors;
     } // store
 

@@ -241,8 +241,8 @@ namespace sho_projection {
 
   template <typename real_t> inline
   status_t renormalize_radial_coeff(
-        real_t out[] // out[pow2(1 + ellmax)]
-      , real_t const in[] // in[pow2(1 + ellmax)], assert all nrn > 0 contributions vanish
+        real_t out[] // out[(1 + ellmax)^2]
+      , real_t const in[] // in[(1 + ellmax)^2], assert all nrn > 0 contributions vanish
       , int const ellmax
       , double const sigma
   ) {
@@ -258,7 +258,7 @@ namespace sho_projection {
 
   inline
   status_t renormalize_electrostatics(
-        double vlm[] // result vlm[pow2(1 + ellmax)]
+        double vlm[] // result vlm[(1 + ellmax)^2]
       , double const vzyx[] // input zyx_ordered, unnormalized, [nSHO(ellmax)]
       , int const ellmax
       , double const sigma
