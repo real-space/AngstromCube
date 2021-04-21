@@ -36,7 +36,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "bessel_transform.hxx" // ::transform_to_r2grid
 #include "scattering_test.hxx" // ::eigenstate_analysis, ::logarithmic_derivative, ::emm_average
-#include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
+#include "linear_algebra.hxx" // ::eigenvalues
 #include "data_view.hxx" // view4D<T>, view3D<T>, view2D<T>, transpose, gemm
 #include "lossful_compression.hxx" // print_compressed
 #include "control.hxx" // ::get
@@ -519,7 +519,7 @@ namespace single_atom {
         sigma_compensator = r_cut/std::sqrt(20.);
 
         if (echo > 0) {
-            std::printf("# %s numbers of projectors ", label);
+            std::printf("# %s number of projectors per ell ", label);
             printf_vector(" %d", nn, 1 + numax);
         } // echo
         assert( numax <= ELLMAX );
@@ -529,7 +529,7 @@ namespace single_atom {
         // now Z_core may not change any more
         rg[TRU] = *radial_grid::create_default_radial_grid(Z_core);
         // create a radial grid descriptor which has less points at the origin
-        rg[SMT] = *radial_grid::create_pseudo_radial_grid(rg[TRU], control::get("smooth.radial.grid.from", 1e-3));
+        rg[SMT] = *radial_grid::create_pseudo_radial_grid(rg[TRU], control::get("single_atom.smooth.radial.grid.from", 1e-3));
         // Warning: *rg[TRU] and *rg[SMT] need an explicit destructor call
 
         int const nr[] = {int(align<2>(rg[TRU].n)), int(align<2>(rg[SMT].n))}; // optional memory access alignment
@@ -1287,7 +1287,7 @@ namespace single_atom {
                 } else if ('D' == c) {
 #ifndef DEVEL                  
                     error("%s partial_wave_char may only be 'D' with -D DEVEL", label);
-#else
+#else  // DEVEL
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
@@ -1458,7 +1458,7 @@ namespace single_atom {
         char const orthogonalize_first = '1';       // ToDo
 #endif // DEVEL
 
-        if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\' echo=%d\n", label, __func__, Z_core, method, echo);
+        if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\'\n", label, __func__, Z_core, method);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 
         if (method != classical_scheme) {
@@ -1474,8 +1474,11 @@ namespace single_atom {
                 for (int ell = 0; ell <= numax; ++ell) {
                     for (int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {       int const iln = sho_tools::ln_index(numax, ell, irn);
                         for (int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {   int const jln = sho_tools::ln_index(numax, ell, jrn);
-                            std::printf("# %s radial SHO basis <%c%d|%c%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell],irn, ellchar[ell],jrn,
-                                (irn == jrn), dot_product(rg[SMT].n, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT].dr) - (irn == jrn), sigma*Ang,_Ang);
+                            auto const ovl_ij = dot_product(rg[SMT].n, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT].dr);
+                            auto const dev = ovl_ij - (irn == jrn);
+                            std::printf("# %s radial SHO basis <%c%d|%c%d> = %i %c %.1e sigma=%g %s\n",
+                                          label, ellchar[ell],irn, ellchar[ell],jrn,
+                                          (irn == jrn), (dev < 0)?'-':'+', std::abs(dev), sigma*Ang,_Ang);
                         } // jrn
                     } // irn
                 } // ell
@@ -1521,7 +1524,7 @@ namespace single_atom {
                         auto const c = projector_coeff[ell](nrn,mrn);
                         if (0.0 != c) {
                             add_product(projectors_ell[nrn], rg[SMT].n, radial_sho_basis[ln_off + mrn], c);
-                            if (echo > 5) std::printf("# %s construct  %s projector by taking %9.6f of the %c%i radial SHO basis function\n",
+                            if (echo > 5) std::printf("# %s construct %s projector by taking %9.6f of the %c%i radial SHO basis function\n",
                                                     label, partial_wave[iln].tag, c, ellchar[ell],mrn);
                         } // coefficient non-zero
                     } // mrn
@@ -1538,7 +1541,7 @@ namespace single_atom {
                 set(vs.wave[TRU], nr, 0.0); // clear
 #ifndef DEVEL
                 double normalize{1};
-#else
+#else  // DEVEL
                 double normalize{1};
                 bool orthogonalize{false};
                 bool const use_energy_derivative = ('d' == partial_wave_char[iln]);
@@ -1650,7 +1653,7 @@ namespace single_atom {
                     } // mrn
                     
                 } // recreate_second
-#endif
+#endif // 0
 
                 if (method == classical_scheme || method == classical_partial_waves) {
                     bool const modify_projectors = (method == classical_scheme);
@@ -3402,7 +3405,7 @@ namespace single_atom {
         if ('z' == what) { qnt_name = "zero_potential";  qnt_vector = zero_potential.data(); } else
         if ('c' == what) { qnt_name = "core_density";    qnt_vector = spherical_density[SMT][core]; } else
         if ('v' == what) { qnt_name = "valence_density"; qnt_vector = spherical_density[SMT][valence]; } else
-        {
+        {   // create a csv-mixture of spherical_density[SMT] using take_spherical_density weights
             mixed_spherical = std::vector<double>(rg[SMT].n, 0.0);
             for (int csv = 0; csv < 3; ++csv) {
                 add_product(mixed_spherical.data(), rg[SMT].n, spherical_density[SMT][csv], take_spherical_density[csv]);
@@ -3457,9 +3460,9 @@ namespace single_atom {
     radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return &rg[SMT]; }
 
     double get_number_of_electrons(char const csv='v') const {
-        if ('v' == (csv | 32)) return csv_charge[valence];
-        if ('s' == (csv | 32)) return csv_charge[semicore];
         if ('c' == (csv | 32)) return csv_charge[core];
+        if ('s' == (csv | 32)) return csv_charge[semicore];
+        if ('v' == (csv | 32)) return csv_charge[valence];
         // otherwise total number of electrons
         return csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
     } // get_number_of_electrons
@@ -3548,11 +3551,11 @@ namespace single_atom {
   } // test_string_switch
 
   status_t atom_update(
-        char const *const what // selector string
-      , int const natoms  // number of atoms
-      , double  *const dp // quantites (input/output) double  dp[natoms]
-      , int32_t *const ip // quantites (input/output) integer ip[natoms]
-      , float   *const fp // quantites (input)        float   fp[natoms or less]
+        char const *const what    // selector string
+      , int const natoms          // number of atoms
+      , double  *const dp         // quantites (input/output) double  dp[natoms]
+      , int32_t *const ip         // quantites (input/output) integer ip[natoms]
+      , float   *const fp         // quantites (input)        float   fp[natoms or less]
       , double  *const *const dpp // quantites (input/output) double* dpp[natoms]
   ) {
       // single interface: the LiveAtom class is not exposed outside this compilation unit
@@ -3576,12 +3579,12 @@ namespace single_atom {
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
 
       int na{natoms};
-      
+
       status_t stat(0);
-      stat = test_string_switch(what); // muted
+      stat += test_string_switch(what); // muted
 
       switch (how) {
-        
+
           case 'i': // interface usage: atom_update("initialize", natoms, Za[], numax[], ion[]=0, dpp=null);
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
@@ -3590,7 +3593,7 @@ namespace single_atom {
               bool const atomic_valence_density = (nullptr != dpp); // global control for all atoms
               auto const echo_init = int(control::get("single_atom.init.echo", double(echo))); // log-level for the LiveAtom constructor
               auto const bmask = int64_t(control::get("single_atom.echo.mask", -1.)); // log-level mask, -1:all
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
                   a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_mask[ia]*echo_init);
@@ -3601,7 +3604,7 @@ namespace single_atom {
 
           case 'm': // interface usage: atom_update("memory cleanup", natoms);
           {
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
               a.clear();
@@ -3609,13 +3612,14 @@ namespace single_atom {
               assert(!dp); assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }
           break;
-          
-          case '#': // interface usage: atom_update("#valence electrons", natoms, ne[]);
+
+          case '#': // interface usage: atom_update("#core electrons", natoms, ne[]);
                     // interface usage: atom_update("#semicore electrons", natoms, ne[]);
-                    // interface usage: atom_update("#core electrons", natoms, ne[]);
+                    // interface usage: atom_update("#valence electrons", natoms, ne[]);
+                    // interface usage: atom_update("#all electrons", natoms, ne[]);
           {
               double *ne = dp; assert(nullptr != ne);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   ne[ia] = a[ia]->get_number_of_electrons(what[1]);
               } // ia
               assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
@@ -3623,12 +3627,11 @@ namespace single_atom {
           break;
 
           case 'c': // interface usage: atom_update("core densities",    natoms, null, nr2=2^12, ar2=16.f, qnt=rho_c);
-          case 'x': // interface usage: atom_update("x densities",       natoms, null, nr2=2^12, ar2=16.f, qnt=rho_x); // obsolete
           case 'v': // interface usage: atom_update("valence densities", natoms, null, nr2=2^12, ar2=16.f, qnt=rho_v);
           case 'z': // interface usage: atom_update("zero potentials",   natoms, null, nr2=2^12, ar2=16.f, qnt=v_bar);
           {
               double *const *const qnt = dpp; assert(nullptr != qnt);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != qnt[ia]);
                   int   const nr2 = ip ? ip[ia] : nr2_default;
                   float const ar2 = fp ? fp[ia] : ar2_default;
@@ -3643,7 +3646,7 @@ namespace single_atom {
 #ifdef  DEVEL
               assert(nullptr != dpp);
               double const **const dnc = const_cast<double const**>(dpp);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   dnc[ia] = reinterpret_cast<double const*>(a[ia]->get_smooth_radial_grid()); // pointers to smooth radial grids
               } // ia
 #else  // DEVEL
@@ -3657,7 +3660,7 @@ namespace single_atom {
           case 's': // interface usage: atom_update("sigma compensator", natoms, sigma);
           {
               double *const sigma = dp; assert(nullptr != sigma);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   sigma[ia] = a[ia]->sigma_compensator; // spreads of the compensators // ToDo: use a getter function
               } // ia
               assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
@@ -3668,7 +3671,7 @@ namespace single_atom {
           {
               double  *const sigma = dp; assert(nullptr != sigma);
               int32_t *const numax = ip; assert(nullptr != numax);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   sigma[ia] = a[ia]->get_sigma(); // spreads of the projectors
                   numax[ia] = a[ia]->get_numax(); //  number of SHO-projectors
               } // ia
@@ -3680,7 +3683,7 @@ namespace single_atom {
           {
               double const *const *const vlm = dpp; assert(nullptr != vlm);
               float const mix_pot = fp ? fp[0] : mix_defaults[0];
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   a[ia]->update_potential(mix_pot, vlm[ia], echo_mask[ia]*echo); // set electrostatic multipole shifts
               } // ia
               assert(!dp); assert(!ip); // all other arguments must be nullptr (by default)
@@ -3691,7 +3694,7 @@ namespace single_atom {
           {
               double const *const *const atom_rho = dpp; assert(nullptr != atom_rho);
               float const *const mix_rho = fp ? fp : &mix_defaults[1];
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_rho[ia]);
                   int const numax = a[ia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
@@ -3707,7 +3710,7 @@ namespace single_atom {
           case 'q': // interface usage: atom_update("q_lm charges", natoms, null, null, null, qlm);
           {
               double *const *const qlm = dpp; assert(nullptr != qlm);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   int const nlm = pow2(1 + a[ia]->ellmax_cmp);
                   set(qlm[ia], nlm, a[ia]->qlm_compensator.data()); // copy compensator multipoles
               } // ia
@@ -3720,7 +3723,7 @@ namespace single_atom {
           {
               int32_t *const lmax = ip; assert(nullptr != lmax);
               float const mix_spherical = fp ? std::min(std::max(0.f, fp[0]), 1.f) : 0;
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   lmax[ia] = dp ? a[ia]->ellmax_pot : a[ia]->ellmax_cmp;
                   // fine-control take_spherical_density[valence] any float in [0, 1], NOT atom-resolved! consumes only fp[0]
                   if (fp) a[ia]->take_spherical_density[valence] = mix_spherical;
@@ -3732,7 +3735,7 @@ namespace single_atom {
           case 'n': // interface usage: atom_update("numax", natoms, null, numax);
           {
               int32_t *const numax = ip; assert(nullptr != numax);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   numax[ia] = a[ia]->get_numax();
               } // ia
               assert(!dp); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
@@ -3742,7 +3745,7 @@ namespace single_atom {
           case 'h': // interface usage: atom_update("hamiltonian and overlap", natoms, null, nelements, null, atom_mat);
           {
               double *const *const atom_mat = dpp; assert(nullptr != atom_mat);
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   assert(nullptr != atom_mat[ia]);
                   int const numax = a[ia]->get_numax();
                   int const ncoeff = sho_tools::nSHO(numax);
@@ -3761,7 +3764,7 @@ namespace single_atom {
           case 'e': // interface usage: atom_update("energies", natoms, delta_Etot, null, null, dpp=atom_ene=null);
           {
               double *const *const atom_ene = dpp;
-              for (int ia = 0; ia < a.size(); ++ia) {
+              for (size_t ia = 0; ia < a.size(); ++ia) {
                   dp[ia] = a[ia]->get_total_energy(atom_ene ? atom_ene[ia] : nullptr);
               } // ia
               assert(!ip); assert(!fp); // all other arguments must be nullptr (by default)
@@ -3770,7 +3773,7 @@ namespace single_atom {
           
           default:
           {
-              if (echo > 0) std::printf("# %s first argument \'%s\' undefined, no action!\n", __func__, what);
+              if (echo > 0) std::printf("# %s: first argument \'%s\' undefined, no action!\n", __func__, what);
               stat = how;
           }
           break;
@@ -3781,7 +3784,7 @@ namespace single_atom {
       if (stat) warn("what='%s' returns status = %i", what, int(stat));
       return stat;
   } // atom_update
-  
+
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }

@@ -47,8 +47,8 @@ namespace radial_grid {
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
       bool static warn_reciprocal{true};
       if (warn_reciprocal) {
-          std::printf("# -D USE_RECIPROCAL_RADIAL_GRID\n");
-          warn_reciprocal = false;
+          std::printf("# radial_grid -D USE_RECIPROCAL_RADIAL_GRID\n");
+          warn_reciprocal = false; // switch off
       } // warn_reciprocal
       for (auto i = 0; i < n; ++i) {
           double const rec = 1./(n*(n - i));
