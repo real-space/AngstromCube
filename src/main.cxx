@@ -99,7 +99,7 @@
       return STATUS_TEST_NOT_INCLUDED;
 #else // NO_UNIT_TESTS
       
-      // SimpleTimer unit_test_timer(__FILE__, __LINE__, module, echo); // timer over all tests
+      SimpleTimer unit_test_timer(__func__, 0, module, 0); // timer over all tests
 
       std::string const input_name(module ? module : "");
       bool const show = ('?' == input_name[0]);
@@ -225,6 +225,7 @@
           status = STATUS_TEST_NOT_INCLUDED;
       } else {
           if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, show?"can be":"have been");
+          int const show_timings = control::get("show.timings", 0.);
           int nonzero_status{0};
           for (auto result : results) {
               auto const name = std::get<0>(result);
@@ -235,7 +236,7 @@
                       std::printf("#    module= %s\n", name);
                   } else {
                       std::printf("#    module= %-24s status= %i", name, int(stat));
-                      std::printf(" \ttook %12.3f seconds", time);
+                      if (show_timings) std::printf(" \ttook %9.3f seconds", time);
                       std::printf("\n");
                   }
               } // echo
@@ -247,7 +248,9 @@
               warn("Display only, none of %d modules has been tested", nmodules);
           } else { // show
               if (nmodules > 1 && echo > 0) {
-                  std::printf("\n#%3d modules have been tested,  total status= %d\n\n", nmodules, int(status));
+                  std::printf("\n#%3d modules have been tested,  total status= %d", nmodules, int(status));
+                  if (show_timings) std::printf(" \t %13.3f seconds", unit_test_timer.stop());
+                  std::printf("\n\n");
               } // show total status if many modules have been tested
               if (status > 0) warn("Tests for %d module%s failed!", nonzero_status, (nonzero_status - 1)?"s":"");
           } // show
