@@ -19,37 +19,65 @@ namespace control {
   int constexpr MaxNameLength = 64; // max variable name length
 
   // hidden function: _manage_variables
-  char const* _manage_variables(char const *name, char const *value=nullptr, int const echo=0) {
+  char const* _manage_variables(char const *name, char op='?', char const *value=nullptr, int const echo=0) {
 
       static std::map<std::string, std::string> _map; // hidden archive
 
       assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
 
-      auto const varname = std::string(name);
-      if (nullptr == value) {
-          // query
+      std::string const varname(name);
+      if ('?' == op) { // get
+          // query only
           auto const & oldvalue = _map[varname];
           if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue.c_str());
+          assert((nullptr == value) && "value pointer must be null");
           return oldvalue.c_str();
-      } else {
-          // set
+      } else
+      if ('=' == op) { // set
+          assert((nullptr != value) && "value pointer may not be null");
           auto const newvalue = std::string(value);
-          if (echo > 7) {
+          bool constexpr warn_redefines = true;
+          if (warn_redefines) {
               auto const & oldvalue = _map[varname];
               auto const old = oldvalue.c_str();
-              std::printf("# control sets \"%s\" ", name);
-              if (old) { if (0 != *old) std::printf("from \"%s\" ", old); }
-              std::printf("to \"%s\"\n", value);
-          } // echo
+              bool const redefined = (old && ('\0' != *old));
+              if (echo > 7) {
+                  std::printf("# control sets \"%s\"", name);
+                  if (redefined) std::printf(" from \"%s\"", old);
+                  std::printf(" to \"%s\"\n", value);
+              } // echo
+              if (redefined) {
+                  warn("variable \"%s\" was redefined from \"%s\" to \"%s\"", name, old, value);
+              } // redefined
+          } // warn_redefines
           _map[varname] = newvalue;
           return value;
+      } else
+      if ('!' == op) { // list all defined variables
+          if (echo > 0) {
+              std::printf("# control has the following variables defined:\n");
+              for (auto const & pair : _map) {
+                  double const numeric = std::atof(pair.second.c_str());
+                  char buffer[32]; std::snprintf(buffer, 31, "%.16e", numeric);
+                  if (pair.second == buffer) {
+                      std::printf("# %s=%g\n", pair.first.c_str(), numeric);
+                  } else {
+                      std::printf("# %s=%s\n", pair.first.c_str(), pair.second.c_str());
+                  }
+              } // pair
+              std::printf("#\n\n");
+          } // echo
+      } else {
+          error("allowed operations are '?','=','!' but no other, found op='%c'", op);
       }
+      return nullptr;
 
   } // _manage_variables
 
   char const* set(char const *name, char const *value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
-      return _manage_variables(name, value, echo);
+      assert(nullptr != value);
+      return _manage_variables(name, '=', value, echo);
   } // set<string>
 
   status_t command_line_interface(char const *statement, int const echo) {
@@ -69,10 +97,10 @@ namespace control {
           return 1; // error, no '=' sign given
       }
   } // command_line_interface
-  
+
   char const* get(char const *name, char const *default_value) {
       int const echo = default_echo_level;
-      auto const value = _manage_variables(name, nullptr, echo);
+      auto const value = _manage_variables(name, '?', nullptr, echo);
       if (nullptr != value) {
           if ('\0' != *value) {
               if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
@@ -80,18 +108,18 @@ namespace control {
           }
       }
       if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
+      bool constexpr set_on_get = true;
+      if (set_on_get) _manage_variables(name, '=', default_value, echo);
       return default_value;
   } // get<string>
 
   char const* set(char const *name, double const value, int const echo) {
-      char buffer[32]; 
-      std::snprintf(buffer, 31, "%.16e", value);
+      char buffer[32]; std::snprintf(buffer, 31, "%.16e", value);
       return set(name, buffer, echo);
   } // set<double>
 
   double get(char const *name, double const default_value) {
-      char buffer[32];
-      std::snprintf(buffer, 31, "%.16e", default_value);
+      char buffer[32]; std::snprintf(buffer, 31, "%.16e", default_value);
       return std::atof(get(name, buffer));
   } // get<double>
 
@@ -163,6 +191,12 @@ namespace control {
       return stat;
   } // read_control_file
 
+  status_t show_variables(int const echo) {
+      _manage_variables("", '!', nullptr, echo);
+      return 0;
+  } // show_variables
+
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -177,7 +211,7 @@ namespace control {
       // if (echo > 1) std::printf("# b = %s (%p)\n", b_defined, b_defined);
 
       set("a", "5");
-      command_line_interface("a=6");
+      stat += command_line_interface("a=6"); // launches warning about redefining
       auto const a = get("a", "defaultA");
       if (echo > 1) std::printf("# a = %s\n", a);
 
@@ -200,7 +234,7 @@ namespace control {
       status_t stat(0);
       double d{.2};
       for (int i = 0; i < nmax; ++i) {
-          set("d", d, echo);
+          set("d", d, echo); // warning about redefining "d" in the second iteration
           double const g = get("d", 1.);
           stat += (g != d);
           d *= std::sqrt(33/32.); // some irrational number close to 1
@@ -212,7 +246,7 @@ namespace control {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_control(echo);
-      stat += test_precision(echo);
+//       stat += test_precision(echo);
       return stat;
   } // all_tests
 

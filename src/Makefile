@@ -94,9 +94,9 @@ FEAFLAGS += -D DEVEL
 
 # normal mode
 # OPTFLAGS = -Ofast 
+# OPTFLAGS = -O2
 OPTFLAGS = -O0
 ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
-# OPTFLAGS = -O2
 OPTFLAGS += -g -pedantic -Wall
 # -Wno-format-security
 # -Wno-format

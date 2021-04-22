@@ -585,16 +585,16 @@ namespace single_atom {
 
         set(csv_charge, 3, 0.0); // clear numbers of electrons for {core, semicore, valence}
 
-        double const core_valence_separation  = control::get("core.valence.separation", -2.0); // in Hartree always
-        double       core_semicore_separation = control::get("core.semicore.separation",    core_valence_separation);
-        double const semi_valence_separation  = control::get("semicore.valence.separation", core_valence_separation);
+        double const core_valence_separation  = control::get("single_atom.core.valence.separation", -2.0); // in Hartree always
+        double       core_semicore_separation = control::get("single_atom.core.semicore.separation",    core_valence_separation);
+        double const semi_valence_separation  = control::get("single_atom.semicore.valence.separation", core_valence_separation);
         if (core_semicore_separation > semi_valence_separation) {
             warn("%s core.semicore.separation=%g may not be higher than semicore.valence.separation=%g %s, correct for it", 
                  label, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
             core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
         } // warning
 
-        double const core_state_localization = control::get("core.state.localization", -1.); // in units of electrons, -1:inactive
+        double const core_state_localization = control::get("single_atom.core.state.localization", -1.); // in units of electrons, -1:inactive
 
         nr_diff = rg[TRU].n - rg[SMT].n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
         ir_cut[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
@@ -973,7 +973,7 @@ namespace single_atom {
         float const density_mixing[3] = {.25, .25, .25}; // [csv]
 
         update_density(density_mixing, echo); // run the density update at least once to generate partial waves
-        
+
         if (echo > 1) std::printf("# %s run %d initial scf-iterations\n", label, maxit_scf);
         for (int scf = 0; scf < maxit_scf; ++scf) {
             if (echo > 1) std::printf("\n\n# %s SCF-iteration %d\n", label, scf);

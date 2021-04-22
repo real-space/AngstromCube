@@ -14,7 +14,9 @@ namespace control {
   char const* get(char const *name, char const * default_value);
   double      get(char const *name, double const default_value);
 
-  status_t read_control_file(char const *filename, int const echo=9);
+  status_t read_control_file(char const *filename, int const echo=0);
+
+  status_t show_variables(int const echo=1);
 
   status_t all_tests(int const echo=0); // declaration only
 

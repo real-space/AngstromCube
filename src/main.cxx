@@ -127,6 +127,7 @@
           } // add_module_test
 
           if (chapters) std::printf("\n\n\n\n#\n# general modules\n#\n\n\n\n");
+          add_module_test(control);
           add_module_test(recorded_warnings);
           add_module_test(simple_stats);
           add_module_test(simple_timer);
@@ -147,7 +148,6 @@
           add_module_test(angular_grid);
 
           if (chapters) std::printf("\n\n\n\n#\n# input modules\n#\n\n\n\n");
-          add_module_test(control);
           add_module_test(chemical_symbol);
           add_module_test(boundary_condition);
           add_module_test(geometry_analysis);
@@ -369,7 +369,17 @@
                   control::get("output.energy.unit", "Ha"),
                   control::get("output.length.unit", "Bohr"),
                   echo);
+      // run
       if (run_tests) stat += run_unit_tests(test_unit, echo);
+
+      // finalize
+      { // scope: show all variable names defined in the control environment
+          int const control_show = control::get("control.show", 0.);
+          if (control_show > 0) {
+              if (echo > 0) std::printf("\n# control.show=%d\n", control_show);
+              stat += control::show_variables(echo);
+          } // control_show
+      } // scope
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
       return int(stat);
