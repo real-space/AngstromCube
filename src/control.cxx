@@ -14,51 +14,65 @@
 
 namespace control {
 
-  inline char* find_equal_sign(char const * string) { return (char*)std::strchr(string, '='); }
-
   int constexpr MaxNameLength = 64; // max variable name length
 
-  // hidden function: _manage_variables
-  char const* _manage_variables(char const *name, char op='?', char const *value=nullptr, int const echo=0) {
+  inline void double2string(char buffer[32], double const number) {
+      std::snprintf(buffer, 31, "%.16e", number);
+  } // double2string
+
+  inline double string2double(char const *string) {
+      return std::atof(string);
+  } // string2double
+
+  // hidden function: _manage_variables(name, value, echo) --> set
+  //                  _manage_variables(name,  null, echo) --> get
+  //                  _manage_variables(null,  null, echo) --> show_variables
+  char const* _manage_variables(char const *name, char const *value, int const echo) {
 
       static std::map<std::string, std::string> _map; // hidden archive
 
-      assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
+      if (name) {
+          assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
 
-      std::string const varname(name);
-      if ('?' == op) { // get
-          // query only
-          auto const & oldvalue = _map[varname];
-          if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue.c_str());
-          assert((nullptr == value) && "value pointer must be null");
-          return oldvalue.c_str();
-      } else
-      if ('=' == op) { // set
-          assert((nullptr != value) && "value pointer may not be null");
-          auto const newvalue = std::string(value);
-          bool constexpr warn_redefines = true;
-          if (warn_redefines) {
+          std::string const varname(name);
+          if (value) {
+
+              // set
+              auto const newvalue = std::string(value);
+              bool constexpr warn_redefines = true;
+              if (warn_redefines) {
+                  auto const & oldvalue = _map[varname];
+                  auto const old = oldvalue.c_str();
+                  bool const redefined = (old && ('\0' != *old));
+                  if (echo > 7) {
+                      std::printf("# control sets \"%s\"", name);
+                      if (redefined) std::printf(" from \"%s\"", old);
+                      std::printf(" to \"%s\"\n", value);
+                  } // echo
+                  if (redefined) {
+                      warn("variable \"%s\" was redefined from \"%s\" to \"%s\"", name, old, value);
+                  } // redefined
+              } // warn_redefines
+              _map[varname] = newvalue;
+              return value;
+
+          } else { // value
+
+              // get
               auto const & oldvalue = _map[varname];
-              auto const old = oldvalue.c_str();
-              bool const redefined = (old && ('\0' != *old));
-              if (echo > 7) {
-                  std::printf("# control sets \"%s\"", name);
-                  if (redefined) std::printf(" from \"%s\"", old);
-                  std::printf(" to \"%s\"\n", value);
-              } // echo
-              if (redefined) {
-                  warn("variable \"%s\" was redefined from \"%s\" to \"%s\"", name, old, value);
-              } // redefined
-          } // warn_redefines
-          _map[varname] = newvalue;
-          return value;
-      } else
-      if ('!' == op) { // list all defined variables
+              if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue.c_str());
+              return oldvalue.c_str();
+              
+          } // value
+          
+      } else { // name
+
+          // show_variables
           if (echo > 0) {
               std::printf("# control has the following variables defined:\n");
               for (auto const & pair : _map) {
-                  double const numeric = std::atof(pair.second.c_str());
-                  char buffer[32]; std::snprintf(buffer, 31, "%.16e", numeric);
+                  double const numeric = string2double(pair.second.c_str());
+                  char buffer[32]; double2string(buffer, numeric);
                   if (pair.second == buffer) {
                       std::printf("# %s=%g\n", pair.first.c_str(), numeric);
                   } else {
@@ -67,22 +81,46 @@ namespace control {
               } // pair
               std::printf("#\n\n");
           } // echo
-      } else {
-          error("allowed operations are '?','=','!' but no other, found op='%c'", op);
-      }
-      return nullptr;
+          return nullptr;
+
+      } // name
 
   } // _manage_variables
 
   char const* set(char const *name, char const *value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
       assert(nullptr != value);
-      return _manage_variables(name, '=', value, echo);
+      return _manage_variables(name, value, echo);
   } // set<string>
+
+  char const* get(char const *name, char const *default_value) {
+      int const echo = default_echo_level;
+      auto const value = _manage_variables(name, nullptr, echo); // query
+      if (nullptr != value) {
+          if ('\0' != *value) {
+              if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
+              return value;
+          }
+      }
+      if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
+      return _manage_variables(name, default_value, echo); // set to default
+  } // get<string>
+
+  status_t show_variables(int const echo) {
+      _manage_variables(nullptr, nullptr, echo);
+      return 0;
+  } // show_variables
+
+  inline char* find_equal_sign(char const *string) { 
+      return (char*)std::strchr(string, '=');
+  } // find_equal_sign
 
   status_t command_line_interface(char const *statement, int const echo) {
       auto const equal = find_equal_sign(statement);
-      if (nullptr != equal) {
+      if (nullptr == equal) {
+          warn("# ignored statement \"%s\", maybe missing \'=\'", statement);
+          return 1; // error, no '=' sign given
+      } else {
           auto const equal_char = equal - statement;
           assert('=' == statement[equal_char]);
           char name[MaxNameLength]; // get a mutable string
@@ -92,35 +130,17 @@ namespace control {
           if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
           set(name, value, echo); // value comes after '='
           return 0;
-      } else {
-          warn("# ignored statement \"%s\", maybe missing \'=\'", statement);
-          return 1; // error, no '=' sign given
       }
   } // command_line_interface
-
-  char const* get(char const *name, char const *default_value) {
-      int const echo = default_echo_level;
-      auto const value = _manage_variables(name, '?', nullptr, echo);
-      if (nullptr != value) {
-          if ('\0' != *value) {
-              if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
-              return value;
-          }
-      }
-      if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-      bool constexpr set_on_get = true;
-      if (set_on_get) _manage_variables(name, '=', default_value, echo);
-      return default_value;
-  } // get<string>
-
+  
   char const* set(char const *name, double const value, int const echo) {
-      char buffer[32]; std::snprintf(buffer, 31, "%.16e", value);
+      char buffer[32]; double2string(buffer, value);
       return set(name, buffer, echo);
   } // set<double>
 
   double get(char const *name, double const default_value) {
-      char buffer[32]; std::snprintf(buffer, 31, "%.16e", default_value);
-      return std::atof(get(name, buffer));
+      char buffer[32]; double2string(buffer, default_value);
+      return string2double(get(name, buffer));
   } // get<double>
 
 
@@ -190,11 +210,6 @@ namespace control {
 
       return stat;
   } // read_control_file
-
-  status_t show_variables(int const echo) {
-      _manage_variables("", '!', nullptr, echo);
-      return 0;
-  } // show_variables
 
   
 #ifdef  NO_UNIT_TESTS
