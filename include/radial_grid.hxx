@@ -9,11 +9,7 @@
 namespace radial_grid {
 
   float constexpr default_anisotropy = 0.01;
-#ifdef  USE_RECIPROCAL_RADIAL_GRID
   float constexpr default_Rmax = 9.45;
-#else
-  float constexpr default_Rmax = 9.45;
-#endif
   
   radial_grid_t* create_exponential_radial_grid( // returns a pointer to a new radial grid descriptor
         int const npoints // number of grid points

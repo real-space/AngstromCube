@@ -154,7 +154,9 @@ In analogy to eq.~(\ref{eqn:simplified_density_generation}), the kinetic energy 
 	\label{eqn:simplified_kinetic_energy_density_generation}
 \end{equation}
 where we introduced Dirac's \emph{bra-ket} notation.
-Currently, only the LSDA Perdew-Zunger'81 \ttt{PZ81} is implemented 
+Currently, only the 
+%Perdew-Zunger'81 \ttt{PZ81}
+Perdew-Wang'91 \ttt{PW91}-LDA is implemented
 but it is planned to interface \ttt{libxc} with access to most existing functional.
 \todo[inline]{Implement LIBXC, reference for LIBXC}
 
@@ -205,19 +207,19 @@ We can also run the unit test of all modules, however, for this we might want to
 the amount of output to \ttt{stdout}.
 We may use the variable environment 
 (mind: this \codename{} internal variable environment is not linked to that of the shell) 
-which couples to the command line interface with a leading \{+}. For example use
+which couples to the command line interface with a leading \ttt{+}. For example use
 \begin{verbatim}
 ./a43 +verbosity=1 -t
 \end{verbatim}
 to change the \ttt{verbosity} to minimal when running all unit tests.
 
-\todo[inline]{Ensure that all modules have some meaningful unit tests or at least say that they don't}
+\todo[inline]{Ensure that all modules have some meaningful unit tests or at least say it that they don't}
 
-The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently.
+The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently during development.
 However, the ground rule says that higher \ttt{verbosity} means more output
 and \ttt{verbosity=0} suppresses all output except for fatal errors.
 We can also use the options \ttt{--verbose} to set \ttt{verbosity=6} (high)
-or fine tune the verbosity level by adding +1 for every \ttt{-v} and +4 for every \ttt{-V}.
+or fine tune the verbosity level by adding +$1$ for every \ttt{-v} and +$4$ for every \ttt{-V}.
 Table \ref{tab:verbosity-level-meaning} gives a rough overview on verbosity levels. 
 
 \begin{table}[ht!]
