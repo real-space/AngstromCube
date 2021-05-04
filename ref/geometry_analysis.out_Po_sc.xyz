@@ -1,0 +1,46 @@
+
+# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/Po_sc.xyz
+
+# run unit tests for module 'geometry_analysis.'
+
+# found 1 atoms in file "geo/Po_sc.xyz" with cell=[6.348 6.348 6.348] Bohr and bc=[1 1 1]
+
+# geometry_analysis.cxx:analysis
+# Count interatomic distances up to 25.0% of the default bond length as bond
+# Bond search within interaction radius 11.395 Bohr
+# Distance histogram bin width is 0.037795 Bohr
+# Found 1 different elements for 1 atoms:   1x Po
+# checked 0.000125 M atom-atom pairs, 0.027 k near and 0.000098 M far
+
+## distance histogram (in Bohr)
+0.019  0
+6.293  0
+6.331  6
+6.368  0
+8.938  0
+8.976  12
+9.014  0
+10.942  0
+10.979  8
+11.017  0
+
+# bond counts       Po total = 6
+# bond count        6  Po
+# check total = 12 vs 12
+
+# shortest distances     Po       in Bohr
+# shortest distance    6.348  Po  in Bohr
+
+# coordination numbers (radius in Bohr)
+# coordination number for Po (2.646)  1x6
+
+# show a bond structure analysis
+# a#0 Po  6.348^6   90*12 180*3
+
+
+#  1 modules have been tested:
+#    module= geometry_analysis.       status= 0
+
+#  1 modules have been tested,  total status= 0
+
+# 0 warnings have been recorded.

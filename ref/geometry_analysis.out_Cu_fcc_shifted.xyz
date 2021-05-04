@@ -1,0 +1,55 @@
+
+# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/Cu_fcc_shifted.xyz
+
+# run unit tests for module 'geometry_analysis.'
+
+# found 4 atoms in file "geo/Cu_fcc_shifted.xyz" with cell=[6.884 6.884 6.884] Bohr and bc=[1 1 1]
+
+# geometry_analysis.cxx:analysis
+# Count interatomic distances up to 25.0% of the default bond length as bond
+# Bond search within interaction radius 11.395 Bohr
+# Distance histogram bin width is 0.037795 Bohr
+# Found 1 different elements for 4 atoms:   4x Cu
+# checked 0.002000 M atom-atom pairs, 0.316 k near and 0.001684 M far
+
+## distance histogram (in Bohr)
+0.019  0
+4.819  0
+4.857  48
+4.894  0
+6.860  0
+6.898  24
+6.935  0
+8.409  0
+8.447  96
+8.485  0
+9.694  0
+9.732  48
+9.770  0
+10.866  0
+10.904  96
+10.942  0
+
+# bond counts       Cu total = 48
+# bond count       48  Cu
+# check total = 96 vs 96
+
+# shortest distances     Cu       in Bohr
+# shortest distance    4.868  Cu  in Bohr
+
+# coordination numbers (radius in Bohr)
+# coordination number for Cu (2.494)  4x12
+
+# show a bond structure analysis
+# a#0 Cu  4.868^12   60*24 90*12 120*24 180*6
+# a#1 Cu  4.868^12   60*24 90*12 120*24 180*6
+# a#2 Cu  4.868^12   60*24 90*12 120*24 180*6
+# a#3 Cu  4.868^12   60*24 90*12 120*24 180*6
+
+
+#  1 modules have been tested:
+#    module= geometry_analysis.       status= 0
+
+#  1 modules have been tested,  total status= 0
+
+# 0 warnings have been recorded.

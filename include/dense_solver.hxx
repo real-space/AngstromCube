@@ -37,13 +37,12 @@ namespace dense_solver {
   
   template <typename complex_t>
   inline status_t solve(
-        view3D<complex_t> & HSm // Hamiltonian and Overlap, both[nB,stride]
+        view3D<complex_t> & HSm // Hamiltonian and Overlap, both[nB][stride]
       , char const *x_axis
       , int const echo=0 // log-level
       , int const nbands=0 // number of bands
       , double *eigenenergies=nullptr // export nbands eigenvalues
   ) {
-   
       using real_t = decltype(std::real(complex_t(1))); // base type
 
       int constexpr H=0, S=1; // static indices for H:Hamiltonian matrix, S:overlap matrix
@@ -188,6 +187,7 @@ namespace dense_solver {
           // diagonalize matrix
           if (H == h0s1) {
               stat_eig = linear_algebra::eigenvalues(eigvals.data(), nB, HSm(H,0), nBa, HSm(S,0), nBa);
+//            warn("generalized eigenvalues failed for the %s matrix pair (%d x %d) failed, status= %i", matrix_name, nB, nBa, int(stat_eig));
           } else if (ovl_eig) {
               view2D<complex_t> S_copy(nB, nBa); // get memory
               set(S_copy.data(), nB*nBa, HSm(S,0)); // copy overlap matrix S into work array S_copy
@@ -197,7 +197,7 @@ namespace dense_solver {
           // show result
           if ((H == h0s1) || ovl_eig) {
               if (stat_eig) {
-                  warn("diagonalizing the %s matrix failed, status= %i", matrix_name, int(stat_eig));
+                  warn("diagonalizing the %s matrix (%d x %d) failed, status= %i", matrix_name, nB, nBa, int(stat_eig));
                   stat += stat_eig;
               } else if (nB > 0) {
                   double const lowest_eigenvalue = eigvals[0], highest_eigenvalue = eigvals[nB - 1];

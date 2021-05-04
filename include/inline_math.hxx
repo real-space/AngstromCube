@@ -143,7 +143,8 @@ namespace inline_math {
       if (echo > 3) std::printf("\n# %s %s \n", __FILE__, __func__);
       status_t stat(0);
       double fac{1};
-      for (int n = 0; n < 171; ++n) {
+      for (int n = 0; n < 171; ++n) { // this can go up 171(-O0, -O1, -O2), 25(-Ofast)
+          if (factorial(n) != fac) std::printf("# factorial(%d) deviates\n", n);
           assert( factorial(n) == fac );
 //        std::printf("# %i! = %g\n", n, fac);
           if (!is_integer(fac)) {
@@ -151,11 +152,12 @@ namespace inline_math {
               if (echo > 0) std::printf("# %i! = %g is non-integer by %g\n",
                                        n, fac, fac - std::round(fac));
           } // is not integer
-          fac *= (n + 1); // prepare next
+          fac *= (n + 1.); // prepare next
       } // n
       double dfac[] = {1, 1}; // {even, odd}
       for (int n = 0; n < 301; ++n) {
           double & fac2 = dfac[n & 0x1];
+          if (factorial<2>(n) != fac2) std::printf("# double factorial(%d) deviates\n", n);
           assert( factorial<2>(n) == fac2 );
 //        std::printf("# %i!! = %g\n", n, fac2);
           if (!is_integer(fac2)) { 

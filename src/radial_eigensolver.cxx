@@ -189,10 +189,18 @@ namespace radial_eigensolver {
       for (auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
           if (echo > 0) std::printf("\n\n# %s %s (Z= %g) %s\n", __FILE__, __func__, Z, SRA_name[sra]);
           for (auto enn = 1; enn <= 9; ++enn) {
+              auto const E_ref = -0.5*pow2(Z/enn); // for sra == 0 we can compute a reference energy for a hydrogen-like potential
+              if (echo > 2 && 0 == sra) std::printf("# %2d -energy %.12f %s reference\n", enn, E_ref*eV, _eV);
               for (auto ell = 0; ell < enn; ++ell) {
-                  double E = -.5*pow2(Z/enn); // guess a start energy for hydrogen like atoms
+                  double E{E_ref}; // guess a start energy for hydrogen like atoms
                   status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data())));
-                  if (echo > 1) std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
+                  if (echo > 1) {
+                      if (sra > 0) {
+                          std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
+                      } else {
+                          std::printf("# %2d%c-energy %.12f  dev %.1e %s\n", enn, ellchar[ell], E*eV, (E - E_ref)*eV, _eV);
+                      }
+                  } // echo
 #ifdef  DEBUG
                   char filename[32]; std::snprintf(filename, 31, "Z%d%c_radial_wave_function.dat", enn, ellchar[ell]);
                   dump_to_file(filename, g.n, rf.data(), g.r);

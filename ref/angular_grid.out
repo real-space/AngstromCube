@@ -1,0 +1,96 @@
+# run unit tests for module 'angular_grid.'
+
+# create_Lebedev_grid A Lebedev-Laikov grid with -1 points for ellmax= -2 is not available!
+# create_Lebedev_grid A Lebedev-Laikov grid with 770 points for ellmax= 23 is not available!
+# create_Lebedev_grid Please activate -D LARGE_GRIDS in angular_grid.cxx
+
+# test_orthogonality: 
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 20
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 20 from 588 to 590
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 20 is 5.77316e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 19
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 19 from 533 to 590
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 19 is 5.77316e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 18
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 18 from 481 to 590
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 18 is 5.77316e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 17
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 17 from 432 to 434
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 17 is 5.77316e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 16
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 16 from 385 to 434
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 16 is 5.77316e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 15
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 15 from 341 to 350
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 15 is 6.21725e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 14
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 14 from 300 to 302
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 14 is 4.21885e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 13
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 13 from 261 to 266
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 13 is 4.02369e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 12
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 12 from 225 to 230
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 12 is 2.44249e-14
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 11
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 11 from 192 to 194
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 11 is 3.21965e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 10
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 10 from 161 to 170
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 10 is 2.22045e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 9
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 9 from 133 to 146
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 9 is 2.22045e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 8
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 8 from 108 to 110
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 8 is 2.66454e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 7
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 7 from 85 to 86
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 7 is 2.19269e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 6
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 6 from 65 to 74
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 6 is 1.49242e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 5
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 5 from 48 to 50
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 5 is 1.11022e-15
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 4
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 4 from 33 to 38
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 4 is 6.66134e-16
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 3
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 3 from 21 to 26
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 3 is 8.88178e-16
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 2
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 2 from 12 to 14
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 2 is 3.33067e-16
+
+# test_orthogonality: try orthogonality on Lebedev-Laikov grid with for ellmax= 1
+# Lebedev_grid_size correct the number of angular grid points of the Lebedev-Laikov grid for ellmax= 1 from 5 to 6
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax= 1 is 2.22045e-16
+
+# test_orthogonality: orthogonality on Lebedev-Laikov grid with for ellmax up to 20 is 2.44249e-14
+
+# test_orthogonality: 0 grid generations failed!
+
+# 1 modules have been tested:
+#   module = 'angular_grid.' 	 status = 0
+# total status = 0
+

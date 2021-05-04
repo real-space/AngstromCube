@@ -233,7 +233,7 @@ namespace sho_hamiltonian {
               //                  and S_{ij} = Ps_{il} P^*_{jl}
               for (int la = 0; la < natoms_PAW; ++la) { // contract
                   int const nb_la = sho_tools::nSHO(numax_PAW[la]);
-                  // matrix-matrix multiplication
+                  // triple-loop matrix-matrix multiplication
                   for (int ib = 0; ib < nb_ia; ++ib) {
                       for (int jb = 0; jb < nb_ja; ++jb) {
                           complex_t s(0), h(0);
@@ -247,8 +247,7 @@ namespace sho_hamiltonian {
                       } // jb
                   } // ib
               } // la
-              
-              
+
           } // ja
       } // ia
 
@@ -284,8 +283,8 @@ namespace sho_hamiltonian {
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
       if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
-      
-      
+
+
       std::vector<int> offset(natoms + 1, 0); // the basis atoms localized on atom#i start at offset[i]
       int total_basis_size{0}, maximum_numax{-1};
       double maximum_sigma{0};
@@ -306,7 +305,7 @@ namespace sho_hamiltonian {
       int const nB   = total_basis_size;
       int const nBa  = align<4>(nB); // memory aligned main matrix stride
 
-      
+
       
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
@@ -349,9 +348,9 @@ namespace sho_hamiltonian {
           for (int ia = 0; ia < natoms; ++ia) {
               for (int ja = 0; ja < natoms; ++ja) {
 
-                  double const alpha_i = 1/pow2(sigmas[ia]);
-                  double const alpha_j = 1/pow2(sigmas[ja]);
-                  double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
+                  double const alpha_i = 1./pow2(sigmas[ia]);
+                  double const alpha_j = 1./pow2(sigmas[ja]);
+                  double const sigma_V = 1./std::sqrt(alpha_i + alpha_j);
                   double const wi = alpha_i*pow2(sigma_V);
                   double const wj = alpha_j*pow2(sigma_V);
                   assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
@@ -384,7 +383,7 @@ namespace sho_hamiltonian {
                   } // ip
               } // ja
           } // ia
-          ncenters = ic; // may be less that initially allocated
+          ncenters = ic; // may be less than initially allocated
       } // scope: set up list of centers
       if (echo > 7) std::printf("# project local potential at %d sites\n", ncenters);
 
@@ -406,7 +405,7 @@ namespace sho_hamiltonian {
           auto const method = control::get("sho_hamiltonian.reduce.centers", "none"); // {none, quadratic, smart}
           if ('s' == (*method | 32)) { // "smart"
               if (echo > 5) std::printf("# sho_hamiltonian.reduce.centers='%s' --> 'smart'\n", method);
-            
+
               double ab[4][2]; // offset and slope
               for (int d = 0; d < 3; ++d) {
                   // map coordinates from [-cell/2, cell/2) to [0, 65535]
@@ -529,7 +528,7 @@ namespace sho_hamiltonian {
       int const nkpoints            = control::get("hamiltonian.test.kpoints", 17.);
       int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
       bool const single_precision = (32 == floating_point_bits);
-      simple_stats::Stats<double> time_stats;
+      simple_stats::Stats<> time_stats;
       for (int ikp = 0; ikp < nkpoints; ++ikp) {
 //        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
           std::complex<double> constexpr minus_one = -1;
@@ -579,7 +578,7 @@ namespace sho_hamiltonian {
       status_t stat(0);
 
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
-      int dims[] = {0, 0, 0};
+      int dims[3] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 

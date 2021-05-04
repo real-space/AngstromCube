@@ -1,0 +1,118 @@
+
+# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/new_GST_set2.xyz
+
+# run unit tests for module 'geometry_analysis.'
+
+# found 64 atoms in file "geo/new_GST_set2.xyz" with cell=[22.828 22.828 22.828] Bohr and bc=[1 1 1]
+
+# geometry_analysis.cxx:analysis
+# Count interatomic distances up to 25.0% of the default bond length as bond
+# Bond search within interaction radius 11.395 Bohr
+# Distance histogram bin width is 0.037795 Bohr
+# Found 4 different elements for 64 atoms:   8x __  8x Ge  16x Sb  32x Te
+# checked 0.010648 M atom-atom pairs, 1.728 k near and 0.008920 M far
+
+## distance histogram (in Bohr)
+0.019  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+5.688  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+5.726  0 0 0 48 0 0 0 48 0 0 0 96 48 48 96 0
+5.764  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+8.031  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+8.069  0 32 64 0 32 0 64 0 64 64 64 0 0 0 0 384
+8.107  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+9.845  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+9.883  0 0 0 64 0 0 0 64 0 0 0 128 64 64 128 0
+9.921  0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+
+# bond counts       __      Ge      Sb      Te total = 288
+# bond count        0       0       0       0  __
+# bond count                0       0      48  Ge
+# bond count                        0      96  Sb
+# bond count                                0  Te
+# check total = 576 vs 576
+
+# shortest distances     __      Ge      Sb      Te       in Bohr
+# shortest distance    n/a     8.071   8.071   5.707  __  in Bohr
+# shortest distance            n/a     8.071   5.707  Ge  in Bohr
+# shortest distance                    8.071   5.707  Sb  in Bohr
+# shortest distance                            8.071  Te  in Bohr
+
+# coordination numbers (radius in Bohr)
+# coordination number for __ (0.000)  8x0
+# coordination number for Ge (2.268)  8x6
+# coordination number for Sb (2.627)  16x6
+# coordination number for Te (2.608)  24x4  8x6
+
+# show a bond structure analysis
+# a#0 __   
+# a#1 Te  5.707^4   90*4 180*2
+# a#2 Te  5.707^4   90*4 180*2
+# a#3 Sb  5.707^6   90*12 180*3
+# a#4 Te  5.707^4   90*4 180*2
+# a#5 Ge  5.707^6   90*12 180*3
+# a#6 Sb  5.707^6   90*12 180*3
+# a#7 Te  5.707^6   90*12 180*3
+# a#8 __   
+# a#9 Te  5.707^4   90*4 180*2
+# a#10 Te  5.707^4   90*4 180*2
+# a#11 Sb  5.707^6   90*12 180*3
+# a#12 Te  5.707^4   90*4 180*2
+# a#13 Ge  5.707^6   90*12 180*3
+# a#14 Sb  5.707^6   90*12 180*3
+# a#15 Te  5.707^6   90*12 180*3
+# a#16 __   
+# a#17 Te  5.707^4   90*4 180*2
+# a#18 Te  5.707^4   90*4 180*2
+# a#19 Sb  5.707^6   90*12 180*3
+# a#20 Te  5.707^4   90*4 180*2
+# a#21 Ge  5.707^6   90*12 180*3
+# a#22 Sb  5.707^6   90*12 180*3
+# a#23 Te  5.707^6   90*12 180*3
+# a#24 __   
+# a#25 Te  5.707^4   90*4 180*2
+# a#26 Te  5.707^4   90*4 180*2
+# a#27 Sb  5.707^6   90*12 180*3
+# a#28 Te  5.707^4   90*4 180*2
+# a#29 Ge  5.707^6   90*12 180*3
+# a#30 Sb  5.707^6   90*12 180*3
+# a#31 Te  5.707^6   90*12 180*3
+# a#32 __   
+# a#33 Te  5.707^4   90*4 180*2
+# a#34 Te  5.707^4   90*4 180*2
+# a#35 Sb  5.707^6   90*12 180*3
+# a#36 Te  5.707^4   90*4 180*2
+# a#37 Ge  5.707^6   90*12 180*3
+# a#38 Sb  5.707^6   90*12 180*3
+# a#39 Te  5.707^6   90*12 180*3
+# a#40 __   
+# a#41 Te  5.707^4   90*4 180*2
+# a#42 Te  5.707^4   90*4 180*2
+# a#43 Sb  5.707^6   90*12 180*3
+# a#44 Te  5.707^4   90*4 180*2
+# a#45 Ge  5.707^6   90*12 180*3
+# a#46 Sb  5.707^6   90*12 180*3
+# a#47 Te  5.707^6   90*12 180*3
+# a#48 __   
+# a#49 Te  5.707^4   90*4 180*2
+# a#50 Te  5.707^4   90*4 180*2
+# a#51 Sb  5.707^6   90*12 180*3
+# a#52 Te  5.707^4   90*4 180*2
+# a#53 Ge  5.707^6   90*12 180*3
+# a#54 Sb  5.707^6   90*12 180*3
+# a#55 Te  5.707^6   90*12 180*3
+# a#56 __   
+# a#57 Te  5.707^4   90*4 180*2
+# a#58 Te  5.707^4   90*4 180*2
+# a#59 Sb  5.707^6   90*12 180*3
+# a#60 Te  5.707^4   90*4 180*2
+# a#61 Ge  5.707^6   90*12 180*3
+# a#62 Sb  5.707^6   90*12 180*3
+# a#63 Te  5.707^6   90*12 180*3
+
+
+#  1 modules have been tested:
+#    module= geometry_analysis.       status= 0
+
+#  1 modules have been tested,  total status= 0
+
+# 0 warnings have been recorded.

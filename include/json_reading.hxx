@@ -13,7 +13,7 @@
 #include "recorded_warnings.hxx" // warn
 
 namespace json_reading {
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

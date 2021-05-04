@@ -1,0 +1,37 @@
+
+# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/Al_single.xyz
+
+# run unit tests for module 'geometry_analysis.'
+
+# found 1 atoms in file "geo/Al_single.xyz" with cell=[24.000 20.000 20.000] Bohr and bc=[1 1 1]
+
+# geometry_analysis.cxx:analysis
+# Count interatomic distances up to 25.0% of the default bond length as bond
+# Bond search within interaction radius 11.395 Bohr
+# Distance histogram bin width is 0.037795 Bohr
+# Found 1 different elements for 1 atoms:   1x Al
+# checked 0.000009 M atom-atom pairs, 0.001 k near and 0.000008 M far
+
+## distance histogram (in Bohr)
+0.019  0
+
+# bond counts       Al total = 0
+# bond count        0  Al
+# check total = 0 vs 0
+
+# shortest distances     Al       in Bohr
+# shortest distance    n/a    Al  in Bohr
+
+# coordination numbers (radius in Bohr)
+# coordination number for Al (2.287)  1x0
+
+# show a bond structure analysis
+# a#0 Al   
+
+
+#  1 modules have been tested:
+#    module= geometry_analysis.       status= 0
+
+#  1 modules have been tested,  total status= 0
+
+# 0 warnings have been recorded.

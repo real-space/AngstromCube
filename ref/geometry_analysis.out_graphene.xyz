@@ -1,0 +1,64 @@
+
+# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/graphene.xyz
+
+# run unit tests for module 'geometry_analysis.'
+
+# found 4 atoms in file "geo/graphene.xyz" with cell=[8.052 4.649 18.897] Bohr and bc=[1 1 0]
+
+# geometry_analysis.cxx:analysis
+# Count interatomic distances up to 25.0% of the default bond length as bond
+# Bond search within interaction radius 11.395 Bohr
+# Distance histogram bin width is 0.037795 Bohr
+# Found 1 different elements for 4 atoms:   4x C 
+# checked 0.000560 M atom-atom pairs, 0.160 k near and 0.000400 M far
+
+## distance histogram (in Bohr)
+0.019  0
+2.665  0
+2.702  12
+2.740  0
+4.630  0
+4.668  24
+4.705  0
+5.348  0
+5.386  12
+5.424  0
+7.049  0
+7.086  24
+7.124  0
+8.031  0
+8.069  24
+8.107  0
+9.279  0
+9.316  24
+9.354  0
+9.656  0
+9.694  24
+9.732  0
+10.715  0
+10.753  12
+10.790  0
+
+# bond counts       C  total = 12
+# bond count       12  C 
+# check total = 24 vs 24
+
+# shortest distances     C        in Bohr
+# shortest distance    2.684  C   in Bohr
+
+# coordination numbers (radius in Bohr)
+# coordination number for C  (1.436)  4x3
+
+# show a bond structure analysis
+# a#0 C   2.684^3   120*3
+# a#1 C   2.684^3   120*3
+# a#2 C   2.684^3   120*3
+# a#3 C   2.684^3   120*3
+
+
+#  1 modules have been tested:
+#    module= geometry_analysis.       status= 0
+
+#  1 modules have been tested,  total status= 0
+
+# 0 warnings have been recorded.
