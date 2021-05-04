@@ -12,19 +12,13 @@
 #include "radial_integrator.hxx" // ::shoot
 #include "recorded_warnings.hxx" // warn
 
-// #define FULL_DEBUG
-// #define DEBUG
-
 #ifdef FULL_DEBUG
-    #define full_debug(print) print 
     #define DEBUG
-#else  
-    #define full_debug(print)
-#endif
+#endif // FULL_DEBUG
 
 #ifdef  DEBUG
     #include "debug_output.hxx" // dump_to_file
-#endif
+#endif // DEBUG
 
 
 namespace radial_eigensolver {
@@ -47,7 +41,7 @@ namespace radial_eigensolver {
 #ifdef DEBUG
       if (enn < 1) exit(__LINE__); // "rINT shooting_method: ENN < 1 unphysical."
       if (ell >= enn) exit(__LINE__); // "rINT shooting_method: ELL must be < ENN"
-#endif
+#endif // DEBUG
 
       double constexpr lower_energy_stop = -1e5;
       double max_dE = 1.25e-4 * 0.5*(pow2(-rV[0]/enn) + .1); // for jumps, if the number of nodes is wrong, -rV[0]==Z
@@ -55,8 +49,6 @@ namespace radial_eigensolver {
 
       int nn{0}; // number of nodes
       double kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
-
-      
       
       // first make sure that we are on the right branch with the correct node count
       int constexpr MaxIter_node_count = 999;
@@ -68,7 +60,7 @@ namespace radial_eigensolver {
           kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
 #ifdef  FULL_DEBUG
           std::printf("# %s: find-correct-node for n=%d l=%d E= %.9f %s, %d nodes expected, %d nodes found\n", __func__, enn, ell, E*eV, _eV, nno, nn);
-#endif
+#endif // FULL_DEBUG
           if (E < lower_energy_stop) {
               warn("%d%c-energy E= %g Ha fell below %g Ha while searching the branch", enn,ellchar[ell], E, lower_energy_stop);
               return -99; // something went wrong
@@ -77,7 +69,7 @@ namespace radial_eigensolver {
 
 #ifdef DEBUG
       std::printf("\n# %s: needed %d iterations to find the correct number of nodes for n=%d l=%d E= %.9f %s\n", __func__, iit, enn, ell, E*eV, _eV);
-#endif
+#endif // DEBUG
 
       // next we have to ensure that we find two start energies for which the kinks have different signs
       // and which both lead to the correct node count
@@ -86,7 +78,7 @@ namespace radial_eigensolver {
       int nnn[2];
 #ifdef  DEBUG
       int itn[2] = {0, 0};
-#endif
+#endif // DEBUG
       for (auto ib = 0; ib < 2; ++ib) { // ib in {0, 1} == {lower, upper}
           auto const sgn_ib = (2*ib - 1); // sgn in {-1, +1}
           ene[ib] = E; // initialize with an energy which produces the correct number of nodes ...
@@ -100,11 +92,11 @@ namespace radial_eigensolver {
               knk[ib] = radial_integrator::shoot(sra, g, rV, ell, ene[ib], nnn[ib]);
 #ifdef  FULL_DEBUG
               std::printf("# %s: get-correct-kink-sign for (%s) n=%d l=%d E=%g %s, kink= %g, %d nodes\n", __func__, ib?"upper":"lower", enn, ell, ene[ib]*eV, _eV, knk[ib], nnn[ib]);
-#endif
+#endif // FULL_DEBUG
 #ifdef  DEBUG
               if (nno != nnn[ib]) std::printf("# %s: Warning for n=%d l=%d E= %.15f %s, %d nodes expected, %d nodes found\n", 
                                             __func__, enn, ell, ene[ib]*eV, _eV, nno, nnn[ib]);
-#endif
+#endif // DEBUG
               if (E < lower_energy_stop) {
                   warn("%d%c-energy E= %g Ha fell below %g Ha while searching the interval", enn,ellchar[ell], E, lower_energy_stop);
                   return -98; // something went wrong
@@ -112,16 +104,16 @@ namespace radial_eigensolver {
           } // while
 #ifdef  DEBUG
           itn[ib] = iit;
-#endif            
+#endif // DEBUG
       } // ib
 #ifdef  DEBUG
       std::printf("# %s: needed %d and %d iterations for the start values n=%d l=%d\n", __func__, itn[0], itn[1], enn, ell);
       std::printf("# %s: start interval [%g, %g] %s, kinks = [%.6f, %.6f] for n=%d l=%d\n", __func__, ene[0]*eV, ene[1]*eV, _eV, knk[0], knk[1], enn, ell);
-#endif
+#endif // DEBUG
 
 // #ifdef DEBUG
 //       std::printf("# %s: set start energy interval for n=%d l=%d to [%.9f, %.9f] %s\n", __func__, enn, ell, ene[0]*eV, ene[1]*eV, _eV);
-// #endif
+// #endif // DEBUG
 
       double E_prev{0}; // previous energy
       iit = 0;
@@ -134,7 +126,7 @@ namespace radial_eigensolver {
           
 #ifdef  FULL_DEBUG
           std::printf("# %s: converge-energy for n=%d l=%d, try E= %.9f %s\n", __func__, enn, ell, E*eV, _eV);
-#endif
+#endif // FULL_DEBUG
           kink = radial_integrator::shoot(sra, g, rV, ell, E, nn);
 
           // bisection: reset either the left or the right boundary
@@ -142,7 +134,7 @@ namespace radial_eigensolver {
           ene[ib] = E;
 #ifdef  FULL_DEBUG
           std::printf("# %s: found kink = %g, adjust %s limit: [%.9f, %.9f] %s\n", __func__, kink, (ib)? "upper" : "lower", ene[0]*eV, ene[1]*eV, _eV);
-#endif
+#endif // FULL_DEBUG
           auto const res = std::abs(E - E_prev); // calculate energy change
           E_prev = E;
 
@@ -152,7 +144,7 @@ namespace radial_eigensolver {
 
 #ifdef  FULL_DEBUG
       std::printf("# %s: needed %d iterations to converge to E= %.9f %s\n", __func__, iit, E*eV, _eV);
-#endif
+#endif // FULL_DEBUG
 
       // call the shooting once more, potentially with export of rf and r2rho
       kink = radial_integrator::shoot(sra, g, rV, ell, E, nn, rf, r2rho);
@@ -181,24 +173,26 @@ namespace radial_eigensolver {
         int const echo=5 // log-level
       , double const Z=100 // atomic number, number of protons in the nucleus
   ) {
-      status_t status(0);
+      status_t stat(0);
       auto const g = *radial_grid::create_exponential_radial_grid(2610);
-      std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
-      std::vector<double> rf(g.n);
+      std::vector<double const> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
+      std::vector<double> rf(g.n); // radial wave function
       char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
+      double maxdev{0}; // deviation of the non-relativistic final energies from the reference energy
       for (auto sra = 0; sra <= 2; ++sra) { // 0:, 1:, 2:
           if (echo > 0) std::printf("\n\n# %s %s (Z= %g) %s\n", __FILE__, __func__, Z, SRA_name[sra]);
           for (auto enn = 1; enn <= 9; ++enn) {
-              auto const E_ref = -0.5*pow2(Z/enn); // for sra == 0 we can compute a reference energy for a hydrogen-like potential
+              auto const E_ref = -0.5*pow2(Z/double(enn)); // for sra == 0 we can compute a reference energy for a hydrogen-like potential
               if (echo > 2 && 0 == sra) std::printf("# %2d -energy %.12f %s reference\n", enn, E_ref*eV, _eV);
               for (auto ell = 0; ell < enn; ++ell) {
                   double E{E_ref}; // guess a start energy for hydrogen like atoms
-                  status += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data())));
+                  stat += std::abs(int(shooting_method(sra, g, rV.data(), enn, ell, E, rf.data())));
                   if (echo > 1) {
-                      if (sra > 0) {
-                          std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
-                      } else {
+                      if (0 == sra) {
                           std::printf("# %2d%c-energy %.12f  dev %.1e %s\n", enn, ellchar[ell], E*eV, (E - E_ref)*eV, _eV);
+                          maxdev = std::max(maxdev, std::abs(E - E_ref));
+                      } else {
+                          std::printf("# %2d%c-energy %.12f %s\n", enn, ellchar[ell], E*eV, _eV);
                       }
                   } // echo
 #ifdef  DEBUG
@@ -208,7 +202,8 @@ namespace radial_eigensolver {
               } // ell
           } // enn
       } // sra
-      return status;
+      if (echo > 1) std::printf("# %s: largest energy deviation for %s solver is %.1e %s\n", __func__, SRA_name[0], maxdev*eV, _eV);
+      return stat + (maxdev > 1e-8*pow2(Z));
   } // test_hydrogen_like_potential
 
 

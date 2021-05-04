@@ -95,7 +95,7 @@ namespace sho_hamiltonian {
 #ifdef DEVEL
       if (echo > 3) std::printf("\n\n# start %s<%s, phase_t=%s> nB=%d\n", 
           __func__, complex_name<complex_t>(), complex_name(*Bloch_phase), nB);
-#endif
+#endif // DEVEL
 
       //
       // now construct the Hamiltonian:
@@ -181,7 +181,7 @@ namespace sho_hamiltonian {
 #else
       real_t constexpr scale_h = 1, scale_s = 1;
       double constexpr scale_k = 1;
-#endif
+#endif // DEVEL
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
 
       // we construct sub-views to the blocks for each atom pair
@@ -278,7 +278,7 @@ namespace sho_hamiltonian {
       SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
 
       auto const usual_numax = int(control::get("sho_hamiltonian.test.numax", 1.));
-      auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", 2.);
+      auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", .5);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
