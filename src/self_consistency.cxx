@@ -334,23 +334,19 @@ namespace self_consistency {
           } // ia
       } // scope
       
-      structure_solver::RealSpaceKohnSham *KS{nullptr};
-      { // scope
-          view2D<double> xyzZinso(na, 8);
-          for (int ia = 0; ia < na; ++ia) {
-              set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
-              xyzZinso(ia,4) = ia;  // global_atom_id
-              xyzZinso(ia,5) = numax[ia];
-              xyzZinso(ia,6) = sigma_a[ia];
-              xyzZinso(ia,7) = 0;   // __not_used__
-          } // ia
-          // ============================================================================
-          // prepare for solving the Kohn-Sham equation
-          // ============================================================================
+      view2D<double> xyzZinso(na, 8);
+      for (int ia = 0; ia < na; ++ia) {
+          set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
+          xyzZinso(ia,4) = ia;  // global_atom_id
+          xyzZinso(ia,5) = numax[ia];
+          xyzZinso(ia,6) = sigma_a[ia];
+          xyzZinso(ia,7) = 0;   // __not_used__
+      } // ia
+      // ============================================================================
+      // prepare for solving the Kohn-Sham equation
+      // ============================================================================
 
-          KS = new structure_solver::RealSpaceKohnSham(g, xyzZinso, na, run, echo);
-
-      } // scope
+      structure_solver::RealSpaceKohnSham KS(g, xyzZinso, na, run, echo);
 
       // total energy contributions
       double grid_electrostatic_energy{0}, grid_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
@@ -536,7 +532,7 @@ namespace self_consistency {
               atom_rho_new[1] = data_list<double>(n_atom_rho, 0.0); // and valence response matrices
               double charges[4] = {0, 0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:d_charge, 3:unused
 
-              KS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
+              KS.solve(rho_valence_new, atom_rho_new, charges, Fermi,
                   g, Vtot.data(), n_atom_rho, atom_mat,
                   occupation_method, scf_iteration, echo);
               
@@ -699,7 +695,7 @@ namespace self_consistency {
           if (stat) warn("failed to delete stop file, status= %i", int(stat));
       } // scope
 
-      if (KS) KS->store(control::get("store.waves", ""), echo);
+      KS.store(control::get("store.waves", ""), echo);
 
 #ifdef DEVEL
       stat += potential_generator::potential_projections(g, cell, 
