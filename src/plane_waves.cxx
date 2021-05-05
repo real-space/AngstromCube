@@ -231,7 +231,7 @@ namespace plane_waves {
           , double const norm_factor // normalization for the cell volume
  
           , int const natoms_PAW // number of PAW centers
-          , view2D<double const> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
+          , view2D<double> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
           , double const grid_offset[3] // origin of atomic positions w.r.t. the local potential
           , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
           , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
@@ -523,7 +523,7 @@ namespace plane_waves {
 
   status_t solve(
         int const natoms_PAW // number of PAW atoms
-      , view2D<double const> const & xyzZ // (natoms, 4)
+      , view2D<double> const & xyzZ // (natoms, 4)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
       , double const *const sigma_prj // =nullptr
@@ -701,16 +701,15 @@ namespace plane_waves {
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      view2D<double> xyzZ_noconst;
+      view2D<double> xyzZ;
       int natoms{0};
       double cell[3] = {0, 0, 0}; 
       int bc[3] = {-7, -7, -7};
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(xyzZ_noconst, natoms, geo_file, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
-      view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap for simpler usage
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc); // is assumed periodic anyway

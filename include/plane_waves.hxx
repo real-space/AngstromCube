@@ -59,7 +59,7 @@ namespace plane_waves {
   
   status_t solve(
         int const natoms_prj // number of PAW atoms
-      , view2D<double const> const & xyzZ // (natoms, 4)
+      , view2D<double> const & xyzZ // (natoms, 4)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
       , double const *const sigma_prj=nullptr

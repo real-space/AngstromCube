@@ -8,7 +8,7 @@ namespace sho_hamiltonian {
 
   status_t solve(
         int const natoms // number of SHO basis centers
-      , view2D<double const> const & xyzZ // (natoms, 4)
+      , view2D<double> const & xyzZ // (natoms, >=4)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
       , int const natoms_prj=-1 // number of PAW centers

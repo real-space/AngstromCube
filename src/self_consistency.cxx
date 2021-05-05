@@ -189,13 +189,14 @@ namespace self_consistency {
       if (echo > 0) std::printf("\n\n# %s\n# Initialize\n# +check=%i run= %i\n# %s\n\n",
                             h_line, check, run, h_line);      
 
-      view2D<double> xyzZ_noconst;
+//       view2D<double> xyzZ_noconst;
+      view2D<double> xyzZ;
       real_space::grid_t g;
       int na_noconst{0};
       // ToDo: when including potential_generator::init_geometry_and_grid, the code hangs!
-      stat += init_geometry_and_grid(g, xyzZ_noconst, na_noconst, echo);
+      stat += init_geometry_and_grid(g, xyzZ, na_noconst, echo);
       int const na{na_noconst};
-      view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap as (na,4)
+//       view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap as (na,4)
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
@@ -549,7 +550,6 @@ namespace self_consistency {
 #if 1
                   error("please use -t potential_generator to run plane waves, basis=%s\n", basis_method);
 #else // currently inactive
-                  // ToDo: move this into the KS-solver
                   
                   std::vector<plane_waves::DensityIngredients> export_rho;
                   here;

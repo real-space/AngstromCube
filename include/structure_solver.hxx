@@ -272,7 +272,7 @@ namespace structure_solver {
   
   
   
-  
+
   class RealSpaceKohnSham {
   public:
     
@@ -284,7 +284,7 @@ namespace structure_solver {
         , int const run=1 // 1:run, 0:check
         , int const echo=0 // log-level
     )
-      : gd(&g)
+      : gd(g)
     {
         // how to solve the KS-equation
         basis_method = control::get("basis", "grid");
@@ -303,8 +303,6 @@ namespace structure_solver {
         if (echo > 3 && (0 != force_complex)) std::printf("# complex wavefunctions enforced by structure_solver.complex=%d\n", force_complex);
 
         bool const use_complex = needs_complex | (0 != force_complex);
-
-        occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
 
         double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
         nbands = int(nbands_per_atom*na);
@@ -371,14 +369,14 @@ namespace structure_solver {
         , double const Vtot[] // local effective potential
         , std::vector<int32_t> const & n_atom_rho
         , data_list<double> const & atom_mat
-        , char const occ='e' // occupation method
+        , char const occupation_method='e' // occupation method
         , int const scf=-1 // scf_iteration
         , int const echo=9 // log-level
     ) {
         status_t stat(0);
 #ifdef DEVEL
         if (echo > 0) {
-            std::printf("\n\n#\n# Solve Kohn-Sham equation\n# \n\n");
+            std::printf("\n\n#\n# Solve Kohn-Sham equation on a real-space grid\n# \n\n");
             std::fflush(stdout);
         } // echo
 #endif // DEVEL
@@ -389,15 +387,15 @@ namespace structure_solver {
 
             // restrict the local effective potential to the coarse grid
             view2D<double> Veff(1, gc.all());
-            multi_grid::restrict3D(Veff[0], gc, Vtot, *gd, 0); // mute
+            multi_grid::restrict3D(Veff[0], gc, Vtot, gd, 0); // mute
             if (echo > 1) print_stats(Veff[0], gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 
             view2D<double> rho_valence_gc(2, gc.all(), 0.0); // new valence density on the coarse grid and response density
             
-            if ('z' == key) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
-            if ('c' == key) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
-            if ('d' == key) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
-            if ('s' == key) s->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occ, solver_method, scf, echo);
+            if ('z' == key) z->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if ('c' == key) c->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if ('d' == key) d->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
+            if ('s' == key) s->solve(rho_valence_gc, atom_rho_new, energies, charges, Fermi, Veff, atom_mat, occupation_method, solver_method, scf, echo);
 
             auto const dcc_coarse = dot_product(gc.all(), rho_valence_gc[0], Veff.data()) * gc.dV();
             if (echo > 4) std::printf("\n# double counting (coarse grid) %.9f %s\n", dcc_coarse*eV, _eV);
@@ -437,20 +435,20 @@ namespace structure_solver {
                                                          rho_valence_new[1], atom_rho_new[1].data(), charges);
                   } // ikpoint
             
-            } else {
+            } else { // plane_waves
 
                   stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot, na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
                   warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
 
-            }
-        }
+            } // plane_waves
+        } // psi_on_grid
 #endif
         here;
         return stat;
     } // solve
 
     status_t store(char const *filename, int const echo=0) {
-        status_t nerrors{0};
+        status_t nerrors(0);
         if (echo > 0) std::printf("# write wave functions to file \'%s\'\n", filename);
         if (nullptr != filename) {
             if ('\0' != filename[0]) {
@@ -471,7 +469,7 @@ namespace structure_solver {
       view2D<double> kmesh; // kmesh(nkpoints, 4);
       int nkpoints = 0;
       int nbands = 0;
-      real_space::grid_t const *gd = nullptr; // dense grid
+      real_space::grid_t const & gd; // dense grid
       real_space::grid_t gc; // coarse grid descriptor
 
       bool psi_on_grid = false, plane_waves = false;
@@ -482,7 +480,6 @@ namespace structure_solver {
       KohnShamStates<double>               *d = nullptr;
       KohnShamStates<float>                *s = nullptr;
 
-      char occupation_method = '?';
       char const *solver_method = nullptr;
       char const *basis_method  = nullptr;
   public:
@@ -490,6 +487,157 @@ namespace structure_solver {
 
   }; // class RealSpaceKohnSham
 
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+#if 0
+  class PlaneWaveKohnSham {
+  public:
+    
+//  PlaneWaveKohnSham(void) {} // default constructor
+    PlaneWaveKohnSham(
+          real_space::grid_t const & g
+        , view2D<double> const & xyzZinso
+        , int const na // number of atoms
+        , int const run=1 // 1:run, 0:check
+        , int const echo=0 // log-level
+    )
+      : gd(g), xyzZ(xyzZinso)
+    {
+        // how to solve the KS-equation
+        basis_method = control::get("basis", "plane-waves");
+        key = (*basis_method | 32);
+
+        // get a default kmesh controlled by +hamiltonian.kmesh or +hamiltonian.kmesh.x, .y, .z
+        nkpoints = brillouin_zone::get_kpoint_mesh<true>(kmesh);
+        if (echo > 1) std::printf("# k-point mesh has %d points\n", nkpoints);
+        // ToDo: warn if boundary_condition is isolated but there is more than 1 kpoint
+
+        double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
+        nbands = int(nbands_per_atom*na);
+
+        energies = view2D<double>(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
+
+        sigma_a.resize(na);
+        numax.resize(na);
+        for (int ia = 0; ia < na; ++ia) {
+            numax[ia]   = xyzZinso(ia,5);
+            sigma_a[ia] = xyzZinso(ia,6);
+        } // ia
+
+    } // constructor
+    
+    ~PlaneWaveKohnSham() { // destructor
+    } // destructor
+
+    status_t solve(
+          view2D<double> & rho_valence_new  // new valence and response density
+        , data_list<double> atom_rho_new[2] // new valence and response density matrices
+        , double charges[] // 0:kpoint_denominator, 1:charge, 2:d_charge
+        , fermi_distribution::FermiLevel_t & Fermi
+        , real_space::grid_t const & g // dense grid
+        , double const Vtot[] // local effective potential
+        , std::vector<int32_t> const & n_atom_rho
+        , data_list<double> const & atom_mat
+        , char const occupation_method='e' // occupation method
+        , int const scf=-1 // scf_iteration (for log information)
+        , int const echo=9 // log-level
+    ) {
+        status_t stat(0);
+#ifdef DEVEL
+        if (echo > 0) {
+            std::printf("\n\n#\n# Solve Kohn-Sham equation using plane waves\n# \n\n");
+            std::fflush(stdout);
+        } // echo
+#endif // DEVEL
+
+        int const na = n_atom_rho.size();
+        if ('p' == key) { // plane-waves
+
+            std::vector<plane_waves::DensityIngredients> export_rho;
+
+            stat += plane_waves::solve(na, xyzZ, g, Vtot, sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+
+            if ('e' == (occupation_method | 32)) {
+                // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
+                view2D<double> kweights(nkpoints, nbands, 0.0), occupations(nkpoints, nbands);
+                for (int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
+                    set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
+                    set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
+                } // ikpoint
+                double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+                                energies.data(), kweights.data(), nkpoints*nbands,
+                                Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
+                Fermi.set_Fermi_level(eF, echo);
+            } // occupation_method "exact"
+
+            for (auto & x : export_rho) {
+                if (echo > 1) { std::printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
+                stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
+                                          x.energies.data(), x.psi_r.data(), x.coeff.data(),
+                                          x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
+                                                    rho_valence_new[1], atom_rho_new[1].data(), charges);
+            } // ikpoint
+        
+        } else { // plane_waves
+
+            stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot, na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+            warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
+
+        } // plane_waves
+        here;
+        return stat;
+    } // solve
+
+    status_t store(char const *filename, int const echo=0) {
+        status_t nerrors(0);
+        if (echo > 0) std::printf("# write wave functions to file \'%s\'\n", filename);
+        if (nullptr != filename) {
+            if ('\0' != filename[0]) {
+                if (nerrors) warn("%d errors occured writing file \'%s\'", nerrors, filename); 
+            } else warn("filename for storing wave functions is empty", 0);
+        } else warn("filename for storing wave functions is null", 0);
+        return nerrors;
+    } // store
+
+  private:
+      char key = '?';
+      view2D<double> kmesh; // kmesh(nkpoints, 4);
+      int nkpoints = 0;
+      int nbands = 0;
+      real_space::grid_t const & gd; // dense grid
+      real_space::grid_t gc; // coarse grid descriptor
+      std::vector<double> sigma_a;
+      std::vector<int> numax;
+      view2D<double> const & xyzZ;
+
+      char const *basis_method  = nullptr;
+  public:
+      view2D<double> energies; // energies(nkpoints, nbands, 0.0); // Kohn-Sham eigenenergies
+
+  }; // class PlaneWaveKohnSham
+#endif // 0
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace structure_solver

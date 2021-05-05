@@ -70,7 +70,7 @@ namespace sho_hamiltonian {
   template <typename complex_t, typename phase_t>
   status_t solve_k(
         int const natoms // number of SHO basis centers
-      , view2D<double const> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
+      , view2D<double> const & xyzZ // (natoms, 4) positions of SHO basis centers, 4th component not used
       , int    const numaxs[] // spreads of the SHO basis
       , double const sigmas[] // cutoffs of the SHO basis
       , int const n_periodic_images // number of periodic images
@@ -265,7 +265,7 @@ namespace sho_hamiltonian {
 
   status_t solve(
         int const natoms // number of SHO basis centers
-      , view2D<double const> const & xyzZ // (natoms, 4)
+      , view2D<double> const & xyzZ // (natoms, 4)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
       , int const natoms_prj // =-1 number of PAW atoms
@@ -583,16 +583,15 @@ namespace sho_hamiltonian {
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);
 
       auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      view2D<double> xyzZ_noconst;
+      view2D<double> xyzZ;
       int natoms{0}; // number of atoms
       double cell[3] = {0, 0, 0}; // rectangular cell
       int bc[3] = {-7, -7, -7}; // boundary conditions
       { // scope: read atomic positions
-          stat += geometry_analysis::read_xyz_file(xyzZ_noconst, natoms, geo_file, cell, bc, 0);
+          stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, 0);
           if (echo > 2) std::printf("# found %d atoms in file \"%s\" with cell=[%.3f %.3f %.3f] %s and bc=[%d %d %d]\n",
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
-      view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap for simpler usage
 
       real_space::grid_t g(dims);
       g.set_boundary_conditions(bc);
