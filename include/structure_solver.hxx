@@ -284,7 +284,7 @@ namespace structure_solver {
         , int const run=1 // 1:run, 0:check
         , int const echo=0 // log-level
     )
-      : gd(g)
+      : gd(g), xyzZ(xyzZinso)
     {
         // how to solve the KS-equation
         basis_method = control::get("basis", "grid");
@@ -344,6 +344,14 @@ namespace structure_solver {
             solver_method = control::get("grid.eigensolver", "cg");
 
         } else {
+          
+            sigma_a.resize(na);
+            numax.resize(na);
+            for (int ia = 0; ia < na; ++ia) {
+                numax[ia]   = xyzZinso(ia,5);
+                sigma_a[ia] = xyzZinso(ia,6);
+            } // ia
+
             key = *basis_method;
             solver_method = "?not_on_grid";
         } // psi_on_grid
@@ -368,7 +376,7 @@ namespace structure_solver {
         , real_space::grid_t const & g // dense grid
         , double const Vtot[] // local effective potential
         , std::vector<int32_t> const & n_atom_rho
-        , data_list<double> const & atom_mat
+        , data_list<double> & atom_mat // (removed const)
         , char const occupation_method='e' // occupation method
         , int const scf=-1 // scf_iteration
         , int const echo=9 // log-level
@@ -376,13 +384,14 @@ namespace structure_solver {
         status_t stat(0);
 #ifdef DEVEL
         if (echo > 0) {
-            std::printf("\n\n#\n# Solve Kohn-Sham equation on a real-space grid\n# \n\n");
+            std::printf("\n\n#\n# Solve Kohn-Sham equation (basis=%s)\n# \n\n", basis_method);
             std::fflush(stdout);
         } // echo
 #endif // DEVEL
 
         assert(g.all() == rho_valence_new.stride());
 
+        int const na = n_atom_rho.size();
         if (psi_on_grid) {
 
             // restrict the local effective potential to the coarse grid
@@ -404,6 +413,38 @@ namespace structure_solver {
             stat += multi_grid::interpolate3D(rho_valence_new[0], g, rho_valence_gc[0], gc);
             stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
 
+        } else if (plane_waves) {
+
+            std::vector<plane_waves::DensityIngredients> export_rho;
+
+            stat += plane_waves::solve(na, xyzZ, g, Vtot, sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+
+            if ('e' == (occupation_method | 32)) {
+                // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
+                view2D<double> kweights(nkpoints, nbands, 0.0), occupations(nkpoints, nbands);
+                for (int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
+                    set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
+                    set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
+                } // ikpoint
+                double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+                                energies.data(), kweights.data(), nkpoints*nbands,
+                                Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
+                Fermi.set_Fermi_level(eF, echo);
+            } // occupation_method "exact"
+
+            for (auto & x : export_rho) {
+                if (echo > 1) { std::printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
+                stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
+                                          x.energies.data(), x.psi_r.data(), x.coeff.data(),
+                                          x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
+                                                    rho_valence_new[1], atom_rho_new[1].data(), charges);
+            } // ikpoint
+          
+        } else {
+
+            stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot, na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+            warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
+          
         } // psi_on_grid
 
         here;
@@ -434,6 +475,10 @@ namespace structure_solver {
       int nbands = 0;
       real_space::grid_t const & gd; // dense grid
       real_space::grid_t gc; // coarse grid descriptor
+      
+      std::vector<double> sigma_a;
+      std::vector<int> numax;
+      view2D<double> const & xyzZ;
 
       bool psi_on_grid = false, plane_waves = false;
 
@@ -461,7 +506,7 @@ namespace structure_solver {
   
   
   
-  
+#if 0
 
   class PlaneWaveKohnSham {
   public:
@@ -511,7 +556,7 @@ namespace structure_solver {
         , real_space::grid_t const & g // dense grid
         , double const Vtot[] // local effective potential
         , std::vector<int32_t> const & n_atom_rho
-        , data_list<double> & atom_mat
+        , data_list<double> & atom_mat // (removed const)
         , char const occupation_method='e' // occupation method
         , int const scf=-1 // scf_iteration (for log information)
         , int const echo=9 // log-level
@@ -589,7 +634,7 @@ namespace structure_solver {
   }; // class PlaneWaveKohnSham
 
   
-  
+#endif
   
   
   

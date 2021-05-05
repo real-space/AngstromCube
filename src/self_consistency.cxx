@@ -34,7 +34,7 @@
 #include "single_atom.hxx" // ::atom_update
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
-#include "structure_solver.hxx" // ::RealSpaceKohnSham, ::PlaneWaveKohnSham
+#include "structure_solver.hxx" // ::RealSpaceKohnSham
 // #include "potential_generator.hxx" // ::init_geometry_and_grid // FAILS when including from here
 #include "potential_generator.hxx" // ::add_smooth_quantities, ::potential_projections
 
@@ -250,9 +250,9 @@ namespace self_consistency {
 
 
       // determine how to solve the Kohn-Sham equation
-      auto const basis_method = control::get("basis", "grid");
+//       auto const basis_method = control::get("basis", "grid");
 //    bool const plane_waves = ('p' == (*basis_method | 32));
-      bool const psi_on_grid = ('g' == (*basis_method | 32));
+//       bool const psi_on_grid = ('g' == (*basis_method | 32));
 
       
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
@@ -334,8 +334,7 @@ namespace self_consistency {
           } // ia
       } // scope
       
-      structure_solver::RealSpaceKohnSham *rsKS{nullptr};
-      structure_solver::PlaneWaveKohnSham *pwKS{nullptr};
+      structure_solver::RealSpaceKohnSham *KS{nullptr};
       { // scope
           view2D<double> xyzZinso(na, 8);
           for (int ia = 0; ia < na; ++ia) {
@@ -348,15 +347,9 @@ namespace self_consistency {
           // ============================================================================
           // prepare for solving the Kohn-Sham equation
           // ============================================================================
-          if (psi_on_grid) {
 
-              rsKS = new structure_solver::RealSpaceKohnSham(g, xyzZinso, na, run, echo);
+          KS = new structure_solver::RealSpaceKohnSham(g, xyzZinso, na, run, echo);
 
-          } else { // psi_on_grid
-
-              pwKS = new structure_solver::PlaneWaveKohnSham(g, xyzZinso, na, run, echo, basis_method);
-
-          } // psi_on_grid
       } // scope
 
       // total energy contributions
@@ -543,22 +536,9 @@ namespace self_consistency {
               atom_rho_new[1] = data_list<double>(n_atom_rho, 0.0); // and valence response matrices
               double charges[4] = {0, 0, 0, 0}; // 0:kpoint_denominator, 1:charge, 2:d_charge, 3:unused
 
-              if (psi_on_grid) {
-
-                  rsKS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
-                            g, Vtot.data(), n_atom_rho, atom_mat,
-                            occupation_method, scf_iteration, echo);
-
-              } else {
-                  here;
-
-                  pwKS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
-                            g, Vtot.data(), n_atom_rho, atom_mat,
-                            occupation_method, scf_iteration, echo);
-                  
-                  here;
-              } // psi_on_grid
-              
+              KS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
+                  g, Vtot.data(), n_atom_rho, atom_mat,
+                  occupation_method, scf_iteration, echo);
               
               double band_energy_sum = Fermi.get_band_sum(); // non-const since we might need to correct this
 
@@ -719,8 +699,8 @@ namespace self_consistency {
           if (stat) warn("failed to delete stop file, status= %i", int(stat));
       } // scope
 
-      if (rsKS) rsKS->store(control::get("store.waves", ""), echo);
-      
+      if (KS) KS->store(control::get("store.waves", ""), echo);
+
 #ifdef DEVEL
       stat += potential_generator::potential_projections(g, cell, 
                   Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(),
