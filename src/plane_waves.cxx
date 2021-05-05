@@ -529,7 +529,7 @@ namespace plane_waves {
       , double const *const sigma_prj // =nullptr
       , int    const *const numax_prj // =nullptr
       , double *const *const atom_mat // =nullptr
-      , int const echo // log-level
+      , int const echo // =0 // log-level
       , std::vector<DensityIngredients> *export_rho // =nullptr
   ) {
 
@@ -717,7 +717,7 @@ namespace plane_waves {
       if (echo > 1) std::printf("# use  %g %g %g %s grid spacing\n", g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang);
       if (echo > 1) std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
 
-      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, echo, nullptr);
+      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, echo, 0);
 
       return stat;
   } // test_Hamiltonian

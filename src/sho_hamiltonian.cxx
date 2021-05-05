@@ -272,7 +272,7 @@ namespace sho_hamiltonian {
       , double const *const sigma_prj // =nullptr
       , int    const *const numax_prj // =nullptr
       , double *const *const atom_mat // =nullptr
-      , int const echo // log-level
+      , int const echo // =0 log-level
   ) {
       status_t stat(0);
       SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);

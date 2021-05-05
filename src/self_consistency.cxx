@@ -34,7 +34,7 @@
 #include "single_atom.hxx" // ::atom_update
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
-#include "structure_solver.hxx" // ::RealSpaceKohnSham
+#include "structure_solver.hxx" // ::RealSpaceKohnSham, ::PlaneWaveKohnSham
 // #include "potential_generator.hxx" // ::init_geometry_and_grid // FAILS when including from here
 #include "potential_generator.hxx" // ::add_smooth_quantities, ::potential_projections
 
@@ -189,14 +189,12 @@ namespace self_consistency {
       if (echo > 0) std::printf("\n\n# %s\n# Initialize\n# +check=%i run= %i\n# %s\n\n",
                             h_line, check, run, h_line);      
 
-//       view2D<double> xyzZ_noconst;
       view2D<double> xyzZ;
       real_space::grid_t g;
       int na_noconst{0};
       // ToDo: when including potential_generator::init_geometry_and_grid, the code hangs!
       stat += init_geometry_and_grid(g, xyzZ, na_noconst, echo);
       int const na{na_noconst};
-//       view2D<double const> const xyzZ(xyzZ_noconst.data(), xyzZ_noconst.stride()); // wrap as (na,4)
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
@@ -253,7 +251,7 @@ namespace self_consistency {
 
       // determine how to solve the Kohn-Sham equation
       auto const basis_method = control::get("basis", "grid");
-      bool const plane_waves = ('p' == (*basis_method | 32));
+//    bool const plane_waves = ('p' == (*basis_method | 32));
       bool const psi_on_grid = ('g' == (*basis_method | 32));
 
       
@@ -336,9 +334,9 @@ namespace self_consistency {
           } // ia
       } // scope
       
-      structure_solver::RealSpaceKohnSham *KS{nullptr};
-      if (psi_on_grid) {
-
+      structure_solver::RealSpaceKohnSham *rsKS{nullptr};
+      structure_solver::PlaneWaveKohnSham *pwKS{nullptr};
+      { // scope
           view2D<double> xyzZinso(na, 8);
           for (int ia = 0; ia < na; ++ia) {
               set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
@@ -347,11 +345,18 @@ namespace self_consistency {
               xyzZinso(ia,6) = sigma_a[ia];
               xyzZinso(ia,7) = 0;   // __not_used__
           } // ia
-          // ============================================================================================
-          // prepare for solving the Kohn-Sham equation on the real-space grid
-          // ============================================================================================
-          KS = new structure_solver::RealSpaceKohnSham(g, xyzZinso, na, run, echo);
+          // ============================================================================
+          // prepare for solving the Kohn-Sham equation
+          // ============================================================================
+          if (psi_on_grid) {
 
+              rsKS = new structure_solver::RealSpaceKohnSham(g, xyzZinso, na, run, echo);
+
+          } else { // psi_on_grid
+
+              pwKS = new structure_solver::PlaneWaveKohnSham(g, xyzZinso, na, run, echo, basis_method);
+
+          } // psi_on_grid
       } // scope
 
       // total energy contributions
@@ -540,55 +545,17 @@ namespace self_consistency {
 
               if (psi_on_grid) {
 
-                  KS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
+                  rsKS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
                             g, Vtot.data(), n_atom_rho, atom_mat,
                             occupation_method, scf_iteration, echo);
 
-              } else 
-              if (plane_waves) {
+              } else {
                   here;
-#if 1
-                  error("please use -t potential_generator to run plane waves, basis=%s\n", basis_method);
-#else // currently inactive
+
+                  pwKS->solve(rho_valence_new, atom_rho_new, charges, Fermi,
+                            g, Vtot.data(), n_atom_rho, atom_mat,
+                            occupation_method, scf_iteration, echo);
                   
-                  std::vector<plane_waves::DensityIngredients> export_rho;
-                  here;
-
-                  stat += plane_waves::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
-
-                  here;
-                  
-                  if ('e' == (occupation_method | 32)) {
-                      // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight
-                      view2D<double> kweights(nkpoints, nbands, 0.0), occupations(nkpoints, nbands);
-                      for (int ikpoint = 0; ikpoint < export_rho.size(); ++ikpoint) {
-                          set(kweights[ikpoint], nbands, export_rho[ikpoint].kpoint_weight);
-                          set(energies[ikpoint], nbands, export_rho[ikpoint].energies.data());
-                      } // ikpoint
-                      double const eF = fermi_distribution::Fermi_level(occupations.data(), 
-                                      energies.data(), kweights.data(), nkpoints*nbands,
-                                      Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
-                      Fermi.set_Fermi_level(eF, echo);
-                  } // occupation_method == "exact"
-
-                  here;
-
-                  for (auto & x : export_rho) {
-                      if (echo > 1) { std::printf("\n# Generate valence density for %s\n", x.tag); std::fflush(stdout); }
-                      stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
-                                                x.energies.data(), x.psi_r.data(), x.coeff.data(),
-                                                x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
-                                                         rho_valence_new[1], atom_rho_new[1].data(), charges);
-                  } // x
-
-                  here;
-#endif // currently inactive
-              } else { // SHO local orbitals
-                  here;
-
-                  stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot.data(), na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
-
-                  warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
                   here;
               } // psi_on_grid
               
@@ -752,7 +719,7 @@ namespace self_consistency {
           if (stat) warn("failed to delete stop file, status= %i", int(stat));
       } // scope
 
-      if (KS) KS->store(control::get("store.waves", ""), echo);
+      if (rsKS) rsKS->store(control::get("store.waves", ""), echo);
       
 #ifdef DEVEL
       stat += potential_generator::potential_projections(g, cell, 
