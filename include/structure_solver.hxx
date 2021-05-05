@@ -83,46 +83,46 @@ namespace structure_solver {
         if (echo > 0) std::printf("# real-space grid wave functions are of type %s\n", complex_name<wave_function_t>());
         psi = view3D<wave_function_t>(run*nkpoints, nbands, gc.all(), 0.0); // get memory (potentially large)
 
-                  int const na = list_of_atoms.size();
-                  auto const start_wave_file = control::get("start.waves", "");
-                  if ('\0' == *start_wave_file) {
-                      if (echo > 1) std::printf("# initialize grid wave functions as %d atomic orbitals on %d atoms\n", nbands, na);
-                      float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
-                      uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
-                      sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
-                      std::vector<int32_t> ncoeff_a(na, 20);
-                      int const na1 = std::max(na, 1); // na1 is save for divide and modulo operations
-                      data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
-                      for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                          op.set_kpoint(kmesh[ikpoint], echo);
-                          for (int iband = 0; iband < nbands; ++iband) {
-                              int const ia = iband % na1; // which atom?
-                              int const io = iband / na1; // which orbital?
-                              if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
-                              auto const q = qn[io];
-                              if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
-                              int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
-                              single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
-                              if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), scale_sigmas, echo);
-                              single_atomic_orbital[ia][isho] = 0; // reset
-                          } // iband
-                      } // ikpoint
-                      op.set_kpoint(); // reset k-point
-                  } else {
-                      if (echo > 1) std::printf("# try to read start waves from file \'%s\'\n", start_wave_file);
-                      if (run) {
-                          auto const nerrors = debug_tools::read_from_file(psi(0,0), start_wave_file, nbands, psi.stride(), gc.all(), "wave functions", echo);
-                          if (nerrors) {
-                              error("failed to read start wave functions from file \'%s\'", start_wave_file);
-                          } else {
-                              if (echo > 1) std::printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
-                          }
-                      } // run
-                      for (int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
-                          if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
-                          if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
-                      } // ikpoints
-                  } // start wave method
+        int const na = list_of_atoms.size();
+        auto const start_wave_file = control::get("start.waves", "");
+        if ('\0' == *start_wave_file) {
+            if (echo > 1) std::printf("# initialize grid wave functions as %d atomic orbitals on %d atoms\n", nbands, na);
+            float const scale_sigmas = control::get("start.waves.scale.sigma", 10.); // how much more spread in the start waves compared to sigma_prj
+            uint8_t qn[20][4]; // first 20 sets of quantum numbers [nx, ny, nz, nu] with nu==nx+ny+nz
+            sho_tools::quantum_number_table(qn[0], 3, sho_tools::order_Ezyx); // Ezyx-ordered, take 1, 4, 10 or 20
+            std::vector<int32_t> ncoeff_a(na, 20);
+            int const na1 = std::max(na, 1); // na1 is save for divide and modulo operations
+            data_list<wave_function_t> single_atomic_orbital(ncoeff_a, 0.0); // get memory and initialize
+            for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                op.set_kpoint(kmesh[ikpoint], echo);
+                for (int iband = 0; iband < nbands; ++iband) {
+                    int const ia = iband % na1; // which atom?
+                    int const io = iband / na1; // which orbital?
+                    if (io >= 20) error("requested more than 20 start wave functions per atom! bands.per.atom=%g", nbands/double(na));
+                    auto const q = qn[io];
+                    if (echo > 7) std::printf("# initialize band #%i as atomic orbital %x%x%x of atom #%i\n", iband, q[2], q[1], q[0], ia);
+                    int const isho = sho_tools::zyx_index(3, q[0], q[1], q[2]); // isho in order_zyx w.r.t. numax=3
+                    single_atomic_orbital[ia][isho] = 1./std::sqrt((q[3] > 0) ? ( (q[3] > 1) ? 53. : 26.5 ) : 106.); // set normalization depending on s,p,ds*
+                    if (run) op.get_start_waves(psi(ikpoint,iband), single_atomic_orbital.data(), scale_sigmas, echo);
+                    single_atomic_orbital[ia][isho] = 0; // reset
+                } // iband
+            } // ikpoint
+            op.set_kpoint(); // reset k-point
+        } else {
+            if (echo > 1) std::printf("# try to read start waves from file \'%s\'\n", start_wave_file);
+            if (run) {
+                auto const nerrors = debug_tools::read_from_file(psi(0,0), start_wave_file, nbands, psi.stride(), gc.all(), "wave functions", echo);
+                if (nerrors) {
+                    error("failed to read start wave functions from file \'%s\'", start_wave_file);
+                } else {
+                    if (echo > 1) std::printf("# read %d bands x %ld numbers from file \'%s\'\n", nbands, gc.all(), start_wave_file);
+                }
+            } // run
+            for (int ikpoint = 1; ikpoint < nkpoints; ++ikpoint) {
+                if (echo > 3) { std::printf("# copy %d bands for k-point #%i from k-point #0\n", nbands, ikpoint); std::fflush(stdout); }
+                if (run) set(psi(ikpoint,0), psi.dim1()*psi.stride(), psi(0,0)); // copy, ToDo: include Bloch phase factors
+            } // ikpoints
+        } // start wave method
 
     } // constructor
     
@@ -142,91 +142,90 @@ namespace structure_solver {
         status_t stat(0);
         int const na = atom_mat.nrows();
 
-                  // copy the local potential and non-local atom matrices into the grid operator descriptor
-                  op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo*0); // muted
-                  
-                  auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
-                  if (export_Hamiltonian) {
-                      op.write_to_file(echo, control::get("export.hamiltonian.format", "xml"));
-                      if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian = %g < 0", export_Hamiltonian);
-                  } // export_Hamiltonian
+        // copy the local potential and non-local atom matrices into the grid operator descriptor
+        op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo*0); // muted
+        
+        auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
+        if (export_Hamiltonian) {
+            op.write_to_file(echo, control::get("export.hamiltonian.format", "xml"));
+            if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian = %g < 0", export_Hamiltonian);
+        } // export_Hamiltonian
 
-                  for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                      op.set_kpoint(kmesh[ikpoint], echo);
-                      char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
-                      auto psi_k = psi[ikpoint]; // get a sub-view
-                      bool display_spectrum{true};
+        for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+            op.set_kpoint(kmesh[ikpoint], echo);
+            char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikpoint,0),kmesh(ikpoint,1),kmesh(ikpoint,2));
+            auto psi_k = psi[ikpoint]; // get a sub-view
+            bool display_spectrum{true};
 
-                      // solve the Kohn-Sham equation using various solvers
-                      if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
-                          stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              if (echo > 6) { std::printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
-                              stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo - 5);
-                              stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          } // irepeat
-                      } else
-                      if ('d' == *grid_eigensolver_method) { // "davidson"
-                          for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
-                              if (echo > 6) { std::printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
-                              stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
-                          } // irepeat
-                      } else
-                      if ('e' == *grid_eigensolver_method) { // "explicit" dense matrix solver
-                          view3D<wave_function_t> HSm(2, gc.all(), align<4>(gc.all()), 0.0); // get memory for the dense representation
-                          op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), echo);
-                          stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
-                          display_spectrum = false; // the dense solver will display on its own
-                          wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor? 
-                          for (int iband = 0; iband < nbands; ++iband) {
-                              set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
-                          } // iband
-                      } else
-                      if ('n' == *grid_eigensolver_method) { // "none"
-//                           if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
-//                           ToDo: this warning in potential_generator.cxx
-                      } else {
-                          ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
-                      } // grid_eigensolver_method
+            // solve the Kohn-Sham equation using various solvers
+            if ('c' == *grid_eigensolver_method) { // "cg" or "conjugate_gradients"
+                stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
+                for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                    if (echo > 6) { std::printf("# SCF cycle #%i, CG repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
+                    stat += conjugate_gradients::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo - 5);
+                    stat += davidson_solver::rotate(psi_k.data(), energies[ikpoint], nbands, op, echo);
+                } // irepeat
+            } else
+            if ('d' == *grid_eigensolver_method) { // "davidson"
+                for (int irepeat = 0; irepeat < nrepeat; ++irepeat) {
+                    if (echo > 6) { std::printf("# SCF cycle #%i, DAV repetition #%i\n", scf_iteration, irepeat); std::fflush(stdout); }
+                    stat += davidson_solver::eigensolve(psi_k.data(), energies[ikpoint], nbands, op, echo);
+                } // irepeat
+            } else
+            if ('e' == *grid_eigensolver_method) { // "explicit" dense matrix solver
+                view3D<wave_function_t> HSm(2, gc.all(), align<4>(gc.all()), 0.0); // get memory for the dense representation
+                op.construct_dense_operator(HSm(0,0), HSm(1,0), HSm.stride(), echo);
+                stat += dense_solver::solve(HSm, x_axis, echo, nbands, energies[ikpoint]);
+                display_spectrum = false; // the dense solver will display on its own
+                wave_function_t const factor = 1./std::sqrt(gc.dV()); // normalization factor? 
+                for (int iband = 0; iband < nbands; ++iband) {
+                    set(psi(ikpoint,iband), gc.all(), HSm(0,iband), factor);
+                } // iband
+            } else
+            if ('n' == *grid_eigensolver_method) { // "none"
+//              if (take_atomic_valence_densities < 1) warn("eigensolver=none generates no new valence density");
+            } else {
+                ++stat; error("unknown grid.eigensolver method \'%s\'", grid_eigensolver_method);
+            } // grid_eigensolver_method
 
-                      if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
+            if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
 
-//                       if we used the fermi.level=linearized option, 
-//                       we could combine the KS equation solving for a k-point with the evaluation of the density
+//          if we used the fermi.level=linearized option, 
+//          we could combine the KS equation solving for a k-point with the evaluation of the density
 
-                  } // ikpoint
-                  op.set_kpoint(); // reset to Gamma
+        } // ikpoint
+        op.set_kpoint(); // reset to Gamma
 
-                  here;
+        here;
 
-                  if ('e' == (occupation_method | 32)) {
-                      // determine the exact Fermi level as a function of all energies and kmesh_weights
-                      view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
-                      for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                          double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-                          set(kweights[ikpoint], nbands, kpoint_weight);
-                      } // ikpoint
-                      double const eF = fermi_distribution::Fermi_level(occupations.data(), 
-                                      energies.data(), kweights.data(), nkpoints*nbands,
-                                      Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
-                      Fermi.set_Fermi_level(eF, echo);
-                  } // occupation_method "exact"
+        if ('e' == (occupation_method | 32)) {
+            // determine the exact Fermi level as a function of all energies and kmesh_weights
+            view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
+            for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+                double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
+                set(kweights[ikpoint], nbands, kpoint_weight);
+            } // ikpoint
+            double const eF = fermi_distribution::Fermi_level(occupations.data(), 
+                            energies.data(), kweights.data(), nkpoints*nbands,
+                            Fermi.get_temperature(), Fermi.get_n_electrons(), Fermi.get_spinfactor(), echo);
+            Fermi.set_Fermi_level(eF, echo);
+        } // occupation_method "exact"
 
-                  here;
+        here;
 
-                  // density generation
-                  for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
-                      op.set_kpoint(kmesh[ikpoint], echo);
-                      double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
-                      std::vector<uint32_t> coeff_starts;
-                      auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
-                                                psi(ikpoint,0), op, nbands, echo, ikpoint);
-                      stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
-                                                energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
-                                                coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
-                                                         rho_valence_gc[1], atom_rho_new[1].data(), charges);
-                  } // ikpoint
-                  op.set_kpoint(); // reset to Gamma
+        // density generation
+        for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
+            op.set_kpoint(kmesh[ikpoint], echo);
+            double const kpoint_weight = kmesh(ikpoint,brillouin_zone::WEIGHT);
+            std::vector<uint32_t> coeff_starts;
+            auto const atom_coeff = density_generator::atom_coefficients(coeff_starts,
+                                      psi(ikpoint,0), op, nbands, echo, ikpoint);
+            stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
+                                      energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
+                                      coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
+                                                rho_valence_gc[1], atom_rho_new[1].data(), charges);
+        } // ikpoint
+        op.set_kpoint(); // reset to Gamma
       
         return stat;
     } // solve
@@ -237,7 +236,7 @@ namespace structure_solver {
 
     ~KohnShamStates() {
         std::printf("# ~KohnShamStates<%s>\n", complex_name<wave_function_t>());
-        psi = view3D<wave_function_t>(0,0,0, 0);
+        psi = view3D<wave_function_t>(0,0,0);
     } // destructor
 
   private: // members
