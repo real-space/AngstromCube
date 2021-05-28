@@ -236,7 +236,7 @@ namespace structure_solver {
 
     ~KohnShamStates() {
         std::printf("# ~KohnShamStates<%s>\n", complex_name<wave_function_t>());
-        psi = view3D<wave_function_t>(0,0,0);
+        psi = view3D<wave_function_t>(0,0,0, 0);
     } // destructor
 
   private: // members
@@ -344,7 +344,7 @@ namespace structure_solver {
             solver_method = control::get("grid.eigensolver", "cg");
 
         } else {
-          
+
             sigma_a.resize(na);
             numax.resize(na);
             for (int ia = 0; ia < na; ++ia) {

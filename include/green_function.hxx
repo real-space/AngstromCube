@@ -12,7 +12,7 @@
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "simple_timer.hxx" // SimpleTimer
 
-#ifdef HAS_RAPIDXML
+#ifdef  HAS_RAPIDXML
   // from https://sourceforge.net/projects/rapidxml/files/latest/download
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "rapidxml/rapidxml_utils.hpp" // ::file<>
@@ -168,7 +168,7 @@ namespace green_function {
       } // scope
       if (echo > 0) std::printf("# center of mass of RHS blocks is %g %g %g %s\n",
           center_of_mass_RHS[X]*Ang, center_of_mass_RHS[Y]*Ang, center_of_mass_RHS[Z]*Ang, _Ang);
-      if (echo > 0) std::printf("# center of of RHS blocks is %g %g %g %s\n",
+      if (echo > 0) std::printf("# center of coords  RHS blocks is %g %g %g %s\n",
           center_of_RHSs[X]*Ang, center_of_RHSs[Y]*Ang, center_of_RHSs[Z]*Ang, _Ang);
       if (echo > 0) std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
                               max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
@@ -708,7 +708,10 @@ namespace green_function {
 #else // NO_UNIT_TESTS
 
   inline status_t test_Green_function(int const echo=0) {
-#ifdef HAS_RAPIDXML
+#ifndef HAS_RAPIDXML
+      warn("Unable to test Green function construction when compiled without -D HAS_RAPIDXML", 0);
+      return STATUS_TEST_NOT_INCLUDED;
+#else  // HAS_RAPIDXML
       char const *filename = "Hmt.xml";
       rapidxml::file<> infile(filename);
 
@@ -817,10 +820,7 @@ namespace green_function {
       } else warn("no grid_Hamiltonian found in file %s", filename);
 
       return construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, echo);
-#else
-      warn("Unable to test Green function construction when compiled without -D HAS_RAPIDXML", 0);
-      return STATUS_TEST_NOT_INCLUDED;
-#endif
+#endif // HAS_RAPIDXML
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {

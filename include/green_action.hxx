@@ -17,8 +17,8 @@
 #include "simple_stats.hxx" // ::Stats<>
 
 #ifdef HAS_TFQMRGPU
-  #include "tfqmrgpu_core.hxx" // solve<action_t>
-  #include "tfqmrgpu_memWindow.h" // memWindow_t
+  #include "tfQMRgpu/tfqmrgpu_core.hxx" // solve<action_t>
+  #include "tfQMRgpu/tfqmrgpu_memWindow.h" // memWindow_t
 #else
   #include <utility> // std::pair<T>
   typedef std::pair<size_t,size_t> memWindow_t;
@@ -105,6 +105,10 @@ namespace green_action {
       } // destructor
 
   }; // plan_t
+
+
+
+
 
   template <typename floating_point_t=float, unsigned block_size=64>
   class action_t {
@@ -303,8 +307,8 @@ namespace green_action {
       //    where potential_power should be a template argument and then apply the mask
       //        HG[...] *= (d2 < truncation_radius2)
       //    to make the truncation sphere perfectly round. inner_radius2 < truncation_radius2 assumed.
-          float const truncation_radius2 = pow2(p->r_truncation);
-          float const inner_radius2      = pow2(p->r_Vconfinement);
+          float const truncation_radius2  = pow2(p->r_truncation);
+          float const inner_radius2       = pow2(p->r_Vconfinement);
           float const potential_prefactor = p->Vconfinement;
 
           float const hg[3] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
@@ -379,23 +383,21 @@ namespace green_action {
               } // inz
           } // iRow
 
-          std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
-          // how many grid points do we expect?
-          double const f = 4*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
-          double const Vi = pow3(p->r_Vconfinement)*f;
-          double const Vo = pow3(p->r_truncation)*f;
-          std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
-          std::printf("# stats  inner %g conf %g outer %g grid points\n", 
-                  stats_inner.num(), stats_Vconf.num(), stats_outer.num());
-          
-          std::printf("# stats       distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_d2.avg(), stats_d2.min(), stats_d2.max());
-          std::printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_inner.avg(), stats_inner.min(), stats_inner.max());
-          std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_conf.avg(), stats_conf.min(), stats_conf.max());
-          std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n",
-                  stats_outer.avg(), stats_outer.min(), stats_outer.max());
+          { // scope: display stats
+              std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
+              // how many grid points do we expect?
+              double const f = 4*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
+              double const Vi = pow3(p->r_Vconfinement)*f;
+              double const Vo = pow3(p->r_truncation)*f;
+              std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
+              std::printf("# stats  inner %g conf %g outer %g grid points\n", 
+                      stats_inner.num(), stats_Vconf.num(), stats_outer.num());
+
+              std::printf("# stats       distance^2 %g [%g, %g] Bohr^2\n", stats_d2.avg(),    stats_d2.min(),    stats_d2.max());
+              std::printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n", stats_inner.avg(), stats_inner.min(), stats_inner.max());
+              std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n", stats_conf.avg(),  stats_conf.min(),  stats_conf.max());
+              std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n", stats_outer.avg(), stats_outer.min(), stats_outer.max());
+          } // scope
 
           return 0; // no flops performed so far
       } // multiply
