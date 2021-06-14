@@ -103,7 +103,7 @@ namespace green_kinetic {
                                 n_lists, direction, n_lists/(max_lists*.01),
                                 length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
 
-          // store in managed memory
+          // store index starts in managed memory
           prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory
           prefix[0] = 0;
           for (int ilist = 0; ilist < n_lists; ++ilist) {
@@ -113,11 +113,18 @@ namespace green_kinetic {
           size_t const ntotal = prefix[n_lists];
           if (echo > 0) std::printf("# FD lists for the %c-direction require %ld uint32_t, i.e. %.3f kByte\n",
                                   direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
-          fd_list = get_memory<int32_t>(ntotal);
-          for (int ilist = 0; ilist < n_lists; ++ilist) {
-              int const n = list[ilist].size();
-              set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory
-          } // ilist
+          // store indices in managed memory
+          fd_list = get_memory<int32_t>(ntotal); // create in GPU memory
+          { // scope: copy indices into managed memory
+              size_t ntotal_check{0};
+              for (int ilist = 0; ilist < n_lists; ++ilist) {
+                  int const n = list[ilist].size();
+                  assert(ntotal_check == prefix[ilist]); // sanity
+                  ntotal_check += n;
+                  set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory
+              } // ilist
+              assert(ntotal == ntotal_check); // sanity
+          } // scope
  
       } // constructor
 
@@ -139,7 +146,7 @@ namespace green_kinetic {
       finite_difference_plan_t& operator= (finite_difference_plan_t const & rhs) = delete; // move assignment
 
       ~finite_difference_plan_t() {
-          // std::printf("# destruct %s, pointers= %p and %p\n", __func__, fd_list, prefix); std::fflush(stdout);
+          std::printf("# destruct %s, pointers= %p and %p\n", __func__, (void*)fd_list, (void*)prefix); std::fflush(stdout);
           free_memory(fd_list);
           free_memory(prefix);
       } // destructor

@@ -17,12 +17,12 @@
 #include "simple_stats.hxx" // ::Stats<>
 
 #ifdef HAS_TFQMRGPU
-  #include "tfQMRgpu/tfqmrgpu_core.hxx" // solve<action_t>
-  #include "tfQMRgpu/tfqmrgpu_memWindow.h" // memWindow_t
+    #include "tfQMRgpu/tfqmrgpu_core.hxx" // solve<action_t>
+    #include "tfQMRgpu/tfqmrgpu_memWindow.h" // memWindow_t
 #else
-  #include <utility> // std::pair<T>
-  typedef std::pair<size_t,size_t> memWindow_t;
-  typedef size_t cudaStream_t;
+    #include <utility> // std::pair<T>
+    typedef std::pair<size_t,size_t> memWindow_t;
+    typedef size_t cudaStream_t;
 #endif // HAS_TFQMRGPU
 
 namespace green_action {
@@ -102,6 +102,9 @@ namespace green_action {
           free_memory(veff_index);
           free_memory(atom_mat);
           free_memory(atom_data);
+          for (int d = 0; d < 3; ++d) {
+              fd_plan[d].~finite_difference_plan_t();
+          } // d
       } // destructor
 
   }; // plan_t
@@ -296,6 +299,8 @@ namespace green_action {
       //                      sho_projector[iprj][i64];
       //                  }
       //
+
+
       //
       //    furthermore, we have to multiply the local potential Veff[veff_index[iRow]],
       //    the confinement potential and apply the truncation mask

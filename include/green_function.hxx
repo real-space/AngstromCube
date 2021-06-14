@@ -13,7 +13,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 
 #ifdef  HAS_RAPIDXML
-  // from https://sourceforge.net/projects/rapidxml/files/latest/download
+  // git clone https://github.com/dwd/rapidxml
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "rapidxml/rapidxml_utils.hpp" // ::file<>
 
@@ -33,18 +33,28 @@
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 
+/*
+ *  ToDo plan:
+ *    Implement CPU version of SHOprj and SHOadd
+ *    Implement periodic boundary conditions in CPU version [optional, but would speed up the following item]
+ *    Ensure that tfQMRgpu can invert CPU-only
+ *    Verify that the density of states of the Green function matches that found by eigenvalues (explicit solver)
+ *    Implement GPU versions of the Hamiltonian
+ * 
+ */
+
 namespace green_function {
 
   double const GByte = 1e-9; char const *const _GByte = "GByte";
 
   inline status_t construct_Green_function(
-        int const ng[3]
-      , double const hg[3]
+        int const ng[3] // number of grid points of the unit cell in with the potential is defined
+      , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
       , std::vector<std::vector<double>> const & atom_mat // atomic hamiltonian and overlap matrix
-      , int const echo=0
-      , std::complex<double> const *energy_parameter=nullptr
+      , int const echo=0 // log-level
+      , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
   ) {
       int constexpr X=0, Y=1, Z=2;
       if (echo > 0) std::printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
@@ -206,6 +216,7 @@ namespace green_function {
 
           int16_t itr[3]; // range [-32768, 32767] should be enough
           for (int d = 0; d < 3; ++d) {
+              // how many blocks around the source block do we need to check
               auto const itrunc = std::floor(rtrunc_plus/(4*hg[d]));
               assert(itrunc < 32768 && "target coordinate type is int16_t!");
               itr[d] = int16_t(itrunc);
@@ -631,8 +642,8 @@ namespace green_function {
           set(p->ApcStart, nai + 1, ApcStart.data()); // copy into GPU memory
 
           // get all info for the atomic matrices:
-          std::vector<int32_t> local_atom_index(natoms, -1); // translation table
           std::vector<int32_t> global_atom_index(natoms, -1); // translation table
+          std::vector<int32_t>  local_atom_index(natoms, -1); // translation table
           int iac{0};
           for (int ia = 0; ia < natoms; ++ia) { // serial
               if (atom_ncoeff[ia] > 0) {
@@ -664,7 +675,8 @@ namespace green_function {
               p->atom_mat[iac] = get_memory<double[2]>(nc*nc);
               // fill this with matrix values
               // use MPI communication to find values in atom owner processes
-              auto const hmt = atom_mat[ia].data(), ovl = hmt + nc*nc;
+              auto const hmt = atom_mat[ia].data();
+              auto const ovl = hmt + nc*nc;
               for (int i = 0; i < nc; ++i) {
                   for (int j = 0; j < nc; ++j) {
                       int const ij = i*nc + j;
