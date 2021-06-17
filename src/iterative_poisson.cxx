@@ -18,7 +18,8 @@
 
 #ifndef NO_UNIT_TESTS
   #include "real_space.hxx" // ::grid_t, ::Bessel_projection
-  #include "radial_grid.hxx" // ::radial_grid_t, ::create_equidistant_radial_grid
+  #include "radial_grid.h" // radial_grid_t
+  #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant
   #include "bessel_transform.hxx" // ::transform_s_function
   #include "radial_potential.hxx" // ::Hartree_potential
 #endif
@@ -525,7 +526,7 @@ namespace iterative_poisson {
       status_t const stat = solve(x, b, g, 'M', echo, threshold); // method=M:multi_grid
 
       if (echo > 8) { // get a radial representation through Bessel transform
-          auto const rg = *radial_grid::create_equidistant_radial_grid(150, 15.);
+          auto const rg = *radial_grid::create_radial_grid(150, 15.);
 
           view2D<double> f_ref(2, rg.n, 0.0); // 0:x, 1:b
           for (int ir = 0; ir < rg.n; ++ir) {

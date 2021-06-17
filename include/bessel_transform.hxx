@@ -5,7 +5,6 @@
 #include <vector> // std::vector<T>
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_exponential_radial_grid
 #include "radial_r2grid.hxx" // ::r_axis
 #include "status.hxx" // status_t
 

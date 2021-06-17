@@ -7,7 +7,7 @@
 #include "radial_integrator.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_exponential_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid
 #include "inline_math.hxx" // sgn, pow2, align<nBits>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -580,7 +580,7 @@ namespace radial_integrator {
   
   status_t test_Bessel_functions(int const echo=0) {
       // unit test for the outwards integration
-      auto g = *radial_grid::create_exponential_radial_grid(512); // radial grid descriptor
+      auto g = *radial_grid::create_radial_grid(512); // radial grid descriptor
       std::vector<double> rV(g.n, 0); // fill all potential values with r*V(r) == 0 everywhere
       std::vector<double> rf(g.n), rg(g.n); // rf = large component of the radial function
       double const k = 1; // wave number of the Bessel function
@@ -626,10 +626,10 @@ namespace radial_integrator {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-//       auto const g = *radial_grid::create_exponential_radial_grid(512);
+//       auto const g = *radial_grid::create_radial_grid(512);
 //    double const Z = 1;
-//    stat += test_hydrogen_atom(*radial_grid::create_exponential_radial_grid(256), Z, echo);
-//    stat += test_hydrogen_wave_functions(*radial_grid::create_exponential_radial_grid(2610), Z, echo);
+//    stat += test_hydrogen_atom(*radial_grid::create_radial_grid(256), Z, echo);
+//    stat += test_hydrogen_wave_functions(*radial_grid::create_radial_grid(2610), Z, echo);
       stat += test_Bessel_functions(echo);
 //    stat += test_inhomogeneous(g, Z, echo); // solutions need to be inspected manually
       return stat;

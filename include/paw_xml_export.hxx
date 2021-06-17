@@ -99,10 +99,17 @@ namespace paw_xml_export {
           std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
           if (ts == TRU || rg[SMT].n < rg[TRU].n) {
               char const final = show_radial_grid_values ? ' ' : '/';
-              std::fprintf(f, "  <radial_grid eq=\"%s\" a=\"%.15e\" d=\"%g\""
-                  " n=\"%d\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n",
-                  rg[ts].equation, prefactor, rg[TRU].anisotropy, 
-                  rg[ts].n - ir0, ir0 + rg[TRU].n - rg[ts].n, rg[TRU].n - 1, ts_tag[ts], final);
+              {
+                  bool const reci = (radial_grid::equation_reciprocal == rg[ts].equation);
+                  double const a = prefactor;
+                  double const d = rg[TRU].anisotropy;
+                  int const istart = ir0 + rg[TRU].n - rg[ts].n;
+                  int const iend   = rg[TRU].n - 1;
+                  double const n   = rg[ts].n - ir0;
+                  std::fprintf(f, "  <radial_grid eq=\"%s\" a=\"%.15e\" d=\"%g\""
+                      " n=\"%g\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n",
+                      rg[ts].equation, a, reci?d:0, reci?n:d, istart, iend, ts_tag[ts], final);
+              }
 
               if ('/' != final) { // pass the radial grid values explictly, ABINIT needs this
                   std::fprintf(f, "    <values>\n      ");

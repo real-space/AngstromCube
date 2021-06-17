@@ -12,9 +12,9 @@ typedef struct {
     double*   rdr; // r*dr[0:n)
     double*  r2dr; // r^2*dr[0:n)
     double*  rinv;  // r^-1
-    float anisotropy = 0.f;
-    bool  memory_owner;
     char const* equation;
+    double anisotropy = 0.;
+    bool  memory_owner;
 } radial_grid_t;
 
 #ifdef __cplusplus

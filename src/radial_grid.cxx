@@ -9,88 +9,109 @@
 
 namespace radial_grid {
   
-  inline radial_grid_t* get_memory(size_t const n_aligned) {
+  inline radial_grid_t* get_memory(size_t const nr_aligned) {
       auto g = new radial_grid_t;
-      g->r = new double[5*n_aligned];
-      g->dr     = &g->r[1*n_aligned];
-      g->rdr    = &g->r[2*n_aligned];
-      g->r2dr   = &g->r[3*n_aligned];
-      g->rinv   = &g->r[4*n_aligned];
+      g->r = new double[5*nr_aligned];
+      g->dr    = & g->r[1*nr_aligned];
+      g->rdr   = & g->r[2*nr_aligned];
+      g->r2dr  = & g->r[3*nr_aligned];
+      g->rinv  = & g->r[4*nr_aligned];
       g->memory_owner = (nullptr != g->r);
       return g;
   } // get_memory
 
-  inline void set_derived_grid_quantities(radial_grid_t & g, int const n_aligned) {
-      for (int ir = 0; ir < n_aligned; ++ir) {
+  inline void set_derived_grid_quantities(radial_grid_t & g, int const nr) {
+      for (int ir = 0; ir < nr; ++ir) {
           auto const r = g.r[ir], dr = g.dr[ir];
-          g.rdr[ir] = r*dr;
+          g.rdr[ir]  =   r*dr;
           g.r2dr[ir] = r*r*dr;
           g.rinv[ir] = (ir)? 1./r : 0;
 //        std::printf("%g %g\n", r, dr); // DEBUG
       } // ir
   } // set_derived_grid_quantities
 
-  char const equation_exponential[] = "r=a*(exp(d*i)-1)";
-  char const equation_equidistant[] = "r=a*i/n";
-
-  // ToDo: remove exponential from the function name
-  radial_grid_t* create_exponential_radial_grid(
+  radial_grid_t* create_radial_grid(
         int const npoints
-      , float const Rmax // =default_Rmax
-      , float const anisotropy // =default_anisotropy
+      , float const rmax // [optional] largest radius
+      , char const *equation // [optional] how to generate the grid
+      , double const anisotropy // [optional] anisotropy parameter for exponential
   ) {
-      int const n = std::max(std::abs(npoints), 32);
-      double const R = std::max(std::abs(Rmax)*1., .945);
 
-      int const n_aligned = align<2>(n); // padded to multiples of 4
-      auto const g = get_memory(n_aligned);
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
-      bool static warn_reciprocal{true};
-      if (warn_reciprocal) {
-          std::printf("# radial_grid -D USE_RECIPROCAL_RADIAL_GRID\n");
-          warn_reciprocal = false; // switch off
-      } // warn_reciprocal
-      for (auto i = 0; i < n; ++i) {
-          double const rec = 1./(n*(n - i));
-          g->r[i]  = R*i*rec;
-          g->dr[i] = R*n*rec*n*rec;
-      } // i
-      for (auto ir = n; ir < n_aligned; ++ir) {
-          g->r[ir]  = 0;
-          g->dr[ir] = 0;
-      } // ir
-      g->equation = "r=a*i/(n-i)";
-      double const d = 0; // anisotropy
-#else
-      double const d = std::min(std::max(1e-4, anisotropy*1.), .1);
-      double const a = R / (std::exp(d*(n - 1)) - 1.); // prefactor
-      for (auto ir = 0; ir < n_aligned; ++ir) {
-          double const edi = std::exp(d*ir);
-          g->r[ir]  = a*(edi - 1.);
-          g->dr[ir] = a*d*edi * (ir < n);
-      } // ir
-      g->equation = equation_exponential;
+      auto const mR = 100; // multiplicator for the outer radius
+      bool static warn_reciprocal{true}; // NOT thread-safe
+      if (nullptr == equation) {
+          equation = equation_reciprocal; // modify default behaviour
+          if (warn_reciprocal) {
+              std::printf("# radial_grid -D USE_RECIPROCAL_RADIAL_GRID with %gx larger nominal outer radius\n", mR*1.);
+              warn_reciprocal = false; // switch off
+          } // warn_reciprocal
+      } // special grid equation requested?
 #endif
-      set_derived_grid_quantities(*g, n_aligned);
-      g->n = n;
-      g->rmax = g->r[g->n - 1];
-      g->anisotropy = d;
+
+      int const nr = std::max(std::abs(npoints), 32);
+      double const R = std::max(std::abs(rmax)*1., .945);
+
+      int const nr_aligned = align<2>(nr); // padded to multiples of 4
+      auto const g = get_memory(nr_aligned);
+
+      double & d = g->anisotropy;
+
+      if (equation_reciprocal == equation) {
+          g->equation = equation_reciprocal;
+//        auto const n = nr + 4; // with i=nr-1 the outermost radius is i/(n-i)=(n-5)/5 ~=~ n/5
+          auto const n = nr + mR/2; // ?
+          for (int i = 0; i < nr_aligned; ++i) {
+              double const rec = 1./((nr - 1)*(n - i));
+              g->r[i]  = (mR*R)*i*rec;
+              g->dr[i] = (mR*R)*n*rec*n*rec * (i < nr);
+          } // i
+          d = n; // store the real number used for the generation of the reciprocal grid in the anisotropy field
+
+      } else if (equation_equidistant == equation) {
+          g->equation = equation_equidistant;
+          double const dr = rmax/nr;
+          for (int ir = 0; ir < nr_aligned; ++ir) {
+              g->r[ir]  = ir*dr;
+              g->dr[ir] = dr * (ir < nr);
+          } // ir
+
+      } else {
+          g->equation = equation_exponential;
+          d = std::min(std::max(1e-4, anisotropy*1.), .1);
+          double const a = R / (std::exp(d*(nr - 1)) - 1.); // prefactor
+          for (int ir = 0; ir < nr_aligned; ++ir) {
+              double const edi = std::exp(d*ir);
+              g->r[ir]  = a*(edi - 1.);
+              g->dr[ir] = a*d*edi * (ir < nr);
+          } // ir
+
+      } // switch equation
+
+      set_derived_grid_quantities(*g, nr_aligned);
+      g->n = nr;
+      g->rmax = g->r[g->n - 1]; // implicit conversion to float
+
       return g;
-  } // create_exponential_radial_grid
+  } // create_radial_grid
 
   double get_prefactor(radial_grid_t const & g) {
       if (equation_exponential == g.equation) {
           return g.rmax/(std::exp(g.anisotropy*(g.n - 1)) - 1.);
+      } else if (equation_reciprocal == g.equation) {
+          int const n = g.anisotropy, i = g.n - 1;
+          return (g.r[i]*(n - i))/i;
       } else {
-          return g.rmax/g.n;
+          return g.rmax/std::max(g.n - 1, 1);
       }
   } // get_prefactor
 
+#if 0
   radial_grid_t* create_equidistant_radial_grid(
         int const npoints
       , float const Rmax // =default_Rmax
   ) {
-      int const n = std::max(1, npoints);
+      int const n = std::max(1, npoints); // is the ever called with n < 32?
       int const n_aligned = align<2>(n); // padded to multiples of 4
       auto const g = get_memory(n_aligned);    
 
@@ -106,6 +127,7 @@ namespace radial_grid {
       g->equation = equation_equidistant;
       return g;
   } // create_equidistant_radial_grid
+#endif
 
   radial_grid_t* create_pseudo_radial_grid(
         radial_grid_t const & tru
@@ -153,7 +175,7 @@ namespace radial_grid {
 
   status_t test_create_and_destroy(int const echo=9) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
-      auto const g = create_exponential_radial_grid(1 << 11);
+      auto const g = create_radial_grid(1 << 11);
       destroy_radial_grid(g);
       return 0;
   } // test_create_and_destroy
@@ -161,10 +183,10 @@ namespace radial_grid {
   status_t test_exp_grid(int const echo=3) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
       int const n = 1 << 11;
-      auto & g = *create_exponential_radial_grid(n);
+      auto & g = *create_radial_grid(n);
       double integ[] = {0, 0, 0};
-      if (echo > 3) std::printf("\n## radial exponential grid (N=%d, anisotropy=%g, Rmax=%g %s):"
-              " r, dr, 1/r, integrals over {1,r,r^2}, r, r^2/2, r^3/3\n", n, g.anisotropy, g.rmax*1.0, " Bohr");
+      if (echo > 3) std::printf("\n## radial grid (%d grid points, anisotropy=%g, up to %g %s, %s):\n"
+              "## r, dr, 1/r, integrals over {1,r,r^2}, r, r^2/2, r^3/3\n", n, g.anisotropy, g.rmax*1.0, " Bohr", g.equation);
       for (int ir = 0; ir < g.n; ++ir) {
           if (echo > 3 && (ir < 3 || ir > g.n - 4 || echo > 11)) {
               auto const r = g.r[ir];

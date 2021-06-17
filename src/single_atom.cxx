@@ -578,7 +578,7 @@ namespace single_atom {
 #endif // DEVEL
 
         std::vector<int8_t> as_valence(96, -1);
-        enn_QN_t enn_core_ell[16]; // enn-QN of the highest occupied core level
+        enn_QN_t enn_core_ell[16]; // energy quantum number of the highest occupied core level
         set(enn_core_ell, 16, enn_QN_t(0));
 
         
@@ -951,13 +951,14 @@ namespace single_atom {
                 label, logder_energy_range[0]*eu, logder_energy_range[1]*eu, logder_energy_range[2]*eu, _eu);
         } // scope
 
-        {
+        { // scope: pseudize the local potential
             int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
                        int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
             pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
-        }
-        
-        for (int csv = 0; csv < 3; ++csv) { // construct an initial smooth density
+        } // scope
+
+        // construct an initial smooth density
+        for (int csv = 0; csv < 3; ++csv) {
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
                 spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
@@ -965,7 +966,7 @@ namespace single_atom {
 
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
-        
+
         auto const export_xml = int(control::get("single_atom.export.xml", 0.));
         auto const maxit_scf = std::max(int(control::get("single_atom.init.scf.maxit", 0.)), std::abs(export_xml));
         float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
@@ -1026,7 +1027,7 @@ namespace single_atom {
                       );
             } // ir
             std::printf("\n\n");
-            
+
             if (dot_product(rg[TRU].n, spherical_density[TRU][semicore], rg[TRU].r2dr) > 0) {
                 warn("%s semicore density was not plotted", label);
             } // non-vanishing semicore density
@@ -2264,8 +2265,8 @@ namespace single_atom {
             } // nrn
         } // ell
         for (int iln = 0; iln < nln; ++iln) { 
-            assert(ln_offset[iln] != -1); // assert coverage
-            assert(ell_list[iln]  != -1); // assert coverage
+            assert(ln_offset[iln] > -1); // assert coverage
+            assert(ell_list[iln]  > -1); // assert coverage
         } // iln
 
         if (emm_Degenerate == m) { 
@@ -3794,7 +3795,7 @@ namespace single_atom {
       double maxdev{0};
 #ifdef DEVEL
       if (echo > 1) std::printf("\n# %s: %s\n", __FILE__, __func__);
-      auto const rg = *radial_grid::create_exponential_radial_grid(512, 2.0);
+      auto const rg = *radial_grid::create_radial_grid(512, 2.f);
       int const nr = rg.n, lmax = 0, nlm = pow2(1 + lmax);
       std::vector<double> qlm(nlm, 0.0);
       view2D<double> cmp(1, nr);

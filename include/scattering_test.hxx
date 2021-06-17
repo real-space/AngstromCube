@@ -8,7 +8,8 @@
 #include <algorithm> // std::min, std::max
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_equidistant_radial_grid, ::find_grid_index, ::create_default_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant,
+                           // ::create_default_radial_grid, ::find_grid_index
 #include "bessel_transform.hxx" // ::transform_s_function
 #include "finite_difference.hxx" // ::set_Laplacian_coefficients
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
@@ -415,7 +416,7 @@ namespace scattering_test {
       , int const echo=0 // log-level
   ) {
       status_t stat(0);
-      auto const g = *radial_grid::create_equidistant_radial_grid(nr + 1, gV.rmax);
+      auto const g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) std::printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
 
@@ -642,7 +643,7 @@ namespace scattering_test {
   inline status_t test_eigenstate_analysis(int const echo=3, int const lmax=7) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       // test the eigenstate analysis with a harmonic potential with projectors but zero non-local matrices
-      auto const rg = *radial_grid::create_default_radial_grid(0);
+      auto const rg = *radial_grid::create_default_radial_grid();
       int const nln = sho_tools::nSHO_radial(lmax);
       double const sigma = 1.0; // if the rmax ~= 10, lmax = 7, sigma <= 1.5, otherwise projectors leak out
       std::vector<double> const aHm(nln*nln, 0.0); // dummy non-local matrices (constant at zero)
@@ -658,7 +659,7 @@ namespace scattering_test {
       , double const sigma=1.0
   ) {
       status_t stat(0);
-      auto const rg = *radial_grid::create_default_radial_grid(0);
+      auto const rg = *radial_grid::create_default_radial_grid();
       int const nr = align<2>(rg.n);
       int const nln = sho_tools::nSHO_radial(numax);
       view3D<double> prj(5, nln, nr, 0.0); // get memory for {sigma, sigma+delta, sigma-delta, ...
