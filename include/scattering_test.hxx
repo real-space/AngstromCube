@@ -10,6 +10,7 @@
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant,
                            // ::create_default_radial_grid, ::find_grid_index
+                           // ::destroy_radial_grid
 #include "bessel_transform.hxx" // ::transform_s_function
 #include "finite_difference.hxx" // ::set_Laplacian_coefficients
 #include "sho_radial.hxx" // ::radial_eigenstates, ::radial_normalization, ::expand_poly
@@ -416,7 +417,7 @@ namespace scattering_test {
       , int const echo=0 // log-level
   ) {
       status_t stat(0);
-      auto const g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
+      auto & g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) std::printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
 
@@ -571,6 +572,9 @@ namespace scattering_test {
           } // scope: diagonalize
 
       } // ell
+
+      // destroy the equidistant radial grid descriptor
+      radial_grid::destroy_radial_grid(&g);
 
       return stat;
   } // eigenstate_analysis

@@ -7,7 +7,7 @@
 #include "radial_integrator.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
 #include "inline_math.hxx" // sgn, pow2, align<nBits>
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -546,11 +546,11 @@ namespace radial_integrator {
 #else // NO_UNIT_TESTS
 
   status_t test_hydrogen_atom(
-        radial_grid_t const & g // radial grid descriptor
-      , double const Z // number of protons in the nucleus
-      , int const echo=0 // log-level
+        int const echo=0 // log-level
+      , double const Z=1 // number of protons in the nucleus
   ) {
       // this plots the kink and number of nodes as a function of energy, see doc/fig/20190313_kink_of_energy.*
+      auto & g = *radial_grid::create_radial_grid(256);
       std::vector<double> rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       int nnn_prev{-1};
       for (int iE = 1; iE < 1e6; ++iE) {
@@ -562,25 +562,26 @@ namespace radial_integrator {
           // with poles at the energies where the number of nodes changes, we plot -E for log axis
           nnn_prev = nnn; // for the next iteration
       } // iE
+      radial_grid::destroy_radial_grid(&g);
       return 0;
   } // test_hydrogen_atom
 
   status_t test_hydrogen_wave_functions(
-        radial_grid_t const & g // radial grid descriptor
-      , double const Z // number of protons in the nucleus
-      , int const echo=0 // log-level
+        int const echo=0 // log-level
+      , double const Z=1 // number of protons in the nucleus
   ) {
+      auto & g = *radial_grid::create_radial_grid(2610);
       std::vector<double> rf(g.n), rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
-      int nnn;
+      int nnn{0};
       auto const kink = shoot(0, g, rV.data(), 0, -0.5, nnn, rf.data());
       if (echo > 5) debug(dump_to_file("H1s_radial_wave_function.dat", g.n, rf.data(), g.r));
+      radial_grid::destroy_radial_grid(&g);
       return (std::abs(kink) < 1e-3);
   } // test_hydrogen_wave_functions
-
   
   status_t test_Bessel_functions(int const echo=0) {
       // unit test for the outwards integration
-      auto g = *radial_grid::create_radial_grid(512); // radial grid descriptor
+      auto & g = *radial_grid::create_radial_grid(512); // radial grid descriptor
       std::vector<double> rV(g.n, 0); // fill all potential values with r*V(r) == 0 everywhere
       std::vector<double> rf(g.n), rg(g.n); // rf = large component of the radial function
       double const k = 1; // wave number of the Bessel function
@@ -588,8 +589,7 @@ namespace radial_integrator {
       if (echo > 3) std::printf("\n## %s: x, sin(x), f(x), sin(x) - f(x):\n", __func__);
       double dev{0}, norm{0};
       for (auto ir = 1; ir < g.n; ++ir) {
-          auto const x = k*g.r[ir];
-          double const ref = std::sin(x), diff = ref - rf[ir];
+          double const x = k*g.r[ir], ref = std::sin(x), diff = ref - rf[ir];
           if (echo > 4) std::printf("%g %g %g %g\n", x, ref, rf[ir], diff); // compare result to x*j0(x)==sin(x)
           norm += pow2(ref)*g.dr[ir]; // integrate
           dev += pow2(diff)*g.dr[ir]; // integrate
@@ -602,10 +602,10 @@ namespace radial_integrator {
 
   // unit test for the inhomogeneous outwards integration
   status_t test_inhomogeneous(
-        radial_grid_t const & g // radial grid descriptor
-      , double const Z=0 // number of protons in the nucleus
-      , int const echo=0 // log-level
+        int const echo=0 // log-level
+      , double const Z=1 // number of protons in the nucleus
   ) {
+      auto & g = *radial_grid::create_radial_grid(512);
       std::vector<double> mem(4*g.n);
       auto const gg = &mem[0], ff = &mem[g.n], rp = &mem[2*g.n], rV = &mem[3*g.n];
       for (int ir = 0; ir < g.n; ++ir) {
@@ -621,17 +621,16 @@ namespace radial_integrator {
               rp[ir] *= g.r[ir]; // udate rp for the next ell-iteration
           } // ir
       } // ell
+      radial_grid::destroy_radial_grid(&g);
       return 0;
   } // test_inhomogeneous
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-//       auto const g = *radial_grid::create_radial_grid(512);
-//    double const Z = 1;
-//    stat += test_hydrogen_atom(*radial_grid::create_radial_grid(256), Z, echo);
-//    stat += test_hydrogen_wave_functions(*radial_grid::create_radial_grid(2610), Z, echo);
+//    stat += test_hydrogen_atom(echo);
+//    stat += test_hydrogen_wave_functions(echo);
       stat += test_Bessel_functions(echo);
-//    stat += test_inhomogeneous(g, Z, echo); // solutions need to be inspected manually
+//    stat += test_inhomogeneous(echo); // solutions need to be inspected manually
       return stat;
   } // all_tests
 

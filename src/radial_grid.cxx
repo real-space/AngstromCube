@@ -26,7 +26,9 @@ namespace radial_grid {
           g.rdr[ir]  =   r*dr;
           g.r2dr[ir] = r*r*dr;
           g.rinv[ir] = (ir)? 1./r : 0;
-//        std::printf("%g %g\n", r, dr); // DEBUG
+#ifdef FULL_DEBUG
+          std::printf("%g %g\n", r, dr);
+#endif // FULL_DEBUG
       } // ir
   } // set_derived_grid_quantities
 
@@ -37,8 +39,8 @@ namespace radial_grid {
       , double const anisotropy // [optional] anisotropy parameter for exponential
   ) {
 
+      auto const mR = 128; // multiplicator for the outer radius of reciprocal grids
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
-      auto const mR = 128; // multiplicator for the outer radius
       bool static warn_reciprocal{true}; // NOT thread-safe
       if (nullptr == equation) {
           equation = equation_reciprocal; // modify default behaviour
@@ -47,7 +49,7 @@ namespace radial_grid {
               warn_reciprocal = false; // switch off
           } // warn_reciprocal
       } // special grid equation requested?
-#endif
+#endif // USE_RECIPROCAL_RADIAL_GRID
 
       int const nr = std::max(std::abs(npoints), 32);
       double const R = std::max(std::abs(rmax)*1., .945);
@@ -105,29 +107,6 @@ namespace radial_grid {
       }
   } // get_prefactor
 
-#if 0
-  radial_grid_t* create_equidistant_radial_grid(
-        int const npoints
-      , float const Rmax // =default_Rmax
-  ) {
-      int const n = std::max(1, npoints); // is the ever called with n < 32?
-      int const n_aligned = align<2>(n); // padded to multiples of 4
-      auto const g = get_memory(n_aligned);    
-
-      double const dr = Rmax/n;
-      for (auto ir = 0; ir < n_aligned; ++ir) {
-          g->r[ir] = ir*dr;
-          g->dr[ir] = dr;
-      } // ir
-      set_derived_grid_quantities(*g, n_aligned);
-      g->n = n;
-      g->rmax = g->r[g->n - 1];
-      g->anisotropy = 0;
-      g->equation = equation_equidistant;
-      return g;
-  } // create_equidistant_radial_grid
-#endif
-
   radial_grid_t* create_pseudo_radial_grid(
         radial_grid_t const & tru
       , double const r_min // =1e-3 Bohr
@@ -157,7 +136,7 @@ namespace radial_grid {
 //    std::printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
       if (g->memory_owner) delete [] g->r;
       g->n = 0;
-  } // destroy
+  } // destroy_radial_grid
 
   int find_grid_index(radial_grid_t const & g, double const radius) {
       // ToDo: if this becomes performance critical, replace by bisection algorithm
@@ -174,36 +153,40 @@ namespace radial_grid {
 
   status_t test_create_and_destroy(int const echo=9) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
-      auto const g = create_radial_grid(1 << 11);
-      destroy_radial_grid(g);
+      auto const gp = create_radial_grid(1 << 11);
+      destroy_radial_grid(gp);
       return 0;
   } // test_create_and_destroy
 
-  status_t test_exp_grid(int const echo=3) {
+  status_t test_radial_grid_integral(int const echo=3) {
       if (echo > 0) std::printf("\n# %s: \n", __func__);
       int const n = 1 << 11;
       auto & g = *create_radial_grid(n);
       double integ[] = {0, 0, 0};
-      if (echo > 3) std::printf("\n## radial grid (%d grid points, anisotropy=%g, up to %g %s, %s):\n"
-              "## r, dr, 1/r, integrals over {1,r,r^2}, r, r^2/2, r^3/3\n", n, g.anisotropy, g.rmax*1.0, " Bohr", g.equation);
+      if (echo > 3) std::printf("\n## radial grid (%d grid points, anisotropy= %g, up to %g %s, %s):\n"
+              "## r, dr, 1/r, integral {1,r,r^2} dr, reference {r, r^2/2, r^3/3}\n",
+              n, g.anisotropy, g.rmax*1.0, "Bohr", g.equation);
       for (int ir = 0; ir < g.n; ++ir) {
           if (echo > 3 && (ir < 3 || ir > g.n - 4 || echo > 11)) {
               auto const r = g.r[ir];
               std::printf("%g %g %g %g %g %g %g %g %g\n", r, g.dr[ir], g.rinv[ir],
-                    integ[0], integ[1], integ[2], r, 0.5*r*r, r*r*r/3);
+                  integ[0], integ[1], integ[2], r, r*r/2, r*r*r/3);
           } // echo
           integ[0] += g.dr[ir];
           integ[1] += g.rdr[ir];
           integ[2] += g.r2dr[ir];
       } // ir
+      double const dev = std::abs(integ[0] - g.rmax);
+      if (echo > 3) std::printf("# %s: integral dr from 0 to R deviates %g from R= %g %s\n",
+                                   __func__, dev*1.0, g.rmax*1.0, "Bohr");
       destroy_radial_grid(&g);
-      return (std::abs(integ[0] - g.rmax) > .05); // integral dr up to Rmax should match Rmax
-  } // test_exp_grid
+      return (dev > .05); // integral dr up to rmax should match rmax
+  } // test_radial_grid_integral
 
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_create_and_destroy(echo);
-      stat += test_exp_grid(echo);
+      stat += test_radial_grid_integral(echo);
       return stat;
   } // all_tests
 

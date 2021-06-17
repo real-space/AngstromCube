@@ -19,7 +19,7 @@
 #ifndef NO_UNIT_TESTS
   #include "real_space.hxx" // ::grid_t, ::Bessel_projection
   #include "radial_grid.h" // radial_grid_t
-  #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant
+  #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant, ::destroy_radial_grid
   #include "bessel_transform.hxx" // ::transform_s_function
   #include "radial_potential.hxx" // ::Hartree_potential
 #endif
@@ -526,7 +526,7 @@ namespace iterative_poisson {
       status_t const stat = solve(x, b, g, 'M', echo, threshold); // method=M:multi_grid
 
       if (echo > 8) { // get a radial representation through Bessel transform
-          auto const rg = *radial_grid::create_radial_grid(150, 15.);
+          auto & rg = *radial_grid::create_radial_grid(150, 15.f);
 
           view2D<double> f_ref(2, rg.n, 0.0); // 0:x, 1:b
           for (int ir = 0; ir < rg.n; ++ir) {
@@ -551,6 +551,7 @@ namespace iterative_poisson {
               std::printf("%g %g %g %g %g\n", rg.r[ir], f_prj(0,ir), f_ref(0,ir), f_prj(1,ir), f_ref(1,ir));
           } // ir   
           std::printf("\n\n");
+          radial_grid::destroy_radial_grid(&rg);
       } // echo
       return stat;
   } // test_solver

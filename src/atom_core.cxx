@@ -10,7 +10,7 @@
 
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_default_radial_grid
+#include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid
 #include "display_units.h" // eV, _eV
 #include "radial_potential.hxx" // ::Hartree_potential
 #include "exchange_correlation.hxx" // ::LDA_kernel
@@ -475,14 +475,16 @@ namespace atom_core {
       , char const config
       , radial_grid_t* rg
   ) {
-      if (nullptr == rg) rg = radial_grid::create_default_radial_grid(Z);
+      bool const my_radial_grid = (nullptr == rg);
+      if (my_radial_grid) rg = radial_grid::create_default_radial_grid(Z);
       if ('a' == config) { // "auto"
           return scf_atom(*rg, Z, echo);
       } else {
           auto const element = sigma_config::get(Z, echo);
           return scf_atom(*rg, Z, echo, element.occ);
       }
-  } // solve      
+      if (my_radial_grid) radial_grid::destroy_radial_grid(rg);
+  } // solve
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
@@ -502,15 +504,16 @@ namespace atom_core {
   status_t test_initial_density(int const echo=0) {
       if (echo > 3) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
       double maxdev{0};
-      for (float zz = 0; zz < 128; zz += 1) {
-          auto const g = *radial_grid::create_default_radial_grid(zz);
+      for (double Z = 0; Z < 128; Z += 1) {
+          auto & g = *radial_grid::create_default_radial_grid(Z);
           std::vector<double> r2rho(g.n, 0.0);
-          double const q = initial_density(r2rho.data(), g, zz);
-          double const dev = zz - q;
+          double const q = initial_density(r2rho.data(), g, Z);
+          double const dev = Z - q;
           if (echo > 5) std::printf("# %s:%d Z = %g charge = %.3f electrons, diff = %g\n",
-                                  __FILE__, __LINE__, zz, q, dev);
+                                  __FILE__, __LINE__, Z, q, dev);
           maxdev = std::max(maxdev, std::abs(dev));
-      } // zz
+          radial_grid::destroy_radial_grid(&g);
+      } // Z
       if (echo > 1) std::printf("# %s: max. deviation of %g electrons\n", __func__, maxdev);
       return (maxdev > 2e-5);
   } // test_initial_density
@@ -554,21 +557,18 @@ namespace atom_core {
       , float const epsilon=1e-6
       , int const echo=3
   )
-    // apply Ramer Douglas Peucker lossful compression to Zeff.00Z files
-    // where the input are pot/Zeff.00Z files and
-    // the output are full_pot/Zeff.00Z
+    // Apply Ramer-Douglas-Peucker lossful compression
+    // to the input files full_pot/Zeff.00Z
+    // with  output files      pot/Zeff.00Z
   {
       status_t stat(0);
-      auto const & g = *radial_grid::create_default_radial_grid(Z);
+      auto & g = *radial_grid::create_default_radial_grid(Z);
       std::vector<double> y(g.n, 0.0);
       stat += read_Zeff_from_file(y.data(), g, Z, "full_pot/Zeff", 1., echo);
       auto const mask = RDP_lossful_compression(g.r, y.data(), g.n, epsilon);
       int const new_n = std::count(mask.begin(), mask.end(), true);
-      if (echo > 4) {
-          auto const compression_ratio = g.n/std::max(1., 1.*new_n);
-          std::printf("# RamerDouglasPeucker for Z=%g reduced %d to %d points, ratio= %.3f\n", 
-                                    Z, g.n, new_n, compression_ratio);
-      } // echo
+      if (echo > 4) std::printf("# Ramer-Douglas-Peucker for Z=%g reduced %d to %d points, ratio= %.3f\n", 
+                                    Z, g.n, new_n, g.n/std::max(1., 1.*new_n));
       std::vector<double> new_y(new_n, 0.0), new_r(new_n, 0.0);
       { // scope: compress y(r)
           int i{0};
@@ -582,16 +582,17 @@ namespace atom_core {
           assert(i == new_n); // after running RDP, there must be exactly new_n true entries left
       } // scope
       stat += std::abs(store_Zeff_to_file(new_y.data(), new_r.data(), new_n, Z, "pot/Zeff", 1., echo));
+      radial_grid::destroy_radial_grid(&g);
       return stat;
   } // simplify_Zeff_file
 
   status_t test_Zeff_file_compression(int const echo=0) {
-      float const threshold = control::get("atom_core.compression.threshold", -1e-8);
+      float const threshold = control::get("atom_core.compression.threshold", -1.);
       if (threshold < 0) return 0; // do not do anything, silent return
       if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
       status_t stat{0};
       for (int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
-          stat += simplify_Zeff_file(Z, threshold, echo); // apply RamerDouglasPeucker reduction to Z_eff(r)
+          stat += simplify_Zeff_file(Z, threshold, echo); // apply Ramer-Douglas-Peucker reduction to Z_eff(r)
       } // Z
       return stat;
   } // test_Zeff_file_compression

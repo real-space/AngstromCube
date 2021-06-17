@@ -3,7 +3,7 @@
 #include "bessel_transform.hxx"
 
 #include "inline_math.hxx" // pow2
-#include "radial_grid.hxx" // ::create_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
 #include "constants.hxx" // ::pi
 #include "status.hxx" // STATUS_TEST_NOT_INCLUDED
 
@@ -15,7 +15,7 @@ namespace bessel_transform {
 
   status_t test_Gaussian(int const echo=4) {
       if (echo > 3) std::printf("# %s: %s\n", __FILE__, __func__);
-      auto const & g = *radial_grid::create_radial_grid(1 << 9);
+      auto & g = *radial_grid::create_radial_grid(1 << 9);
       int const nq = 80; double const dq = 0.125; auto const qcut = (nq - 1)*dq;
       std::vector<double> in(g.n), bt(nq), out(g.n); // get memory
       for (int ir = 0; ir < g.n; ++ir) {
@@ -41,12 +41,13 @@ namespace bessel_transform {
       if (echo > 5) std::printf("\n\n");
       if (echo > 2) std::printf("# %s after filtering with cutoff %g sqRyd deviation is %.1e (abs) or %.1e (L2)\n",
                               __func__, qcut, dev[1]/dev[0], std::sqrt(dev[2]/dev[0]));
+      radial_grid::destroy_radial_grid(&g);
       return (dev[1]/dev[0] > 5e-15);
   } // test_Gaussian
 
   status_t test_r2grid(int const echo=9) {
       if (echo > 0) std::printf("# %s: %s\n", __FILE__, __func__);
-      auto const & g = *radial_grid::create_radial_grid(1 << 9);
+      auto & g = *radial_grid::create_radial_grid(1 << 9);
       float const ar2 = (1 << 3); // ir2 = ar2*r^2
       int   const nr2 = std::ceil(ar2*pow2(g.rmax));
       std::vector<double> in(g.n), out(nr2);
@@ -69,6 +70,7 @@ namespace bessel_transform {
           } // ir2
           std::printf("\n\n");
       } // echo
+      radial_grid::destroy_radial_grid(&g);
       return stat; // this test needs a human to check that inout and output are similar
   } // test_r2grid
 

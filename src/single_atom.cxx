@@ -3795,7 +3795,7 @@ namespace single_atom {
       double maxdev{0};
 #ifdef DEVEL
       if (echo > 1) std::printf("\n# %s: %s\n", __FILE__, __func__);
-      auto const rg = *radial_grid::create_radial_grid(512, 2.f);
+      auto & rg = *radial_grid::create_radial_grid(512, 2.f);
       int const nr = rg.n, lmax = 0, nlm = pow2(1 + lmax);
       std::vector<double> qlm(nlm, 0.0);
       view2D<double> cmp(1, nr);
@@ -3810,6 +3810,7 @@ namespace single_atom {
           if (echo > 4) std::printf("# %s: for sigma = %g is 1 + %.1e\n", __func__, sigma, qlm[0] - 1);
       } // sigma
       if (echo > 2) std::printf("# %s: largest deviation is %.1e\n", __func__, maxdev);
+      radial_grid::destroy_radial_grid(&rg);
 #endif // DEVEL
       return (maxdev > 1e-15);
   } // test_compensator_normalization

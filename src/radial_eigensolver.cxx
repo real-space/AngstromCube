@@ -5,7 +5,7 @@
 #include "radial_eigensolver.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
 #include "inline_math.hxx" // sgn, pow2
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
@@ -174,7 +174,7 @@ namespace radial_eigensolver {
       , double const Z=100 // atomic number, number of protons in the nucleus
   ) {
       status_t stat(0);
-      auto const g = *radial_grid::create_radial_grid(2610);
+      auto & g = *radial_grid::create_radial_grid(2610);
       std::vector<double const> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       std::vector<double> rf(g.n); // radial wave function
       char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
@@ -203,6 +203,7 @@ namespace radial_eigensolver {
           } // enn
       } // sra
       if (echo > 1) std::printf("# %s: largest energy deviation for %s solver is %.1e %s\n", __func__, SRA_name[0], maxdev*eV, _eV);
+      radial_grid::destroy_radial_grid(&g);
       return stat + (maxdev > 1e-8*pow2(Z));
   } // test_hydrogen_like_potential
 

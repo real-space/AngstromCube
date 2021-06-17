@@ -5,7 +5,7 @@
 #include "radial_potential.hxx"
 
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::create_radial_grid
+#include "radial_grid.hxx" // ::create_radial_grid, ::destroy_radial_grid
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "solid_harmonics.hxx" // ::lm_index
@@ -87,7 +87,8 @@ namespace radial_potential {
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  status_t test_radial_Hartree_potential(int const echo, radial_grid_t const g) { // radial grid descriptor
+  status_t test_radial_Hartree_potential(int const echo=0) {
+      auto & g = *radial_grid::create_radial_grid(512);
       std::vector<double> const rho(g.n, 1); // a constant density rho(r) == 1
       std::vector<double> rVH(g.n), vHt(g.n);
       Hartree_potential(rVH.data(), g, rho.data()); // spherical version
@@ -103,12 +104,13 @@ namespace radial_potential {
           dev = rVH[ir] - rV00;
           if (echo > 4) std::printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
       } // ir
+      radial_grid::destroy_radial_grid(&g);
       return (std::abs(dev) > 2e-13);
   } // test_radial_Hartree_potential
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_radial_Hartree_potential(echo, *radial_grid::create_radial_grid(512));
+      stat += test_radial_Hartree_potential(echo);
       return stat;
   } // all_tests
 
