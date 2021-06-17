@@ -38,7 +38,7 @@ namespace radial_grid {
   ) {
 
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
-      auto const mR = 100; // multiplicator for the outer radius
+      auto const mR = 128; // multiplicator for the outer radius
       bool static warn_reciprocal{true}; // NOT thread-safe
       if (nullptr == equation) {
           equation = equation_reciprocal; // modify default behaviour
@@ -59,8 +59,7 @@ namespace radial_grid {
 
       if (equation_reciprocal == equation) {
           g->equation = equation_reciprocal;
-//        auto const n = nr + 4; // with i=nr-1 the outermost radius is i/(n-i)=(n-5)/5 ~=~ n/5
-          auto const n = nr + mR/2; // ?
+          auto const n = nr + mR/2; // with i=nr-1 the outermost radius is i/(n-i)=(n-1-mR/2)/(mR/2 + 1)
           for (int i = 0; i < nr_aligned; ++i) {
               double const rec = 1./((nr - 1)*(n - i));
               g->r[i]  = (mR*R)*i*rec;
