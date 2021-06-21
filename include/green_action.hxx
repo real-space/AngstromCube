@@ -237,7 +237,7 @@ namespace green_action {
                   int inext = list[ilist++]; // load next index of x
 
                   real_t block[4][2][LM][LM]; // 4 temporary blocks
-                  
+
                   set(block[1][0][0], 2*LM*LM, real_t(0)); // initialize zero, a non-existing block
 
                   // initially load one block in advance
@@ -333,7 +333,7 @@ namespace green_action {
                   } // i
 
                   // apply i,j-dependent potentials like the confinement and truncation mask
-                  
+
                   int const iCol = p->colindx[inz];
                   auto const *const source_coords = p->source_coords[iCol];
                   int const block_coord_diff[3] = {
