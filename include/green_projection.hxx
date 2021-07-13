@@ -3,23 +3,16 @@
 #include <cstdio> // std::printf
 #include <cstdint> // int64_t, int32_t, uint32_t, int8_t
 #include <cassert> // assert
-#include <cmath> // std::sqrt
-#include <algorithm> // std::max
-#include <utility> // std::swap //, std::move
-#include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "green_memory.hxx" // get_memory, free_memory
-#include "data_view.hxx" // view3D<T>
-#include "inline_math.hxx" // set
-#include "simple_stats.hxx" // ::Stats<>
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
 namespace green_projection {
   
 #define NO_CUDA
 #define __global__
-#define ____restrict____
+#define __restrict__
 #define __device__
 #define __shared__
 #define __unroll__
@@ -479,13 +472,65 @@ namespace green_projection {
     
     // ==> try first with ncols=1 implementation because it is simpler
 
+
+    
+    
+    template <typename real_t, int nvec=64, int R1C2=2, int Noco=1, int Lmax=Lmax_default>
+    void __global__ SHOmul( // launch SHOmul<real_t,nvec> <<< {ncols, natoms, 1}, {Noco*64, Noco, R1C2} >>> (...);
+          real_t       (*const __restrict__ aac)[R1C2][Noco][Noco*64] // result
+          real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*64] // input
+        , double const (*const __restrict__ mat)[Noco*Noco*R1C2] // matrices, ToDo: make atom dependent
+        , int    const (*const __restrict__ AtomStarts)
+        , int8_t const (*const __restrict__ AtomLmax)
+        , int const ncols=1
+    ) {
+
+        assert(R1C2 >= Noco); // Noncollinear spin treatment needs complex numbers
+
+        int const ivec  = threadIdx.x;
+        int const spin  = threadIdx.y;
+        int const reim  = threadIdx.z;
+        int const icol  = blockIdx.x;
+        int const iatom = blockIdx.y;
+        int const lmax = AtomLmax[iatom];
+        int const a0   = AtomStarts[iatom];
+        int const nSHO = sho_tools::nSHO(lmax);
+        int const spjn = ivec >> 6;
+
+        // version 0: Noco=1, R1C2=1
+        for (int ai = 0; ai < nSHO; ++ai) {
+            real_t cad{0};
+            for (int aj = 0; aj < nSHO; ++aj) {
+                auto const cpr = apc[(a0 + aj)*ncols + icol][reim][spin][ivec];
+                cad += mat[iatom][ai*nSHO + aj][0] * cpr[aj];
+            } // aj
+            // store addition coefficients
+            aac[(a0 + ai)*ncols + icol][reim][spin][ivec] = cad;
+        } // aj
+        
+        // version 1: Noco=1, R1C2=2
+        // cad_Re += mat[iatom][ai*nSHO + aj][0] * cpr_Re[aj];
+        // cad_Re -= mat[iatom][ai*nSHO + aj][1] * cpr_Im[aj];
+        // cad_Im += mat[iatom][ai*nSHO + aj][1] * cpr_Re[aj];
+        // cad_Im += mat[iatom][ai*nSHO + aj][0] * cpr_Im[aj];
+        
+        // version 11: Noco=2, R1C2=2
+        // ...
+
+    } // SHOmul
+    
+    
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
-          real_t         (*const ____restrict____ apc)[R1C2][Noco][Noco*64] // result
-        , real_t   const (*const ____restrict____ psi)[R1C2][Noco*64][Noco*64] // input
-        , double   const hgrid=1 // grid spacing, ToDo make it an array of X,Y,Z
+          real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t         (*const __restrict__  apc)[R1C2][Noco]   [Noco*64] // workarray
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
     ) {
-      
+
+        // SHOprj
+        // SHOmul
+        // SHOadd
+
         return 0ul; // total number of floating point operations performed
 	} // multiply (projection operations)
 

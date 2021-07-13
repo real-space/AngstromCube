@@ -30,7 +30,7 @@ namespace green_action {
   typedef struct {
       double pos[3];
       double sigma;
-      int32_t gid;
+      int32_t gid; // global identifier
       int32_t ia; // local atom index
       int16_t shifts[3];
       uint8_t nc; // number of coefficients

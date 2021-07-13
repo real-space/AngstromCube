@@ -43,6 +43,13 @@
  * 
  */
 
+ /*
+  *  Future plan:
+  *   Support also density matrix purification scheme (McWeeney filter: x^2(3-2x)
+  *   or with a non-trivial overlap operator S (3xSx - 2xSxSx from Phys. Rev. B 50, 17622)
+  *   maybe better with norm-conserving PAW formalism --> S == 1
+  */
+
 namespace green_function {
 
   double const GByte = 1e-9; char const *const _GByte = "GByte";
