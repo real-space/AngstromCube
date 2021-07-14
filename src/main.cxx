@@ -1,9 +1,75 @@
-#include <cstdio> // std::printf
-#include <cassert> // assert
-#include <cstdlib> // std::abs
-#include <vector> // std::vector
-#include <string> // std::string
-#include <tuple> // std::tuple<...>, std::make_tuple, std::get
+
+#ifndef NO_UNIT_TESTS
+  #include "exchange_correlation.hxx" // ::all_tests
+  #include "spherical_harmonics.hxx" // ::all_tests
+  #include "conjugate_gradients.hxx" // ::all_tests
+  #include "potential_generator.hxx" // ::all_tests
+  #include "hermite_polynomial.hxx" // ::all_tests
+  #include "global_coordinates.hxx" // ::all_tests
+  #include "radial_eigensolver.hxx" // ::all_tests
+  #include "boundary_condition.hxx" // ::all_tests
+  #include "fermi_distribution.hxx" // ::all_tests
+  #include "recorded_warnings.hxx" // ::all_tests
+  #include "finite_difference.hxx" // ::all_tests
+  #include "radial_integrator.hxx" // ::all_tests
+  #include "geometry_analysis.hxx" // ::all_tests
+  #include "density_generator.hxx" // ::all_tests
+  #include "fourier_transform.hxx" // ::all_tests
+  #include "iterative_poisson.hxx" // ::all_tests
+  #include "self_consistency.hxx" // ::all_tests
+  #include "radial_potential.hxx" // ::all_tests
+  #include "bessel_transform.hxx" // ::all_tests
+  #include "parallel_domains.hxx" // ::all_tests
+  #include "structure_solver.hxx" // ::all_tests
+  #include "scattering_test.hxx" // ::all_tests
+  #include "davidson_solver.hxx" // ::all_tests
+  #include "chemical_symbol.hxx" // ::all_tests
+  #include "linear_operator.hxx" // ::all_tests
+  #include "sho_hamiltonian.hxx" // ::all_tests
+  #include "fourier_poisson.hxx" // ::all_tests
+  #include "solid_harmonics.hxx" // ::all_tests
+  #include "bisection_tools.hxx" // ::all_tests
+  #include "green_function.hxx" // ::all_tests
+  #include "poisson_solver.hxx" // ::all_tests
+  #include "brillouin_zone.hxx" // ::all_tests
+  #include "sho_projection.hxx" // ::all_tests
+  #include "shift_boundary.hxx" // ::all_tests
+  #include "linear_algebra.hxx" // ::all_tests
+  #include "grid_operators.hxx" // ::all_tests
+  #include "dense_operator.hxx" // ::all_tests
+  #include "element_config.hxx" // ::all_tests
+  #include "green_kinetic.hxx" // ::all_tests
+  #include "complex_tools.hxx" // ::all_tests
+  #include "vector_layout.hxx" // ::all_tests
+  #include "sho_potential.hxx" // ::all_tests
+  #include "simple_stats.hxx" // ::all_tests
+  #include "mpi_parallel.hxx" // ::all_tests
+  #include "angular_grid.hxx" // ::all_tests
+  #include "pseudo_tools.hxx" // ::all_tests
+  #include "simple_timer.hxx" // ::all_tests
+  #include "sigma_config.hxx" // ::all_tests
+  #include "dense_solver.hxx" // ::all_tests
+  #include "json_reading.hxx" // ::all_tests
+  #include "xml_reading.hxx" // ::all_tests
+  #include "plane_waves.hxx" // ::all_tests
+  #include "unit_system.hxx" // ::all_tests
+  #include "simple_math.hxx" // ::all_tests
+  #include "sho_overlap.hxx" // ::all_tests
+  #include "radial_grid.hxx" // ::all_tests
+  #include "single_atom.hxx" // ::all_tests
+  #include "inline_math.hxx" // ::all_tests
+  #include "sho_unitary.hxx" // ::all_tests
+  #include "atom_image.hxx" // ::all_tests
+  #include "real_space.hxx" // ::all_tests
+  #include "multi_grid.hxx" // ::all_tests
+  #include "sho_radial.hxx" // ::all_tests
+  #include "sho_tools.hxx" // ::all_tests
+  #include "atom_core.hxx" // ::all_tests
+  #include "data_view.hxx" // ::all_tests
+  #include "control.hxx" // ::all_tests
+#endif // not NO_UNIT_TESTS
+
+#include <cstdlib> // std::abs, std::abort
 
 #include "recorded_warnings.hxx" // warn, ::show_warnings, ::clear_warnings
 #include "simple_timer.hxx" // SimpleTimer
@@ -12,80 +78,16 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
-#ifndef NO_UNIT_TESTS
-#include "exchange_correlation.hxx" // ::all_tests
-#include "spherical_harmonics.hxx" // ::all_tests
-#include "conjugate_gradients.hxx" // ::all_tests
-#include "potential_generator.hxx" // ::all_tests
-#include "hermite_polynomial.hxx" // ::all_tests
-#include "global_coordinates.hxx" // ::all_tests
-#include "radial_eigensolver.hxx" // ::all_tests
-#include "boundary_condition.hxx" // ::all_tests
-#include "fermi_distribution.hxx" // ::all_tests
-#include "recorded_warnings.hxx" // ::all_tests
-#include "finite_difference.hxx" // ::all_tests
-#include "radial_integrator.hxx" // ::all_tests
-#include "geometry_analysis.hxx" // ::all_tests
-#include "density_generator.hxx" // ::all_tests
-#include "fourier_transform.hxx" // ::all_tests
-#include "iterative_poisson.hxx" // ::all_tests
-#include "self_consistency.hxx" // ::all_tests
-#include "radial_potential.hxx" // ::all_tests
-#include "bessel_transform.hxx" // ::all_tests
-#include "parallel_domains.hxx" // ::all_tests
-#include "structure_solver.hxx" // ::all_tests
-#include "scattering_test.hxx" // ::all_tests
-#include "davidson_solver.hxx" // ::all_tests
-#include "chemical_symbol.hxx" // ::all_tests
-#include "linear_operator.hxx" // ::all_tests
-#include "sho_hamiltonian.hxx" // ::all_tests
-#include "fourier_poisson.hxx" // ::all_tests
-#include "solid_harmonics.hxx" // ::all_tests
-#include "bisection_tools.hxx" // ::all_tests
-#include "green_function.hxx" // ::all_tests
-#include "poisson_solver.hxx" // ::all_tests
-#include "brillouin_zone.hxx" // ::all_tests
-#include "sho_projection.hxx" // ::all_tests
-#include "shift_boundary.hxx" // ::all_tests
-#include "linear_algebra.hxx" // ::all_tests
-#include "grid_operators.hxx" // ::all_tests
-#include "dense_operator.hxx" // ::all_tests
-#include "element_config.hxx" // ::all_tests
-#include "green_kinetic.hxx" // ::all_tests
-#include "complex_tools.hxx" // ::all_tests
-#include "vector_layout.hxx" // ::all_tests
-#include "sho_potential.hxx" // ::all_tests
-#include "simple_stats.hxx" // ::all_tests
-#include "mpi_parallel.hxx" // ::all_tests
-#include "angular_grid.hxx" // ::all_tests
-#include "pseudo_tools.hxx" // ::all_tests
-#include "simple_timer.hxx" // ::all_tests
-#include "sigma_config.hxx" // ::all_tests
-#include "dense_solver.hxx" // ::all_tests
-#include "json_reading.hxx" // ::all_tests
-#include "xml_reading.hxx" // ::all_tests
-#include "plane_waves.hxx" // ::all_tests
-#include "unit_system.hxx" // ::all_tests
-#include "simple_math.hxx" // ::all_tests
-#include "sho_overlap.hxx" // ::all_tests
-#include "radial_grid.hxx" // ::all_tests
-#include "single_atom.hxx" // ::all_tests
-#include "inline_math.hxx" // ::all_tests
-#include "sho_unitary.hxx" // ::all_tests
-#include "atom_image.hxx" // ::all_tests
-#include "real_space.hxx" // ::all_tests
-#include "multi_grid.hxx" // ::all_tests
-#include "sho_radial.hxx" // ::all_tests
-#include "sho_tools.hxx" // ::all_tests
-#include "atom_core.hxx" // ::all_tests
-#include "data_view.hxx" // ::all_tests
-#include "control.hxx" // ::all_tests
-#endif // not NO_UNIT_TESTS
+#include <cstdio> // std::printf
+#include <cassert> // assert
+#include <vector> // std::vector
+#include <string> // std::string
+#include <tuple> // std::tuple<...>, std::make_tuple, std::get
 
 
 #ifndef _Output_Units_Fixed
       #include "display_units.h" // extern definitions
-      // global variables
+      // global non-constant variables
       double eV  = 1; char const *_eV  = ""; // dynamic energy unit
       double Ang = 1; char const *_Ang = ""; // dynamic length unit
       // end global variables

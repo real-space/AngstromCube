@@ -1,10 +1,10 @@
 #pragma once
 
 #ifndef NO_UNIT_TESTS
-  #include <cstdio> // std::printf
   #include <cstdint> // int64_t, uint8_t
   #include <vector> // std::vector<T>
 #endif // NO_UNIT_TESTS
+#include <cstdio> // std::printf
 
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max

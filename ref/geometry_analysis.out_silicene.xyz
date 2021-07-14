@@ -1,7 +1,17 @@
 
-# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/silicene.xyz
+# ../src/a43 +verbosity=7 -test geometry_analysis +geometry.file=geo/silicene.xyz
+# no control file given
 
-# run unit tests for module 'geometry_analysis.'
+
+# verbosity = 7
+# Set output units to {Ha, Bohr}
+
+# run unit tests for module 'geometry_analysis'
+
+
+
+
+# ============= Module test for geometry_analysis ==================
 
 # found 4 atoms in file "geo/silicene.xyz" with cell=[12.078 6.973 28.346] Bohr and bc=[1 1 0]
 
@@ -9,8 +19,7 @@
 # Count interatomic distances up to 25.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
-# Found 1 different elements for 4 atoms:   4x Si
-# checked 0.000240 M atom-atom pairs, 0.076 k near and 0.000164 M far
+# Found 1 different elements for 4 atoms:    Si_4
 
 ## distance histogram (in Bohr)
 0.019  0
@@ -27,26 +36,25 @@
 10.639  24
 10.677  0
 
-# bond counts       Si total = 12
-# bond count       12  Si
-# check total = 24 vs 24
+# bond counts        Si
+# bond count         12  Si sum= 12
+# bond counts        12   total= 12
 
-# shortest distances     Si       in Bohr
-# shortest distance    4.026  Si  in Bohr
+# min distances      Si
+# min distance    4.026  Si in Bohr
 
-# coordination numbers (radius in Bohr)
-# coordination number for Si (2.098)  4x3
+# half bond length and coordination numbers with occurrence
+#    2.098 Bohr coordination for Si   3_4
 
-# show a bond structure analysis
-# a#0 Si  4.026^3   120*3
-# a#1 Si  4.026^3   120*3
-# a#2 Si  4.026^3   120*3
-# a#3 Si  4.026^3   120*3
+# show a bond structure analysis:
+# bond lengths are in Bohr, angles in degree
+
+# a#0 Si   4.03^3   120*3
+# a#1 Si   4.03^3   120*3
+# a#2 Si   4.03^3   120*3
+# a#3 Si   4.03^3   120*3
 
 
 #  1 modules have been tested:
-#    module= geometry_analysis.       status= 0
-
-#  1 modules have been tested,  total status= 0
-
+#    module= geometry_analysis        status= 0
 # 0 warnings have been recorded.

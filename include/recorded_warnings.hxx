@@ -1,27 +1,30 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fprintf, std::snprintf, stdout, stderr, std::fflush
-#include <utility> // std::forward, std::pair<T1,T1>
+#include <cstdio>  // std::printf, ::fprintf, ::snprintf, ::fflush, stdout, stderr
+#include <utility> // std::forward, ::pair<T1,T1>
 #include <cstring> // std::strrchr
 
 #include "status.hxx" // status_t
 
-namespace recorded_warnings {
-
-  status_t show_warnings(int const echo=1);
-  
-  std::pair<char*,int> _new_warning(char const *file, int const line, char const *func); // hidden, please use the macro above
 
 #define error(MESSAGE, ...) { \
     recorded_warnings::show_warnings(8); \
-    recorded_warnings::_print_error_message(stdout, "Error", __FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__ ); \
-    recorded_warnings::_print_error_message(stderr, "Error", __FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stdout, "Error", __FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__); \
+    recorded_warnings::_print_error_message(stderr, "Error", __FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__); \
     exit(__LINE__); }
 
 #define abort(MESSAGE, ...) { \
     recorded_warnings::show_warnings(8); \
-    recorded_warnings::_print_error_message(stdout, "Abort", __FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__ ); \
+    recorded_warnings::_print_error_message(stdout, "Abort", __FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__); \
     exit(__LINE__); }
+
+#define warn(MESSAGE, ...) \
+    recorded_warnings::_print_warning_message(__FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__);
+
+
+namespace recorded_warnings {
+
+  status_t show_warnings(int const echo=1); // declaration only
 
   template <class... Args>
   void _print_error_message(
@@ -39,15 +42,16 @@ namespace recorded_warnings {
         std::fflush(os);
   } // _print_error_message
 
-#define warn(MESSAGE, ...) recorded_warnings::_print_warning_message(__FILE__, __LINE__, __func__, MESSAGE, __VA_ARGS__);
-
   inline char const * after_last_slash(char const *path_and_file, char const slash='/') {
       auto const has_slash = std::strrchr(path_and_file, slash);
       return has_slash ? (has_slash + 1) : path_and_file;
   } // after_last_slash
 
-  int constexpr MaxMessageLength = 255;
+  // hidden function, please use the macro 'warn' above to create a new warning
+  std::pair<char*,int> _new_warning(char const *file, int const line, char const *func); // declaration only
   
+  int constexpr MaxMessageLength = 255;
+
   template <class... Args>
   int _print_warning_message(
         char const *srcfile
@@ -65,15 +69,18 @@ namespace recorded_warnings {
       int const flags = str_int.second;
 
       if (flags & 0x1) { // warning to stdout
-            std::printf("# Warning: %s\n", message);
-            if (flags & 0x4) std::printf("# This warning will not be shown again!\n");
+          std::printf("# Warning: %s\n", message);
+          if (flags & 0x4) std::printf("# This warning will not be shown again!\n");
       } // message to stdout
-      
+
       if (flags & 0x2) { // warning to stderr
           std::fprintf(stderr, "%s:%d warn(\"%s\")\n", after_last_slash(srcfile), srcline, message);
       } // message to stderr
 
-      if (flags & 0x1) std::printf("\n"); // give more optical weight to the warning lines in stdout
+      if (flags & 0x1) {
+          std::printf("\n"); // give more optical weight to the warning lines in stdout
+          std::fflush(stdout);
+      } // message to stdout
 
       return nchars*(flags & 0x1);
   } // _print_warning_message

@@ -8,6 +8,7 @@
 
 #include "status.hxx" // status_t
 #include "complex_tools.hxx" // conjugate
+#include "recorded_warnings.hxx" // error
 
 // #define debug_printf(...) std::printf(__VA_ARGS__)
 #define debug_printf(...)

@@ -1,15 +1,9 @@
 #pragma once
 
 #include <cstdio> // std::printf
-// #include <cstdlib> // ?
 #include <algorithm> // std::max
 
-#include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t
-#include "display_units.h" // eV, _eV, Ang, _Ang
 #include "chemical_symbol.h" // element_symbols
-
-// #define FULL_DEBUG
-// #define DEBUG
 #include "status.hxx" // status_t
 
 namespace element_config {
@@ -26,54 +20,52 @@ namespace element_config {
   inline status_t test_show_all_elements(int const echo=2) {
       if (echo > 0) std::printf("# %s:  %s\n", __FILE__, __func__);
       float iocc[32];
-      char const ellchar[] = "spdfghi"; // ToDo: by convention 'i' is not the proper char for ell=6
-    
+      char const ellchar[] = "spdfgh+";
+
       for (int spin = 1; spin >= 0; --spin) {
-          if (echo > 1 + spin) {
+          auto const echo_occ = 9; // how high must the log-level be to display also the occupation numbers?
+          if (echo > 2 + 3*spin) { // how high must the log-level be to display also the spin-orbit table?
               if (spin > 0) std::printf("# including spin-orbit\n");
-              std::printf("\n   nl    j    occ  index\n");
-          } // echo
-          for (int inl = 0; inl < 32; ++inl) iocc[inl] = 0; // clear array
-          int iZ = 0; // atomic number
-          int ishell = 0; // shell index
-          for (int m = 0; m < 8; ++m) { // auxiliary number
-              int enn = (m + 1)/2;
-              for (int ell = m/2; ell >= 0; --ell) { // angular momentum character
-                  ++enn; // principal quantum number
-                  for (int jj = 2*ell + spin; jj >= std::max(0, 2*ell - spin); jj -= 2) { // quantum number j = l + s, jj=2j
-                      if (echo > 1 + spin) std::printf("%4d%c%6.1f%4d%9d    %c", enn, ellchar[ell], jj*.5f, 
-                                  (2 - spin)*(jj + 1), ishell, (1==echo || spin)?'\n':' ');
-                      for (int mm = -jj; mm <= jj; mm += 2) { // angular momentum z-component emm, mm=2*emm
-                          for (int s = 0; s <= 1 - spin; ++s) { // when 0==spin, this loop fills each orbital with 2 electrons
-                              iocc[ishell] += 1;
-                              ++iZ; // next element
-                              if (echo > 1 + spin) {
+              std::printf("\n#  nl    j   occ    index\n");
+              for (int inl = 0; inl < 32; ++inl) iocc[inl] = 0; // clear array
+              int iZ{0}; // atomic number
+              int ishell{0}; // shell index
+              for (int m = 0; m < 8; ++m) { // auxiliary number
+                  int enn{(m + 1)/2};
+                  for (int ell = m/2; ell >= 0; --ell) { // angular momentum character
+                      ++enn; // principal quantum number
+                      for (int jj = 2*ell + spin; jj >= std::max(0, 2*ell - spin); jj -= 2) { // quantum number j = l + s, jj=2j
+                          std::printf("%4d%c%6.1f%4d%9d    %c", enn, ellchar[ell], jj*.5f, 
+                                      (2 - spin)*(jj + 1), ishell, (echo > echo_occ)?'\n':' ');
+                          for (int mm = -jj; mm <= jj; mm += 2) { // angular momentum z-component emm, mm=2*emm
+                              for (int s = 0; s <= 1 - spin; ++s) { // when 0==spin, this loop fills each orbital with 2 electrons
+                                  iocc[ishell] += 1;
+                                  ++iZ; // next element
                                   auto const El = element_symbol(iZ);
-                                  if (1 == echo) {
-                                      std::printf("%c%c occupation ", El[0], El[1]);
-                                      for (int inl = 0; inl < ishell; ++inl)
-                                          std::printf("%.1f ", iocc[inl]);
+                                  if (echo > echo_occ) {
+                                      std::printf("# %c%c occupation", El[0], El[1]);
+                                      for (int inl = 0; inl <= ishell; ++inl) {
+                                          std::printf(" %g", iocc[inl]);
+                                      } // inl
                                       std::printf("\n");
-                                  } else if ((echo > 1) && (0 == spin)) {
+                                  } else {
                                       std::printf(" %c%c", El[0], El[1]);
-                                  }
-                              } // echo
-                          } // s
-                      } // mm
-                      ++ishell; // next shell
-                      if ((echo > 1 + spin) && (0 == spin)) {
+                                  } // echo_occ
+                              } // s
+                          } // mm
+                          ++ishell; // next shell
                           std::printf("\n");
-                      } // echo
-                  } // jj
-              } // ell
-          } // m
-          if (echo > 1 + spin) {
-              double sum_occ = 0;
+                      } // jj
+                  } // ell
+              } // m
+              double sum_occ{0};
               for (int inl = 0; inl < ishell; ++inl) {
                   sum_occ += iocc[inl];
               } // inl
               std::printf("# sum(occ) = %.3f\n", sum_occ);
-          } // echo
+              assert(120 == sum_occ); // sanity check
+              assert(20 + 12*spin == ishell); // sanity check
+          } // echo > echos
       } // spin
       if (echo > 0) std::printf("# table of elements according to Aco Z. Muradjan\n\n");
       return 0;

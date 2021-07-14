@@ -1,7 +1,17 @@
 
-# ./aa3 +verbosity=5 -test geometry_analysis. +geometry.file=geo/Al_spherical_atom.xyz
+# ../src/a43 +verbosity=7 -test geometry_analysis +geometry.file=geo/Al_spherical_atom.xyz
+# no control file given
 
-# run unit tests for module 'geometry_analysis.'
+
+# verbosity = 7
+# Set output units to {Ha, Bohr}
+
+# run unit tests for module 'geometry_analysis'
+
+
+
+
+# ============= Module test for geometry_analysis ==================
 
 # found 1 atoms in file "geo/Al_spherical_atom.xyz" with cell=[20.000 20.000 20.000] Bohr and bc=[1 1 1]
 
@@ -9,29 +19,27 @@
 # Count interatomic distances up to 25.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
-# Found 1 different elements for 1 atoms:   1x Al
-# checked 0.000027 M atom-atom pairs, 0.001 k near and 0.000026 M far
+# Found 1 different elements for 1 atoms:    Al_1
 
 ## distance histogram (in Bohr)
 0.019  0
 
-# bond counts       Al total = 0
-# bond count        0  Al
-# check total = 0 vs 0
+# bond counts        Al
+# bond count          0  Al sum= 0
+# bond counts         0   total= 0
 
-# shortest distances     Al       in Bohr
-# shortest distance    n/a    Al  in Bohr
+# min distances      Al
+# min distance      n/a  Al in Bohr
 
-# coordination numbers (radius in Bohr)
-# coordination number for Al (2.287)  1x0
+# half bond length and coordination numbers with occurrence
+#    2.287 Bohr coordination for Al   0_1
 
-# show a bond structure analysis
-# a#0 Al   
+# show a bond structure analysis:
+# bond lengths are in Bohr, angles in degree
+
+# a#0 Al  
 
 
 #  1 modules have been tested:
-#    module= geometry_analysis.       status= 0
-
-#  1 modules have been tested,  total status= 0
-
+#    module= geometry_analysis        status= 0
 # 0 warnings have been recorded.
