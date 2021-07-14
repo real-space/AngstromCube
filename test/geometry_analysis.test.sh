@@ -24,7 +24,7 @@ for geo in $geometries ; do
     sed -ie '/M atom-atom pairs/d' $targetdir/geometry_analysis.out_$geo
 
     # compare the ouput file with its reference version
-#   diff     $targetdir/geometry_analysis.out_$geo $referencedir/geometry_analysis.out_$geo > $targetdir/geometry_analysis.dif_$geo
+    diff     $targetdir/geometry_analysis.out_$geo $referencedir/geometry_analysis.out_$geo > $targetdir/geometry_analysis.dif_$geo
     diff -sq $targetdir/geometry_analysis.out_$geo $referencedir/geometry_analysis.out_$geo
 
 done

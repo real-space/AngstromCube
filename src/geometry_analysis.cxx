@@ -146,19 +146,12 @@ namespace geometry_analysis {
           // report box balance
           { // scope: get some stats
               simple_stats::Stats<> stats;
-              double den{0}, sum{0}, squ{0}, mn{9e99}, mx{-mn};
               for (size_t ib = 0; ib < atom_index.size(); ++ib) {
-                  double const val = atom_index[ib].size();
-                  stats.add(val);
-                  mn = std::min(mn, val);
-                  mx = std::max(mx, val);
-                  den += 1; sum += val; squ += pow2(val);
+                  stats.add(atom_index[ib].size());
               } // ib
-              auto const avg = sum / den;
-              auto const rms = std::sqrt(std::max(0., squ / den - avg*avg));
-              if (echo > 2) std::printf("# %s: box balance min %d avg %.2f rms %.2f max %d\n", __func__, int(mn), avg, rms, int(mx));
-              if (echo > 2) std::printf("# %s: box balance min %g avg %.2f rms %.2f max %g\n", __func__, stats.min(), stats.avg(), stats.var(), stats.max());
-              assert(natoms == sum);
+              if (echo > 2) std::printf("# %s: box balance min %g avg %.2f rms %.2f max %g\n",
+                                  __func__, stats.min(), stats.avg(), stats.var(), stats.max());
+              assert(stats.sum() == natoms);
           } // scope
 
       } // constructor
@@ -193,7 +186,7 @@ namespace geometry_analysis {
       , char const *filename // ="atoms.xyz"
       , double cell[] // =nullptr
       , int bc[] // =nullptr
-      , int const echo // =5
+      , int const echo // =5 log-level
   ) {
 
       std::ifstream infile(filename, std::ifstream::in);
@@ -474,12 +467,7 @@ namespace geometry_analysis {
 
       int constexpr MAX_coordination_number = std::numeric_limits<uint8_t>::max();
       float const too_large = 188.973; // 100 Angstrom
-//    std::vector<float> smallest_distance(nspecies2,  too_large);
       view2D<double> smallest_distance(nspecies, nspecies,  too_large);
-//       std::vector<float> longest_bond_dist(nspecies2, -too_large);
-//       std::vector<float> shortestbond_dist(nspecies2,  too_large);
-
-//       std::vector<simple_stats::Stats<double>> bond_stat(nspecies2);
       view2D<simple_stats::Stats<double>> bond_stat(nspecies, nspecies);
 
       view2D<double> image_pos;
@@ -501,7 +489,7 @@ namespace geometry_analysis {
           for (index_t ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else  // GEO_ORDER_N2
-      BoxStructure<index_t> box(cell, bc, rcut, natoms, xyzZ);
+      BoxStructure<index_t> box(cell, bc, rcut, natoms, xyzZ, 0*echo); // muted
 
       for (int ibz = 0; ibz < box.get_number_of_boxes(2); ++ibz) {
       for (int iby = 0; iby < box.get_number_of_boxes(1); ++iby) {
@@ -556,7 +544,6 @@ namespace geometry_analysis {
 //                    if (echo > 8) std::printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2); // very verbose!!
 //                    if (echo > 8) std::printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0],shift[1],shift[2], d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
-//                    int const ijs = is*nspecies + js;
                       if (num_bins > 0) {
                           int const ibin = int(dist*inv_bin_width);
                           assert(ibin < num_bins);
@@ -580,10 +567,6 @@ namespace geometry_analysis {
                           ++coordination_number[ia];
                           assert( coordination_number[ia] <= MAX_coordination_number );
                           ++bond_hist(is,js);
-//                           longest_bond_dist[ijs] = std::max(longest_bond_dist[ijs], float(dist));
-//                           shortestbond_dist[ijs] = std::min(shortestbond_dist[ijs], float(dist));
-                          
-//                           bond_stat[ijs].add(dist);
                           bond_stat(is,js).add(dist);
 //                           if (echo > 2) std::printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
 //                             ia, Sy_of_species[is], Sy_of_species[js], ja, dist*Ang,_Ang);

@@ -8,48 +8,37 @@
 #include "recorded_warnings.hxx" // warn
 
 namespace unit_system {
-  
-  double constexpr Hartree2electronVolt = 27.210282768626; // conversion factor from Hartree to eVolt
 
-  char constexpr _electron_Volt[] = "eV"; // electron Volt energy unit
   char constexpr _Rydberg[] = "Ry"; // Rydberg atomic energy unit
-  char constexpr _Hartree[] = "Ha"; // Hartree atomic energy unit
   
   inline double energy_unit(char const *which, char const **const symbol) {
       char const w = which[0] | 32; // take first char and ignore case
       if ('e' == w) {
-          *symbol = _electron_Volt;   return Hartree2electronVolt; // "eV"
+          *symbol = "eV";     return 27.210282768626; // eV
       } else if ('r' == w) {
-          *symbol = _Rydberg;         return 2; // "Ry"
+          *symbol = _Rydberg; return 2; // Rydberg
       } else if ('k' == w) {
-          *symbol = _Kelvin;          return Kelvin; // "Kelvin"
+          *symbol = _Kelvin;  return Kelvin; // Kelvin
       } else {
-          if ('h' != w) warn("unknown energy unit \"%s\", default to Ha (Hartree)", which);
-          *symbol = _Hartree;         return 1; // "Ha"
+          if ('h' != w) warn("unknown energy unit \'%s\', default to Ha (Hartree)", which);
+          *symbol = "Ha";     return 1; // Hartree
       } // w
   } // energy_unit
 
-  double constexpr Bohr2nanometer = .052917724924; // conversion factor from Bohr to pm
-
-  char constexpr _nano_meter[] = "nm"; // nanometer length unit
-  char constexpr _pico_meter[] = "pm"; // picometer length unit
-  char constexpr _Angstrom[] = "Ang"; // Angstrom length unit
-  char constexpr _Bohr[] = "Bohr"; // Bohr atomic length unit
-
   inline double length_unit(char const *which, char const **const symbol) {
       char const w = which[0] | 32; // take first char and ignore case
+      double constexpr Bohr2nanometer = .052917724924; // conversion factor from Bohr to nm
       if ('a' == w) {
-          *symbol = _Angstrom;    return Bohr2nanometer*10; // "Ang"
+          *symbol = "Ang";        return Bohr2nanometer*10; // Angstrom
       } else if ('n' == w) {
-          *symbol = _nano_meter;  return Bohr2nanometer; // "nm"
+          *symbol = "nm";         return Bohr2nanometer; // nanometer
       } else if ('p' == w) {
-          *symbol = _pico_meter;  return Bohr2nanometer*1000; // "pm"
+          *symbol = "pm";         return Bohr2nanometer*1000; // picometer
       } else {
-          if ('b' != w) warn("unknown length unit \"%s\", default to Bohr", which);
-          *symbol = _Bohr;        return 1; // "Bohr"
+          if ('b' != w) warn("unknown length unit \'%s\', default to Bohr", which);
+          *symbol = "Bohr";       return 1; // Bohr
       } // w
   } // length_unit
-
 
   inline status_t set_output_units(char const *energy, char const *length, int const echo) {
       if (echo > 5) std::printf("# Set output units to {%s, %s}\n", energy, length);
@@ -73,19 +62,27 @@ namespace unit_system {
 
   inline status_t test_all_combinations(int const echo=0) {
       status_t stat(0);
-      char const sy[2][3][8] = {{"Ha", "Ry", "eV"}, {"Bohr", "Ang", "nm"}};
-      char const el_name[][8] = {"energy", "length"};
+      char const sy[2][5][8] = {{"Ha", "eV", "Ry", "Kel", "energy"}
+                            , {"Bohr", "Ang", "nm", "pm", "length"}};
       for (int el = 0; el < 2; ++el) {
-          for (int iu = 0; iu < 3; ++iu) {
+          auto const el_name = sy[el][4];
+          for (int iu = 0; iu < 4; ++iu) { // input unit
               char const *_si;
-              auto const f = el ? length_unit(sy[el][iu], &_si) : energy_unit(sy[el][iu], &_si);
-              if (echo > 2) std::printf("# %s unit factor %.12f for %s\n", el_name[el], f, _si);
-              auto const fi = 1./f;
-              for (int ou = 0; ou < 3; ++ou) {
+              auto const f = el ? length_unit(sy[el][iu], &_si) 
+                                : energy_unit(sy[el][iu], &_si);
+              if (echo > 2) std::printf("# %s unit factor %.12f for %s\n", el_name, f, _si);
+              auto const fi = 1./f; // compute inverse factor
+              for (int ou = 0; ou < 4; ++ou) { // output unit
                   char const *_so;
-                  auto const fo = el ? length_unit(sy[el][ou], &_so) : energy_unit(sy[el][ou], &_so);
-                  if (echo > 3) std::printf("# %s unit factors %.9f * %.9f = %.9f %s/%s\n", el_name[el], fo, fi, fo*fi, _si, _so);
-                  stat += (iu == ou)*((fo*fi - 1)*(fo*fi - 1) > 4e-32); // check that inverse factors produce 1.0 exactly
+                  auto const fo = el ? length_unit(sy[el][ou], &_so) 
+                                     : energy_unit(sy[el][ou], &_so);
+                  if (echo > 3 + (iu != ou)) {
+                      std::printf("# %s unit factors %.9f * %.9f = %.9f %s/%s\n", 
+                                      el_name, fo, fi, fo*fi, _so, _si);
+                  } // echo
+
+                  // check that inverse factors produce 1.0 exactly
+                  stat += (iu == ou)*((fo*fi - 1)*(fo*fi - 1) > 4e-32);
               } // ou
           } // iu input unit
           if (echo > 2) std::printf("#\n");
