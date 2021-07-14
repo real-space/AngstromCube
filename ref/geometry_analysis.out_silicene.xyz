@@ -16,7 +16,7 @@
 # found 4 atoms in file "geo/silicene.xyz" with cell=[12.078 6.973 28.346] Bohr and bc=[1 1 0]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 1 different elements for 4 atoms:    Si_4
@@ -35,6 +35,20 @@
 10.601   0
 10.639   24
 10.677   0
+# show a bond structure analysis:
+# bond lengths are in Bohr, angles in degree
+
+# a#0 Si   4.03^3   120*3
+# a#1 Si   4.03^3   120*3
+# a#2 Si   4.03^3   120*3
+# a#3 Si   4.03^3   120*3
+
+# Found 1 different elements for 4 atoms:    Si_4
+
+# half bond length and coordination numbers with occurrence
+#    2.098 Bohr coordination for Si   3_4
+# coordination numbers total= 12
+
 
 # bond counts        Si
 # bond count         12  Si sum= 12
@@ -53,18 +67,6 @@
 # pair, min dist in Bohr, bond stats
 #  Si-Si    4.026   4.026 +/- 0.000 in [4.026, 4.026]  12 bonds
 # total= 12 bonds
-
-# half bond length and coordination numbers with occurrence
-#    2.098 Bohr coordination for Si   3_4
-# coordination numbers total= 12
-
-# show a bond structure analysis:
-# bond lengths are in Bohr, angles in degree
-
-# a#0 Si   4.03^3   120*3
-# a#1 Si   4.03^3   120*3
-# a#2 Si   4.03^3   120*3
-# a#3 Si   4.03^3   120*3
 
 
 #  1 modules have been tested:

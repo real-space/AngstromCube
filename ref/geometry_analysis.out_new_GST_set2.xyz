@@ -16,7 +16,7 @@
 # found 64 atoms in file "geo/new_GST_set2.xyz" with cell=[22.828 22.828 22.828] Bohr and bc=[1 1 1]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 4 different elements for 64 atoms:    ___8  Ge_8  Sb_16  Te_32
@@ -32,53 +32,6 @@
 9.845   0 0 0 0  0 0 0  0 0  0
 9.883   0 0 0 128  0 0 128  0 256  0
 9.921   0 0 0 0  0 0 0  0 0  0
-
-# bond counts        __      Ge      Sb      Te
-# bond count          0       0       0       0  __ sum= 0
-# bond count                  0       0      48  Ge sum= 48
-# bond count                          0      96  Sb sum= 96
-# bond count                                  0  Te sum= 144
-# bond counts         0      48      96     144   total= 288
-
-# min. distances     __      Ge      Sb      Te 
-# min. distance     n/a   8.071   8.071   5.707  __ in Bohr
-# min. distance             n/a   8.071   5.707  Ge in Bohr
-# min. distance                   8.071   5.707  Sb in Bohr
-# min. distance                           8.071  Te in Bohr
-
-# longest  bonds     __      Ge      Sb      Te 
-# longest  bond     n/a     n/a     n/a     n/a  __ in Bohr
-# longest  bond             n/a     n/a   5.707  Ge in Bohr
-# longest  bond                     n/a   5.707  Sb in Bohr
-# longest  bond                             n/a  Te in Bohr
-
-# shortest bonds     __      Ge      Sb      Te 
-# shortest bond     n/a     n/a     n/a     n/a  __ in Bohr
-# shortest bond             n/a     n/a   5.707  Ge in Bohr
-# shortest bond                     n/a   5.707  Sb in Bohr
-# shortest bond                             n/a  Te in Bohr
-
-# bond table:
-# pair, min dist in Bohr, bond stats
-#  __-__      n/a
-#  __-Ge    8.071
-#  __-Sb    8.071
-#  __-Te    5.707
-#  Ge-Ge      n/a
-#  Ge-Sb    8.071
-#  Ge-Te    5.707   5.707 +/- 0.000 in [5.707, 5.707]  48 bonds
-#  Sb-Sb    8.071
-#  Sb-Te    5.707   5.707 +/- 0.000 in [5.707, 5.707]  96 bonds
-#  Te-Te    8.071
-# total= 288 bonds
-
-# half bond length and coordination numbers with occurrence
-#    0.000 Bohr coordination for __   0_8
-#    2.268 Bohr coordination for Ge   6_8
-#    2.627 Bohr coordination for Sb   6_16
-#    2.608 Bohr coordination for Te   4_24  6_8
-# coordination numbers total= 288
-
 # show a bond structure analysis:
 # bond lengths are in Bohr, angles in degree
 
@@ -146,6 +99,55 @@
 # a#61 Ge   5.71^6   90*12 180*3
 # a#62 Sb   5.71^6   90*12 180*3
 # a#63 Te   5.71^6   90*12 180*3
+
+# Found 4 different elements for 64 atoms:    ___8  Ge_8  Sb_16  Te_32
+
+# half bond length and coordination numbers with occurrence
+#    0.000 Bohr coordination for __   0_8
+#    2.268 Bohr coordination for Ge   6_8
+#    2.627 Bohr coordination for Sb   6_16
+#    2.608 Bohr coordination for Te   4_24  6_8
+# coordination numbers total= 288
+
+
+# bond counts        __      Ge      Sb      Te
+# bond count          0       0       0       0  __ sum= 0
+# bond count                  0       0      48  Ge sum= 48
+# bond count                          0      96  Sb sum= 96
+# bond count                                  0  Te sum= 144
+# bond counts         0      48      96     144   total= 288
+
+# min. distances     __      Ge      Sb      Te 
+# min. distance     n/a   8.071   8.071   5.707  __ in Bohr
+# min. distance             n/a   8.071   5.707  Ge in Bohr
+# min. distance                   8.071   5.707  Sb in Bohr
+# min. distance                           8.071  Te in Bohr
+
+# longest  bonds     __      Ge      Sb      Te 
+# longest  bond     n/a     n/a     n/a     n/a  __ in Bohr
+# longest  bond             n/a     n/a   5.707  Ge in Bohr
+# longest  bond                     n/a   5.707  Sb in Bohr
+# longest  bond                             n/a  Te in Bohr
+
+# shortest bonds     __      Ge      Sb      Te 
+# shortest bond     n/a     n/a     n/a     n/a  __ in Bohr
+# shortest bond             n/a     n/a   5.707  Ge in Bohr
+# shortest bond                     n/a   5.707  Sb in Bohr
+# shortest bond                             n/a  Te in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#  __-__      n/a
+#  __-Ge    8.071
+#  __-Sb    8.071
+#  __-Te    5.707
+#  Ge-Ge      n/a
+#  Ge-Sb    8.071
+#  Ge-Te    5.707   5.707 +/- 0.000 in [5.707, 5.707]  48 bonds
+#  Sb-Sb    8.071
+#  Sb-Te    5.707   5.707 +/- 0.000 in [5.707, 5.707]  96 bonds
+#  Te-Te    8.071
+# total= 288 bonds
 
 
 #  1 modules have been tested:

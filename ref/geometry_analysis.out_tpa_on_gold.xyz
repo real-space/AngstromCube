@@ -16,7 +16,7 @@
 # found 86 atoms in file "geo/tpa_on_gold.xyz" with cell=[13.319 23.545 34.295] Bohr and bc=[1 1 1]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 4 different elements for 86 atoms:    H_4  C_8  O_4  Au_70
@@ -183,53 +183,6 @@
 11.244   0 0 0 0  0 0 0  0 16  0
 11.282   0 0 0 0  0 0 0  0 0  16
 11.319   0 0 0 0  0 0 8  0 16  0
-
-# bond counts         H       C       O      Au
-# bond count          0       4       0       0  H  sum= 4
-# bond count                 16       4       0  C  sum= 24
-# bond count                          0       4  O  sum= 8
-# bond count                                720  Au sum= 724
-# bond counts         4      24       8     724   total= 760
-
-# min. distances      H       C       O      Au 
-# min. distance   4.763   2.068   4.657   8.038  H  in Bohr
-# min. distance           2.630   2.391   5.318  C  in Bohr
-# min. distance                   4.238   3.643  O  in Bohr
-# min. distance                           4.411  Au in Bohr
-
-# longest  bonds      H       C       O      Au 
-# longest  bond     n/a   2.068     n/a     n/a  H  in Bohr
-# longest  bond           2.845   2.391     n/a  C  in Bohr
-# longest  bond                     n/a   3.643  O  in Bohr
-# longest  bond                           4.824  Au in Bohr
-
-# shortest bonds      H       C       O      Au 
-# shortest bond     n/a   2.068     n/a     n/a  H  in Bohr
-# shortest bond           2.630   2.391     n/a  C  in Bohr
-# shortest bond                     n/a   3.643  O  in Bohr
-# shortest bond                           4.411  Au in Bohr
-
-# bond table:
-# pair, min dist in Bohr, bond stats
-#   H-H     4.763
-#   H-C     2.068   2.068 +/- 0.000 in [2.068, 2.068]  4 bonds
-#   H-O     4.657
-#   H-Au    8.038
-#   C-C     2.630   2.692 +/- 0.089 in [2.630, 2.845]  16 bonds
-#   C-O     2.391   2.391 +/- 0.000 in [2.391, 2.391]  4 bonds
-#   C-Au    5.318
-#   O-O     4.238
-#   O-Au    3.643   3.643 +/- 0.000 in [3.643, 3.643]  4 bonds
-#  Au-Au    4.411   4.636 +/- 0.086 in [4.411, 4.824]  720 bonds
-# total= 760 bonds
-
-# half bond length and coordination numbers with occurrence
-#    0.586 Bohr coordination for H    1_4
-#    1.436 Bohr coordination for C    3_8
-#    1.304 Bohr coordination for O    2_4
-#    2.570 Bohr coordination for Au   7_16  8_4  11_20  12_30
-# coordination numbers total= 760
-
 # show a bond structure analysis:
 # bond lengths are in Bohr, angles in degree
 
@@ -319,6 +272,55 @@
 # a#83 Au   4.41^2 4.61^4 4.67^4 4.70^2   56*2 58*2 60*10 62*10 88*2 90*6 92*4 118*8 120*12 122*4 180*6
 # a#84 Au   4.41^2 4.62^2 4.63^2 4.66^2 4.67^2 4.70 4.71   56*2 58*2 60*10 62*10 88*4 90*4 92*4 118*10 120*10 122*4 180*6
 # a#85 Au   4.44^2 4.63^2 4.64^2 4.65^2 4.66^2 4.71 4.73   56 58*3 60*10 62*10 88*4 90*4 92*4 118*10 120*10 122*4 180*6
+
+# Found 4 different elements for 86 atoms:    H_4  C_8  O_4  Au_70
+
+# half bond length and coordination numbers with occurrence
+#    0.586 Bohr coordination for H    1_4
+#    1.436 Bohr coordination for C    3_8
+#    1.304 Bohr coordination for O    2_4
+#    2.570 Bohr coordination for Au   7_16  8_4  11_20  12_30
+# coordination numbers total= 760
+
+
+# bond counts         H       C       O      Au
+# bond count          0       4       0       0  H  sum= 4
+# bond count                 16       4       0  C  sum= 24
+# bond count                          0       4  O  sum= 8
+# bond count                                720  Au sum= 724
+# bond counts         4      24       8     724   total= 760
+
+# min. distances      H       C       O      Au 
+# min. distance   4.763   2.068   4.657   8.038  H  in Bohr
+# min. distance           2.630   2.391   5.318  C  in Bohr
+# min. distance                   4.238   3.643  O  in Bohr
+# min. distance                           4.411  Au in Bohr
+
+# longest  bonds      H       C       O      Au 
+# longest  bond     n/a   2.068     n/a     n/a  H  in Bohr
+# longest  bond           2.845   2.391     n/a  C  in Bohr
+# longest  bond                     n/a   3.643  O  in Bohr
+# longest  bond                           4.824  Au in Bohr
+
+# shortest bonds      H       C       O      Au 
+# shortest bond     n/a   2.068     n/a     n/a  H  in Bohr
+# shortest bond           2.630   2.391     n/a  C  in Bohr
+# shortest bond                     n/a   3.643  O  in Bohr
+# shortest bond                           4.411  Au in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#   H-H     4.763
+#   H-C     2.068   2.068 +/- 0.000 in [2.068, 2.068]  4 bonds
+#   H-O     4.657
+#   H-Au    8.038
+#   C-C     2.630   2.692 +/- 0.089 in [2.630, 2.845]  16 bonds
+#   C-O     2.391   2.391 +/- 0.000 in [2.391, 2.391]  4 bonds
+#   C-Au    5.318
+#   O-O     4.238
+#   O-Au    3.643   3.643 +/- 0.000 in [3.643, 3.643]  4 bonds
+#  Au-Au    4.411   4.636 +/- 0.086 in [4.411, 4.824]  720 bonds
+# total= 760 bonds
 
 
 #  1 modules have been tested:

@@ -16,7 +16,7 @@
 # found 500 atoms in file "geo/Cu320Zr180.xyz" with cell=[37.661 37.661 37.661] Bohr and bc=[1 1 1]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 2 different elements for 500 atoms:    Cu_320  Zr_180
@@ -215,36 +215,6 @@
 11.244   98 142  30
 11.282   64 98  26
 11.319   80 90  22
-
-# bond counts        Cu      Zr
-# bond count       1886    1918  Cu sum= 3804
-# bond count               1040  Zr sum= 2958
-# bond counts      3804    2958   total= 6762
-
-# min. distances     Cu      Zr 
-# min. distance   4.121   4.704  Cu in Bohr
-# min. distance           5.562  Zr in Bohr
-
-# longest  bonds     Cu      Zr 
-# longest  bond   6.230   7.250  Cu in Bohr
-# longest  bond           8.264  Zr in Bohr
-
-# shortest bonds     Cu      Zr 
-# shortest bond   4.121   4.704  Cu in Bohr
-# shortest bond           5.562  Zr in Bohr
-
-# bond table:
-# pair, min dist in Bohr, bond stats
-#  Cu-Cu    4.121   4.990 +/- 0.343 in [4.121, 6.230]  1886 bonds
-#  Cu-Zr    4.704   5.599 +/- 0.545 in [4.704, 7.250]  1918 bonds
-#  Zr-Zr    5.562   6.464 +/- 0.735 in [5.562, 8.264]  1040 bonds
-# total= 6762 bonds
-
-# half bond length and coordination numbers with occurrence
-#    2.494 Bohr coordination for Cu   10_11  11_77  12_171  13_59  14_2
-#    3.307 Bohr coordination for Zr   14_3  15_30  16_60  17_63  18_21  19_3
-# coordination numbers total= 6762
-
 # show a bond structure analysis:
 # bond lengths are in Bohr, angles in degree
 
@@ -748,6 +718,38 @@
 # a#497 Zr   4.87 5.11 5.25 5.34 5.37 5.39 5.44 5.58 5.74 5.76 6.06 6.13 6.17 6.65 7.10 8.06   36 40 42*2 44 46 48*4 50*5 52*2 54 56*4 58*9 60 62*2 64*2 66*2 68 72*2 74 76 78*2 80 82*2 84 88*3 90*2 92*4 94 96*2 98*3 100*2 102*5 104*2 106*2 110*4 112*6 114*5 116 118 122 124*2 126 128*2 130 134 136 138*3 140 142 144 146*2 148 150 152*2 154*3 160 162 168 170
 # a#498 Zr   4.77 4.88 5.14 5.37 5.49 5.63 5.67 5.74 5.93 5.97^2 6.19 6.28 6.52 6.67 7.01 8.21   40 42 44*3 46 48*5 50*5 52*6 54*4 56*4 58*6 60*4 64*2 68 70 72 74 80*2 82*2 86*3 88 90*7 92*3 94*2 96*4 98*6 100*3 102 104*2 106*5 108*4 110*2 112*3 114 116*6 120 122 126 128 130*3 132*2 136 138*2 140*2 142*2 144*2 146*3 148*2 150 152*2 154 156*2 158*2 162 170
 # a#499 Zr   4.87 5.02 5.04 5.23 5.35 5.61 5.63 5.74 5.80 5.87 5.97 6.13 6.37 6.50 6.61 7.89 8.11   34 36 38 40 42 44 46*3 48*4 50*2 52*6 54*3 56*9 58*3 60 62 64*2 66*2 68*2 72*2 74 78*2 80 82 84 86*2 88*4 92*2 94*6 96*4 98*3 100*4 102*4 104*7 106 108*2 110*3 112 114*4 116 118*2 122*2 124*2 126 128 130 132*2 134 136*2 140*2 142*3 144*2 146*2 148*3 150*2 152*2 154*2 158 160*2 166
+
+# Found 2 different elements for 500 atoms:    Cu_320  Zr_180
+
+# half bond length and coordination numbers with occurrence
+#    2.494 Bohr coordination for Cu   10_11  11_77  12_171  13_59  14_2
+#    3.307 Bohr coordination for Zr   14_3  15_30  16_60  17_63  18_21  19_3
+# coordination numbers total= 6762
+
+
+# bond counts        Cu      Zr
+# bond count       1886    1918  Cu sum= 3804
+# bond count               1040  Zr sum= 2958
+# bond counts      3804    2958   total= 6762
+
+# min. distances     Cu      Zr 
+# min. distance   4.121   4.704  Cu in Bohr
+# min. distance           5.562  Zr in Bohr
+
+# longest  bonds     Cu      Zr 
+# longest  bond   6.230   7.250  Cu in Bohr
+# longest  bond           8.264  Zr in Bohr
+
+# shortest bonds     Cu      Zr 
+# shortest bond   4.121   4.704  Cu in Bohr
+# shortest bond           5.562  Zr in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#  Cu-Cu    4.121   4.990 +/- 0.343 in [4.121, 6.230]  1886 bonds
+#  Cu-Zr    4.704   5.599 +/- 0.545 in [4.704, 7.250]  1918 bonds
+#  Zr-Zr    5.562   6.464 +/- 0.735 in [5.562, 8.264]  1040 bonds
+# total= 6762 bonds
 
 
 #  1 modules have been tested:

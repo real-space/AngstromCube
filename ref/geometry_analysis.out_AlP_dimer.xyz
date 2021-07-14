@@ -16,7 +16,7 @@
 # found 2 atoms in file "geo/AlP_dimer.xyz" with cell=[20.000 20.000 24.000] Bohr and bc=[1 1 1]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 2 different elements for 2 atoms:    Al_1  P_1
@@ -26,6 +26,19 @@
 3.950   0 0  0
 3.987   0 2  0
 4.025   0 0  0
+# show a bond structure analysis:
+# bond lengths are in Bohr, angles in degree
+
+# a#0 Al   4.00  
+# a#1 P    4.00  
+
+# Found 2 different elements for 2 atoms:    Al_1  P_1
+
+# half bond length and coordination numbers with occurrence
+#    2.287 Bohr coordination for Al   1_1
+#    2.022 Bohr coordination for P    1_1
+# coordination numbers total= 2
+
 
 # bond counts        Al       P
 # bond count          0       1  Al sum= 1
@@ -50,17 +63,6 @@
 #  Al-P     4.000   4.000 +/- 0.000 in [4.000, 4.000]  1 bonds
 #   P-P       n/a
 # total= 2 bonds
-
-# half bond length and coordination numbers with occurrence
-#    2.287 Bohr coordination for Al   1_1
-#    2.022 Bohr coordination for P    1_1
-# coordination numbers total= 2
-
-# show a bond structure analysis:
-# bond lengths are in Bohr, angles in degree
-
-# a#0 Al   4.00  
-# a#1 P    4.00  
 
 
 #  1 modules have been tested:

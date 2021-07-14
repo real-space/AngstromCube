@@ -16,7 +16,7 @@
 # found 637 atoms in file "geo/dna.xyz" with cell=[63.873 45.353 45.353] Bohr and bc=[1 0 0]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 5 different elements for 637 atoms:    H_227  C_197  N_73  O_120  P_20
@@ -268,63 +268,6 @@
 11.244   18 36 30 36 40  54 52 44 0  2 0 0  0 0  0
 11.282   6 24 36 2 0  6 32 28 0  0 6 14  14 40  0
 11.319   26 78 22 22 40  32 4 30 0  16 0 0  0 0  0
-
-# bond counts         H       C       N       O       P
-# bond count          0     191      36       0       0  H  sum= 227
-# bond count                254     153     100       0  C  sum= 698
-# bond count                          0       0       0  N  sum= 189
-# bond count                                  0      80  O  sum= 180
-# bond count                                          0  P  sum= 80
-# bond counts       227     698     189     180      80   total= 1374
-
-# min. distances      H       C       N       O       P 
-# min. distance   3.322   2.058   1.944   3.156   4.405  H  in Bohr
-# min. distance           2.546   2.456   2.302   4.929  C  in Bohr
-# min. distance                   4.219   4.283   9.457  N  in Bohr
-# min. distance                           4.665   2.789  O  in Bohr
-# min. distance                                     n/a  P  in Bohr
-
-# longest  bonds      H       C       N       O       P 
-# longest  bond     n/a   2.062   1.948     n/a     n/a  H  in Bohr
-# longest  bond           2.886   2.813   2.766     n/a  C  in Bohr
-# longest  bond                     n/a     n/a     n/a  N  in Bohr
-# longest  bond                             n/a   3.014  O  in Bohr
-# longest  bond                                     n/a  P  in Bohr
-
-# shortest bonds      H       C       N       O       P 
-# shortest bond     n/a   2.058   1.944     n/a     n/a  H  in Bohr
-# shortest bond           2.546   2.456   2.302     n/a  C  in Bohr
-# shortest bond                     n/a     n/a     n/a  N  in Bohr
-# shortest bond                             n/a   2.789  O  in Bohr
-# shortest bond                                     n/a  P  in Bohr
-
-# bond table:
-# pair, min dist in Bohr, bond stats
-#   H-H     3.322
-#   H-C     2.058   2.060 +/- 0.001 in [2.058, 2.062]  191 bonds
-#   H-N     1.944   1.946 +/- 0.001 in [1.944, 1.948]  36 bonds
-#   H-O     3.156
-#   H-P     4.405
-#   C-C     2.546   2.795 +/- 0.117 in [2.546, 2.886]  254 bonds
-#   C-N     2.456   2.596 +/- 0.096 in [2.456, 2.813]  153 bonds
-#   C-O     2.302   2.639 +/- 0.161 in [2.302, 2.766]  100 bonds
-#   C-P     4.929
-#   N-N     4.219
-#   N-O     4.283
-#   N-P     9.457
-#   O-O     4.665
-#   O-P     2.789   2.905 +/- 0.109 in [2.789, 3.014]  80 bonds
-#   P-P       n/a
-# total= 1374 bonds
-
-# half bond length and coordination numbers with occurrence
-#    0.586 Bohr coordination for H    1_227
-#    1.436 Bohr coordination for C    3_90  4_107
-#    1.379 Bohr coordination for N    2_30  3_43
-#    1.304 Bohr coordination for O    1_60  2_60
-#    2.022 Bohr coordination for P    4_20
-# coordination numbers total= 1374
-
 # show a bond structure analysis:
 # bond lengths are in Bohr, angles in degree
 
@@ -965,6 +908,65 @@
 # a#634 H    2.06  
 # a#635 H    2.06  
 # a#636 H    2.06  
+
+# Found 5 different elements for 637 atoms:    H_227  C_197  N_73  O_120  P_20
+
+# half bond length and coordination numbers with occurrence
+#    0.586 Bohr coordination for H    1_227
+#    1.436 Bohr coordination for C    3_90  4_107
+#    1.379 Bohr coordination for N    2_30  3_43
+#    1.304 Bohr coordination for O    1_60  2_60
+#    2.022 Bohr coordination for P    4_20
+# coordination numbers total= 1374
+
+
+# bond counts         H       C       N       O       P
+# bond count          0     191      36       0       0  H  sum= 227
+# bond count                254     153     100       0  C  sum= 698
+# bond count                          0       0       0  N  sum= 189
+# bond count                                  0      80  O  sum= 180
+# bond count                                          0  P  sum= 80
+# bond counts       227     698     189     180      80   total= 1374
+
+# min. distances      H       C       N       O       P 
+# min. distance   3.322   2.058   1.944   3.156   4.405  H  in Bohr
+# min. distance           2.546   2.456   2.302   4.929  C  in Bohr
+# min. distance                   4.219   4.283   9.457  N  in Bohr
+# min. distance                           4.665   2.789  O  in Bohr
+# min. distance                                     n/a  P  in Bohr
+
+# longest  bonds      H       C       N       O       P 
+# longest  bond     n/a   2.062   1.948     n/a     n/a  H  in Bohr
+# longest  bond           2.886   2.813   2.766     n/a  C  in Bohr
+# longest  bond                     n/a     n/a     n/a  N  in Bohr
+# longest  bond                             n/a   3.014  O  in Bohr
+# longest  bond                                     n/a  P  in Bohr
+
+# shortest bonds      H       C       N       O       P 
+# shortest bond     n/a   2.058   1.944     n/a     n/a  H  in Bohr
+# shortest bond           2.546   2.456   2.302     n/a  C  in Bohr
+# shortest bond                     n/a     n/a     n/a  N  in Bohr
+# shortest bond                             n/a   2.789  O  in Bohr
+# shortest bond                                     n/a  P  in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#   H-H     3.322
+#   H-C     2.058   2.060 +/- 0.001 in [2.058, 2.062]  191 bonds
+#   H-N     1.944   1.946 +/- 0.001 in [1.944, 1.948]  36 bonds
+#   H-O     3.156
+#   H-P     4.405
+#   C-C     2.546   2.795 +/- 0.117 in [2.546, 2.886]  254 bonds
+#   C-N     2.456   2.596 +/- 0.096 in [2.456, 2.813]  153 bonds
+#   C-O     2.302   2.639 +/- 0.161 in [2.302, 2.766]  100 bonds
+#   C-P     4.929
+#   N-N     4.219
+#   N-O     4.283
+#   N-P     9.457
+#   O-O     4.665
+#   O-P     2.789   2.905 +/- 0.109 in [2.789, 3.014]  80 bonds
+#   P-P       n/a
+# total= 1374 bonds
 
 
 #  1 modules have been tested:

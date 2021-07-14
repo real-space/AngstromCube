@@ -16,7 +16,7 @@
 # found 4 atoms in file "geo/Cu_fcc_inversion.xyz" with cell=[6.884 6.884 6.884] Bohr and bc=[1 1 1]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 1 different elements for 4 atoms:    Cu_4
@@ -38,6 +38,20 @@
 10.866   0
 10.904   96
 10.942   0
+# show a bond structure analysis:
+# bond lengths are in Bohr, angles in degree
+
+# a#0 Cu   4.87^12   60*24 90*12 120*24 180*6
+# a#1 Cu   4.87^12   60*24 90*12 120*24 180*6
+# a#2 Cu   4.87^12   60*24 90*12 120*24 180*6
+# a#3 Cu   4.87^12   60*24 90*12 120*24 180*6
+
+# Found 1 different elements for 4 atoms:    Cu_4
+
+# half bond length and coordination numbers with occurrence
+#    2.494 Bohr coordination for Cu   12_4
+# coordination numbers total= 48
+
 
 # bond counts        Cu
 # bond count         48  Cu sum= 48
@@ -56,18 +70,6 @@
 # pair, min dist in Bohr, bond stats
 #  Cu-Cu    4.868   4.868 +/- 0.000 in [4.868, 4.868]  48 bonds
 # total= 48 bonds
-
-# half bond length and coordination numbers with occurrence
-#    2.494 Bohr coordination for Cu   12_4
-# coordination numbers total= 48
-
-# show a bond structure analysis:
-# bond lengths are in Bohr, angles in degree
-
-# a#0 Cu   4.87^12   60*24 90*12 120*24 180*6
-# a#1 Cu   4.87^12   60*24 90*12 120*24 180*6
-# a#2 Cu   4.87^12   60*24 90*12 120*24 180*6
-# a#3 Cu   4.87^12   60*24 90*12 120*24 180*6
 
 
 #  1 modules have been tested:

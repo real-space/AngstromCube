@@ -16,7 +16,7 @@
 # found 2 atoms in file "geo/Fe_bcc.xyz" with cell=[5.424 5.424 5.424] Bohr and bc=[1 1 1]
 
 # geometry_analysis.cxx:analysis
-# Count interatomic distances up to 25.0% of the default bond length as bond
+# Count interatomic distances up to 125.0% of the default bond length as bond
 # Bond search within interaction radius 11.395 Bohr
 # Distance histogram bin width is 0.037795 Bohr
 # Found 1 different elements for 2 atoms:    Fe_2
@@ -41,6 +41,18 @@
 10.828   0
 10.866   12
 10.904   0
+# show a bond structure analysis:
+# bond lengths are in Bohr, angles in degree
+
+# a#0 Fe   4.70^8   70*12 110*12 180*4
+# a#1 Fe   4.70^8   70*12 110*12 180*4
+
+# Found 1 different elements for 2 atoms:    Fe_2
+
+# half bond length and coordination numbers with occurrence
+#    2.079 Bohr coordination for Fe   8_2
+# coordination numbers total= 16
+
 
 # bond counts        Fe
 # bond count         16  Fe sum= 16
@@ -59,16 +71,6 @@
 # pair, min dist in Bohr, bond stats
 #  Fe-Fe    4.697   4.697 +/- 0.000 in [4.697, 4.697]  16 bonds
 # total= 16 bonds
-
-# half bond length and coordination numbers with occurrence
-#    2.079 Bohr coordination for Fe   8_2
-# coordination numbers total= 16
-
-# show a bond structure analysis:
-# bond lengths are in Bohr, angles in degree
-
-# a#0 Fe   4.70^8   70*12 110*12 180*4
-# a#1 Fe   4.70^8   70*12 110*12 180*4
 
 
 #  1 modules have been tested:

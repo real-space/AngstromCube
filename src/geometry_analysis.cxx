@@ -399,8 +399,8 @@ namespace geometry_analysis {
       if (echo > 1) std::printf("\n# %s:%s\n", __FILE__, __func__);
       
       float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
-      if (echo > 3) std::printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", (elongation - 1)*100);
-      
+      if (echo > 3) std::printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", elongation*100);
+
       double const rcut = 6.03*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
       double const bin_width = 0.02*Angstrom2Bohr;
       double const inv_bin_width = 1./bin_width;
@@ -414,7 +414,7 @@ namespace geometry_analysis {
           std::printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
           if (num_bins > 0) std::printf("# Distance histogram bin width is %.6f %s\n", bin_width*Ang,_Ang);
       } // echo
-      
+
       std::vector<int8_t> ispecies(natoms, 0); 
       std::vector<int> occurrence(128, 0); 
       int8_t species_of_Z[128];
@@ -498,7 +498,7 @@ namespace geometry_analysis {
       for (int ii = 0; ii < nimages; ++ii) { // includes self-interaction
           vec3 const pos_ii = image_pos[ii];
           auto const shift = image_shift[ii]; // not tested
-          for (int ia = 0; ia < natoms; ++ia) {
+          for (index_t ia = 0; ia < natoms; ++ia) {
               //========================================================================================================
 #else  // GEO_ORDER_N2
       BoxStructure<index_t> box(cell, bc, rcut, natoms, xyzZ);
@@ -528,7 +528,7 @@ namespace geometry_analysis {
               //========================================================================================================
               vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
 #ifdef  GEO_ORDER_N2
-              for (int ja = 0; ja < natoms; ++ja) {
+              for (index_t ja = 0; ja < natoms; ++ja) {
 #else  // GEO_ORDER_N2
               for (int ija = 0; ija < na_j; ++ija) { index_t const ja = list_j[ija];
 #endif // GEO_ORDER_N2
@@ -605,7 +605,7 @@ namespace geometry_analysis {
       assert(natoms == nzero);
       assert(0 == nstrange);
 
-      if (1) { // warn if minimum distance is too low
+      if (true) { // warn if minimum distance is too low
           double minimum_distance{9e37};
           for (int ijs = 0; ijs < nspecies2; ++ijs) {
               minimum_distance = std::min(minimum_distance, smallest_distance[0][ijs]);
@@ -614,7 +614,39 @@ namespace geometry_analysis {
               ++stat;
               warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
           } // < 1
-      } // warn if minimum distance is too low
+      } // true
+      
+      if (bp_exceeded > 0 && MaxBP > 0) {
+          stat += 0 < warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
+      } // maximum number of bond partners was exceeded
+      if (bp_truncated > 0) {
+          stat += 0 < warn("Bond partner analysis is performed only for the first %d atoms", natoms_BP);
+      } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
+      
+      
+      // warnings:
+      if (1) { // warn if the smallest_distance < shortestbond_dist
+          auto const & Sy = Sy_of_species_null;
+          for (int is = 0; is < nspecies; ++is) {
+              for (int js = 0; js < nspecies; ++js) {
+                  auto const shortest_bond_distance = bond_stat(is,js).min();
+                  if (shortest_bond_distance < too_large) {
+                      if (smallest_distance(is,js) < shortest_bond_distance) {
+                          warn("%s-%s distance %g is below the shortest bond %g %s",
+                                Sy[is], Sy[js], smallest_distance(is,js)*Ang, shortest_bond_distance*Ang, _Ang);
+                      }
+                  }
+                  if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) {
+                      warn("smallest distance for %s-%s asymmetric!", Sy[is], Sy[js]);
+                  }
+                  if (bond_hist(is,js) != bond_hist(js,is)) {
+                      warn("count of %s-%s bonds asymmetric!", Sy[is], Sy[js]);
+                  }
+              } // js
+          } // is
+      } // scope: warn if the smallest_distance < shortestbond_dist
+
+      
 
       if (echo > 5) {
         
@@ -665,6 +697,86 @@ namespace geometry_analysis {
           } // num_bins > 0
 
       } // echo
+      
+      
+      
+      if (echo > 5) {
+          // analyze local bond structure
+          if (bond_partner.size() > 0) {
+              if (echo > 2) std::printf("# show a bond structure analysis:\n"
+                             "# bond lengths are in %s, angles in degree\n\n",_Ang);
+// #pragma omp parallel for
+              for (index_t ia = 0; ia < natoms_BP; ++ia) {
+                  int const cn = std::min(int(coordination_number[ia]), MaxBP);
+                  double const xyz_ia[3] = {xyzZ[ia][0], xyzZ[ia][1], xyzZ[ia][2]}; // load center coordinates
+                  assert(cn == bond_partner[ia].size());
+                  view2D<float> coords(cn, 4, 0.0); // get memory, decide float or double for the bond structure analysis
+                  for (int ip = 0; ip < cn; ++ip) {
+                      auto const & partner = bond_partner[ia][ip];
+                      auto const ja = partner.ia; assert(ja >= 0); 
+                      coords[ip][0] = xyzZ[ja][0] + partner.ix*cell[0] - xyz_ia[0];
+                      coords[ip][1] = xyzZ[ja][1] + partner.iy*cell[1] - xyz_ia[1];
+                      coords[ip][2] = xyzZ[ja][2] + partner.iz*cell[2] - xyz_ia[2];
+                      coords[ip][3] = xyzZ[ja][3]; // Z of the bond partner, if needed
+                  } // ip
+                  bond_partner[ia].clear(); // free memory
+                  char string_buffer[2048];
+                  analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[ia][3]);
+// #pragma omp critical
+                  if (echo > 4) std::printf("# a#%i %s %s\n", ia, Sy_of_species[ispecies[ia]], string_buffer); // no new line
+              } // ia
+          } // bond_partner
+
+          std::printf("\n# Found %d different elements for %d atoms:  ", nspecies, natoms);
+          for (int is = 0; is < nspecies; ++is) {
+              std::printf("  %s_%d", Sy_of_species_null[is], occurrence[Z_of_species[is]]); 
+          } // is
+          std::printf("\n");
+
+      } // echo
+
+      
+      
+      // analyze coordination numbers
+      if (true) {
+          size_t cn_exceeds{0};
+          int constexpr max_cn = 24;
+          size_t total_cn{0};
+          view2D<int> cn_hist(nspecies, max_cn, 0);
+          for (index_t ia = 0; ia < natoms; ++ia) {
+              auto const cni = coordination_number[ia];
+              total_cn += cni;
+              if (cni < max_cn) {
+                  ++cn_hist(ispecies[ia],cni); 
+              } else {
+                  ++cn_exceeds;
+              }
+          } // ia
+          
+          if (cn_exceeds > 0) {
+              warn("In %ld cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
+              ++stat;
+          } // cn_exceeds
+          
+          if (echo > 3) {
+              std::printf("\n# half bond length and coordination numbers with occurrence\n");
+              for (int is = 0; is < nspecies; ++is) {
+                  std::printf("#%9.3f %s coordination for %s", default_bond_length(Z_of_species[is])*Ang, _Ang, Sy_of_species[is]);
+                  for (int cn = 0; cn < max_cn; ++cn) {
+                      if (cn_hist(is,cn) > 0) {
+                          std::printf("  %d_%d", cn, cn_hist(is,cn)); // show with occurrence
+                      } // histogram count non-zero
+                  } // cn
+                  std::printf("\n");
+              } // is
+              std::printf("# coordination numbers total= %ld\n\n", total_cn);
+          } // echo
+
+      } // true
+
+      
+      
+      
 
       if (echo > 2) {
           char const not_available[] = "     n/a";
@@ -727,125 +839,33 @@ namespace geometry_analysis {
               } // is
 
           } // i3
-          
+
           
           // now show as a table with 1 line per species pair
-          std::printf("\n# bond table:\n# pair, min dist in %s, bond stats", _Ang);
-          size_t bonds_total{0};
-          for (int is = 0; is < nspecies; ++is) {
-              for (int js = is; js < nspecies; ++js) { // triangular inclusive loop
-                  std::printf("\n#  %s-%s", Sy_of_species_right[is], Sy_of_species[js]);
-                  if (smallest_distance(is,js) < too_large) {
-                      std::printf("%8.3f", smallest_distance(is,js)*Ang);
-                      auto const & s = bond_stat(is,js);
-                      int const nbonds = s.tim();
-                      if (nbonds > 0) {
-                          std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds",
-                                        s.avg()*Ang, s.var()*Ang,
-                                        s.min()*Ang, s.max()*Ang, nbonds);
-                          bonds_total += nbonds * (1 + (js != is));
-                      } // nbonds
-                  } else {
-                      std::printf(not_available);
-                  }
-              } // js
-          } // is
-          std::printf("\n# total= %ld bonds\n", bonds_total);
-          
-      } // echo
-
-
-      // warnings:
-      if (1) { // warn if the smallest_distance < shortestbond_dist
-          auto const & Sy = Sy_of_species_null;
-          for (int is = 0; is < nspecies; ++is) {
-              for (int js = 0; js < nspecies; ++js) {
-                  auto const shortest_bond_distance = bond_stat(is,js).min();
-                  if (shortest_bond_distance < too_large) {
-                      if (smallest_distance(is,js) < shortest_bond_distance) {
-                          warn("%s-%s distance %g is below the shortest bond %g %s",
-                                Sy[is], Sy[js], smallest_distance(is,js)*Ang, shortest_bond_distance*Ang, _Ang);
+          if (true) {
+              size_t bonds_total{0};
+              std::printf("\n# bond table:\n# pair, min dist in %s, bond stats", _Ang);
+              for (int is = 0; is < nspecies; ++is) {
+                  for (int js = is; js < nspecies; ++js) { // triangular inclusive loop
+                      std::printf("\n#  %s-%s", Sy_of_species_right[is], Sy_of_species[js]);
+                      if (smallest_distance(is,js) < too_large) {
+                          std::printf("%8.3f", smallest_distance(is,js)*Ang);
+                          auto const & s = bond_stat(is,js);
+                          int const nbonds = s.tim();
+                          if (nbonds > 0) {
+                              std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds",
+                                            s.avg()*Ang, s.var()*Ang,
+                                            s.min()*Ang, s.max()*Ang, nbonds);
+                              bonds_total += nbonds * (1 + (js != is));
+                          } // nbonds
+                      } else {
+                          std::printf(not_available);
                       }
-                  }
-                  if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) {
-                      warn("smallest distance for %s-%s asymmetric!", Sy[is], Sy[js]);
-                  }
-                  if (bond_hist(is,js) != bond_hist(js,is)) {
-                      warn("count of %s-%s bonds asymmetric!", Sy[is], Sy[js]);
-                  }
-              } // js
-          } // is
-      } // scope: warn if the smallest_distance < shortestbond_dist
+                  } // js
+              } // is
+              std::printf("\n# total= %ld bonds\n", bonds_total);
+          } // true
 
-      
-      
-      // analyze coordination numbers
-      if (echo > 3) {
-          int cn_exceeds{0};
-          int const max_cn = 24;
-          size_t total_cn{0};
-          view2D<int> cn_hist(nspecies, max_cn, 0);
-          for (index_t ia = 0; ia < natoms; ++ia) {
-              int const is = ispecies[ia];
-              int const cni = coordination_number[ia];
-              total_cn += cni;
-              if (cni < max_cn) {
-                  ++cn_hist(is,cni); 
-              } else {
-                  ++cn_exceeds;
-              }
-          } // ia
-          std::printf("\n# half bond length and coordination numbers with occurrence\n");
-          for (int is = 0; is < nspecies; ++is) {
-              std::printf("#%9.3f %s coordination for %s", default_bond_length(Z_of_species[is])*Ang, _Ang, Sy_of_species[is]);
-              for (int cn = 0; cn < max_cn; ++cn) {
-                  if (cn_hist(is,cn) > 0) {
-                      std::printf("  %d_%d", cn, cn_hist(is,cn)); // show with occurrence
-                  } // histogram count non-zero
-              } // cn
-              std::printf("\n");
-          } // is
-          std::printf("# coordination numbers total= %ld\n\n", total_cn);
-          if (cn_exceeds > 0) {
-              warn("In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
-              ++stat;
-          } // cn_exceeds
-      } // echo
-     
-
-      if (echo > 5) {
-          // analyze local bond structure
-          if (bond_partner.size() > 0) {
-              if (echo > 2) std::printf("# show a bond structure analysis:\n"
-                                   "# bond lengths are in %s, angles in degree\n\n",_Ang);
-// #pragma omp parallel for
-              for (index_t ia = 0; ia < natoms_BP; ++ia) {
-                  int const cn = std::min(int(coordination_number[ia]), MaxBP);
-                  double const xyz_ia[3] = {xyzZ[ia][0], xyzZ[ia][1], xyzZ[ia][2]}; // load center coordinates
-                  assert(cn == bond_partner[ia].size());
-                  view2D<float> coords(cn, 4, 0.0); // get memory, decide float or double for the bond structure analysis
-                  for (int ip = 0; ip < cn; ++ip) {
-                      auto const &partner = bond_partner[ia][ip];
-                      auto const ja = partner.ia; assert(ja >= 0); 
-                      coords[ip][0] = xyzZ[ja][0] + partner.ix*cell[0] - xyz_ia[0];
-                      coords[ip][1] = xyzZ[ja][1] + partner.iy*cell[1] - xyz_ia[1];
-                      coords[ip][2] = xyzZ[ja][2] + partner.iz*cell[2] - xyz_ia[2];
-                      coords[ip][3] = xyzZ[ja][3]; // Z of the bond partner, if needed
-                  } // ip
-                  int const is = ispecies[ia];
-                  bond_partner[ia].clear(); // free memory
-                  char string_buffer[2048];
-                  analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[ia][3]);
-// #pragma omp critical
-                  if (echo > 4) std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], string_buffer); // no new line
-              } // ia
-          } // bond_partner
-          if (bp_exceeded > 0 && MaxBP > 0) {
-              stat += 0 < warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
-          } // maximum number of bond partners was exceeded
-          if (bp_truncated > 0) {
-              stat += 0 < warn("Bond partner analysis is performed only for the first %d atoms", natoms_BP);
-          } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
       } // echo
       
       return stat;
