@@ -210,13 +210,13 @@
 # bond count                126  Zr sum= 344
 # bond counts       458     344   total= 802
 
-# min distances      Cu      Zr
-# min distance    4.544   4.992  Cu in Bohr
-# min distance            5.720  Zr in Bohr
+# min. distances     Cu      Zr 
+# min. distance   4.544   4.992  Cu in Bohr
+# min. distance           5.720  Zr in Bohr
 
-# longest bonds      Cu      Zr
-# longest bond    6.233   7.212  Cu in Bohr
-# longest bond            8.163  Zr in Bohr
+# longest  bonds     Cu      Zr 
+# longest  bond   6.233   7.212  Cu in Bohr
+# longest  bond           8.163  Zr in Bohr
 
 # shortest bonds     Cu      Zr 
 # shortest bond   4.544   4.992  Cu in Bohr

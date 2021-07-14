@@ -191,17 +191,17 @@
 # bond count                                720  Au sum= 724
 # bond counts         4      24       8     724   total= 760
 
-# min distances       H       C       O      Au
-# min distance    4.763   2.068   4.657   8.038  H  in Bohr
-# min distance            2.630   2.391   5.318  C  in Bohr
-# min distance                    4.238   3.643  O  in Bohr
-# min distance                            4.411  Au in Bohr
+# min. distances      H       C       O      Au 
+# min. distance   4.763   2.068   4.657   8.038  H  in Bohr
+# min. distance           2.630   2.391   5.318  C  in Bohr
+# min. distance                   4.238   3.643  O  in Bohr
+# min. distance                           4.411  Au in Bohr
 
-# longest bonds       H       C       O      Au
-# longest bond      n/a   2.068     n/a     n/a  H  in Bohr
-# longest bond            2.845   2.391     n/a  C  in Bohr
-# longest bond                      n/a   3.643  O  in Bohr
-# longest bond                            4.824  Au in Bohr
+# longest  bonds      H       C       O      Au 
+# longest  bond     n/a   2.068     n/a     n/a  H  in Bohr
+# longest  bond           2.845   2.391     n/a  C  in Bohr
+# longest  bond                     n/a   3.643  O  in Bohr
+# longest  bond                           4.824  Au in Bohr
 
 # shortest bonds      H       C       O      Au 
 # shortest bond     n/a   2.068     n/a     n/a  H  in Bohr

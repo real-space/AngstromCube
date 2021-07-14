@@ -32,13 +32,13 @@
 # bond count                  0  P  sum= 1
 # bond counts         1       1   total= 2
 
-# min distances      Al       P
-# min distance      n/a   4.000  Al in Bohr
-# min distance              n/a  P  in Bohr
+# min. distances     Al       P 
+# min. distance     n/a   4.000  Al in Bohr
+# min. distance             n/a  P  in Bohr
 
-# longest bonds      Al       P
-# longest bond      n/a   4.000  Al in Bohr
-# longest bond              n/a  P  in Bohr
+# longest  bonds     Al       P 
+# longest  bond     n/a   4.000  Al in Bohr
+# longest  bond             n/a  P  in Bohr
 
 # shortest bonds     Al       P 
 # shortest bond     n/a   4.000  Al in Bohr

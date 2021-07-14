@@ -52,11 +52,11 @@
 # bond count         12  C  sum= 12
 # bond counts        12   total= 12
 
-# min distances       C
-# min distance    2.684  C  in Bohr
+# min. distances      C 
+# min. distance   2.684  C  in Bohr
 
-# longest bonds       C
-# longest bond    2.684  C  in Bohr
+# longest  bonds      C 
+# longest  bond   2.684  C  in Bohr
 
 # shortest bonds      C 
 # shortest bond   2.684  C  in Bohr

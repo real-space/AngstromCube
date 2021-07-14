@@ -668,6 +668,7 @@ namespace geometry_analysis {
 
       if (echo > 2) {
           char const not_available[] = "     n/a";
+          char const no_entry[]      = "        ";
       
           std::printf("\n# bond counts  ");
           for (int js = 0; js < nspecies; ++js) {
@@ -686,7 +687,7 @@ namespace geometry_analysis {
                   if (js >= is) {
                       std::printf("%8d", bond_hist(is,js));
                   } else {
-                      std::printf("        "); // do not show elements below the diagonal
+                      std::printf(no_entry); // do not show elements below the diagonal
                   } // show only the upper triangular matrix
               } // js
               std::printf("  %ssum= %d\n", Sy_of_species[is], row_sum);
@@ -697,81 +698,35 @@ namespace geometry_analysis {
           } // js
           std::printf("   total= %lld\n", nbonds);
           if (check_nbonds != nbonds) error("Checksum for bonds does not agree: %d vs %d", check_nbonds, nbonds);
-          std::printf("\n");
 
+          char const label[3][16] = {"min. distance", "longest  bond", "shortest bond"};
+          for (int i3 = 0; i3 < 3; ++i3) {
 
-          // minimum atom-atom distance (there is a warning if this does not coincide with the shortest bond length)
-          std::printf("# min distances");
-          for (int js = 0; js < nspecies; ++js) {
-              std::printf("      %s", Sy_of_species_right[js]); // create legend
-          } // js
-          std::printf("\n");
-          for (int is = 0; is < nspecies; ++is) {
-              std::printf("# min distance ");
+              std::printf("\n# %ss", label[i3]);
               for (int js = 0; js < nspecies; ++js) {
-                  if (js >= is) {
-                      if (smallest_distance(is,js) < too_large) {
-                          std::printf("%8.3f", smallest_distance(is,js)*Ang);
-                      } else {
-                          std::printf(not_available); // no distance below rcut found
-                      }
-                  } else {
-                      std::printf("        "); // do not show elements below the diagonal
-                  }
+                  std::printf("     %s ", Sy_of_species_right[js]); // create legend
               } // js
-              std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
-          } // is
-
-          
-          // maximum bonded atom-atom distance
-          std::printf("\n# longest bonds");
-          for (int js = 0; js < nspecies; ++js) {
-              std::printf("      %s", Sy_of_species_right[js]); // create legend
-          } // js
-          std::printf("\n");
-          for (int is = 0; is < nspecies; ++is) {
-              std::printf("# longest bond ");
-              for (int js = 0; js < nspecies; ++js) {
-                  if (js >= is) {
-                      auto const longest_bond_distance = bond_stat(is,js).max();
-                      if ( longest_bond_distance> 0) {
-                          std::printf("%8.3f", longest_bond_distance*Ang);
+              std::printf("\n");
+              for (int is = 0; is < nspecies; ++is) {
+                  std::printf("# %s", label[i3]);
+                  for (int js = 0; js < nspecies; ++js) {
+                      if (js >= is) {
+                          double const value = (0 == i3) ? smallest_distance(is,js) :
+                                             ( (1 == i3) ? bond_stat(is,js).max()   :
+                                                           bond_stat(is,js).min() );
+                          if ((value < too_large) && (value >= 0)) {
+                              std::printf("%8.3f", value*Ang);
+                          } else {
+                              std::printf(not_available); // no distance below rcut found
+                          }
                       } else {
-                          std::printf(not_available); // no distance below rcut found
+                          std::printf(no_entry); // do not show elements below the diagonal
                       }
-                  } else {
-                      std::printf("        "); // do not show elements below the diagonal
-                  }
-              } // js
-              std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
-          } // is
+                  } // js
+                  std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
+              } // is
 
-          
-          // minimum bonded atom-atom distance
-          std::printf("\n# shortest bonds");
-          for (int js = 0; js < nspecies; ++js) {
-              std::printf("     %s ", Sy_of_species_right[js]); // create legend
-          } // js
-          std::printf("\n");
-          for (int is = 0; is < nspecies; ++is) {
-              std::printf("# shortest bond");
-              for (int js = 0; js < nspecies; ++js) {
-                  if (js >= is) {
-                      auto const shortest_bond_distance = bond_stat(is,js).min();
-                      if (shortest_bond_distance < too_large) {
-                          std::printf("%8.3f", shortest_bond_distance*Ang);
-                      } else {
-                          std::printf(not_available); // no distance below rcut found
-                      }
-                  } else {
-                      std::printf("        "); // do not show elements below the diagonal
-                  }
-              } // js
-              std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
-          } // is
-          
-          
-
+          } // i3
           
           
           // now show as a table with 1 line per species pair

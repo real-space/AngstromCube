@@ -277,19 +277,19 @@
 # bond count                                          0  P  sum= 80
 # bond counts       227     698     189     180      80   total= 1374
 
-# min distances       H       C       N       O       P
-# min distance    3.322   2.058   1.944   3.156   4.405  H  in Bohr
-# min distance            2.546   2.456   2.302   4.929  C  in Bohr
-# min distance                    4.219   4.283   9.457  N  in Bohr
-# min distance                            4.665   2.789  O  in Bohr
-# min distance                                      n/a  P  in Bohr
+# min. distances      H       C       N       O       P 
+# min. distance   3.322   2.058   1.944   3.156   4.405  H  in Bohr
+# min. distance           2.546   2.456   2.302   4.929  C  in Bohr
+# min. distance                   4.219   4.283   9.457  N  in Bohr
+# min. distance                           4.665   2.789  O  in Bohr
+# min. distance                                     n/a  P  in Bohr
 
-# longest bonds       H       C       N       O       P
-# longest bond      n/a   2.062   1.948     n/a     n/a  H  in Bohr
-# longest bond            2.886   2.813   2.766     n/a  C  in Bohr
-# longest bond                      n/a     n/a     n/a  N  in Bohr
-# longest bond                              n/a   3.014  O  in Bohr
-# longest bond                                      n/a  P  in Bohr
+# longest  bonds      H       C       N       O       P 
+# longest  bond     n/a   2.062   1.948     n/a     n/a  H  in Bohr
+# longest  bond           2.886   2.813   2.766     n/a  C  in Bohr
+# longest  bond                     n/a     n/a     n/a  N  in Bohr
+# longest  bond                             n/a   3.014  O  in Bohr
+# longest  bond                                     n/a  P  in Bohr
 
 # shortest bonds      H       C       N       O       P 
 # shortest bond     n/a   2.058   1.944     n/a     n/a  H  in Bohr

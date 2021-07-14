@@ -141,13 +141,13 @@
 # bond count                  0  Sc sum= 192
 # bond counts       192     192   total= 384
 
-# min distances       O      Sc
-# min distance    5.205   3.976  O  in Bohr
-# min distance            6.174  Sc in Bohr
+# min. distances      O      Sc 
+# min. distance   5.205   3.976  O  in Bohr
+# min. distance           6.174  Sc in Bohr
 
-# longest bonds       O      Sc
-# longest bond      n/a   4.123  O  in Bohr
-# longest bond              n/a  Sc in Bohr
+# longest  bonds      O      Sc 
+# longest  bond     n/a   4.123  O  in Bohr
+# longest  bond             n/a  Sc in Bohr
 
 # shortest bonds      O      Sc 
 # shortest bond     n/a   3.976  O  in Bohr
