@@ -21,20 +21,20 @@
 # Distance histogram bin width is 0.037795 Bohr
 # Found 1 different elements for 4 atoms:    Si_4
 
-## distance histogram (in Bohr)
-0.019  0
-3.987  0
-4.025  12
-4.063  0
-6.935  0
-6.973  24
-7.011  0
-8.031  0
-8.069  12
-8.107  0
-10.601  0
-10.639  24
-10.677  0
+## distance histogram (in Bohr): Si-Si 
+0.019   0
+3.987   0
+4.025   12
+4.063   0
+6.935   0
+6.973   24
+7.011   0
+8.031   0
+8.069   12
+8.107   0
+10.601   0
+10.639   24
+10.677   0
 
 # bond counts        Si
 # bond count         12  Si sum= 12
@@ -43,8 +43,20 @@
 # min distances      Si
 # min distance    4.026  Si in Bohr
 
+# longest bonds      Si
+# longest bond    4.026  Si in Bohr
+
+# shortest bonds     Si 
+# shortest bond   4.026  Si in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#  Si-Si    4.026   4.026 +/- 0.000 in [4.026, 4.026]  12 bonds
+# total= 12 bonds
+
 # half bond length and coordination numbers with occurrence
 #    2.098 Bohr coordination for Si   3_4
+# coordination numbers total= 12
 
 # show a bond structure analysis:
 # bond lengths are in Bohr, angles in degree

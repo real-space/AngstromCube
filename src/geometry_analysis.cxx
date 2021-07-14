@@ -257,11 +257,11 @@ namespace geometry_analysis {
     // Fe 26 with 110pm is good for bcc bulk
     // Fr 87 reduced from 260 to 255 to fit data format
     // Sc 21 reduced from 170 to 130 to make no Sc-Sc bonds inside Sc2O3
-      uint8_t const bl[128] = {0, // now following Z=1..118 in Aco Z. Muradjan-ordering
-          31,  28,                                                            // H  He
+      uint8_t const half_bond_in_pm[128] = {0, // now following Z=1..118 in Aco Z. Muradjan-ordering
+         31,  28,                                                             // H  He
         128,  96,                                                             // Li Be
-          84,  76,  73,  69,  71,  66,                                        // B  C  N  O  F  Ne
-          57, 141,                                                            // Na Mg
+         84,  76,  73,  69,  71,  66,                                         // B  C  N  O  F  Ne
+         57, 141,                                                             // Na Mg
         121, 111, 107, 105, 102, 106,                                         // Al Si P  S  Cl Ar
         203, 176,                                                             // K  Ca
         130, 160, 153, 139, 132, 110, 139, 124, 132, 122,                     // Sc Ti V  Cr Mn Fe Co Ni Cu Zn
@@ -280,7 +280,7 @@ namespace geometry_analysis {
         159, 160,                                                             // un ud
         161, 162, 163, 164, 165, 166, 167};                                   // Z=121 .. Z=127 invented numbers
       float const picometer2Bohr = .01889726;
-      return (bl[Z1] + bl[Z2]) * picometer2Bohr;
+      return (half_bond_in_pm[Z1] + half_bond_in_pm[Z2]) * picometer2Bohr;
   } // default_bond_length
 
 
@@ -347,8 +347,6 @@ namespace geometry_analysis {
       string[0] = '\0'; if (nb < 1) return;
       view2D<real_t const> const bv(bond_vectors, 4); // wrap
 //    string += sprintf(string, " coordination=%d", nb);
-//       char const multiplicity_b = '^';
-//       char const multiplicity_a = '*';
 //       real_t max_len2{0}, min_len2{9e37};
 
       std::vector<real_t> bond_length(nb);
@@ -388,8 +386,8 @@ namespace geometry_analysis {
       string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '*'); // bin width 2 degrees
 
   } // analyze_bond_structure
-  
-  
+
+
   status_t analysis(
         view2D<double> const & xyzZ // coordinates[natoms][4+]
       , index_t const natoms // number of atoms
@@ -637,7 +635,6 @@ namespace geometry_analysis {
 #else  // PLOT_ALL_HISTOGRAM_POINTS
                   bool nonzero{false}; // sparsify the plotting of the distance histogram
                   for (int ijs = 0; ijs < nspecies2; ++ijs) {
-//                    nonzero = nonzero || (dist_hist[ibin*nspecies2 + ijs] > 0); // analyze dist_hist[ibin]
                       nonzero = nonzero || (dist_hist(ibin,0)[ijs] > 0); // analyze dist_hist[ibin]
                   } // ijs
                   if (nonzero) {
@@ -676,8 +673,8 @@ namespace geometry_analysis {
           for (int js = 0; js < nspecies; ++js) {
               std::printf("      %s", Sy_of_species_right[js]); // create legend
           } // js
-          std::vector<int> spec_sum(nspecies, 0);
           std::printf("\n");
+          std::vector<int> spec_sum(nspecies, 0);
           int64_t check_nbonds{0};
           for (int is = 0; is < nspecies; ++is) {
               int row_sum{0};
@@ -702,7 +699,7 @@ namespace geometry_analysis {
           if (check_nbonds != nbonds) error("Checksum for bonds does not agree: %d vs %d", check_nbonds, nbonds);
           std::printf("\n");
 
-          
+
           // minimum atom-atom distance (there is a warning if this does not coincide with the shortest bond length)
           std::printf("# min distances");
           for (int js = 0; js < nspecies; ++js) {
@@ -736,7 +733,6 @@ namespace geometry_analysis {
               std::printf("# longest bond ");
               for (int js = 0; js < nspecies; ++js) {
                   if (js >= is) {
-//                    auto const longest_bond_distance = longest_bond_dist[is*nspecies + js];
                       auto const longest_bond_distance = bond_stat(is,js).max();
                       if ( longest_bond_distance> 0) {
                           std::printf("%8.3f", longest_bond_distance*Ang);
@@ -761,7 +757,6 @@ namespace geometry_analysis {
               std::printf("# shortest bond");
               for (int js = 0; js < nspecies; ++js) {
                   if (js >= is) {
-//                    auto const shortest_bond_distance = shortestbond_dist[is*nspecies + js];
                       auto const shortest_bond_distance = bond_stat(is,js).min();
                       if (shortest_bond_distance < too_large) {
                           std::printf("%8.3f", shortest_bond_distance*Ang);
@@ -784,11 +779,10 @@ namespace geometry_analysis {
           size_t bonds_total{0};
           for (int is = 0; is < nspecies; ++is) {
               for (int js = is; js < nspecies; ++js) { // triangular inclusive loop
-//                int const ijs = is*nspecies + js;
                   std::printf("\n#  %s-%s", Sy_of_species_right[is], Sy_of_species[js]);
                   if (smallest_distance(is,js) < too_large) {
                       std::printf("%8.3f", smallest_distance(is,js)*Ang);
-                      auto const & s = bond_stat(is,js);//[ijs];
+                      auto const & s = bond_stat(is,js);
                       int const nbonds = s.tim();
                       if (nbonds > 0) {
                           std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds",
@@ -811,7 +805,6 @@ namespace geometry_analysis {
           auto const & Sy = Sy_of_species_null;
           for (int is = 0; is < nspecies; ++is) {
               for (int js = 0; js < nspecies; ++js) {
-//                auto const shortest_bond_distance = shortestbond_dist[is*nspecies + js];
                   auto const shortest_bond_distance = bond_stat(is,js).min();
                   if (shortest_bond_distance < too_large) {
                       if (smallest_distance(is,js) < shortest_bond_distance) {
@@ -819,12 +812,12 @@ namespace geometry_analysis {
                                 Sy[is], Sy[js], smallest_distance(is,js)*Ang, shortest_bond_distance*Ang, _Ang);
                       }
                   }
-                  if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) 
+                  if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) {
                       warn("smallest distance for %s-%s asymmetric!", Sy[is], Sy[js]);
-//                int const jis = js*nspecies + is;
-//                if (shortestbond_dist[ijs] != shortestbond_dist[jis]) warn("shortest bond for %s-%s asymmetric!", Sy[is], Sy[js]);
-//                if (longest_bond_dist[ijs] != longest_bond_dist[jis]) warn("longest bond for %s-%s asymmetric!", Sy[is], Sy[js]);
-                  if (bond_hist(is,js) != bond_hist(js,is)) warn("count of %s-%s bonds asymmetric!", Sy[is], Sy[js]);
+                  }
+                  if (bond_hist(is,js) != bond_hist(js,is)) {
+                      warn("count of %s-%s bonds asymmetric!", Sy[is], Sy[js]);
+                  }
               } // js
           } // is
       } // scope: warn if the smallest_distance < shortestbond_dist

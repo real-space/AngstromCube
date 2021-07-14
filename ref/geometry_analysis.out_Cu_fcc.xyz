@@ -21,23 +21,23 @@
 # Distance histogram bin width is 0.037795 Bohr
 # Found 1 different elements for 4 atoms:    Cu_4
 
-## distance histogram (in Bohr)
-0.019  0
-4.819  0
-4.857  48
-4.894  0
-6.860  0
-6.898  24
-6.935  0
-8.409  0
-8.447  96
-8.485  0
-9.694  0
-9.732  48
-9.770  0
-10.866  0
-10.904  96
-10.942  0
+## distance histogram (in Bohr): Cu-Cu 
+0.019   0
+4.819   0
+4.857   48
+4.894   0
+6.860   0
+6.898   24
+6.935   0
+8.409   0
+8.447   96
+8.485   0
+9.694   0
+9.732   48
+9.770   0
+10.866   0
+10.904   96
+10.942   0
 
 # bond counts        Cu
 # bond count         48  Cu sum= 48
@@ -46,8 +46,20 @@
 # min distances      Cu
 # min distance    4.868  Cu in Bohr
 
+# longest bonds      Cu
+# longest bond    4.868  Cu in Bohr
+
+# shortest bonds     Cu 
+# shortest bond   4.868  Cu in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#  Cu-Cu    4.868   4.868 +/- 0.000 in [4.868, 4.868]  48 bonds
+# total= 48 bonds
+
 # half bond length and coordination numbers with occurrence
 #    2.494 Bohr coordination for Cu   12_4
+# coordination numbers total= 48
 
 # show a bond structure analysis:
 # bond lengths are in Bohr, angles in degree
