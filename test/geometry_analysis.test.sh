@@ -15,6 +15,7 @@ for geo in $geometries ; do
     $exe +verbosity=7 \
       -test geometry_analysis \
       +geometry.file=geo/$geo \
+      "$@" \
       > $targetdir/geometry_analysis.out_$geo
 
     # remove the line that displays the git key since that one will differ
@@ -23,7 +24,7 @@ for geo in $geometries ; do
     sed -ie '/M atom-atom pairs/d' $targetdir/geometry_analysis.out_$geo
 
     # compare the ouput file with its reference version
-#   diff     $targetdir/geometry_analysis.out_$geo $referencedir/geometry_analysis.out_$geo > $targetdir/geometry_analysis.dif_$geo
+    diff     $targetdir/geometry_analysis.out_$geo $referencedir/geometry_analysis.out_$geo > $targetdir/geometry_analysis.dif_$geo
     diff -sq $targetdir/geometry_analysis.out_$geo $referencedir/geometry_analysis.out_$geo
 
 done
@@ -31,4 +32,4 @@ grep 'recorded warning' $targetdir/geometry_analysis.out_* -A1
 
 # cleanup
 # rm $targetdir/geometry_analysis.out_*
-rm -f $targetdir/geometry_analysis.dif_*
+# rm -f $targetdir/geometry_analysis.dif_*

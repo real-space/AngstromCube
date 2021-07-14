@@ -109,11 +109,13 @@ private:
 
   template <typename T>
   inline void set(view2D<T> & y, size_t const n1, T const a) { 
-          std::fill(y.data(), y.data() + n1*y.stride(), a); }
+      std::fill(y.data(), y.data() + n1*y.stride(), a);
+  } // set
 
-         
+
   template <typename T>
-  view2D<T> transpose(view2D<T> const & a // input matrix a(N
+  view2D<T> transpose(
+        view2D<T> const & a // input matrix a(N
       , int const aN // assume shape a(N,M)
       , int const aM=-1 // -1:auto use a.stride()
       , char const conj='n' // 'c':complex conjugate (for complex data types)
@@ -263,7 +265,8 @@ private:
 
 template <typename T>
 inline void set(view3D<T> & y, size_t const n2, T const a) { 
-         std::fill(y.data(), y.data() + n2*y.dim1()*y.stride(), a); }
+    std::fill(y.data(), y.data() + n2*y.dim1()*y.stride(), a);
+} // set
 
 
 template <typename T>

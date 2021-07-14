@@ -14,7 +14,7 @@
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2
 #include "constants.hxx" // ::pi
-#include "data_view.hxx" // view2D<T>
+#include "data_view.hxx" // view2D<T>, view3D<T>
 // #include "inline_tools.hxx" // required_bits
 #include "vector_math.hxx" // ::vec<n,T>
 #include "chemical_symbol.hxx" // ::decode
@@ -22,7 +22,7 @@
 #include "simple_timer.hxx" // SimpleTimer
 #include "simple_stats.hxx" // ::Stats
 #include "control.hxx" // ::get
-#include "print_tools.hxx" // printf_vector
+// #include "print_tools.hxx" // printf_vector
 
 #define FULL_DEBUG
 #define DEBUG
@@ -56,8 +56,14 @@ namespace geometry_analysis {
 
   public:
 
-      BoxStructure(double const cell[3], int const bc[3], 
-                   double const radius, size_t const natoms, view2D<double> const & xyzZ, int const echo=0) {
+      BoxStructure(
+            double const cell[3]
+          , int const bc[3]
+          , double const radius
+          , size_t const natoms
+          , view2D<double> const & xyzZ // [natoms][4+]
+          , int const echo=0 // log-level
+      ) {
           assert(radius > 0);
           double box_size[3], inv_box_size[3];
           int hnh[3];
@@ -384,8 +390,13 @@ namespace geometry_analysis {
   } // analyze_bond_structure
   
   
-  status_t analysis(view2D<double> const & xyzZ, index_t const natoms, 
-                    double const cell[3], int const bc[3], int const echo=6) {
+  status_t analysis(
+        view2D<double> const & xyzZ // coordinates[natoms][4+]
+      , index_t const natoms // number of atoms
+      , double const cell[3] // rectangular cell extent
+      , int const bc[3] // boundary conditions
+      , int const echo=6 // log-level
+  ) {
       status_t stat(0);
       if (echo > 1) std::printf("\n# %s:%s\n", __FILE__, __func__);
       
@@ -416,6 +427,7 @@ namespace geometry_analysis {
       int nspecies{0}; // number of different species
 
       { // scope: fill ispecies and species_of_Z
+
           for (int first = 1; first >= 0; --first) {
               for (index_t ia = 0; ia < natoms; ++ia) {
                   int const Z_ia = std::round(xyzZ[ia][3]);
@@ -440,13 +452,15 @@ namespace geometry_analysis {
                           } // swap
                           Sy_of_species_right[nspecies][2] = '\0';
                           ++nspecies;
+                      } else {
+                          assert(0 == occurrence[Z]); // occurrence may not be negative
                       } // non-zero count
                   } // Z
-              } // i10
+              } // first
           } // run twice
 
       } // scope
-      
+
       if (echo > 2) {
           std::printf("# Found %d different elements for %d atoms:  ", nspecies, natoms);
           for (int is = 0; is < nspecies; ++is) {
@@ -456,13 +470,19 @@ namespace geometry_analysis {
       } // echo
       
       int const nspecies2 = pow2(nspecies); // number of pairs of species
-      std::vector<uint16_t> dist_hist(num_bins*nspecies2, 0);
-      std::vector<int> bond_hist(nspecies2, 0);
+      view3D<uint16_t> dist_hist(num_bins, nspecies, nspecies, 0);
+      view2D<int> bond_hist(nspecies, nspecies, 0);
       std::vector<uint8_t> coordination_number(natoms, 0);
 
       int constexpr MAX_coordination_number = std::numeric_limits<uint8_t>::max();
-      float const too_large = 188.973;
-      std::vector<float> smallest_distance(nspecies2, too_large);
+      float const too_large = 188.973; // 100 Angstrom
+//    std::vector<float> smallest_distance(nspecies2,  too_large);
+      view2D<double> smallest_distance(nspecies, nspecies,  too_large);
+//       std::vector<float> longest_bond_dist(nspecies2, -too_large);
+//       std::vector<float> shortestbond_dist(nspecies2,  too_large);
+
+//       std::vector<simple_stats::Stats<double>> bond_stat(nspecies2);
+      view2D<simple_stats::Stats<double>> bond_stat(nspecies, nspecies);
 
       view2D<double> image_pos;
       view2D<int8_t> image_shift;
@@ -504,8 +524,8 @@ namespace geometry_analysis {
 #endif // GEO_ORDER_N2
               //========================================================================================================
               vec3 const pos_ia = xyzZ[ia];
-              int const isi = ispecies[ia];
-              int const Z_ia = Z_of_species[isi];
+              int const is = ispecies[ia];
+              int const Z_ia = Z_of_species[is];
               if (echo > 8) std::printf("# [ia=%i] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_ia);
               //========================================================================================================
               vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
@@ -516,8 +536,8 @@ namespace geometry_analysis {
 #endif // GEO_ORDER_N2
                   //========================================================================================================
                   vec3 const pos_ja = xyzZ[ja];
-                  int const isj = ispecies[ja];
-                  int const Z_ja = Z_of_species[isj];
+                  int const js = ispecies[ja];
+                  int const Z_ja = Z_of_species[js];
                   if (echo > 9) std::printf("# [ia=%i, ja=%i] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_ja);
                   //========================================================================================================
                   vec3 const diff = pos_ja + pos_ii_minus_ia;
@@ -538,11 +558,11 @@ namespace geometry_analysis {
 //                    if (echo > 8) std::printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2); // very verbose!!
 //                    if (echo > 8) std::printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0],shift[1],shift[2], d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
-                      int const ijs = isi*nspecies + isj;
+//                    int const ijs = is*nspecies + js;
                       if (num_bins > 0) {
                           int const ibin = int(dist*inv_bin_width);
                           assert(ibin < num_bins);
-                          ++dist_hist[ibin*nspecies2 + ijs];
+                          ++dist_hist(ibin,is,js);
                       } // num_bins > 0
                       if (dist < elongation*default_bond_length(Z_ia, Z_ja)) {
                           ++nbonds;
@@ -551,18 +571,27 @@ namespace geometry_analysis {
                               if (0 == cn) bond_partner[ia].clear();
                               if (cn < MaxBP) {
                                   if (ia < natoms_BP) {
-                                      bond_partner[ia].push_back(atom_image_index_t(ja, isj, shift[0], shift[1], shift[2]));
-                                  } else ++bp_truncated;
-                              } else ++bp_exceeded;
+                                      bond_partner[ia].push_back(atom_image_index_t(ja, js, shift[0], shift[1], shift[2]));
+                                  } else {
+                                      ++bp_truncated;
+                                  }
+                              } else {
+                                  ++bp_exceeded;
+                              }
                           } // MaxBP > 0
                           ++coordination_number[ia];
                           assert( coordination_number[ia] <= MAX_coordination_number );
-                          ++bond_hist[ijs];
+                          ++bond_hist(is,js);
+//                           longest_bond_dist[ijs] = std::max(longest_bond_dist[ijs], float(dist));
+//                           shortestbond_dist[ijs] = std::min(shortestbond_dist[ijs], float(dist));
+                          
+//                           bond_stat[ijs].add(dist);
+                          bond_stat(is,js).add(dist);
 //                           if (echo > 2) std::printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
-//                             ia, Sy_of_species[isi], Sy_of_species[isj], ja, dist*Ang,_Ang);
+//                             ia, Sy_of_species[is], Sy_of_species[js], ja, dist*Ang,_Ang);
                       } // atoms are close enough to assume a chemical bond
-                      smallest_distance[ijs] = std::min(smallest_distance[ijs], float(dist));
-                  }
+                      smallest_distance(is,js) = std::min(smallest_distance(is,js), dist);
+                  } // d2
                   ++npairs;
                   //========================================================================================================
               } // ja
@@ -578,19 +607,29 @@ namespace geometry_analysis {
       assert(natoms == nzero);
       assert(0 == nstrange);
 
-      float minimum_distance{9e9};
-      for (int ijs = 0; ijs < nspecies2; ++ijs) {
-          minimum_distance = std::min(minimum_distance, smallest_distance[ijs]);
-      } // ijs
-      if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
-          ++stat;
-          warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
-      }
-      
+      if (1) { // warn if minimum distance is too low
+          double minimum_distance{9e37};
+          for (int ijs = 0; ijs < nspecies2; ++ijs) {
+              minimum_distance = std::min(minimum_distance, smallest_distance[0][ijs]);
+          } // ijs
+          if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
+              ++stat;
+              warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
+          } // < 1
+      } // warn if minimum distance is too low
+
       if (echo > 5) {
         
           if (num_bins > 0) {
-              std::printf("\n## distance histogram (in %s)\n", _Ang);
+              size_t ij_dev{0};
+              std::printf("\n## distance histogram (in %s):", _Ang);
+              for (int is = 0; is < nspecies; ++is) {
+                  for (int js = is; js < nspecies; ++js) { // triangular loop including i
+                      std::printf(" %s-%s", Sy_of_species_null[is], Sy_of_species_null[js]);
+                  } // js
+                  std::printf(" ");
+              } // is
+              std::printf("\n");
               int last_bins[4] = {0, -1, -1, -1}; // show the first bin always, -1: do not show
               for (int ibin = 0; ibin < num_bins; ++ibin) {
 #ifdef    PLOT_ALL_HISTOGRAM_POINTS
@@ -598,7 +637,8 @@ namespace geometry_analysis {
 #else  // PLOT_ALL_HISTOGRAM_POINTS
                   bool nonzero{false}; // sparsify the plotting of the distance histogram
                   for (int ijs = 0; ijs < nspecies2; ++ijs) {
-                      nonzero = nonzero || (dist_hist[ibin*nspecies2 + ijs] > 0); // analyze dist_hist[ibin]
+//                    nonzero = nonzero || (dist_hist[ibin*nspecies2 + ijs] > 0); // analyze dist_hist[ibin]
+                      nonzero = nonzero || (dist_hist(ibin,0)[ijs] > 0); // analyze dist_hist[ibin]
                   } // ijs
                   if (nonzero) {
                       last_bins[(ibin + 1) & 3] = ibin - 1;
@@ -611,14 +651,26 @@ namespace geometry_analysis {
                   if (jbin >= 0) {
                       float const dist = (jbin + 0.5)*bin_width; // display the center of the bin
                       std::printf("%.3f ", dist*Ang);
-                      printf_vector(" %d", dist_hist.data() + jbin*nspecies2, nspecies2);
+//                    printf_vector(" %d", dist_hist(jbin,0), nspecies2); // show all nspecies^2 entries
+                      auto const hist = dist_hist[jbin];
+                      for (int is = 0; is < nspecies; ++is) {
+                          std::printf("  %d", hist(is,is)); // h(i,i)
+                          for (int js = is + 1; js < nspecies; ++js) { // triangular loop excluding i
+                              std::printf(" %d", hist(is,js) + hist(js,is)); // h(i,j) + h(j,i)
+                              ij_dev += (hist(is,js) != hist(js,is));
+                          } // js
+                      } // is
+                      std::printf("\n");
                   } // non-zero or before non-zero or after non-zero
               } // ibin
+              if (ij_dev > 0) warn("histogram has %.3f k asymmetries\n", ij_dev*.001);
+              dist_hist = view3D<uint16_t>(0,0,0, 0); // free
           } // num_bins > 0
 
       } // echo
 
       if (echo > 2) {
+          char const not_available[] = "     n/a";
       
           std::printf("\n# bond counts  ");
           for (int js = 0; js < nspecies; ++js) {
@@ -631,11 +683,11 @@ namespace geometry_analysis {
               int row_sum{0};
               std::printf("# bond count   ");
               for (int js = 0; js < nspecies; ++js) {
-                  check_nbonds += bond_hist[is*nspecies + js];
-                  spec_sum[js] += bond_hist[is*nspecies + js];
-                  row_sum      += bond_hist[is*nspecies + js];
+                  check_nbonds += bond_hist(is,js);
+                  spec_sum[js] += bond_hist(is,js);
+                  row_sum      += bond_hist(is,js);
                   if (js >= is) {
-                      std::printf("%8d", bond_hist[is*nspecies + js]);
+                      std::printf("%8d", bond_hist(is,js));
                   } else {
                       std::printf("        "); // do not show elements below the diagonal
                   } // show only the upper triangular matrix
@@ -650,6 +702,8 @@ namespace geometry_analysis {
           if (check_nbonds != nbonds) error("Checksum for bonds does not agree: %d vs %d", check_nbonds, nbonds);
           std::printf("\n");
 
+          
+          // minimum atom-atom distance (there is a warning if this does not coincide with the shortest bond length)
           std::printf("# min distances");
           for (int js = 0; js < nspecies; ++js) {
               std::printf("      %s", Sy_of_species_right[js]); // create legend
@@ -659,10 +713,10 @@ namespace geometry_analysis {
               std::printf("# min distance ");
               for (int js = 0; js < nspecies; ++js) {
                   if (js >= is) {
-                      if (smallest_distance[is*nspecies + js] < too_large) {
-                          std::printf("%8.3f", smallest_distance[is*nspecies + js]*Ang);
+                      if (smallest_distance(is,js) < too_large) {
+                          std::printf("%8.3f", smallest_distance(is,js)*Ang);
                       } else {
-                          std::printf("     n/a"); // no distance below rcut found
+                          std::printf(not_available); // no distance below rcut found
                       }
                   } else {
                       std::printf("        "); // do not show elements below the diagonal
@@ -671,17 +725,127 @@ namespace geometry_analysis {
               std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
           } // is
 
+          
+          // maximum bonded atom-atom distance
+          std::printf("\n# longest bonds");
+          for (int js = 0; js < nspecies; ++js) {
+              std::printf("      %s", Sy_of_species_right[js]); // create legend
+          } // js
+          std::printf("\n");
+          for (int is = 0; is < nspecies; ++is) {
+              std::printf("# longest bond ");
+              for (int js = 0; js < nspecies; ++js) {
+                  if (js >= is) {
+//                    auto const longest_bond_distance = longest_bond_dist[is*nspecies + js];
+                      auto const longest_bond_distance = bond_stat(is,js).max();
+                      if ( longest_bond_distance> 0) {
+                          std::printf("%8.3f", longest_bond_distance*Ang);
+                      } else {
+                          std::printf(not_available); // no distance below rcut found
+                      }
+                  } else {
+                      std::printf("        "); // do not show elements below the diagonal
+                  }
+              } // js
+              std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
+          } // is
+
+          
+          // minimum bonded atom-atom distance
+          std::printf("\n# shortest bonds");
+          for (int js = 0; js < nspecies; ++js) {
+              std::printf("     %s ", Sy_of_species_right[js]); // create legend
+          } // js
+          std::printf("\n");
+          for (int is = 0; is < nspecies; ++is) {
+              std::printf("# shortest bond");
+              for (int js = 0; js < nspecies; ++js) {
+                  if (js >= is) {
+//                    auto const shortest_bond_distance = shortestbond_dist[is*nspecies + js];
+                      auto const shortest_bond_distance = bond_stat(is,js).min();
+                      if (shortest_bond_distance < too_large) {
+                          std::printf("%8.3f", shortest_bond_distance*Ang);
+                      } else {
+                          std::printf(not_available); // no distance below rcut found
+                      }
+                  } else {
+                      std::printf("        "); // do not show elements below the diagonal
+                  }
+              } // js
+              std::printf("  %sin %s\n", Sy_of_species[is], _Ang);
+          } // is
+          
+          
+
+          
+          
+          // now show as a table with 1 line per species pair
+          std::printf("\n# bond table:\n# pair, min dist in %s, bond stats", _Ang);
+          size_t bonds_total{0};
+          for (int is = 0; is < nspecies; ++is) {
+              for (int js = is; js < nspecies; ++js) { // triangular inclusive loop
+//                int const ijs = is*nspecies + js;
+                  std::printf("\n#  %s-%s", Sy_of_species_right[is], Sy_of_species[js]);
+                  if (smallest_distance(is,js) < too_large) {
+                      std::printf("%8.3f", smallest_distance(is,js)*Ang);
+                      auto const & s = bond_stat(is,js);//[ijs];
+                      int const nbonds = s.tim();
+                      if (nbonds > 0) {
+                          std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds",
+                                        s.avg()*Ang, s.var()*Ang,
+                                        s.min()*Ang, s.max()*Ang, nbonds);
+                          bonds_total += nbonds * (1 + (js != is));
+                      } // nbonds
+                  } else {
+                      std::printf(not_available);
+                  }
+              } // js
+          } // is
+          std::printf("\n# total= %ld bonds\n", bonds_total);
+          
       } // echo
+
+
+      // warnings:
+      if (1) { // warn if the smallest_distance < shortestbond_dist
+          auto const & Sy = Sy_of_species_null;
+          for (int is = 0; is < nspecies; ++is) {
+              for (int js = 0; js < nspecies; ++js) {
+//                auto const shortest_bond_distance = shortestbond_dist[is*nspecies + js];
+                  auto const shortest_bond_distance = bond_stat(is,js).min();
+                  if (shortest_bond_distance < too_large) {
+                      if (smallest_distance(is,js) < shortest_bond_distance) {
+                          warn("%s-%s distance %g is below the shortest bond %g %s",
+                                Sy[is], Sy[js], smallest_distance(is,js)*Ang, shortest_bond_distance*Ang, _Ang);
+                      }
+                  }
+                  if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) 
+                      warn("smallest distance for %s-%s asymmetric!", Sy[is], Sy[js]);
+//                int const jis = js*nspecies + is;
+//                if (shortestbond_dist[ijs] != shortestbond_dist[jis]) warn("shortest bond for %s-%s asymmetric!", Sy[is], Sy[js]);
+//                if (longest_bond_dist[ijs] != longest_bond_dist[jis]) warn("longest bond for %s-%s asymmetric!", Sy[is], Sy[js]);
+                  if (bond_hist(is,js) != bond_hist(js,is)) warn("count of %s-%s bonds asymmetric!", Sy[is], Sy[js]);
+              } // js
+          } // is
+      } // scope: warn if the smallest_distance < shortestbond_dist
+
+      
       
       // analyze coordination numbers
       if (echo > 3) {
           int cn_exceeds{0};
           int const max_cn = 24;
+          size_t total_cn{0};
           view2D<int> cn_hist(nspecies, max_cn, 0);
           for (index_t ia = 0; ia < natoms; ++ia) {
-              int const isi = ispecies[ia];
+              int const is = ispecies[ia];
               int const cni = coordination_number[ia];
-              if (cni < max_cn) ++cn_hist(isi,cni); else ++cn_exceeds;
+              total_cn += cni;
+              if (cni < max_cn) {
+                  ++cn_hist(is,cni); 
+              } else {
+                  ++cn_exceeds;
+              }
           } // ia
           std::printf("\n# half bond length and coordination numbers with occurrence\n");
           for (int is = 0; is < nspecies; ++is) {
@@ -693,7 +857,7 @@ namespace geometry_analysis {
               } // cn
               std::printf("\n");
           } // is
-          std::printf("\n");
+          std::printf("# coordination numbers total= %ld\n\n", total_cn);
           if (cn_exceeds > 0) {
               warn("In %d cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
               ++stat;
@@ -720,12 +884,12 @@ namespace geometry_analysis {
                       coords[ip][2] = xyzZ[ja][2] + partner.iz*cell[2] - xyz_ia[2];
                       coords[ip][3] = xyzZ[ja][3]; // Z of the bond partner, if needed
                   } // ip
-                  int const isi = ispecies[ia];
+                  int const is = ispecies[ia];
                   bond_partner[ia].clear(); // free memory
                   char string_buffer[2048];
                   analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[ia][3]);
 // #pragma omp critical
-                  if (echo > 4) std::printf("# a#%i %s %s\n", ia, Sy_of_species[isi], string_buffer); // no new line
+                  if (echo > 4) std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], string_buffer); // no new line
               } // ia
           } // bond_partner
           if (bp_exceeded > 0 && MaxBP > 0) {

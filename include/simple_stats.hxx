@@ -15,14 +15,14 @@ namespace simple_stats {
   class Stats {
     public:
 
-    Stats() { clear(); } // default constructor
-    
+    Stats(int const value=0) { clear(); } // default constructor
+
     void clear() {
         for (int p = 0; p < 4; ++p) {
             v[p] = 0;
         } // p
-        mini =  1e38;
-        maxi = -1e38;
+        mini =  1.7e38;
+        maxi = -1.7e38;
         times = 0;
     } // clear
 
@@ -70,12 +70,14 @@ namespace simple_stats {
       auto const mean = s.avg();
       if (echo > 3) std::printf("# %s: from %d to %d: %g +/- %g\n",
                       __func__, begin, end - 1, mean, s.var());
+      if (echo > 8) std::printf("# %s: %ld Byte\n", __FILE__, sizeof(s));
       return (ref[0] != mean) + (ref[1] != s.variance());
   } // test_basic
 
   inline status_t all_tests(int const echo=0) {
     if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
     status_t stat(0);
+    stat += test_basic<float>(echo);
     stat += test_basic<double>(echo);
     return stat;
   } // all_tests

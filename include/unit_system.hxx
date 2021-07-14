@@ -29,18 +29,21 @@ namespace unit_system {
       } // w
   } // energy_unit
 
-  double constexpr Bohr2nanometer = .052917724924; // conversion factor from Bohr to nm
+  double constexpr Bohr2nanometer = .052917724924; // conversion factor from Bohr to pm
 
   char constexpr _nano_meter[] = "nm"; // nanometer length unit
+  char constexpr _pico_meter[] = "pm"; // picometer length unit
   char constexpr _Angstrom[] = "Ang"; // Angstrom length unit
   char constexpr _Bohr[] = "Bohr"; // Bohr atomic length unit
-  
+
   inline double length_unit(char const *which, char const **const symbol) {
       char const w = which[0] | 32; // take first char and ignore case
       if ('a' == w) {
-          *symbol = _Angstrom;    return 10*Bohr2nanometer; // "Ang"
+          *symbol = _Angstrom;    return Bohr2nanometer*10; // "Ang"
       } else if ('n' == w) {
           *symbol = _nano_meter;  return Bohr2nanometer; // "nm"
+      } else if ('p' == w) {
+          *symbol = _pico_meter;  return Bohr2nanometer*1000; // "pm"
       } else {
           if ('b' != w) warn("unknown length unit \"%s\", default to Bohr", which);
           *symbol = _Bohr;        return 1; // "Bohr"
