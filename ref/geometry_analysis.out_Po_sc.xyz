@@ -33,9 +33,9 @@
 10.979   8
 11.017   0
 # show a bond structure analysis:
-# bond lengths are in Bohr, angles in degree
+# bond lengths are in Bohr | angles in degree
 
-# a#0 Po   6.35^6   90*12 180*3
+# a#0 Po   6.35_6 |  90_12 180_3
 
 # Found 1 different elements for 1 atoms:    Po_1
 

@@ -374,9 +374,9 @@ namespace geometry_analysis {
       } // scope
 
       real_t constexpr Deg = 180/constants::pi; // Degrees
-      string += print_summary(string, bond_length.data(), nb, Ang/.01, .01, '^', " %.2f"); // bin width 0.01 Ang
-      string += std::sprintf(string, "  "); // some separator
-      string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '*'); // bin width 2 degrees
+      string += print_summary(string, bond_length.data(), nb, Ang/.01, .01, '_', " %.2f"); // bin width 0.01 Ang
+      string += std::sprintf(string, " | "); // some separator
+      string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '_'); // bin width 2 degrees
 
   } // analyze_bond_structure
 
@@ -687,7 +687,7 @@ namespace geometry_analysis {
           // analyze local bond structure
           if (bond_partner.size() > 0) {
               if (echo > 2) std::printf("# show a bond structure analysis:\n"
-                             "# bond lengths are in %s, angles in degree\n\n",_Ang);
+                             "# bond lengths are in %s | angles in degree\n\n",_Ang);
 // #pragma omp parallel for
               for (index_t ia = 0; ia < natoms_BP; ++ia) {
                   int const cn = std::min(int(coordination_number[ia]), MaxBP);

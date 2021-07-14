@@ -27,10 +27,10 @@
 3.987   0 2  0
 4.025   0 0  0
 # show a bond structure analysis:
-# bond lengths are in Bohr, angles in degree
+# bond lengths are in Bohr | angles in degree
 
-# a#0 Al   4.00  
-# a#1 P    4.00  
+# a#0 Al   4.00 | 
+# a#1 P    4.00 | 
 
 # Found 2 different elements for 2 atoms:    Al_1  P_1
 
