@@ -3,9 +3,9 @@
 #include <algorithm> // std::copy
 #include <cmath> // std::floor
 #include <cstdint> // uint8_t
-#include <fstream> // std::fstream
+#include <fstream> // std::ifstream
 #include <sstream> // std::sstream
-#include <string> // std::string
+#include <string> // std::string, ::getline
 #include <vector> // std::vector<T>
 
 #include "geometry_analysis.hxx"
@@ -23,10 +23,115 @@
 #include "control.hxx" // ::get
 // #include "print_tools.hxx" // printf_vector
 
+#ifndef NO_UNIT_TESTS
+  #include <fstream> // std::ofstream
+#endif
+
 #define FULL_DEBUG
 #define DEBUG
 
 namespace geometry_analysis {
+  
+  double constexpr Bohr2Angstrom = 0.52917724924;
+  double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
+
+  status_t read_xyz_file(
+        view2D<double> & xyzZ
+      , int & n_atoms
+      , char const *filename // ="atoms.xyz"
+      , double cell[] // =nullptr
+      , int bc[] // =nullptr
+      , int const echo // =5 log-level
+  ) {
+
+      std::ifstream infile(filename, std::ifstream::in);
+      if (infile.fail()) error("Unable to open file '%s' for reading coordinates", filename);
+
+      int natoms{0}, linenumber{2};
+      infile >> natoms; // read the number of atoms
+      std::string line;
+      std::getline(infile, line);
+      std::getline(infile, line);
+      if (echo > 2) std::printf("# expect %d atoms, comment line in file: %s\n", natoms, line.c_str());
+      { // scope parse comment line
+          std::istringstream iss(line);
+          std::string Cell, B[3];
+          double L[3]; // positions
+          iss >> Cell >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2];
+          for (int d = 0; d < 3; ++d) {
+              if (nullptr != cell) {
+                  cell[d] = L[d] * Angstrom2Bohr;
+                  assert(cell[d] > 0);
+              }
+              if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 120+d);
+          } // d
+      } // scope
+      xyzZ = view2D<double>(natoms, 4);
+      int na{0}; // number of atoms
+      while (std::getline(infile, line)) {
+          ++linenumber;
+          std::istringstream iss(line);
+          std::string Symbol;
+          double px, py, pz; // positions
+          if (!(iss >> Symbol >> px >> py >> pz)) {
+              if (na < natoms) // we expect more atom lines
+              std::printf("# failed parsing in %s:%d reads \"%s\", stop\n", filename, linenumber, line.c_str());
+              break; // error
+          }
+          char const *Sy = Symbol.c_str();
+          char const S = Sy[0], y = (Sy[1])? Sy[1] : ' ';
+          if (echo > 7) std::printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, px, py, pz);
+          int const iZ = chemical_symbol::decode(S, y);
+          xyzZ(na,0) = px*Angstrom2Bohr;
+          xyzZ(na,1) = py*Angstrom2Bohr;
+          xyzZ(na,2) = pz*Angstrom2Bohr;
+          xyzZ(na,3) = iZ;
+          ++na;
+          assert(na <= natoms);
+          // process pair 
+      } // parse file line by line
+      
+//    auto const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr, bc={periodic,isolated,isolated}
+      n_atoms = na;
+      return na - natoms; // returns 0 if the exact number of atoms has been found
+  } // read_xyz_file
+
+  float default_bond_length(int const Z1, int const Z2=0) {
+    // data originally from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
+    // can now be found for single bonds at
+    // https://chem.libretexts.org/Ancillary_Materials/Reference/
+    //              Reference_Tables/Atomic_and_Molecular_Properties/A3%3A_Covalent_Radii
+    // which references https://doi.org/10.1002/chem.200901472 (Pekka Pyykk\"o and Michiko Atsumi)
+    // Fe 26 with 110pm is good for bcc bulk
+    // Sc 21 reduced from 170 to 130 to make no Sc-Sc bonds inside Sc2O3
+      int16_t const half_bond_in_pm[128] = {0, // now following Z=1..118 in Aco Z. Muradjan-ordering
+         31,  28,                                                             // H  He
+        128,  96,                                                             // Li Be
+         84,  76,  73,  69,  71,  66,                                         // B  C  N  O  F  Ne
+         57, 141,                                                             // Na Mg
+        121, 111, 107, 105, 102, 106,                                         // Al Si P  S  Cl Ar
+        203, 176,                                                             // K  Ca
+        130, 160, 153, 139, 132, 110, 139, 124, 132, 122,                     // Sc Ti V  Cr Mn Fe Co Ni Cu Zn
+        122, 120, 119, 120, 120, 116,                                         // Ga Ge As Se Br Kr
+        220, 195,                                                             // Rb Sr
+        190, 175, 164, 154, 147, 146, 142, 139, 145, 144,                     // Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd
+        142, 139, 139, 138, 139, 140,                                         // In Sn Sb Te I  Xe
+        244, 215,                                                             // Cs Ba
+        207, 204, 203, 201, 199, 198, 198, 196, 194, 192, 192, 189, 190, 187, // La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb
+        187, 175, 170, 162, 151, 144, 141, 136, 136, 132,                     // Lu Hf Ta W  Re Os Ir Pt Au Hg
+        145, 146, 148, 140, 150, 150,                                         // Tl Pb Bi Po At Rn
+        260, 221,                                                             // Fr Ra
+        215, 206, 200, 196, 190, 187, 180, 169, 166, 168, 165, 167, 173, 176, // Ac Th Pa U  Np Pu Am Cm Bk Cf Es Fm Md No
+        161, 157, 149, 143, 141, 134, 129, 128, 121, 122,                     // Lr Rf Db Sg Bh Hs Mt Ds Rg Cn
+        136, 143, 162, 175, 165, 157,                                         // ut uq up uh us uo
+        159, 160,                                                             // un ud
+        161, 162, 163, 164, 165, 166, 167};                                   // Z=121 .. Z=127 invented numbers
+      float const picometer2Bohr = 0.01*Angstrom2Bohr;
+      return (half_bond_in_pm[Z1 & 127] + half_bond_in_pm[Z2 & 127]) * picometer2Bohr;
+      // largest entry is 260 --> 2*260 pm * 1.25 = 6.5 Ang
+  } // default_bond_length
+
+  
   
   template <typename int_t>
   class BoxStructure {
@@ -177,106 +282,7 @@ namespace geometry_analysis {
   }; // class BoxStructure
   
   
-  double constexpr Bohr2Angstrom = 0.52917724924;
-  double constexpr Angstrom2Bohr = 1./Bohr2Angstrom;
-
-  status_t read_xyz_file(
-        view2D<double> & xyzZ
-      , int & n_atoms
-      , char const *filename // ="atoms.xyz"
-      , double cell[] // =nullptr
-      , int bc[] // =nullptr
-      , int const echo // =5 log-level
-  ) {
-
-      std::ifstream infile(filename, std::ifstream::in);
-      if (infile.fail()) error("Unable to open file '%s' for reading coordinates", filename);
-
-      int natoms{0}, linenumber{2};
-      infile >> natoms; // read the number of atoms
-      std::string line;
-      std::getline(infile, line);
-      std::getline(infile, line);
-      if (echo > 2) std::printf("# expect %d atoms, comment line in file: %s\n", natoms, line.c_str());
-      { // scope parse comment line
-          std::istringstream iss(line);
-          std::string Cell, B[3];
-          double L[3]; // positions
-          iss >> Cell >> L[0] >> L[1] >> L[2] >> B[0] >> B[1] >> B[2];
-          for (int d = 0; d < 3; ++d) {
-              if (nullptr != cell) {
-                  cell[d] = L[d] * Angstrom2Bohr;
-                  assert(cell[d] > 0);
-              }
-              if (nullptr != bc) bc[d] = boundary_condition::fromString(B[d].c_str(), echo, 120+d);
-          } // d
-      } // scope
-      xyzZ = view2D<double>(natoms, 4);
-      int na{0}; // number of atoms
-      while (std::getline(infile, line)) {
-          ++linenumber;
-          std::istringstream iss(line);
-          std::string Symbol;
-          double px, py, pz; // positions
-          if (!(iss >> Symbol >> px >> py >> pz)) {
-              if (na < natoms) // we expect more atom lines
-              std::printf("# failed parsing in %s:%d reads \"%s\", stop\n", filename, linenumber, line.c_str());
-              break; // error
-          }
-          char const *Sy = Symbol.c_str();
-          char const S = Sy[0], y = (Sy[1])? Sy[1] : ' ';
-          if (echo > 7) std::printf("# %c%c  %16.9f %16.9f %16.9f\n", S,y, px, py, pz);
-          int const iZ = chemical_symbol::decode(S, y);
-          xyzZ(na,0) = px*Angstrom2Bohr;
-          xyzZ(na,1) = py*Angstrom2Bohr;
-          xyzZ(na,2) = pz*Angstrom2Bohr;
-          xyzZ(na,3) = iZ;
-          ++na;
-          assert(na <= natoms);
-          // process pair 
-      } // parse file line by line
-      
-//    auto const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr, bc={periodic,isolated,isolated}
-      n_atoms = na;
-      return na - natoms; // returns 0 if the exact number of atoms has been found
-  } // read_xyz_file
-
-  float default_bond_length(int const Z1, int const Z2=0) {
-    // data originally from http://chemwiki.ucdavis.edu/Theoretical_Chemistry/Chemical_Bonding/Bond_Order_and_Lengths
-    // can now be found for single bonds at
-    // https://chem.libretexts.org/Ancillary_Materials/Reference/
-    //              Reference_Tables/Atomic_and_Molecular_Properties/A3%3A_Covalent_Radii
-    // which references https://doi.org/10.1002/chem.200901472 (Pekka Pyykk\"o and Michiko Atsumi)
-    // Fe 26 with 110pm is good for bcc bulk
-    // Fr 87 reduced from 260 to 255 to fit data format
-    // Sc 21 reduced from 170 to 130 to make no Sc-Sc bonds inside Sc2O3
-      uint8_t const half_bond_in_pm[128] = {0, // now following Z=1..118 in Aco Z. Muradjan-ordering
-         31,  28,                                                             // H  He
-        128,  96,                                                             // Li Be
-         84,  76,  73,  69,  71,  66,                                         // B  C  N  O  F  Ne
-         57, 141,                                                             // Na Mg
-        121, 111, 107, 105, 102, 106,                                         // Al Si P  S  Cl Ar
-        203, 176,                                                             // K  Ca
-        130, 160, 153, 139, 132, 110, 139, 124, 132, 122,                     // Sc Ti V  Cr Mn Fe Co Ni Cu Zn
-        122, 120, 119, 120, 120, 116,                                         // Ga Ge As Se Br Kr
-        220, 195,                                                             // Rb Sr
-        190, 175, 164, 154, 147, 146, 142, 139, 145, 144,                     // Y  Zr Nb Mo Tc Ru Rh Pd Ag Cd
-        142, 139, 139, 138, 139, 140,                                         // In Sn Sb Te I  Xe
-        244, 215,                                                             // Cs Ba
-        207, 204, 203, 201, 199, 198, 198, 196, 194, 192, 192, 189, 190, 187, // La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb
-        187, 175, 170, 162, 151, 144, 141, 136, 136, 132,                     // Lu Hf Ta W  Re Os Ir Pt Au Hg
-        145, 146, 148, 140, 150, 150,                                         // Tl Pb Bi Po At Rn
-        255, 221,                                                             // Fr Ra
-        215, 206, 200, 196, 190, 187, 180, 169, 166, 168, 165, 167, 173, 176, // Ac Th Pa U  Np Pu Am Cm Bk Cf Es Fm Md No
-        161, 157, 149, 143, 141, 134, 129, 128, 121, 122,                     // Lr Rf Db Sg Bh Hs Mt Ds Rg Cn
-        136, 143, 162, 175, 165, 157,                                         // ut uq up uh us uo
-        159, 160,                                                             // un ud
-        161, 162, 163, 164, 165, 166, 167};                                   // Z=121 .. Z=127 invented numbers
-      float const picometer2Bohr = .01889726;
-      return (half_bond_in_pm[Z1] + half_bond_in_pm[Z2]) * picometer2Bohr;
-      // largest entry is 255 --> 2*255 pm * 1.25 = 6.375 Ang
-  } // default_bond_length
-
+  
 
   typedef uint32_t index_t;
 
@@ -435,7 +441,41 @@ namespace geometry_analysis {
 
   } // analyze_bond_structure
 
+  template <typename int_t=int32_t>
+  class SparsifyPlot {
+    // This helper class allows to loop over a histogram
+    // and plotting non-zero entries and, in addition, those entries 
+    // before and after a non-zero entry.
+    // Drawback: it is complicated to plot the last entry.
+    // Usage:
+    //    SparsifyPlot<int> spp;
+    //    for (int i = 0; i < nhist; ++i) {
+    //        auto const j = spp.previous(i, hist[i] > 0);
+    //        if (j >= 0) printf("%d %g\n", j, hist[j]);
+    //    } // i
+  public:
 
+      SparsifyPlot(bool const show0=false) {
+          assert(int_t(-1) < 0); // int_t must be a signed integer type
+          // show the first data point always, -1: do not show  
+          last[0] = show0 ? 0 : -1; last[1] = -1; last[2] = -1; last[3] = -1;
+      } // constructor
+ 
+      int_t previous(int_t const ih, bool const nonzero=true) {
+          last[(ih - 2) & 0x3] = -1; // clear after usage
+          if (nonzero) {
+              last[(ih - 1) & 0x3] = ih - 1;
+              last[(ih    ) & 0x3] = ih; // also plot indices left and right of ih
+              last[(ih + 1) & 0x3] = ih + 1;
+          } // nonzero
+          return last[(ih - 1) & 0x3]; // returns previous index
+      } // previous
+
+  private:
+      int_t last[4]; // state
+  }; // class SparsifyPlot
+  
+  
   status_t analysis(
         view2D<double> const & xyzZ // coordinates[natoms][4+]
       , index_t const natoms // number of atoms
@@ -449,10 +489,10 @@ namespace geometry_analysis {
       float const elongation = control::get("geometry_analysis.elongation", 1.25); // a bond elongated by 25% over his default length is still counted
       if (echo > 3) std::printf("# Count interatomic distances up to %g %% of the default bond length as bond\n", elongation*100);
 
-      double const max_range = control::get("geometry_analysis.max.range", 6.03*Angstrom2Bohr); // max. analysis range is about 6 Angstrom
-      double const bin_width = control::get("geometry_analysis.bin.width", 0.02*Angstrom2Bohr);
+      double const max_range = control::get("geometry_analysis.max.range", 6.5*Angstrom2Bohr); // max. analysis range is about 6 Angstrom
+      double const bin_width = control::get("geometry_analysis.bin.width", .02*Angstrom2Bohr);
       double const inv_bin_width = (bin_width > 0) ? 1./bin_width : 0;
-      double const minimum_range = 11.; // 11 Bohr
+      double const minimum_range = 10.; // 10 Bohr
       double const rcut  = std::max(minimum_range, max_range); // if the radius becomes too small, the BoxStructure is too fine grained
       int const num_bins = std::max(1, int(std::ceil(rcut*inv_bin_width))); // 0:no histogram
 
@@ -469,14 +509,11 @@ namespace geometry_analysis {
 
       std::vector<int8_t> ispecies(natoms, 0);
       std::vector<int> occurrence(128, 0); 
+      int8_t Z_of_species[128]; Z_of_species[0] = -1;
       int8_t species_of_Z[128];
-      int8_t Z_of_species[128];
-      char  Sy_of_species[128][4];       // examples: "Au", "H "
-      char  Sy_of_species_null[128][4];  // examples: "Au", "H"
-      char  Sy_of_species_right[128][4]; // examples: "Au", " H"
-      int nspecies{0}; // number of different species
 
-      { // scope: fill ispecies and species_of_Z
+      int nspecies{0}; // number of different species
+      { // scope: count differen species, fill ispecies and species_of_Z
 
           for (int first = 1; first >= 0; --first) {
               for (index_t ia = 0; ia < natoms; ++ia) {
@@ -490,27 +527,38 @@ namespace geometry_analysis {
               } // ia
               if (first) {
                   // evaluate the histogram only in the first iteration
+                  int is{0};
                   for (int Z = 0; Z < 128; ++Z) {
                       if (occurrence[Z] > 0) {
-                          species_of_Z[Z] = nspecies;
-                          Z_of_species[nspecies] = Z;
-                          chemical_symbol::get(Sy_of_species_null[nspecies], Z);
-                          chemical_symbol::get(Sy_of_species[nspecies], Z, ' ');
-                          set(Sy_of_species_right[nspecies], 4, Sy_of_species[nspecies]);
-                          if (' ' == Sy_of_species[nspecies][1]) {
-                              std::swap(Sy_of_species_right[nspecies][0], Sy_of_species_right[nspecies][1]);
-                          } // swap
-                          Sy_of_species_right[nspecies][2] = '\0';
-                          ++nspecies;
+                          species_of_Z[Z] = is;
+                          Z_of_species[is] = Z;
+                          ++is; // create a new species
                       } else {
                           assert(0 == occurrence[Z]); // occurrence may not be negative
                       } // non-zero count
                   } // Z
+                  nspecies = is;
               } // first
           } // run twice
 
       } // scope
 
+      
+      // the following 3 arrays could use less than 128 entries if we limit the max. number of species in sample
+      char  Sy_of_species[128][4];       // examples: "Au", "H "
+      char  Sy_of_species_null[128][4];  // examples: "Au", "H"
+      char  Sy_of_species_right[128][4]; // examples: "Au", " H"
+      for (int is = 0; is < nspecies; ++is) {
+          chemical_symbol::get(Sy_of_species_null[is], Z_of_species[is]);
+          chemical_symbol::get(Sy_of_species[is], Z_of_species[is], ' ');
+          set(Sy_of_species_right[is], 4, Sy_of_species[is]);
+          if (' ' == Sy_of_species[is][1]) {
+              std::swap(Sy_of_species_right[is][0], Sy_of_species_right[is][1]);
+          } // swap
+          Sy_of_species_right[is][2] = '\0';
+      } // is
+
+      
       if (echo > 2) {
           std::printf("# Found %d different elements for %d atoms:  ", nspecies, natoms);
           for (int is = 0; is < nspecies; ++is) {
@@ -518,6 +566,7 @@ namespace geometry_analysis {
           } // is
           std::printf("\n");
       } // echo
+      assert((natoms > 0) == (nspecies > 0));
 
       std::vector<float> half_bond_length(nspecies, 0.f);
       { // scope: set half_bond_length
@@ -526,7 +575,7 @@ namespace geometry_analysis {
 //        auto const unit_name = control::get("geometry_analysis.half.bond.unit", "Bohr");
 //        char const *_lu; auto const lu = unit_system::length_unit(unit_name, &_lu), in_lu = 1./lu;
 
-          double hypothetical_bond{0};
+          float hypothetical_bond{0};
           int half_bond_lengths_modified{0};
           for (int is = 0; is < nspecies; ++is) {
               char keyword[32];
@@ -538,7 +587,7 @@ namespace geometry_analysis {
                           Sy_of_species_null[is], default_half_bond*Ang, _Ang, half_bond_length[is]*Ang, _Ang);
                   ++half_bond_lengths_modified;
               }
-              hypothetical_bond = std::max(hypothetical_bond, elongation*2.*half_bond_length[is]);
+              hypothetical_bond = std::max(hypothetical_bond, elongation*1.999999f*half_bond_length[is]);
           } // is
           if (half_bond_lengths_modified) {
               if (echo > 0) std::printf("# %d of %d half bond lengths have been customized\n", half_bond_lengths_modified, nspecies);
@@ -547,6 +596,8 @@ namespace geometry_analysis {
           if (max_range < hypothetical_bond) {
               warn("max.range (%g %s) may truncate bonds, better use %g %s or more!",
                                max_range*Ang, _Ang, hypothetical_bond*Ang, _Ang);
+          } else if (echo > 3) {
+              std::printf("# Hint: geometry_analysis.max.range=%g Bohr would be sufficient\n", hypothetical_bond);
           } // warn
       } // scope
 
@@ -680,22 +731,32 @@ namespace geometry_analysis {
 
       if (true) { // warn if minimum distance is too low
           double minimum_distance{9e37};
-          for (int ijs = 0; ijs < nspecies2; ++ijs) {
-              minimum_distance = std::min(minimum_distance, smallest_distance[0][ijs]);
-          } // ijs
+          int imin[2] = {-1, -1};
+          int const is_start = (0 == Z_of_species[0]); // avoid to warn about the minium distance between vacuum atoms
+          for (int is = is_start; is < nspecies; ++is) {
+              for (int js = is_start; js < nspecies; ++js) {
+                  if (smallest_distance(is,js) < minimum_distance) {
+                      minimum_distance = smallest_distance(is,js);
+                      imin[0] = is; imin[1] = js;
+                  }
+              } // js
+          } // is
           if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
               ++stat;
-              warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang, _Ang);
+              warn("Minimum distance between two atoms (%s-%s) is %.1f %s", 
+                  Sy_of_species_null[imin[0]], Sy_of_species_null[imin[1]], minimum_distance*Ang, _Ang);
           } // < 1
       } // true
-      
+
       if (bp_exceeded > 0 && MaxBP > 0) {
-          stat += 0 < warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
+          warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
+          ++stat;
       } // maximum number of bond partners was exceeded
       if (bp_truncated > 0) {
-          stat += 0 < warn("Bond partner analysis is performed only for the first %d atoms", natoms_BP);
+          warn("Bond partner analysis is performed only for the first %d atoms", natoms_BP);
+          ++stat;
       } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
-      
+
       
       // warnings:
       if (1) { // warn if the smallest_distance < shortestbond_dist
@@ -707,13 +768,16 @@ namespace geometry_analysis {
                       if (smallest_distance(is,js) < shortest_bond_distance) {
                           warn("%s-%s distance %g is below the shortest bond %g %s",
                                 Sy[is], Sy[js], smallest_distance(is,js)*Ang, shortest_bond_distance*Ang, _Ang);
+                          ++stat;
                       }
                   }
                   if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) {
                       warn("smallest distance for %s-%s asymmetric!", Sy[is], Sy[js]);
+                      ++stat;
                   }
                   if (bond_hist(is,js) != bond_hist(js,is)) {
                       warn("count of %s-%s bonds asymmetric!", Sy[is], Sy[js]);
+                      ++stat;
                   }
               } // js
           } // is
@@ -730,44 +794,38 @@ namespace geometry_analysis {
                   for (int js = is; js < nspecies; ++js) { // triangular loop including i
                       std::printf(" %s-%s", Sy_of_species_null[is], Sy_of_species_null[js]);
                   } // js
-                  std::printf(" ");
+                  std::printf((is < nspecies - 1) ? " " : "\n");
               } // is
-              std::printf("\n");
           } // echoh
-          int last_bins[4] = {0, -1, -1, -1}; // show the first bin always, -1: do not show
+          SparsifyPlot<int> spp(true);
           for (int ibin = 0; ibin < num_bins; ++ibin) {
 #ifdef    PLOT_ALL_HISTOGRAM_POINTS
-              int const jbin = ibin;
+              int const jbin = ibin - 1;
 #else  // PLOT_ALL_HISTOGRAM_POINTS
               bool nonzero{false}; // sparsify the plotting of the distance histogram
               for (int ijs = 0; ijs < nspecies2; ++ijs) {
                   nonzero = nonzero || (dist_hist(ibin,0)[ijs] > 0); // analyze dist_hist[ibin]
               } // ijs
-              if (nonzero) {
-                  last_bins[(ibin + 1) & 3] = ibin - 1;
-                  last_bins[(ibin + 2) & 3] = ibin; // also plot bins to the left and right of this nonzero line
-                  last_bins[(ibin + 3) & 3] = ibin + 1;
-              } // nonzero
-              int const jbin = last_bins[ibin & 3];
-              last_bins[ibin & 3] = -1; // clear
+              int const jbin = spp.previous(ibin, nonzero);
 #endif // PLOT_ALL_HISTOGRAM_POINTS
               if (jbin >= 0) {
                   float const dist = (jbin + 0.5)*bin_width; // display the center of the bin
                   if (echoh) std::printf("%.3f ", dist*Ang);
-//                    printf_vector(" %d", dist_hist(jbin,0), nspecies2); // show all nspecies^2 entries
+//                printf_vector(" %d", dist_hist(jbin,0), nspecies2); // show all nspecies^2 entries
                   auto const hist = dist_hist[jbin];
                   for (int is = 0; is < nspecies; ++is) {
                       if (echoh) std::printf("  %d", hist(is,is)); // h(i,i)
                       for (int js = is + 1; js < nspecies; ++js) { // triangular loop excluding i
                           if (echoh) std::printf(" %d", hist(is,js) + hist(js,is)); // h(i,j) + h(j,i)
                           ij_dev += (hist(is,js) != hist(js,is));
+                          if (hist(is,js) != hist(js,is)) warn("histogram asymmetry for ibin=%i (dist=%g Bohr) is=%i js=%i", jbin, dist, is, js);
                       } // js
                   } // is
                   if (echoh) std::printf("\n");
               } // non-zero or before non-zero or after non-zero
           } // ibin
           if (ij_dev > 0) {
-              warn("histogram has %.3f k asymmetries\n", ij_dev*.001);
+              warn("histogram has %.3f k asymmetries", ij_dev*.001);
               ++stat;
           } // asymmetries detected
           dist_hist = view3D<uint16_t>(0,0,0, 0); // free
@@ -785,8 +843,8 @@ namespace geometry_analysis {
 
               int const sbond = control::get("geometry_analysis.show.bond.structure", 1.);
               bool const show = (echo > 5) && (sbond > 0);
-              if (show) std::printf("# show a bond structure analysis:\n"
-                          "# bond lengths are in %s | angles in degree\n\n", _Ang);
+              if (show) std::printf("\n# show a bond structure analysis: "
+                           "bond lengths are in %s | angles in degree\n\n", _Ang);
 // #pragma omp parallel for
               for (index_t ia = 0; ia < natoms_BP; ++ia) {
                   int const cn = std::min(int(coordination_number[ia]), MaxBP);
@@ -822,12 +880,25 @@ namespace geometry_analysis {
                               std::printf(" %s", Sy_of_species_null[is]);
                           } // is
                           std::printf("\n");
+
+                          SparsifyPlot<int> spp(ab);
                           for (int ih = 0; ih < nhist; ++ih) {
-                              std::printf("%g ", (ih + 0.5)*fac);
+#ifdef    PLOT_ALL_POINTS_IN_HISTOGRAM
+                              int const jh = ih - 1;
+#else  // PLOT_ALL_POINTS_IN_HISTOGRAM
+                              int nonzero{0}; // sparsify the plotting of the histogram
                               for (int is = 0; is < nspecies; ++is) {
-                                  std::printf(" %d", bond_angle_length_hist(ab,is,ih));
+                                  nonzero += bond_angle_length_hist(ab,is,ih); // analyze hist values
                               } // is
-                              std::printf("\n");
+                              int const jh = spp.previous(ih, (nonzero > 0));
+#endif // PLOT_ALL_POINTS_IN_HISTOGRAM
+                              if (jh >= 0) {
+                                  std::printf("%g ", (jh + 0.5)*fac);
+                                  for (int is = 0; is < nspecies; ++is) {
+                                      std::printf(" %d", bond_angle_length_hist(ab,is,jh));
+                                  } // is
+                                  std::printf("\n");
+                              } // jh >= 0
                           } // ih
                           std::printf("\n");
                       } // ab
@@ -949,13 +1020,13 @@ namespace geometry_analysis {
           
           // now show as a table with 1 line per species pair
           if (true) {
+              bool const show_unavailable_pairs = (control::get("geometry_analysis.show.all.pairs", 1.) > 0);
               size_t bonds_total{0};
               std::printf("\n# bond table:\n# pair, min dist in %s, bond stats", _Ang);
               for (int is = 0; is < nspecies; ++is) {
                   for (int js = is; js < nspecies; ++js) { // triangular inclusive loop
-                      std::printf("\n#  %s-%s", Sy_of_species_right[is], Sy_of_species[js]);
                       if (smallest_distance(is,js) < too_large) {
-                          std::printf("%8.3f", smallest_distance(is,js)*Ang);
+                          std::printf("\n#  %s-%s%8.3f", Sy_of_species_right[is], Sy_of_species[js], smallest_distance(is,js)*Ang);
                           auto const & s = bond_stat(is,js);
                           int const nbonds = s.tim();
                           if (nbonds > 0) {
@@ -964,8 +1035,8 @@ namespace geometry_analysis {
                                             s.min()*Ang, s.max()*Ang, nbonds);
                               bonds_total += nbonds * (1 + (js != is));
                           } // nbonds
-                      } else {
-                          std::printf(not_available);
+                      } else if (show_unavailable_pairs) {
+                          std::printf("\n#  %s-%s%s", Sy_of_species_right[is], Sy_of_species[js], not_available);
                       }
                   } // js
               } // is
@@ -997,9 +1068,40 @@ namespace geometry_analysis {
       return stat;
   } // test_analysis
 
+  
+  status_t test_example_file(int const echo=9) {
+      // to test the cornercases of the algorithm this creates an input file with all species included once
+      int const nspecies = std::min(std::max(2, int(control::get("geometry_analysis.test.nspecies", 128.))), 128);
+      float xi[128];
+      double x{0};
+      for (int iZ = 0; iZ < nspecies; ++iZ) {
+          xi[iZ] = x;
+          x += default_bond_length(iZ, (iZ + 1)%nspecies);
+      } // iZ
+
+      auto const filename = control::get("geometry_analysis.test.file", "species_test.xyz");
+      if (echo > 0) {
+          std::printf("\n# generate example file \'%s\' with %d different species, length= %g %s\n\n",
+                        filename, nspecies, x*Ang, _Ang);
+      } // echo
+      std::ofstream outfile(filename, std::ofstream::out);
+      if (outfile.fail()) {
+          warn("Unable to open file '%s' for writing coordinates", filename);
+          return 1;
+      }
+      outfile << nspecies << "\n#cell " << x*Bohr2Angstrom << " 8 8 periodic isolated isolated\n";
+      for (int iZ = 0; iZ < nspecies; ++iZ) {
+          char Sy[4]; chemical_symbol::get(Sy, iZ, ' ');
+          outfile << Sy << " " << xi[iZ]*Bohr2Angstrom << " 0 0\n";
+      } // iZ
+      return 0;
+  } // test_example_file
+
+
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_analysis(echo);
+      stat += test_example_file(echo);
       return stat;
   } // all_tests
 
