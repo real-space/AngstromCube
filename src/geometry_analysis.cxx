@@ -15,7 +15,6 @@
 #include "inline_math.hxx" // set, pow2
 #include "constants.hxx" // ::pi
 #include "data_view.hxx" // view2D<T>, view3D<T>
-// #include "inline_tools.hxx" // required_bits
 #include "vector_math.hxx" // ::vec<n,T>
 #include "chemical_symbol.hxx" // ::decode
 #include "recorded_warnings.hxx" // warn, error
@@ -65,16 +64,17 @@ namespace geometry_analysis {
           , int const echo=0 // log-level
       ) {
           assert(radius > 0);
-          double box_size[3], inv_box_size[3];
+          double box_size[3], inv_box_size[3], inv_nboxes[3];
           int hnh[3];
           int nbx{1}; // number of all boxes, including halos
           int mbx{1}; // number of central boxes, no halos
           for (int d = 0; d < 3; ++d) {
               assert(cell[d] > 0);
               nboxes[d] = std::max(1, int(cell[d]/radius));
+              inv_nboxes[d] = 1./nboxes[d];
               box_size[d] = cell[d]/nboxes[d];
               inv_box_size[d] = 1./box_size[d];
-              nhalo[d] = (Periodic_Boundary == bc[d]) ? (int)std::ceil(radius*inv_box_size[d]) : 1;
+              nhalo[d] = (Periodic_Boundary == bc[d]) ? int(std::ceil(radius*inv_box_size[d])) : 1;
               hnh[d] = nboxes[d] + 2*nhalo[d];
               nbx *= hnh[d]; // halo-enlarged
               mbx *= nboxes[d]; // only central boxes
@@ -94,9 +94,9 @@ namespace geometry_analysis {
                       for (int jx = 0; jx < hnh[X]; ++jx) {  int const ix = get_center_box<X>(jx - nhalo[X]);
                           int ib = get_center_index(ix, iy, iz);
                           int const jb = (jz*hnh[Y] + jy)*hnh[X] + jx;
-                          image_index[jb*4 + X] = (int)std::floor((jx - nhalo[X])/((double)nboxes[X]));
-                          image_index[jb*4 + Y] = (int)std::floor((jy - nhalo[Y])/((double)nboxes[Y]));
-                          image_index[jb*4 + Z] = (int)std::floor((jz - nhalo[Z])/((double)nboxes[Z]));
+                          image_index[jb*4 + X] = int(std::floor((jx - nhalo[X])*inv_nboxes[X]));
+                          image_index[jb*4 + Y] = int(std::floor((jy - nhalo[Y])*inv_nboxes[Y]));
+                          image_index[jb*4 + Z] = int(std::floor((jz - nhalo[Z])*inv_nboxes[Z]));
                           if ((Isolated_Boundary == bc[X]) && (0 != image_index[jb*4 + X])) ib = -1;
                           if ((Isolated_Boundary == bc[Y]) && (0 != image_index[jb*4 + Y])) ib = -1;
                           if ((Isolated_Boundary == bc[Z]) && (0 != image_index[jb*4 + Z])) ib = -1;
@@ -128,9 +128,9 @@ namespace geometry_analysis {
               double const offset[3] = {-min_coords[X], -min_coords[Y], -min_coords[Z]};
               
               for (size_t ia = 0; ia < natoms; ++ia) {
-                  int const iz = get_center_box<Z>((int)std::floor((xyzZ[ia][Z] + offset[Z])*inv_box_size[Z]));
-                  int const iy = get_center_box<Y>((int)std::floor((xyzZ[ia][Y] + offset[Y])*inv_box_size[Y]));
-                  int const ix = get_center_box<X>((int)std::floor((xyzZ[ia][X] + offset[X])*inv_box_size[X]));
+                  int const iz = get_center_box<Z>(int(std::floor((xyzZ[ia][Z] + offset[Z])*inv_box_size[Z])));
+                  int const iy = get_center_box<Y>(int(std::floor((xyzZ[ia][Y] + offset[Y])*inv_box_size[Y])));
+                  int const ix = get_center_box<X>(int(std::floor((xyzZ[ia][X] + offset[X])*inv_box_size[X])));
                   if (echo > 9) std::printf("# %s: atom #%ld Z=%.1f at %g %g %g goes into box %d %d %d\n", __func__,
                                 ia, xyzZ[ia][3], xyzZ[ia][X], xyzZ[ia][Y], xyzZ[ia][Z], ix, iy, iz);
                   int const ib = get_center_index(ix, iy, iz);
@@ -274,10 +274,12 @@ namespace geometry_analysis {
         161, 162, 163, 164, 165, 166, 167};                                   // Z=121 .. Z=127 invented numbers
       float const picometer2Bohr = .01889726;
       return (half_bond_in_pm[Z1] + half_bond_in_pm[Z2]) * picometer2Bohr;
+      // largest entry is 255 --> 2*255 pm * 1.25 = 6.375 Ang
   } // default_bond_length
 
 
   typedef uint32_t index_t;
+
   class atom_image_index_t {
   public:
       index_t ia; // global index of the atom in the coordinate list
@@ -288,24 +290,31 @@ namespace geometry_analysis {
       : ia(atom_index), is(species_index), ix(iix), iy(iiy), iz(iiz) {} // constructor
   }; // class atom_image_index_t
 
-  
+
   template <typename real_t, typename int_t=short>
-  int print_summary(char string[], // result
-          real_t values[], int_t const na, // intput array (will be sorted on exit)
-          double const grid_factor=1, double const display_factor=1, 
-          char const mult_char='x', char const *fmt1=" %g",
-          int const MaxBufferLen=-1, int const MaxEntryLen=24) {
+  int print_summary(
+        char string[] // result
+      , real_t values[] // intput array (will be sorted on exit)
+      , int_t const na // number of values, e.g. angles
+      , double const grid_factor=1
+      , double const display_factor=1
+      , char const mult_char='_' // multiplicity character
+      , char const *const fmt1=" %g"
+      , int const MaxBufferLen=-1
+      , int const MaxEntryLen=24
+  ) {
       auto const string_start = string;
       bool const no_length_check = (MaxBufferLen < 0);
 
       std::sort(values, values + na);
 
-      char fmtn[16]; { int const nfc = std::sprintf(fmtn, "%s%c%%d", fmt1, mult_char); assert(nfc < 16); }
+      char fmtn[16]; 
+      int const nfc = std::sprintf(fmtn, "%s%c%%d", fmt1, mult_char);
+      assert(nfc < 16);
 
       std::vector<int_t> ivalues(na);
       std::vector<int_t> occurrence(na, 1); // init all counters as 1, will be modified later
       for (int_t ia = 0; ia < na; ++ia) {
-//           ivalues[ia] = int_t(values[ia]*grid_factor + 0.5); // integerize value
           ivalues[ia] = std::round(values[ia]*grid_factor); // integerize value
           if (ia > 0) {
               if (ivalues[ia - 1] == ivalues[ia]) { // values are the same on the integer grid
@@ -323,8 +332,8 @@ namespace geometry_analysis {
           if (count > 0) {
               if (no_length_check || ((string + MaxEntryLen) < (string_start + MaxBufferLen))) {
                   // write into the string
-                  int const nchars = (count < 2) ? std::sprintf(string, fmt1, value):
-                                            std::sprintf(string, fmtn, value, count);
+                  int const nchars = (count < 2) ? std::sprintf(string, fmt1, value)
+                                                 : std::sprintf(string, fmtn, value, count);
                   assert( nchars <= MaxEntryLen );
                   nbytes += nchars;
                   string += nchars;
@@ -334,12 +343,48 @@ namespace geometry_analysis {
       return nbytes;
   } // print_summary
 
+
+  template <typename int_t, typename real_t>
+  int add_to_histogram(
+        int_t hist[]
+      , int const hmax
+      , real_t const data[]
+      , int const n
+      , double const factor=1
+  ) {
+      if ((nullptr == hist) || (hmax < 1) || (nullptr == data)) return 0;
+      int out_of_range{0};
+      for (int i = 0; i < n; ++i) {
+          auto const ih = int(data[i]*factor + 0.5);
+          if ((ih >= 0) && (ih < hmax)) {
+              ++hist[ih];
+          } else {
+              ++out_of_range;
+          }
+      } // i
+      return out_of_range;
+  } // add_to_histogram
+
   
   template <typename real_t>
-  void analyze_bond_structure(char* string, int const nb, real_t const bond_vectors[], float const Z) {
-      string[0] = '\0'; if (nb < 1) return;
+  void analyze_bond_structure(
+        char* string
+      , int const nb // number of bonds
+      , real_t const bond_vectors[]
+      , float const Z
+      
+      , index_t const ia=-1
+      , uint32_t*    angle_hist=nullptr
+      , int    const angle_max=0
+      , double const angle_fac=0
+      , uint32_t*    length_hist=nullptr
+      , int    const length_max=0
+      , double const length_fac=0
+  ) {
+      if (nullptr != string) string[0] = '\0';
+      if (nb < 1) return;
       view2D<real_t const> const bv(bond_vectors, 4); // wrap
-//    string += sprintf(string, " coordination=%d", nb);
+//    if (nullptr != string) string += std::sprintf(string, " coordination=%d", nb);
 //       real_t max_len2{0}, min_len2{9e37};
 
       std::vector<real_t> bond_length(nb);
@@ -354,7 +399,7 @@ namespace geometry_analysis {
       } // scope
 
       // show the minimum and maximum bond length
-//    string += sprintf(string, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
+//    if (nullptr != string) string += std::sprintf(string, " [%.3f, %.3f]", std::sqrt(min_len2)*Ang, std::sqrt(max_len2)*Ang);
 
       int const na = (nb*(nb - 1))/2; // number of bond angles
       std::vector<real_t> bond_angle(na);
@@ -367,16 +412,26 @@ namespace geometry_analysis {
                   bond_angle[ia] = (-dot < bliblj) ? std::acos(dot/bliblj) 
                                                    : constants::pi;
                   ++ia;
-//                std::printf(" %d", int(bond_angle[ia]*Deg));
+//                std::printf(" %.1f", bond_angle[ia]*Deg);
               } // jb
           } // ib
           assert(na == ia);
       } // scope
 
       real_t constexpr Deg = 180/constants::pi; // Degrees
-      string += print_summary(string, bond_length.data(), nb, Ang/.01, .01, '_', " %.2f"); // bin width 0.01 Ang
-      string += std::sprintf(string, " | "); // some separator
-      string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '_'); // bin width 2 degrees
+      if (nullptr != string) {
+          string += print_summary(string, bond_length.data(), nb, Ang/.01, .01, '_', " %.2f"); // bin width 0.01 Ang
+          string += std::sprintf(string, " | "); // some separator
+          string += print_summary(string, bond_angle.data(), na, Deg/2., 2., '_'); // bin width 2 degrees
+      } // string
+
+      {   auto const out = add_to_histogram(angle_hist, angle_max, bond_angle.data(), na, angle_fac);
+          if (out > 0) warn("%d angles out-of-range for atom #%i", out, ia);
+      }
+
+      {   auto const out = add_to_histogram(length_hist, length_max, bond_length.data(), nb, length_fac);
+          if (out > 0) warn("%d distances out-of-range for atom #%i", out, ia);
+      }
 
   } // analyze_bond_structure
 
@@ -391,24 +446,28 @@ namespace geometry_analysis {
       status_t stat(0);
       if (echo > 1) std::printf("\n# %s:%s\n", __FILE__, __func__);
       
-      float const elongation = 1.25f; // a bond elongated by 25% over his default length is still counted
-      if (echo > 3) std::printf("# Count interatomic distances up to %.1f%% of the default bond length as bond\n", elongation*100);
+      float const elongation = control::get("geometry_analysis.elongation", 1.25); // a bond elongated by 25% over his default length is still counted
+      if (echo > 3) std::printf("# Count interatomic distances up to %g %% of the default bond length as bond\n", elongation*100);
 
-      double const rcut = 6.03*Angstrom2Bohr; // maximum analysis range is 6 Angstrom
-      double const bin_width = 0.02*Angstrom2Bohr;
-      double const inv_bin_width = 1./bin_width;
-      int const num_bins = int(std::ceil(rcut*inv_bin_width)); // 0:no histogram
-
-      int constexpr MaxBP = 24; // maximum number of bond partners stored for later detailed analysis, 0:inactive
-      std::vector<std::vector<atom_image_index_t>> bond_partner((MaxBP > 0)*natoms);
-      index_t const natoms_BP = std::min(natoms, index_t(2000)); // limit the number of atoms for which the bonds are analyzed
+      double const max_range = control::get("geometry_analysis.max.range", 6.03*Angstrom2Bohr); // max. analysis range is about 6 Angstrom
+      double const bin_width = control::get("geometry_analysis.bin.width", 0.02*Angstrom2Bohr);
+      double const inv_bin_width = (bin_width > 0) ? 1./bin_width : 0;
+      double const minimum_range = 11.; // 11 Bohr
+      double const rcut  = std::max(minimum_range, max_range); // if the radius becomes too small, the BoxStructure is too fine grained
+      int const num_bins = std::max(1, int(std::ceil(rcut*inv_bin_width))); // 0:no histogram
 
       if (echo > 4) {
-          std::printf("# Bond search within interaction radius %.3f %s\n", rcut*Ang,_Ang);
-          if (num_bins > 0) std::printf("# Distance histogram bin width is %.6f %s\n", bin_width*Ang,_Ang);
+          std::printf("# Bond search within interaction radius %.3f %s\n", max_range*Ang, _Ang);
+          if (num_bins > 1) std::printf("# Distance histogram: %d bins of width %.6f %s up to %.3f %s\n",
+                                            num_bins, bin_width*Ang, _Ang, num_bins*bin_width*Ang, _Ang);
       } // echo
 
-      std::vector<int8_t> ispecies(natoms, 0); 
+      int const MaxBP        = control::get("geometry_analysis.max.bond.partners", 24.); // max# of bond partners for detailed analysis, 0:inactive
+      index_t max_natoms_BP  = control::get("geometry_analysis.max.atoms.with.partners", 2000.);
+      index_t const natoms_BP = std::min(natoms, max_natoms_BP); // limit the number of atoms for which the bonds are analyzed
+      std::vector<std::vector<atom_image_index_t>> bond_partner((MaxBP > 0)*natoms_BP);
+
+      std::vector<int8_t> ispecies(natoms, 0);
       std::vector<int> occurrence(128, 0); 
       int8_t species_of_Z[128];
       int8_t Z_of_species[128];
@@ -459,13 +518,45 @@ namespace geometry_analysis {
           } // is
           std::printf("\n");
       } // echo
-      
+
+      std::vector<float> half_bond_length(nspecies, 0.f);
+      { // scope: set half_bond_length
+          
+          // ToDo: use a custom length unit for the half bonds
+//        auto const unit_name = control::get("geometry_analysis.half.bond.unit", "Bohr");
+//        char const *_lu; auto const lu = unit_system::length_unit(unit_name, &_lu), in_lu = 1./lu;
+
+          double hypothetical_bond{0};
+          int half_bond_lengths_modified{0};
+          for (int is = 0; is < nspecies; ++is) {
+              char keyword[32];
+              std::snprintf(keyword, 31, "geometry_analysis.half.bond.%s", Sy_of_species_null[is]);
+              double const default_half_bond = default_bond_length(Z_of_species[is]);
+              half_bond_length[is] = control::get(keyword, default_half_bond);
+              if (default_half_bond != half_bond_length[is]) {
+                  if (echo > 3) std::printf("# customize half bond length for %s from %.3f %s to %.3f %s\n",
+                          Sy_of_species_null[is], default_half_bond*Ang, _Ang, half_bond_length[is]*Ang, _Ang);
+                  ++half_bond_lengths_modified;
+              }
+              hypothetical_bond = std::max(hypothetical_bond, elongation*2.*half_bond_length[is]);
+          } // is
+          if (half_bond_lengths_modified) {
+              if (echo > 0) std::printf("# %d of %d half bond lengths have been customized\n", half_bond_lengths_modified, nspecies);
+          } // modified
+          
+          if (max_range < hypothetical_bond) {
+              warn("max.range (%g %s) may truncate bonds, better use %g %s or more!",
+                               max_range*Ang, _Ang, hypothetical_bond*Ang, _Ang);
+          } // warn
+      } // scope
+
+
       int const nspecies2 = pow2(nspecies); // number of pairs of species
       view3D<uint16_t> dist_hist(num_bins, nspecies, nspecies, 0);
       view2D<int> bond_hist(nspecies, nspecies, 0);
       std::vector<uint8_t> coordination_number(natoms, 0);
-
       int constexpr MAX_coordination_number = std::numeric_limits<uint8_t>::max();
+
       float const too_large = 188.973; // 100 Angstrom
       view2D<double> smallest_distance(nspecies, nspecies,  too_large);
       view2D<simple_stats::Stats<double>> bond_stat(nspecies, nspecies);
@@ -511,8 +602,7 @@ namespace geometry_analysis {
               //========================================================================================================
               vec3 const pos_ia = xyzZ[ia];
               int const is = ispecies[ia];
-              int const Z_ia = Z_of_species[is];
-              if (echo > 8) std::printf("# [ia=%i] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_ia);
+              if (echo > 8) std::printf("# [ia=%i] pos_ia = %g %g %g Z=%d\n", ia, pos_ia[0],pos_ia[1],pos_ia[2], Z_of_species[is]);
               //========================================================================================================
               vec3 const pos_ii_minus_ia = pos_ii - pos_ia;
 #ifdef  GEO_ORDER_N2
@@ -523,8 +613,7 @@ namespace geometry_analysis {
                   //========================================================================================================
                   vec3 const pos_ja = xyzZ[ja];
                   int const js = ispecies[ja];
-                  int const Z_ja = Z_of_species[js];
-                  if (echo > 9) std::printf("# [ia=%i, ja=%i] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_ja);
+                  if (echo > 9) std::printf("# [ia=%i, ja=%i] pos_ja = %g %g %g Z=%d\n", ia, ja, pos_ja[0],pos_ja[1],pos_ja[2], Z_of_species[js]);
                   //========================================================================================================
                   vec3 const diff = pos_ja + pos_ii_minus_ia;
                   auto const d2 = norm(diff);
@@ -544,12 +633,13 @@ namespace geometry_analysis {
 //                    if (echo > 8) std::printf("# [%d,%d,%d] %g\n", ia, ja, ii, d2); // very verbose!!
 //                    if (echo > 8) std::printf("# [%d,%d,%d %d %d] %g\n", ia, ja, shift[0],shift[1],shift[2], d2); // very verbose!!
                       auto const dist = std::sqrt(d2);
-                      if (num_bins > 0) {
+                      {
                           int const ibin = int(dist*inv_bin_width);
-                          assert(ibin < num_bins);
-                          ++dist_hist(ibin,is,js);
-                      } // num_bins > 0
-                      if (dist < elongation*default_bond_length(Z_ia, Z_ja)) {
+                          if (ibin < num_bins) ++dist_hist(ibin,is,js);
+                      }
+//                    auto const longest_bond = elongation*default_bond_length(Z_of_species[is], Z_of_species[js]);
+                      auto const longest_bond = elongation*(half_bond_length[is] + half_bond_length[js]);
+                      if (dist < longest_bond) {
                           ++nbonds;
                           if (MaxBP > 0) { // storing of bond partners active
                               int const cn = coordination_number[ia];
@@ -562,14 +652,14 @@ namespace geometry_analysis {
                                   }
                               } else {
                                   ++bp_exceeded;
-                              }
+                              } // cn
                           } // MaxBP > 0
                           ++coordination_number[ia];
                           assert( coordination_number[ia] <= MAX_coordination_number );
                           ++bond_hist(is,js);
                           bond_stat(is,js).add(dist);
 //                           if (echo > 2) std::printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
-//                             ia, Sy_of_species[is], Sy_of_species[js], ja, dist*Ang,_Ang);
+//                             ia, Sy_of_species[is], Sy_of_species[js], ja, dist*Ang, _Ang);
                       } // atoms are close enough to assume a chemical bond
                       smallest_distance(is,js) = std::min(smallest_distance(is,js), dist);
                   } // d2
@@ -595,7 +685,7 @@ namespace geometry_analysis {
           } // ijs
           if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
               ++stat;
-              warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang,_Ang);
+              warn("Minimum distance between two atoms is %.1f %s", minimum_distance*Ang, _Ang);
           } // < 1
       } // true
       
@@ -631,10 +721,10 @@ namespace geometry_analysis {
 
       
 
-      if (echo > 5) {
-        
-          if (num_bins > 0) {
-              size_t ij_dev{0};
+      if (num_bins > 1) {
+          bool const echoh = (echo > 5);
+          size_t ij_dev{0};
+          if (echoh) {
               std::printf("\n## distance histogram (in %s):", _Ang);
               for (int is = 0; is < nspecies; ++is) {
                   for (int js = is; js < nspecies; ++js) { // triangular loop including i
@@ -643,51 +733,60 @@ namespace geometry_analysis {
                   std::printf(" ");
               } // is
               std::printf("\n");
-              int last_bins[4] = {0, -1, -1, -1}; // show the first bin always, -1: do not show
-              for (int ibin = 0; ibin < num_bins; ++ibin) {
+          } // echoh
+          int last_bins[4] = {0, -1, -1, -1}; // show the first bin always, -1: do not show
+          for (int ibin = 0; ibin < num_bins; ++ibin) {
 #ifdef    PLOT_ALL_HISTOGRAM_POINTS
-                  int const jbin = ibin;
+              int const jbin = ibin;
 #else  // PLOT_ALL_HISTOGRAM_POINTS
-                  bool nonzero{false}; // sparsify the plotting of the distance histogram
-                  for (int ijs = 0; ijs < nspecies2; ++ijs) {
-                      nonzero = nonzero || (dist_hist(ibin,0)[ijs] > 0); // analyze dist_hist[ibin]
-                  } // ijs
-                  if (nonzero) {
-                      last_bins[(ibin + 1) & 3] = ibin - 1;
-                      last_bins[(ibin + 2) & 3] = ibin; // also plot bins to the left and right of this nonzero line
-                      last_bins[(ibin + 3) & 3] = ibin + 1;
-                  } // nonzero
-                  int const jbin = last_bins[ibin & 3];
-                  last_bins[ibin & 3] = -1; // clear
+              bool nonzero{false}; // sparsify the plotting of the distance histogram
+              for (int ijs = 0; ijs < nspecies2; ++ijs) {
+                  nonzero = nonzero || (dist_hist(ibin,0)[ijs] > 0); // analyze dist_hist[ibin]
+              } // ijs
+              if (nonzero) {
+                  last_bins[(ibin + 1) & 3] = ibin - 1;
+                  last_bins[(ibin + 2) & 3] = ibin; // also plot bins to the left and right of this nonzero line
+                  last_bins[(ibin + 3) & 3] = ibin + 1;
+              } // nonzero
+              int const jbin = last_bins[ibin & 3];
+              last_bins[ibin & 3] = -1; // clear
 #endif // PLOT_ALL_HISTOGRAM_POINTS
-                  if (jbin >= 0) {
-                      float const dist = (jbin + 0.5)*bin_width; // display the center of the bin
-                      std::printf("%.3f ", dist*Ang);
+              if (jbin >= 0) {
+                  float const dist = (jbin + 0.5)*bin_width; // display the center of the bin
+                  if (echoh) std::printf("%.3f ", dist*Ang);
 //                    printf_vector(" %d", dist_hist(jbin,0), nspecies2); // show all nspecies^2 entries
-                      auto const hist = dist_hist[jbin];
-                      for (int is = 0; is < nspecies; ++is) {
-                          std::printf("  %d", hist(is,is)); // h(i,i)
-                          for (int js = is + 1; js < nspecies; ++js) { // triangular loop excluding i
-                              std::printf(" %d", hist(is,js) + hist(js,is)); // h(i,j) + h(j,i)
-                              ij_dev += (hist(is,js) != hist(js,is));
-                          } // js
-                      } // is
-                      std::printf("\n");
-                  } // non-zero or before non-zero or after non-zero
-              } // ibin
-              if (ij_dev > 0) warn("histogram has %.3f k asymmetries\n", ij_dev*.001);
-              dist_hist = view3D<uint16_t>(0,0,0, 0); // free
-          } // num_bins > 0
+                  auto const hist = dist_hist[jbin];
+                  for (int is = 0; is < nspecies; ++is) {
+                      if (echoh) std::printf("  %d", hist(is,is)); // h(i,i)
+                      for (int js = is + 1; js < nspecies; ++js) { // triangular loop excluding i
+                          if (echoh) std::printf(" %d", hist(is,js) + hist(js,is)); // h(i,j) + h(j,i)
+                          ij_dev += (hist(is,js) != hist(js,is));
+                      } // js
+                  } // is
+                  if (echoh) std::printf("\n");
+              } // non-zero or before non-zero or after non-zero
+          } // ibin
+          if (ij_dev > 0) {
+              warn("histogram has %.3f k asymmetries\n", ij_dev*.001);
+              ++stat;
+          } // asymmetries detected
+          dist_hist = view3D<uint16_t>(0,0,0, 0); // free
+      } // num_bins > 0
 
-      } // echo
       
       
-      
-      if (echo > 5) {
+      if (echo > 3) {
           // analyze local bond structure
           if (bond_partner.size() > 0) {
-              if (echo > 2) std::printf("# show a bond structure analysis:\n"
-                             "# bond lengths are in %s | angles in degree\n\n",_Ang);
+
+              int const nhist = control::get("geometry_analysis.num.bins", 184.);
+              auto const per_degree = 180/constants::pi, per_length = 16.;
+              view3D<uint32_t> bond_angle_length_hist(2, nspecies, nhist, 0);
+
+              int const sbond = control::get("geometry_analysis.show.bond.structure", 1.);
+              bool const show = (echo > 5) && (sbond > 0);
+              if (show) std::printf("# show a bond structure analysis:\n"
+                          "# bond lengths are in %s | angles in degree\n\n", _Ang);
 // #pragma omp parallel for
               for (index_t ia = 0; ia < natoms_BP; ++ia) {
                   int const cn = std::min(int(coordination_number[ia]), MaxBP);
@@ -703,13 +802,41 @@ namespace geometry_analysis {
                       coords[ip][3] = xyzZ[ja][3]; // Z of the bond partner, if needed
                   } // ip
                   bond_partner[ia].clear(); // free memory
+                  int const is = ispecies[ia];
                   char string_buffer[2048];
-                  analyze_bond_structure(string_buffer, cn, coords.data(), xyzZ[ia][3]);
+                  analyze_bond_structure(show?string_buffer:nullptr, cn, coords.data(), xyzZ[ia][3]
+                                   , ia, bond_angle_length_hist(0,is), nhist, per_degree
+                                       , bond_angle_length_hist(1,is), nhist, per_length
+                                        );
 // #pragma omp critical
-                  if (echo > 4) std::printf("# a#%i %s %s\n", ia, Sy_of_species[ispecies[ia]], string_buffer); // no new line
+                  if (show) std::printf("# a#%i %s %s\n", ia, Sy_of_species[is], string_buffer); // no new line
               } // ia
+
+              // display the histogram of bond length and angles summed up over all species
+              if (nhist > 0) {
+                  if (echo > 3) {
+                      for (int ab = 0; ab < 2; ++ab) {
+                          auto const fac = ab ? Ang/per_length : 1; 
+                          std::printf("\n# %s in %s for ", ab?"distances":"angles", ab?_Ang:"degree");
+                          for (int is = 0; is < nspecies; ++is) {
+                              std::printf(" %s", Sy_of_species_null[is]);
+                          } // is
+                          std::printf("\n");
+                          for (int ih = 0; ih < nhist; ++ih) {
+                              std::printf("%g ", (ih + 0.5)*fac);
+                              for (int is = 0; is < nspecies; ++is) {
+                                  std::printf(" %d", bond_angle_length_hist(ab,is,ih));
+                              } // is
+                              std::printf("\n");
+                          } // ih
+                          std::printf("\n");
+                      } // ab
+                  } // echo
+              } // nhist
+
           } // bond_partner
 
+          // after the lengthy output and before the summary, repeat the stoichiometry
           std::printf("\n# Found %d different elements for %d atoms:  ", nspecies, natoms);
           for (int is = 0; is < nspecies; ++is) {
               std::printf("  %s_%d", Sy_of_species_null[is], occurrence[Z_of_species[is]]); 
@@ -723,7 +850,7 @@ namespace geometry_analysis {
       // analyze coordination numbers
       if (true) {
           size_t cn_exceeds{0};
-          int constexpr max_cn = 24;
+          uint constexpr max_cn = 24;
           size_t total_cn{0};
           view2D<int> cn_hist(nspecies, max_cn, 0);
           for (index_t ia = 0; ia < natoms; ++ia) {
@@ -740,7 +867,7 @@ namespace geometry_analysis {
               warn("In %ld cases, the max. coordination (%d) was exceeded", cn_exceeds, max_cn);
               ++stat;
           } // cn_exceeds
-          
+
           if (echo > 3) {
               std::printf("\n# half bond length and coordination numbers with occurrence\n");
               for (int is = 0; is < nspecies; ++is) {
@@ -754,12 +881,8 @@ namespace geometry_analysis {
               } // is
               std::printf("# coordination numbers total= %ld\n\n", total_cn);
           } // echo
-
       } // true
 
-      
-      
-      
 
       if (echo > 2) {
           char const not_available[] = "     n/a";
@@ -809,7 +932,7 @@ namespace geometry_analysis {
                           double const value = (0 == i3) ? smallest_distance(is,js) :
                                              ( (1 == i3) ? bond_stat(is,js).max()   :
                                                            bond_stat(is,js).min() );
-                          if ((value < too_large) && (value >= 0)) {
+                          if ((0 <= value) && (value < too_large)) {
                               std::printf("%8.3f", value*Ang);
                           } else {
                               std::printf(not_available); // no distance below rcut found

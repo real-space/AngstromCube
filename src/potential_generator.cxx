@@ -50,7 +50,6 @@
 #include "sho_hamiltonian.hxx" // ::solve
 #include "plane_waves.hxx" // ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t
-#include "unit_system.hxx" // ::length_unit
 
 #include "poisson_solver.hxx" // ::solve, ::solver_method
 
