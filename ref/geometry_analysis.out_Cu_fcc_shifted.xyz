@@ -43,34 +43,31 @@
 11.924   32
 11.962   0
 
-# show a bond structure analysis: bond lengths are in Bohr | angles in degree
-
+# bond structure analysis: bond lengths are in Bohr | angles in degree
 # a#0 Cu   4.87_12 |  60_24 90_12 120_24 180_6
 # a#1 Cu   4.87_12 |  60_24 90_12 120_24 180_6
 # a#2 Cu   4.87_12 |  60_24 90_12 120_24 180_6
 # a#3 Cu   4.87_12 |  60_24 90_12 120_24 180_6
 
-# angles in degree for  Cu
-59.5  0
-60.5  96
-61.5  0
-89.5  0
-90.5  48
-91.5  0
-119.5  0
-120.5  96
-121.5  0
-179.5  0
-180.5  24
-181.5  0
+## bond angles in degree for  Cu
+59  0
+60  96
+61  0
+89  0
+90  48
+91  0
+119  0
+120  96
+121  0
+179  0
+180  24
+181  0
 
-
-# distances in Bohr for  Cu
-0.03125  0
-4.84375  0
-4.90625  48
-4.96875  0
-
+## bond distances in Bohr for  Cu
+0  0
+4.8125  0
+4.875  48
+4.9375  0
 
 # Found 1 different elements for 4 atoms:    Cu_4
 

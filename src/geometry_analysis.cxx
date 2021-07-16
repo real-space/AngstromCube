@@ -361,7 +361,7 @@ namespace geometry_analysis {
       if ((nullptr == hist) || (hmax < 1) || (nullptr == data)) return 0;
       int out_of_range{0};
       for (int i = 0; i < n; ++i) {
-          auto const ih = int(data[i]*factor + 0.5);
+          int const ih = std::round(data[i]*factor);
           if ((ih >= 0) && (ih < hmax)) {
               ++hist[ih];
           } else {
@@ -689,29 +689,31 @@ namespace geometry_analysis {
                           if (ibin < num_bins) ++dist_hist(ibin,is,js);
                       }
 //                    auto const longest_bond = elongation*default_bond_length(Z_of_species[is], Z_of_species[js]);
-                      auto const longest_bond = elongation*(half_bond_length[is] + half_bond_length[js]);
-                      if (dist < longest_bond) {
-                          ++nbonds;
-                          if (MaxBP > 0) { // storing of bond partners active
-                              int const cn = coordination_number[ia];
-                              if (0 == cn) bond_partner[ia].clear();
-                              if (cn < MaxBP) {
-                                  if (ia < natoms_BP) {
-                                      bond_partner[ia].push_back(atom_image_index_t(ja, js, shift[0], shift[1], shift[2]));
+                      if ((Z_of_species[is] > 0) && (Z_of_species[js] > 0)) {
+                          auto const longest_bond = elongation*(half_bond_length[is] + half_bond_length[js]);
+                          if (dist < longest_bond) {
+                              ++nbonds;
+                              if (MaxBP > 0) { // storing of bond partners active
+                                  int const cn = coordination_number[ia];
+                                  if (0 == cn) bond_partner[ia].clear();
+                                  if (cn < MaxBP) {
+                                      if (ia < natoms_BP) {
+                                          bond_partner[ia].push_back(atom_image_index_t(ja, js, shift[0], shift[1], shift[2]));
+                                      } else {
+                                          ++bp_truncated;
+                                      }
                                   } else {
-                                      ++bp_truncated;
-                                  }
-                              } else {
-                                  ++bp_exceeded;
-                              } // cn
-                          } // MaxBP > 0
-                          ++coordination_number[ia];
-                          assert( coordination_number[ia] <= MAX_coordination_number );
-                          ++bond_hist(is,js);
-                          bond_stat(is,js).add(dist);
-//                           if (echo > 2) std::printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
-//                             ia, Sy_of_species[is], Sy_of_species[js], ja, dist*Ang, _Ang);
-                      } // atoms are close enough to assume a chemical bond
+                                      ++bp_exceeded;
+                                  } // cn
+                              } // MaxBP > 0
+                              ++coordination_number[ia];
+                              assert( coordination_number[ia] <= MAX_coordination_number );
+                              ++bond_hist(is,js);
+                              bond_stat(is,js).add(dist);
+//                            if (echo > 2) std::printf("# bond between a#%d %s-%s a#%d  %g %s\n", 
+//                                 ia, Sy_of_species[is], Sy_of_species[js], ja, dist*Ang, _Ang);
+                          } // atoms are close enough to assume a chemical bond
+                      } // both Z_of_species > 0
                       smallest_distance(is,js) = std::min(smallest_distance(is,js), dist);
                   } // d2
                   ++npairs;
@@ -729,10 +731,10 @@ namespace geometry_analysis {
       assert(natoms == nzero);
       assert(0 == nstrange);
 
+      int const is_start = (0 == Z_of_species[0]); // avoid to warn about the minium distance between vacuum atoms
       if (true) { // warn if minimum distance is too low
           double minimum_distance{9e37};
           int imin[2] = {-1, -1};
-          int const is_start = (0 == Z_of_species[0]); // avoid to warn about the minium distance between vacuum atoms
           for (int is = is_start; is < nspecies; ++is) {
               for (int js = is_start; js < nspecies; ++js) {
                   if (smallest_distance(is,js) < minimum_distance) {
@@ -843,8 +845,8 @@ namespace geometry_analysis {
 
               int const sbond = control::get("geometry_analysis.show.bond.structure", 1.);
               bool const show = (echo > 5) && (sbond > 0);
-              if (show) std::printf("\n# show a bond structure analysis: "
-                           "bond lengths are in %s | angles in degree\n\n", _Ang);
+              if (show) std::printf("\n# bond structure analysis: "
+                      "bond lengths are in %s | angles in degree\n", _Ang);
 // #pragma omp parallel for
               for (index_t ia = 0; ia < natoms_BP; ++ia) {
                   int const cn = std::min(int(coordination_number[ia]), MaxBP);
@@ -875,8 +877,8 @@ namespace geometry_analysis {
                   if (echo > 3) {
                       for (int ab = 0; ab < 2; ++ab) {
                           auto const fac = ab ? Ang/per_length : 1; 
-                          std::printf("\n# %s in %s for ", ab?"distances":"angles", ab?_Ang:"degree");
-                          for (int is = 0; is < nspecies; ++is) {
+                          std::printf("\n## bond %s in %s for ", ab?"distances":"angles", ab?_Ang:"degree");
+                          for (int is = is_start; is < nspecies; ++is) {
                               std::printf(" %s", Sy_of_species_null[is]);
                           } // is
                           std::printf("\n");
@@ -893,14 +895,13 @@ namespace geometry_analysis {
                               int const jh = spp.previous(ih, (nonzero > 0));
 #endif // PLOT_ALL_POINTS_IN_HISTOGRAM
                               if (jh >= 0) {
-                                  std::printf("%g ", (jh + 0.5)*fac);
-                                  for (int is = 0; is < nspecies; ++is) {
+                                  std::printf("%g ", jh*fac);
+                                  for (int is = is_start; is < nspecies; ++is) {
                                       std::printf(" %d", bond_angle_length_hist(ab,is,jh));
                                   } // is
                                   std::printf("\n");
                               } // jh >= 0
                           } // ih
-                          std::printf("\n");
                       } // ab
                   } // echo
               } // nhist

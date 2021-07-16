@@ -37,8 +37,7 @@
 11.433   48 0 0 0  48 0 0  96 0  192
 11.471   0 0 0 0  0 0 0  0 0  0
 
-# show a bond structure analysis: bond lengths are in Bohr | angles in degree
-
+# bond structure analysis: bond lengths are in Bohr | angles in degree
 # a#0 __  
 # a#1 Te   5.71_4 |  90_4 180_2
 # a#2 Te   5.71_4 |  90_4 180_2
@@ -104,21 +103,19 @@
 # a#62 Sb   5.71_6 |  90_12 180_3
 # a#63 Te   5.71_6 |  90_12 180_3
 
-# angles in degree for  __ Ge Sb Te
-89.5  0 0 0 0
-90.5  0 96 192 192
-91.5  0 0 0 0
-179.5  0 0 0 0
-180.5  0 24 48 72
-181.5  0 0 0 0
+## bond angles in degree for  Ge Sb Te
+89  0 0 0
+90  96 192 192
+91  0 0 0
+179  0 0 0
+180  24 48 72
+181  0 0 0
 
-
-# distances in Bohr for  __ Ge Sb Te
-0.03125  0 0 0 0
-5.65625  0 0 0 0
-5.71875  0 48 96 144
-5.78125  0 0 0 0
-
+## bond distances in Bohr for  Ge Sb Te
+0  0 0 0
+5.625  0 0 0
+5.6875  48 96 144
+5.75  0 0 0
 
 # Found 4 different elements for 64 atoms:    ___8  Ge_8  Sb_16  Te_32
 

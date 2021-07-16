@@ -25,16 +25,13 @@
 ## distance histogram (in Bohr): Al-Al
 0.019   0
 
-# show a bond structure analysis: bond lengths are in Bohr | angles in degree
-
+# bond structure analysis: bond lengths are in Bohr | angles in degree
 # a#0 Al  
 
-# angles in degree for  Al
+## bond angles in degree for  Al
 
-
-# distances in Bohr for  Al
-0.03125  0
-
+## bond distances in Bohr for  Al
+0  0
 
 # Found 1 different elements for 1 atoms:    Al_1
 

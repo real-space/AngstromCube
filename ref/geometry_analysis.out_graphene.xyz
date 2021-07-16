@@ -52,25 +52,22 @@
 11.697   24
 11.735   0
 
-# show a bond structure analysis: bond lengths are in Bohr | angles in degree
-
+# bond structure analysis: bond lengths are in Bohr | angles in degree
 # a#0 C    2.68_3 |  120_3
 # a#1 C    2.68_3 |  120_3
 # a#2 C    2.68_3 |  120_3
 # a#3 C    2.68_3 |  120_3
 
-# angles in degree for  C
-119.5  0
-120.5  12
-121.5  0
+## bond angles in degree for  C
+119  0
+120  12
+121  0
 
-
-# distances in Bohr for  C
-0.03125  0
-2.65625  0
-2.71875  12
-2.78125  0
-
+## bond distances in Bohr for  C
+0  0
+2.625  0
+2.6875  12
+2.75  0
 
 # Found 1 different elements for 4 atoms:    C_4
 
