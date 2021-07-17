@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 1 different elements for 2 atoms:    Fe_2
 # Hint: geometry_analysis.max.range=5.19674 Bohr would be sufficient
+# Minimum distance between two atoms (Fe-Fe) is 4.697 Bohr
 
 ## distance histogram (in Bohr): Fe-Fe
 0.019   0
@@ -94,9 +95,6 @@
 # pair, min dist in Bohr, bond stats
 #  Fe-Fe    4.697   4.697 +/- 0.000 in [4.697, 4.697]  16 bonds
 # total= 16 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 1 different elements for 4 atoms:    C_4
 # Hint: geometry_analysis.max.range=3.59048 Bohr would be sufficient
+# Minimum distance between two atoms (C-C) is 2.684 Bohr
 
 ## distance histogram (in Bohr): C-C
 0.019   0
@@ -93,9 +94,6 @@
 # pair, min dist in Bohr, bond stats
 #   C-C     2.684   2.684 +/- 0.000 in [2.684, 2.684]  12 bonds
 # total= 12 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

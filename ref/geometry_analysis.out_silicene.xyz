@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 1 different elements for 4 atoms:    Si_4
 # Hint: geometry_analysis.max.range=5.24399 Bohr would be sufficient
+# Minimum distance between two atoms (Si-Si) is 4.026 Bohr
 
 ## distance histogram (in Bohr): Si-Si
 0.019   0
@@ -81,9 +82,6 @@
 # pair, min dist in Bohr, bond stats
 #  Si-Si    4.026   4.026 +/- 0.000 in [4.026, 4.026]  12 bonds
 # total= 12 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 1 different elements for 1 atoms:    Al_1
 # Hint: geometry_analysis.max.range=5.71642 Bohr would be sufficient
+# Minimum distance between two atoms (Al-Al) is 188.973 Bohr
 
 ## distance histogram (in Bohr): Al-Al
 0.019   0
@@ -57,9 +58,6 @@
 # pair, min dist in Bohr, bond stats
 #  Al-Al      n/a
 # total= 0 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

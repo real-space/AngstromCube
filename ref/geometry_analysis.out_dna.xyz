@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 5 different elements for 637 atoms:    H_227  C_197  N_73  O_120  P_20
 # Hint: geometry_analysis.max.range=5.05501 Bohr would be sufficient
+# Minimum distance between two atoms (H-N) is 1.944 Bohr
 
 ## distance histogram (in Bohr): H-H H-C H-N H-O H-P  C-C C-N C-O C-P  N-N N-O N-P  O-O O-P  P-P
 0.019   0 0 0 0 0  0 0 0 0  0 0 0  0 0  0
@@ -1049,9 +1050,6 @@
 #   O-P     2.789   2.905 +/- 0.109 in [2.789, 3.014]  80 bonds
 #   P-P    12.208
 # total= 1374 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

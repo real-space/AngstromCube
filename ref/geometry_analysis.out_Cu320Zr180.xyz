@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 2 different elements for 500 atoms:    Cu_320  Zr_180
 # Hint: geometry_analysis.max.range=8.26755 Bohr would be sufficient
+# Minimum distance between two atoms (Cu-Cu) is 4.121 Bohr
 
 ## distance histogram (in Bohr): Cu-Cu Cu-Zr  Zr-Zr
 0.019   0 0  0
@@ -1000,9 +1001,6 @@
 #  Cu-Zr    4.704   5.599 +/- 0.545 in [4.704, 7.250]  1918 bonds
 #  Zr-Zr    5.562   6.464 +/- 0.735 in [5.562, 8.264]  1040 bonds
 # total= 6762 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

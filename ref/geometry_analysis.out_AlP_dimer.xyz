@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 2 different elements for 2 atoms:    Al_1  P_1
 # Hint: geometry_analysis.max.range=5.71642 Bohr would be sufficient
+# Minimum distance between two atoms (Al-P) is 4.000 Bohr
 
 ## distance histogram (in Bohr): Al-Al Al-P  P-P
 0.019   0 0  0
@@ -71,9 +72,6 @@
 #  Al-P     4.000   4.000 +/- 0.000 in [4.000, 4.000]  1 bonds
 #   P-P       n/a
 # total= 2 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

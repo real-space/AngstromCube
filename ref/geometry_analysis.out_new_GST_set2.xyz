@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 4 different elements for 64 atoms:    ___8  Ge_8  Sb_16  Te_32
 # Hint: geometry_analysis.max.range=6.56679 Bohr would be sufficient
+# Minimum distance between two atoms (Ge-Te) is 5.707 Bohr
 
 ## distance histogram (in Bohr): __-__ __-Ge __-Sb __-Te  Ge-Ge Ge-Sb Ge-Te  Sb-Sb Sb-Te  Te-Te
 0.019   0 0 0 0  0 0 0  0 0  0
@@ -103,19 +104,19 @@
 # a#62 Sb   5.71_6 |  90_12 180_3
 # a#63 Te   5.71_6 |  90_12 180_3
 
-## bond angles in degree for  Ge Sb Te
-89  0 0 0
-90  96 192 192
-91  0 0 0
-179  0 0 0
-180  24 48 72
-181  0 0 0
+## bond angles in degree for  __ Ge Sb Te
+89  0 0 0 0
+90  0 96 192 192
+91  0 0 0 0
+179  0 0 0 0
+180  0 24 48 72
+181  0 0 0 0
 
-## bond distances in Bohr for  Ge Sb Te
-0  0 0 0
-5.625  0 0 0
-5.6875  48 96 144
-5.75  0 0 0
+## bond distances in Bohr for  __ Ge Sb Te
+0  0 0 0 0
+5.625  0 0 0 0
+5.6875  0 48 96 144
+5.75  0 0 0 0
 
 # Found 4 different elements for 64 atoms:    ___8  Ge_8  Sb_16  Te_32
 
@@ -165,9 +166,6 @@
 #  Sb-Te    5.707   5.707 +/- 0.000 in [5.707, 5.707]  96 bonds
 #  Te-Te    8.071
 # total= 288 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

@@ -21,6 +21,7 @@
 # Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
 # Found 2 different elements for 80 atoms:    O_48  Sc_32
 # Hint: geometry_analysis.max.range=6.14161 Bohr would be sufficient
+# Minimum distance between two atoms (O-Sc) is 3.976 Bohr
 
 ## distance histogram (in Bohr): O-O O-Sc  Sc-Sc
 0.019   0 0  0
@@ -314,9 +315,6 @@
 #   O-Sc    3.976   4.040 +/- 0.053 in [3.976, 4.123]  192 bonds
 #  Sc-Sc    6.174
 # total= 384 bonds
-
-# generate example file 'species_test.xyz' with 128 different species, length= 727.847 Bohr
-
 
 
 #  1 modules have been tested:

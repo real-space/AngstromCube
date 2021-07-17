@@ -843,7 +843,7 @@ namespace geometry_analysis {
           // analyze local bond structure
           if (bond_partner.size() > 0) {
 
-              int const nhist = control::get("geometry_analysis.num.bins", 184.);
+              int const nhist = control::get("geometry_analysis.bond.num.bins", 184.);
               auto const per_degree = 180/constants::pi; // bin width = 1 degree (fix)
               auto const per_length = 1./control::get("geometry_analysis.bond.bin.width", .0625); // about 30 bins/Angstrom
               view3D<uint32_t> bond_angle_length_hist(2, nspecies, nhist, 0);

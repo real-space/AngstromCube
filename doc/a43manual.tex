@@ -505,15 +505,16 @@ compare Section \ref{sec:distance-histogram}.
 A histogram for \ttt{\#\# bond distances} is generated for each atomic species.
 The histogram parameters can be controlled by 
 \ttt{geometry\_analysis.bond.bin.width} and 
-\ttt{geometry\_analysis.num.bins}. Default is $184$ bins with about $30$ bins per \AA{}.
+\ttt{geometry\_analysis.bond.num.bins}. Default is $184$ bins with about $30$ bins per \AA{}.
 The histogram representation is sparse, see above.
+%% An example can be found here:
+%% a43/doc/fig/Cu320Zr180_distance_hist.agr .pdf
 
 \subsection{Summaries}
 Atom-atom bonds and distances are summarised after the potentially lengthy log output described in
 sections \ref{sec:distance-histogram} and \ref{sec:bond-structure-analysis}.
 % , \ref{sec:bond-angle-histogram} and \ref{sec:bond-distance-histogram}.
 
-\subsubsection{Coordination Numbers}
 A table of \ttt{coordination numbers} and their \ttt{occurrence} is given for each species.
 The \ttt{\# half bond length} displays which radius has been taken to identify a bond.
 The default bond length between two species is given by the sum of
@@ -523,21 +524,49 @@ times the default bond length is recognized as a bond.
 %
 The user may customize the half bond length, e.g.~for copper 
 by setting \ttt{geometry\_analysis.half.bond.Cu} in Bohr units.
+%
+All \ttt{\# bond counts} are listed in an upper diagonal matrix as function of the two
+contributing species. Row/column sums show the total number of bonds for a given species.
+Further, the upper diagonal form is also used to display
+\begin{itemize}
+	\item the minimal distance
+	\item the longest bond and
+	\item the shortest bond
+\end{itemize}
+between to atoms of a given pair of species.
+The \ttt{\# shortest bond} should coincide with \ttt{\# min. distance}
+and shows \ttt{n/a} in case there is no bond.
+The minimal distance is displayed as \ttt{n/a} if the atom-atom distance exceeds $R$.
+%
+The information of the four matrix tables described above
+is also contained in the \ttt{\# bond table}.
+Where bonds have been detected, 
+the average and root-mean-square of the bond lengths are displayed
+in addition to minimum and maximum.
+By \ttt{geometry\_analysis.show.all.pairs} defaults to \ttt{1}.
+If the number of species in the system becomes large, setting this
+parameter to \ttt{0} will suppress all entries with a \ttt{n/a} minimal distance from the table.
+This is particularly helpful for the synthetic input case discussed in Section \ref{sec:many-species-test}.
 
-%489:      float const elongation = control::get("geometry_analysis.elongation", 1.25); // a bond elongated by 25% over his default length is still counted
-%492:      double const max_range = control::get("geometry_analysis.max.range", 6.5*Angstrom2Bohr); // max. analysis range is about 6 Angstrom
-%493:      double const bin_width = control::get("geometry_analysis.bin.width", .02*Angstrom2Bohr);
-%505:      int const MaxBP        = control::get("geometry_analysis.max.bond.partners", 24.); // max# of bond partners for detailed analysis, 0:inactive
-%506:      index_t max_natoms_BP  = control::get("geometry_analysis.max.atoms.with.partners", 2000.);
-%575://        auto const unit_name = control::get("geometry_analysis.half.bond.unit", "Bohr");
-%584:              half_bond_length[is] = control::get(keyword, default_half_bond);
-%846:              int const nhist = control::get("geometry_analysis.num.bins", 184.);
-%850:              int const sbond = control::get("geometry_analysis.show.bond.structure", 1.);
-%1028:              bool const show_unavailable_pairs = (control::get("geometry_analysis.show.all.pairs", 1.) > 0);
-%1064:      auto const geo_file = control::get("geometry.file", "atoms.xyz");
-%1079:      int const nspecies = std::min(std::max(2, int(control::get("geometry_analysis.test.nspecies", 128.))), 128);
-%1087:      auto const filename = control::get("geometry_analysis.test.file", "species_test.xyz");
-%1108:      int const t = control::get("geometry_analysis.select.test", -2.); // -1:all, -2:all but the first
+\subsection{Many Species Test} \label{sec:many-species-test}
+To test the full functionality of the geometry analysis,
+we can generate an input file \ttt{+geometry\_analysis.test.file} 
+with the default filename \ttt{species\_test.xyz}.
+It contains \ttt{geometry\_analysis.test.nspecies} $\in [2, 128]$ atoms, each with a
+different species, positioned in a chain.
+\begin{verbatim}
+./a43 -t geometry_analysis +verbosity=7 \
+        +geometry_analysis.select.test=-1 \
+        +geometry_analysis.test.nspecies=4 \
+        +geometry.file=species_test.xyz
+\end{verbatim}
+Will create the file, parse it and analyze its linear geometry.
+Technically, one could increase \ttt{test.nspecies} up to \ttt{128},
+however, the output is far from readable due to too many too long lines.
+The interatomic distances are chosen such that most coordination numbers
+are $2$ and most bond angles are \unit[180]{\degree}.
+%
+
 
 
 % ==============================================================================
