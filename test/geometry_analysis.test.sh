@@ -34,3 +34,13 @@ grep 'recorded warning' $targetdir/geometry_analysis.out_* -A1
 rm -f $targetdir/geometry_analysis.out_*.xyze
 # rm -f $targetdir/geometry_analysis.out_*
 # rm -f $targetdir/geometry_analysis.dif_*
+
+
+
+### test with self-generated input file
+./a43 +verbosity=7 \
+      -test geometry_analysis \
+      +geometry_analysis.select.test=-1 \
+      +geometry_analysis.test.nspecies=4 \
+      +geometry.file=species_test.xyz \
+      > $targetdir/geometry_analysis.out_species_test.xyz

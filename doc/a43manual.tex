@@ -10,6 +10,7 @@
 \usepackage{todonotes} %% add [disable] to disable
 \usepackage{transparent}
 \usepackage{pgfplots}
+\usepackage{gensymb} %% \degree
 
 \usepackage{acronym} %% for abbreviations
 %% physics related abbreviations
@@ -188,9 +189,11 @@ offers many functionalities accessible by options. Type \ttt{./a43 -h}
 to get a first help function:
 \begin{verbatim}
 Usage ./a43 [OPTION]
-   -h, -H       This help message
-   -t <module>  Run module unit test
-   +<var>=<val> Modify variable environment
+   --help           [-h]	This help message
+   --version            	Show version number
+   --test <module>  [-t]	Run module unit test
+   --verbose        [-V]	Increment verbosity level
+   +<name>=<value>      	Modify variable environment
 \end{verbatim}
 
 An important functionality after building the application (see section \ref{sec:compiling}) 
@@ -279,13 +282,15 @@ Some quantities are displayed in characteristic units, e.g., plane wave cutoffs 
 
 
 \subsection{Try a first structure}
-Make sure there is structure file \ttt{atoms.xyz} file and run
+Make sure there is \ttt{jmol}-viewable structure file \ttt{atoms.xyz}
+with atomic coordinates given in \AA{} and run
 \begin{verbatim}
 ./a43 -t geometry_analysis
 \end{verbatim}
 in order to check if your geometry looks ok.
 You can search the log file for warnings using \ttt{grep} but
 there will also be a summary of all warnings launched during the execution at the end of the log file.
+For a detailed description of the usage of \ttt{geometry\_analysis} see Section \ref{sec:geometry-analysis}.
 Once free of warnings, continue with the next step:
 Let's say we want aluminum in our system, then run:
 \begin{verbatim}
@@ -427,6 +432,112 @@ hence, the Hamiltonian becomes an implicit low-rank operator with sparsity which
 in combination with a revision of the \ac{PAW} method (revPAW) suitable for
 a reduced memory capacity consumption and lower memory bandwidth requirements.
 \todo[inline]{cite Baumeister, Tsukamoto, PASC19 proceedings}
+
+
+
+\section{Geometry Analysis Tool} \label{sec:geometry-analysis}
+The geometry file (\ttt{geometry.file=atoms.xyz}) is a file
+holding three items:
+the number of atoms, 
+a comment line which specifies the rectangular cell parameters in \AA{}, 
+and the atomic coordinates in \AA{} as
+\begin{verbatim}
+    2
+    #cell 10.6 10.6 12.7 periodic periodic periodic
+    Al   0 0 -1.05835
+    P    0 0  1.05835
+\end{verbatim}
+It can be viewed by \ttt{jmol}-viewer.
+\todo[inline]{reference to JMOL}
+
+To check if your coordinate file is parsed correctly run
+\begin{verbatim}
+./a43 -t geometry_analysis
+\end{verbatim}
+providing a rich log output about interatomic distances,
+potential bonds and atomic coordination.
+
+\subsection{Distance Histogram} \label{sec:distance-histogram}
+At increased \ttt{verbosity} a distance histogram is generated with
+a bin width of \ttt{+geometry\_analysis.bin.width} which is set to \unit[0.02]{\AA} by default.
+The geometry analysis algorithm checks on every pair of atoms
+including the effect of periodic images.
+For geometries with many atoms in the simulation volume
+a naive $\mathcal O(n\um{atoms}^2)$-algorithm 
+leads to unaffordable compute requirements.
+Hence, an $\mathcal O(n\um{atoms})$-algorithm has been implemented, see \cite{a43theory}.
+For this, we define a maximum range $R$ controlled 
+by \ttt{+geometry\_analysis.max.range} which is \unit[6.5]{\AA} by default.
+The simulation cell is subdivided into rectangular boxes. 
+Each box edge must be longer than $R$. 
+The atoms are sorted into their corresponding boxes.
+With this, atoms of each box must only check their distances 
+with atoms of the adjacent $3^3$ boxes.
+\todo[inline]{Enrich the theory chapter about the theoretical crossover}
+The range $R$ defines a natural upper end for the distance histogram.
+A sparse representation of the distance histogram will be found in the log output.
+This means that sequences longer than two bins where all entries are zero are not shown.
+However, when plotted with solid lines, there is no difference.
+Search the log for \ttt{\#\# distance histogram} to find the legend:
+The first column is the distance value of the bin in your chosen \ttt{output.length.unit}.
+The following columns represent all combinations of species.
+
+\subsection{Bond Structure Analysis} \label{sec:bond-structure-analysis}
+Find \ttt{\# bond structure analysis} in the log.
+For particularly large systems, even one line per atom
+can lead to very large log files which no human wants to read.
+Therefore, statistical summaries 
+for \ttt{\#\# bond angles} 
+and \ttt{\#\# bond distances} are displayed at the end.
+The per-atom output can be suppressed
+by \ttt{+geometry\_analysis.show.bond.structure=0} or a low \ttt{verbosity}.
+If the BSA is too memory consuming, you may limit it 
+to the first \ttt{geometry\_analysis.max.atoms.with.partners} atoms 
+or disable it entirely by \ttt{+geometry\_analysis.max.bond.partners=0},
+however, summaries cannot be generated then.
+
+\subsubsection{Bond Angles Histogram} \label{sec:bond-angle-histogram}
+A histogram for \ttt{\#\# bond angles} is generated for each atomic species.
+The bin width is \unit[1]{\degree} and the representation is sparse,
+compare Section \ref{sec:distance-histogram}.
+
+\subsubsection{Bond Distances Histogram} \label{sec:bond-distance-histogram}
+A histogram for \ttt{\#\# bond distances} is generated for each atomic species.
+The histogram parameters can be controlled by 
+\ttt{geometry\_analysis.bond.bin.width} and 
+\ttt{geometry\_analysis.num.bins}. Default is $184$ bins with about $30$ bins per \AA{}.
+The histogram representation is sparse, see above.
+
+\subsection{Summaries}
+Atom-atom bonds and distances are summarised after the potentially lengthy log output described in
+sections \ref{sec:distance-histogram} and \ref{sec:bond-structure-analysis}.
+% , \ref{sec:bond-angle-histogram} and \ref{sec:bond-distance-histogram}.
+
+\subsubsection{Coordination Numbers}
+A table of \ttt{coordination numbers} and their \ttt{occurrence} is given for each species.
+The \ttt{\# half bond length} displays which radius has been taken to identify a bond.
+The default bond length between two species is given by the sum of
+the two \ttt{half bond length}s.
+An interatomic distance below \ttt{geometry\_analysis.elongation=1.25} 
+times the default bond length is recognized as a bond.
+%
+The user may customize the half bond length, e.g.~for copper 
+by setting \ttt{geometry\_analysis.half.bond.Cu} in Bohr units.
+
+%489:      float const elongation = control::get("geometry_analysis.elongation", 1.25); // a bond elongated by 25% over his default length is still counted
+%492:      double const max_range = control::get("geometry_analysis.max.range", 6.5*Angstrom2Bohr); // max. analysis range is about 6 Angstrom
+%493:      double const bin_width = control::get("geometry_analysis.bin.width", .02*Angstrom2Bohr);
+%505:      int const MaxBP        = control::get("geometry_analysis.max.bond.partners", 24.); // max# of bond partners for detailed analysis, 0:inactive
+%506:      index_t max_natoms_BP  = control::get("geometry_analysis.max.atoms.with.partners", 2000.);
+%575://        auto const unit_name = control::get("geometry_analysis.half.bond.unit", "Bohr");
+%584:              half_bond_length[is] = control::get(keyword, default_half_bond);
+%846:              int const nhist = control::get("geometry_analysis.num.bins", 184.);
+%850:              int const sbond = control::get("geometry_analysis.show.bond.structure", 1.);
+%1028:              bool const show_unavailable_pairs = (control::get("geometry_analysis.show.all.pairs", 1.) > 0);
+%1064:      auto const geo_file = control::get("geometry.file", "atoms.xyz");
+%1079:      int const nspecies = std::min(std::max(2, int(control::get("geometry_analysis.test.nspecies", 128.))), 128);
+%1087:      auto const filename = control::get("geometry_analysis.test.file", "species_test.xyz");
+%1108:      int const t = control::get("geometry_analysis.select.test", -2.); // -1:all, -2:all but the first
 
 
 % ==============================================================================
