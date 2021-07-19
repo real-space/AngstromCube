@@ -9,7 +9,7 @@ for asy in 1; do
 
 (cd ../src/ && make -j) && \
   $exe +verbosity=7 \
-    -test plane_waves. \
+    -test plane_waves \
     +plane_waves.cutoff.energy=2.5 \
     +plane_waves.scale.kinetic=1 \
     +plane_waves.scale.potential=1 \

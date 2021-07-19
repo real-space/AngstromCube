@@ -4,7 +4,7 @@
 exe=../src/a43
 
 n=15
-./a43 -t multi_grid. \
+./a43 -t multi_grid \
         +multi_grid.test.scheme=V \
         +multi_grid.test.pre.jacobi=2 \
         +multi_grid.test.post.jacobi=2 \
@@ -21,7 +21,7 @@ done
 # do
 # echo >> mg.out
 # echo "# Number of levels is $n" >> mg.out
-# ./a43 -t multi_grid. \
+# ./a43 -t multi_grid \
 #         +multi_grid.test.scheme=V \
 #         +multi_grid.test.pre.jacobi=2 \
 #         +multi_grid.test.post.jacobi=2 \

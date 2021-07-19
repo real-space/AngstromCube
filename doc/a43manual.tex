@@ -120,8 +120,8 @@ where $V\um{eff}(\vec r)$ includes
   \item the attractive Coulomb potential of the atomic nuclei,
   \item a repulsive Hartree potential from electrostatic 
   		interaction of an electron with the density,
-  \item a contribution accounting for exchange and electronic correlation and
-  \item potential external fields.
+  \item potential external fields and
+  \item a contribution accounting for exchange and electronic correlation.
 \end{itemize}
 
 \subsection{The Exchange-Correlation Functional} \label{sec:xc-functional}
@@ -173,12 +173,12 @@ but it is planned to interface \ttt{libxc} with access to most existing function
 %
 \subsection{Getting the Code} \label{sec:getting-the-code}
 \codename{} will be public domain software under the MIT license
-and will be available to clone or download at \ttt{github.com/real-space/A43}. 
+and will be available to clone, fork or download at \ttt{github.com/real-space/A43}. 
 \todo[inline]{get GitHub account}
 
 \subsection{Building the Application} \label{sec:compiling}
 %
-A \ttt{Makefile} is contained in the program package that works with current GNU compilers, e.g.~\ttt{g++ 7.4.0}.
+A \ttt{Makefile} is contained in the program package that works with current compilers, e.g.~\ttt{GNU c++ 7.4.0} or \ttt{clang 11.0.0}.
 \todo[inline]{get CMake to work}
 %% and \ttt{nvcc from CUDA 10}
 
@@ -226,7 +226,7 @@ to change the \ttt{verbosity} to minimal when running all unit tests.
 
 \todo[inline]{Ensure that all modules have some meaningful unit tests or at least say it that they don't}
 
-The default \ttt{verbosity}-level is $3$ and levels are adjusted frequently during development.
+The default \ttt{verbosity}-level is $3$ and levels are adjusted occsionally during development.
 However, the ground rule says that higher \ttt{verbosity} means more output
 and \ttt{verbosity=0} suppresses all output except for fatal errors.
 We can also use the options \ttt{--verbose} to set \ttt{verbosity=6} (high)
@@ -247,7 +247,7 @@ Meaning of verbosity levels
      1 & Minimal output       \\
      3 & Default low          \\
    5-7 & High detail          \\
- $>$ 8 & Debugging            \\
+   $\geq$ 8 & Debugging       \\
 \hline
 \end{tabular}
 \end{table}
@@ -267,18 +267,19 @@ However, we can change the length and energy units used for output like this:
 ./a43 +output.energy.unit=eV +output.length.unit=Ang ...
 \end{verbatim}
 %% sigma_config uses Bohr always (as input and output unit) on purpose
-Available output units are \ttt{eV}, \ttt{Ry} or \ttt{Ha} (default in the development branch) for energies 
-and \ttt{nm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths. Run
+Available output units are \ttt{eV}, \ttt{Kelvin}, \ttt{Ry} or \ttt{Ha} (default in the development branch) for energies 
+and \ttt{nm}, \ttt{pm}, \ttt{Ang} (=\AA) and \ttt{Bohr} (default) for lengths. Run
 \begin{verbatim}
 ./a43 -t unit_system
 \end{verbatim}
 to verify this.
-Input length units are \AA{} in the geometry file as this is most convenient for molecular structure viewers
-(\ttt{VESTA}, \ttt{jmol}, etc.). Other input quantities may have flexible input units, for example
+%
+Input length units are \AA{} in the \ttt{geometry.file} as this is most convenient for molecular structure viewers
+(\ttt{VESTA}, \ttt{jmol}, etc). Other input quantities may have flexible input units, for example
 \begin{verbatim}
 ./a43 +logder.unit=Ry +logder.step=1e-3
 \end{verbatim}
-which means that the energy spacing for checking of the logarithmic derivatives is $10^{-3}$Rydberg.
+which means that the energy spacing for checking of the logarithmic derivatives is \unit[$10^{-3}$]{Rydberg}.
 The same input unit is assumed for \ttt{+logder.start} and \ttt{+logder.stop}.
 
 
@@ -298,7 +299,7 @@ with atomic coordinates given in \AA{} and run
 \end{verbatim}
 in order to check if your geometry looks ok.
 You can search the log file for warnings using \ttt{grep} but
-there will also be a summary of all warnings launched during the execution at the end of the log file.
+there will also be a summary of all warnings launched during execution at the end of the log file.
 For a detailed description of the usage of \ttt{geometry\_analysis} see Section \ref{sec:geometry-analysis}.
 Once free of warnings, continue with the next step:
 Let's say we want aluminum in our system, then run:
@@ -308,8 +309,8 @@ Let's say we want aluminum in our system, then run:
 \todo[inline]{Currently, aluminum produces a critical charge deficit operator eigenvalues}
 
 
-\codename{} will the try to access a database of initial atomic potentials
-(full spherically, spin-degenerate) which are stored in \ttt{pot/Zeff.}$Z$
+\codename{} will then try to access a database of initial atomic potentials
+(full spherically, spin-degenerate) which are stored in \ttt{./pot/Zeff.}$Z$
 where $Z$ is a 3-digit integer atomic number.
 \todo[inline]{make the path to pot/ configurable}
 You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{XC} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
@@ -322,30 +323,71 @@ or if the entire database was lost,
 ./a43 -t atom_core \
         +atom_core.test.Z=1 +atom_core.test.Z.end=86
 \end{verbatim}
-This may take some minutes. To track the progress, \ttt{verbosity=5} is recommended.
+This may take some minutes. To track the progress, \ttt{+verbosity=5} is recommended.
 \todo[inline]{OpenMP would be good here}
-
+%
+\noindent
 Now, run the \ttt{single\_atom} test for each of the elements in the system to see if there are warnings before you continue like this
 \begin{verbatim}
 ./a43 -t potential_generator \
         +geometry.file=molecule.xyz
 \end{verbatim}
 \todo[inline]{we have not yet defined a functionality of main! only tests so far}
-
-For the advanced user, we recommend to inspect the logarithmic derivatives by
+%
+\noindent
+For the advanced user we recommend to inspect the logarithmic derivatives by
 \begin{verbatim}
 ./a43 -t single_atom +single_atom.test.Z=13 \
         +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
 \end{verbatim}
-The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy}.
+The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
 For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
-\ttt{start}, \ttt{stop} and \ttt{step} in units of $e$Volt.
+\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of $e$Volt.
+
+%
+\subsection{Writing an input file} \label{sec:input-file}
+%
+At some point the command line becomes full.
+We can pass more environment variables to \codename{} using a \ttt{control.file}, e.g.:
+\begin{verbatim}
+./a43 -t potential_generator +control.file=control.sh
+\end{verbatim}
+Hint: There is no default name or naming scheme for the control file 
+but it may be helpful to use an \ttt{.sh}-file extension since that
+enables useful syntax highlighting in common text editors.
+%
+%
+
+
+\subsubsection{Control File Rules}
+%
+Lines in a control file are either 
+\begin{itemize}
+    \item empty
+    \item silent commented starting from \ttt{\#}
+    \item commented with \ttt{\#!} which appears in the log output or
+    \item $variablename$\ttt{=}$value$
+\end{itemize}
+where $value$ is the string between \ttt{=} and the line end and may contain whitespace characters.
+\\
+Mind: We must not place \ttt{+} in front of $variablename$ when specified in a control file!
+We may add blanks after \ttt{=} but not before it.
+\\
+A repeated $variablename$ will launch a warning about redefinition.
+%
+%
+
+\subsubsection{List of Control Variables}
+%
+Use \ttt{+control.show=1} to display all environment variables specified via the command line or inside the control file.
+%
+%
 
 
 \subsection{Parallel Computing} \label{sec:parallelization}
 %
 Currently, only the \ttt{geometry\_analysis} part of \codename{} supports shared memory parallelism 
-via \ttt{omp} threads on the \ac{CPU}.
+via \ac{OMP} threads on the \ac{CPU}.
 In order to target current \ac{HPC} systems 
 the goal is to incorporate the \ac{MPI}
 for inter-node communication
@@ -361,7 +403,10 @@ about how to control the different levels of parallelism.
 \section{Representation of Wave Functions} \label{sec:representation}
 %
 Kohn-Sham eigenstates have very different character depending on their energy level: core states, valence states and depending on the species also semicore states.
-\subsubsection{Treatment of Core States}
+%
+%
+\subsubsection{Treatment of Core States} \label{sec:core-states}
+%
 Core states are very low in energy and strongly bound 
 to the atomic core.
 Their spatial extent is so strongly localized 
@@ -377,6 +422,8 @@ where also relativistic effects can be treated properly.
 The energy is well defined and degenerate with respect to
 the magnetic quantum number $m$.
 
+%
+%
 \subsubsection{Treatment of Semicore States} \label{sec:semincore-states}
 %
 Semicore states are high-lying core states
@@ -392,6 +439,8 @@ and either tight-binding like derived from atomic orbitals
 (eigenfunctions of the spherically averaged potential) 
 or with a full \ac{PAW} treatment as follows for the valence states.
 
+%
+%
 \subsubsection{Treatment of Valence States} \label{sec:valence-states}
 %
 Valence states are high in energy, by definition up to the Fermi
@@ -462,13 +511,15 @@ and the atomic coordinates in \AA{} as
 \end{verbatim}
 It can be viewed by \ttt{jmol}-viewer.
 \todo[inline]{reference to JMOL}
-
+%
+\noindent
 To check if your coordinate file is parsed correctly run
 \begin{verbatim}
 ./a43 -t geometry_analysis
 \end{verbatim}
 providing a rich log output about interatomic distances,
-potential bonds and atomic coordination.
+potential bonds and atomic coordination. The following section
+explain the analysis results in more detail.
 
 \subsection{Distance Histogram} \label{sec:distance-histogram}
 %
@@ -487,7 +538,7 @@ Each box edge must be longer than $R$.
 The atoms are sorted into their corresponding boxes.
 With this, atoms of each box must only check their distances 
 with atoms of the adjacent $3^3$ boxes.
-\todo[inline]{Enrich the theory chapter about the theoretical crossover}
+% \todo[inline]{Enrich the theory chapter about the theoretical crossover}
 The range $R$ defines a natural upper end for the distance histogram.
 A sparse representation of the distance histogram will be found in the log output.
 This means that sequences longer than two bins where all entries are zero are not shown.
@@ -513,7 +564,7 @@ however, summaries cannot be generated then.
 
 \subsubsection{Bond Angles Histogram} \label{sec:bond-angle-histogram}
 A histogram for \ttt{\#\# bond angles} is generated for each atomic species.
-The bin width is \unit[1]{\degree} and the representation is sparse,
+The bin width is 1\degree{} and the representation is sparse,
 compare Section \ref{sec:distance-histogram}.
 
 \subsubsection{Bond Distances Histogram} \label{sec:bond-distance-histogram}
@@ -564,10 +615,12 @@ If the number of species in the system becomes large, setting this
 parameter to \ttt{0} will suppress all entries with a \ttt{n/a} minimal distance from the table.
 This is particularly helpful for the synthetic input case discussed in Section \ref{sec:many-species-test}.
 
+%
+%
 \subsection{Many Species Test} \label{sec:many-species-test}
 %
 To test the full functionality of the geometry analysis,
-we can generate an input file \ttt{+geometry\_analysis.test.file} 
+we can generate a \ttt{+geometry\_analysis.test.file} 
 with the default filename \ttt{species\_test.xyz}.
 It contains \ttt{geometry\_analysis.test.nspecies} $\in [2, 128]$ atoms, each with a
 different species, positioned in a chain. Running
@@ -581,7 +634,7 @@ will create the file, parse it and analyze its linear geometry.
 Technically, one could increase \ttt{test.nspecies} up to \ttt{128},
 however, the output is far from readable due to too many too long lines.
 The interatomic distances are chosen such that most coordination numbers
-are $2$ and most bond angles are \unit[180]{\degree}.
+are $2$ and all bond angles are 180\degree{}.
 %
 
 

@@ -279,12 +279,13 @@
       // stringify the value of a macro, two expansion levels needed
       #define macro2string(a) stringify(a)
       #define stringify(b) #b
-      if (echo > 0) { 
-          std::printf("# %s git checkout " macro2string(_GIT_KEY) "\n\n", executable);
-      } // echo
-      control::set("git.key", macro2string(_GIT_KEY), 0);
+      auto const git_key = macro2string(_GIT_KEY);
       #undef  stringify
       #undef  macro2string
+      if (echo > 0) { 
+          std::printf("# %s git checkout %s\n\n", executable, git_key);
+      } // echo
+      control::set("git.key", git_key, 0); // store in the global variable environment
 #endif // _GIT_KEY
       return 0;
   } // show_version
@@ -295,16 +296,16 @@
       int run_tests{0};
       int verbosity{3}; // set default verbosity low
       if (argc < 2) {
-          std::printf("%s: no arguments passed!\n", (argc < 1)?__FILE__:argv[0]);
+          std::printf("%s: no arguments passed!\n", (argc < 1) ? __FILE__ : argv[0]);
           return -1;
       } // no argument passed to executable
       for (int iarg = 1; iarg < argc; ++iarg) {
           assert(nullptr != argv[iarg]);
-          char const ci0 = *argv[iarg]; // char #0 of command line argument #i
+          char const ci0 = *argv[iarg]; // char #0 of command line argument #iarg
           if ('-' == ci0) {
 
               // options (short or long)
-              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #i
+              char const ci1 = *(argv[iarg] + 1); // char #1 of command line argument #iarg
               char const IgnoreCase = 32; // use with | to convert upper case chars into lower case chars
               if ('-' == ci1) {
 
@@ -352,19 +353,18 @@
 
       } // iarg
       //
-      int echo = control::get("verbosity", double(verbosity)); // define verbosity for repeating arguments and control file entries
-      if (echo > 0) {
+      if (verbosity > 0) {
           std::printf("\n#");
           for (int iarg = 0; iarg < argc; ++iarg) {
               std::printf(" %s", argv[iarg]); // repeat all command line arguments for completeness of the log file
           } // iarg
           std::printf("\n");
-      } // echo
+      } // verbosity
       //
       // in addition to command_line_interface, we can modify the control environment by a file
-      stat += control::read_control_file(control::get("control.file", ""), echo);
+      stat += control::read_control_file(control::get("control.file", ""), verbosity);
       //
-      echo = control::get("verbosity", double(echo)); // verbosity may have been redefined in the control file
+      int const echo = control::get("verbosity", double(verbosity)); // verbosity may have been defined in the control file
       //
       show_version(argv[0], echo);
       //

@@ -731,28 +731,6 @@ namespace geometry_analysis {
       assert(natoms == nzero);
       assert(0 == nstrange);
 
-      // warnings:
-      int const is_start = (0 == Z_of_species[0]); // avoid to warn about the minium distance between vacuum atoms
-      if (true) { // warn if minimum distance is too low
-          double minimum_distance{9e37}; int is_min[2] = {-1, -1};
-          for (int is = is_start; is < nspecies; ++is) {
-              for (int js = is_start; js < nspecies; ++js) {
-                  if (smallest_distance(is,js) < minimum_distance) {
-                      minimum_distance = smallest_distance(is,js);
-                      is_min[0] = is; is_min[1] = js;
-                  }
-              } // js
-          } // is
-          if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
-              warn("Minimum distance between two atoms (%s-%s) is %.3f %s",
-                  Sy_of_species_null[is_min[0]], Sy_of_species_null[is_min[1]], minimum_distance*Ang, _Ang);
-              ++stat;
-          } else if (echo > 3) {
-              std::printf("# Minimum distance between two atoms (%s-%s) is %.3f %s\n",
-                  Sy_of_species_null[is_min[0]], Sy_of_species_null[is_min[1]], minimum_distance*Ang, _Ang);
-          } // < 1
-      } // true
-
       if ((bp_exceeded > 0) && (MaxBP > 0)) {
           warn("In %ld cases, the max. number of bond partners (MaxBP=%d) was exceeded", bp_exceeded, MaxBP);
           ++stat;
@@ -762,10 +740,20 @@ namespace geometry_analysis {
           ++stat;
       } // the number of atoms is larger than the max. number of atoms for which a bond structure analysis is done
 
-      if (true) { // warn if the smallest_distance < shortestbond_dist
+      
+      // warnings:
+      int const is_start = (0 == Z_of_species[0]); // avoid to warn about the minium distance between vacuum atoms
+      if (true) { // warn if minimum distance is too low
+          auto const compression = 1/elongation; // warn if bonds are shorter than this
           auto const & Sy = Sy_of_species_null;
+          double minimum_distance{9e37}; int is_min[2] = {-1, -1};
           for (int is = is_start; is < nspecies; ++is) {
               for (int js = is_start; js < nspecies; ++js) {
+                  if (smallest_distance(is,js) < minimum_distance) {
+                      minimum_distance = smallest_distance(is,js);
+                      is_min[0] = is; is_min[1] = js;
+                  }
+                  
                   auto const shortest_bond_distance = bond_stat(is,js).min();
                   if (shortest_bond_distance < too_large) {
                       if (smallest_distance(is,js) < shortest_bond_distance) {
@@ -773,7 +761,13 @@ namespace geometry_analysis {
                                     smallest_distance(is,js)*Ang, shortest_bond_distance*Ang, _Ang);
                           ++stat;
                       }
+                      auto const short_bond = compression*(half_bond_length[is] + half_bond_length[js]);
+                      if (shortest_bond_distance < short_bond) {
+                          warn("%s-%s distance %g is below the compressed bond length %g %s", Sy[is], Sy[js],
+                                    shortest_bond_distance*Ang, short_bond*Ang, _Ang);
+                      }
                   }
+
                   if (std::abs(smallest_distance(is,js) - smallest_distance(js,is)) > 1e-9) {
                       warn("smallest distance for %s-%s asymmetric!", Sy[is], Sy[js]);
                       ++stat;
@@ -784,6 +778,16 @@ namespace geometry_analysis {
                   }
               } // js
           } // is
+
+          if (minimum_distance < 1) { // 1 Bohr is reasonable to launch a warning
+              warn("Minimum distance between two atoms (%s-%s) is %.3f %s",
+                  Sy_of_species_null[is_min[0]], Sy_of_species_null[is_min[1]], minimum_distance*Ang, _Ang);
+              ++stat;
+          } else if (echo > 3) {
+              std::printf("# Minimum distance between two atoms (%s-%s) is %.3f %s\n",
+                  Sy_of_species_null[is_min[0]], Sy_of_species_null[is_min[1]], minimum_distance*Ang, _Ang);
+          } // < 1
+
       } // true
 
       
