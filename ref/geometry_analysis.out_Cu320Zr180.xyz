@@ -973,8 +973,8 @@
 # Found 2 different elements for 500 atoms:    Cu_320  Zr_180
 
 # half bond length and coordination numbers with occurrence
-#    2.494 Bohr coordination for Cu   10_11  11_77  12_171  13_59  14_2
-#    3.307 Bohr coordination for Zr   14_3  15_30  16_60  17_63  18_21  19_3
+#    2.494 Bohr coordination for Cu   10_11  11_77  12_171  13_59  14_2	average 11.89 +/- 0.76
+#    3.307 Bohr coordination for Zr   14_3  15_30  16_60  17_63  18_21  19_3	average 16.43 +/- 1.01
 # coordination numbers total= 6762
 
 

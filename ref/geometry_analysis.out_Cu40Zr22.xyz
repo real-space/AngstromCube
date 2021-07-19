@@ -504,8 +504,8 @@
 # Found 2 different elements for 62 atoms:    Cu_40  Zr_22
 
 # half bond length and coordination numbers with occurrence
-#    2.494 Bohr coordination for Cu   9_1  10_4  11_17  12_12  13_6
-#    3.307 Bohr coordination for Zr   14_2  15_10  16_4  17_6
+#    2.494 Bohr coordination for Cu   9_1  10_4  11_17  12_12  13_6	average 11.45 +/- 0.95
+#    3.307 Bohr coordination for Zr   14_2  15_10  16_4  17_6	average 15.64 +/- 0.98
 # coordination numbers total= 802
 
 

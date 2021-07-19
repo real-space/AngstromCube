@@ -287,8 +287,8 @@
 # Found 2 different elements for 80 atoms:    O_48  Sc_32
 
 # half bond length and coordination numbers with occurrence
-#    1.304 Bohr coordination for O    4_48
-#    2.457 Bohr coordination for Sc   6_32
+#    1.304 Bohr coordination for O    4_48	average 4.00 +/- 0.00
+#    2.457 Bohr coordination for Sc   6_32	average 6.00 +/- 0.00
 # coordination numbers total= 384
 
 

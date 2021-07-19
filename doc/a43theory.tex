@@ -10,16 +10,18 @@
 \usepackage{todonotes} %% add [disable] to disable
 \usepackage{transparent}
 \usepackage{pgfplots}
+\usepackage{gensymb} %% \degree
 
 \usepackage{acronym} %% for abbreviations
-\acrodef{dft}[DFT]{density functional theory}
-\acrodef{sho}[SHO]{spherical harmonic oscillator}
-\acrodef{dos}[DoS]{density of states}
-\acrodef{ho}[HO]{harmonic oscillator}
+\acrodef{DFT}[DFT]{density functional theory}
+\acrodef{SHO}[SHO]{spherical harmonic oscillator}
+\acrodef{DoS}[DoS]{density of states}
+\acrodef{HO}[HO]{harmonic oscillator}
 \acrodef{planewave}[PW]{plane wave}
 \acrodef{gridpoint}[GP]{grid point}
-\acrodef{paw}[PAW]{Projector Augmented Wave}
-\acrodef{xc}[XC]{exchange-correlation}
+\acrodef{PAW}[PAW]{Projector Augmented Wave}
+\acrodef{XC}[XC]{exchange-correlation}
+\acrodef{SCF}[SCF]{self-consistent field}
 
 
 \setlength{\tabcolsep}{6pt}
@@ -55,7 +57,7 @@
 
 \begin{figure*}
 	\centering
-	\includegraphics[width=3cm]{fig/aa3_logo_bold_no_helper_lines} %%
+	\includegraphics[width=3cm]{fig/a43_logo_bold_no_helper_lines} %%
 \end{figure*}
 
 % ==============================================================================
@@ -70,7 +72,7 @@
 \section{Introduction} \label{sec:intro}
 % ==============================================================================
 %
-Real-space grid based methods for \ac{dft}
+Real-space grid based methods for \ac{DFT}
 have proven to yield good parallelizability and the same level of
 accuracy as \ac{planewave} basis sets.
 The latter aspect is in particular true for results converged
@@ -109,7 +111,7 @@ the congerence of a real-space grid-based method.
 \section{Spherical Harmonic Oscillator} \label{sec:sho}
 % ==============================================================================
 %
-The quantum-mechanical \ac{ho} has the Hamiltonian
+The quantum-mechanical \ac{HO} has the Hamiltonian
 \begin{equation}
   \hat H^{[1D]}_{\sigma} = -\frac{\partial_x^2}{2} + \frac{x^2}{2 \sigma^4} \text{.}
   \label{eqn:HO-Hamiltonian}
@@ -120,7 +122,7 @@ Here, $\sigma$ is a lengthscale parameter that also fixes the scale of the eigen
   E^{[1D]}_{n}(\sigma) = \sigma^{-2} \left( n + \frac 12 \right) \text{.}
   \label{eqn:HO-eigenenergy}
 \end{equation}
-The \ac{ho} eigenfunctions are
+The \ac{HO} eigenfunctions are
 \begin{equation}
   \psi^{[1D]}_{n}(x) = H_n(x/\sigma) \cdot \exp\left( -\frac{x^2}{2 \sigma^2} \right) 
   \label{eqn:HO-eigenfunction}
@@ -130,9 +132,9 @@ with the Hermite polynomials $H_n$.
 
 The eigenfunctions of the quantum-mechanical 
 three-dimensional isotropic harmonic oscillator 
-- in the following we will refer to it as \ac{sho} -
+- in the following we will refer to it as \ac{SHO} -
 can be written as Cartesian product of three
-\ac{ho} eigenfunctions
+\ac{HO} eigenfunctions
 \begin{equation}
   \hat H^{[3D]}_{\sigma} = -\frac{\vec \nabla^2}{2} + \frac{\vec r^2}{2 \sigma^{4}} 
   \label{eqn:SHO-Hamiltonian}
@@ -150,7 +152,7 @@ and the eigenenergies
   \label{eqn:SHO-eigenenergy}
 \end{equation}
 
-Furthermore, the \ac{sho} can be solved in spherical coordinates 
+Furthermore, the \ac{SHO} can be solved in spherical coordinates 
 exploiting its spherical symmetry.
 This leads to the quantum numbers $\nrn, \ell$ and $m$
 and the eigenstates
@@ -173,7 +175,7 @@ $X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $
 
 \begin{figure}
 	%%% how to generate this plot: 
-	%%% ./aa3 -t hermite_polynomial. +verbosity=10
+	%%% ./a43 -t hermite_polynomial +verbosity=10
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/hermite_gauss_functions} %%
   \end{minipage}\hfill
@@ -187,10 +189,10 @@ $X_{\ell \mu}$ where each $\mu$ stands for a real-valued linear combination of $
 
 
 \subsection{SHO as a basis}
-An infinite set of all \ac{sho} eigenfunctions forms a basis of the function space over $\mathbb R^3$.
+An infinite set of all \ac{SHO} eigenfunctions forms a basis of the function space over $\mathbb R^3$.
 Limiting the set by cut-off energy $E\um{cut} = \sigma^{-2} (\nu\um{max} + \frac 32)$
 creates a finite basis.
-If we create a union of finite bases centered at each atom $a$ in a \ac{dft} calculation 
+If we create a union of finite bases centered at each atom $a$ in a \ac{DFT} calculation 
 we only need to choose a $\sigma$ and $\nu\um{max}$ for each atomic species.
 \begin{equation}
   \chi_{a n_x n_y n_z}(x,y,z) = \psi^{[1D]}_{n_x}((x - x_a)/\sigma_a) 
@@ -227,7 +229,7 @@ are close enough so that the basis functions from neighboring centers gain an ov
   \label{fig:HO-basis-on-2-atoms}
   \caption{
 Schematic picture to illuminate the non-orthogonal localized basis in 1D.
-On each atomic position \ac{ho} basis functions are centered.
+On each atomic position \ac{HO} basis functions are centered.
 Here, $\sigma$ has been chosen such that $d$-orbitals can form bonds (green lines).
 The non-trivial part of the overlap matrix is shown on the right.
   }
@@ -266,7 +268,7 @@ Mind that no approximations are required here.
 %
 \begin{figure}
 	%%% how to generate this plot:
-	%%% make -j && ./aa3 -t sho_overlap. +verbosity=9 | grep 'test_Hermite_Gauss_overlap' | sed -e 's/# test_Hermite_Gauss_overlap  distance=//g'
+	%%% make -j && ./a43 -t sho_overlap +verbosity=9 | grep 'test_Hermite_Gauss_overlap' | sed -e 's/# test_Hermite_Gauss_overlap  distance=//g'
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/overlap_1D} %%
   \end{minipage}\hfill
@@ -274,7 +276,7 @@ Mind that no approximations are required here.
   \end{minipage}
   \label{fig:overlap_1D}
   \caption{
-	The overlap integral values of two 1D \ac{ho} eigenfunctions (both with spread $\sigma$)
+	The overlap integral values of two 1D \ac{HO} eigenfunctions (both with spread $\sigma$)
 	as a function of distance between their centers.
 	Only an upper triangle of combinations $(n,n')$ up to $n\um{max} = 3$ is shown.
   }
@@ -284,12 +286,12 @@ Mind that no approximations are required here.
 
 
 \subsubsection{Hamiltonian matrix elements}
-The \ac{dft} Hamiltonian consists of a kinetic energy operator,
+The \ac{DFT} Hamiltonian consists of a kinetic energy operator,
 a local effective potential 
 and, if the basis is incapable of
 capturing the rapid oscillations close to the nuclei,
-a non-local contribution according to the \ac{paw} method.
-A similar \ac{paw} contribution would then also appear in the overlap operator.
+a non-local contribution according to the \ac{PAW} method.
+A similar \ac{PAW} contribution would then also appear in the overlap operator.
 The kinetic energy consists of a Laplacian so we can boil it down to the evaluation
 of $\braketop{ \psi^{[1D]}_{an} }{ \partial^2_x }{ \psi^{[1D]}_{a'n'} }$.
 This works just as outlined for the overlap elements
@@ -299,7 +301,7 @@ a first derivative should be applied to the left and a first derivative to the r
 It is easy to show that applying the second derivative to the left in general differs from
 the matrix element that we obtain if we apply the second derivative to the right.
 
-The non-linearity of the exchange-correlation potential in \ac{dft} usually
+The non-linearity of the exchange-correlation potential in \ac{DFT} usually
 leads to a representation of the local potential $V(x,y,z)$ on a real-space grid.
 We will assume a Cartesian uniform grid here.
 Then, viable options to evaluate the potential matrix elements would be
@@ -310,10 +312,10 @@ This may lead to a large cost prefactor but scales linearly with the number of a
 This method has been used to find reference values during development. This is referenced as \ttt{Method1}.
 %
 \item for each pair $(a,a')$ which is not too distant
-compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
+compute an expansion of $V(\vec r)$ into a \ac{SHO} basis with spread $\sigma_p$
 at the common center and perform the product and integral there. This is referenced as \ttt{Method2}.
 %
-\item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{sho} basis. 
+\item for each atom $a$ expand $V(\vec r)$ into a suitable \ac{SHO} basis. 
 Then, we can insert a completeness relation: %%  (truncation of unity?)
 \begin{equation}
  \braketop{ \chi_{a\vec n} }{ \hat V }{ \chi_{a'\vec n'} } = \sum_{\vec n''}
@@ -332,7 +334,7 @@ In the following, we will discuss \ttt{Method2} and \ttt{Method4}.
 \subsubsection{Potential matrix elements by Method2}
 For each pair of atoms 
 (or, more precise for the periodic case, atomic image positions)
-$(a,a')$ compute an expansion of $V(\vec r)$ into a \ac{sho} basis with spread $\sigma_p$
+$(a,a')$ compute an expansion of $V(\vec r)$ into a \ac{SHO} basis with spread $\sigma_p$
 at the common center and perform the product and integral there.
 We can limit ourselves to atom pairs which are not too distant.
 The basis functions have polynomial degree up to $\numax^{[a]}$.
@@ -347,26 +349,26 @@ atomic position $\vec R_a$ as expansion center, much similar to
 the terms for $(a, a)$ in \ttt{Method2}.
 Here, we have to analyze closely what the best max.~order of potential expansion is.
 A candidate is $\numax^{[V]} = 2\numax^{[a]}$.
-The spread for the \ac{sho} projection of the local potential
+The spread for the \ac{SHO} projection of the local potential
 is $\sigma_V = \sigma_a/\sqrt{2}$.
 Alternatively, we could derive $\numax^{[V]}$ from the grid spacing used to represent $V(x,y,z)$ in relation to $\sigma_V$.
-Then, we introduce an auxiliary basis of \ac{sho} functions
+Then, we introduce an auxiliary basis of \ac{SHO} functions
 also centered at $\vec R^a$ and also with spread $\sigma_a$.
 From the triangle rules, the minimum necessary basis size
 is expected to be $\numax^{[V]} + \numax^{[a]} = 3\numax^{[a]}$.
 These operations are performed per atom $a$.
 For each atom $a'$ which is not too distant
 we contract the potential matrix with an overlap matrix between
-the \ac{sho} basis function on atom $a'$ and the (relatively large) auxiliary basis.
+the \ac{SHO} basis function on atom $a'$ and the (relatively large) auxiliary basis.
 
 
 \subsubsection{Other Hamiltonian matrix elements}
 Finally, non-local potentials are usually expressed as dyadic operators
 $\ket{\tilde p^a_i} D^a_{ij} \bra{\tilde p_j}$ with localized projector functions $\tilde p_i(\vec r)$
 centered at the atomic positions.
-% We can expand the projectors in a suitable \ac{sho} basis and use the same method
+% We can expand the projectors in a suitable \ac{SHO} basis and use the same method
 % as for overlap elements~\cite{BaumeisterTsukamotoPASC19}.
-We can expand the projectors in a suitable \ac{sho} basis and use the same method
+We can expand the projectors in a suitable \ac{SHO} basis and use the same method
 as for matrix elements of the local potential.~\cite{BaumeisterTsukamotoPASC19}.
 
 %
@@ -388,9 +390,9 @@ the origin of the green Gaussian.
 
 
 \subsubsection{Expansion of the Density}
-If the local \ac{sho} basis with $\sigma$ and $\nu\um{max}$
+If the local \ac{SHO} basis with $\sigma$ and $\nu\um{max}$
 is suitable to describe wave functions, 
-a suitable \ac{sho} basis for the expansion of the density $\varrho(\vec r)$ has
+a suitable \ac{SHO} basis for the expansion of the density $\varrho(\vec r)$ has
 spread $\sigma_a/\sqrt{2}$ and $2\nu\um{max}$.
 This is due to the representation of densities
 arising from basis functions local to an atom, c.f.~fig.~\ref{fig:plot_parabolas}.
@@ -403,9 +405,9 @@ arising from basis functions local to an atom, c.f.~fig.~\ref{fig:plot_parabolas
   \end{minipage}
   \label{fig:plot_parabolas}
   \caption{
-Schematic picture to illuminate the relation between the SHO basis configuration 
+Schematic picture to illuminate the relation between the \ac{SHO} basis configuration 
 used to describe densities
-compared to the SHO basis for wave functions:
+compared to the \ac{SHO} basis for wave functions:
 If wave functions are expanded into a Hermite-Gauss basis with spread $\sigma$
 up to $n\um{max}$ (here, the $n = 5$ function is shown in blue)
 the square of such a wave function leads to the function shown in purple:
@@ -417,7 +419,7 @@ $n\um{max}^{[\varrho]} = 2n\um{max}$.
 The highest Hermite-Gauss function for $n\um{max}^{[\varrho]} = 10$ is shown in red.
 The associated parabolas are shown in bold black and bold green.
 In the limit of large $n\um{max}$, the classical return radius $R\um{ret}$
-of both SHO bases coincides (grey dashed vertical lines).
+of both \ac{SHO} bases coincides (grey dashed vertical lines).
 The associated cut-off energy is $4$ times higher for the density basis.
   }
 \end{figure}
@@ -429,7 +431,7 @@ we have to prepare this tensor of coefficients:
 \begin{equation}
 	P_{nn'n''} = \int \mathrm d x \ H_{n}(x) \exp(-x^2/2) \cdot H_{n''}(x\sqrt{2}) \exp(-x^2) \cdot H_{n'}(x) \exp(-x^2/2)
 \end{equation}
-where the indices $n$ and $n'$ are associated with the SHO basis for wavefunctions
+where the indices $n$ and $n'$ are associated with the \ac{SHO} basis for wavefunctions
 and $n''$ runs up to $n\um{max}^{[\varrho]}$. 
 Obviously, all $P_{nn'n''}$ are zero if $n + n' + n''$ is odd.
 
@@ -443,7 +445,7 @@ For this, we have to perform the integral
 \end{equation}
 where $x_{ia} = x_{i} - X_{ia}$, i.e.~atom centered coordinates.
 Similar to the case of the density, the product of the two Gaussian envelop functions of the 
-two \ac{sho} basis functions produces a Gaussian centered at the \emph{center of mass}, here labelled $c$, where
+two \ac{SHO} basis functions produces a Gaussian centered at the \emph{center of mass}, here labelled $c$, where
 $2\sigma^2$ is defining the inverse of the \emph{mass}.
 In order to evaluate eq.~(\ref{eq:local_potential_matrix_element}) we
 expand $V(x,y,z)$ in 3D factorizable polynomials, i.e.
@@ -451,7 +453,7 @@ expand $V(x,y,z)$ in 3D factorizable polynomials, i.e.
 	V(x,y,z) = \sum_{m_x m_y m_z} V_{m_x m_y m_z} (x - X_c)^{m_x} (y - Y_c)^{m_y} (z - Z_c)^{m_z}
 	                            \label{eq:local_potential_polynomial_expansion}
 \end{equation}
-The necessary expansion coefficients $V_{m_x m_y m_z}$ can be found by SHO-transform around the common center $c$:
+The necessary expansion coefficients $V_{m_x m_y m_z}$ can be found by \ac{SHO}-transform around the common center $c$:
 \begin{equation}
 	V_{n_x n_y n_z}(\sigma) = \int \mathrm d^3 \vec r  \   V(x,y,z) H_{n_x}(x - X_c) H_{n_y}(y - Y_c) H_{n_z}(z - Z_c) 
 		\exp(-(\vec r - \vec R_c)^2/(2 \sigma^2))
@@ -460,8 +462,8 @@ The necessary expansion coefficients $V_{m_x m_y m_z}$ can be found by SHO-trans
 Here, the quantum numbers $\vec n$ are limited by $n_x + n_y + n_z \leq \numax$.
 In order to find the coefficients $V_{m_x m_y m_z}$ we need to invert the kernel matrix connecting the two
 representations. The kernel matrix can be constructed from 1D matrices:
-%During the SHO tranform onto the local potential we need to take care of the normalizing prefactors:
-%Typically, L2-normalizations are multiplied to the SHO projection coefficients 
+%During the \ac{SHO} tranform onto the local potential we need to take care of the normalizing prefactors:
+%Typically, L2-normalizations are multiplied to the \ac{SHO} projection coefficients 
 %after the projection with unnormalized Hermite-Gauss functions.
 %However, here, proper L1-normalization requires the matrix inverse of 
 $$ f_{nm}(\sigma) = \sigma^m \int\limits_{-\infty}^{\infty} \mathrm dx \  H_{n}\left( \frac{x}{\sigma} \right) \  \exp\left( -\frac{x^2}{2\sigma^2} \right) \  \left(\frac{x}{\sigma}\right)^m $$
@@ -481,7 +483,7 @@ Then the evaluation of potential matrix elements requires only the 1D tensors
 \end{equation}
 which only need to be re-computed when atoms update their positions
 and can be expressed as polynomials times Gaussians, i.e.~analytical functions of $\sigma_a, \sigma_{a'}$ and $X_a - X_{a'}$.
-The final expression for potential matrix elements between SHO basis function $(\vec n_a,\sigma_a)$ and $(\vec n_{a'},\sigma_{a'})$ reads
+The final expression for potential matrix elements between \ac{SHO} basis function $(\vec n_a,\sigma_a)$ and $(\vec n_{a'},\sigma_{a'})$ reads
 \begin{equation}
 	\sum_{p_x p_y p_z} V_{p_x p_y p_z} \  M_{p_x n_x n'_x}^{aa'[x]} \  M_{p_y n_y n'_y}^{aa'[y]} \  M_{p_z n_z n'_z}^{aa'[z]}
 	\label{eq:local_moment_matrix_elements_from_tensors}
@@ -497,7 +499,7 @@ In a perodic setup, we have to consider also the periodic image parabolas
 \begin{equation}
 	E_n(\vec k) = \frac {(\vec k - \vec G_n)^2} 2
 \end{equation}
-As a test of the quality of \ac{sho} functions as a basis
+As a test of the quality of \ac{SHO} functions as a basis
 we diagonalize the Laplacian operator that represents the
 Hamiltonian.
 We analyzed the three highly symmetric, cubic lattice structures with a single basis atom,
@@ -528,8 +530,8 @@ The factor $0.75$ is chosen manually and seems to produce stable results.
 \begin{figure}
   %% how to generate this plot:
   %%  set DoS = false in overlap.cxx test_fcc
-  %% 	run -t overlap. and set Ref = true   and nmax high for the analytical reference
-  %% 	run -t overlap. and set Ref = false  and nmax = 8
+  %% 	run -t overlap and set Ref = true   and nmax high for the analytical reference
+  %% 	run -t overlap and set Ref = false  and nmax = 8
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/20190710_overlap_fcc8} %%
   \end{minipage}\hfill
@@ -538,26 +540,26 @@ The factor $0.75$ is chosen manually and seems to produce stable results.
   \label{fig:overlap_fcc8}
   \caption{
 	Bandstructure of the free electron gas. The analytical solution is shown in red
-	whereas the black lines show the \ac{sho} basis result for $\nu\um{max} = 8$ and $\sigma = 1.2$ Bohr 
+	whereas the black lines show the \ac{SHO} basis result for $\nu\um{max} = 8$ and $\sigma = 1.2$ Bohr 
 	while the FCC lattice constant is $8$ Bohr.
   }
 \end{figure}
 %
 %
 Since we know that eigenstates of the free electron Hamiltonian are plane waves,
-this gives an estimate of how good a \ac{sho} basis is capable of describing
+this gives an estimate of how good a \ac{SHO} basis is capable of describing
 smooth quantities in full space. 
 In fig.~\ref{fig:overlap_fcc8} we can see that the black lines are on top of the 
 analytical solutions for lower energies and above that in the upper half.
 In order to study the deviations better,
-we have a look at the integrated \ac{dos}.
+we have a look at the integrated \ac{DoS}.
 For this we diagonalize the free electron Hamiltonian for each $\vec k$-point
 in the irriducible wedge of the Brillouin zone
-and compare again with the integrated \ac{dos} derived from the analytical solution $E_n(\vec k)$
+and compare again with the integrated \ac{DoS} derived from the analytical solution $E_n(\vec k)$
 with the same sampling.
 Fig.~\ref{fig:overlap_DoS_free_electron_fcc} shows the result for $\nu\um{max} \in [0, 9]$,
 each using its distinct $\sigma\um{stable}$.
-The plot helps to quantify the deviations. For example with $\nu\um{max} = 9$, the \ac{sho}
+The plot helps to quantify the deviations. For example with $\nu\um{max} = 9$, the \ac{SHO}
 basis describes the free electron gas well up to about $5$ Rydberg, 
 but features solutions up to $20.8$ Rydberg where the highest analytical solution
 within $220$ states is only $13.7$ Rydberg,
@@ -566,8 +568,8 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
 \begin{figure}
   %% how to generate this plot:
   %%  set DoS = true in overlap.cxx test_fcc
-  %% 	run -t overlap. and set Ref = true   and nmax high for the analytical reference
-  %% 	run -t overlap. and set Ref = false  and scan through nmax from 0..9
+  %% 	run -t overlap and set Ref = true   and nmax high for the analytical reference
+  %% 	run -t overlap and set Ref = false  and scan through nmax from 0..9
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/overlap_DoS_free_electron_fcc} %%
   \end{minipage}\hfill
@@ -576,7 +578,7 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
   \label{fig:overlap_DoS_free_electron_fcc}
   \caption{
 	Integrated density of states of the free electron gas. The analytical solution is shown in red
-	whereas the black lines show the \ac{sho} basis result up to $\nu\um{max} = 9$.
+	whereas the black lines show the \ac{SHO} basis result up to $\nu\um{max} = 9$.
 % 	and $\sigma = 1.2$ Bohr while the FCC lattice constant is $8$ Bohr. // ToDo: check sigma and alat
   }
 \end{figure}
@@ -594,17 +596,17 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
   \label{fig:overlap_DoS_free_electron_cubic_lattices}
   \caption{
 	Integrated density of states of the free electron gas. The analytical solution is shown in red
-	whereas the black lines show the \ac{sho} basis result up to $\nu\um{max} = 9$ 
+	whereas the black lines show the \ac{SHO} basis result up to $\nu\um{max} = 9$ 
 	for cubic lattice structures SC, BCC, FCC (top to bottom).
   }
 \end{figure}
 %
 %
-\section{All electron calculations}\label{sec:all-electron}
+\section{All electron calculations} \label{sec:all-electron}
 %
 \begin{figure}
   %% how to generate this plot:
-  %% 	run -t atom_core.
+  %% 	run -t atom_core
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/atom_core_LDA_dots} %%
   \end{minipage}\hfill
@@ -622,7 +624,7 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
 %
 % \begin{figure}
 %   %% how to generate this plot:
-%   %% 	run -t atom_core.
+%   %% 	run -t atom_core
 %   \begin{minipage}[c]{.990\textwidth}
 % 	\includegraphics[width=\textwidth]{fig/fourier_poisson} %%
 %   \end{minipage}\hfill
@@ -643,11 +645,11 @@ It serves also as a reference to estimate the precision of other Poisson solvers
 as the treatment in reciprocal space is analytically exact.
 
 
-\section{Live Atoms}\label{sec:live_atoms}
+\section{Live Atoms} \label{sec:live_atoms}
 %
 \begin{figure}
   %% how to generate this plot:
-  %% 	run -t single_atom.
+  %% 	run -t single_atom
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/single_atom_Cu_smooth_partial_waves_order3} %%
   \end{minipage}\hfill
@@ -675,7 +677,7 @@ and users can distinguish files simply by looking at the \ttt{head} of the file.
 %
 \begin{figure}
   %% how to generate this plot:
-  %% 	run -t single_atom.
+  %% 	run -t single_atom
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/RamerDouglasPeucker_reduction} %%
   \end{minipage}\hfill
@@ -739,7 +741,7 @@ and charge deficit matrix for the atomic overlap operator are output.
 
 
 
-\section{Spherical Atoms}\label{sec:spherial-atoms}
+\section{Spherical Atoms} \label{sec:spherial-atoms}
 %
 The \ttt{spherical\_atoms.} mode aims to
 make a cheap module to find the initial
@@ -777,7 +779,7 @@ $\braket{\hat n^a_{00}}{V\um{es}(\vec r)}$.
 
 
 
-\subsection{On the shape of compensators}\label{sec:compensator-radii}
+\subsection{On the shape of compensators} \label{sec:compensator-radii}
 In order to get $v^a_{00}$ correct, we have to assume that there is no overlap
 between charge compensation densities of two different atoms
 which leads to very localized compensators.
@@ -799,7 +801,7 @@ so that there are $8^3$ grid points in one \AA$^3$.
 %
 \begin{figure}
   %% how to generate this plot:
-  %% 	run -t single_atom.
+  %% 	run -t single_atom
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/larger_compensation_radii} %%
   \end{minipage}\hfill
@@ -835,7 +837,7 @@ In order to reproduce the exact total effective potential outside
 \begin{figure}
    %%% how to reproduce this:
    %%% git key 9f115f160f63d6cf7df64cf60de547293d8d5ca6 
-   %%% make -j && ./aa3 -t spherical_atoms. +verbosity=11  +single_atom.echo=6 > out
+   %%% make -j && ./a43 -t spherical_atoms +verbosity=11  +single_atom.echo=6 > out
    %%% and rune once again with
    %%% manipulated prefactor (e.g. insert 0 instead of Y00 in spherical_atoms.cxx:343)
   \begin{minipage}[c]{.990\textwidth}
@@ -856,7 +858,7 @@ In order to reproduce the exact total effective potential outside
 %
 
 
-\subsection{Communicating the potential shifts}\label{sec:multipole-shifts}
+\subsection{Communicating the potential shifts} \label{sec:multipole-shifts}
 Different spheres in the PAW framework communicate via the electrostatic
 potential which is to be evaluated in 3D for the smooth quantities
 and inside the spheres for both, smooth and true quantities on radial grids.
@@ -866,7 +868,7 @@ brought to the 3D grid with the help of localized smooth compensator charge dens
 %
 \begin{figure}
   %% how to generate this plot:
-  %% 	run -t spherical_atoms.
+  %% 	run -t spherical_atoms
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/finding_electrostatic_multipole_shifts} %%
   \end{minipage}\hfill
@@ -889,8 +891,8 @@ See fig.~\ref{fig:_} for an example.
 
 \begin{figure}
   %% how to generate this plot:
-  %% 	run -t spherical_atoms. +spherical_atoms.test.ion=.0 +spherical_atoms.max.scf=19 +single_atom.echo=9
-  %% 	run -t spherical_atoms. +spherical_atoms.test.ion=.9 +spherical_atoms.max.scf=19 +single_atom.echo=9
+  %% 	run -t spherical_atoms +spherical_atoms.test.ion=.0 +spherical_atoms.max.scf=19 +single_atom.echo=9
+  %% 	run -t spherical_atoms +spherical_atoms.test.ion=.9 +spherical_atoms.max.scf=19 +single_atom.echo=9
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/20200127_spherical_atoms_ionized0} %%
 	\includegraphics[width=\textwidth]{fig/20200127_spherical_atoms_ionized9} %%
@@ -917,40 +919,51 @@ See fig.~\ref{fig:_} for an example.
 \end{figure}
 
 
+\newpage
 
-\section{Linear Scaling}\label{sec:linear-scaling}
+\section{Linear Scaling} \label{sec:linear-scaling}
 %
 A first glimpse of linear scaling algorithms can be found in the
-\ttt{geometry\_analysis.} module.
-Here, all target atoms in the vicinity of $r\um{vic} = \unit[6.144]{\AA}$ around each source atoms
-have to be found in order to analyse its local bond structure
-and coordination number.
-A naive implementation leads to an $N\um{atoms}^2$-scaling algorithm,
+\ttt{geometry\_analysis} module.
+Here, all target atoms in the vicinity of $r\um{vic} = \unit[6.5]{\AA}$ around each source atoms
+have to be found in order to analyse its local bond structure and coordination number.
+A naive implementation leads to an $\mathcal O(N\um{atoms}^2)$-scaling algorithm,
 in fact, the distance of $n\um{images} \cdot N\um{atoms}^2$ atom-atom pairs
 needs to be visited.
+$n\um{images}$ is $1$, $3$, $9$ or $27$, depending on the number of periodic boundary conditions.
 Although we can compare the squared distance to the squared radius of the vicinity,
-hence omitting the computation of the sqaure root, the cost prefactor
-is in the range of one nanosecond on a single core CPU.
+hence omitting the computation of the square root for atom-atom pairs beyond $r\um{vic}$,
+the cost prefactor is in the range of one nanosecond on a single core CPU.
 For example the CPU runtimes shown in fig.~\ref{fig:geometry-analysis-scaling}
 are $t \approx n\um{images} \cdot N\um{atoms}^2 \cdot \unit[1.78]{ns}$, c.f.~red data points.
 %%%% 27*1e6^2 atom-atom pairs in 48116.43 sec
 \\
-A linear scaling algorithm that produces the same output comes at the additional
+A $\mathcal O(N\um{atoms})$-scaling (linear scaling) algorithm that produces the same output comes at the additional
 cost of an initial grouping operation of the atomic positions into clusters.
-However, as we know the spatial position and max.~extend of the clusters,
+However, as we know the spatial position and maximual extent of the clusters,
 it is simple to analyze only atom pairs where the clusters of both partners
 are not too remote.
 A simple treatment in 3D is to generate uniform rectangular boxes. 
-The min.~box extend is $r\um{vic}$.
+The minimal box edge length is $r\um{vic}$.
 Periodic images of boxes need to be taken into account.
-If the simulation cell is large, a halo thickness of 1 needs is sufficient.
-The initial (linear scaling) operation is to generate lists of those atoms
+If the simulation cell is large, a halo thickness of $1$ box is sufficient.
+The required additional (also linear scaling) operation is to generate lists of those atoms
 that are located inside each box.
+%
+% Assume we have a cubic simulation cell with edge length k*R, where R=r_vic, and p periodic boundary conditions.
+% and atom density rho=N_atoms/(k*R)^3
+% Then, each box has volume R^3 and in average N_atoms/k^3 = n_atoms atoms.
+% We have to check the distances between each box with 27 neighbor boxes,
+% except for some boxes close to isolated BCs.
+% 
+% The N^2-algorithm needs      3^p * k^6 * n_atoms^2 distance checks
+% The N-algorithm needs at most 27 * k^3 * n_atoms^2 distance checks
+
 %
 \begin{figure}
   %% how to generate this plot:
   %%    rm -f atoms.xyz && ln -s gst_set128.xyz ./atoms.xyz
-  %% 	time run -t geometry_analysis.
+  %% 	time run -t geometry_analysis
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/geometry_analysis-scaling} %% .agr .pdf
   \end{minipage}\hfill
@@ -959,7 +972,7 @@ that are located inside each box.
   \label{fig:geometry-analysis-scaling}
   \caption{
   Linear scaling vs.~quadratic scaling can be observed when computing atom-atom distances.
-  The dashed lines have slope 1 and 2, respectively, fitted through a single data point.
+  The dashed lines have slope $1$ and $2$, respectively, fitted through a single data point.
   The crossover of the dashed lines happens around $13$ atoms 
   whereas the measured data (circles) cross around $32$ atoms.
   }
@@ -971,13 +984,58 @@ This solution leads to a time requirement $t \approx N\um{atoms} \cdot \unit[633
 % we can extrapolate a theoretical crossover for this particular case (bulk, cubic cell) around $13$ atoms.
 % For any larger number of atoms, the linear scaling solution is faster.
 
+%
+\begin{figure}
+  %% how to generate this plot:
+  %%    ./a43 -V -t geometry_analysis +geometry.file=Cu320Zr180.xyz
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/Cu320Zr180_distance_hist} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+    % we could place the caption here
+  \end{minipage}
+  \label{fig:geometry-analysis-histograms}
+  \caption{
+Histograms of Cu$_{320}$Zr$_{180}$, a metallic glass structure.
+% # bond table: pair, min dist in Bohr, bond stats, total= 6762 bonds
+% #  Cu-Cu    4.121   4.990 +/- 0.343 in [4.121, 6.230]  1886 bonds
+% #  Cu-Zr    4.704   5.599 +/- 0.545 in [4.704, 7.250]  1918 bonds
+% #  Zr-Zr    5.562   6.464 +/- 0.735 in [5.562, 8.264]  1040 bonds
+% # half bond length and coordination numbers with occurrence
+% #    2.494 Bohr coordination for Cu   10_11  11_77  12_171  13_59  14_2
+% #    3.307 Bohr coordination for Zr   14_3  15_30  16_60  17_63  18_21  19_3
+The number of Cu-bonds (dashed orange line) is composed of Cu-Cu bonds $\in [4.12, 6.23]\,$Bohr (solid orange)
+and even more Cu-Zr bonds (dotted black line). Only \unit[15]{\%} of all bonds are Zr-Zr bonds.
+This indicates most Zr atoms are surrounded by the smaller copper atoms.
+The log summary tells that prevalent coordination of Cu atoms is $12$ 
+and 60, 90, 120 and 180\degree{} are frequent bond angles
+so we can assume a mostly face-centered cubic local geometry around Cu atoms.
+% with +geometry_analysis.elongation=1.1
+% # bond table: pair, min dist in Bohr, bond stats, total= 6018 bonds
+% #  Cu-Cu    4.121   4.916 +/- 0.245 in [4.121, 5.487]  1722 bonds
+% #  Cu-Zr    4.704   5.447 +/- 0.336 in [4.704, 6.381]  1710 bonds
+% #  Zr-Zr    5.562   6.182 +/- 0.352 in [5.562, 7.269]  876 bonds
+% # half bond length and coordination numbers with occurrence
+% #    2.494 Bohr coordination for Cu   8_2  9_28  10_109  11_98  12_83
+% #    3.307 Bohr coordination for Zr   12_6  13_26  14_62  15_69  16_16  17_1
+For zirconium the peaks are found at lower bond angles which reflects
+the larger radius of Zr compared to that of Cu. 
+Zr atoms have coordination numbers above $12$ neighbors, most of those are copper.
+  }
+\end{figure}
+%
+Figure \ref{fig:geometry-analysis-histograms} shows an example of the
+statistical analysis plots generated by \ttt{geometry\_analysis}.
+
+\newpage
+
 \section{SHO Projectors}
 
 %
 \begin{figure}
   %% how to generate this plot:
   %%    assert(echo_prj);
-  %% 	time run -t single_atom.
+  %% 	time run -t single_atom
   \begin{minipage}[c]{.990\textwidth}
 	\includegraphics[width=\textwidth]{fig/sho_radial} %% .agr .pdf
   \end{minipage}\hfill
@@ -990,20 +1048,20 @@ This solution leads to a time requirement $t \approx N\um{atoms} \cdot \unit[633
 \end{figure}
 %
 %
-A set of $6$ radial \ac{sho}-projectors is shown in fig.~\ref{fig:sho-radial-projectors}.
+A set of $6$ radial \ac{SHO}-projectors is shown in fig.~\ref{fig:sho-radial-projectors}.
 With the multiplicity of the spherical harmonics ($2\ell$+$1$) this leads to 
 $$2 \times 1 + 2 \times 3 + 1 \times 5 + 1 \times 7 = 20$$
 projectors when exanded on the 3D grid.
 However, the expansion happens in the factorizable representation of the
-\ac{sho}-eigenstates: all products of the Hermite polynomials 
+\ac{SHO}-eigenstates: all products of the Hermite polynomials 
 $H_{n_x}(x) \cdot H_{n_y}(y) \cdot H_{n_z}(z)$ 
 times a Gaussian envelope function $\exp(-\frac12 r^2)$
 for which $n_x + n_y + n_z \leq \nu\um{max}$ span the same function space
-as radial \ac{sho}-eigenfunctions functions times spherical harmonics.
+as radial \ac{SHO}-eigenfunctions functions times spherical harmonics.
 The factorizable representation comes with the advantage that the 1D functions,
 e.g.~$H_{n_x}(x) \cdot \exp(-\frac 12 x^2)$ can be evaluated on-the-fly 
 at affordable costs~\cite{BaumeisterTsukamotoPASC19}.
-The shape of the radial function of \ac{sho} projectors
+The shape of the radial function of \ac{SHO} projectors
 matches that of GTH pseudopotential\cite{PhysRevB.54.1703}
 for $r_s \equiv r_p$.
 
@@ -1051,9 +1109,9 @@ Different from the L2-normalization, the L1-normalization factor $f_\ell$ for el
 where we used that $\int\limits_0^{\infty} x^{2m} \exp(-x^2/2) \mathrm dx  = \sqrt{\pi/2} (2m-1)!!$ for $m \in \mathbb N_0$.
 See \ttt{sho\_projection::radial\_L1\_prefactor} for an implementation of $f_\ell$.
 
-Before we use the unitary SHO transform from Cartesian to radial,
+Before we use the unitary \ac{SHO} transform from Cartesian to radial,
 Cartesian coefficients need to be normalized.
-After transformation, we have to see that also the radial SHO eigenfunctions are L2-normalized.
+After transformation, we have to see that also the radial \ac{SHO} eigenfunctions are L2-normalized.
 For $\nrn = 0$ the Laguerre polynomial is a constant only, so
 the radial L2-normalization is given by
 \begin{align}
@@ -1097,7 +1155,7 @@ A typical value for $a_{r^2}$ is $16.0$
 
 \section{Implementation of the PAW formalism} \label{sec:paw-theory}
 %
-Various ways of implementing the \ac{paw} formalism can be found in the literature.
+Various ways of implementing the \ac{PAW} formalism can be found in the literature.
 While all of these should formally lead to the same results,
 their rates of convergence and the complexity of implementation may differ.
 For example Kang \emph{et al.}~ \cite{Kang2016}
@@ -1111,13 +1169,13 @@ involve a rank-4 tensor that reads
 \end{equation}
 and a similar but negative contribution with $\tilde \phi$ instead of $\phi$.
 
-As in usual \ac{paw} implementations partial waves are constant 
-and only read from files at initialization, this way of implementing \ac{paw}
+As in usual \ac{PAW} implementations partial waves are constant 
+and only read from files at initialization, this way of implementing \ac{PAW}
 is a good choice when it comes to clarity of the formalism.
 As we intent to let core states relax and partial waves adopt
 to the chemical environment,
 an alternative way is outlined in the following sections.
-But first, a short review of the \ac{paw} method is given.
+But first, a short review of the \ac{PAW} method is given.
 
 \subsection{PAW method}
 %
@@ -1197,13 +1255,13 @@ The non-local contributions read
 	         &+ \braketop{ \tilde\phi^a_i }{ V\um{xc}[\tilde n^a] + V\um{es}[\tilde\varrho^a] - \bar v^a(r) }{ \tilde\phi^a_j }
 	         \label{eqn:hamiltonian-smooth-atom-potential-part}
 \end{align}
-Due to the non-linearity of $V\um{xc}$ the evaluation of the \ac{xc} parts of atom-centered potential matrix elements
+Due to the non-linearity of $V\um{xc}$ the evaluation of the \ac{XC} parts of atom-centered potential matrix elements
 (term~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}))
 can only be performed numerically.
 Implementations like GPAW \cite{GPAW,Rostgaard-paw-note} and ACE-Molecule \cite{Kang2016}
 decompose the linear and quadratic contributions of $\rho^a_{ij}$ with precomputed tensors
 which are constant over the course of the calculation, even when updating the atomic position.
-If, however, we let the core state relax, the core density changes slightly in every SCF iteration
+If, however, we let the core state relax, the core density changes slightly in every \ac{SCF} iteration
 and we can construct a new true reference potential from which we generate new partial waves.
 Then the approach of evaluating the entire terms~(\ref{eqn:hamiltonian-true-atom-potential-part}) and (\ref{eqn:hamiltonian-smooth-atom-potential-part}) numerically does not lead to modest extra costs, 
 in fact, only the solution of the electrostatic problem in radial representation. 
@@ -1215,11 +1273,11 @@ This is achieved comparing the projection coefficients $\braket{\hat g^a_{\ell m
 The \emph{intelligent zero} inserted to make the local potential smoother inside the augmentation sphere
 leads to the term $\bar v^a$. In fact, the electrostatic potential will feature a smooth but deep potential well
 at the position of the nucleus. $\bar v^a$ is chosen to fill the well.
-Different from other implementations of \ac{paw} we add only the contribution of the valence density
+Different from other implementations of \ac{PAW} we add only the contribution of the valence density
 with $\bar V$ to the total energy and subtract it in the atom corrections.
 The reason behind this is that there will be tails of the core densities $n^{a'}\um{c}$
 of neighboring atoms that give contributions which are not cancelled in the atom-centered treatment.
-A similar error in the total energy might appear from the \ac{xc} contribution.
+A similar error in the total energy might appear from the \ac{XC} contribution.
 
 
 In the evaluation of $E\um{es}[\tilde\varrho]$, 
@@ -1268,7 +1326,7 @@ where also the case $j = i$ is excluded (although due to a divergent expression)
 %%         potential and density do not belong to each other. 
 %% 		b) each have their own potential
 
-%% -t atom_core.
+%% -t atom_core
 %% # scf_atom  Z=29  E_tot= -1651.876238543 Ha
 %% # scf_atom  Z=29  E_kin= 1675.060063566 E_xc= -64.646370807 E_es= -3262.289931302 Ha
 %% # scf_atom  Z=29  E_Coulomb= -3974.589211915 E_Hartree= 712.299280613 Ha
@@ -1313,7 +1371,7 @@ where also the case $j = i$ is excluded (although due to a divergent expression)
 %% How about the XC contributions?
 
 %% Alternative (simple):
-%% we run -t atom_core. +atom_core.test.Z=0 +atom_core.test.Z.inc=1 +atom_core.test.Z.end=120
+%% we run -t atom_core +atom_core.test.Z=0 +atom_core.test.Z.inc=1 +atom_core.test.Z.end=120
 %% (actually, we could go up to 121 here)
 %% and fit, the converged E_tot values:
 % E_tot = a0 * Z^a1
@@ -1362,7 +1420,7 @@ the space of smooth functions spanned by $\tilde{\phi}$ and $\tilde{p}$.
 
 In practice, however, the situation for two partial waves (in the $s$-channel) exhibits
 very similar preliminary projector functions which reflects in a very small determinant
-of the 2x2 matrix which is LU-decomposed in the Gram-Schmidt orthogonalization procedure
+of the 2$\times$2 matrix which is LU-decomposed in the Gram-Schmidt orthogonalization procedure
 that ensures duality $\braket{\tilde{\phi}_i}{\tilde{p}_j} = \delta_{ij}$.
 Typical determinant values are $10^{-6}$ which leads to large coefficients for the
 higher orthogonalized projector.
@@ -1370,11 +1428,11 @@ higher orthogonalized projector.
 The BaumeisterTsukamotoPASC19 approach sugggests to invert the equation above
 and solve for the smooth partial waves given smooth projector functions.
 
-Using projector functions from Bloechls approach, SHO-filtering allows to represent
-these functions as a linear combination of two radial SHO eigenfunctions.
+Using projector functions from Bl\"{o}chls approach, \ac{SHO}-filtering allows to represent
+these functions as a linear combination of two radial \ac{SHO} eigenfunctions.
 
 This together leads to a set of partial waves and projectors
-that produce an almost singular PAW overlap operator $\mathcal S$:
+that produce an almost singular \ac{PAW} overlap operator $\mathcal S$:
 \begin{align}
   \mathcal S &= \mathbf 1  + \ket{\tilde{p}_i} q_{ij} \bra{\tilde{p}_j} \qquad \text{with}
   \\ q_{ij} &= \braket{\phi_i}{\phi_j} - \braket{\tilde\phi_i}{\tilde\phi_j}
@@ -1392,12 +1450,12 @@ when increasing the energy splitting to much higher values, way above the valenc
   \begin{minipage}[c]{.009\textwidth}
   \end{minipage}
   \caption{Eigenvalues of the charge deficit operator $\ket{\tilde{p}_i} q_{ij} \bra{\tilde{p}_j}$.
-  For small values of the energy splitting, the lowest eigenvalue is close to -1 which translates
-  to a singular eigenvalue of the PAW overlap operator.
+  For small values of the energy splitting, the lowest eigenvalue is close to -$1$ which translates
+  to a singular eigenvalue of the \ac{PAW} overlap operator.
   } \label{fig:eigenvalues_of_charge-deficit_operator}
 \end{figure}
 
-This effect has been observed for 5 first-row elements (Li -- N).
+This effect has been observed for $5$ first-row elements (Li -- N).
 
 \newpage
 

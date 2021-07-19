@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Sat Jul 17 22:29:05 2021"
+@timestamp def "Mon Jul 19 10:24:53 2021"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -104,7 +104,7 @@
 @    world 0, 1e-09, 180, 599.9999
 @    stack world 0, 0, 0, 0
 @    znorm 1
-@    view 0.829657, 0.149510, 1.202206, 0.850000
+@    view 0.830000, 0.150000, 1.200000, 0.850000
 @    title ""
 @    title font 0
 @    title size 1.500000
@@ -225,11 +225,11 @@
 @    legend loctype view
 @    legend 1.03, 0.8
 @    legend box color 1
-@    legend box pattern 1
+@    legend box pattern 0
 @    legend box linewidth 2.0
 @    legend box linestyle 1
 @    legend box fill color 0
-@    legend box fill pattern 1
+@    legend box fill pattern 0
 @    legend font 0
 @    legend char size 1.500000
 @    legend color 1
@@ -356,7 +356,7 @@
 @    world 3.5, 1e-09, 9.5, 299.99
 @    stack world 0, 0, 0, 0
 @    znorm 1
-@    view 0.109069, 0.151961, 0.814951, 0.850000
+@    view 0.125000, 0.150000, 0.815000, 0.850000
 @    title ""
 @    title font 0
 @    title size 1.500000
@@ -477,11 +477,11 @@
 @    legend loctype view
 @    legend 0.5, 0.8
 @    legend box color 1
-@    legend box pattern 1
+@    legend box pattern 0
 @    legend box linewidth 2.0
 @    legend box linestyle 1
 @    legend box fill color 0
-@    legend box fill pattern 1
+@    legend box fill pattern 0
 @    legend font 0
 @    legend char size 1.500000
 @    legend color 1
@@ -544,7 +544,7 @@
 @    s0 errorbar riser clip off
 @    s0 errorbar riser clip length 0.100000
 @    s0 comment "copy of set G0.S0"
-@    s0 legend  "Cu-Cu"
+@    s0 legend  "Cu--Cu"
 @    s1 hidden false
 @    s1 type xy
 @    s1 symbol 0
@@ -593,7 +593,7 @@
 @    s1 errorbar riser clip off
 @    s1 errorbar riser clip length 0.100000
 @    s1 comment "copy of set G0.S1"
-@    s1 legend  "Cu-Zr"
+@    s1 legend  "Cu--Zr"
 @    s2 hidden false
 @    s2 type xy
 @    s2 symbol 0
@@ -642,7 +642,7 @@
 @    s2 errorbar riser clip off
 @    s2 errorbar riser clip length 0.100000
 @    s2 comment "copy of set G0.S2"
-@    s2 legend  "Zr-Zr"
+@    s2 legend  "Zr--Zr"
 @    s3 hidden true
 @    s3 type xy
 @    s3 symbol 0
@@ -838,7 +838,7 @@
 @    s6 errorbar riser clip off
 @    s6 errorbar riser clip length 0.100000
 @    s6 comment "copy of set G0.S6"
-@    s6 legend  "Zr bonds"
+@    s6 legend  "Zr  bonds"
 @target G0.S3
 @type xy
 30 0

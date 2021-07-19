@@ -84,7 +84,8 @@ makes use of will need be covered in order to explain the handling.
 \section{Introduction} \label{sec:intro}
 % ==============================================================================
 %
-\subsection{Density Functional Theory}
+\subsection{Density Functional Theory} \label{sec:short-theory}
+%
 \codename{} is an implementation for performing calculations in the framework of \ac{DFT}.
 A fair number of books and a vast number of articles in the scientific 
 literature is on \ac{DFT}, therefore, we will only give a brief recap 
@@ -101,7 +102,8 @@ In principle, all results should be extrapolated to \unit[0]{K}.
 
 The underlying Hohenberg-Kohn theorem tells us, that we can derive some 
 ground state properties of the system once we have found the correct density.
-In order to find the density, Kohn and Sham introduced single-particle wave functions $\Psi_i$, which are eigenstates of an effective single-particle Hamiltonian $\hat H$.
+In order to find the density, Kohn and Sham introduced single-particle wave functions $\Psi_i$, 
+which are eigenstates of an effective single-particle Hamiltonian $\hat H$.
 With a little simplification, we can write the total electron density
 \begin{equation}
 	n(\vec r) = \sum_i^{\mathrm{occ}} \left| \Psi_i(\vec r) \right|^2
@@ -118,30 +120,33 @@ where $V\um{eff}(\vec r)$ includes
   \item the attractive Coulomb potential of the atomic nuclei,
   \item a repulsive Hartree potential from electrostatic 
   		interaction of an electron with the density,
-  \item a contribution accounting for exchange and electronic correlation
-  \item and potential external fields.
+  \item a contribution accounting for exchange and electronic correlation and
+  \item potential external fields.
 \end{itemize}
 
-\subsection{The Exchange-Correlation Functional}
+\subsection{The Exchange-Correlation Functional} \label{sec:xc-functional}
+%
 The true many-body wave function for a system with electrons (as being Fermions)
 is anti-symmetric under exchange of two particles. 
-This implies that e.g.~a two electrons wave function $\Psi(\vec r_1,\vec r_2)$ must be zero whenever $\vec r_1 \rightarrow \vec r_2$ in order to obey
-the anti-symmetry constraint.
+This implies that e.g.~a two-electron wave function $\Psi(\vec r_1,\vec r_2)$ must be zero 
+whenever $\vec r_1 \rightarrow \vec r_2$ in order to obey the anti-symmetry constraint.
 This lowers the repulsion energy of a real two-electrons system compared to a
 system of independent charged particles.
-In \ac{DFT} the construction of independent single-particle states is an approximation that requires to model the exchange interaction.
+Different from the Hartree-Fock method where a Slater determinant takes care of the antisymmetry exactly
+in \ac{DFT} the construction of independent single-particle states 
+is an approximation that requires to model the exchange interaction.
 
 Furthermore, there are correlation effects of true many-body electron systems
-which also cannot be easily captured in standard \ac{DFT}.
-Both together are modelled in the contribution $V\um{xc}(\vec r)$ 
+which also need to be modelled in both, \ac{DFT} and Hartree-Fock.
+Exchange and correlation effects together are modelled in the contribution $V\um{xc}(\vec r)$ 
 to the total effective potential and a corresponding energy density $\epsilon\um{xc}$ for the evaluation of a total energy.
 
 Different parametrizations of the \ac{XC} functional are available.
-\codename{} focusses onto the three classes of local (non-orbital dependent) functionals: 
+\codename{} focusses onto the three classes of (semi-)local , non-orbital dependent functionals: 
 \begin{itemize}
-	\item Local (Spin) Density Approximations, LDA/LSDA, 
-	\item Generalized Gradient Approximations, GGA
-	\item Meta-GGAs
+	\item Local (Spin) Density Approximation, LDA/LSDA, 
+	\item Generalized Gradient Approximation, GGA
+	\item Meta-GGA
 \end{itemize}
 LDAs generate $V(\vec r)$ only from the value of $n(\vec r)$, 
 hence the name \emph{local}. 
@@ -159,19 +164,20 @@ where we introduced Dirac's \emph{bra-ket} notation.
 Currently, only the 
 %Perdew-Zunger'81 \ttt{PZ81}
 Perdew-Wang'91 \ttt{PW91}-LDA is implemented
-but it is planned to interface \ttt{libxc} with access to most existing functional.
+but it is planned to interface \ttt{libxc} with access to most existing functionals.
 \todo[inline]{Implement LIBXC, reference for LIBXC}
 
 
 
-\section{How to get started}
-
-\subsection{Getting the Code}
+\section{How to get started} \label{sec:how-to-get-started}
+%
+\subsection{Getting the Code} \label{sec:getting-the-code}
 \codename{} will be public domain software under the MIT license
 and will be available to clone or download at \ttt{github.com/real-space/A43}. 
 \todo[inline]{get GitHub account}
 
 \subsection{Building the Application} \label{sec:compiling}
+%
 A \ttt{Makefile} is contained in the program package that works with current GNU compilers, e.g.~\ttt{g++ 7.4.0}.
 \todo[inline]{get CMake to work}
 %% and \ttt{nvcc from CUDA 10}
@@ -183,7 +189,8 @@ mainly used to maintain a single function supporting different precision (\ttt{f
 difference vector lengths, \ttt{real} and \ttt{complex} and in some situations different physics.
 This helps to keep the code base small and, hence, maintainable.
 
-\section{Basic Handling}
+\section{Basic Handling} \label{sec:basic-handling}
+%
 \codename{} comes as a single executable named \ttt{a43} which
 offers many functionalities accessible by options. Type \ttt{./a43 -h}
 to get a first help function:
@@ -246,7 +253,8 @@ Meaning of verbosity levels
 \end{table}
 
 
-\subsection{Atomic Units, Input and Output}
+\subsection{Atomic Units, Input and Output} \label{sec:units}
+%
 Internally \codename{} makes use of Hartree atomic units:
 \begin{equation}
 	\hbar = m_e = e = 1
@@ -281,7 +289,8 @@ show \ttt{eV} or \ttt{Ry} and \ttt{Ang}$ = $\AA{} or \ttt{nm}, depending on the 
 Some quantities are displayed in characteristic units, e.g., plane wave cutoffs are typically shown in Rydberg.
 
 
-\subsection{Try a first structure}
+\subsection{Try a first structure} \label{sec:first-steps}
+%
 Make sure there is \ttt{jmol}-viewable structure file \ttt{atoms.xyz}
 with atomic coordinates given in \AA{} and run
 \begin{verbatim}
@@ -333,7 +342,8 @@ For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
 \ttt{start}, \ttt{stop} and \ttt{step} in units of $e$Volt.
 
 
-\subsection{Parallel Computing}
+\subsection{Parallel Computing} \label{sec:parallelization}
+%
 Currently, only the \ttt{geometry\_analysis} part of \codename{} supports shared memory parallelism 
 via \ttt{omp} threads on the \ac{CPU}.
 In order to target current \ac{HPC} systems 
@@ -348,8 +358,8 @@ and the \ttt{CUDA} programming model for acceleration by a \ac{GPU}.
 Please consult with your \ac{HPC} system administrator for support
 about how to control the different levels of parallelism.
 
-\section{Representation of Wave Functions}
-
+\section{Representation of Wave Functions} \label{sec:representation}
+%
 Kohn-Sham eigenstates have very different character depending on their energy level: core states, valence states and depending on the species also semicore states.
 \subsubsection{Treatment of Core States}
 Core states are very low in energy and strongly bound 
@@ -367,7 +377,8 @@ where also relativistic effects can be treated properly.
 The energy is well defined and degenerate with respect to
 the magnetic quantum number $m$.
 
-\subsubsection{Treatment of Semicore States}
+\subsubsection{Treatment of Semicore States} \label{sec:semincore-states}
+%
 Semicore states are high-lying core states
 but energy-wise below the valence band.
 Their wave function tail can extend beyond half a nearest neighbor atom distance.
@@ -381,7 +392,8 @@ and either tight-binding like derived from atomic orbitals
 (eigenfunctions of the spherically averaged potential) 
 or with a full \ac{PAW} treatment as follows for the valence states.
 
-\subsubsection{Treatment of Valence States}
+\subsubsection{Treatment of Valence States} \label{sec:valence-states}
+%
 Valence states are high in energy, by definition up to the Fermi
 energy, are delocalized over several atoms and form bands and bonds.
 They are particularly difficult to describe because of the 
@@ -436,6 +448,7 @@ a reduced memory capacity consumption and lower memory bandwidth requirements.
 
 
 \section{Geometry Analysis Tool} \label{sec:geometry-analysis}
+%
 The geometry file (\ttt{geometry.file=atoms.xyz}) is a file
 holding three items:
 the number of atoms, 
@@ -458,6 +471,7 @@ providing a rich log output about interatomic distances,
 potential bonds and atomic coordination.
 
 \subsection{Distance Histogram} \label{sec:distance-histogram}
+%
 At increased \ttt{verbosity} a distance histogram is generated with
 a bin width of \ttt{+geometry\_analysis.bin.width} which is set to \unit[0.02]{\AA} by default.
 The geometry analysis algorithm checks on every pair of atoms
@@ -483,6 +497,7 @@ The first column is the distance value of the bin in your chosen \ttt{output.len
 The following columns represent all combinations of species.
 
 \subsection{Bond Structure Analysis} \label{sec:bond-structure-analysis}
+%
 Find \ttt{\# bond structure analysis} in the log.
 For particularly large systems, even one line per atom
 can lead to very large log files which no human wants to read.
@@ -511,6 +526,7 @@ The histogram representation is sparse, see above.
 %% a43/doc/fig/Cu320Zr180_distance_hist.agr .pdf
 
 \subsection{Summaries}
+%
 Atom-atom bonds and distances are summarised after the potentially lengthy log output described in
 sections \ref{sec:distance-histogram} and \ref{sec:bond-structure-analysis}.
 % , \ref{sec:bond-angle-histogram} and \ref{sec:bond-distance-histogram}.
@@ -549,18 +565,19 @@ parameter to \ttt{0} will suppress all entries with a \ttt{n/a} minimal distance
 This is particularly helpful for the synthetic input case discussed in Section \ref{sec:many-species-test}.
 
 \subsection{Many Species Test} \label{sec:many-species-test}
+%
 To test the full functionality of the geometry analysis,
 we can generate an input file \ttt{+geometry\_analysis.test.file} 
 with the default filename \ttt{species\_test.xyz}.
 It contains \ttt{geometry\_analysis.test.nspecies} $\in [2, 128]$ atoms, each with a
-different species, positioned in a chain.
+different species, positioned in a chain. Running
 \begin{verbatim}
 ./a43 -t geometry_analysis +verbosity=7 \
         +geometry_analysis.select.test=-1 \
         +geometry_analysis.test.nspecies=4 \
         +geometry.file=species_test.xyz
 \end{verbatim}
-Will create the file, parse it and analyze its linear geometry.
+will create the file, parse it and analyze its linear geometry.
 Technically, one could increase \ttt{test.nspecies} up to \ttt{128},
 however, the output is far from readable due to too many too long lines.
 The interatomic distances are chosen such that most coordination numbers

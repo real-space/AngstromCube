@@ -4,7 +4,7 @@
 exe=../src/a43
 
 geometries="AlP_dimer.xyz Al_spherical_atom.xyz Cu40Zr22.xyz Cu_fcc_inversion.xyz Fe_bcc.xyz Sc2O3.xyz dna.xyz new_GST_set2.xyz tpa_on_gold.xyz
-Al_single.xyz Cu320Zr180.xyz Cu_fcc.xyz Cu_fcc_shifted.xyz Po_sc.xyz graphene.xyz silicene.xyz"
+Al_single.xyz Cu320Zr180.xyz Cu_fcc.xyz Cu_fcc_shifted.xyz Po_sc.xyz graphene.xyz silicene.xyz Au_fcc.xyz Au_hcp.xyz"
 
 referencedir=../ref
 targetdir=.

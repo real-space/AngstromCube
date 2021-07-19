@@ -121,10 +121,10 @@
 # Found 4 different elements for 64 atoms:    ___8  Ge_8  Sb_16  Te_32
 
 # half bond length and coordination numbers with occurrence
-#    0.000 Bohr coordination for __   0_8
-#    2.268 Bohr coordination for Ge   6_8
-#    2.627 Bohr coordination for Sb   6_16
-#    2.608 Bohr coordination for Te   4_24  6_8
+#    0.000 Bohr coordination for __   0_8	average 0.00 +/- 0.00
+#    2.268 Bohr coordination for Ge   6_8	average 6.00 +/- 0.00
+#    2.627 Bohr coordination for Sb   6_16	average 6.00 +/- 0.00
+#    2.608 Bohr coordination for Te   4_24  6_8	average 4.50 +/- 0.87
 # coordination numbers total= 288
 
 

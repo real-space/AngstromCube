@@ -949,12 +949,14 @@ namespace geometry_analysis {
               std::printf("\n# half bond length and coordination numbers with occurrence\n");
               for (int is = 0; is < nspecies; ++is) {
                   std::printf("#%9.3f %s coordination for %s", default_bond_length(Z_of_species[is])*Ang, _Ang, Sy_of_species[is]);
+                  simple_stats::Stats<> cs;
                   for (int cn = 0; cn < max_cn; ++cn) {
                       if (cn_hist(is,cn) > 0) {
                           std::printf("  %d_%d", cn, cn_hist(is,cn)); // show with occurrence
+                          cs.add(cn, cn_hist(is,cn));
                       } // histogram count non-zero
                   } // cn
-                  std::printf("\n");
+                  std::printf("\taverage %.2f +/- %.2f\n", cs.avg(), cs.var());
               } // is
               std::printf("# coordination numbers total= %ld\n\n", total_cn);
           } // echo
@@ -1104,12 +1106,56 @@ namespace geometry_analysis {
   } // test_example_file
 
 
+  status_t test_fcc_hcp_files(int const echo=9) {
+      // to test the cornercases of the algorithm this creates an input file with all species included once
+      auto const alat = control::get("geometry_analysis.test.lattice.constant", 4.0782*Angstrom2Bohr);
+      char const Sy[] = "Au";
+      double const cell[] = {alat*std::sqrt(.5), alat*std::sqrt(1.5), alat*std::sqrt(12.)};
+// ### Layer A
+//    __El__      0:6 0:6 0:6
+//    __El__      3:6 3:6 0:6
+// ### Layer B
+//    __El__      3:6 1:6 1:6
+//    __El__      0:6 4:6 1:6
+// ### Layer C
+//    __El__      0:6 2:6 2:6
+//    __El__      3:6 5:6 2:6
+      int8_t const layer[3][2][2] = {{{0,0}, {3,3}}, {{3,1}, {0,4}}, {{0,2}, {3,5}}};
+// fcc: ABCABC stacking
+// hcp: ABABAB stacking
+      double constexpr sixth = 1./6.;
+      for (int hcp2fcc3 = 2; hcp2fcc3 <= 3; ++hcp2fcc3) {
+          auto const filename = (2 == hcp2fcc3) ? "hcp.xyz" : "fcc.xyz";
+          if (echo > 0) std::printf("\n# generate \'%s\' geometry files with lattice constant %g %s\n\n", 
+                                                    filename, alat*Ang, _Ang);
+          std::ofstream outfile(filename, std::ofstream::out);
+          if (outfile.fail()) {
+              warn("Unable to open file \'%s\' for writing coordinates", filename);
+              return 1;
+          }
+          outfile << "12\n#cell";
+          for (int i3 = 0; i3 < 3; ++i3) outfile << " " << cell[i3]*Bohr2Angstrom;
+          outfile << " periodic periodic periodic\n";
+          for (int i6 = 0; i6 < 6; ++i6) {
+              for (int i2 = 0; i2 < 2; ++i2) {
+                  outfile << Sy << "  ";
+                  for (int i3 = 0; i3 < 3; ++i3) {
+                      double const coordinate = cell[i3]*sixth*((2 == i3) ? i6 : layer[i6 % hcp2fcc3][i2][i3]);
+                      outfile   << coordinate*Bohr2Angstrom << ((2 == i3) ? '\n' : ' ');
+                  } // i3
+              } // i2
+          } // i6 layers
+      } // hcp2fcc3
+      return 0;
+  } // test_fcc_hcp_files
+
+
   status_t all_tests(int const echo) {
       status_t stat(0);
-      int const t = control::get("geometry_analysis.select.test", -2.); // -1:all, -2:all but the first
+      int const t = control::get("geometry_analysis.select.test", 2.); // -1:all
       if (t & 0x1) stat += test_example_file(echo);
       if (t & 0x2) stat += test_analysis(echo);
-      if (t & 0x4) stat += 0; // add next test here
+      if (t & 0x4) stat += test_fcc_hcp_files(echo);
       return stat;
   } // all_tests
 

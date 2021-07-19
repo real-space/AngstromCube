@@ -995,11 +995,11 @@
 # Found 5 different elements for 637 atoms:    H_227  C_197  N_73  O_120  P_20
 
 # half bond length and coordination numbers with occurrence
-#    0.586 Bohr coordination for H    1_227
-#    1.436 Bohr coordination for C    3_90  4_107
-#    1.379 Bohr coordination for N    2_30  3_43
-#    1.304 Bohr coordination for O    1_60  2_60
-#    2.022 Bohr coordination for P    4_20
+#    0.586 Bohr coordination for H    1_227	average 1.00 +/- 0.00
+#    1.436 Bohr coordination for C    3_90  4_107	average 3.54 +/- 0.50
+#    1.379 Bohr coordination for N    2_30  3_43	average 2.59 +/- 0.49
+#    1.304 Bohr coordination for O    1_60  2_60	average 1.50 +/- 0.50
+#    2.022 Bohr coordination for P    4_20	average 4.00 +/- 0.00
 # coordination numbers total= 1374
 
 

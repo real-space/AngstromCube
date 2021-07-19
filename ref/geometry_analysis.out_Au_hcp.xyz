@@ -1,0 +1,118 @@
+
+# ../src/a43 +verbosity=7 -test geometry_analysis +geometry.file=geo/Au_hcp.xyz
+# no control file given
+
+
+# verbosity = 7
+# Set output units to {Ha, Bohr}
+
+# run unit tests for module 'geometry_analysis'
+
+
+
+
+# ============= Module test for geometry_analysis ==================
+
+# found 12 atoms in file "geo/Au_hcp.xyz" with cell=[5.449 9.439 26.697] Bohr and bc=[1 1 1]
+
+# geometry_analysis.cxx:analysis
+# Count interatomic distances up to 125 % of the default bond length as bond
+# Bond search within interaction radius 12.283 Bohr
+# Distance histogram: 325 bins of width 0.037795 Bohr up to 12.283 Bohr
+# Found 1 different elements for 12 atoms:    Au_12
+# Hint: geometry_analysis.max.range=6.42507 Bohr would be sufficient
+# Minimum distance between two atoms (Au-Au) is 5.449 Bohr
+
+## distance histogram (in Bohr): Au-Au
+0.019   0
+5.424   0
+5.461   144
+5.499   0
+7.653   0
+7.691   72
+7.729   0
+8.863   0
+8.901   24
+8.938   0
+9.392   0
+9.430   216
+9.468   0
+10.412   0
+10.450   144
+10.488   0
+10.866   0
+10.904   72
+10.942   0
+12.151   0
+12.189   144
+12.227   0
+
+# bond structure analysis: bond lengths are in Bohr | angles in degree
+# a#0 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#1 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#2 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#3 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#4 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#5 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#6 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#7 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#8 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#9 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#10 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+# a#11 Au   5.45_12 |  60_24 90_12 110_3 120_18 146_6 180_3
+
+## bond angles in degree for  Au
+59  0
+60  288
+61  0
+89  0
+90  144
+91  0
+108  0
+109  36
+110  0
+119  0
+120  216
+121  0
+145  0
+146  72
+147  0
+179  0
+180  36
+181  0
+
+## bond distances in Bohr for  Au
+0  0
+5.375  0
+5.4375  144
+5.5  0
+
+# Found 1 different elements for 12 atoms:    Au_12
+
+# half bond length and coordination numbers with occurrence
+#    2.570 Bohr coordination for Au   12_12	average 12.00 +/- 0.00
+# coordination numbers total= 144
+
+
+# bond counts        Au
+# bond count        144  Au sum= 144
+# bond counts       144   total= 144
+
+# min. distances     Au 
+# min. distance   5.449  Au in Bohr
+
+# longest  bonds     Au 
+# longest  bond   5.450  Au in Bohr
+
+# shortest bonds     Au 
+# shortest bond   5.449  Au in Bohr
+
+# bond table:
+# pair, min dist in Bohr, bond stats
+#  Au-Au    5.449   5.449 +/- 0.000 in [5.449, 5.450]  144 bonds
+# total= 144 bonds
+
+
+#  1 modules have been tested:
+#    module= geometry_analysis        status= 0
+# 0 warnings have been recorded.
