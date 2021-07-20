@@ -26,10 +26,10 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 ## grid spacing or number of grid points of the dense grid
-self_consistency.grid.spacing.unit=Ang
-#self_consistency.grid.spacing=0.083334
-#self_consistency.grid.spacing=0.10416667
-self_consistency.grid.points=24
+grid.spacing.unit=Ang
+#grid.spacing=0.083334
+#grid.spacing=0.10416667
+grid.points=24
 
 ## max. number of self-consistency iterations
 self_consistency.max.scf=3
@@ -39,8 +39,8 @@ atomic.valence.decay=1
 fermi.level=exact
 
 ## analyze the potentials up to vtot (DEBUG)
-#self_consistency.use.bessel.projection=0
-#self_consistency.use.direct.projection=0
+#potential_generator.use.bessel.projection=0
+#potential_generator.use.direct.projection=0
 
 ## Poisson equation solver {multigrid, none, cg, sd, fft}
 electrostatic.solver=fft

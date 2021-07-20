@@ -84,14 +84,14 @@ namespace self_consistency {
           //           :  grid.spacing.x, .y, .z
           //     lowest:  grid.spacing             default value = 0.125 Angstrom
 
-          auto const grid_spacing_unit_name = control::get("self_consistency.grid.spacing.unit", "Bohr");
+          auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
           char const *_lu;
           auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
           auto const in_lu = 1./lu;
 
           auto const default_grid_spacing = 0.23621577; // == 0.125 Angstrom
-          auto const keyword_ng = "self_consistency.grid.points";
-          auto const keyword_hg = "self_consistency.grid.spacing";
+          auto const keyword_ng = "grid.points";
+          auto const keyword_hg = "grid.spacing";
           auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
           auto const hg_iso = control::get(keyword_hg, default_grid_spacing*lu);
 

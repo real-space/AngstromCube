@@ -380,7 +380,7 @@ namespace potential_generator {
       } // run
 
       
-      int const max_scf_iterations_input = control::get("potential_generator.max.scf", 1.);
+      int const max_scf_iterations_input = control::get("self_consistency.max.scf", 1.);
       int max_scf_iterations{max_scf_iterations_input}; // non-const, may be modified by the stop file during the run
       { // scope: create a stop file with standard name
           auto const stat = debug_tools::manage_stop_file<'w'>(max_scf_iterations, echo);
@@ -842,14 +842,14 @@ namespace potential_generator {
                   if (echo > 3 + 4*(1 - i01)) {
                       char const *const without_with = i01 ? "" : "out";
                       std::printf("\n# sum of atomic energy contributions with%s grid contributions (%s)\n", without_with, _eV);
-                      std::printf("# kinetic       %32.9f\n", Ea[energy_contribution::KINETIC]*eV);
-                      std::printf("# electrostatic %32.9f\n", Ea[energy_contribution::ELECTROSTATIC]*eV);
-                      std::printf("# XC            %32.9f\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV);
-                      std::printf("# true total    %32.9f\n", Ea[energy_contribution::TOTAL]*eV);
-                      std::printf("# reference     %32.9f\n", Ea[energy_contribution::REFERENCE]*eV);
+                      std::printf("# kinetic      %32.9f\n", Ea[energy_contribution::KINETIC]*eV);
+                      std::printf("# electrostatic%32.9f\n", Ea[energy_contribution::ELECTROSTATIC]*eV);
+                      std::printf("# XC           %32.9f\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV);
+                      std::printf("# true total   %32.9f\n", Ea[energy_contribution::TOTAL]*eV);
+                      std::printf("# reference    %32.9f\n", Ea[energy_contribution::REFERENCE]*eV);
                       double E_tot = Ea[energy_contribution::KINETIC] + Ea[energy_contribution::ELECTROSTATIC]
                                    + Ea[energy_contribution::EXCHANGE_CORRELATION] - Ea[energy_contribution::REFERENCE];
-                      std::printf("# total         %32.9f\n", E_tot*eV);
+                      std::printf("# total        %32.9f %s\n", E_tot*eV, _eV);
                   } // echo
                   
                   // now add grid contributions
@@ -908,7 +908,7 @@ namespace potential_generator {
                        max_scf_iterations_input, max_scf_iterations, scf_iteration);
               } // stop file has been used
           } // scope
-          density_mixing = control::get("potential_generator.mix.density", 0.25); // for the next iteration
+          density_mixing = control::get("self_consistency.mix.density", 0.25); // for the next iteration
 
       } // scf_iteration
 

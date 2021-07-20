@@ -115,8 +115,8 @@ grid.spacing.unit=Ang
 grid.points=24
 
 ## max. number of self-consistency iterations
-potential_generator.max.scf=3
-potential_generator.mix.density=0.25
+self_consistency.max.scf=3
+self_consistency.mix.density=0.25
 atomic.valence.decay=1
 ## compute the Fermi level {exact, linearized}
 fermi.level=exact
