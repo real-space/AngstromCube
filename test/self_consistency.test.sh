@@ -11,9 +11,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
 # echo "__  0 0 0" >> $geometry_file
 
-# project_base=scf.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+project_base=scf.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+echo "C  0 0 0" >> $geometry_file
 
 # project_base=scf.C-dimer
 # printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
@@ -23,12 +23,12 @@ geometry_file=atoms.xyz
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
 
-project_base=potential_generator.AlP
-printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
+# project_base=potential_generator.AlP
+# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
-echo "Al   0 0 -1.058354498" >> $geometry_file
-echo "P    0 0  1.058354498" >> $geometry_file
+# echo "Al   0 0 -1.058354498" >> $geometry_file
+# echo "P    0 0  1.058354498" >> $geometry_file
 
 # project_base=scf.Al-fcc
 # printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
@@ -189,7 +189,8 @@ bands.per.atom=10
 hamiltonian.kmesh.echo=9
 #hamiltonian.kmesh.x=3
 hamiltonian.kmesh=0
-hamiltonian.floating.point.bits=64
+## hamiltonian.floating.point.bits=64
+hamiltonian.floating.point.bits=32
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
@@ -225,7 +226,7 @@ export.hamiltonian=1
 export.hamiltonian.format=xml
 
 # Make structure_solver produce the same as potential_generator
-structure_solver.complex=1
+# structure_solver.complex=1
 
 EOF
 
