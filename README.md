@@ -25,27 +25,27 @@ The idea is to have a code that is
 - can scale linearly
   
 **Current Status**
-These features are planned but have so far not been addressed:
-- different versions of LDA, GGA, meta-GGA (currently only LDA implemented)
-- efficient eigensolver for the grid Hamiltonian (currently inefficient subspace rotation method)
-- MPI parallelization (currently none)
-- OpenMP parallelization (currently none)
-- GPU acceleration (currently none)
-- fancy boundary conditions (currently only periodic and isolated)
-- forces (currently none)
-- self-consistency convergence criteria (currently we set the number of iterations)
-- magnetism, collinear and non-collinear (currently none)
-These features are ready:
-- total energy
-- complex wave functions, ***k***-points
-- potential generation (currently only non-magnetic)
-- multigrid Poisson solver for the electrostatics (currently only serial)
-- SHO-projector PAW with all-electron atoms (currently only non-magnetic)
-Some features are build in only for development purposes:
-- a stable FFT Poisson solver for the electrostatic problem
-- plane wave basis set using a dense matrix eigensolver (LAPACK) or iterative (in development)
-- dense eigensolver for the real-space grid Hamiltonian
-These features are not intended to be implemented ever:
-- strain calculation
-- exact exchange
-- phonons
+- These features are planned but have so far not been addressed:
+    - different versions of LDA, GGA, meta-GGA (currently only LDA implemented)
+    - efficient eigensolver for the grid Hamiltonian (currently inefficient subspace rotation method)
+    - MPI parallelization (currently none)
+    - OpenMP parallelization (currently none)
+    - GPU acceleration (currently none)
+    - fancy boundary conditions (currently only periodic and isolated)
+    - forces (currently none)
+    - self-consistency convergence criteria (currently we set the number of iterations)
+    - magnetism, collinear and non-collinear (currently none)
+- These features are ready:
+    - total energy
+    - complex wave functions, ***k***-points
+    - potential generation (currently only non-magnetic)
+    - multigrid Poisson solver for the electrostatics (currently only serial)
+    - SHO-projector PAW with all-electron atoms (currently only non-magnetic)
+- Some features are build in only for development purposes:
+    - a stable FFT Poisson solver for the electrostatic problem
+    - plane wave basis set using a dense matrix eigensolver (LAPACK) or iterative (in development)
+    - dense eigensolver for the real-space grid Hamiltonian
+- These features are not intended to be implemented ever:
+    - strain calculation
+    - exact exchange
+    - phonons
