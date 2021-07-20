@@ -3,6 +3,7 @@
 #include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 #include <fstream> // std::ifstream
+#include <algorithm> // std::max
 
 #include "status.hxx" // status_t
 #include "inline_math.hxx" // set
@@ -86,8 +87,9 @@ namespace sho_potential {
       // from SHO projection coefficients we find the coefficients for a representation in moments x^{m_x} y^{m_y} z^{m_z}
 
       status_t stat(0);
+      if (numax < 0) return stat;
       int const nc = sho_tools::nSHO(numax);
-      int const m = sho_tools::n1HO(numax);
+      int const m  = sho_tools::n1HO(numax);
       
       view2D<double> inv3D(nc, nc, 0.0); // get memory
       view2D<double> mat1D(m, m, 0.0); // get memory
@@ -557,12 +559,12 @@ namespace sho_potential {
 
           if (echo > 3) std::printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
               coarsest_grid_spacing*Ang, _Ang, highest_kinetic_energy*eV, _eV, kinetic_energy*eV, _eV, percentage);
-          
+
           for (int ia = 0; ia < natoms; ++ia) {
               double const sigma_V = sigmas[ia]*std::sqrt(.5);
 //               int const numax_V = 3*numaxs[ia]; // ToDo: is this the best choice? Better:
               // determine numax_V dynamically, depending on sigma_a and the grid spacing, (external parameter lmax is ignored)
-              int const numax_V = std::floor(kinetic_energy*pow2(sigmas[ia]) - 1.5);
+              int const numax_V = std::max(0, int(std::floor(kinetic_energy*pow2(sigmas[ia]) - 1.5)));
               if (echo > 5) std::printf("# atom #%i expand potential up to numax=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
               if (echo > 5) std::fflush(stdout);
               int const nbV = sho_tools::nSHO(numax_V);

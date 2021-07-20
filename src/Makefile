@@ -81,7 +81,7 @@ FEAFLAGS += -D HAS_NO_MPI
 FEAFLAGS += -D HAS_RAPIDXML
 FEAFLAGS += -D HAS_RAPIDJSON
 # ERRFLAGS = -Werror -Wall -Wfatal-errors
-FEAFLAGS += ###-fopenmp -fno-omit-frame-pointer
+# FEAFLAGS += -fopenmp -fno-omit-frame-pointer
 
 ifdef NO_UNIT_TESTS
 	## for production: eliminate the unit tests

@@ -117,8 +117,8 @@
       { // testing scope
 
 #define   add_module_test(MODULE_NAME) {                                            \
-              char const *const module_name = #MODULE_NAME;                         \
-              if (all || input_name == module_name) {                               \
+              auto const module_name = #MODULE_NAME;                                \
+              if (all || (input_name == module_name)) {                             \
                   SimpleTimer timer(module_name, 0, "", 0);                         \
                   if (echo > 3) std::printf("\n\n\n# ============= Module test"     \
                      " for %s ==================\n\n", module_name);                \

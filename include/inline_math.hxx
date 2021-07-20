@@ -5,9 +5,8 @@
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
-  template <int nBits> inline 
+  template <int nBits> inline
   size_t align(int64_t const in) {
-//    return in; // alignment switched off
       return ((((in - 1) >> nBits) + 1) << nBits);
   } // align
 

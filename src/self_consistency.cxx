@@ -1,9 +1,7 @@
 #include <cstdio> // std::printf, std::sprintf
 #include <cassert> // assert
-#include <algorithm> // std::copy
-#include <cmath> // std::floor
+#include <algorithm> // std::copy, ::min, ::max
 #include <vector> // std::vector
-#include <complex> // std::complex
 
 #include "self_consistency.hxx"
 
@@ -12,22 +10,20 @@
 #include "constants.hxx" // ::sqrtpi, ::pi
 #include "solid_harmonics.hxx" // ::Y00
 #include "real_space.hxx" // ::grid_t, ::add_function
-#include "radial_grid.hxx" // ::radial_grid_t
 #include "chemical_symbol.hxx" // ::get
 #include "sho_projection.hxx" // ::sho_add, ::sho_project
-#include "sho_tools.hxx" // ::quantum_number_table
+#include "sho_tools.hxx" // ::nSHO, ::lm_index
 #include "exchange_correlation.hxx" // ::LDA_kernel
 #include "boundary_condition.hxx" // ::periodic_images
 #include "data_view.hxx" // view2D<T>
+#include "data_list.hxx" // data_list<T>
 
-#include "finite_difference.hxx" // ::stencil_t, ::derive
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
-#include "simple_timer.hxx" // // SimpleTimer
+#include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get
 
-#include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
-#include "bessel_transform.hxx" // ::Bessel_j0
-#include "debug_tools.hxx" // ::read_from_file, ::manage_stop_file
+#include "print_tools.hxx" // print_stats, printf_vector
+#include "debug_tools.hxx" // ::manage_stop_file
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform<real_t>
 
@@ -35,30 +31,17 @@
 #include "energy_contribution.hxx" // ::TOTAL, ::KINETIC, ::ELECTROSTATIC, ...
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
-// #include "potential_generator.hxx" // ::init_geometry_and_grid // FAILS when including from here
-#include "potential_generator.hxx" // ::add_smooth_quantities, ::potential_projections
+#include "potential_generator.hxx" // ::add_smooth_quantities
+// #include "potential_generator.hxx" // ::init_geometry_and_grid // FAILS to when included from here, (breaks during compile or runtime?)
+#ifdef DEVEL
+  #include "potential_generator.hxx" // ::potential_projections
+#endif // DEVEL
 
-// ToDo: restructure: move this into a separate compilation unit
-#include "atom_image.hxx"// ::sho_atom_t
-#include "grid_operators.hxx" // ::grid_operator_t, ::list_of_atoms
-#include "conjugate_gradients.hxx" // ::eigensolve
-#include "davidson_solver.hxx" // ::rotate, ::eigensolve
-#include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
-#include "density_generator.hxx" // ::density
-#include "sho_hamiltonian.hxx" // ::solve
-#include "plane_waves.hxx" // ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t
 #include "unit_system.hxx" // ::length_unit
 
 #include "poisson_solver.hxx" // ::solve, ::solver_method
 
-#include "brillouin_zone.hxx" // ::get_kpoint_mesh
-
-#include "data_list.hxx" // data_list<T> // ToDo: replace the std::vector<double*> with new constructions
-#include "print_tools.hxx" // print_stats, printf_vector
-#include "dense_solver.hxx" // ::display_spectrum
-#include "dense_solver.hxx" // ::solve
-#include "complex_tools.hxx" // complex_name
 
 #define DEBUG
 #ifdef  DEBUG
@@ -68,15 +51,15 @@
 #endif // DEBUG
 
 namespace self_consistency {
-  // this module makes a DFT calculation based on atoms
+  // This module makes a DFT calculation based on atoms
   // that live in a spherical potential which is found
-  // by projecting the 3D potential.
-  // their wave functions do not hybridize but they 
+  // by projection of the 3D potential.
+  // Their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
 
 #if 1
-  inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
-  inline int n_grid_points(double const suggest) { return int(even(int(std::ceil(suggest)))); }
+  inline int even(int const any) { return align<1>(any); }
+  inline int n_grid_points(double const suggest) { return even(int(std::ceil(suggest))); }
 
   // ToDo: include from potential_generator
   status_t init_geometry_and_grid(
@@ -85,13 +68,12 @@ namespace self_consistency {
       , int & natoms // output number of atoms found
       , int const echo=0 // log-level
   ) {
-      // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
       status_t stat(0);
 
-      natoms = 0;
-      double cell[3];
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
+      natoms = 0; // number of atoms
       int bc[3]; // boundary conditions
+      double cell[3]; // rectangular cell parameters
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
 
       { // scope: determine grid spacings and number of grid points
@@ -107,7 +89,7 @@ namespace self_consistency {
           auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
           auto const in_lu = 1./lu;
 
-          auto const default_grid_spacing = 0.23621577; // = 0.125 Angstrom
+          auto const default_grid_spacing = 0.23621577; // == 0.125 Angstrom
           auto const keyword_ng = "self_consistency.grid.points";
           auto const keyword_hg = "self_consistency.grid.spacing";
           auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
@@ -131,8 +113,7 @@ namespace self_consistency {
                   ng[d] = n_grid_points(cell[d]/hg);
                   if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
               } // ng < 1
-              // ToDo: give a warning if grid.points or grid.points.d is overwriting a user specified grid.spacing
-              ng[d] = even(ng[d]); // if odd, increment to nearst higher even number
+              ng[d] = even(ng[d]); // if odd, increment to nearest higher even number
               if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
           } // d
           if (default_grid_spacing_used > 0) {
@@ -152,7 +133,8 @@ namespace self_consistency {
           if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
               warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
                              'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
-          }
+              ++stat;
+          } // deviates
           cell[d] = g.h[d]*g[d];
           assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
       } // d
@@ -172,7 +154,6 @@ namespace self_consistency {
       // get the ell=0 compensator charge and add it to the 3D grid
       // envoke exchange_correlation and fourier_poisson
       // add XC and electrostatic potential and zero potential contributions
-      // project the total effective potential to each center using bessel_transforms
       // feed back potential shifts into single_atom
       status_t stat(0);
 
@@ -198,7 +179,8 @@ namespace self_consistency {
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
-      std::vector<float> ionization(na, 0.f); if (0 != ion) warn("ionization deativated!", 0);
+      std::vector<float> ionization(na, 0.f);
+      if (0 != ion) error("ionization deactivated, requested ion= %g electrons", ion);
 
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
       view2D<double> periodic_images;
@@ -207,7 +189,7 @@ namespace self_consistency {
       if (echo > 1) std::printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
 
 
-      std::vector<double> Za(na);        // list of atomic numbers
+      std::vector<double> Za(na); // list of atomic numbers
       view2D<double> center(na, 4, 0.0); // get memory for a list of atomic centers
       { // scope: prepare atomic coordinates
           double const grid_offset[3] = {0.5*(g[0] - 1)*g.h[0],
@@ -249,12 +231,6 @@ namespace self_consistency {
       } // initial_valence_density_method
 
 
-      // determine how to solve the Kohn-Sham equation
-//       auto const basis_method = control::get("basis", "grid");
-//    bool const plane_waves = ('p' == (*basis_method | 32));
-//       bool const psi_on_grid = ('g' == (*basis_method | 32));
-
-      
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
       std::vector<int32_t> numax(na, -1); // init with 0 projectors
       std::vector<int32_t> lmax_qlm(na, -1);
@@ -266,9 +242,9 @@ namespace self_consistency {
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());
 
-      double nve{0}; // determine the number of valence electrons
+      double nve{0}; // determine the total number of valence electrons
       if ('a' == (*control::get("valence.electrons", "auto") | 32)) {
-          std::vector<double> n_electrons_a(na, 0.); // number of valence electrons brought in by each atom
+          std::vector<double> n_electrons_a(na, 0.); // number of valence electrons added by each atom
           stat += single_atom::atom_update("#valence electrons", na, n_electrons_a.data());
           nve = std::accumulate(n_electrons_a.begin(), n_electrons_a.end(), 0.0);
           if (echo > 0) std::printf("\n# valence.electrons=auto --> %g valence electrons\n\n", nve);
@@ -509,9 +485,9 @@ namespace self_consistency {
           here;
 
          
-          /**  
-           *  Potential generation done
-           */
+          //
+          //  Potential generation done
+          //
 
           
           double double_counting_correction{0};
@@ -627,16 +603,18 @@ namespace self_consistency {
                   if (echo > 3 + 4*(1 - i01)) {
                       char const *const without_with = i01 ? "" : "out";
                       std::printf("\n# sum of atomic energy contributions with%s grid contributions (%s)\n", without_with, _eV);
-                      std::printf("# kinetic       %32.9f\n", Ea[energy_contribution::KINETIC]*eV);
-                      std::printf("# electrostatic %32.9f\n", Ea[energy_contribution::ELECTROSTATIC]*eV);
-                      std::printf("# XC            %32.9f\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV);
-                      std::printf("# true total    %32.9f\n", Ea[energy_contribution::TOTAL]*eV);
-                      std::printf("# reference     %32.9f\n", Ea[energy_contribution::REFERENCE]*eV);
-                      double E_tot = Ea[energy_contribution::KINETIC] + Ea[energy_contribution::ELECTROSTATIC]
-                                   + Ea[energy_contribution::EXCHANGE_CORRELATION] - Ea[energy_contribution::REFERENCE];
-                      std::printf("# total         %32.9f\n", E_tot*eV);
+                      std::printf("# kinetic      %32.9f\n", Ea[energy_contribution::KINETIC]*eV);
+                      std::printf("# electrostatic%32.9f\n", Ea[energy_contribution::ELECTROSTATIC]*eV);
+                      std::printf("# XC           %32.9f\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV);
+                      std::printf("# true total   %32.9f\n", Ea[energy_contribution::TOTAL]*eV);
+                      std::printf("# reference    %32.9f\n", Ea[energy_contribution::REFERENCE]*eV);
+                      double const E_tot = Ea[energy_contribution::KINETIC] 
+                                         + Ea[energy_contribution::ELECTROSTATIC]
+                                         + Ea[energy_contribution::EXCHANGE_CORRELATION]
+                                         - Ea[energy_contribution::REFERENCE];
+                      std::printf("# total        %32.9f %s\n", E_tot*eV, _eV);
                   } // echo
-                  
+
                   // now add grid contributions
                   Ea[energy_contribution::KINETIC] += grid_kinetic_energy * (1. - take_atomic_valence_densities);
                   Ea[energy_contribution::EXCHANGE_CORRELATION] += grid_xc_energy;
@@ -672,9 +650,9 @@ namespace self_consistency {
 #endif // 1
           } // spherical_valence_decay
           here;
-          
-          
-          
+
+
+
           { // scope: read the stop file with standard name, max_scf_iterations may be modified
               auto const stat = debug_tools::manage_stop_file<'r'>(max_scf_iterations, echo);
               if (stat) warn("failed to read the stop file, status= %i", int(stat));
