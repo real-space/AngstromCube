@@ -155,3 +155,29 @@ for spacing in `seq 2 1 2`; do
         $1 > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
+
+for numax in `seq 4 2 4`; do
+  project=$project_base.sho$numax
+  (cd ../src/ && make -j) && \
+  echo "# start calculation $project" && \
+  $exe -test self_consistency \
+        +control.file=control.sh \
+        +basis=sho \
+        +sho_hamiltonian.test.numax=$numax \
+        +sho_hamiltonian.test.sigma=.5 \
+        $1 > $project.out
+  ./spectrum.sh $project.out > $project.spectrum.dat
+done
+
+for ecut in `seq 5 2 5`; do
+  project=$project_base.pw$ecut
+  (cd ../src/ && make -j) && \
+  echo "# start calculation $project" && \
+  $exe -test self_consistency \
+        +control.file=control.sh \
+        +basis=pw \
+        +plane_waves.cutoff.energy=$ecut \
+        $1 > $project.out
+  ./spectrum.sh $project.out > $project.spectrum.dat
+done
+

@@ -236,7 +236,7 @@ for spacing in `seq 2 1 2`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 0`; do
+for numax in `seq 4 2 4`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -249,14 +249,14 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 30 2 0`; do
+for ecut in `seq 5 2 5`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test potential_generator \
         +control.file=control.sh \
         +basis=pw \
-        +pw_hamiltonian.cutoff.energy=$ecut \
+        +plane_waves.cutoff.energy=$ecut \
         $1 > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done

@@ -37,8 +37,8 @@ namespace potential_generator {
 
       natoms = 0;
       double cell[3];
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
       int bc[3]; // boundary conditions
+      auto const geo_file = control::get("geometry.file", "atoms.xyz");
       stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
 
       { // scope: determine grid spacings and number of grid points
@@ -120,13 +120,17 @@ namespace potential_generator {
       auto const size = size_t(nz) * size_t(ny) * size_t(nx);
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file
-  
+
+  template <typename real_t>
   inline status_t add_smooth_quantities(
-        double values[] // add to this function on a 3D grid
+        real_t values[] // add to this function on a 3D grid
       , real_space::grid_t const & g // Cartesian real-space grid descriptor
-      , int const na, int32_t const nr2[], float const ar2[] // r2-grid descriptor
-      , view2D<double> const & center // (natoms, 4) center coordinates
-      , int const n_periodic_images, view2D<double> const & periodic_images
+      , int const na // number of atoms (radial grid centers)
+      , int32_t const nr2[] // number of r^2-grid points
+      , float const ar2[] // r2-grid density
+      , view2D<double> const & center // [natoms][4] center coordinates
+      , int const n_periodic_images
+      , view2D<double> const & periodic_images
       , double const *const *const atom_qnt // atom data on r2-grids
       , int const echo=0 // log-level
       , int const echo_q=0 // log-level for the charge
@@ -146,8 +150,8 @@ namespace potential_generator {
           double q_added{0};
           for (int ii = 0; ii < n_periodic_images; ++ii) {
               double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-              double q_added_image = 0;
-              stat += real_space::add_function(values, g, &q_added_image, atom_qnt[ia], nr2[ia], ar2[ia], cnt, factor);
+              double q_added_image{0};
+              stat += real_space::add_function(values, g, atom_qnt[ia], nr2[ia], ar2[ia], &q_added_image, cnt, factor);
               if (echo_q > 11) std::printf("# %g electrons %s of atom #%d added for image #%i\n", q_added_image, quantity, ia, ii);
               q_added += q_added_image;
           } // periodic images

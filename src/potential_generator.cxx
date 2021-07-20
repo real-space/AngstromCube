@@ -592,7 +592,7 @@ namespace potential_generator {
                   if (echo > 1) print_stats(Veff.data(), gc.all(), 0, "\n# Total effective potential  (restricted to coarse grid)   ", eV);
 #ifdef DEVEL
                   if (0) { // scope: interpolate the effective potential to the dense grid again and compare it to the original version Vtot
-                    // in order to test the interpolation routine
+                           //        in order to test the interpolation routine
                       std::vector<double> v_dcd(g.all(), 0.0);
                       multi_grid::interpolate3D(v_dcd.data(), g, Veff.data(), gc, 0); // mute
                       if (echo > 1) print_stats(v_dcd.data(), g.all(), 0, "\n# Total effective potential (interpolated to dense grid)   ", eV);
@@ -927,7 +927,7 @@ namespace potential_generator {
           } // filename not empty
       } // wave functions on Cartesian real-space grid
 
-      
+
 #ifdef DEVEL
       stat += potential_projections(g, cell, Ves.data(), Vxc.data(), Vtot.data(), rho.data(), cmp.data(), na, &center, rcut, echo);
 #endif // DEVEL

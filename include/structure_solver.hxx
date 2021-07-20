@@ -190,8 +190,8 @@ namespace structure_solver {
 
             if (display_spectrum) dense_solver::display_spectrum(energies[ikpoint], nbands, x_axis, eV, _eV);
 
-//          if we used the fermi.level=linearized option, 
-//          we could combine the KS equation solving for a k-point with the evaluation of the density
+//          if we used the fermi.level=linearized option, we could combine the Kohn-Sham
+//          equation solving for a k-point with the evaluation of the density contribution
 
         } // ikpoint
         op.set_kpoint(); // reset to Gamma
@@ -223,10 +223,10 @@ namespace structure_solver {
             stat += density_generator::density(rho_valence_gc[0], atom_rho_new[0].data(), Fermi,
                                       energies[ikpoint], psi(ikpoint,0), atom_coeff.data(),
                                       coeff_starts.data(), na, gc, nbands, kpoint_weight, echo - 4, ikpoint, 
-                                                rho_valence_gc[1], atom_rho_new[1].data(), charges);
+                                               rho_valence_gc[1], atom_rho_new[1].data(), charges);
         } // ikpoint
         op.set_kpoint(); // reset to Gamma
-      
+
         return stat;
     } // solve
     

@@ -96,10 +96,10 @@ namespace real_space {
   status_t add_function(
         real_t values[] // grid values which are modified
       , grid_t const & g // grid descriptor
-      , real_t *added // optional result: how much (e.g. charge) was added
       , double const r2coeff[] // coefficients of the radial function on r^2-grid
       , int const ncoeff // number of coefficients on the r^2-grid
       , float const hcoeff // r^2-grid parameter
+      , double *added=nullptr // optional result: how much (e.g. charge) was added
       , double const center[3]=nullptr // spherical center w.r.t. the position of grid point (0,0,0)
       , double const factor=1 // optional scaling
       , float const r_cut=-1 // radial truncation, -1: use the max radius of the r^2-grid
@@ -122,7 +122,7 @@ namespace real_space {
           nwindow *= std::max(0, imx[d] + 1 - imn[d]);
       } // d
       assert(hcoeff > 0);
-      real_t added_charge{0}; // clear
+      double added_charge{0}; // clear
       size_t modified = 0, out_of_range = 0;
       for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
@@ -150,7 +150,7 @@ namespace real_space {
               } // rcut for (y,z)
           } // iy
       } // iz
-      *added = added_charge * g.dV(); // volume integral
+      if (added) *added = added_charge * g.dV(); // volume integral
 #ifdef DEBUG
       std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values.\n", 
               __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3); // show stats
@@ -233,10 +233,10 @@ namespace real_space {
                             g[1]*.51*g.h[1], 
                             g[2]*.60*g.h[2]}; // center is slightly shifted from exact grid point positions
       int const nr2 = 1 << 11;
-      double r2c[nr2], rad_integral = 0;
       float const rcut = 4;
       float const inv_hr2 = nr2/(rcut*rcut);
       double const hr2 = 1./inv_hr2;
+      double r2c[nr2], rad_integral{0};
       if (echo > 4) std::printf("\n# values on the radial grid\n");
       for (int ir2 = 0; ir2 < nr2; ++ir2) { // sample r^2
           double const r2 = ir2*hr2, r = std::sqrt(r2);
@@ -246,12 +246,12 @@ namespace real_space {
       } // ir2
       rad_integral *= 2*constants::pi/inv_hr2;
       if (echo > 2) std::printf("\n# add_function()\n\n");
-      double added;
+      double added{0};
       auto values = new double[g.all()];
       set(values, g.all(), 0.0);
-      add_function(values, g, &added, r2c, nr2, inv_hr2, cnt);
+      add_function(values, g, r2c, nr2, inv_hr2, &added, cnt);
       if (echo > 6) std::printf("\n# non-zero values on the Cartesian grid (sum = %g)\n", added);
-      double xyz_integral = 0;
+      double xyz_integral{0};
       for (        int iz = 0; iz < g('z'); ++iz) {  double const vz = iz*g.h[2] - cnt[2];
           for (    int iy = 0; iy < g('y'); ++iy) {  double const vy = iy*g.h[1] - cnt[1];
               for (int ix = 0; ix < g('x'); ++ix) {  double const vx = ix*g.h[0] - cnt[0];
@@ -264,9 +264,10 @@ namespace real_space {
               } // ix
           } // iy
       } // iz
+      delete[] values;
       xyz_integral *= g.dV(); // volume element
       auto const diff = xyz_integral - rad_integral;
-      if (echo > 1) std::printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.2f %%)\n", 
+      if (echo > 1) std::printf("# grid integral = %g  radial integral = %g  difference = %.1e (%.3f %%)\n", 
                                   xyz_integral, rad_integral, diff, 100*diff/rad_integral);
       return std::abs(diff/rad_integral) > 4e-4;
   } // test_add_function

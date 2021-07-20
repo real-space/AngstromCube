@@ -175,12 +175,26 @@ namespace self_consistency {
       int na_noconst{0};
       // ToDo: when including potential_generator::init_geometry_and_grid, the code hangs!
       stat += init_geometry_and_grid(g, xyzZ, na_noconst, echo);
-      int const na{na_noconst};
+      int const na{na_noconst}; // total number of atoms
 
       double const cell[3] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
      
       std::vector<float> ionization(na, 0.f);
-      if (0 != ion) error("ionization deactivated, requested ion= %g electrons", ion);
+      if (0 != ion) {
+#ifdef DEVEL
+          if (na > 0) {
+              if (echo > 2) std::printf("# %s distribute ionization of %g electrons between first and last atom\n", __func__, ion);
+              ionization[na - 1] = -ionization[0];
+              ionization[0] = ion; 
+              if (echo > 2) {
+                  std::printf("# %s ionizations:", __func__);
+                  printf_vector(" %g", ionization.data(), na);
+              } // echo
+          } // na
+#else  // DEVEL
+        error("need to activate ionizations with -D DEVEL, requested ion= %g electrons", ion);
+#endif // DEVEL
+      } // ion
 
       float const rcut = 32; // radial grids usually end at 9.45 Bohr
       view2D<double> periodic_images;
