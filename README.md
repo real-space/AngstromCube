@@ -9,7 +9,7 @@
     PAW, in particular revPAW
     (see Paul F. Baumeister, Shigeru Tsukamoto, proceedings of PASC19)
 
-![A4cube logo](https://gitlab.jsc.fz-juelich.de/pbaum/a43/blob/devel/doc/fig/a43_logo_bold.png)
+![A4cube logo](doc/fig/a43_logo_bold.png)
 
 **Name**
 The name refers to a cube with edge length 1 Angstrom
