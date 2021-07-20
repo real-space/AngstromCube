@@ -3,9 +3,10 @@
 #include <cstdio> // std::printf, std::snprintf
 
 #include "status.hxx" // status_t
+#include "control.hxx" // ::get
+
 #include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
-#include "control.hxx" // ::get
 #include "unit_system.hxx" // ::length_unit
 #include "display_units.h" // Ang, _Ang
 #include "geometry_analysis.hxx" // ::read_xyz_file
@@ -22,7 +23,8 @@
 #endif // DEVEL
 
 namespace potential_generator {
-  
+
+#if 0
   inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
   inline int n_grid_points(double const suggest) { return int(even(int(std::ceil(suggest)))); }
 
@@ -107,7 +109,9 @@ namespace potential_generator {
 
       return stat;
   } // init_geometry_and_grid
-  
+#endif // 0
+
+
   template <typename real_t>
   inline status_t write_array_to_file(
         char const *filename // file name to write to

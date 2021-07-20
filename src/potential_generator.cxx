@@ -75,7 +75,7 @@ namespace potential_generator {
   // their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
   
-
+#if 0
   status_t init(
         float const ion=0.f // ionization between first and last atom
       , int const echo=0 // log-level
@@ -936,15 +936,15 @@ namespace potential_generator {
 
       return stat;
   } // init
-
+#endif // 0
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
   status_t test_init(int const echo=3) {
-      float const ion = control::get("potential_generator.test.ion", 0.);
-      return init(ion, echo); // ionization of Al-P dimer by -ion electrons
+//    float const ion = control::get("potential_generator.test.ion", 0.);
+      return STATUS_TEST_NOT_INCLUDED; // init(ion, echo); // ionization of Al-P dimer by -ion electrons
   } // test_init
 
   status_t all_tests(int const echo) {

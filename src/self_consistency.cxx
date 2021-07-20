@@ -32,7 +32,6 @@
 
 #include "structure_solver.hxx" // ::RealSpaceKohnSham
 #include "potential_generator.hxx" // ::add_smooth_quantities
-// #include "potential_generator.hxx" // ::init_geometry_and_grid // FAILS to when included from here, (breaks during compile or runtime?)
 #ifdef DEVEL
   #include "potential_generator.hxx" // ::potential_projections
 #endif // DEVEL
@@ -57,11 +56,9 @@ namespace self_consistency {
   // Their wave functions do not hybridize but they 
   // feel the effect of the density of neighboring atoms
 
-#if 1
   inline int even(int const any) { return align<1>(any); }
   inline int n_grid_points(double const suggest) { return even(int(std::ceil(suggest))); }
 
-  // ToDo: include from potential_generator
   status_t init_geometry_and_grid(
         real_space::grid_t & g // output grid descriptor
       , view2D<double> & xyzZ // output atom coordinates and core charges Z
@@ -142,7 +139,6 @@ namespace self_consistency {
 
       return stat;
   } // init_geometry_and_grid
-#endif
 
 
   status_t init(

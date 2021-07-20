@@ -11,9 +11,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
 # echo "__  0 0 0" >> $geometry_file
 
-project_base=pg.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=pg.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=pg.C-dimer
 # printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
@@ -23,12 +23,12 @@ echo "C  0 0 0" >> $geometry_file
 # echo "C  0 0 -0.525" >> $geometry_file
 # echo "C  0 0  0.775" >> $geometry_file
 
-# project_base=potential_generator.AlP
-# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
+project_base=potential_generator.AlP
+printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
-# echo "Al   0 0 -1.058354498" >> $geometry_file
-# echo "P    0 0  1.058354498" >> $geometry_file
+echo "Al   0 0 -1.058354498" >> $geometry_file
+echo "P    0 0  1.058354498" >> $geometry_file
 
 # project_base=pg.Al-fcc
 # printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
@@ -61,35 +61,6 @@ echo "C  0 0 0" >> $geometry_file
 # project_base=potential_generator.C_chain.sho
 # printf " 1 \n#cell 1.420282 10 10 p p p \n" > $geometry_file
 # echo "C   0 0 0" >> $geometry_file
-
-# configuration of atomic PAW setups
-#element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
-#element_He="1s 2 2p | 1.5 numax 1 sigma .537535"
-#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .7752 V=parabola"
-#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 2 sigma .612475 V=sinc"
-#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-#single_atom.partial.wave.energy=1.1 good for carbon with 2s*
-#element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
-#element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
-#element_C="2s 2 2p 2 3d 4f 5g 6h 7i | 1.2 numax 15 sigma .197208 V=sinc"
-#element_C="2s 2 2p 2 | 1.2 numax 15 sigma .19416 V=parabola"
-#element_C="2s 2 2p 2 0 3d 4f 5g 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
-#element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
-#element_Mg="2s 2 3s* 2 2p 6 3p 2e-99 3d | 1.96 numax 4 sigma .578 V=sinc"
-#element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
-#element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
-
-### Copper: for the occupation setting 4s 1 3d 10, the d-states should be 1.5 eV below the s-state
-### element_Cu="4s 2 4p 2e-99 3d 5 4 | 2.0 sigma .651 V=sinc" (seems to work well with GRID, but
-###                          fails with PW, s-state below d-states, ss-density matrix entry tiny)
-### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
-
-
 
 ### generate a control file
 cat > control.sh << EOF
@@ -138,6 +109,35 @@ electrostatic.solver=fft
 element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
 
 #element___="1s 1e-6 2p 0 | 1.0 numax 1 sigma .5 V=parabola"
+
+
+# configuration of atomic PAW setups
+#element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
+#element_He="1s 2 2p | 1.5 numax 1 sigma .537535"
+#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .7752 V=parabola"
+#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 2 sigma .612475 V=sinc"
+#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
+#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
+#single_atom.partial.wave.energy=1.1 good for carbon with 2s*
+#element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
+#element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
+#element_C="2s 2 2p 2 3d 4f 5g 6h 7i | 1.2 numax 15 sigma .197208 V=sinc"
+#element_C="2s 2 2p 2 | 1.2 numax 15 sigma .19416 V=parabola"
+#element_C="2s 2 2p 2 0 3d 4f 5g 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
+#element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
+#element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
+#element_Mg="2s 2 3s* 2 2p 6 3p 2e-99 3d | 1.96 numax 4 sigma .578 V=sinc"
+element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
+element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
+
+### Copper: for the occupation setting 4s 1 3d 10, the d-states should be 1.5 eV below the s-state
+### element_Cu="4s 2 4p 2e-99 3d 5 4 | 2.0 sigma .651 V=sinc" (seems to work well with GRID, but
+###                          fails with PW, s-state below d-states, ss-density matrix entry tiny)
+### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
+
 
 ## partial wave method {energy_ordering, recreate_second, classical, ...}
 single_atom.partial.wave.method=recreate_second
