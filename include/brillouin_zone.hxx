@@ -16,10 +16,10 @@ namespace brillouin_zone {
   int constexpr WEIGHT = 3; // the weight is stored in the 3rd component
                             // while components 0,1,2 carry the kvector
 
-  template <bool ComplexPhaseFactors=true>
-  int get_kpoint_mesh( // returns the number of k-points
+  inline int get_kpoint_mesh( // returns the number of k-points
         view2D<double> & mesh // on exit shape (nkpoints, 4)
       , unsigned const nv[3] // grid along each dimension
+      , bool const complex_phase_factors=true
       , int const echo=0 // log-level
   ) {
       unsigned n[3];
@@ -27,14 +27,14 @@ namespace brillouin_zone {
       for (int d = 0; d < 3; ++d) {
           n[d] = std::max(1u, nv[d]);
           shift[d] = n[d] - 1.;
-          if (!ComplexPhaseFactors) {
+          if (!complex_phase_factors) {
               n[d] = std::min(n[d], 2u); // only Gamma and X point lead to real phase factors
               shift[d] = 0;
           } // d
       } // phase factors must be real
 
       int constexpr WEIGHT=3, COUNT=0, WRITE=1;
-      
+
       size_t const nfull = n[2]*n[1]*n[0];
       view4D<double> full(n[2], n[1], n[0], 4); // get temporary memory
       double const denom[] = {.5/n[0], .5/n[1], .5/n[2]};
@@ -118,34 +118,38 @@ namespace brillouin_zone {
       return nmesh;
   } // get_kpoint_mesh
 
-  template <bool ComplexPhaseFactors=true>
-  int get_kpoint_mesh(
+
+  inline int get_kpoint_mesh(
         view2D<double> & mesh
-      , unsigned const n
+      , unsigned const n // isotropic
+      , bool const complex_phase_factors=true
       , int const echo=0 // log-level
   ) {
       unsigned const nv[] = {n, n, n};
-      return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, echo);
+      return get_kpoint_mesh(mesh, nv, complex_phase_factors, echo);
   } // get_kpoint_mesh
 
-  template <bool ComplexPhaseFactors=true>
-  int get_kpoint_mesh(
+
+  inline int get_kpoint_mesh(
         view2D<double> & mesh
+      , bool const complex_phase_factors=true
   ) {
-      int const echo = control::get("hamiltonian.kmesh.echo", 0.);
-      int const n    = control::get("hamiltonian.kmesh", 1.); // isotropic default value
       unsigned nv[3];
-      nv[0] = control::get("hamiltonian.kmesh.x", double(n));
-      nv[1] = control::get("hamiltonian.kmesh.y", double(n));
-      nv[2] = control::get("hamiltonian.kmesh.z", double(n));
-      return get_kpoint_mesh<ComplexPhaseFactors>(mesh, nv, echo);
+      auto const iso = control::get("hamiltonian.kmesh", 1.); // isotropic default value
+      nv[0]          = control::get("hamiltonian.kmesh.x", iso);
+      nv[1]          = control::get("hamiltonian.kmesh.y", iso);
+      nv[2]          = control::get("hamiltonian.kmesh.z", iso);
+      int const echo = control::get("hamiltonian.kmesh.echo", 0.);
+      return get_kpoint_mesh(mesh, nv, complex_phase_factors, echo);
   } // get_kpoint_mesh
 
-  inline bool needs_complex(double const kp[3]) {
-      return !(is_integer(2*kp[0]) 
-            && is_integer(2*kp[1])
-            && is_integer(2*kp[2]));
+
+  inline bool needs_complex(double const kvec[3]) {
+      return !(is_integer(2*kvec[0]) 
+            && is_integer(2*kvec[1])
+            && is_integer(2*kvec[2]));
   } // needs_complex
+
 
   inline bool needs_complex(
         view2D<double> const & mesh
@@ -156,6 +160,7 @@ namespace brillouin_zone {
       } // ik
       return false;
   } // needs_complex
+
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

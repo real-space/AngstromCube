@@ -48,7 +48,7 @@
 #include "multi_grid.hxx" // ::restrict3D, ::interpolate3D
 #include "density_generator.hxx" // ::density
 #include "sho_hamiltonian.hxx" // ::solve
-#include "plane_waves.hxx" // ::solve
+#include "plane_wave.hxx" // ::solve
 #include "fermi_distribution.hxx" // ::FermiLevel_t
 
 #include "poisson_solver.hxx" // ::solve, ::solver_method
@@ -177,7 +177,7 @@ namespace potential_generator {
 
       // how to solve the KS-equation
       auto const basis_method = control::get("basis", "grid");
-      bool const plane_waves = ('p' == (*basis_method | 32));
+      bool const plane_wave = ('p' == (*basis_method | 32));
       bool const psi_on_grid = ('g' == (*basis_method | 32));
 
       // ============================================================================================
@@ -312,7 +312,7 @@ namespace potential_generator {
               } // psi_on_grid
 
               view2D<double> kmesh; // kmesh(nkpoints, 4);
-              int const nkpoints = brillouin_zone::get_kpoint_mesh<is_complex<wave_function_t>()>(kmesh);
+              int const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh, is_complex<wave_function_t>());
               if (echo > 0) std::printf("# k-point mesh has %d points\n", nkpoints);
               // ToDo: warn if boundary_condition is isolated but there is more than 1 kpoint
 
@@ -706,12 +706,12 @@ namespace potential_generator {
                   stat += multi_grid::interpolate3D(rho_valence_new[1], g, rho_valence_gc[1], gc);
 
               } else 
-              if (plane_waves) {
+              if (plane_wave) {
                   here;
-                  std::vector<plane_waves::DensityIngredients> export_rho;
+                  std::vector<plane_wave::DensityIngredients> export_rho;
                   here;
 
-                  stat += plane_waves::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+                  stat += plane_wave::solve(na, xyzZ, g, Vtot.data(), sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
 
                   here;
                   

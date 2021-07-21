@@ -8,7 +8,7 @@
 
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "inline_math.hxx" // set, pow2, align<nBits>
-// #include "constants.hxx" // ::sqrtpi, ::pi
+
 #include "solid_harmonics.hxx" // ::Y00
 #include "real_space.hxx" // ::grid_t, ::Bessel_projection
 #include "radial_grid.hxx" // ::radial_grid_t
@@ -244,19 +244,19 @@ namespace poisson_solver {
                             g[0], g[1], g[2], echo, "electrostatic potential");
           }
       } // scope
-#endif // DEVEL
-
-      if (echo > 3) {
-          double const Ees = 0.5*dot_product(g.all(), rho, Ves)*g.dV();
-          std::printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
-      } // echo
-
+      
       if (echo > 0) {
           if (control::get("poisson_solver.direct.projection", 0.) > 0) {
               std::printf("\n## all values of Ves in %s (unordered) as function of the distance to %s\n",
                                             _eV, (Bessel_center) ? "atom #0" : "the cell center");
               print_direct_projection(Ves, g, eV, Bessel_center);
           } // control
+      } // echo
+#endif // DEVEL
+
+      if (echo > 3) {
+          double const Ees = 0.5*dot_product(g.all(), rho, Ves)*g.dV();
+          std::printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
       } // echo
 
       return stat;

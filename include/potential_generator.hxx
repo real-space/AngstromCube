@@ -226,27 +226,23 @@ namespace potential_generator {
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
 
-      auto const verify_Poisson = int(control::get("potential_generator.verify.poisson", 0.));
-      if (verify_Poisson)
-      { // scope: compute the Laplacian using high-order finite-differences
-
-          for (int nfd = 1; nfd < verify_Poisson; ++nfd) {
-              finite_difference::stencil_t<double> const fd(g.h, nfd, -.25/constants::pi);
-              {   SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
-                  stat += finite_difference::apply(Laplace_Ves.data(), Ves, g, fd);
-                  { // scope: Laplace_Ves should match rho
-                      double res_a{0}, res_2{0};
-                      for (size_t i = 0; i < g.all(); ++i) {
-                          res_a += std::abs(Laplace_Ves[i] - rho[i]);
-                          res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
-                      } // i
-                      res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
-                      if (echo > 1) std::printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e (FD-order=%i)\n", res_a, res_2, nfd);
-                  } // scope
-              } // timer
-          } // nfd
-
-      } // scope
+      int const verify_Poisson = control::get("potential_generator.verify.poisson", 0.);
+      for (int nfd = 1; nfd < verify_Poisson; ++nfd) {
+          finite_difference::stencil_t<double> const fd(g.h, nfd, -.25/constants::pi);
+          { // scope: compute the Laplacian using high-order finite-differences
+              SimpleTimer timer(__FILE__, __LINE__, "finite-difference", echo);
+              stat += finite_difference::apply(Laplace_Ves.data(), Ves, g, fd);
+              { // scope: Laplace_Ves should match rho
+                  double res_a{0}, res_2{0};
+                  for (size_t i = 0; i < g.all(); ++i) {
+                      res_a += std::abs(Laplace_Ves[i] - rho[i]);
+                      res_2 +=     pow2(Laplace_Ves[i] - rho[i]);
+                  } // i
+                  res_a *= g.dV(); res_2 = std::sqrt(res_2*g.dV());
+                  if (echo > 1) std::printf("# Laplace*Ves - rho: residuals abs %.2e rms %.2e (FD-order=%i)\n", res_a, res_2, nfd);
+              } // scope
+          } // timer
+      } // nfd
 
       int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.));
       if (use_Bessel_projection) 

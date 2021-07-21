@@ -29,7 +29,7 @@
 #include "brillouin_zone.hxx" // ::get_kpoint_mesh, ::needs_complex
 
 // alternative basis set methods
-#include "plane_waves.hxx" // ::solve
+#include "plane_wave.hxx" // ::solve
 #include "sho_hamiltonian.hxx" // ::solve
 
 #include "print_tools.hxx" // print_stats
@@ -55,7 +55,7 @@ namespace structure_solver {
   class KohnShamStates {
   public:
     using real_wave_function_t = decltype(std::real(wave_function_t(1)));
-    
+
     KohnShamStates() {} // default constructor
     KohnShamStates(   // preferred constructor
           real_space::grid_t const & coarse_grid
@@ -125,7 +125,7 @@ namespace structure_solver {
         } // start wave method
 
     } // constructor
-    
+
     status_t solve(
           view2D<double> & rho_valence_gc
         , data_list<double> atom_rho_new[2]
@@ -148,7 +148,7 @@ namespace structure_solver {
         auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
         if (export_Hamiltonian) {
             op.write_to_file(echo, control::get("export.hamiltonian.format", "xml"));
-            if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian = %g < 0", export_Hamiltonian);
+            if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian= %g < 0", export_Hamiltonian);
         } // export_Hamiltonian
 
         for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
@@ -229,7 +229,7 @@ namespace structure_solver {
 
         return stat;
     } // solve
-    
+
     status_t store(char const *filename, int const echo=0) const {
         return dump_to_file(filename, nbands, psi(0,0), nullptr, psi.stride(), gc.all(), "wave functions", echo);
     } // store
@@ -252,29 +252,29 @@ namespace structure_solver {
 
   }; // class KohnShamStates<>
 
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   class RealSpaceKohnSham {
   public:
-    
+
 //  RealSpaceKohnSham(void) {} // default constructor
     RealSpaceKohnSham(
           real_space::grid_t const & g // dense grid
@@ -291,22 +291,22 @@ namespace structure_solver {
         psi_on_grid = ((*basis_method | 32) == 'g');
 
         // get a default kmesh controlled by +hamiltonian.kmesh or +hamiltonian.kmesh.x, .y, .z
-        nkpoints = brillouin_zone::get_kpoint_mesh<true>(kmesh);
+        nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
         if (echo > 1) std::printf("# k-point mesh has %d points\n", nkpoints);
         // ToDo: warn if boundary_condition is isolated but there is more than 1 kpoint
 
         bool const needs_complex = brillouin_zone::needs_complex(kmesh, nkpoints);
-        if (echo > 3) std::printf("# k-point %s wavefunctions\n", needs_complex?"needs complex":"allows real");
+        if (echo > 2) std::printf("# k-point mesh %s wavefunctions\n", needs_complex?"needs complex":"allows real");
 
         int const force_complex = control::get("structure_solver.complex", 0.);
-        if (echo > 3 && (0 != force_complex)) std::printf("# complex wavefunctions enforced by structure_solver.complex=%d\n", force_complex);
+        if ((echo > 2) && (0 != force_complex)) std::printf("# complex wavefunctions enforced by structure_solver.complex=%d\n", force_complex);
 
         bool const use_complex = needs_complex | (0 != force_complex);
 
         double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
         nbands = int(nbands_per_atom*na);
 
-        
+
         if (psi_on_grid) {
 
             // ============================================================================================
@@ -324,9 +324,8 @@ namespace structure_solver {
             } // echo
 
             auto const loa = grid_operators::list_of_atoms(xyzZinso.data(), na, xyzZinso.stride(), gc, echo);
-            
-            
-            
+
+
             int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
             if (32 == floating_point_bits) {
                 key = use_complex ? 'c' : 's';
@@ -343,7 +342,7 @@ namespace structure_solver {
             
             solver_method = control::get("grid.eigensolver", "cg");
 
-        } else {
+        } else { // psi_on_grid
 
             sigma_a.resize(na);
             numax.resize(na);
@@ -413,9 +412,9 @@ namespace structure_solver {
 
         } else if ('p' == key) { // plane-waves
 
-            std::vector<plane_waves::DensityIngredients> export_rho;
+            std::vector<plane_wave::DensityIngredients> export_rho;
 
-            stat += plane_waves::solve(na, xyzZ, g, Vtot, sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
+            stat += plane_wave::solve(na, xyzZ, g, Vtot, sigma_a.data(), numax.data(), atom_mat.data(), echo, &export_rho);
 
             if ('e' == (occupation_method | 32)) {
                 // determine the Fermi level exactly as a function of all export_rho.energies and .kpoint_weight

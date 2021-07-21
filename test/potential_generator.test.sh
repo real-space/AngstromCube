@@ -256,7 +256,7 @@ for ecut in `seq 5 2 5`; do
   $exe -test potential_generator \
         +control.file=control.sh \
         +basis=pw \
-        +plane_waves.cutoff.energy=$ecut \
+        +plane_wave.cutoff.energy=$ecut \
         $1 > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done

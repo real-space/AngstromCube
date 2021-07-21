@@ -20,7 +20,7 @@
 
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
 #include "simple_timer.hxx" // SimpleTimer
-#include "control.hxx" // ::get
+#include "control.hxx" // ::get, ::set
 
 #include "print_tools.hxx" // print_stats, printf_vector
 #include "debug_tools.hxx" // ::manage_stop_file
@@ -90,17 +90,17 @@ namespace self_consistency {
           auto const keyword_ng = "grid.points";
           auto const keyword_hg = "grid.spacing";
           auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
-          auto const hg_iso = control::get(keyword_hg, default_grid_spacing*lu);
+          auto const hg_iso = std::abs(control::get(keyword_hg, -default_grid_spacing*lu));
 
           int default_grid_spacing_used{0};
           int ng[3] = {0, 0, 0};
           for (int d = 0; d < 3; ++d) { // directions x, y, z
               char keyword[96];
               std::snprintf(keyword, 95, "%s.%c", keyword_ng, 'x'+d);
-              ng[d] = int(control::get(keyword, ng_iso));
+              ng[d] = int(control::get(keyword, ng_iso)); // "grid.points.x", ".y", ".z"
               if (ng[d] < 1) {
                   std::snprintf(keyword, 95, "%s.%c", keyword_hg, 'x'+d);
-                  double const hg_lu = control::get(keyword, hg_iso);
+                  double const hg_lu = control::get(keyword, hg_iso); // "grid.spacing.x", ".y", ".z"
                   bool const is_default_grid_spacing = (hg_lu == hg_iso);
                   double const hg = hg_lu*in_lu;
                   if (echo > 8) std::printf("# grid spacing in %c-direction is %g %s = %g %s%s\n",

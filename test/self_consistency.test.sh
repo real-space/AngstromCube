@@ -208,14 +208,14 @@ start.waves.scale.sigma=6
 store.waves=$project_base.waves.dat
 
 ## configuration for basis=pw
-#pw_hamiltonian.solver {auto, both, direct, iterative}
-pw_hamiltonian.solver=direct
+#plane_wave.solver {auto, both, direct, iterative}
+plane_wave.solver=direct
 
-#pw_hamiltonian.solver=iterative
-#pw_hamiltonian.iterative.solver.ratio=8.0
-#pw_hamiltonian.iterative.solver=cg
+#plane_wave.solver=iterative
+#plane_wave.iterative.solver.ratio=8.0
+#plane_wave.iterative.solver=cg
 #conjugate_gradients.max.iter=2
-#pw_hamiltonian.max.cg.iterations=12
+#plane_wave.max.cg.iterations=12
 #davidson_solver.max.iterations=7
 
 ## also compute the eigenvalues of the overlap matrix?
@@ -227,6 +227,8 @@ export.hamiltonian.format=xml
 
 # Make structure_solver produce the same as potential_generator
 # structure_solver.complex=1
+
+control.show=1
 
 EOF
 
@@ -242,7 +244,7 @@ for spacing in `seq 2 1 2`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 4`; do
+for numax in `seq 4 2 0`; do
   project=$project_base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -255,14 +257,14 @@ for numax in `seq 4 2 4`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 2 5`; do
+for ecut in `seq 5 2 0`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=pw \
-        +plane_waves.cutoff.energy=$ecut \
+        +plane_wave.cutoff.energy=$ecut \
         $1 > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done

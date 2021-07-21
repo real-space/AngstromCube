@@ -737,26 +737,42 @@ Most important variables to control self-consistency iterations in \codename{}.
 \hline
   Variable Name & Default & Meaning, Alternatives \\
 \hline
-  \ttt{geometry.file} & \ttt{atoms.xyz}   & Cell parameters and Atomic coordinates \\
-  \ttt{basis}         & \ttt{grid}        & Basis set, \ttt{planewaves}, \ttt{sho} \\ 
+  \ttt{geometry.file} & \ttt{atoms.xyz}   & Cell parameters and atomic coordinates \\
+  \ttt{basis}         & \ttt{grid}        & Basis set, \ttt{plane\_wave}, \ttt{sho} \\ 
   \ttt{grid.spacing}  & \unit[0.125]{\AA} & Spacing of the coarse real-space grid \\
+  \ttt{grid.eigensolver} & \ttt{CG}       & \ttt{Davidson}, \ttt{explicit}, \ttt{none} \\
+  \ttt{plane\_wave.solver} & \ttt{auto}  & \ttt{direct}, \ttt{iterative}, \ttt{both} \\ 
+  \ttt{plane\_wave.cutoff.energy} & \unit[22]{Ryd} & Plane wave cutoff energy \\
   \ttt{check}         & \ttt{0}           & Dry run, \ttt{1}: preparations only \\
   \ttt{valence.electrons} & \ttt{auto}    & Total number of valence electrons \\
   \ttt{initial.valence.density} & \ttt{atomic} & Start density, \ttt{load}, \ttt{none} \\
-  \ttt{electrostatic.solver} & \ttt{fft}  & Coulomb solver, \ttt{multi-grid}, \ttt{none} \\
-  \ttt{grid.eigensolver} & \ttt{CG}       & \ttt{Davidson}, \ttt{explicit}, \ttt{none} \\
+  \ttt{hamiltonian.kmesh} & \ttt{1}       & Brillouin zone integration points \\
+  \ttt{electrostatic.solver} & \ttt{fft}  & Coulomb solver, \ttt{multi\_grid}, \ttt{none} \\
   \ttt{bands.per.atom} & $10$ 			  & Number of eigenstates per atom \\
   \ttt{electronic.temperature} & \unit[315.8]{K} & Electronic smearing temperature \\
   \ttt{fermi.level}   & \ttt{exact}       & Fermi level method, \ttt{linearized} \\
   \ttt{self\_consistency.mix.density} & $0.25$ & Simple density mixing parameter \\
   \ttt{self\_consistency.max.scf} & $1$   & Max.~number of \ac{SCF} iterations \\
-  \ttt{store.waves}   & -                 & Filename to store wave functions \\
+  \ttt{start.waves}   & -                 & Load wave functions from this file \\
+  \ttt{store.waves}   & -                 & Store wave functions to this file \\
 \hline
 \end{tabular}
 \end{table}
 %
 \todo[inline]{implement \ttt{store.density} and \ttt{load.density} from file}
-      
+ 
+
+\subsection{Brillouin Zone Integration} \label{sec:brillouin-zone}
+%
+A uniform $\vec k$-point mesh is implemented in \codename{}.
+Use \ttt{hamiltonian.kmesh} with values larger than \ttt{1} to
+specify an isotropic integer value or use
+\ttt{hamiltonian.kmesh.x}, -\ttt{.y} and -\ttt{.z} 
+to control each spatial direction separately.
+If any direction is larger than $2$ points,
+wave functions cannot be real-valued due to complex phase factors.
+%
+%
 
 % ==============================================================================
 \bibliographystyle{plain} 

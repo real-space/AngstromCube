@@ -51,7 +51,6 @@
   #include "dense_solver.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
   #include "xml_reading.hxx" // ::all_tests
-  #include "plane_waves.hxx" // ::all_tests
   #include "unit_system.hxx" // ::all_tests
   #include "simple_math.hxx" // ::all_tests
   #include "sho_overlap.hxx" // ::all_tests
@@ -59,6 +58,7 @@
   #include "single_atom.hxx" // ::all_tests
   #include "inline_math.hxx" // ::all_tests
   #include "sho_unitary.hxx" // ::all_tests
+  #include "plane_wave.hxx" // ::all_tests
   #include "atom_image.hxx" // ::all_tests
   #include "real_space.hxx" // ::all_tests
   #include "multi_grid.hxx" // ::all_tests
@@ -192,7 +192,7 @@
 
           if (chapters) std::printf("\n\n\n\n#\n# Hamiltonian modules\n#\n\n\n\n");
           add_module_test(atom_image);
-          add_module_test(plane_waves);
+          add_module_test(plane_wave);
           add_module_test(grid_operators);
           add_module_test(green_function);
           add_module_test(green_kinetic);
@@ -378,13 +378,10 @@
       if (run_tests) stat += run_unit_tests(test_unit, echo);
 
       // finalize
-      { // scope: show all variable names defined in the control environment
-          int const control_show = control::get("control.show", 0.);
-          if (control_show > 0) {
-              if (echo > 0) std::printf("\n# control.show=%d\n", control_show);
-              stat += control::show_variables(echo);
-          } // control_show
-      } // scope
+      if (control::get("control.show", 0.) > 0) {
+          stat += control::show_variables(echo);
+      } // show all variable names defined in the control environment
+
       if (echo > 0) recorded_warnings::show_warnings(3);
       recorded_warnings::clear_warnings(1);
       return int(stat);

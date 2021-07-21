@@ -69,7 +69,7 @@ namespace control {
 
           // show_variables
           if (echo > 0) {
-              std::printf("# control has the following variables defined:\n");
+              std::printf("\n# control has the following variables defined:\n#\n");
               for (auto const & pair : _map) {
                   double const numeric = string2double(pair.second.c_str());
                   char buffer[32]; double2string(buffer, numeric);

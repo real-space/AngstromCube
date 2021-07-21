@@ -8,7 +8,7 @@
 #include "real_space.hxx" // ::grid_t
 #include "inline_math.hxx" // align<n>
 
-namespace plane_waves {
+namespace plane_wave {
 
   class DensityIngredients {
     public:
@@ -71,4 +71,4 @@ namespace plane_waves {
 
   status_t all_tests(int const echo=0); // declaration only
 
-} // namespace plane_waves
+} // namespace plane_wave

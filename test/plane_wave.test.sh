@@ -2,21 +2,21 @@
 
 exe=../src/a43
 
-out=plane_waves.out
+out=plane_wave.out
 rm -f $out; echo -n "# " > $out; date >> $out
 
 for asy in 1; do
 
 (cd ../src/ && make -j) && \
   $exe +verbosity=7 \
-    -test plane_waves \
-    +plane_waves.cutoff.energy=2.5 \
-    +plane_waves.scale.kinetic=1 \
-    +plane_waves.scale.potential=1 \
-    +plane_waves.scale.nonlocal.h=0 \
-    +plane_waves.scale.nonlocal.s=0 \
+    -test plane_wave \
+    +plane_wave.cutoff.energy=2.5 \
+    +plane_wave.scale.kinetic=1 \
+    +plane_wave.scale.potential=1 \
+    +plane_wave.scale.nonlocal.h=0 \
+    +plane_wave.scale.nonlocal.s=0 \
     +dense_solver.test.overlap.eigvals=1 \
-    +plane_waves.test.kpoints=65 \
+    +plane_wave.test.kpoints=65 \
     >> $out
 
 done

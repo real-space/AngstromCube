@@ -31,7 +31,7 @@ OBJ = \
 	sigma_config.o \
 	atom_core.o \
 	single_atom.o \
-	plane_waves.o \
+	plane_wave.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
 	angular_grid.o \
@@ -90,7 +90,7 @@ endif
 
 ## include also code which is not meant for release,
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
-FEAFLAGS += -D DEVEL
+# FEAFLAGS += -D DEVEL
 
 # normal mode
 # OPTFLAGS = -Ofast 

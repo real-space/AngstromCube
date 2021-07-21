@@ -56,7 +56,6 @@ for module in \
   dense_solver \
   json_reading \
   xml_reading \
-  plane_waves \
   unit_system \
   simple_math \
   sho_overlap \
@@ -64,6 +63,7 @@ for module in \
   single_atom \
   inline_math \
   sho_unitary \
+  plane_wave \
   atom_image \
   real_space \
   multi_grid \

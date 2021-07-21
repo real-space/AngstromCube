@@ -7,7 +7,7 @@
 #include <set> // std::set<key>
 #include <numeric> // std::iota
 
-#include "plane_waves.hxx" // DensityIngredients
+#include "plane_wave.hxx" // DensityIngredients
 
 #include "sho_potential.hxx" // ::load_local_potential
 #include "geometry_analysis.hxx" // ::read_xyz_file, ::fold_back
@@ -40,7 +40,7 @@
     #include "print_tools.hxx" // printf_vector(fmt, vec, n [, final, scale, add])
 #endif // DEVEL
 
-namespace plane_waves {
+namespace plane_wave {
   // computes Hamiltonian matrix elements for plane waves
   // including a PAW non-local contribution
   
@@ -182,13 +182,13 @@ namespace plane_waves {
       // construct a dense-matrix operator op
       dense_operator::dense_operator_t<complex_t> const op(nPW, nPWa, HSm(H,0), HSm(S,0));
 
-      char const method = *control::get("plane_waves.iterative.solver", "Davidson") | 32;
+      char const method = *control::get("plane_wave.iterative.solver", "Davidson") | 32;
 
       // solve using the Davidson eigensolver
       std::vector<double> eigvals(nbands);
       status_t stat_slv(0);
       if ('c' == method) {
-          int const nit = control::get("plane_waves.max.cg.iterations", 3.);
+          int const nit = control::get("plane_wave.max.cg.iterations", 3.);
           if (echo > 6) { std::printf("# %s envoke CG solver with max. %d iterations\n", __func__, nit); std::fflush(stdout); }
           for (int it = 0; it < nit && (0 == stat_slv); ++it) {
               if (echo > 6) { std::printf("# %s envoke CG solver, outer iteration #%i\n", __func__, it); std::fflush(stdout); }
@@ -465,8 +465,8 @@ namespace plane_waves {
           } // jB
       } // iB
 
-      int  const nB_auto = control::get("plane_waves.dense.solver.below", 999.);
-      char const solver = *control::get("plane_waves.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
+      int  const nB_auto = control::get("plane_wave.dense.solver.below", 999.);
+      char const solver = *control::get("plane_wave.solver", "auto") | 32; // expect one of {auto, both, direct, iterative}
       bool const run_solver[2] = {('i' == solver) || ('b' == solver) || (('a' == solver) && (nB >  nB_auto)),
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
@@ -567,9 +567,9 @@ namespace plane_waves {
       if (echo > 1) std::printf("# normalization factor for plane waves is %g a.u.\n", svol);
 
       char const *_ecut_u{nullptr};
-      auto const ecut_u = unit_system::energy_unit(control::get("plane_waves.cutoff.energy.unit", "Ha"), &_ecut_u);
-      auto const ecut = control::get("plane_waves.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
-      if (echo > 1) std::printf("# plane_waves.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
+      auto const ecut_u = unit_system::energy_unit(control::get("plane_wave.cutoff.energy.unit", "Ha"), &_ecut_u);
+      auto const ecut = control::get("plane_wave.cutoff.energy", 11.)/ecut_u; // 11 Ha =~= 300 eV cutoff energy
+      if (echo > 1) std::printf("# plane_wave.cutoff.energy=%.3f %s corresponds to %.3f^2 Ry or %.2f %s\n", 
                               ecut*ecut_u, _ecut_u, std::sqrt(2*ecut), ecut*eV,_eV);
 
       int const nG[3] = {g[0], g[1], g[2]}; // same as the numbers of real-space grid points
@@ -630,13 +630,8 @@ namespace plane_waves {
       int const nbands = int(nbands_per_atom*natoms_PAW);
 
       int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
-      float const iterative_direct_ratio = control::get("plane_waves.iterative.solver.ratio", 2.);
+      float const iterative_direct_ratio = control::get("plane_wave.iterative.solver.ratio", 2.);
 
-//       unsigned kmesh_sizes[3] = {1, 1, 1};
-//       auto const kmesh_size = int(control::get("hamiltonian.test.kmesh", 1.)); // isotropic
-//       kmesh_sizes[0] = int(control::get("hamiltonian.test.kmesh.x", double(kmesh_size)));
-//       kmesh_sizes[1] = int(control::get("hamiltonian.test.kmesh.y", double(kmesh_size)));
-//       kmesh_sizes[2] = int(control::get("hamiltonian.test.kmesh.z", double(kmesh_size)));
       view2D<double> kmesh;
       auto const nkpoints = brillouin_zone::get_kpoint_mesh(kmesh);
       if (echo > 3) std::printf("# k-point mesh has %d points\n", nkpoints);
@@ -772,4 +767,4 @@ namespace plane_waves {
 
 #endif // NO_UNIT_TESTS  
 
-} // namespace plane_waves
+} // namespace plane_wave
