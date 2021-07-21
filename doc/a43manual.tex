@@ -29,6 +29,7 @@
 \acrodef{HPC}[HPC]{high performance computing}
 \acrodef{OMP}[OpenMP]{OpenMP}
 \acrodef{MPI}[MPI]{message passing interface}
+\acrodef{SCF}[SCF]{self-consistent field}
 
 
 \setlength{\tabcolsep}{6pt}
@@ -84,9 +85,13 @@ makes use of will need be covered in order to explain the handling.
 \section{Introduction} \label{sec:intro}
 % ==============================================================================
 %
+\codename{} is an implementation for performing calculations 
+in the framework of \ac{DFT}.
+Readers familiar with the theory may jump to the description of 
+features of \codename{} in Section \ref{sec:features}.
+
 \subsection{Density Functional Theory} \label{sec:short-theory}
 %
-\codename{} is an implementation for performing calculations in the framework of \ac{DFT}.
 A fair number of books and a vast number of articles in the scientific 
 literature is on \ac{DFT}, therefore, we will only give a brief recap 
 of the very basics needed to understand what kind of physics can be
@@ -142,7 +147,7 @@ Exchange and correlation effects together are modelled in the contribution $V\um
 to the total effective potential and a corresponding energy density $\epsilon\um{xc}$ for the evaluation of a total energy.
 
 Different parametrizations of the \ac{XC} functional are available.
-\codename{} focusses onto the three classes of (semi-)local , non-orbital dependent functionals: 
+\codename{} focusses onto the three classes of (semi-)local, non-orbital dependent functionals: 
 \begin{itemize}
 	\item Local (Spin) Density Approximation, LDA/LSDA, 
 	\item Generalized Gradient Approximation, GGA
@@ -167,14 +172,25 @@ Perdew-Wang'91 \ttt{PW91}-LDA is implemented
 but it is planned to interface \ttt{libxc} with access to most existing functionals.
 \todo[inline]{Implement LIBXC, reference for LIBXC}
 
+\subsection{Code Features} \label{sec:features}
+%
+\codename{} is an all-electron \ac{DFT} application 
+based on the \ac{PAW} method \cite{PhysRevB.50.17953} % Bloechl 1994
+with the extension of analytical projectors \cite{BaumeisterTsukamoto2019}
+where the projectors are eigenfunctions of a \ac{SHO}.
+\ttt{C++} has been chosen for its expressivity
+when it comes to mult-precision algorithms 
+and its good interoperability with common \ac{GPU} programming models.
 
+\noindent
+For an up-to-date list of the code features, please see the \ttt{README.md} file.
 
 \section{How to get started} \label{sec:how-to-get-started}
 %
 \subsection{Getting the Code} \label{sec:getting-the-code}
 \codename{} will be public domain software under the MIT license
 and will be available to clone, fork or download at \ttt{github.com/real-space/A43}. 
-\todo[inline]{get GitHub account}
+\todo[inline]{move to GitHub}
 
 \subsection{Building the Application} \label{sec:compiling}
 %
@@ -182,7 +198,7 @@ A \ttt{Makefile} is contained in the program package that works with current com
 \todo[inline]{get CMake to work}
 %% and \ttt{nvcc from CUDA 10}
 
-The application \codename{}, while being written in C++, relies strongly on plane-old-data types,
+The application \codename{}, while being written in C++, strongly relies on plane-old-data types,
 i.e.~classes without constructors or destructors as known from C-structs.
 Furthermore, it makes use of generic programming in the form of templates
 mainly used to maintain a single function supporting different precision (\ttt{float} or \ttt{double}), 
@@ -203,7 +219,7 @@ Usage ./a43 [OPTION]
    +<name>=<value>      	Modify variable environment
 \end{verbatim}
 
-An important functionality after building the application (see section \ref{sec:compiling}) 
+An important functionality after building the application (see Section \ref{sec:compiling})
 is to run the unit tests of the available modules.
 In order to get a list of available modules, use 
 \begin{verbatim}
@@ -217,16 +233,16 @@ Pass the name of one of the listed modules to run a module unit test like this:
 We can also run the unit test of all modules, however, for this we might want to reduce
 the amount of output to \ttt{stdout}.
 We may use the variable environment 
-(mind: this \codename{} internal variable environment is not linked to that of the shell) 
+\footnote{The internal variable environment of this \codename{} is not linked to that of the shell.}
 which couples to the command line interface with a leading \ttt{+}. For example use
 \begin{verbatim}
 ./a43 +verbosity=1 -t
 \end{verbatim}
-to change the \ttt{verbosity} to minimal when running all unit tests.
+to change the \ttt{verbosity} to minimal when running all unit tests. Table \ref{tab:verbosity-level-meaning} shows \ttt{verbosity} ranges in detail.
 
 \todo[inline]{Ensure that all modules have some meaningful unit tests or at least say it that they don't}
 
-The default \ttt{verbosity}-level is $3$ and levels are adjusted occsionally during development.
+The default \ttt{verbosity}-level is $3$ and levels are adjusted occasionally during development.
 However, the ground rule says that higher \ttt{verbosity} means more output
 and \ttt{verbosity=0} suppresses all output except for fatal errors.
 We can also use the options \ttt{--verbose} to set \ttt{verbosity=6} (high)
@@ -298,23 +314,27 @@ with atomic coordinates given in \AA{} and run
 ./a43 -t geometry_analysis
 \end{verbatim}
 in order to check if your geometry looks ok.
+More details on what the geometry analysis output tells you can be found in Section \ref{sec:geometry-analysis}.
 You can search the log file for warnings using \ttt{grep} but
 there will also be a summary of all warnings launched during execution at the end of the log file.
 For a detailed description of the usage of \ttt{geometry\_analysis} see Section \ref{sec:geometry-analysis}.
+%
+\noindent
 Once free of warnings, continue with the next step:
 Let's say we want aluminum in our system, then run:
 \begin{verbatim}
 ./a43 -t single_atom +single_atom.test.Z=13
 \end{verbatim}
+See Section \ref{sec:single-atom} for more details on \ttt{single\_atom}.
 \todo[inline]{Currently, aluminum produces a critical charge deficit operator eigenvalues}
-
-
+%
 \codename{} will then try to access a database of initial atomic potentials
 (full spherically, spin-degenerate) which are stored in \ttt{./pot/Zeff.}$Z$
 where $Z$ is a 3-digit integer atomic number.
 \todo[inline]{make the path to pot/ configurable}
 You can even add \ttt{+single\_atom.init.scf.maxit=33} to let the atomic density relax if e.g.~the \ac{XC} functional differs from the one that was used to generate the \ttt{Zeff.}-file.
 If the loading fails because of a missing file, you can bootstrap it:
+\todo[inline]{check again, there should be automatic bootstrapping}
 \begin{verbatim}
 ./a43 -t atom_core +atom_core.test.Z=13
 \end{verbatim}
@@ -324,28 +344,21 @@ or if the entire database was lost,
         +atom_core.test.Z=1 +atom_core.test.Z.end=86
 \end{verbatim}
 This may take some minutes. To track the progress, \ttt{+verbosity=5} is recommended.
+More details on \ttt{atom\_core} can be found in Section \ref{sec:atom-core}.
 \todo[inline]{OpenMP would be good here}
 %
 \noindent
-Now, run the \ttt{single\_atom} test for each of the elements in the system to see if there are warnings before you continue like this
+Now, run the \ttt{single\_atom} test for each of the elements in the system 
+to see if there are warnings before you continue with the main calculation
 \begin{verbatim}
-./a43 -t potential_generator \
+./a43 -t self_consistency \
         +geometry.file=molecule.xyz
 \end{verbatim}
 \todo[inline]{we have not yet defined a functionality of main! only tests so far}
 %
-\noindent
-For the advanced user we recommend to inspect the logarithmic derivatives by
-\begin{verbatim}
-./a43 -t single_atom +single_atom.test.Z=13 \
-        +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
-\end{verbatim}
-The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
-For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
-\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of $e$Volt.
 
 %
-\subsection{Writing an input file} \label{sec:input-file}
+\subsection{Writing an input file} \label{sec:control-file}
 %
 At some point the command line becomes full.
 We can pass more environment variables to \codename{} using a \ttt{control.file}, e.g.:
@@ -358,8 +371,7 @@ enables useful syntax highlighting in common text editors.
 %
 %
 
-
-\subsubsection{Control File Rules}
+\subsubsection{Control File Rules} \label{sec:control-file-rules}
 %
 Lines in a control file are either 
 \begin{itemize}
@@ -397,6 +409,7 @@ and the \ttt{CUDA} programming model for acceleration by a \ac{GPU}.
 \todo[inline]{Import CUDA sho-transform from ReSpawN}
 \todo[inline]{Import CUDA tfqmr from tfQMRgpu}
 
+\noindent
 Please consult with your \ac{HPC} system administrator for support
 about how to control the different levels of parallelism.
 
@@ -509,8 +522,7 @@ and the atomic coordinates in \AA{} as
     Al   0 0 -1.05835
     P    0 0  1.05835
 \end{verbatim}
-It can be viewed by \ttt{jmol}-viewer.
-\todo[inline]{reference to JMOL}
+It can be viewed by \ttt{Jmol}-viewer \cite{jmol-software}.
 %
 \noindent
 To check if your coordinate file is parsed correctly run
@@ -637,10 +649,118 @@ The interatomic distances are chosen such that most coordination numbers
 are $2$ and all bond angles are 180\degree{}.
 %
 
+\section{Advanced Controls} \label{sec:advanced-controls}
 
+%\subsection{Fermi level} \label{sec:fermi-level}
+%During an \ac{SCF} calculation, 
+%the Fermi energy can be determined in two different ways:
+%\begin{itemize}
+%	\item \ttt{exact}
+%	\item \ttt{linearized} and
+%	\item external
+%\end{itemize}
+
+\subsection{Atomic Core} \label{sec:atom-core}
+%
+The \ttt{atom\_core} module determines a self-consistent solution
+of a spherically symmetric, isolated atom with $Z$ protons in the core.
+The resulting potential $V(r)$ is stored in \ttt{pot/Zeff.00}$Z$
+in the form $-rV(r) = Z\um{eff}(r)$.
+$Z\um{eff}(r)$ approaches $Z$ at the origin and goes to zero for large $r$.
+To start an atomic calculation, run
+\begin{verbatim}
+./a43 -t atom_core
+\end{verbatim}
+The atomic number $Z$ can be controlled by \ttt{atom\_core.test.Z}.
+If more than one element should be generated
+the user can specify \ttt{atom\_core.test.Z.end} 
+and a step size \ttt{atom\_core.test.Z.inc} which defaults to \ttt{1}, however,
+non-integral values are permitted in all three parameters.
+%
+\noindent
+For the atomic \ac{SCF} calculation, occupation numbers of the atomic orbitals are fixed
+to predefined values. \ttt{atom\_core.occupations} can be chosen \ttt{auto}
+or \ttt{custom} where they are taken from the element configuration, see Section \ref{sec:sigma-config}.
+
+
+\subsection{Element Configuration} \label{sec:sigma-config}
+%
+A list of $120$ default element configuration is contained in the application.
+For example the default configuration for aluminum can be displayed by
+\begin{verbatim}
+./a43 -t sigma_config +sigma_config.show.Z=13
+\end{verbatim}
+The user can modify the configuration string using the chemical symbol
+\begin{verbatim}
+./a43 -t sigma_config +element_Al="3s 2 3p 1 | 2.05 sigma .5" \
+ 		+sigma_config.show.Z=13
+\end{verbatim}
+where the high quotes are necessary only in the command line interface
+and can be omitted in the control file, see Section \ref{sec:control-file-rules}.
+%
+\noindent
+An element configuration string consists of
+\begin{itemize}
+	\item occupation numbers used for the isolated atom calculation
+	\item a \ac{PAW} cutoff radius specified in Bohr after the \ttt{|} and
+	\item a \ttt{sigma} parameter for the spread of \ac{SHO} projectors.
+\end{itemize}
+
+\subsection{PAW Potential} \label{sec:single-atom}
+%
+For the advanced user we recommend to inspect the logarithmic derivatives by
+\begin{verbatim}
+./a43 -t single_atom +single_atom.test.Z=13 \
+        +logder.start=-4 +logder.step=1e-4 +logder.stop=1.0
+\end{verbatim}
+The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
+%
+\noindent
+For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
+\ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of $e$Volt.
+
+\todo[inline]{Simplify single\_atom by removing the auto config and then continue the description here}
+
+\subsection{Self Consistency Iterations} \label{sec:self-consistency}
+%
+\begin{verbatim}
+./a43 -t self_consistency
+\end{verbatim}
+takes several control variables, the most important ones are listed in Table \ref{tab:main-scf-variables}.
+%
+\begin{table}[h]
+\caption[Main Variables]{
+Most important variables to control self-consistency iterations in \codename{}.
+} \label{tab:main-scf-variables}
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+  Variable Name & Default & Meaning, Alternatives \\
+\hline
+  \ttt{geometry.file} & \ttt{atoms.xyz}   & Cell parameters and Atomic coordinates \\
+  \ttt{basis}         & \ttt{grid}        & Basis set, \ttt{planewaves}, \ttt{sho} \\ 
+  \ttt{grid.spacing}  & \unit[0.125]{\AA} & Spacing of the coarse real-space grid \\
+  \ttt{check}         & \ttt{0}           & Dry run, \ttt{1}: preparations only \\
+  \ttt{valence.electrons} & \ttt{auto}    & Total number of valence electrons \\
+  \ttt{initial.valence.density} & \ttt{atomic} & Start density, \ttt{load}, \ttt{none} \\
+  \ttt{electrostatic.solver} & \ttt{fft}  & Coulomb solver, \ttt{multi-grid}, \ttt{none} \\
+  \ttt{grid.eigensolver} & \ttt{CG}       & \ttt{Davidson}, \ttt{explicit}, \ttt{none} \\
+  \ttt{bands.per.atom} & $10$ 			  & Number of eigenstates per atom \\
+  \ttt{electronic.temperature} & \unit[315.8]{K} & Electronic smearing temperature \\
+  \ttt{fermi.level}   & \ttt{exact}       & Fermi level method, \ttt{linearized} \\
+  \ttt{self\_consistency.mix.density} & $0.25$ & Simple density mixing parameter \\
+  \ttt{self\_consistency.max.scf} & $1$   & Max.~number of \ac{SCF} iterations \\
+  \ttt{store.waves}   & -                 & Filename to store wave functions \\
+\hline
+\end{tabular}
+\end{table}
+%
+\todo[inline]{implement \ttt{store.density} and \ttt{load.density} from file}
+      
 
 % ==============================================================================
-\bibliographystyle{splncs03} \bibliography{literature}
+\bibliographystyle{plain} 
+\bibliography{literature}
 % ==============================================================================
 
 \end{document}

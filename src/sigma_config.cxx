@@ -564,19 +564,19 @@ namespace sigma_config {
           if (echo > 0) std::printf("\n# running with +sigma_config.show.Z=%i\n", iZ_show);
           char Sy[4];
           auto const iZ = chemical_symbol::get(Sy, iZ_show);
-          // show the current/default configuration for this elements
-          if (echo > 0) std::printf("\n+element_%s=\"%s\"\n\n", Sy, default_config(iZ));
-          // parse the current configuration string and watch for warnings
-          auto const e = get(iZ, echo);
+          char const *actual_config{nullptr};
+          auto const e = get(iZ, echo, &actual_config);
+//        if (echo > 0) std::printf("\n+element_%s=\"%s\"\n\n", Sy, default_config(iZ));
+          if (echo > 0) std::printf("\n+element_%s=\"%s\"\n\n", Sy, actual_config);
           if (echo > 0) std::printf("# found Z= %g\n", e.Z);
 
       } else { // iZ_show >= 0
 
 #ifdef EXPERIMENTAL
-          if (echo > 0) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
+          if (echo > 8) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
 
           int const Z_max = -iZ_show;
-          if (echo > 2) std::printf("\n\n# EXPERIMENTAL elements 58--70, 87--%d\n\n", Z_max);
+          if (echo > 2) std::printf("\n\n# parse EXPERIMENTAL elements 58--70, 87--%d\n\n", Z_max);
           for (int iZ = 58; iZ <= Z_max; ++iZ) {
               if (std::abs(iZ - 64) < 7 || iZ > 86) {
                   if (echo > 4) std::printf("\n");

@@ -1,11 +1,12 @@
 #include <cstdio> // std::printf, std::snprintf
 #include <vector> // std::vector<T>
 
-#include "structure_solver.hxx" // RealSpaceKohnSham
+#include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
+// #include "structure_solver.hxx" // RealSpaceKohnSham, status_t
 
-#include "real_space.hxx" // ::grid_t
-#include "fermi_distribution.hxx" // ::FermiLevel_t, ::Fermi_level
-#include "data_list.hxx" // data_list<T>
+// #include "real_space.hxx" // ::grid_t
+// #include "fermi_distribution.hxx" // ::FermiLevel_t, ::Fermi_level
+// #include "data_list.hxx" // data_list<T>
 
 namespace structure_solver {
 

@@ -471,19 +471,20 @@ namespace atom_core {
 
   status_t solve(
         double const Z
-      , int const echo
-      , char const config
-      , radial_grid_t* rg
+      , int const echo // =0
+      , char const config // ='a'
+      , radial_grid_t const *rg // =nullptr
   ) {
       bool const my_radial_grid = (nullptr == rg);
-      if (my_radial_grid) rg = radial_grid::create_default_radial_grid(Z);
+      radial_grid_t       *const m = my_radial_grid ? radial_grid::create_default_radial_grid(Z) : nullptr;
+      radial_grid_t const *const g = my_radial_grid ? m : rg;
       if ('a' == config) { // "auto"
-          return scf_atom(*rg, Z, echo);
+          return scf_atom(*g, Z, echo);
       } else {
           auto const element = sigma_config::get(Z, echo);
-          return scf_atom(*rg, Z, echo, element.occ);
+          return scf_atom(*g, Z, echo, element.occ);
       }
-      if (my_radial_grid) radial_grid::destroy_radial_grid(rg);
+      if (my_radial_grid) radial_grid::destroy_radial_grid(m);
   } // solve
 
 #ifdef  NO_UNIT_TESTS

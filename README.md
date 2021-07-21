@@ -18,12 +18,12 @@ This is because always 4x4x4 real-space grid points are grouped
 for performance which corresponds to roughly one \AA^3
 
 **Principles**
-The idea is to have a code that is 
-- highly parallel
+The idea is to have a code that 
+- is highly parallel
 - can make use of GPUs
 - does not require more input than the atomic coordinates
 - can scale linearly
-  
+
 **Current Status**
 - These features are planned but have so far not been addressed:
     - different versions of LDA, GGA, meta-GGA (currently only LDA implemented)

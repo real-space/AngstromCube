@@ -16,7 +16,7 @@ namespace atom_core {
         double const Z
       , int const echo=0
       , char const config='a' // a:auto or custom
-      , radial_grid_t* rg=nullptr
+      , radial_grid_t const *rg=nullptr
   ); // declaration only
   
   status_t scf_atom(

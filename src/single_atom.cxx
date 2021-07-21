@@ -417,10 +417,10 @@ namespace single_atom {
     // constructor method:
     LiveAtom(
           double const Z_protons // number of protons in the nucleus
-        , ell_QN_t const nu_max=3 // SHO basis size (if auto-configured)
+        , ell_QN_t const nu_max_auto=3 // SHO basis size (if auto-configured)
         , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
         , double const ionization=0 // charged valence configurations
-        , int32_t const global_atom_id=-1 // global indentifyer
+        , int32_t const global_atom_id=-1 // global atom identifyer
         , int const echo=0 // logg level for this constructor method only
     )
         : // initializations
@@ -446,6 +446,7 @@ namespace single_atom {
         std::vector<double> occ_custom(32, 0.0); // customized occupation numbers for the radial states
         set(nn, 1 + ELLMAX, uint8_t(0)); // clear
         bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
+        // ToDo: check how much simpler the code will be if we fix single_atom.config=custom
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
 
         
@@ -488,7 +489,7 @@ namespace single_atom {
             sigma = control::get(Sy_config, 0.5); // in Bohr, spread for projectors (Cu)
             
             std::snprintf(Sy_config, 31, "%s_numax", chem_symbol);
-            numax = int(control::get(Sy_config, double(nu_max)));
+            numax = int(control::get(Sy_config, double(nu_max_auto)));
 
             // get nn[] from numax
             for (int ell = 0; ell <= ELLMAX; ++ell) {
@@ -555,7 +556,7 @@ namespace single_atom {
                 if (0 != load_stat) {
                     if ('g' == start_potentials) {
                         if (echo > 0) std::printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
-                        auto const gen_stat = atom_core::solve(Z_core, echo/2, custom_config?'c':'a');
+                        auto const gen_stat = atom_core::solve(Z_core, echo/2, custom_config?'c':'a', &rg[TRU]);
                         if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
                         start_potentials = 'f'; // should be able to read from file now
                     } else {
@@ -3816,7 +3817,7 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test_LiveAtom(int const echo=9) {
-      int  const numax   = control::get("single_atom.test.numax", 3.); // default 3: ssppdf
+      int  const numax   = control::get("single_atom.test.numax", 3.); // default 3: ssppdf (for auto config only)
       bool const avd     = control::get("single_atom.test.atomic.valence.density", 1.) > 0; // atomic valence density
       auto const ion     = control::get("single_atom.test.ion", 0.); // default neutral
 
