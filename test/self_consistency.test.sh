@@ -139,8 +139,6 @@ element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 ###                          fails with PW, s-state below d-states, ss-density matrix entry tiny)
 ### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
 
-
-
 ## partial wave method {energy_ordering, recreate_second, classical, ...}
 single_atom.partial.wave.method=recreate_second
 
@@ -148,7 +146,7 @@ single_atom.partial.wave.method=recreate_second
 single_atom.relax.partial.waves=0
 
 ## special verbosity for PAW setup
-single_atom.init.echo=0
+single_atom.init.echo=5
 
 ## special verbosity for PAW update
 single_atom.echo=3
@@ -164,7 +162,7 @@ single_atom.optimize.sigma=1
 
 ## debug options
 #single_atom.synthetic.density.matrix=1
-single_atom.init.scf.maxit=0
+single_atom.init.max.scf=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
 single_atom.export.xml=0
@@ -186,9 +184,9 @@ logder.step=1e-2
 bands.per.atom=10
 
 ## sampling of the Brillouin zone
-hamiltonian.kmesh.echo=9
+#hamiltonian.kmesh.echo=9
 #hamiltonian.kmesh.x=3
-hamiltonian.kmesh=0
+#hamiltonian.kmesh=0
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
@@ -240,7 +238,7 @@ for spacing in `seq 2 1 2`; do
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=grid \
-        $1 > $project.out
+        "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
@@ -253,7 +251,7 @@ for numax in `seq 4 2 0`; do
         +basis=sho \
         +sho_hamiltonian.test.numax=$numax \
         +sho_hamiltonian.test.sigma=.5 \
-        $1 > $project.out
+        "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
@@ -265,7 +263,7 @@ for ecut in `seq 5 2 0`; do
         +control.file=control.sh \
         +basis=pw \
         +plane_wave.cutoff.energy=$ecut \
-        $1 > $project.out
+        "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 

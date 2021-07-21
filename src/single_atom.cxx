@@ -550,21 +550,19 @@ namespace single_atom {
         } // true and smooth
 
         { // scope to load potential[TRU]
-            char start_potentials = *control::get("single_atom.start.potentials", "gen") | 32; // 'f':from_file, 'g':generate_if_missing
-            for (int i01 = 0; i01 < 2; ++i01) {
-                auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
-                if (0 != load_stat) {
-                    if ('g' == start_potentials) {
-                        if (echo > 0) std::printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
-                        auto const gen_stat = atom_core::solve(Z_core, echo/2, custom_config?'c':'a', &rg[TRU]);
-                        if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
-                        start_potentials = 'f'; // should be able to read from file now
-                    } else {
-                        error("loading of potential file failed for Z= %g\n"
-                              "#   use -t atom_core +atom_core.test.Z=%g", Z_core, Z_core);
-                    } // start.potentials=generate
-                } // load_stat
-            } // twice
+            auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
+            if (0 != load_stat) {
+                if ('g' == (*control::get("single_atom.start.potentials", "generate") | 32)) {
+                    if (echo > 0) std::printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
+                    auto const gen_stat = atom_core::solve(Z_core, echo/2, custom_config?'c':'a', &rg[TRU]);
+                    if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
+                    // should be able to read from file now
+                    auto const s = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
+                    if (0 != s) error("loading of potential file failed for Z= %g failed although generated", Z_core);
+                } else { // generate
+                    error("loading of potential file failed for Z= %g\n#   run -t atom_core +atom_core.test.Z=%g", Z_core, Z_core);
+                } // start.potentials=generate
+            } // load_stat
         } // scope
 
 #ifdef DEVEL
@@ -586,11 +584,11 @@ namespace single_atom {
 
         set(csv_charge, 3, 0.0); // clear numbers of electrons for {core, semicore, valence}
 
-        double const core_valence_separation  = control::get("single_atom.core.valence.separation", -2.0); // in Hartree always
-        double       core_semicore_separation = control::get("single_atom.core.semicore.separation",    core_valence_separation);
-        double const semi_valence_separation  = control::get("single_atom.semicore.valence.separation", core_valence_separation);
+        double const core_valence_separation  = control::get("single_atom.separate.core.valence", -2.0); // in Hartree always
+        double       core_semicore_separation = control::get("single_atom.separate.core.semicore",    core_valence_separation);
+        double const semi_valence_separation  = control::get("single_atom.separate.semicore.valence", core_valence_separation);
         if (core_semicore_separation > semi_valence_separation) {
-            warn("%s core.semicore.separation=%g may not be higher than semicore.valence.separation=%g %s, correct for it", 
+            warn("%s single_atom.separate.core.semicore=%g may not be higher than ~.semicore.valence=%g %s, correct for it", 
                  label, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
             core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
         } // warning
@@ -953,8 +951,8 @@ namespace single_atom {
         } // scope
 
         { // scope: pseudize the local potential
-            int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
-                       int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
+            int const method = ('p' == (*local_potential_method | 32)) ? 0 : //  0: parabola fit
+                   int(control::get("single_atom.lagrange.derivative", 7.)); // >0: sinc fit
             pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
         } // scope
 
@@ -968,8 +966,8 @@ namespace single_atom {
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
 
-        auto const export_xml = int(control::get("single_atom.export.xml", 0.));
-        auto const maxit_scf = std::max(int(control::get("single_atom.init.scf.maxit", 0.)), std::abs(export_xml));
+        int const export_xml = control::get("single_atom.export.xml", 0.);
+        auto const maxit_scf = std::max(int(control::get("single_atom.init.max.scf", 0.)), std::abs(export_xml));
         float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
         // ... that is taken to relax the spherical potential from which spherical states and true partial wave are computed
         float const density_mixing[3] = {.25, .25, .25}; // [csv]

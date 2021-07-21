@@ -10,7 +10,7 @@
 namespace unit_system {
 
   char constexpr _Rydberg[] = "Ry"; // Rydberg atomic energy unit
-  
+
   inline double energy_unit(char const *which, char const **const symbol) {
       char const w = which[0] | 32; // take first char and ignore case
       if ('e' == w) {
@@ -40,7 +40,7 @@ namespace unit_system {
       } // w
   } // length_unit
 
-  inline status_t set_output_units(char const *energy, char const *length, int const echo) {
+  inline status_t set_output_units(char const *energy, char const *length, int const echo=0) {
       if (echo > 5) std::printf("# Set output units to {%s, %s}\n", energy, length);
 #ifdef _Output_Units_Fixed
       if ('H' != *energy || 'B' != *length) {

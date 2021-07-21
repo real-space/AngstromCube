@@ -162,7 +162,7 @@ single_atom.optimize.sigma=1
 
 ## debug options
 #single_atom.synthetic.density.matrix=1
-single_atom.init.scf.maxit=0
+single_atom.init.max.scf=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
 single_atom.export.xml=0

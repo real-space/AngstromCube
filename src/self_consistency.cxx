@@ -141,6 +141,16 @@ namespace self_consistency {
   } // init_geometry_and_grid
 
 
+  inline double get_temperature(int const echo, double const def=1e-3) {
+      auto const unit = control::get("electronic.temperature.unit", "Ha");
+      char const *_eu;
+      auto const eu = unit_system::energy_unit(unit, &_eu);
+      auto const temp = control::get("electronic.temperature", def*eu)/eu;
+      if (echo > 0) std::printf("# electronic.temperature= %g %s == %g %s\n", temp*eu, _eu, temp*eV, _eV);
+      return temp;
+  } // get_temperature
+
+
   status_t init(
         float const ion=0.f // ionization between first and last atom
       , int const echo=0 // log-level
@@ -305,8 +315,7 @@ namespace self_consistency {
       char const occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
 
       // create a FermiLevel object
-      fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2,
-              control::get("electronic.temperature", 1e-3), echo);
+      fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);
 
       double density_mixing{1};
       double const density_mixing_fixed = control::get("self_consistency.mix.density", 0.25);

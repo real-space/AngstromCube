@@ -9,12 +9,13 @@ Z=18
 echo -n "# " ## comment out "make: Nothing to be done for `all'."
 (cd ../src/ && make -j) && \
   $exe +verbosity=7  \
-  -test single_atom. \
+  -test single_atom \
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \
        +single_atom.nn.limit=2 \
-       +single_atom.init.scf.maxit=1 \
+       +single_atom.init.max.scf=1 \
        +single_atom.optimize.sigma=-1 \
+       +single_atom.local.potential.method=sinc \
        +element_H="1s* 1 0 2p 2e-99 | 0.9 sigma .623" \
        +element_He="1s* 2 2p | 1.5 sigma .75" \
        +element_B="2s* 2 2p* 1 0 3d | 1.2 sigma .7" \
@@ -37,8 +38,6 @@ echo -n "# " ## comment out "make: Nothing to be done for `all'."
        +element_Rb="4s 2 5s 1 0 4p* 6 4d | 2.3 sigma 1." \
        +element_u0="7s 2 8s 2 7p 6 8p 2e-99 6d 10 6f 2e-99 | 3. sigma .9" \
        +logder.start=-66 +logder.stop=33 +logder.step=.1 +logder.unit=eV \
-       +single_atom.local.potential.method=sinc \
-       +single_atom.init.scf.maxit=1 \
    > single_atom.out
 cp   single_atom.out single_atom.$Z.sinc
 

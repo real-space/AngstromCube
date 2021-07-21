@@ -88,7 +88,7 @@ for Z in {1..47}; do
        +single_atom.test.atomic.valence.density=1 \
        +single_atom.nn.limit=2 \
        +logder.start=2.5 +logder.step=.001 +logder.stop=1 \
-       +single_atom.init.scf.maxit=1 \
+       +single_atom.init.max.scf=1 \
        +single_atom.optimize.sigma=-1 \
        +element_H="1s* 1 0 2p 2e-99 | 0.9 sigma .623" \
        +element_He="1s* 2 2p | 1.5 sigma .75" \
