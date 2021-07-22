@@ -254,7 +254,7 @@ namespace single_atom {
           std::printf(" q_out=%.3g e\n", charge_outside);
       } // echo
 
-      return charge_outside; // percentage of charge outside the augmentation radius
+      return charge_outside; // fraction of charge outside the augmentation radius
   } // show_state_analysis
     
    
@@ -522,6 +522,12 @@ namespace single_atom {
           auto const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
           if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                   Sy, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
+          
+          if ((e.inl_core_hole >= 0) && (std::abs(core_hole_charge_used - core_hole_charge) > 5e-16)) {
+              warn("%s core.hole.charge=%g requested in core.hole.index=%i but used %g electrons (diff %.1e)",
+                    Sy, core_hole_charge, e.inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
+          } // warning when deviates
+          
       } // scope
       set(e.ncmx, 4, enn_core_ell.data());
 
@@ -530,7 +536,7 @@ namespace single_atom {
 #endif  // HAS_AUTO_CONF
 
 
-    
+
   class LiveAtom {
   public:
       // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t (or some better name)
@@ -633,7 +639,8 @@ namespace single_atom {
     {
         // constructor routine
 
-        char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
+        char chem_symbol[4];
+        chemical_symbol::get(chem_symbol, Z_core);
         if (atom_id >= 0) {
             std::snprintf(label, 15, "%s#%i", chem_symbol, atom_id); 
         } else {
@@ -694,8 +701,6 @@ namespace single_atom {
         set(nn, 1 + ELLMAX, uint8_t(0)); // clear
 
         double const core_state_localization = control::get("single_atom.core.state.localization", -1.); // in units of electrons, -1:inactive
-        int inl_core_hole{-1};
-        double core_hole_charge{0}, core_hole_charge_used{0};
         char const *custom_configuration{"auto"};
 
         { // scope:
@@ -844,7 +849,7 @@ namespace single_atom {
 
                         cs.csv = csv_cust;
 
-                        if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states, found inl=%i", inl_core_hole);
+//                         if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states, found inl=%i", inl_core_hole);
 
                         if (valence == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
@@ -877,7 +882,7 @@ namespace single_atom {
                             // can we move this to the core state routine?
                             double const has_norm = dot_product(rg[TRU].n, r2rho.data(), rg[TRU].dr);
                             if (has_norm > 0) {
-// #define CORE_UPDATE
+#define CORE_UPDATE
 #ifndef CORE_UPDATE
                                 double const norm = occ/has_norm;
                                 add_product(spherical_density[TRU][cs.csv], rg[TRU].n, r2rho.data(), norm);
@@ -922,11 +927,6 @@ namespace single_atom {
         if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
-        if ((inl_core_hole >= 0) && (std::abs(core_hole_charge_used - core_hole_charge) > 5e-16)) {
-            warn("%s core.hole.charge=%g requested in core.hole.index=%i but used %g electrons (diff %.1e)",
-                  label, core_hole_charge, inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
-        } // warning when deviates
-
 
 #ifndef CORE_UPDATE
         for (int csv = 0; csv < 3; ++csv) {
@@ -939,7 +939,7 @@ namespace single_atom {
         // could we call the core-state update here and eliminate some redundant code parts?
         {
             float const mixing[3] = {1, 1, 1}; // take 100% of the new density (old densities are zero)
-            update_spherical_states(mixing, 0*echo);
+            update_spherical_states(mixing, echo, true, core_state_localization);
         }
 #endif // CORE_UPDATE
 
@@ -1252,13 +1252,18 @@ namespace single_atom {
 
     
     
-    void update_spherical_states(float const mixing[3], int const echo=0) {
+    void update_spherical_states(
+          float const mixing[3]
+        , int const echo=0
+        , bool const norm_warning=false
+        , double const core_state_localization=-1
+    ) {
         if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
-        int const nr = rg[TRU].n;
-        std::vector<double> r2rho(nr);
+        auto const & g = rg[TRU]; // the radial grid for true quantities
+        std::vector<double> r2rho(g.n);
         double const *const rV_tru = potential[TRU].data();
-        view2D<double> new_r2density(3, align<2>(nr), 0.0); // new TRU densities for {core, semicore, valence}
+        view2D<double> new_r2density(3, align<2>(g.n), 0.0); // new TRU densities for {core, semicore, valence}
         double nelectrons[3] = {0, 0, 0}; // core, semicore, valence
         double band_energy[3] = {0, 0, 0}; // core, semicore, valence
         double kinetic_energy[3] = {0, 0, 0}; // core, semicore, valence
@@ -1267,44 +1272,53 @@ namespace single_atom {
         if (echo > 7) {
             std::printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
             std::printf("\n## %s %s: r, -Zeff(r)\n", label, __func__);
-            print_compressed(rg[TRU].r, rV_tru, rg[TRU].n);
+            print_compressed(g.r, rV_tru, g.n);
         } // echo
 #endif // DEVEL
         for (int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate "core state"
             double const occ = std::abs(cs.occupation);
-            radial_eigensolver::shooting_method(SRA, rg[TRU], rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
-            auto const norm = dot_product(nr, r2rho.data(), rg[TRU].dr);
+            radial_eigensolver::shooting_method(SRA, g, rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
+            auto const norm = dot_product(g.n, r2rho.data(), g.dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
+            if (norm_warning && norm <= 0) warn("%s spherical %s-state cannot be normalized, Z= %g", cs.tag, label, Z_core);
             // warn if occupied and not normalizable
             auto const scal = pow2(norm_factor)*occ; // scaling factor for the density contribution of this state
             // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
             // and normalize the core level wave function to one
-            scale(cs.wave[TRU], nr, rg[TRU].rinv, norm_factor);
+            scale(cs.wave[TRU], g.n, g.rinv, norm_factor);
             // create wKin for the computation of the kinetic energy density
-            product(cs.wKin[TRU], nr, rV_tru, cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
-            add_product(cs.wKin[TRU], nr, rg[TRU].r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
-            cs.kinetic_energy = dot_product(nr, cs.wKin[TRU], cs.wave[TRU], rg[TRU].rdr);
+            product(cs.wKin[TRU], g.n, rV_tru, cs.wave[TRU], -1.); // start as wKin = -r*V(r)*wave(r)
+            add_product(cs.wKin[TRU], g.n, g.r, cs.wave[TRU], cs.energy); // now wKin = r*(E - V(r))*wave
+            cs.kinetic_energy = dot_product(g.n, cs.wKin[TRU], cs.wave[TRU], g.rdr);
             // for more precision, we could eval
-            //    auto const E_pot = dot_product(nr, rho, rV_tru, rg[TRU].rdr);
+            //    auto const E_pot = dot_product(g.n, rho, rV_tru, g.rdr);
             //    cs.kinetic_energy = cs.energy - Epot;
             // with rho=pow2(norm_factor)*r2rho/r^2
 
             if (scal > 0) {
                 int const csv = cs.csv; assert(0 <= csv && csv <= 2); // {core, semicore, valence}
-                add_product(new_r2density[csv], nr, r2rho.data(), scal);
+                add_product(new_r2density[csv], g.n, r2rho.data(), scal);
                 nelectrons[csv] += occ;
                 band_energy[csv] += occ*cs.energy;
                 kinetic_energy[csv] += occ*cs.kinetic_energy;
             } // scal > 0
-            show_state_analysis(echo - 5, label, rg[TRU], cs.wave[TRU], cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
+            auto const charge_outside = show_state_analysis(echo - 5, label, g, cs.wave[TRU],
+                                   cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
+            if (core_state_localization > 0) {
+                auto const csv_auto = (charge_outside > core_state_localization) ? valence : core;
+                if (csv_auto != cs.csv) warn("%s the spherical %s state is %s, but has %g %% of its charge outside",
+                                              label, cs.tag, csv_name[cs.csv], charge_outside*100);
+                if (echo > 11) std::printf("# %s the spherical %s %s state has %g %% charge outside the sphere, suggest %s\n",
+                                              label, cs.tag, csv_name[cs.csv], charge_outside*100, csv_name[csv_auto]);
+            } // check core state criterion
         } // ics
 
         
         // report integrals
-        for (int csv = 0; csv < 3; ++csv) { // core, semicore, valence
-            double const old_charge = dot_product(nr, rg[TRU].r2dr, spherical_density[TRU][csv]);
-            double const new_charge = dot_product(nr, rg[TRU].dr, new_r2density[csv]);
+        for (int csv = 0; csv < 3; ++csv) { // {core, semicore, valence}
+            double const old_charge = dot_product(g.n, g.r2dr, spherical_density[TRU][csv]);
+            double const new_charge = dot_product(g.n, g.dr, new_r2density[csv]);
 
             double mix_new = mixing[csv], mix_old = 1.0 - mix_new;
             // rescale the mixing coefficients such that the desired number of electrons comes out
@@ -1315,34 +1329,40 @@ namespace single_atom {
                 mix_new *= rescale;
             } // rescale
 
-            double density_change{0}, Coulomb_change{0}; // some stats
-            for (int ir = 0; ir < nr; ++ir) {
-                double const r2inv = pow2(rg[TRU].rinv[ir]);
+            // generate a mixed density
+            double density_change{0}, Coulomb_change{0}, check_charge{0}; // some stats
+            for (int ir = 0; ir < g.n; ++ir) {
+                double const r2inv = pow2(g.rinv[ir]);
                 auto const new_rho = new_r2density(csv,ir)*r2inv; // *r^{-2}
                 auto const old_rho = spherical_density[TRU](csv,ir);
-                density_change  += std::abs(new_rho - old_rho)*rg[TRU].r2dr[ir];
-                Coulomb_change  +=         (new_rho - old_rho)*rg[TRU].rdr[ir]; // Coulomb integral change
-                Coulomb_energy[csv] +=      new_rho           *rg[TRU].rdr[ir]; // Coulomb integral
-                spherical_density[TRU](csv,ir) = mix_new*new_rho + mix_old*old_rho;
+                density_change  += std::abs(new_rho - old_rho)*g.r2dr[ir];
+                Coulomb_change  +=         (new_rho - old_rho)*g.rdr[ir]; // Coulomb integral change
+                Coulomb_energy[csv] +=      new_rho           *g.rdr[ir]; // Coulomb integral
+                double const mixed_rho = mix_new*new_rho + mix_old*old_rho;
+                spherical_density[TRU](csv,ir) = mixed_rho;
+                check_charge    += mixed_rho*g.r2dr[ir];
             } // ir
             Coulomb_energy[csv] *= -Z_core;
             Coulomb_change      *= -Z_core; // to get an energy estimate
 
-            if ((old_charge > 0) || (new_charge > 0)) {
-                if (echo > 2) std::printf("# %s previous %s density has %g electrons, expected %g\n"
-                                    "# %s new %s density has %g electrons\n",
-                                    label, csv_name[csv], old_charge, nelectrons[csv], 
-                                    label, csv_name[csv], new_charge);
+            if (nelectrons[csv] > 0) {
 #ifdef DEVEL
-                if (true) { // check again
-                    auto const new_q = dot_product(nr, rg[TRU].r2dr, spherical_density[TRU][csv]);
-                    if (echo > 4) std::printf("# %s new spherical %s density has %g electrons\n", label, csv_name[csv], new_q);
-                } // debug
+                if (echo > 7) std::printf("# %s previous %s density has %g electrons, expected %g\n"
+                                          "# %s new %s density has %g electrons\n",
+                                          label, csv_name[csv], old_charge, nelectrons[csv], 
+                                          label, csv_name[csv], new_charge);
+
+                auto const dev = check_charge - nelectrons[csv];
+                if (std::abs(dev) > 1e-14) {
+                    warn("# %s new spherical %s density has %g electrons, expected %g, diff %g\n",
+                                        label, csv_name[csv], check_charge, nelectrons[csv], dev);
+                } // deviates
 #endif // DEVEL
-                if (echo > 3) std::printf("# %s %-8s density change %g e Coulomb energy change %g %s\n", 
-                    label, csv_name[csv], density_change, Coulomb_change*eV,_eV);
+
+                if (echo > 3) std::printf("# %s %-8s density change %g e, Coulomb energy change %g %s\n", 
+                    label, csv_name[csv], density_change, Coulomb_change*eV, _eV);
                 if (echo > 5) std::printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
-                    label, csv_name[csv], Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV,_eV);
+                    label, csv_name[csv], Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV, _eV);
             } // output only for contributing densities
 
             energy_kin_csvn[csv][SMT] = 0;
