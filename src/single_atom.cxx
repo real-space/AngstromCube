@@ -788,13 +788,7 @@ namespace single_atom {
                 spherical_state[ics].csv = csv_undefined;
             } // ics
 
-            double max_energy[4], min_energy[4];
-            set(max_energy, 4, -9e9);
-            set(min_energy, 4,  9e9);
-
             int highest_occupied_core_state_index{-1};
-            double E_hfos{-9e9}, E_hpos{-9e9}; // energy of the highest fully/partially occupied state
-            int  ics_hfos{-1}, ics_hpos{-1}; // indices  
 
             int ics{0}; // init counter of spherical states
 #define new_LOOP_structure
@@ -805,14 +799,14 @@ namespace single_atom {
                     if (echo > 15) std::printf("# %s inl= %d, ics= %d\n", label, inl, ics);
                     assert(inl < 36);
                     if (0 != occ_custom[inl]) {
-                        auto const max_occ = 2.*ell + 1;
+//                      auto const max_occ = 2.*ell + 1;
 #else  // new_LOOP_structure
             for (int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number, allows Z up to 120
                 enn_QN_t enn = (nq_aux + 1)/2; // init principal quantum number n
                 for (int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character l
                     ++enn; // update principal quantum number
                     for (int jj = 2*ell; jj >= 2*ell; jj -= 2) { // total angular momentum j
-                        auto const max_occ = 2.*(jj + 1);
+//                      auto const max_occ = 2.*(jj + 1);
                         int const inl = atom_core::nl_index(enn, ell);
 #endif // new_LOOP_structure
                         auto & cs = spherical_state[ics]; // abbreviate (former "core" state)
@@ -828,8 +822,8 @@ namespace single_atom {
 
 
                         int const csv_cust = (occ_custom[inl] < 0) ? core : valence; // occupation numbers <0: core, >0: valence
+#if 0
                         int csv_auto{csv_cust}; // init as no warning
-#if 1
                         if (core_state_localization > 0) {
                             double const charge_outside = show_state_analysis(0, label, rg[TRU], rwave.data(), cs.tag, 0.0, E, "?", ir_cut[TRU]);
                             // criterion based on the charge precentage outside the sphere
@@ -857,17 +851,7 @@ namespace single_atom {
                         cs.occupation = occ;
                         if (occ > 0) {
 
-                            if (csv_cust != csv_auto) {
-                                if (echo > 4) std::printf("# %s auto suggests that %d%c is a %s-state but custom configuration says %s, use %s\n",
-                                    label, enn, ellchar[ell], csv_name[csv_auto], csv_name[csv_cust], csv_name[cs.csv]);
-                            } // custom and auto do not agree
-                            
-                            if (std::abs(occ - max_occ) < 1e-15) { // spherical state is fully occupied
-                                if (E > E_hfos) { E_hfos = E; ics_hfos = ics; }
-                            } else if (occ > 1e-15) { // this state is partically occupied (considerably)
-                                if (E > E_hpos) { E_hpos = E; ics_hpos = ics; }
-                            }
-
+ 
                             highest_occupied_core_state_index = ics; // store the index of the highest occupied core state
                             if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
                                                     label, csv_name[cs.csv], enn, ellchar[ell], occ, cs.energy*eV,_eV);
@@ -875,22 +859,25 @@ namespace single_atom {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
                             csv_charge[cs.csv] += occ;
-
-                            min_energy[cs.csv] = std::min(min_energy[cs.csv], E);
-                            max_energy[cs.csv] = std::max(max_energy[cs.csv], E);
-
-                            // can we move this to the core state routine?
-                            double const has_norm = dot_product(rg[TRU].n, r2rho.data(), rg[TRU].dr);
-                            if (has_norm > 0) {
-#define CORE_UPDATE
-#ifndef CORE_UPDATE
-                                double const norm = occ/has_norm;
-                                add_product(spherical_density[TRU][cs.csv], rg[TRU].n, r2rho.data(), norm);
-#endif // CORE_UPDATE
-                            } else {
-                                warn("%s %i%c-state cannot be normalized! integral=%g", label, enn, ellchar[ell], has_norm);
-                            } // can be normalized
-
+                            
+                            // moved to the core state routine
+//                             if (csv_cust != csv_auto) {
+//                                 if (echo > 4) std::printf("# %s auto suggests that %d%c is a %s-state but custom configuration says %s, use %s\n",
+//                                     label, enn, ellchar[ell], csv_name[csv_auto], csv_name[csv_cust], csv_name[cs.csv]);
+//                             } // custom and auto do not agree
+//                             
+//                             if (std::abs(occ - max_occ) < 1e-15) { // spherical state is fully occupied
+//                                 if (E > E_hfos) { E_hfos = E; ics_hfos = ics; }
+//                             } else if (occ > 1e-15) { // this state is partically occupied (considerably)
+//                                 if (E > E_hpos) { E_hpos = E; ics_hpos = ics; }
+//                             }
+// 
+//                             min_energy[cs.csv] = std::min(min_energy[cs.csv], E);
+//                             max_energy[cs.csv] = std::max(max_energy[cs.csv], E);
+// 
+//                             double const has_norm = dot_product(rg[TRU].n, r2rho.data(), rg[TRU].dr);
+//                             if (has_norm <= 0) warn("%s %s-state cannot be normalized! integral=%g",
+//                                                     label, cs.tag, has_norm);
                         } // occupied
 
                         ++ics;
@@ -908,18 +895,18 @@ namespace single_atom {
                 cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
             } // ics
 
-            if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
-                warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
-                    spherical_state[ics_hpos].tag, E_hpos*eV, E_hfos*eV, _eV, spherical_state[ics_hfos].tag);
-            } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
-
-            for (int csl = core; csl <= semicore; ++csl) {
-                for (int svh = csl + 1; svh <= valence; ++svh) {
-                    if (max_energy[csl] > min_energy[svh]) {
-                        warn("%s some %s states are higher than %s states", label, csv_name[csl], csv_name[svh]);
-                    } // band overlap
-                } // svh
-            } // csl
+//             if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
+//                 warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
+//                     spherical_state[ics_hpos].tag, E_hpos*eV, E_hfos*eV, _eV, spherical_state[ics_hfos].tag);
+//             } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
+// 
+//             for (int csl = core; csl <= semicore; ++csl) {
+//                 for (int svh = csl + 1; svh <= valence; ++svh) {
+//                     if (max_energy[csl] > min_energy[svh]) {
+//                         warn("%s some %s states are higher than %s states", label, csv_name[csl], csv_name[svh]);
+//                     } // band overlap
+//                 } // svh
+//             } // csl
 
         } // scope
 
@@ -928,20 +915,12 @@ namespace single_atom {
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
 
-#ifndef CORE_UPDATE
-        for (int csv = 0; csv < 3; ++csv) {
-            scale(spherical_density[TRU][csv], rg[TRU].n, rg[TRU].rinv); // initial_density produces r^2*rho -. reduce to r*rho
-            scale(spherical_density[TRU][csv], rg[TRU].n, rg[TRU].rinv); // initial_density produces   r*rho -. reduce to   rho
-            if (echo > 2) std::printf("# %s initial %s density has %g electrons\n", 
-                label, csv_name[csv], dot_product(rg[TRU].n, spherical_density[TRU][csv], rg[TRU].r2dr));
-        } // csv
-#else // CORE_UPDATE
         // could we call the core-state update here and eliminate some redundant code parts?
         {
             float const mixing[3] = {1, 1, 1}; // take 100% of the new density (old densities are zero)
             update_spherical_states(mixing, echo, true, core_state_localization);
+            
         }
-#endif // CORE_UPDATE
 
         
         if (echo > 5) std::printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
@@ -1123,15 +1102,6 @@ namespace single_atom {
             pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
         } // scope
 
-#ifndef CORE_UPDATE
-        // construct an initial smooth density
-        for (int csv = 0; csv < 3; ++csv) {
-            spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
-                spherical_density[SMT][csv],
-                spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
-        } // csv
-#endif // CORE_UPDATE
-
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
 
@@ -1275,10 +1245,12 @@ namespace single_atom {
             print_compressed(g.r, rV_tru, g.n);
         } // echo
 #endif // DEVEL
+
         for (int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate "core state"
             double const occ = std::abs(cs.occupation);
             radial_eigensolver::shooting_method(SRA, g, rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
+            int const csv = cs.csv; assert(core <= csv && csv <= valence); // {core, semicore, valence}
             auto const norm = dot_product(g.n, r2rho.data(), g.dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
             if (norm_warning && norm <= 0) warn("%s spherical %s-state cannot be normalized, Z= %g", cs.tag, label, Z_core);
@@ -1297,24 +1269,61 @@ namespace single_atom {
             // with rho=pow2(norm_factor)*r2rho/r^2
 
             if (scal > 0) {
-                int const csv = cs.csv; assert(0 <= csv && csv <= 2); // {core, semicore, valence}
                 add_product(new_r2density[csv], g.n, r2rho.data(), scal);
                 nelectrons[csv] += occ;
                 band_energy[csv] += occ*cs.energy;
                 kinetic_energy[csv] += occ*cs.kinetic_energy;
             } // scal > 0
-            auto const charge_outside = show_state_analysis(echo - 5, label, g, cs.wave[TRU],
-                                   cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
-            if (core_state_localization > 0) {
-                auto const csv_auto = (charge_outside > core_state_localization) ? valence : core;
-                if (csv_auto != cs.csv) warn("%s the spherical %s state is %s, but has %g %% of its charge outside",
-                                              label, cs.tag, csv_name[cs.csv], charge_outside*100);
-                if (echo > 11) std::printf("# %s the spherical %s %s state has %g %% charge outside the sphere, suggest %s\n",
-                                              label, cs.tag, csv_name[cs.csv], charge_outside*100, csv_name[csv_auto]);
-            } // check core state criterion
         } // ics
 
-        
+        if (true) { // scope: warnings
+
+            double constexpr x = 9e9; // extreme value
+            double max_energy[] = {-x, -x, -x}, min_energy[] = {x, x, x};
+            double E_hfos{-9e9}, E_hpos{-9e9}; // energy of the highest fully/partially occupied state
+            int  ics_hfos{-1}, ics_hpos{-1}; // indices
+
+            for (int ics = 0; ics < ncorestates; ++ics) { // serial loop
+                auto const & cs = spherical_state[ics]; // abbreviate "core state"
+                int const csv = cs.csv;
+                double const E = cs.energy;
+                double const occ = std::abs(cs.occupation);
+                double const max_occ = 2.*cs.ell + 1;
+                if (std::abs(occ - max_occ) < 1e-15) { // spherical state is fully occupied
+                    if (E > E_hfos) { E_hfos = E; ics_hfos = ics; }
+                } else if (occ > 1e-15) { // this state is partically occupied (considerably)
+                    if (E > E_hpos) { E_hpos = E; ics_hpos = ics; }
+                }
+                min_energy[csv] = std::min(min_energy[csv], E);
+                max_energy[csv] = std::max(max_energy[csv], E);
+
+                auto const charge_outside = show_state_analysis(echo - 5, label, g, cs.wave[TRU],
+                                    cs.tag, cs.occupation, cs.energy, csv_name[csv], ir_cut[TRU]);
+                if (core_state_localization > 0) {
+                    auto const csv_auto = (charge_outside > core_state_localization) ? valence : core;
+                    if (csv_auto !=    csv) warn("%s the spherical %s state is %s, but has %g %% of its charge outside",
+                                                  label, cs.tag, csv_name[csv], charge_outside*100);
+                    if (echo > 11) std::printf("# %s the spherical %s %s state has %g %% charge outside the sphere, suggest %s\n",
+                                                  label, cs.tag, csv_name[csv], charge_outside*100, csv_name[csv_auto]);
+                } // check core state criterion
+
+            } // ics
+
+            if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
+                warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
+                    spherical_state[ics_hpos].tag, E_hpos*eV, E_hfos*eV, _eV, spherical_state[ics_hfos].tag);
+            } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
+
+            for (int csl = core; csl <= semicore; ++csl) {
+                for (int svh = csl + 1; svh <= valence; ++svh) {
+                    if (max_energy[csl] > min_energy[svh]) {
+                        warn("%s some %s states are higher than %s states", label, csv_name[csl], csv_name[svh]);
+                    } // band overlap
+                } // svh
+            } // csl
+
+        } // scope: warnings
+
         // report integrals
         for (int csv = 0; csv < 3; ++csv) { // {core, semicore, valence}
             double const old_charge = dot_product(g.n, g.r2dr, spherical_density[TRU][csv]);
