@@ -341,7 +341,6 @@ namespace single_atom {
       , double const rV[]   // TRU radial potential r*V(r)
       , char const *const Sy="X"
       , double const core_state_localization=-1
-      , int const nn_limiter=2
       , int const echo=3 // log-level
       , int const numax_default=3 // default
       , int const SRA=1 // 1: Scalar Relativistic Approximation
@@ -363,8 +362,7 @@ namespace single_atom {
       e.numax = int(control::get(Sy_config, double(numax_default)));
 
       for (int ell = 0; ell < 8; ++ell) {
-          int const nn_suggested = std::max(0, sho_tools::nn_max(e.numax, ell)); // suggest
-          e.nn[ell] = std::min(nn_suggested, nn_limiter); // take a smaller number of partial waves
+          e.nn[ell] = std::max(0, sho_tools::nn_max(e.numax, ell));
       } // ell
 
       std::snprintf(Sy_config, 31, "element_%s.core.hole.index", Sy);
@@ -466,7 +464,7 @@ namespace single_atom {
 
                       if ((e.inl_core_hole == inl) && (csv == valence)) error("core holes only allowed in core states, found inl=%i", e.inl_core_hole);
 
-                      if (2 == csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
+                      if (valence == csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
                       if (occ > 0) {
 
@@ -662,7 +660,7 @@ namespace single_atom {
         // allocate spherically symmetric quantities:
         for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
             spherical_density[ts] = view2D<double>(3, nr[ts], 0.0); // get memory for core, semicore, valence
-            potential[ts]         = std::vector<double>(nr[ts], 0.0); // get memory
+            potential[ts]       = std::vector<double>(nr[ts], 0.0); // get memory
         } // true and smooth
 
         { // scope to load potential[TRU]
@@ -701,13 +699,12 @@ namespace single_atom {
         char const *custom_configuration{"auto"};
 
         { // scope:
-            int const nn_limiter = control::get("single_atom.nn.limit", 2);
             if (echo > 8) std::printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
-            auto const ec = 
+            auto const ec =
 #ifdef  HAS_AUTO_CONF
                             ('a' == (*control::get("single_atom.config", "custom") | 32)) ? // c:custom, a:automatic
                             auto_configure_element(Z_core, ionization, rg[TRU], potential[TRU].data(), 
-                                  chem_symbol, core_state_localization, nn_limiter, echo) :
+                                              chem_symbol, core_state_localization, echo) :
 #endif  // HAS_AUTO_CONF
                             sigma_config::get(Z_core, echo - 4, &custom_configuration);
             if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
@@ -718,6 +715,7 @@ namespace single_atom {
             r_cut = std::abs(ec.rcut);
             // get numax from nn[]
             int nu_max{ec.numax}; // -1: choose the minimum automatically
+            int const nn_limiter = control::get("single_atom.nn.limit", 2);
             for (int ell = 0; ell < 8; ++ell) {
                 if (ec.nn[ell] > 0) {
                     nn[ell] = std::min(int(ec.nn[ell]), nn_limiter); // take a smaller number of partial waves
@@ -757,11 +755,9 @@ namespace single_atom {
 
         // allocate quantities with lm-resolution:
         for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-            int const mr = align<2>(nr[ts]);
-            full_density[ts]      = view2D<double>(pow2(1 + ellmax_rho), mr, 0.0); // get memory
-            full_potential[ts]    = view2D<double>(pow2(1 + ellmax_pot), mr, 0.0); // get memory
+            full_potential[ts] = view2D<double>(pow2(1 + ellmax_pot), nr[ts], 0.0); // get memory
+            full_density[ts]   = view2D<double>(pow2(1 + ellmax_rho), nr[ts], 0.0); // get memory
         } // true and smooth
-
 
 
         std::vector<int8_t> as_valence(40, -1);
@@ -780,7 +776,7 @@ namespace single_atom {
         assert(rg[SMT].r[ir_cut[SMT]] == rg[TRU].r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
 
         
-        { // scope: initialize the spherical states
+        { // scope: initialize the spherical states and true spherical densities
             ncorestates = 20; // maximum number
             spherical_state = std::vector<spherical_orbital_t>(ncorestates);
             for (int ics = 0; ics < ncorestates; ++ics) {
@@ -801,7 +797,8 @@ namespace single_atom {
             for (enn_QN_t enn = 1; enn < 9; ++enn) { // principal quantum number n
                 for (ell_QN_t ell = 0; ell < enn; ++ell) { // angular momentum character l
                     int const inl = atom_core::nl_index(enn, ell);
-                    if (echo > 5) std::printf("# %s inl= %d, ics= %d\n", label, inl, ics);
+                    if (echo > 15) std::printf("# %s inl= %d, ics= %d\n", label, inl, ics);
+                    assert(inl < 36);
                     if (0 != occ_custom[inl]) {
                         auto const max_occ = 2.*ell + 1;
 #else  // new_LOOP_structure
@@ -849,7 +846,7 @@ namespace single_atom {
 
                         if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states, found inl=%i", inl_core_hole);
 
-                        if (2 == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
+                        if (valence == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
                         double const occ = std::abs(occ_custom[inl]);
                         cs.occupation = occ;
@@ -880,8 +877,11 @@ namespace single_atom {
                             // can we move this to the core state routine?
                             double const has_norm = dot_product(rg[TRU].n, r2rho.data(), rg[TRU].dr);
                             if (has_norm > 0) {
+// #define CORE_UPDATE
+#ifndef CORE_UPDATE
                                 double const norm = occ/has_norm;
                                 add_product(spherical_density[TRU][cs.csv], rg[TRU].n, r2rho.data(), norm);
+#endif // CORE_UPDATE
                             } else {
                                 warn("%s %i%c-state cannot be normalized! integral=%g", label, enn, ellchar[ell], has_norm);
                             } // can be normalized
@@ -928,13 +928,22 @@ namespace single_atom {
         } // warning when deviates
 
 
+#ifndef CORE_UPDATE
         for (int csv = 0; csv < 3; ++csv) {
             scale(spherical_density[TRU][csv], rg[TRU].n, rg[TRU].rinv); // initial_density produces r^2*rho -. reduce to r*rho
             scale(spherical_density[TRU][csv], rg[TRU].n, rg[TRU].rinv); // initial_density produces   r*rho -. reduce to   rho
             if (echo > 2) std::printf("# %s initial %s density has %g electrons\n", 
                 label, csv_name[csv], dot_product(rg[TRU].n, spherical_density[TRU][csv], rg[TRU].r2dr));
         } // csv
+#else // CORE_UPDATE
+        // could we call the core-state update here and eliminate some redundant code parts?
+        {
+            float const mixing[3] = {1, 1, 1}; // take 100% of the new density (old densities are zero)
+            update_spherical_states(mixing, 0*echo);
+        }
+#endif // CORE_UPDATE
 
+        
         if (echo > 5) std::printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
@@ -961,7 +970,7 @@ namespace single_atom {
 
         partial_wave = std::vector<partial_wave_t>(nln);
         partial_wave_active = std::vector<char>(nln, 0);
-        {
+        { // scope: initialize partial waves
             int ilnn{0}; // index of the existing partial waves
             for (int ell = 0; ell <= numax; ++ell) {
                 for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
@@ -1056,7 +1065,7 @@ namespace single_atom {
                     if (echo > 19) std::printf("# %s created a state descriptor with tag=\'%s\'\n", label, vs.tag);
                 } // nrn
             } // ell
-        } // valence states
+        } // scope: initialize partial waves
 
         int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
         aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
@@ -1114,12 +1123,14 @@ namespace single_atom {
             pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
         } // scope
 
+#ifndef CORE_UPDATE
         // construct an initial smooth density
         for (int csv = 0; csv < 3; ++csv) {
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
                 spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
         } // csv
+#endif // CORE_UPDATE
 
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
@@ -1246,8 +1257,8 @@ namespace single_atom {
         // core states are feeling the spherical part of the hamiltonian only
         int const nr = rg[TRU].n;
         std::vector<double> r2rho(nr);
-        auto const rV_tru = potential[TRU].data();
-        view2D<double> new_r2density(3, nr, 0.0); // new TRU densities for {core, semicore, valence}
+        double const *const rV_tru = potential[TRU].data();
+        view2D<double> new_r2density(3, align<2>(nr), 0.0); // new TRU densities for {core, semicore, valence}
         double nelectrons[3] = {0, 0, 0}; // core, semicore, valence
         double band_energy[3] = {0, 0, 0}; // core, semicore, valence
         double kinetic_energy[3] = {0, 0, 0}; // core, semicore, valence
@@ -1260,11 +1271,13 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
         for (int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
-            auto & cs = spherical_state[ics]; // abbreviate
+            auto & cs = spherical_state[ics]; // abbreviate "core state"
+            double const occ = std::abs(cs.occupation);
             radial_eigensolver::shooting_method(SRA, rg[TRU], rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU].dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
-            auto const scal = pow2(norm_factor)*std::abs(cs.occupation); // scaling factor for the density contribution of this state
+            // warn if occupied and not normalizable
+            auto const scal = pow2(norm_factor)*occ; // scaling factor for the density contribution of this state
             // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
             // and normalize the core level wave function to one
             scale(cs.wave[TRU], nr, rg[TRU].rinv, norm_factor);
@@ -1280,9 +1293,9 @@ namespace single_atom {
             if (scal > 0) {
                 int const csv = cs.csv; assert(0 <= csv && csv <= 2); // {core, semicore, valence}
                 add_product(new_r2density[csv], nr, r2rho.data(), scal);
-                nelectrons[csv] += std::abs(cs.occupation);
-                band_energy[csv] += std::abs(cs.occupation)*cs.energy;
-                kinetic_energy[csv] += std::abs(cs.occupation)*cs.kinetic_energy;
+                nelectrons[csv] += occ;
+                band_energy[csv] += occ*cs.energy;
+                kinetic_energy[csv] += occ*cs.kinetic_energy;
             } // scal > 0
             show_state_analysis(echo - 5, label, rg[TRU], cs.wave[TRU], cs.tag, cs.occupation, cs.energy, csv_name[cs.csv], ir_cut[TRU]);
         } // ics
@@ -1296,7 +1309,7 @@ namespace single_atom {
             double mix_new = mixing[csv], mix_old = 1.0 - mix_new;
             // rescale the mixing coefficients such that the desired number of electrons comes out
             auto const mixed_charge = mix_old*old_charge + mix_new*new_charge;
-            if (mixed_charge != 0) {
+            if (0.0 != mixed_charge) {
                 auto const rescale = nelectrons[csv]/mixed_charge;
                 mix_old *= rescale;
                 mix_new *= rescale;
