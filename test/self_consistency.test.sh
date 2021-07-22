@@ -160,6 +160,8 @@ single_atom.echo.mask=1
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
 single_atom.optimize.sigma=1
 
+single_atom.core.state.localization=0.125
+
 ## debug options
 #single_atom.synthetic.density.matrix=1
 single_atom.init.max.scf=0
