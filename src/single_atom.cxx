@@ -245,7 +245,7 @@ namespace single_atom {
       double const charge_outside = qout*qinv;
 
       if (echo > 0) {
-          std::printf("# %s %-9s  %-4s%6.1f E=%16.6f %s ", label, csv_class, tag, occ, energy*eV,_eV);
+          std::printf("# %s %-9s%-4s%6.1f E=%16.6f %s ", label, csv_class, tag, occ, energy*eV,_eV);
           if (echo > 4) { // detailed information
               std::printf(" <r>=%g rms=%g %s <r^-1>=%g %s", qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV);
           } // echo
@@ -560,8 +560,8 @@ namespace single_atom {
       double logder_energy_range[3]; // [start, increment, stop]
       char   partial_wave_char[32]; // [iln]
       double partial_wave_energy_split[1 + ELLMAX]; // [ell]
-      char   local_potential_method[16];
-      
+      int    local_potential_method;
+
       bool freeze_partial_waves;
       bool regenerate_partial_waves;
 
@@ -614,9 +614,9 @@ namespace single_atom {
         } // atom_id
         if (echo > 0) std::printf("\n\n#\n# %s LiveAtom with %g protons, ionization= %g e\n", label, Z_core, ionization);
 
-        take_spherical_density[core] = 1; // must always be 1, since we can represent the true core density only on the radial grid.
+        take_spherical_density[core]     = 1; // must always be 1 since we can represent the true core density only on the radial grid
         take_spherical_density[semicore] = 1;
-        take_spherical_density[valence] = atomic_valence_density ? 1 : 0;
+        take_spherical_density[valence]  = atomic_valence_density ? 1 : 0;
 
 
         // here use the preliminary Z_core, may be adjusted
@@ -668,8 +668,9 @@ namespace single_atom {
 
         double const core_state_localization = control::get("single_atom.core.state.localization", -1.); // in units of electrons, -1:inactive
         char const *custom_configuration{"auto"};
+        char local_potential_method_name[16];
 
-        { // scope:
+        { // scope: initialize from sigma_config
             if (echo > 8) std::printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec =
 #ifdef  HAS_AUTO_CONF
@@ -678,7 +679,8 @@ namespace single_atom {
                                               chem_symbol, core_state_localization, echo) :
 #endif  // HAS_AUTO_CONF
                             sigma_config::get(Z_core, echo - 4, &custom_configuration);
-            if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
+            if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n",
+                                         label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
 
             if (ec.Z != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_core, ec.Z);
             Z_core = ec.Z;
@@ -699,7 +701,7 @@ namespace single_atom {
             for (int inl = 0; inl < 32; ++inl) {
                 occ_custom[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
             } // inl enn-ell all-electron orbital index
-            std::strncpy(local_potential_method, ec.method, 15);
+            std::strncpy(local_potential_method_name, ec.method, 15);
 
         } // scope: initialize from sigma_config
 
@@ -717,6 +719,13 @@ namespace single_atom {
         if (echo > 0) std::printf("# %s compensation charges are expanded up to lmax= %d\n", label, ellmax_cmp);
 
         sigma_compensator = r_cut/std::sqrt(20.);
+        
+        nr_diff = rg[TRU].n - rg[SMT].n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
+        ir_cut[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
+        ir_cut[TRU] = ir_cut[SMT] + nr_diff;
+        if (echo > 0) std::printf("# %s pseudize the core density at r[%i or %i]= %.6f, requested %.3f %s\n",
+                          label, ir_cut[TRU], ir_cut[SMT], rg[SMT].r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
+        assert(rg[SMT].r[ir_cut[SMT]] == rg[TRU].r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
 
         if (echo > 0) {
             std::printf("# %s number of projectors per ell ", label);
@@ -731,164 +740,98 @@ namespace single_atom {
         } // true and smooth
 
 
-        std::vector<int8_t> as_valence(40, -1);
+
+        //
+        // Spherical States
+        //
+
+        std::vector<int8_t> as_valence(36, -1);
         enn_QN_t enn_core_ell[16]; // energy quantum number of the highest occupied core level
         set(enn_core_ell, 16, enn_QN_t(0));
 
-        
-
         set(csv_charge, 3, 0.0); // clear numbers of electrons for {core, semicore, valence}
 
-        nr_diff = rg[TRU].n - rg[SMT].n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
-        ir_cut[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
-        ir_cut[TRU] = ir_cut[SMT] + nr_diff;
-        if (echo > 0) std::printf("# %s pseudize the core density at r[%i or %i]= %.6f, requested %.3f %s\n",
-                          label, ir_cut[TRU], ir_cut[SMT], rg[SMT].r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
-        assert(rg[SMT].r[ir_cut[SMT]] == rg[TRU].r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
-
-        
         { // scope: initialize the spherical states and true spherical densities
-            spherical_state = std::vector<spherical_orbital_t>(20); // there are at most 20 spherical states without spin-orbits coupling
+            // there are about 20 spherical states without spin-orbit coupling
+            spherical_state = std::vector<spherical_orbital_t>(32);
             int highest_occupied_state_index{-1};
-
             int ics{0}; // init counter of spherical states
-// #define new_LOOP_structure
-#ifdef  new_LOOP_structure
             for (enn_QN_t enn = 1; enn < 9; ++enn) { // principal quantum number n
                 for (ell_QN_t ell = 0; ell < enn; ++ell) { // angular momentum character l
                     int const inl = atom_core::nl_index(enn, ell);
                     if (echo > 15) std::printf("# %s inl= %d, ics= %d\n", label, inl, ics);
                     assert(inl < 36);
                     if (0 != occ_custom[inl]) {
-//                      auto const max_occ = 2.*ell + 1;
-#else  // new_LOOP_structure
-            for (int nq_aux = 0; nq_aux < 8; ++nq_aux) { // auxiliary quantum number, allows Z up to 120
-                enn_QN_t enn = (nq_aux + 1)/2; // init principal quantum number n
-                for (int ell = nq_aux/2; ell >= 0; --ell) { // angular momentum character l
-                    ++enn; // update principal quantum number
-                    for (int jj = 2*ell; jj >= 2*ell; jj -= 2) { // total angular momentum j
-//                      auto const max_occ = 2.*(jj + 1);
-                        int const inl = atom_core::nl_index(enn, ell);
-#endif // new_LOOP_structure
-                        auto & cs = spherical_state[ics]; // abbreviate (former "core" state)
+                        auto & cs = spherical_state[ics]; // abbreviate "core state"
 
-//                         std::vector<double> rwave(nr[TRU], 0.0);
-//                         std::vector<double> r2rho(nr[TRU], 0.0);
                         cs.energy = atom_core::guess_energy(Z_core, enn);
-//                         double E{atom_core::guess_energy(Z_core, enn)}; // init with a guess
-//                         // solve the eigenvalue problem with a spherical potential
-//                         radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(),
-//                                                     enn, ell, E, rwave.data(), r2rho.data());
-//                         cs.energy = E; // store eigenenergy of the spherical potential
                         std::snprintf(cs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
-
-
-                        int const csv_cust = (occ_custom[inl] < 0) ? core : valence; // occupation numbers <0: core, >0: valence
-#if 0
-                        int csv_auto{csv_cust}; // init as no warning
-                        if (core_state_localization > 0) {
-                            double const charge_outside = show_state_analysis(0, label, rg[TRU], rwave.data(), cs.tag, 0.0, E, "?", ir_cut[TRU]);
-                            // criterion based on the charge precentage outside the sphere
-                            if (charge_outside > core_state_localization) {
-                                csv_auto = valence; // mark as valence state
-                            } else {
-                                csv_auto = core; // mark as core state
-                            } // stay in the core
-                            if (echo > 15) std::printf("# %s as_%s[nl_index(enn=%d, ell=%d) = %d] = %d\n", label, csv_name[csv_auto], enn, ell, inl, ics);
-                        } // core_state_localization check active
-#endif // 1
                         cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         cs.enn = enn;
                         cs.ell = ell;
                         cs.emm = emm_Degenerate;
                         cs.spin = spin_Degenerate;
-
-                        cs.csv = csv_cust;
-
-//                         if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states, found inl=%i", inl_core_hole);
+                        cs.csv = (occ_custom[inl] < 0) ? core : valence; // occupation numbers <0: core, >0: valence
 
                         if (valence == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
                         double const occ = std::abs(occ_custom[inl]);
                         cs.occupation = occ;
                         if (occ > 0) {
-
- 
                             highest_occupied_state_index = ics; // store the index of the highest occupied core state
-                            if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
-                                                    label, csv_name[cs.csv], enn, ellchar[ell], occ, cs.energy*eV,_eV);
+                            if (echo > 5) std::printf("# %s %-9s %2d%c%6.1f\n", label, csv_name[cs.csv], enn, ellchar[ell], occ);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
                             csv_charge[cs.csv] += occ;
-                            
-                            // moved to the core state routine
-//                             if (csv_cust != csv_auto) {
-//                                 if (echo > 4) std::printf("# %s auto suggests that %d%c is a %s-state but custom configuration says %s, use %s\n",
-//                                     label, enn, ellchar[ell], csv_name[csv_auto], csv_name[csv_cust], csv_name[cs.csv]);
-//                             } // custom and auto do not agree
-//                             
-//                             if (std::abs(occ - max_occ) < 1e-15) { // spherical state is fully occupied
-//                                 if (E > E_hfos) { E_hfos = E; ics_hfos = ics; }
-//                             } else if (occ > 1e-15) { // this state is partically occupied (considerably)
-//                                 if (E > E_hpos) { E_hpos = E; ics_hpos = ics; }
-//                             }
-// 
-//                             min_energy[cs.csv] = std::min(min_energy[cs.csv], E);
-//                             max_energy[cs.csv] = std::max(max_energy[cs.csv], E);
-// 
-//                             double const has_norm = dot_product(rg[TRU].n, r2rho.data(), rg[TRU].dr);
-//                             if (has_norm <= 0) warn("%s %s-state cannot be normalized! integral=%g",
-//                                                     label, cs.tag, has_norm);
                         } // occupied
 
                         ++ics;
-                    } // jj
+                    } // occupied
                 } // ell
-            } // nq_aux
+            } // enn
             ncorestates = highest_occupied_state_index + 1; // correct the number of spherical states to those occupied
             spherical_state.resize(ncorestates); // destruct unused core states
 
             // get memory for the true radial wave functions and kinetic waves
             true_core_waves = view3D<double>(2, ncorestates, align<2>(nr[TRU]), 0.0);
             for (int ics = 0; ics < ncorestates; ++ics) {
-                auto & cs = spherical_state[ics]; // abbreviate (former "core" state)
+                auto & cs = spherical_state[ics]; // abbreviate "core state"
                 cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                 cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
             } // ics
 
-//             if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
-//                 warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
-//                     spherical_state[ics_hpos].tag, E_hpos*eV, E_hfos*eV, _eV, spherical_state[ics_hfos].tag);
-//             } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
-// 
-//             for (int csl = core; csl <= semicore; ++csl) {
-//                 for (int svh = csl + 1; svh <= valence; ++svh) {
-//                     if (max_energy[csl] > min_energy[svh]) {
-//                         warn("%s some %s states are higher than %s states", label, csv_name[csl], csv_name[svh]);
-//                     } // band overlap
-//                 } // svh
-//             } // csl
-
         } // scope
+
+        if (echo > 5) {
+            std::printf("# %s enn_core_ell ", label);
+            printf_vector(" %d", enn_core_ell, 4);
+        } // echo
 
         double const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
         if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
-
-        // could we call the core-state update here and eliminate some redundant code parts?
-        {
+        { // scope: initialize the spherical states and spherical densities
             float const mixing[3] = {1, 1, 1}; // take 100% of the new density (old densities are zero)
             update_spherical_states(mixing, echo, true, core_state_localization);
-            
-        }
+        } // scope
 
+
+
+
+
+
+
+
+        // 
+        // Partial Waves
+        // 
         
-        if (echo > 5) std::printf("# %s enn_core_ell  %i %i %i %i\n", label, enn_core_ell[0], enn_core_ell[1], enn_core_ell[2], enn_core_ell[3]);
-
-        int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-        int nlnn{0}; for (int ell = 0; ell <= numax; ++ell) { nlnn += nn[ell]; } // count active partial waves
+        int nlnn{0};
+        for (int ell = 0; ell <= numax; ++ell) { 
+            nlnn += nn[ell]; // count active partial waves
+        } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
             partial_wave_radial_part[ts] = view3D<double>(2, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function and kinetic wave
         } // ts
@@ -909,6 +852,7 @@ namespace single_atom {
             if (echo > 5) std::printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
         } // use_energy_parameter
 
+        int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         partial_wave = std::vector<partial_wave_t>(nln);
         partial_wave_active = std::vector<char>(nln, 0);
         { // scope: initialize partial waves
@@ -918,7 +862,7 @@ namespace single_atom {
 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     assert(iln < nln);
-                    auto & vs = partial_wave[iln]; // abbreviate (former "valence" state)
+                    auto & vs = partial_wave[iln]; // abbreviate "valence state"
                     enn_QN_t const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) std::printf(" %d%c", enn, ellchar[ell]);
                     vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
@@ -946,13 +890,13 @@ namespace single_atom {
                     }
 
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
-                    double occ{occ_custom[inl]};
                     if (partial_wave_active[iln]) {
                         double E{atom_core::guess_energy(Z_core, enn)}; // init with a guess
                         if (nrn > 0) E = std::max(E, partial_wave[iln - 1].energy); // higher than previous energy
                         radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), enn, ell, E, vs.wave[TRU]);
                         vs.energy = E;
 
+                        double occ{occ_custom[inl]};
                         { // scope: transfer valence occupation
                             int const ics = as_valence[inl]; // index of the corresponding spherical state
 //                          std::printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
@@ -965,10 +909,11 @@ namespace single_atom {
                                 } // occupation transfer
                             } // ics
                         } // scope
-                        if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n", label, csv_name[valence], enn, ellchar[ell], vs.occupation, E*eV,_eV);
+                        if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
+                            label, csv_name[valence], enn, ellchar[ell], vs.occupation, E*eV,_eV);
 
                         std::snprintf(vs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
-                       
+
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
@@ -1000,12 +945,13 @@ namespace single_atom {
 
                     } else { // active
                         partial_wave_char[iln] = '_';
-                        std::snprintf(vs.tag, 7, "%c?", ellchar[ell]); // create a state label
+                        std::snprintf(vs.tag, 7, "%c?", ellchar[ell]); // create a label for inactive states
                     } // partial_wave_active
 
                     if (echo > 19) std::printf("# %s created a state descriptor with tag=\'%s\'\n", label, vs.tag);
                 } // nrn
             } // ell
+            assert((nlnn == ilnn) && "count of partial waves incorrect");
         } // scope: initialize partial waves
 
         int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
@@ -1043,7 +989,7 @@ namespace single_atom {
         lm_index_list.resize(nSHO);
         lmn_begin.resize(mlm);
         lmn_end.resize(mlm);
-        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), int(numax), label, echo);
+        get_valence_mapping(ln_index_list.data(), lm_index_list.data(), lmn_begin.data(), lmn_end.data(), numax, label, echo - 5);
 
         { // scope: specify the range of the logarithmic derivative analysis
             char const *_eu;
@@ -1058,16 +1004,21 @@ namespace single_atom {
                 label, logder_energy_range[0]*eu, logder_energy_range[1]*eu, logder_energy_range[2]*eu, _eu);
         } // scope
 
-        { // scope: pseudize the local potential
-            int const method = ('p' == (*local_potential_method | 32)) ? 0 : //  0: parabola fit
-                   int(control::get("single_atom.lagrange.derivative", 7.)); // >0: sinc fit
-            pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(), potential[TRU].data(), rg, ir_cut, method, label, echo);
+        { // scope: pseudize the local potential r*V(r)
+            local_potential_method = ('p' == (*local_potential_method_name | 32)) ? 0 : //  0: parabola fit
+                              int(control::get("single_atom.lagrange.derivative", 7.)); // >0: sinc fit
+            pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(),
+                    potential[TRU].data(), rg, ir_cut, local_potential_method, label, echo);
         } // scope
 
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
 
+#ifdef DEVEL
         int const export_xml = control::get("single_atom.export.xml", 0.);
+#else  // DEVEL
+        int const export_xml = 0;
+#endif // DEVEL
         auto const maxit_scf = std::max(int(control::get("single_atom.init.max.scf", 0.)), std::abs(export_xml));
         float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
         // ... that is taken to relax the spherical potential from which spherical states and true partial wave are computed
@@ -1259,6 +1210,7 @@ namespace single_atom {
                 min_energy[csv] = std::min(min_energy[csv], E);
                 max_energy[csv] = std::max(max_energy[csv], E);
 
+                // display state tag, occupation and energy
                 auto const charge_outside = show_state_analysis(echo - 5, label, g, cs.wave[TRU],
                                     cs.tag, cs.occupation, cs.energy, csv_name[csv], ir_cut[TRU]);
                 if (core_state_localization > 0) {
@@ -1481,14 +1433,14 @@ namespace single_atom {
 
 
 
-    
-    
-    
-    
-    
-    
 
-    double update_projector_coefficients( // returns optimized sigma, if optimization was active
+
+
+
+
+
+
+    double update_projector_coefficients( // returns optimized sigma if optimization is active
         int const echo=0 // log-level
     ) {
         // create smooth partial waves according to Bloechl/GPAW and corresponding
@@ -1512,7 +1464,7 @@ namespace single_atom {
             for (int nrn = 0; nrn < nn[ell]; ++nrn) { // partial waves
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 auto const occ = partial_wave[iln].occupation;
-                // the total deviation is weighted with the ell-channel-summed occupation numbers, occ_ell.
+                // the total deviation is weighted with the ell-channel-summed occupation numbers
                 occ_ln[iln] = occ;
                 total_occ  += occ;
             } // nrn
@@ -2949,10 +2901,9 @@ namespace single_atom {
         std::vector<double> V_smt(rg[SMT].n);
         set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
 
-        int const method = ('p' == (*local_potential_method | 32)) ? 0 : // parabola fit
-                   int(control::get("single_atom.lagrange.derivative", 7.)); // sinc fit
-        auto const stat = pseudo_tools::pseudize_local_potential<0>(V_smt.data(), full_potential[TRU][00], rg, ir_cut, method, label, echo, Y00);
         auto const df = Y00*eV; assert(df > 0); // display factor
+        auto const stat = pseudo_tools::pseudize_local_potential<0>(V_smt.data(),
+                              full_potential[TRU][00], rg, ir_cut, local_potential_method, label, echo, Y00);
         if (stat) {
             if (echo > 0) std::printf("# %s matching procedure for the local potential failed! status= %d\n", label, int(stat));
         } else {
