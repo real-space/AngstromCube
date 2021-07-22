@@ -260,7 +260,7 @@ namespace sigma_config {
     } parsed_word_t;
 
     
-    element_t & get(
+    element_t const & get(
           double const Zcore // nuclear charge
         , int const echo // =0 log-level
         , char const **configuration // =nullptr string that has been parsed

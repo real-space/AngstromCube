@@ -20,7 +20,7 @@ namespace sigma_config {
       int8_t  inl_core_hole; // state index where to insert the core hole
   } element_t;
 
-  element_t & get(
+  element_t const & get(
         double const Zcore // nuclear charge
       , int const echo=0 // log-level
       , char const **configuration=nullptr // string that has been parsed
