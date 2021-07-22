@@ -88,7 +88,7 @@ grid.spacing.unit=Ang
 grid.points=24
 
 ## max. number of self-consistency iterations
-self_consistency.max.scf=3
+self_consistency.max.scf=2
 self_consistency.mix.density=0.25
 atomic.valence.decay=1
 ## compute the Fermi level {exact, linearized}
@@ -146,7 +146,7 @@ single_atom.partial.wave.method=recreate_second
 single_atom.relax.partial.waves=0
 
 ## special verbosity for PAW setup
-single_atom.init.echo=5
+single_atom.init.echo=7
 
 ## special verbosity for PAW update
 single_atom.echo=3

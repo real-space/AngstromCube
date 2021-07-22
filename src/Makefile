@@ -90,7 +90,7 @@ endif
 
 ## include also code which is not meant for release,
 ## use github.com/BR903/cppp -UDEVEL to do partial preprocessing
-# FEAFLAGS += -D DEVEL
+FEAFLAGS += -D DEVEL
 
 # normal mode
 # OPTFLAGS = -Ofast 

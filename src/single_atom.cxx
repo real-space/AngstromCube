@@ -631,7 +631,7 @@ namespace single_atom {
                         cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
 
                         std::vector<double> r2rho(nr[TRU], 0.0);
-                        double E = atom_core::guess_energy(Z_core, enn); // init with a guess
+                        double E{atom_core::guess_energy(Z_core, enn)}; // init with a guess
                         // solve the eigenvalue problem with a spherical potential
                         radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(),
                                                     enn, ell, E, cs.wave[TRU], r2rho.data());
@@ -840,7 +840,8 @@ namespace single_atom {
                     int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
                     double occ{occ_custom[inl]};
                     if (partial_wave_active[iln]) {
-                        double E = std::max(atom_core::guess_energy(Z_core, enn), core_valence_separation);
+                        double E{atom_core::guess_energy(Z_core, enn)}; // init with a guess
+                        if (!custom_config) E = std::max(E, core_valence_separation);
                         if (nrn > 0) E = std::max(E, partial_wave[iln - 1].energy); // higher than previous energy
                         radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), enn, ell, E, vs.wave[TRU]);
                         vs.energy = E;
