@@ -411,13 +411,13 @@ namespace single_atom {
       double energy_tot[TRU_AND_SMT]; // total energy[ts]
       double energy_ref[TRU_ONLY]; // reference energy
 
-      
+      static int constexpr SRA = 1; // 1: Scalar Relativistic Approximation
+
   public:
 
     // constructor method:
     LiveAtom(
           double const Z_protons // number of protons in the nucleus
-        , ell_QN_t const nu_max_auto=3 // SHO basis size (if auto-configured)
         , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
         , double const ionization=0 // charged valence configurations
         , int32_t const global_atom_id=-1 // global atom identifyer
@@ -445,7 +445,8 @@ namespace single_atom {
 
         std::vector<double> occ_custom(32, 0.0); // customized occupation numbers for the radial states
         set(nn, 1 + ELLMAX, uint8_t(0)); // clear
-        bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
+//      bool const custom_config = ('c' == *(control::get("single_atom.config", "custom"))); // c:custom, a:automatic
+//      bool constexpr custom_config = true;
         // ToDo: check how much simpler the code will be if we fix single_atom.config=custom
         int const nn_limiter = control::get("single_atom.nn.limit", 2);
 
@@ -454,7 +455,7 @@ namespace single_atom {
         double core_hole_charge{0}, core_hole_charge_used{0};
         char const *custom_configuration{nullptr};
         
-        if (custom_config) {
+        { // scope:
             if (echo > 8) std::printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec = sigma_config::get(Z_core, echo - 4, &custom_configuration);
             if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n", label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
@@ -464,7 +465,7 @@ namespace single_atom {
             sigma = std::abs(ec.sigma);
             r_cut = std::abs(ec.rcut);
             // get numax from nn[]
-            int nu_max = ec.numax; // -1 means choose the minimum automatically
+            int nu_max{ec.numax}; // -1: choose the minimum automatically
             for (int ell = 0; ell < 8; ++ell) {
                 if (ec.nn[ell] > 0) {
                     nn[ell] = std::min(int(ec.nn[ell]), nn_limiter); // take a smaller number of partial waves
@@ -479,37 +480,8 @@ namespace single_atom {
             } // inl enn-ell all-electron orbital index
             std::strncpy(local_potential_method, ec.method, 15);
 
-        } else {
-            // single_atom.config=auto
-            char Sy_config[32];
-            std::snprintf(Sy_config, 31, "%s_rcut", chem_symbol);
-            r_cut = control::get(Sy_config, 2.0); // in Bohr
-            
-            std::snprintf(Sy_config, 31, "%s_sigma", chem_symbol);
-            sigma = control::get(Sy_config, 0.5); // in Bohr, spread for projectors (Cu)
-            
-            std::snprintf(Sy_config, 31, "%s_numax", chem_symbol);
-            numax = int(control::get(Sy_config, double(nu_max_auto)));
+        } // scope: initialize from sigma_config
 
-            // get nn[] from numax
-            for (int ell = 0; ell <= ELLMAX; ++ell) {
-                int const nn_suggested = std::max(0, sho_tools::nn_max(numax, ell)); // suggest
-                nn[ell] = std::min(nn_suggested, nn_limiter); // take a smaller number of partial waves
-            } // ell
-
-            std::snprintf(Sy_config, 31, "%s_core.hole.index", chem_symbol);
-            inl_core_hole = int(control::get(Sy_config, -1.));
-            if (inl_core_hole >= 0) {
-                std::snprintf(Sy_config, 31, "%s_core.hole.charge", chem_symbol);
-                double const core_hole_charge_input = control::get(Sy_config, 1.);
-                core_hole_charge = std::min(std::max(0.0, core_hole_charge_input), 1.0);
-            } // active
-
-            auto const potential_method_auto = control::get("single_atom.local.potential.method", "sinc");
-            std::strncpy(local_potential_method, potential_method_auto, 15);
-
-        } // initialize from sigma_config
-        
         if (echo > 0) std::printf("# %s projectors are expanded up to numax= %d\n", label, numax);
         ellmax_rho = 2*numax; // could be smaller than 2*numax
         ellmax_pot = ellmax_rho;
@@ -554,7 +526,7 @@ namespace single_atom {
             if (0 != load_stat) {
                 if ('g' == (*control::get("single_atom.start.potentials", "generate") | 32)) {
                     if (echo > 0) std::printf("\n# %s generate self-consistent atomic potential for Z= %g\n", label, Z_core);
-                    auto const gen_stat = atom_core::solve(Z_core, echo/2, custom_config?'c':'a', &rg[TRU]);
+                    auto const gen_stat = atom_core::solve(Z_core, echo/2, 'c', &rg[TRU]);
                     if (0 != gen_stat) error("failed to generate a self-consistent atomic potential for Z= %g", Z_core);
                     // should be able to read from file now
                     auto const s = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
@@ -584,14 +556,14 @@ namespace single_atom {
 
         set(csv_charge, 3, 0.0); // clear numbers of electrons for {core, semicore, valence}
 
-        double const core_valence_separation  = control::get("single_atom.separate.core.valence", -2.0); // in Hartree always
-        double       core_semicore_separation = control::get("single_atom.separate.core.semicore",    core_valence_separation);
-        double const semi_valence_separation  = control::get("single_atom.separate.semicore.valence", core_valence_separation);
-        if (core_semicore_separation > semi_valence_separation) {
-            warn("%s single_atom.separate.core.semicore=%g may not be higher than ~.semicore.valence=%g %s, correct for it", 
-                 label, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
-            core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
-        } // warning
+//         double const core_valence_separation  = control::get("single_atom.separate.core.valence", -2.0); // in Hartree always
+//         double       core_semicore_separation = control::get("single_atom.separate.core.semicore",    core_valence_separation);
+//         double const semi_valence_separation  = control::get("single_atom.separate.semicore.valence", core_valence_separation);
+//         if (core_semicore_separation > semi_valence_separation) {
+//             warn("%s single_atom.separate.core.semicore=%g may not be higher than ~.semicore.valence=%g %s, correct for it", 
+//                  label, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
+//             core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
+//         } // warning
 
         double const core_state_localization = control::get("single_atom.core.state.localization", -1.); // in units of electrons, -1:inactive
 
@@ -605,7 +577,6 @@ namespace single_atom {
         
         ncorestates = 20; // maximum number
         true_core_waves = view3D<double>(2, ncorestates, nr[TRU], 0.0); // get memory for the true radial wave functions and kinetic waves
-        int constexpr SRA = 1;
         spherical_state = std::vector<spherical_orbital_t>(ncorestates);
         { // scope: initialize the spherical states
             for (int ics = 0; ics < ncorestates; ++ics) {
@@ -637,9 +608,10 @@ namespace single_atom {
                                                     enn, ell, E, cs.wave[TRU], r2rho.data());
                         cs.energy = E; // store eigenenergy of the spherical potential
                         std::snprintf(cs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
-                        double const charge_outside = show_state_analysis(0, label, rg[TRU], cs.wave[TRU], cs.tag, 0.0, E, "?", ir_cut[TRU]);
 
                         int const inl = atom_core::nl_index(enn, ell);
+#if 0
+                        double const charge_outside = show_state_analysis(0, label, rg[TRU], cs.wave[TRU], cs.tag, 0.0, E, "?", ir_cut[TRU]);
                         int csv_auto{csv_undefined}; // init
                         if (core_state_localization > 0) {
                             // criterion based on the charge outside the sphere
@@ -663,7 +635,7 @@ namespace single_atom {
                         }
                         
                         assert(csv_auto != csv_undefined);
-
+#endif // 0
                         cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
                         cs.enn = enn;
                         cs.ell = ell;
@@ -681,21 +653,22 @@ namespace single_atom {
                         } // core hole active
 
                         int const csv_cust = (occ_custom[inl] < 0) ? core : valence; // in custom_config, negative occupation numbers for core electrons, positive for valence
-                        cs.csv = custom_config ? csv_cust : csv_auto;
+//                      cs.csv = custom_config ? csv_cust : csv_auto;
+                        cs.csv = csv_cust;
                         
                         if ((inl_core_hole == inl) && (cs.csv != 0)) error("core holes only allowed in core states, found inl=%i", inl_core_hole);
 
                         if (2 == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
-                        double const occ = custom_config ? std::abs(occ_custom[inl]) : occ_auto;
+                        double const occ = std::abs(occ_custom[inl]);
                         cs.occupation = occ;
                         if (occ > 0) {
                           
-                            if (csv_cust != csv_auto) {
-                                if (echo > 4) std::printf("# %s auto suggests that %d%c is a %s-state but custom configuration says %s, use %s\n",
-                                    label, enn, ellchar[ell], csv_name[csv_auto], csv_name[csv_cust], csv_name[cs.csv]);
-                                // ToDo: find out if it would be better to look at the q_out (charge outside rcut) for each state instead of its energy.
-                            }
+//                             if (csv_cust != csv_auto) {
+//                                 if (echo > 4) std::printf("# %s auto suggests that %d%c is a %s-state but custom configuration says %s, use %s\n",
+//                                     label, enn, ellchar[ell], csv_name[csv_auto], csv_name[csv_cust], csv_name[cs.csv]);
+//                               // ToDo: find out if it would be better to look at the q_out (charge outside rcut) for each state instead of its energy.
+//                             }
                             
                             if (std::abs(occ - max_occ) < 1e-15) { // spherical state is fully occupied
                                 if (E > E_hfos) { E_hfos = E; ics_hfos = ics; }
@@ -760,14 +733,14 @@ namespace single_atom {
                   label, core_hole_charge, inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
         } // warning when deviates
 
-        if (!custom_config && echo > 3) {
-            if (core_semicore_separation >= semi_valence_separation) {
-                std::printf("# %s core.valence.separation at %g %s\n", label, core_valence_separation*eV,_eV);
-            } else {
-                std::printf("# %s core.semicore.separation at %g %s\n", label, core_semicore_separation*eV, _eV);
-                std::printf("# %s semicore.valence.separation at %g %s\n", label, semi_valence_separation*eV, _eV);
-            }
-        } // echo
+//         if (!custom_config && echo > 3) {
+//             if (core_semicore_separation >= semi_valence_separation) {
+//                 std::printf("# %s core.valence.separation at %g %s\n", label, core_valence_separation*eV,_eV);
+//             } else {
+//                 std::printf("# %s core.semicore.separation at %g %s\n", label, core_semicore_separation*eV, _eV);
+//                 std::printf("# %s semicore.valence.separation at %g %s\n", label, semi_valence_separation*eV, _eV);
+//             }
+//         } // echo
         
         for (int csv = 0; csv < 3; ++csv) {
             scale(spherical_density[TRU][csv], rg[TRU].n, rg[TRU].rinv); // initial_density produces r^2*rho -. reduce to r*rho
@@ -841,12 +814,12 @@ namespace single_atom {
                     double occ{occ_custom[inl]};
                     if (partial_wave_active[iln]) {
                         double E{atom_core::guess_energy(Z_core, enn)}; // init with a guess
-                        if (!custom_config) E = std::max(E, core_valence_separation);
+//                      if (!custom_config) E = std::max(E, core_valence_separation);
                         if (nrn > 0) E = std::max(E, partial_wave[iln - 1].energy); // higher than previous energy
                         radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), enn, ell, E, vs.wave[TRU]);
                         vs.energy = E;
 
-                        {
+                        { // scope: transfer valence occupation
                             int const ics = as_valence[inl]; // index of the corresponding spherical state
 //                          std::printf("# as_valence[nl_index(enn=%d, ell=%d) = %d] = %d\n", enn, ell, inl, ics);
                             if (ics >= 0) { // atomic eigenstate was marked as valence
@@ -857,7 +830,7 @@ namespace single_atom {
                                         " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
                                 } // occupation transfer
                             } // ics
-                        }
+                        } // scope
                         if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n", label, csv_name[valence], enn, ellchar[ell], vs.occupation, E*eV,_eV);
 
                         std::snprintf(vs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
@@ -1104,7 +1077,6 @@ namespace single_atom {
 #endif // DEVEL
         for (int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate
-            int constexpr SRA = 1; // 1:scalar relativistic approximation
             radial_eigensolver::shooting_method(SRA, rg[TRU], rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
             auto const norm = dot_product(nr, r2rho.data(), rg[TRU].dr);
             auto const norm_factor = (norm > 0)? 1./std::sqrt(norm) : 0;
@@ -1308,7 +1280,6 @@ namespace single_atom {
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
-                    int constexpr SRA = 1;
                     assert(vs.wave[TRU] != nullptr);
                     radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
                     if (echo > 3) std::printf("# %s the %s partial wave is at E= %g %s, the %i%c-eigenvalue\n",
@@ -1536,7 +1507,6 @@ namespace single_atom {
             for (int nrn_ = 0; nrn_ < n; ++nrn_) { int const nrn = nrn_; // smooth number or radial nodes
                 int const iln = ln_off + nrn;
                 auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
-                int constexpr SRA = 1;
 
                 // create the true partial wave
                 set(vs.wave[TRU], nr, 0.0); // clear
@@ -3576,7 +3546,7 @@ namespace single_atom {
 
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
-      int   constexpr numax_default = 3;
+//    int   constexpr numax_default = 3;
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
 
       int na{natoms};
@@ -3597,7 +3567,7 @@ namespace single_atom {
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
-                  a[ia] = new LiveAtom(Za[ia], numax_default, atomic_valence_density, ion, ia, echo_mask[ia]*echo_init);
+                  a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ion, ia, echo_mask[ia]*echo_init);
                   if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
           }
@@ -3816,7 +3786,7 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test_LiveAtom(int const echo=9) {
-      int  const numax   = control::get("single_atom.test.numax", 3.); // default 3: ssppdf (for auto config only)
+//    int  const numax   = control::get("single_atom.test.numax", 3.); // default 3: ssppdf (for auto config only)
       bool const avd     = control::get("single_atom.test.atomic.valence.density", 1.) > 0; // atomic valence density
       auto const ion     = control::get("single_atom.test.ion", 0.); // default neutral
 
@@ -3826,7 +3796,7 @@ namespace single_atom {
       for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
           if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
           if (echo > 1) std::printf("\n# %s: Z = %g\n", __func__, Z);
-          LiveAtom a(Z, numax, avd, ion, -1, echo); // envoke constructor
+          LiveAtom a(Z, avd, ion, -1, echo); // envoke constructor
       } // Z
       if (Z_begin >= Z_end) warn("Empty range for Z in [%g, %g]", Z_begin, Z_end);
       return 0;
