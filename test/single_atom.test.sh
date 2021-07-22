@@ -32,7 +32,7 @@ for Z in {6..6}; do
   done
 done
 
-exit
+# exit
 
 
 echo "# lowest s-eigenvalues " > eigs_s0
@@ -71,7 +71,7 @@ for Z in {1..47}; do
   echo -n "$Z " >> eigs_f0; grep "#  valence  [3-9]d " $out_Z | head -1    | awk '{print $6 }' >> eigs_f0
   
 done
-exit
+# exit
 
 
 
@@ -115,7 +115,7 @@ for Z in {1..47}; do
 
 done
 
-exit
+# exit
 
 
 
