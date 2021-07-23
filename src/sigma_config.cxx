@@ -205,9 +205,9 @@ namespace sigma_config {
     
     int8_t constexpr KeyHole = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
                      KeyMethod = -4, KeyIgnore = -5, KeyWarn = -6,
-                     KeyNumax = -7, KeyUndef = -8, KeyNumeric = -9;
-//  char constexpr Key2Char[] = "h|sZV_WnU$"; // negative keys needed: [-key]
-    char const Key2String[][8] = {"hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "undef", "numeric"};
+                     KeyNumax = -7, KeyNumeric = -8;
+//  char constexpr Key2Char[] = "h|sZV_Wn$?"; // negative keys needed: [-key]
+    char const Key2String[][8] = {"hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "numeric", "undef"};
 
     inline int8_t char2ell(char const c) {
         switch (c) {
@@ -252,13 +252,13 @@ namespace sigma_config {
         ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
     } // set_default_core_shells
 
-    typedef struct {
+    struct parsed_word_t {
         double value;
         int8_t key;
         int8_t enn;
         int8_t ell;
         int8_t mrn;
-    } parsed_word_t;
+    }; // parsed_word_t
 
     
     element_t const & get(
@@ -277,8 +277,7 @@ namespace sigma_config {
         // now convert config into an element_t
         auto & e = *(new element_t);
 
-        double const Z = ((iZ + 1) & 127) - 1;
-        e.Z = Z;
+        e.Z = ((iZ + 1) & 127) - 1; // preliminary integer number of protons
         e.rcut = 2.;
         e.sigma = .5;
         e.numax = -1; // automatic
@@ -289,7 +288,10 @@ namespace sigma_config {
         set(e.nn, 8, uint8_t(0));
         set_default_core_shells(e.ncmx, e.Z);
 
-        if (nullptr == config) return e;
+        if (nullptr == config) {
+            warn("occupation numbers for Z=%g not set", e.Z);
+            return e;
+        }
 
         // start to parse the config string
         std::vector<parsed_word_t> words;
@@ -303,60 +305,53 @@ namespace sigma_config {
             if (echo > 11) std::printf("# start from '%s'\n", string);
 
             words.push_back(parsed_word_t());
-            auto & word = words[iword];
-            word.ell = -1; // init invalid
-            word.mrn = -1; // init invalid
-            word.key = KeyUndef; // init undefined
+            auto & w = words[iword];
+            w.ell = -1; // init invalid
+            w.mrn = -1; // init invalid
 
             bool try_numeric{false};
             char const cn = *string;
-            auto key = char2key(cn);
-            if (echo > 10) std::printf("# found key=%i in '%s'\n", key, string);
-            if (key > 0) {
+            w.key = char2key(cn);
+            if (echo > 10) std::printf("# found key=%i in '%s'\n", w.key, string);
+            if (w.key > 0) {
                 // the first non-blank char was a digit larger than 0
-                int const enn = key;
-                if (enn > 9) error("enn=%i > 9 not supported in '%s'!", enn, string);
+                w.enn = w.key;
+                if (w.enn > 9) error("enn=%i > 9 not supported in '%s'!", w.enn, string);
                 char const cl = *(string + 1); // expect an ellchar here
-                auto const ell = char2ell(cl);
-                if (ell >= 0) {
-                    if (ell >= enn) error("unphysical ell=%i >= enn=%i in '%s'!", ell, enn, string);
+                w.ell = char2ell(cl);
+                if (w.ell >= 0) {
+                    if (w.ell >= w.enn) error("unphysical ell=%i >= enn=%i in '%s'!", w.ell, w.enn, string);
 
                     char const cm = *(string + 2);
-                    if ((cm | 32) == 'h') key = KeyHole; // core hole, modify key
+                    if ((cm | 32) == 'h') w.key = KeyHole; // core hole, modify key
                     
                     char const *asterisk{string + 2};
-                    int mrn{0}; while ('*' == *asterisk) { ++mrn; ++asterisk; } // count the '*' chars 
-                    if (echo > 9) std::printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", enn, ell, mrn, cn,cl,cm);
-
-                    word.enn = enn; // store
-                    word.ell = ell; // store
-                    word.mrn = mrn; // store
+                    w.mrn = 0; while ('*' == *asterisk) { ++w.mrn; ++asterisk; } // count the '*' chars 
+                    if (echo > 9) std::printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", w.enn, w.ell, w.mrn, cn,cl,cm);
 
                 } else { // ell is a valid angular momentum quantum number
                     try_numeric = true;
                 }
             } else { // enn is valid principal quantum number
-                if (KeyNumeric == key) {
+                if (KeyNumeric == w.key) {
                     try_numeric = true;
-                } else if (KeyMethod == key) {
+                } else if (KeyMethod == w.key) {
                     std::strncpy(local_potential_method, string, 31);
                     if (echo > 7) std::printf("# found local potential method '%s'\n", local_potential_method);
                 } else {
                     if (echo > 8) std::printf("# found special '%s'\n", string);
                 }
             }
-            word.key = key; // store
 
             if (try_numeric) {
-                double const value = std::atof(string);
-                if (echo > 8) std::printf("# found numeric value %g in '%s'\n", value, string);
-                word.value = value; // store
-                word.key = KeyNumeric; // -9:numeric
+                w.value = std::atof(string);
+                if (echo > 8) std::printf("# found numeric value %g in '%s'\n", w.value, string);
+                w.key = KeyNumeric; // -9:numeric
             } // try_numeric
 
             ++iword;
             
-            auto const next_blank = std::strchr(string, ' '); // forward to the next word, ToDo: how does it react to \t?
+            auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
             if (next_blank) {
                 string = next_blank;
                 while(*string == ' ') ++string; // forward to the next non-blank
@@ -367,26 +362,25 @@ namespace sigma_config {
         } // while;
         int const nwords = iword; // how many words were in the string
         if (echo > 8) std::printf("# process %d words\n", nwords);
-        
+
         if (echo > 7) {
             // repeat what was just parsed
             std::printf("# repeat config string '");
-            char const mrn2string[][4] = {"", "*", "**"};
+            char const mrn2string[][4] = {"", "*", "**", "***"};
             for (int iword = 0; iword < nwords; ++iword) {
-                auto const & word = words[iword];
-                auto const key = word.key;
-                if (key > 0) {
-                    assert(word.enn == key); // orbital
-                    std::printf("%i%c%s ", word.enn, ellchar[word.ell], mrn2string[word.mrn]);
-                } else if (KeyHole == key) {
-                    std::printf("%i%chole ", word.enn, ellchar[word.ell]);
-                } else if (KeyNumeric == key) {
-                    std::printf("%g ", word.value);
-                } else if (KeyIgnore == key) {
+                auto const & w = words[iword];
+                if (w.key > 0) {
+                    assert(w.enn == w.key); // orbital
+                    std::printf("%i%c%s ", w.enn, ellchar[w.ell], mrn2string[w.mrn]);
+                } else if (KeyHole == w.key) {
+                    std::printf("%i%chole ", w.enn, ellchar[w.ell]);
+                } else if (KeyNumeric == w.key) {
+                    std::printf("%g ", w.value);
+                } else if (KeyIgnore == w.key) {
                     // do not print anything
                 } else {
-                    assert(key <= 0);
-                    std::printf("%s ", Key2String[-key]);
+                    assert(w.key <= 0);
+                    std::printf("%s ", Key2String[-w.key]);
                 }
             } // iword
             std::printf("'\n");
@@ -395,6 +389,7 @@ namespace sigma_config {
         int constexpr max_enn = 9, max_inl = (max_enn*(max_enn + 1))/2;
         double occ[max_inl][2]; // spin resolved occupation numbers
         set(occ[0], max_inl*2, 0.0); // clear
+        std::vector<int8_t> csv(max_inl, csv_undefined);
 
         int constexpr max_nstack = 4;
         double stack[max_nstack] = {0, 0, 0, 0};
@@ -402,20 +397,19 @@ namespace sigma_config {
 
         // process the parsed contents backwards
         for (int iword = nwords - 1; iword >= 0; --iword) {
-            auto const & word = words[iword];
-            auto const key = word.key;
-            if (KeyNumeric == key) {
+            auto const & w = words[iword];
+            if (KeyNumeric == w.key) {
                 if (echo > 21) std::printf("# nstack=%i push\n", nstack);
                 assert(nstack < max_nstack);
-                stack[nstack++] = word.value; // push to the stack
+                stack[nstack++] = w.value; // push to the stack
                 if (echo > 21) std::printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
-            } else if (KeyMethod == key) {
-//                 warn("method specifier in config string for %s ignored : %s", symbol, config);
+            } else if (KeyMethod == w.key) {
+//              warn("method specifier in config string for %s ignored : %s", symbol, config);
                 std::strncpy(e.method, local_potential_method + 2, 15);
                 if (echo > 9) std::printf("# found local potential method = \'%s\'\n", e.method);
-            } else if (KeyWarn == key) {
+            } else if (KeyWarn == w.key) {
                 warn("config string for %s may be experimental: %s", symbol, config);
-            } else if (KeyIgnore == key) {
+            } else if (KeyIgnore == w.key) {
                 // do not modify the stack!
                 if (echo > 6) std::printf("# white spaces are ignored for Z= %g\n", e.Z);
             } else {
@@ -425,10 +419,7 @@ namespace sigma_config {
                     value = stack[--nstack]; // pop the stack
                     if (echo > 21) std::printf("# nstack=%i popped\n", nstack);
                 }
-                if (key >= KeyHole) { // orbital
-                    int const ell = word.ell;
-                    int const enn = word.enn;
-                    int const inl = nl_index(enn, ell);
+                if (w.key >= KeyHole) { // orbital
 
                     // read one or two occupation numbers from the stack
                     double occs[2] = {0, 0};
@@ -439,53 +430,55 @@ namespace sigma_config {
                         if (echo > 21) std::printf("# nstack=%i popped\n", nstack);
                         occs[1] = value;
                     } else {
-                        set(occs, 2, .5*value);
+                        set(occs, 2, .5*value); // split the value between dn-spin and up-spin
                     }
                     // checks for the boundaries of occupation numbers
                     for (int spin = 0; spin < 2; ++spin) {
                         if (occs[spin] < 0 && e.Z > 0) {
-                            warn("found a negative occupation number %g in the %s-%i%c orbital", occs[spin], symbol, enn, ellchar[ell]);
+                            warn("found a negative occupation number %g in the %s-%i%c orbital", occs[spin], symbol, w.enn, ellchar[w.ell]);
                             occs[spin] = 0;
                         }
-                        if (occs[spin] > 2*ell + 1) {
-                            warn("occupation number %g is too large for a %s-%i%c orbital", occs[spin], symbol, enn, ellchar[ell]);
-                            occs[spin] = 2*ell + 1;
+                        if (occs[spin] > 2*w.ell + 1) {
+                            warn("occupation number %g is too large for a %s-%i%c orbital", occs[spin], symbol, w.enn, ellchar[w.ell]);
+                            occs[spin] = 2*w.ell + 1;
                         }
                     } // spin
 
-                    if (key == KeyHole) {
+                    int const inl = nl_index(w.enn, w.ell);
+                    if (KeyHole == w.key) {
                         set(e.q_core_hole, 2, occs);
                         e.inl_core_hole = inl;
-                        if (echo > 2) std::printf("# found a %i%c-core hole of charges = %g %g in %s\n", enn,ellchar[ell], occs[0],occs[1], symbol);
+                        if (echo > 2) std::printf("# found a %i%c-core hole of charges = %g %g in %s\n", w.enn,ellchar[w.ell], occs[0],occs[1], symbol);
                     } else {
-                        if (echo > 9) std::printf("# found orbital %i%c occ= %g %g inl=%i\n", enn,ellchar[ell], occs[0], occs[1], inl);
-                        assert(key > 0); // this is a valence orbital specification
+                        if (echo > 9) std::printf("# found orbital %i%c occ= %g %g inl=%i\n", w.enn,ellchar[w.ell], occs[0],occs[1], inl);
+                        assert(w.key > 0); // this is a valence orbital specification
+                        csv[inl] = valence;
                         set(occ[inl], 2, occs); // set valence occupation numbers positive
-                        if (ell < 8) e.nn[ell] += 1 + word.mrn;
-                        if (ell < 4) e.ncmx[ell] = enn - 1;
+                        if (w.ell < 8) e.nn[w.ell] += 1 + w.mrn;
+                        if (w.ell < 4) e.ncmx[w.ell] = w.enn - 1;
                     }
 
-                } else if (KeyRcut == key) {
+                } else if (KeyRcut == w.key) {
                     e.rcut = value;
                     if (echo > 9) std::printf("# found cutoff radius rcut = %g\n", e.rcut);
                     if (e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
-                } else if (KeySigma == key) {
+                } else if (KeySigma == w.key) {
                     e.sigma = value;
                     if (echo > 9) std::printf("# found projector spread sigma = %g\n", e.sigma);
                     if (e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
-                } else if (KeyNumax == key) {
+                } else if (KeyNumax == w.key) {
                     e.numax = int(value);
                     if (echo > 9) std::printf("# found SHO projector cutoff numax = %d\n", e.numax);
                     if (std::abs(e.numax - value) > 1e-6) warn("numax must be a positive integer found %g --> %d", value, e.numax);
-                } else if (KeyZcore == key) {
+                } else if (KeyZcore == w.key) {
                     e.Z = value;
                     set_default_core_shells(e.ncmx, e.Z); // adjust default core shells
                     if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
                 } else {
-                    warn("key unknown: key= %d", key);
+                    warn("key unknown: key= %d", w.key);
                 }
-            }
+            } // else
         } // iword
         if (nstack > 0) warn("after parsing, some value %g was left on the stack", stack[0]);
 
@@ -498,11 +491,15 @@ namespace sigma_config {
             } // ell
             std::printf(" for s,p,d,f\n");
         } // echo
+
         for (int ell = 0; ell < 4; ++ell) {
             for (int enn = ell + 1; enn <= e.ncmx[ell]; ++enn) {
                 int const inl = nl_index(enn, ell);
+                csv[inl] = core;
                 for (int spin = 0; spin < 2; ++spin) {
-                    if (occ[inl][spin] <= 0) occ[inl][spin] = -(2*ell + 1); // negative occupation numbers indicate core electrons
+                    if (occ[inl][spin] <= 0) {
+                        occ[inl][spin] = 2*ell + 1;
+                    }
                 } // spin
             } // enn
         } // ell
@@ -513,17 +510,18 @@ namespace sigma_config {
                 if (echo > 2) std::printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e.q_core_hole[0], e.q_core_hole[1]);
                 occ[inl][0] += e.q_core_hole[0]; // add because core occupation numbers are negative
                 occ[inl][1] += e.q_core_hole[1];
+                assert(core == csv[inl] || semicore == csv[inl]);
             } // inl valid
         } // scope
 
-        double nve{0}, nce{0}, ncv{0}; // number of valence and core electrons, others?
+        double ne[4] = {0, 0, 0, 0}; // number of valence, semicore and core electrons, others?
         for (int inl = 0; inl < max_inl; ++inl) {
-            nve += std::max(0.0, occ[inl][0]) + std::max(0.0, occ[inl][1]);
-            nce -= std::min(0.0, occ[inl][0]) + std::min(0.0, occ[inl][1]);
             if (inl < 32) {
-                set(e.occ[inl], 2, occ[inl]);
+                ne[csv[inl]] += occ[inl][0] + occ[inl][1];
+                set(e.occ[inl], 2, occ[inl]); // copy occupation numbers
+                e.csv[inl] = csv[inl];
             } else {
-                ncv += std::abs(occ[inl][0]) + std::abs(occ[inl][1]);
+                ne[csv_undefined] += occ[inl][0] + occ[inl][1]; // electrons lost
             } // inl < 32
         } // inl
 
@@ -535,9 +533,10 @@ namespace sigma_config {
             std::printf("\n");
         } // echo
 
-        double const nelectrons = nve + nce;
-        if (echo > 4) std::printf("# found %g electrons = %g core + %g valence electrons for Z= %g protons\n", nelectrons, nce, nve, e.Z);
-        if (ncv) warn("lost %g electrons for Z= %g\n", ncv, e.Z);
+        double const nelectrons = ne[core] + ne[semicore] + ne[valence];
+        if (echo > 4) std::printf("# found %g electrons = %g core + %g semicore + %g valence electrons for Z= %g protons\n",
+                                           nelectrons, ne[core], ne[semicore], ne[valence], e.Z);
+        if (ne[csv_undefined] != 0) warn("lost %g electrons for Z= %g", ne[csv_undefined], e.Z);
 
         if (echo > 4) {
             std::printf("# PAW setup for %s (Z=%g) suggests", symbol, e.Z);
@@ -548,7 +547,7 @@ namespace sigma_config {
         } // echo
         
         if (std::abs(nelectrons - e.Z) > 1e-12 && e.Z > 0) warn("PAW setup for %s (Z=%g) is charged with %g electrons", symbol, e.Z, nelectrons - e.Z);
-        
+
         return e;
     } // get
 

@@ -5,6 +5,8 @@ exe=../src/a43
 
 ## make sure A43's single_atom.cxx has been compiled with -D HAS_AUTO_CONF
 
+## good semicore examples are Na (Z=11, 2s), Zn (Z=30, 3p) and ue (Z=119, 6d)
+
 ## experiment: check the semicore feature with sodium Z=11 Na
 $exe  +verbosity=7 \
     -t single_atom \
@@ -13,9 +15,9 @@ $exe  +verbosity=7 \
       +single_atom.core.state.localization=-1 \
       +element_config.core.semicore=-4.5 \
       +element_config.semicore.valence=-1.5 \
-      +element_Na.rcut=2.27 \
-      +element_Na.sigma=0.69 \
-      +element_Na.numax=1 \
+      +element_config.rcut=2.27 \
+      +element_config.sigma=0.69 \
+      +element_config.numax=1 \
       +control.show=1 \
     >  element_config.semicore.out
 

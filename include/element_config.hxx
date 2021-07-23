@@ -30,7 +30,6 @@ namespace element_config {
       , char const *const Sy="X"
       , double const core_state_localization=-1
       , int const echo=3 // log-level
-      , int const numax_default=3 // default
       , int const SRA=1 // 1: Scalar Relativistic Approximation
   ) {
       if (echo > 0) std::printf("# %s element_config for Z= %g\n", Sy, Z_core);
@@ -41,13 +40,16 @@ namespace element_config {
 
       char Sy_config[32];
       std::snprintf(Sy_config, 31, "element_%s.rcut", Sy);
-      e.rcut = control::get(Sy_config, 2.0); // in Bohr
+      auto const rcut_default = control::get("element_config.rcut", 2.0);
+      e.rcut = control::get(Sy_config, rcut_default); // augmentation radius in Bohr
 
       std::snprintf(Sy_config, 31, "element_%s.sigma", Sy);
-      e.sigma = control::get(Sy_config, 0.5); // in Bohr, spread for projectors (Cu)
+      auto const sigma_default = control::get("element_config.sigma", 0.5);
+      e.sigma = control::get(Sy_config, sigma_default); // spread for projectors in Bohr
 
       std::snprintf(Sy_config, 31, "element_%s.numax", Sy);
-      e.numax = int(control::get(Sy_config, double(numax_default)));
+      auto const numax_default = control::get("element_config.numax", 3.);
+      e.numax = int(control::get(Sy_config, numax_default));
 
       for (int ell = 0; ell < 8; ++ell) {
           e.nn[ell] = std::max(0, sho_tools::nn_max(e.numax, ell));
@@ -63,8 +65,9 @@ namespace element_config {
       e.q_core_hole[0] = e.q_core_hole[1] = 0.5*core_hole_charge;
 
       set(e.method, 16, '\0'); // clear
+      auto const method_default = control::get("element_config.method", "sinc");
       std::snprintf(Sy_config, 31, "element_%s.method", Sy);
-      std::snprintf(e.method, 15, "%s", control::get(Sy_config, "sinc"));
+      std::snprintf(e.method, 15, "%s", control::get(Sy_config, method_default));
 
       set(e.occ[0], 32*2, 0.0); // clear occupation numbers
 
@@ -153,8 +156,6 @@ namespace element_config {
 
                       if (occ > 0) {
                           highest_occupied_state_index = ics; // store the index of the highest occupied core state
-//                           if (echo > 9) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
-//                                                        Sy, csv_name(csv), enn, ellchar[ell], occ, E*eV,_eV);
                           if (echo > 5) show_state(Sy, csv_name(csv), tag, occ, E);
                           if (as_valence[inl] < 0) {
                               enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
@@ -166,8 +167,8 @@ namespace element_config {
                               warn("%s %i%c-state cannot be normalized! integral= %g electrons", Sy, enn, ellchar[ell], has_norm);
                           } // cannot be normalized
 
-                          // mark core states by negative occupation numbers
-                          e.occ[inl][0] = e.occ[inl][1] = occ*((valence == csv) ? .5 : -.5);
+                          e.occ[inl][0] = e.occ[inl][1] = 0.5*occ; // split occupation number between dn-spin and up-spin
+                          e.csv[inl] = csv;
                       } // occupied
 
                       n_electrons -= occ; // subtract as many electrons as have been assigned to this state
@@ -193,8 +194,6 @@ namespace element_config {
       } // scope
       set(e.ncmx, 4, enn_core_ell.data());
 
-      if (csv_charge[semicore] > 0) warn("semicore electrons in %s not fully implemented, treat as core", Sy);
-      
       return e;
   } // get
 

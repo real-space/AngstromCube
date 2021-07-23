@@ -29,7 +29,7 @@
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, TRU_ONLY, partial_wave_t
-#include "spherical_state.hxx" // spherical_state_t, core, semicore, valence, csv_name, show_state_analysis
+#include "spherical_state.hxx" // spherical_state_t, core, semicore, valence, csv_name, show_state_analysis, show_state
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "unit_system.hxx" // ::energy_unit
 #include "simple_math.hxx" // ::invert
@@ -71,9 +71,6 @@ namespace single_atom {
 
   int constexpr ELLMAX=15;
   char const ellchar[] = "spdfghijklmnopq";
-
-//   int constexpr core=0, semicore=1, valence=2, csv_undefined=3; // ToDo: as enum to distinguish the different energy level classes
-//   char const csv_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
 
   char const ts_name[][8] = {"true", "smooth"};  // TRU:true, SMT:smooth
 
@@ -451,6 +448,7 @@ namespace single_atom {
 #endif // DEVEL
 
         std::vector<double> occ_custom(36, 0.); // customized occupation numbers for the radial states
+        std::vector<int8_t> csv_custom(36, csv_undefined);
         set(nn, 1 + ELLMAX, uint8_t(0)); // clear
 
         double const core_state_localization = control::get("single_atom.core.state.localization", -1.); // in units of electrons, -1:inactive
@@ -487,6 +485,7 @@ namespace single_atom {
             assert(numax >= 0);
             for (int inl = 0; inl < 32; ++inl) {
                 occ_custom[inl] = ec.occ[inl][0] + ec.occ[inl][1]; // spin polarization is neglected so far
+                csv_custom[inl] = ec.csv[inl];
             } // inl enn-ell all-electron orbital index
             std::strncpy(local_potential_method_name, ec.method, 15);
 
@@ -558,8 +557,7 @@ namespace single_atom {
                         cs.ell = ell;
                         cs.emm = emm_Degenerate;
                         cs.spin = spin_Degenerate;
-                        cs.csv = (occ_custom[inl] < 0) ? core : valence; // occupation numbers <0: core, >0: valence
-
+                        cs.csv = csv_custom[inl];
                         if (valence == cs.csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
                         double const occ = std::abs(occ_custom[inl]);
@@ -682,6 +680,7 @@ namespace single_atom {
                         if (nrn > 0) E = std::max(E, partial_wave[iln - 1].energy); // higher than previous energy
                         radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), enn, ell, E, vs.wave[TRU]);
                         vs.energy = E;
+                        std::snprintf(vs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
 
                         double occ{occ_custom[inl]};
                         { // scope: transfer valence occupation
@@ -691,15 +690,13 @@ namespace single_atom {
                                 occ = spherical_state[ics].occupation; //
                                 vs.occupation = occ;
                                 if (occ > 0) {
-                                    if (echo > 3) std::printf("# %s transfer %.1f electrons from %d%c-core state #%d"
-                                        " to valence state #%d\n", label, occ, enn, ellchar[ell], ics, iln);
+                                    if (echo > 3) std::printf("# %s transfer %.1f electrons from %s-spherical state #%d"
+                                        " to the %s-partial wave #%d\n", label, occ, spherical_state[ics].tag, ics, vs.tag, iln);
                                 } // occupation transfer
                             } // ics
                         } // scope
-                        if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
-                            label, csv_name(valence), enn, ellchar[ell], vs.occupation, E*eV,_eV);
 
-                        std::snprintf(vs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
+                        if (echo > 0) show_state(label, csv_name(valence), vs.tag, vs.occupation, E);
 
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
@@ -1754,7 +1751,7 @@ namespace single_atom {
                                 double lowest_eigenvalue = 0;
                                 auto const info = minimize_curvature(n, Ekin, Olap, &lowest_eigenvalue);
                                 if (info) {
-                                    warn("%s generalized eigenvalue problem in minimize_curvature failed, info= %i\n", label, int(info));
+                                    warn("%s generalized eigenvalue problem in minimize_curvature failed, info= %i", label, int(info));
                                 } else {
                                     set(evec.data(), n, Ekin[0]);
                                     if (echo > 6) {
