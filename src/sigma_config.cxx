@@ -7,10 +7,11 @@
 #include "sigma_config.hxx" // ::element_t, ::get, ::all_tests
 
 #include "status.hxx" // status_t
+#include "control.hxx" // ::get
 #include "inline_math.hxx" // set
 #include "chemical_symbol.hxx" // ::get
-#include "control.hxx" // ::get
 #include "recorded_warnings.hxx" // warn, error
+#include "spherical_state.hxx" // core, semicore, valence, csv_undefined, csv_name
 
 namespace sigma_config {
 
@@ -428,7 +429,7 @@ namespace sigma_config {
                     int const ell = word.ell;
                     int const enn = word.enn;
                     int const inl = nl_index(enn, ell);
-                    
+
                     // read one or two occupation numbers from the stack
                     double occs[2] = {0, 0};
                     if (nstack > 0) {

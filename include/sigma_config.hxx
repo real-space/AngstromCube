@@ -9,7 +9,7 @@ namespace sigma_config {
 
   typedef struct {
       double  occ[32][2]; // occupation numbers up to nl-index 31 (8f-orbital)
-      int8_t  csv[32]; // 0:core, 1:semicore, 2:valence
+      int8_t  csv[32]; // 0:core, 1:semicore, 2:valence, see spherical_state.hxx
       double  Z; // number of protons in the core
       double  rcut; // cutoff-radius
       double  sigma; // Gaussian spread parameter for SHO-type projectors
