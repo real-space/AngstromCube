@@ -5,6 +5,7 @@
 #include "status.hxx" // status_t
 #include "control.hxx" // ::get
 #include "atom_core.hxx" // ::guess_energy, ::nl_index
+#include "quantum_numbers.h" // enn_QN_t
 #include "radial_grid.hxx" // radial_grid_t
 #include "sigma_config.hxx" // ::element_t
 #include "spherical_state.hxx" // core, semicore, valence, csv_undefined, csv_name,
@@ -55,14 +56,21 @@ namespace element_config {
           e.nn[ell] = std::max(0, sho_tools::nn_max(e.numax, ell));
       } // ell
 
-      std::snprintf(Sy_config, 31, "element_%s.core.hole.index", Sy);
-      e.inl_core_hole = int(control::get(Sy_config, -1.));
-      double core_hole_charge{0}, core_hole_charge_used{0};
-      if (e.inl_core_hole >= 0) {
-          std::snprintf(Sy_config, 31, "element_%s.core.hole.charge", Sy);
-          core_hole_charge = std::min(std::max(0.0, control::get(Sy_config, 1.)), 1.0);
-      } // active
-      e.q_core_hole[0] = e.q_core_hole[1] = 0.5*core_hole_charge;
+      double hole_charge{0}, hole_charge_used{0};
+      int inl_hole{-1}, ell_hole{-1}; // invalid
+      std::snprintf(Sy_config, 31, "element_%s.hole.enn", Sy);
+      int const enn_hole = control::get(Sy_config, 0.);
+      if (enn_hole > 0) {
+          if (enn_hole < 9) {
+              std::snprintf(Sy_config, 31, "element_%s.hole.ell", Sy);
+              ell_hole = control::get(Sy_config, -1.);
+              if (ell_hole >= 0 && ell_hole < enn_hole) {
+                  inl_hole = atom_core::nl_index(enn_hole, ell_hole);
+                  std::snprintf(Sy_config, 31, "element_%s.hole.charge", Sy);
+                  hole_charge = std::min(std::max(0.0, control::get(Sy_config, 1.)), 2.*(2*ell_hole + 1));
+              } else warn("%s=%d is out of range [0, %d]", Sy_config, ell_hole, enn_hole - 1);
+          } else warn("%s=%d is too large", Sy_config, enn_hole);
+      }
 
       set(e.method, 16, '\0'); // clear
       auto const method_default = control::get("element_config.method", "sinc");
@@ -105,7 +113,7 @@ namespace element_config {
               enn_QN_t enn = (nq_aux + 1)/2;              // principal quantum number n
               for (int ell = nq_aux/2; ell >= 0; --ell) { // orbital angular momentum l
                   ++enn; // update principal quantum number
-               // for (int jj = 2*ell; jj >= 2*ell; jj -= 2) // total angular momentum j
+//                for (int jj = 2*ell; jj >= 2*ell; jj -= 2) // total angular momentum j
                   {   int const jj = 2*ell;
                       double const max_occ = 2*(jj + 1); // largest state occupation
 
@@ -118,14 +126,14 @@ namespace element_config {
 
                       int const inl = atom_core::nl_index(enn, ell);
 
-                      double const core_hole = core_hole_charge*(e.inl_core_hole == inl);
-                      double const occ_no_core_hole = std::min(std::max(0., n_electrons), max_occ);
-                      double const occ = std::min(std::max(0., occ_no_core_hole - core_hole), max_occ) ;
-                      double const real_core_hole_charge = occ_no_core_hole - occ;
-                      if (real_core_hole_charge > 0) {
-                          core_hole_charge_used = real_core_hole_charge;
+                      double const hole = hole_charge*(inl_hole == inl);
+                      double const occ_no_hole = std::min(std::max(0., n_electrons), max_occ);
+                      double const occ = std::min(std::max(0., occ_no_hole - hole), max_occ) ;
+                      double const real_hole_charge = occ_no_hole - occ;
+                      if (real_hole_charge > 0) {
+                          hole_charge_used = real_hole_charge;
                           if (echo > 1) std::printf("# %s use a %s_core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
-                                                      __func__, Sy, inl, enn, ellchar[ell], real_core_hole_charge);
+                                                      __func__, Sy, inl, enn, ellchar[ell], real_hole_charge);
                       } // core hole active
                       
                       int csv{csv_undefined};
@@ -149,8 +157,6 @@ namespace element_config {
                       } // criterion
                       assert(csv_undefined != csv);
                       if (echo > 15) std::printf("# as_%s[nl_index(enn=%d, ell=%d) = %d] = %d\n", csv_name(csv), enn, ell, inl, ics);
-                      
-                      if ((e.inl_core_hole == inl) && (csv == valence)) error("core holes only allowed in core states, found inl=%i", e.inl_core_hole);
 
                       if (valence == csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
@@ -185,14 +191,18 @@ namespace element_config {
           auto const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
           if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                   Sy, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
-          
-          if ((e.inl_core_hole >= 0) && (std::abs(core_hole_charge_used - core_hole_charge) > 5e-16)) {
-              warn("%s core.hole.charge=%g requested in core.hole.index=%i but used %g electrons (diff %.1e)",
-                    Sy, core_hole_charge, e.inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
+
+          if (inl_hole >= 0) {
+              if (std::abs(hole_charge_used - hole_charge) > 5e-16) {
+                  warn("hole.charge=%g requested in %s-%d%c state but used %g electrons (diff %.1e)",
+                        hole_charge, Sy, enn_hole,ellchar[ell_hole], hole_charge_used, hole_charge - hole_charge_used);
+              } // deviation
+              if (echo > 0) std::printf("# %s occupation hole of %g electrons in %d%c state\n",
+                                          Sy, hole_charge_used, enn_hole,ellchar[ell_hole]);
           } // warning when deviates
 
       } // scope
-      set(e.ncmx, 4, enn_core_ell.data());
+//    set(e.ncmx, 4, enn_core_ell.data());
 
       return e;
   } // get

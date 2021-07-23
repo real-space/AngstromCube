@@ -203,11 +203,9 @@ namespace sigma_config {
     
     
     
-    int8_t constexpr KeySemicore = 0, KeyHole = -1,
-                     KeyRcut = -2, KeySigma = -3, KeyZcore = -4,
-                     KeyMethod = -5, KeyIgnore = -6, KeyWarn = -7,
-                     KeyNumax = -8, KeyNumeric = -9;
-    char const Key2String[][8] = {"semi", "hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "numeric", "undef"};
+    int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
+                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7;
+    char const Key2String[][8] = {"ignored", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "undef"};
 
     inline int8_t char2ell(char const c) {
         switch (c) {
@@ -282,12 +280,11 @@ namespace sigma_config {
         e.rcut = 2.;
         e.sigma = .5;
         e.numax = -1; // automatic
-        e.q_core_hole[0] = 0;
-        e.q_core_hole[1] = 0;
-        e.inl_core_hole = -1; // init invalid
+//         double q_core_hole[] = {0, 0}; // init inactive
+//         int enn_core_hole{0}, ell_core_hole{-1}, inl_core_hole{-1}; // init inactive
         set(e.method, 16, '\0');
         set(e.nn, 8, uint8_t(0));
-        set_default_core_shells(e.ncmx, e.Z);
+//      set_default_core_shells(e.ncmx, e.Z);
 
         if (nullptr == config) {
             warn("occupation numbers for Z=%g not set", e.Z);
@@ -307,8 +304,10 @@ namespace sigma_config {
 
             words.push_back(parsed_word_t());
             auto & w = words[iword];
+            w.value = 0; // init neutral
             w.ell = -1; // init invalid
-            w.mrn = -1; // init invalid
+            w.enn =  0; // init invalid
+            w.mrn = -3; // init invalid
 
             bool try_numeric{false};
             char const cn = *string;
@@ -323,18 +322,21 @@ namespace sigma_config {
                 if (w.ell >= 0) {
                     if (w.ell >= w.enn) error("unphysical ell=%i >= enn=%i in '%s'!", w.ell, w.enn, string);
 
-                    char const cm = *(string + 2);
-                    if ('h' == (cm | 32)) w.key = KeyHole; // core hole, modify key
-                    if ('_' == (cm | 32)) w.key = KeySemicore; // semicore state, modify key
-
                     char const *asterisk{string + 2};
-                    w.mrn = 0; while ('*' == *asterisk) { ++w.mrn; ++asterisk; } // count the '*' chars 
+                    w.mrn = 0; while ('*' == *asterisk) { ++w.mrn; ++asterisk; } // count the '*' chars
+
+                    char const cm = *(string + 2);
+                    if (0 == w.mrn) { // has no asterisks, check for 's':semicore or 'c':core specification
+                        if ('s' == (cm | 32)) w.mrn = -1; // semicore state
+                        if ('c' == (cm | 32)) w.mrn = -2; // core state (used to modify core state occupations)
+                    }
                     if (echo > 9) std::printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", w.enn, w.ell, w.mrn, cn,cl,cm);
 
                 } else { // ell is a valid angular momentum quantum number
                     try_numeric = true;
                 }
-            } else { // enn is valid principal quantum number
+            } else { 
+                // leading character is not in {'1', ..., '9'}, i.e. a valid principal quantum number
                 if (KeyNumeric == w.key) {
                     try_numeric = true;
                 } else if (KeyMethod == w.key) {
@@ -352,7 +354,7 @@ namespace sigma_config {
             } // try_numeric
 
             ++iword;
-            
+ 
             auto const next_blank = std::strchr(string, ' '); // forward to the next w, ToDo: how does it react to \t?
             if (next_blank) {
                 string = next_blank;
@@ -372,12 +374,12 @@ namespace sigma_config {
             for (int iword = 0; iword < nwords; ++iword) {
                 auto const & w = words[iword];
                 if (w.key > 0) {
-                    assert(w.enn == w.key && w.ell >= 0 && w.mrn >= 0); // orbital
-                    std::printf("%i%c%s ", w.enn, ellchar[w.ell], mrn2string[w.mrn]);
-                } else if (KeyHole == w.key) {
-                    std::printf("%i%chole ", w.enn, ellchar[w.ell]);
-                } else if (KeySemicore == w.key) {
-                    std::printf("%i%c_semicore ", w.enn, ellchar[w.ell]);
+                    assert(w.enn == w.key && w.ell >= 0 && w.ell < w.enn && w.mrn > -3); // orbital
+                    std::printf("%i%c%s ", w.enn, ellchar[w.ell], (w.mrn >= 0) ? mrn2string[w.mrn] : csv_name(w.mrn + 2));
+//                 } else if (KeyHole == w.key) {
+//                     std::printf("%i%chole ", w.enn, ellchar[w.ell]);
+//                 } else if (KeySemicore == w.key) {
+//                     std::printf("%i%c_semicore ", w.enn, ellchar[w.ell]);
                 } else if (KeyNumeric == w.key) {
                     std::printf("%g ", w.value);
                 } else if (KeyIgnore == w.key) {
@@ -394,6 +396,9 @@ namespace sigma_config {
         double occ[max_inl][2]; // spin resolved occupation numbers
         set(occ[0], max_inl*2, 0.0); // clear
         std::vector<int8_t> csv(max_inl, csv_undefined);
+        
+        int ncmx[8]; set(ncmx, 8, 0);
+        set_default_core_shells(ncmx, e.Z);      
 
         int constexpr max_nstack = 4;
         double stack[max_nstack] = {0, 0, 0, 0};
@@ -423,7 +428,7 @@ namespace sigma_config {
                     value = stack[--nstack]; // pop the stack
                     if (echo > 21) std::printf("# nstack=%i popped\n", nstack);
                 }
-                if (w.key >= KeyHole) { // orbital, hole or semicore
+                if (w.key > 0) { // orbital
 
                     // read one or two occupation numbers from the stack
                     double occs[2] = {0, 0};
@@ -437,52 +442,59 @@ namespace sigma_config {
                         set(occs, 2, .5*value); // split the value between dn-spin and up-spin
                     }
                     // checks for the boundaries of occupation numbers
+                    auto const max_occ = 2*w.ell + 1;
                     for (int spin = 0; spin < 2; ++spin) {
                         if (occs[spin] < 0 && e.Z > 0) {
                             warn("found a negative occupation number %g in the %s-%i%c orbital", occs[spin], symbol, w.enn, ellchar[w.ell]);
                             occs[spin] = 0;
                         }
-                        if (occs[spin] > 2*w.ell + 1) {
+                        if (occs[spin] > max_occ) {
                             warn("occupation number %g is too large for a %s-%i%c orbital", occs[spin], symbol, w.enn, ellchar[w.ell]);
-                            occs[spin] = 2*w.ell + 1;
+                            occs[spin] = max_occ;
                         }
                     } // spin
 
                     int const inl = nl_index(w.enn, w.ell);
-                    if (KeyHole == w.key) {
-                        if (csv_undefined == csv[inl]) csv[inl] = core;
-                        if (echo > 2) std::printf("# found a %i%c-%s hole of charges = %g %g in %s\n", 
-                                          w.enn,ellchar[w.ell], csv_name(csv[inl]), occs[0],occs[1], symbol);
-                        set(e.q_core_hole, 2, occs);
-                        e.inl_core_hole = inl;
-                    } else if (KeySemicore == w.key) {
-                        if (echo > 2) std::printf("# found a %i%c-semicore state with %g %g in %s\n", w.enn,ellchar[w.ell], occs[0],occs[1], symbol);
-                        if (csv_undefined == csv[inl]) csv[inl] = semicore; // classify
-                        set(occ[inl], 2, occs); // set valence occupation numbers
-                    } else {
-                        if (echo > 9) std::printf("# found orbital %i%c occ= %g %g inl=%i\n", w.enn,ellchar[w.ell], occs[0],occs[1], inl);
-                        assert(w.key > 0); // this is a valence orbital specification
-                        if (csv_undefined == csv[inl]) csv[inl] = valence; // classify
-                        set(occ[inl], 2, occs); // set valence occupation numbers
+                    csv[inl] = std::min(valence, w.mrn + 2); // classify
+
+//                     if (KeyHole == w.key) {
+//                         if (echo > 2) std::printf("# found a %i%c-%s hole of charges = %g %g in %s\n", 
+//                                           w.enn,ellchar[w.ell], csv_name(csv[inl]), occs[0],occs[1], symbol);
+//                         set(q_core_hole, 2, occs);
+//                         inl_core_hole = inl;
+//                         enn_core_hole = w.enn;
+//                         ell_core_hole = w.ell;
+//                     } else
+
+//                     if (KeySemicore == w.key) {
+//                         if (echo > 2) std::printf("# found a %i%c-semicore state with %g %g in %s\n", w.enn,ellchar[w.ell], occs[0],occs[1], symbol);
+//                         if (csv_undefined == csv[inl]) csv[inl] = semicore; // classify
+//                         set(occ[inl], 2, occs); // set valence occupation numbers
+//                     } else {
+                    if (echo > 9) std::printf("# found orbital %i%c occ= %g %g inl=%i\n", w.enn,ellchar[w.ell], occs[0],occs[1], inl);
+                    assert(w.key > 0); // this is a valence orbital specification
+                    set(occ[inl], 2, occs); // set valence occupation numbers
+                    if (valence == csv[inl]) {
                         if (w.ell < 8) e.nn[w.ell] += 1 + w.mrn; // number of partial waves
-                        if (w.ell < 4) e.ncmx[w.ell] = w.enn - 1; // highest enn of a core state
+//                      if (w.ell < 4) e.ncmx[w.ell] = w.enn - 1; // highest enn of a core state
+                        if (w.ell < 8) ncmx[w.ell] = w.enn - 1; // highest enn of a core state
                     }
 
                 } else if (KeyRcut == w.key) {
                     e.rcut = value;
-                    if (echo > 9) std::printf("# found cutoff radius rcut = %g\n", e.rcut);
+                    if (echo > 9) std::printf("# found cutoff radius rcut= %g\n", e.rcut);
                     if (e.rcut <= 0) warn("rcut must be positive but found rcut=%g", e.rcut);
                 } else if (KeySigma == w.key) {
                     e.sigma = value;
-                    if (echo > 9) std::printf("# found projector spread sigma = %g\n", e.sigma);
+                    if (echo > 9) std::printf("# found projector spread sigma= %g\n", e.sigma);
                     if (e.sigma <= 0) warn("sigma must be positive but found sigma=%g", e.sigma);
                 } else if (KeyNumax == w.key) {
                     e.numax = int(value);
-                    if (echo > 9) std::printf("# found SHO projector cutoff numax = %d\n", e.numax);
+                    if (echo > 9) std::printf("# found SHO projector cutoff numax= %d\n", e.numax);
                     if (std::abs(e.numax - value) > 1e-6) warn("numax must be a positive integer found %g --> %d", value, e.numax);
                 } else if (KeyZcore == w.key) {
                     e.Z = value;
-                    set_default_core_shells(e.ncmx, e.Z); // adjust default core shells
+                    set_default_core_shells(ncmx, e.Z); // adjust default core shells
                     if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
                 } else {
@@ -492,39 +504,41 @@ namespace sigma_config {
         } // iword
         if (nstack > 0) warn("after parsing, some value %g was left on the stack", stack[0]);
 
-
         // fill the core
         if (echo > 6) {
             std::printf("# fill the core up to the principal quantum number n=");
             for (int ell = 0; ell < 4; ++ell) {
-                std::printf(" %d", e.ncmx[ell]*(e.ncmx[ell] > ell)); // show zeros if there are no core electrons
+                std::printf(" %d", ncmx[ell]*(ncmx[ell] > ell)); // show zeros if there are no core electrons
             } // ell
             std::printf(" for s,p,d,f\n");
         } // echo
 
-        // set lower core states
+        // set all core states
         for (int ell = 0; ell < 4; ++ell) {
-            for (int enn = ell + 1; enn <= e.ncmx[ell]; ++enn) {
+            for (int enn = ell + 1; enn <= ncmx[ell]; ++enn) {
                 int const inl = nl_index(enn, ell);
-                if (csv_undefined == csv[inl]) csv[inl] = core; // classify
-                for (int spin = 0; spin < 2; ++spin) {
-                    if (occ[inl][spin] <= 0) {
-                        occ[inl][spin] = 2*ell + 1;
-                    }
-                } // spin
+                if (csv_undefined == csv[inl]) {
+                    csv[inl] = core; // classify as core
+                    for (int spin = 0; spin < 2; ++spin) {
+                        occ[inl][spin] = 2*ell + 1; // occupy fully
+                    } // spin
+                } // has not been set before
             } // enn
         } // ell
 
+#if 0        
         { // scope: introduce a "core" hole
-            int const inl = e.inl_core_hole;
+            int const inl = nl_index(enn_core_hole, ell_core_hole);
+            assert(inl == inl_core_hole);
             if (inl >= 0) {
-                if (echo > 2) std::printf("# introduce a %s hole in inl=%i with charge %g + %g electrons\n", 
-                                             csv_name(csv[inl]), inl, e.q_core_hole[0], e.q_core_hole[1]);
-                occ[inl][0] -= e.q_core_hole[0]; // subtract
-                occ[inl][1] -= e.q_core_hole[1];
+                if (echo > 2) std::printf("# introduce a %s hole in %d%c state with charge %g + %g electrons\n", 
+                      csv_name(csv[inl]), enn_core_hole,ellchar[ell_core_hole], q_core_hole[0], q_core_hole[1]);
+                occ[inl][0] -= q_core_hole[0]; // subtract
+                occ[inl][1] -= q_core_hole[1];
                 assert(csv_undefined != csv[inl]); // we allow core-holes even in the valence band
             } // inl valid
         } // scope
+#endif
 
         double ne[4] = {0, 0, 0, 0}; // number of valence, semicore and core electrons, others?
         for (int inl = 0; inl < max_inl; ++inl) {
@@ -540,7 +554,7 @@ namespace sigma_config {
         if (echo > 11) { // show all occupation numbers
             std::printf("# Z=%3i occ=", iZ);
             for (int inl = 0; inl < 30; ++inl) {
-                std::printf("%3i", int(std::abs(occ[inl][0]) + std::abs(occ[inl][1])));
+                std::printf("%3i", int(std::round(std::abs(occ[inl][0]) + std::abs(occ[inl][1]))));
             } // inl
             std::printf("\n");
         } // echo
@@ -557,8 +571,11 @@ namespace sigma_config {
             } // ell
             std::printf(" partial waves for s,p,d,...\n");
         } // echo
-        
-        if (std::abs(nelectrons - e.Z) > 1e-12 && e.Z > 0) warn("PAW setup for %s (Z=%g) is charged with %g electrons", symbol, e.Z, nelectrons - e.Z);
+
+        if ((std::abs(nelectrons - e.Z) > 1e-12) && (e.Z > 0)) {
+            warn("PAW setup for %s (Z=%g) is charged with %g electrons",
+                                symbol, e.Z, nelectrons - e.Z);
+        }
 
         return e;
     } // get

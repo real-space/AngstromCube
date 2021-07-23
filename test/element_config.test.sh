@@ -25,10 +25,10 @@ $exe  +verbosity=7 \
 ## with an energy window of 0 for semicore states by using this:
 #     +element_config.core.valence=-2.2 \
 
-$exe  +verbosity=11 \
+$exe  +verbosity=7 \
     -t single_atom \
       +single_atom.test.Z=11 \
       +single_atom.config=sigma_config \
-      +element_Na="3s* 1 3p 1e-99 2p_semi | 2.26 sigma .7" \
+      +element_Na="3s* 1 3p 1e-99 2pSemicore 6 | 2.26 sigma .7" \
       +control.show=1 \
     >  element_config.semicore.Na.out
