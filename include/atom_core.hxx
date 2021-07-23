@@ -44,6 +44,7 @@ namespace atom_core {
       , char const basename[]="pot/Zeff"
       , double const factor=1
       , int const echo=9 // log output level
+      , char const *prefix=""
   ); // declaration only
 
   inline void get_Zeff_file_name(

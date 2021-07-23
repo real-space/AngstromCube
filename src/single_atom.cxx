@@ -220,11 +220,11 @@ namespace single_atom {
         int const echo // log-level
       , char const *label // log-prefix
       , radial_grid_t const & rg // radial grid descriptor, should be rg[TRU]
-      , double const wave[] // radial wave function (Mind: not scaled by r)
+      , double const wave[] // true radial wave function (Mind: not scaled by r)
       , char const *tag // name of the state
       , double const occ // occupation number
       , double const energy // energy eigenvalue or energy parameter
-      , char const *csv_class // classification as 0:core, 1:semicore, 2:valence, 3:?
+      , char const *csv_class // classification as {core, semicore, valence, ?}
       , int const ir_cut=0 // radial grid index of the augmentation radius
   ) { 
       // display stat information about a radial wave functions
@@ -247,9 +247,11 @@ namespace single_atom {
       if (echo > 0) {
           std::printf("# %s %-9s%-4s%6.1f E=%16.6f %s ", label, csv_class, tag, occ, energy*eV,_eV);
           if (echo > 4) { // detailed information
-              std::printf(" <r>=%g rms=%g %s <r^-1>=%g %s", qr*qinv*Ang, std::sqrt(std::max(0., qr2*qinv))*Ang,_Ang, qrm1*qinv*eV,_eV);
+              auto const rms = std::sqrt(std::max(0., qr2*qinv));
+              std::printf(" <r>=%g rms=%g %s <r^-1>=%g %s", qr*qinv*Ang, rms*Ang, _Ang, qrm1*qinv*eV, _eV);
           } // echo
-          std::printf(" q_out=%.3g e\n", charge_outside);
+          std::printf((charge_outside > 1e-3) ? " out=%6.2f %%\n"
+                                              : " out= %.0e %%\n", 100*charge_outside);
       } // echo
 
       return charge_outside; // fraction of charge outside the augmentation radius
@@ -343,7 +345,7 @@ namespace single_atom {
       , int const numax_default=3 // default
       , int const SRA=1 // 1: Scalar Relativistic Approximation
   ) {
-      if (echo > 0) std::printf("# %s for %s, Z= %g\n", __func__, Sy, Z_core);
+      if (echo > 0) std::printf("# %s %s Z= %g\n", Sy, __func__, Z_core);
 
       auto & e = *(new sigma_config::element_t); // is this memory ever released?
 
@@ -378,16 +380,19 @@ namespace single_atom {
 
       set(e.occ[0], 32*2, 0.0); // clear occupation numbers
 
-
-      double const core_valence_separation  = control::get("single_atom.separate.core.valence", -2.0); // in Hartree always
-      double       core_semicore_separation = control::get("single_atom.separate.core.semicore",    core_valence_separation);
-      double const semi_valence_separation  = control::get("single_atom.separate.semicore.valence", core_valence_separation);
-      if (core_semicore_separation > semi_valence_separation) {
-          warn("%s single_atom.separate.core.semicore=%g may not be higher than ~.semicore.valence=%g %s, correct for it",
-                Sy, core_semicore_separation*eV, semi_valence_separation*eV, _eV);
-          core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
-      } // warning
-
+      double core_valence_separation{0}, core_semicore_separation{0}, semi_valence_separation{0};
+      if (core_state_localization > 0) {
+          if (echo > 0) std::printf("# %s use core state localization criterion with %g %%\n", Sy, core_state_localization*100);
+      } else {
+          core_valence_separation  = control::get("single_atom.separate.core.valence", -2.0); // in Hartree always
+          core_semicore_separation = control::get("single_atom.separate.core.semicore",    core_valence_separation);
+          semi_valence_separation  = control::get("single_atom.separate.semicore.valence", core_valence_separation);
+          if (core_semicore_separation > semi_valence_separation) {
+              warn("%s single_atom.separate.core.semicore=%g %s may not be higher than ~.semicore.valence=%g %s, correct for it",
+                    Sy, core_semicore_separation*eV, _eV, semi_valence_separation*eV, _eV);
+              core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
+          } // warning
+      } // criterion
 
       int const ir_cut = radial_grid::find_grid_index(rg, e.rcut);
       if (echo > 6) std::printf("# %s cutoff radius %g %s at grid point %d of max. %d\n",
@@ -428,7 +433,7 @@ namespace single_atom {
                           } else {
                               csv = core; // mark as core state
                           } // stay in the core
-                      } else { // core_state_localization criterion
+                      } else { // criterion
                           // energy criterions
                           if (E > semi_valence_separation) {
                               csv = valence; // mark as valence state
@@ -437,7 +442,7 @@ namespace single_atom {
                           } else { // move to the semicore band
                               csv = core; // mark as core state
                           } // stay in the core
-                      } // core_state_localization criterion
+                      } // criterion
                       assert(csv_undefined != csv);
                       if (echo > 15) std::printf("# as_%s[nl_index(enn=%d, ell=%d) = %d] = %d\n", csv_name[csv], enn, ell, inl, ics);
 
@@ -488,7 +493,7 @@ namespace single_atom {
           auto const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
           if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                   Sy, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
-
+          
           if ((e.inl_core_hole >= 0) && (std::abs(core_hole_charge_used - core_hole_charge) > 5e-16)) {
               warn("%s core.hole.charge=%g requested in core.hole.index=%i but used %g electrons (diff %.1e)",
                     Sy, core_hole_charge, e.inl_core_hole, core_hole_charge_used, core_hole_charge - core_hole_charge_used);
@@ -496,6 +501,8 @@ namespace single_atom {
 
       } // scope
       set(e.ncmx, 4, enn_core_ell.data());
+      
+      if (csv_charge[semicore] > 0) warn("%s semicore states not fully implemented, treat as core states", Sy);
 
       return e;
   } // auto_configure_element
@@ -749,10 +756,10 @@ namespace single_atom {
         enn_QN_t enn_core_ell[16]; // energy quantum number of the highest occupied core level
         set(enn_core_ell, 16, enn_QN_t(0));
 
-        set(csv_charge, 3, 0.0); // clear numbers of electrons for {core, semicore, valence}
+        set(csv_charge, 3, 0.); // clear numbers of electrons for {core, semicore, valence}
 
         { // scope: initialize the spherical states and true spherical densities
-            // there are about 20 spherical states without spin-orbit coupling
+            // typically, there are at most 20 spherical states without spin-orbit coupling
             spherical_state = std::vector<spherical_orbital_t>(32);
             int highest_occupied_state_index{-1};
             int ics{0}; // init counter of spherical states
@@ -778,15 +785,15 @@ namespace single_atom {
                         double const occ = std::abs(occ_custom[inl]);
                         cs.occupation = occ;
                         if (occ > 0) {
+                            csv_charge[cs.csv] += occ;
                             highest_occupied_state_index = ics; // store the index of the highest occupied core state
                             if (echo > 5) std::printf("# %s %-9s %2d%c%6.1f\n", label, csv_name[cs.csv], enn, ellchar[ell], occ);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
-                            csv_charge[cs.csv] += occ;
                         } // occupied
 
-                        ++ics;
+                        ++ics; // add a spherical state
                     } // occupied
                 } // ell
             } // enn
@@ -1000,8 +1007,10 @@ namespace single_atom {
             logder_energy_range[2] = control::get("logder.stop",   1.0*eu)*in_eu;
             if (echo > 3) std::printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
                 label, logder_energy_range[0]*eV, logder_energy_range[1]*eV, logder_energy_range[2]*eV, _eV);
-            if (echo > 4) std::printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
-                label, logder_energy_range[0]*eu, logder_energy_range[1]*eu, logder_energy_range[2]*eu, _eu);
+            if (eu != eV) {
+                if (echo > 4) std::printf("# %s logder.start=%g logder.step=%g logder.stop=%g %s\n",
+                    label, logder_energy_range[0]*eu, logder_energy_range[1]*eu, logder_energy_range[2]*eu, _eu);
+            } // logder.unit != output.energy.unit
         } // scope
 
         { // scope: pseudize the local potential r*V(r)

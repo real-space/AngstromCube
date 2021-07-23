@@ -121,7 +121,8 @@ namespace atom_core {
       status_t stat(0);
       char filename[96];
       get_Zeff_file_name(filename, basename, Z);
-      if (echo > 3) std::printf("# %s %s Z=%g  try to read file %s\n", prefix, __func__, Z, filename);
+      if (echo > 3) std::printf("# %s %s Z=%g  try to read file \'%s\'\n",
+                                  prefix, __func__, Z, filename);
       std::ifstream infile(filename);
       int ngr{0}, ngu{0}; // number of radial grid points read and used
       if (infile.is_open()) {
@@ -147,10 +148,10 @@ namespace atom_core {
               r_prev = r; Ze_prev = Ze; // pass
               stat = (r_max < r_min);
           } // while
-          if (echo > 3) std::printf("# %s %s Z=%g  use %d of %d values from file %s, interpolate to %d values\n",
-                                  prefix, __func__, Z, ngu, ngr, filename, ir);
+          if (echo > 3) std::printf("# %s %s Z=%g  interpolate to %d using %d of %d values\n",
+                                    prefix, __func__, Z, ir, ngu, ngr);
       } else {
-          if (echo > 1) std::printf("# %s %s Z=%g  failed to open file %s\n", prefix, __func__, Z, filename);
+          warn("%s Z=%g failed to open file \'%s\' for reading\n", prefix, Z, filename);
           stat = -1; // failure
       } // is_open
       return stat;
@@ -164,10 +165,11 @@ namespace atom_core {
       , char const basename[]
       , double const factor
       , int const echo
+      , char const prefix[]
   ) {
       char filename[96];
       get_Zeff_file_name(filename, basename, Z);
-      if (echo > 3) std::printf("# %s  Z=%g  try to write file %s\n",  __func__, Z, filename);
+      if (echo > 3) std::printf("# %s %s  Z=%g  try to write file \'%s\'\n", prefix, __func__, Z, filename);
       std::ofstream outfile(filename);
       if (outfile.is_open()) {
           outfile << std::setprecision(15);
@@ -176,7 +178,7 @@ namespace atom_core {
           } // write to file
           return 0; // success
       } else {
-          if (echo > 1) std::printf("# %s  Z=%g  failed to open file %s for writing\n",  __func__, Z, filename);
+          warn("failed to open file \'%s\' for writing\n", filename);
           return 1; // failure
       } // is_open
   } // store_Zeff_to_file
