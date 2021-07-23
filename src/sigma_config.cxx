@@ -204,8 +204,8 @@ namespace sigma_config {
     
     
     int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
-                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7;
-    char const Key2String[][8] = {"ignored", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "undef"};
+                     KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyUndef = -8;
+    char const Key2String[][8] = {"ignored", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
 
     inline int8_t char2ell(char const c) {
         switch (c) {
@@ -225,7 +225,7 @@ namespace sigma_config {
     inline int8_t char2key(char const c) {
         // interpret the leading character of a word
         switch (c) { // case sensitive
-            case ' ': case '\0': case '\t': case '\n': return KeyIgnore;
+            case ' ': case '\0': case '\t': case '\n': return KeyIgnore; // ignore whitespaces
             case 'r': case 'R': case '|': return KeyRcut;
             case 's': case 'S': return KeySigma;
             case 'Z': case 'z': return KeyZcore;
@@ -233,7 +233,9 @@ namespace sigma_config {
             case 'V': case 'v': return KeyMethod;
             case 'W': case 'w': return KeyWarn;
             case '0': case '.': case '+': case '-': return KeyNumeric; // numeric reading
-            default : return c - '0'; // enn quantum number of an orbital
+            case '1': case '2': case '3': case '4': case '5':
+            case '6': case '7': case '8': case '9': return c - '0'; // enn quantum number of an orbital
+            default : return KeyUndef; // other characters, e.g. ':'
         } // switch
     } // char2key
 
@@ -408,7 +410,7 @@ namespace sigma_config {
                 if (echo > 21) std::printf("# nstack=%i stack[%i]=%g\n", nstack, nstack - 1, stack[nstack - 1]);
             } else if (KeyMethod == w.key) {
 //              warn("method specifier in config string for %s ignored : %s", symbol, config);
-                std::strncpy(e.method, local_potential_method + 2, 15);
+                std::strncpy(e.method, local_potential_method + 2, 15); // +2 to strip the "v=" or "V="
                 if (echo > 9) std::printf("# found local potential method = \'%s\'\n", e.method);
             } else if (KeyWarn == w.key) {
                 warn("config string for %s may be experimental: %s", symbol, config);
@@ -477,9 +479,9 @@ namespace sigma_config {
                     if (echo > 9) std::printf("# found core charge Z= %g for %s\n", e.Z, symbol);
                     if (e.Z >= 120) warn("some routine may not be prepared for Z= %g >= 120", e.Z);
                 } else {
-                    warn("key unknown: key= %d", w.key);
+                    warn("%s unknown key= %d (%s) in word #%i", symbol, w.key, Key2String[-w.key], iword);
                 }
-            } // else
+            }
         } // iword
         if (nstack > 0) warn("after parsing, some value %g was left on the stack", stack[0]);
 
