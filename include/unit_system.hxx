@@ -42,18 +42,18 @@ namespace unit_system {
 
   inline status_t set_output_units(char const *energy, char const *length, int const echo=0) {
       if (echo > 5) std::printf("# Set output units to {%s, %s}\n", energy, length);
-#ifdef _Output_Units_Fixed
+#ifdef    _Output_Units_Fixed
       if ('H' != *energy || 'B' != *length) {
           warn("output units cannot be changed to {%s, %s} at runtime", energy, length);
       } // units differ from "Ha" and "Bohr"
       return -1; // cannot modify
-#else
+#else  // _Output_Units_Fixed
       eV  = energy_unit(energy, &_eV);
       Ang = length_unit(length, &_Ang);
       assert( eV  > 0 );
       assert( Ang > 0 );
       return 0;
-#endif
+#endif // _Output_Units_Fixed
   } // set_output_units
 
 #ifdef  NO_UNIT_TESTS

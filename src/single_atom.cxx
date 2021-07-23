@@ -28,7 +28,8 @@
 #include "solid_harmonics.hxx" // ::lm_index, ::Y00, ::Y00inv
 #include "atom_core.hxx" // ::initial_density, ::rad_pot, ::nl_index
 #include "quantum_numbers.h" // enn_QN_t, ell_QN_t, emm_QN_t, emm_Degenerate, spin_QN_t, spin_Degenerate
-#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, TRU_ONLY, spherical_orbital_t, partial_wave_t
+#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT, TRU_ONLY, partial_wave_t
+#include "spherical_state.hxx" // spherical_state_t, core, semicore, valence, csv_name, show_state_analysis
 #include "display_units.h" // eV, _eV, Ang, _Ang
 #include "unit_system.hxx" // ::energy_unit
 #include "simple_math.hxx" // ::invert
@@ -50,7 +51,7 @@
 #include "recorded_warnings.hxx" // warn, error, abort
 #include "pseudo_tools.hxx" // ::pseudize_local_potential, ::pseudize_function, ...
                             // ::pseudize_spherical_density, ::perform_Gram_Schmidt
-
+#include "element_config.hxx" // ::get
 #include "paw_xml_export.hxx" // ::write_to_file
 
 #define DEBUG
@@ -67,8 +68,8 @@ namespace single_atom {
   int constexpr ELLMAX=15;
   char const ellchar[] = "spdfghijklmnopq";
 
-  int constexpr core=0, semicore=1, valence=2, csv_undefined=3; // ToDo: as enum to distinguish the different energy level classes
-  char const csv_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
+//   int constexpr core=0, semicore=1, valence=2, csv_undefined=3; // ToDo: as enum to distinguish the different energy level classes
+//   char const csv_name[][10] = {"core", "semicore", "valence", "?"};  // 0:core, 1:semicore, 2:valence
 
   char const ts_name[][8] = {"true", "smooth"};  // TRU:true, SMT:smooth
 
@@ -214,7 +215,7 @@ namespace single_atom {
 #endif // DEVEL
   } // get_valence_mapping
 
-  
+#if 0 // moved to spherical_state.hxx
 
   double show_state_analysis( // returns the charge outside the sphere
         int const echo // log-level
@@ -226,7 +227,7 @@ namespace single_atom {
       , double const energy // energy eigenvalue or energy parameter
       , char const *csv_class // classification as {core, semicore, valence, ?}
       , int const ir_cut=0 // radial grid index of the augmentation radius
-  ) { 
+  ) {
       // display stat information about a radial wave functions
 
       double q{0}, qr{0}, qr2{0}, qrm1{0}, qout{0};
@@ -256,7 +257,7 @@ namespace single_atom {
 
       return charge_outside; // fraction of charge outside the augmentation radius
   } // show_state_analysis
-    
+#endif // 0
    
 
 
@@ -331,8 +332,8 @@ namespace single_atom {
 
 
 
-#define HAS_AUTO_CONF
-#ifdef  HAS_AUTO_CONF
+#define HAS_ELEMENT_CONFIG
+#if 0 // def  HAS_ELEMENT_CONFIG
   // single_atom.config=auto
   sigma_config::element_t const & auto_configure_element(
         double const Z_core
@@ -444,7 +445,7 @@ namespace single_atom {
                           } // stay in the core
                       } // criterion
                       assert(csv_undefined != csv);
-                      if (echo > 15) std::printf("# as_%s[nl_index(enn=%d, ell=%d) = %d] = %d\n", csv_name[csv], enn, ell, inl, ics);
+                      if (echo > 15) std::printf("# as_%s[nl_index(enn=%d, ell=%d) = %d] = %d\n", csv_name(csv), enn, ell, inl, ics);
 
                       double const max_occ = 2*(jj + 1);
                       double const core_hole = core_hole_charge*(e.inl_core_hole == inl);
@@ -464,7 +465,7 @@ namespace single_atom {
                       if (occ > 0) {
                           highest_occupied_state_index = ics; // store the index of the highest occupied core state
                           if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
-                                                       Sy, csv_name[csv], enn, ellchar[ell], occ, E*eV,_eV);
+                                                       Sy, csv_name(csv), enn, ellchar[ell], occ, E*eV,_eV);
                           if (as_valence[inl] < 0) {
                               enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                           } // not as valence
@@ -506,7 +507,7 @@ namespace single_atom {
 
       return e;
   } // auto_configure_element
-#endif  // HAS_AUTO_CONF
+#endif  // HAS_ELEMENT_CONFIG
 
 
 
@@ -555,7 +556,7 @@ namespace single_atom {
       // spin-resolved members
       double csv_charge[3];
       double take_spherical_density[3]; // 1: use the spherical density only, 0: use the density from partial waves, mixtures possible.
-      std::vector<spherical_orbital_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
+      std::vector<spherical_state_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       view2D<double> spherical_density[TRU_AND_SMT]; // spherical densities*4pi, no Y00 factor, for {core, semicore, valence}
 
       view2D<double> full_density[TRU_AND_SMT]; // total density, core + valence, (1 + ellmax_rho)^2 radial functions
@@ -680,11 +681,11 @@ namespace single_atom {
         { // scope: initialize from sigma_config
             if (echo > 8) std::printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec =
-#ifdef  HAS_AUTO_CONF
-                            ('a' == (*control::get("single_atom.config", "custom") | 32)) ? // c:custom, a:automatic
-                            auto_configure_element(Z_core, ionization, rg[TRU], potential[TRU].data(), 
+#ifdef  HAS_ELEMENT_CONFIG
+                            ('e' == (*control::get("single_atom.config", "custom") | 32)) ? // c:custom, e:element_config
+                            element_config::get(Z_core, ionization, rg[TRU], potential[TRU].data(), 
                                               chem_symbol, core_state_localization, echo) :
-#endif  // HAS_AUTO_CONF
+#endif  // HAS_ELEMENT_CONFIG
                             sigma_config::get(Z_core, echo - 4, &custom_configuration);
             if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n",
                                          label, ec.Z, ec.rcut*Ang, ec.sigma*Ang, _Ang);
@@ -760,7 +761,7 @@ namespace single_atom {
 
         { // scope: initialize the spherical states and true spherical densities
             // typically, there are at most 20 spherical states without spin-orbit coupling
-            spherical_state = std::vector<spherical_orbital_t>(32);
+            spherical_state = std::vector<spherical_state_t>(32);
             int highest_occupied_state_index{-1};
             int ics{0}; // init counter of spherical states
             for (enn_QN_t enn = 1; enn < 9; ++enn) { // principal quantum number n
@@ -787,7 +788,7 @@ namespace single_atom {
                         if (occ > 0) {
                             csv_charge[cs.csv] += occ;
                             highest_occupied_state_index = ics; // store the index of the highest occupied core state
-                            if (echo > 5) std::printf("# %s %-9s %2d%c%6.1f\n", label, csv_name[cs.csv], enn, ellchar[ell], occ);
+                            if (echo > 5) std::printf("# %s %-9s %2d%c%6.1f\n", label, csv_name(cs.csv), enn, ellchar[ell], occ);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
@@ -917,7 +918,7 @@ namespace single_atom {
                             } // ics
                         } // scope
                         if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
-                            label, csv_name[valence], enn, ellchar[ell], vs.occupation, E*eV,_eV);
+                            label, csv_name(valence), enn, ellchar[ell], vs.occupation, E*eV,_eV);
 
                         std::snprintf(vs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
 
@@ -1221,13 +1222,13 @@ namespace single_atom {
 
                 // display state tag, occupation and energy
                 auto const charge_outside = show_state_analysis(echo - 5, label, g, cs.wave[TRU],
-                                    cs.tag, cs.occupation, cs.energy, csv_name[csv], ir_cut[TRU]);
+                                    cs.tag, cs.occupation, cs.energy, csv_name(csv), ir_cut[TRU]);
                 if (core_state_localization > 0) {
                     auto const csv_auto = (charge_outside > core_state_localization) ? valence : core;
                     if (csv_auto !=    csv) warn("%s the spherical %s state is %s, but has %g %% of its charge outside",
-                                                  label, cs.tag, csv_name[csv], charge_outside*100);
+                                                  label, cs.tag, csv_name(csv), charge_outside*100);
                     if (echo > 11) std::printf("# %s the spherical %s %s state has %g %% charge outside the sphere, suggest %s\n",
-                                                  label, cs.tag, csv_name[csv], charge_outside*100, csv_name[csv_auto]);
+                                                  label, cs.tag, csv_name(csv), charge_outside*100, csv_name(csv_auto));
                 } // check core state criterion
 
             } // ics
@@ -1240,7 +1241,7 @@ namespace single_atom {
             for (int csl = core; csl <= semicore; ++csl) {
                 for (int svh = csl + 1; svh <= valence; ++svh) {
                     if (max_energy[csl] > min_energy[svh]) {
-                        warn("%s some %s states are higher than %s states", label, csv_name[csl], csv_name[svh]);
+                        warn("%s some %s states are higher than %s states", label, csv_name(csl), csv_name(svh));
                     } // band overlap
                 } // svh
             } // csl
@@ -1281,20 +1282,20 @@ namespace single_atom {
 #ifdef DEVEL
                 if (echo > 7) std::printf("# %s previous %s density has %g electrons, expected %g\n"
                                           "# %s new %s density has %g electrons\n",
-                                          label, csv_name[csv], old_charge, nelectrons[csv], 
-                                          label, csv_name[csv], new_charge);
+                                          label, csv_name(csv), old_charge, nelectrons[csv], 
+                                          label, csv_name(csv), new_charge);
 
                 auto const dev = check_charge - nelectrons[csv];
                 if (std::abs(dev) > 1e-14) {
                     warn("# %s new spherical %s density has %g electrons, expected %g, diff %g\n",
-                                        label, csv_name[csv], check_charge, nelectrons[csv], dev);
+                                        label, csv_name(csv), check_charge, nelectrons[csv], dev);
                 } // deviates
 #endif // DEVEL
 
                 if (echo > 3) std::printf("# %s %-8s density change %g e, Coulomb energy change %g %s\n", 
-                    label, csv_name[csv], density_change, Coulomb_change*eV, _eV);
+                    label, csv_name(csv), density_change, Coulomb_change*eV, _eV);
                 if (echo > 5) std::printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
-                    label, csv_name[csv], Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV, _eV);
+                    label, csv_name(csv), Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV, _eV);
             } // output only for contributing densities
 
             energy_kin_csvn[csv][SMT] = 0;
@@ -1302,7 +1303,7 @@ namespace single_atom {
 
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
-                spherical_density[TRU][csv], rg, ir_cut, csv_name[csv], label, echo);
+                spherical_density[TRU][csv], rg, ir_cut, csv_name(csv), label, echo);
 
         } // csv
 
@@ -1731,7 +1732,7 @@ namespace single_atom {
 //                 auto const tru_kinetic_E = vs.energy*tru_norm - tru_Epot; // kinetic energy contribution up to r_cut
 
 //                 if (echo > 1) std::printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
-                show_state_analysis(echo - 5, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name[valence], ir_cut[TRU]);
+                show_state_analysis(echo - 5, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name(valence), ir_cut[TRU]);
                 
 #if 0                
                 if (recreate_second == method && '*' == partial_wave_char[iln] && nrn > 0) {
@@ -2633,7 +2634,7 @@ namespace single_atom {
                             add_product(full_density[ts][00], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
                             // needs scaling with Y00 since core_density has a factor 4*pi
                             if (echo > 1) std::printf("# %s %s density has %g electrons after adding the spherical %s density\n",
-                                label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi, csv_name[csv]);
+                                label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi, csv_name(csv));
                         } // take
                     } // csv, spherical {core, semicore, valence} densities
                 } // 00 == lm
@@ -3415,7 +3416,7 @@ namespace single_atom {
             for (int csv = core; csv <= valence; ++csv) {
                 if (csv_charge[csv] > 0) { // do not display core or semicore electrons if there are none
                     std::printf("# %s kinetic   %20.9f  spherical %-8s %6.1f %%\n", label,
-                        energy_kin_csvn[csv][TRU]*eV, csv_name[csv], take_spherical_density[csv]*100);
+                        energy_kin_csvn[csv][TRU]*eV, csv_name(csv), take_spherical_density[csv]*100);
                 } // csv_charge
             } // csv
             // kinetic valence energy correction from the atomic density matrix:
