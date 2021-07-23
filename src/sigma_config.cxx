@@ -203,11 +203,11 @@ namespace sigma_config {
     
     
     
-    int8_t constexpr KeyHole = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
-                     KeyMethod = -4, KeyIgnore = -5, KeyWarn = -6,
-                     KeyNumax = -7, KeyNumeric = -8;
-//  char constexpr Key2Char[] = "h|sZV_Wn$?"; // negative keys needed: [-key]
-    char const Key2String[][8] = {"hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "numeric", "undef"};
+    int8_t constexpr KeySemicore = 0, KeyHole = -1,
+                     KeyRcut = -2, KeySigma = -3, KeyZcore = -4,
+                     KeyMethod = -5, KeyIgnore = -6, KeyWarn = -7,
+                     KeyNumax = -8, KeyNumeric = -9;
+    char const Key2String[][8] = {"semi", "hole", "|", "sigma", "Z=", "V", "ignored", "warn", "numax", "numeric", "undef"};
 
     inline int8_t char2ell(char const c) {
         switch (c) {
@@ -225,6 +225,7 @@ namespace sigma_config {
     } // char2ell
 
     inline int8_t char2key(char const c) {
+        // interpret the leading character of a word
         switch (c) { // case sensitive
             case ' ': case '\0': case '\t': case '\n': return KeyIgnore;
             case 'r': case 'R': case '|': return KeyRcut;
@@ -298,8 +299,8 @@ namespace sigma_config {
         words.reserve(32);
         int iword{0};
         char local_potential_method[32];
-        
-        char const * string{config + ('"' == *config)}; // drop first char if it is '"'
+
+        char const * string{config + ('"' == config[0])}; // drop first char if it is '"'
         char c0{*string};
         while(c0) {
             if (echo > 11) std::printf("# start from '%s'\n", string);
@@ -312,7 +313,7 @@ namespace sigma_config {
             bool try_numeric{false};
             char const cn = *string;
             w.key = char2key(cn);
-            if (echo > 10) std::printf("# found key=%i in '%s'\n", w.key, string);
+            if (echo > 10) std::printf("# found key=%i (%s) in '%s'\n", w.key, (w.key > 0)?"enn":Key2String[-w.key], string);
             if (w.key > 0) {
                 // the first non-blank char was a digit larger than 0
                 w.enn = w.key;
@@ -323,8 +324,9 @@ namespace sigma_config {
                     if (w.ell >= w.enn) error("unphysical ell=%i >= enn=%i in '%s'!", w.ell, w.enn, string);
 
                     char const cm = *(string + 2);
-                    if ((cm | 32) == 'h') w.key = KeyHole; // core hole, modify key
-                    
+                    if ('h' == (cm | 32)) w.key = KeyHole; // core hole, modify key
+                    if ('_' == (cm | 32)) w.key = KeySemicore; // semicore state, modify key
+
                     char const *asterisk{string + 2};
                     w.mrn = 0; while ('*' == *asterisk) { ++w.mrn; ++asterisk; } // count the '*' chars 
                     if (echo > 9) std::printf("# found enn=%i ell=%i mrn=%i in '%c%c%c'\n", w.enn, w.ell, w.mrn, cn,cl,cm);
@@ -370,10 +372,12 @@ namespace sigma_config {
             for (int iword = 0; iword < nwords; ++iword) {
                 auto const & w = words[iword];
                 if (w.key > 0) {
-                    assert(w.enn == w.key); // orbital
+                    assert(w.enn == w.key && w.ell >= 0 && w.mrn >= 0); // orbital
                     std::printf("%i%c%s ", w.enn, ellchar[w.ell], mrn2string[w.mrn]);
                 } else if (KeyHole == w.key) {
                     std::printf("%i%chole ", w.enn, ellchar[w.ell]);
+                } else if (KeySemicore == w.key) {
+                    std::printf("%i%c_semicore ", w.enn, ellchar[w.ell]);
                 } else if (KeyNumeric == w.key) {
                     std::printf("%g ", w.value);
                 } else if (KeyIgnore == w.key) {
@@ -419,7 +423,7 @@ namespace sigma_config {
                     value = stack[--nstack]; // pop the stack
                     if (echo > 21) std::printf("# nstack=%i popped\n", nstack);
                 }
-                if (w.key >= KeyHole) { // orbital
+                if (w.key >= KeyHole) { // orbital, hole or semicore
 
                     // read one or two occupation numbers from the stack
                     double occs[2] = {0, 0};
@@ -446,16 +450,22 @@ namespace sigma_config {
 
                     int const inl = nl_index(w.enn, w.ell);
                     if (KeyHole == w.key) {
+                        if (csv_undefined == csv[inl]) csv[inl] = core;
+                        if (echo > 2) std::printf("# found a %i%c-%s hole of charges = %g %g in %s\n", 
+                                          w.enn,ellchar[w.ell], csv_name(csv[inl]), occs[0],occs[1], symbol);
                         set(e.q_core_hole, 2, occs);
                         e.inl_core_hole = inl;
-                        if (echo > 2) std::printf("# found a %i%c-core hole of charges = %g %g in %s\n", w.enn,ellchar[w.ell], occs[0],occs[1], symbol);
+                    } else if (KeySemicore == w.key) {
+                        if (echo > 2) std::printf("# found a %i%c-semicore state with %g %g in %s\n", w.enn,ellchar[w.ell], occs[0],occs[1], symbol);
+                        if (csv_undefined == csv[inl]) csv[inl] = semicore; // classify
+                        set(occ[inl], 2, occs); // set valence occupation numbers
                     } else {
                         if (echo > 9) std::printf("# found orbital %i%c occ= %g %g inl=%i\n", w.enn,ellchar[w.ell], occs[0],occs[1], inl);
                         assert(w.key > 0); // this is a valence orbital specification
-                        csv[inl] = valence;
-                        set(occ[inl], 2, occs); // set valence occupation numbers positive
-                        if (w.ell < 8) e.nn[w.ell] += 1 + w.mrn;
-                        if (w.ell < 4) e.ncmx[w.ell] = w.enn - 1;
+                        if (csv_undefined == csv[inl]) csv[inl] = valence; // classify
+                        set(occ[inl], 2, occs); // set valence occupation numbers
+                        if (w.ell < 8) e.nn[w.ell] += 1 + w.mrn; // number of partial waves
+                        if (w.ell < 4) e.ncmx[w.ell] = w.enn - 1; // highest enn of a core state
                     }
 
                 } else if (KeyRcut == w.key) {
@@ -492,10 +502,11 @@ namespace sigma_config {
             std::printf(" for s,p,d,f\n");
         } // echo
 
+        // set lower core states
         for (int ell = 0; ell < 4; ++ell) {
             for (int enn = ell + 1; enn <= e.ncmx[ell]; ++enn) {
                 int const inl = nl_index(enn, ell);
-                csv[inl] = core;
+                if (csv_undefined == csv[inl]) csv[inl] = core; // classify
                 for (int spin = 0; spin < 2; ++spin) {
                     if (occ[inl][spin] <= 0) {
                         occ[inl][spin] = 2*ell + 1;
@@ -504,13 +515,14 @@ namespace sigma_config {
             } // enn
         } // ell
 
-        { // scope: introduce a core hole
+        { // scope: introduce a "core" hole
             int const inl = e.inl_core_hole;
             if (inl >= 0) {
-                if (echo > 2) std::printf("# introduce a core hole in inl=%i with charge %g %g electrons\n", inl, e.q_core_hole[0], e.q_core_hole[1]);
-                occ[inl][0] += e.q_core_hole[0]; // add because core occupation numbers are negative
-                occ[inl][1] += e.q_core_hole[1];
-                assert(core == csv[inl] || semicore == csv[inl]);
+                if (echo > 2) std::printf("# introduce a %s hole in inl=%i with charge %g + %g electrons\n", 
+                                             csv_name(csv[inl]), inl, e.q_core_hole[0], e.q_core_hole[1]);
+                occ[inl][0] -= e.q_core_hole[0]; // subtract
+                occ[inl][1] -= e.q_core_hole[1];
+                assert(csv_undefined != csv[inl]); // we allow core-holes even in the valence band
             } // inl valid
         } // scope
 
@@ -557,16 +569,15 @@ namespace sigma_config {
 
   status_t test_parsing(int const echo=0) {
 
-      int const iZ_show = control::get("sigma_config.show.Z", -120); // use -128 to check also the custom configuration strings and vacuum
+      int const iZ_show = control::get("sigma_config.test.Z", -120); // use -128 to check also the custom configuration strings and vacuum
       if (iZ_show >= 0) {
 
-          // show and parse one selected element
-          if (echo > 0) std::printf("\n# running with +sigma_config.show.Z=%i\n", iZ_show);
+          // parse one selected element and show the configuration string used
+          if (echo > 0) std::printf("\n# running with +sigma_config.test.Z=%i\n", iZ_show);
           char Sy[4];
           auto const iZ = chemical_symbol::get(Sy, iZ_show);
           char const *actual_config{nullptr};
           auto const e = get(iZ, echo, &actual_config);
-//        if (echo > 0) std::printf("\n+element_%s=\"%s\"\n\n", Sy, default_config(iZ));
           if (echo > 0) std::printf("\n+element_%s=\"%s\"\n\n", Sy, actual_config);
           if (echo > 0) std::printf("# found Z= %g\n", e.Z);
 
@@ -585,8 +596,8 @@ namespace sigma_config {
               } // with 58 through 70 and more
           } // iZ
 #endif // EXPERIMENTAL
-        
-          if (echo > 2) std::printf("\n\n# parse configuration strings for elements 1--57, 71--86\n\n");
+
+          if (echo > 2) std::printf("\n\n# parse configuration strings for elements 86--71, 57--1\n\n");
           for (int iZ = 86; iZ > 0; --iZ) {
               if (std::abs(iZ - 64) >= 7) {
                   if (echo > 4) std::printf("\n");
