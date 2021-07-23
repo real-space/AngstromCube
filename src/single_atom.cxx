@@ -682,7 +682,7 @@ namespace single_atom {
             if (echo > 8) std::printf("# %s get PAW configuration data for Z=%g\n", label, Z_core);
             auto const ec =
 #ifdef  HAS_ELEMENT_CONFIG
-                            ('e' == (*control::get("single_atom.config", "custom") | 32)) ? // c:custom, e:element_config
+                            ('e' == (*control::get("single_atom.config", "sigma") | 32)) ? // s:sigma_config, e:element_config
                             element_config::get(Z_core, ionization, rg[TRU], potential[TRU].data(), 
                                               chem_symbol, core_state_localization, echo) :
 #endif  // HAS_ELEMENT_CONFIG

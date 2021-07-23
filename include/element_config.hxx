@@ -7,7 +7,8 @@
 #include "atom_core.hxx" // ::guess_energy, ::nl_index
 #include "radial_grid.hxx" // radial_grid_t
 #include "sigma_config.hxx" // ::element_t
-#include "spherical_state.hxx" // core, semicore, valence, csv_undefined, csv_name
+#include "spherical_state.hxx" // core, semicore, valence, csv_undefined, csv_name,
+//       "spherical_state.hxx" // show_state_analysis, show_state
 #include "chemical_symbol.h" // element_symbols
 #include "recorded_warnings.hxx" // warn
 #include "radial_eigensolver.hxx" // ::shooting_method
@@ -32,7 +33,7 @@ namespace element_config {
       , int const numax_default=3 // default
       , int const SRA=1 // 1: Scalar Relativistic Approximation
   ) {
-      if (echo > 0) std::printf("# %s %s Z= %g\n", Sy, __func__, Z_core);
+      if (echo > 0) std::printf("# %s element_config for Z= %g\n", Sy, Z_core);
 
       auto & e = *(new sigma_config::element_t); // is this memory ever released?
 
@@ -71,11 +72,11 @@ namespace element_config {
       if (core_state_localization > 0) {
           if (echo > 0) std::printf("# %s use core state localization criterion with %g %%\n", Sy, core_state_localization*100);
       } else {
-          core_valence_separation  = control::get("single_atom.separate.core.valence", -2.0); // in Hartree always
-          core_semicore_separation = control::get("single_atom.separate.core.semicore",    core_valence_separation);
-          semi_valence_separation  = control::get("single_atom.separate.semicore.valence", core_valence_separation);
+          core_valence_separation  = control::get("element_config.core.valence", -2.0); // in Hartree always
+          core_semicore_separation = control::get("element_config.core.semicore",    core_valence_separation);
+          semi_valence_separation  = control::get("element_config.semicore.valence", core_valence_separation);
           if (core_semicore_separation > semi_valence_separation) {
-              warn("%s single_atom.separate.core.semicore=%g %s may not be higher than ~.semicore.valence=%g %s, correct for it",
+              warn("%s element_config.core.semicore=%g %s may not be higher than ~.semicore.valence=%g %s, correct for it",
                     Sy, core_semicore_separation*eV, _eV, semi_valence_separation*eV, _eV);
               core_semicore_separation = semi_valence_separation; // correct -. no semicore states possible
           } // warning
@@ -113,10 +114,21 @@ namespace element_config {
                       radial_eigensolver::shooting_method(SRA, rg, rV, enn, ell, E, wave.data(), r2rho.data());
 
                       int const inl = atom_core::nl_index(enn, ell);
+
+                      double const core_hole = core_hole_charge*(e.inl_core_hole == inl);
+                      double const occ_no_core_hole = std::min(std::max(0., n_electrons), max_occ);
+                      double const occ = std::min(std::max(0., occ_no_core_hole - core_hole), max_occ) ;
+                      double const real_core_hole_charge = occ_no_core_hole - occ;
+                      if (real_core_hole_charge > 0) {
+                          core_hole_charge_used = real_core_hole_charge;
+                          if (echo > 1) std::printf("# %s use a %s_core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
+                                                      __func__, Sy, inl, enn, ellchar[ell], real_core_hole_charge);
+                      } // core hole active
+                      
                       int csv{csv_undefined};
+                      auto const charge_outside = show_state_analysis(echo, Sy, rg, wave.data(), tag, occ, E, "?", ir_cut);
                       if (core_state_localization > 0) {
                           // criterion based on the charge outside the sphere
-                          auto const charge_outside = show_state_analysis(echo, Sy, rg, wave.data(), tag, 0., E, "?", ir_cut);
                           if (charge_outside > core_state_localization) {
                               csv = valence; // mark as valence state
                           } else {
@@ -134,25 +146,16 @@ namespace element_config {
                       } // criterion
                       assert(csv_undefined != csv);
                       if (echo > 15) std::printf("# as_%s[nl_index(enn=%d, ell=%d) = %d] = %d\n", csv_name(csv), enn, ell, inl, ics);
-
-                      double const core_hole = core_hole_charge*(e.inl_core_hole == inl);
-                      double const occ_no_core_hole = std::min(std::max(0., n_electrons), max_occ);
-                      double const occ = std::min(std::max(0., occ_no_core_hole - core_hole), max_occ) ;
-                      double const real_core_hole_charge = occ_no_core_hole - occ;
-                      if (real_core_hole_charge > 0) {
-                          core_hole_charge_used = real_core_hole_charge;
-                          if (echo > 1) std::printf("# %s use a %s_core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
-                                                      __func__, Sy, inl, enn, ellchar[ell], real_core_hole_charge);
-                      } // core hole active
-
+                      
                       if ((e.inl_core_hole == inl) && (csv == valence)) error("core holes only allowed in core states, found inl=%i", e.inl_core_hole);
 
                       if (valence == csv) as_valence[inl] = ics; // mark as good for the valence band, store the core state index
 
                       if (occ > 0) {
                           highest_occupied_state_index = ics; // store the index of the highest occupied core state
-                          if (echo > 0) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
-                                                       Sy, csv_name(csv), enn, ellchar[ell], occ, E*eV,_eV);
+//                           if (echo > 9) std::printf("# %s %-9s %2d%c%6.1f E=%16.6f %s\n",
+//                                                        Sy, csv_name(csv), enn, ellchar[ell], occ, E*eV,_eV);
+                          if (echo > 5) show_state(Sy, csv_name(csv), tag, occ, E);
                           if (as_valence[inl] < 0) {
                               enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                           } // not as valence
@@ -190,6 +193,8 @@ namespace element_config {
       } // scope
       set(e.ncmx, 4, enn_core_ell.data());
 
+      if (csv_charge[semicore] > 0) warn("semicore electrons in %s not fully implemented, treat as core", Sy);
+      
       return e;
   } // get
 

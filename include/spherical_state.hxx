@@ -13,6 +13,17 @@
              (semicore == csv) ? "semicore" : "?" ) );
   } // csv_name
 
+  inline void show_state(
+        char const *label // log-prefix
+      , char const *csv_class // classification as {core, semicore, valence, ?}
+      , char const *tag // name of the state
+      , double const occ // occupation number
+      , double const energy // energy eigenvalue or energy parameter
+      , char const final='\n' // line end
+  ) {
+      std::printf("# %s %-9s%-4s%6.1f E=%16.6f %s%c", label, csv_class, tag, occ, energy*eV, _eV, final);
+  } // show_state
+
   inline double show_state_analysis( // returns the charge outside the sphere
         int const echo // log-level
       , char const *label // log-prefix
@@ -42,13 +53,14 @@
       double const charge_outside = qout*qinv;
 
       if (echo > 0) {
-          std::printf("# %s %-9s%-4s%6.1f E=%16.6f %s ", label, csv_class, tag, occ, energy*eV,_eV);
+//        std::printf("# %s %-9s%-4s%6.1f E=%16.6f %s ", label, csv_class, tag, occ, energy*eV, _eV);
+          show_state(label, csv_class, tag, occ, energy, ' ');
           if (echo > 4) { // detailed information
               auto const rms = std::sqrt(std::max(0., qr2*qinv));
-              std::printf(" <r>=%g rms=%g %s <r^-1>=%g %s", qr*qinv*Ang, rms*Ang, _Ang, qrm1*qinv*eV, _eV);
+              std::printf(" <r>=%g rms=%g %s <r^-1>=%g %s\t", qr*qinv*Ang, rms*Ang, _Ang, qrm1*qinv*eV, _eV);
           } // echo
-          std::printf((charge_outside > 1e-3) ? " out=%6.2f %%\n"
-                                              : " out= %.0e %%\n", 100*charge_outside);
+          std::printf((charge_outside > 1e-3) ? "out=%6.2f %%\n"
+                                              : "out= %.0e %%\n", 100*charge_outside);
       } // echo
 
       return charge_outside; // fraction of charge outside the augmentation radius
