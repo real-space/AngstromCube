@@ -15,7 +15,6 @@ namespace sigma_config {
       double  sigma; // Gaussian spread parameter for SHO-type projectors
       char    method[16]; // method for the local potential
       uint8_t nn[8]; // number of radial projectors per ell for ell=0..7
-//    uint8_t ncmx[4]; // highest enn quantum number of core states for ell=0..3
       int8_t  numax; // user specified numax, -1:auto
   } element_t;
 

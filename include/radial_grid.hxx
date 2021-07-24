@@ -27,8 +27,9 @@ namespace radial_grid {
       , int const echo=0 // log-level
   ); // declaration only
 
-  inline radial_grid_t* create_default_radial_grid(float const Z_nucleons=0) {
-      return create_radial_grid(250*std::sqrt(Z_nucleons + 9.) + .5); }
+  inline radial_grid_t* create_default_radial_grid(float const Z_protons=0) {
+      return create_radial_grid(250*std::sqrt(Z_protons + 9.) + .5);
+  } // create_default_radial_grid
 
   void destroy_radial_grid(radial_grid_t* g, char const *name=""); // radial grid descriptor
 

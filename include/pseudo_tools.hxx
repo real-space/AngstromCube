@@ -18,8 +18,7 @@
 
 namespace pseudo_tools {
 
-  inline
-  status_t pseudize_function(
+  inline status_t pseudize_function(
           double fun[] // result function
         , double const rg[] // radial grid
         , int const irc // radial grid index of the cutoff radius
@@ -81,8 +80,7 @@ namespace pseudo_tools {
   } // pseudize_function
 
 
-  inline
-  double pseudize_spherical_density(
+  inline double pseudize_spherical_density(
         double smooth_density[]
       , double const true_density[]
       , radial_grid_t const rg[TRU_AND_SMT] // TRU and SMT radial grid
@@ -95,9 +93,9 @@ namespace pseudo_tools {
       int const nr_diff = rg[TRU].n - nrs;
       set(smooth_density, nrs, true_density + nr_diff); // copy the tail of the true density into the smooth density
 
-//         auto const stat = pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-      auto const stat = pseudo_tools::pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
-      // alternatively, pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
+//    auto const stat = pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+      auto const stat = pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3); // 3: use r^0, r^2 and r^4
+//    alternatively:    pseudize_function(smooth_density, rg[SMT].r, ir_cut[SMT], 3, 2); // 3, 2: use r^2, r^4 and r^6
       if (stat) warn("%s Matching procedure for the smooth %s density failed! info= %d", label, quantity, int(stat));
 #ifdef DEVEL
       if (echo > 8) { // plot the densities
@@ -117,7 +115,6 @@ namespace pseudo_tools {
 
       return charge_deficit;
   } // pseudize_spherical_density
-
 
 
   template <typename real_t>
@@ -177,8 +174,6 @@ namespace pseudo_tools {
 
       return 0; // success
   } // Lagrange_derivatives
-
-
 
 
   template <int rpow>
@@ -242,7 +237,7 @@ namespace pseudo_tools {
               } // order
           } // echo
           
-          if (echo > 27 && 1 == rpow) {
+          if ((1 == rpow) && (echo > 27)) {
               for (int order = 1; order < 16; ++order) {
                   unsigned const Lagrange_order = 2*order + 1;
                   std::printf("\n\n## r, r*V_true(r), Lagrange_fit(N=%d), dLagrange/dr, d^2Lagrange/dr^2, status:\n", Lagrange_order);
@@ -321,8 +316,7 @@ namespace pseudo_tools {
   } // pseudize_local_potential
 
 
-  inline
-  double perform_Gram_Schmidt( // returns the determinant |A|
+  inline double perform_Gram_Schmidt( // returns the determinant |A|
         int const n // number of projectors == number of partial waves == nn[ell]
       , view3D<double> & LU_inv // resulting matrices {L^-1, U^-1}
       , view2D<double> const & A // input matrix, overlap of <preliminary partial waves_
@@ -436,7 +430,7 @@ namespace pseudo_tools {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat{0};
-      // ToDo
+      stat = STATUS_TEST_NOT_INCLUDED; // ToDo
       return stat;
   } // all_tests
 

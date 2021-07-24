@@ -17,9 +17,9 @@ $exe  +verbosity=7 \
       +element_config.semicore.valence=-1.5 \
       +element_config.rcut=2.26 \
       +element_config.sigma=0.7 \
-      +element_config.numax=1 \
+      +element_config.numax=2 \
       +control.show=1 \
-    >  element_config.semicore.out
+    >  element_config.semicore.$1.out
 
 ## We can use the energy criterion to separate core and valence states
 ## with an energy window of 0 for semicore states by using this:
@@ -29,6 +29,6 @@ $exe  +verbosity=7 \
     -t single_atom \
       +single_atom.test.Z=11 \
       +single_atom.config=sigma_config \
-      +element_Na="3s* 1 3p 1e-99 2pSemicore 6 | 2.26 sigma .7" \
+      +element_Na="3s* 1 2p 6 2sSemicore 2 3d | 2.26 sigma .7" \
       +control.show=1 \
     >  element_config.semicore.Na.out

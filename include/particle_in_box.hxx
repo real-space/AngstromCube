@@ -1,9 +1,10 @@
-/* This file is meant to be include inside the namespaces 
+/*
+ *  This file is meant to be include inside the namespaces 
  *      davidson_solver 
- * and 
+ *  and 
  *      conjugate_gradients
- * as it will envoke eigensolve(...) from them.
- * The following includes are required but need to be outside.
+ *  as it will envoke eigensolve(...) from them.
+ *  The following includes are required but need to be outside.
  */
 
 // #include <vector> // std::vector<T>

@@ -144,6 +144,7 @@ namespace spherical_harmonics {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
       if (echo > 0) std::printf("\n# %s    no test implemented!\n\n", __FILE__);
+      stat = STATUS_TEST_NOT_INCLUDED; // ToDo: think of a good test
       return stat;
   } // all_tests
 

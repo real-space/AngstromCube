@@ -19,6 +19,8 @@ namespace poisson_solver {
 
   inline char solver_method(char const *method) { return *method; }
 
+#ifdef DEVEL
+
   template <typename real_t>
   void print_direct_projection(
         real_t const array[]
@@ -27,33 +29,30 @@ namespace poisson_solver {
       , double const *center=nullptr
       , int const echo=1 // log-level
   ) {
-      // write all values of a grid array to stdout 
-      // as function of their distance to a given center
+      // write all values of a grid array to stdout as function of their distance to a given center
+      int constexpr X=0, Y=1, Z=2;
 
-      double cnt[3];
-      if (nullptr != center) { 
-          set(cnt, 3, center); // copy
-      } else {
-          for (int d = 0; d < 3; ++d) {
-              cnt[d] = 0.5*(g[d] - 1)*g.h[d];
-          } // d
-      } // center given
-      if (echo > 0) std::printf("# projection center (relative to grid point (0,0,0) is %g %g %g in units of grid spacings\n",
-                cnt[0]*g.inv_h[0], cnt[1]*g.inv_h[1], cnt[2]*g.inv_h[2]);
-      for (int iz = 0; iz < g[2]; ++iz) {
-          double const z = iz*g.h[2] - cnt[2], z2 = z*z;
-          for (int iy = 0; iy < g[1]; ++iy) {
-              double const y = iy*g.h[1] - cnt[1], y2 = y*y; 
-              for (int ix = 0; ix < g[0]; ++ix) {
-                  double const x = ix*g.h[0] - cnt[0], x2 = x*x;
+      double cnt[3] = {.5*(g[X] - 1)*g.h[X], .5*(g[Y] - 1)*g.h[Y], .5*(g[Z] - 1)*g.h[Z]};
+      if (nullptr != center) set(cnt, 3, center); // copy
+
+      if (echo > 0) std::printf("# projection center (relative to grid point (0,0,0) is"
+          " %g %g %g spacings\n", cnt[X]*g.inv_h[X], cnt[Y]*g.inv_h[Y], cnt[Z]*g.inv_h[Z]);
+      for (int iz = 0; iz < g[Z]; ++iz) {
+          double const z = iz*g.h[Z] - cnt[Z], z2 = z*z;
+          for (int iy = 0; iy < g[Y]; ++iy) {
+              double const y = iy*g.h[Y] - cnt[Y], y2 = y*y; 
+              for (int ix = 0; ix < g[X]; ++ix) {
+                  double const x = ix*g.h[X] - cnt[X], x2 = x*x;
                   double const r = std::sqrt(x2 + y2 + z2);
-                  int const izyx = (iz*g[1] + iy)*g[0] + ix;
+                  int const izyx = (iz*g[Y] + iy)*g[X] + ix;
                   if (echo > 0) std::printf("%g %g\n", r*Ang, array[izyx]*factor);
               } // ix
           } // iy
       } // iz
       if (echo > 0) std::printf("# radii in %s\n\n", _Ang);
   } // print_direct_projection
+
+#endif // DEVEL
 
   status_t all_tests(int const echo=0); // declaration only
 

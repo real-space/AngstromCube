@@ -20,100 +20,13 @@
   #include "radial_r2grid.hxx" // ::r_axis
   #include "lossful_compression.hxx" // print_compressed
   #include "simple_timer.hxx" // SimpleTimer
+  #include "poisson_solver.hxx" // ::print_direct_projection
 #endif // DEVEL
 
 namespace potential_generator {
 
-#if 0
-  inline int even(int const any) { return (((any - 1) >> 1) + 1) << 1;}
-  inline int n_grid_points(double const suggest) { return int(even(int(std::ceil(suggest)))); }
-
-  inline status_t init_geometry_and_grid(
-        real_space::grid_t & g // output grid descriptor
-      , view2D<double> & xyzZ // output atom coordinates and core charges Z
-      , int & natoms // output number of atoms found
-      , int const echo=0 // log-level
-  ) {
-      // SimpleTimer init_function_timer(__FILE__, __LINE__, __func__, echo);
-      status_t stat(0);
-
-      natoms = 0;
-      double cell[3];
-      int bc[3]; // boundary conditions
-      auto const geo_file = control::get("geometry.file", "atoms.xyz");
-      stat += geometry_analysis::read_xyz_file(xyzZ, natoms, geo_file, cell, bc, echo);
-
-      { // scope: determine grid spacings and number of grid points
-        
-          // precedence: 
-          //    highest:  grid.points.x, .y, .z
-          //           :  grid.points
-          //           :  grid.spacing.x, .y, .z
-          //     lowest:  grid.spacing             default value = 0.125 Angstrom
-
-          auto const grid_spacing_unit_name = control::get("grid.spacing.unit", "Bohr");
-          char const *_lu;
-          auto const lu = unit_system::length_unit(grid_spacing_unit_name, &_lu);
-          auto const in_lu = 1./lu;
-
-          auto const default_grid_spacing = 0.23621577; // = 0.125 Angstrom
-          auto const keyword_ng = "grid.points";
-          auto const keyword_hg = "grid.spacing";
-          auto const ng_iso = control::get(keyword_ng, 0.); // 0 is not a usable default value, --> try to use grid spacings
-          auto const hg_iso = control::get(keyword_hg, default_grid_spacing*lu);
-
-          int default_grid_spacing_used{0};
-          int ng[3] = {0, 0, 0};
-          for (int d = 0; d < 3; ++d) { // directions x, y, z
-              char keyword[96];
-              std::snprintf(keyword, 95, "%s.%c", keyword_ng, 'x'+d);
-              ng[d] = int(control::get(keyword, ng_iso));
-              if (ng[d] < 1) {
-                  std::snprintf(keyword, 95, "%s.%c", keyword_hg, 'x'+d);
-                  double const hg_lu = control::get(keyword, hg_iso);
-                  bool const is_default_grid_spacing = (hg_lu == hg_iso);
-                  double const hg = hg_lu*in_lu;
-                  if (echo > 8) std::printf("# grid spacing in %c-direction is %g %s = %g %s%s\n",
-                      'x'+d, hg_lu, _lu, hg*Ang, _Ang, is_default_grid_spacing?" (default)":"");
-                  default_grid_spacing_used += is_default_grid_spacing;
-                  if (hg <= 0) error("grid spacings must be positive, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-                  ng[d] = n_grid_points(cell[d]/hg);
-                  if (ng[d] < 1) error("grid spacings too large, found %g %s in %c-direction", hg*Ang, _Ang, 'x'+d);
-              } // ng < 1
-              // ToDo: give a warning if grid.points or grid.points.d is overwriting a user specified grid.spacing
-              ng[d] = even(ng[d]); // if odd, increment to nearst higher even number
-              if (echo > 8) std::printf("# use %d grid points in %c-direction\n", ng[d], 'x'+d);
-          } // d
-          if (default_grid_spacing_used > 0) {
-              if (echo > 6) std::printf("# default grid spacing %g %s used for %d directions\n", 
-                                default_grid_spacing*Ang, _Ang, default_grid_spacing_used);
-          } // default_grid_spacing_used
-          g = real_space::grid_t(ng[0], ng[1], ng[2]);
-      } // scope
-
-      if (echo > 1) std::printf("# use  %d x %d x %d  grid points\n", g[0], g[1], g[2]);
-      g.set_boundary_conditions(bc[0], bc[1], bc[2]);
-      g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
-      double const max_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
-      if (echo > 1) std::printf("# use  %g %g %g  %s  dense grid spacing, corresponds to %.1f Ry\n",
-            g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
-      for (int d = 0; d < 3; ++d) {
-          if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
-              warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
-                             'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
-          }
-          cell[d] = g.h[d]*g[d];
-          assert(std::abs(g.h[d]*g.inv_h[d] - 1) < 4e-16);
-      } // d
-      if (echo > 1) std::printf("# cell is  %g %g %g  %s\n", cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang);
-
-      return stat;
-  } // init_geometry_and_grid
-#endif // 0
-
-
   template <typename real_t>
-  inline status_t write_array_to_file(
+  status_t write_array_to_file(
         char const *filename // file name to write to
       , real_t const array[]  // array pointer
       , int const nx, int const ny, int const nz // grid dimensions
@@ -125,8 +38,9 @@ namespace potential_generator {
       return dump_to_file(filename, size, array, nullptr, 1, 1, title, echo);
   } // write_array_to_file
 
+
   template <typename real_t>
-  inline status_t add_smooth_quantities(
+  status_t add_smooth_quantities(
         real_t values[] // add to this function on a 3D grid
       , real_space::grid_t const & g // Cartesian real-space grid descriptor
       , int const na // number of atoms (radial grid centers)
@@ -172,42 +86,6 @@ namespace potential_generator {
   } // add_smooth_quantities
   
 #ifdef DEVEL
-
-  template <typename real_t>
-  void print_direct_projection(
-        real_t const array[]
-      , real_space::grid_t const & g
-      , double const factor=1
-      , double const *const center=nullptr
-  ) {
-      // write all values of a grid array to stdout 
-      // as function of their distance to a given center
-
-      double cnt[3];
-      if (nullptr != center) { 
-          set(cnt, 3, center); // copy
-      } else {
-          for (int d = 0; d < 3; ++d) {
-              cnt[d] = 0.5*(g[d] - 1)*g.h[d];
-          } // d
-      } // center given
-      std::printf("# projection center (relative to grid point (0,0,0) is %g %g %g in units of grid spacings\n",
-                cnt[0]*g.inv_h[0], cnt[1]*g.inv_h[1], cnt[2]*g.inv_h[2]);
-      for (int iz = 0; iz < g[2]; ++iz) {
-          double const z = iz*g.h[2] - cnt[2], z2 = z*z;
-          for (int iy = 0; iy < g[1]; ++iy) {
-              double const y = iy*g.h[1] - cnt[1], y2 = y*y; 
-              for (int ix = 0; ix < g[0]; ++ix) {
-                  double const x = ix*g.h[0] - cnt[0], x2 = x*x;
-                  double const r = std::sqrt(x2 + y2 + z2);
-                  int const izyx = (iz*g[1] + iy)*g[0] + ix;
-                  std::printf("%g %g\n", r*Ang, array[izyx]*factor);
-              } // ix
-          } // iy
-      } // iz
-      std::printf("# radii in %s\n\n", _Ang);
-  } // print_direct_projection
-
   
   inline status_t potential_projections(
         real_space::grid_t const & g // dense grid descriptor
@@ -334,7 +212,7 @@ namespace potential_generator {
               if (control::get("potential_generator.direct.projection", 0.) > 0) {
                   std::printf("\n## all values of Vtot in %s (unordered) as function of the distance to %s\n",
                                                     _eV, (na > 0) ? "atom #0" : "the cell center");
-                  print_direct_projection(Vtot, g, eV, (na > 0) ? center[0] : nullptr);          
+                  poisson_solver::print_direct_projection(Vtot, g, eV, (na > 0) ? center[0] : nullptr);          
               } // control
           } else warn("no coordinates passed for na=%d atoms, center_ptr==nullptr", na);
       } // echo

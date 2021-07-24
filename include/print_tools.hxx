@@ -22,7 +22,6 @@
   } // printf_vector
 
 
-
   template <typename real_t>
   double print_stats(
         real_t const values[] // input values

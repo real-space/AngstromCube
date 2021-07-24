@@ -32,7 +32,8 @@ namespace scattering_test {
 
   template <typename real_t> inline
   real_t arcus_tangent(real_t const nom, real_t const den) {
-      return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den); }
+      return (den < 0) ? std::atan2(-nom, -den) : std::atan2(nom, den);
+  } // arcus_tangent
 
   template <typename real_t>
   size_t count_nodes(real_t const f[], int const n) {
@@ -141,9 +142,7 @@ namespace scattering_test {
 #endif // DEVEL
       return 0;
   } // expand_sho_projectors
-  
-  
-// #define _SELECTED_ENERGIES_LOGDER
+
 
   inline double find_outwards_solution( // returns derivative at maximum
         radial_grid_t const & rg // radial grid descriptor

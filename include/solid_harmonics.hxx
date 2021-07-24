@@ -187,10 +187,14 @@ namespace solid_harmonics {
       return stat;
   } // test_indices
 
+  inline status_t test_Y00_inverse(int const echo=0) {
+      return ( Y00 * Y00inv != 1.0 ); // should be exact
+  } // test_Y00_inverse
+
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
-      stat += ( Y00 * Y00inv != 1.0 ); // should be exact
+      stat += test_Y00_inverse(echo);
       stat += test_indices(echo);
       return stat;
   } // all_tests

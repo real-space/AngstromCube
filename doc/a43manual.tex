@@ -649,7 +649,12 @@ The interatomic distances are chosen such that most coordination numbers
 are $2$ and all bond angles are 180\degree{}.
 %
 
+\newpage
+
 \section{Advanced Controls} \label{sec:advanced-controls}
+%
+This part of the \codename{} manual describes
+various modules in detail.
 
 %\subsection{Fermi level} \label{sec:fermi-level}
 %During an \ac{SCF} calculation, 
@@ -733,16 +738,16 @@ takes several control variables, the most important ones are listed in Table \re
 Most important variables to control self-consistency iterations in \codename{}.
 } \label{tab:main-scf-variables}
 \centering
-\begin{tabular}{|l|l|l|}
+\begin{tabular}{|l|r|l|}
 \hline
   Variable Name & Default & Meaning, Alternatives \\
 \hline
-  \ttt{geometry.file} & \ttt{atoms.xyz}   & Cell parameters and atomic coordinates \\
+  \ttt{geometry.file} & \ttt{atoms.xyz}   & Atomic coordinates and cell \\
   \ttt{basis}         & \ttt{grid}        & Basis set, \ttt{plane\_wave}, \ttt{sho} \\ 
-  \ttt{grid.spacing}  & \unit[0.125]{\AA} & Spacing of the coarse real-space grid \\
+  \ttt{grid.spacing}  & \unit[0.125]{\AA} & Coarse real-space grid spacing \\
   \ttt{grid.eigensolver} & \ttt{CG}       & \ttt{Davidson}, \ttt{explicit}, \ttt{none} \\
-  \ttt{plane\_wave.solver} & \ttt{auto}  & \ttt{direct}, \ttt{iterative}, \ttt{both} \\ 
-  \ttt{plane\_wave.cutoff.energy} & \unit[22]{Ryd} & Plane wave cutoff energy \\
+  \ttt{plane\_wave.solver} & \ttt{auto}   & \ttt{direct}, \ttt{iterative}, \ttt{both} \\ 
+  \ttt{plane\_wave.cutoff.energy} & \unit[11]{Ha} & Plane wave cutoff energy \\
   \ttt{check}         & \ttt{0}           & Dry run, \ttt{1}: preparations only \\
   \ttt{valence.electrons} & \ttt{auto}    & Total number of valence electrons \\
   \ttt{initial.valence.density} & \ttt{atomic} & Start density, \ttt{load}, \ttt{none} \\
@@ -773,6 +778,120 @@ If any direction is larger than $2$ points,
 wave functions cannot be real-valued due to complex phase factors.
 %
 %
+
+\subsection{Element Configuration} \label{sec:sigma-config}
+%
+The configuration of chemical elements contains various parts:
+\begin{itemize}
+  \item Occupation numbers for spherical calculations
+  \item Orbital classification into \ttt{core}, \ttt{semicore} and \ttt{valence}
+  \item \ac{PAW} generation parameters
+\end{itemize}
+%
+\noindent
+The configuration string for the details of the \ac{PAW} data set should be 
+specified in each input file to make sure the results are the same. Run
+\begin{verbatim}
+./a43 -t sigma_config -v
+\end{verbatim}
+to check that all default configuration strings can be parsed without errors.
+\\
+To check only e.g.~stronium and show its configuration run
+\begin{verbatim}
+./a43 -t sigma_config +sigma_config.test.Z=38
+\end{verbatim}
+The configuration string can be specified as
+\begin{verbatim}
+element_Sr=4s 2 5s 2 4p* 6 4d | 2.37 sigma .666
+\end{verbatim}
+in the \ttt{control.file} or via the command line as
+\begin{verbatim}
+./a43 -t sigma_config +sigma_config.test.Z=38 \
+        +element_Sr="4s 2 5s 2 4p* 6 4d | 2.37 sigma .666"
+\end{verbatim}
+The variable name \ttt{element\_}$Sy$ expects an element symbol $Sy$ 
+like \ttt{Sr} for strontium or \ttt{S} for sulfur, case-sensitive, no blank between keyword and \ttt{=} sign.
+In the electronic configuration string the orbital specifier \ttt{4s} sets the 4$s$-state to be 
+included in the set of valence states. Automatically, 1$s$, 2$s$ and 3$s$ are set to 
+be \ttt{core} states.
+The \ttt{2} following \ttt{4s} represents an occupation number
+and is, hence, interpreted as floating point number \ttt{2.0}.
+It is used for the all-electron self-consistent isolated atom calculation in \ttt{atom\_core}, see Section \ref{sec:atom-core}
+and for the relaxation of the atomic \ttt{core} and \ttt{semicore} states in \ttt{single\_atom}.
+If no occupation number is given, the occupation is zero, if a single number is given,
+both spin-channels are given half of the occupation and with two numbers
+we define a magnetization, i.e.~majority and minority spin.
+
+\noindent
+Semicore state can be marked e.g.~by \ttt{4sSemicore 2}.
+Similarly, core holes can be introduced by modifying the occupation numbers of
+a \ttt{core} orbital, e.g.~\ttt{1sCore 1 0}.
+Mind that previous versions of the parser supported e.g.~\ttt{3phole}
+to specify how many electrons to subtract from the $3p$ core state occupation.
+This is not supported any longer and aborts in an error.
+
+\noindent
+A second valence orbitals with the same angular momentum $\ell$ as in \ttt{element\_Sr=4s 2 5s 2} [...] 
+effects that two partial waves are used for this $\ell$.
+Additional partial waves can be added by asterisks as e.g.~in \ttt{element\_Os=6s* 2} [...].
+Note that \ttt{element\_Sr=4s 2 5s*} [...] or \ttt{element\_Sr=4s* 2 5s} [...] %% ToDo: check this
+would activate a third set of partial waves and projectors which is not recommended for reasons of stability.
+The example of Osmium shows how the \ac{PAW} augmentation radius is specified after the vertical bar \ttt{|}.
+Furthermore, the spread of \ac{SHO}-projectors can be specified using the keyword \ttt{sigma}.
+The radius and spread are always given in \ttt{Bohr} atomic units!
+\todo[inline]{Work on magnetism}
+\noindent
+When a magnetization is induced in the occupation numbers,
+please make sure that the first number is the majority spin as e.g.~\ttt{5d* 5 1}.
+Mind that currently only spin-paired atomic all-electron calculation can be performed by \ttt{atom\_core}.
+%
+To control the potential pseudization in the \ac{PAW} method we can insert 
+\ttt{V=sinc} or \ttt{V=parabola} anywhere into the configuration string, no blank after \ttt{=}.
+The advanced user can specify \ttt{numax} $\nu\um{max}$ to manipulate the size of the \ac{SHO}-projector basis
+and adjust the number of protons \ttt{Zcore} $Z$, even non-integer.
+%
+%
+%
+
+\subsection{Automatic Element Config} \label{sec:element-config}
+%
+Mind that this is an experimental alternative to \ttt{sigma\_config} introduced in Section \ref{sec:sigma-config}.
+Ensure that the \ttt{-D DEVEL} preprocessor flags is active and
+\ttt{HAS\_ELEMENT\_CONFIG} is defined in \ttt{single\_atom.cxx}.
+Use \ttt{+single\_atom.config=element} to activate it.
+Control keywords are given in Table \ref{tab:element-config-variables}.
+%
+\begin{table}[h]
+\caption[Element Config Variables]{
+Control variables for \ttt{element\_config}
+} \label{tab:element-config-variables}
+\centering
+\begin{tabular}{|r|l|l|r|}
+\hline
+  \# & Variable & Meaning & Default \\
+\hline
+ a) & \ttt{element\_}$Sy$\ttt{.rcut}         & \ac{PAW} augmentation radius in Bohr         & see h) \\
+ b) & \ttt{element\_}$Sy$\ttt{.sigma}        & \ac{SHO} projector spread in Bohr            & see i) \\
+ c) & \ttt{element\_}$Sy$\ttt{.numax}        & integer \ac{SHO} basis size                  & see j) \\
+ d) & \ttt{element\_}$Sy$\ttt{.method}       & potential pseudization method                & see k) \\
+ e) & \ttt{element\_}$Sy$\ttt{.hole.enn}     & core hole $n$                                & 0 \\
+ f) & \ttt{element\_}$Sy$\ttt{.hole.ell}     & core hole $\ell$                             & -1 \\
+ g) & \ttt{element\_}$Sy$\ttt{.hole.charge}  & core hole charge                             & 0.0 \\
+ h) & \ttt{element\_config.rcut}             & Default for \ttt{element\_}$Sy$\ttt{.rcut}   & \unit[2.0]{Bohr} \\
+ i) & \ttt{element\_config.sigma}            & Default for \ttt{element\_}$Sy$\ttt{.sigma}  & \unit[0.5]{Bohr} \\
+ j) & \ttt{element\_config.numax}            & Default for \ttt{element\_}$Sy$\ttt{.numax}  & 3 \\
+ k) & \ttt{element\_config.method}           & Default for \ttt{element\_}$Sy$\ttt{.method} & \ttt{sinc} \\
+ l) & \ttt{element\_config.core.valence}     & Energy between core and valence bands        & \unit[-2.0]{Ha} \\
+ m) & \ttt{element\_config.core.semicore}    & Energy between core and semicore bands       & see l) \\
+ n) & \ttt{element\_config.semicore.valence} & Energy between semicore and valence bands    & see l) \\
+\hline
+\end{tabular}
+\end{table}
+%
+If \ttt{single\_atom.core.state.localization} is not a positive number
+the energy criterion is used to distinguish \ttt{core}, \ttt{semicore} and \ttt{valence} states.
+
+
 
 % ==============================================================================
 \bibliographystyle{plain} 

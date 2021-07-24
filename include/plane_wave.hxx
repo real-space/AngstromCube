@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstdint> // uint32_t
 #include <cstdio> // std::printf, std::snprintf
+#include <complex> // std::complex
 #include <vector> // std::vector<T>
 
 #include "status.hxx" // status_t
@@ -32,7 +34,7 @@ namespace plane_wave {
           , int const nBands=0
           , int const nAtoms=0
           , int const nCoeff=0
-          , double k_weight=1.
+          , double const k_weight=1.
           , int const kpoint_id=-1
           , int const echo=0 // log-level
 //    ) : kpoint_weight(k_weight), ncoeff(nCoeff), nbands(nBands), natoms(nAtoms), kpoint_index(kpoint_id) {
@@ -46,8 +48,8 @@ namespace plane_wave {
           auto const nG_all = size_t(nG[2])*size_t(nG[1])*size_t(nG[0]);
           auto const nG_aligned = align<0>(nG_all);
           int  const nC_aligned = align<0>(ncoeff);
-          if (echo > 8) std::printf("# DensityIngredients allocates %.3f MByte for wave functions + %.3f kByte for coefficients\n",
-                                                               nbands*16e-6*nG_aligned, nbands*16e-3*nC_aligned);
+          if (echo > 8) std::printf("# DensityIngredients allocates %.3f MByte for wave functions"
+              " + %.3f kByte for coefficients\n", nbands*16e-6*nG_aligned, nbands*16e-3*nC_aligned);
           std::complex<double> const zero(0);
           psi_r = view2D<std::complex<double>>(nbands, nG_aligned, zero);
           coeff = view2D<std::complex<double>>(nbands, nC_aligned, zero);

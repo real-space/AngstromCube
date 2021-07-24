@@ -1,13 +1,14 @@
 #pragma once
 
 #include <cstdio> // std::printf
-#include <cmath> // std::min, std::max
+#include <cmath> // std::min, ::max
 #include <vector> // std::vector<T>
 #include <cstdint> // uint32_t
 
 #include <algorithm> // std::minmax_element
 
 #ifndef NO_UNIT_TESTS
+  #include <cstdio> // std::fprintf
   #include <numeric> // std::iota
   #include "constants.hxx" // ::pi
   #include "simple_math.hxx" // ::random
@@ -51,11 +52,13 @@ namespace multi_grid {
       while(ng > (1ull << (k + 1))) ++k;
       return k;
   } // nearest_binary_power
-  
+
+
   inline status_t analyze_grid_sizes(
-            real_space::grid_t const & g // coarse grid where the Kohn-Sham equation is typically solved
-          , uint32_t *n_coarse
-          , int const echo=0) {
+        real_space::grid_t const & g // coarse grid where the Kohn-Sham equation is typically solved
+      , uint32_t *n_coarse
+      , int const echo=0
+  ) {
       for (int d = 0; d < 3; ++d) {
           unsigned const ng = g[d];
           unsigned const k = nearest_binary_power(ng);
@@ -70,13 +73,19 @@ namespace multi_grid {
       } // d
       return 0;
   } // analyze_grid_sizes
-  
+
+
   template <typename real_t, typename real_in_t>
-  status_t restrict_to_any_grid(real_t out[], unsigned const go
-                      , real_in_t const in[], unsigned const gi
-                      , size_t const stride=1, int const bc=0
-                      , int const echo=0 // log-level
-                      , bool const use_special_version_for_2x=true) {
+  status_t restrict_to_any_grid(
+        real_t out[]
+      , unsigned const go
+      , real_in_t const in[]
+      , unsigned const gi
+      , size_t const stride=1
+      , int const bc=0
+      , int const echo=0 // log-level
+      , bool const use_special_version_for_2x=true
+  ) {
       if (go < 1) return go; // early return
       if (gi < 1) return gi; // early return
       
@@ -123,13 +132,19 @@ namespace multi_grid {
       
       return 0;
   } // restrict_to_any_grid
-  
+
+
   template <typename real_t, typename real_in_t>
-  status_t linear_interpolation(real_t out[], unsigned const go
-                      , real_in_t const in[], unsigned const gi
-                      , size_t const stride=1, int const periodic=0
-                      , int const echo=0 // log-level
-                      , bool const use_special_version_for_2x=true) {
+  status_t linear_interpolation(
+        real_t out[]
+      , unsigned const go
+      , real_in_t const in[]
+      , unsigned const gi
+      , size_t const stride=1
+      , int const periodic=0
+      , int const echo=0 // log-level
+      , bool const use_special_version_for_2x=true
+  ) {
       if (go < 1) return go; // early return
       if (gi < 1) return gi; // early return
 
@@ -181,10 +196,16 @@ namespace multi_grid {
       } // 2x
       return 0;
   } // linear_interpolation
-  
+
+
   template <typename real_t>
-  void print_min_max(real_t const *const begin, real_t const *const end
-        , int const echo=0, char const *title="<array>", char const *unit="") {
+  void print_min_max(
+        real_t const *const begin
+      , real_t const *const end
+      , int const echo=0
+      , char const *title="<array>"
+      , char const *unit=""
+  ) {
 #ifdef DEVEL
       if (echo < 1) return;
       auto const mm = std::minmax_element(begin, end);
@@ -192,11 +213,16 @@ namespace multi_grid {
 #endif
   } // print_min_max
 
+
   // now 3D functions:
   template <typename real_t, typename real_in_t=real_t>
-  status_t restrict3D(real_t out[], real_space::grid_t const & go
-            , real_in_t const in[], real_space::grid_t const & gi
-            , int const echo=0) { // log-level
+  status_t restrict3D(
+        real_t out[]
+      , real_space::grid_t const & go
+      , real_in_t const in[]
+      , real_space::grid_t const & gi
+      , int const echo=0 // log-level
+  ) {
       status_t stat(0);
 
       { // scope: checks
@@ -241,9 +267,15 @@ namespace multi_grid {
       return stat;
   } // restrict3D
 
+
   template <typename real_t, typename real_in_t=real_t>
-  status_t interpolate3D(real_t out[], real_space::grid_t const & go
-               , real_in_t const in[], real_space::grid_t const & gi, int const echo=0) {
+  status_t interpolate3D(
+        real_t out[]
+      , real_space::grid_t const & go
+      , real_in_t const in[]
+      , real_space::grid_t const & gi
+      , int const echo=0 // log-level
+  ) {
       status_t stat(0);
       for (int d = 0; d < 3; ++d) {
           assert(go.boundary_condition(d) == gi.boundary_condition(d));
@@ -302,7 +334,7 @@ namespace multi_grid {
       } // b
       return 0;
   } // grid_point_xyz
-  
+
   inline status_t test_Morton_indices(int const echo=0) {
       status_t stat(0);
       for (int n = 0; n < 99; ++n) {
@@ -438,37 +470,43 @@ namespace multi_grid {
   
   
   
-  
-  
-  
-  
-  
-  
-  
-  
   template <typename real_t>
-  inline double get_residual_norm(real_t const r[], real_t const x[], real_t const b[], size_t const g, double const h, FILE* f=stdout) {
-      if (f) fprintf(f, "\n## %s i, x[i], residual[i], rhs[i]  for i < %ld\n", __func__, g);
+  inline double get_residual_norm(
+        real_t const r[]
+      , real_t const x[]
+      , real_t const b[]
+      , size_t const g
+      , double const h
+      , FILE* f=stdout
+  ) {
+      if (f) std::fprintf(f, "\n## %s i, x[i], residual[i], rhs[i]  for i < %ld\n", __func__, g);
       double const c0 = 2./(h*h), c1 = -.5*c0;
       double norm2{0}, normT{0};
       real_t r_prev = r[g - 1]; // init
       for (int i = 0; i < g; ++i) {
-          if (f) fprintf(f, "%g %g %g %g\n", i*h, x[i], r[i], b[i]);
+          if (f) std::fprintf(f, "%g %g %g %g\n", i*h, x[i], r[i], b[i]);
           real_t const ri = r[i];
           real_t const r_next = r[(i + 1) % g];
           double const Tr = c1*r_prev + c0*ri + c1*r_next;
           norm2 += ri*ri; // accumulate residual norm ||r||_2
           normT += Tr*Tr; // accumulate norm ||D^2 r||_2
       } // i
-      if (f) fprintf(f, "%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
+      if (f) std::fprintf(f, "%g %g %g %g\n\n", g*h, x[0], r[0], b[0]); // periodic
 //       if (1) std::printf("# residual norm (length %ld) is %g / %g = %g\n", g, normT, norm2, normT/norm2);
       return norm2/g;
   } // get_resiual_norm
-  
+
   // toy model for testing the mg_cycle structure, operator A = stencil {1, -2, 1}/h^2
-  template <typename real_t>
-  inline double jacobi(real_t x[], real_t r[], real_t const b[], size_t const g
-      , double const h=1, int const echo=0, float const omega=.666666) {
+  template <typename real_t> inline
+  double jacobi(
+        real_t x[]
+      , real_t r[]
+      , real_t const b[]
+      , size_t const g
+      , double const h=1
+      , int const echo=0
+      , float const omega=.666666
+  ) {
       // solve A*x == b on a g grid points
       // using a 2nd order finite-difference stencil: [-1/h^2  2/h^2  -1/h^2]
       double const c0inv = .5*h*h, c0 = 1./c0inv, c1 = -.5*c0;
@@ -505,9 +543,9 @@ namespace multi_grid {
 
       return norm2/g;
   } // jacobi
-  
-  template <typename real_t>
-  inline status_t smoothen(real_t x[] // preliminary solution
+
+  template <typename real_t> inline
+  status_t smoothen(real_t x[] // preliminary solution
                     , real_t r[] // residual
                     , real_t const b[] // right hand side
                     , size_t const g // number of grid points
@@ -530,15 +568,16 @@ namespace multi_grid {
   } // smoothen
 
   template <typename real_t>
-  inline status_t exact_solve(real_t x[] // preliminary solution
-                    , real_t const b[] // right hand side
-                    , size_t const g // number of grid points
-                    , double const h // grid spacing
-                    , int const echo=0) { // log-level
+  inline status_t exact_solve(
+        real_t x[] // preliminary solution
+      , real_t const b[] // right hand side
+      , size_t const g // number of grid points
+      , double const h // grid spacing
+      , int const echo=0 // log-level
+  ) {
       if (1 == g) {
           x[0] = 0; // exact solution of a periodic electrostatic potential
-      } else
-      if (2 == g) {
+      } else if (2 == g) {
           // solve A*x == b on a g grid points using a 2nd order finite-difference
           // stencil: [-1/h^2  2/h^2  -1/h^2] with folded back c1-coefficients:
           // double const c0 = 2./(h*h), c1 = -.5*c0;
@@ -561,14 +600,16 @@ namespace multi_grid {
 
   
   template <typename real_t>
-  inline status_t mg_cycle(real_t x[] // solution
-                        , real_t const b[] // right hand side
-                        , unsigned const k // level
-                        , double const h=1 // grid spacing
-                        , char const scheme='V' // scheme in {'V','W'}
-                        , int const echo=0 // log-level
-                        , short const nu_pre=2, short const nu_post=2) { // pre- and post-smoothing Jacobi steps
-
+  inline status_t mg_cycle(
+        real_t x[] // solution
+      , real_t const b[] // right hand side
+      , unsigned const k // level
+      , double const h=1 // grid spacing
+      , char const scheme='V' // scheme in {'V','W'}
+      , int const echo=0 // log-level
+      , short const nu_pre=2  //  pre-smoothing Jacobi steps
+      , short const nu_post=2 // post-smoothing Jacobi steps
+  ) {
 //    std::vector<char> tabs((echo > 0)*2*k + 1, ' '); tabs[(echo > 0)*2*k] = 0;
 //    if (echo > 0) std::printf("# %s %s level = %i\n", __func__, tabs.data(), k);
       status_t stat(0);
@@ -582,12 +623,12 @@ namespace multi_grid {
       if (k > min_level) {
 
           stat += smoothen(x, r, b, g, h, nu_pre, echo, " pre-", 0, k);
-          
+
           size_t const gc = 1ul << (k - 1);
 //        if (echo > 0) std::printf("# %s %s level = %i coarsen from %ld to %ld\n", __func__, tabs.data(), k, g, gc);
           std::vector<real_t> uc(gc, real_t(0)), rc(gc);
           double const hc = 2*h; // coarser grid spacing
-          
+
           for (char vw = 'V'; vw <= scheme; ++vw) {
 
               stat += restrict_to_any_grid(rc.data(), gc, r, g, 1, 1, 0, true); // restriction
@@ -610,7 +651,7 @@ namespace multi_grid {
           } else {
               stat += smoothen(x, r, b, g, h, 999, echo, "solve-", 1e-21);
           }
-        
+
       } // k > min_level
 
 //    if (echo > 0) std::printf("# %s %s level = %i status = %i\n", __func__, tabs.data(), k, int(stat));
@@ -626,7 +667,7 @@ namespace multi_grid {
       char const scheme  = *control::get("multi_grid.test.scheme", "V"); // {V, W, F}
       char const rhs     = *control::get("multi_grid.test.rhs", "random"); // r:random, s:sin(x*2pi/L)
       unsigned const nit  = control::get("multi_grid.test.iterations", 1.);
-      
+
       size_t const g = 1ul << k;
       std::vector<real_t> x(g, 0.f), b(g, 0.f);
       double avg{0};
@@ -652,12 +693,12 @@ namespace multi_grid {
 
       double norm2{0}; double const hm2 = 1./(h*h);
       FILE* f = (echo > 5) ? ( (echo > 9) ? stdout : fopen("multi_grid.out.mg_cycle.dat", "w") ) : nullptr;
-      if (f) fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
+      if (f) std::fprintf(f, "## index i, solution x[i], residual r[i], right hand side b[i], Ax[i]   for i < %ld\n", g);
       for (int i = 0; i < g; ++i) {
           double const Ax = (-x[(i - 1 + g) % g] + 2*x[i] -x[(i + 1) % g])*hm2; // simplest 1D finite-difference Laplacian
           double const res = b[i] - Ax;
           norm2 += res*res;
-          if (f) fprintf(f, "%g %g %g %g %g\n", i*h, x[i], res, b[i], Ax);
+          if (f) std::fprintf(f, "%g %g %g %g %g\n", i*h, x[i], res, b[i], Ax);
       } // i
       if (f && (f != stdout)) fclose(f);
       if (echo > 1) std::printf("# %s residual %.3f\n", __func__, std::log10(norm2/g));

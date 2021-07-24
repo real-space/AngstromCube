@@ -36,6 +36,10 @@ namespace paw_xml_export {
   )
       // Export Projector Augmented Wave data in XML format
   {
+      auto const git_key = control::get("git.key", "");
+      int  const show_rg = control::get("paw_xml_export.show.radial.grid", 0.);  // ABINIT needs this
+      int  const ir0     = control::get("paw_xml_export.start.radial.grid", 0.); // use 1. for ABINIT
+
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
       char const ts_tag[TRU_AND_SMT][4] = {"ae", "ps"};
@@ -69,8 +73,7 @@ namespace paw_xml_export {
       std::fprintf(f, "  <pw_ecut low=\"%.2f\" medium=\"%.2f\" high=\"%.2f\"/>\n", 12., 12., 15.); // ToDo: get a better estimate
 
       std::fprintf(f, "  <xc_functional type=\"LDA\" name=\"%s\"/>\n", xc_functional);
-      std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"A43\" git=\"%s\">\n",
-                                                                control::get("git.key", ""));
+      std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"A43\" git=\"%s\">\n", git_key);
       std::fprintf(f, "     %s\n", custom_configuration_string ? custom_configuration_string : Sy);
       std::fprintf(f, "  </generator>\n");
       std::fprintf(f, "  <ae_energy kinetic=\"%.6f\" xc=\"%.6f\"\n             "
@@ -93,12 +96,10 @@ namespace paw_xml_export {
       char ts_grid[TRU_AND_SMT][8]; // grid tags for TRU and SMT
 //    double const prefactor = rg[TRU].rmax/(std::exp(rg[TRU].anisotropy*(rg[TRU].n - 1)) - 1.);
       double const prefactor = radial_grid::get_prefactor(rg[TRU]);
-      bool const show_radial_grid_values = (control::get("paw_xml_export.show.radial.grid", 0.) > 0); // ABINIT needs this
-      int const ir0 = control::get("paw_xml_export.start.radial.grid", 0.); // use 1. for ABINIT
       for (int ts = TRU; ts <= SMT; ++ts) {
           std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
           if (ts == TRU || rg[SMT].n < rg[TRU].n) {
-              char const final = show_radial_grid_values ? ' ' : '/';
+              char const final = show_rg ? ' ' : '/';
               {
                   bool const reci = (radial_grid::equation_reciprocal == rg[ts].equation);
                   double const a = prefactor;
