@@ -108,7 +108,7 @@ namespace element_config {
           int ics{0}; // init counter for core states
 
           // loop through the entire configuration of elements up to Z=120
-          double n_electrons{Z_core - ionization}; // init number of electrons to be distributed
+          double n_electrons{Z_core + ionization}; // init number of electrons to be distributed
           for (int nq_aux = 0; nq_aux < 8; ++nq_aux) {    // auxiliary quantum number, allows Z up to 120
               enn_QN_t enn = (nq_aux + 1)/2;              // principal quantum number n
               for (int ell = nq_aux/2; ell >= 0; --ell) { // orbital angular momentum l
@@ -127,13 +127,14 @@ namespace element_config {
                       int const inl = atom_core::nl_index(enn, ell);
 
                       double const hole = hole_charge*(inl_hole == inl);
-                      double const occ_no_hole = std::min(std::max(0., n_electrons), max_occ);
-                      double const occ = std::min(std::max(0., occ_no_hole - hole), max_occ) ;
+                      double const occ_no_hole = std::min(std::max(0., n_electrons),        max_occ);
+                      double const occ         = std::min(std::max(0., occ_no_hole - hole), max_occ);
                       double const real_hole_charge = occ_no_hole - occ;
                       if (real_hole_charge > 0) {
                           hole_charge_used = real_hole_charge;
-                          if (echo > 1) std::printf("# %s use a %s_core.hole.index=%i (%d%c) missing core.hole.charge=%g electrons\n", 
-                                                      __func__, Sy, inl, enn, ellchar[ell], real_hole_charge);
+                          if (echo > 1) std::printf("# %s %s has an occupation hole of element_%s.hole.charge=%g electrons\n", 
+                                                       Sy, tag,                                Sy, real_hole_charge);
+                          assert(enn_hole == enn && ell_hole == ell);
                       } // core hole active
                       
                       int csv{csv_undefined};
@@ -193,12 +194,13 @@ namespace element_config {
                                   Sy, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
           if (inl_hole >= 0) {
-              if (std::abs(hole_charge_used - hole_charge) > 5e-16) {
-                  warn("hole.charge=%g requested in %s-%d%c state but used %g electrons (diff %.1e)",
-                        hole_charge, Sy, enn_hole,ellchar[ell_hole], hole_charge_used, hole_charge - hole_charge_used);
+              auto const diff = hole_charge_used - hole_charge;
+              if (std::abs(diff) > 5e-16) {
+                  warn("hole.charge=%g requested in %s-%d%c state but used %g electrons (difference %.1e)",
+                        hole_charge, Sy, enn_hole,ellchar[ell_hole], hole_charge_used, diff);
               } // deviation
-              if (echo > 0) std::printf("# %s occupation hole of %g electrons in %d%c state\n",
-                                          Sy, hole_charge_used, enn_hole,ellchar[ell_hole]);
+              if (echo > 0) std::printf("# %s occupation hole of %g electrons in the %d%c state\n",
+                                           Sy, hole_charge_used, enn_hole,ellchar[ell_hole]);
           } // warning when deviates
 
       } // scope

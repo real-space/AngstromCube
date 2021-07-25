@@ -108,7 +108,6 @@ CUOPTFLAGS =
 #### production mode
 CUOPTFLAGS += -O3 --use_fast_math
 #### debug mode
-# OPTFLAGS  = -O0 -g
 # CUOPTFLAGS += -g -O0 -G
 # CUOPTFLAGS += -DDEBUGGPU
 

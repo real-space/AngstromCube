@@ -110,9 +110,8 @@ namespace pseudo_tools {
       auto const tru_charge = dot_product(rg[TRU].n, rg[TRU].r2dr, true_density);
       auto const smt_charge = dot_product(rg[SMT].n, rg[SMT].r2dr, smooth_density);
       double const charge_deficit = tru_charge - smt_charge;
-      if (echo > 1) std::printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
-                              label, quantity, tru_charge, smt_charge);
-
+      if (echo > 2) std::printf("# %s true and smooth %s density have %g and %g electrons, respectively\n",
+                                   label,             quantity,       tru_charge, smt_charge);
       return charge_deficit;
   } // pseudize_spherical_density
 
@@ -194,7 +193,7 @@ namespace pseudo_tools {
       assert(rg[TRU].r[nr_diff] == rg[SMT].r[0]);
       assert(r_cut == rg[SMT].r[ir_cut[SMT]]);
 
-      if (echo > 1) std::printf("\n# %s %s\n", label, __func__);
+      if (echo > 2) std::printf("\n# %s %s\n", label, __func__);
       status_t stat(0);
       if (n_Lagrange_points < 1) { // construct initial smooth spherical potential as parabola
           set(V_smt, rg[SMT].n, V_tru + nr_diff); // copy the tail of the spherical part of V_tru(r) or r*V_tru(r)

@@ -44,7 +44,6 @@ $exe  +verbosity=7 \
       +single_atom.test.Z=79 \
       +single_atom.config=element_config \
       +single_atom.core.state.localization=-1 \
-      +single_atom.test.ion=.5 \
       +element_config.core.valence=-1.5 \
       +element_config.rcut=2.5 \
       +element_config.sigma=.667 \
@@ -61,6 +60,6 @@ $exe  +verbosity=7 \
     -t single_atom \
       +single_atom.test.Z=79 \
       +single_atom.config=sigma_config \
-      +element_Au="1sCore 1 .5 6s* 1 .5 6p 5d 10 | 2.5 sigma .667" \
+      +element_Au="1sCore 1 .5 6s* 2 6p 5d 9.5 | 2.5 sigma .667" \
       +control.show=1 \
     >  element_config.corehole.Au.out

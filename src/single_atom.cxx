@@ -292,7 +292,7 @@ namespace single_atom {
       // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t (or some better name)
 
       // general config
-      int32_t atom_id; // global atom identifyer
+      int32_t atom_id; // global atom identifier
       double Z_core; // number of protons in the core
       char label[16]; // label string
       radial_grid_t rg[TRU_AND_SMT]; // radial grid descriptor for the true and smooth grid:
@@ -374,13 +374,12 @@ namespace single_atom {
 
   public:
 
-    // constructor method:
-    LiveAtom(
+    LiveAtom( // constructor method
           double const Z_protons // number of protons in the nucleus
         , bool const atomic_valence_density=false // this option allows to make an isolated atom scf calculation
-        , double const ionization=0 // charged valence configurations
-        , int32_t const global_atom_id=-1 // global atom identifyer
+        , int32_t const global_atom_id=-1 // global atom identifier
         , int const echo=0 // logg level for this constructor method only
+        , double const ionization=0 // charged valence configurations
     )
         : // initializations
           atom_id{global_atom_id} 
@@ -396,7 +395,10 @@ namespace single_atom {
         } else {
             std::snprintf(label, 15, "%s", chem_symbol); 
         } // atom_id
-        if (echo > 0) std::printf("\n\n#\n# %s LiveAtom with %g protons, ionization= %g e\n", label, Z_core, ionization);
+        if (echo > 0) std::printf("\n\n#\n# %s LiveAtom with %g protons\n", label, Z_core);
+#ifndef   HAS_ELEMENT_CONFIG
+        if (0 != ionization) error("ionization inactive!");
+#endif // HAS_ELEMENT_CONFIG
 
         take_spherical_density[core]     = 1; // must always be 1 since we can represent the true core density only on the radial grid
         take_spherical_density[semicore] = 1;
@@ -565,7 +567,7 @@ namespace single_atom {
                         if (occ > 0) {
                             csv_charge[cs.csv] += occ;
                             highest_occupied_state_index = ics; // store the index of the highest occupied core state
-                            if (echo > 5) std::printf("# %s %-9s %2d%c%6.1f\n", label, csv_name(cs.csv), enn, ellchar[ell], occ);
+                            if (echo > 5) std::printf("# %s %-9s%-4s%6.1f\n", label, csv_name(cs.csv), cs.tag, occ);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
@@ -814,8 +816,10 @@ namespace single_atom {
 
         if (echo > 1) std::printf("# %s run %d initial scf-iterations\n", label, maxit_scf);
         for (int scf = 0; scf < maxit_scf; ++scf) {
-            if (echo > 1) std::printf("\n\n# %s SCF-iteration %d\n", label, scf);
-            int const echo_scf = 1 + (echo - 1)*(scf > maxit_scf - 2); // turn on output only for the last iteration
+            int const echo_minimal = std::min(echo, 1); // at minimal echo, only output should be the total energy
+            int const echo_scf = (scf > maxit_scf - 2) ? echo : echo_minimal; // turn on output only for the last iteration
+            if (echo_scf > echo_minimal) std::printf("\n\n"); // spacer
+            if (echo > 1) std::printf("# %s SCF-iteration %d%c", label, scf, (echo_scf > echo_minimal) ? '\n': '\t');
             update_density(density_mixing, echo_scf);
             double const *const ves_multipoles = nullptr; // no potential shifts
             update_potential(potential_mixing, ves_multipoles, echo_scf);
@@ -927,7 +931,7 @@ namespace single_atom {
         , bool const norm_warning=false
         , double const core_state_localization=-1
     ) {
-        if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+        if (echo > 2) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         // core states are feeling the spherical part of the hamiltonian only
         auto const & g = rg[TRU]; // the radial grid for true quantities
         std::vector<double> r2rho(g.n);
@@ -938,7 +942,7 @@ namespace single_atom {
         double kinetic_energy[3] = {0, 0, 0}; // core, semicore, valence
         double Coulomb_energy[3] = {0, 0, 0}; // core, semicore, valence
 #ifdef DEVEL
-        if (echo > 7) {
+        if (echo > 17) {
             std::printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
             std::printf("\n## %s %s: r, -Zeff(r)\n", label, __func__);
             print_compressed(g.r, rV_tru, g.n);
@@ -1079,8 +1083,7 @@ namespace single_atom {
 
             spherical_charge_deficit[csv] = pseudo_tools::pseudize_spherical_density(
                 spherical_density[SMT][csv],
-                spherical_density[TRU][csv], rg, ir_cut, csv_name(csv), label, echo);
-
+                spherical_density[TRU][csv], rg, ir_cut, csv_name(csv), label, echo*(nelectrons[csv] > 0));
         } // csv
 
         if (echo > 2) {
@@ -1169,7 +1172,7 @@ namespace single_atom {
     ) {
         // determine the energy parameters for the partial waves
 
-        if (echo > 1) std::printf("\n# %s %s Z=%g partial wave characteristics=\"%s\"\n", label, __func__, Z_core, partial_wave_char);
+        if (echo > 2) std::printf("\n# %s %s Z=%g partial wave characteristics=\"%s\"\n", label, __func__, Z_core, partial_wave_char);
 
         double previous_ell_energy{0};
         for (int ell = 0; ell <= numax; ++ell) { // loop runs serial, loop-carried dependency on previous_ell_energy
@@ -1181,7 +1184,7 @@ namespace single_atom {
                 assert ('_' != c);
                 if ('e' == c) {
                     // energy parameter, vs.energy has already been set earlier
-                    if (echo > 3) std::printf("# %s the %s partial wave uses energy parameter E= %g %s\n", 
+                    if (echo > 4) std::printf("# %s the %s partial wave uses energy parameter E= %g %s\n", 
                                             label, vs.tag, vs.energy*eV, _eV);
                 } else if ('D' == c) {
 #ifndef DEVEL                  
@@ -1190,25 +1193,25 @@ namespace single_atom {
                     // energy derivative at the energy of the lower partial wave
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy;
-                    if (echo > 3) std::printf("# %s the %s partial wave is an energy derivative at E= %g %s\n", 
+                    if (echo > 4) std::printf("# %s the %s partial wave is an energy derivative at E= %g %s\n", 
                                             label, vs.tag, vs.energy*eV, _eV);
 #endif // DEVEL
                 } else if ('*' == c) {
                     assert(nrn > 0);
                     vs.energy = partial_wave[iln - 1].energy + partial_wave_energy_split[ell];
-                    if (echo > 3) std::printf("# %s the %s partial wave is at E= %g %s\n", label, vs.tag, vs.energy*eV, _eV);
+                    if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s\n", label, vs.tag, vs.energy*eV, _eV);
 
                 } else if ('p' == c) {
                     if (0 == ell) warn("%s energy parameter for ell=%i nrn=%i undetermined", label, ell, nrn);
                     vs.energy = previous_ell_energy;
-                    if (echo > 3) std::printf("# %s the %s partial wave is at E= %g %s, copy %c-energy\n", 
+                    if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s, copy %c-energy\n", 
                                         label, vs.tag, vs.energy*eV, _eV, (ell > 0)?ellchar[ell - 1]:'?');
                 } else {
                     assert(c == '0' + vs.enn);
                     // find the eigenenergy of the TRU spherical potential
                     assert(vs.wave[TRU] != nullptr);
                     radial_eigensolver::shooting_method(SRA, rg[TRU], potential[TRU].data(), vs.enn, ell, vs.energy, vs.wave[TRU]);
-                    if (echo > 3) std::printf("# %s the %s partial wave is at E= %g %s, the %i%c-eigenvalue\n",
+                    if (echo > 4) std::printf("# %s the %s partial wave is at E= %g %s, the %i%c-eigenvalue\n",
                                             label, vs.tag, vs.energy*eV,_eV, vs.enn, ellchar[ell]);
                 } // c
                 if (0 == nrn) previous_ell_energy = vs.energy;
@@ -2409,7 +2412,7 @@ namespace single_atom {
                         if ((take_spherical_density[csv] > 0) && (csv_charge[csv] > 0)) {
                             add_product(full_density[ts][00], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
                             // needs scaling with Y00 since core_density has a factor 4*pi
-                            if (echo > 1) std::printf("# %s %s density has %g electrons after adding the spherical %s density\n",
+                            if (echo > 2 + ts) std::printf("# %s %s density has %g electrons after adding the spherical %s density\n",
                                 label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi, csv_name(csv));
                         } // take
                     } // csv, spherical {core, semicore, valence} densities
@@ -2434,7 +2437,7 @@ namespace single_atom {
                     } // iln
                 } // mix_valence_density
             } // lm
-            if (echo > 1) std::printf("# %s %s density has %g electrons\n",
+            if (echo > 2) std::printf("# %s %s density has %g electrons\n",
                       label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi);
 
         } // true and smooth
@@ -2925,9 +2928,10 @@ namespace single_atom {
                 show_ell_block_diagonal(matrices_ln[1], "emm-averaged overlap    ",  1, true, true);
             } // echo
 
-#ifdef NEVER
-            if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
-                     //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
+#ifdef    NEVER
+            if (1) {
+                // Warning: can only produce the same eigenenergies if potentials are converged:
+                //          i.e.      Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) std::printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 // prepare a smooth local potential which goes to zero at Rmax
                 auto Vsmt = std::vector<double>(rg[SMT].n, 0);
@@ -2942,8 +2946,9 @@ namespace single_atom {
                 std::fflush(stdout);
             } else if (echo > 0) std::printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-            if (1) { // Warning: can only produce the same eigenenergies if potentials are converged:
-                     //             Y00*r*full_potential[ts][00](r) == potential[ts](r)
+            if (1) { 
+                // Warning: can only produce the same eigenenergies if potentials are converged:
+                //          i.e.      Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 std::vector<double> rV_vec[TRU_AND_SMT];
                 for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                     rV_vec[ts] = std::vector<double>(rg[ts].n);
@@ -2999,7 +3004,8 @@ namespace single_atom {
         // and eigenstates on a radial equidistant grid
         // no member variable is affected
 
-        if (echo < 1) return; // this function only plots information to the logg
+        if (echo < 1) return; // this function only plots information to the log
+
         // check if the emm-averaged Hamiltonian elements produce the same scattering properties
         // as the spherical part of the full potential
         int const nln = sho_tools::nSHO_radial(numax);
@@ -3134,7 +3140,7 @@ namespace single_atom {
             } // scope
         } // check_overlap_eigenvalues
 
-        if (1) {
+        if (echo > 0) { // eigenstate_analysis only writes to the log, so we can save the efforts
             double const V_rmax = potential[SMT][rg[SMT].n - 1]*rg[SMT].rinv[rg[SMT].n - 1];
             std::vector<double> Vsmt(rg[SMT].n);
             // prepare a smooth local potential which goes to zero at Rmax
@@ -3146,19 +3152,15 @@ namespace single_atom {
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
             std::fflush(stdout);
-        } else {
-            if (echo > 0) std::printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-        }
+        } // echo
 
-        if (1) {
+        if (echo > 0) { // logarithmic_derivative only writes to the log, so we can save the efforts
             if (echo > 1) std::printf("\n\n# %s %s: logarithmic_derivative\n", label, __func__);
             double const *const rV[TRU_AND_SMT] = {potential[TRU].data(), potential[SMT].data()};
             scattering_test::logarithmic_derivative // scan the logarithmic derivatives
               (rg, rV, sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), logder_energy_range, label, echo);
             std::fflush(stdout);
-        } else {
-            if (echo > 0) std::printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
-        }
+        } // echo
 
     } // check_spherical_matrix_elements
 
@@ -3225,7 +3227,7 @@ namespace single_atom {
           float const density_mixing[3] // mixing of the spherical {core,semicore,valence} density
         , int const echo=0 // log-level
     ) {
-        if (echo > 2) std::printf("\n# %s Z=%g\n", __func__, Z_core);
+        if (echo > 2) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         update_spherical_states(density_mixing, echo); // compute core level shifts
 
         if (regenerate_partial_waves) {
@@ -3293,7 +3295,7 @@ namespace single_atom {
         , int const echo=1 // log-level
     ) const {
         // export smooth spherical functions on r2-grids
-      
+
         std::vector<double> mixed_spherical;
         char   const *qnt_name{nullptr};   
         double const *qnt_vector{nullptr};
@@ -3491,7 +3493,7 @@ namespace single_atom {
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
-                  a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ion, ia, echo_mask[ia]*echo_init);
+                  a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ia, echo_mask[ia]*echo_init, ion);
                   if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
           }
@@ -3710,17 +3712,15 @@ namespace single_atom {
   } // test_compensator_normalization
 
   int test_LiveAtom(int const echo=9) {
-//    int  const numax   = control::get("single_atom.test.numax", 3.); // default 3: ssppdf (for auto config only)
       bool const avd     = control::get("single_atom.test.atomic.valence.density", 1.) > 0; // atomic valence density
-      auto const ion     = control::get("single_atom.test.ion", 0.); // default neutral
-
+      auto const ionic   = control::get("single_atom.test.ion", 0.); // only with HAS_ELEMENT_CONFIG
       auto const Z_begin = control::get("single_atom.test.Z", 29.); // default copper
       auto const Z_inc   = control::get("single_atom.test.Z.inc", 1.); // default: sample only integer values
       auto const Z_end   = control::get("single_atom.test.Z.end", Z_begin + Z_inc); // default: only one atom
       for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
           if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
           if (echo > 1) std::printf("\n# %s: Z = %g\n", __func__, Z);
-          LiveAtom a(Z, avd, ion, -1, echo); // envoke constructor
+          LiveAtom a(Z, avd, -1, echo, ionic); // envoke constructor
       } // Z
       if (Z_begin >= Z_end) warn("Empty range for Z in [%g, %g]", Z_begin, Z_end);
       return 0;

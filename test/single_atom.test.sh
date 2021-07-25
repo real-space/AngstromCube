@@ -16,11 +16,11 @@ for Z in {6..6}; do
 
         ## experiment: check the optimized sigma as a function of rcut, with parameter numax
         $exe +verbosity=3 \
-              -test single_atom \
+         -test single_atom \
               +single_atom.test.Z=$Z \
-              +logder.start=2 +logder.stop=1 \
               +single_atom.nn.limit=1 \
               +single_atom.optimize.sigma=-10 \
+              +logder.start=2 +logder.stop=1 \
               +element_C="2s 2 2p 2 0 | $rcut numax $numax sigma .5 V=parabola" \
               > $out_Z
 
@@ -87,7 +87,6 @@ for Z in {1..47}; do
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \
        +single_atom.nn.limit=2 \
-       +logder.start=2.5 +logder.step=.001 +logder.stop=1 \
        +single_atom.init.max.scf=1 \
        +single_atom.optimize.sigma=-1 \
        +element_H="1s* 1 0 2p 2e-99 | 0.9 sigma .623" \
@@ -111,6 +110,7 @@ for Z in {1..47}; do
        +element_Kr="4s* 2 4p* 6 4d | 2.2 sigma .9" \
        +element_Rb="4s 2 5s 1 0 4p* 6 4d | 2.3 sigma 1." \
        +element_u0="7s 2 8s 2 7p 6 8p 2e-99 6d 10 6f 2e-99 | 3. sigma .9" \
+       +logder.start=2.5 +logder.step=.001 +logder.stop=1 \
       > single_atom.$Z.out
 
 done
@@ -132,7 +132,7 @@ for Z in {1..120}; do
 
   echo "# Z = $Z" ## show progress in terminal
   $exe +verbosity=7 \
-    -test single_atom \
+   -test single_atom \
         +single_atom.test.Z=$Z \
         +single_atom.config=custom \
         +single_atom.test.atomic.valence.density=1 \
@@ -166,15 +166,15 @@ for Z in {117..117}; do
 
   echo "# Z = $Z" ## show progress in terminal
   $exe +verbosity=7 \
-    -test single_atom \
+   -test single_atom \
         +single_atom.test.Z=$Z \
         +single_atom.partial.wave.method=m \
         +single_atom.partial.wave.energy.derivative=0 \
         +single_atom.partial.wave.energy=1.0 \
         +single_atom.test.atomic.valence.density=1 \
         +single_atom.from.sigma.config=1 \
-        +logder.start=-2 +logder.stop=1 +logder.step=.001 \
         +single_atom.nn.limit=1 \
+        +logder.start=-2 +logder.stop=1 +logder.step=.001 \
         +show.state.diagram=-1 \
         >> $out_Z
 done
