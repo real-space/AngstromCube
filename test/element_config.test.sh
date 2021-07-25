@@ -29,6 +29,38 @@ $exe  +verbosity=7 \
     -t single_atom \
       +single_atom.test.Z=11 \
       +single_atom.config=sigma_config \
-      +element_Na="3s* 1 2p 6 2sSemicore 2 3d | 2.26 sigma .7" \
+      +element_Na="3s* 1 2p 6 2sSemicore 2 3d | 2.26 sigma 0.7" \
       +control.show=1 \
     >  element_config.semicore.Na.out
+
+## if 11 == $1    diff element_config.semicore.11.out element_config.semicore.Na.out
+
+
+# exit
+# now test a 1s core hole in gold
+
+$exe  +verbosity=7 \
+    -t single_atom \
+      +single_atom.test.Z=79 \
+      +single_atom.config=element_config \
+      +single_atom.core.state.localization=-1 \
+      +single_atom.test.ion=.5 \
+      +element_config.core.valence=-1.5 \
+      +element_config.rcut=2.5 \
+      +element_config.sigma=.667 \
+      +element_config.numax=2 \
+      +element_Au.hole.enn=1 \
+      +element_Au.hole.ell=0 \
+      +element_Au.hole.charge=.5 \
+      +control.show=1 \
+    >  element_config.corehole.79.out
+
+# default:
+#     +element_Au="6s* 1 0 6p* 2e-99 5d* 10 | 2.5 sigma .667"
+$exe  +verbosity=7 \
+    -t single_atom \
+      +single_atom.test.Z=79 \
+      +single_atom.config=sigma_config \
+      +element_Au="1sCore 1 .5 6s* 1 .5 6p 5d 10 | 2.5 sigma .667" \
+      +control.show=1 \
+    >  element_config.corehole.Au.out
