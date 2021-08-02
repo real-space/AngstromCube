@@ -416,14 +416,15 @@ namespace scattering_test {
       , int const echo=0 // log-level
   ) {
       status_t stat(0);
-      auto & g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
+      auto g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
       if (echo > 1) std::printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
+//    if (echo > 1) std::printf("# %s %s rmax=%g --> rmax=%g %s\n", label, __func__, gV.rmax*Ang, g.rmax*Ang, _Ang); 
 
-      auto Vloc = std::vector<double>(g.n);
+      std::vector<double> Vloc(g.n);
       { // scope: interpolate to the equidistant grid by Bessel-transform
           int const nq = nr/2; double const dq = .125;
-          auto Vq = std::vector<double>(nq);
+          std::vector<double> Vq(nq);
           stat += bessel_transform::transform_s_function(Vq.data(), Vsmt, gV, nq, dq, false, 0);
           stat += bessel_transform::transform_s_function(Vloc.data(), Vq.data(), g, nq, dq, true, 0); // back=true
           for (int ir = 0; ir < g.n; ++ir) {
@@ -529,6 +530,7 @@ namespace scattering_test {
 
                   if (echo > 2) {
                       // projection analysis for the lowest nev eigenvectors
+                      double const sqrt_dr = std::sqrt(dr);
                       view2D<double> evec(Ham.data(), Ham.stride()); // eigenvectors are stored in the memory space that was used to input the Hamiltonian
                       for (int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
@@ -543,7 +545,7 @@ namespace scattering_test {
                           if (echo > 7) {
                               std::printf("# %s projection analysis for ell=%i eigenvalue (#%i) %10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
                               for (int nrn = 0; nrn < nn; ++nrn) {
-                                  std::printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*std::sqrt(dr));
+                                  std::printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*sqrt_dr);
                               } // nrn
                               std::printf("\n");
                           } // echo
@@ -592,8 +594,8 @@ namespace scattering_test {
       int const nln = sho_tools::nSHO_radial(numax);
       int const nlmn = sho_tools::nSHO(numax);
       int const M_stride = (stride < 0) ? nlmn : stride;
-      auto ln_list = std::vector<int>(nlmn, 0);
-      auto lf_list = std::vector<real_t>(nln, 0);
+      std::vector<int> ln_list(nlmn, 0);
+      std::vector<real_t> lf_list(nln, 0);
       // fill the ln_list
 
       if (echo > 6) std::printf("# %s: ln_list ", __func__);
@@ -699,7 +701,7 @@ namespace scattering_test {
       // construct a finite-difference derivative w.r.t. sigma in set#3
       add_product(prj(3,0), nln*prj.stride(), prj(1,0), -.5/delta);
       add_product(prj(3,0), nln*prj.stride(), prj(2,0),  .5/delta);
-      
+
       { // scope: check the difference between the analytically derived projectors (#4) and a finite-difference derived set (#3)
           double max_dev{0};
           for (int ell = 0; ell <= numax; ++ell) {

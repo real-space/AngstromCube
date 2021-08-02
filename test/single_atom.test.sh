@@ -16,13 +16,13 @@ for Z in {6..6}; do
 
         ## experiment: check the optimized sigma as a function of rcut, with parameter numax
         $exe +verbosity=3 \
-         -test single_atom \
-              +single_atom.test.Z=$Z \
-              +single_atom.nn.limit=1 \
-              +single_atom.optimize.sigma=-10 \
-              +logder.start=2 +logder.stop=1 \
-              +element_C="2s 2 2p 2 0 | $rcut numax $numax sigma .5 V=parabola" \
-              > $out_Z
+        -test single_atom \
+             +single_atom.test.Z=$Z \
+             +single_atom.nn.limit=1 \
+             +single_atom.optimize.sigma=-10 \
+             +logder.start=2 +logder.stop=1 \
+             +element_C="2s 2 2p 2 0 | $rcut numax $numax sigma .5 V=parabola" \
+             > $out_Z
 
         echo -n "rcut= $rcut Bohr " >> $result_file
         grep 'optimized sigma=' $out_Z | grep "with quality" >> $result_file
@@ -82,7 +82,7 @@ for Z in {1..47}; do
   date >> $out_Z
 
   echo "# Z = $Z" ## show progress in terminal
-  $exe +verbosity=7  \
+  $exe +verbosity=7 \
   -test single_atom \
        +single_atom.test.Z=$Z \
        +single_atom.test.atomic.valence.density=1 \

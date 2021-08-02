@@ -128,8 +128,8 @@ namespace self_consistency {
             g.h[0]*Ang, g.h[1]*Ang, g.h[2]*Ang, _Ang, pow2(constants::pi/max_grid_spacing));
       for (int d = 0; d < 3; ++d) {
           if (std::abs(g.h[d]*g[d] - cell[d]) >= 1e-6) {
-              warn("# grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
-                             'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
+              warn("grid in %c-direction seems inconsistent, %d * %g differs from %g %s", 
+                           'x'+d, g[d], g.h[d]*Ang, cell[d]*Ang, _Ang);
               ++stat;
           } // deviates
           cell[d] = g.h[d]*g[d];

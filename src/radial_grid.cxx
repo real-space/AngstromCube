@@ -9,7 +9,20 @@
 
 namespace radial_grid {
   
-  inline radial_grid_t* get_memory(size_t const nr_aligned) {
+  char const* get_formula(char const equation) {
+      if (equation_equidistant == equation) return "r=a*i/n";
+      auto const eq_reciprocal  = "r=a*i/(n-i)";
+      auto const eq_exponential = "r=a*(exp(d*i)-1)";
+      if (equation_reciprocal  == equation) return eq_reciprocal;
+      if (equation_exponential == equation) return eq_exponential;
+#ifdef  USE_RECIPROCAL_RADIAL_GRID
+      return eq_reciprocal;
+#else
+      return eq_exponential;
+#endif
+  } // get_formula
+
+  radial_grid_t* get_memory(size_t const nr_aligned) {
       auto g = new radial_grid_t;
       g->r = new double[5*nr_aligned];
       g->dr    = & g->r[1*nr_aligned];
@@ -20,7 +33,7 @@ namespace radial_grid {
       return g;
   } // get_memory
 
-  inline void set_derived_grid_quantities(radial_grid_t & g, int const nr) {
+  void set_derived_grid_quantities(radial_grid_t & g, int const nr) {
       for (int ir = 0; ir < nr; ++ir) {
           auto const r = g.r[ir], dr = g.dr[ir];
           g.rdr[ir]  =   r*dr;
@@ -35,14 +48,15 @@ namespace radial_grid {
   radial_grid_t* create_radial_grid(
         int const npoints
       , float const rmax // [optional] largest radius
-      , char const *equation // [optional] how to generate the grid
+      , char equation // [optional] how to generate the grid
       , double const anisotropy // [optional] anisotropy parameter for exponential
   ) {
 
+      
       auto const mR = 128; // multiplicator for the outer radius of reciprocal grids
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
       bool static warn_reciprocal{true}; // NOT thread-safe
-      if (nullptr == equation) {
+      if ('\0' == equation) {
           equation = equation_reciprocal; // modify default behaviour
           if (warn_reciprocal) {
               std::printf("# radial_grid -D USE_RECIPROCAL_RADIAL_GRID with %gx larger nominal outer radius\n", mR*1.);
@@ -52,13 +66,14 @@ namespace radial_grid {
 #endif // USE_RECIPROCAL_RADIAL_GRID
 
       int const nr = std::max(std::abs(npoints), 32);
-      double const R = std::max(std::abs(rmax)*1., .945);
+      auto const R = std::max(std::abs(rmax)*1., .945);
 
       int const nr_aligned = align<2>(nr); // padded to multiples of 4
       auto const g = get_memory(nr_aligned);
 
       double & d = g->anisotropy;
 
+//    std::printf("# create a mesh with R= %g Bohr, n=%d, formula=%s\n", R, nr, get_formula(equation));
       if (equation_reciprocal == equation) {
           g->equation = equation_reciprocal;
           auto const n = nr + mR/2; // with i=nr-1 the outermost radius is i/(n-i)=(n-1-mR/2)/(mR/2 + 1)
@@ -71,11 +86,13 @@ namespace radial_grid {
 
       } else if (equation_equidistant == equation) {
           g->equation = equation_equidistant;
-          double const dr = rmax/nr;
+          double const dr = R/nr;
+//        std::printf("# create an equidistant mesh with dr=%g, R= %g Bohr, n=%d\n", dr, R, nr);
           for (int ir = 0; ir < nr_aligned; ++ir) {
               g->r[ir]  = ir*dr;
               g->dr[ir] = dr * (ir < nr);
           } // ir
+          d = 0; // no anisotropy
 
       } else {
           g->equation = equation_exponential;
@@ -165,7 +182,7 @@ namespace radial_grid {
       double integ[] = {0, 0, 0};
       if (echo > 3) std::printf("\n## radial grid (%d grid points, anisotropy= %g, up to %g %s, %s):\n"
               "## r, dr, 1/r, integral {1,r,r^2} dr, reference {r, r^2/2, r^3/3}\n",
-              n, g.anisotropy, g.rmax*1.0, "Bohr", g.equation);
+              n, g.anisotropy, g.rmax*1.0, "Bohr", get_formula(g.equation));
       for (int ir = 0; ir < g.n; ++ir) {
           if (echo > 3 && (ir < 3 || ir > g.n - 4 || echo > 11)) {
               auto const r = g.r[ir];

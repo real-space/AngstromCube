@@ -323,7 +323,7 @@
                   if ("test" == option) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
                   } else {
-                      ++stat; warn("# ignored unknown command line option --%s", option.c_str());
+                      ++stat; warn("ignored unknown command line option --%s", option.c_str());
                   } // option
 
               } else { // ci1
@@ -338,7 +338,7 @@
                   if ('t' == (ci1 | IgnoreCase)) {
                       ++run_tests; if (iarg + 1 < argc) test_unit = argv[iarg + 1];
                   } else {
-                      ++stat; warn("# ignored unknown command line option -%c", ci1);
+                      ++stat; warn("ignored unknown command line option -%c", ci1);
                   } // ci1
 
               } // ci1
@@ -348,7 +348,7 @@
               stat += control::command_line_interface(argv[iarg] + 1); // start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
-              ++stat; warn("# ignored command line argument \'%s\'", argv[iarg]);
+              ++stat; warn("ignored command line argument \'%s\'", argv[iarg]);
           } // ci0
 
       } // iarg

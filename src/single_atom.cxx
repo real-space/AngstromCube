@@ -1021,7 +1021,7 @@ namespace single_atom {
             for (int csl = core; csl <= semicore; ++csl) {
                 for (int svh = csl + 1; svh <= valence; ++svh) {
                     if (max_energy[csl] > min_energy[svh]) {
-                        warn("%s some %s states are higher than %s states", label, csv_name(csl), csv_name(svh));
+                        warn("Some %s states of %s are higher than %s states", csv_name(csl), label, csv_name(svh));
                     } // band overlap
                 } // svh
             } // csl
@@ -1067,7 +1067,7 @@ namespace single_atom {
 
                 auto const dev = check_charge - nelectrons[csv];
                 if (std::abs(dev) > 5e-14) {
-                    warn("# %s new spherical %s density has %g electrons, expected %g, diff %.1e e",
+                    warn("%s new spherical %s density has %g electrons, expected %g, diff %.1e e",
                                         label, csv_name(csv), check_charge, nelectrons[csv], dev);
                 } // deviates
 #endif // DEVEL
@@ -1490,7 +1490,7 @@ namespace single_atom {
                         if (norm_wf2 > 0) {
                             norm_factor = std::sqrt(normalize/norm_wf2);
                         } else {
-                            warn("cannot normalize true partial %s-wave", vs.tag);
+                            warn("%s cannot normalize true partial %s-wave", label, vs.tag);
                         }
                     } // normalize
                     scale(vs.wave[TRU], nr, rg[TRU].rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
@@ -2946,7 +2946,7 @@ namespace single_atom {
                 std::fflush(stdout);
             } else if (echo > 0) std::printf("\n# eigenstate_analysis deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 
-            if (1) { 
+            if (1) {
                 // Warning: can only produce the same eigenenergies if potentials are converged:
                 //          i.e.      Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 std::vector<double> rV_vec[TRU_AND_SMT];

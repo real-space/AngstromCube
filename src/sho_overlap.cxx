@@ -1083,7 +1083,7 @@ namespace sho_overlap {
                   std::printf("# progress = %.1f %%\n", ik/(.01*kps.size()));
                   fflush(stdout); // if we do not flush the output, it will be buffered an the progress report makes no sense
               }
-              progress_percent = 0.1*std::ceil(ik/(.1*kps.size()));
+              progress_percent = .1*std::ceil(ik/(.1*kps.size()));
           } // show percentage
       } // ik
 
@@ -1098,17 +1098,19 @@ namespace sho_overlap {
                   if (dos[ibin] > 0) {
                       dos_sum += dos[ibin];
                       std::printf("%.6f %g %g\n", Ebin*eV, dos_sum, dos[ibin]*per_eV);
-                  } else { dos[ibin] = 0; }
+                  } else { 
+                      dos[ibin] = 0;
+                  }
               } // ibin
               std::printf("\n# Integrated density of states is %g\n\n", dos_sum);
           } // echo
-          if (ibin_out_of_range > 0) warn("# %d bin entries were out of range!", ibin_out_of_range);
+          if (ibin_out_of_range > 0) warn("%d bin entries were out of range!", ibin_out_of_range);
       } // DoS
 
       if (echo > 1) std::printf("# diagonalized %d x %d Hamiltonian for %ld k-points\n", n3D, n3D, kps.size());
 
       if (diagonalization_failed > 0) {
-          if (echo > 0) warn("# %d diagonalizations failed!", diagonalization_failed);
+          if (echo > 0) warn("%d diagonalizations failed!", diagonalization_failed);
       } else {
           if (echo > 1) std::printf("\n# smallest and largest eigenvalue%s are %g and %g\n", 
               overlap_eigvals?" of the overlap operator":"", smallest_eigval, largest_eigval);

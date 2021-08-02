@@ -65,7 +65,7 @@ namespace dense_solver {
       int const nE = control::get("dense_solver.test.green.function", 0.);
       if (nE > 0) {
           if (!is_complex<complex_t>()) {
-              warn("# Green functions can only be computed in complex versions", 0); return stat;
+              warn("Green functions can only be computed in complex versions", 0); return stat;
           } // is not complex
 
           double const dE = (energy_range[1] - energy_range[0])/nE;

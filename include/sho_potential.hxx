@@ -272,7 +272,7 @@ namespace sho_potential {
           std::ifstream infile(filename);
           size_t npt = 0; 
           if (!infile.is_open()) {
-              warn("# failed to open file '%s'", filename);
+              warn("failed to open file '%s'", filename);
               return 1; // failure
           } // is_open
           for (int d = 2; d >= 0; --d) {

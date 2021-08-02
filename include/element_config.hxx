@@ -186,8 +186,8 @@ namespace element_config {
           int const nstates = highest_occupied_state_index + 1; // correct the number of core states to those occupied
           if (echo > 0) std::printf("# %s found %d spherical states\n", Sy, nstates);
 
-          if (n_electrons > 0) warn("# %s after distributing %g, %g electrons remain",
-                                       Sy, Z_core - ionization, n_electrons);
+          if (n_electrons > 0) warn("%s after distributing %g, %g electrons remain",
+                                     Sy, Z_core - ionization, n_electrons);
 
           auto const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
           if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 

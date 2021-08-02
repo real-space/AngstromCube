@@ -118,7 +118,7 @@ namespace control {
   status_t command_line_interface(char const *statement, int const echo) {
       auto const equal = find_equal_sign(statement);
       if (nullptr == equal) {
-          warn("# ignored statement \"%s\", maybe missing \'=\'", statement);
+          warn("ignored statement \"%s\", maybe missing \'=\'", statement);
           return 1; // error, no '=' sign given
       } else {
           auto const equal_char = equal - statement;

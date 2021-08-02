@@ -4,7 +4,7 @@
 
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
-#include "radial_grid.hxx" // ::get_prefactor, ::find_grid_index
+#include "radial_grid.hxx" // ::get_prefactor, ::find_grid_index, ::get_formula
 #include "energy_level.hxx" // partial_wave_t, TRU, SMT, TRU_AND_SMT
 #include "control.hxx" // ::get
 
@@ -109,7 +109,7 @@ namespace paw_xml_export {
                   double const n   = rg[ts].n - ir0;
                   std::fprintf(f, "  <radial_grid eq=\"%s\" a=\"%.15e\" d=\"%g\""
                       " n=\"%g\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n",
-                      rg[ts].equation, a, reci?d:0, reci?n:d, istart, iend, ts_tag[ts], final);
+                      radial_grid::get_formula(rg[ts].equation), a, reci?d:0, reci?n:d, istart, iend, ts_tag[ts], final);
               }
 
               if ('/' != final) { // pass the radial grid values explictly, ABINIT needs this
