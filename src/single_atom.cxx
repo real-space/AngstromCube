@@ -815,8 +815,8 @@ namespace single_atom {
         update_density(density_mixing, echo); // run the density update at least once to generate partial waves
 
         if (echo > 1) std::printf("# %s run %d initial scf-iterations\n", label, maxit_scf);
+        int const echo_minimal = std::min(echo, int(control::get("single_atom.init.scf.echo", 1.)));
         for (int scf = 0; scf < maxit_scf; ++scf) {
-            int const echo_minimal = std::min(echo, 1); // at minimal echo, only output should be the total energy
             int const echo_scf = (scf > maxit_scf - 2) ? echo : echo_minimal; // turn on output only for the last iteration
             if (echo_scf > echo_minimal) std::printf("\n\n"); // spacer
             if (echo > 1) std::printf("# %s SCF-iteration %d%c", label, scf, (echo_scf > echo_minimal) ? '\n': '\t');
