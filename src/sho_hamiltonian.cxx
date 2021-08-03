@@ -493,7 +493,7 @@ namespace sho_hamiltonian {
           } // method
       } // scope: reduce_ncenters
 
-      
+
       // perform the projection of the local potential
       std::vector<std::vector<double>> Vcoeffs(ncenters);
       int ncenters_active{0};
@@ -524,7 +524,7 @@ namespace sho_hamiltonian {
 
       prepare_timer.stop(echo);
       // all preparations done, start k-point loop
-      
+
       int const nkpoints            = control::get("hamiltonian.test.kpoints", 17.);
       int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
       bool const single_precision = (32 == floating_point_bits);

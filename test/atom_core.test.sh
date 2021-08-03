@@ -3,9 +3,13 @@
 (cd ../src/ && make -j)
 exe=../src/a43
 
+
+#occ=auto
+occ=custom
+
 for Z in {1..120}; do
 
-  out_Z=atom_core.$Z.out
+  out_Z=data.atom_core/atom_core.$Z.out
   echo -n "# " > $out_Z
   date >> $out_Z
 
@@ -13,8 +17,8 @@ for Z in {1..120}; do
   $exe +verbosity=5 \
     -test atom_core \
          +atom_core.test.Z=$Z \
-         +atom_core.occupations=auto \
-        >> $out_Z
+         +atom_core.occupations=$occ \
+       >> $out_Z
 
   grep ', E_tot= ' $out_Z
 done

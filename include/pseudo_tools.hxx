@@ -330,7 +330,7 @@ namespace pseudo_tools {
       double const det = simple_math::determinant(n, A.data(), A.stride());
       if (echo > 2) std::printf("# %s determinant for %c-projectors is %g\n", label, ell, det);
       if (std::abs(det) < 1e-24) {
-          warn("%s determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
+          warn("%s Determinant of <projectors|partial waves> for ell=%c is %.1e", label, ell, det);
           return det;
       }
       // Gram-Schmidt orthonormalization is effectively a LU-decomposition, however, we modify it here

@@ -372,6 +372,8 @@ namespace single_atom {
 
       static int constexpr SRA = 1; // 1: Scalar Relativistic Approximation
 
+      float reference_spdf[3][4];
+      
   public:
 
     LiveAtom( // constructor method
@@ -499,23 +501,23 @@ namespace single_atom {
         energy_ref[TRU] = atom_core::neutral_atom_total_energy(Z_core);
 
 
-        if (echo > 0) std::printf("# %s projectors are expanded up to numax= %d\n", label, numax);
+        if (echo > 1) std::printf("# %s projectors are expanded up to numax= %d\n", label, numax);
         ellmax_rho = 2*numax; // could be smaller than 2*numax
         ellmax_pot = ellmax_rho;
-        if (echo > 0) std::printf("# %s radial density and potentials are expanded up to lmax= %d and %d, respectively\n", label, ellmax_rho, ellmax_pot);
+        if (echo > 1) std::printf("# %s radial density and potentials are expanded up to lmax= %d and %d, respectively\n", label, ellmax_rho, ellmax_pot);
         ellmax_cmp = std::min(4, int(ellmax_rho));
-        if (echo > 0) std::printf("# %s compensation charges are expanded up to lmax= %d\n", label, ellmax_cmp);
+        if (echo > 1) std::printf("# %s compensation charges are expanded up to lmax= %d\n", label, ellmax_cmp);
 
         sigma_compensator = r_cut/std::sqrt(20.);
         
         nr_diff = rg[TRU].n - rg[SMT].n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
         ir_cut[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
         ir_cut[TRU] = ir_cut[SMT] + nr_diff;
-        if (echo > 0) std::printf("# %s pseudize the core density at r[%i or %i]= %.6f, requested %.3f %s\n",
+        if (echo > 1) std::printf("# %s pseudize the core density at r[%i or %i]= %.6f, requested %.3f %s\n",
                           label, ir_cut[TRU], ir_cut[SMT], rg[SMT].r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
         assert(rg[SMT].r[ir_cut[SMT]] == rg[TRU].r[ir_cut[TRU]]); // should be exactly equal, otherwise r_cut may be to small
 
-        if (echo > 0) {
+        if (echo > 1) {
             std::printf("# %s number of projectors per ell ", label);
             printf_vector(" %d", nn, 1 + numax);
         } // echo
@@ -567,7 +569,7 @@ namespace single_atom {
                         if (occ > 0) {
                             csv_charge[cs.csv] += occ;
                             highest_occupied_state_index = ics; // store the index of the highest occupied core state
-                            if (echo > 5) std::printf("# %s %-9s%-4s%6.1f\n", label, csv_name(cs.csv), cs.tag, occ);
+                            if (echo > 7) std::printf("# %s %-9s%-4s%6.1f\n", label, csv_name(cs.csv), cs.tag, occ);
                             if (as_valence[inl] < 0) {
                                 enn_core_ell[ell] = std::max(enn, enn_core_ell[ell]); // find the largest enn-quantum number of the occupied core states
                             } // not as valence
@@ -692,8 +694,10 @@ namespace single_atom {
                                 occ = spherical_state[ics].occupation; //
                                 vs.occupation = occ;
                                 if (occ > 0) {
-                                    if (echo > 3) std::printf("# %s transfer %.1f electrons from %s-spherical state #%d"
-                                        " to the %s-partial wave #%d\n", label, occ, spherical_state[ics].tag, ics, vs.tag, iln);
+//                                  if (echo > 3) std::printf("# %s transfer %.1f electrons from %s-spherical state #%d"
+//                                      " to the %s-partial wave #%d\n", label, occ, spherical_state[ics].tag, ics, vs.tag, iln);
+                                    if (echo > 3) std::printf("# %s transfer %.1f electrons from %s-spherical state"
+                                        " to the %s-partial wave\n", label, occ, spherical_state[ics].tag, vs.tag);
                                 } // occupation transfer
                             } // ics
                         } // scope
@@ -740,6 +744,8 @@ namespace single_atom {
             assert((nlnn == ilnn) && "count of partial waves incorrect");
         } // scope: initialize partial waves
 
+        set(reference_spdf[0], 3*4, 0.f); // clear
+        
         int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
         aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
         int const nlm_cmp = pow2(1 + ellmax_cmp);
@@ -985,6 +991,7 @@ namespace single_atom {
             double max_energy[] = {-x, -x, -x}, min_energy[] = {x, x, x};
             double E_hfos{-9e9}, E_hpos{-9e9}; // energy of the highest fully/partially occupied state
             int  ics_hfos{-1}, ics_hpos{-1}; // indices
+            int iref[4] = {0, 0, 0, 0};
 
             for (int ics = 0; ics < ncorestates; ++ics) { // serial loop
                 auto const & cs = spherical_state[ics]; // abbreviate "core state"
@@ -1011,10 +1018,15 @@ namespace single_atom {
                                                   label, cs.tag, csv_name(csv), charge_outside*100, csv_name(csv_auto));
                 } // check core state criterion
 
+                // create reference eigenvalues to compare them automatically
+                if (valence == cs.csv && cs.ell < 4) {
+                    reference_spdf[iref[cs.ell]][cs.ell] = cs.energy;
+                    ++iref[cs.ell];
+                } // valence
             } // ics
 
             if (E_hpos < E_hfos && ics_hfos >= 0 && ics_hpos >= 0) {
-                warn("%s energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
+                warn("%s Energy of the partially occupied %s-state is %g < %g %s, the energy of the fully occupied %s-state", label,
                     spherical_state[ics_hpos].tag, E_hpos*eV, E_hfos*eV, _eV, spherical_state[ics_hfos].tag);
             } // the state occupation is not the ground state, partially occupied states are not at the Fermi level
 
@@ -1066,8 +1078,8 @@ namespace single_atom {
                                           label, csv_name(csv), new_charge);
 
                 auto const dev = check_charge - nelectrons[csv];
-                if (std::abs(dev) > 5e-14) {
-                    warn("%s new spherical %s density has %g electrons, expected %g, diff %.1e e",
+                if (std::abs(dev) > 6e-14) {
+                    warn("%s New spherical %s density has %g electrons, expected %g, diff %.1e e",
                                         label, csv_name(csv), check_charge, nelectrons[csv], dev);
                 } // deviates
 #endif // DEVEL
@@ -1264,7 +1276,8 @@ namespace single_atom {
         update_partial_waves(echo - 6, 'C', 2); 
 
         char const *optimized{""};
-        auto const optimize_sigma = int(control::get("single_atom.optimize.sigma", 0.)); // 0:no, 1:use optimized, -1:optimize and display only
+        int const optimize_sigma = control::get("single_atom.optimize.sigma", 0.); // 0:no optimization,
+          // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
 #ifdef DEVEL
         double const sigma_old = sigma; // copy member variable
         double sigma_opt{sigma_old};
@@ -2934,7 +2947,7 @@ namespace single_atom {
                 //          i.e.      Y00*r*full_potential[ts][00](r) == potential[ts](r)
                 if (echo > 1) std::printf("\n\n# %s perform a diagonalization of the pseudo Hamiltonian\n\n", label);
                 // prepare a smooth local potential which goes to zero at Rmax
-                auto Vsmt = std::vector<double>(rg[SMT].n, 0);
+                std::vector<double> Vsmt(rg[SMT].n, 0);
                 double const V_rmax = full_potential[SMT](00,rg[SMT].n - 1)*Y00;
                 for (int ir = 0; ir < rg[SMT].n; ++ir) {
                     Vsmt[ir] = full_potential[SMT](00,ir)*Y00 - V_rmax;
@@ -2961,7 +2974,7 @@ namespace single_atom {
                 std::fflush(stdout);
             } else if (echo > 0) std::printf("\n# logarithmic_derivative deactivated for now! %s %s:%i\n\n", __func__, __FILE__, __LINE__);
 #endif // NEVER
-            
+
         } // scope
 #endif // DEVEL
 
@@ -3118,7 +3131,7 @@ namespace single_atom {
                             int const jln = sho_tools::ln_index(numax, ell, 0);
                             set(ovl_nn[irn], n, &overlap_ln(iln,jln)); // copy ell-diagonal blocks
                         } // irn
-                        
+
 //                      if (echo > 0) std::printf("%s charge deficit operator for ell=%c is [%g %g, %g %g]\n",
 //                          label, ellchar[ell], ovl_nn(0,0), ovl_nn(0,n-1), ovl_nn(n-1,0), ovl_nn(n-1,n-1));
 
@@ -3128,7 +3141,7 @@ namespace single_atom {
 
                         if (eigvals[0] <= -0.9) {
                             auto const classification = (eigvals[0] <= -1) ? "instable" : "critical";
-                            warn("%s eigenvalues of charge deficit operator for ell=%c %s! %g and %g", label, ellchar[ell], classification, eigvals[0], eigvals[1]);
+                            warn("%s Eigenvalues of charge deficit operator for ell=%c %s! %g and %g", label, ellchar[ell], classification, eigvals[0], eigvals[1]);
                         } // warning
 
                         if (echo > 1) std::printf("# %s eigenvalues of charge deficit operator for ell=%c are %g and %g\n", label, ellchar[ell], eigvals[0], eigvals[1]);
@@ -3150,7 +3163,8 @@ namespace single_atom {
             if (echo > 1) std::printf("\n\n# %s %s: eigenstate_analysis\n", label, __func__);
             if (echo > 5) std::printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
-              (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384, V_rmax, label, echo);
+              (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384,
+               V_rmax, label, echo, reference_spdf);
             std::fflush(stdout);
         } // echo
 
@@ -3718,9 +3732,10 @@ namespace single_atom {
       auto const Z_inc   = control::get("single_atom.test.Z.inc", 1.); // default: sample only integer values
       auto const Z_end   = control::get("single_atom.test.Z.end", Z_begin + Z_inc); // default: only one atom
       for (double Z = Z_begin; Z < Z_end; Z += Z_inc) {
-          if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n");
+          if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n");
           if (echo > 1) std::printf("\n# %s: Z = %g\n", __func__, Z);
           LiveAtom a(Z, avd, -1, echo, ionic); // envoke constructor
+          if (echo > 3) std::printf("\n\n\n\n\n\n\n\n\n\n\n\n");
       } // Z
       if (Z_begin >= Z_end) warn("Empty range for Z in [%g, %g]", Z_begin, Z_end);
       return 0;

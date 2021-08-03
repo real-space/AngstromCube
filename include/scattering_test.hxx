@@ -414,11 +414,12 @@ namespace scattering_test {
       , double const Vshift=0 // potential shift
       , char const *label="" // log-prefix
       , int const echo=0 // log-level
+      , float const reference[3][4]=nullptr // up to 3 reference eigenvalues for s,p,d,f
   ) {
       status_t stat(0);
       auto g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
       auto const dr = g.dr[0]; // in an equidistant grid, the grid spacing is constant and, hence, indepent of ir
-      if (echo > 1) std::printf("\n# %s %s dr=%g nr=%i rmax=%g %s\n", label, __func__, dr*Ang, nr, dr*nr*Ang, _Ang); 
+      if (echo > 1) std::printf("\n# %s %s nr=%i dr=%g rmax=%g %s\n", label, __func__, nr, dr*Ang, dr*nr*Ang, _Ang); 
 //    if (echo > 1) std::printf("# %s %s rmax=%g --> rmax=%g %s\n", label, __func__, gV.rmax*Ang, g.rmax*Ang, _Ang); 
 
       std::vector<double> Vloc(g.n);
@@ -454,6 +455,8 @@ namespace scattering_test {
       int constexpr nFD = 4; double cFD[1 + nFD]; set(cFD, 1 + nFD, 0.0);
       stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
       if (echo > 3) std::printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD); 
+
+      double max_dev_from_reference{-1};
 
       for (int ell = 0; ell <= lmax; ++ell) {
           int const nn = (numax + 2 - ell)/2;
@@ -552,6 +555,24 @@ namespace scattering_test {
                       } // iev
                   } // echo
                   
+                  if (nullptr != reference && ell < 4) {
+                      auto constexpr threshold = 1e-3;
+                      for (int iev = 0; iev < 3; ++iev) {
+                          double const eig_ref = reference[iev][ell];
+                          if (echo > 21) std::printf("# %s compare %c-eigenvalues %g to %g %s\n",
+                                            label, ellchar[ell], eigs[iev]*eV, eig_ref*eV, _eV);
+                          if (0 != eig_ref) {
+                              auto const dev = eigs[iev] - eig_ref;
+                              max_dev_from_reference = std::max(max_dev_from_reference, std::abs(dev));
+                              if (std::abs(dev) > threshold) {
+                                  if (echo > 2) std::printf("# %s %c-eigenvalue #%i %g deviates %g from %g %s\n",
+                                                    label, ellchar[ell], iev, eigs[iev]*eV, dev*eV, eig_ref*eV, _eV);
+                                  warn("%s %c-eigenvalue #%i deviates %g m%s", label, ellchar[ell], iev, dev*eV*1e3, _eV);
+                              } // deviates
+                          } // eig_ref is not exactly zero
+                      } // iev
+                  } // compare to reference eigenvalues
+                  
               } else { // info
                   if (echo > 2) std::printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
                   diagonalize_overlap_matrix = true;
@@ -573,6 +594,11 @@ namespace scattering_test {
           } // scope: diagonalize
 
       } // ell
+
+      if (max_dev_from_reference > 0 && echo > 3) {
+          std::printf("# %s an eigenvalue deviates %g m%s from its reference\n",
+                         label, max_dev_from_reference*eV*1e3, _eV);
+      } // deviates from reference
 
       // destroy the equidistant radial grid descriptor
       radial_grid::destroy_radial_grid(&g);
