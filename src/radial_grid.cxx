@@ -10,7 +10,7 @@
 namespace radial_grid {
   
   char const* get_formula(char const equation) {
-      if (equation_equidistant == equation) return "r=a*i/n";
+      if (equation_equidistant == equation) return "r=a*i";
       auto const eq_reciprocal  = "r=a*i/(n-i)";
       auto const eq_exponential = "r=a*(exp(d*i)-1)";
       if (equation_reciprocal  == equation) return eq_reciprocal;
@@ -51,8 +51,7 @@ namespace radial_grid {
       , char equation // [optional] how to generate the grid
       , double const anisotropy // [optional] anisotropy parameter for exponential
   ) {
-
-      
+     
       auto const mR = 128; // multiplicator for the outer radius of reciprocal grids
 #ifdef  USE_RECIPROCAL_RADIAL_GRID
       bool static warn_reciprocal{true}; // NOT thread-safe
@@ -120,7 +119,7 @@ namespace radial_grid {
           int const n = g.anisotropy, i = g.n - 1;
           return (g.r[i]*(n - i))/i;
       } else {
-          return g.rmax/std::max(g.n - 1, 1);
+          return g.rmax/std::max(g.n - 1, 1); // equation_equidistant
       }
   } // get_prefactor
 

@@ -31,8 +31,8 @@ namespace paw_xml_export {
       , double const total_energy=0
       , char const *custom_configuration_string=nullptr
       , char const *xc_functional="LDA"
-      , char const *filename=nullptr // filename, nullptr: use a default name
       , char const *pathname="."
+      , char const *filename=nullptr // nullptr: use a default name
   )
       // Export Projector Augmented Wave data in XML format
   {
@@ -51,11 +51,11 @@ namespace paw_xml_export {
           std::snprintf(file_name_buffer, 511, "%s/%s.xml", pathname, Sy);
           filename = file_name_buffer;
       } // generate a default file name
-      if (echo > 0) std::printf("# %s: chem.symbol=%s Z=%g iZ=%d filename='%s'\n", __func__, Sy, Z, iZ, filename);
+      if (echo > 0) std::printf("# %s %s Z=%g iZ=%d filename='%s'\n", Sy, __func__, Z, iZ, filename);
 
       std::FILE *const f = std::fopen(filename, "w");
       if (nullptr == f) {
-          if (echo > 0) std::printf("# %s: Error opening file '%s'!\n", __func__, filename);
+          if (echo > 0) std::printf("# %s %s: Error opening file '%s'", Sy, __func__, filename);
           return __LINE__;
       } // failed to open
 
@@ -99,20 +99,18 @@ namespace paw_xml_export {
       for (int ts = TRU; ts <= SMT; ++ts) {
           std::snprintf(ts_grid[ts], 7, "g_%s", ts_tag[ts]);
           if (ts == TRU || rg[SMT].n < rg[TRU].n) {
-              char const final = show_rg ? ' ' : '/';
               {
                   bool const reci = (radial_grid::equation_reciprocal == rg[ts].equation);
                   double const a = prefactor;
                   double const d = rg[TRU].anisotropy;
                   int const istart = ir0 + rg[TRU].n - rg[ts].n;
                   int const iend   = rg[TRU].n - 1;
-                  double const n   = rg[ts].n - ir0;
+                  double const n   = reci ? d : rg[ts].n - ir0;
                   std::fprintf(f, "  <radial_grid eq=\"%s\" a=\"%.15e\" d=\"%g\""
                       " n=\"%g\" istart=\"%d\" iend=\"%d\" id=\"g_%s\"%c>\n",
-                      radial_grid::get_formula(rg[ts].equation), a, reci?d:0, reci?n:d, istart, iend, ts_tag[ts], final);
+                      radial_grid::get_formula(rg[ts].equation), a, reci?0:d, n, istart, iend, ts_tag[ts], show_rg?' ':'/');
               }
-
-              if ('/' != final) { // pass the radial grid values explictly, ABINIT needs this
+              if (show_rg) { // pass the radial grid values explictly, ABINIT needs this
                   std::fprintf(f, "    <values>\n      ");
                   for (int ir = ir0; ir < rg[ts].n; ++ir) {
                       std::fprintf(f, " %.15e\n", rg[ts].r[ir]);
@@ -153,7 +151,7 @@ namespace paw_xml_export {
       {   int constexpr csv = 1; // 1:semicore is not supported by the codes that read PAWXML
           int const ir = radial_grid::find_grid_index(rg[TRU], r_cut);
           if (0 != spherical_density[TRU](csv,ir) && echo > 0) {
-              std::printf("# %s: Z=%g semicore density must vanish!", __func__, Z);
+              std::printf("# %s %s Z=%g semicore density must vanish!", Sy, __func__, Z);
           } // launch a warning
       } // semicore electrons present
 
@@ -184,7 +182,7 @@ namespace paw_xml_export {
               for (int ts = TRU; ts <= SMT; ++ts) {
                   std::fprintf(f, "  <%s_partial_wave state=\"%s-%s\" grid=\"%s\">\n    ", ts_label[ts], Sy,vs.tag, ts_grid[ts]);
                   if (nullptr == vs.wave[ts]) {
-                      if (echo > 0) std::printf("# %s found nullptr in partial wave iln=%li\n", __func__, iln);
+                      if (echo > 0) std::printf("# %s %s found nullptr in partial wave iln=%li\n", Sy, __func__, iln);
                       return __LINE__; // error
                   } // error
                   for (int ir = ir0; ir < rg[ts].n*m; ++ir) {
@@ -227,7 +225,7 @@ namespace paw_xml_export {
       std::fprintf(f, "</paw_setup>\n"); // ABINIT: paw_dataset
       std::fclose(f);
 
-      if (echo > 3) std::printf("# file '%s' written\n", filename);
+      if (echo > 3) std::printf("# %s %s file '%s' written\n", Sy, __func__, filename);
       return 0; // 0:success
   } // write_to_file
 

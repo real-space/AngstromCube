@@ -808,19 +808,14 @@ namespace single_atom {
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
 
-#ifdef DEVEL
-        int const export_xml = control::get("single_atom.export.xml", 0.);
-#else  // DEVEL
-        int const export_xml = 0;
-#endif // DEVEL
-        auto const maxit_scf = std::max(int(control::get("single_atom.init.max.scf", 0.)), std::abs(export_xml));
         float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
         // ... that is taken to relax the spherical potential from which spherical states and true partial wave are computed
         float const density_mixing[3] = {.25, .25, .25}; // [csv]
 
         update_density(density_mixing, echo); // run the density update at least once to generate partial waves
 
-        if (echo > 1) std::printf("# %s run %d initial scf-iterations\n", label, maxit_scf);
+        int const maxit_scf = control::get("single_atom.init.max.scf", 0.);
+        if (echo > 1) std::printf("# %s run %d initial SCF-iterations\n", label, maxit_scf);
         int const echo_minimal = std::min(echo, int(control::get("single_atom.init.scf.echo", 1.)));
         for (int scf = 0; scf < maxit_scf; ++scf) {
             int const echo_scf = (scf > maxit_scf - 2) ? echo : echo_minimal; // turn on output only for the last iteration
@@ -833,7 +828,9 @@ namespace single_atom {
 
 #ifdef DEVEL
 
+        int const export_xml = control::get("single_atom.export.xml", 0.);
         if (export_xml) {
+            update_potential(potential_mixing, nullptr, echo); // compute the zero_potential
             if (echo > 0) std::printf("\n\n# %s export configuration to file\n", label);
             auto const stat = paw_xml_export::write_to_file(Z_core, rg, 
                 partial_wave, partial_wave_active.data(),
@@ -842,16 +839,19 @@ namespace single_atom {
                 energy_kin_csvn[core][TRU],
                 energy_kin[TRU], energy_xc[TRU], energy_es[TRU], energy_tot[TRU],
                 custom_configuration,
-                exchange_correlation::default_LDA);
+                exchange_correlation::default_LDA,
+                control::get("single_atom.export.path", "."));
             if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
+            if (control::get("single_atom.optimize.sigma", 0.) > 0) {
+                warn("optimized sigma may differ from config string for Z=%g", Z_core);
+            }
             if (echo > 0) std::printf("# %s exported configuration to file\n", label);
-            if (maxit_scf < 1) warn("exported PAW file although %i setup SCF iterations executed", maxit_scf);
             if (export_xml < 0) abort("single_atom.export.xml=%d (negative leads to a stop)", export_xml);
         } // export_xml
 
         // show the smooth and true potential
         if (false && (echo > 0)) {
-            std::printf("\n## %s spherical parts: r, "
+            std::printf("\n## %s spherical parts: r in Bohr, "
             "Zeff_tru(r), Zeff_smt(r)"
             ", r^2*rho_tot_tru(r), r^2*rho_tot_smt(r)"
             ", r^2*rho_cor_tru(r), r^2*rho_cor_smt(r)"
@@ -869,8 +869,10 @@ namespace single_atom {
 //                         , -full_potential[TRU](00,irt)*Y00*r // for comparison, should be the same as Z_eff(r)
                         , -potential[TRU][irt] // Z_eff(r)
                         , -potential[SMT][irs] // \tilde Z_eff(r)
-                        , ct + vt, cs + vs, ct, cs, vt, vs
-                        , zero_potential[irs]*Y00 // not converted to eV
+                        , ct + vt, cs + vs
+                        , ct, cs
+                        , vt, vs
+                        , zero_potential[irs]*Y00
                       );
             } // ir
             std::printf("\n\n");
@@ -901,7 +903,7 @@ namespace single_atom {
             } // ir
             std::printf("\n\n\n\n");
         } // echo
-        
+
 #endif // DEVEL
 
     } // constructor

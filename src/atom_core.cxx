@@ -151,7 +151,7 @@ namespace atom_core {
           if (echo > 3) std::printf("# %s %s Z=%g  interpolate to %d using %d of %d values\n",
                                     prefix, __func__, Z, ir, ngu, ngr);
       } else {
-          warn("%s Z=%g failed to open file \'%s\' for reading\n", prefix, Z, filename);
+          warn("%s Z=%g failed to open file \'%s\' for reading", prefix, Z, filename);
           stat = -1; // failure
       } // is_open
       return stat;

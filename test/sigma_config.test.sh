@@ -11,9 +11,10 @@ exe=../src/a43
      ### sigma_config.cxx:549 warn("PAW setup for Lu (Z=71.1) is charged with -0.5 electrons")
 
 dir=data.sigma_config
-     
+mkdir -p $dir
+
 # for Z in {1..86}; do
-for Z in {58..70}; do
+for Z in {6..6}; do
 
     out=$dir/sigma_config.$Z.out
 
@@ -23,11 +24,13 @@ for Z in {58..70}; do
     $exe  +verbosity=7 \
         -t single_atom \
           +single_atom.test.Z=$Z \
-          +single_atom.optimize.sigma=1 \
+          +single_atom.optimize.sigma=-1 \
+          +single_atom.export.xml=1 \
+          +single_atom.export.path=$dir \
           +logder.step=1e-4 \
           "$@" >> $out
 
     # show the configuration string again
     $exe -t sigma_config +sigma_config.test.Z=$Z "$@" | grep element_ >> $out
-          
+
 done

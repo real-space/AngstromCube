@@ -596,8 +596,8 @@ namespace scattering_test {
       } // ell
 
       if (max_dev_from_reference > 0 && echo > 3) {
-          std::printf("# %s an eigenvalue deviates %g m%s from its reference\n",
-                         label, max_dev_from_reference*eV*1e3, _eV);
+          std::printf("# %s %s an eigenvalue deviates %g m%s from its reference\n",
+                         label, __func__, max_dev_from_reference*eV*1e3, _eV);
       } // deviates from reference
 
       // destroy the equidistant radial grid descriptor
