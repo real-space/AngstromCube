@@ -568,6 +568,11 @@ namespace atom_core {
       auto & g = *radial_grid::create_default_radial_grid(Z);
       std::vector<double> y(g.n, 0.0);
       stat += read_Zeff_from_file(y.data(), g, Z, "full_pot/Zeff", 1., echo);
+      // ToDo: this routine interpolates to a radial_default_grid
+      //        however, we only need the position of the support points g.r
+      //        so we extract that from the Zeff-file avoiding
+      //        discrepancies between the radial_default_grid and the grid used
+      //        to generate the Zeff-file
       auto const mask = RDP_lossful_compression(g.r, y.data(), g.n, epsilon);
       int const new_n = std::count(mask.begin(), mask.end(), true);
       if (echo > 4) std::printf("# Ramer-Douglas-Peucker for Z=%g reduced %d to %d points, ratio= %.3f\n", 

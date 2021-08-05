@@ -58,14 +58,8 @@
 
 #include "paw_xml_export.hxx" // ::write_to_file
 
-#define DEBUG
-#include "debug_output.hxx" // here
-
-// extern "C" {
-//   // BLAS interface to matrix matrix multiplication
-//   void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
-//               const double*, const int*, const double*, const int*, const double*, double*, const int*);
-// } // extern "C"
+// #define DEBUG
+// #include "debug_output.hxx" // here
 
 namespace single_atom {
 
@@ -255,7 +249,8 @@ namespace single_atom {
               for (int mrn = 0; mrn < sho_tools::nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                   int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
 
-//                if (echo > 1) std::printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n", label, iter, ellchar[ell], nrn, denom_sho, denom_num);
+//                if (echo > 1) std::printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n",
+//                                                        label, iter, ellchar[ell], nrn, denom_sho, denom_num);
                   if (denom_sho[mrn]*denom_num > 0) {
                       double const inner   = dot_product(rg.n, rprj[iln], prj_sho(0,jln), rg.rdr); // metric is rdr since numerical projectors enter as r*prj
                       double const d_inner = dot_product(rg.n, rprj[iln], prj_sho(1,jln), rg.rdr); // derivative w.r.t. sigma
@@ -289,7 +284,25 @@ namespace single_atom {
 
   class LiveAtom {
   public:
-      // ToDo: separate everything which is energy-parameter-set dependent and group it into a class valence_t (or some better name)
+      // ToDo: separate everything which is energy-parameter-set dependent 
+      //        and group it into a class valence_window_t (or some better name)
+      //        so that single_atom can treat eigenvalue equations and
+      //        Green functions, i.e. for a fixed energy or interpolated between energies
+      //              valence_window_t members:
+//                         std::vector<char> partial_wave_active;
+//                         view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
+//                         view2D<double> density_matrix; // atomic density matrix [nSHO][>=nSHO]
+//                         view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
+//                         view4D<double> charge_deficit; // tensor [1 + ellmax_cmp][TRU_AND_SMT][nln][nln]
+//                         view2D<double> projectors; // [nln][rg[SMT].n] r*projectors, depend only on sigma and numax (MAYBE not needed, only temporary)
+//                         view2D<double> projector_coeff[1 + ELLMAX]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
+//                         view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
+//                         std::vector<double> zero_potential; // PAW potential shape correction, POTENTIALLY energy-parameter-set dependent
+      //
+      //        maybe also separate the spherical states into a class spherical_atom_t
+      //        from which the TRU core and semicore density is exported (+valence on demand)
+      //        This sperical_atom_t could at some point even be unified with or
+      //        replace the atom_core module
 
       // general config
       int32_t atom_id; // global atom identifier
@@ -312,16 +325,16 @@ namespace single_atom {
       double sigma; // spread of the SHO projectors and its inverse
       uint8_t nn[1 + ELLMAX]; // number of projectors and partial waves used in each ell-channel
       std::vector<partial_wave_t> partial_wave;
-      std::vector<char> partial_wave_active;
       // the following quantities are energy-parameter-set dependent and spin-resolved (nspins=1 or =2)
+      std::vector<char> partial_wave_active;
       view2D<double> hamiltonian, overlap; // matrices [nSHO][>=nSHO]
       view3D<double> kinetic_energy; // tensor [TRU_AND_SMT][nln][nln]
       view4D<double> charge_deficit; // tensor [1 + ellmax_cmp][TRU_AND_SMT][nln][nln]
       view2D<double> projectors; // [nln][rg[SMT].n] r*projectors, depend only on sigma and numax
       view2D<double> projector_coeff[1 + ELLMAX]; // [ell][nn[ell]][nn_max(numax,ell)] coeff of projectors in the SHO basis
       view3D<double> partial_wave_radial_part[TRU_AND_SMT]; // matrix [wave0_or_wKin1][nln or less][nr], valence states point into this
-      view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       // end of energy-parameter-set dependent members
+      view3D<double> true_core_waves; // matrix [wave0_or_wKin1][nln][nr], core states point into this
       std::vector<double> zero_potential; // PAW potential shape correction, potentially energy-parameter-set dependent
       view2D<double> density_matrix; // atomic density matrix [nSHO][>=nSHO]
 
@@ -330,8 +343,8 @@ namespace single_atom {
       // int nspins; // 1 or 2 (order 0z) or 4 (order 0zxy), so far not used
 
       // spin-resolved members
-      double csv_charge[3];
-      double take_spherical_density[3]; // 1: use the spherical density only, 0: use the density from partial waves, mixtures possible.
+      double csv_charge[3]; // [csv], in units of electrons
+      double take_spherical_density[3]; // [csv], 1: use the spherical density only, 0: use the density from partial waves, mixtures possible.
       std::vector<spherical_state_t> spherical_state; // 20 core states are the usual max., 32 core states are enough if spin-orbit-interaction is on
       view2D<double> spherical_density[TRU_AND_SMT]; // spherical densities*4pi, no Y00 factor, for {core, semicore, valence}
 
@@ -339,7 +352,7 @@ namespace single_atom {
       view2D<double> full_potential[TRU_AND_SMT]; // (1 + ellmax_pot)^2 radial functions
       std::vector<double> potential[TRU_AND_SMT]; // spherical potential r*V(r), no Y00 factor, used for the generation of partial waves
 
-      double spherical_charge_deficit[3]; // in units of electrons
+      double spherical_charge_deficit[3]; // [csv], in units of electrons
 
       double logder_energy_range[3]; // [start, increment, stop]
       char   partial_wave_char[32]; // [iln]
@@ -353,13 +366,13 @@ namespace single_atom {
 
       bool gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
-      
+
       std::vector<int16_t> ln_index_list; // iln = ln_index_list[ilmn]
       std::vector<int16_t> lm_index_list; // ilm = lm_index_list[ilmn]
       std::vector<int16_t> lmn_begin; // lm_index_list[lmn_begin[ilm]] == ilm
       std::vector<int16_t> lmn_end; // lm_index_list[lmn_end[ilm] - 1] == ilm
-      
-      
+
+
       // energy contributions
       double energy_xc[TRU_AND_SMT]; // exchange-correlation[ts]
       double energy_dc[TRU_AND_SMT]; // xc double counting[ts]
@@ -372,8 +385,8 @@ namespace single_atom {
 
       static int constexpr SRA = 1; // 1: Scalar Relativistic Approximation
 
-      float reference_spdf[3][4];
-      
+      float reference_spdf[3][4]; // max. 3 valence eigenvalues for s,p,d,f to compare in eigenstate_analysis
+
   public:
 
     LiveAtom( // constructor method
@@ -634,8 +647,8 @@ namespace single_atom {
 #endif // DEVEL
         set(partial_wave_energy_split, 1 + ELLMAX, excited_energy);
 
-        double const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9.9e9);
-        int const previous_energy_parameter = control::get("single_atom.previous.energy.parameter", 0.0); // bit array, -1:all, 0:none, 2:p, 6:p+d, 14:p+d+f, ...
+        auto const energy_parameter = control::get("single_atom.partial.wave.energy.parameter", -9e9);
+        int const prev_energy_parameter = control::get("single_atom.previous.energy.parameter", 0.); // bit array, -1:all, 0:none, 2:p, 6:p+d, 14:p+d+f, ...
         bool const use_energy_parameter = (energy_parameter > -9e9);
         if (use_energy_parameter) {
             if (echo > 5) std::printf("# %s use energy parameter %g %s for all ell-channels\n", label, energy_parameter*eV, _eV);
@@ -720,12 +733,12 @@ namespace single_atom {
 #ifdef DEVEL
                                 if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
 #endif // DEVEL
-                                if (('*' == partial_wave_char[iln]) && (std::abs(partial_wave_energy_split[ell]) < 1e-3)) {
+                                if ('*' == partial_wave_char[iln] && std::abs(partial_wave_energy_split[ell]) < 1e-3) {
                                     warn("%s partial wave energy split for ell=%i is small (%g %s)",
                                         label, ell, partial_wave_energy_split[ell]*eV, _eV);
                                 } // |dE| small
                             } else 
-                            if (previous_energy_parameter & (1 << ell)) { // nrn > 0
+                            if (prev_energy_parameter & (1 << ell)) { // nrn > 0
                                 if (0 == ell) warn("%s cannot make use of the energy parameter of the previous ell-channel when ell=0", label);
                                 if (ell > 0) partial_wave_char[iln] = 'p'; // use base energy of previous ell-channel (polarization)
                             } else {
@@ -741,7 +754,7 @@ namespace single_atom {
                     if (echo > 19) std::printf("# %s created a state descriptor with tag=\'%s\'\n", label, vs.tag);
                 } // nrn
             } // ell
-            assert((nlnn == ilnn) && "count of partial waves incorrect");
+            assert(nlnn == ilnn && "count of partial waves incorrect");
         } // scope: initialize partial waves
 
         set(reference_spdf[0], 3*4, 0.f); // clear
@@ -850,7 +863,7 @@ namespace single_atom {
         } // export_xml
 
         // show the smooth and true potential
-        if (false && (echo > 0)) {
+        if (false && echo > 0) {
             std::printf("\n## %s spherical parts: r in Bohr, "
             "Zeff_tru(r), Zeff_smt(r)"
             ", r^2*rho_tot_tru(r), r^2*rho_tot_smt(r)"
@@ -884,7 +897,7 @@ namespace single_atom {
         } // echo
 
         // show the smooth and true partial waves
-        if (false && (echo > 0)) {
+        if (false && echo > 0) {
             std::printf("\n\n\n# %s valence partial waves:\n", label);
             for (int ir = 0; ir < rg[SMT].n; ir += 1) {
                 auto const r = rg[SMT].r[ir];
@@ -2119,7 +2132,7 @@ namespace single_atom {
                             auto const cd = partial_wave_active[jln] ? dot_product(nr, wave_r2rl_dr.data(), wave_j) : 0;
                             charge_deficit(ell,ts,iln,jln) = cd;
                             if (echo_l && partial_wave_active[jln]) std::printf("\t%10.6f", cd);
-    //                      if ((SMT==ts) && (echo > 1)) std::printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
+    //                      if (SMT == ts && echo > 1) std::printf("\t%10.6f", charge_deficit(ell,TRU,iln,jln) - cd);
                         } // jln
                         if (echo_l) std::printf("\n");
                     } // active
@@ -2369,7 +2382,7 @@ namespace single_atom {
             int const lm = gnt.lm, ilm = gnt.lm1, jlm = gnt.lm2; auto G = gnt.G;
             // if (0 == lm) assert(std::abs(G - Y00*(ilm == jlm)) < 1e-12); // make sure that G_00ij = delta_ij*Y00
             if (0 == lm) G = Y00*(ilm == jlm); // make sure that G_00ij = delta_ij*Y00
-            if ((lm < nlm) && (ilm < mlm) && (jlm < mlm)) {
+            if (lm < nlm && ilm < mlm && jlm < mlm) {
                 for (int ilmn = lmn_begin[ilm]; ilmn < lmn_end[ilm]; ++ilmn) {
                     int const iln = ln_index_list[ilmn];
                     for (int jlmn = lmn_begin[jlm]; jlmn < lmn_end[jlm]; ++jlmn) {
@@ -2424,7 +2437,7 @@ namespace single_atom {
                 if (00 == lm) {
                     // add spherical densities, in particular the core density
                     for (int csv = core; csv <= valence; ++csv) {
-                        if ((take_spherical_density[csv] > 0) && (csv_charge[csv] > 0)) {
+                        if (take_spherical_density[csv] > 0 && csv_charge[csv] > 0) {
                             add_product(full_density[ts][00], nr, spherical_density[ts][csv], Y00*take_spherical_density[csv]); 
                             // needs scaling with Y00 since core_density has a factor 4*pi
                             if (echo > 2 + ts) std::printf("# %s %s density has %g electrons after adding the spherical %s density\n",
@@ -2441,7 +2454,7 @@ namespace single_atom {
                                     auto const wave_j = partial_wave[jln].wave[ts];
                                     double const rho_ij = density_tensor(lm,iln,jln) * mix_valence_density;
 #ifdef FULL_DEBUG
-                                    if (echo > 0  && 00 == lm && ts == TRU && std::abs(rho_ij) > 2e-16) 
+                                    if (echo > 0 && 00 == lm && ts == TRU && std::abs(rho_ij) > 2e-16) 
                                         std::printf("# %s rho_ij = %g for lm=%d iln=%d jln=%d\n",
                                             label, rho_ij*Y004pi, lm, iln, jln);
 #endif // FULL_DEBUG
@@ -2569,7 +2582,7 @@ namespace single_atom {
 
                 // transform the lm-index into real-space
                 // using an angular grid quadrature, e.g. Lebedev-Laikov grids
-                if ((echo > 6) && (SMT == ts)) std::printf("# %s local smooth density at origin %g a.u.\n",
+                if (echo > 6 && SMT == ts) std::printf("# %s local smooth density at origin %g a.u.\n",
                                                           label, full_density[ts](00,0)*Y00);
                 angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax_rho, false);
                 // envoke the exchange-correlation potential (acts in place)
