@@ -39,7 +39,13 @@
 
 */
 
-
+#ifdef SINGLE_ATOM_SOURCE
+    #ifndef __cplusplus
+        #error "C-Interface and C++Implementations share a file!"
+    #endif
+    #include "control.hxx" // ::set, ::read_control_file
+    #include "recorded_warnings.hxx" // warn, ::show_warnings
+#endif
 
 #define fortran_callable(NAME) void live_atom_##NAME##_
 
@@ -61,7 +67,7 @@
      Mind that strings are not null-terminated in Fortran
 */
 
-    // creates name _live_atom_initialize_ in single_atom.o
+    // creates name live_atom_initialize_ in single_atom.o
     fortran_callable(initialize)
         ( int32_t const *na // number of atoms
         , double const Z_core[] // core charges
@@ -97,9 +103,8 @@
         } // ia
 
         *status += single_atom::atom_update("#valence electrons", *na, n_valence_electrons);
-        std::printf("# Initialized %d LiveAtoms\n"
-            "# ToDo: need to deal with atom_id, sigma, nn,\n"
-            "# magnetization, and xc_key\n\n", *na);
+        warn("Initialized %d LiveAtoms, ToDo: need to deal with atom_id, "
+                            "sigma, nn, magnetization, and xc_key", *na);
         std::fflush(stdout);
     } // _live_atom_initialize_
 #else
@@ -236,7 +241,7 @@
 
     fortran_callable(get_energy_contributions)
         ( int32_t const *na
-        , double energies[] // layout [na][...]
+        , double energies[] // layout [na][...] ToDo
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
@@ -255,6 +260,7 @@
     {
         *status = single_atom::atom_update("memory cleanup", *na);;
         std::printf("# finalized %d LiveAtoms\n", *na);
+        recorded_warnings::show_warnings(3);
         std::fflush(stdout);
     } // _live_atom_finalize_
 #else

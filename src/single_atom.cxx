@@ -3538,6 +3538,7 @@ namespace single_atom {
 
           case 'm': // interface usage: atom_update("memory cleanup", natoms);
           {
+              if (a.size() != na) warn("what='%s' for %d atoms, but only %ld atoms active!", what, na, a.size());
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
@@ -3780,8 +3781,8 @@ namespace single_atom {
 #ifdef  LIVE_ATOM_AS_LIBRARY
   // C and Fortran interface
   extern "C" {
-      #include <cstdint> // or <stdint.h> in C
-      #define SINGLE_ATOM_SOURCE    
+      #include <cstdint> // and <stdint.h> in C
+      #define SINGLE_ATOM_SOURCE
         #include "single_atom.h"
       #undef  SINGLE_ATOM_SOURCE
   } // extern "C"

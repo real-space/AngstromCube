@@ -178,7 +178,7 @@ namespace atom_core {
           } // write to file
           return 0; // success
       } else {
-          warn("failed to open file \'%s\' for writing\n", filename);
+          warn("failed to open file \'%s\' for writing", filename);
           return 1; // failure
       } // is_open
   } // store_Zeff_to_file

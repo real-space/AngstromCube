@@ -123,10 +123,10 @@ namespace sho_unitary {
                       u_[nu][ib*nb + ib] = 1; // diagonal
                   } // ib
               } // nu
-              warn("I/O failed with status=%i, Unitary_SHO_Transform was initialized as unit operator!\n", int(stat));
+              warn("I/O failed with status=%i, Unitary_SHO_Transform was initialized as unit operator!", int(stat));
           } // stat
           if (highest_nu < numax_) {
-              warn("file for Unitary_SHO_Transform provided elements only up to numax=%d, requested %d\n", highest_nu, numax_);
+              warn("file for Unitary_SHO_Transform provided elements only up to numax=%d, requested %d", highest_nu, numax_);
           } // warn
       } // constructor
 
