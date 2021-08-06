@@ -14,16 +14,16 @@
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 #include "gaunt_entry.h" // gaunt_entry_t
 // #include "spherical_harmonics.hxx" // ::Ylm
-#include "linear_algebra.hxx" // gemm
+#include "linear_algebra.hxx" // ::gemm
 
 namespace angular_grid {
 
-// #define LARGE_ANGULAR_GRIDS
-#ifdef  LARGE_ANGULAR_GRIDS
+//#define LARGE_ANGULAR_GRIDS
+#ifdef    LARGE_ANGULAR_GRIDS
   int constexpr ellmax_implemented = 65; // highest Lebedev-Laikov grid implemented
-#else
+#else  // LARGE_ANGULAR_GRIDS
   int constexpr ellmax_implemented = 20; // highest Lebedev-Laikov grid implemented
-#endif
+#endif // LARGE_ANGULAR_GRIDS
 
 
   template <> // template specialization
@@ -33,15 +33,7 @@ namespace angular_grid {
       double *b{nullptr}; int ldb{0}, N{0}, K{0};
       if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
       else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
-#if 0
-      char const t = 'n'; double const w8 = 1, zero = 0;
-      if (echo > -1) std::printf("# call dgemm(transA=%c,transB=%c,M=%i,N=%i,K=%i,alpha=%g,%c,ldA=%i,%c,ldB=%i,beta=%g,%c,ldC=%i) back=%d\n",
-                                    t, t, M, N, K, w8, 'A', M, 'B', ldb, zero, 'C', M, back); // pointer values may change from run to run
-      dgemm_(&t, &t, &M, &N, &K, &w8, in, &M, b, &ldb, &zero, out, &M); // matrix-matrix multiplication with BLAS
-      return 0;
-#else
       return linear_algebra::gemm(M, N, K, out, M, b, ldb, in, M);
-#endif
   } // transform
 
 

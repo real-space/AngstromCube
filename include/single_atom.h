@@ -55,8 +55,8 @@
         integer(kind=4), parameter :: na = 2
         integer(kind=4) :: status
         real(kind=8) :: quantity(na)
-        external _live_atom_get_some_quantity ! optional
-        call _live_atom_get_some_quantity(na, quantity, status)
+        external live_atom_get_some_quantity ! optional
+        call live_atom_get_some_quantity(na, quantity, status)
         if (status /= 0) stop 'ERROR'
         write(*,*) quantity
 
@@ -79,7 +79,7 @@
         *status = control::read_control_file(filename, echo);
         *status += unit_system::set(control::get("output.length.unit", "Bohr"),
                                     control::get("output.energy.unit", "Ha"), echo);
-    } // _live_atom_set_env_
+    } // live_atom_set_env_
 #else
     ;
 #endif
@@ -122,7 +122,7 @@
 
         warn("Initialized %d LiveAtoms, ToDo: need to deal with atom_id, nn, magnetization, xc_key", *na);
         // std::fflush(stdout);
-    } // _live_atom_initialize_
+    } // live_atom_initialize_
 #else
     ;
 #endif
@@ -138,7 +138,7 @@
         auto const value = control::set(varname, newvalue);
         *status = (nullptr == value);
         // std::fflush(stdout);
-    } // _live_atom_set_env_
+    } // live_atom_set_env_
 #else
     ;
 #endif
@@ -149,10 +149,10 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("core densities", *na, nullptr, nullptr, nullptr, rhoc);
+        *status = single_atom::atom_update("core densities", *na, 0, 0, 0, rhoc);
         std::printf("# got_core_density for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_get_core_density_
+    } // live_atom_get_core_density_
 #else
     ;
 #endif
@@ -167,78 +167,94 @@
         *status = single_atom::atom_update("?", *na);
         std::printf("# got_start_waves for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_get_start_waves_
+    } // live_atom_get_start_waves_
 #else
     ;
 #endif
 
     fortran_callable(set_density_matrix)
         ( int32_t const *na
-        , double const density_matrices[] // layout [na][stride][stride]
+        , double **atom_rho // layout [na][4096]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("d", *na);
+        float mix_rho[3] = {0, 0, 0};
+        *status = single_atom::atom_update("atomic density matrix", *na, 0, 0, mix_rho, atom_rho);
         std::printf("# density_matrices set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_set_density_matrix_
+    } // live_atom_set_density_matrix_
 #else
     ;
 #endif
 
     fortran_callable(get_compensation_charge)
         ( int32_t const *na
-        , double qlm[] // layout [na][(1 + maxval(lmax_qlm))^2]
+        , double **qlm // layout [na][(1 + maxval(lmax_qlm))^2]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("q", *na);
+        *status = single_atom::atom_update("qlm charges", *na, 0, 0, 0, qlm);
         std::printf("# got_compensation_charge %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_get_compensation_charge_
+    } // live_atom_get_compensation_charge_
 #else
     ;
 #endif
 
     fortran_callable(set_potential_multipole)
         ( int32_t const *na
-        , double const vlm[] // layout [na][(1 + maxval(lmax_vlm))^2]
+        , double **vlm // layout [na][(1 + maxval(lmax_vlm))^2]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("v", *na);
+        float mix_pot[1] = {0};
+        *status = single_atom::atom_update("update", *na, 0, 0, mix_pot, vlm);
         std::printf("# potential_multipoles set for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_set_potential_multipole_
+    } // live_atom_set_potential_multipole_
 #else
     ;
 #endif
 
     fortran_callable(get_zero_potential)
         ( int32_t const *na
-        , double vbar[] // layout [na][4096]
+        , double **vbar // layout [na][4096]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("z", *na);
+        *status = single_atom::atom_update("zero potential", *na, 0, 0, 0, vbar);
         std::printf("# got_zero_potential for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_get_zero_potential_
+    } // live_atom_get_zero_potential_
+#else
+    ;
+#endif
+
+    fortran_callable(get_projectors)
+        ( int32_t const *na
+        , double sigma[]
+        , int32_t numax[]
+        , int32_t *status)
+#ifdef SINGLE_ATOM_SOURCE
+    {
+        *status = single_atom::atom_update("projectors", *na, sigma, numax);
+        std::printf("# got_projectors for %d LiveAtoms\n", *na);
+        // std::fflush(stdout);
+    } // live_atom_get_projectors_
 #else
     ;
 #endif
 
     fortran_callable(get_hamiltonian_matrix)
         ( int32_t const *na
-        , double hamiltonian_matrices[] // layout [na][stride][stride]
-        , double overlap_matrices[]     // layout [na][stride][stride]
+        , double **hmt // logical layout [na][2][stride][stride]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("h", *na);
+        *status = single_atom::atom_update("hamiltonian and overlap", *na, 0, 0, 0, hmt);
         std::printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_get_hamiltonian_matrix_
+    } // live_atom_get_hamiltonian_matrix_
 #else
     ;
 #endif
@@ -252,7 +268,7 @@
         *status = single_atom::atom_update("e", *na, energies);
         std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
         // std::fflush(stdout);
-    } // _live_atom_get_energy_contributions_
+    } // live_atom_get_energy_contributions_
 #else
     ;
 #endif
@@ -267,7 +283,7 @@
         if (control::get("control.show", 0.) > 0) control::show_variables(3);
         recorded_warnings::show_warnings(3);
         // std::fflush(stdout);
-    } // _live_atom_finalize_
+    } // live_atom_finalize_
 #else
     ;
 #endif

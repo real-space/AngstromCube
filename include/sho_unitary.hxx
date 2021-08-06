@@ -45,6 +45,10 @@ namespace sho_unitary {
       //           int64_t nom; uint64_t den; }; // maybe reorder members
       //  this would support the index ranges up to numax=255
       std::ifstream infile(filename, std::ios_base::in);
+      if (infile.fail()) {
+          warn("file \'%s\' for Unitary_SHO_Transform cannot be opened!", filename);
+          return -1; // file not existing
+      } 
       bool const file_is_nu_ordered = true;
 
       int n_ignored{0}; // number of ignored entries

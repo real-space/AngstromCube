@@ -3603,7 +3603,7 @@ namespace single_atom {
           }
           break;
 
-          case 'p': // interface usage: atom_update("projectors", natoms, sigma);
+          case 'p': // interface usage: atom_update("projectors", natoms, sigma, numax);
           {
               double  *const sigma = dp; assert(nullptr != sigma);
               int32_t *const numax = ip; assert(nullptr != numax);
@@ -3643,7 +3643,7 @@ namespace single_atom {
           }
           break;
               
-          case 'q': // interface usage: atom_update("q_lm charges", natoms, null, null, null, qlm);
+          case 'q': // interface usage: atom_update("qlm charges", natoms, null, null, null, qlm);
           {
               double *const *const qlm = dpp; assert(nullptr != qlm);
               for (size_t ia = 0; ia < a.size(); ++ia) {
