@@ -255,8 +255,8 @@ namespace poisson_solver {
 #endif // DEVEL
 
       if (echo > 3) {
-          double const Ees = 0.5*dot_product(g.all(), rho, Ves)*g.dV();
-          std::printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV,_eV);
+          double const Ees = 0.5*dot_product(g.all(), rho, Ves)*g.dV(); // electrostatic energy
+          std::printf("# inner product between rho_aug and Ves = %g %s\n", 2*Ees*eV, _eV);
       } // echo
 
       return stat;
@@ -270,7 +270,7 @@ namespace poisson_solver {
   status_t test_solve(int const echo=3) {
       real_space::grid_t g(12, 14, 16);
       std::vector<double> Ves(g.all()), rho(g.all(), 0.0);
-      auto const method = solver_method(control::get("electrostatic.solver", "multi-grid"));
+      auto const method = solver_method(control::get("electrostatic.solver.test", "multi-grid"));
       return solve(Ves.data(), rho.data(), g, method, echo);
   } // test_init
 

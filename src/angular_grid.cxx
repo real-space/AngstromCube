@@ -14,13 +14,7 @@
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
 #include "gaunt_entry.h" // gaunt_entry_t
 // #include "spherical_harmonics.hxx" // ::Ylm
-
-extern "C" {
-   // BLAS interface to matrix matrix multiplication
-  void dgemm_(const char*, const char*, const int*, const int*, const int*, const double*,
-              const double*, const int*, const double*, const int*, const double*, double*, const int*);
-} // extern "C"
-
+#include "linear_algebra.hxx" // gemm
 
 namespace angular_grid {
 
@@ -33,17 +27,21 @@ namespace angular_grid {
 
 
   template <> // template specialization
-  status_t transform<double>(double out[], double const in[], int const ld, // ld is the stride for in[] and out[]
+  status_t transform<double>(double out[], double const in[], int const M, // M is the stride for in[] and out[]
                           int const ellmax, bool const back, int const echo) {
       auto const g = get_grid(ellmax, echo); if (nullptr == g) return -1;
-      auto const c = 'n'; double const w8 = 1, zero = 0;
-      double *b; int ldb = 0, N = 0, K = 0;
+      double *b{nullptr}; int ldb{0}, N{0}, K{0};
       if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
       else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
-      if (echo > 7) std::printf("# call dgemm(transA=%c,transB=%c,M=%i,N=%i,K=%i,alpha=%g,%c,ldA=%i,%c,ldB=%i,beta=%g,%c,ldC=%i) back=%d\n",
-                             c, c, ld, N, K, w8, 'A', ld, 'B', ldb, zero, 'C', ld, back); // pointer values may change from run to run
-      dgemm_(&c, &c, &ld, &N, &K, &w8, in, &ld, b, &ldb, &zero, out, &ld); // matrix-matrix multiplication with BLAS
+#if 0
+      char const t = 'n'; double const w8 = 1, zero = 0;
+      if (echo > -1) std::printf("# call dgemm(transA=%c,transB=%c,M=%i,N=%i,K=%i,alpha=%g,%c,ldA=%i,%c,ldB=%i,beta=%g,%c,ldC=%i) back=%d\n",
+                                    t, t, M, N, K, w8, 'A', M, 'B', ldb, zero, 'C', M, back); // pointer values may change from run to run
+      dgemm_(&t, &t, &M, &N, &K, &w8, in, &M, b, &ldb, &zero, out, &M); // matrix-matrix multiplication with BLAS
       return 0;
+#else
+      return linear_algebra::gemm(M, N, K, out, M, b, ldb, in, M);
+#endif
   } // transform
 
 

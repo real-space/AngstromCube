@@ -372,9 +372,10 @@ namespace scattering_test {
               } // ell
 
               if (ell_max_diff >= 0) { // now the most useful summary line:
-                  std::printf("# %s absolute largest logder difference is %g %s = %d * %g m%s found in %c-channel\n\n",
+                  std::printf("# %s absolute largest logder difference is %g %s = %d * %g m%s found in %c-channel\n",
                       label, max_diff*eV, _eV, int(std::round(max_diff/dE)), dE*1000*eV, _eV, ellchar[ell_max_diff]);
               } // ell valid
+              std::printf("\n");
 
           } else { // dE > 0
               std::printf("# %s logarithmic_derivative summary needs a positive logder.step, found %g %s\n\n", label, dE*eV, _eV);
@@ -415,6 +416,7 @@ namespace scattering_test {
       , char const *label="" // log-prefix
       , int const echo=0 // log-level
       , float const reference[3][4]=nullptr // up to 3 reference eigenvalues for s,p,d,f
+      , double const warning_threshold=3e-3
   ) {
       status_t stat(0);
       auto g = *radial_grid::create_radial_grid(nr + 1, gV.rmax, radial_grid::equation_equidistant);
@@ -556,7 +558,6 @@ namespace scattering_test {
                   } // echo
                   
                   if (nullptr != reference && ell < 4) {
-                      auto constexpr threshold = 1e-3;
                       for (int iev = 0; iev < 3; ++iev) {
                           double const eig_ref = reference[iev][ell];
                           if (echo > 21) std::printf("# %s compare %c-eigenvalues %g to %g %s\n",
@@ -564,7 +565,7 @@ namespace scattering_test {
                           if (0 != eig_ref) {
                               auto const dev = eigs[iev] - eig_ref;
                               max_dev_from_reference = std::max(max_dev_from_reference, std::abs(dev));
-                              if (std::abs(dev) > threshold) {
+                              if (std::abs(dev) > warning_threshold) {
                                   if (echo > 2) std::printf("# %s %c-eigenvalue #%i %g deviates %g from %g %s\n",
                                                     label, ellchar[ell], iev, eigs[iev]*eV, dev*eV, eig_ref*eV, _eV);
                                   warn("%s %c-eigenvalue #%i deviates %g m%s", label, ellchar[ell], iev, dev*eV*1e3, _eV);

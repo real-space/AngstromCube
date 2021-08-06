@@ -82,15 +82,15 @@ output.energy.unit=eV
 output.length.unit=Bohr
 
 ## grid spacing or number of grid points of the dense grid
+# basis=grid
 grid.spacing.unit=Ang
-#grid.spacing=0.083334
-#grid.spacing=0.10416667
-grid.points=24
+grid.spacing=0.12501
 
 ## max. number of self-consistency iterations
-self_consistency.max.scf=2
+self_consistency.max.scf=12
 self_consistency.mix.density=0.25
-atomic.valence.decay=1
+atomic.valence.decay=0
+
 ## compute the Fermi level {exact, linearized}
 fermi.level=exact
 
@@ -108,7 +108,8 @@ electrostatic.solver=fft
 
 ## configurations of elements
 #element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
-element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
+#element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
+element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
 
 #element___="1s 1e-6 2p 0 | 1.0 numax 1 sigma .5 V=parabola"
 
@@ -131,8 +132,8 @@ element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
 #element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
 #element_Mg="2s 2 3s* 2 2p 6 3p 2e-99 3d | 1.96 numax 4 sigma .578 V=sinc"
-element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
-element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
+#element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
+#element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 
 ### Copper: for the occupation setting 4s 1 3d 10, the d-states should be 1.5 eV below the s-state
 ### element_Cu="4s 2 4p 2e-99 3d 5 4 | 2.0 sigma .651 V=sinc" (seems to work well with GRID, but
@@ -140,7 +141,7 @@ element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 ### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
 
 ## partial wave method {energy_ordering, recreate_second, classical, ...}
-single_atom.partial.wave.method=recreate_second
+#single_atom.partial.wave.method=recreate_second
 
 ## relax partial wave in every SCF iteration {1:yes, 0:no}
 single_atom.relax.partial.waves=0
@@ -158,7 +159,7 @@ single_atom.echo=3
 single_atom.echo.mask=1
 
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
-single_atom.optimize.sigma=1
+#single_atom.optimize.sigma=1
 
 single_atom.core.state.localization=0.125
 
@@ -198,7 +199,7 @@ hamiltonian.floating.point.bits=32
 #grid.eigensolver=explicit
 grid.eigensolver=cg
 #conjugate_gradients.max.iter=1
-#grid.eigensolver.repeat=1
+grid.eigensolver.repeat=3
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
@@ -222,8 +223,8 @@ plane_wave.solver=direct
 #dense_solver.test.overlap.eigvals=0
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
-export.hamiltonian=1
-export.hamiltonian.format=xml
+export.hamiltonian=0
+#export.hamiltonian.format=xml
 
 # Make structure_solver produce the same as potential_generator
 # structure_solver.complex=1
@@ -233,7 +234,7 @@ control.show=1
 EOF
 
 
-for spacing in `seq 2 1 2`; do
+for spacing in `seq 2 1 0`; do
   project=$project_base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -257,7 +258,7 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 2 0`; do
+for ecut in `seq 5 2 5`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

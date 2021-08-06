@@ -320,7 +320,7 @@ namespace single_atom {
       // the following quantities are energy-parameter-set dependent
       double r_cut; // classical augmentation radius for potential and core density
       int   ir_cut[TRU_AND_SMT]; // classical augmentation radius index for potential and core density
-      float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
+//    float r_match; // radius for matching of true and smooth partial wave, usually 6--9*sigma
       ell_QN_t numax; // limit of the SHO projector quantum numbers
       double sigma; // spread of the SHO projectors and its inverse
       uint8_t nn[1 + ELLMAX]; // number of projectors and partial waves used in each ell-channel
@@ -821,8 +821,8 @@ namespace single_atom {
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = (control::get("single_atom.relax.partial.waves", 1.) < 1);
 
-        float const potential_mixing = 0.25; // this controls the percentage of the full_potential ...
-        // ... that is taken to relax the spherical potential from which spherical states and true partial wave are computed
+        float const potential_mixing = 0.25; // this controls the percentage of the full_potential that is ...
+        // ... taken to relax the spherical potential from which spherical states and true partial wave are computed
         float const density_mixing[3] = {.25, .25, .25}; // [csv]
 
         update_density(density_mixing, echo); // run the density update at least once to generate partial waves
@@ -843,7 +843,7 @@ namespace single_atom {
 
         int const export_xml = control::get("single_atom.export.xml", 0.);
         if (export_xml) {
-            update_potential(potential_mixing, nullptr, echo); // compute the zero_potential
+            update_potential(potential_mixing, nullptr, echo); // compute the zero_potential and total energy contributions
             if (echo > 0) std::printf("\n\n# %s export configuration to file\n", label);
             auto const stat = paw_xml_export::write_to_file(Z_core, rg, 
                 partial_wave, partial_wave_active.data(),
@@ -1091,14 +1091,12 @@ namespace single_atom {
                                           "# %s new %s density has %g electrons\n",
                                           label, csv_name(csv), old_charge, nelectrons[csv], 
                                           label, csv_name(csv), new_charge);
-
                 auto const dev = check_charge - nelectrons[csv];
                 if (std::abs(dev) > 6e-14) {
                     warn("%s New spherical %s density has %g electrons, expected %g, diff %.1e e",
                                         label, csv_name(csv), check_charge, nelectrons[csv], dev);
                 } // deviates
 #endif // DEVEL
-
                 if (echo > 3) std::printf("# %s %-8s density change %g e, Coulomb energy change %g %s\n", 
                     label, csv_name(csv), density_change, Coulomb_change*eV, _eV);
                 if (echo > 5) std::printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
@@ -1374,45 +1372,51 @@ namespace single_atom {
     ) {
         // generate new smooth partial waves given fixed projector functions
 
-        auto const Gram_Schmidt_iterations = (GS_iterations < 1) ? int(control::get("single_atom.gram.schmidt.repeat", 2.)) : GS_iterations;
-
-        char const method = ('?' != generation_method) ? generation_method : *control::get("single_atom.partial.wave.method", "m");
-        char const minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
-        char const energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-        char const classical_scheme = 'C';          // find partial waves by fitting a polynomial and evaluate preliminary projector functions
-        char const classical_partial_waves = 'c';   // find partial waves by fitting a polynomial, projector functions unchanged
-        char const recreate_second = 'r';           // use the lowest projector as inhomogeneiety for the higher partial wave
+        char constexpr minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
+        char constexpr energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
+        char constexpr classical_scheme = 'C';          // find partial waves by fitting a polynomial and evaluate preliminary projector functions
+        char constexpr classical_partial_waves = 'c';   // find partial waves by fitting a polynomial, projector functions unchanged
+        char constexpr recreate_second = 'r';           // use the lowest projector as inhomogeneiety for the higher partial wave
 #ifdef DEVEL
-        char const orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freefom of the second
-        char const orthogonalize_first = '1';       // ToDo
+        char constexpr orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freedom of the second
+        char constexpr orthogonalize_first = '1';       // ToDo
 #endif // DEVEL
+
+        char const method = ('?' != generation_method) ? generation_method :
+                      *control::get("single_atom.partial.wave.method", "m");
+
+        int const Gram_Schmidt_iterations = (GS_iterations >= 0) ? GS_iterations :
+                              control::get("single_atom.gram.schmidt.repeat", 2.);
 
         if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\'\n", label, __func__, Z_core, method);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 
+        double r_match{r_cut}; // init classical
+
+        view2D<double> radial_sho_basis;
         if (method != classical_scheme) {
             sigma = update_projector_coefficients(echo); // and potentially run optimization on sigma
-        } // not classical
 
-        int const nln = sho_tools::nSHO_radial(numax);
-        view2D<double> radial_sho_basis(nln, align<2>(rg[SMT].n), 0.0); // get memory
-        if (method != classical_scheme) {
+            int const nln = sho_tools::nSHO_radial(numax);
+            radial_sho_basis = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory
             scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo/2);
 #ifdef DEVEL
-            if (echo > 6) { // show normalization and orthogonality of the radial SHO basis
+            if (echo > 5) { // show normalization and orthogonality of the radial SHO basis
+                double max_dev{0};
                 for (int ell = 0; ell <= numax; ++ell) {
                     for (int irn = 0; irn < sho_tools::nn_max(numax, ell); ++irn) {       int const iln = sho_tools::ln_index(numax, ell, irn);
                         for (int jrn = 0; jrn < sho_tools::nn_max(numax, ell); ++jrn) {   int const jln = sho_tools::ln_index(numax, ell, jrn);
                             auto const ovl_ij = dot_product(rg[SMT].n, radial_sho_basis[iln], radial_sho_basis[jln], rg[SMT].dr);
                             auto const dev = ovl_ij - (irn == jrn);
-                            std::printf("# %s radial SHO basis <%c%d|%c%d> = %i %c %.1e sigma=%g %s\n",
-                                          label, ellchar[ell],irn, ellchar[ell],jrn,
-                                          (irn == jrn), (dev < 0)?'-':'+', std::abs(dev), sigma*Ang,_Ang);
+                            if (echo > 7) std::printf("# %s radial SHO basis <%c%d|%c%d> = %i %c %.1e sigma=%g %s\n", label,
+                                ellchar[ell],irn, ellchar[ell],jrn, (irn == jrn), (dev < 0)?'-':'+', std::abs(dev), sigma*Ang, _Ang);
+                            max_dev = std::max(max_dev, std::abs(dev));
                         } // jrn
                     } // irn
                 } // ell
+                std::printf("# %s radial SHO basis deviates %.1e from diagonal sigma=%g %s\n", label, max_dev, sigma*Ang, _Ang);
             } // echo
-            
+
             if (echo > 9) {
                 std::printf("\n## %s show the local potentials (r, r*Vtru, r*Vsmt):\n", label);
                 for (int ir = 1; ir < rg[SMT].n; ++ir) {
@@ -1423,9 +1427,7 @@ namespace single_atom {
 #endif // DEVEL
 
             r_match = 9*sigma;
-        } else {
-            r_match = r_cut; // classical
-        } // classical?
+        } // classical
 
         int const ir_match[] = {radial_grid::find_grid_index(rg[TRU], r_match),
                                 radial_grid::find_grid_index(rg[SMT], r_match)};
@@ -1541,7 +1543,7 @@ namespace single_atom {
 //                 if (echo > 1) std::printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo - 5, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name(valence), ir_cut[TRU]);
                 
-#if 0                
+#if 1                
                 if (recreate_second == method && '*' == partial_wave_char[iln] && nrn > 0) {
                     if (echo > 0) std::printf("\n# %s recreate_second for %s\n", label, vs.tag);
                     int const iln0 = ln_off + (nrn - 1); // index of the previous partial wave
@@ -1822,7 +1824,7 @@ namespace single_atom {
                                 if (echo > 8) {
                                     auto const ovl10 = evec[0]*c[0] + evec[1]*c[1];
                                     std::printf("# %s method=orthogonalize_second angle=%g\t<Psi_1|p_0>= %g coeffs= %g %g\n",
-                                              label, angle, ovl10, evec[0], evec[1]);
+                                                   label, angle, ovl10, evec[0], evec[1]);
                                 } // echo
 
                             } // if nrn > 0
@@ -1844,7 +1846,7 @@ namespace single_atom {
                                 if (echo > 1) {
                                     auto const ovl01 = evec[0]*c[0] + evec[1]*c[1];
                                     std::printf("# %s method=orthogonalize_first angle=%g\t<Psi_0|p_1>= %g coeffs= %g %g\n", 
-                                              label, angle, ovl01, evec[0], evec[1]);
+                                                   label, angle, ovl01, evec[0], evec[1]);
                                 } // echo
 
                             } // if nrn > 0
@@ -1874,7 +1876,7 @@ namespace single_atom {
 
                     if (echo > 19) {
                         std::printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru,phi_smt, rTphi_tru,rTphi_smt):\n",
-                                     label, ell, nrn);
+                                          label, ell, nrn);
                         for (int ir = 0; ir < rg[SMT].n; ++ir) {
                             std::printf("%g  %g %g  %g %g\n", rg[SMT].r[ir],
                                 vs.wave[TRU][ir + nr_diff], vs.wave[SMT][ir],
@@ -1890,22 +1892,21 @@ namespace single_atom {
 
             { // scope: establish dual orthgonality with projectors
                 int const nr = rg[SMT].n;
-
 #ifdef DEVEL
                 if (echo > 24) { // show normalization and orthogonality of projectors
                     for (int irn = 0; irn < n; ++irn) {
                         for (int jrn = 0; jrn < n; ++jrn) {
+                            int const diag = (irn == jrn);
                             std::printf("# %s %c-projector <#%d|#%d> = %i + %.1e sigma=%g %s\n", label, ellchar[ell], irn, jrn,
-                                (irn == jrn), dot_product(nr, projectors_ell[irn], projectors_ell[jrn], rg[SMT].dr) - (irn == jrn), sigma*Ang,_Ang);
+                                diag, dot_product(nr, projectors_ell[irn], projectors_ell[jrn], rg[SMT].dr) - diag, sigma*Ang, _Ang);
                         } // jrn
                     } // irn
                     std::printf("# %s Mind: unlike in previous versions, projectors are not necessarily orthonormalized!\n", label);
                 } // echo
 #endif // DEVEL
-
                 view2D<double> ovl(n, n); // get memory
                 view3D<double> LU_inv(2, n, n, 0.0); // get memory
-                
+
                 for (int iGS = 0; iGS < Gram_Schmidt_iterations; ++iGS) {
                     int const echo_GS = echo - 4*iGS;
                     
@@ -2175,10 +2176,12 @@ namespace single_atom {
 
     } // transform_SHO
 
-    
-    
-    
-    view2D<double> unfold_projector_coefficients(emm_QN_t const m=-1) const {
+
+
+
+    view2D<double> unfold_projector_coefficients(
+          emm_QN_t const m=-1
+    ) const {
 
         int const nln = sho_tools::nSHO_radial(numax);
         std::vector<int16_t> ln_offset(nln, -1);
@@ -2323,28 +2326,28 @@ namespace single_atom {
         } // scope
 
 #ifdef DEVEL
-        auto const n_modify = 1 + int(control::get("single_atom.synthetic.density.matrix", 0.0));
+        auto const n_modify = 1 + int(control::get("single_atom.synthetic.density.matrix", 0.));
         for (int i_modify = 0; i_modify < n_modify; ++i_modify) {
             if (i_modify > 0 && echo > 1) std::printf("\n# %s create a synthetic radial density matrix\n", label);
-            if (echo > 6) std::printf("# %s Radial density matrix in partial waves:\n", label);
+            if (echo > 7) std::printf("# %s Radial density matrix in partial waves:\n", label);
             for (int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 int const iln = ln_index_list[ilmn];
                 if (partial_wave_active[iln]) {
                     auto const ell = partial_wave[iln].ell;
                     double const occ = partial_wave[iln].occupation/(2*ell + 1.);
-                    if (echo > 6) std::printf("# %s %-8s ", label, partial_wave[iln].tag);
+                    if (echo > 7) std::printf("# %s %-8s ", label, partial_wave[iln].tag);
                     for (int jlmn = 0; jlmn < nSHO; ++jlmn) {
-                        if (partial_wave_active[ln_index_list[jlmn]]) {
+                        int const jln = ln_index_list[jlmn];
+                        if (partial_wave_active[jln]) {
                             if (i_modify > 0) radial_density_matrix(ilmn,jlmn) = (ilmn == jlmn)*occ;
-                            if (echo > 6) std::printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
+                            if (echo > 7) std::printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
                         } // active_j
                     } // jlmn
-                    if (echo > 6) std::printf("\n");
+                    if (echo > 7) std::printf("\n");
                 } // active_i
             } // ilmn
-            if (echo > 6) std::printf("\n");
+            if (echo > 7) std::printf("\n");
         } // i_modify
-
 
         if (echo > 2) {
             int const nlnr = sho_tools::nSHO_radial(numax);
@@ -2866,7 +2869,8 @@ namespace single_atom {
         } // ts true and smooth
 
         view3D<double> matrices_lmn(2, nlmn, nlmn, 0.0); // get memory
-        auto hamiltonian_lmn = matrices_lmn[0], overlap_lmn = matrices_lmn[1];
+        auto hamiltonian_lmn = matrices_lmn[0],
+                 overlap_lmn = matrices_lmn[1];
 
         // start by adding the contribution of the non-spherical potential
         int const mlm = pow2(1 + numax);
@@ -3179,7 +3183,7 @@ namespace single_atom {
             if (echo > 5) std::printf("# local potential for eigenstate_analysis is shifted by %g %s\n", V_rmax*eV,_eV);
             scattering_test::eigenstate_analysis // find the eigenstates of the spherical Hamiltonian
               (rg[SMT], Vsmt.data(), sigma, int(numax + 1), numax, hamiltonian_ln.data(), overlap_ln.data(), 384,
-               V_rmax, label, echo, reference_spdf);
+               V_rmax, label, echo, reference_spdf, control::get("eigenstate.analysis.warn", 3e-3));
             std::fflush(stdout);
         } // echo
 
@@ -3301,7 +3305,9 @@ namespace single_atom {
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
     } // update_potential
 
-    double get_total_energy(double E[]=nullptr) const {
+    double get_total_energy(
+          double E[]=nullptr
+    ) const {
         if (nullptr != E) {
             E[energy_contribution::TOTAL]              = energy_tot[TRU] - energy_tot[SMT];
             E[energy_contribution::KINETIC]            = energy_kin[TRU] - energy_kin[SMT];
@@ -3385,7 +3391,9 @@ namespace single_atom {
 
     radial_grid_t const* get_smooth_radial_grid(int const echo=0) const { return &rg[SMT]; }
 
-    double get_number_of_electrons(char const csv='v') const {
+    double get_number_of_electrons(
+          char const csv='v'
+    ) const {
         if ('c' == (csv | 32)) return csv_charge[core];
         if ('s' == (csv | 32)) return csv_charge[semicore];
         if ('v' == (csv | 32)) return csv_charge[valence];

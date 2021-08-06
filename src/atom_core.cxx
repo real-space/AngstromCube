@@ -137,7 +137,7 @@ namespace atom_core {
                   if (r <= g.rmax + 1e-6) {
                       full_debug(std::printf("# %s r=%g Zeff=%g\n",  __func__, r, Ze));
                       Ze *= factor;
-                      while ((g.r[ir] < r) && (ir < g.n)) {
+                      while (g.r[ir] < r && ir < g.n) {
                         // interpolate linearly
                         Zeff[ir] = Ze_prev + (Ze - Ze_prev)*(g.r[ir] - r_prev)/std::max(r - r_prev, 1e-24);
                         ++ir;
@@ -351,9 +351,11 @@ namespace atom_core {
                                   + energies[E_exc] - energies[E_vxc]; // total energy
 
                   ++icyc; // transit to the next SCF iteration
-                  auto const which = E_est; // monitor the change on some energy contribution which depends on the density only
-                  res = std::abs(energies[which] - previous_energy);
-                  previous_energy = energies[which]; // store for the next iteration
+                  { // scope: determine the residual
+                      auto const E_res = E_est; // monitor the change on some energy contribution that depends on the density only
+                      res = std::abs(energies[E_res] - previous_energy);
+                      previous_energy = energies[E_res]; // store for the next iteration
+                  } // scope
                   if (echo > 3) {
                       int const display_every = 1 << std::max(0, 2*(6 - echo)); // echo=4:every 16th, 5:every 4th, 6:every cycle
                       if (0 == (icyc & (display_every - 1))) {
@@ -361,7 +363,7 @@ namespace atom_core {
                                   __func__, Z, icyc, res, energies[E_tot]*eV, _eV);
                       } // display?
                   } // echo
-                  run = ((res > THRESHOLD) || (icyc <= MINCYCLES)) && (icyc < MAXCYCLES);
+                  run = (res > THRESHOLD || icyc <= MINCYCLES) && (icyc < MAXCYCLES);
 
                   next_task = Task_MixPot;
               } break; // Task_Energy

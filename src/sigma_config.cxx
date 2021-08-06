@@ -160,49 +160,10 @@ namespace sigma_config {
         } // switch
   } // default config
 
-
 //
-// Some elements differ from the automatic choice of occupation numbers:
+// Some elements differ from the automatic choice of occupation numbers: Z= 24, 29, 41--47, 57, 78, 79
 //
 
-// # Warning: For Z=24 the occupation of the 4s-orbital differs: 1 vs 2
-// # Warning: For Z=24 the occupation of the 3d-orbital differs: 5 vs 4
-
-// # Warning: For Z=29 the occupation of the 4s-orbital differs: 1 vs 2
-// # Warning: For Z=29 the occupation of the 3d-orbital differs: 10 vs 9
-
-// # Warning: For Z=41 the occupation of the 5s-orbital differs: 1 vs 2
-// # Warning: For Z=41 the occupation of the 4d-orbital differs: 4 vs 3
-
-// # Warning: For Z=42 the occupation of the 5s-orbital differs: 1 vs 2
-// # Warning: For Z=42 the occupation of the 4d-orbital differs: 5 vs 4
-
-// # Warning: For Z=43 the occupation of the 5s-orbital differs: 1 vs 2
-// # Warning: For Z=43 the occupation of the 4d-orbital differs: 6 vs 5
-
-// # Warning: For Z=44 the occupation of the 5s-orbital differs: 1 vs 2
-// # Warning: For Z=44 the occupation of the 4d-orbital differs: 7 vs 6
-
-// # Warning: For Z=45 the occupation of the 5s-orbital differs: 1 vs 2
-// # Warning: For Z=45 the occupation of the 4d-orbital differs: 8 vs 7
-
-// # Warning: For Z=46 the occupation of the 5s-orbital differs: 0 vs 2
-// # Warning: For Z=46 the occupation of the 4d-orbital differs: 10 vs 8
-
-// # Warning: For Z=47 the occupation of the 5s-orbital differs: 1 vs 2
-// # Warning: For Z=47 the occupation of the 4d-orbital differs: 10 vs 9
-
-// # Warning: For Z=57 the occupation of the 4f-orbital differs: 0 vs 1
-// # Warning: For Z=57 the occupation of the 5d-orbital differs: 1 vs 0
-
-// # Warning: For Z=78 the occupation of the 6s-orbital differs: 1 vs 2
-// # Warning: For Z=78 the occupation of the 5d-orbital differs: 9 vs 8
-
-// # Warning: For Z=79 the occupation of the 6s-orbital differs: 1 vs 2
-// # Warning: For Z=79 the occupation of the 5d-orbital differs: 10 vs 9
-    
-    
-    
     int8_t constexpr KeyIgnore = 0, KeyRcut = -1, KeySigma = -2, KeyZcore = -3,
                      KeyMethod = -4, KeyWarn = -5, KeyNumax = -6, KeyNumeric = -7, KeyUndef = -8;
     char const Key2String[][8] = {"ignored", "|", "sigma", "Z=", "V", "warn", "numax", "numeric", "?"};
@@ -245,8 +206,7 @@ namespace sigma_config {
         return (enn*(enn - 1))/2 + ell;
     } // nl_index
 
-    template <typename int_t>
-    inline void set_default_core_shells(int_t ncmx[4], double const Z) {
+    inline void set_default_core_shells(int ncmx[4], double const Z) {
         ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
         ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
         ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
@@ -559,7 +519,7 @@ namespace sigma_config {
 
   status_t test_parsing(int const echo=0) {
 
-      int const iZ_show = control::get("sigma_config.test.Z", -120); // use -128 to check also the custom configuration strings and vacuum
+      int const iZ_show = control::get("sigma_config.test.Z", -120); // use -127 to check also the custom configuration strings and vacuum
       if (iZ_show >= 0) {
 
           // parse one selected element and show the configuration string used
@@ -573,22 +533,23 @@ namespace sigma_config {
 
       } else { // iZ_show >= 0
 
+          int const Z_max = std::min(127, -iZ_show);
+          // parse all elements in [1, Z_max]
 #ifdef EXPERIMENTAL
           if (echo > 8) std::printf("\n\n# sizeof(element_t) = %ld Byte\n", sizeof(element_t));
 
-          int const Z_max = -iZ_show;
           if (echo > 2) std::printf("\n\n# parse EXPERIMENTAL elements 58--70, 87--%d\n\n", Z_max);
           for (int iZ = 58; iZ <= Z_max; ++iZ) {
               if (std::abs(iZ - 64) < 7 || iZ > 86) {
                   if (echo > 4) std::printf("\n");
-                  auto const e = get(iZ & 127, echo);
+                  auto const e = get(iZ, echo);
                   if (echo > 4) std::printf("# Z=%g rcut=%g sigma=%g Bohr\n", e.Z, e.rcut, e.sigma);
               } // with 58 through 70 and more
           } // iZ
 #endif // EXPERIMENTAL
 
           if (echo > 2) std::printf("\n\n# parse configuration strings for elements 86--71, 57--1\n\n");
-          for (int iZ = 86; iZ > 0; --iZ) {
+          for (int iZ = std::min(86, Z_max); iZ > 0; --iZ) {
               if (std::abs(iZ - 64) >= 7) {
                   if (echo > 4) std::printf("\n");
                   auto const e = get(iZ, echo);

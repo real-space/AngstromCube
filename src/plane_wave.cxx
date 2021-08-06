@@ -62,24 +62,24 @@ namespace plane_wave {
         } // d
 
         { // scope: normalize Hermite_Gauss functions
-            double nfactorial{1};
-            for (int n = 0; n <= numax; ++n) {
-                double const norm_factor = std::sqrt(sigma/(constants::sqrtpi*nfactorial));
+            double nufactorial{1};
+            for (int nu = 0; nu <= numax; ++nu) {
+                double const norm_factor = std::sqrt(sigma/(constants::sqrtpi*nufactorial));
                 for (int d = 0; d < 3; ++d) {
-                    Hermite_Gauss(d,n) *= norm_factor; // scale
+                    Hermite_Gauss(d,nu) *= norm_factor; // scale
                 } // d
-                nfactorial *= (n + 1)*0.5; // update nfactorial * 2^-n
-            } // n
+                nufactorial *= (nu + 1)*0.5; // update nfactorial * 2^-nu
+            } // nu
         } // scope
 
         std::complex<double> constexpr mi(0, -1);
-        std::complex<double> imaginary[4] = {1, mi, pow2(mi), pow3(mi)}; // (-i)^n --> [n%4]
+        std::complex<double> const imaginary[4] = {1, mi, -1, -mi}; // (-i)^n == (-i)^(n%4)
 
         // generate projection coefficient for factorized SHO projectors in zyx_order
         int lb{0};
-        for (         int lz = 0; lz <= numax;           ++lz) {
-            for (     int ly = 0; ly <= numax - lz;      ++ly) {
-                for ( int lx = 0; lx <= numax - lz - ly; ++lx) {
+        for (        int lz = 0; lz <= numax;           ++lz) {
+            for (    int ly = 0; ly <= numax - lz;      ++ly) {
+                for (int lx = 0; lx <= numax - lz - ly; ++lx) {
                     int const nu = lx + ly + lz;
                     pzyx[lb] = Hermite_Gauss(0,lx) *
                                Hermite_Gauss(1,ly) *
@@ -224,28 +224,29 @@ namespace plane_wave {
   
   
   template <typename complex_t>
-  status_t solve_k(double const ecut // plane wave cutoff energy
-          , double const reci[3][4] // reciprocal cell matrix
-          , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
-          , int const nG[3] // half the number of plane wave entries in the potential
-          , double const norm_factor // normalization for the cell volume
- 
-          , int const natoms_PAW // number of PAW centers
-          , view2D<double> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
-          , double const grid_offset[3] // origin of atomic positions w.r.t. the local potential
-          , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
-          , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
-          , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
+  status_t solve_k(
+        double const ecut // plane wave cutoff energy
+      , double const reci[3][4] // reciprocal cell matrix
+      , view4D<double> const & Vcoeff // <G|V|G'> = potential(0:1or3,iGz-jGz,iGy-jGy,iGx-jGx)
+      , int const nG[3] // half the number of plane wave entries in the potential
+      , double const norm_factor // normalization for the cell volume
 
-          , double const kpoint[4] // vector inside the Brillouin zone, all 3 components in [-.5, .5], 4th component is the weight
-          , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
-          , int & nPWs // export number of plane waves
-          , int const echo=0 // log-level
-          , int const nbands=10 // number of bands (needed for iterative solver)
-          , float const direct_ratio=2.f // try to get good start waves by envoking a dense solver on a (2.0*nbands)x(2.0*nbands) sub-Hamiltonian
-          , DensityIngredients *export_rho=nullptr
-          , int const kpoint_id=-1 // global identifyer of kpoints
-      ) { // number of bands (needed by iterative solver)
+      , int const natoms_PAW // number of PAW centers
+      , view2D<double> const & xyzZ_PAW // (natoms_PAW, 4) positions of PAW centers, 4th component not used
+      , double const grid_offset[3] // origin of atomic positions w.r.t. the local potential
+      , int    const numax_PAW[] // spreads of the SHO-type PAW projectors
+      , double const sigma_PAW[] // cutoffs of the SHO-type PAW projectors
+      , view3D<double> const hs_PAW[] // [natoms_PAW](2, nprj, nprj) // PAW Hamiltonian correction and charge-deficit
+
+      , double const kpoint[4] // vector inside the Brillouin zone, all 3 components in [-.5, .5], 4th component is the weight
+      , char const *const x_axis // display this string in front of the Hamiltonian eigenvalues
+      , int & nPWs // export number of plane waves
+      , int const echo=0 // log-level
+      , int const nbands=10 // number of bands (needed for iterative solver)
+      , float const direct_ratio=2.f // try to get good start waves by envoking a dense solver on a (2.0*nbands)x(2.0*nbands) sub-Hamiltonian
+      , DensityIngredients *export_rho=nullptr
+      , int const kpoint_id=-1 // global identifyer of kpoints
+  ) { // number of bands (needed by iterative solver)
 
       using real_t = decltype(std::real(complex_t(1)));
             

@@ -381,7 +381,7 @@ namespace structure_solver {
         status_t stat(0);
 #ifdef DEVEL
         if (echo > 0) {
-            std::printf("\n\n#\n# Solve Kohn-Sham equation (basis=%s)\n# \n\n", basis_method);
+            std::printf("\n\n#\n# Solve Kohn-Sham equation (basis=%s)\n#\n\n", basis_method);
             std::fflush(stdout);
         } // echo
 #endif // DEVEL

@@ -688,7 +688,7 @@ to predefined values. \ttt{atom\_core.occupations} can be chosen \ttt{auto}
 or \ttt{custom} where they are taken from the element configuration, see Section \ref{sec:sigma-config}.
 
 
-\subsection{Element Configuration} \label{sec:sigma-config}
+\subsection{Element Configuration} \label{sec:sigma-config-short}
 %
 A list of $120$ default element configuration is contained in the application.
 For example the default configuration for aluminum can be displayed by
@@ -724,7 +724,15 @@ The output can be visualized by \ttt{gnuplot} or \ttt{xmgrace -nxy} $logfile$.
 For the ease of use, we may add \ttt{+logder.unit=eV} and then specify
 \ttt{logder.start}, \ttt{logder.stop} and \ttt{logder.step} in units of $e$Volt.
 
-\todo[inline]{Simplify single\_atom by removing the auto config and then continue the description here}
+\noindent
+Logarithmic derivatives are summarized by the position of the resonances (poles).
+For \ttt{+verbosity=8} and higher, the generalized node counts are given plottable in the log file.
+
+\noindent
+The \ttt{eigenstate\_analysis} tool solves the spherically symmetric pseudo atom
+problem on an equidistant radial mesh. This allows to check for potential ghost states.
+Increase \ttt{eigenstate.analysis.warn=.003 Ha} to suppress warnings.
+
 
 \subsection{Self Consistency Iterations} \label{sec:self-consistency}
 %
@@ -765,7 +773,7 @@ Most important variables to control self-consistency iterations in \codename{}.
 \end{table}
 %
 \todo[inline]{implement \ttt{store.density} and \ttt{load.density} from file}
- 
+
 
 \subsection{Brillouin Zone Integration} \label{sec:brillouin-zone}
 %
@@ -855,7 +863,8 @@ and adjust the number of protons \ttt{Zcore} $Z$, even non-integer.
 
 \subsection{Automatic Element Config} \label{sec:element-config}
 %
-Mind that this is an experimental alternative to \ttt{sigma\_config} introduced in Section \ref{sec:sigma-config}.
+Mind that this is an experimental alternative to \ttt{sigma\_config} 
+introduced in Section \ref{sec:sigma-config}.
 Ensure that the \ttt{-D DEVEL} preprocessor flags is active and
 \ttt{HAS\_ELEMENT\_CONFIG} is defined in \ttt{single\_atom.cxx}.
 Use \ttt{+single\_atom.config=element} to activate it.

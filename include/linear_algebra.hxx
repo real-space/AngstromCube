@@ -285,12 +285,16 @@ namespace linear_algebra {
   inline status_t gemm(int const M, int const N, int const K, double c[], int const ldc
           , double const b[], int const ldb, double const a[], int const lda
           , double const alpha=1, double const beta=0, char const transa='n', char const transb='n') {
-      dgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); return 0; }
+      dgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); 
+      return 0;
+  } // gemm
 
   inline status_t gemm(int const M, int const N, int const K, float c[], int const ldc
           , float const b[], int const ldb, float const a[], int const lda
           , float const alpha=1, float const beta=0, char const transa='n', char const transb='n') {
-      sgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc); return 0; }
+      sgemm_(&transa, &transb, &M, &N, &K, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+      return 0;
+  } // gemm
 
   inline status_t gemm(int const M, int const N, int const K, std::complex<double> c[], int const ldc
           , std::complex<double> const b[], int const ldb, std::complex<double> const a[], int const lda

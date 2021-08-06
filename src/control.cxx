@@ -225,8 +225,15 @@ namespace control {
       // auto const b_defined = _manage_variables("b"); // get
       // if (echo > 1) std::printf("# b = %s (%p)\n", b_defined, b_defined);
 
-      set("a", "5");
-      stat += command_line_interface("a=6"); // launches warning about redefining
+      auto const a_set = set("a", "5", echo); // use the string-setter routine
+      if (echo > 1) std::printf("# a = %s\n", a_set);
+
+      auto const b_set = set("b", 6., echo); // use the double-setter routine
+      if (echo > 1) std::printf("# b = %s\n", b_set);
+
+      // or use the command line interface
+      stat += command_line_interface("a=6", echo); // launches warning about redefining "a"
+
       auto const a = get("a", "defaultA");
       if (echo > 1) std::printf("# a = %s\n", a);
 
@@ -242,12 +249,12 @@ namespace control {
       return stat;
   } // test_control
 
-  status_t test_precision(int const echo=3, int const nmax=100) {
+  status_t test_precision(int const echo=3, int const nmax=106) {
       // check if there are rounding errors arising from the 
       //    ASCII representation of double precision numbers
       if (echo > 2) std::printf("\n# %s: %s\n", __FILE__, __func__);
       status_t stat(0);
-      double d{.2};
+      double d{0.2}; // choose 1/5 which cannot be represented exactly in binary
       for (int i = 0; i < nmax; ++i) {
           set("d", d, echo); // warning about redefining "d" in the second iteration
           double const g = get("d", 1.);
@@ -261,7 +268,7 @@ namespace control {
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_control(echo);
-//       stat += test_precision(echo);
+      stat += test_precision(echo*0);
       return stat;
   } // all_tests
 

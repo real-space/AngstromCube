@@ -14,12 +14,18 @@ THISMACHINE := $(shell hostname)
 EXECUTABLE = a43
 all: ${EXECUTABLE}
 
-OBJ = \
+OBJATOM = \
+	control.o \
 	radial_grid.o \
 	radial_integrator.o \
 	radial_eigensolver.o \
-	radial_potential.o \
 	exchange_correlation.o \
+	chemical_symbol.o \
+	display_units.o \
+	single_atom.o \
+
+OBJ = \
+	radial_potential.o \
 	geometry_analysis.o \
 	self_consistency.o \
 	iterative_poisson.o \
@@ -27,19 +33,15 @@ OBJ = \
 	bessel_transform.o \
 	potential_generator.o \
 	poisson_solver.o \
-	chemical_symbol.o \
 	sigma_config.o \
 	atom_core.o \
-	single_atom.o \
 	plane_wave.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
 	angular_grid.o \
-	control.o \
 	sho_projection.o \
 	sho_unitary.o \
-	structure_solver.o \
-	main.o
+	structure_solver.o
 
 
 ifdef ENABLE_GPU
@@ -149,10 +151,13 @@ CUFLAGS  = -std=c++11 ${GENCODE_FLAGS} ${CUOPTFLAGS} $(patsubst %,-Xcompiler %,$
 CXXFLAGS = -std=c++11 ${FLAGS}
 
 
-DEP=$(OBJ:%.o=%.d)
+DEP=$(OBJ:%.o=%.d) $(OBJATOM:%.o=%.d)
 
-${EXECUTABLE}: ${OBJ}
+${EXECUTABLE}: ${OBJATOM} ${OBJ} main.o
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
+
+libliveatom.a: ${OBJATOM}
+	ar rcs $@ $^
 
 %.o:%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
