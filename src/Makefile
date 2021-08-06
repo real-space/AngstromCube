@@ -22,7 +22,7 @@ OBJATOM = \
 	exchange_correlation.o \
 	chemical_symbol.o \
 	display_units.o \
-	single_atom.o \
+	single_atom.o
 
 OBJ = \
 	radial_potential.o \

@@ -52,3 +52,6 @@ logder.start=90
 logder.stop=50
 logder.step=1e-2
 
+## show all used control environment variables at the end
+control.show=1
+

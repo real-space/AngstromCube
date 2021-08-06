@@ -360,10 +360,8 @@
       //
       if (echo > 0) std::printf("\n# verbosity = %d\n", echo);
       //
-      stat += unit_system::set_output_units(
-                  control::get("output.energy.unit", "Ha"),
-                  control::get("output.length.unit", "Bohr"),
-                  echo);
+      stat += unit_system::set(control::get("output.length.unit", "Bohr"),
+                               control::get("output.energy.unit", "Ha"), echo);
       // run
       if (run_tests) stat += run_unit_tests(test_unit, echo);
 

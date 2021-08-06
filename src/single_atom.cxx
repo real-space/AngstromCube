@@ -3361,9 +3361,9 @@ namespace single_atom {
 
         // divide input by mask function
         std::vector<double> inp(rg[SMT].n);
-        double const r2cut = pow2(rg[SMT].rmax)*1.1, r2inv = 1./r2cut;
+        auto const r2cut = pow2(rg[SMT].rmax)*1.1, r2inv = 1./r2cut;
         for (int ir = 0; ir < rg[SMT].n; ++ir) {
-            double const r2 = pow2(rg[SMT].r[ir]);
+            auto const r2 = pow2(rg[SMT].r[ir]);
             auto const mask = pow8(1. - pow8(r2*r2inv));
             inp[ir] = qnt_vector[ir] / mask;
         } // ir
@@ -3371,8 +3371,9 @@ namespace single_atom {
         auto const stat = bessel_transform::transform_to_r2grid(qnt, ar2, nr2, inp.data(), rg[SMT], echo);
 
         // multiply output with mask function
+        auto const inv_ar2 = 1./ar2;
         for (int ir2 = 0; ir2 < nr2; ++ir2) {
-            double const r2 = ir2/ar2;
+            auto const r2 = ir2*inv_ar2;
             auto const mask = (r2 < r2cut) ? pow8(1. - pow8(r2*r2inv)) : 0;
             qnt[ir2] = std::max(minval, qnt[ir2]) * mask;
         } // ir2
@@ -3381,7 +3382,7 @@ namespace single_atom {
         if (echo > 8) {
             std::printf("\n## %s %s  after filtering:\n", label, qnt_name);
             for (int ir2 = 0; ir2 < nr2; ++ir2) {
-                std::printf("%g %g\n", std::sqrt(ir2/ar2), qnt[ir2]*Y00s);
+                std::printf("%g %g\n", std::sqrt(ir2*inv_ar2), qnt[ir2]*Y00s);
             } // ir2
             std::printf("\n\n");
         } // echo

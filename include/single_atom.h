@@ -44,6 +44,7 @@
         #error "C-Interface and C++Implementations share a file!"
     #endif
     #include "control.hxx" // ::set, ::read_control_file
+    #include "unit_system.hxx" // ::set
     #include "recorded_warnings.hxx" // warn, ::show_warnings
 #endif
 
@@ -67,12 +68,27 @@
      Mind that strings are not null-terminated in Fortran
 */
 
-    // creates name live_atom_initialize_ in single_atom.o
+    // creates name live_atom_init_env_ in single_atom.o
+    fortran_callable(init_env)
+        ( char const *filename
+        , int32_t *status)
+#ifdef SINGLE_ATOM_SOURCE
+    {
+        std::printf("\n# init environment variables for LiveAtoms from \'%s\'\n", filename); 
+        int const echo = 1;
+        *status = control::read_control_file(filename, echo);
+        *status += unit_system::set(control::get("output.length.unit", "Bohr"),
+                                    control::get("output.energy.unit", "Ha"), echo);
+    } // _live_atom_set_env_
+#else
+    ;
+#endif
+    
     fortran_callable(initialize)
         ( int32_t const *na // number of atoms
         , double const Z_core[] // core charges
         , int32_t const atom_id[] // no effect
-        , int32_t const numax[] // SHO basis sizes
+        , int32_t const numax[] // result, SHO basis sizes
         , double const sigma[] // no effect
         , double const rcut[] // no effect
         , int8_t const nn[][8] // no effect
@@ -97,29 +113,16 @@
 
         int const numax_max = 3; // ToDo: should be a result of atom_update
         *stride = align<2>(sho_tools::nSHO(numax_max));
-        for(int ia = 0; ia < *na; ++ia) {
-            lmax_qlm[ia] = numax_max;
-            lmax_vlm[ia] = numax_max;
-        } // ia
 
+        float avd{1};
+        *status += single_atom::atom_update("lmax qlm",  *na,    nullptr, lmax_qlm, &avd);
+        *status += single_atom::atom_update("lmax vlm",  *na, (double*)1, lmax_vlm);
+        *status += single_atom::atom_update("sigma cmp", *na, sigma_cmp.data());
         *status += single_atom::atom_update("#valence electrons", *na, n_valence_electrons);
-        warn("Initialized %d LiveAtoms, ToDo: need to deal with atom_id, "
-                            "sigma, nn, magnetization, and xc_key", *na);
-        std::fflush(stdout);
-    } // _live_atom_initialize_
-#else
-    ;
-#endif
 
-    fortran_callable(init_env)
-        ( char const *filename
-        , int32_t *status)
-#ifdef SINGLE_ATOM_SOURCE
-    {
-        std::printf("\n# init environment variables for LiveAtoms from \'%s\'\n", filename); 
-        int const echo_control = 1;
-        *status = control::read_control_file(filename, echo_control);
-    } // _live_atom_set_env_
+        warn("Initialized %d LiveAtoms, ToDo: need to deal with atom_id, nn, magnetization, xc_key", *na);
+        // std::fflush(stdout);
+    } // _live_atom_initialize_
 #else
     ;
 #endif
@@ -132,8 +135,9 @@
     {
         std::printf("# set environment variable for LiveAtoms:\t%s = %s\n", 
                                                         varname, newvalue);
-        control::set(varname, newvalue);
-        std::fflush(stdout);
+        auto const value = control::set(varname, newvalue);
+        *status = (nullptr == value);
+        // std::fflush(stdout);
     } // _live_atom_set_env_
 #else
     ;
@@ -141,13 +145,13 @@
 
     fortran_callable(get_core_density)
         ( int32_t const *na
-        , double rhoc[] // layout [na][4096]
+        , double **rhoc // layout [na][4096]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("?", *na);;
+        *status = single_atom::atom_update("core densities", *na, nullptr, nullptr, nullptr, rhoc);
         std::printf("# got_core_density for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_get_core_density_
 #else
     ;
@@ -160,9 +164,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("?", *na);;
+        *status = single_atom::atom_update("?", *na);
         std::printf("# got_start_waves for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_get_start_waves_
 #else
     ;
@@ -174,9 +178,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("d", *na);;
+        *status = single_atom::atom_update("d", *na);
         std::printf("# density_matrices set for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_set_density_matrix_
 #else
     ;
@@ -188,9 +192,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("q", *na);;
+        *status = single_atom::atom_update("q", *na);
         std::printf("# got_compensation_charge %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_get_compensation_charge_
 #else
     ;
@@ -202,9 +206,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("v", *na);;
+        *status = single_atom::atom_update("v", *na);
         std::printf("# potential_multipoles set for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_set_potential_multipole_
 #else
     ;
@@ -216,9 +220,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("z", *na);;
+        *status = single_atom::atom_update("z", *na);
         std::printf("# got_zero_potential for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_get_zero_potential_
 #else
     ;
@@ -231,9 +235,9 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("h", *na);;
+        *status = single_atom::atom_update("h", *na);
         std::printf("# got_hamiltonian_matrix for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_get_hamiltonian_matrix_
 #else
     ;
@@ -241,13 +245,13 @@
 
     fortran_callable(get_energy_contributions)
         ( int32_t const *na
-        , double energies[] // layout [na][...] ToDo
+        , double energies[]
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("e", *na);;
+        *status = single_atom::atom_update("e", *na, energies);
         std::printf("# got_energy_contributions for %d LiveAtoms\n", *na);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_get_energy_contributions_
 #else
     ;
@@ -258,10 +262,11 @@
         , int32_t *status)
 #ifdef SINGLE_ATOM_SOURCE
     {
-        *status = single_atom::atom_update("memory cleanup", *na);;
+        *status = single_atom::atom_update("memory cleanup", *na);
         std::printf("# finalized %d LiveAtoms\n", *na);
+        if (control::get("control.show", 0.) > 0) control::show_variables(3);
         recorded_warnings::show_warnings(3);
-        std::fflush(stdout);
+        // std::fflush(stdout);
     } // _live_atom_finalize_
 #else
     ;
