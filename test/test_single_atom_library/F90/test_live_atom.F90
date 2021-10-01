@@ -14,7 +14,7 @@ implicit none
   character(len=32) :: xc_key = "LDA"//achar(0)
 
   ! executable section
-! write(*,'(3a,i0)') "# ",__FILE__,":",__LINE__ ! here
+  ! write(*,'(3a,i0)') "# ",__FILE__,":",__LINE__ ! here
 
   call live_atom_init_env("control.sh"//achar(0), status)
   write(*,'(a,i0)') "# live_atom_init_env = ", status

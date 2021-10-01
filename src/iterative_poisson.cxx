@@ -289,7 +289,7 @@ namespace iterative_poisson {
 
     size_t const nall = size_t(g[2])*size_t(g[1])*size_t(g[0]);
 
-    status_t ist{0};
+    status_t ist(0);
     
     restart = ('s' == method) ? 1 : std::max(1, restart);
     

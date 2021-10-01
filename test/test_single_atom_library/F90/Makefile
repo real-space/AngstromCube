@@ -3,7 +3,8 @@
 ###
 
 F90=gfortran
-LD=g++
+# LD=g++
+LD=gfortran
 F90_FLAGS=
 LD_FLAGS= 
 
@@ -13,8 +14,10 @@ OBJECTS=    test_live_atom.o
 
 ### directory containing source files
 LIBDIR= ../../../src
-LIBS= -L${LIBDIR} -lliveatom -lblas -llapack \
-	-L/usr/local/Cellar/gcc/10.2.0_4/lib/gcc/10 -lgfortran
+### if the linker is c++ and we link libliveatom.a
+LIBS= -L${LIBDIR} -lliveatom -lblas -llapack -L/usr/local/Cellar/gcc/10.2.0_4/lib/gcc/10 -lgfortran
+### if the linker is fortran and we link libliveatom.so
+LIBS= -L${LIBDIR} -lliveatom
 
 ### directory containing header files
 INCDIR= ../../../include

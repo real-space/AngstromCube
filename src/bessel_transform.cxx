@@ -75,7 +75,7 @@ namespace bessel_transform {
   } // test_r2grid
 
   status_t all_tests(int const echo) {
-      status_t stat{0};
+      status_t stat(0);
       stat += test_Gaussian(echo);
       stat += test_r2grid(echo);
       return stat;

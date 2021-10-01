@@ -11,9 +11,9 @@ geometry_file=atoms.xyz
 # printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
 # echo "__  0 0 0" >> $geometry_file
 
-project_base=scf.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-echo "C  0 0 0" >> $geometry_file
+# project_base=scf.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
+# echo "C  0 0 0" >> $geometry_file
 
 # project_base=scf.C-dimer
 # printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
@@ -44,6 +44,14 @@ echo "C  0 0 0" >> $geometry_file
 # echo "Cu    .8805  .8805 -.8805" >> $geometry_file
 # echo "Cu    .8805 -.8805  .8805" >> $geometry_file
 # echo "Cu   -.8805  .8805  .8805" >> $geometry_file
+
+## Au LDA lattice constant 4.065 from Wikipedia
+project_base=scf.Au-fcc
+printf " 4 \n#cell 4.064 4.064 4.064 p p p \n" > $geometry_file
+echo "Au   -1.016 -1.016 -1.016" >> $geometry_file
+echo "Au    1.016  1.016 -1.016" >> $geometry_file
+echo "Au    1.016 -1.016  1.016" >> $geometry_file
+echo "Au   -1.016  1.016  1.016" >> $geometry_file
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
 # project_base=scf.C-diamond
@@ -190,6 +198,7 @@ bands.per.atom=10
 #hamiltonian.kmesh.echo=9
 #hamiltonian.kmesh.x=3
 #hamiltonian.kmesh=0
+hamiltonian.kmesh=4
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
@@ -211,6 +220,9 @@ store.waves=$project_base.waves.dat
 ## configuration for basis=pw
 #plane_wave.solver {auto, both, direct, iterative}
 plane_wave.solver=direct
+#plane_wave.cutoff.energy=520  eV
+#plane_wave.cutoff.energy.unit=eV
+plane_wave.cutoff.energy=5.78  Ha
 
 #plane_wave.solver=iterative
 #plane_wave.iterative.solver.ratio=8.0
@@ -258,7 +270,7 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 5 2 5`; do
+for ecut in `seq 4 2 4`; do
   project=$project_base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

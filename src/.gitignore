@@ -4,6 +4,12 @@ a43
 ### objects
 *.o
 
+### shared objects
+*.so
+
+### static libraries
+*.a
+
 ### dependency files
 *.d
 

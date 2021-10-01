@@ -3750,7 +3750,7 @@ namespace single_atom {
       return (maxdev > 2e-15);
   } // test_compensator_normalization
 
-  int test_LiveAtom(int const echo=9) {
+  status_t test_LiveAtom(int const echo=9) {
       bool const avd     = control::get("single_atom.test.atomic.valence.density", 1.) > 0; // atomic valence density
       auto const ionic   = control::get("single_atom.test.ion", 0.); // only with HAS_ELEMENT_CONFIG
       auto const Z_begin = control::get("single_atom.test.Z", 29.); // default copper
@@ -3767,7 +3767,7 @@ namespace single_atom {
   } // test_LiveAtom
 
   status_t all_tests(int const echo) {
-      status_t stat{0};
+      status_t stat(0);
       stat += test_LiveAtom(echo);
       stat += test_compensator_normalization(echo);
       return stat;

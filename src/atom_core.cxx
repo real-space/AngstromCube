@@ -542,7 +542,7 @@ namespace atom_core {
       double const Z_end   = control::get("atom_core.test.Z.end", Z_begin + Z_inc); // default: only one core
       if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d) from %g to %g in steps of %g\n\n",
                       __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
-      status_t stat{0};
+      status_t stat(0);
       char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
       int const i_end = std::round((Z_end - Z_begin)/std::max(1e-9, Z_inc));
       // ToDo: OpenMP loop
@@ -600,7 +600,7 @@ namespace atom_core {
       float const threshold = control::get("atom_core.compression.threshold", -1.);
       if (threshold < 0) return 0; // do not do anything, silent return
       if (echo > 0) std::printf("\n# %s:%d  %s(echo=%d)\n\n", __FILE__, __LINE__, __func__, echo);
-      status_t stat{0};
+      status_t stat(0);
       for (int Z = 120; Z >= 0; --Z) { // test all atoms, backwards
           stat += simplify_Zeff_file(Z, threshold, echo); // apply Ramer-Douglas-Peucker reduction to Z_eff(r)
       } // Z

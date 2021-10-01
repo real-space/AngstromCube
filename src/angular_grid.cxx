@@ -1852,7 +1852,7 @@ namespace angular_grid {
       typedef double Ylm_t; // real-valued
       std::vector<Ylm_t> yy(M);
       auto const xyzw = new double[max_size][4];
-      status_t stat{0};
+      status_t stat(0);
       double dev_all{0};
       for (int ell = ellmax; ell > 0; --ell) {
           int const m = pow2(1 + ell);
@@ -1902,7 +1902,7 @@ namespace angular_grid {
   } // test_numerical_Gaunt
 
   status_t all_tests(int const echo) {
-      status_t stat{0};
+      status_t stat(0);
       stat += test_generation(echo);
       stat += test_orthogonality(echo);
       stat += test_numerical_Gaunt(echo);

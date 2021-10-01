@@ -10,7 +10,7 @@ namespace parallel_domains {
   
   template <int D0=1>
   inline status_t decompose_grid(unsigned const ng, int const echo=0, int const min_ng_per_pe=4) {
-      status_t stat{0};
+      status_t stat(0);
       for (int npe = 1; npe <= ng + 9; ++npe) {
           for (int bc = 0; bc <= 1; ++bc) { // 0:isolated, 1:periodic
 
@@ -83,7 +83,7 @@ namespace parallel_domains {
 #else // NO_UNIT_TESTS
 
   inline status_t test_analysis(int const echo=0) {
-      status_t stat{0};
+      status_t stat(0);
       for (int ng = 1; ng <= 99; ++ng) {
           stat += decompose_grid(ng, echo);
       } // ng

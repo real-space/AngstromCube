@@ -159,6 +159,9 @@ ${EXECUTABLE}: ${OBJATOM} ${OBJ} main.o
 libliveatom.a: ${OBJATOM}
 	ar rcsv $@ $^
 
+libliveatom.so: ${OBJATOM}
+	${CXX} ${CXXFLAGS} -fPIC -shared $^ ${LDFLAGS} -o $@
+
 %.o:%.c %.d
 	${CC} ${CCFLAGS} ${INC} -c $<
 %.o:%.cu %.d

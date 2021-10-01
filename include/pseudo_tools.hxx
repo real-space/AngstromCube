@@ -428,7 +428,7 @@ namespace pseudo_tools {
 #else // NO_UNIT_TESTS
 
   inline status_t all_tests(int const echo=0) {
-      status_t stat{0};
+      status_t stat(0);
       stat = STATUS_TEST_NOT_INCLUDED; // ToDo
       return stat;
   } // all_tests

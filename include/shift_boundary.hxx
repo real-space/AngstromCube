@@ -137,7 +137,7 @@ namespace shift_boundary {
   // ToDo: how to treat k-points?
 
   inline status_t test_plane_wave(int const echo=9, int const structure=4) {
-      status_t stat{0};
+      status_t stat(0);
       char const structure_name[][4] = {"sc\0","bcc","hcp","fcc"};
       double amat[3][4]; set(amat[0], 3*4, 0.0);
       double const alat = 4.1741; // e.g. Gold in hcp or fcc
