@@ -1,6 +1,7 @@
 #pragma once
 
-#include <cstdint> // uint32_t
+#include <cstdint> // uint32_t, int16_t
+#include <limits> // std::numerical_limits::max
 #include <cstdio> // std::printf
 #include <vector> // std::vector<T>
 
@@ -266,17 +267,20 @@ namespace finite_difference {
                      stencil_t<real_fd_t> const & fd, double const factor=1, complex_in_t const boundary_phase[3][2]=nullptr) {
 
       int const n16 = nnArraySize; // max number of finite difference neighbors, typically 16
-      std::vector<int> list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
+      typedef int16_t int_t;
+      std::vector<int_t> list[3]; // could be of type int16_t, needs assert(n < (1 << 15));
       std::vector<complex_in_t> phas[3];
       for (int d = 0; d < 3; ++d) {
-          int const n  = g[d];
+          int const n = g[d];
+          assert(n >= 0);
+          assert(n <= std::numeric_limits<int_t>::max());
           // ToDo: check that n is smaller than the upper limit of int
           int const bc = g.boundary_condition(d);
           int const nf = fd.nearest_neighbors(d);
           assert(nf <= n);
           assert(nf <= n16);
           int const nh = n16 + n + n16; // number including largest halos
-          list[d] = std::vector<int>(nh, -1); // get memory, init as -1:non-existing
+          list[d] = std::vector<int_t>(nh, -1); // get memory, init as -1:non-existing
           phas[d] = std::vector<complex_in_t>(nh, 0); // get memory, init neutral
 
           // core region
@@ -420,7 +424,7 @@ namespace finite_difference {
               // compare in the middle range result and ref values
               dev += std::abs(result[i] - ref);
           } // i
-          if (echo > 2) std::printf("# %s %c-direction: dev = %g\n", __func__, 120+dir, dev);
+          if (echo > 2) std::printf("# %s %c-direction: dev = %g\n", __func__, 'x'+dir, dev);
       } // direction
       return stat;
   } // test_Laplacian
@@ -452,7 +456,7 @@ namespace finite_difference {
                   // compare in the middle range result and ref values
                   dev += std::abs(result[i] - ref);
               } // i
-              if (echo > 2) std::printf("# %s %c-direction: dev = %g\n", __func__, 120+dir, dev);
+              if (echo > 2) std::printf("# %s %c-direction: dev = %g\n", __func__, 'x'+dir, dev);
           } // iphase
       } // direction
       return stat;
@@ -462,14 +466,14 @@ namespace finite_difference {
       if (echo < 7) return 0; // this function is only plotting
       for (int nn = 1; nn <= 13; ++nn) { // largest order implemented is 13
           stencil_t<double> const fd(1.0, nn);
-          std::printf("\n## finite-difference dispersion for nn=%d\n", nn);
+          std::printf("\n## finite-difference dispersion for nn=%d (in Hartree)\n", nn);
           for (int ik = 0; ik <= 100; ++ik) {
               double const k = 0.01 * ik * constants::pi;
               double E_k{-0.5*fd.c2nd[0][0]};
               for (int j = 1; j <= nn; ++j) {
                   E_k -= std::cos(k*j) * fd.c2nd[0][j];
               } // j
-              std::printf("%g %g %g\n", k, E_k, 0.5*k*k); // in Hartree
+              std::printf("%g %g %g\n", k, E_k, 0.5*k*k); // compare to parabola
           } // ik
       } // nn
       return 0;

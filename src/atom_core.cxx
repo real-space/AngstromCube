@@ -197,6 +197,7 @@ namespace atom_core {
       , double const Z // atomic number
       , int const echo // log output level
       , double const occupations[][2] // =nullptr
+      , char const *export_as_json // =nullptr
   ) {
       status_t stat(0);
       if (echo > 7) std::printf("\n# %s:%d  %s \n\n", __FILE__, __LINE__, __func__);
@@ -206,7 +207,7 @@ namespace atom_core {
       int constexpr MINCYCLES = 3;
       double constexpr THRESHOLD = 1e-11;
 
-      int imax{-1};
+      int imax_nonconst{-1};
       assert(Z <= 120);
       orbital_t orb[20];
       {   // prepare orbitals
@@ -230,13 +231,14 @@ namespace atom_core {
                   if (orb[i].occ > 0) {
                       if (echo > 6) std::printf("# %s  Z=%g  i=%d %d%c f= %g  guess E= %g %s\n",
                            __func__, Z, i, enn, ellchar(ell), orb[i].occ, orb[i].E*eV, _eV);
-                      imax = std::max(i, imax);
+                      imax_nonconst = std::max(i, imax_nonconst);
                   } // occupied
                   iZ += 2*max_occ; // iZ jumps between atomic numbers of atoms with full shells
                   ++i; // next shell
               } // ell
           } // m
       } // orb
+      int const imax = imax_nonconst;
       double previous_eigenvalues[20];
 
       std::vector<double> r2rho(g.n);
@@ -466,6 +468,66 @@ namespace atom_core {
           } // ir
       } // show_state_diagram
 
+      if (export_as_json && '\0' != *export_as_json) {
+
+          std::ofstream json(export_as_json, std::ios::out);
+          json << "{"; // begin json
+          json <<  "\n\t\"atomic number\": " << Z;
+          json << ",\n\t\"length unit\": \"Bohr\"";
+          json << ",\n\t\"energy unit\": \"Hartree\"";
+
+          int const waves = 1;
+          std::vector<double> wave(g.n);
+          
+          json << ",\n\t\"eigenstates\": ";
+          for (int i = 0; i <= imax; ++i) {
+              json << (i?',':'{') << "\n\t\t\"" << int(orb[i].enn) << ellchar(orb[i].ell) << "\": {"; // state
+              json <<  "\n\t\t\t\"energy\": " << orb[i].E;
+              json << ",\n\t\t\t\"occupation\": " << orb[i].occ;
+              if (waves) {
+                  // compute eigenstate again
+                  radial_eigensolver::shooting_method(sra, g, rV_old.data(), orb[i].enn, orb[i].ell, orb[i].E, wave.data(), r2rho.data());
+                  double const norm = dot_product(g.n, r2rho.data(), g.dr);
+
+                  json << ",\n\t\t\t\"wave\": ";
+                  if (norm > 0) {
+                      double const scal = 1./std::sqrt(norm);
+                      for (int ir = 0; ir < g.n; ++ir) {
+                          json << (ir?((ir&7)?", ":",\n\t\t\t\t"):"[") << wave[ir]*g.rinv[ir]*scal;
+                      } // ir
+                      json << "\n\t\t\t]"; // wave
+                  } else {
+                      json << "null"; // or "\"cannot be normalized\"";
+                  } // normalizable
+              } // waves
+              json << "\n\t\t}"; // state
+          } // i
+          json << "\n\t}"; // eigenstates
+
+          json << ",\n\t\"density\": ";
+          for (int ir = 0; ir < g.n; ++ir) {
+              json << (ir?((ir&7)?", ":",\n\t\t"):"[") << rho4pi[ir];
+          } // ir
+          json << "\n\t]"; // density
+
+          json << ",\n\t\"r*potential\": ";
+          for (int ir = 0; ir < g.n; ++ir) {
+              json << (ir?((ir&7)?", ":",\n\t\t"):"[") << rV_old[ir];
+          } // ir
+          json << "\n\t]"; // r*potential
+
+          json << ",\n\t\"radial grid\": {";
+          json <<  "\n\t\t\"number\": " << g.n - 1;
+          json << ",\n\t\t\"values\": ";
+          for (int ir = 0; ir < g.n; ++ir) {
+              json << (ir?((ir&7)?", ":",\n\t\t\t"):"[") << g.r[ir];
+          } // ir
+          json << "\n\t\t]"; // radial_grid.values
+          json << "\n\t}"; // radial_grid
+
+          json << "\n}"; // end json
+      } // export_as_json
+
       if (echo > 2) std::printf("\n"); // blank line after atoms is computed
       
       return stat;
@@ -478,15 +540,17 @@ namespace atom_core {
       , int const echo // =0
       , char const config // ='a'
       , radial_grid_t const *rg // =nullptr
+      , char const *jsonfile // =nullptr
   ) {
       bool const my_radial_grid = (nullptr == rg);
       radial_grid_t       *const m = my_radial_grid ? radial_grid::create_default_radial_grid(Z) : nullptr;
       radial_grid_t const *const g = my_radial_grid ? m : rg;
       if ('a' == config) { // "auto"
+          if (jsonfile) warn("JSON export filename %s ignored", jsonfile);
           return scf_atom(*g, Z, echo);
       } else {
           auto const element = sigma_config::get(Z, echo);
-          return scf_atom(*g, Z, echo, element.occ);
+          return scf_atom(*g, Z, echo, element.occ, jsonfile);
       }
       if (my_radial_grid) radial_grid::destroy_radial_grid(m);
   } // solve
@@ -544,12 +608,13 @@ namespace atom_core {
                       __FILE__, __LINE__, __func__, echo, Z_begin, Z_end - Z_inc, Z_inc);
       status_t stat(0);
       char const custom_config = 32 | *control::get("atom_core.occupations", "custom");
+      auto const jsonfilenname = control::get("atom_core.export.json", "");
       int const i_end = std::round((Z_end - Z_begin)/std::max(1e-9, Z_inc));
       // ToDo: OpenMP loop
       for (int i = 0; i < i_end; ++i) {
           double const Z = Z_begin + i*Z_inc;
           if (echo > 1) std::printf("\n# atom_core solver for Z= %g\n", Z);
-          auto const stat_Z = solve(Z, echo, custom_config);
+          auto const stat_Z = solve(Z, echo, custom_config, nullptr, jsonfilenname);
           if (stat_Z) warn("atom_core.test for Z=%g returned status=%i", Z, int(stat_Z));
           stat += stat_Z;
       } // i

@@ -17,13 +17,15 @@ namespace atom_core {
       , int const echo=0
       , char const config='a' // a:auto or custom
       , radial_grid_t const *rg=nullptr
+      , char const *jsonfile=nullptr
   ); // declaration only
-  
+
   status_t scf_atom(
         radial_grid_t const & g // radial grid descriptor
       , double const Z // number of protons
       , int const echo=0 // log output level
       , double const occupations[][2]=nullptr // occupation numbers by nl_index and spin
+      , char const *export_as_json=nullptr
   ); // declaration only
 
   status_t read_Zeff_from_file(
@@ -35,7 +37,7 @@ namespace atom_core {
       , int const echo=0 // log output level
       , char const *prefix=""
   ); // declaration only
-  
+
   status_t store_Zeff_to_file(
         double const Zeff[]
       , double const r[]

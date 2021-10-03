@@ -6,7 +6,7 @@
 #endif // NO_UNIT_TESTS
 #include <cstdio> // std::printf
 
-#include <cmath> // std::sqrt
+#include <cmath> // std::sqrt, ::round
 #include <algorithm> // std::max
 
 #include "constants.hxx" // ::pi
@@ -19,8 +19,8 @@ namespace shift_boundary {
   // If we force the (periodic) unit cell to be orthorhombic
   // in order to be able to use factorizable finite-difference stencils
   // for the kinetic energy operator we suffer from the drawback
-  // that we can only compute simple cubic crystal structure with a
-  // single atom in the unit cell.
+  // that we can only compute the simple cubic crystal structure
+  // if we restrict ourselfs to a single atom in the unit cell.
   // In order to test the code, calculations with a moderate number
   // of degrees of freedom in both, the density and the wave functions
   // or equivalent Green function are important.
@@ -29,7 +29,7 @@ namespace shift_boundary {
   // fixes the symmetries which should give a fast SCF convergence.
   // With shift boundary conditions, the unit cell is still rectangular
   // but not periodic in a traditional sense:
-  // We allow non-zero (an we restrict ourselfes to positive) entries
+  // We allow non-zero (and we restrict ourselfes to positive) entries
   // in the upper triangular Bravais matrix:
   //        xx  xy  xz
   //        0   yy  yz
@@ -63,15 +63,15 @@ namespace shift_boundary {
   // however, there is still a restriction to the generality:
   // unless we accept an interpolation operator implied with the boundary
   // operations, we need to match the lattices, i.e. xy and xz need to be an
-  // integer multiple of hx, the grid spacing in x-direction.
-  // Similarly, zy needs to be in integer of hy.
+  // integer multiple of h_x, the grid spacing in x-direction.
+  // Similarly, zy needs to be in integer multiple of h_y.
   //
   // However, the most important high symmetry cases are FCC, HCP and BCC.
   // For FCC and BCC, it is sufficient that the number of grid points is even:
   //    - FCC: the cubic unit cell (a,a,a) with 4 atoms is reduced to 1 atom
-  //      in a cell (a,a/2,a/2) with yz=a/2 and xz=a/2 or xy=a/2 (but not both)
+  //      in a cell (a,a/2,a/2) with yz=a/2, xz=a/2, xy=0 or yz=a/2, xz=0, xy=a/2
   //    - BCC: the cubic unit cell (a,a,a) with 2 atoms is reduced to 1 atom
-  //      in a cell (a,a,a/2) with shifts xz=a/2 and yz=a/2 and xy=0
+  //      in a cell (a,a,a/2) with shifts xz=a/2 and yz=a/2 and xy=0 (other cominations possible)
   //    - HCP: The HEXagonal 2D basis of HCP can be brought into [1, sqrt(3/4)]
   //      shape with an xy-shift of 1/2 (in units of the nn-distance).
   //      Also here, the unit cell will stay 2-atomic. If we permute the indices,
@@ -139,29 +139,29 @@ namespace shift_boundary {
   inline status_t test_plane_wave(int const echo=9, int const structure=4) {
       status_t stat(0);
       char const structure_name[][4] = {"sc\0","bcc","hcp","fcc"};
-      double amat[3][4]; set(amat[0], 3*4, 0.0);
-      double const alat = 4.1741; // e.g. Gold in hcp or fcc
+      double const alat = 4.1741; // Angstrom e.g. Gold in hcp or fcc
       double const ahalf = 0.5 * alat;
       if (echo > 3) std::printf("\n# structure = %s  lattice constant = %g %s\n", structure_name[structure - 1], alat*Ang, _Ang);
-      if (4 == structure) { // fcc
-          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;   amat[0][2] = 0;
-          amat[1][0] = 0;       amat[1][1] = ahalf;   amat[1][2] = ahalf;
-          amat[2][0] = 0;       amat[2][1] = 0;       amat[2][2] = ahalf;
+      double amat[3][4]; set(amat[0], 3*4, 0.0);
+      if (1 == structure) { // sc
+          for (int d = 0; d < 3; ++d) amat[d][d] = 2*ahalf;
+      } else      
+      if (2 == structure) { // bcc
+          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;
+          amat[1][1] = 2*ahalf; amat[1][2] = ahalf;
+          amat[2][2] = ahalf;
       } else
-      if (3 == structure) { // hex in xy-direction, c/a for hcp
+      if (4 == structure) { // fcc
+          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;
+          amat[1][1] = ahalf;   amat[1][2] = ahalf;
+          amat[2][2] = ahalf;
+      } else
+      if (3 == structure) { // hex in xy-direction, c/a ratio for hcp
           double const s34 = std::sqrt(.75), s83=std::sqrt(8/3.);
           double const ann = ahalf*std::sqrt(2.); // nearest neighbor bond length, same as in fcc
           amat[0][0] = ann;     amat[0][1] = ann*0.5;
-          amat[1][0] = 0;       amat[1][1] = ann*s34;
-                                                      amat[2][2] = ann*s83;
-      } else
-      if (2 == structure) { // bcc
-          amat[0][0] = 2*ahalf; amat[0][1] = ahalf;   amat[0][2] = 0;
-          amat[1][0] = 0;       amat[1][1] = 2*ahalf; amat[1][2] = ahalf;
-          amat[2][0] = 0;       amat[2][1] = 0;       amat[2][2] = ahalf;
-      } else
-      if (1 == structure) { // sc
-          for (int d = 0; d < 3; ++d) amat[d][d] = 2*ahalf;
+          amat[1][1] = ann*s34;
+          amat[2][2] = ann*s83;
       } else {
           if (echo > 0) std::printf("\n# %s no such structure, key= %i\n", __func__, structure);
           return -1; // error, no such structure
@@ -207,6 +207,18 @@ namespace shift_boundary {
       if (echo > 3) std::printf("# %s after inversion largest deviation is %.1e (a*b) and %.1e (b*a)\n", 
                                    __func__, maxdev[0], maxdev[1]);
 
+      
+      if (echo > 4) {
+          int const ng = 16;          // number of grid points per lattic constant
+          double const h = alat/ng;   // isotropic grid spacing
+          // show both matrices
+          for (int i = 0; i < 3; ++i) {
+              std::printf("# integer amat %c %8.1f%8.1f%8.1f\n", i+'x',
+                  .1*std::round(10*amat[i][0]/h), .1*std::round(10*amat[i][1]/h), .1*std::round(10*amat[i][2]/h));
+          } // i
+      } // echo
+      
+      
       // test: set up periodic+shifted BC and diagonalize the free electron Hamiltonian
       // check that
 

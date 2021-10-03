@@ -89,7 +89,7 @@ grid formalism often deteriorate in terms of their convergence
 velocity when the number of grid points increases.
 This is due to the limited width of the stencil compared to the 
 global scale of the non-local solutions.
-Therefore, convergence acceleration is crutial here.
+Therefore, convergence acceleration is crucial here.
 In many situations, switching to a \ac{planewave} representation
 is a viable option for an efficient preconditioner as
 \acp{planewave} contain the full non-locality.
@@ -98,14 +98,14 @@ to some extend.
 The approach investigated in this project is a small basis of atom-centered
 localized orbitals.
 This basis is not meant to produce as accurate results as \acp{gridpoint} or \acp{planewave}
-or to feature a advantageous convergence w.r.t.~costs
+or to feature an advantageous convergence w.r.t.~costs
 but to be simple and cheap in its construction (low number of control parameters)
 and to produce approximately right physics already at small basis sets.
 If in addition we can define an efficient transformation between
 representations in
 the small localized basis set and grid-based representations
 this basis can be used to accelerate
-the congerence of a real-space grid-based method.
+the convergence of a real-space grid-based method.
 
 % ==============================================================================
 \section{Spherical Harmonic Oscillator} \label{sec:sho}
@@ -638,7 +638,7 @@ c.f.~the red and black dot in fig.~\ref{fig:overlap_DoS_free_electron_fcc}.
 % \end{figure}
 %
 %
-A Poisson solver based on Fourier-transforms (FFT by Intel Math Kernel Library)
+A Poisson solver based on Fourier-transforms (FFT by Intel Math Kernel Library or \ttt{fftw})
 is implemented to be able to exclude artifacts from e.g.~iterative Poisson solvers
 when developing other modules of the code. 
 It serves also as a reference to estimate the precision of other Poisson solvers
