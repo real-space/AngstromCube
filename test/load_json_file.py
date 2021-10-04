@@ -43,15 +43,16 @@ with open(chemSymbol+'.json') as jsonfile:
         print('load data exported by a43/src/single_atom.cxx')
         rV_smt = np.array(data['r*true potential'])
         rV_tru = np.array(data['r*smooth potential'])
-        ax.plot(r, rV_tru, label='r*true potential')
-        ax.plot(r, rV_smt, label='r*smooth potential')
+        ax.plot(r, rV_tru, label='r*true potential',   color='black')
+        ax.plot(r, rV_smt, label='r*smooth potential', color='black', linestyle='dashed')
         states = list(partial_waves.keys())
         print(chemSymbol, 'partial waves', states)
         for i,state in enumerate(states):
             psi_tru = np.array(partial_waves[state]['true wave'])
             psi_smt = np.array(partial_waves[state]['smooth wave'])
-            ax.plot(r, psi_tru, label=str(state))
-            ax.plot(r, psi_smt, label=str(state), linestyle='dashed')
+            color = next(ax._get_lines.prop_cycler)['color']
+            ax.plot(r, psi_tru, label=str(state), color=color)
+            ax.plot(r, psi_smt, label=str(state), color=color, linestyle='dashed')
 
     ax.legend() # Add a legend.
     plt.savefig(chemSymbol+'.svg') # Save in vector format
