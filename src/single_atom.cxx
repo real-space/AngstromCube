@@ -9,6 +9,7 @@
 #include <cmath> // std::sqrt, std::abs
 #include <cassert> // assert
 #include <algorithm> // std::max, std::min
+#include <fstream> // std::ofstream
 
 #include "single_atom.hxx"
 
@@ -2031,7 +2032,63 @@ namespace single_atom {
         if (method != classical_scheme) {
             show_projector_coefficients("orthogonalized ", sigma, echo - 6); // and warn if not normalizable
         } // not classical
-        
+
+#ifdef DEVEL
+        char const *export_as_json = control::get("single_atom.export.json", "");
+        if ((nullptr != export_as_json) && ('\0' != *export_as_json)) {
+
+            std::ofstream json(export_as_json, std::ios::out);
+            json << "{"; // begin json
+            json <<  "\n\t\"atomic number\": " << Z_core;
+            json << ",\n\t\"length unit\": \"Bohr\"";
+            json << ",\n\t\"energy unit\": \"Hartree\"";
+
+            json << ",\n\t\"partial waves\": ";
+            for (int i = 0, ell = 0; ell <= numax; ++ell) {
+                int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
+                for (int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+                    auto & vs = partial_wave[ln_off + nrn]; // abbreviate ('vs' stands for valence state)
+
+                    json << (i?',':'{') << "\n\t\t\"" << int(vs.enn) << ellchar[vs.ell] << "\": {"; // state
+                    json <<  "\n\t\t\t\"energy\": " << vs.energy;
+                    json << ",\n\t\t\t\"occupation\": " << vs.occupation;
+                    for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                        int const ir_off = (TRU == ts)*nr_diff;
+                        json << ",\n\t\t\t\"" << ts_name[ts] << " wave\": ";
+                        for (int ir = 0; ir < rg[SMT].n; ++ir) {
+                            json << (ir?((ir&7)?", ":",\n\t\t\t\t"):"[") << vs.wave[ts][ir + ir_off];
+                        } // ir
+                        json << "\n\t\t\t]"; // wave
+                    } // ts
+                    json << "\n\t\t}"; // state
+                    ++i;
+                } // nrn
+            } // ell
+            json << "\n\t}"; // partial waves
+
+            for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
+                int const ir_off = (TRU == ts)*nr_diff;
+                json << ",\n\t\"r*" << ts_name[ts] << " potential\": ";
+                for (int ir = 0; ir < rg[SMT].n; ++ir) {
+                    json << (ir?((ir&7)?", ":",\n\t\t"):"[") << potential[ts][ir + ir_off];
+                } // ir
+                json << "\n\t]"; // r*potential
+            } // ts
+
+            json << ",\n\t\"radial grid\": {";
+            json <<  "\n\t\t\"number\": " << rg[SMT].n - 1;
+            json << ",\n\t\t\"values\": ";
+            for (int ir = 0; ir < rg[SMT].n; ++ir) {
+                json << (ir?((ir&7)?", ":",\n\t\t\t"):"[") << rg[SMT].r[ir];
+            } // ir
+            json << "\n\t\t]"; // radial_grid.values
+            json << "\n\t}"; // radial_grid
+
+            json << "\n}"; // end json
+
+        } // export_as_json
+#endif // DEVEL
+
     } // update_partial_waves
 
     

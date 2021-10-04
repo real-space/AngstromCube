@@ -468,7 +468,7 @@ namespace atom_core {
           } // ir
       } // show_state_diagram
 
-      if (export_as_json && '\0' != *export_as_json) {
+      if ((nullptr != export_as_json) && ('\0' != *export_as_json)) {
 
           std::ofstream json(export_as_json, std::ios::out);
           json << "{"; // begin json
@@ -478,7 +478,7 @@ namespace atom_core {
 
           int const waves = 1;
           std::vector<double> wave(g.n);
-          
+
           json << ",\n\t\"eigenstates\": ";
           for (int i = 0; i <= imax; ++i) {
               json << (i?',':'{') << "\n\t\t\"" << int(orb[i].enn) << ellchar(orb[i].ell) << "\": {"; // state
@@ -526,6 +526,7 @@ namespace atom_core {
           json << "\n\t}"; // radial_grid
 
           json << "\n}"; // end json
+
       } // export_as_json
 
       if (echo > 2) std::printf("\n"); // blank line after atoms is computed
