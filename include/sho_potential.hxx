@@ -24,7 +24,7 @@
 
 namespace sho_potential {
   // computes potential matrix elements between to SHO basis functions
-  
+
   template <typename real_t>
   inline status_t multiply_potential_matrix(
         view2D<real_t> & Vmat // result Vmat(i,j) = sum_k Vaux(i,k) * ovl(j,k)
@@ -44,7 +44,7 @@ namespace sho_potential {
       assert( nj <= Vmat.stride() );
 
       for (int izyx = 0; izyx < ni; ++izyx) {
-        
+
           int jzyx{0};
           for     (int jz = 0; jz <= numax_j; ++jz) {
             for   (int jy = 0; jy <= numax_j - jz; ++jy) {
@@ -65,7 +65,7 @@ namespace sho_potential {
                   assert( nk == kzyx );
 
                   Vmat(izyx,jzyx) = tmp;
-                  
+
                   ++jzyx;
               } // jx
             } // jy
@@ -73,7 +73,7 @@ namespace sho_potential {
           assert( nj == jzyx );
 
       } // izyx
-      
+
       return 0;
   } // multiply_potential_matrix
 
@@ -143,11 +143,6 @@ namespace sho_potential {
 
       // just a matrix-vector multiplication
       for (int mzyx = 0; mzyx < nc; ++mzyx) {
-//           double cc{0};
-//           for (int kzyx = 0; kzyx < nc; ++kzyx) {
-//               cc += inv3D(mzyx,kzyx) * coeff[kzyx];
-//           } // kzyx
-//           c_new[mzyx] = cc; // store
           c_new[mzyx] = dot_product(nc, inv3D[mzyx], coeff);
       } // mzyx
 
@@ -155,10 +150,6 @@ namespace sho_potential {
           // check if the input vector comes out again
           double dev{0};
           for (int kzyx = 0; kzyx < nc; ++kzyx) {
-//               double cc{0};
-//               for (int mzyx = 0; mzyx < nc; ++mzyx) {
-//                   cc += mat3D_copy(kzyx,mzyx) * c_new[mzyx];
-//               } // mzyx
               double const cc = dot_product(nc, mat3D_copy[kzyx], c_new.data());
               dev = std::max(dev, std::abs(cc - coeff[kzyx]));
           } // kzyx
@@ -193,8 +184,8 @@ namespace sho_potential {
       
       return stat;
   } // normalize_potential_coefficients
-  
-  
+
+
   template <typename complex_t, typename phase_t>
   status_t potential_matrix(
         view2D<complex_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
@@ -270,7 +261,6 @@ namespace sho_potential {
       vtot.clear();
       { // scope: read in the potential from a file
           std::ifstream infile(filename);
-          size_t npt = 0; 
           if (!infile.is_open()) {
               warn("failed to open file '%s'", filename);
               return 1; // failure
@@ -282,6 +272,7 @@ namespace sho_potential {
           } // d
           size_t const all = dims[2]*dims[1]*dims[0];
           vtot.reserve(all);
+          size_t npt{0}; // count the number of points found
           size_t idx;
           double val;
           while (infile >> idx >> val) {
@@ -290,7 +281,7 @@ namespace sho_potential {
               vtot.push_back(val);
           } // while
           if (npt < all) {
-              warn("when loading local potential from file '%s' found only %ld entries while expected %ld", filename, vtot.size(), all);
+              warn("when loading local potential from file '%s' found only %ld of %ld entries", filename, vtot.size(), all);
               ++stat;
               if (echo > 3) std::printf("# %s: use %.3f k < %.3f k values from file '%s'\n", __func__, npt*.001, all*.001, filename);
           } else {
@@ -306,7 +297,7 @@ namespace sho_potential {
 
   inline status_t test_local_potential_matrix_elements(int const echo=5) {
       status_t stat(0);
-      
+
       auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
       int dims[] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
@@ -323,7 +314,7 @@ namespace sho_potential {
                               natoms, geo_file, cell[0]*Ang, cell[1]*Ang, cell[2]*Ang, _Ang, bc[0], bc[1], bc[2]);
       } // scope
       
-//    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary); // ToDo: implement periodic images
+//    for (int d = 0; d < 3; ++d) assert(bc[d] == Isolated_Boundary && "Periodic BCs not implemented!");
 
       real_space::grid_t g(dims);
       g.set_grid_spacing(cell[0]/g[0], cell[1]/g[1], cell[2]/g[2]);
@@ -332,7 +323,7 @@ namespace sho_potential {
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
-
+ 
       view2D<double> center(natoms, 4); // list of atomic centers
       for (int ia = 0; ia < natoms; ++ia) {
           for (int d = 0; d < 3; ++d) {
@@ -340,11 +331,11 @@ namespace sho_potential {
           }   center(ia,3) = 0; // 4th component is not used
       } // ia
 
-      auto const artificial_potential = int(control::get("sho_potential.test.artificial.potential", 0.));
+      int const artificial_potential = control::get("sho_potential.test.artificial.potential", 0.);
       if (artificial_potential) { // scope: artificial linear potentials (other than constants)
-          int const mx = (artificial_potential /   1) % 10;
-          int const my = (artificial_potential /  10) % 10;
-          int const mz = (artificial_potential / 100) % 10;
+          int const mx = (artificial_potential /   1) % 10,
+                    my = (artificial_potential /  10) % 10,
+                    mz = (artificial_potential / 100) % 10;
           if (echo > 0) std::printf("# artificial potential z^%i y^%i x^%i\n", mz, my, mx);
           for (int iz = 0; iz < g[2]; ++iz) {
               auto const z = iz*g.h[2] - origin[2];
@@ -355,21 +346,28 @@ namespace sho_potential {
                   for (int ix = 0; ix < g[0]; ++ix) {
                       auto const x = ix*g.h[0] - origin[0];
                       auto const xmx = intpow(x, mx);
-                      
+
                       int const izyx = (iz*g[1] + iy)*g[0] + ix;
                       vtot[izyx] = xmx * ymy * zmz;
 
                   } // ix
               } // iy
           } // iz
+      } else {
+          if (echo > 0) std::printf("# no artificial potential\n");
       } // scope: artificial potentials
 
-      auto const usual_numax = int(control::get("sho_potential.test.numax", 1.));
-      auto const usual_sigma =     control::get("sho_potential.test.sigma", 2.);
+      int  const usual_numax = control::get("sho_potential.test.numax", 1.);
+      auto const usual_sigma = control::get("sho_potential.test.sigma", 2.0);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
-      double const sigma_asymmetry = control::get("sho_potential.test.sigma.asymmetry", 1.0);
-      if (sigma_asymmetry != 1) { sigmas[0] *= sigma_asymmetry; sigmas[natoms - 1] /= sigma_asymmetry; } // manipulate the spreads
+      auto const sigma_asymmetry = control::get("sho_potential.test.sigma.asymmetry", 1.0);
+      if (1 != sigma_asymmetry) {
+          sigmas[0] *= sigma_asymmetry; 
+          sigmas[natoms - 1] /= sigma_asymmetry;
+          if (echo > 0) std::printf("# %s manipulate spreads: sigma[0]=%g, sigma[-1]=%g %s\n",
+                                __func__, sigmas[0]*Ang, sigmas[natoms - 1]*Ang, _Ang);
+      }
 //       --numaxs[natoms - 1]; // manipulate the basis size
       int numax_max{0};
       for (int ia = 0; ia < natoms; ++ia) {
@@ -385,18 +383,18 @@ namespace sho_potential {
           sho_tools::construct_label_table(labels[nu].data(), nu, sho_tools::order_zyx);
       } // nu
 
-      auto const method = int(control::get("sho_potential.test.method", -1.)); // bit-string, use method=7 or -1 to activate all
-      
+      int const method = control::get("sho_potential.test.method", -1.); // bit-array, use method=7 or -1 to activate all
+
       int constexpr Numerical = 0, Between = 1, Onsite = 2, noReference = 3;
       view4D<double> SV_matrix[2][3]; // Numerical and Onsite (no extra Smat for Between)
-      char const method_name[3][16] = {"numerical", "between", "onsite"};
+      char const method_name[3][16] = {"numerical", "between", "onsite "};
       bool method_active[4] = {false, false, false, false};
 
       int const mxb = sho_tools::nSHO(numax_max);
-      
-      if (1 & method) { // scope:
-          if (echo > 2) std::printf("\n# %s Method=1\n", __func__);
-          // Method 1) fully numerical integration (expensive)
+
+      if ((1 << Numerical) & method) { // scope:
+          if (echo > 2) std::printf("\n# %s Method=%s\n", __func__, method_name[Numerical]);
+          // Method 'numerical' fully numerical integration (expensive)
           //    for each pair of atoms and basis functions,
           //    add one basis function to an empty grid,
           //    multiply the potential, project with the other basis function
@@ -449,29 +447,29 @@ namespace sho_potential {
                   } // ia
           } // normalize wih diagonal elements of the overlap matrix
           
-          if (echo > 2) std::printf("\n# %s ToDo: check if method=1 depends on absolute positions!\n", __func__);
+          if (echo > 2) std::printf("\n# %s ToDo: check if method=numerical depends on absolute positions!\n", __func__);
           
           method_active[Numerical] = true;
-      } // scope: Method 1
+      } // scope: Method 'numerical'
 
-      if (2 & method) { // scope:
-          if (echo > 2) std::printf("\n# %s Method=2\n", __func__);
-          // Method 2) analytical (cheap to compute)
+      if ((1 << Between) & method) { // scope:
+          if (echo > 2) std::printf("\n# %s Method=%s\n", __func__, method_name[Between]);
+          // Method 'between', analytical (cheap to compute)
           //    for each pair of atoms, find the center of weight,
           //    expand the potential in a SHO basis with sigma_V^-2 = sigma_1^-2 + sigma_2^-2
           //    and numax_V = numax_1 + numax_2 and determine the
           //    potential matrix elements using the tensor
-          
+
           auto & Smat = SV_matrix[0][Between];
           auto & Vmat = SV_matrix[1][Between];
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
-          
+
           for (int ia = 0; ia < natoms; ++ia) {
               for (int ja = 0; ja < natoms; ++ja) {
-                  double const alpha_i = 1/pow2(sigmas[ia]);
-                  double const alpha_j = 1/pow2(sigmas[ja]);
-                  double const sigma_V = 1/std::sqrt(alpha_i + alpha_j);
+                  double const alpha_i = 1./pow2(sigmas[ia]);
+                  double const alpha_j = 1./pow2(sigmas[ja]);
+                  double const sigma_V = 1./std::sqrt(alpha_i + alpha_j);
                   double const wi = alpha_i*pow2(sigma_V);
                   double const wj = alpha_j*pow2(sigma_V);
                   assert( std::abs( wi + wj - 1.0 ) < 1e-12 );
@@ -509,8 +507,9 @@ namespace sho_potential {
                           for (int mx = 0; mx <= mu - mz; ++mx) {
                               int const my = mu - mz - mx;
                               auto const v = Vcoeff[mzyx];
-                              if (ja <= ia && std::abs(v) > 5e-7)
+                              if (ja <= ia && std::abs(v) > 5e-7) {
                                   std::printf("# V_coeff ai#%i aj#%i %x%x%x %16.6f\n", ia, ja, mz,my,mx, v);
+                              }
                               ++mzyx;
                           } // mx
                         } // my
@@ -532,15 +531,15 @@ namespace sho_potential {
 
               } // ja
           } // ia
-        
-          if (echo > 2) { std::printf("\n# %s method=2 seems symmetric!\n", __func__); std::fflush(stdout); }
-          
-          method_active[Between] = true;
-      } // scope: Method 2
 
-      if (4 & method) { // scope:
-          if (echo > 2) std::printf("\n# %s Method=4\n", __func__);
-          // Method 4) approximated
+          if (echo > 2) { std::printf("\n# %s method=2 %s seems symmetric!\n", __func__, method_name[Between]); std::fflush(stdout); }
+
+          method_active[Between] = true;
+      } // scope: Method 'between'
+
+      if ((1 << Onsite) & method) { // scope:
+          if (echo > 2) std::printf("\n# %s Method=%s\n", __func__, method_name[Onsite]);
+          // Method 'onsite ' approximated
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
           //    expand the other orbital in the local SHO basis (may need high lmax)
@@ -554,7 +553,7 @@ namespace sho_potential {
 
           auto const coarsest_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
           auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing);
-          auto const percentage = control::get("sho_potential.test.method4.percentage", 3.125); // specific for Method4
+          auto const percentage = control::get("sho_potential.test.method.onsite.percentage", 3.125); // specific for Method4
           auto const kinetic_energy = (percentage*.01) * highest_kinetic_energy;
 
           if (echo > 3) std::printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
@@ -573,7 +572,7 @@ namespace sho_potential {
               // project the potential onto an auxiliary SHO basis centered at the position of atom ia
               sho_projection::sho_project(Vcoeff.data(), numax_V, center[ia], sigma_V, vtot.data(), g, 0);
               // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
-             
+
               stat += normalize_potential_coefficients(Vcoeff.data(), numax_V, sigma_V, 0); // mute
               // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
 
@@ -595,12 +594,12 @@ namespace sho_potential {
                   assert(Vcoeff.size() == mzyx);
               } // echo
 #endif
-      
+
               // determine the size of the auxiliary basis
               int const numax_k = numaxs[ia] + numax_V; // triangle rule
-              if (echo > 5) std::printf("# atom #%i auxiliary basis up to numax=%d with sigma=%g %s\n", ia, numax_k, sigmas[ia]*Ang, _Ang);
+              if (echo > 5) std::printf("# atom #%i auxiliary basis  up to numax=%d with sigma=%g %s\n", ia, numax_k, sigmas[ia]*Ang, _Ang);
               if (echo > 5) std::fflush(stdout);
-              
+
               int const nbi = sho_tools::nSHO(numaxs[ia]);
               int const nbk = sho_tools::nSHO(numax_k);
               view2D<double> Vaux(nbi, nbk, 0.0); // get memory for Vaux(i,k)
@@ -648,10 +647,6 @@ namespace sho_potential {
                           std::printf("\n# ovl for the %c-direction with distance= %g %s:\n", 'x' + d, distance*Ang,_Ang);
                           for (int j = 0; j < nucut_j; ++j) {
                               std::printf("# ovl j%c=%x  ", 'x' + d, j);
-//                               for (int k = 0; k < nucut_k; ++k) {
-//                                   std::printf("%8.4f", ovl(d,j,k));
-//                               } // k
-//                               std::printf("\n");
                               printf_vector(" %7.4f", ovl(d,j), nucut_k);
                           } // j
                           std::printf("\n");
@@ -680,10 +675,10 @@ namespace sho_potential {
 
               } // ja
           } // ia
-          
-          if (echo > 2) std::printf("\n# %s method=4 seems asymmetric!\n", __func__);
+
+          warn("method=%s seems asymmetric!", method_name[Onsite]);
           method_active[Onsite] = true;
-      } // scope: Method 4
+      } // scope: Method 'onsite '
 
 
 
@@ -706,7 +701,7 @@ namespace sho_potential {
           for (int sv = sv_start; sv < 2; ++sv) {
               auto const sv_char = sv?'V':'S';
               if (echo > 7) std::printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
-              
+
               double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};
               for (int ia = 0; ia < natoms; ++ia) {
                   int const nbi = sho_tools::nSHO(numaxs[ia]);
@@ -752,10 +747,10 @@ namespace sho_potential {
                       } // no reference
                   } // active
               } // method
-              
+
           } // sv
       } // echo
-      
+
       return stat;
   } // test_local_potential_matrix_elements
 

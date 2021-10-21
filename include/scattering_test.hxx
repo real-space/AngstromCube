@@ -458,7 +458,7 @@ namespace scattering_test {
       stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
       if (echo > 3) std::printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD); 
 
-      double max_dev_from_reference{-1};
+      double max_dev_from_reference{-1}; double energy_of_reference{0}; char ellchar_of_reference{'?'};
 
       for (int ell = 0; ell <= lmax; ++ell) {
           int const nn = (numax + 2 - ell)/2;
@@ -564,8 +564,13 @@ namespace scattering_test {
                                             label, ellchar[ell], eigs[iev]*eV, eig_ref*eV, _eV);
                           if (0 != eig_ref) {
                               auto const dev = eigs[iev] - eig_ref;
-                              max_dev_from_reference = std::max(max_dev_from_reference, std::abs(dev));
-                              if (std::abs(dev) > warning_threshold) {
+                              auto const absdev = std::abs(dev);
+                              if (absdev > max_dev_from_reference) {
+                                  ellchar_of_reference = ellchar[ell];
+                                  energy_of_reference = eig_ref;
+                                  max_dev_from_reference = absdev;
+                              }
+                              if (absdev > warning_threshold) {
                                   if (echo > 2) std::printf("# %s %c-eigenvalue #%i %g deviates %g from %g %s\n",
                                                     label, ellchar[ell], iev, eigs[iev]*eV, dev*eV, eig_ref*eV, _eV);
                                   warn("%s %c-eigenvalue #%i deviates %g m%s", label, ellchar[ell], iev, dev*eV*1e3, _eV);
@@ -597,8 +602,9 @@ namespace scattering_test {
       } // ell
 
       if (max_dev_from_reference > 0 && echo > 3) {
-          std::printf("# %s %s an eigenvalue deviates %g m%s from its reference\n",
-                         label, __func__, max_dev_from_reference*eV*1e3, _eV);
+          std::printf("# %s %s an eigenvalue deviates %g m%s from its %c-reference %g %s\n",
+                          label, __func__, max_dev_from_reference*eV*1e3, _eV, 
+                          ellchar_of_reference, energy_of_reference*eV, _eV);
       } // deviates from reference
 
       // destroy the equidistant radial grid descriptor

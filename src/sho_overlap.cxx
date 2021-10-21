@@ -1,9 +1,8 @@
 #include <cstdio> // std::printf
 #include <cstdlib> // std::abs
-#include <cmath> // std::sqrt, std::exp
+#include <cmath> // std::sqrt, ::exp, ::pow, ::abs
 #include <algorithm> // std::max
 #include <complex> // std::complex<real_t>
-#include <complex>
 #include <utility> // std::pair<T1,T2>, make_pair
 #include <vector> // std::vector<T>
 #include <array> // std::array<T,n>
@@ -537,10 +536,6 @@ namespace sho_overlap {
   template <typename real_t>
   void plot_poly(real_t const poly[], int const m, char const *name="") {
       std::printf("# Poly %s :", name);
-//       for (int d = 0; d < m; ++d) {
-//           std::printf("  %.6f", poly[d]);
-//       } // d
-//       std::printf("\n");
       printf_vector("  %.6f", poly, m);
   } // plot
 #endif // 0
@@ -576,9 +571,9 @@ namespace sho_overlap {
                   printf_vector(" %.6f", hh.data(), 1+n+m);
               } // echo
               double const norm = integrate(hh.data(), 1+n+m, sigma);
-              mdev = std::max(mdev, fabs(norm - (m == n)));
+              mdev = std::max(mdev, std::abs(norm - (m == n)));
               if (echo > 9) std::printf("%9.1e", norm - (m == n));
-              ndev += (fabs(norm - (m == n)) > 1e-10); 
+              ndev += (std::abs(norm - (m == n)) > 1e-10); 
           } // m
           if (echo > 1) std::printf("\n");
       } // n

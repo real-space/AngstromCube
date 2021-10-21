@@ -1,74 +1,73 @@
 #!/usr/bin/env bash
 
 exe=../src/a43
-geometry_file=atoms.xyz
 
-# project_base=scf.C-sc
-# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $geometry_file
-# echo "C 0 0 0" >> $geometry_file
+# base=scf.C-sc
+# printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $base.xyz
+# echo "C 0 0 0" >> $base.xyz
 
-# project_base=scf.vacuum
-# printf " 1 \n#cell 4 4 4 i i i \n" > $geometry_file
-# echo "__  0 0 0" >> $geometry_file
+# base=scf.vacuum
+# printf " 1 \n#cell 4 4 4 i i i \n" > $base.xyz
+# echo "__  0 0 0" >> $base.xyz
 
-# project_base=scf.C-atom
-# printf " 1 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  0 0 0" >> $geometry_file
+# base=scf.C-atom
+# printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
+# echo "C  0 0 0" >> $base.xyz
 
-# project_base=scf.C-dimer
-# printf " 2 \n#cell 8 8 8 i i i \n" > $geometry_file
-# echo "C  -0.65 0 0" >> $geometry_file
-# echo "C   0.65 0 0" >> $geometry_file
+# base=scf.C-dimer
+# printf " 2 \n#cell 8 8 8 i i i \n" > $base.xyz
+# echo "C  -0.65 0 0" >> $base.xyz
+# echo "C   0.65 0 0" >> $base.xyz
 ## test translational invariance
-# echo "C  0 0 -0.525" >> $geometry_file
-# echo "C  0 0  0.775" >> $geometry_file
+# echo "C  0 0 -0.525" >> $base.xyz
+# echo "C  0 0  0.775" >> $base.xyz
 
-# project_base=potential_generator.AlP
-# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $geometry_file
-# printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $geometry_file
-# printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $geometry_file
-# echo "Al   0 0 -1.058354498" >> $geometry_file
-# echo "P    0 0  1.058354498" >> $geometry_file
+base=scf.AlP
+# printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $base.xyz
+# printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $base.xyz
+printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
+echo "Al   0 0 -1.058354498" >> $base.xyz
+echo "P    0 0  1.058354498" >> $base.xyz
 
-# project_base=scf.Al-fcc
-# printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $geometry_file
-# echo "Al   -1.0 -1.0 -1.0" >> $geometry_file
-# echo "Al    1.0  1.0 -1.0" >> $geometry_file
-# echo "Al    1.0 -1.0  1.0" >> $geometry_file
-# echo "Al   -1.0  1.0  1.0" >> $geometry_file
+# base=scf.Al-fcc
+# printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $base.xyz
+# echo "Al   -1.0 -1.0 -1.0" >> $base.xyz
+# echo "Al    1.0  1.0 -1.0" >> $base.xyz
+# echo "Al    1.0 -1.0  1.0" >> $base.xyz
+# echo "Al   -1.0  1.0  1.0" >> $base.xyz
 
 ### Cu LDA lattice constant from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
-# project_base=scf.Cu-fcc
-# printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $geometry_file
-# echo "Cu   -.8805 -.8805 -.8805" >> $geometry_file
-# echo "Cu    .8805  .8805 -.8805" >> $geometry_file
-# echo "Cu    .8805 -.8805  .8805" >> $geometry_file
-# echo "Cu   -.8805  .8805  .8805" >> $geometry_file
+# base=scf.Cu-fcc
+# printf " 4 \n#cell 3.522 3.522 3.522 p p p \n" > $base.xyz
+# echo "Cu   -.8805 -.8805 -.8805" >> $base.xyz
+# echo "Cu    .8805  .8805 -.8805" >> $base.xyz
+# echo "Cu    .8805 -.8805  .8805" >> $base.xyz
+# echo "Cu   -.8805  .8805  .8805" >> $base.xyz
 
-## Au LDA lattice constant 4.065 from Wikipedia
-project_base=scf.Au-fcc
-printf " 4 \n#cell 4.064 4.064 4.064 p p p \n" > $geometry_file
-echo "Au   -1.016 -1.016 -1.016" >> $geometry_file
-echo "Au    1.016  1.016 -1.016" >> $geometry_file
-echo "Au    1.016 -1.016  1.016" >> $geometry_file
-echo "Au   -1.016  1.016  1.016" >> $geometry_file
+### Au LDA lattice constant 4.065 from Wikipedia
+# base=scf.Au-fcc
+# printf " 4 \n#cell 4.064 4.064 4.064 p p p \n" > $base.xyz
+# echo "Au   -1.016 -1.016 -1.016" >> $base.xyz
+# echo "Au    1.016  1.016 -1.016" >> $base.xyz
+# echo "Au    1.016 -1.016  1.016" >> $base.xyz
+# echo "Au   -1.016  1.016  1.016" >> $base.xyz
 
 ### diamond LDA lattice constant 3.536 Ang from PHYSICAL REVIEW B 79, 085104 􏰀(2009􏰁), al. et Blaha
-# project_base=scf.C-diamond
-# printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $geometry_file
+# base=scf.C-diamond
+# printf " 8 \n#cell 3.536 3.536 3.536 p p p \n" > $base.xyz
 # ## 3.536 / 8 == 0.442, 0.442 * 3 == 1.326
-# echo "C  -1.326 -1.326 -1.326" >> $geometry_file
-# echo "C   0.442  0.442 -1.326" >> $geometry_file
-# echo "C  -0.442 -0.442 -0.442" >> $geometry_file
-# echo "C   1.326  1.326 -0.442" >> $geometry_file
-# echo "C  -1.326  0.442  0.442" >> $geometry_file
-# echo "C   0.442 -1.326  0.442" >> $geometry_file
-# echo "C  -0.442  1.326  1.326" >> $geometry_file
-# echo "C   1.326 -0.442  1.326" >> $geometry_file
+# echo "C  -1.326 -1.326 -1.326" >> $base.xyz
+# echo "C   0.442  0.442 -1.326" >> $base.xyz
+# echo "C  -0.442 -0.442 -0.442" >> $base.xyz
+# echo "C   1.326  1.326 -0.442" >> $base.xyz
+# echo "C  -1.326  0.442  0.442" >> $base.xyz
+# echo "C   0.442 -1.326  0.442" >> $base.xyz
+# echo "C  -0.442  1.326  1.326" >> $base.xyz
+# echo "C   1.326 -0.442  1.326" >> $base.xyz
 
-# project_base=potential_generator.C_chain.sho
-# printf " 1 \n#cell 1.420282 10 10 p p p \n" > $geometry_file
-# echo "C   0 0 0" >> $geometry_file
+# base=scf.C_chain.sho
+# printf " 1 \n#cell 1.420282 10 10 p p p \n" > $base.xyz
+# echo "C   0 0 0" >> $base.xyz
 
 
 
@@ -88,6 +87,9 @@ verbosity=7
 output.energy.unit=eV
 ## display distances in custom units {Bohr, nm, Ang}
 output.length.unit=Bohr
+
+## atomic geometry
+geometry.file=$base.xyz
 
 ## grid spacing or number of grid points of the dense grid
 # basis=grid
@@ -163,6 +165,9 @@ single_atom.echo=3
 ## default for local potential method {parabola, sinc}
 #single_atom.local.potential.method=sinc
 
+## limit the number of partial waves per ell-channel to 1
+single_atom.nn.limit=1
+
 ## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
 single_atom.echo.mask=1
 
@@ -214,8 +219,8 @@ grid.eigensolver.repeat=3
 start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
-#start.waves=$project_base.waves.dat
-store.waves=$project_base.waves.dat
+#start.waves=$base.waves.dat
+store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 #plane_wave.solver {auto, both, direct, iterative}
@@ -246,8 +251,8 @@ control.show=1
 EOF
 
 
-for spacing in `seq 2 1 0`; do
-  project=$project_base.grid$spacing
+for spacing in `seq 2 1 2`; do
+  project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
@@ -258,7 +263,7 @@ for spacing in `seq 2 1 0`; do
 done
 
 for numax in `seq 4 2 0`; do
-  project=$project_base.sho$numax
+  project=$base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
@@ -270,8 +275,8 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 2 4`; do
-  project=$project_base.pw$ecut
+for ecut in `seq 4 2 0`; do
+  project=$base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \

@@ -41,7 +41,8 @@ OBJ = \
 	sho_hamiltonian.o \
 	sho_projection.o \
 	sho_unitary.o \
-	structure_solver.o
+	structure_solver.o \
+	main.o
 
 
 ifdef ENABLE_GPU
@@ -153,7 +154,7 @@ CXXFLAGS = -std=c++11 ${FLAGS}
 
 DEP=$(OBJ:%.o=%.d) $(OBJATOM:%.o=%.d)
 
-${EXECUTABLE}: ${OBJATOM} ${OBJ} main.o
+${EXECUTABLE}: ${OBJATOM} ${OBJ}
 	${CXX} ${CXXFLAGS} $^ ${LDFLAGS}  -o $@
 
 libliveatom.a: ${OBJATOM}

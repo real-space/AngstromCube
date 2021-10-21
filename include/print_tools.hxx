@@ -29,6 +29,7 @@
       , double const dV=1 // volume element for the integration
       , char const *prefix="" // leading printf messages
       , real_t const unit=1 // unit conversion factor
+      , char const *_unit="" // unit indicator
   ) {
       real_t gmin{9e307}, gmax{-gmin}; double gsum{0}, gsum2{0};
       for (size_t i = 0; i < all; ++i) {
@@ -37,7 +38,8 @@
           gsum  += values[i];
           gsum2 += pow2(values[i]);
       } // i
-      std::printf("%s grid stats min %g max %g avg %g%c", prefix, gmin*unit, gmax*unit, gsum/all*unit, (dV > 0)?' ':'\n');
-      if (dV > 0) std::printf("integral %g\n", gsum*dV*unit);
+      std::printf("%s grid stats min %g max %g avg %g", prefix, gmin*unit, gmax*unit, gsum/all*unit);
+      if (dV > 0) std::printf("integral %g", gsum*dV*unit);
+      std::printf("%s\n", _unit);
       return gsum*dV;
   } // print_stats

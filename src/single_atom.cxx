@@ -1415,7 +1415,7 @@ namespace single_atom {
                         } // jrn
                     } // irn
                 } // ell
-                std::printf("# %s radial SHO basis deviates %.1e from diagonal sigma=%g %s\n", label, max_dev, sigma*Ang, _Ang);
+                std::printf("# %s radial SHO basis deviates %.1e from diagonal, sigma=%g %s\n", label, max_dev, sigma*Ang, _Ang);
             } // echo
 
             if (echo > 9) {

@@ -96,7 +96,7 @@
       std::string const input_name(module ? module : "");
       bool const show = ('?' == input_name[0]);
       bool const all  = ( 0  == input_name[0]) || show;
-      bool const chapters = all && (!show) && (echo > 0);
+      bool const chapters = all && (!show) && (echo > 0); // show chapter separators
       if (echo > 0) {
           if (show) { std::printf("\n# show available module tests:\n"); } else
           if (all)  { std::printf("\n# run all tests!\n\n"); }
@@ -208,6 +208,7 @@
           add_module_test(element_config);
 
 #undef    add_module_test
+
       } // testing scope
 
       status_t status(0);
@@ -217,7 +218,7 @@
           status = STATUS_TEST_NOT_INCLUDED;
       } else {
           if (echo > 0) std::printf("\n\n#%3d modules %s tested:\n", nmodules, show?"can be":"have been");
-          int const show_timings = control::get("show.timings", 0.);
+          int const show_timings = control::get("timings.show", 0.);
           int nonzero_status{0};
           for (auto result : results) {
               auto const name = std::get<0>(result);
@@ -228,7 +229,7 @@
                       std::printf("#    module= %s\n", name);
                   } else {
                       std::printf("#    module= %-24s status= %i", name, int(stat));
-                      if (show_timings) std::printf(" \ttook %9.3f seconds", time);
+                      if (show_timings) std::printf(" \ttime=%9.3f seconds", time);
                       std::printf("\n");
                   }
               } // echo
@@ -272,9 +273,7 @@
       auto const git_key = macro2string(_GIT_KEY);
       #undef  stringify
       #undef  macro2string
-      if (echo > 0) { 
-          std::printf("# %s git checkout %s\n\n", executable, git_key);
-      } // echo
+      if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
       control::set("git.key", git_key, 0); // store in the global variable environment
 #endif // _GIT_KEY
       return 0;

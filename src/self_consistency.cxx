@@ -493,14 +493,14 @@ namespace self_consistency {
 
           set(Vtot.data(), g.all(), Vxc.data()); add_product(Vtot.data(), g.all(), Ves.data(), 1.);
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential (before adding zero potentials)", eV);
+          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential (before adding zero potentials)", eV, _eV);
 
           // now also add the zero potential vbar to Vtot
           stat += potential_generator::add_smooth_quantities(Vtot.data(), g, na, nr2.data(), ar2.data(), 
                                 center, n_periodic_images, periodic_images, atom_vbar.data(),
                                 echo, 0, Y00, "zero potential");
 
-          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential  (after adding zero potentials)", eV);
+          if (echo > 1) print_stats(Vtot.data(), g.all(), 0, "\n# Total effective potential  (after adding zero potentials)", eV, _eV);
           here;
 
          
