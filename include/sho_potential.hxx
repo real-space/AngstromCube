@@ -362,7 +362,7 @@ namespace sho_potential {
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       auto const sigma_asymmetry = control::get("sho_potential.test.sigma.asymmetry", 1.0);
-      if (1 != sigma_asymmetry) {
+      if (1.0 != sigma_asymmetry) {
           sigmas[0] *= sigma_asymmetry; 
           sigmas[natoms - 1] /= sigma_asymmetry;
           if (echo > 0) std::printf("# %s manipulate spreads: sigma[0]=%g, sigma[-1]=%g %s\n",
@@ -371,9 +371,8 @@ namespace sho_potential {
 //       --numaxs[natoms - 1]; // manipulate the basis size
       int numax_max{0};
       for (int ia = 0; ia < natoms; ++ia) {
-          if (echo > 0) std::printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%g %s numax=%d\n", 
-                ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, 
-                sigmas[ia]*Ang, _Ang, numaxs[ia]);
+          if (echo > 0) std::printf("# atom #%i Z=%g \tpos %9.3f %9.3f %9.3f  sigma=%9.6f %s numax=%d\n", 
+              ia, xyzZ(ia,3), xyzZ(ia,0)*Ang, xyzZ(ia,1)*Ang, xyzZ(ia,2)*Ang, sigmas[ia]*Ang, _Ang, numaxs[ia]);
           numax_max = std::max(numax_max, numaxs[ia]);
       } // ia
 
@@ -385,15 +384,21 @@ namespace sho_potential {
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-array, use method=7 or -1 to activate all
 
-      int constexpr Numerical = 0, Between = 1, Onsite = 2, noReference = 3;
-      view4D<double> SV_matrix[2][3]; // Numerical and Onsite (no extra Smat for Between)
-      char const method_name[3][16] = {"numerical", "between", "onsite "};
+      int constexpr Numerical = 0, Between = 1, On_site = 2, noReference = 3;
+      view4D<double> SV_matrix[2][3]; // Numerical and On_site (no extra Smat for Between)
+      char const method_name[3][16] = {"numerical", "between", "on_site"};
       bool method_active[4] = {false, false, false, false};
 
       int const mxb = sho_tools::nSHO(numax_max);
 
+
+
+
+
+
+
       if ((1 << Numerical) & method) { // scope:
-          if (echo > 2) std::printf("\n# %s Method=%s\n", __func__, method_name[Numerical]);
+          if (echo > 2) std::printf("\n# %s method=%s\n", __func__, method_name[Numerical]);
           // Method 'numerical' fully numerical integration (expensive)
           //    for each pair of atoms and basis functions,
           //    add one basis function to an empty grid,
@@ -450,10 +455,17 @@ namespace sho_potential {
           if (echo > 2) std::printf("\n# %s ToDo: check if method=numerical depends on absolute positions!\n", __func__);
           
           method_active[Numerical] = true;
-      } // scope: Method 'numerical'
+      } // scope: method 'numerical'
+
+
+
+
+
+
+
 
       if ((1 << Between) & method) { // scope:
-          if (echo > 2) std::printf("\n# %s Method=%s\n", __func__, method_name[Between]);
+          if (echo > 2) std::printf("\n# %s method=%s\n", __func__, method_name[Between]);
           // Method 'between', analytical (cheap to compute)
           //    for each pair of atoms, find the center of weight,
           //    expand the potential in a SHO basis with sigma_V^-2 = sigma_1^-2 + sigma_2^-2
@@ -478,13 +490,13 @@ namespace sho_potential {
                       cnt[d] = wi*xyzZ(ia,d) + wj*xyzZ(ja,d);
                   } // d
                   int const numax_V = numaxs[ia] + numaxs[ja];
-                  if (echo > 1) std::printf("# ai#%i aj#%i  center of weight: %g %g %g sigma_V: %g %s numax_V=%i\n", ia, ja, 
-                                          cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
+                  if (echo > 1) std::printf("# ai#%i aj#%i  center of weight: %9.6f %9.6f %9.6f sigma_V=%9.6f %s numax_V=%i\n", 
+                                                  ia, ja, cnt[0]*Ang, cnt[1]*Ang, cnt[2]*Ang, sigma_V*Ang, _Ang, numax_V);
                   for (int d = 0; d < 3; ++d) {
                       cnt[d] += origin[d];
                   } // d
-                  int const nucut_i = sho_tools::n1HO(numaxs[ia]);
-                  int const nucut_j = sho_tools::n1HO(numaxs[ja]);
+                  int const nucut_i = sho_tools::n1HO(numaxs[ia]),
+                            nucut_j = sho_tools::n1HO(numaxs[ja]);
 
                   view4D<double> t(3, sho_tools::n1HO(numax_V), nucut_i, nucut_j, 0.0);
                   for (int d = 0; d < 3; ++d) {
@@ -517,7 +529,7 @@ namespace sho_potential {
                       std::printf("\n");
                       assert(Vcoeff.size() == mzyx);
                   } // echo
-#endif
+#endif // FULL_DEBUG
 
                   // use the expansion of the product of two Hermite Gauss functions into another one
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
@@ -525,35 +537,41 @@ namespace sho_potential {
                   stat += potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja], 1.0);
                   
                   // use the same product to compute also the overlap matrix
-                  double const one[1] = {1.};
+                  double const one[] = {1.};
                   auto Smat_iaja = Smat(ia,ja);
                   stat += potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja], 1.0);
 
               } // ja
           } // ia
 
-          if (echo > 2) { std::printf("\n# %s method=2 %s seems symmetric!\n", __func__, method_name[Between]); std::fflush(stdout); }
+          if (echo > 2) { std::printf("\n# %s method=%s seems symmetric!\n", __func__, method_name[Between]); std::fflush(stdout); }
 
           method_active[Between] = true;
-      } // scope: Method 'between'
+      } // scope: method 'between'
 
-      if ((1 << Onsite) & method) { // scope:
-          if (echo > 2) std::printf("\n# %s Method=%s\n", __func__, method_name[Onsite]);
-          // Method 'onsite ' approximated
+
+
+
+
+
+
+      if ((1 << On_site) & method) { // scope:
+          if (echo > 2) std::printf("\n# %s method=%s\n", __func__, method_name[On_site]);
+          // Method 'on_site' approximated
           //    for each atom expand the potential in a local SHO basis
           //    with spread sigma_V^2 = 2*sigma_1^2 at the atomic center,
           //    expand the other orbital in the local SHO basis (may need high lmax)
           //    also using the tensor.
           //    The matrix elements will not converge with the same speed w.r.t. lmax
           //    so we will require symmetrization
-          auto & Smat = SV_matrix[0][Onsite];
-          auto & Vmat = SV_matrix[1][Onsite];
+          auto & Smat = SV_matrix[0][On_site];
+          auto & Vmat = SV_matrix[1][On_site];
           Vmat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
           Smat = view4D<double>(natoms, natoms, mxb, mxb, 0.0); // get memory
 
           auto const coarsest_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
-          auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing);
-          auto const percentage = control::get("sho_potential.test.method.onsite.percentage", 3.125); // specific for Method4
+          auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing); // in Hartree
+          auto const percentage = control::get("sho_potential.test.method.on_site.percentage", 25.); // specific for method=On_Site
           auto const kinetic_energy = (percentage*.01) * highest_kinetic_energy;
 
           if (echo > 3) std::printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
@@ -564,7 +582,7 @@ namespace sho_potential {
 //               int const numax_V = 3*numaxs[ia]; // ToDo: is this the best choice? Better:
               // determine numax_V dynamically, depending on sigma_a and the grid spacing, (external parameter lmax is ignored)
               int const numax_V = std::max(0, int(std::floor(kinetic_energy*pow2(sigmas[ia]) - 1.5)));
-              if (echo > 5) std::printf("# atom #%i expand potential up to numax=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
+              if (echo > 5) std::printf("# atom #%i expand potential up to numax_V=%d with sigma=%g %s\n", ia, numax_V, sigma_V*Ang, _Ang);
               if (echo > 5) std::fflush(stdout);
               int const nbV = sho_tools::nSHO(numax_V);
               std::vector<double> Vcoeff(nbV, 0.0);
@@ -593,7 +611,7 @@ namespace sho_potential {
                   std::printf("\n");
                   assert(Vcoeff.size() == mzyx);
               } // echo
-#endif
+#endif // 1
 
               // determine the size of the auxiliary basis
               int const numax_k = numaxs[ia] + numax_V; // triangle rule
@@ -632,7 +650,7 @@ namespace sho_potential {
                   } // k
                   std::printf("\n");
               } // echo
-#endif
+#endif // DEVEL
 
               for (int ja = 0; ja < natoms; ++ja) {
                   if (echo > 9) std::printf("# ai#%i aj#%i\n", ia, ja);
@@ -676,38 +694,67 @@ namespace sho_potential {
               } // ja
           } // ia
 
-          warn("method=%s seems asymmetric!", method_name[Onsite]);
-          method_active[Onsite] = true;
-      } // scope: Method 'onsite '
+          if (echo > 2) std::printf("\n# method=%s seems asymmetric!\n", method_name[On_site]);
+          { // scope: symmetrize the potential matrix elements
+              double largest_asymmetry{0};
+              auto & matrix = SV_matrix[1][On_site];
+              for (int ia = 0; ia < natoms; ++ia) {             
+                  for (int ja = 0; ja < natoms; ++ja) {         
+                      int const nbi = sho_tools::nSHO(numaxs[ia]);
+                      int const nbj = sho_tools::nSHO(numaxs[ja]);
+                      for (int ib = 0; ib < nbi; ++ib) {
+                          for (int jb = 0; jb < nbj; ++jb) {
+                              double & aij = matrix(ia,ja,ib,jb);
+                              double & aji = matrix(ja,ia,jb,ib);
+                              double const avg = 0.5*(aij + aji);
+                              double const dev = aij - avg;
+                              aij = avg;
+                              aji = avg;
+                              largest_asymmetry = std::max(largest_asymmetry, std::abs(dev));
+                          } // jb
+                      } // ib
+                  } // ja
+              } // ia
+              if (echo > 1) std::printf("# method=%s largest asymmetry is %g a.u.\n", method_name[On_site], largest_asymmetry);
+          } // scope
+
+          method_active[On_site] = true;
+      } // scope: method 'on_site'
 
 
 
 
 
 
-      int ref_method[3] = {noReference, noReference, noReference}; method_active[noReference] = false;
+
+
+
+
+
+      int reference_method[3] = {noReference, noReference, noReference}; method_active[noReference] = false;
       if (method_active[Numerical]) {
-          // compare both analytical methods to the numerical method
-          if (method_active[Between]) ref_method[Between] = Numerical;
-          if (method_active[Onsite])  ref_method[Onsite]  = Numerical;
+          if (echo > 0) std::printf("# compare analytical methods to the numerical method\n");
+          if (method_active[Between]) reference_method[Between] = Numerical;
+          if (method_active[On_site]) reference_method[On_site] = Numerical;
       } else {
-          // compare the two analytical methods
-          if (method_active[Between] && method_active[Onsite]) ref_method[Onsite] = Between;
+          if (echo > 0) std::printf("# compare the two analytical methods\n");
+          if (method_active[Between] && method_active[On_site]) reference_method[On_site] = Between;
       }
 
       // now display all of these methods interleaved
       if (echo > 0) {
-          auto const sv_start = int(control::get("sho_potential.test.show.potential.only", 0.)); // 0:show S and V, 1: V only
-          for (int sv = sv_start; sv < 2; ++sv) {
+          int const potential_only = control::get("sho_potential.test.show.potential.only", 0.); // 0:show S and V, 1: V only
+          for (int sv = 0; sv < 2; ++sv) {
+              int  const echo_sv = sv ? echo : (potential_only ? 0 : echo);
               auto const sv_char = sv?'V':'S';
-              if (echo > 7) std::printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
+              if (echo_sv > 7) std::printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
 
               double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};
               for (int ia = 0; ia < natoms; ++ia) {
                   int const nbi = sho_tools::nSHO(numaxs[ia]);
                   for (int ja = 0; ja < natoms; ++ja) {
                       int const nbj = sho_tools::nSHO(numaxs[ja]);
-                      if (echo > 1) {
+                      if (echo_sv > 1) {
                           std::printf("\n# ai#%i aj#%i        ", ia, ja);
                           for (int jb = 0; jb < nbj; ++jb) {
                               std::printf(" %-7s", (numaxs[ja] > 15) ? "???" : labels[numaxs[ja]][jb]); // column legend
@@ -717,19 +764,21 @@ namespace sho_potential {
                       for (int ib = 0; ib < nbi; ++ib) {
                           for (int m = 0; m < 3; ++m) { // method
                               if (method_active[m]) {
-                                  std::printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
+                                  if (echo_sv > 1) std::printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
                                   double abs_dev{0};
-                                  int const rm = ref_method[m]; // reference method
+                                  int const rm = reference_method[m];
                                   for (int jb = 0; jb < nbj; ++jb) {
-                                      auto const v = SV_matrix[sv][m](ia,ja,ib,jb);
-                                      std::printf(" %7.4f", v);
+                                      auto const val = SV_matrix[sv][m](ia,ja,ib,jb);
+                                      if (echo_sv > 1) std::printf(" %7.4f", val);
                                       auto const ref = method_active[rm] ? SV_matrix[sv][rm](ia,ja,ib,jb) : 0;
-                                      auto const d = v - ref;
-                                      abs_dev = std::max(std::abs(d), abs_dev);
+                                      auto const dev = val - ref;
+                                      abs_dev = std::max(abs_dev, std::abs(dev));
                                   } // jb
-                                  std::printf(" %s", method_name[m]);
-                                  if (noReference != rm) std::printf(", dev=%.1e", abs_dev);
-                                  std::printf("\n");
+                                  if (echo_sv > 1) {
+                                      std::printf(" %s", method_name[m]);
+                                      if (noReference != rm) std::printf(", dev=%.1e", abs_dev);
+                                      std::printf("\n");
+                                  }
                                   int const diag = (ia == ja);
                                   max_abs_dev[m][diag] = std::max(max_abs_dev[m][diag], abs_dev);
                               } // active?
@@ -739,13 +788,11 @@ namespace sho_potential {
               } // ia
 
               for (int m = 0; m < 3; ++m) { // method
-                  if (method_active[m]) {
-                      int const rm = ref_method[m]; // reference method
-                      if (noReference != rm) {
-                          std::printf("\n# %c largest abs deviation of '%s' to '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
-                              sv_char, method_name[m], method_name[rm], max_abs_dev[m][1], max_abs_dev[m][0], artificial_potential);
-                      } // no reference
-                  } // active
+                  int const rm = reference_method[m];
+                  if (noReference != rm) {
+                      std::printf("\n# %c largest abs deviation of '%s' from '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
+                          sv_char, method_name[m], method_name[rm], max_abs_dev[m][1], max_abs_dev[m][0], artificial_potential);
+                  } // no reference
               } // method
 
           } // sv
