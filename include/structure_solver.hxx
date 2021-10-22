@@ -48,7 +48,7 @@ namespace structure_solver {
   
   /**
       Electronic structure solver 
-      generates a new density given a DFT potential
+      generates a new density from an effective potential
    */
 
   template <typename wave_function_t>
@@ -69,13 +69,11 @@ namespace structure_solver {
       : gc(coarse_grid)
       , op(gc, list_of_atoms)
       , kmesh(kpoint_mesh)
-      , grid_eigensolver_method(control::get("grid.eigensolver", "cg"))
       , nkpoints(number_of_kpoints)
       , nbands(number_of_bands)
-      , nrepeat(1)
+      , nrepeat(int(control::get("grid.eigensolver.repeat", 1.))) // repetitions of the solver
     {
         if (echo > 0) std::printf("# %s use  %d x %d x %d  coarse grid points\n", __func__, gc[0], gc[1], gc[2]);
-        nrepeat = int(control::get("grid.eigensolver.repeat", 1.)); // repetitions of the solver
 
         // Mind: When constructing the grid-based Hamiltonian and overlap operator descriptor,
         //       local potential and atom matrices of op are still unset!
@@ -245,7 +243,6 @@ namespace structure_solver {
     grid_operators::grid_operator_t<wave_function_t, real_wave_function_t> op;
     view3D<wave_function_t> psi; // Kohn-Sham states in real-space grid representation
     view2D<double> const & kmesh; // kmesh(nkpoints, 4);
-    char const *grid_eigensolver_method;
     int nkpoints;
     int nbands;
     int nrepeat;
@@ -275,7 +272,7 @@ namespace structure_solver {
   class RealSpaceKohnSham {
   public:
 
-//  RealSpaceKohnSham(void) {} // default constructor
+//  RealSpaceKohnSham(void) {} // default constructor not needed
     RealSpaceKohnSham(
           real_space::grid_t const & g // dense grid
         , view2D<double> const & xyzZinso

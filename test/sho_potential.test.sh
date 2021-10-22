@@ -20,7 +20,10 @@ percentage=25 # percentage of kinetic energy in method 'onsite'
 # art=1000 # an artifical constant potential
 # art=0 # a real potential loaded from +sho_potential.test.vtot.filename=vtot.dat
 
-for art in 0   1000    100 010 001     200 110 020 101 011 002      300 210 120 030 201 111 021 102 012 003   400 310 220 130 040 301 211 121 031 202 112 022 103 013 004 ; do
+for art in 0   1000    100 010 001 \
+                       200 110 020 101 011 002 \
+                       300 210 120 030 201 111 021 102 012 003 \
+                       400 310 220 130 040 301 211 121 031 202 112 022 103 013 004 ; do
 # for art in 0  1000    100 010 001     200 110 020 101 011 002 ; do
 # for art in  200 020 002 ; do  ## the lowest non-linear ones
 # for art in  200 ; do  ## the lowest non-linear one

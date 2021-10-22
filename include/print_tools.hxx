@@ -39,7 +39,7 @@
           gsum2 += pow2(values[i]);
       } // i
       std::printf("%s grid stats min %g max %g avg %g", prefix, gmin*unit, gmax*unit, gsum/all*unit);
-      if (dV > 0) std::printf("integral %g", gsum*dV*unit);
-      std::printf("%s\n", _unit);
+      if (dV > 0) std::printf(" integral %g", gsum*dV*unit);
+      std::printf(" %s\n", _unit);
       return gsum*dV;
   } // print_stats

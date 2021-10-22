@@ -479,7 +479,7 @@ namespace single_atom {
 #ifdef    HAS_ELEMENT_CONFIG
                             ('e' == (*control::get("single_atom.config", "sigma") | 32)) ? // s:sigma_config, e:element_config
                             element_config::get(Z_core, ionization, rg[TRU], potential[TRU].data(), 
-                                              chem_symbol, core_state_localization, echo) :
+                                             chem_symbol, core_state_localization, echo) :
 #endif // HAS_ELEMENT_CONFIG
                             sigma_config::get(Z_core, echo - 4, &custom_configuration);
             if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n",
@@ -3092,8 +3092,6 @@ namespace single_atom {
         // and compute logarithmic derivatives
         // and eigenstates on a radial equidistant grid
         // no member variable is affected
-
-        if (echo < 1) return; // this function only plots information to the log
 
         // check if the emm-averaged Hamiltonian elements produce the same scattering properties
         // as the spherical part of the full potential

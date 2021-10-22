@@ -273,8 +273,8 @@
       auto const git_key = macro2string(_GIT_KEY);
       #undef  stringify
       #undef  macro2string
-      if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, git_key);
       control::set("git.key", git_key, 0); // store in the global variable environment
+      if (echo > 0) std::printf("# %s git checkout %s\n\n", executable, control::get("git.key", ""));
 #endif // _GIT_KEY
       return 0;
   } // show_version
@@ -365,8 +365,10 @@
       if (run_tests) stat += run_unit_tests(test_unit, echo);
 
       // finalize
-      if (control::get("control.show", 0.) > 0) {
-          stat += control::show_variables(echo);
+      {   int const control_show = control::get("control.show", 0.); // 0:show none, 1:show used, 2:show all, 4:show usage
+          if (control_show && echo > 0) {
+              stat += control::show_variables(control_show);
+          }
       } // show all variable names defined in the control environment
 
       if (echo > 0) recorded_warnings::show_warnings(3);

@@ -317,8 +317,8 @@ namespace self_consistency {
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);
 
-      double density_mixing{1};
       double const density_mixing_fixed = control::get("self_consistency.mix.density", 0.25);
+      double density_mixing{1.0}; // initialize with 100% since we have no previous density
 
       std::vector<double> sigma_a(na, .5);
       { // scope: collect information for projectors and construct a list of atoms
@@ -328,7 +328,7 @@ namespace self_consistency {
               assert( numax_a[ia] == numax[ia] ); // check consistency between atom_update("i") and ("p")
           } // ia
       } // scope
-      
+
       view2D<double> xyzZinso(na, 8);
       for (int ia = 0; ia < na; ++ia) {
           set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z

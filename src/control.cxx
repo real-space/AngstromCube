@@ -1,9 +1,10 @@
-#include <cstdio> // std::printf, std::snprintf
+#include <cstdio> // std::printf, ::snprintf
 #include <cassert> // assert
 #include <string> // std::string
 #include <cstdlib> // std::atof
-#include <map> // std::map<T,T2>
-#include <cstring> // std::strchr, std::strncpy
+#include <map> // std::map<T1,T2>
+#include <utility> // std::pair<T1,T2>
+#include <cstring> // std::strchr, ::strncpy
 #include <cmath> // std::sqrt
 #include <fstream> // std::fstream
 
@@ -29,7 +30,7 @@ namespace control {
   //                  _manage_variables(null,  null, echo) --> show_variables
   char const* _manage_variables(char const *name, char const *value, int const echo) {
 
-      static std::map<std::string, std::string> _map; // hidden archive
+      static std::map<std::string, std::pair<size_t,std::string>> _map; // hidden archive
 
       if (name) {
           assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
@@ -41,9 +42,9 @@ namespace control {
               auto const newvalue = std::string(value);
               bool constexpr warn_redefines = true;
               if (warn_redefines) {
-                  auto const & oldvalue = _map[varname];
+                  auto const & oldvalue = _map[varname].second;
                   auto const old = oldvalue.c_str();
-                  bool const redefined = (old && ('\0' != *old));
+                  bool const redefined = (old && '\0' != *old);
                   if (echo > 7) {
                       std::printf("# control sets \"%s\"", name);
                       if (redefined) std::printf(" from \"%s\"", old);
@@ -53,31 +54,40 @@ namespace control {
                       warn("variable \"%s\" was redefined from \"%s\" to \"%s\"", name, old, value);
                   } // redefined
               } // warn_redefines
-              _map[varname] = newvalue;
+              _map[varname].first = 0; // counter how many times this variable was evaluated
+              _map[varname].second = newvalue;
               return value;
 
           } else { // value
 
               // get
-              auto const & oldvalue = _map[varname];
+              auto const & oldvalue = _map[varname].second;
+              ++_map[varname].first; // increment reading counter
               if (echo > 7) std::printf("# control found \"%s\" = \"%s\"\n", name, oldvalue.c_str());
               return oldvalue.c_str();
-              
+
           } // value
-          
+
       } else { // name
 
           // show_variables
           if (echo > 0) {
               std::printf("\n# control has the following variables defined:\n#\n");
+              bool const show_all   = echo & 0x2; // all or only relevant once
+              bool const show_count = echo & 0x4;
               for (auto const & pair : _map) {
-                  double const numeric = string2double(pair.second.c_str());
-                  char buffer[32]; double2string(buffer, numeric);
-                  if (pair.second == buffer) {
-                      std::printf("# %s=%g\n", pair.first.c_str(), numeric);
-                  } else {
-                      std::printf("# %s=%s\n", pair.first.c_str(), pair.second.c_str());
-                  }
+                  auto const times_used = pair.second.first; // how many times was this value used?
+                  if (show_all || times_used > 0) {
+                      double const numeric = string2double(pair.second.second.c_str());
+                      char buffer[32]; double2string(buffer, numeric);
+                      if (pair.second.second == buffer) {
+                          std::printf("# %s=%g", pair.first.c_str(), numeric);
+                      } else {
+                          std::printf("# %s=%s", pair.first.c_str(), pair.second.second.c_str());
+                      }
+                      if (show_count) std::printf("\t\t# used %ld times", times_used);
+                      std::printf("\n");
+                  } // variable has been used or we want to show all variables defined
               } // pair
               std::printf("#\n\n");
           } // echo
@@ -87,23 +97,23 @@ namespace control {
 
   } // _manage_variables
 
-  char const* set(char const *name, char const *value, int const echo) {
+  void set(char const *name, char const *value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
       assert(nullptr != value);
-      return _manage_variables(name, value, echo);
+      _manage_variables(name, value, echo);
   } // set<string>
 
   char const* get(char const *name, char const *default_value) {
       int const echo = default_echo_level;
       auto const value = _manage_variables(name, nullptr, echo); // query
-      if (nullptr != value) {
-          if ('\0' != *value) {
-              if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
-              return value;
-          }
+      if (nullptr != value && '\0' != *value) {
+          if (echo > 5) std::printf("# control::get(\"%s\", default=\"%s\") = \"%s\"\n", name, default_value, value);
+          return value;
+      } else {
+          if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
+          set(name, default_value, echo); // set to default
+          return _manage_variables(name, nullptr, echo); // query (will not be null)
       }
-      if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-      return _manage_variables(name, default_value, echo); // set to default
   } // get<string>
 
   status_t show_variables(int const echo) {
@@ -132,8 +142,9 @@ namespace control {
           return 0;
       }
   } // command_line_interface
-  
-  char const* set(char const *name, double const value, int const echo) {
+
+  void set(char const *name, double const value, int const echo) {
+      /* This version of set is only used in the tests below */
       char buffer[32]; double2string(buffer, value);
       return set(name, buffer, echo);
   } // set<double>
@@ -225,11 +236,11 @@ namespace control {
       // auto const b_defined = _manage_variables("b"); // get
       // if (echo > 1) std::printf("# b = %s (%p)\n", b_defined, b_defined);
 
-      auto const a_set = set("a", "5", echo); // use the string-setter routine
-      if (echo > 1) std::printf("# a = %s\n", a_set);
+      set("a", "5", echo); // use the string-setter routine
+      if (echo > 1) std::printf("# a = %s\n", get("a", ""));
 
-      auto const b_set = set("b", 6., echo); // use the double-setter routine
-      if (echo > 1) std::printf("# b = %s\n", b_set);
+      set("b", 6., echo); // use the double-setter routine
+      if (echo > 1) std::printf("# b = %s\n", get("b", ""));
 
       // or use the command line interface
       stat += command_line_interface("a=6", echo); // launches warning about redefining "a"

@@ -8,8 +8,8 @@ namespace control {
 
   status_t command_line_interface(char const *statement, int const echo=default_echo_level);
 
-  char const* set(char const *name, char const * value, int const echo=default_echo_level);
-  char const* set(char const *name, double const value, int const echo=default_echo_level);
+  void set(char const *name, char const * value, int const echo=default_echo_level);
+//void set(char const *name, double const value, int const echo=default_echo_level); // not public
 
   char const* get(char const *name, char const * default_value);
   double      get(char const *name, double const default_value);

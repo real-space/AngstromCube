@@ -25,9 +25,16 @@ exe=../src/a43
 base=scf.AlP
 # printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $base.xyz
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $base.xyz
-printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
-echo "Al   0 0 -1.058354498" >> $base.xyz
-echo "P    0 0  1.058354498" >> $base.xyz
+# printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
+# printf " 2 \n#cell 21.167 21.167 21.167 i i i \n" > $base.xyz
+printf " 2 \n#cell 8.0 8.0 8.0 p p p \n" > $base.xyz
+echo "Al   0 0 -1.058354499" >> $base.xyz
+echo "P    0 0  1.058354499" >> $base.xyz
+
+# base=scf.Al2
+# printf " 2 \n#cell 8.0 8.0 8.0 p p p \n" > $base.xyz
+# echo "Al   0 0 -1.058354499" >> $base.xyz
+# echo "Al   0 0  1.058354499" >> $base.xyz
 
 # base=scf.Al-fcc
 # printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $base.xyz
@@ -97,7 +104,7 @@ grid.spacing.unit=Ang
 grid.spacing=0.12501
 
 ## max. number of self-consistency iterations
-self_consistency.max.scf=12
+self_consistency.max.scf=1
 self_consistency.mix.density=0.25
 atomic.valence.decay=0
 
@@ -105,8 +112,8 @@ atomic.valence.decay=0
 fermi.level=exact
 
 ## analyze the potentials up to vtot (DEBUG)
-#potential_generator.use.bessel.projection=0
-#potential_generator.use.direct.projection=0
+# potential_generator.use.bessel.projection=0
+# potential_generator.use.direct.projection=0
 
 ## Poisson equation solver {multigrid, none, cg, sd, fft}
 electrostatic.solver=fft
@@ -117,8 +124,8 @@ electrostatic.solver=fft
 ##
 
 ## configurations of elements
-#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
-#element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
+# element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
+# element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
 element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
 
 #element___="1s 1e-6 2p 0 | 1.0 numax 1 sigma .5 V=parabola"
@@ -132,7 +139,7 @@ element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
 #element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
 #element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-#single_atom.partial.wave.energy=1.1 good for carbon with 2s*
+# single_atom.partial.wave.energy=1.1 good for carbon with 2s*
 #element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
 #element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
 #element_C="2s 2 2p 2 3d 4f 5g 6h 7i | 1.2 numax 15 sigma .197208 V=sinc"
@@ -151,7 +158,7 @@ element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
 ### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
 
 ## partial wave method {energy_ordering, recreate_second, classical, ...}
-#single_atom.partial.wave.method=recreate_second
+# single_atom.partial.wave.method=recreate_second
 
 ## relax partial wave in every SCF iteration {1:yes, 0:no}
 single_atom.relax.partial.waves=0
@@ -163,7 +170,7 @@ single_atom.init.echo=7
 single_atom.echo=3
 
 ## default for local potential method {parabola, sinc}
-#single_atom.local.potential.method=sinc
+# single_atom.local.potential.method=sinc
 
 ## limit the number of partial waves per ell-channel to 1
 single_atom.nn.limit=1
@@ -172,12 +179,12 @@ single_atom.nn.limit=1
 single_atom.echo.mask=1
 
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
-#single_atom.optimize.sigma=1
+# single_atom.optimize.sigma=1
 
 single_atom.core.state.localization=0.125
 
 ## debug options
-#single_atom.synthetic.density.matrix=1
+# single_atom.synthetic.density.matrix=1
 single_atom.init.max.scf=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
@@ -200,20 +207,20 @@ logder.step=1e-2
 bands.per.atom=10
 
 ## sampling of the Brillouin zone
-#hamiltonian.kmesh.echo=9
-#hamiltonian.kmesh.x=3
-#hamiltonian.kmesh=0
+# hamiltonian.kmesh.echo=9
+# hamiltonian.kmesh.x=3
+# hamiltonian.kmesh=0
 hamiltonian.kmesh=4
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
-#grid.eigensolver=none
-#grid.eigensolver=explicit
-grid.eigensolver=cg
-#conjugate_gradients.max.iter=1
-grid.eigensolver.repeat=3
+grid.eigensolver=none
+# grid.eigensolver=explicit
+# grid.eigensolver=cg
+# conjugate_gradients.max.iter=1
+# grid.eigensolver.repeat=3
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
@@ -223,25 +230,25 @@ start.waves.scale.sigma=6
 store.waves=$base.waves.dat
 
 ## configuration for basis=pw
-#plane_wave.solver {auto, both, direct, iterative}
+# plane_wave.solver {auto, both, direct, iterative}
 plane_wave.solver=direct
-#plane_wave.cutoff.energy=520  eV
-#plane_wave.cutoff.energy.unit=eV
+# plane_wave.cutoff.energy=520  eV
+# plane_wave.cutoff.energy.unit=eV
 plane_wave.cutoff.energy=5.78  Ha
 
-#plane_wave.solver=iterative
-#plane_wave.iterative.solver.ratio=8.0
-#plane_wave.iterative.solver=cg
-#conjugate_gradients.max.iter=2
-#plane_wave.max.cg.iterations=12
-#davidson_solver.max.iterations=7
+# plane_wave.solver=iterative
+# plane_wave.iterative.solver.ratio=8.0
+# plane_wave.iterative.solver=cg
+# conjugate_gradients.max.iter=2
+# plane_wave.max.cg.iterations=12
+# davidson_solver.max.iterations=7
 
 ## also compute the eigenvalues of the overlap matrix?
-#dense_solver.test.overlap.eigvals=0
+# dense_solver.test.overlap.eigvals=0
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
 export.hamiltonian=0
-#export.hamiltonian.format=xml
+# export.hamiltonian.format=xml
 
 # Make structure_solver produce the same as potential_generator
 # structure_solver.complex=1

@@ -135,8 +135,8 @@
     {
         std::printf("# set environment variable for LiveAtoms:\t%s = %s\n", 
                                                         varname, newvalue);
-        auto const value = control::set(varname, newvalue);
-        *status = (nullptr == value);
+        control::set(varname, newvalue);
+        *status = (nullptr == newvalue);
         // std::fflush(stdout);
     } // live_atom_set_env_
 #else

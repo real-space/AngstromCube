@@ -231,10 +231,12 @@ namespace sigma_config {
         int const iZ = chemical_symbol::get(symbol, Zcore);
         char element_Sy[16];
         std::snprintf(element_Sy, 15, "element_%s", symbol);
-        auto const config = control::get(element_Sy, default_config(iZ));
+        auto const default_config_iZ = default_config(iZ);
+        auto const config = control::get(element_Sy, default_config_iZ);
         if (configuration) *configuration = config;
 
-        if (echo > 3) std::printf("# for Z=%g use configuration +%s=\"%s\"\n", Zcore, element_Sy, config);
+        if (echo > 3) std::printf("# for Z=%g use %sconfiguration +%s=\"%s\"\n",
+            Zcore, std::strcmp(default_config_iZ, config)?"":"default ", element_Sy, config);
         // now convert config into an element_t
         auto & e = *(new element_t);
 
