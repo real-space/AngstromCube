@@ -143,10 +143,10 @@ namespace structure_solver {
         // copy the local potential and non-local atom matrices into the grid operator descriptor
         op.set_potential(Veff.data(), gc.all(), atom_mat.data(), echo*0); // muted
         
-        auto const export_Hamiltonian = control::get("export.hamiltonian", 0.0);
+        auto const export_Hamiltonian = control::get("hamiltonian.export", 0.0);
         if (export_Hamiltonian) {
-            op.write_to_file(echo, control::get("export.hamiltonian.format", "xml"));
-            if (export_Hamiltonian < 0) abort("Hamiltonian exported, export.hamiltonian= %g < 0", export_Hamiltonian);
+            op.write_to_file(echo, control::get("hamiltonian.export.format", "xml"));
+            if (export_Hamiltonian < 0) abort("Hamiltonian exported, hamiltonian.export= %g < 0", export_Hamiltonian);
         } // export_Hamiltonian
 
         for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {

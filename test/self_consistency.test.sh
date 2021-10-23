@@ -93,7 +93,7 @@ verbosity=7
 ## display energies in custom units {Ha, Ry, eV}
 output.energy.unit=eV
 ## display distances in custom units {Bohr, nm, Ang}
-output.length.unit=Bohr
+# output.length.unit=Bohr
 
 ## atomic geometry
 geometry.file=$base.xyz
@@ -101,7 +101,7 @@ geometry.file=$base.xyz
 ## grid spacing or number of grid points of the dense grid
 # basis=grid
 grid.spacing.unit=Ang
-grid.spacing=0.12501
+grid.spacing=0.1250000001
 
 ## max. number of self-consistency iterations
 self_consistency.max.scf=1
@@ -181,14 +181,15 @@ single_atom.echo.mask=1
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
 # single_atom.optimize.sigma=1
 
+## define via the localization of a state if it should be in the core
 single_atom.core.state.localization=0.125
 
 ## debug options
 # single_atom.synthetic.density.matrix=1
-single_atom.init.max.scf=0
+# single_atom.init.max.scf=0
 
 ## export PAW data in paw_xml format for GPAW or ABINIT
-single_atom.export.xml=0
+# single_atom.export.xml=0
 
 ###! the same radial grid is used to represent true and smooth quantities
 ### smooth.radial.grid.from=0
@@ -204,13 +205,13 @@ logder.step=1e-2
 ##
 
 ## number of Kohn-Sham states per atom in the system
-bands.per.atom=10
+# bands.per.atom=10
 
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
 # hamiltonian.kmesh.x=3
 # hamiltonian.kmesh=0
-hamiltonian.kmesh=4
+# hamiltonian.kmesh=4
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
@@ -226,15 +227,15 @@ grid.eigensolver=none
 start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
-#start.waves=$base.waves.dat
-store.waves=$base.waves.dat
+# start.waves=$base.waves.dat
+# store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}
-plane_wave.solver=direct
+# plane_wave.solver=direct
 # plane_wave.cutoff.energy=520  eV
 # plane_wave.cutoff.energy.unit=eV
-plane_wave.cutoff.energy=5.78  Ha
+# plane_wave.cutoff.energy=5.78  Ha
 
 # plane_wave.solver=iterative
 # plane_wave.iterative.solver.ratio=8.0
@@ -247,12 +248,13 @@ plane_wave.cutoff.energy=5.78  Ha
 # dense_solver.test.overlap.eigvals=0
 
 # Export the Hamiltonian {0:not, 1:yes, -1:yes+abort} in format {xml, json}
-export.hamiltonian=0
-# export.hamiltonian.format=xml
+# hamiltonian.export=0
+# hamiltonian.export.format=xml
 
 # Make structure_solver produce the same as potential_generator
 # structure_solver.complex=1
 
+# show variables defined in control (1=minimal, 2=unused, 4=defaults, 6=4+2, negative for details)
 control.show=1
 
 EOF

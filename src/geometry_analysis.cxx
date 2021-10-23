@@ -52,7 +52,7 @@ namespace geometry_analysis {
       std::string line;
       std::getline(infile, line);
       std::getline(infile, line);
-      if (echo > 2) std::printf("# expect %d atoms, comment line in file: %s\n", natoms, line.c_str());
+      if (echo > 2) std::printf("# expect %d atoms, comment line in file \'%s\': %s\n", natoms, filename, line.c_str());
       { // scope parse comment line
           std::istringstream iss(line);
           std::string Cell, B[3];
