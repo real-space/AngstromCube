@@ -334,7 +334,7 @@
 
           } else // ci0
           if ('+' == ci0) {
-              stat += control::command_line_interface(argv[iarg] + 1); // start after the '+' char
+              stat += control::command_line_interface(argv[iarg] + 1, iarg); // start after the '+' char
           } else
           if (argv[iarg] != test_unit) {
               ++stat; warn("ignored command line argument \'%s\'", argv[iarg]);

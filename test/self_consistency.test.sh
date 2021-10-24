@@ -255,7 +255,7 @@ start.waves.scale.sigma=6
 # structure_solver.complex=1
 
 # show variables defined in control (1=minimal, 2=unused, 4=defaults, 6=4+2, negative for details)
-control.show=1
+control.show=-7
 
 EOF
 

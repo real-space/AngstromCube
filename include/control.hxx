@@ -5,9 +5,9 @@
 namespace control {
 
   int constexpr default_echo_level = 2;
-  char constexpr type_command_line = '+';
+//   char constexpr type_command_line = '+';
 
-  status_t command_line_interface(char const *statement, int const echo=default_echo_level, char const type=type_command_line);
+  status_t command_line_interface(char const *statement, int iarg, int echo=default_echo_level);
 
   void set(char const *name, char const * value, int const echo=default_echo_level);
 //void set(char const *name, double const value, int const echo=default_echo_level); // not public

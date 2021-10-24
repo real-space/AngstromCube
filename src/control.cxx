@@ -26,23 +26,20 @@ namespace control {
       return std::atof(string);
   } // string2double
 
-  
-  char constexpr type_default   = ' ',
-                 type_from_file = '<',
-                 type_set_value = '!';
 
+  int constexpr default_value_tag = 2e9;
   // hidden function: _manage_variables(echo, name, value) --> set
-  //                  _manage_variables(echo, name, value, 'd') --> set to default
+  //                  _manage_variables(echo, name, value, linenumber) --> set to default
   //                  _manage_variables(echo, name) --> get
   //                  _manage_variables(echo) --> show_variables
   char const* _manage_variables(
         int const echo
       , char const *name=nullptr
       , char const *value=nullptr
-      , char const type='?'
+      , int const linenumber=0
   ) {
 
-      static std::map<std::string, std::tuple<std::string,uint32_t,char>> _map; // hidden archive
+      static std::map<std::string, std::tuple<std::string,uint32_t,int32_t>> _map; // hidden archive
 
       if (name) {
           assert(nullptr == std::strchr(name, '=')); // make sure that there is no '=' sign in the name
@@ -68,8 +65,9 @@ namespace control {
               } // warn_redefines
               auto & tuple = _map[varname];
               std::get<0>(tuple) = newvalue;
-              std::get<1>(tuple) = (type_default == type); // counter how many times this variable was evaluated
-              std::get<2>(tuple) = type;
+              std::get<1>(tuple) = (default_value_tag == linenumber); // counter how many times this variable was evaluated
+              std::get<2>(tuple) = linenumber; // store line number in input file 
+                                               // or (if negative) command line argument number
               return value;
 
           } else { // value
@@ -97,13 +95,17 @@ namespace control {
               for (auto const & pair : _map) {
                   auto const times_used = std::get<1>(pair.second); // how many times was this value used?
                   if (show_unused || times_used > 0) {
-                      char const sourcetype = std::get<2>(pair.second);
-                      char const is_default = (type_default == sourcetype);
+                      int const line = std::get<2>(pair.second);
+                      bool const is_default = (default_value_tag == line);
                       if (show_default || !is_default) {
                           auto const string = std::get<0>(pair.second);
                           double const numeric = string2double(string.c_str());
                           char buffer[32]; double2string(buffer, numeric);
-                          if (show_details) std::printf("# used %dx, %s%c\t\t", times_used, is_default?"default":"custom ", sourcetype);
+                          if (show_details) {
+                              std::printf("# used %dx, %s %d\t\t", times_used,
+                                  is_default?"def ":((line > 0)?"argv":(line?"line":"set ")),
+                                  is_default?0:std::abs(line));
+                          }
                           if (string == buffer) {
                               // can be parsed as double, print with %g format
                               std::printf("# %s=%g\n", pair.first.c_str(), numeric);
@@ -125,7 +127,7 @@ namespace control {
   void set(char const *name, char const *value, int const echo) {
       if (echo > 5) std::printf("# control::set(\"%s\", \"%s\")\n", name, value);
       assert(nullptr != value);
-      _manage_variables(echo, name, value, type_set_value); // set
+      _manage_variables(echo, name, value); // set
   } // set<string>
 
   char const* get(char const *name, char const *default_value) {
@@ -136,7 +138,7 @@ namespace control {
           return value;
       } else {
           if (echo > 5) std::printf("# control::get(\"%s\") defaults to \"%s\"\n", name, default_value);
-          return _manage_variables(echo, name, default_value, type_default); // set to default
+          return _manage_variables(echo, name, default_value, default_value_tag); // set to default
       }
   } // get<string>
 
@@ -149,7 +151,7 @@ namespace control {
       return (char*)std::strchr(string, '=');
   } // find_equal_sign
 
-  status_t command_line_interface(char const *statement, int const echo, char const type) {
+  status_t command_line_interface(char const *statement, int const iarg, int const echo) {
       auto const equal = find_equal_sign(statement);
       if (nullptr == equal) {
           warn("ignored statement \"%s\", maybe missing \'=\'", statement);
@@ -162,7 +164,7 @@ namespace control {
           name[equal_char] = '\0'; // delete the '=' sign to mark the name
           char const *value = equal + 1; // everything after the '=' marker
           if (echo > 7) std::printf("# control::set(statement=\"%s\") found name=\"%s\", value=\"%s\"\n", statement, name, value);
-          _manage_variables(echo, name, value, type); // set the variable
+          _manage_variables(echo, name, value, iarg); // set the variable
           return 0;
       }
   } // command_line_interface
@@ -230,7 +232,7 @@ namespace control {
               if (echo > 11) std::printf("# %s:%d\t is empty\n", filename, linenumber);
           } else {
               if (echo > 8) std::printf("# %s:%d\t  %s\n", filename, linenumber, tlin.c_str());
-              auto const line_stat = command_line_interface(tlin.c_str(), default_echo_level, type_from_file);
+              auto const line_stat = command_line_interface(tlin.c_str(), -linenumber);
               if (line_stat) {
                   warn("failure parsing %s:%d \'%s\'", filename, linenumber, line.c_str());
               } else {
@@ -262,7 +264,7 @@ namespace control {
       if (echo > 1) std::printf("# b = %s\n", get("b", ""));
 
       // or use the command line interface
-      stat += command_line_interface("a=6", echo); // launches warning about redefining "a"
+      stat += command_line_interface("a=6", 99, echo); // launches warning about redefining "a"
 
       auto const a = get("a", "defaultA");
       if (echo > 1) std::printf("# a = %s\n", a);
