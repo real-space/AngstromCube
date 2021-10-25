@@ -1,7 +1,7 @@
 #include <cstdio> // std::printf
-#include <cmath> // std::sqrt
-#include <algorithm> // std::max
-#include <complex> // std::complex<real_t>
+#include <cmath> // std::sqrt, ::abs, ::pow
+#include <algorithm> // std::max, ::min
+#include <complex> // std::complex<real_t>, ::imag, ::real
 #include <vector> // std::vector<T>
 #include <cassert> // assert
 #include <set> // std::set<key>
@@ -27,14 +27,15 @@
 
 namespace sho_hamiltonian {
   // computes Hamiltonian matrix elements between two SHO basis functions
-  // including a PAW non-local contribution
-  
+  // including a non-local PAW contribution
+
   template <typename complex_t, typename phase_t>
   status_t kinetic_matrix(
-        view2D<complex_t> & Tmat // result Tmat(i,j) += 0.5*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
-      , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator in 1D
+        view2D<complex_t> & Tmat // result Tmat(i,j) += prefactor*<\chi3D_i|\vec\nabla \cdot \vec\nabla|\chi3D_j>
       , view4D<double> const & o1D // input o1D(dir,0,i,j) overlap operator in 1D
-      , int const numax_i, int const numax_j
+      , view3D<double> const & t1D // input t1D(dir,i,j)   nabla^2 operator in 1D
+      , int const numax_i
+      , int const numax_j
       , phase_t const phase=1 // typically phase_t is double or complex<double>
       , double const prefactor=0.5 // typical prefactor of the kinetic energy in Hartree atomic units
   ) {
@@ -90,7 +91,7 @@ namespace sho_hamiltonian {
       , int const echo=0 // log-level
   ) {
       using real_t = decltype(std::real(complex_t(1))); // base type
-        
+
       status_t stat(0);
 #ifdef DEVEL
       if (echo > 3) std::printf("\n\n# start %s<%s, phase_t=%s> nB=%d\n", 
@@ -100,19 +101,19 @@ namespace sho_hamiltonian {
       //
       // now construct the Hamiltonian:
       //   -- kinetic energy,             c.f. sho_overlap::test_simple_crystal
-      //   -- local potential,            c.f. sho_potential::test_local_potential_matrix_elements (method=2)
+      //   -- local potential,            c.f. sho_potential::test_local_potential_matrix_elements (method=between)
       //   -- non-local PAW Hamiltonian contributions
       // and the overlap operator:
       //   -- SHO basis function overlap, c.f. sho_overlap::test_simple_crystal
       //   -- non-local PAW charge-deficit contributions
       //
-      
+
       double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
       int constexpr S=0, H=1; // static indices for S:overlap matrix, H:Hamiltonian matrix
-      
+
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
-      
+
       // we use vectors of vectors here for potentially sparse list in the future, e.g. in the compressed row format
       std::vector<std::vector<view2D<complex_t>>> P_jala(natoms); //  <\tilde p_{ka kb}|\chi3D_{ja jb}>
       std::vector<std::vector<view3D<complex_t>>> Psh_iala(natoms); // atom-centered PAW matrices multiplied to P_jala
@@ -185,8 +186,8 @@ namespace sho_hamiltonian {
       double const kinetic = 0.5 * scale_k; // prefactor of kinetic energy in Hartree atomic units
 
       // we construct sub-views to the blocks for each atom pair
-      std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // <\chi3D_i| 1 + PAW |\chi3D_j>
-      std::vector<std::vector<view2D<complex_t>>> H_iaja(natoms); // <\chi3D_i| \hat T + \tilde V(\vec r) + PAW |\chi3D_j>
+      std::vector<std::vector<view2D<complex_t>>> S_iaja(natoms); // <\chi3D_i| 1 + s_PAW |\chi3D_j>
+      std::vector<std::vector<view2D<complex_t>>> H_iaja(natoms); // <\chi3D_i| \hat T + \tilde V(\vec r) + h_PAW |\chi3D_j>
       // the sub-views help to address the operators as S_iaja[ia][ja](ib,jb) although their true memory
       // layout is equivalent to view4D<double> S(ia,ib,ja,jb)
       // The vector<vector<>> construction allows for sparse operators in a later stage
@@ -202,7 +203,7 @@ namespace sho_hamiltonian {
               int const nb_ja = sho_tools::nSHO(numaxs[ja]);
 
               for (int ip = 0; ip < n_periodic_images; ++ip) { // periodic images of ja
-                  int const ic = center_map(ia,ja,ip,0); // expansion center index
+                  int const ic      = center_map(ia,ja,ip,0); // expansion center index
                   int const numax_V = center_map(ia,ja,ip,1); // expansion of the local potential into x^{m_x} y^{m_y} z^{m_z} around a given expansion center
                   int const maxmoment = std::max(0, numax_V);
 
@@ -213,21 +214,21 @@ namespace sho_hamiltonian {
                       double const distance = xyzZ(ia,d) - (xyzZ(ja,d) + periodic_image(ip,d));
                       phase *= std::pow(Bloch_phase[d], periodic_shift(ip,d));
                       stat += sho_overlap::nabla2_matrix(nabla2[d].data(), distance, n1i + 1, n1j + 1, sigmas[ia], sigmas[ja]);
-                      stat += sho_overlap::moment_tensor(ovl1Dm[d].data(), distance, n1i, n1j, sigmas[ia], sigmas[ja], maxmoment);
+                      stat += sho_overlap::moment_tensor(ovl1Dm[d].data(), distance, n1i    , n1j    , sigmas[ia], sigmas[ja], maxmoment);
                   } // d
 
                   // add the kinetic energy contribution
-                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], nabla2, ovl1Dm, numaxs[ia], numaxs[ja], phase, kinetic);
+                  stat += sho_hamiltonian::kinetic_matrix(H_iaja[ia][ja], ovl1Dm, nabla2,                      numaxs[ia], numaxs[ja], phase, kinetic);
 
                   // add the contribution of the local potential
                   stat += sho_potential::potential_matrix(H_iaja[ia][ja], ovl1Dm, Vcoeffs[ic].data(), numax_V, numaxs[ia], numaxs[ja], phase);
 
                   // construct the overlap matrix of SHO basis functions
                   // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
-                  stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm, ones, 0, numaxs[ia], numaxs[ja], phase);
+                  stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm,               ones,       0, numaxs[ia], numaxs[ja], phase);
 
               } // ip
-              
+
 
               // PAW contributions to H_{ij} = Ph_{il} P^*_{jl}
               //                  and S_{ij} = Ps_{il} P^*_{jl}
@@ -277,8 +278,8 @@ namespace sho_hamiltonian {
       status_t stat(0);
       SimpleTimer prepare_timer(__FILE__, __LINE__, "prepare", 0);
 
-      auto const usual_numax = int(control::get("sho_hamiltonian.test.numax", 1.));
-      auto const usual_sigma =     control::get("sho_hamiltonian.test.sigma", .5);
+      int  const usual_numax = control::get("sho_hamiltonian.test.numax", 1.);
+      auto const usual_sigma = control::get("sho_hamiltonian.test.sigma", .5);
       std::vector<int>    numaxs(natoms, usual_numax); // define SHO basis sizes
       std::vector<double> sigmas(natoms, usual_sigma); // define SHO basis spreads
       double const sigma_asymmetry = control::get("sho_hamiltonian.test.sigma.asymmetry", 1.0);
@@ -303,10 +304,10 @@ namespace sho_hamiltonian {
       if (echo > 5) std::printf("# largest basis size per atom is %d, numax=%d\n", sho_tools::nSHO(numax_max), numax_max);
       offset[natoms] = total_basis_size;
       int const nB   = total_basis_size;
-      int const nBa  = align<4>(nB); // memory aligned main matrix stride
+      int const nBa  = align<3>(nB); // memory aligned main matrix stride
 
 
-      
+
       // prepare for the PAW contributions: find the projection coefficient matrix P = <\chi3D_{ia ib}|\tilde p_{ka kb}>
       int const natoms_PAW = (natoms_prj < 0) ? natoms : std::min(natoms, natoms_prj); // keep it flexible
       auto const xyzZ_PAW = view2D<double const>(xyzZ.data(), xyzZ.stride()); // duplicate view
@@ -326,7 +327,7 @@ namespace sho_hamiltonian {
           } // atom_mat
           // for both matrices: L2-normalization w.r.t. SHO projector functions is important
       } // ka
-      
+
 
       view2D<double> periodic_image;
       view2D<int8_t> periodic_shift;
@@ -339,7 +340,7 @@ namespace sho_hamiltonian {
                                .5*(g[1] - 1)*g.h[1], 
                                .5*(g[2] - 1)*g.h[2]};
       
-      int ncenters = natoms*natoms*n_periodic_images;
+      int ncenters = natoms*natoms*n_periodic_images; // non-const
       view2D<double> center(ncenters, 8, 0.0); // list of potential expansion centers
       view4D<int> center_map(natoms, natoms, n_periodic_images, 2, -1);
       double sigma_V_max{0}, sigma_V_min{9e9};
@@ -387,7 +388,7 @@ namespace sho_hamiltonian {
       } // scope: set up list of centers
       if (echo > 7) std::printf("# project local potential at %d sites\n", ncenters);
 
-      // 
+      //
       // Potential expansion centers that are on the same location and have the same sigma_V
       // could be merged to reduce the projection efforts. Even if the numax_Vs do not match, 
       // we take the higher one and take advantage of the order_Ezyx of the coefficients 
@@ -396,8 +397,8 @@ namespace sho_hamiltonian {
       // For this analysis, define a spatial threshold how close expansion centers
       // should be to be considered mergable, furthermore, a threshold for sigma_Vs.
       // Then, we can divide the cell into sub-cells, integerizing the coordinates
-      // and compare in an N^2-algorithm each sub-cell to the neighborhood (81 subcells)
-      
+      // and compare in an N^2-algorithm each sub-cell to the neighborhood (3^4=81 subcells)
+
       std::vector<bool> center_active(ncenters, true); // init all centers as active
       { // scope: count the number of similar, potentially identical, expansion centers
           double const threshold_space = 1e-15; // in Bohr
@@ -432,11 +433,11 @@ namespace sho_hamiltonian {
                   cset.insert(code);
               } // ic
               if (echo > 5) std::printf("# CoW set has only %ld of %d elements\n", cset.size(), ncenters);
-          
+
               // ToDo: run over each element in the set, find which centers are in it,
               //       run over all 3^4 adjacent cells, find the centers in those,
               //       do an order-N^2-comparison to find which pairs are below the thresholds
-          
+
           } else if ('q' == (*method | 32)) { // "quadratic"
               if (echo > 5) std::printf("# sho_hamiltonian.reduce.centers='%s' --> 'quadratic'\n", method);
 
@@ -458,7 +459,7 @@ namespace sho_hamiltonian {
                                       if (std::abs(vec_d[0]) < threshold_space) {
                                           // center #ic and #jc are sufficiently close and can be unified
                                           remap[jc] = ic;
-                                          center_active[jc] = false; // center #jc will not be referenced, so it projection is not needed
+                                          center_active[jc] = false; // center #jc will not be referenced, so its projection is not needed
                                           ++nremap;
                                       } // threshold_space
                                   } // threshold_space
@@ -468,7 +469,7 @@ namespace sho_hamiltonian {
                   } // jc
               } // ic
               if (echo > 5) std::printf("# %ld pairs of %d expansion centers marked for remapping\n", nremap, ncenters);
-              
+
               // run over center_map and apply remap to center_map(:,:,:,0)
               size_t mremap{0};
               for (int ia = 0; ia < natoms; ++ia) {
@@ -512,10 +513,10 @@ namespace sho_hamiltonian {
                   add_product(Vcoeffs[ic].data(), nc, Vcoeff.data(), 1.0);
               } // ip
               // now Vcoeff is represented w.r.t. to Hermite polynomials H_{nx}*H_{ny}*H_{nz} and order_zyx
-              
+
               stat += sho_potential::normalize_potential_coefficients(Vcoeffs[ic].data(), numax_V, sigma_V, 0); // 0:mute
               // now Vcoeff is represented w.r.t. powers of the Cartesian coords x^{nx}*y^{ny}*z^{nz} and order_Ezyx
-              
+
               scale(Vcoeffs[ic].data(), Vcoeffs[ic].size(), scale_potential);
               ++ncenters_active;
           } // center_active[ic]
@@ -563,8 +564,8 @@ namespace sho_hamiltonian {
       } // ikp
 
       if (echo > 3) std::printf("\n# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
-                      time_stats.avg(), time_stats.var(), time_stats.min(), time_stats.max());
-      
+                                    time_stats.avg(), time_stats.var(), time_stats.min(), time_stats.max());
+
       return stat;
   } // solve
 
@@ -577,7 +578,7 @@ namespace sho_hamiltonian {
   status_t test_Hamiltonian(int const echo=5) {
       status_t stat(0);
 
-      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator.
+      auto const vtotfile = control::get("sho_potential.test.vtot.filename", "vtot.dat"); // vtot.dat can be created by potential_generator or self_consistency
       int dims[3] = {0, 0, 0};
       std::vector<double> vtot; // total smooth potential
       stat += sho_potential::load_local_potential(vtot, dims, vtotfile, echo);

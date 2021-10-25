@@ -74,7 +74,7 @@ namespace dense_solver {
           for (int iE = 0; iE <= nE; ++iE) {
               real_t const E_real = iE*dE + energy_range[0];
               auto const E = to_complex_t<complex_t,real_t>(std::complex<real_t>(E_real, E_imag));
-              if (echo > 9) std::printf("# Green function for energy point (%g %s, %g %s)\n",
+              if (echo > 9) std::printf("# Green function for complex energy point (%g %s, %g %s)\n",
                                         std::real(E)*eV,_eV, std::imag(E)*Kelvin,_Kelvin);
               int constexpr check = 1; // 1:do checks, 0:no checks
               view2D<complex_t> ESmH_copy(check*nB, nBa, complex_t(0)); // get memory

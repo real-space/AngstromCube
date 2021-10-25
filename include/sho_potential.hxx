@@ -23,7 +23,7 @@
 #endif // NO_UNIT_TESTS
 
 namespace sho_potential {
-  // computes potential matrix elements between to SHO basis functions
+  // computes potential matrix elements between two SHO basis functions
 
   template <typename real_t>
   inline status_t multiply_potential_matrix(
@@ -35,6 +35,8 @@ namespace sho_potential {
       , int const numax_k // size of SHO basis
   ) {
       // contract Vaux with a 3D factorizable overlap tensor
+      // ToDo: analyze if this can be expressed as potential_matrix(Vmat, t1D, one, 0, numax_i, numax_j)
+    
       int const ni = sho_tools::nSHO(numax_i);
       int const nj = sho_tools::nSHO(numax_j);
       int const nk = sho_tools::nSHO(numax_k);
@@ -176,19 +178,19 @@ namespace sho_potential {
       // if we, for some reason, have to reconstruct mat1D every time (although it only depends on sigma as sigma^m)
       // one could investigate if the factorization property stays
       // but probably not because of the range of indices is not a cube but a tetrahedron.
-      // We could use a linear equation solver instead of matrix inverson,
+      // We could use a linear equation solver instead of matrix inversion,
       // however, the inversion only needs to be done once per (sigma,numax)
       // and also here the dependency on sigma can probably be moved out
       //
       // we can also precompute the translation table for order_zyx --> order_Ezyx
-      
+
       return stat;
   } // normalize_potential_coefficients
 
 
   template <typename complex_t, typename phase_t>
   status_t potential_matrix(
-        view2D<complex_t> & Vmat // result Vmat(i,j) = sum_m Vcoeff[m] * t(m,i,j) 
+        view2D<complex_t> & Vmat // result Vmat(i,j) += sum_m Vcoeff[m] * t(m,i,j) 
       , view4D<double> const & t1D // input t1D(dir,m,i,j)
       , double const Vcoeff[] // coefficients of the SHO-expanded local potential (Ezyx_order)
       , int const numax_m // order of expansion of the potential in x^{mx}*y^{my}*z^{mz}
@@ -198,7 +200,7 @@ namespace sho_potential {
       , int const dir01=1 // 1:direction dependent input tensor, 0:isotropic
   ) {
       // use the expansion of the product of two Hermite Gauss functions into another one, factorized in 3D
-      // can use different (dir01==1) tensors per direction or the same (dir01==0)
+      // can use different (dir01==1) tensors per direction or the same (dir01==0, isotropic)
       // t(m,j,i) = t1D(0,m_x,j_x,i_x) * t1D(1,m_y,j_y,i_y) * t1D(2,m_z,j_z,i_z)
       assert( t1D.stride()  >= sho_tools::n1HO(numax_j) );
       assert( t1D.dim1()    >= sho_tools::n1HO(numax_i) );
@@ -332,20 +334,17 @@ namespace sho_potential {
       } // ia
 
       int const artificial_potential = control::get("sho_potential.test.artificial.potential", 0.);
-      if (artificial_potential) { // scope: artificial linear potentials (other than constants)
+      if (artificial_potential) { // scope: artificial linear potential (use 1000 for a constant)
           int const mx = (artificial_potential /   1) % 10,
                     my = (artificial_potential /  10) % 10,
                     mz = (artificial_potential / 100) % 10;
           if (echo > 0) std::printf("# artificial potential z^%i y^%i x^%i\n", mz, my, mx);
           for (int iz = 0; iz < g[2]; ++iz) {
-              auto const z = iz*g.h[2] - origin[2];
-              auto const zmz = intpow(z, mz);
+              auto const zmz = intpow(iz*g.h[2] - origin[2], mz);
               for (int iy = 0; iy < g[1]; ++iy) {
-                  auto const y = iy*g.h[1] - origin[1];
-                  auto const ymy = intpow(y, my);
+                  auto const ymy = intpow(iy*g.h[1] - origin[1], my);
                   for (int ix = 0; ix < g[0]; ++ix) {
-                      auto const x = ix*g.h[0] - origin[0];
-                      auto const xmx = intpow(x, mx);
+                      auto const xmx = intpow(ix*g.h[0] - origin[0], mx);
 
                       int const izyx = (iz*g[1] + iy)*g[0] + ix;
                       vtot[izyx] = xmx * ymy * zmz;
@@ -355,7 +354,7 @@ namespace sho_potential {
           } // iz
       } else {
           if (echo > 0) std::printf("# no artificial potential\n");
-      } // scope: artificial potentials
+      } // scope: artificial potential
 
       int  const usual_numax = control::get("sho_potential.test.numax", 1.);
       auto const usual_sigma = control::get("sho_potential.test.sigma", 2.0);
@@ -434,26 +433,25 @@ namespace sho_potential {
                       } // ib
                       if (ia == ja) Sdiag(ja,jb) = Smat(ja,ja,jb,jb);
                   } // ia
-
               } // jb
           } // ja
 
           if (1) { // normalize with diagonal elements of the overlap matrix
-                  for (int ia = 0; ia < natoms; ++ia) {        int const nbi = sho_tools::nSHO(numaxs[ia]);
-                      for (int ja = 0; ja < natoms; ++ja) {    int const nbj = sho_tools::nSHO(numaxs[ja]);
-                          for (int ib = 0; ib < nbi; ++ib) {
-                              for (int jb = 0; jb < nbj; ++jb) {
-                                  double const f = 1 / std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
-                                  Vmat(ia,ja,ib,jb) *= f;
-                                  Smat(ia,ja,ib,jb) *= f;
-                              } // jb
-                          } // ib
-                      } // ja
-                  } // ia
+              for (int ia = 0; ia < natoms; ++ia) {        int const nbi = sho_tools::nSHO(numaxs[ia]);
+                  for (int ja = 0; ja < natoms; ++ja) {    int const nbj = sho_tools::nSHO(numaxs[ja]);
+                      for (int ib = 0; ib < nbi; ++ib) {
+                          for (int jb = 0; jb < nbj; ++jb) {
+                              double const f = 1./std::sqrt(Sdiag(ia,ib)*Sdiag(ja,jb));
+                              Vmat(ia,ja,ib,jb) *= f;
+                              Smat(ia,ja,ib,jb) *= f;
+                          } // jb
+                      } // ib
+                  } // ja
+              } // ia
           } // normalize wih diagonal elements of the overlap matrix
-          
+
           if (echo > 2) std::printf("\n# %s ToDo: check if method=numerical depends on absolute positions!\n", __func__);
-          
+
           method_active[Numerical] = true;
       } // scope: method 'numerical'
 
@@ -520,7 +518,7 @@ namespace sho_potential {
                               int const my = mu - mz - mx;
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7) {
-                                  std::printf("# V_coeff ai#%i aj#%i %c%c%c %16.6f\n", ia, ja, 
+                                  std::printf("# V_coeff ai#%i aj#%i %c%c%c %16.6f Ha\n", ia, ja, 
                                       sho_tools::sho_hex(mz),sho_tools::sho_hex(my),sho_tools::sho_hex(mx), v);
                               }
                               ++mzyx;
@@ -536,11 +534,12 @@ namespace sho_potential {
                   // Vmat(i,j) = sum_p Vcoeff[p] * t^3(p,j,i)
                   auto Vmat_iaja = Vmat(ia,ja);
                   stat += potential_matrix(Vmat_iaja, t, Vcoeff.data(), numax_V, numaxs[ia], numaxs[ja], 1.0);
-                  
+
                   // use the same product to compute also the overlap matrix
-                  double const one[] = {1.};
+                  double const Scoeff[] = {1.};
+                  int const numax_S = 0;
                   auto Smat_iaja = Smat(ia,ja);
-                  stat += potential_matrix(Smat_iaja, t, one, 0, numaxs[ia], numaxs[ja], 1.0);
+                  stat += potential_matrix(Smat_iaja, t, Scoeff, numax_S, numaxs[ia], numaxs[ja], 1.0);
 
               } // ja
           } // ia
@@ -551,7 +550,7 @@ namespace sho_potential {
       } // scope: method 'between'
 
 
-#define SCAN_PERCENTAGES
+// #define SCAN_PERCENTAGES
 #ifdef  SCAN_PERCENTAGES
     // (irregular indentation)
     auto const percentage_min = control::get("sho_potential.test.method.on_site.percentage", 25.); // start with 25%, default
@@ -734,7 +733,7 @@ namespace sho_potential {
 
 
 
-      // now display all of these methods interleaved
+      // now display all of these methods interleaved and compare them
       if (echo > 0) {
           int const potential_only = control::get("sho_potential.test.show.potential.only", 0.); // 0:show S and V, 1: V only
           for (int sv = 0; sv < 2; ++sv) {
@@ -767,7 +766,7 @@ namespace sho_potential {
                                           std::printf(" %7.4f", SV_matrix[sv][m](ia,ja,ib,jb));
                                       } // jb
                                   } // echo_sv
-                                
+
                                   for (int rm = m + 1; rm < 3; ++rm) { // reference method
                                       if (method_active[rm]) {
 
@@ -784,20 +783,20 @@ namespace sho_potential {
                                           ++irm;
                                       } // m active?
                                   } // rm = reference method
-                                  
+
                                   if (echo_sv > 1) {
                                       int const rm = m; // m=numeric --> numeric - between
-                                                        // m=between --> numeric - on_site
+                                                        // m=between --> numeric - on_site (little weird)
                                                         // m=on_site --> between - on_site
                                       auto const max_dev = std::max(max_abs_dev[rm][0], max_abs_dev[rm][1]);
                                       std::printf(" %s, dev=%.1e\n", method_name[m], max_dev);
                                   } // echo_sv
-                                  
+
                               } // m active?
                           } // m = method
-                          
-                          for (int i6 = 0; i6 < 6; ++i6) all_abs_dev[0][i6] = std::max(all_abs_dev[0][i6], max_abs_dev[0][i6]);
-                          
+
+                          for (int i = 0; i < 3*2; ++i) all_abs_dev[0][i] = std::max(all_abs_dev[0][i], max_abs_dev[0][i]);
+
                       } // ib
                   } // ja
               } // ia
@@ -818,7 +817,7 @@ namespace sho_potential {
           } // sv
       } // echo
 
-    } // percentage-loop
+    } // percentage-loop (irregular indentation)
 
       return stat;
   } // test_local_potential_matrix_elements
