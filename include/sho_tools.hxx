@@ -313,6 +313,12 @@ namespace sho_tools {
       return 0;
   } // quantum_number_table
 
+  // sho_hex is a single character the encrypts 0..63 and matches hexadecimal below 16
+  // 0123456789abcdefghijklmnopqrstuvABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`??????
+  // 0123456789012345678901234567890123456789012345678901234567890123456789
+  // 0000000000111111111122222222223333333333444444444455555555556666666666
+  inline char sho_hex(unsigned i) { return (i<10)?('0'+i):((i<32)?('W'+i):((i<64)?('!'+i):'?')); }
+
   template <unsigned nChar=8> inline // use char[4] for Cartesian or emm_degenerate, use char[6] or char[8] for radial indices
   status_t construct_label_table(
         char label[]
@@ -321,7 +327,7 @@ namespace sho_tools {
       , int const echo=0
   ) {
 
-      auto const ellchar = "spdfghijklmno"; // ToDo: 'i' should not be included by convention
+      auto const ellchar = "spdfghijklmno?????????????????????"; // ToDo: 'i' should not be included by convention
       int ii{0};
       switch (order) {
 
@@ -331,7 +337,7 @@ namespace sho_tools {
               for (int y = 0; y <= numax - z; ++y) {
                   for (int x = 0; x <= numax - z - y; ++x) {
                       int const j = is_energy_ordered(order) ? Ezyx_index(x, y, z) : ii;
-                      std::sprintf(&label[j*nChar], "%x%x%x", z, y, x);
+                      std::sprintf(&label[j*nChar], "%c%c%c", sho_hex(z), sho_hex(y), sho_hex(x));
                       ++ii;
           }}} // x y z
           assert(nSHO(numax) == ii);
@@ -563,6 +569,16 @@ namespace sho_tools {
       return stat;
   } // test_index_table_construction
 
+  inline status_t test_sho_hex(int const echo=1) {
+      if (echo < 1) return 0;
+      std::printf("# %s: for i in 0..69: sho_hex= ", __func__);
+      for (int i = 0; i < 70; ++i) {
+          std::printf("%c", sho_hex(i));
+      } // i
+      std::printf("\n\n");
+      return 0;
+  } // test_sho_hex
+  
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_radial_indices(echo);
@@ -570,6 +586,7 @@ namespace sho_tools {
       stat += test_energy_ordered_indices(echo);
       stat += test_index_table_construction<int16_t>(echo);
       stat += test_order_enum(echo);
+      stat += test_sho_hex(echo);
       return stat;
   } // all_tests
 

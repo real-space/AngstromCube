@@ -9,7 +9,7 @@
 #include "inline_math.hxx" // set
 #include "recorded_warnings.hxx" // warn
 #include "data_view.hxx" // view2D<T>, view4D<T>
-#include "sho_tools.hxx" // ::nSHO
+#include "sho_tools.hxx" // ::nSHO, ::n1HO, ::sho_hex, ::order_zyx, ::quantum_number_table, ::construct_label_table
 #include "sho_overlap.hxx" // ::moment_normalization
 #include "linear_algebra.hxx" // ::inverse
 #include "display_units.h" // Ang, _Ang
@@ -384,9 +384,9 @@ namespace sho_potential {
 
       int const method = control::get("sho_potential.test.method", -1.); // bit-array, use method=7 or -1 to activate all
 
-      int constexpr Numerical = 0, Between = 1, On_site = 2, noReference = 3;
+      int constexpr Numerical = 0, Between = 1, On_site = 2;
       view4D<double> SV_matrix[2][3]; // Numerical and On_site (no extra Smat for Between)
-      char const method_name[3][16] = {"numerical", "between", "on_site"};
+      char const method_name[3][8] = {"numeric", "between", "on_site"};
       bool method_active[4] = {false, false, false, false};
 
       int const mxb = sho_tools::nSHO(numax_max);
@@ -520,7 +520,8 @@ namespace sho_potential {
                               int const my = mu - mz - mx;
                               auto const v = Vcoeff[mzyx];
                               if (ja <= ia && std::abs(v) > 5e-7) {
-                                  std::printf("# V_coeff ai#%i aj#%i %x%x%x %16.6f\n", ia, ja, mz,my,mx, v);
+                                  std::printf("# V_coeff ai#%i aj#%i %c%c%c %16.6f\n", ia, ja, 
+                                      sho_tools::sho_hex(mz),sho_tools::sho_hex(my),sho_tools::sho_hex(mx), v);
                               }
                               ++mzyx;
                           } // mx
@@ -550,10 +551,15 @@ namespace sho_potential {
       } // scope: method 'between'
 
 
-
-
-
-
+#define SCAN_PERCENTAGES
+#ifdef  SCAN_PERCENTAGES
+    // (irregular indentation)
+    auto const percentage_min = control::get("sho_potential.test.method.on_site.percentage", 25.); // start with 25%, default
+    auto const percentage_inc = control::get("sho_potential.test.method.on_site.percentage.inc", 10.); // steps of 10%
+    auto const percentage_max = control::get("sho_potential.test.method.on_site.percentage.end", 101.); // end
+    for (double percentage = percentage_min; percentage <= percentage_max; percentage += percentage_inc)
+#endif // SCAN_PERCENTAGES
+    { // percentage-loop
 
       if ((1 << On_site) & method) { // scope:
           if (echo > 2) std::printf("\n# %s method=%s\n", __func__, method_name[On_site]);
@@ -571,8 +577,10 @@ namespace sho_potential {
 
           auto const coarsest_grid_spacing = std::max(std::max(g.h[0], g.h[1]), g.h[2]);
           auto const highest_kinetic_energy = 0.5*pow2(constants::pi/coarsest_grid_spacing); // in Hartree
+#ifndef SCAN_PERCENTAGES
           auto const percentage = control::get("sho_potential.test.method.on_site.percentage", 25.); // specific for method=On_Site
-          auto const kinetic_energy = (percentage*.01) * highest_kinetic_energy;
+#endif
+          auto const kinetic_energy = (percentage*0.01) * highest_kinetic_energy;
 
           if (echo > 3) std::printf("# grid spacing %g %s allows for kinetic energies up to %g %s, use %g %s (%.2f %%)\n",
               coarsest_grid_spacing*Ang, _Ang, highest_kinetic_energy*eV, _eV, kinetic_energy*eV, _eV, percentage);
@@ -704,6 +712,7 @@ namespace sho_potential {
                       int const nbj = sho_tools::nSHO(numaxs[ja]);
                       for (int ib = 0; ib < nbi; ++ib) {
                           for (int jb = 0; jb < nbj; ++jb) {
+                              // symmetrize
                               double & aij = matrix(ia,ja,ib,jb);
                               double & aji = matrix(ja,ia,jb,ib);
                               double const avg = 0.5*(aij + aji);
@@ -725,22 +734,6 @@ namespace sho_potential {
 
 
 
-
-
-
-
-
-
-      int reference_method[3] = {noReference, noReference, noReference}; method_active[noReference] = false;
-      if (method_active[Numerical]) {
-          if (echo > 0) std::printf("# compare analytical methods to the numerical method\n");
-          if (method_active[Between]) reference_method[Between] = Numerical;
-          if (method_active[On_site]) reference_method[On_site] = Numerical;
-      } else {
-          if (echo > 0) std::printf("# compare the two analytical methods\n");
-          if (method_active[Between] && method_active[On_site]) reference_method[On_site] = Between;
-      }
-
       // now display all of these methods interleaved
       if (echo > 0) {
           int const potential_only = control::get("sho_potential.test.show.potential.only", 0.); // 0:show S and V, 1: V only
@@ -749,7 +742,7 @@ namespace sho_potential {
               auto const sv_char = sv?'V':'S';
               if (echo_sv > 7) std::printf("\n# %s (%c)\n", sv?"potential":"overlap", sv_char);
 
-              double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};
+              double all_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}}; // 3 different methods have (3*(3-1))/2 comparisons
               for (int ia = 0; ia < natoms; ++ia) {
                   int const nbi = sho_tools::nSHO(numaxs[ia]);
                   for (int ja = 0; ja < natoms; ++ja) {
@@ -762,41 +755,70 @@ namespace sho_potential {
                           std::printf("\n");
                       } // echo
                       for (int ib = 0; ib < nbi; ++ib) {
+                          int irm{0};
+                          double max_abs_dev[][2] = {{0, 0}, {0, 0}, {0, 0}};                          
                           for (int m = 0; m < 3; ++m) { // method
                               if (method_active[m]) {
-                                  if (echo_sv > 1) std::printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
-                                  double abs_dev{0};
-                                  int const rm = reference_method[m];
-                                  for (int jb = 0; jb < nbj; ++jb) {
-                                      auto const val = SV_matrix[sv][m](ia,ja,ib,jb);
-                                      if (echo_sv > 1) std::printf(" %7.4f", val);
-                                      auto const ref = method_active[rm] ? SV_matrix[sv][rm](ia,ja,ib,jb) : 0;
-                                      auto const dev = val - ref;
-                                      abs_dev = std::max(abs_dev, std::abs(dev));
-                                  } // jb
+
                                   if (echo_sv > 1) {
-                                      std::printf(" %s", method_name[m]);
-                                      if (noReference != rm) std::printf(", dev=%.1e", abs_dev);
-                                      std::printf("\n");
-                                  }
-                                  int const diag = (ia == ja);
-                                  max_abs_dev[m][diag] = std::max(max_abs_dev[m][diag], abs_dev);
-                              } // active?
-                          } // method
+                                      // show the values
+                                      std::printf("# %c ai#%i aj#%i %s ", sv_char, ia, ja, (numaxs[ia] > 15) ? "???" : labels[numaxs[ia]][ib]);
+                                      for (int jb = 0; jb < nbj; ++jb) {
+                                          std::printf(" %7.4f", SV_matrix[sv][m](ia,ja,ib,jb));
+                                      } // jb
+                                  } // echo_sv
+                                
+                                  for (int rm = m + 1; rm < 3; ++rm) { // reference method
+                                      if (method_active[rm]) {
+
+                                          double abs_dev{0};
+                                          for (int jb = 0; jb < nbj; ++jb) {
+                                              auto const val = SV_matrix[sv][m] (ia,ja,ib,jb);
+                                              auto const ref = SV_matrix[sv][rm](ia,ja,ib,jb);
+                                              auto const dev = val - ref;
+                                              abs_dev = std::max(abs_dev, std::abs(dev));
+                                          } // jb
+                                          int const diag = (ia == ja);
+                                          max_abs_dev[irm][diag] = std::max(max_abs_dev[irm][diag], abs_dev);
+
+                                          ++irm;
+                                      } // m active?
+                                  } // rm = reference method
+                                  
+                                  if (echo_sv > 1) {
+                                      int const rm = m; // m=numeric --> numeric - between
+                                                        // m=between --> numeric - on_site
+                                                        // m=on_site --> between - on_site
+                                      auto const max_dev = std::max(max_abs_dev[rm][0], max_abs_dev[rm][1]);
+                                      std::printf(" %s, dev=%.1e\n", method_name[m], max_dev);
+                                  } // echo_sv
+                                  
+                              } // m active?
+                          } // m = method
+                          
+                          for (int i6 = 0; i6 < 6; ++i6) all_abs_dev[0][i6] = std::max(all_abs_dev[0][i6], max_abs_dev[0][i6]);
+                          
                       } // ib
                   } // ja
               } // ia
 
+              int irm{0};
               for (int m = 0; m < 3; ++m) { // method
-                  int const rm = reference_method[m];
-                  if (noReference != rm) {
-                      std::printf("\n# %c largest abs deviation of '%s' from '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
-                          sv_char, method_name[m], method_name[rm], max_abs_dev[m][1], max_abs_dev[m][0], artificial_potential);
-                  } // no reference
-              } // method
+                  if (method_active[m]) {
+                      for (int rm = m + 1; rm < 3; ++rm) { // reference method
+                          if (method_active[rm]) {
+                              std::printf("\n# %c largest abs deviation of '%s' from '%s' is (diag) %g and %g (off-diag), pot=%03d\n",
+                                  sv_char, method_name[m], method_name[rm], all_abs_dev[irm][1], all_abs_dev[irm][0], artificial_potential);
+                              ++irm;
+                          } // m active?
+                      } // rm = reference method
+                  } // m active?
+              } // m = method
 
           } // sv
       } // echo
+
+    } // percentage-loop
 
       return stat;
   } // test_local_potential_matrix_elements
