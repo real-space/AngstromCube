@@ -14,6 +14,10 @@ exe=../src/a43
 # printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
 # echo "C  0 0 0" >> $base.xyz
 
+base=scf.C-chain
+printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
+echo "C  0 0 0" >> $base.xyz
+
 # base=scf.C-dimer
 # printf " 2 \n#cell 8 8 8 i i i \n" > $base.xyz
 # echo "C  -0.65 0 0" >> $base.xyz
@@ -22,19 +26,19 @@ exe=../src/a43
 # echo "C  0 0 -0.525" >> $base.xyz
 # echo "C  0 0  0.775" >> $base.xyz
 
-base=scf.AlP
+#base=scf.AlP
 # printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $base.xyz
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $base.xyz
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
 # printf " 2 \n#cell 21.167 21.167 21.167 i i i \n" > $base.xyz
-printf " 2 \n#cell 8.0 8.0 8.0 p p p \n" > $base.xyz
-echo "Al   0 0 -1.058354499" >> $base.xyz
-echo "P    0 0  1.058354499" >> $base.xyz
+#printf " 2 \n#cell 8.0 8.0 8.0 p p p \n" > $base.xyz
+#echo "Al   0 0 -1.058354499" >> $base.xyz
+#echo "P    0 0  1.058354499" >> $base.xyz
 
 # base=scf.Al2
-# printf " 2 \n#cell 8.0 8.0 8.0 p p p \n" > $base.xyz
-# echo "Al   0 0 -1.058354499" >> $base.xyz
-# echo "Al   0 0  1.058354499" >> $base.xyz
+# printf " 2 \n#cell 8.0 8.0 4.0 p p p \n" > $base.xyz
+# echo "Al   0 0 -1." >> $base.xyz
+# echo "Al   0 0  1." >> $base.xyz
 
 # base=scf.Al-fcc
 # printf " 4 \n#cell 4.0 4.0 4.0 p p p \n" > $base.xyz
@@ -209,17 +213,17 @@ logder.step=1e-2
 
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
-# hamiltonian.kmesh.x=3
-# hamiltonian.kmesh=0
+hamiltonian.kmesh=0
+hamiltonian.kmesh.x=35
 # hamiltonian.kmesh=4
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
 
 ## configuration for basis=grid
 # method of the grid eigensolver {cg, Davidson, none, explicit}
-grid.eigensolver=none
+# grid.eigensolver=none
 # grid.eigensolver=explicit
-# grid.eigensolver=cg
+grid.eigensolver=cg
 # conjugate_gradients.max.iter=1
 # grid.eigensolver.repeat=3
 
@@ -260,7 +264,7 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 2 1 2`; do
+for spacing in `seq 2 1 0`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -271,7 +275,7 @@ for spacing in `seq 2 1 2`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 0`; do
+for numax in `seq 4 2 4`; do
   project=$base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -279,7 +283,7 @@ for numax in `seq 4 2 0`; do
         +control.file=control.sh \
         +basis=sho \
         +sho_hamiltonian.test.numax=$numax \
-        +sho_hamiltonian.test.sigma=.5 \
+        +sho_hamiltonian.test.sigma=1.0 \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done

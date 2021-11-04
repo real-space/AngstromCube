@@ -440,7 +440,7 @@ namespace structure_solver {
 
         } else {
 
-            stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot, na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
+            stat += sho_hamiltonian::solve(na, xyzZ, g, Vtot, nkpoints, kmesh, na, sigma_a.data(), numax.data(), atom_mat.data(), echo);
             warn("with basis=%s no new density is generated", basis_method); // ToDo: implement this
 
         } // psi_on_grid

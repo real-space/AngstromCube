@@ -11,6 +11,8 @@ namespace sho_hamiltonian {
       , view2D<double> const & xyzZ // (natoms, 4)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
+      , int const nkpoints
+      , view2D<double> const & kmesh
       , int const natoms_prj=-1 // number of PAW centers
       , double const *const sigma_prj=nullptr // spreads of the SHO-type PAW projectors
       , int    const *const numax_prj=nullptr // cutoffs of the SHO-type PAW projectors

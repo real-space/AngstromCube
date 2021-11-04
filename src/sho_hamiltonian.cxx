@@ -94,8 +94,8 @@ namespace sho_hamiltonian {
 
       status_t stat(0);
 #ifdef DEVEL
-      if (echo > 3) std::printf("\n\n# start %s<%s, phase_t=%s> nB=%d\n", 
-          __func__, complex_name<complex_t>(), complex_name(*Bloch_phase), nB);
+      if (echo > 3) std::printf("\n\n# start %s<%s, phase_t=%s> nB=%d n_periodic_images=%d\n", 
+          __func__, complex_name<complex_t>(), complex_name(*Bloch_phase), nB, n_periodic_images);
 #endif // DEVEL
 
       //
@@ -109,7 +109,7 @@ namespace sho_hamiltonian {
       //
 
       double const ones[1] = {1.0}; // expansion of the identity (constant==1) into x^{m_x} y^{m_y} z^{m_z}
-      int constexpr S=0, H=1; // static indices for S:overlap matrix, H:Hamiltonian matrix
+      int constexpr S=1, H=0; // static indices for S:overlap matrix, H:Hamiltonian matrix
 
       // PAW contributions to H_{ij} = P_{ik} h_{kl} P^*_{jl} = Ph_{il} P^*_{jl}
       //                  and S_{ij} = P_{ik} s_{kl} P^*_{jl} = Ps_{il} P^*_{jl}
@@ -131,9 +131,10 @@ namespace sho_hamiltonian {
               for (int ip = 0; ip < n_periodic_images; ++ip) { // periodic images of ka
                   phase_t phase{1};
                   for (int d = 0; d < 3; ++d) { // spatial directions x,y,z
+                      auto const phase_factor = std::pow(Bloch_phase[d], int(periodic_shift(ip,d)));
                       double const distance = xyzZ(ia,d) - (xyzZ_PAW(ka,d) + periodic_image(ip,d));
-                      phase *= std::pow(Bloch_phase[d], periodic_shift(ip,d));
                       stat += sho_overlap::overlap_matrix(ovl1D(d,0,0), distance, n1i, n1k, sigmas[ia], sigma_PAW[ka]);
+                      phase *= phase_factor;
                   } // d
 
                   // P(ia,ka,i,k) := ovl_x(ix,kx) * ovl_y(iy,ky) * ovl_z(iz,kz)
@@ -171,7 +172,7 @@ namespace sho_hamiltonian {
       // PAW projection matrix ready
 
       // allocate bulk memory for overlap and Hamiltonian
-      view3D<complex_t> SHm(2, nB, nBa, complex_t(0)); // get memory for 0:Overlap S and 1:Hamiltonian matrix H
+      view3D<complex_t> HSm(2, nB, nBa, complex_t(0)); // get memory for 1:Overlap S and 0:Hamiltonian matrix H
       
 #ifdef DEVEL
       double const scale_k = control::get("hamiltonian.scale.kinetic", 1.0);
@@ -197,8 +198,8 @@ namespace sho_hamiltonian {
           int const n1i   = sho_tools::n1HO(numaxs[ia]);
           int const nb_ia = sho_tools::nSHO(numaxs[ia]);
           for (int ja = 0; ja < natoms; ++ja) {
-              S_iaja[ia][ja] = view2D<complex_t>(&(SHm(S,offset[ia],offset[ja])), SHm.stride()); // wrapper to sub-blocks of the overlap matrix
-              H_iaja[ia][ja] = view2D<complex_t>(&(SHm(H,offset[ia],offset[ja])), SHm.stride()); // wrapper to sub-blocks of the Hamiltonian matrix
+              S_iaja[ia][ja] = view2D<complex_t>(&(HSm(S,offset[ia],offset[ja])), HSm.stride()); // wrapper to sub-blocks of the overlap matrix
+              H_iaja[ia][ja] = view2D<complex_t>(&(HSm(H,offset[ia],offset[ja])), HSm.stride()); // wrapper to sub-blocks of the Hamiltonian matrix
               int const n1j   = sho_tools::n1HO(numaxs[ja]);
               int const nb_ja = sho_tools::nSHO(numaxs[ja]);
 
@@ -211,10 +212,12 @@ namespace sho_hamiltonian {
                   view3D<double> nabla2(3, n1i + 1, n1j + 1, 0.0);         //  <\chi1D_i|d/dx  d/dx|\chi1D_j>
                   view4D<double> ovl1Dm(3, 1 + maxmoment, n1i, n1j, 0.0);  //  <\chi1D_i| x^moment |\chi1D_j>
                   for (int d = 0; d < 3; ++d) { // spatial directions x,y,z
+                      auto const phase_factor = std::pow(Bloch_phase[d], int(periodic_shift(ip,d)));
                       double const distance = xyzZ(ia,d) - (xyzZ(ja,d) + periodic_image(ip,d));
-                      phase *= std::pow(Bloch_phase[d], periodic_shift(ip,d));
+//                    std::printf("# (%g,%g)^%d = (%g,%g)\n", std::real(Bloch_phase[d]), std::imag(Bloch_phase[d]), int(periodic_shift(ip,d)), std::real(phase_factor), std::imag(phase_factor));
                       stat += sho_overlap::nabla2_matrix(nabla2[d].data(), distance, n1i + 1, n1j + 1, sigmas[ia], sigmas[ja]);
                       stat += sho_overlap::moment_tensor(ovl1Dm[d].data(), distance, n1i    , n1j    , sigmas[ia], sigmas[ja], maxmoment);
+                      phase *= phase_factor;
                   } // d
 
                   // add the kinetic energy contribution
@@ -225,6 +228,7 @@ namespace sho_hamiltonian {
 
                   // construct the overlap matrix of SHO basis functions
                   // Smat(i,j) := ovl_x(ix,jx) * ovl_y(iy,jy) * ovl_z(iz,jz)
+//                std::printf("# phase = %g %g, shifts %d %d %d\n", std::real(phase), std::imag(phase), periodic_shift(ip,0), periodic_shift(ip,1), periodic_shift(ip,2));
                   stat += sho_potential::potential_matrix(S_iaja[ia][ja], ovl1Dm,               ones,       0, numaxs[ia], numaxs[ja], phase);
 
               } // ip
@@ -255,7 +259,7 @@ namespace sho_hamiltonian {
       Psh_iala.clear(); // release the memory, P_jala is still needed for the generation of density matrices
       S_iaja.clear(); H_iaja.clear(); // release the sub-views, matrix elements are still stored in HSm
 
-      return dense_solver::solve(SHm, x_axis, echo);
+      return dense_solver::solve(HSm, x_axis, echo);
   } // solve_k
 
 
@@ -269,6 +273,8 @@ namespace sho_hamiltonian {
       , view2D<double> const & xyzZ // (natoms, 4)
       , real_space::grid_t const & g // Cartesian grid descriptor for vtot
       , double const *const vtot // total effective potential on grid
+      , int const nkpoints
+      , view2D<double> const & kmesh // kmesh(nkpoints, 4);
       , int const natoms_prj // =-1 number of PAW atoms
       , double const *const sigma_prj // =nullptr
       , int    const *const numax_prj // =nullptr
@@ -333,8 +339,13 @@ namespace sho_hamiltonian {
       view2D<int8_t> periodic_shift;
       float const rcut = 9*std::max(maximum_sigma, maximum_sigma_PAW); // exp(-9^2) = 6.6e-36
       double const cell[] = {g[0]*g.h[0], g[1]*g.h[1], g[2]*g.h[2]};
-      int const n_periodic_images = boundary_condition::periodic_images(periodic_image, cell, g.boundary_conditions(), rcut, 0, &periodic_shift);
+      int const n_periodic_images = boundary_condition::periodic_images(periodic_image, cell, g.boundary_conditions(), rcut, echo, &periodic_shift);
       if (echo > 1) std::printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+      if (echo > 9) {
+          for (int ip = 0; ip < n_periodic_images; ++ip) {
+              std::printf("# periodic image #%d\t shifts %3d %3d %3d\n", ip, periodic_shift(ip,0), periodic_shift(ip,1), periodic_shift(ip,2));
+          } // ip
+      } // echo
 
       double const origin[] = {.5*(g[0] - 1)*g.h[0],
                                .5*(g[1] - 1)*g.h[1], 
@@ -526,22 +537,22 @@ namespace sho_hamiltonian {
       prepare_timer.stop(echo);
       // all preparations done, start k-point loop
 
-      int const nkpoints            = control::get("hamiltonian.test.kpoints", 17.);
       int const floating_point_bits = control::get("hamiltonian.floating.point.bits", 64.); // double by default
       bool const single_precision = (32 == floating_point_bits);
       simple_stats::Stats<> time_stats;
       for (int ikp = 0; ikp < nkpoints; ++ikp) {
-//        std::complex<double> Bloch_phase[3] = {1 - 2.*(ikp & 1), 1. - (ikp & 2), 1. - .5*(ikp & 4)}; // one of the 8 real k-points, Gamma and X-points
           std::complex<double> constexpr minus_one = -1;
-          std::complex<double> const Bloch_phase[3] = {std::pow(minus_one, ikp/std::max(1., nkpoints - 1.)), 1, 1}; // first and last phases are real, dispersion in x-direction
-
+          std::complex<double> const Bloch_phase[3] = {std::pow(minus_one, 2*kmesh(ikp,0))
+                                                     , std::pow(minus_one, 2*kmesh(ikp,1))
+                                                     , std::pow(minus_one, 2*kmesh(ikp,2))};
+          char x_axis[96]; std::snprintf(x_axis, 95, "# %g %g %g spectrum ", kmesh(ikp,0), kmesh(ikp,1), kmesh(ikp,2));
           double Bloch_phase_real[3];
           bool can_be_real{true};
           for (int d = 0; d < 3; ++d) {
               Bloch_phase_real[d] = Bloch_phase[d].real();
               can_be_real = can_be_real && (std::abs(Bloch_phase[d].imag()) < 2e-16);
+//            std::printf("# phase-%c = %g %g\n", 'x'+d, Bloch_phase[d].real(), Bloch_phase[d].imag());
           } // d
-          char x_axis[96]; std::snprintf(x_axis, 95, "# %.6f spectrum ", ikp*.5/std::max(1., nkpoints - 1.));
           SimpleTimer timer(__FILE__, __LINE__, x_axis, 0);
           #define SOLVE_K_ARGS(BLOCH_PHASE) (natoms, xyzZ, numaxs.data(), sigmas.data(), \
                           n_periodic_images, periodic_image, periodic_shift, \
@@ -602,7 +613,14 @@ namespace sho_hamiltonian {
           std::printf("# cell is  %g %g %g %s\n", g.h[0]*g[0]*Ang, g.h[1]*g[1]*Ang, g.h[2]*g[2]*Ang, _Ang);
       } // echo
       
-      stat += solve(natoms, xyzZ, g, vtot.data(), 0, 0, 0, 0, echo);
+      int const nkpoints = control::get("hamiltonian.test.kpoints", 17.);
+      auto const kpointdir = int(control::get("hamiltonian.test.kpoint.direction", 0.)) % 3;
+      view2D<double> kmesh(nkpoints, 4, 0.0);
+      for (int ikp = 0; ikp < nkpoints; ++ikp) {
+          kmesh(ikp,kpointdir) = ikp*0.5/(nkpoints - 1.); // bandstructure e.g. in x-direction
+      } // ikp
+
+      stat += solve(natoms, xyzZ, g, vtot.data(), nkpoints, kmesh, 0, 0, 0, 0, echo);
 
       return stat;
   } // test_Hamiltonian
