@@ -33,8 +33,8 @@ namespace dense_solver {
       if (nB > mB) std::printf(" ..."); // there are more eigenvalues than we display
       std::printf(" %g %g %s\n", eigvals[nB - 2]*u, eigvals[nB - 1]*u, _u); // last two
   } // display_spectrum
-  
-  
+
+
   template <typename complex_t>
   inline status_t solve(
         view3D<complex_t> & HSm // Hamiltonian and Overlap, both[nB][stride]
@@ -183,7 +183,7 @@ namespace dense_solver {
                                       matrix_name, diag, offi, offr);
           } // check hermiticity
 #endif // DEVEL
-          
+
           // diagonalize matrix
           if (H == h0s1) {
               stat_eig = linear_algebra::eigenvalues(eigvals.data(), nB, HSm(H,0), nBa, HSm(S,0), nBa);
@@ -204,7 +204,7 @@ namespace dense_solver {
                   if (echo > 2) {
                       display_spectrum(eigvals.data(), nB, x_axis, u, _u, h0s1?matrix_name:"");
                   } // echo
-                  if (echo > 4) std::printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s, respectively\n", 
+                  if (echo > 4) std::printf("# lowest and highest eigenvalue of the %s matrix is %g and %g %s\n", 
                                             matrix_name, lowest_eigenvalue*u, highest_eigenvalue*u, _u);
                   if (S == h0s1) {
                       if (lowest_eigenvalue <= 0) {
@@ -236,7 +236,7 @@ namespace dense_solver {
           } // H or ovl_eig
 
       } // h0s1
-      
+
       if (0 == stat_eig) {
                   // ToDo: export the entire spectrum and the lowest n_occupied_bands eigenvectors
                   //       for this k-point to be later used for the density generation.
@@ -245,7 +245,7 @@ namespace dense_solver {
                   //       by ensuring that the occupation numbers of the next higher state
                   //          f_FD(eigvals[n_occupied_bands] - E_Fermi) < 10^{-15}
                   //       are small.
-                
+
                   // Idea: exporting all n_occupied_bands eigenvectors may require
                   //       a lot of memory capacity and memory traffic during copying.
                   //       Alternatively, we could think about this scheme with higher data locality:
@@ -271,9 +271,9 @@ namespace dense_solver {
                   //       to the Fermi level for the next iteration and
                   //       add as much of the response density to the total density
                   //       that the norm of the corrected total density matches the charge requested.
-                
+
                   // Implementation:
-#if 0               
+#if 0
                   // ToDo: test this
                   if (scf_iteration < 1) {
                       // in the first iteration, we assume that E_Fermi is unknown but q_electrons is given
@@ -319,10 +319,10 @@ namespace dense_solver {
       if (eigenenergies) {
           set(eigenenergies, std::min(size_t(nbands), eigvals.size()), eigvals.data()); // export
       } // eigenenergies
-      
+
       return stat;
   } // solve
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
@@ -330,7 +330,7 @@ namespace dense_solver {
   template <typename real_t>
   inline status_t test_inverse(int const echo=0) {
       status_t status(0);
-      int constexpr N = 5;
+      int constexpr N = 9;
       real_t dev{0};
       view2D<std::complex<real_t>> mat(N, N, 0), inv(N, N);
       for (int n = 1; n <= N; ++n) { // dimension
@@ -343,7 +343,7 @@ namespace dense_solver {
                   inv(i,j) = mat(i,j); // copy
               } // j
           } // i
-          
+
           auto const stat = linear_algebra::inverse(n, inv.data(), inv.stride());
           if (stat) warn("inversion failed with status= %i", stat);
           status += stat;
@@ -364,11 +364,11 @@ namespace dense_solver {
                       std::real(cN), std::imag(cN), std::real(cT), std::imag(cT) );
               } // j
           } // i
-          if (echo > 3) std::printf("# %s n= %d deviations from unity are %.2e and %.2e transposed\n",
+          if (echo > 3) std::printf("# %s n=%d deviations from unity are %.2e and %.2e transposed\n",
                                       __func__, n, devN, devT);
           dev = std::max(dev, std::max(devN, devT));
       } // n
-      if (echo > 0) std::printf("# %s<%s>(N= %d) deviations from unity are %.1e\n\n",
+      if (echo > 0) std::printf("# %s<%s>(N=%d) deviations from unity are %.1e\n\n",
                                   __func__, complex_name<real_t>(), N, dev);
       return status + (dev > 1e-5);
   } // test_inverse

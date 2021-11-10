@@ -5,25 +5,25 @@
 #include <cassert> // assert
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "green_memory.hxx" // get_memory, free_memory
+#include "green_memory.hxx" // get_memory, free_memory, dim3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
 namespace green_projection {
-  
-#define NO_CUDA
-#define __global__
-#define __restrict__
-#define __device__
-#define __shared__
-#define __unroll__
-#define __host__
 
-  
+#ifdef HAS_NO_CUDA
+  #define __global__
+  #define __restrict__
+  #define __device__
+  #define __shared__
+  #define __unroll__
+  #define __host__
+#endif // HAS_NO_CUDA
+
     template <typename real_t>
-    inline float __host__ __device__
+    float __host__ __device__
     Hermite_polynomials_1D(
           real_t (*const __restrict__ H1D)[3][4] // result
-          float  (*const __restrict__ xi_squared)[4] // distance^2
+        , float  (*const __restrict__ xi_squared)[4] // distance^2
         , int    const ivec // thread index used for the vectorization
         , int    const Lmax
         , double const xyza[4] // atomic position in [0],[1] and [2], sigma^{-1/2} in [3]
@@ -101,31 +101,20 @@ namespace green_projection {
 //      , int64_t const (*const __restrict__ BitMask) // can be omitted
         , float   const (*const __restrict__ CubePos)[4] // only [0],[1],[2] used
         , float   const (*const __restrict__ hGrid) // grid spacings in [0],[1] and [2], projection radius in [3]
-        , int nrhs=0
-        , int const natoms=0
+#ifdef HAS_NO_CUDA
+        , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
+#endif // HAS_NO_CUDA
     ) {
 
-#ifdef NO_CUDA
-        for (int block_y = 0; block_y < natoms; ++block_y) {
-        for (int block_x = 0; block_x < nrhs; ++block_x) {
-        for (int thread_x = 0; thread_x < nvec; ++thread_x) {
-        assert(false); // does not work without CUDA due to usage of shared memory elements
-#else
         assert(nvec == blockDim.x);
-        nrhs = gridDim.x;
-        { int const block_y = blockIdx.y;
-        { int const block_x = blockIdx.x;
-        { int const thread_x = threadIdx.x;
-#endif
 
-        int const iatom = block_y; // in [0, natoms)
+        int const iatom = blockIdx.y; // in [0, natoms)
         if (RowStart[iatom] >= RowStart[iatom + 1]) return; // empty range in the sparse matrix, early return
 
         int const lmax = Lmax; // ToDo: make this atom-dependent in the future
         assert(lmax <= Lmax);
 
-        int const J = block_x;  // in [0, nRHSs/nvec) ceiling
-        int const j = thread_x; // in [0, nvec)
+        int const nrhs = gridDim.x; // == nRHSs/nvec
 
         __shared__ real_t H1D[Lmax + 1][3][4]; // non-normalized orthogonal 1-dimensional Hermite Gauss functions
         __shared__ float  xi_squared[3][4]; // distance along one Cartesian direction squared
@@ -133,18 +122,30 @@ namespace green_projection {
         __shared__ float  xyzc[4]; // cube position
         __shared__ float  hgrid[4];
 
+#ifdef HAS_NO_CUDA
+        dim3 threadIdx(0,0,0);
+        for (threadIdx.x = 0; threadIdx.x < 4; ++threadIdx.x)
+#endif // HAS_NO_CUDA
         // stage the atomic position of the atom treated in this CUDA block
-        if (thread_x < 4) {
-            xyza[thread_x] = AtomPos[iatom][thread_x]; // coalesced load
-            hgrid[thread_x] = hGrid[thread_x]; // load grid spacing into shared memory
+        if (threadIdx.x < 4) {
+            xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
+            hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
         } // lowest 4 threads
 
+#ifdef HAS_NO_CUDA
+        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+#endif // HAS_NO_CUDA
+        {
+          
         real_t czyx[sho_tools::nSHO(Lmax)]; // get nSHO accumulator registers
         for (int sho = 0; sho < sho_tools::nSHO(Lmax); ++sho) {
             czyx[sho] = 0; // init accumulator registers
         } // sho
 
         __syncthreads(); // sync necessary?
+
+        int const J = blockIdx.x;  // in [0, nRHSs/nvec) ceiling
+        int const j = threadIdx.x; // in [0, nvec)
 
         // in this loop over bsr we accumulate atom projection coefficients over many cubes
         for (int bsr = RowStart[iatom]; bsr < RowStart[iatom + 1]; ++bsr) {
@@ -153,8 +154,8 @@ namespace green_projection {
 
             int const icube = ColIndex[bsr];
 
-            if (thread_x < 4) {
-                xyzc[thread_x] = CubePos[icube][thread_x]; // load into shared memory
+            if (threadIdx.x < 4) {
+                xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
             } // lowest 4 threads
 
             __syncthreads();
@@ -184,7 +185,7 @@ namespace green_projection {
                         auto const d2yz = xi_squared[1][y] + d2z;
                         if (d2yz < 0) {
 
-                            real_t a[Lmax + 1];
+                            real_t ax[Lmax + 1];
                             __unroll__
                             for (int ix = 0; ix <= Lmax; ++ix) { // loop over the 1st Cartesian SHO quantum number
                                 ax[ix] = 0; // init
@@ -243,8 +244,8 @@ namespace green_projection {
             } // sho
         } // store
 
-        }}} // close 3 loops
-
+        } // thread loop
+        
     } // SHOprj
     
     
@@ -266,31 +267,19 @@ namespace green_projection {
         , int     const (*const __restrict__ ColIndex) // cols==atoms
         , float   const (*const __restrict__ CubePos)[4] // only [0],[1],[2] used
         , float   const (*const __restrict__ hGrid) // grid spacings in [0],[1] and [2], projection radius in [3]
-        , int nrhs=0
-        , int const ncubes=0
+#ifdef HAS_NO_CUDA
+        , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
+#endif // HAS_NO_CUDA
     ) {
 
-#ifdef NO_CUDA
-        for (int block_y = 0; block_y < ncubes; ++block_y) {
-        for (int block_x = 0; block_x < nrhs; ++block_x) {
-        for (int thread_x = 0; thread_x < nvec; ++thread_x) {
-        assert(false); // does not work without CUDA due to usage of shared memory elements
-#else
         assert(nvec == blockDim.x);
-        nrhs = gridDim.x;
-        { int const block_y = blockIdx.y;
-        { int const block_x = blockIdx.x;
-        { int const thread_x = threadIdx.x;
-#endif
+        int const nrhs = gridDim.x;
 
-        int const icube = block_y; // in [0, ncubes)
+        int const icube = blockIdx.y; // in [0, ncubes)
         if (RowStart[icube] >= RowStart[icube + 1]) return; // empty range in the sparse matrix, early return
 
         int const lmax = Lmax; // ToDo: make this atom-dependent in the future
         assert(lmax <= Lmax);
-
-        int const J = block_x;  // in [0, nrhs)
-        int const j = thread_x; // in [0, nvec)
 
         __shared__ real_t H1D[1 + Lmax][3][4]; // non-normalized orthogonal 1-dimensional Hermite Gauss functions
         __shared__ float  xi_squared[3][4]; // distance along one Cartesian direction squared
@@ -298,12 +287,21 @@ namespace green_projection {
         __shared__ float  xyzc[4]; // cube position
         __shared__ float  hgrid[4]; // grid spacings
 
+#ifdef HAS_NO_CUDA
+        dim3 threadIdx(0,0,0);
+        for (threadIdx.x = 0; threadIdx.x < 4; ++threadIdx.x)
+#endif // HAS_NO_CUDA
         // stage the atomic position of the atom treated in this CUDA block
-        if (thread_x < 4) {
-            xyzc[thread_x] = CubePos[icube][thread_x]; // coalesced load
-            hgrid[thread_x] = hGrid[thread_x]; // load grid spacing into shared memory
+        if (threadIdx.x < 4) {
+            xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // coalesced load
+            hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
         } // lowest 4 threads
 
+#ifdef HAS_NO_CUDA
+        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+#endif // HAS_NO_CUDA
+        {
+          
         real_t czyx[4][4][4]; // get 64 accumulator registers --> 128 registers if double
         __unroll__
         for (int z = 0; z < 4; ++z) {
@@ -316,6 +314,10 @@ namespace green_projection {
             } // y
         } // z
 
+        int const J = blockIdx.x;  // in [0, nrhs)
+        int const j = threadIdx.x; // in [0, nvec)
+        
+        
         int64_t mask_all{0}; // mask accumulator that tells which grid points have to be updated
 
         // in this loop over bsr we accumulate atom projector functions over many atoms
@@ -325,8 +327,8 @@ namespace green_projection {
 
             int const iatom = ColIndex[bsr];
 
-            if (thread_x < 4) {
-                xyza[thread_x] = AtomPos[iatom][thread_x]; // load, convert to float
+            if (threadIdx.x < 4) {
+                xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // load, convert to float
             } // lowest 4 threads
 
             __syncthreads();
@@ -418,11 +420,10 @@ namespace green_projection {
             } // z
         } // mask_all
 
-        }}} // close 3 loops
+        } // thread loop
         
     } // SHOadd
 
-#undef __global__
 
 
     // For the Green function data layout X[nnzb][R1C2][Noco*64][Noco*64]
@@ -478,25 +479,37 @@ namespace green_projection {
     template <typename real_t, int nvec=64, int R1C2=2, int Noco=1, int Lmax=Lmax_default>
     void __global__ SHOmul( // launch SHOmul<real_t,nvec> <<< {ncols, natoms, 1}, {Noco*64, Noco, R1C2} >>> (...);
           real_t       (*const __restrict__ aac)[R1C2][Noco][Noco*64] // result
-          real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*64] // input
+        , real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*64] // input
         , double const (*const __restrict__ mat)[Noco*Noco*R1C2] // matrices, ToDo: make atom dependent
         , int    const (*const __restrict__ AtomStarts)
         , int8_t const (*const __restrict__ AtomLmax)
-        , int const ncols=1
+#ifdef HAS_NO_CUDA
+        , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
+#endif // HAS_NO_CUDA
     ) {
 
-        assert(R1C2 >= Noco); // Noncollinear spin treatment needs complex numbers
+        assert(R1C2 >= Noco && "Noncollinear spin treatment needs complex numbers");
 
-        int const ivec  = threadIdx.x;
-        int const spin  = threadIdx.y;
-        int const reim  = threadIdx.z;
+        int const ncols = gridDim.x;
         int const icol  = blockIdx.x;
         int const iatom = blockIdx.y;
         int const lmax = AtomLmax[iatom];
-        int const a0   = AtomStarts[iatom];
+        int const a0   = AtomStarts[iatom]; // prefix sum over nSHO(AtomLmax[:])
         int const nSHO = sho_tools::nSHO(lmax);
-        int const spjn = ivec >> 6;
+//      int const spjn = ivec >> 6;
 
+#ifdef HAS_NO_CUDA
+        dim3 threadIdx(0,0,0);
+        for (threadIdx.z = 0; threadIdx.z < blockDim.z; ++threadIdx.z)
+        for (threadIdx.y = 0; threadIdx.y < blockDim.y; ++threadIdx.y)
+        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+#endif // HAS_NO_CUDA
+        {
+        
+        int const ivec  = threadIdx.x;
+        int const spin  = threadIdx.y;
+        int const reim  = threadIdx.z;
+        
         // version 0: Noco=1, R1C2=1
         for (int ai = 0; ai < nSHO; ++ai) {
             real_t cad{0};
@@ -507,24 +520,26 @@ namespace green_projection {
             // store addition coefficients
             aac[(a0 + ai)*ncols + icol][reim][spin][ivec] = cad;
         } // aj
-        
+
         // version 1: Noco=1, R1C2=2
         // cad_Re += mat[iatom][ai*nSHO + aj][0] * cpr_Re[aj];
         // cad_Re -= mat[iatom][ai*nSHO + aj][1] * cpr_Im[aj];
         // cad_Im += mat[iatom][ai*nSHO + aj][1] * cpr_Re[aj];
         // cad_Im += mat[iatom][ai*nSHO + aj][0] * cpr_Im[aj];
-        
+
         // version 11: Noco=2, R1C2=2
         // ...
 
+        } // thread loop
+
     } // SHOmul
     
-    
+
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
-          real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t         (*const __restrict__  apc)[R1C2][Noco]   [Noco*64] // workarray
-        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
+          real_t       (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t       (*const __restrict__  apc)[R1C2][Noco]   [Noco*64] // workarray
+        , real_t const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
     ) {
 
         // SHOprj
@@ -532,12 +547,10 @@ namespace green_projection {
         // SHOadd
 
         return 0ul; // total number of floating point operations performed
-	} // multiply (projection operations)
+    } // multiply (projection operations)
 
-#undef NO_CUDA
 
-  
-  
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

@@ -2,6 +2,15 @@
 
 exe=../src/a43
 
+# base=scf.H-fcc
+# a=2.12132
+# c=0.53033
+# printf " 4 \n#cell $a $a $a p p p \n" > $base.xyz
+# echo "H   -$c -$c -$c" >> $base.xyz
+# echo "H    $c  $c -$c" >> $base.xyz
+# echo "H    $c -$c  $c" >> $base.xyz
+# echo "H   -$c  $c  $c" >> $base.xyz
+
 # base=scf.C-sc
 # printf " 1 \n#cell 2.5 2.5 2.5 p p p \n" > $base.xyz
 # echo "C 0 0 0" >> $base.xyz
@@ -10,13 +19,13 @@ exe=../src/a43
 # printf " 1 \n#cell 4 4 4 i i i \n" > $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
-# base=scf.C-atom
-# printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
-# echo "C  0 0 0" >> $base.xyz
-
-base=scf.C-chain
-printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
+base=scf.C-atom
+printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
 echo "C  0 0 0" >> $base.xyz
+
+# base=scf.C-chain
+# printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
+# echo "C  0 0 0" >> $base.xyz
 
 # base=scf.C-dimer
 # printf " 2 \n#cell 8 8 8 i i i \n" > $base.xyz
@@ -209,12 +218,12 @@ logder.step=1e-2
 ##
 
 ## number of Kohn-Sham states per atom in the system
-# bands.per.atom=10
+bands.per.atom=1
 
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
-hamiltonian.kmesh=0
-hamiltonian.kmesh.x=35
+# hamiltonian.kmesh=0
+# hamiltonian.kmesh.x=35
 # hamiltonian.kmesh=4
 ## hamiltonian.floating.point.bits=64
 hamiltonian.floating.point.bits=32
@@ -224,15 +233,15 @@ hamiltonian.floating.point.bits=32
 # grid.eigensolver=none
 # grid.eigensolver=explicit
 grid.eigensolver=cg
-# conjugate_gradients.max.iter=1
-# grid.eigensolver.repeat=3
+conjugate_gradients.max.iter=4
+grid.eigensolver.repeat=9
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
 # start.waves=$base.waves.dat
-# store.waves=$base.waves.dat
+store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}
@@ -264,7 +273,7 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 2 1 0`; do
+for spacing in `seq 2 1 2`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -275,7 +284,7 @@ for spacing in `seq 2 1 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for numax in `seq 4 2 4`; do
+for numax in `seq 4 2 0`; do
   project=$base.sho$numax
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

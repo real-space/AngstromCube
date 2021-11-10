@@ -620,18 +620,18 @@ namespace self_consistency {
               } // ia
               for (int i01 = 0; i01 < 2; ++i01) {
                   if (echo > 3 + 4*(1 - i01)) {
+                      auto const E_tot = Ea[energy_contribution::KINETIC]
+                                       + Ea[energy_contribution::ELECTROSTATIC]
+                                       + Ea[energy_contribution::EXCHANGE_CORRELATION]
+                                       - Ea[energy_contribution::REFERENCE];
                       char const *const without_with = i01 ? "" : "out";
-                      std::printf("\n# sum of atomic energy contributions with%s grid contributions (%s)\n", without_with, _eV);
-                      std::printf("# kinetic      %32.9f\n", Ea[energy_contribution::KINETIC]*eV);
-                      std::printf("# electrostatic%32.9f\n", Ea[energy_contribution::ELECTROSTATIC]*eV);
-                      std::printf("# XC           %32.9f\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV);
-                      std::printf("# true total   %32.9f\n", Ea[energy_contribution::TOTAL]*eV);
-                      std::printf("# reference    %32.9f\n", Ea[energy_contribution::REFERENCE]*eV);
-                      double const E_tot = Ea[energy_contribution::KINETIC] 
-                                         + Ea[energy_contribution::ELECTROSTATIC]
-                                         + Ea[energy_contribution::EXCHANGE_CORRELATION]
-                                         - Ea[energy_contribution::REFERENCE];
-                      std::printf("# total        %32.9f %s\n", E_tot*eV, _eV);
+                      std::printf("\n# sum of atomic energy contributions with%s grid contributions:\n", without_with);
+                      std::printf("# kinetic      %32.9f %s\n", Ea[energy_contribution::KINETIC]             *eV, _eV);
+                      std::printf("# electrostatic%32.9f %s\n", Ea[energy_contribution::ELECTROSTATIC]       *eV, _eV);
+                      std::printf("# XC           %32.9f %s\n", Ea[energy_contribution::EXCHANGE_CORRELATION]*eV, _eV);
+                      std::printf("# true total   %32.9f %s\n", Ea[energy_contribution::TOTAL]               *eV, _eV);
+                      std::printf("# reference    %32.9f %s\n", Ea[energy_contribution::REFERENCE]           *eV, _eV);
+                      std::printf("# total        %32.9f %s\n", E_tot                                        *eV, _eV);
                   } // echo
 
                   // now add grid contributions

@@ -5,47 +5,60 @@
 #include <cassert> // assert
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "green_memory.hxx" // get_memory, free_memory
+#include "green_memory.hxx" // get_memory, free_memory, dim3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
 namespace green_potential {
-  
-#define NO_CUDA
-#define __global__
-#define ____restrict____
-#define __device__
-#define __shared__
-#define __unroll__
-#define __host__
 
-    
+#ifdef HAS_NO_CUDA
+  #define __global__
+  #define __restrict__
+  #define __device__
+  #define __shared__
+  #define __unroll__
+  #define __host__
+#endif // HAS_NO_CUDA
+
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Potential( // GPU kernel, must be launched with <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
-          real_t        (*const restrict Vpsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t  const (*const restrict  psi)[R1C2][Noco*64][Noco*64] //
-        , real_t  const (*const restrict Vloc)[Noco*Noco][64] // local potential
+          real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] //
+        , real_t  const (*const __restrict__ Vloc)[Noco*Noco][64] // local potential
         , size_t  const nnzb // number of all blocks to be treated
-        , int     const (*const restrict CubeIndex) // translation from inzb to itrg, with uint16_t, we can cover a radius of 25 blocks
-        , int16_t const (*const restrict shift)[4] // 3D block shift vector (target minus source), 4th component unused
+        , int     const (*const __restrict__ CubeIndex) // translation from inzb to itrg, with uint16_t, we can cover a radius of 25 blocks
+        , int16_t const (*const __restrict__ shift)[4] // 3D block shift vector (target minus source), 4th component unused
         , float   const rcut2 // cutoff radius^2 for the confinement potential
         , real_t  const E_real // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t  const E_imag // imaginary part of the energy parameter
+#ifdef HAS_NO_CUDA
+        , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
+#endif // HAS_NO_CUDA
     ) {
 
-        int const reim = threadIdx.z; // real or imaginary part of the Green function
-        int const spin = threadIdx.y; // non-collinear spin index
-        int const j64 = threadIdx.x; // source == right hand side vectorization, in [0, Noco*64)
-        int const i64 = blockIdx.x;  // target == inner column dimension, in [0, 64)
+        int const i64  = blockIdx.x;  // target == inner column dimension, in [0, 64)
         assert(1       == gridDim.z);
         assert(64      == gridDim.x);
         assert(Noco*64 == blockDim.x);
         assert(Noco    == blockDim.y);
         assert(R1C2    == blockDim.z);
 
+#ifdef HAS_NO_CUDA
+        dim3 threadIdx(0,0,0);
+        for (threadIdx.z = 0; threadIdx.z < blockDim.z; ++threadIdx.z)
+        for (threadIdx.y = 0; threadIdx.y < blockDim.y; ++threadIdx.y)
+        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+#endif // HAS_NO_CUDA
+        {
+
+        int const reim = threadIdx.z; // real or imaginary part of the Green function
+        int const spin = threadIdx.y; // non-collinear spin index
+        int const j64  = threadIdx.x; // source == right hand side vectorization, in [0, Noco*64)
+        
+        
 #define CONFINEMENT_POTENTIAL
 #ifdef  CONFINEMENT_POTENTIAL
         // generate the position difference of grid points (target minus source)
-        int const x = ( i64       & 0x3) - ( j64 >>    & 0x3);
+        int const x = ( i64       & 0x3) - ( j64       & 0x3);
         int const y = ((i64 >> 2) & 0x3) - ((j64 >> 2) & 0x3);
         int const z = ((i64 >> 4) & 0x3) - ((j64 >> 4) & 0x3);
         // due to the masking, we ignore the Noco-spin index inside j64
@@ -57,9 +70,10 @@ namespace green_potential {
         bool const imaginary = ((2 == R1C2) && (0 != E_imag));
         auto const V_imag = E_imag * real_t(1 - 2*reim);
 
-        for (int inzb = blockIdx.y; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y.blocks
+        for (int inzb = blockIdx.y; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y-blocks
 
 #ifdef  CONFINEMENT_POTENTIAL
+            int constexpr n4 = 4;
             auto const s = shift[inzb]; // shift vectors between target minus source cube
             double const d2 = pow2(x + n4*s[0]) + pow2(y + n4*s[1]) + pow2(z + n4*s[2]); // metric missing here
             auto const d2out = real_t(d2 - rcut2);
@@ -114,21 +128,20 @@ namespace green_potential {
             Vpsi[inzb][reim][spin*64 + i64][j64] = vpsi; // store
         } // inzb
 
+        } // thread loops
+        
     } // Potential
 
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
-          real_t         (*const ____restrict____ Vpsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t   const (*const ____restrict____  psi)[R1C2][Noco*64][Noco*64] // input
+          real_t         (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , double   const hgrid=1 // grid spacing, ToDo make it an array of X,Y,Z
     ) {
       
         return 0ul; // total number of floating point operations performed
     } // multiply potential
 
-#undef NO_CUDA
-
-  
   
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }

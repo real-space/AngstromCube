@@ -1,5 +1,14 @@
 #pragma once
 
+#ifdef HAS_NO_CUDA
+  struct dim3 {
+      int x, y, z;
+      dim3(int xx, int yy=1, int zz=1) : x(xx), y(yy), z(zz) {}
+  }; // dim3
+
+  inline void __syncthreads(void) {} // dummy
+#endif // HAS_NO_CUDA      
+
   template <typename T>
   T* get_memory(size_t const size=1, int const echo=0) {
 #ifdef DEBUG

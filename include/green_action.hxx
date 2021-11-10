@@ -28,13 +28,13 @@
 namespace green_action {
 
   typedef struct {
-      double pos[3];
-      double sigma;
+      double pos[3]; // position
+      double sigma; // Gaussian spread
       int32_t gid; // global identifier
       int32_t ia; // local atom index
-      int16_t shifts[3];
+      int16_t shifts[3]; // periodic image shifts
       uint8_t nc; // number of coefficients
-      int8_t numax;
+      int8_t numax; // SHO basis size
   } atom_t;
 
 
@@ -142,7 +142,7 @@ namespace green_action {
       void take_memory(char* &buffer) {
           assert(p->ApcStart);
           auto const nac = p->ApcStart[p->natom_images];
-          auto const n = size_t(nac) * size_t(p->nCols);
+          auto const n = size_t(nac) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
           apc = get_memory<real_t[2][LM]>(n);
@@ -392,8 +392,8 @@ namespace green_action {
               std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
               // how many grid points do we expect?
               double const f = 4*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
-              double const Vi = pow3(p->r_Vconfinement)*f;
-              double const Vo = pow3(p->r_truncation)*f;
+              double const Vi = pow3(p->r_Vconfinement)*f,
+                           Vo = pow3(p->r_truncation)*f;
               std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
               std::printf("# stats  inner %g conf %g outer %g grid points\n", 
                       stats_inner.num(), stats_Vconf.num(), stats_outer.num());

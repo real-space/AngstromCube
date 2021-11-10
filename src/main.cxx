@@ -21,6 +21,7 @@
   #include "bessel_transform.hxx" // ::all_tests
   #include "parallel_domains.hxx" // ::all_tests
   #include "structure_solver.hxx" // ::all_tests
+  #include "green_projection.hxx" // ::all_tests
   #include "scattering_test.hxx" // ::all_tests
   #include "davidson_solver.hxx" // ::all_tests
   #include "chemical_symbol.hxx" // ::all_tests
@@ -29,6 +30,7 @@
   #include "fourier_poisson.hxx" // ::all_tests
   #include "solid_harmonics.hxx" // ::all_tests
   #include "bisection_tools.hxx" // ::all_tests
+  #include "green_potential.hxx" // ::all_tests
   #include "green_function.hxx" // ::all_tests
   #include "poisson_solver.hxx" // ::all_tests
   #include "brillouin_zone.hxx" // ::all_tests
@@ -38,10 +40,11 @@
   #include "grid_operators.hxx" // ::all_tests
   #include "dense_operator.hxx" // ::all_tests
   #include "element_config.hxx" // ::all_tests
-  #include "green_kinetic.hxx" // ::all_tests
   #include "complex_tools.hxx" // ::all_tests
   #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
+  #include "green_kinetic.hxx" // ::all_tests
+  #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "angular_grid.hxx" // ::all_tests
@@ -186,6 +189,9 @@
           add_module_test(grid_operators);
           add_module_test(green_function);
           add_module_test(green_kinetic);
+          add_module_test(green_potential);
+          add_module_test(green_projection);
+          add_module_test(green_action);
 
           if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");
           add_module_test(conjugate_gradients);

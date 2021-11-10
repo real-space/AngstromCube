@@ -1319,7 +1319,7 @@ namespace single_atom {
 
             optimized = "optimized ";
         } // optimize_sigma
-        double const sigma_out = (optimize_sigma > 0) ? sigma_opt : sigma_old; // return value
+        double const sigma_out = (optimize_sigma > 0 || optimize_sigma < -9) ? sigma_opt : sigma_old; // return value
 #else  // DEVEL
         double const sigma_out = sigma; // return value
         if (optimize_sigma) warn("single_atom.optimize.sigma=%i active only with -D DEVEL", optimize_sigma);
@@ -1334,13 +1334,13 @@ namespace single_atom {
             if (echo > 3) std::printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
                                           weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
         } // scope: fill prj_coeff
-        
+
         for (int ell = 0; ell <= numax; ++ell) {
             int const nmx = sho_tools::nn_max(numax, ell); assert(nmx <= 8 && "numax > hard limit 15");
 
             for (int irn = 0; irn < nn[ell]; ++irn) {
                 int const iln = sho_tools::ln_index(numax, ell, irn);
-                
+
                 // display
                 assert(nmx == projector_coeff[ell].stride());
                 set(projector_coeff[ell][irn], nmx, prj_coeff[iln]); // copy into member variable

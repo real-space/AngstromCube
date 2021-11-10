@@ -11,7 +11,7 @@ namespace radial_grid {
   float  constexpr default_Rmax = 9.45;
 
   char constexpr equation_exponential = 'e';
-  char constexpr equation_equidistant = '-';
+  char constexpr equation_equidistant = '=';
   char constexpr equation_reciprocal  = '/';
 
   radial_grid_t* create_radial_grid( // returns a pointer to a new radial grid descriptor
