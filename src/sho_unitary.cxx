@@ -1,65 +1,28 @@
 #include <cstdio> // std::printf
 
-// #include <cassert> // assert
-// #include <cmath> // std::sqrt, std::pow, std::exp, std::sqrt
-// #include <algorithm> // std::max, std::fill
-// #include <fstream> // std::ifstream
-// #include <sstream> // std::istringstream
-// #include <vector> // std::vector
-// #include <numeric> // std::iota
+#include <cassert> // assert
+// #include <cmath> // std::sqrt, ::pow, ::exp
+// #include <algorithm> // std::max
+#include <vector> // std::vector
+#include <numeric> // std::iota
+
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
 #include "sho_tools.hxx" // ::order_*
 
 namespace sho_unitary {
-
+  
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  status_t test_generation(int const echo=9) {
-      return 0; // not included
-//    return generate_unitary_transform(9, echo);
-  } // test_generation
-
-  template <typename real_t>
-  status_t test_loading(int const echo=1, int const numax=9) {
-      Unitary_SHO_Transform<real_t> U(numax);
-      auto const dev = U.test_unitarity(echo);
-      if (echo > 2) std::printf("# Unitary_SHO_Transform<%s>.test_unitarity = %.1e\n", 
-                                  (8 == sizeof(real_t))?"double":"float", dev);
-      return (dev > 2e-7); // error if deviations are too large
-  } // test_loading
-
-  status_t test_vector_transform(int const echo=9, int const numax=3) {
-      Unitary_SHO_Transform<double> U(numax);
-      if (echo > 3) std::printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
-      int const nc = sho_tools::nSHO(numax);
-      std::vector<double> vi(nc), vo(nc, 0);
-      std::iota(vi.begin(), vi.end(), 0); // ascending sequence
-      return U.transform_vector(vo.data(), sho_tools::order_nlm, vi.data(), sho_tools::order_zyx, numax, echo);
-  } // test_vector_transform
-
-  status_t all_tests(int const echo) {
-      status_t stat(0);
-      stat += test_generation(echo);
-      stat += test_loading<float>(echo);
-      stat += test_loading<double>(echo);
-      stat += test_vector_transform(echo);
-      return stat;
-  } // all_tests
-
-#endif // NO_UNIT_TESTS
-
-} // namespace sho_unitary
-
 #if 0
-
-  status_t generate_unitary_transform(int const numax, int const echo=9) {
+  template <int numax=9>
+  status_t generate_unitary_transform(int const echo) {
 //       int const mx = align<2>(1 + numax);
 
-      int const lmax = numax;
-      int const lx = (1 + lmax);
+      int constexpr lmax = numax;
+      int constexpr lx = (1 + lmax);
       int xory[lmax + 1 + lmax][lx]; // xory[lmax + m][k] --> for m <  0: x^(|m|- k)*y^k if k even
                                      //                   --> for m >= 0: y^(|m|- k)*x^k if k odd
       for (int k = 0; k < (2*lmax + 1)*lx; ++k) xory[0][k] = 0; // clear
@@ -116,7 +79,7 @@ namespace sho_unitary {
       for (int k = 0; k < lx*lx*2*lx; ++k) Plm[0][0][k] = 0; // clear
 
       for (int l = 0; l <= lmax; ++l) {
-          int64_t poly[2*l + 1]; // polynomial in u
+          int64_t poly[2*lx + 1]; // polynomial in u
           for (int k = 0; k <= 2*l; ++k) poly[k] = 0; // clear
           for (int k = 0; k <= l;   ++k) poly[2*k] = Pl[l][k]; // copy underived
 
@@ -125,7 +88,7 @@ namespace sho_unitary {
                   if (echo > 2) std::printf("# Plm l=%d m=%d  ", l, m);
                   for (int k = 0; k <= l - m; ++k) {
                       Plm[l][m][k] = poly[k]; // store associated Legendre polynomial
-                      if (echo > 2) std::printf(" %ldx^%d ", Plm[l][m][k], k);
+                      if (echo > 2) std::printf(" %lldx^%d ", Plm[l][m][k], k);
                   } // k
                   if (echo > 2) std::printf("\n");
               }
@@ -135,6 +98,46 @@ namespace sho_unitary {
           for (int k = 0; k <= 2*l; ++k) assert(0 == poly[k]); // all coefficients of poly must vanish since we derive u^{2l} for 2l times
       } // l
 
+      return 0;
   } // generate_unitary_transform
 
-#endif
+  status_t test_generation(int const echo) {
+      return generate_unitary_transform(echo);
+  } // test_generation
+#else  // 1
+  status_t test_generation(int const echo) {
+      return 0; // not included
+  } // test_generation
+#endif // 1
+
+  template <typename real_t>
+  status_t test_loading(int const echo=1, int const numax=9) {
+      sho_unitary::Unitary_SHO_Transform<real_t> U(numax);
+      auto const dev = U.test_unitarity(echo);
+      if (echo > 2) std::printf("# Unitary_SHO_Transform<%s>.test_unitarity = %.1e\n", 
+                                  (8 == sizeof(real_t))?"double":"float", dev);
+      return (dev > 2e-7); // error if deviations are too large
+  } // test_loading
+
+  status_t test_vector_transform(int const echo=9, int const numax=3) {
+      sho_unitary::Unitary_SHO_Transform<double> U(numax);
+      if (echo > 3) std::printf("\n# %s %s(numax=%i, echo=%i)\n", __FILE__, __func__, numax, echo);
+      int const nc = sho_tools::nSHO(numax);
+      std::vector<double> vi(nc), vo(nc, 0);
+      std::iota(vi.begin(), vi.end(), 0); // ascending sequence
+      return U.transform_vector(vo.data(), sho_tools::order_nlm, vi.data(), sho_tools::order_zyx, numax, echo);
+  } // test_vector_transform
+
+  status_t all_tests(int const echo) {
+      status_t stat(0);
+      stat += test_generation(echo);
+      stat += test_loading<float>(echo);
+      stat += test_loading<double>(echo);
+      stat += test_vector_transform(echo);
+      return stat;
+  } // all_tests
+
+#endif // NO_UNIT_TESTS
+
+} // namespace sho_unitary
+

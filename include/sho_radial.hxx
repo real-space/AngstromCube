@@ -23,13 +23,13 @@ namespace sho_radial {
       , real_t const factor=1 // if we know the normalization prefactor in advance, we can provide it here
   ) {
 
-      // recursion relation of coefficients:
+      // recursion relation of the radial SHO coefficients:
       // a_0 = 1, a_{k+1} = (k-nrn)/((k+1)*(ell+k+3/2)) a_k
 
       poly[0] = factor;
       for (int k = 0; k < nrn; ++k) {
           // from https://quantummechanics.ucsd.edu/ph130a/130_notes/node244.html
-          poly[k + 1] = (poly[k]*(k - nrn)*2)/(real_t)((k + 1)*(2*ell + 2*k + 3));
+          poly[k + 1] = (poly[k]*(k - nrn)*2)/real_t((k + 1)*(2*ell + 2*k + 3));
       } // k
 
   } // radial_eigenstates
@@ -59,9 +59,9 @@ namespace sho_radial {
       real_t exp_int_k = exponential_integral_k<real_t>(2*ell + 2);
       real_t norm{0};
       for (int p = 0; p <= 2*nrn; ++p) { // loop must run serial forward
-  //    assert(exp_int_k == exponential_integral_k<real_t>(2*p + 2*ell + 2)); // DEBUG
-        norm += prod[p]*exp_int_k;
-        exp_int_k *= (p + ell + 1.5); // prepare exp_int_k for the next iteration
+  //      assert(exp_int_k == exponential_integral_k<real_t>(2*p + 2*ell + 2)); // DEBUG
+          norm += prod[p]*exp_int_k;
+          exp_int_k *= (p + ell + 1.5); // prepare exp_int_k for the next iteration
       } // p
       delete[] prod;
       return 1./std::sqrt(norm); // normalization prefactor
@@ -94,7 +94,7 @@ namespace sho_radial {
   template <typename real_t>
   real_t numerical_norm(real_t const c0[], int const nrn0, 
                         real_t const c1[], int const nrn1, int const ell) {
-      double constexpr dr = 1/((real_t)(1 << 12)), rmax = 12.;
+      double constexpr dr = 1./(1 << 12), rmax = 12.;
       int const nr = rmax / dr;
       real_t norm{0};
       for (int ir = 0; ir < nr; ++ir) {
@@ -136,7 +136,7 @@ namespace sho_radial {
               assert(std::abs(fac - radial_normalization<double>(nrn, ell)) < 1e-12); // check that the other interface produces the same value,with -O0 we can even check for ==
               fac_list[i] = fac;
               if (echo > 2) std::printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
-              radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficent series with the normalized onces
+              radial_eigenstates(c[i], nrn, ell, fac_list[i]); // overwrite the coefficient series with the normalized onces
 
               ++i; // count the number of states
           } // nrn
