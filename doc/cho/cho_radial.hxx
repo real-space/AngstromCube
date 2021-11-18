@@ -9,6 +9,33 @@
   #include <algorithm> // std::max
 #endif
 
+#define HAS_BMP_EXPORT
+#ifdef  HAS_BMP_EXPORT
+  #include "bitmap.hxx" // ::write_bmp_file, ::test_image
+  
+  template <typename real_t>
+  inline void Hermite_polynomials(real_t H[], real_t const x, int const numax, real_t const rcut=9) {
+      // Hermite-polynomials times Gauss function, not normalized!
+      real_t const H0 = (x*x < rcut*rcut) ? std::exp(-0.5*x*x) : 0; // Gaussian envelope function
+
+      H[0] = H0; // store Gaussian H_0
+
+      real_t Hnup1, Hnu{H0}, Hnum1{0};
+      for (int nu = 0; nu < numax; ++nu) {
+          real_t const nuhalf = 0.5 * real_t(nu); // nu/2.
+          // use the two step recurrence relation to create the 1D Hermite polynomials
+          // H[nu+1] = x * H[nu] - nu/2. * H[nu-1];
+          Hnup1 = x * Hnu - nuhalf * Hnum1; // see snippets/3Hermite.F90 for the derivation of this
+          H[nu + 1] = Hnup1; // store
+          // rotate registers for the next iteration
+          Hnum1 = Hnu; Hnu = Hnup1; // ordering is important here
+      } // nu
+
+  } // Hermite_polynomials
+  
+#endif // HAS_BMP_EXPORT
+
+
 namespace cho_radial {
 
   /*
@@ -27,11 +54,11 @@ namespace cho_radial {
   ) {
 
       // recursion relation of the radial CHO coefficients:
-      // a_0 = 1, a_{k+1} = (k-nrn)/((k+1)*(ell+k+3/2)) a_k
+      // a_0 = 1, a_{k+1} = (k-nrn)/((k+1)*(k+1+ell)) a_k
 
       poly[0] = factor;
       for (int k = 0; k < nrn; ++k) {
-          poly[k + 1] = (poly[k]*(k - nrn))/real_t((k + 1)*(k + 1 + ell));
+          poly[k + 1] = (poly[k]*(k - nrn))/((k + 1.)*(k + 1 + ell));
       } // k
 
   } // radial_eigenstates
@@ -266,12 +293,102 @@ namespace cho_radial {
       if (echo > 1) std::printf("# %s largest deviation is %.1e\n", __func__, dev);
       return (dev > 1e-12);
   } // test_Gram_Schmidt
-  
-  
+
+#ifdef HAS_BMP_EXPORT
+  inline status_t test_radial_and_Cartesian_image(int const echo=0) {
+      status_t stat(0);
+      int constexpr Resolution = 1024;
+      int constexpr Lcut = 8;
+      double const sigma_inv = 0.01, center = 0.5*(Resolution - 1)*sigma_inv;
+      double Hermite[Resolution][Lcut];
+      for (int ix = 0; ix < Resolution; ++ix) {
+          double const x = ix*sigma_inv - center;
+          Hermite_polynomials(Hermite[ix], x, Lcut - 1);
+      } // ix
+
+      double Radial_coeff[Lcut][Lcut][Lcut];
+      int8_t qn[999][4];
+      int nstates{0};
+      for (int nu = 0; nu < Lcut; ++nu) {
+          // Cartesian quantum numbers
+          for (int nx = 0; nx <= nu; ++nx) {
+              int const ny = nu - nx;
+              qn[nstates][0] = nx;
+              qn[nstates][1] = ny;
+              // Radial quantum numbers
+              int const m = 2*nx - nu;
+              int const ell = std::abs(m);
+              int const nrn = (nu - ell)/2;
+              qn[nstates][2] = m;
+              qn[nstates][3] = nrn;
+              // eval the radial functions
+              radial_eigenstates(Radial_coeff[ell][nrn], nrn, ell);
+              auto const f = radial_normalization(Radial_coeff[ell][nrn], nrn, ell);
+              radial_eigenstates(Radial_coeff[ell][nrn], nrn, ell, f);
+
+              ++nstates;
+              assert(nstates < 999);
+          } // nx
+      } // nu
+
+      
+      auto const data = new double[2][Resolution][Resolution][4];
+      for (int istate = 0; istate < nstates; ++istate) {
+          // clear the data
+          for (int i = 0; i < 2*Resolution*Resolution*4; ++i) data[0][0][0][i] = 0;
+          // fill with data
+          int const nx = qn[istate][0], ny = qn[istate][1]; // Cartesian quantum numbers
+          int const m = qn[istate][2], nrn = qn[istate][3], ell = std::abs(m); // Radial
+          char basename[2][96];
+          std::snprintf(basename[0], 95, "cartesian_%d_%d", nx, ny);
+          std::snprintf(basename[1], 95, "radial_%d_%d", m, nrn);
+          for (int iy = 0; iy < Resolution; ++iy) {
+              double const y = iy*sigma_inv - center;
+              for (int ix = 0; ix < Resolution; ++ix) {
+                  double const x = ix*sigma_inv - center;
+                  double const Gaussian  = Hermite[ix][0]  * Hermite[iy][0];
+                  double const Cartesian = Hermite[ix][nx] * Hermite[iy][ny];
+                  double const r2 = x*x + y*y;
+                  double const radial_function = expand_poly(Radial_coeff[ell][nrn], 1 + nrn, r2) * std::pow(r2, 0.5*ell);
+                  double const theta = std::atan2(y, x);
+                  double const Radial = Gaussian * radial_function * ((m < 0)?std::sin(ell*theta):std::cos(ell*theta));
+                  data[1][iy][ix][ Radial    > 0     ] = std::abs(Radial);
+                  data[1][iy][ix][(Radial    > 0) + 1] = std::abs(Radial);
+                  data[0][iy][ix][ Cartesian > 0     ] = std::abs(Cartesian);
+                  data[0][iy][ix][(Cartesian > 0) + 1] = std::abs(Cartesian);
+              } // ix
+          } // iy
+
+          for (int cr = 0; cr < 2; ++cr) {
+              
+              // renormalize to maximum value
+              double maxi{0};
+              for (int i = 0; i < Resolution*Resolution*4; ++i) {
+                  maxi = std::max(maxi, data[cr][0][0][i]);
+              } // i
+              double maxi_inv = 1./maxi;
+              for (int i = 0; i < Resolution*Resolution*4; ++i) {
+                  data[cr][0][0][i] *= maxi_inv; // renormalize
+                  data[cr][0][0][i] = 1 - data[cr][0][0][i]; // white background
+              } // i
+
+              stat += bitmap::write_bmp_file(basename[cr], data[cr][0][0], Resolution, Resolution);
+          } // cr
+      } // istate
+      delete[] data;
+      return stat;
+  } // test_radial_and_Cartesian_image
+#endif // HAS_BMP_EXPORT
+
+
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
       stat += test_orthonormality(0);
       stat += test_Gram_Schmidt(echo);
+#ifdef HAS_BMP_EXPORT
+      stat += bitmap::test_image();
+      stat += test_radial_and_Cartesian_image();
+#endif // HAS_BMP_EXPORT
       return stat;
   } // all_tests
 
