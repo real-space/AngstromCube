@@ -295,6 +295,7 @@ namespace cho_radial {
   } // test_Gram_Schmidt
 
 #ifdef HAS_BMP_EXPORT
+  template <typename real_t=double> // real_t can be float if memory is an issue
   inline status_t test_radial_and_Cartesian_image(int const echo=0) {
       status_t stat(0);
       int constexpr Resolution = 1024;
@@ -306,75 +307,63 @@ namespace cho_radial {
           Hermite_polynomials(Hermite[ix], x, Lcut - 1);
       } // ix
 
-      double Radial_coeff[Lcut][Lcut][Lcut];
-      int8_t qn[999][4];
-      int nstates{0};
+      auto const data = new real_t[2][Resolution][Resolution][4];
       for (int nu = 0; nu < Lcut; ++nu) {
-          // Cartesian quantum numbers
-          for (int nx = 0; nx <= nu; ++nx) {
-              int const ny = nu - nx;
-              qn[nstates][0] = nx;
-              qn[nstates][1] = ny;
-              // Radial quantum numbers
+
+          for (int nx = 0; nx <= nu; ++nx) { // Cartesian quantum number for x
+              int const ny = nu - nx;        // Cartesian quantum number for y
+
+              // Radial quantum numbers (only in this enumeration)
               int const m = 2*nx - nu;
               int const ell = std::abs(m);
               int const nrn = (nu - ell)/2;
-              qn[nstates][2] = m;
-              qn[nstates][3] = nrn;
-              // eval the radial functions
-              radial_eigenstates(Radial_coeff[ell][nrn], nrn, ell);
-              auto const f = radial_normalization(Radial_coeff[ell][nrn], nrn, ell);
-              radial_eigenstates(Radial_coeff[ell][nrn], nrn, ell, f);
+              double Radial_coeff_ell_nrn[Lcut];
+              {
+                  radial_eigenstates(Radial_coeff_ell_nrn, nrn, ell);
+                  auto const f = radial_normalization(Radial_coeff_ell_nrn, nrn, ell);
+                  radial_eigenstates(Radial_coeff_ell_nrn, nrn, ell, f);
+              }
 
-              ++nstates;
-              assert(nstates < 999);
+              // clear the data
+              for (int i = 0; i < 2*Resolution*Resolution*4; ++i) data[0][0][0][i] = 0;
+              // fill with data
+              char basename[2][96];
+              std::snprintf(basename[0], 95, "cartesian_%d_%d", nx, ny);
+              std::snprintf(basename[1], 95, "radial_%d_%d", m, nrn);
+              for (int iy = 0; iy < Resolution; ++iy) {
+                  double const y = iy*sigma_inv - center;
+                  for (int ix = 0; ix < Resolution; ++ix) {
+                      double const x = ix*sigma_inv - center;
+                      double const Gaussian  = Hermite[ix][0]  * Hermite[iy][0];
+                      double const Cartesian = Hermite[ix][nx] * Hermite[iy][ny];
+                      double const r2 = x*x + y*y;
+                      double const radial_function = expand_poly(Radial_coeff_ell_nrn, 1 + nrn, r2) * std::pow(r2, 0.5*ell);
+                      double const theta = std::atan2(y, x);
+                      double const Radial = Gaussian * radial_function * ((m < 0)?std::sin(ell*theta):std::cos(ell*theta));
+                      data[1][iy][ix][ Radial    > 0     ] = std::abs(Radial);
+                      data[1][iy][ix][(Radial    > 0) + 1] = std::abs(Radial);
+                      data[0][iy][ix][ Cartesian > 0     ] = std::abs(Cartesian);
+                      data[0][iy][ix][(Cartesian > 0) + 1] = std::abs(Cartesian);
+                  } // ix
+              } // iy
+
+              for (int cr = 0; cr < 2; ++cr) { // cr=0:Cartesian, cr=1:radial
+                  // renormalize to maximum value
+                  real_t maxi{0};
+                  for (int i = 0; i < Resolution*Resolution*4; ++i) {
+                      maxi = std::max(maxi, data[cr][0][0][i]);
+                  } // i
+                  real_t const maxi_inv = 1./maxi;
+                  for (int i = 0; i < Resolution*Resolution*4; ++i) {
+                      data[cr][0][0][i] *= maxi_inv; // renormalize
+                      data[cr][0][0][i] = 1 - data[cr][0][0][i]; // white background
+                  } // i
+
+                  stat += bitmap::write_bmp_file(basename[cr], data[cr][0][0], Resolution, Resolution);
+              } // cr
+
           } // nx
       } // nu
-
-      
-      auto const data = new double[2][Resolution][Resolution][4];
-      for (int istate = 0; istate < nstates; ++istate) {
-          // clear the data
-          for (int i = 0; i < 2*Resolution*Resolution*4; ++i) data[0][0][0][i] = 0;
-          // fill with data
-          int const nx = qn[istate][0], ny = qn[istate][1]; // Cartesian quantum numbers
-          int const m = qn[istate][2], nrn = qn[istate][3], ell = std::abs(m); // Radial
-          char basename[2][96];
-          std::snprintf(basename[0], 95, "cartesian_%d_%d", nx, ny);
-          std::snprintf(basename[1], 95, "radial_%d_%d", m, nrn);
-          for (int iy = 0; iy < Resolution; ++iy) {
-              double const y = iy*sigma_inv - center;
-              for (int ix = 0; ix < Resolution; ++ix) {
-                  double const x = ix*sigma_inv - center;
-                  double const Gaussian  = Hermite[ix][0]  * Hermite[iy][0];
-                  double const Cartesian = Hermite[ix][nx] * Hermite[iy][ny];
-                  double const r2 = x*x + y*y;
-                  double const radial_function = expand_poly(Radial_coeff[ell][nrn], 1 + nrn, r2) * std::pow(r2, 0.5*ell);
-                  double const theta = std::atan2(y, x);
-                  double const Radial = Gaussian * radial_function * ((m < 0)?std::sin(ell*theta):std::cos(ell*theta));
-                  data[1][iy][ix][ Radial    > 0     ] = std::abs(Radial);
-                  data[1][iy][ix][(Radial    > 0) + 1] = std::abs(Radial);
-                  data[0][iy][ix][ Cartesian > 0     ] = std::abs(Cartesian);
-                  data[0][iy][ix][(Cartesian > 0) + 1] = std::abs(Cartesian);
-              } // ix
-          } // iy
-
-          for (int cr = 0; cr < 2; ++cr) {
-              
-              // renormalize to maximum value
-              double maxi{0};
-              for (int i = 0; i < Resolution*Resolution*4; ++i) {
-                  maxi = std::max(maxi, data[cr][0][0][i]);
-              } // i
-              double maxi_inv = 1./maxi;
-              for (int i = 0; i < Resolution*Resolution*4; ++i) {
-                  data[cr][0][0][i] *= maxi_inv; // renormalize
-                  data[cr][0][0][i] = 1 - data[cr][0][0][i]; // white background
-              } // i
-
-              stat += bitmap::write_bmp_file(basename[cr], data[cr][0][0], Resolution, Resolution);
-          } // cr
-      } // istate
       delete[] data;
       return stat;
   } // test_radial_and_Cartesian_image
