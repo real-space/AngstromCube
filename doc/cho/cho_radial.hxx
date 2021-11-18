@@ -299,13 +299,36 @@ namespace cho_radial {
   inline status_t test_radial_and_Cartesian_image(int const echo=0) {
       status_t stat(0);
       int constexpr Resolution = 1024;
-      int constexpr Lcut = 8;
+      int constexpr Lcut = 4;
       double const sigma_inv = 0.01, center = 0.5*(Resolution - 1)*sigma_inv;
+      
       double Hermite[Resolution][Lcut];
-      for (int ix = 0; ix < Resolution; ++ix) {
-          double const x = ix*sigma_inv - center;
-          Hermite_polynomials(Hermite[ix], x, Lcut - 1);
-      } // ix
+      {
+          double Hermite_norm[Lcut];
+          double constexpr sqrtpi = 1.77245385090551602729816748334115;
+          double H_norm2{sqrtpi};
+          for (int n = 0; n < Lcut; ++n) {
+              Hermite_norm[n] = 1./std::sqrt(H_norm2);
+              H_norm2 *= 0.5*(n + 1);
+          } // n
+
+          std::vector<double> Hermite_norm_check(Lcut, 0.0);
+          for (int ix = 0; ix < Resolution; ++ix) {
+              double const x = ix*sigma_inv - center;
+              Hermite_polynomials(Hermite[ix], x, Lcut - 1);
+              for (int n = 0; n < Lcut; ++n) {
+                  Hermite[ix][n] *= Hermite_norm[n];
+                  Hermite_norm_check[n] += Hermite[ix][n]*Hermite[ix][n];
+              } // n
+          } // ix
+          if (echo > 0) {
+              std::printf("# Hermite norm check ");
+              for (int n = 0; n < Lcut; ++n) {
+                  std::printf(" %g", Hermite_norm_check[n]*sigma_inv);
+              } // n
+              std::printf("\n");
+          } // echo
+      }
 
       auto const data = new real_t[2][Resolution][Resolution][4];
       for (int nu = 0; nu < Lcut; ++nu) {
@@ -364,6 +387,47 @@ namespace cho_radial {
 
           } // nx
       } // nu
+      
+      // make a movie
+      double constexpr pi = 3.14159265358979323846; // pi
+      {
+          auto const maxangle = -90; // degrees
+          // interesting case a): from (2,0) to (0,2) with angle in -90...-45...0...45...90
+          // interesting case b): from (3,0) to (1,2) with angle in -90...-60...0...30...90
+          int const nx = 3, ny = 0; // from here
+          int const mx = 1, my = 2; //   to here
+          int const nframes = -1;
+          for (int iframe = 0; iframe <= nframes; ++iframe) {
+              char basename[96]; std::snprintf(basename, 95, "frame%5.5d", iframe);
+              auto const angle = (pi*iframe*maxangle)/(180.*nframes);
+              auto const fn = std::cos(angle),
+                         fm = std::sin(angle);
+
+              for (int iy = 0; iy < Resolution; ++iy) {
+                  for (int ix = 0; ix < Resolution; ++ix) {
+                      for (int rgb = 0; rgb < 4; ++rgb) data[0][iy][ix][rgb] = 0;
+                      auto const Cartesian = fn * Hermite[ix][nx] * Hermite[iy][ny]
+                                           + fm * Hermite[ix][mx] * Hermite[iy][my];
+                      data[0][iy][ix][ Cartesian > 0     ] = std::abs(Cartesian);
+                      data[0][iy][ix][(Cartesian > 0) + 1] = std::abs(Cartesian);
+                  } // ix
+              } // iy
+
+              // renormalize to maximum value
+              real_t maxi{0};
+              for (int i = 0; i < Resolution*Resolution*4; ++i) {
+                  maxi = std::max(maxi, data[0][0][0][i]);
+              } // i
+              real_t const maxi_inv = 1./maxi;
+              for (int i = 0; i < Resolution*Resolution*4; ++i) {
+                  data[0][0][0][i] *= maxi_inv; // renormalize
+                  data[0][0][0][i] = 1 - data[0][0][0][i]; // white background
+              } // i
+
+              stat += bitmap::write_bmp_file(basename, data[0][0][0], Resolution, Resolution);
+          } // iframe
+      } 
+
       delete[] data;
       return stat;
   } // test_radial_and_Cartesian_image
@@ -375,8 +439,8 @@ namespace cho_radial {
       stat += test_orthonormality(0);
       stat += test_Gram_Schmidt(echo);
 #ifdef HAS_BMP_EXPORT
-      stat += bitmap::test_image();
-      stat += test_radial_and_Cartesian_image();
+      stat += bitmap::test_image(echo);
+      stat += test_radial_and_Cartesian_image(echo);
 #endif // HAS_BMP_EXPORT
       return stat;
   } // all_tests

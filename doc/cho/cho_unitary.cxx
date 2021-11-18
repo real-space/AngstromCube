@@ -105,16 +105,16 @@ typedef int status_t;
 #ifdef  SIMPLIFY_PI
       double constexpr pi = 1, sqrtpi = 1; // pi, sqrt(pi) will be eleminated from the formulas, so we can set it to unity
 #else  // SIMPLIFY_PI
-      double constexpr pi = 3.14159265358979323846; // pi 
+      double constexpr pi = 3.14159265358979323846; // pi
       double constexpr sqrtpi = 1.77245385090551602729816748334115; // sqrt(pi)
 #endif // SIMPLIFY_PI
 
       double metric[Lcut]; // integral x^(2*ell) exp(-x^2) dx from -infty to infty
       metric[0] = sqrtpi;
-      if (echo > 9) std::printf("\n# metric[0]\t%16.9f\n", metric[0]);
+      if (echo > 8) std::printf("\n# metric[0]\t%16.9f\n", metric[0]);
       for (int n = 1; n < Lcut; ++n) {
           metric[n] = metric[n - 1]*(n - 0.5);
-          if (echo > 9) std::printf("# metric[%d]\t%16.9f\n", 2*n, metric[n]);
+          if (echo > 8) std::printf("# metric[%d]\t%16.9f\n", 2*n, metric[n]);
       } // n
 
       
@@ -316,6 +316,6 @@ typedef int status_t;
 
 int main(int argc, char *argv[]) {
     int const echo = (argc > 1) ? std::atoi(argv[1]) : 3;
-//  cho_radial::all_tests(echo);
+    cho_radial::all_tests(echo);
     return generate_unitary_transform(echo);
 } // main
