@@ -3,7 +3,8 @@
  */
 
 
-#include <cstdio> // std::printf
+#include <cstdio> // std::printf, ::fprintf, ::fopen, ::fclose
+#include <cmath> // std::round, ::sqrt
 #include <cstdlib> // std::abs
 #include <cassert> // assert
 
@@ -188,13 +189,21 @@ typedef int status_t;
       // and under the constraint that nx + ny == nu == ell + 2*nrn
 
       bool constexpr check_unitarity = true;
-      double maxdev{0};
+      double maxdev{0}, filedev{0};
       
-      
+      auto const file = std::fopen("cho_unitary.dat", "w");
+      if (file) std::fprintf(file,
+            "# Matrix elements of the unitary transform\n"
+            "#       from Cartesian to Radial circular harmonic oscillator states\n"
+            "#       up to ell = %d\n"
+            "#       Each matrix element is sign*sqrt(nominator^2/denominator^2)\n"
+            "# nx ny     emm nrn     sign*nominator^2 denominator^2\n", lmax);
+
       int nmatrix{0};
 //    double r2mat[Lcut][Lcut][Lcut]; for (int i = 0; i < Lcut*Lcut*Lcut; ++i) r2mat[0][0][i] = 0;
       double mat[Lcut][Lcut];
       for (int nu = 0; nu <= lmax; ++nu) {
+          if (file) std::fprintf(file, "\n");
           for (int i = 0; i < Lcut*Lcut; ++i) mat[0][i] = 0; // clear
           for (int nx = 0; nx <= nu; ++nx) {  // Cartesian quantum number for x
               int const ny = nu - nx;         // Cartesian quantum number for y
@@ -258,6 +267,15 @@ typedef int status_t;
                                       nu, nx, ny, nrn, m, matrix, matrix*matrix, matrix, sgn(matrix)*matrix*matrix);
                           ++nmatrix;
                           mat[nx][j] = matrix;
+                          
+                          if (file) {
+                              double const denominator2 = uint64_t(1) << std::max(0, nu - 1);
+                              double const signed_nominator2 = sgn(matrix)*std::round(matrix*matrix*denominator2);
+                              std::fprintf(file, "%d %d %3d %d   %g %g\n", nx, ny, m, nrn, signed_nominator2, denominator2);
+                              double const matrix_reconstructed = sgn(signed_nominator2)*std::sqrt(std::abs(signed_nominator2)/denominator2);
+                              filedev = std::max(filedev, std::abs(matrix_reconstructed - matrix));
+                          } // export to file
+
                       } // nonzero
 
                       ++j;
@@ -288,13 +306,16 @@ typedef int status_t;
 
       } // nu = nx + ny
       std::printf("# overlap up to lmax=%d has %d nonzero matrix elements\n", lmax, nmatrix);
-      if (check_unitarity) std::printf("# unitarity of nu up to %d has max deviations of %.2e\n", lmax, maxdev);
+      if (check_unitarity) std::printf("# unitarity up to nu=%d has max deviations of %.2e\n", lmax, maxdev);
+      if (file) std::printf("# file format representation up to nu=%d has max deviations of %.1e\n", lmax, filedev);
 
+      if (file) std::fclose(file);
+      
       return (maxdev > 1e-13);
   } // generate_unitary_transform
 
 int main(int argc, char *argv[]) {
     int const echo = (argc > 1) ? std::atoi(argv[1]) : 3;
-    cho_radial::all_tests(echo);
+//  cho_radial::all_tests(echo);
     return generate_unitary_transform(echo);
 } // main
