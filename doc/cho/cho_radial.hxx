@@ -43,6 +43,9 @@ namespace cho_radial {
    */
 
   template <typename int_t>
+  inline int_t constexpr nCHO(int_t const numax) { return ((numax + 1)*(numax + 2))/2; }
+
+  template <typename int_t>
   inline int_t constexpr nCHO_radial(int_t const numax) { return (numax*(numax + 4) + 4)/4; }
 
   template <typename real_t>
@@ -155,11 +158,7 @@ namespace cho_radial {
       uint8_t  nrn_list[n];
       double   fac_list[n];
 
-      int i = 0;
-//       for (int ene = 0; ene <= numax; ++ene) { //  E_CHO = ene + 1
-//           for (int nrn = ene/2; nrn >= 0; --nrn) { // start from low ell withing the block, i.e. many radial nodes
-//               int const ell = ene - 2*nrn;
-//       for (int ell = 0; ell <= numax; ++ell) { //
+      int i{0};
       for (int ell = numax; ell >= 0; --ell) { //
           for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
 
@@ -169,7 +168,7 @@ namespace cho_radial {
               double const fac = radial_normalization(c[i], nrn, ell);
               assert(std::abs(fac - radial_normalization(nrn, ell)) < 1e-12); // check that the other interface produces the same value,with -O0 we can even check for ==
               fac_list[i] = fac;
-              if (echo > 2) std::printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
+              if (echo > 4) std::printf("# %s %3d state  nrn= %d  ell= %d  factor= %g\n", __func__, i, nrn, ell, fac);
               radial_eigenstates(c[i], nrn, ell, fac); // overwrite the coefficient series with the normalized onces
 
               ++i; // count the number of states
@@ -183,7 +182,6 @@ namespace cho_radial {
           for (int i = 0; i < n; ++i) {
               int const ell = ell_list[i];
               for (int j = i; j >= 0; --j) { // triangular loop structure
-    //        for (int j = 0; j < n; ++j) {  // block loop structure
                   if (ell == ell_list[j]) {
                       auto const delta_ij = method ? inner_product(c[i], nrn_list[i], c[j], nrn_list[j], ell):
                                            numerical_inner_product(c[i], nrn_list[i], c[j], nrn_list[j], ell);
@@ -200,14 +198,14 @@ namespace cho_radial {
                               } // asymmetry large
                           } // i != j
                       } // sanity check
-                      if (echo > 4 - i_equals_j) std::printf("%g ", delta_ij - i_equals_j);
+                      if (echo > 5 - i_equals_j) std::printf("%g ", delta_ij - i_equals_j);
                       // measure the deviation from unity for diagonal elements
                       dev[i_equals_j] = std::max(dev[i_equals_j], std::abs(delta_ij - i_equals_j));
                   } // ell matches
               } // j
-              if (echo > 3) std::printf("\n");
+              if (echo > 4) std::printf("\n");
           } // i
-          for (int diag = 0; diag < 2*(echo > 0); ++diag) {
+          for (int diag = 0; diag < 2*(echo > 3); ++diag) {
               std::printf("# normalization of radial CHO eigenfunctions differs by %g from %s (method=%s)\n",
                                          dev[diag], diag?"unity":"zero ", method?"analytical":"numerical");
           } // diag
@@ -248,7 +246,7 @@ namespace cho_radial {
               auto const f = radial_normalization(c[nrn], nrn, ell);
               fac[nrn] = f; // store prefactor for plotting
 
-              if (echo > 0) {
+              if (echo > 5) {
                   std::printf("# %c%d-poly", ellchar[ell], nrn);
                   for (int p = nrn; p >= 0; --p) {
                       std::printf(" + %g*r^%d", f*c[nrn][p], ell+2*p);
@@ -260,13 +258,13 @@ namespace cho_radial {
                   double coeff[1 + numax];
                   radial_eigenstates(coeff, nrn, ell);
                   auto const fc = radial_normalization(coeff, nrn, ell);
-                  std::printf("# %c%d-poly", ellchar[ell], nrn);
+                  if (echo > 5) std::printf("# %c%d-poly", ellchar[ell], nrn);
                   double diff{0};
                   for (int p = nrn; p >= 0; --p) {
-                      std::printf(" + %g*r^%d", fc*coeff[p], ell+2*p);
+                      if (echo > 5) std::printf(" + %g*r^%d", fc*coeff[p], ell+2*p);
                       diff = std::max(diff, std::abs(f*c[nrn][p] - fc*coeff[p]));
                   } // p
-                  std::printf("  largest difference %.1e\n", diff);
+                  if (echo > 5) std::printf("  largest difference %.1e\n", diff);
               } // true
 
           } // nrn
@@ -321,7 +319,7 @@ namespace cho_radial {
                   Hermite_norm_check[n] += Hermite[ix][n]*Hermite[ix][n];
               } // n
           } // ix
-          if (echo > 0) {
+          if (echo > 3) {
               std::printf("# Hermite norm check ");
               for (int n = 0; n < Lcut; ++n) {
                   std::printf(" %g", Hermite_norm_check[n]*sigma_inv);
@@ -436,7 +434,7 @@ namespace cho_radial {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_orthonormality(0);
+      stat += test_orthonormality(echo);
       stat += test_Gram_Schmidt(echo);
 #ifdef HAS_BMP_EXPORT
       stat += bitmap::test_image(echo);

@@ -20,7 +20,7 @@ namespace bitmap {
       , float const factor=255
       , char const *extension=".bmp"
       , bool const invert_y=true
-      , int const echo=1
+      , int const echo=0
   ) {
 
       int const s = (stride < int(w)) ? int(w) : stride;

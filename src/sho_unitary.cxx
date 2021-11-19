@@ -1,17 +1,17 @@
 #include <cstdio> // std::printf
 
 #include <cassert> // assert
-// #include <cmath> // std::sqrt, ::pow, ::exp
-// #include <algorithm> // std::max
 #include <vector> // std::vector
 #include <numeric> // std::iota
+// #include <cmath> // std::sqrt, ::pow, ::exp
+// #include <algorithm> // std::max
 
 #include "sho_unitary.hxx" // ::Unitary_SHO_Transform
 
 #include "sho_tools.hxx" // ::order_*
 
 namespace sho_unitary {
-  
+
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

@@ -10,11 +10,23 @@
 
 typedef int status_t;
 
+#include "cho_unitary.hxx"
+
 #include "cho_radial.hxx" // ::all_tests
+
+namespace cho_unitary {
+
+#ifdef  NO_UNIT_TESTS
+  status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
+#else // NO_UNIT_TESTS
+
 
   template <typename T> int sgn(T val) {
       return (T(0) < val) - (val < T(0));
   } // sgn from https://stackoverflow.com/questions/1903954/is-there-a-standard-sign-function-signum-sgn-in-c-c/10133700
+
+#define HAS_GENERATION
+#ifdef  HAS_GENERATION
 
   template <int lmax=9>
   status_t generate_unitary_transform(int const echo) {
@@ -29,19 +41,19 @@ typedef int status_t;
       int32_t xpiy[Lcut][Lcut][2]; for (int i = 0; i < Lcut*Lcut*2; ++i) xpiy[0][0][i] = 0;
       { // bnc-scope
           std::vector<int> bnc(Lcut + 1, 0); bnc[0] = 1; // init binomial coefficients for ell=0
-          if (echo > 2) std::printf("\n# (x + iy)^ell\n");
+          if (echo > 4) std::printf("\n# (x + iy)^ell\n");
           for (int ell = 0; ell <= lmax; ++ell) {
 
-              if (echo > 2) std::printf("# (x + iy)^%d = ", ell);
+              if (echo > 5) std::printf("# (x + iy)^%d = ", ell);
               for (int k = 0; k <= ell; ++k) {
                   int const j4 = k & 0x3; // modulo 4, mimique the behaviour of (complex i)^k, i^0=1:0b00, i^1=i:0b01, i^2=-1:0b10, i^3=-i:0b11
                   int const reim = j4 & 0x1; // least significant bit, 0:real, 1:imaginary
                   int const bit1 = (j4 >> 1) & 0x1; // second bit
-                  if (echo > 2) std::printf(" %c%d x^%d %sy^%d   ", bit1?'-':' ', bnc[k], ell - k, reim?"i":"", k);
+                  if (echo > 5) std::printf(" %c%d x^%d %sy^%d   ", bit1?'-':' ', bnc[k], ell - k, reim?"i":"", k);
                   int const sgn = 1 - 2*bit1;
                   xpiy[ell][k][reim] = sgn*bnc[k];
               } // k
-              if (echo > 2) { std::printf("\n"); std::fflush(stdout); }
+              if (echo > 5) { std::printf("\n"); std::fflush(stdout); }
 
               // prepare bnc for ell+1
               for (int k = ell + 1; k > 0; --k) {
@@ -56,7 +68,7 @@ typedef int status_t;
       int32_t xpiy_r2[nr2cut][Lcut][Lcut][2]; for (int i = 0; i < nr2cut*Lcut*Lcut*2; ++i) xpiy_r2[0][0][0][i] = 0;
       { // bnc-scope
           std::vector<int> bnc(1 + nr2cut, 0); bnc[0] = 1; // init binomial coefficients for nrn=0
-          if (echo > 2) std::printf("\n# (x + iy)^ell (x^2 + y^2)^nrn\n");
+          if (echo > 3) std::printf("\n# (x + iy)^ell (x^2 + y^2)^nrn\n");
           for (int nrn = 0; nrn < nr2cut; ++nrn) {
               // (x^2 + y^2)^nrn = sum_{irn=0}^nrn bnc(nrn over irn) x^{2(nrn - irn)} y^{2*irn}
 
@@ -70,7 +82,7 @@ typedef int status_t;
                       } // k
                   } // irn
 
-                  if (echo > 2) {
+                  if (echo > 4) {
                       for (int reim = 0; reim < 2; ++reim) {
                           std::printf("# %s (x + iy)^%d * r^%d = ", reim?"Im":"Re", ell, 2*nrn);
                           int const kmax = ell + 2*nrn;
@@ -101,9 +113,9 @@ typedef int status_t;
       // (i + j) even, i + j = 2*n, then
       //  
       //  \sqrt{\pi} (2n - 1)!! / 2^n
-// #define SIMPLIFY_PI
+#define SIMPLIFY_PI
 #ifdef  SIMPLIFY_PI
-      double constexpr pi = 1, sqrtpi = 1; // pi, sqrt(pi) will be eleminated from the formulas, so we can set it to unity
+      double constexpr pi = 1, sqrtpi = 1; // pi, sqrt(pi) can be eliminated from the formulas, so we can set it to unity
 #else  // SIMPLIFY_PI
       double constexpr pi = 3.14159265358979323846; // pi
       double constexpr sqrtpi = 1.77245385090551602729816748334115; // sqrt(pi)
@@ -134,11 +146,13 @@ typedef int status_t;
               } // j
           } // i < 1
           
-          std::printf("# Hermite polynomial #%i\t", i);
-          for (int j = 0; j <= i; ++j) {
-              std::printf("%10.4f", H[i][j]);
-          } // j
-          std::printf("\n");
+          if (echo > 7) {
+              std::printf("# Hermite polynomial #%i\t", i);
+              for (int j = 0; j <= i; ++j) {
+                  std::printf("%10.4f", H[i][j]);
+              } // j
+              std::printf("\n");
+          } // echo
       } // i
 
 
@@ -263,7 +277,7 @@ typedef int status_t;
                           if (echo > 22) std::printf("# for nu=%d nx=%d ny=%d nr=%d m=%d  normalize by sqrt of %g * %g * %g = %g\n",
                               nu, nx, ny, nrn, m, H_norm2[nx], H_norm2[ny], xpiy_norm2[ell], H_norm2[nx] * H_norm2[ny] * xpiy_norm2[ell]);
                           // show matrix elements as: with 9 digits, squared with 9 digits, in %g format, squared with sign in %g format
-                          std::printf("# overlap of nu=%d nx=%d ny=%d nr=%d m=%d\t%16.9f\t%16.9f\t%g\t%g\n",
+                          if (echo > 7) std::printf("# overlap of nu=%d nx=%d ny=%d nr=%d m=%d\t%16.9f\t%16.9f\t%g\t%g\n",
                                       nu, nx, ny, nrn, m, matrix, matrix*matrix, matrix, sgn(matrix)*matrix*matrix);
                           ++nmatrix;
                           mat[nx][j] = matrix;
@@ -300,22 +314,54 @@ typedef int status_t;
                       dev[1][diag] = std::max(dev[1][diag], std::abs(mTm - diag));
                   } // j
               } // i
-              std::printf("# unitarity of nu=%d max deviations are %.1e, %.1e and %.1e, %.1e\n", nu, dev[0][0], dev[0][1], dev[1][0], dev[1][1]);
+              if (echo > 3) std::printf("# unitarity of nu=%d max deviations are %.1e, %.1e and %.1e, %.1e\n", nu, dev[0][0], dev[0][1], dev[1][0], dev[1][1]);
               maxdev = std::max(dev[0][0], std::max(dev[0][1], std::max(dev[1][0], std::max(dev[1][1], maxdev))));
           } // check_unitarity
 
       } // nu = nx + ny
-      std::printf("# overlap up to lmax=%d has %d nonzero matrix elements\n", lmax, nmatrix);
-      if (check_unitarity) std::printf("# unitarity up to nu=%d has max deviations of %.2e\n", lmax, maxdev);
-      if (file) std::printf("# file format representation up to nu=%d has max deviations of %.1e\n", lmax, filedev);
+      if (echo > 0) std::printf("# overlap up to lmax=%d has %d nonzero matrix elements\n", lmax, nmatrix);
+      if (check_unitarity && echo > 0) std::printf("# unitarity up to nu=%d has max deviations of %.2e\n", lmax, maxdev);
+      if (file && echo > 0) std::printf("# file format representation up to nu=%d has max deviations of %.1e\n", lmax, filedev);
 
       if (file) std::fclose(file);
       
       return (maxdev > 1e-13);
   } // generate_unitary_transform
 
+  status_t test_generation(int const echo) {
+      return generate_unitary_transform(echo);
+  } // test_generation
+#else  // HAS_GENERATION
+  status_t test_generation(int const echo) {
+      return 0; // not included
+  } // test_generation
+#endif // HAS_GENERATION
+
+  template <typename real_t>
+  status_t test_loading(int const echo=1, int const numax=9) {
+      cho_unitary::Unitary_CHO_Transform<real_t> U(numax);
+      auto const dev = U.test_unitarity(echo);
+      if (echo > 2) std::printf("# Unitary_CHO_Transform<%s>.test_unitarity = %.1e\n", 
+                                  (8 == sizeof(real_t))?"double":"float", dev);
+      return (dev > 2e-7); // error if deviations are too large
+  } // test_loading
+
+  status_t all_tests(int const echo) {
+      status_t stat(0);
+      stat += test_generation(echo);
+      stat += test_loading<float>(echo);
+      stat += test_loading<double>(echo);
+      return stat;
+  } // all_tests
+
+#endif // NO_UNIT_TESTS
+
+} // namespace cho_unitary
+
 int main(int argc, char *argv[]) {
     int const echo = (argc > 1) ? std::atoi(argv[1]) : 3;
-    cho_radial::all_tests(echo);
-    return generate_unitary_transform(echo);
+    status_t stat(0);
+    stat += cho_radial::all_tests(echo);
+    stat += cho_unitary::all_tests(echo);
+    return stat;
 } // main

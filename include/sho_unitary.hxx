@@ -2,8 +2,8 @@
 
 #include <cstdio> // std::printf
 #include <cassert> // assert
-#include <cmath> // std::abs, std::pow, std::exp, std::sqrt
-#include <algorithm> // std::max, std::fill
+#include <cmath> // std::abs, ::pow, ::exp, ::sqrt
+#include <algorithm> // std::max, ::fill
 #include <fstream> // std::ifstream
 #include <sstream> // std::istringstream
 #include <numeric> // std::iota
@@ -48,7 +48,7 @@ namespace sho_unitary {
       if (infile.fail()) {
           warn("file \'%s\' for Unitary_SHO_Transform cannot be opened!", filename);
           return -1; // file not existing
-      } 
+      } // failed
       bool const file_is_nu_ordered = true;
 
       int n_ignored{0}; // number of ignored entries
@@ -72,7 +72,7 @@ namespace sho_unitary {
               assert(den > 0);
               assert(std::abs(nom) <= den);
 
-              real_t const u_entry = signed_sqrt(nom/(real_t(den)));
+              real_t const u_entry = signed_sqrt(nom/double(den));
               if (echo > 8) std::printf("%d %d %d    %d %2d %d  %.15f\n", nx, ny, nz, ell, emm, nrn, u_entry);
               int const nzyx = sho_tools::Ezyx_index(nx, ny, nz);
               int const nlnm = sho_tools::Elnm_index(ell, nrn, emm);
@@ -281,7 +281,7 @@ namespace sho_unitary {
               double mxd[2][2] = {{0,0},{0,0}}; // mxd[{0:uuT 1:uTu}][{0:off 1:diag}]
               for (int ib = 0; ib < nb; ++ib) { // cartesian block index or radial block index
                   for (int jb = 0; jb < nb; ++jb) { //
-                      double uuT = 0, uTu = 0;
+                      double uuT{0}, uTu{0};
                       for (int kb = 0; kb < nb; ++kb) {
                           uuT += u_[nu][ib*nb + kb] * u_[nu][jb*nb + kb]; // contraction over radial index
                           uTu += u_[nu][kb*nb + ib] * u_[nu][kb*nb + jb]; // contraction over Cartesian index
@@ -293,7 +293,7 @@ namespace sho_unitary {
                       maxdevall = std::max(maxdevall, std::max(mxd[0][diag], mxd[1][diag]));
                   } // jb
               } // ib
-              if (echo > 3) std::printf("# U<nu=%d> deviations: Radial (uuT) %g (%g on diagonal), Cartesian (uTu) %g (%g)\n",
+              if (echo > 3) std::printf("# U<nu=%d> deviations: Radial uuT %.1e (%.1e on diagonal), Cartesian uTu %.1e (%.1e on diagonal)\n",
                                                 nu, mxd[0][0], mxd[0][1], mxd[1][0], mxd[1][1]);
           } // nu
           return maxdevall;
