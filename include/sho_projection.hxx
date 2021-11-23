@@ -84,7 +84,7 @@ namespace sho_projection {
 #endif // DEVEL
           } // i
       } // dir
-   
+
 
 #ifdef DEVEL
       if (1 == PROJECT0_OR_ADD1) {
@@ -97,8 +97,8 @@ namespace sho_projection {
           } // echo
       } // ADD
 #endif // DEVEL
-   
-   
+
+
       for (        int iz = 0; iz < num[2]; ++iz) {
           for (    int iy = 0; iy < num[1]; ++iy) {
               for (int ix = 0; ix < num[0]; ++ix) {
@@ -147,7 +147,7 @@ namespace sho_projection {
 
       return 0; // success
   } // _sho_project_or_add
-  
+
 
   template <typename complex_t>
   status_t sho_project( // wrapper function

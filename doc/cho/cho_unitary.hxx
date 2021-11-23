@@ -34,10 +34,10 @@ namespace cho_unitary {
       //    Each line has the following 6 entries:
       //      nx ny emm nrn nom den
       //    where
-      //      nx, ny          are the three Cartesian CHO indices, >= 0
+      //      nx, ny          are the two Cartesian CHO indices, >= 0
       //      emm             is the circular harmonic index
       //      nrn             is the number or radial nodes, nrn >= 0
-      //      nom den         encode the value of the matrix entry of u:
+      //      nom, den        encode the value of the matrix entry of u:
       //                      u = sgn(nom)*sqrt(abs(nom)/den)
       //                      den > 0, nom may be negative but since
       //                      only non-zero entries are given, nom != 0
@@ -67,7 +67,7 @@ namespace cho_unitary {
               assert(den > 0);
               assert(std::abs(nom) <= den);
 
-              real_t const u_entry = signed_sqrt(nom/double(den));
+              real_t const u_entry = signed_sqrt(nom*(1./den));
               if (echo > 8) std::printf("%d %d    %2d %d  %.15f\n", nx, ny,   emm, nrn, u_entry);
               int const ell = std::abs(emm);
               int const nu_xy = nx + ny;

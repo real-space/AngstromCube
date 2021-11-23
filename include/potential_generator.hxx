@@ -11,10 +11,11 @@
 #include "display_units.h" // Ang, _Ang
 #include "geometry_analysis.hxx" // ::read_xyz_file
 #include "debug_output.hxx" // dump_to_file
+#include "solid_harmonics.hxx" // ::rlXlm, ::lm_index
+#include "inline_math.hxx" // set, dot_product
 
 #ifdef DEVEL
   #include "finite_difference.hxx" // ::stencil_t
-  #include "solid_harmonics.hxx" // ::Y00
   #include "single_atom.hxx" // ::atom_update
   #include "print_tools.hxx" // print_stats
   #include "radial_r2grid.hxx" // ::r_axis
@@ -25,6 +26,7 @@
 
 namespace potential_generator {
 
+  // debugging tool wrapper
   template <typename real_t>
   status_t write_array_to_file(
         char const *filename // file name to write to
@@ -84,7 +86,107 @@ namespace potential_generator {
       } // ia
       return stat;
   } // add_smooth_quantities
-  
+
+
+  template <typename real_t, int debug=0>
+  status_t add_generalized_Gaussian(
+        real_t values[] // grid values which are modified
+      , real_space::grid_t const & g // grid descriptor
+      , double const coeff[] // coefficients of the compensators
+      , int const ellmax=-1
+      , double const center[3]=nullptr // spherical center w.r.t. the position of grid point (0,0,0)
+      , double const sigma=1 // spread of the Gaussian exp(-r^2/(2*sigma^2))
+      , int const echo=0
+      , double *added=nullptr // optional result: how much (e.g. charge) was added
+      , double const factor=1 // optional scaling
+      , float const r_cut=-1 // radial truncation, -1:use the max radius of the r^2-grid
+  ) {
+      // Add a generalized Gaussian multipole compensator charge
+      status_t stat(0);
+      if (ellmax < 0) return stat; // early return
+      assert(sigma > 0);
+      double c[3] = {0,0,0}; if (center) set(c, 3, center);
+      double const r_max = 9*sigma; // default truncation radius
+      double const rcut = (-1 == r_cut) ? r_max : std::min(double(r_cut), r_max);
+      double const r2cut = rcut*rcut;
+      int imn[3], imx[3];
+      size_t nwindow{1};
+      for (int d = 0; d < 3; ++d) {
+          imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
+          imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
+          if (echo > 8) std::printf("# %s window %c = %d elements from %d to %d\n", __func__, 'x'+d, imx[d] + 1 - imn[d], imn[d], imx[d]);
+          nwindow *= std::max(0, imx[d] + 1 - imn[d]);
+      } // d
+      int const nlm = pow2(1 + ellmax);
+      double const sigma2inv = 0.5/pow2(sigma);
+      std::vector<double> scaled_coefficients(nlm, 0.0);
+      std::vector<double> scale_factor(debug*nlm, 0.0);
+      { // scope to scale coefficients
+          double radial_norm{constants::sqrt2/(constants::sqrtpi*sigma)};
+          for (int ell = 0; ell <= ellmax; ++ell) {
+              radial_norm /= (sigma*sigma*(2*ell + 1));
+              for (int emm = -ell; emm <= ell; ++emm) {
+                  int const ilm = solid_harmonics::lm_index(ell, emm);
+                  scaled_coefficients[ilm] = coeff[ilm] * radial_norm;
+                  if (debug) scale_factor[ilm] = radial_norm*g.dV();
+              } // emm
+          } // ell
+      } // scope
+      view2D<double> overlap_ij(debug*nlm, nlm, 0.0);
+      std::vector<double> rlXlm(nlm); // must be thread-private in case of OMP parallelism
+      double added_charge{0}; // clear
+      size_t modified{0};
+      for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
+          for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
+              if (vz2 + vy2 < r2cut) {
+                  for (int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
+                      double const r2 = vz2 + vy2 + vx2;
+                      if (r2 < r2cut) {
+                          int const izyx = (iz*g('y') + iy)*g('x') + ix;
+                          solid_harmonics::rlXlm(rlXlm.data(), ellmax, vx, vy, vz);
+                          double const Gaussian = std::exp(-sigma2inv*r2);
+                          double const value_to_add = Gaussian * dot_product(nlm, scaled_coefficients.data(), rlXlm.data());
+                          values[izyx] += factor*value_to_add;
+                          added_charge += factor*value_to_add;
+                          ++modified;
+#if 1
+                          if (echo > 13) {
+                              std::printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
+                              // std::printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
+                          } // echo
+#endif // 0
+                          for (int ilm = 0; ilm < nlm*debug; ++ilm) {
+                              add_product(overlap_ij[ilm], nlm, rlXlm.data(), Gaussian*rlXlm[ilm]);
+                          } // ilm
+                      } // inside rcut
+                  } // ix
+              } // rcut for (y,z)
+          } // iy
+      } // iz
+      added_charge *= g.dV(); // volume integral
+      if (echo > 3) std::printf("# %s modified %.3f k inside a window of %.3f k on a grid of %.3f k grid values, added charge= %g\n", 
+                                   __func__, modified*1e-3, nwindow*1e-3, g('x')*g('y')*g('z')*1e-3, added_charge); // show stats
+      if (debug) {
+          double dev[] = {0, 0}; // measure the deviation of overlap_ij from unity
+          for (int ilm = 0; ilm < nlm*debug; ++ilm) {
+              if (echo > 5) std::printf("# ilm=%3d ", ilm);
+              for (int jlm = 0; jlm < nlm; ++jlm) {
+                  double const ovl = overlap_ij(ilm,jlm)*scale_factor[ilm];
+                  int const diag = (ilm == jlm);
+                  if (echo > 5) std::printf(diag?" %.9f":" %9.1e", ovl);
+                  dev[diag] = std::max(dev[diag], std::abs(ovl - diag));
+              } // jlm
+              if (echo > 5) std::printf("\n");
+          } // ilm
+          if (echo > 1) std::printf("# %s(ellmax=%d) is orthogonal to %.1e, normalized to %.1e\n", __func__, ellmax, dev[0], dev[1]);
+      } // debug
+
+      if (added) *added = added_charge;
+      return stat;
+  } // add_generalized_Gaussian
+
+
+
 #ifdef DEVEL
   
   inline status_t potential_projections(

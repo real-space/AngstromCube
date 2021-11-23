@@ -299,8 +299,7 @@ namespace self_consistency {
       data_list<double> atom_vbar(nr2, 0.0); // zero potentials
       data_list<double> atom_rhoc(nr2, 0.0); // core_densities
 
-      int constexpr numax_unitary = 9;
-      sho_unitary::Unitary_SHO_Transform<double> const unitary(numax_unitary);
+      sho_unitary::Unitary_SHO_Transform<double> const unitary(9);
 
       // allocations of grid quantities
       std::vector<double>  rho(run*g.all()); // [augmented] charge density
@@ -311,6 +310,8 @@ namespace self_consistency {
 
       char const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
+
+      auto const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32;
 
       char const occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
 
@@ -417,14 +418,23 @@ namespace self_consistency {
                   double const sigma = sigma_cmp[ia];
                   int    const ellmax = lmax_qlm[ia];
                   if (echo > 6) std::printf("# use generalized Gaussians (sigma= %g %s, lmax=%d) as compensators for atom #%i\n", sigma*Ang, _Ang, ellmax, ia);
-                  std::vector<double> coeff(sho_tools::nSHO(ellmax), 0.0);
-                  stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
+                  std::vector<double> coeff;
+                  if ('f' == compensator_method) { // "factorizable"
+                      coeff = std::vector<double>(sho_tools::nSHO(ellmax), 0.0);
+                      stat += sho_projection::denormalize_electrostatics(coeff.data(), atom_qlm[ia], ellmax, sigma, unitary, echo);
 #ifdef DEVEL
-//                if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
+//                    if (echo > 7) std::printf("# before SHO-adding compensators for atom #%i coeff[000] = %g\n", ia, coeff[0]);
 #endif // DEVEL
+                  } // factorizable
                   for (int ii = 0; ii < n_periodic_images; ++ii) {
                       double cnt[3]; set(cnt, 3, center[ia]); add_product(cnt, 3, periodic_images[ii], 1.0);
-                      stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
+                      if ('f' == compensator_method) { // "factorizable"
+                          stat += sho_projection::sho_add(cmp.data(), g, coeff.data(), ellmax, cnt, sigma, 0);
+                      } else {
+                          stat += potential_generator::add_generalized_Gaussian(cmp.data(), g, atom_qlm[ia], ellmax, cnt, sigma, echo);
+//                           double const one[] = {1};
+//                           stat += potential_generator::add_generalized_Gaussian(cmp.data(), g, one, 0, cnt, sigma, echo);
+                      }
                   } // periodic images
 #ifdef DEVEL
                   if (echo > 6) { // report extremal values of the density on the grid
@@ -530,7 +540,7 @@ namespace self_consistency {
               KS.solve(rho_valence_new, atom_rho_new, charges, Fermi,
                   g, Vtot.data(), n_atom_rho, atom_mat,
                   occupation_method, scf_iteration, echo);
-              
+
               double band_energy_sum = Fermi.get_band_sum(); // non-const since we might need to correct this
 
               Fermi.correct_Fermi_level(nullptr, echo); // clear the accumulators
@@ -702,6 +712,8 @@ namespace self_consistency {
 
       stat += single_atom::atom_update("memory cleanup", na);
 
+      solid_harmonics::cleanup<double>();
+      
       return stat;
   } // init
 

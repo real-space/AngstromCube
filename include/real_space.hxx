@@ -76,6 +76,7 @@ namespace real_space {
       } // set
 
       inline int is_Cartesian() const { return 1; } // true
+      inline int is_shifted() const { return 0; } // false
       inline int operator[] (int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
       inline int operator() (char const c) const { assert('x' <= (c|32)); assert((c|32) <= 'z'); return dims[(c|32) - 120]; }
       inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
@@ -90,8 +91,8 @@ namespace real_space {
                     return (bc_ref == bc[0]) + (bc_ref == bc[1]) + (bc_ref == bc[2]); };
   }; // class grid_t
 
-  
-  
+
+
   template <typename real_t>
   status_t add_function(
         real_t values[] // grid values which are modified
@@ -102,17 +103,19 @@ namespace real_space {
       , double *added=nullptr // optional result: how much (e.g. charge) was added
       , double const center[3]=nullptr // spherical center w.r.t. the position of grid point (0,0,0)
       , double const factor=1 // optional scaling
-      , float const r_cut=-1 // radial truncation, -1: use the max radius of the r^2-grid
+      , float const r_cut=-1 // radial truncation, -1:use the max radius of the r^2-grid
   ) {
       // Add a spherically symmetric regular function to the grid.
-      // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff][D0]
+      // The function is tabulated as r2coeff[0 <= hcoeff*r^2 < ncoeff]
       status_t stat(0);
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
-      double const r_max = std::sqrt((ncoeff - 1)/hcoeff); // largest radius of the r^2-grid
+      double const r_max = std::sqrt((ncoeff - 1.)/hcoeff); // largest radius of the r^2-grid
       double const rcut = (-1 == r_cut) ? r_max : std::min(double(r_cut), r_max);
       double const r2cut = rcut*rcut;
+      assert(hcoeff*r2cut < ncoeff);
+      assert(g.is_Cartesian());
       int imn[3], imx[3];
-      size_t nwindow = 1;
+      size_t nwindow{1};
       for (int d = 0; d < 3; ++d) {
           imn[d] = std::max(0, int(std::floor((c[d] - rcut)*g.inv_h[d])));
           imx[d] = std::min(   int(std::ceil ((c[d] + rcut)*g.inv_h[d])), g[d] - 1);
@@ -123,28 +126,30 @@ namespace real_space {
       } // d
       assert(hcoeff > 0);
       double added_charge{0}; // clear
-      size_t modified = 0, out_of_range = 0;
+      size_t modified{0}, out_of_range{0};
       for (            int iz = imn[2]; iz <= imx[2]; ++iz) {  double const vz = iz*g.h[2] - c[2], vz2 = vz*vz;
           for (        int iy = imn[1]; iy <= imx[1]; ++iy) {  double const vy = iy*g.h[1] - c[1], vy2 = vy*vy;
               if (vz2 + vy2 < r2cut) {
                   for (int ix = imn[0]; ix <= imx[0]; ++ix) {  double const vx = ix*g.h[0] - c[0], vx2 = vx*vx;
                       double const r2 = vz2 + vy2 + vx2;
                       if (r2 < r2cut) {
-                          int const ixyz = (iz*g('y') + iy)*g('x') + ix;
                           int const ir2 = int(hcoeff*r2);
                           if (ir2 < ncoeff) {
+                              int const izyx = (iz*g('y') + iy)*g('x') + ix;
                               double const w8 = hcoeff*r2 - ir2; // linear interpolation weight
                               int const ir2p1 = ir2 + 1;
-                                  auto const value_to_add = (r2coeff[ir2] * (1 - w8)
-                                       + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
-                                  values[ixyz] += factor*value_to_add;
-                                  added_charge += factor*value_to_add;
+                              auto const value_to_add = (r2coeff[ir2] * (1 - w8)
+                                   + ((ir2p1 < ncoeff) ? r2coeff[ir2p1] : 0)*w8);
+                              values[izyx] += factor*value_to_add;
+                              added_charge += factor*value_to_add;
+                              ++modified;
 #if 0
 //        std::printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
 //        std::printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);
 #endif // 0
-                              ++modified;
-                          } else ++out_of_range;
+                          } else {
+                              ++out_of_range;
+                          } // ir2 < ncoeff
                       } // inside rcut
                   } // ix
               } // rcut for (y,z)

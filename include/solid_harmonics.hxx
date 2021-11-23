@@ -51,9 +51,8 @@ namespace solid_harmonics {
               for (int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
-                  double cd{1};
+                  double cd{1}, sgn{-1};
                   xnorm[lm0] = a;
-                  double sgn{-1};
                   for (int m = 1; m <= l; ++m) {
                       cd /= ((l + 1. - m)*(l + m));
                       auto const xn = a*std::sqrt(2*cd); // different from Ylm!
@@ -69,8 +68,8 @@ namespace solid_harmonics {
       }
       if (ellmax < 0) return;
 
-      int const S = (1 + ellmax); // stride for p, the array of associated Legendre functions
-      auto const p = new real_t[S*S]; // associated Legendre functions
+      int const S = 1 + ellmax; // stride for p, the array of associated Legendre functions
+      std::vector<real_t> p(S*S); // associated Legendre functions
 
       // generate associated Legendre functions for m >= 0
       real_t fac{1};
@@ -81,17 +80,15 @@ namespace solid_harmonics {
           p[m + 1 + S*m] = (m + 1 + m)*cth*fac;
           // recurse upward in l
           for (int l = m + 2; l <= ellmax; ++l) {
-              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*r2*p[l - 2 + S*m])/real_t(l - m);
+              p[l + S*m] = ((2*l - 1)*cth*p[l - 1 + S*m] - (l + m - 1)*r2*p[l - 2 + S*m])/(l - m);
           } // l
           fac *= sth;
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
-      auto const cs = new real_t[S];
-      auto const sn = new real_t[S];
+      std::vector<real_t> cs(S, real_t(1));
+      std::vector<real_t> sn(S, real_t(0));
       // determine cos(m*phi) and sin(m*phi)
-      cs[0] = 1;
-      sn[0] = 0;
       if (cos_trick) {
           if (ellmax > 0) {
               cs[1] = cph; sn[1] = sph;
@@ -119,9 +116,6 @@ namespace solid_harmonics {
               xlm[lm0 - m] = Plm*xnorm[lm0 + m]*cs[m]; // real part
           } // l
       } // m
-      delete[] sn;
-      delete[] cs;
-      delete[] p;
 
   } // Xlm_implementation
 
@@ -139,29 +133,28 @@ namespace solid_harmonics {
       auto const rxy = std::sqrt(xy2);
 
       // calculate sin and cos of theta and phi
-      real_t cth, sth;
+      real_t cth{1}, sth{0};
       if (r > small) {
-         cth = z/r;
-         sth = rxy/r;
-      } else {
-         cth = 1;
-         sth = 0;
+         cth = z*(1/r);
+         sth = rxy*(1/r);
       }
-      real_t cph, sph;
+      real_t cph{1}, sph{0};
       if (rxy > small) {
-         cph = x/rxy;
-         sph = y/rxy;
-      } else {
-         cph = 1;
-         sph = 0;
+         cph = x*(1/rxy);
+         sph = y*(1/rxy);
       }
       rlXlm_implementation(xlm, ellmax, cth, sth, cph, sph);
   } // Xlm
 
   template <typename real_t, typename vector_real_t>
+  void rlXlm(real_t xlm[], int const ellmax, vector_real_t const x, vector_real_t const y, vector_real_t const z) {
+      real_t const r2 = x*x + y*y + z*z;
+      rlXlm_implementation(xlm, ellmax, z, real_t(1), x, y, r2, false);
+  } // rlXlm
+
+  template <typename real_t, typename vector_real_t>
   void rlXlm(real_t xlm[], int const ellmax, vector_real_t const v[3]) {
-      real_t const x = v[0], y = v[1], z = v[2], r2 = x*x + y*y + z*z;
-      rlXlm_implementation(xlm, ellmax, z, 1., x, y, r2, false); // ToDo: check: maybe something is still missing in Xlm_implementation
+      rlXlm(xlm, ellmax, v[0], v[1], v[2]);
   } // rlXlm
 
   template <typename real_t=double>

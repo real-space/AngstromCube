@@ -397,7 +397,7 @@ namespace cho_radial {
           int const nframes = -1;
           for (int iframe = 0; iframe <= nframes; ++iframe) {
               char basename[96]; std::snprintf(basename, 95, "frame%5.5d", iframe);
-              auto const angle = (pi*iframe*maxangle)/(180.*nframes);
+              auto const angle = (iframe*maxangle*pi)/(180.*nframes);
               auto const fn = std::cos(angle),
                          fm = std::sin(angle);
 

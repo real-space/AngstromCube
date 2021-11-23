@@ -28,7 +28,7 @@ namespace cho_unitary {
 #define HAS_GENERATION
 #ifdef  HAS_GENERATION
 
-  template <int lmax=9>
+  template <int lmax=23>
   status_t generate_unitary_transform(int const echo) {
       int constexpr Lcut = 1 + lmax;
       // ToDo: modify this for CHO (2D isotropic harmonic oscillator)
@@ -280,15 +280,16 @@ namespace cho_unitary {
                           if (echo > 7) std::printf("# overlap of nu=%d nx=%d ny=%d nr=%d m=%d\t%16.9f\t%16.9f\t%g\t%g\n",
                                       nu, nx, ny, nrn, m, matrix, matrix*matrix, matrix, sgn(matrix)*matrix*matrix);
                           ++nmatrix;
-                          mat[nx][j] = matrix;
                           
                           if (file) {
-                              double const denominator2 = uint64_t(1) << std::max(0, nu - 1);
-                              double const signed_nominator2 = sgn(matrix)*std::round(matrix*matrix*denominator2);
-                              std::fprintf(file, "%d %d %3d %d   %g %g\n", nx, ny, m, nrn, signed_nominator2, denominator2);
-                              double const matrix_reconstructed = sgn(signed_nominator2)*std::sqrt(std::abs(signed_nominator2)/denominator2);
+                              auto const denominator2 = uint64_t(1) << std::max(0, nu - 1);
+                              auto const signed_nominator2 = int64_t(sgn(matrix)*std::round(matrix*matrix*denominator2));
+                              std::fprintf(file, "%d %d %3d %d   %lld %lld\n", nx, ny, m, nrn, signed_nominator2, denominator2);
+                              double const matrix_reconstructed = sgn(signed_nominator2)*std::sqrt(std::abs(signed_nominator2)/double(denominator2));
                               filedev = std::max(filedev, std::abs(matrix_reconstructed - matrix));
+                              // matrix = matrix_reconstructed; // overwrite the matrix elements to check the unitarity of the integerized version
                           } // export to file
+                          mat[nx][j] = matrix;
 
                       } // nonzero
 
@@ -338,7 +339,7 @@ namespace cho_unitary {
 #endif // HAS_GENERATION
 
   template <typename real_t>
-  status_t test_loading(int const echo=1, int const numax=9) {
+  status_t test_loading(int const echo=1, int const numax=23) {
       cho_unitary::Unitary_CHO_Transform<real_t> U(numax);
       auto const dev = U.test_unitarity(echo);
       if (echo > 2) std::printf("# Unitary_CHO_Transform<%s>.test_unitarity = %.1e\n", 

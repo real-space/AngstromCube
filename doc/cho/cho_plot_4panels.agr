@@ -54,7 +54,47 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Thu Nov 11 15:29:08 2021"
+@timestamp def "Mon Nov 22 15:21:22 2021"
+@with string
+@    string on
+@    string loctype view
+@    string 0.43, 0.5
+@    string color 1
+@    string rot 0
+@    string font 0
+@    string just 0
+@    string char size 1.500000
+@    string def " \qm\Q  = 0"
+@with string
+@    string on
+@    string loctype view
+@    string 1.03, 0.5
+@    string color 2
+@    string rot 0
+@    string font 0
+@    string just 0
+@    string char size 1.500000
+@    string def "|\qm\Q| = 1"
+@with string
+@    string on
+@    string loctype view
+@    string 0.43, 0.15
+@    string color 15
+@    string rot 0
+@    string font 0
+@    string just 0
+@    string char size 1.500000
+@    string def "|\qm\Q| = 2"
+@with string
+@    string on
+@    string loctype view
+@    string 1.03, 0.15
+@    string color 4
+@    string rot 0
+@    string font 0
+@    string just 0
+@    string char size 1.500000
+@    string def "|\qm\Q| = 3"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -124,7 +164,7 @@
 @    xaxis  bar color 1
 @    xaxis  bar linestyle 1
 @    xaxis  bar linewidth 2.0
-@    xaxis  label ""
+@    xaxis  label "Radius \qr\Q"
 @    xaxis  label layout para
 @    xaxis  label place auto
 @    xaxis  label char size 1.500000
@@ -1125,7 +1165,7 @@
 @    xaxis  bar color 1
 @    xaxis  bar linestyle 1
 @    xaxis  bar linewidth 2.0
-@    xaxis  label ""
+@    xaxis  label "Radius \qr\Q"
 @    xaxis  label layout para
 @    xaxis  label place auto
 @    xaxis  label char size 1.500000

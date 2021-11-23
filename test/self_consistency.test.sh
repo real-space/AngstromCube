@@ -130,6 +130,8 @@ fermi.level=exact
 
 ## Poisson equation solver {multigrid, none, cg, sd, fft}
 electrostatic.solver=fft
+# electrostatic.compensator=factorizable
+electrostatic.compensator=generalized_Gaussian
 
 
 ##
