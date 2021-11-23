@@ -173,8 +173,8 @@ namespace self_consistency {
 #endif // DEVEL
 
       char h_line[32]; set(h_line, 31, '='); h_line[31] = '\0'; // a horizontal line of 31x '='
-      if (echo > 0) std::printf("\n\n# %s\n# Initialize\n# +check=%i run= %i\n# %s\n\n",
-                            h_line, check, run, h_line);      
+      if (echo > 0) std::printf("\n\n# %s\n# Initialize\n# +check=%i  (run=%i)\n# %s\n\n",
+                            h_line, check, run, h_line);
 
       view2D<double> xyzZ;
       real_space::grid_t g;
@@ -206,7 +206,7 @@ namespace self_consistency {
       view2D<double> periodic_images;
       int const n_periodic_images = boundary_condition::periodic_images(periodic_images,
                                        cell, g.boundary_conditions(), rcut, echo - 4);
-      if (echo > 1) std::printf("# %s consider %d periodic images\n", __FILE__, n_periodic_images);
+      if (echo > 1) std::printf("# %s consider %d periodic images\n", __func__, n_periodic_images);
 
 
       std::vector<double> Za(na); // list of atomic numbers
@@ -308,12 +308,13 @@ namespace self_consistency {
       std::vector<double>  Ves(run*g.all(), 0.0); // electrostatic potential
       std::vector<double> Vtot(run*g.all()); // total effective potential
 
+      // configuration
       char const *es_solver_name = control::get("electrostatic.solver", "fft"); // {"fft", "multi-grid", "MG", "CG", "SD", "none"}
       auto const es_solver_method = poisson_solver::solver_method(es_solver_name);
 
-      auto const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32;
+      char const compensator_method = *control::get("electrostatic.compensator", "factorizable") | 32;
 
-      char const occupation_method = *control::get("fermi.level", "exact"); // {"exact", "linearized"}
+      char const occupation_method = *control::get("fermi.level", "exact") | 32; // {"exact", "linearized"}
 
       // create a FermiLevel object
       fermi_distribution::FermiLevel_t Fermi(n_valence_electrons, 2, get_temperature(echo), echo);
@@ -333,10 +334,10 @@ namespace self_consistency {
       view2D<double> xyzZinso(na, 8);
       for (int ia = 0; ia < na; ++ia) {
           set(xyzZinso[ia], 4, xyzZ[ia]); // copy x,y,z,Z
-          xyzZinso(ia,4) = ia;  // global_atom_id
+          xyzZinso(ia,4) = ia;            // global_atom_id
           xyzZinso(ia,5) = numax[ia];
           xyzZinso(ia,6) = sigma_a[ia];
-          xyzZinso(ia,7) = 0;   // __not_used__
+          xyzZinso(ia,7) = 0;             // __not_used__
       } // ia
       // ============================================================================
       // prepare for solving the Kohn-Sham equation
@@ -344,16 +345,15 @@ namespace self_consistency {
 
       structure_solver::RealSpaceKohnSham KS(g, xyzZinso, na, run, echo);
 
-      // total energy contributions
-      double grid_electrostatic_energy{0}, grid_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
-              
-      if (run != 1) { 
+      if (check) {
           // do not start SCF iterations!
           if (echo > 0) std::printf("# +check=%i --> done\n", check);
           stat += single_atom::atom_update("memory cleanup", na);
           return stat;
-      } // run
+      } // check only, no run
 
+      // total energy contributions
+      double grid_electrostatic_energy{0}, grid_kinetic_energy{0}, grid_xc_energy{0}, total_energy{0};
 
       int const max_scf_iterations_input = control::get("self_consistency.max.scf", 1.);
       int max_scf_iterations{max_scf_iterations_input}; // non-const, may be modified by the stop file during the run

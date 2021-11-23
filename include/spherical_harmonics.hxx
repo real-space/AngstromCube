@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio> // std::printf
-#include <complex> // std::complex<real_t>, std::conj
+#include <complex> // std::complex<real_t>, ::conj
 #include <cmath> // std::sqrt
 #include <vector> // std::vector<T>
 
@@ -35,19 +35,15 @@ namespace spherical_harmonics {
 
 
       // check whether  or not normalizations are needed
-      static real_t *ynorm = nullptr;
+      static std::vector<real_t> ynorm;
       static int ellmaxd = -1; // -1:not_initalized
 
       if (ellmax > ellmaxd) {
-          // first deallocate the array if it exists
-          if (nullptr != ynorm) {
-              delete[] ynorm;
 #ifdef DEBUG
-              std::printf("# %s: resize table of normalization constants from %d to %d\n",
-                  __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
+           std::printf("# %s: resize table of normalization constants from %d to %d\n",
+              __func__, pow2(1 + ellmaxd), pow2(1 + ellmax));
 #endif // DEBUG
-          } // resize
-          ynorm = new real_t[pow2(1 + ellmax)];
+          ynorm.resize(pow2(1 + ellmax));
 
 // !********************************************************************
 // !     normalization constants for ylm (internal subroutine has access
@@ -58,9 +54,8 @@ namespace spherical_harmonics {
               for (int l = 0; l <= ellmax; ++l) {
                   int const lm0 = l*l + l;
                   double const a = std::sqrt((2*l + 1.)/fpi);
-                  double cd{1};
+                  double cd{1}, sgn{-1};
                   ynorm[lm0] = a;
-                  double sgn{-1};
                   for (int m = 1; m <= l; ++m) {
                       cd /= ((l + 1. - m)*(l + m));
                       auto const yn = a*std::sqrt(cd);
@@ -71,9 +66,11 @@ namespace spherical_harmonics {
               } // l
           } // scope
           ellmaxd = ellmax; // set static variable
-      } else if ((ellmax < 0) && (nullptr != ynorm)) {
-          delete[] ynorm; // cleanup
+      } else if (ellmax < 0) {
+          ellmaxd = -1; // set static variable
+          ynorm.resize(0); // cleanup
       }
+      if (ellmax < 0) return;
 
       // calculate sin and cos of theta and phi
       auto const x = v[0], y = v[1], z = v[2];
@@ -123,7 +120,7 @@ namespace spherical_harmonics {
           } // m
       } // ellmax > 0
 
-      // multiply in the normalization factors
+      // multiply the normalization factors
       for (int m = 0; m <= ellmax; ++m) {
           for (int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;
@@ -140,11 +137,24 @@ namespace spherical_harmonics {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  template <typename real_t>
+  inline status_t test_memory_cleanup(int const echo=0, int const ellmax=9) {
+      status_t stat(0);
+      double const vec[] = {1.,2.,3.};
+      for (int ell = 0; ell <= ellmax; ++ell) {
+          std::vector<std::complex<real_t>> ylm(pow2(1 + ell));
+          Ylm(ylm.data(), ell, vec);
+          Ylm(ylm.data(), -1, vec); // memory cleanup
+      } // ell
+      return stat;
+  } // test_memory_cleanup
+
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
       status_t stat(0);
-      if (echo > 0) std::printf("\n# %s    no test implemented!\n\n", __FILE__);
-      stat = STATUS_TEST_NOT_INCLUDED; // ToDo: think of a good test
+      stat += test_memory_cleanup<float>(echo);
+      stat += test_memory_cleanup<double>(echo);
+      // ToDo: insufficient testing done here. Orthgonality of spherical_harmonics can be checked using angular_grid!
       return stat;
   } // all_tests
 

@@ -11,9 +11,9 @@
 #include "status.hxx" // status_t
 #include "constants.hxx" // ::pi
 #include "inline_math.hxx" // pow2, align<nBits>
-#include "solid_harmonics.hxx" // ::rlXlm, ::cleanup<real_t>
+#include "solid_harmonics.hxx" // ::rlXlm, ::cleanup
+#include "spherical_harmonics.hxx" // ::Ylm
 #include "gaunt_entry.h" // gaunt_entry_t
-// #include "spherical_harmonics.hxx" // ::Ylm
 #include "linear_algebra.hxx" // ::gemm
 
 namespace angular_grid {
@@ -1848,51 +1848,57 @@ namespace angular_grid {
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = Lebedev_grid_size(ellmax);
       int const M = pow2(1 + ellmax);
-//       typedef std::complex<double> Ylm_t; // complex-valued
-      typedef double Ylm_t; // real-valued
-      std::vector<Ylm_t> yy(M);
+      std::vector<std::complex<double>> ylm(M);
+      std::vector<             double > xlm(M);
       auto const xyzw = new double[max_size][4];
       status_t stat(0);
-      double dev_all{0};
+      double dev_all[] = {0, 0};
       for (int ell = ellmax; ell > 0; --ell) {
           int const m = pow2(1 + ell);
           if (echo > 3) std::printf("\n# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
           auto const np = create_Lebedev_grid(ell, xyzw, echo);
-          std::vector<Ylm_t> unity(M*M, 0.0);
+          std::vector<std::complex<double>> unity(M*M, 0.0);
+          std::vector<             double > unitx(M*M, 0.0);
           for (int ip = 0; ip < np; ++ip) {
               auto const w8 = xyzw[ip][3] * 4*constants::pi;
 //            if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
-//               spherical_harmonics::Ylm(yy.data(), ell, xyzw[ip]); // complex
-              solid_harmonics::rlXlm(yy.data(), ell, xyzw[ip]); // real
+              spherical_harmonics::Ylm(ylm.data(), ell, xyzw[ip]); // complex
+              solid_harmonics::rlXlm(xlm.data(), ell, xyzw[ip]); // real
               for (int i = 0; i < m; ++i) {
-//                   auto const yi = std::conj(yy[i])*w8; // complex
-                  auto const yi = yy[i]*w8;
+                  auto const yi = std::conj(ylm[i])*w8; // complex
+                  auto const xi =           xlm[i] *w8; // real
                   for (int j = 0; j < m; ++j) {
-                      unity[i*M + j] += yi * yy[j];
+                      unity[i*M + j] += yi * ylm[j];
+                      unitx[i*M + j] += xi * xlm[j];
                   } // j
               } // i
           } // ip
 
-          double dev{0};
-          for (int i = 0; i < m; ++i) {
-              for (int j = 0; j < m; ++j) {
-//                   auto const Re = unity[i*M + j].real(), Im = unity[i*M + j].imag();
-//                   if (echo > 8) std::printf("%g %g  ", Re, Im);
-//                   dev = std::max(dev, std::abs(Im));
-                  auto const Re = std::real(unity[i*M + j]);
-                  if (echo > 8) std::printf("%16.9f ", Re);
-                  dev = std::max(dev, std::abs(Re - (i == j))); // subtract 1 on the diagonal
-              } // j
-              if (echo > 7) std::printf("\n");
-          } // i
-          if (echo > 4) std::printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %i is %.1e\n", __func__, ell, dev);
-          dev_all = std::max(dev_all, dev);
-          stat += (dev > 2.7e-14);
-
+          for (int r0c1 = 0; r0c1 <= 1; ++r0c1) { // 0:real, 1:complex
+              double dev{0};
+              for (int i = 0; i < m; ++i) {
+                  for (int j = 0; j < m; ++j) {
+                      auto const Re = r0c1 ? unity[i*M + j].real() : unitx[i*M + j];
+                      if (r0c1) {
+                          auto const Im = unity[i*M + j].imag();
+                          dev = std::max(dev, std::abs(Im));
+                          if (echo > 8) std::printf("%g %g  ", Re, Im);
+                      } else {
+                          if (echo > 8) std::printf("%16.9f ", Re);
+                      } // r0c1
+                      dev = std::max(dev, std::abs(Re - (i == j))); // subtract 1 on the diagonal
+                  } // j
+                  if (echo > 7) std::printf("\n");
+              } // i
+              if (echo > 4) std::printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %i is %.1e\n", __func__, ell, dev);
+              dev_all[r0c1] = std::max(dev_all[r0c1], dev);
+              stat += (dev > 2.7e-14);
+          } // r0c1
       } // ell
-      if (echo > 2) std::printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %.1e\n", __func__, ellmax, dev_all);
+      if (echo > 2) std::printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %.1e for rlXlm (and %.1e for Ylm)\n",
+                                     __func__, ellmax, dev_all[0], dev_all[1]);
       delete[] xyzw;
-      if (echo > 0 && stat) std::printf("# %s: %i grid generations failed!\n", __func__, int(stat));
+      if (echo > 0 && stat) std::printf("# %s: %i deviations are large!\n", __func__, int(stat));
       return stat;
   } // test_orthogonality
 

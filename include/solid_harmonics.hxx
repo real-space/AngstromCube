@@ -57,13 +57,14 @@ namespace solid_harmonics {
                       cd /= ((l + 1. - m)*(l + m));
                       auto const xn = a*std::sqrt(2*cd); // different from Ylm!
                       xnorm[lm0 + m] = xn;
-                      xnorm[lm0 - m] = xn * sgn; // not used here
+                      xnorm[lm0 - m] = xn * sgn; // not used in this version
                       sgn = -sgn; // prepare (-1)^m for the next iteration
                   } // m
               } // l
           } // scope
           ellmaxd = ellmax; // set static variable
       } else if (ellmax < 0) {
+          ellmaxd = -1; // set static variable
           xnorm.resize(0); // cleanup
       }
       if (ellmax < 0) return;
@@ -107,13 +108,13 @@ namespace solid_harmonics {
           } // m
       } // cos_trick
 
-      // multiply in the normalization factors
+      // multiply the normalization factors
       for (int m = 0; m <= ellmax; ++m) {
           for (int l = m; l <= ellmax; ++l) {
               int const lm0 = l*l + l;
               real_t const Plm = p[l + S*m];
-              xlm[lm0 + m] = Plm*xnorm[lm0 + m]*sn[m]; // imag part
-              xlm[lm0 - m] = Plm*xnorm[lm0 + m]*cs[m]; // real part
+              xlm[lm0 + m] = xnorm[lm0 + m]*Plm*sn[m]; // imag part
+              xlm[lm0 - m] = xnorm[lm0 + m]*Plm*cs[m]; // real part
           } // l
       } // m
 
@@ -160,10 +161,10 @@ namespace solid_harmonics {
   template <typename real_t=double>
   void cleanup() { real_t z{0}; rlXlm_implementation(&z, -1, z, z, z, z); } // free internal memory
 
-  inline int find_ell(int const lm) { int lp1{0}; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; }
-  inline int find_emm(int const lm, int const ell) { return lm - (ell*ell + ell); }
-  inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
+  inline int find_ell(int const lm) { int lp1{0}; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; } // alternative: (lm < 0) ? -1 : int(std::sqrt(float(lm)))
   inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
+  inline int find_emm(int const lm, int const ell) { return lm - lm_index(ell, 0); }
+  inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
@@ -185,7 +186,7 @@ namespace solid_harmonics {
   } // test_Y00_inverse
 
   inline status_t all_tests(int const echo=0) {
-      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
+      if (echo > 0) std::printf("\n# %s (for tests of the orthogonality run --test angular_grid)\n", __FILE__);
       status_t stat(0);
       stat += test_Y00_inverse(echo);
       stat += test_indices(echo);
