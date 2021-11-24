@@ -1770,9 +1770,14 @@ namespace angular_grid {
 
   void cleanup(int const echo) { get_grid(-1, echo); } // free internal memory
 
-  template <> // template specialization
-  status_t transform<double>(double out[], double const in[], int const M, // M is the stride for in[] and out[]
-                          int const ellmax, bool const back, int const echo) {
+  status_t transform(
+        double out[] // resulting matrix, stride M
+      , double const in[] // input matrix, stride M
+      , int const M // M is the stride for in[] and out[]
+      , int const ellmax // largest angular momentum
+      , bool const back // =false:forward, true:backward transform
+      , int const echo // =0 log-level
+  ) {
       auto const g = get_grid(ellmax, echo);
       if (nullptr == g) return -1;
       double const *b{nullptr}; int ldb{0}, N{0}, K{0};
@@ -1781,55 +1786,14 @@ namespace angular_grid {
       return linear_algebra::gemm(M, N, K, out, M, b, ldb, in, M);
   } // transform
 
-
-  template <int lmax>
-  std::vector<gaunt_entry_t> create_numerical_Gaunt(int const echo) {
-      int const npt = get_grid_size(2*lmax);
-      int constexpr M2 = pow2(1 + 2*lmax), M = pow2(1 + lmax);
-      auto const yy   = new double[npt][M2];
-      auto const xyzw = new double[npt][4];
-      create_Lebedev_grid(xyzw, 2*lmax, echo);
-      for (int ipt = 0; ipt < npt; ++ipt) {
-          solid_harmonics::rlXlm(yy[ipt], 2*lmax, xyzw[ipt]);
-      } // ipt
-      size_t const n_expected = (M*M*M2) >> 4;
-      std::vector<gaunt_entry_t> gaunt_coeffs;
-      gaunt_coeffs.reserve(n_expected);
-      size_t n{0}, nnz{0};
-      for (int lm0 = 0; lm0 < M2; ++lm0) {
-          for (int lm1 = 0; lm1 < M; ++lm1) {
-              for (int lm2 = 0; lm2 < M; ++lm2) {
-                  double Gaunt{0};
-                  for (int ipt = 0; ipt < npt; ++ipt) {
-                      double const weight = xyzw[ipt][3];
-                      Gaunt += yy[ipt][lm0] * yy[ipt][lm1] * yy[ipt][lm2] * weight;
-                  } // ipt
-                  Gaunt *= 4*constants::pi;
-                  if (std::abs(Gaunt) > 1e-14) {
-                      if (echo > 8) std::printf("%i %i %i %.9f\n", lm0, lm1, lm2, Gaunt);
-                      gaunt_coeffs.push_back({Gaunt, lm0, int16_t(lm1), int16_t(lm2)});
-                      ++nnz;
-                  } // non-zero
-                  ++n;
-              } // lm2
-          } // lm1
-      } // lm0
-      delete[] xyzw;
-      delete[] yy;
-      if (echo > 3) std::printf("\n# %s: %ld of %ld real-Gaunt tensor elements are nonzero"
-                " (%.3f %%), expected %ld\n", __func__, nnz, n, nnz/(.01*n), n_expected);
-      return gaunt_coeffs;
-  } // create_numerical_Gaunt
-
-
-  std::vector<gaunt_entry_t> create_numerical_real_Gaunt(int const ellmax, int const echo) {
+  std::vector<gaunt_entry_t> create_numerical_Gaunt(int const ellmax, int const echo) {
       std::vector<gaunt_entry_t> gaunt_coeffs;
       auto const *const g = get_grid(2*ellmax);
       if (nullptr != g) {
           assert(2*ellmax == g->ellmax);
           int const M = pow2(1 + ellmax), M2 = pow2(1 + 2*ellmax);
-          size_t const n_expected = (M2*M*M) >> 4; // estimate?
-          gaunt_coeffs.reserve(n_expected);
+          size_t const n_expected = (M2*M*M) >> 5; // estimate is good for ellmax=6
+          gaunt_coeffs.reserve(n_expected); // try to avoid resizing
           size_t n{0}, nnz{0};
           for (int lm0 = 0; lm0 < M2; ++lm0) {
               for (int lm1 = 0; lm1 < M; ++lm1) {
@@ -1856,11 +1820,7 @@ namespace angular_grid {
           if (echo > 1) std::printf("# %s: failed to get an angular grid for ellmax= %d\n", __func__, 2*ellmax);
       } // nullptr != g
       return gaunt_coeffs;
-  } // create_numerical_real_Gaunt
-
-
-  template // explicit template instantiation
-  std::vector<gaunt_entry_t> create_numerical_Gaunt<6>(int const echo);
+  } // create_numerical_Gaunt
 
 #ifdef  NO_UNIT_TESTS
   status_t all_tests(int const echo) { return STATUS_TEST_NOT_INCLUDED; }
@@ -1918,7 +1878,7 @@ namespace angular_grid {
               for (int ipt = 0; ipt < g->npoints; ++ipt) {
                   auto const weight = g->xyzw[ipt][3] * 4*constants::pi;
 //                if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, g->xyzw[ipt][0], g->xyzw[ipt][1], g->xyzw[ipt][2]);
-                  spherical_harmonics::Ylm(ylm.data(), ell, g->xyzw[ipt]); // complex
+                  spherical_harmonics::Ylm(ylm.data(), ell, g->xyzw[ipt]);
                   for (int i = 0; i < m; ++i) {
                       add_product(&unity[i*M], m, ylm.data(), std::conj(ylm[i])*weight);
                   } // i
@@ -1975,19 +1935,10 @@ namespace angular_grid {
       return stat;
   } // test_identity_transform
 
-  status_t test_numerical_Gaunt(int const echo=1) {
-      auto const gaunt_coeffs = create_numerical_Gaunt<3>(echo);
-      auto const gaunt_real   = create_numerical_real_Gaunt(3, echo);
-      assert(gaunt_real.size() == gaunt_coeffs.size());
-      double dev{0};
-      for (int i = 0; i < gaunt_coeffs.size(); ++i) {
-          assert(gaunt_coeffs[i].lm  == gaunt_real[i].lm);
-          assert(gaunt_coeffs[i].lm1 == gaunt_real[i].lm1);
-          assert(gaunt_coeffs[i].lm2 == gaunt_real[i].lm2);
-          dev = std::max(dev, std::abs(gaunt_coeffs[i].G - gaunt_real[i].G));
-      } // i
-      if (echo > 2) std::printf("# %s: create_numerical_Gaunt and create_numerical_real_Gaunt agree up to %.1e\n", __func__, dev);
-      return (dev > 1e-15);
+  status_t test_numerical_Gaunt(int const echo=1, int const ellmax=3) {
+      auto const gaunt_coeffs = create_numerical_Gaunt(ellmax, echo);
+      if (echo > 3) std::printf("# %s: Gaunt(00, 00,00) = %g\n", __func__, gaunt_coeffs[0].G);
+      return 0;
   } // test_numerical_Gaunt
 
   status_t all_tests(int const echo) {

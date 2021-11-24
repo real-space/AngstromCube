@@ -939,7 +939,7 @@ namespace single_atom {
 
     status_t initialize_Gaunt(int const echo=0) {
         if (!gaunt_init) {
-            gaunt = angular_grid::create_numerical_Gaunt<6>(echo);
+            gaunt = angular_grid::create_numerical_Gaunt(6, echo);
             gaunt_init = true;
         } // not initialized
         return 0;
