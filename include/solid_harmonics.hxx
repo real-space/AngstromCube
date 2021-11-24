@@ -38,8 +38,8 @@ namespace solid_harmonics {
 
       if (ellmax > ellmaxd) {
 #ifdef DEBUG
-          if (xnorm.size() > 0) std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
-#endif
+          std::printf("# %s resize table of normalization constants from %d to %d\n", __func__, (1 + ellmaxd)*(1 + ellmaxd), (1 + ellmax)*(1 + ellmax));
+#endif // DEBUG
           xnorm.resize((1 + ellmax)*(1 + ellmax));
 
 // !********************************************************************
@@ -130,7 +130,7 @@ namespace solid_harmonics {
       real_t constexpr small = 1e-12;
       auto const x = v[0], y = v[1], z = v[2];
       auto const xy2 = x*x + y*y;
-      auto const r = std::sqrt(xy2 + z*z);
+      auto const r   = std::sqrt(xy2 + z*z);
       auto const rxy = std::sqrt(xy2);
 
       // calculate sin and cos of theta and phi
@@ -159,10 +159,29 @@ namespace solid_harmonics {
   } // rlXlm
 
   template <typename real_t=double>
-  void cleanup() { real_t z{0}; rlXlm_implementation(&z, -1, z, z, z, z); } // free internal memory
+  void cleanup(int const echo=0) {
+      if (echo > 5) std::printf("# %s %s<%s>: free internal memory\n",
+          __FILE__, __func__, (sizeof(real_t) == 4)?"float":"double");
+      real_t z{0};
+      rlXlm_implementation(&z, -1, z, z, z, z);
+  } // cleanup
+
+  /*
+   *   lm_index is a combined index of the angular momentum integer quantum numbers
+   *   ell >= 0 and emm with |emm| <= ell
+   *      
+   *  emm       -5  | -4  | -3  | -2  | -1  |  0  |  1  |  2  |  3  |  4  |  5
+   *  ell=0                                    0
+   *  ell=1                              1     2     3   
+   *  ell=2                        4     5     6     7     8
+   *  ell=3                  9    10    11    12    13    14    15  
+   *  ell=4           16    17    18    19    20    21    22    23    24 
+   *  ell=5     25    26    27    28    29    30    31    32    33    34    35
+   *   ...                                ....
+   */
+  inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
 
   inline int find_ell(int const lm) { int lp1{0}; while (lp1*lp1 <= lm) ++lp1; return lp1 - 1; } // alternative: (lm < 0) ? -1 : int(std::sqrt(float(lm)))
-  inline int lm_index(int const ell, int const emm) { return ell*ell + ell + emm; }
   inline int find_emm(int const lm, int const ell) { return lm - lm_index(ell, 0); }
   inline int find_emm(int const lm) { return find_emm(lm, find_ell(lm)); }
 
@@ -170,7 +189,8 @@ namespace solid_harmonics {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t test_indices(int const echo=0) { // test interal consistency of find_-functions
+  inline status_t test_indices(int const echo=0) {
+      // test interal consistency of find_ell and find_emm
       status_t stat(0);
       for (int lm = -3; lm < 64; ++lm) {
           int const ell = find_ell(lm),
@@ -185,11 +205,25 @@ namespace solid_harmonics {
       return ( Y00 * Y00inv != 1.0 ); // should be exact
   } // test_Y00_inverse
 
+  template <typename real_t>
+  inline status_t test_memory_cleanup(int const echo=0, int const ellmax=9) {
+      status_t stat(0);
+      real_t const vec[] = {1, 2, 3};
+      for (int ell = 0; ell <= ellmax; ++ell) {
+          std::vector<real_t> xlm((1 + ell)*(1 + ell));
+          rlXlm(xlm.data(), ell, vec);
+          cleanup<real_t>(echo); // memory cleanup
+      } // ell
+      return stat;
+  } // test_memory_cleanup
+
   inline status_t all_tests(int const echo=0) {
       if (echo > 0) std::printf("\n# %s (for tests of the orthogonality run --test angular_grid)\n", __FILE__);
       status_t stat(0);
       stat += test_Y00_inverse(echo);
       stat += test_indices(echo);
+      stat += test_memory_cleanup<float>(echo);
+      stat += test_memory_cleanup<double>(echo);
       return stat;
   } // all_tests
 

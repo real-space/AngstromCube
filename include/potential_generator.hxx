@@ -149,7 +149,7 @@ namespace potential_generator {
                           values[izyx] += factor*value_to_add;
                           added_charge += factor*value_to_add;
                           ++modified;
-#if 1
+#if 0
                           if (echo > 13) {
                               std::printf("#rs %g %g\n", std::sqrt(r2), value_to_add);
                               // std::printf("#rs %.1f %.1f %.1f %.12f\n", vx*g.inv_h[0], vy*g.inv_h[1], vz*g.inv_h[2], value_to_add);

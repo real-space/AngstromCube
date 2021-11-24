@@ -7,12 +7,11 @@
 
 #include "angular_grid.hxx"
 
-#include "angular_grid.h" // angular_grid_t
 #include "status.hxx" // status_t
 #include "constants.hxx" // ::pi
 #include "inline_math.hxx" // pow2, align<nBits>
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup
-#include "spherical_harmonics.hxx" // ::Ylm
+#include "spherical_harmonics.hxx" // ::Ylm, ::cleanup
 #include "gaunt_entry.h" // gaunt_entry_t
 #include "linear_algebra.hxx" // ::gemm
 
@@ -25,90 +24,38 @@ namespace angular_grid {
   int constexpr ellmax_implemented = 20; // highest Lebedev-Laikov grid implemented
 #endif // LARGE_ANGULAR_GRIDS
 
+  int get_grid_size(int const ellmax, int const echo) {
+      if (ellmax < -1) return 0;
 
-  template <> // template specialization
-  status_t transform<double>(double out[], double const in[], int const M, // M is the stride for in[] and out[]
-                          int const ellmax, bool const back, int const echo) {
-      auto const g = get_grid(ellmax, echo); if (nullptr == g) return -1;
-      double *b{nullptr}; int ldb{0}, N{0}, K{0};
-      if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
-      else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
-      return linear_algebra::gemm(M, N, K, out, M, b, ldb, in, M);
-  } // transform
+      int const available[34] = {0,1,6,14,26,38,50,74,86,110,146,170,194,230,266,302,350,
+      434,590,770,974,1202,1454,1730,2030,2354,2702,3074,3470,3890,4334,4802,5294,5810};
+      // for ellmax = 65, we reach 5808.0 which then is corrected to 5810
 
+      int const npt = (4*pow2(ellmax + 1))/3; // to be corrected to next larger numbers of grid points available
+      // todo: check if the suggestion npt = (ellmax+1)^2 leads to orthogonality of the spherical harmonics
+      int i{0}; while (available[i] < npt  && i < 33) { ++i; }
+      if (i >= 32 && available[i] < npt) {
+          if (echo > 0) std::printf("# %s ellmax= %i leads to %d points (too large)!\n", __func__, ellmax, npt);
+          return -1; // failure
+      } // i
+      if (echo > 4) std::printf("# %s correct the number of angular grid points of the Lebedev-Laikov grid"
+                                " for ellmax= %i from %d to %d\n", __func__, ellmax, npt, available[i]);
+      return available[i];
+  } // get_grid_size
+  
 
-  angular_grid_t* get_grid(int const ellmax, int const echo) {
-
-      static angular_grid_t grids[1 + ellmax_implemented];
-
-      if ((ellmax < 0) || (ellmax > ellmax_implemented)) {
-          if (echo > 0) std::printf("# %s: ellmax= %i is out of range [0, %i]\n", __func__, ellmax, ellmax_implemented);
-          return nullptr;
-      } // in range
-
-//       if (ellmax < 0) { // memory cleanup
-//           if (echo > 2) std::printf("# %s: memory cleanup!\n", __FILE__);
-//           for (int ell = 0; ell <= ellmax_implemented; ++ell) {
-//               auto g = &grids[ell];
-//               if ((g.npoints > 0) && (g.ellmax == ell)) {
-//                   if (echo > 4) std::printf("# %s: memory cleanup of ellmax=%i\n", __func__, ell);
-//                   delete[] g.xyzw;
-//                   delete[] g.Xlm2grid;
-//                   delete[] g.Xlm2grid;
-//               } // this grid was initialized
-//           } //
-//           return 0; // success
-//       } // in range
-
-      auto & g = grids[ellmax];
-      if ((g.npoints < 1) || (g.ellmax != ellmax)) {
-          // init this instance
-          g.ellmax = ellmax;
-          g.npoints = Lebedev_grid_size(ellmax);
-          int const nlm = pow2(1 + ellmax);
-          g.Xlm2grid_stride = align<2>(nlm);
-          g.grid2Xlm_stride = align<2>(g.npoints);
-          // allocations
-          g.xyzw     = new double[g.npoints][4];
-          g.Xlm2grid = new double[g.npoints*g.Xlm2grid_stride];
-          g.grid2Xlm = new double[      nlm*g.grid2Xlm_stride];
-
-          auto const stat = create_Lebedev_grid(ellmax, g.xyzw);
-          if (echo > 0 && stat) std::printf("# %s: angular grid for ellmax= %i failed with status %i\n",
-                                         __func__, ellmax, stat);
-
-          // clear the matrix memories
-          set(g.Xlm2grid, g.npoints*g.Xlm2grid_stride, 0.0);
-          set(g.grid2Xlm,       nlm*g.grid2Xlm_stride, 0.0);
-
-          std::vector<double> xlm(nlm);
-          // create the real-valued spherical harmonics
-          for (int ipt = 0; ipt < g.npoints; ++ipt) {
-              auto const w8 = g.xyzw[ipt][3] * 4*constants::pi;
-              solid_harmonics::rlXlm(xlm.data(), ellmax, g.xyzw[ipt]);
-              for (int ilm = 0; ilm < nlm; ++ilm) {
-                  g.Xlm2grid[ipt*g.Xlm2grid_stride + ilm] = xlm[ilm];
-                  g.grid2Xlm[ilm*g.grid2Xlm_stride + ipt] = xlm[ilm]*w8;
-              } // ilm
-          } // ipt
-          if (echo > 0) std::printf("# %s: angular grid for ellmax= %i is requested 1st: %i points\n",
-                                __func__, ellmax, g.npoints);
-      } // grid was not set
-      return &g;
-
-  } // get_grid
-
-
+  
+  
 //   status_t get_weights(double weights[], int const ellmax, int const echo) {
 //       auto const g = get_grid(ellmax, echo);
 //       if (nullptr != g) {
 //           for (int i = 0; g.npoints; ++i) {
 //               weights[i] = g.xyzw[i][3]; // copy out weights
 //           } // i
-//           return 0;
+//           return 0; // success
 //       } // worked
 //       if (echo > 0) std::printf("# failed to find an angular grid for ellmax= %i\n", ellmax);
-//       return -1;
+//       return -1; // failure
 //   } // get_weights
 
 
@@ -121,20 +68,20 @@ namespace angular_grid {
 // ! cvw    icode=6:   (a,b,c) etc, c=sqrt(1-a^2-b^2), a&b input  (48 points)
 
   template <typename real_t>
-  int gen_oh0(int ncode[], double const w8, real_t xyzw[][4]) {
+  int gen_oh0(int ncode[], double const weight, real_t xyzw[][4]) {
       ++ncode[0];
       // start vector [ O, O, O ]
       // the point
       for (int dir = 0; dir < 3; ++dir) {
           xyzw[0][dir] = 0;
       } // dir
-      xyzw[0][3] = w8;
+      xyzw[0][3] = weight;
 // cTeXit '% no citation needed for using a single point instead of an angular grid.'
       return 1;
   } // gen_oh0
 
   template <typename real_t>
-  int gen_oh1(int ncode[], double const w8, real_t xyzw[][4]) {
+  int gen_oh1(int ncode[], double const weight, real_t xyzw[][4]) {
       ++ncode[1]; int i{0};
       // start vector [O, O, A]
       // the octahedron
@@ -144,7 +91,7 @@ namespace angular_grid {
               xyzw[i][1] = 0;
               xyzw[i][2] = 0;
               xyzw[i][dir] = s;
-              xyzw[i][3] = w8;
+              xyzw[i][3] = weight;
               ++i;
           } // s
       } // dir
@@ -161,7 +108,7 @@ namespace angular_grid {
   } // gen_oh1
 
   template <typename real_t>
-  int gen_oh2(int ncode[], double const w8, real_t xyzw[][4]) {
+  int gen_oh2(int ncode[], double const weight, real_t xyzw[][4]) {
       ++ncode[2]; int i{0};
       // start vector [O, A, A]
       double const sq2 = std::sqrt(.5);
@@ -172,7 +119,7 @@ namespace angular_grid {
                   xyzw[i][ dir       ] = 0;
                   xyzw[i][(dir + 1)%3] = s1*sq2;
                   xyzw[i][(dir + 2)%3] = s2*sq2;
-                  xyzw[i][3] = w8;
+                  xyzw[i][3] = weight;
                   ++i;
               } // s2
           } // s1
@@ -191,7 +138,7 @@ namespace angular_grid {
   } // gen_oh2
 
   template <typename real_t>
-  int gen_oh3(int ncode[], double const w8, real_t xyzw[][4]) {
+  int gen_oh3(int ncode[], double const weight, real_t xyzw[][4]) {
       ++ncode[3]; int i{0};
       // start vector [A, A, A]
       double const sq3 = sqrt(1/3.);
@@ -202,7 +149,7 @@ namespace angular_grid {
                   xyzw[i][0] = sq3*s1;
                   xyzw[i][1] = sq3*s2;
                   xyzw[i][2] = sq3*s3;
-                  xyzw[i][3] = w8;
+                  xyzw[i][3] = weight;
                   ++i;
               } // s1
           } // s2
@@ -220,7 +167,7 @@ namespace angular_grid {
   } // gen_oh3
 
   template <typename real_t>
-  int gen_oh4(int ncode[], double const w8, real_t xyzw[][4], double const aa) {
+  int gen_oh4(int ncode[], double const weight, real_t xyzw[][4], double const aa) {
       ++ncode[4]; int i{0};
       // start vector [A, A, B]
       assert(2*aa*aa < 1);
@@ -233,7 +180,7 @@ namespace angular_grid {
                       xyzw[i][ dir       ] = bb*s3;
                       xyzw[i][(dir + 1)%3] = aa*s1;
                       xyzw[i][(dir + 2)%3] = aa*s2;
-                      xyzw[i][3] = w8;
+                      xyzw[i][3] = weight;
                       ++i;
                   } // s1
               } // s2
@@ -252,7 +199,7 @@ namespace angular_grid {
   } // gen_oh4
 
   template <typename real_t>
-  int gen_oh5(int ncode[], double const w8, real_t xyzw[][4], double const aa) {
+  int gen_oh5(int ncode[], double const weight, real_t xyzw[][4], double const aa) {
       ++ncode[5]; int i{0};
       // start vector [A, B, O]
       assert(aa*aa < 1);
@@ -266,7 +213,7 @@ namespace angular_grid {
                       xyzw[i][ dir       ] = 0;
                       xyzw[i][(dir + 1)%3] = a3*s1;
                       xyzw[i][(dir + 2)%3] = b3*s2;
-                      xyzw[i][3] = w8;
+                      xyzw[i][3] = weight;
                       ++i;
                   } // s1
               } // s2
@@ -285,7 +232,7 @@ namespace angular_grid {
   } // gen_oh5
 
   template <typename real_t>
-  int gen_oh6(int ncode[], double const w8, real_t xyzw[][4], double const aa, double const bb) {
+  int gen_oh6(int ncode[], double const weight, real_t xyzw[][4], double const aa, double const bb) {
       ++ncode[6]; int i{0};
       // start vector [A, B, C]
 //       A = aa ; if (A*A >= 1) die_here('gen_oh: break; case 6: |AA| is too large!')
@@ -306,7 +253,7 @@ namespace angular_grid {
                           xyzw[i][0] = c3[rev][dir + 0]*s1;
                           xyzw[i][1] = c3[rev][dir + 1]*s2;
                           xyzw[i][2] = c3[rev][dir + 2]*s3;
-                          xyzw[i][3] = w8;
+                          xyzw[i][3] = weight;
                           ++i;
                       } // s1
                   } // s2
@@ -325,33 +272,14 @@ namespace angular_grid {
 // cTeX     journal='Computational Mathematics and Mathematical Physics', volume='15', year='1975', pages='44-51')
   } // gen_oh6
 
-  int Lebedev_grid_size(int const ellmax, int const echo) {
-    if (ellmax < -1) return 0;
-
-    int const available[34] = {0,1,6,14,26,38,50,74,86,110,146,170,194,230,266,302,350,
-    434,590,770,974,1202,1454,1730,2030,2354,2702,3074,3470,3890,4334,4802,5294,5810};
-    // for ellmax = 65, we reach 5808.0 which then is corrected to 5810
-
-    int const n = (4*pow2(ellmax + 1))/3; // to be corrected to next larger numbers of grid points available
-    // todo: check if the suggestion n = (ellmax+1)^2 leads to orthogonality of the spherical harmonics
-    int i = 0; while (available[i] < n  && i < 33) { ++i; }
-    if (i >= 32 && available[i] < n) {
-        if (echo > 0) std::printf("# %s ellmax= %i leads to n= %i (too large)!\n", __func__, ellmax, n);
-        return -1;
-    } // i
-    if (echo > 4) std::printf("# %s correct the number of angular grid points of the Lebedev-Laikov grid"
-                         " for ellmax= %i from %i to %i\n", __func__, ellmax, n, available[i]);
-    return available[i];
-  } // Lebedev_grid_size
-
 
   template <typename real_t>
-  int create_Lebedev_grid(int const ellmax, real_t xyzw[][4], int const echo) {
+  int create_Lebedev_grid(real_t xyzw[][4], int const ellmax, int const echo=0) {
 
     int nc[8] = {0,0,0,0, 0,0,0,0}; // init
     int m = 0; // init
 
-    int const n_corrected = Lebedev_grid_size(ellmax, echo);
+    int const n_corrected = get_grid_size(ellmax, echo);
     switch (n_corrected) {
            case   0:
       // do nothing, in particular do not access xyzw as it will have zero size
@@ -1705,7 +1633,7 @@ namespace angular_grid {
 
 // interface documentation for gen_ohN()
 //   int gen_ohN(int ncode[], // (inout) count how many times this icode was used
-//              real_t const w8, // (in) weight
+//              real_t const weight, // (in) weight
 //              real_t xyzw[][4], // (out) weights 3:weights, 0:x 1:y 2:z
 //              double const aa, double const bb);
 
@@ -1768,33 +1696,118 @@ namespace angular_grid {
 ! cvw
 #endif
 
+
+  typedef struct {
+      double *Xlm2grid;
+      double *grid2Xlm;
+      double (*xyzw)[4];
+      int Xlm2grid_stride;
+      int grid2Xlm_stride;
+      int npoints;
+      int ellmax;
+  } angular_grid_t;
+
+  angular_grid_t* get_grid(int const ellmax, int const echo=0) {
+
+      static angular_grid_t grids[1 + ellmax_implemented];
+
+      if (ellmax < 0) { // memory cleanup
+          if (echo > 3) std::printf("# %s: memory cleanup!\n", __FILE__);
+          for (int ell = 0; ell <= ellmax_implemented; ++ell) {
+              auto & g = grids[ell];
+              if ((g.npoints > 0) && (g.ellmax == ell)) {
+                  if (echo > 5) std::printf("# %s: memory cleanup of ellmax= %i\n", __func__, ell);
+                  delete[] g.xyzw;
+                  delete[] g.Xlm2grid;
+                  delete[] g.grid2Xlm;
+                  g.npoints = 0;
+                  g.ellmax = -1;
+              } // this grid was initialized
+          } // ell
+          return nullptr; // success
+      } else if (ellmax > ellmax_implemented) {
+          if (echo > 0) std::printf("# %s: ellmax= %i > ellmax_implemented=%d\n",
+                                      __func__, ellmax, ellmax_implemented);
+          return nullptr; // failed
+      } // in range
+
+      auto & g = grids[ellmax];
+      if ((g.npoints < 1) || (g.ellmax != ellmax)) {
+          // init this instance
+          g.ellmax = ellmax;
+          g.npoints = get_grid_size(ellmax);
+
+          g.xyzw = new double[g.npoints][4];
+          auto const npt = create_Lebedev_grid(g.xyzw, ellmax, echo);
+          assert(npt == g.npoints && "get_grid_size inconsistent with create_Lebedev_grid");
+
+          int const nlm = pow2(1 + ellmax);
+          g.Xlm2grid_stride = align<2>(nlm);
+          g.grid2Xlm_stride = align<2>(g.npoints);
+          g.Xlm2grid = new double[g.npoints*g.Xlm2grid_stride];
+          g.grid2Xlm = new double[      nlm*g.grid2Xlm_stride];
+          
+          // clear the matrix memories
+          set(g.Xlm2grid, g.npoints*g.Xlm2grid_stride, 0.0);
+          set(g.grid2Xlm,       nlm*g.grid2Xlm_stride, 0.0);
+
+          // create the real-valued spherical harmonics
+          std::vector<double> xlm(nlm); // must be thread-private if OMP parallel
+          for (int ipt = 0; ipt < g.npoints; ++ipt) {
+              auto const weight = g.xyzw[ipt][3] * 4*constants::pi;
+              solid_harmonics::rlXlm(xlm.data(), ellmax, g.xyzw[ipt]);
+              for (int ilm = 0; ilm < nlm; ++ilm) {
+                  g.Xlm2grid[ipt*g.Xlm2grid_stride + ilm] = xlm[ilm];
+                  g.grid2Xlm[ilm*g.grid2Xlm_stride + ipt] = xlm[ilm]*weight; // transposed and weighted
+              } // ilm
+          } // ipt
+          if (echo > 3) std::printf("# %s: angular grid for ellmax= %i has %d points\n",
+                                __func__, ellmax, g.npoints);
+      } // grid was not set
+      return &g;
+
+  } // get_grid
+
+  void cleanup(int const echo) { get_grid(-1, echo); } // free internal memory
+
+  template <> // template specialization
+  status_t transform<double>(double out[], double const in[], int const M, // M is the stride for in[] and out[]
+                          int const ellmax, bool const back, int const echo) {
+      auto const g = get_grid(ellmax, echo);
+      if (nullptr == g) return -1;
+      double const *b{nullptr}; int ldb{0}, N{0}, K{0};
+      if (back) { N = pow2(1 + ellmax); K = g->npoints; b = g->grid2Xlm; ldb = g->grid2Xlm_stride; }
+      else      { K = pow2(1 + ellmax); N = g->npoints; b = g->Xlm2grid; ldb = g->Xlm2grid_stride; }
+      return linear_algebra::gemm(M, N, K, out, M, b, ldb, in, M);
+  } // transform
+
+
   template <int lmax>
   std::vector<gaunt_entry_t> create_numerical_Gaunt(int const echo) {
-      int const npt = Lebedev_grid_size(2*lmax);
-      int const M0 = (1 + 2*lmax)*(1 + 2*lmax), M = (1 + lmax)*(1 + lmax);
-      auto yy   = new double[npt][M0];
-      auto xyzw = new double[npt][4];
-      create_Lebedev_grid(2*lmax, xyzw, echo);
-      double const pi = constants::pi;
+      int const npt = get_grid_size(2*lmax);
+      int constexpr M0 = pow2(1 + 2*lmax), M = pow2(1 + lmax);
+      auto const yy   = new double[npt][M0];
+      auto const xyzw = new double[npt][4];
+      create_Lebedev_grid(xyzw, 2*lmax, echo);
       for (int ipt = 0; ipt < npt; ++ipt) {
           solid_harmonics::rlXlm(yy[ipt], 2*lmax, xyzw[ipt]);
       } // ipt
-      int const n_expected = (M*M*M0) >> 5;
+      size_t const n_expected = (M*M*M0) >> 5;
       std::vector<gaunt_entry_t> gaunt_coeffs;
       gaunt_coeffs.reserve(n_expected);
-      int n{0}, nnz{0};
+      size_t n{0}, nnz{0};
       for (int lm0 = 0; lm0 < M0; ++lm0) {
-          for (int16_t lm1 = 0; lm1 < M; ++lm1) {
-              for (int16_t lm2 = 0; lm2 < M; ++lm2) {
+          for (int lm1 = 0; lm1 < M; ++lm1) {
+              for (int lm2 = 0; lm2 < M; ++lm2) {
                   double Gaunt{0};
                   for (int ipt = 0; ipt < npt; ++ipt) {
-                      double const w8 = xyzw[ipt][3];
-                      Gaunt += yy[ipt][lm0] * yy[ipt][lm1] * yy[ipt][lm2] * w8;
+                      double const weight = xyzw[ipt][3];
+                      Gaunt += yy[ipt][lm0] * yy[ipt][lm1] * yy[ipt][lm2] * weight;
                   } // ipt
-                  Gaunt *= 4*pi;
+                  Gaunt *= 4*constants::pi;
                   if (std::abs(Gaunt) > 1e-14) {
                       if (echo > 8) std::printf("%i %i %i %.9f\n", lm0, lm1, lm2, Gaunt);
-                      gaunt_coeffs.push_back({Gaunt, lm0, lm1, lm2});
+                      gaunt_coeffs.push_back({Gaunt, lm0, int16_t(lm1), int16_t(lm2)});
                       ++nnz;
                   } // non-zero
                   ++n;
@@ -1803,10 +1816,48 @@ namespace angular_grid {
       } // lm0
       delete[] xyzw;
       delete[] yy;
-      if (echo > 3) std::printf("\n# %s: %i of %i real-Gaunt tensor elements are nonzero"
-                " (%.3f %%), expected %i\n", __func__, nnz, n, nnz/(.01*n), n_expected);
+      if (echo > 3) std::printf("\n# %s: %ld of %ld real-Gaunt tensor elements are nonzero"
+                " (%.3f %%), expected %ld\n", __func__, nnz, n, nnz/(.01*n), n_expected);
       return gaunt_coeffs;
   } // create_numerical_Gaunt
+
+
+  std::vector<gaunt_entry_t> create_numerical_real_Gaunt(int const ellmax, int const echo) {
+      std::vector<gaunt_entry_t> gaunt_coeffs;
+      auto const *const g = get_grid(2*ellmax);
+      if (nullptr != g) {
+          assert(2*ellmax == g->ellmax);
+          int const M = pow2(1 + ellmax), M2 = pow2(1 + 2*ellmax);
+          size_t const n_expected = (M2*M*M) >> 5; // estimate?
+          gaunt_coeffs.reserve(n_expected);
+          size_t n{0}, nnz{0};
+          for (int lm0 = 0; lm0 < M2; ++lm0) {
+              for (int lm1 = 0; lm1 < M; ++lm1) {
+                  for (int lm2 = 0; lm2 < M; ++lm2) {
+                      double Gaunt{0};
+                      for (int ipt = 0; ipt < g->npoints; ++ipt) {
+                          double const weight = g->xyzw[ipt][3];
+                          double const *const xlm = &(g->Xlm2grid[ipt*g->Xlm2grid_stride]);
+                          Gaunt += xlm[lm0] * xlm[lm1] * xlm[lm2] * weight;
+                      } // ipt
+                      Gaunt *= 4*constants::pi;
+                      if (std::abs(Gaunt) > 1e-14) {
+                          if (echo > 8) std::printf("%i %i %i %.9f\n", lm0, lm1, lm2, Gaunt);
+                          gaunt_coeffs.push_back({Gaunt, lm0, int16_t(lm1), int16_t(lm2)});
+                          ++nnz;
+                      } // non-zero
+                      ++n;
+                  } // lm2
+              } // lm1
+          } // lm0
+          if (echo > 3) std::printf("\n# %s: %ld of %ld real-Gaunt tensor elements are nonzero"
+                    " (%.3f %%), expected %ld\n", __func__, nnz, n, nnz/(.01*n), n_expected);
+      } else {
+          if (echo > 1) std::printf("# %s: failed to get an angular grid for ellmax= %d\n", __func__, 2*ellmax);
+      } // nullptr != g
+      return gaunt_coeffs;
+  } // create_numerical_real_Gaunt
+
 
   template // explicit template instantiation
   std::vector<gaunt_entry_t> create_numerical_Gaunt<6>(int const echo);
@@ -1817,28 +1868,35 @@ namespace angular_grid {
 
   int test_generation(int const echo=1) {
       if (echo > 3) std::printf("\n# %s: \n", __func__);
-      int const max_size = Lebedev_grid_size(ellmax_implemented);
-      auto xyzw = new double[max_size][4];
-      status_t stat = 0;
-      for (int ell = -2; ell <= ellmax_implemented + 3; ell += (1 + 2*(ell > 16))) { // in steps of 3 for the larger grids, no need to test the same n 3 times
+      int const max_size = get_grid_size(ellmax_implemented);
+      status_t stat(0);
+      double dev_all[] = {0, 0};
+      for (int ell = -2; ell <= ellmax_implemented + 3; ell += (1 + 2*(ell > 16))) { // in steps of 3 for the larger grids, no need to test the same npt 3 times
           if (echo > 3) std::printf("# %s: try to generate Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
-          auto const m = create_Lebedev_grid(ell, xyzw, echo);
-          if (echo > 4) std::printf("# %s: generated Lebedev-Laikov grid with for ellmax= %i using %i points\n", __func__, ell, m);
-          if (ell >= 0 && ell <= ellmax_implemented) stat += (m < 0); // count the number of failures in the relevant range
-          if (m > 1) {
-              // sanity checks on weights and coordinates of the points on the unit sphere
-              double w8sum = 0, max_norm2_dev = 0;
-              for (int i = 0; i < m; ++i) {
-                  double const norm2 = xyzw[i][0]*xyzw[i][0] + xyzw[i][1]*xyzw[i][1] + xyzw[i][2]*xyzw[i][2];
-                  max_norm2_dev = std::max(max_norm2_dev, std::abs(1. - norm2));
-                  w8sum += xyzw[i][3];
-              } // i
-              if (echo > 4) std::printf("# Lebedev-Laikov grid with %i points for ellmax= %i: w8_dev= %g, |v|_dev= %g\n", m, ell, 1. - w8sum, max_norm2_dev);
-              assert(std::abs(1. - w8sum) < 2.3e-14);
-              assert(max_norm2_dev < 2.3e-16);
-          } // m > 1, for m == 1, a single weight is set to unity but the coordinates are all zero, so the sanity test does not apply
+          auto const *const g = get_grid(ell, echo);
+          if (nullptr != g) {
+              int const npt = g->npoints;
+              auto const xyzw = g->xyzw;
+              if (echo > 4) std::printf("# %s: generated Lebedev-Laikov grid with for ellmax= %i using %i points\n", __func__, ell, npt);
+              if (ell >= 0 && ell <= ellmax_implemented) stat += (npt < 0); // count the number of failures in the relevant range
+              if (npt > 1) {
+                  // sanity checks on weights and coordinates of the points on the unit sphere
+                  double max_norm2_dev{0}, w8sum{0};
+                  for (int ipt = 0; ipt < npt; ++ipt) {
+                      double const norm2 = pow2(xyzw[ipt][0]) + pow2(xyzw[ipt][1]) + pow2(xyzw[ipt][2]);
+                      max_norm2_dev = std::max(max_norm2_dev, std::abs(1. - norm2));
+                      w8sum += xyzw[ipt][3];
+                  } // ipt
+                  auto const weight_dev = 1. - w8sum;
+                  if (echo > 4) std::printf("# Lebedev-Laikov grid with %d points for ellmax= %i: norm_dev= %.1e, weight_dev= %.1e\n", npt, ell, max_norm2_dev, weight_dev);
+                  assert(std::abs(weight_dev) < 2.3e-14);
+                  assert(max_norm2_dev < 2.3e-16);
+                  dev_all[0] = std::max(dev_all[0], max_norm2_dev);
+                  dev_all[1] = std::max(dev_all[1], std::abs(weight_dev));
+              } // npt > 1, for npt == 1, a single weight is set to unity but the coordinates are all zero, so the sanity test does not apply
+          } // g
       } // ell
-      delete[] xyzw;
+      if (echo > 2) std::printf("# Lebedev-Laikov grids: norm_dev= %.1e, weight_dev= %.1e\n", dev_all[0], dev_all[1]);
       if (echo > 1 && stat) std::printf("\n# %s: %i grid generations failed!\n", __func__, stat);
       return stat;
   } // test_generation
@@ -1846,35 +1904,39 @@ namespace angular_grid {
   int test_orthogonality(int const echo=9, int const lmax=24) { // terribly slow
       if (echo > 3) std::printf("\n# %s:\n", __func__);
       int const ellmax = std::min(lmax, ellmax_implemented);
-      int const max_size = Lebedev_grid_size(ellmax);
+      int const max_size = get_grid_size(ellmax);
       int const M = pow2(1 + ellmax);
       std::vector<std::complex<double>> ylm(M);
-      std::vector<             double > xlm(M);
-      auto const xyzw = new double[max_size][4];
+//       std::vector<             double > xlm(M);
+//       auto const xyzw = new double[max_size][4];
       status_t stat(0);
       double dev_all[] = {0, 0};
-      for (int ell = ellmax; ell > 0; --ell) {
+      for (int ell = ellmax; ell >= 0; --ell) {
           int const m = pow2(1 + ell);
-          if (echo > 3) std::printf("\n# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
-          auto const np = create_Lebedev_grid(ell, xyzw, echo);
+          if (echo > 5) std::printf("# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
+//        auto const np = create_Lebedev_grid(xyzw, ell, echo);
+          auto const g = get_grid(ell, echo);
+          assert(nullptr != g);
+          auto const npt = g->npoints;
           std::vector<std::complex<double>> unity(M*M, 0.0);
           std::vector<             double > unitx(M*M, 0.0);
-          for (int ip = 0; ip < np; ++ip) {
-              auto const w8 = xyzw[ip][3] * 4*constants::pi;
-//            if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ip][0], xyzw[ip][1], xyzw[ip][2]);
-              spherical_harmonics::Ylm(ylm.data(), ell, xyzw[ip]); // complex
-              solid_harmonics::rlXlm(xlm.data(), ell, xyzw[ip]); // real
+          for (int ipt = 0; ipt < npt; ++ipt) {
+              auto const weight = g->xyzw[ipt][3] * 4*constants::pi;
+//            if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ipt][0], xyzw[ipt][1], xyzw[ipt][2]);
+              spherical_harmonics::Ylm(ylm.data(), ell, g->xyzw[ipt]); // complex
+//            solid_harmonics::rlXlm(xlm.data(), ell, g->xyzw[ipt]); // real
+              double const *const xlm = g->Xlm2grid + ipt*g->Xlm2grid_stride;
               for (int i = 0; i < m; ++i) {
-                  auto const yi = std::conj(ylm[i])*w8; // complex
-                  auto const xi =           xlm[i] *w8; // real
+                  auto const yi = std::conj(ylm[i])*weight; // complex
+                  auto const xi =           xlm[i] *weight; // real
                   for (int j = 0; j < m; ++j) {
                       unity[i*M + j] += yi * ylm[j];
                       unitx[i*M + j] += xi * xlm[j];
                   } // j
               } // i
-          } // ip
+          } // ipt
 
-          for (int r0c1 = 0; r0c1 <= 1; ++r0c1) { // 0:real, 1:complex
+          for (int r0c1 = 1; r0c1 >= 0; --r0c1) { // 0:real, 1:complex
               double dev{0};
               for (int i = 0; i < m; ++i) {
                   for (int j = 0; j < m; ++j) {
@@ -1890,29 +1952,68 @@ namespace angular_grid {
                   } // j
                   if (echo > 7) std::printf("\n");
               } // i
-              if (echo > 4) std::printf("# %s: orthogonality on Lebedev-Laikov grid with for ellmax= %i is %.1e\n", __func__, ell, dev);
+              if (echo > 4) std::printf("# %s: orthogonality of %clm on Lebedev-Laikov grid with for ellmax= %i is %.1e\n",
+                                          __func__, 'X' + r0c1, ell, dev);
               dev_all[r0c1] = std::max(dev_all[r0c1], dev);
               stat += (dev > 2.7e-14);
           } // r0c1
       } // ell
       if (echo > 2) std::printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %.1e for rlXlm (and %.1e for Ylm)\n",
                                      __func__, ellmax, dev_all[0], dev_all[1]);
-      delete[] xyzw;
+//       delete[] xyzw;
       if (echo > 0 && stat) std::printf("# %s: %i deviations are large!\n", __func__, int(stat));
       return stat;
   } // test_orthogonality
+
+  
+  int test_identity_transform(int const echo=9, int const lmax=ellmax_implemented) { // terribly slow
+      if (echo > 3) std::printf("\n# %s:\n", __func__);
+      status_t stat(0);
+      double dev_all[] = {0, 0};
+      for (int ellmax = lmax; ellmax >= 0; --ellmax) {
+          int const m = pow2(1 + ellmax);
+          int const npt = get_grid_size(ellmax, echo);
+          std::vector<double> inp(m*m, 0.0), tmp(npt*m), out(m*m);
+          for (int i = 0; i < m; ++i) inp[i*m + i] = 1; // prepare a unit matrix
+          stat += transform(tmp.data(), inp.data(), m, ellmax, false, echo);
+          stat += transform(out.data(), tmp.data(), m, ellmax, true,  echo);
+          double dev[] = {0, 0};
+          for (int i = 0; i < m; ++i) {
+              for (int j = 0; j < m; ++j) {
+                  double const elem = out[i*m + j];
+                  int const diag = (i == j);
+                  dev[diag] = std::max(dev[diag], std::abs(elem - diag)); // subtract 1 on the diagonal
+              } // j
+          } // i
+          if (echo > 3) std::printf("# %s: identity on Lebedev-Laikov grid with ellmax= %i deviates %.1e (%.1e on diagonal)\n", __func__, ellmax, dev[0], dev[1]);
+          for (int diag = 0; diag < 2; ++diag) dev_all[diag] = std::max(dev_all[diag], dev[diag]);
+      } // ellmax
+      if (echo > 2) std::printf("\n# %s: identity on Lebedev-Laikov grid for ellmax up to %i deviates %.1e (%.1e on diagonal)\n",
+                                     __func__, lmax, dev_all[0], dev_all[1]);
+      if (echo > 0 && stat) std::printf("# %s: transformations failed, status sum = %i!\n", __func__, int(stat));
+      return stat;
+  } // test_identity_transform
 
   status_t test_numerical_Gaunt(int const echo=1) {
       auto const gaunt_coeffs = create_numerical_Gaunt<3>(echo);
       return 0;
   } // test_numerical_Gaunt
 
+  status_t test_numerical_real_Gaunt(int const echo=1) {
+      auto const gaunt_coeffs = create_numerical_real_Gaunt(3, echo);
+      return 0;
+  } // test_numerical_real_Gaunt
+
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_generation(echo);
       stat += test_orthogonality(echo);
+      stat += test_identity_transform(echo);
       stat += test_numerical_Gaunt(echo);
-      solid_harmonics::cleanup(); // free internal memory
+      stat += test_numerical_real_Gaunt(echo);
+      spherical_harmonics::cleanup(echo); // free internal memory
+      solid_harmonics::cleanup(echo); // free internal memory
+      angular_grid::cleanup(echo);
       return stat;
   } // all_tests
 

@@ -17,7 +17,7 @@
 #include "radial_grid.hxx" // ::create_default_radial_grid, ::destroy_radial_grid
 #include "radial_eigensolver.hxx" // ::shooting_method
 #include "radial_potential.hxx" // ::Hartree_potential
-#include "angular_grid.hxx" // ::transform, ::Lebedev_grid_size
+#include "angular_grid.hxx" // ::transform, ::get_grid_size
 #include "radial_integrator.hxx" // ::integrate_outwards
 #include "exchange_correlation.hxx" // ::lda_PZ81_kernel
 
@@ -2616,17 +2616,19 @@ namespace single_atom {
 
 
 
-    void update_full_potential(
+    status_t update_full_potential(
           float const mixing // how much of the true potential is transferred to the spherical potential
         , double const ves_multipole[]
         , int const echo=0
     ) {
         // from non-spherical densities create a non-spherical potential V_{ell emm}(r)
+        status_t stat(0);
 
         // due to its non-linearity, evaluate the exchange-correlation contributions on an angular grid
         int const nlm = pow2(1 + ellmax_rho);
         assert(ellmax_rho == ellmax_pot);
-        int const npt = angular_grid::Lebedev_grid_size(std::max(ellmax_rho, ellmax_pot));
+        int const npt = angular_grid::get_grid_size(ellmax_rho);
+
         std::vector<double> vlm(nlm, 0.0); // potential shifts
         for (int ts = SMT; ts >= TRU; --ts) { // smooth quantities first, so we can determine vlm
             int const nr = rg[ts].n;
@@ -2644,22 +2646,21 @@ namespace single_atom {
                 // using an angular grid quadrature, e.g. Lebedev-Laikov grids
                 if (echo > 6 && SMT == ts) std::printf("# %s local smooth density at origin %g a.u.\n",
                                                           label, full_density[ts](00,0)*Y00);
-                angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax_rho, false);
+                stat += angular_grid::transform(rho_on_grid, full_density[ts].data(), mr, ellmax_rho, false);
                 // envoke the exchange-correlation potential (acts in place)
 //              if (echo > 7) std::printf("# envoke the exchange-correlation on angular grid\n");
                 for (size_t ip = 0; ip < npt*mr; ++ip) {
                     double const rho = rho_on_grid[ip];
-                    double vxc = 0, exc = 0;
-                    exc = exchange_correlation::lda_PZ81_kernel(rho, vxc);
+                    double vxc{0};
+                    exc_on_grid[ip] = exchange_correlation::lda_PZ81_kernel(rho, vxc); // only needed if we want to compute the total energy
                     vxc_on_grid[ip] = vxc; // overwrites rho_on_grid[ip] due to pointer aliasing
-                    exc_on_grid[ip] = exc; // only needed if we want to compute the total energy
                 } // ip
                 // transform back to lm-index
                 assert(full_potential[ts].stride() == mr);
-                angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax_pot, true);
+                stat += angular_grid::transform(full_potential[ts].data(), vxc_on_grid, mr, ellmax_pot, true);
                 { // scope: transform also the exchange-correlation energy density
                     view2D<double> exc_lm(nlm, mr);
-                    angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax_rho, true);
+                    stat += angular_grid::transform(exc_lm.data(), exc_on_grid, mr, ellmax_rho, true);
                     if (SMT == ts) {
                         if (echo > 7) std::printf("# %s local smooth exchange-correlation potential at origin is %g %s\n",
                                                             label, full_potential[SMT](00,0)*Y00*eV,_eV);
@@ -2773,16 +2774,18 @@ namespace single_atom {
             add_product(full_potential[ts].data(), nlm*mr, Ves.data(), 1.0); // add the electrostatic potential, scale_factor=1.0
 
         } // ts smooth and true
+        if (0 != stat) warn("%s angular grid transformations failed with status sum = %i", label, int(stat));
 
         // construct the zero_potential V_bar
         std::vector<double> V_smt(rg[SMT].n);
         set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
 
         auto const df = Y00*eV; assert(df > 0); // display factor
-        auto const stat = pseudo_tools::pseudize_local_potential<0>(V_smt.data(),
-                              full_potential[TRU][00], rg, ir_cut, local_potential_method, label, echo, Y00);
-        if (stat) {
-            if (echo > 0) std::printf("# %s matching procedure for the local potential failed! status= %d\n", label, int(stat));
+        auto const stat_pseudo = pseudo_tools::pseudize_local_potential<0>(V_smt.data(),
+                                 full_potential[TRU][00], rg, ir_cut, local_potential_method, label, echo, Y00);
+        if (stat_pseudo) {
+            warn("%s matching procedure for the local potential failed, status= %i", label, int(stat_pseudo));
+            stat += stat_pseudo;
         } else {
             for (int ir = 0; ir < rg[SMT].n; ++ir) {
                 zero_potential[ir] = V_smt[ir] - full_potential[SMT](00,ir);
@@ -2857,6 +2860,7 @@ namespace single_atom {
             atom_core::rad_pot(potential[TRU].data(), rg[TRU], rho4pi.data(), Z_core);
         } // scope
 #endif // DEVEL
+        return stat;
     } // update_full_potential
 
 
@@ -3599,6 +3603,7 @@ namespace single_atom {
                   a[ia]->~LiveAtom(); // envoke destructor
               } // ia
               a.clear();
+              angular_grid::cleanup(echo);
               na = a.size(); // set na to fulfill consistency check at the end of this routine
               assert(!dp); assert(!ip); assert(!fp); assert(!dpp); // all other arguments must be nullptr (by default)
           }

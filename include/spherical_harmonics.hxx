@@ -10,13 +10,12 @@
 
 namespace spherical_harmonics {
 
-  template <typename real_t, typename vector_real_t>
+  template <typename real_t>
   inline void Ylm(
         std::complex<real_t> ylm[]
       , int const ellmax
-      , vector_real_t const v[3]
+      , double const v[3]
   ) {
-      if (ellmax < 0) return;
 // !************************************************************
 // !     generate the spherical harmonics for the vector v
 // !     using a stable upward recursion in l.  (see notes
@@ -107,10 +106,9 @@ namespace spherical_harmonics {
       } // m
       p[ellmax + S*ellmax] = (1 - 2*ellmax)*fac;
 
-      std::vector<real_t> c(1 + ellmax), s(1 + ellmax);
+      std::vector<real_t> c(1 + ellmax, real_t(1)),
+                          s(1 + ellmax, real_t(0));
       // determine sin and cos of phi
-      c[0] = 1;
-      s[0] = 0;
       if (ellmax > 0) {
           c[1] = cph; s[1] = sph;
           auto const cph2 = 2*cph;
@@ -132,6 +130,15 @@ namespace spherical_harmonics {
 
       return;
   } // Ylm
+  
+  template <typename real_t=double>
+  void cleanup(int const echo=0) {
+      if (echo > 5) std::printf("# %s %s<%s>: free internal memory\n",
+          __FILE__, __func__, (sizeof(real_t) == 4)?"float":"double");
+      std::complex<real_t> z{0};
+      double v[3];
+      Ylm(&z, -1, v);
+  } // cleanup
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
@@ -140,11 +147,11 @@ namespace spherical_harmonics {
   template <typename real_t>
   inline status_t test_memory_cleanup(int const echo=0, int const ellmax=9) {
       status_t stat(0);
-      double const vec[] = {1.,2.,3.};
+      double const vec[] = {1, 2, 3};
       for (int ell = 0; ell <= ellmax; ++ell) {
           std::vector<std::complex<real_t>> ylm(pow2(1 + ell));
           Ylm(ylm.data(), ell, vec);
-          Ylm(ylm.data(), -1, vec); // memory cleanup
+          cleanup<real_t>(echo);
       } // ell
       return stat;
   } // test_memory_cleanup

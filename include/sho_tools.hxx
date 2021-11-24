@@ -15,17 +15,16 @@ namespace sho_tools {
 
   typedef enum : int64_t { // different index orderings
       order_zyx     = 0x78797a,   // "zyx"    Cartesian order best for triple loop,         depends on numax
-      order_Ezyx    = 0x78797a45, // "Ezyx"   energy-ordered Cartesian,                 independent of numax
+      order_Ezyx    = 0x78797a45, // "Ezyx"   Cartesian energy-ordered,                 independent of numax
       order_lmn     = 0x6e6d6c,   // "lmn"    Radial order best for Gaunt treatment,        depends on numax
       order_lnm     = 0x6d6e6c,   // "lnm"    Radial order best for radial basis functions, depends on numax
       order_nlm     = 0x6d6c6e,   // "nlm"    Radial order best for spherical harmonics,    depends on numax
-      order_Elnm    = 0x6d6e6c45, // "Elnm"   energy-ordered Radial,                    independent of numax
-      order_Enl     = 0x6c6e45,   // "Enl"    energy-ordered Radial, emm-degenerate,    independent of numax
+      order_Elnm    = 0x6d6e6c45, // "Elnm"   Radial energy-ordered,                    independent of numax
+      order_Enl     = 0x6c6e45,   // "Enl"    Radial energy-ordered, emm-degenerate,    independent of numax
       order_ln      = 0x6e6c,     // "ln"     ell-ordered radial     emm-degenerate,        depends on numax
       order_nl      = 0x6c6e,     // "nl"     enn-ordered radial     emm-degenerate,        depends on numax
       order_unknown = 0x3f3f3f3f  // "????"   error flag
   } SHO_order_t;
-
 
   inline constexpr bool is_energy_ordered(SHO_order_t const order) {
       return (order_Ezyx == order) || (order_Elnm == order) || (order_Enl == order); }
@@ -48,16 +47,13 @@ namespace sho_tools {
   inline constexpr int n2HO(int const numax) { return ((1 + numax)*(2 + numax))/2; }
 
   // number of all 1D HO (harmonic oscillator) states up to numax
-  inline constexpr int n1HO(int const numax) { return (1 + numax); }
+  inline constexpr int n1HO(int const numax) { return  (1 + numax); }
 
-  // number of all energy-degenerate 3D SHO states in the subspace nu >= 0
-  inline constexpr int ndeg(int const nu) { return n2HO(nu); }
 
   // =============================== Radial indices ===============================
 
   // emm-degenerate
-  inline int constexpr nSHO_radial(int const numax)    { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
-  inline constexpr int num_ln_indices(int const numax) { return (numax*(numax + 4) + 4)/4; }
+  inline constexpr int nSHO_radial(int const numax) { return (numax*(numax + 4) + 4)/4; } // number of different radial eigenstates
 
   inline constexpr
   int ln_index(int const numax, int const ell, int const nrn) {
@@ -103,9 +99,8 @@ namespace sho_tools {
 
   inline constexpr
   int lmn_index(int const numax, int const ell, int const emm, int const nrn) {
-      return ((3*numax + 5)*ell + 3*(1 + numax)*ell*ell - 2*ell*ell*ell)/6 // found through fitting emm=0, nrn=0 values
-            + emm*(1 + (numax - ell)/2) // nrn_max = (numax - ell)/2
-            + nrn; } // linear contribution
+      return ((3*numax + 5)*ell + 3*(1 + numax)*ell*ell - 2*ell*ell*ell)/6
+              + emm*(1 + (numax - ell)/2) + nrn; }
 
 
   // =============================== Cartesian indices ===============================
@@ -155,7 +150,7 @@ namespace sho_tools {
 
   template <typename int_t> inline
   int get_nu(int_t const energy_ordered) {
-      int nu = -1; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
+      int nu{-1}; while (energy_ordered >= nSHO(nu)) { ++nu; } return nu; }
 
   template <typename int_t> inline
   status_t construct_index_table(
@@ -350,7 +345,7 @@ namespace sho_tools {
           for (int l = 0; l <= numax; ++l) {
               for (int m = -l; m <= l; ++m) {
                   for (int n = 0; n <= (numax - l)/2; ++n) {
-                      int j{ii}; assert( lmn_index(numax, l, m, n) == j );
+                      int j{ii}; assert( lmn_index(numax, l, m, n) == ii );
                       if (order_Elnm == order) j = Elnm_index(l, n, m);
                       if (order_lnm == order)  j =  lnm_index(numax, l, n, m);
                       if (order_nlm == order)  j =  nlm_index(numax, n, l, m);
@@ -365,11 +360,11 @@ namespace sho_tools {
         case order_Enl: // energy-ordered emm-degenerate
           for (int l = 0; l <= numax; ++l) {
               for (int n = 0; n <= (numax - l)/2; ++n) {
-                  int j = -1;
+                  int j{-1};
                   if (is_energy_ordered(order)) { j = Enl_index(n, l); } else
                   if (order_nl == order) { j = nl_index(numax, n, l); } else
                   if (order_ln == order) { j = ii; assert( ln_index(numax, l, n) == ii ); }
-                  assert( j >= 0 );
+                  assert(j >= 0);
                   std::sprintf(&label[j*nChar], "%c%i", ellchar[l], n);
                   ++ii;
           }} // l n
@@ -390,11 +385,11 @@ namespace sho_tools {
 
   inline status_t test_order_enum(int const echo=4) {
       SHO_order_t const ord[9] = {order_zyx, order_Ezyx, order_lmn, order_lnm,
-                  order_nlm, order_Elnm, order_ln, order_Enl, order_nl};
+                                  order_nlm, order_Elnm, order_ln, order_Enl, order_nl};
       for (int io = 0; io < 9; ++io) {
           SHO_order_t const oi = ord[io];
           if (echo > 3) std::printf("# %s: SHO_order_t %s\t= 0x%x\t= %10lli  %s-ordered emm-%s %s\n",
-                      __func__, SHO_order2string(oi).c_str(), (unsigned)oi, oi
+                      __func__, SHO_order2string(oi).c_str(), unsigned(oi), oi
                        , is_energy_ordered(oi)?"energy":"  loop"
                        , is_emm_degenerate(oi)?"degenerate":"resolved  "
                        , is_Cartesian(oi)?"Cartesian":"Radial");
@@ -406,7 +401,7 @@ namespace sho_tools {
       status_t nerrors(0);
       for (int numax = 0; numax <= numax_max; ++numax) {
           if (echo > 6) std::printf("\n# %s: numax == %i\n", __func__, numax);
-          int lnm = 0, ln = 0, lm = 0, lmn = 0;
+          int lnm{0}, ln{0}, lm{0}, lmn{0};
           for (int ell = 0; ell <= numax; ++ell) {
               for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
                   assert(ell + 2*nrn == get_nu(ell, nrn)); // test get_nu
@@ -437,7 +432,7 @@ namespace sho_tools {
                       ++lmn;
                   } // nrn
               } // emm
-              assert((1 + ell)*(1 + ell) == lm); // checksum
+              assert(pow2(1 + ell) == lm); // checksum
           } // ell
           assert(nSHO(numax) == lnm); // checksum
           assert(nSHO(numax) == lmn); // checksum
