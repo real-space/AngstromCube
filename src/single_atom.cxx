@@ -365,7 +365,7 @@ namespace single_atom {
 
       view2D<double> unitary_zyx_lmn; // unitary sho transformation matrix [order_Ezyx][order_lmn], stride=nSHO(numax)
 
-      bool gaunt_init;
+      int8_t gaunt_init;
       std::vector<gaunt_entry_t> gaunt;
 
       std::vector<int16_t> ln_index_list; // iln = ln_index_list[ilmn]
@@ -400,7 +400,7 @@ namespace single_atom {
         : // initializations
           atom_id{global_atom_id} 
         , Z_core{Z_protons}
-        , gaunt_init{false}
+        , gaunt_init{-1}
     {
         // constructor routine
 
@@ -937,12 +937,11 @@ namespace single_atom {
 
     
 
-    status_t initialize_Gaunt(int const echo=0) {
-        if (!gaunt_init) {
+    void initialize_Gaunt(int const echo=0) {
+        if (gaunt_init < 0) {
             gaunt = angular_grid::create_numerical_Gaunt(6, echo);
-            gaunt_init = true;
+            gaunt_init = 6;
         } // not initialized
-        return 0;
     } // initialize_Gaunt
 
     
@@ -2309,8 +2308,6 @@ namespace single_atom {
 
         int const nSHO = sho_tools::nSHO(numax);
 
-        initialize_Gaunt();
-
         int const lmax = std::max(ellmax_rho, ellmax_cmp);
         int const nlm = pow2(1 + lmax);  // limit for L=(ell,emm) for the density
         int const mlm = pow2(1 + numax); // limit for L=(ell,emm) of the partial waves
@@ -2434,6 +2431,7 @@ namespace single_atom {
         
 
         //   Now, contract with the Gaunt tensor over m_1 and m_2
+        initialize_Gaunt(); // make sure the Gaunt tensor has been precomputed
         //   rho_tensor[lm][iln][jln] =
         //     G_{lm l_1m_1 l_2m_2} * radial_density_matrix{il_1m_1n_1 jl_2m_2n_2}
 
@@ -2881,7 +2879,6 @@ namespace single_atom {
         int const nln = sho_tools::nSHO_radial(numax);
         int const nSHO = sho_tools::nSHO(numax);
         int const nlmn = nSHO;
-        initialize_Gaunt(); // make sure the Gaunt tensor is precomputed
 
         // first generate the matrix elements in the valence basis
         //    overlap[iln][jln] and potential_lm[iln][jln]
@@ -2932,6 +2929,8 @@ namespace single_atom {
         view3D<double> matrices_lmn(2, nlmn, nlmn, 0.0); // get memory
         auto hamiltonian_lmn = matrices_lmn[0],
                  overlap_lmn = matrices_lmn[1];
+
+        initialize_Gaunt(); // make sure the Gaunt tensor is precomputed
 
         // start by adding the contribution of the non-spherical potential
         int const mlm = pow2(1 + numax);

@@ -1937,8 +1937,9 @@ namespace angular_grid {
 
   status_t test_numerical_Gaunt(int const echo=1, int const ellmax=3) {
       auto const gaunt_coeffs = create_numerical_Gaunt(ellmax, echo);
-      if (echo > 3) std::printf("# %s: Gaunt(00, 00,00) = %g\n", __func__, gaunt_coeffs[0].G);
-      return 0;
+      double const dev = gaunt_coeffs[0].G - solid_harmonics::Y00;
+      if (echo > 3) std::printf("# %s: Gaunt(00, 00,00) = Y00 + %.1e\n", __func__, dev);
+      return std::abs(dev) > 3e-16;
   } // test_numerical_Gaunt
 
   status_t all_tests(int const echo) {
