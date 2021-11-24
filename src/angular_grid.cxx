@@ -9,7 +9,7 @@
 
 #include "status.hxx" // status_t
 #include "constants.hxx" // ::pi
-#include "inline_math.hxx" // pow2, align<nBits>
+#include "inline_math.hxx" // pow2, align<nBits>, dot_product
 #include "solid_harmonics.hxx" // ::rlXlm, ::cleanup
 #include "spherical_harmonics.hxx" // ::Ylm, ::cleanup
 #include "gaunt_entry.h" // gaunt_entry_t
@@ -1785,18 +1785,18 @@ namespace angular_grid {
   template <int lmax>
   std::vector<gaunt_entry_t> create_numerical_Gaunt(int const echo) {
       int const npt = get_grid_size(2*lmax);
-      int constexpr M0 = pow2(1 + 2*lmax), M = pow2(1 + lmax);
-      auto const yy   = new double[npt][M0];
+      int constexpr M2 = pow2(1 + 2*lmax), M = pow2(1 + lmax);
+      auto const yy   = new double[npt][M2];
       auto const xyzw = new double[npt][4];
       create_Lebedev_grid(xyzw, 2*lmax, echo);
       for (int ipt = 0; ipt < npt; ++ipt) {
           solid_harmonics::rlXlm(yy[ipt], 2*lmax, xyzw[ipt]);
       } // ipt
-      size_t const n_expected = (M*M*M0) >> 5;
+      size_t const n_expected = (M*M*M2) >> 4;
       std::vector<gaunt_entry_t> gaunt_coeffs;
       gaunt_coeffs.reserve(n_expected);
       size_t n{0}, nnz{0};
-      for (int lm0 = 0; lm0 < M0; ++lm0) {
+      for (int lm0 = 0; lm0 < M2; ++lm0) {
           for (int lm1 = 0; lm1 < M; ++lm1) {
               for (int lm2 = 0; lm2 < M; ++lm2) {
                   double Gaunt{0};
@@ -1828,7 +1828,7 @@ namespace angular_grid {
       if (nullptr != g) {
           assert(2*ellmax == g->ellmax);
           int const M = pow2(1 + ellmax), M2 = pow2(1 + 2*ellmax);
-          size_t const n_expected = (M2*M*M) >> 5; // estimate?
+          size_t const n_expected = (M2*M*M) >> 4; // estimate?
           gaunt_coeffs.reserve(n_expected);
           size_t n{0}, nnz{0};
           for (int lm0 = 0; lm0 < M2; ++lm0) {
@@ -1901,69 +1901,50 @@ namespace angular_grid {
       return stat;
   } // test_generation
 
-  int test_orthogonality(int const echo=9, int const lmax=24) { // terribly slow
+  int test_spherical_harmonics(int const echo=9, int const lmax=24) { // terribly slow
       if (echo > 3) std::printf("\n# %s:\n", __func__);
+      status_t stat(0);
       int const ellmax = std::min(lmax, ellmax_implemented);
       int const max_size = get_grid_size(ellmax);
       int const M = pow2(1 + ellmax);
       std::vector<std::complex<double>> ylm(M);
-//       std::vector<             double > xlm(M);
-//       auto const xyzw = new double[max_size][4];
-      status_t stat(0);
-      double dev_all[] = {0, 0};
+      double dev_all{0};
       for (int ell = ellmax; ell >= 0; --ell) {
           int const m = pow2(1 + ell);
           if (echo > 5) std::printf("# %s: try orthogonality on Lebedev-Laikov grid with for ellmax= %i\n", __func__, ell);
-//        auto const np = create_Lebedev_grid(xyzw, ell, echo);
           auto const g = get_grid(ell, echo);
-          assert(nullptr != g);
-          auto const npt = g->npoints;
-          std::vector<std::complex<double>> unity(M*M, 0.0);
-          std::vector<             double > unitx(M*M, 0.0);
-          for (int ipt = 0; ipt < npt; ++ipt) {
-              auto const weight = g->xyzw[ipt][3] * 4*constants::pi;
-//            if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, xyzw[ipt][0], xyzw[ipt][1], xyzw[ipt][2]);
-              spherical_harmonics::Ylm(ylm.data(), ell, g->xyzw[ipt]); // complex
-//            solid_harmonics::rlXlm(xlm.data(), ell, g->xyzw[ipt]); // real
-              double const *const xlm = g->Xlm2grid + ipt*g->Xlm2grid_stride;
-              for (int i = 0; i < m; ++i) {
-                  auto const yi = std::conj(ylm[i])*weight; // complex
-                  auto const xi =           xlm[i] *weight; // real
-                  for (int j = 0; j < m; ++j) {
-                      unity[i*M + j] += yi * ylm[j];
-                      unitx[i*M + j] += xi * xlm[j];
-                  } // j
-              } // i
-          } // ipt
+          if (nullptr != g) {
+              std::vector<std::complex<double>> unity(M*M, 0.0);
+              for (int ipt = 0; ipt < g->npoints; ++ipt) {
+                  auto const weight = g->xyzw[ipt][3] * 4*constants::pi;
+//                if (echo > 3) std::printf("# %s: envoke Ylm for %i  %g %g %g\n", __func__, ell, g->xyzw[ipt][0], g->xyzw[ipt][1], g->xyzw[ipt][2]);
+                  spherical_harmonics::Ylm(ylm.data(), ell, g->xyzw[ipt]); // complex
+                  for (int i = 0; i < m; ++i) {
+                      add_product(&unity[i*M], m, ylm.data(), std::conj(ylm[i])*weight);
+                  } // i
+              } // ipt
 
-          for (int r0c1 = 1; r0c1 >= 0; --r0c1) { // 0:real, 1:complex
               double dev{0};
               for (int i = 0; i < m; ++i) {
+                  if (echo > 8) std::printf("# unity[%3d]", i);
                   for (int j = 0; j < m; ++j) {
-                      auto const Re = r0c1 ? unity[i*M + j].real() : unitx[i*M + j];
-                      if (r0c1) {
-                          auto const Im = unity[i*M + j].imag();
-                          dev = std::max(dev, std::abs(Im));
-                          if (echo > 8) std::printf("%g %g  ", Re, Im);
-                      } else {
-                          if (echo > 8) std::printf("%16.9f ", Re);
-                      } // r0c1
-                      dev = std::max(dev, std::abs(Re - (i == j))); // subtract 1 on the diagonal
+                      auto const Re = unity[i*M + j].real(),
+                                 Im = unity[i*M + j].imag();
+                      if (echo > 8) std::printf("%g %g  ", Re, Im);
+                      dev = std::max(dev, std::max(std::abs(Im), std::abs(Re - (i == j)))); // subtract 1 on the diagonal
                   } // j
-                  if (echo > 7) std::printf("\n");
+                  if (echo > 8) std::printf("\n");
               } // i
-              if (echo > 4) std::printf("# %s: orthogonality of %clm on Lebedev-Laikov grid with for ellmax= %i is %.1e\n",
-                                          __func__, 'X' + r0c1, ell, dev);
-              dev_all[r0c1] = std::max(dev_all[r0c1], dev);
+              if (echo > 4) std::printf("# %s: orthogonality of spherical_harmonics "
+                  "on a Lebedev-Laikov grid with for ellmax= %i is %.1e\n", __func__, ell, dev);
+              dev_all = std::max(dev_all, dev);
               stat += (dev > 2.7e-14);
-          } // r0c1
+          } // nullptr != g
       } // ell
-      if (echo > 2) std::printf("\n# %s: orthogonality on Lebedev-Laikov grid with for ellmax up to %i is %.1e for rlXlm (and %.1e for Ylm)\n",
-                                     __func__, ellmax, dev_all[0], dev_all[1]);
-//       delete[] xyzw;
+      if (echo > 2) std::printf("\n# %s: orthogonality of spherical_harmonics for ellmax up to %i is %.1e\n", __func__, ellmax, dev_all);
       if (echo > 0 && stat) std::printf("# %s: %i deviations are large!\n", __func__, int(stat));
       return stat;
-  } // test_orthogonality
+  } // test_spherical_harmonics
 
   
   int test_identity_transform(int const echo=9, int const lmax=ellmax_implemented) { // terribly slow
@@ -1996,21 +1977,25 @@ namespace angular_grid {
 
   status_t test_numerical_Gaunt(int const echo=1) {
       auto const gaunt_coeffs = create_numerical_Gaunt<3>(echo);
-      return 0;
+      auto const gaunt_real   = create_numerical_real_Gaunt(3, echo);
+      assert(gaunt_real.size() == gaunt_coeffs.size());
+      double dev{0};
+      for (int i = 0; i < gaunt_coeffs.size(); ++i) {
+          assert(gaunt_coeffs[i].lm  == gaunt_real[i].lm);
+          assert(gaunt_coeffs[i].lm1 == gaunt_real[i].lm1);
+          assert(gaunt_coeffs[i].lm2 == gaunt_real[i].lm2);
+          dev = std::max(dev, std::abs(gaunt_coeffs[i].G - gaunt_real[i].G));
+      } // i
+      if (echo > 2) std::printf("# %s: create_numerical_Gaunt and create_numerical_real_Gaunt agree up to %.1e\n", __func__, dev);
+      return (dev > 1e-15);
   } // test_numerical_Gaunt
-
-  status_t test_numerical_real_Gaunt(int const echo=1) {
-      auto const gaunt_coeffs = create_numerical_real_Gaunt(3, echo);
-      return 0;
-  } // test_numerical_real_Gaunt
 
   status_t all_tests(int const echo) {
       status_t stat(0);
       stat += test_generation(echo);
-      stat += test_orthogonality(echo);
+      stat += test_spherical_harmonics(echo);
       stat += test_identity_transform(echo);
       stat += test_numerical_Gaunt(echo);
-      stat += test_numerical_real_Gaunt(echo);
       spherical_harmonics::cleanup(echo); // free internal memory
       solid_harmonics::cleanup(echo); // free internal memory
       angular_grid::cleanup(echo);
