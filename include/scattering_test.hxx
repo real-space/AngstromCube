@@ -365,7 +365,8 @@ namespace scattering_test {
                           } // ires
                           std::printf("%s m%s\n", more?" ...":"", _eV); // should come out as " meV" or " mHa" or " mRy"
                       } else {
-                          std::printf("# %s no %c-resonances found below %g %s\n", label, ellchar[ell], energy_range[2]*eV, _eV);
+                          std::printf("# %s no %c-resonances found between %g and %g %s\n",
+                                         label, ellchar[ell], energy_range[0]*eV, energy_range[2]*eV, _eV);
                       } // ndiff > 0
                       std::fflush(stdout);
                   } // echo
@@ -529,7 +530,7 @@ namespace scattering_test {
                   int const nev = 5 - ell/2; // show less eigenvalues for higher ell-states
                   if (echo > 1 && nev > 0) {
                       std::printf("# %s lowest %c-eigenvalues ", label, ellchar[ell]);
-                      printf_vector("  %.6f", eigs.data(), nev, "", eV);
+                      printf_vector(" %9.6f", eigs.data(), nev, "", eV);
                       std::printf("  %s\n", _eV);
                   } // echo
 
@@ -540,7 +541,7 @@ namespace scattering_test {
                       for (int iev = 0; iev < nev; ++iev) {
                           // plot eigenvectors
                           if (echo > 9) {
-                              std::printf("\n## %s %s ell=%i eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ell, eigs[iev]*eV, _eV, iev);
+                              std::printf("\n## %s %s %c-eigenvalue%10.6f %s %i-th eigenvector:\n", label, __func__, ellchar[ell], eigs[iev]*eV, _eV, iev);
                               for (int ir = 0; ir < nr; ++ir) {
                                   std::printf("%g %g\n", g.r[ir + 1], evec(iev,ir));
                               } // ir 
@@ -548,7 +549,7 @@ namespace scattering_test {
                           } // echo
 
                           if (echo > 7) {
-                              std::printf("# %s projection analysis for ell=%i eigenvalue (#%i) %10.6f %s  coefficients", label, ell, iev, eigs[iev]*eV, _eV);
+                              std::printf("# %s projection analysis for %c-eigenvalue (#%i) %10.6f %s  coefficients", label, ellchar[ell], iev, eigs[iev]*eV, _eV);
                               for (int nrn = 0; nrn < nn; ++nrn) {
                                   std::printf("%12.6f", dot_product(nr, evec[iev], rprj1[nrn])*sqrt_dr);
                               } // nrn
@@ -580,7 +581,7 @@ namespace scattering_test {
                   } // compare to reference eigenvalues
                   
               } else { // info
-                  if (echo > 2) std::printf("# %s diagonalization for ell=%i returned info=%i\n", label, ell, int(info));
+                  if (echo > 2) std::printf("# %s diagonalization for ell=%i (%c) returned info=%i\n", label, ell, ellchar[ell], int(info));
                   diagonalize_overlap_matrix = true;
                   ++stat;
               } // info
@@ -589,10 +590,10 @@ namespace scattering_test {
                   // diagonalize Ovl_copy, standard eigenvalue problem
                   linear_algebra::eigenvalues(eigs.data(), nr, Ovl_copy.data(), Ovl_copy.stride());
                   if (eigs[0] <= 0) { // warn
-                      if (echo > 0) std::printf("# %s %s ell=%i lowest eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ell, eigs[0]);
+                      if (echo > 0) std::printf("# %s %s lowest %c-eigenvalue of the overlap matrix is non-positive! %g\n", label, __func__, ellchar[ell], eigs[0]);
                   } // overlap matrix is not positive definite
                   if (echo > 8) {
-                      std::printf("# %s %s ell=%i eigenvalues of the overlap matrix", label, __func__, ell);
+                      std::printf("# %s %s %c-eigenvalues of the overlap matrix", label, __func__, ellchar[ell]);
                       printf_vector(" %g", eigs.data(), 8);
                   } // echo
               } // diagonalize_overlap_matrix

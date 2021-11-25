@@ -1481,6 +1481,58 @@ assuming that the projector functions are not $\varepsilon$-dependent.
 
 \newpage
 
+\section*{Generalized Gaussians as electrostatic compensators}
+
+In order to treat not only Cartesian grids, we enable also the charge density compensation by generalized Gaussians as
+
+$$ \varrho_{\ell m}(x,y,z) = f_r \exp\left(-\frac{r^2}{2\sigma^2}\right) [r^\ell X_{\ell m}](x,y,z) $$
+with the proper radial normalization constants $f_r = \frac{\sqrt{2}}{\sqrt{\pi} \sigma^{3 + 2\ell} (2\ell + 1)!!}$.
+\\(see \ttt{add\_generalized\_Gaussian} in \ttt{potential\_generator.hxx}).\\
+The compensation charges are orthonormal to the solid harmonics, i.e.
+$$ \int\m d^3\vec r \ \varrho_{\ell' m'}(\vec r) [r^\ell X_{\ell m}](\vec r) = \delta_{\ell\ell'}\delta_{mm'} $$
+Numerical deviations from that orthonomality are shown in Fig.~\ref{fig:generalized-Gaussian-error}.
+
+\begin{figure} [h]
+  \centering
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=\textwidth]{fig/potential_generator_generalized_Gaussian} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \caption{Orthogonality and normalization error of the generalized Gaussian compensation charge distributions.
+  The Gaussian spread $\sigma$ is given in units of the grid spacing. The integration inside
+  the sphere has been performed on $3 112, 24 464, 82 712, 195 360$ real space grid points, respectively.
+  } \label{fig:generalized-Gaussian-error}
+\end{figure}
+
+
+\section*{Charge Deficit Operator}
+
+During the construction of PAW data, we have carefully monitor the eigenvalues of the charge deficit operator
+$$ \ket{\tilde p_i} \left( \braket{\phi_i}{\phi_j} - \braket{\tilde \phi_i}{\tilde \phi_j} \right) \bra{\tilde p_j} $$
+The lowest eigenvalue should not drop to $-1.0$ as this would let the PAW overlap operator become singular.
+
+\begin{figure} [ht]
+  \centering
+  \begin{minipage}[c]{.990\textwidth}
+	\includegraphics[width=.75\textwidth]{fig/charge_deficit_Cu_s} %% .agr .pdf
+	\includegraphics[width=.75\textwidth]{fig/charge_deficit_Cu_p} %% .agr .pdf
+	\includegraphics[width=.75\textwidth]{fig/charge_deficit_Cu_d} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \caption{Example charge deficit eigenvalues (lowest black, second red) for copper as a function of the energy split between lowest and excited partial wave (in Hartree) for $\ell \in \{s, p, d\}$.} \label{fig:charge-deficit-copper}
+\end{figure}
+
+In the example for copper shown in Fig.~\ref{fig:charge-deficit-copper} 
+we can observe that the lowest eigenvalue tends towards $-1.0$ from above
+when the energy split between lowest and excited partial wave becomes large ($> 3$ Hartree).
+Here, the configuration was
+\verb+element_Cu="4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma .61"+
+Furthermore, we can see that the lowest eigenvalue drops below $-1.0$ for very small energy splits ($< 80$ mHartree) in the $p$-channel
+and in a window $[50, 910]$ mHartree for the $s$-channel.
+
+\newpage
 
 
 % ==============================================================================

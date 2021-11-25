@@ -21,15 +21,17 @@ namespace potential_generator {
       if (echo > 1) std::printf(      "# potential_generator.test.generalized.gaussian.sigma=%g %s\n", sigma*Ang, _Ang);
       int const n        = control::get("potential_generator.test.generalized.gaussian.n", 24*sigma);
       if (echo > 1) std::printf(      "# potential_generator.test.generalized.gaussian.n=%d grid points\n", n);
+      int const ellmax   = control::get("potential_generator.test.generalized.gaussian.ellmax", 3.);
+      if (echo > 1) std::printf(      "# potential_generator.test.generalized.gaussian.ellmax=%d\n", ellmax);
+      assert(ellmax >= 0);
       assert(sigma > 0);
       assert(n > 0);
       real_space::grid_t g(n, n, n); // grid spacing is unity
       double const center[] = {.5*(n - 1), .5*(n - 1), .5*(n - 1)};
-      int const ellmax = 3;
       std::vector<double> coeff((1 + ellmax)*(1 + ellmax), 0.0);
       std::vector<double> values(g.all(), 0.0);
       int constexpr debug = 1;
-      stat += potential_generator::add_generalized_Gaussian<double,debug>(values.data(), g, coeff.data(), ellmax, center, sigma, echo);
+      stat += add_generalized_Gaussian<double,debug>(values.data(), g, coeff.data(), ellmax, center, sigma, echo);
       return stat;
   } // test_generalized_Gaussian
 

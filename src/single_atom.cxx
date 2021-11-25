@@ -244,38 +244,38 @@ namespace single_atom {
 
           for (int nrn = 0; nrn < nn[ell]; ++nrn) { // number of the partial wave
               int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
-              double const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of numerically given projectors
+              auto const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of the numerically given projectors
 
               double quality_ln{0}, gradient_ln{0};
               for (int mrn = 0; mrn < sho_tools::nn_max(numax, ell); ++mrn) { // smooth number or radial nodes
                   int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
 
 //                if (echo > 1) std::printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n",
-//                                                        label, iter, ellchar[ell], nrn, denom_sho, denom_num);
+//                                             label, iter, ellchar[ell], nrn, denom_sho, denom_num);
                   if (denom_sho[mrn]*denom_num > 0) {
-                      double const inner   = dot_product(rg.n, rprj[iln], prj_sho(0,jln), rg.rdr); // metric is rdr since numerical projectors enter as r*prj
-                      double const d_inner = dot_product(rg.n, rprj[iln], prj_sho(1,jln), rg.rdr); // derivative w.r.t. sigma
-                      double const denoms = 1./(denom_sho[mrn]*denom_num);
-                      double const quality = pow2(inner) * denoms;
+                      auto const inner   = dot_product(rg.n, rprj[iln], prj_sho(0,jln), rg.rdr); // metric is rdr since numerical projectors enter as r*prj
+                      auto const d_inner = dot_product(rg.n, rprj[iln], prj_sho(1,jln), rg.rdr); // derivative w.r.t. sigma
+                      auto const denoms  = 1./(denom_sho[mrn]*denom_num);
+                      auto const quality = pow2(inner)*denoms;
                       gradient_ln += d_inner * 2 * inner * denoms;
                       quality_ln  += quality;
                       if (echo > 13) std::printf("# %s quality for %c%i with sigma= %g %s is %g\n",
-                                          label, ellchar[ell], nrn, sigma*Ang, _Ang, quality);
+                                                    label, ellchar[ell], nrn, sigma*Ang, _Ang, quality);
 
                       if (projector_coeff) projector_coeff[iln*8 + mrn] = inner / std::sqrt(denom_sho[mrn]);
-                  } else {
+                  } else { // denom > 0
                       if (echo > 1) std::printf("# %s for sigma= %g %s cannot normalize %c%i proj: sho %g num %g\n", 
-                                          label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[mrn], denom_num);
-                  }
+                                                   label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[mrn], denom_num);
+                  } // denom > 0
               } // mrn
               if (echo > 11) std::printf("# %s quality for %c nrn=%d with sigma= %g %s is %g (weight %.2f)\n", 
-                                    label, ellchar[ell], nrn, sigma*Ang, _Ang, quality_ln, weight_ln[iln]);
+                                            label, ellchar[ell], nrn, sigma*Ang, _Ang, quality_ln, weight_ln[iln]);
               weighted_quality += weight_ln[iln]*quality_ln;
               gradient         += weight_ln[iln]*gradient_ln;
           } // nrn
       } // ell
       if (echo > 9) std::printf("# %s weighted quality with sigma= %g %s is %g\n", 
-                              label, sigma*Ang, _Ang, weighted_quality);
+                                   label, sigma*Ang, _Ang, weighted_quality);
 
       return weighted_quality; // and gradient
   } // expand_numerical_projectors_in_SHO_basis
@@ -958,10 +958,10 @@ namespace single_atom {
         std::vector<double> r2rho(g.n);
         double const *const rV_tru = potential[TRU].data();
         view2D<double> new_r2density(3, align<2>(g.n), 0.0); // new TRU densities for {core, semicore, valence}
-        double nelectrons[3] = {0, 0, 0}; // core, semicore, valence
-        double band_energy[3] = {0, 0, 0}; // core, semicore, valence
-        double kinetic_energy[3] = {0, 0, 0}; // core, semicore, valence
-        double Coulomb_energy[3] = {0, 0, 0}; // core, semicore, valence
+        double nelectrons[]     = {0, 0, 0}; // core, semicore, valence
+        double band_energy[]    = {0, 0, 0}; // core, semicore, valence
+        double kinetic_energy[] = {0, 0, 0}; // core, semicore, valence
+        double Coulomb_energy[] = {0, 0, 0}; // core, semicore, valence
 #ifdef DEVEL
         if (echo > 17) {
             std::printf("# %s %s: solve for eigenstates of the full radially symmetric potential\n", label, __func__);
@@ -1072,13 +1072,12 @@ namespace single_atom {
             // generate a mixed density
             double density_change{0}, Coulomb_change{0}, check_charge{0}; // some stats
             for (int ir = 0; ir < g.n; ++ir) {
-                double const r2inv = pow2(g.rinv[ir]);
-                auto const new_rho = new_r2density(csv,ir)*r2inv; // *r^{-2}
+                auto const new_rho = new_r2density(csv,ir)*pow2(g.rinv[ir]); // *r^{-2}
                 auto const old_rho = spherical_density[TRU](csv,ir);
                 density_change  += std::abs(new_rho - old_rho)*g.r2dr[ir];
                 Coulomb_change  +=         (new_rho - old_rho)*g.rdr[ir]; // Coulomb integral change
                 Coulomb_energy[csv] +=      new_rho           *g.rdr[ir]; // Coulomb integral
-                double const mixed_rho = mix_new*new_rho + mix_old*old_rho;
+                auto const mixed_rho = mix_new*new_rho + mix_old*old_rho;
                 spherical_density[TRU](csv,ir) = mixed_rho;
                 check_charge    += mixed_rho*g.r2dr[ir];
             } // ir
@@ -1092,14 +1091,12 @@ namespace single_atom {
                                           label, csv_name(csv), old_charge, nelectrons[csv], 
                                           label, csv_name(csv), new_charge);
                 auto const dev = check_charge - nelectrons[csv];
-                if (std::abs(dev) > 6e-14) {
-                    warn("%s New spherical %s density has %g electrons, expected %g, diff %.1e e",
-                                        label, csv_name(csv), check_charge, nelectrons[csv], dev);
-                } // deviates
+                if (std::abs(dev) > 6e-14) warn("%s New spherical %s density has %g electrons, expected %g, diff %.1e e",
+                                                 label, csv_name(csv), check_charge, nelectrons[csv], dev);
 #endif // DEVEL
                 if (echo > 3) std::printf("# %s %-8s density change %g e, Coulomb energy change %g %s\n", 
                     label, csv_name(csv), density_change, Coulomb_change*eV, _eV);
-                if (echo > 5) std::printf("# %s %-8s E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n", 
+                if (echo > 5) std::printf("# %s %-8s E_Coulomb= %.9f  E_band= %.9f  E_kinetic= %.9f %s\n", 
                     label, csv_name(csv), Coulomb_energy[csv]*eV, band_energy[csv]*eV, kinetic_energy[csv]*eV, _eV);
             } // output only for contributing densities
 
@@ -1113,7 +1110,7 @@ namespace single_atom {
 
         if (echo > 2) {
             double const w111[] = {1, 1, 1};
-            std::printf("# %s total    E_Coulomb= %.9f E_band= %.9f E_kinetic= %.9f %s\n",
+            std::printf("# %s total    E_Coulomb= %.9f  E_band= %.9f  E_kinetic= %.9f %s\n",
                     label, dot_product(3, w111, Coulomb_energy)*eV,
                            dot_product(3, w111, band_energy)*eV, 
                            dot_product(3, w111, kinetic_energy)*eV, _eV);

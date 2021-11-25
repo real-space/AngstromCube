@@ -1828,7 +1828,6 @@ namespace angular_grid {
 
   int test_generation(int const echo=1) {
       if (echo > 3) std::printf("\n# %s: \n", __func__);
-      int const max_size = get_grid_size(ellmax_implemented);
       status_t stat(0);
       double dev_all[] = {0, 0};
       for (int ell = -2; ell <= ellmax_implemented + 3; ell += (1 + 2*(ell > 16))) { // in steps of 3 for the larger grids, no need to test the same npt 3 times
@@ -1865,7 +1864,6 @@ namespace angular_grid {
       if (echo > 3) std::printf("\n# %s:\n", __func__);
       status_t stat(0);
       int const ellmax = std::min(lmax, ellmax_implemented);
-      int const max_size = get_grid_size(ellmax);
       int const M = pow2(1 + ellmax);
       std::vector<std::complex<double>> ylm(M);
       double dev_all{0};

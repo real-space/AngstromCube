@@ -7,9 +7,6 @@
 
 #include "real_space.hxx" // ::grid_t
 #include "data_view.hxx" // view2D<T>
-#include "unit_system.hxx" // ::length_unit
-#include "display_units.h" // Ang, _Ang
-#include "geometry_analysis.hxx" // ::read_xyz_file
 #include "debug_output.hxx" // dump_to_file
 #include "solid_harmonics.hxx" // ::rlXlm, ::lm_index
 #include "inline_math.hxx" // set, dot_product

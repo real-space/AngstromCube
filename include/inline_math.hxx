@@ -97,7 +97,7 @@
       } // i
       return dot;
   } // dot_product
-  
+
   inline bool is_integer(double const f) { return (f == std::round(f)); }
 
 #ifndef NO_UNIT_TESTS
