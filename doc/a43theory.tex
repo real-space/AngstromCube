@@ -1508,13 +1508,16 @@ Numerical deviations from that orthonomality are shown in Fig.~\ref{fig:generali
 
 \section*{Charge Deficit Operator}
 
-During the construction of PAW data, we have carefully monitor the eigenvalues of the charge deficit operator
+During the construction of PAW data, we have to carefully monitor the eigenvalues of the charge deficit operator
 $$ \ket{\tilde p_i} \left( \braket{\phi_i}{\phi_j} - \braket{\tilde \phi_i}{\tilde \phi_j} \right) \bra{\tilde p_j} $$
 The lowest eigenvalue should not drop to $-1.0$ as this would let the PAW overlap operator become singular.
 
 \begin{figure} [ht]
   \centering
   \begin{minipage}[c]{.990\textwidth}
+  	% git checkout d85c93e002ae3ad5e611335382b25a899e543c73
+    % test/charge_deficit.test.sh
+  	% test/data.charge_deficit/
 	\includegraphics[width=.75\textwidth]{fig/charge_deficit_Cu_s} %% .agr .pdf
 	\includegraphics[width=.75\textwidth]{fig/charge_deficit_Cu_p} %% .agr .pdf
 	\includegraphics[width=.75\textwidth]{fig/charge_deficit_Cu_d} %% .agr .pdf
@@ -1531,6 +1534,11 @@ Here, the configuration was
 \verb+element_Cu="4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma .61"+
 Furthermore, we can see that the lowest eigenvalue drops below $-1.0$ for very small energy splits ($< 80$ mHartree) in the $p$-channel
 and in a window $[50, 910]$ mHartree for the $s$-channel.
+
+%The observed behavior of the eigenvalues of the charge deficit operator 
+%does not seem to depend on the particular way of how the partial waves were generated.
+%Even with a classical generation scheme (\ttt{+single\_atom.partial.wave.method=c}) the instability can be seen.
+%%% To be checked again
 
 \newpage
 

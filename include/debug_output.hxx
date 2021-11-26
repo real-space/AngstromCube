@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::fflush, stdout
+#include <cstdio> // std::printf, ::fprintf, ::FILE, ::fopen, ::fclose, ::fflush, stdout
 
 #include "display_units.h" // Ang, _Ang
 #include "complex_tools.hxx" // is_complex
@@ -11,9 +11,9 @@
             std::printf("\n# here: %s %s:%i\n\n", __func__, __FILE__, __LINE__); \
             std::fflush(stdout); \
         }
-#else
-    #define here
-#endif
+#else  // DEBUG
+    #define here ;
+#endif // DEBUG
 
 template <typename real_t>
 inline int dump_to_file(

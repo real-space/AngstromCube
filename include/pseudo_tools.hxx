@@ -265,7 +265,7 @@ namespace pseudo_tools {
           if (d2 >  0) warn("%s negative potential curvature for sinc-fit expected but found %g", label, d2);
           
           double k_s{2.25*constants::pi/r_cut}, k_s_prev{0}; // initial guess
-          double V_s, V_0;
+          double V_s{0}, V_0{0};
           int const max_iter = 999;
           int iterations_needed{0};
           for (int iter = max_iter; (std::abs(k_s - k_s_prev) > 1e-15) && (iter > 0); --iter) {

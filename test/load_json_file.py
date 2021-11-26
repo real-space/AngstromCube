@@ -22,7 +22,7 @@ with open(chemSymbol+'.json') as jsonfile:
     try:
         partial_waves = data['partial waves']
     except KeyError:
-        # no key 'partial waves' in JSON file
+        # no key 'partial waves' found in JSON file
         print('load data exported by a43/src/atom_core.cxx')
         rho = np.array(data['density'])
         rV  = np.array(data['r*potential'])
@@ -55,5 +55,6 @@ with open(chemSymbol+'.json') as jsonfile:
             ax.plot(r, psi_smt, label=str(state), color=color, linestyle='dashed')
 
     ax.legend() # Add a legend.
+    plt.savefig(chemSymbol+'.pdf') # Save in document format
     plt.savefig(chemSymbol+'.svg') # Save in vector format
     plt.savefig(chemSymbol+'.png') # Save in pixel format
