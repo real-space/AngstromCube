@@ -786,7 +786,7 @@ namespace single_atom {
         for (int ell = 0; ell <= numax; ++ell) {
             projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
             for (int nrn = 0; nrn < nn[ell]; ++nrn) {
-                projector_coeff[ell](nrn,nrn) = 1; // Kronecker
+                projector_coeff[ell](nrn,nrn) = 1.0; // Kronecker
             } // nrn
         } // ell
 
@@ -1179,12 +1179,11 @@ namespace single_atom {
             for (int irn = 0; irn < nn[ell]; ++irn) {
                 int const iln = sho_tools::ln_index(numax, ell, irn);
                 auto const norm2 = dot_product(nmx, projector_coeff[ell][irn], projector_coeff[ell][irn]);
-                for (int i = 0; i < nmx; ++i) kinetic_coeff[i] = kinetic_pref * projector_coeff[ell][irn][i] * (ell + 2*irn + 1.5); // nu + 3/2
-                auto const E_kin = dot_product(nmx, projector_coeff[ell][irn], kinetic_coeff);
+                for (int i = 0; i < nmx; ++i) kinetic_coeff[i] = projector_coeff[ell][irn][i] * (ell + 2*i + 1.5); // nu + 3/2
+                auto const E_kin = kinetic_pref * dot_product(nmx, projector_coeff[ell][irn], kinetic_coeff);
                 if (norm2 > 0) {
                     if (echo > 0) {
-                        auto const length = std::sqrt(norm2);
-                        assert(length > 0);
+                        auto const length = std::sqrt(norm2); assert(length > 0);
                         std::printf("# %s %scoefficients of the %s-projector: %.6e * [", label, attribute, partial_wave[iln].tag, length);
                         printf_vector(" %9.6f", projector_coeff[ell][irn], nmx, " ]", 1./length);
                         if (sigma > 0) std::printf(", %.3f %s", 2*E_kin/norm2, unit_system::_Rydberg); // display the minimum required plane wave cutoff
@@ -1401,13 +1400,9 @@ namespace single_atom {
 
         char const method = ('?' != generation_method) ? generation_method :
                       *control::get("single_atom.partial.wave.method", "m");
-        if ('?' == generation_method && classical_scheme == method) warn("%s Classical scheme leads to invalid potentials, option C only for internal use!", label);
 
         int const Gram_Schmidt_iterations = (GS_iterations >= 0) ? GS_iterations :
                               control::get("single_atom.gram.schmidt.repeat", 2.);
-
-        if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\'\n", label, __func__, Z_core, method);
-        // the basis for valence partial waves is generated from the spherical part of the hamiltonian
 
         double r_match{r_cut}; // init classical
 
@@ -1417,7 +1412,7 @@ namespace single_atom {
 
             int const nln = sho_tools::nSHO_radial(numax);
             radial_sho_basis = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory
-            scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo/2);
+            scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo >> 1);
 #ifdef DEVEL
             if (echo > 5) { // show normalization and orthogonality of the radial SHO basis
                 double max_dev{0};
@@ -1444,9 +1439,15 @@ namespace single_atom {
             } // echo
 #endif // DEVEL
 
-            r_match = 9*sigma;
+            r_match = 9*sigma; // exp(-9^2/2) = 2.6e-18, all projectors are zero beyond this r_match
         } // classical
 
+        if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\'\n", label, __func__, Z_core, method);
+        // the basis for valence partial waves is generated from the spherical part of the hamiltonian
+        if ('?' == generation_method && classical_scheme == method) 
+            warn("%s Classical scheme leads to invalid potentials, option C only for internal use!", label);
+
+        
         int const ir_match[] = {radial_grid::find_grid_index(rg[TRU], r_match),
                                 radial_grid::find_grid_index(rg[SMT], r_match)};
         if (echo > 3) std::printf("# %s matching radius %g %s at radial indices %i and %i\n",
@@ -1458,7 +1459,7 @@ namespace single_atom {
 
         for (int ell_ = 0; ell_ <= numax; ++ell_) { int const ell = ell_;
             int const ln_off = sho_tools::ln_index(numax, ell, 0); // offset where to start indexing emm-degenerate partial waves
-            int const n = nn[ell]; // abbreviation
+            int const n = nn[ell]; // abbreviation for the number of active partial waves in this ell
 
             if (echo > 3) std::printf("\n# %s %s for ell=%i\n\n", label, __func__, ell);
 
@@ -1490,7 +1491,7 @@ namespace single_atom {
                 double normalize{1};
 #ifdef DEVEL
                 bool orthogonalize{false};
-                bool const use_energy_derivative = ('d' == partial_wave_char[iln]);
+                bool const use_energy_derivative = ('D' == partial_wave_char[iln]);
                 if (use_energy_derivative) {
                     // choose Psi_1 as energy derivative:
                     // solve inhomogeneous equation (H - E) Psi_1 = Psi_0
@@ -1507,7 +1508,7 @@ namespace single_atom {
                     orthogonalize = true;
                 } else
 #endif // DEVEL
-                if (partial_wave_char[iln] >= '1' && partial_wave_char[iln] <= '9') {
+                if (partial_wave_char[iln] >= '1' && partial_wave_char[iln] <= '9') { // regular quantum number
                     // if vs.energy matches an eigenenergy of the spherical potential, we can use this integrator and normalize
                     int nnodes{0};
                     // integrate SRA equation (^T + V(r) - E) phi(r) = 0 outwards homogeneously
@@ -1527,7 +1528,7 @@ namespace single_atom {
                     auto const d  = dot_product(nr, vs.wave[TRU], psi0, rg[TRU].rdr);
                     auto const d2 = dot_product(nr, psi0, psi0, rg[TRU].r2dr);
                     auto const p  = -d/d2; // projection part
-                    if (echo > 1) std::printf("# %s for ell=%i orthogonalize energy derivative with %g\n", label, ell, p);
+                    if (echo > 1) std::printf("# %s for ell=%i orthogonalize energy derivative with coefficient %g\n", label, ell, p);
                     add_product(vs.wave[TRU], nr, psi0, rg[TRU].r, p);
                 } // orthogonalize
 #endif // DEVEL

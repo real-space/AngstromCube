@@ -207,7 +207,7 @@ namespace sigma_config {
     } // nl_index
 
     inline void set_default_core_shells(int ncmx[4], double const Z) {
-        ncmx[0] = (Z >= 2) + (Z >= 4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
+        ncmx[0] = 0 + (Z >=  2) + (Z >=  4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
         ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
         ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
         ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
