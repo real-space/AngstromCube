@@ -1542,6 +1542,50 @@ and in a window $[50, 910]$ mHartree for the $s$-channel.
 
 \newpage
 
+\section*{Partial Wave Generation}
+
+
+Use \ttt{+single\_atom.partial.wave.method=recreate\_second} for this scheme:\\
+Several recipes have been tried of how to get the PAW equation
+$$ \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_{\ell n} \right) \tilde\varphi_{\ell n}(r) = \tilde p_{\ell n}(r) $$
+consistent with the reversed PAW generation scheme, where the same equation is used to generate a partial wave given a
+smooth (SHO-filtered) projector function.
+
+The new scheme works as follows ($\ell$-indices suppressed): \\
+Find $\varphi_{0}(r)$ for the energy parameter $\varepsilon_{n}$.\\
+Pseudize $\varphi_{0}(r) \longrightarrow \tilde \varphi_{0}(r)$ with a $4$-coefficient polynomial. Then\\
+\begin{align}
+	\tilde p'_{0}(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_0 \right)  \tilde \varphi_{0}(r)
+    \qquad \text{Bl\"{o}chl's scheme} \\
+	\tilde p_{0}(r) &= \sum_i \braket{r}{SHO_i}\braket{SHO_i}{\tilde p'_0} 
+	\qquad \text{SHO-filtering} \\
+	\tilde \varphi_0(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_0 \right)^{-1} \tilde p_0(r)
+	\qquad \text{revPAW scheme} \\
+	\intertext{and if there is a higher partial wave}
+	\tilde p'_1(r) &= SHO_0(r) - \braket{SHO_0}{\tilde \varphi_0} \tilde p_0(r) \\
+	\tilde \varphi'_1(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_1 \right)^{-1} \tilde p'_1(r) \\
+	\tilde \varphi_1(r)  &= \tilde \varphi'_1(r) - \braket{\tilde p_0}{\tilde \varphi'_1} \tilde \varphi_0(r) \\
+\end{align}
+The second projector is chosen orthogonal to the lowest smooth partial wave. As a start guess, we use the coefficients
+of the lowest projector. See Fig.~\ref{fig:charge-deficit-copper-recreate-second} for the example of copper with \ttt{4s* 4p* 3d*}.
+
+\begin{figure} [h]
+  \centering
+  \begin{minipage}[c]{.990\textwidth}
+  	% git checkout d85c93e002ae3ad5e611335382b25a899e543c73
+    % cd a43/test/data.charge_deficit
+    % ../charge_deficit.test.sh > method_r.out
+  	% ./charge_deficit.evals.sh method_r.out > method_r.dat
+	\includegraphics[width=.99\textwidth]{fig/charge_deficit_method_recreate_second} %% .agr .pdf
+  \end{minipage}\hfill
+  \begin{minipage}[c]{.009\textwidth}
+  \end{minipage}
+  \caption{Example charge deficit eigenvalues (lowest black, second red) for copper as a function of the energy split between lowest and excited partial wave (in Hartree) for $\ell \in \{s, p, d\}$.} \label{fig:charge-deficit-copper-recreate-second}
+\end{figure}
+
+
+\newpage
+
 
 % ==============================================================================
 \bibliographystyle{plain}

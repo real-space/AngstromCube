@@ -606,7 +606,7 @@ namespace scattering_test {
       } // ell
 
       if (max_dev_from_reference > 0 && echo > 3) {
-          std::printf("# %s %s a %c-eigenvalue deviates %g m%s from its reference %g %s\n",
+          std::printf("# %s %s %c-eigenvalue deviates %g m%s from its reference %g %s\n",
                          label, __func__, ellchar_of_reference, max_dev_from_reference*1000*eV, _eV, energy_of_reference*eV, _eV);
           if (max_dev_from_reference > warning_threshold) {
               warn("%s %c-eigenvalue deviates %g m%s", label, ellchar_of_reference, max_dev_from_reference*1000*eV, _eV);
