@@ -1552,8 +1552,8 @@ consistent with the reversed PAW generation scheme, where the same equation is u
 smooth (SHO-filtered) projector function.
 
 The new scheme works as follows ($\ell$-indices suppressed): \\
-Find $\varphi_{0}(r)$ for the energy parameter $\varepsilon_{n}$.\\
-Pseudize $\varphi_{0}(r) \longrightarrow \tilde \varphi_{0}(r)$ with a $4$-coefficient polynomial. Then\\
+Find the true partial waves $\varphi_{n}(r)$ for the energy parameters $\varepsilon_{n}$.\\
+Pseudize $\varphi_{0}(r) \longrightarrow \tilde \varphi_{0}(r)$ with a $4$-coefficient even polynomial times $r^\ell$. Then\\
 \begin{align}
 	\tilde p'_{0}(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_0 \right)  \tilde \varphi_{0}(r)
     \qquad \text{Bl\"{o}chl's scheme} \\
@@ -1561,18 +1561,26 @@ Pseudize $\varphi_{0}(r) \longrightarrow \tilde \varphi_{0}(r)$ with a $4$-coeff
 	\qquad \text{SHO-filtering} \\
 	\tilde \varphi_0(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_0 \right)^{-1} \tilde p_0(r)
 	\qquad \text{revPAW scheme} \\
-	\intertext{and if there is a higher partial wave}
-	\tilde p'_1(r) &= SHO_0(r) - \braket{SHO_0}{\tilde \varphi_0} \tilde p_0(r) \\
-	\tilde \varphi'_1(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_1 \right)^{-1} \tilde p'_1(r) \\
-	\tilde \varphi_1(r)  &= \tilde \varphi'_1(r) - \braket{\tilde p_0}{\tilde \varphi'_1} \tilde \varphi_0(r) \\
+	\intertext{and for the higher partial wave}
+	\varphi_i &= \braket{SHO_i}{\tilde \varphi_0},
+	p_i = \braket{SHO_i}{\tilde p_0} \\
+	\tilde p'_1(r) &= \sum_i SHO_i(r) \left( p_i - \varphi_i\sum_j p_j \varphi_j \cdot \left( \sum_k \varphi_k^2 \right)^{-1} \right) \\
+	\tilde \varphi'_1(r) &= \left( \hat T + \tilde V\um{loc}(r) - \varepsilon_1 \right)^{-1} \tilde p'_1(r) 
+	\qquad \text{revPAW scheme} \\
+	\tilde \varphi_1(r)  &= \tilde \varphi'_1(r) - \braket{\tilde p_0}{\tilde \varphi'_1} \tilde \varphi_0(r) 
+	\qquad \text{Gram-Schmidt} \\
 \end{align}
 The second projector is chosen orthogonal to the lowest smooth partial wave. As a start guess, we use the coefficients
-of the lowest projector. See Fig.~\ref{fig:charge-deficit-copper-recreate-second} for the example of copper with \ttt{4s* 4p* 3d*}.
+of the lowest projector in the radial SHO basis.
+Mind that the SHO basis is suitable for this operation, however, it is in general not capable of representing the smooth partial waves with a modest SHO basis size.
+See Fig.~\ref{fig:charge-deficit-copper-recreate-second} for the example of copper with \ttt{4s* 4p* 3d*}.
+The eigenvalues of the charge deficit operator are stable (above -1.0) for split energies between $80$ mHartree and $3.35$ Hartree.
+The typical split energy used in GPAW PAW setups is $1.0$ Hartree.
 
 \begin{figure} [h]
   \centering
   \begin{minipage}[c]{.990\textwidth}
-  	% git checkout d85c93e002ae3ad5e611335382b25a899e543c73
+  	% git checkout ec0d048fe8edddce03b1e619ca9e37576562a16d
     % cd a43/test/data.charge_deficit
     % ../charge_deficit.test.sh > method_r.out
   	% ./charge_deficit.evals.sh method_r.out > method_r.dat
@@ -1580,7 +1588,7 @@ of the lowest projector. See Fig.~\ref{fig:charge-deficit-copper-recreate-second
   \end{minipage}\hfill
   \begin{minipage}[c]{.009\textwidth}
   \end{minipage}
-  \caption{Example charge deficit eigenvalues (lowest black, second red) for copper as a function of the energy split between lowest and excited partial wave (in Hartree) for $\ell \in \{s, p, d\}$.} \label{fig:charge-deficit-copper-recreate-second}
+  \caption{Lower (lower subplot) and upper (upper subplot) charge deficit eigenvalues of Cu with the \ttt{recreate\_second} partial wave generation scheme. The eigenvalues are shown as a function of the energy split between lowest and excited partial wave (in Hartree) for $\ell \in \{s, p, d\}$.} \label{fig:charge-deficit-copper-recreate-second}
 \end{figure}
 
 

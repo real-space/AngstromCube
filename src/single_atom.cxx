@@ -1398,7 +1398,7 @@ namespace single_atom {
 #endif // DEVEL
 
         char const method = ('?' != generation_method) ? generation_method :
-                      *control::get("single_atom.partial.wave.method", "m");
+                      *control::get("single_atom.partial.wave.method", "r");
 
         int const Gram_Schmidt_iterations = (GS_iterations >= 0) ? GS_iterations :
                               control::get("single_atom.gram.schmidt.repeat", 2.);

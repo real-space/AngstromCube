@@ -54,7 +54,7 @@
 @timestamp rot 0
 @timestamp font 0
 @timestamp char size 1.500000
-@timestamp def "Mon Nov 29 16:00:02 2021"
+@timestamp def "Mon Nov 29 21:13:17 2021"
 @r0 off
 @link r0 to g0
 @r0 type above
@@ -402,7 +402,7 @@
 @g1 fixedpoint format general general
 @g1 fixedpoint prec 6, 6
 @with g1
-@    world -0.0362745098039, -1.5, 4.04705882353, 0.5
+@    world 0, -1.5, 4, 0.5
 @    stack world 0, 0, 0, 0
 @    znorm 1
 @    view 0.150000, 0.150000, 1.150000, 0.450000
@@ -593,7 +593,7 @@
 @    s0 errorbar riser clip off
 @    s0 errorbar riser clip length 0.100000
 @    s0 comment "copy of set G0.S0"
-@    s0 legend  "s"
+@    s0 legend  "\qs\Q"
 @    s2 hidden false
 @    s2 type xy
 @    s2 symbol 0
@@ -642,7 +642,7 @@
 @    s2 errorbar riser clip off
 @    s2 errorbar riser clip length 0.100000
 @    s2 comment "copy of set G0.S2"
-@    s2 legend  "p"
+@    s2 legend  "\qp\Q"
 @    s4 hidden false
 @    s4 type xy
 @    s4 symbol 0
@@ -691,7 +691,7 @@
 @    s4 errorbar riser clip off
 @    s4 errorbar riser clip length 0.100000
 @    s4 comment "copy of set G0.S4"
-@    s4 legend  "d"
+@    s4 legend  "\qd\Q"
 @    s8 hidden false
 @    s8 type xy
 @    s8 symbol 0
