@@ -1,11 +1,11 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fflush, stdout
+#include <cstdio> // std::printf, ::fflush, stdout
 #include <cassert> // assert
 #include <cstdint> // uint8_t
 #include <vector> // std::vector<T>
 #include <cmath> // std::copysign, ::atan2, ::sqrt, ::ceil, ::abs, ::exp, ::round
-#include <algorithm> // std::min, std::max
+#include <algorithm> // std::min, ::max
 
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::create_radial_grid, ::equation_equidistant,
@@ -22,11 +22,10 @@
 #include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
 #include "data_view.hxx" // view2D<T>
 #include "print_tools.hxx" // printf_vector
+#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 
 namespace scattering_test {
-
-  int constexpr TRU=0, SMT=1, TRU_AND_SMT=2;
 
   char const ellchar[] = "spdfghijkl0123456789"; // ToDo: by convention 'i' is not the proper char for ell=6
 
@@ -152,7 +151,7 @@ namespace scattering_test {
       , double gg[] // work arrays, greater component
       , double ff[] // work arrays, smaller component
       , int const ir_stop=-1 // radius where to stop
-      , double const *inh=nullptr // r*inhomogeneiety
+      , double const *inh=nullptr // r*inhomogeneity
   ) {
       int constexpr SRA = 1; // use the scalar relativistic approximation
       double deriv{0};
@@ -188,7 +187,7 @@ namespace scattering_test {
       , double gg[] // work arrays, greater component
       , double ff[] // work arrays, smaller component
       , int const ir_stop // radius where to stop
-      , view2D<double> const & rprj // pointer to inhomogeneieties
+      , view2D<double> const & rprj // pointer to inhomogeneities
       , int const n=0 // number of projector >= 0
       , double const *aHm=nullptr // pointer to Hamiltonian, can be zero if n=0
       , double const *aSm=nullptr // pointer to overlap, can be zero if n=0
@@ -250,7 +249,7 @@ namespace scattering_test {
 
   inline status_t logarithmic_derivative(
         radial_grid_t const rg[TRU_AND_SMT] // radial grid descriptors for Vtru, Vsmt
-      , double        const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
+      , double const *const rV[TRU_AND_SMT] // true and smooth potential given on the radial grid *r
       , double const sigma // sigma spread of SHO projectors
       , int const ellmax // ellmax up to which the analysis should go
       , int const numax
@@ -262,7 +261,7 @@ namespace scattering_test {
       , float const Rlog_over_sigma=6.f
   ) {
       status_t stat(0);
-      
+
       double const dE = std::copysign(std::max(1e-9, std::abs(energy_range[1])), energy_range[1]);
       int const nen = int(std::ceil((energy_range[2] - energy_range[0])/dE));
 
@@ -459,7 +458,7 @@ namespace scattering_test {
       stat += (nFD != finite_difference::set_Laplacian_coefficients(cFD, nFD, dr, 'r'));
       if (echo > 3) std::printf("# %s %s finite difference with %i neighbors\n", label, __func__, nFD); 
 
-      double max_dev_from_reference{-1}; double energy_of_reference{0}; char ellchar_of_reference{'?'};
+      double max_dev_from_reference{0}; double energy_of_reference{0}; char ellchar_of_reference{'?'};
 
       for (int ell = 0; ell <= ellmax; ++ell) {
           int const nn = (numax + 2 - ell)/2;
@@ -567,13 +566,12 @@ namespace scattering_test {
                                                         label, ellchar[ell], eigs[iev]*eV, eig_ref*eV, _eV);
                           if (0 != eig_ref) {
                               auto const dev = eigs[iev] - eig_ref;
-                              auto const absdev = std::abs(dev);
-                              if (absdev > max_dev_from_reference) {
+                              if (std::abs(dev) > std::abs(max_dev_from_reference)) {
                                   ellchar_of_reference = ellchar[ell];
                                   energy_of_reference = eig_ref;
-                                  max_dev_from_reference = absdev;
+                                  max_dev_from_reference = dev;
                               }
-                              if (absdev > warning_threshold) {
+                              if (std::abs(dev) > warning_threshold) {
                                   if (echo > 2) std::printf("# %s %c-eigenvalue #%i %g %s deviates %g m%s from its reference %g %s\n",
                                                                label, ellchar[ell], iev, eigs[iev]*eV, _eV, dev*1000*eV, _eV, eig_ref*eV, _eV);
 //                                warn("%s %c-eigenvalue #%i deviates %g m%s", label, ellchar[ell], iev, dev*1000*eV, _eV); // moved to later
@@ -605,10 +603,10 @@ namespace scattering_test {
 
       } // ell
 
-      if (max_dev_from_reference > 0 && echo > 3) {
+      if (std::abs(max_dev_from_reference) > 0 && echo > 3) {
           std::printf("# %s %s %c-eigenvalue deviates %g m%s from its reference %g %s\n",
                          label, __func__, ellchar_of_reference, max_dev_from_reference*1000*eV, _eV, energy_of_reference*eV, _eV);
-          if (max_dev_from_reference > warning_threshold) {
+          if (std::abs(max_dev_from_reference) > warning_threshold) {
               warn("%s %c-eigenvalue deviates %g m%s", label, ellchar_of_reference, max_dev_from_reference*1000*eV, _eV);
           } // warning
       } // deviates from reference

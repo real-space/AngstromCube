@@ -9,6 +9,7 @@ for energy in {1..399} ; do
   out=$method.out
   ./a43 -t single_atom \
           +single_atom.nn.limit=2 \
+          +single_atom.test.Z=14 \
           +single_atom.partial.wave.energy=$E \
           +single_atom.partial.wave.method=$method \
           +verbosity=7 \

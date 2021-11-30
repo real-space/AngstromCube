@@ -29,7 +29,7 @@ namespace sigma_config {
             case  5: return "2s* 2 2p* 1 0 3d | 1.2 sigma .45";                         // B
             case  6: return "2s* 2 2p* 2 0 3d | 1.2 sigma .43";                         // C
             case  7: return "2s* 2 2p* 3 0 3d | 1.0 sigma .33";                         // N
-            case  8: return "2s* 2 2p* 3 1 3d | 1.13 sigma .297";                       // O
+            case  8: return "2s* 2 2p* 3 1 3d | 1.13 sigma .322";                       // O
             case  9: return "2s* 2 2p* 3 2 3d | 1.2 sigma .323";                        // F
             case 10: return "2s* 2 2p* 6 3d | 1.8 sigma .564";                          // Ne
             case 11: return "2s 2 3s 1 0 2p 6 3p 2e-99 3d | 2.27 sigma .69";            // Na
