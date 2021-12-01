@@ -1,4 +1,5 @@
 #ifndef DEVEL
+
 /*
  *  Make sure to modify this file only in the development branch
  */
@@ -81,7 +82,7 @@ namespace single_atom {
       left = (left + right)/2; right = left;
   } // symmetrize
 
-
+#ifdef DEVEL
   status_t minimize_curvature(
         int const n // dimension
       , view2D<double> & A // kinetic energy operator
@@ -95,7 +96,7 @@ namespace single_atom {
       if (lowest) *lowest = eigs[0];
       return info;
   } // minimize_curvature
-
+#endif // DEVEL
 
   template <typename int_t>
   int display_delimiter( // returns mln (or mlmn if resolve=='m')
@@ -120,7 +121,7 @@ namespace single_atom {
   } // display_delimiter
 
 
-  template <int ADD0_or_PROJECT1>
+  template <int ADD0_or_PROJECT1> // 0:add, 1:project, 2:expand, 3:test_normalization
   void add_or_project_compensators(
         view2D<double> & Alm // ADD0_or_PROJECT1 == 0 or 2 result
       , double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
@@ -131,24 +132,24 @@ namespace single_atom {
   ) {
       // compensation charge densities on the radial grid
 
-      int const nr = rg.n;
+      int const nr = rg.n; // number of radial grid points
       auto const sig2inv = .5/(sigma*sigma);
       if (echo > 0) std::printf("# sigma = %g\n", sigma);
-      std::vector<double> rl(nr), rlgauss(nr);
-      for (int ell = 0; ell <= lmax; ++ell) { // serial!
+      std::vector<double> rl(nr), rlGauss(nr);
+      for (int ell = 0; ell <= lmax; ++ell) { // loop must run forward and serial!
           double norm{0};
           for (int ir = 0; ir < nr; ++ir) {
               auto const r = rg.r[ir];
               if (0 == ell) {
-                  rl[ir] = 1; // start with r^0
-                  rlgauss[ir] = std::exp(-sig2inv*r*r);
+                  rl[ir] = 1; // init r^ell as r^0
+                  rlGauss[ir] = (ADD0_or_PROJECT1 < 2) ? std::exp(-sig2inv*r*r) : 1; // r^0*Gaussian
               } else {
                   rl[ir]      *= r; // construct r^ell
-                  rlgauss[ir] *= r; // construct r^ell*gaussian
+                  rlGauss[ir] *= r; // construct r^ell*Gaussian
               }
-              norm += rlgauss[ir] * rl[ir] * rg.r2dr[ir];
-              if (echo > 8) std::printf("# ell=%i norm=%g ir=%i rlgauss=%g rl=%g r2dr=%g\n",
-                                      ell, norm, ir, rlgauss[ir], rl[ir], rg.r2dr[ir]);
+              norm += rlGauss[ir] * rl[ir] * rg.r2dr[ir];
+              if (echo > 8) std::printf("# ell=%i norm=%g ir=%i rlGauss=%g rl=%g r2dr=%g\n",
+                                      ell, norm, ir, rlGauss[ir], rl[ir], rg.r2dr[ir]);
           } // ir
           if (echo > 1) std::printf("# ell=%i norm=%g nr=%i\n", ell, norm, nr);
           assert(norm > 0);
@@ -156,15 +157,15 @@ namespace single_atom {
           for (int emm = -ell; emm <= ell; ++emm) {
               int const lm = solid_harmonics::lm_index(ell, emm);
               if (0 == ADD0_or_PROJECT1) {
-                  add_product(Alm[lm], nr, rlgauss.data(), qlm[lm]*scal); // add normalized compensator to augmented density
+                  add_product(Alm[lm], nr, rlGauss.data(), qlm[lm]*scal); // add normalized compensator to augmented density
               } else if (2 == ADD0_or_PROJECT1) {
                   add_product(Alm[lm], nr, rl.data(), qlm[lm]); // add q_{\ell m} * r^\ell to electrostatic potential
-                  // ToDo: setup of normalized rlgauss is not necessary in this version
+                  // Note: setup of normalized rlGauss is not necessary in this version
               } else if (3 == ADD0_or_PROJECT1) {
                   qlm[lm] = dot_product(nr, Alm[lm], rl.data(), rg.r2dr); // dot_product with metric
-                  // ToDo: setup of normalized rlgauss is not necessary in this version
+                  // Note: setup of normalized rlGauss is not necessary in this version
               } else {
-                  qlm[lm] = dot_product(nr, Alm[lm], rlgauss.data(), rg.r2dr) * scal; // dot_product with metric
+                  qlm[lm] = dot_product(nr, Alm[lm], rlGauss.data(), rg.r2dr) * scal; // dot_product with metric
               } // add or project
           } // emm
       } // ell
@@ -679,16 +680,16 @@ namespace single_atom {
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     assert(iln < nln);
                     auto & vs = partial_wave[iln]; // abbreviate "valence state"
-                    enn_QN_t const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
+                    int const enn = std::max(ell + 1, enn_core_ell[ell] + 1) + nrn;
 //                  if (echo > 0) std::printf(" %d%c", enn, ellchar[ell]);
-                    vs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
-                    vs.nrn[SMT] = nrn; // number of radial nodes in the smooth wave
+                    vs.nrn[TRU] = enn - ell - 1; // number of radial nodes in the true wave
+                    vs.nrn[SMT] = nrn;           // number of radial nodes in the smooth wave
                     vs.occupation = 0.0;
-                    vs.enn = enn;
-                    vs.ell = ell;
-                    vs.emm = emm_Degenerate;
-                    vs.spin = spin_Degenerate;
-                    vs.csv = valence;
+                    vs.enn = enn; // principal quantum number
+                    vs.ell = ell; // angular momentum quantum number
+                    vs.emm = emm_Degenerate; // angular z-component quantum number
+                    vs.spin = spin_Degenerate; // spin quantum number
+                    vs.csv = valence; // classifier for {core, semicore, valence}
 
                     if (nrn < nn[ell]) {
                         partial_wave_active[iln] = 1;
@@ -734,7 +735,7 @@ namespace single_atom {
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (use_energy_parameter) {
                             vs.energy = energy_parameter;
-                            partial_wave_char[iln] = 'e';
+                            partial_wave_char[iln] = 'e'; // use energy parameter
                             std::snprintf(vs.tag, 7, "%c%.5g", ellchar[ell], vs.energy*eV); // create a state label
                         } else // use_energy_parameter
                         if (occ > 0) {
@@ -743,13 +744,13 @@ namespace single_atom {
                             if (nrn > 0) {
                                 char asterisk[8] = "*******"; asterisk[nrn] = '\0';
                                 std::snprintf(vs.tag, 7, "%c%s", ellchar[ell], asterisk); // create a state label
-                                partial_wave_char[iln] = '*';
+                                partial_wave_char[iln] = '*'; // set as excited
 #ifdef DEVEL
                                 if (energy_derivative == partial_wave_energy_split[ell]) partial_wave_char[iln] = 'D';
 #endif // DEVEL
                                 if ('*' == partial_wave_char[iln] && std::abs(partial_wave_energy_split[ell]) < 1e-3) {
                                     warn("%s partial wave energy split for ell=%c is small (%g %s)",
-                                        label, ellchar[ell], partial_wave_energy_split[ell]*eV, _eV);
+                                          label, ellchar[ell], partial_wave_energy_split[ell]*eV, _eV);
                                 } // |dE| small
                             } else
                             if (prev_energy_parameter & (1 << ell)) { // nrn > 0
@@ -761,7 +762,7 @@ namespace single_atom {
                         } // occ > 0
 
                     } else { // active
-                        partial_wave_char[iln] = '_';
+                        partial_wave_char[iln] = '_'; // partial wave inactive
                         std::snprintf(vs.tag, 7, "%c?", ellchar[ell]); // create a label for inactive states
                     } // partial_wave_active
 
@@ -771,8 +772,8 @@ namespace single_atom {
             assert(nlnn == ilnn && "count of partial waves incorrect");
         } // scope: initialize partial waves
 
-        set(reference_spdf[0], 3*4, 0.f); // clear
-        
+        set(reference_spdf[0], 3*4, 0.f); // clear reference valence eigenvalues
+
         int const nlm_aug = pow2(1 + std::max(ellmax_rho, ellmax_cmp));
         aug_density = view2D<double>(nlm_aug, full_density[SMT].stride(), 0.0); // get memory
         int const nlm_cmp = pow2(1 + ellmax_cmp);
@@ -1415,7 +1416,9 @@ namespace single_atom {
 
             int const nln = sho_tools::nSHO_radial(numax);
             radial_sho_basis = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory
-            scattering_test::expand_sho_projectors(radial_sho_basis.data(), radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo >> 1);
+            // create a set of radial SHO basis function for given sigma
+            scattering_test::expand_sho_projectors(radial_sho_basis.data(),
+                radial_sho_basis.stride(), rg[SMT], sigma, numax, 1, echo >> 1);
 #ifdef DEVEL
             if (echo > 5) { // show normalization and orthogonality of the radial SHO basis
                 double max_dev{0};
@@ -1443,14 +1446,14 @@ namespace single_atom {
 #endif // DEVEL
 
             r_match = 9*sigma; // exp(-9^2/2) = 2.6e-18, all projectors are zero beyond this r_match
-        } // classical
+        } // not classical_scheme
 
         if (echo > 2) std::printf("\n# %s %s Z=%g method=\'%c\'\n", label, __func__, Z_core, method);
         // the basis for valence partial waves is generated from the spherical part of the hamiltonian
         if ('?' == generation_method && classical_scheme == method) 
             warn("%s Classical scheme leads to invalid potentials, option C only for internal use!", label);
 
-        
+
         int const ir_match[] = {radial_grid::find_grid_index(rg[TRU], r_match),
                                 radial_grid::find_grid_index(rg[SMT], r_match)};
         if (echo > 3) std::printf("# %s matching radius %g %s at radial indices %i and %i\n",
@@ -1774,8 +1777,12 @@ namespace single_atom {
 
 
                     std::vector<double> evec(n, 0.0);
-                    evec[nrn] = 1.0; // this is everything that needs to be done for method==energy_ordering
-                    if (recreate_second == method) { evec[nrn] = 0; evec[0] = 1; }
+                    if (recreate_second == method) {
+                        evec[0] = 1; // for method==recreate_second
+                    } else {
+                        evec[nrn] = 1.0; // e.g. for method==energy_ordering
+                    }
+
                     if (n > 1) {
 
 #ifdef DEVEL
@@ -1838,7 +1845,7 @@ namespace single_atom {
                                 // minimize the matrix element <Psi_1|p_0>
                                 double c[2];
                                 for (int krn = 0; krn < 2; ++krn) {
-                                    c[krn] = dot_product(nr, rphi[1 + krn], projectors_ell[0], rg[SMT].rdr);
+                                    c[krn] = dot_product(rg[SMT].n, rphi[1 + krn], projectors_ell[0], rg[SMT].rdr);
                                 } // krn
                                 // now find the angle phi such that cos(phi)*c[1] + sin(phi)*c[0] is zero;
 #if 0
@@ -1867,7 +1874,7 @@ namespace single_atom {
                                 // minimize the matrix element <Psi_0|p_1>
                                 double c[2];
                                 for (int krn = 0; krn < 2; ++krn) {
-                                    c[krn] = dot_product(nr, rphi[1 + krn], projectors_ell[1], rg[SMT].rdr);
+                                    c[krn] = dot_product(rg[SMT].n, rphi[1 + krn], projectors_ell[1], rg[SMT].rdr);
                                 } // krn
                                 // now find the angle phi such that cos(phi)*c[1] + sin(phi)*c[0] is zero;
                                 double const angle = std::atan2(-c[1], c[0]);
@@ -3817,7 +3824,7 @@ namespace single_atom {
 
   status_t test_compensator_normalization(int const echo=5) {
       double maxdev{0};
-#ifdef DEVEL1
+#ifdef DEVEL
       if (echo > 1) std::printf("\n# %s: %s\n", __FILE__, __func__);
       auto & rg = *radial_grid::create_radial_grid(512, 2.f);
       int const nr = rg.n, lmax = 0, nlm = pow2(1 + lmax);
@@ -3831,7 +3838,7 @@ namespace single_atom {
 //        if (echo > 0) std::printf("# %s: square-norm of normalized compensator with sigma = %g is %g\n", __func__, sigma, qlm[0]);
           add_or_project_compensators<3>(cmp, qlm.data(), rg, lmax, sigma, 0); // test normalization
           maxdev = std::max(maxdev, std::abs(qlm[0] - 1.0));
-          if (echo > 4) std::printf("# %s: for sigma = %g is 1 + %.1e\n", __func__, sigma, qlm[0] - 1);
+          if (echo > 7) std::printf("# %s: for sigma = %g is 1 + %.1e\n", __func__, sigma, qlm[0] - 1);
       } // sigma
       if (echo > 2) std::printf("# %s: largest deviation is %.1e\n", __func__, maxdev);
       radial_grid::destroy_radial_grid(&rg);
@@ -3857,8 +3864,8 @@ namespace single_atom {
 
   status_t all_tests(int const echo) {
       status_t stat(0);
-      stat += test_LiveAtom(echo);
       stat += test_compensator_normalization(echo);
+      stat += test_LiveAtom(echo);
       return stat;
   } // all_tests
 

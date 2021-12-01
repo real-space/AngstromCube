@@ -3,15 +3,20 @@
 (cd ../src/ && make -j)
 exe=../src/a43
 
-for energy in {1..399} ; do
-  E=`echo $energy \* 0.01 | bc -l`
-  method=r
+
+method=r
+for Z in {50..59} ; do
+  out_Z=data.charge_deficit/$method.z$Z.out
+
+for energy in {1..40} ; do
+  E=`echo $energy \* 0.1 | bc -l`
   out=$method.out
   ./a43 -t single_atom \
           +single_atom.nn.limit=2 \
-          +single_atom.test.Z=14 \
+          +single_atom.test.Z=$Z \
           +single_atom.partial.wave.energy=$E \
           +single_atom.partial.wave.method=$method \
+          +single_atom.stop.after.charge.deficit.eigenvalues=1 \
           +verbosity=7 \
           "$@" > $out
 
@@ -27,13 +32,15 @@ for energy in {1..399} ; do
 #           +element_Cu="4s* 1 0 3d 10 | 2.0 sigma .61" \
 #        +single_atom.partial.wave.energy=-8 \ ### use energy derivatives instead of excited states
 
-  echo ""
-  echo "# method= $method"
-  echo "# energy split= $E Hartree"
-  grep 'eigenvalues of charge deficit operator for ell=s' $out
-  grep 'eigenvalues of charge deficit operator for ell=p' $out
-  grep 'eigenvalues of charge deficit operator for ell=d' $out
-  grep 'eigenvalues of charge deficit operator for ell=f' $out
-  echo ""
+  echo ""                                                       >> $out_Z
+# echo "# method= $method"                                      >> $out_Z
+  echo "# energy split= $E Hartree"                             >> $out_Z
+  grep 'eigenvalues of charge deficit operator for ell=s' $out  >> $out_Z
+  grep 'eigenvalues of charge deficit operator for ell=p' $out  >> $out_Z
+  grep 'eigenvalues of charge deficit operator for ell=d' $out  >> $out_Z
+  grep 'eigenvalues of charge deficit operator for ell=f' $out  >> $out_Z
+  echo ""                                                       >> $out_Z
 
-done
+done # energy
+
+done # Z
