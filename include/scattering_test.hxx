@@ -309,7 +309,7 @@ namespace scattering_test {
                                                 &aHm[iln_off*nln + iln_off],
                                                 &aSm[iln_off*nln + iln_off], nln, echo/2);
                   gncs(ien,ell,ts) = gnc;
-                  if (echo > 22) std::printf("%c%.6f", (ts)?' ':'\t', gnc);
+                  if (echo > 22) std::printf("%c%.6f", ts?' ':'\t', gnc);
               } // ts
 //            if (echo > 0) std::printf("# %i %g %g %g %g\n", ell, dg[TRU], vg[TRU], dg[SMT], vg[SMT]);
 
@@ -330,21 +330,23 @@ namespace scattering_test {
                   int nres[TRU_AND_SMT] = {0, 0}; // number of resonances stored
                   for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
                       set(at_energy[ts], mres, 0.0); // clear
-                      float prev_gnc{-9};
+                      float prev_gnc{gncs(0,ell,ts)};
                       for (int ien = 1; ien <= nen; ++ien) {
                           float const gnc = gncs(ien,ell,ts);
                           if (gnc < prev_gnc) { // possible resonance
                               auto const energy = energy_range[0] + (ien - .5)*dE;
-                              if (nres[ts] < mres) { at_energy[ts][nres[ts]++] = energy; } else { more = '+'; }
-                          } // not increasing
+                              if (nres[ts] < mres) {
+                                  at_energy[ts][nres[ts]] = energy;
+                                  ++nres[ts];
+                              } else {
+                                  more = '+';
+                              } // nres < mres
+                          } // logder curve is falling
                           prev_gnc = gnc;
                       } // ien
                       int const nshow = nres[ts];
                       if (nshow > 0 && echo > 3) {
                           std::printf("# %s %c-%s resonances at", label, ellchar[ell], ts?"smt":"tru");
-//                           for (int ires = 0; ires < nshow; ++ires) {
-//                               std::printf("\t%.3f", at_energy[ts][ires]*eV);
-//                           } // ires
                           printf_vector("\t%.3f", at_energy[ts], nshow, "", eV);
                           std::printf(" %s\n", _eV);
                       } // echo

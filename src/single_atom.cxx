@@ -1389,14 +1389,14 @@ namespace single_atom {
 
         // classical schemes:
         char constexpr classical_scheme = 'C';          // find partial waves by fitting a polynomial and evaluate preliminary projector functions according to Bloechl
+        char constexpr recreate_second = 'r';           // construct the higher projector orthogonal to the lowest smooth partial wave
+#ifdef DEVEL
         char constexpr classical_partial_waves = 'c';   // find partial waves by fitting a polynomial, SHO-filtered projector functions unchanged
                                                         // works ok but does not give perfect agreement in logder, instable s-charge deficit eigenvalues in Cu if numax=4
                                                         // but stable for numax=3, maybe limit the number of radial SHO basis functions used to nn[ell]
         // revPAW schemes:
         char constexpr minimize_radial_curvature = 'm'; // as suggested by Morian Sonnet: minimize the radial curvature of the smooth partial wave
         char constexpr energy_ordering = 'e';           // as suggested by Baumeister+Tsukamoto in PASC19 proceedings
-        char constexpr recreate_second = 'r';           // construct the higher projector orthogonal to the lowest smooth partial wave
-#ifdef DEVEL
         char constexpr orthogonalize_second = '2';      // take the same lowest partial wave as for nn==1 and use the freedom of the second
         char constexpr orthogonalize_first  = '1';      // ToDo
 #endif // DEVEL
@@ -1568,7 +1568,6 @@ namespace single_atom {
 //                 if (echo > 1) std::printf("# valence %2d%c%6.1f E=%16.6f %s\n", vs.enn, ellchar[ell], vs.occupation, vs.energy*eV,_eV);
                 show_state_analysis(echo - 5, label, rg[TRU], vs.wave[TRU], vs.tag, vs.occupation, vs.energy, csv_name(valence), ir_cut[TRU]);
                 
-#if 1                
                 if (recreate_second == method && '*' == partial_wave_char[iln] && 1 == nrn) {
                     if (echo > 7) std::printf("\n# %s recreate_second for %s\n", label, vs.tag);
                     int const iln0 = ln_off + (nrn - 1); // index of the previous partial wave
@@ -1606,9 +1605,12 @@ namespace single_atom {
                     } // mrn
                     
                 } // recreate_second
-#endif // 1
 
-                if (classical_scheme == method || classical_partial_waves == method) {
+                if (classical_scheme == method
+#ifdef DEVEL
+                    || classical_partial_waves == method
+#endif // DEVEL
+                   ) {
                     bool const modify_projectors = (classical_scheme == method);
 
                     // Bloechl scheme
@@ -1711,9 +1713,11 @@ namespace single_atom {
                             vghom = vginh; dghom = dginh;
                         } else {
                             // matching coefficient - how much of the homogeneous solution do we need to add to match logder
-                            auto const denom =    vgtru*dghom - dgtru*vghom; // ToDo: check if denom is not too small
+                            auto const denom = vgtru*dghom - dgtru*vghom; // ToDo: check if denom is not too small
+#ifdef DEVEL
                             if (echo > 17) { std::printf("# %s LINE= %d    %g * %g - %g * %g = %g\n", label,
                                              __LINE__, vgtru, dghom, dgtru, vghom, denom); std::fflush(stdout); }
+#endif // DEVEL
                             auto const inv_denom = (std::abs(denom) > 1e-300) ? 1./denom : 0;
                             auto const c_hom = - (vgtru*dginh - dgtru*vginh) * inv_denom;
 
@@ -1740,13 +1744,14 @@ namespace single_atom {
 
                             } else 
 #endif // DEVEL
-                            {
+                            { // scope: kinetic energy operator times wave
                                 // Tphi = (E - V)*phi + projector
                                 for (int ir = 0; ir < rg[SMT].n; ++ir) {
                                     Tphi(krn,ir) = (vs.energy*rg[SMT].r[ir] - potential[SMT][ir])*rphi(krn,ir) + scal*projector[ir];
                                 } // ir
-                            }
+                            } // scope
 
+#ifdef DEVEL
                             // now visually check that the matching of value and derivative of rphi is ok.
                             if (echo > 29) {
                                 std::printf("\n## %s check matching of rphi for ell=%i nrn=%i krn=%i (r, phi_tru,phi_smt, prj, rTphi_tru,rTphi_smt):\n",
@@ -1763,7 +1768,7 @@ namespace single_atom {
                                 std::printf("# %s check matching of vg and dg for ell=%i nrn=%i krn=%i: %g == %g ? and %g == %g ?\n",
                                     label, ell, nrn, krn-1, vgtru, scal*(vginh + c_hom*vghom), dgtru, scal*(dginh + c_hom*dghom));
                             } // echo
-
+#endif // DEVEL
                         } // krn > 0
                     } // krn
 
@@ -1773,6 +1778,7 @@ namespace single_atom {
                     if (recreate_second == method) { evec[nrn] = 0; evec[0] = 1; }
                     if (n > 1) {
 
+#ifdef DEVEL
                         if (minimize_radial_curvature == method) {
                             view2D<double> Ekin(     3*n , n);
                             view2D<double> Olap(Ekin[1*n], n);
@@ -1824,7 +1830,6 @@ namespace single_atom {
                             } // scope
 
                         } else // method
-#ifdef DEVEL
                         if (orthogonalize_second == method) {
                          
                             if (nrn > 0) { // only the second
@@ -1877,11 +1882,11 @@ namespace single_atom {
                             } // if nrn > 0
 
                         } else // method
-#endif // DEVEL
+
                         if (energy_ordering == method) {
                             assert(1 == evec[nrn]);
                         } // energy_ordering
-
+#endif // DEVEL
                         if (recreate_second == method) {
                             assert(1 == evec[0]);
                         } // recreate_second
@@ -1898,7 +1903,7 @@ namespace single_atom {
                         add_product(vs.wave[SMT], rg[SMT].n, rphi[1 + krn], coeff);
                         add_product(vs.wKin[SMT], rg[SMT].n, Tphi[1 + krn], coeff);
                     } // krn
-
+#ifdef DEVEL
                     if (echo > 19) {
                         std::printf("\n## %s check matching of partial waves ell=%i nrn=%i (r, phi_tru,phi_smt, rTphi_tru,rTphi_smt):\n",
                                           label, ell, nrn);
@@ -1909,7 +1914,7 @@ namespace single_atom {
                         } // ir
                         std::printf("\n\n");
                     } // echo
-
+#endif // DEVEL
                 } // not classical, revPAW
 
             } // nrn
@@ -2044,7 +2049,6 @@ namespace single_atom {
                         std::printf("\n\n");
                     } // irn
                 } // echo
-                
 #endif // DEVEL
 
             } // scope: establish dual orthogonality with [SHO] projectors
