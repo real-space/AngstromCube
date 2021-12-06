@@ -74,84 +74,61 @@ namespace fermi_distribution {
       , int const echo=9
       , double response_occ[]=nullptr
       , double *DoS_at_eF=nullptr
-      , double band_energy[2]=nullptr
+      , double band_energy[2]=nullptr // ToDo
   ) {
       if (nb < 1) return 0;
-      
-      double const n_electrons = number_of_electrons/spinfactor;
-      // ToDo: count the states with weights, check if there are enough states to host n_electrons
 
-      double const kTinv = 1./std::max(1e-9, kT);
 
-//       std::vector<real_t> ene(nb); // energies
-//       set(ene.data(), nb, energies); // copy
-//       std::sort(ene.begin(), ene.end()); // sort to ascending order
-//       auto const e_min = ene[0], e_max = ene[nb - 1];
-//       if (echo > 0) std::printf("# %s E_min= %g E_max= %g %s\n", __func__, e_min*eV, e_max*eV, _eV);
-// 
-//       { // scope: find T=0 Fermi level, works only for a sorted spectrum and ignores weights
-//           int ieF{0};
-//           while (ieF < n_electrons) ++ieF; // ignores weights
-//           eF = (ieF < nb) ? ((ieF > 0) ? 0.5*(ene[ieF] + ene[ieF - 1]) : e_min) : e_max;
-//           if (echo > 0) std::printf("# %s T=0 Fermi level at %g %s\n", __func__, eF*eV, _eV);
-//       } // scope
-// 
-//       
-//       double e[2] = {eF, eF}, ne[2];
-//       double delta_e = std::max(kT, 1e-3);
-//       for (int i01 = 0; i01 <= 1; ++i01) {
-//           double const sgn = 2*i01 - 1; // {-1, 1}
-//           int change{0};
-//           prepare start value for bisection
-//           do {
-//               e[i01] += sgn*change*delta_e; change = 1; delta_e *= 1.125;
-//               ne[i01] = count_electrons(nb, energies, e[i01], kTinv);
-//               if (echo > 5) { std::printf("# %s correct %ser start energy to %g %s --> %g electrons\n", 
-//                             __func__, i01?"upp":"low", e[i01]*eV, _eV, spinfactor*ne[i01]); std::fflush(stdout); }
-//           } while(sgn*ne[i01] < sgn*n_electrons);
-//       } // i01
-
+      double nstates{0};
       double e[2] = {9e99, -9e99}, ne[2];
       for (int ib = 0; ib < nb; ++ib) {
           double const energy = energies[ib];
           e[0] = std::min(e[0], energy);
           e[1] = std::max(e[1], energy);
+          nstates += weights ? weights[ib] : 1;
       } // ib
       e[0] -= 9*kT + .5;
       e[1] += 9*kT + .5;
 
-      // ToDo: k-point weights
+      if (echo > 6) std::printf("# %s search energy between %g and %g %s, host %g electrons in %g states\n", 
+                                   __func__, e[0]*eV, e[1]*eV, _eV, number_of_electrons, nstates);
+      if (number_of_electrons > nstates*spinfactor) {
+          warn("unable to host %g electrons in %g states (spin factor is %d)", number_of_electrons, nstates, spinfactor);
+      }
+      
+      double const n_electrons = number_of_electrons/spinfactor;
+      double const kTinv = 1./std::max(1e-9, kT);
 
       // start bisection
-      double res{1};
-      int const maxiter = 99;
+      double res{1}; // charge residual
+      int const maxiter = 99, miniter = 5;
       int iter{0}; // init with max. number of iterations, hard limit
-      while(res > 2e-15 && iter < maxiter) {
+      while((iter < maxiter) && ((res > 2e-15) || (std::abs(e[1] - e[0]) > 1e-9) || (iter < miniter))) {
           ++iter;
           auto const em = 0.5*(e[0] + e[1]);
           auto const nem = count_electrons(nb, energies, em, kTinv, weights);
+          res = std::abs(nem - n_electrons); // charge residual
           if (echo > 7) {
-//            std::printf("# %s with energy %g %s\t--> %g electrons\n", __func__, em*eV, _eV, spinfactor*nem);
-              auto const ene = std::abs(e[1] - e[0]); // energy residual
-              int const ndigits_energy = std::min(std::max(1, int(-std::log10(ene)) - 1), 15);
-              int const ndigits_charge = std::min(std::max(1, int(-std::log10(res)) - 1), 15);
-//            std::printf("# %s ndigits= %d and %d\n", __func__, ndigits_energy, ndigits_charge);
+              auto const ene = std::abs((e[1] - e[0])*eV); // energy residual in display units
+              // how precise should we display the energy and charge residual?
+              int const ndigits_energy = std::max(1, int(-std::log10(std::max(1e-15, ene))) - 1);
+              int const ndigits_charge = std::max(1, int(-std::log10(std::max(1e-15, res))) - 1);
+//            std::printf("# %s dE= %g %s --> ndigits= %d and dQ= %g electrons --> ndigits= %d\n", __func__, ene, _eV, ndigits_energy, res, ndigits_charge);
               char fmt[64]; std::snprintf(fmt, 63, "# %s with energy %%.%df %s --> %%.%df electrons\n",
                                                       __func__, ndigits_energy, _eV, ndigits_charge);
-//            std::printf("# %s fmt= %s\n", __func__, fmt);
               std::printf(fmt, em*eV, spinfactor*nem);
               std::fflush(stdout);
           } // echo
           int const i01 = (nem > n_electrons);
-          e[i01] = em;
+          e[i01] = em; // set new interval boundary
           ne[i01] = nem;
-          res = std::abs(nem - n_electrons); // charge residual
       } // while
 
       double const eF = 0.5*(e[0] + e[1]);
+      if (echo > 19) std::printf("# %s after convergence energy %g %s\n", __func__, eF*eV, _eV);
       double DoS; // density of states at the Fermi level
       auto const nem = count_electrons(nb, energies, eF, kTinv, weights, &DoS, occupations, response_occ);
-      if (echo > 6) std::printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spinfactor*nem); 
+      if (echo > 6) std::printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spinfactor*nem);
       if (res > 1e-9) {
           warn("Fermi level converged only to +/- %.1e electrons in %d iterations", res*spinfactor, iter); 
       } else {

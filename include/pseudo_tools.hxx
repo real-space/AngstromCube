@@ -260,10 +260,10 @@ namespace pseudo_tools {
           stat = Lagrange_derivatives(Lagrange_order, yi, xi, 0, &d0, &d1, &d2);
           if (echo > 7) std::printf("# %s use %d points, %g =value= %g derivative=%g second=%g status=%i\n", 
                                   label, Lagrange_order, yi[0], d0, d1, d2, int(stat));
-          
+
           if (d1 <= 0) warn("%s positive potential slope for sinc-fit expected but found %g", label, d1);
           if (d2 >  0) warn("%s negative potential curvature for sinc-fit expected but found %g", label, d2);
-          
+
           double k_s{2.25*constants::pi/r_cut}, k_s_prev{0}; // initial guess
           double V_s{0}, V_0{0};
           int const max_iter = 999;

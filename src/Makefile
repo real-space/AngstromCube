@@ -19,13 +19,14 @@ OBJATOM = \
 	recorded_warnings.o \
 	radial_grid.o \
 	radial_integrator.o \
-	radial_eigensolver.o \
 	radial_potential.o \
+	radial_eigensolver.o \
 	exchange_correlation.o \
 	chemical_symbol.o \
 	display_units.o \
 	sigma_config.o \
 	atom_core.o \
+	sho_unitary.o \
 	angular_grid.o \
 	single_atom.o
 
@@ -40,7 +41,6 @@ OBJ = \
 	sho_overlap.o \
 	sho_hamiltonian.o \
 	sho_projection.o \
-	sho_unitary.o \
 	structure_solver.o \
 	main.o
 
@@ -100,7 +100,7 @@ FEAFLAGS += -D DEVEL
 OPTFLAGS = -Ofast
 # OPTFLAGS = -O2
 # OPTFLAGS = -O0
-# OPTFLAGS += -g -pedantic -Wall
+OPTFLAGS += -g -pedantic -Wall
 ### -mtune=power8 -mcpu=power8 -mpower8-fusion -mpower8-vector -mvsx -maltivec -mdirect-move -fstrict-aliasing -fomit-frame-pointer -fno-schedule-insns
 # -Wno-format-security
 # -Wno-format

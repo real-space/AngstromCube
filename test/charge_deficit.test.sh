@@ -5,7 +5,7 @@ exe=../src/a43
 
 
 method=r
-for Z in {50..59} ; do
+for Z in {90..99} ; do
   out_Z=data.charge_deficit/$method.z$Z.out
 
 for energy in {1..40} ; do

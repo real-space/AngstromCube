@@ -197,6 +197,7 @@ namespace structure_solver {
         here;
 
         if ('e' == (occupation_method | 32)) {
+            if (echo > 4) std::printf("# fermi.level=exact\n");
             // determine the exact Fermi level as a function of all energies and kmesh_weights
             view2D<double> kweights(nkpoints, nbands), occupations(nkpoints, nbands);
             for (int ikpoint = 0; ikpoint < nkpoints; ++ikpoint) {
@@ -301,6 +302,7 @@ namespace structure_solver {
         bool const use_complex = needs_complex | (0 != force_complex);
 
         double const nbands_per_atom = control::get("bands.per.atom", 10.); // 1: s  4: s,p  10: s,p,ds*  20: s,p,ds*,fp*
+        if (echo > 0) std::printf("# bands.per.atom=%g\n", nbands_per_atom);
         nbands = int(nbands_per_atom*na);
 
 
@@ -431,9 +433,9 @@ namespace structure_solver {
                 stat += density_generator::density(rho_valence_new[0], atom_rho_new[0].data(), Fermi,
                                           x.energies.data(), x.psi_r.data(), x.coeff.data(),
                                           x.offset.data(), x.natoms, g, x.nbands, x.kpoint_weight, echo - 4, x.kpoint_index, 
-                                                    rho_valence_new[1], atom_rho_new[1].data(), charges);
+                                          rho_valence_new[1], atom_rho_new[1].data(), charges);
             } // ikpoint
-        
+
         } else if ('n' == key) { // none
 
             warn("with basis=%s no new density is generated", basis_method);

@@ -91,7 +91,6 @@ namespace geometry_analysis {
           // process pair 
       } // parse file line by line
       
-//    auto const cell[] = {63.872738414, 45.353423726, 45.353423726}; // DNA-cell in Bohr, bc={periodic,isolated,isolated}
       n_atoms = na;
       return na - natoms; // returns 0 if the exact number of atoms has been found
   } // read_xyz_file

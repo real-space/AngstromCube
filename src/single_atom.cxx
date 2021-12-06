@@ -1062,7 +1062,7 @@ namespace single_atom {
             for (int csl = core; csl <= semicore; ++csl) {
                 for (int svh = csl + 1; svh <= valence; ++svh) {
                     if (max_energy[csl] > min_energy[svh]) {
-                        warn("Some %s states of %s are higher than %s states", csv_name(csl), label, csv_name(svh));
+                        warn("%s some %s states are higher than %s states", label, csv_name(csl), csv_name(svh));
                     } // band overlap
                 } // svh
             } // csl
@@ -1105,8 +1105,8 @@ namespace single_atom {
                                           label, csv_name(csv), old_charge, nelectrons[csv], 
                                           label, csv_name(csv), new_charge);
                 auto const dev = check_charge - nelectrons[csv];
-                if (std::abs(dev) > 6e-14) warn("%s New spherical %s density has %g electrons, expected %g, diff %.1e e",
-                                                 label, csv_name(csv), check_charge, nelectrons[csv], dev);
+                if (std::abs(dev) > 2e-15*Z_core) warn("%s New spherical %s density has %g electrons, expected %g, diff %.1e e",
+                                                        label, csv_name(csv), check_charge, nelectrons[csv], dev);
 #endif // DEVEL
                 if (echo > 3) std::printf("# %s %-8s density change %g e, Coulomb energy change %g %s\n", 
                     label, csv_name(csv), density_change, Coulomb_change*eV, _eV);
@@ -1784,7 +1784,6 @@ namespace single_atom {
                     }
 
                     if (n > 1) {
-
 #ifdef DEVEL
                         if (minimize_radial_curvature == method) {
                             view2D<double> Ekin(     3*n , n);
@@ -2013,23 +2012,23 @@ namespace single_atom {
 
                 } // iGS
 
-#ifdef DEVEL                
+#ifdef DEVEL
                 if (n > 0) { // scope: check the overlap again
                     view2D<double> ovl_new(n, n); // get memory
                     double dev{0}; // largest deviations from unity
-                    for (int irn = 0; irn < n; ++irn) { // smooth number or radial nodes
+                    for     (int irn = 0; irn < n; ++irn) { // smooth number or radial nodes
                         for (int jrn = 0; jrn < n; ++jrn) { // smooth number or radial nodes
                             int const jln = ln_off + jrn;
                             ovl_new(irn,jrn) = dot_product(rg[SMT].n, projectors_ell[irn], partial_wave[jln].wave[SMT], rg[SMT].rdr);
                             int const Kronecker = (irn == jrn);
                             auto const deviate = ovl_new(irn,jrn) - Kronecker;
                             if (echo > 7) std::printf("# %s %c-projector #%d with partial %c-wave #%d with new overlap= %i + %g\n",
-                                                  label, ellchar[ell], irn, ellchar[ell], jrn, Kronecker, deviate);
+                                                         label, ellchar[ell], irn, ellchar[ell], jrn, Kronecker, deviate);
                             dev = std::max(dev, std::abs(deviate));
                         } // jrn
                     } // irn
                     if (echo > 2) std::printf("# %s after %dx orthogonalization %c-<projectors|partial waves> deviates max. %.1e from unity matrix\n",
-                                              label, Gram_Schmidt_iterations, ellchar[ell], dev);
+                                                 label, Gram_Schmidt_iterations, ellchar[ell], dev);
                     if (dev > 1e-12) {
                         warn("%s %c-duality violated, deviates %g from unity", label, ellchar[ell], dev);
                         if (echo > 0) {
@@ -3212,7 +3211,7 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
-        { // scope: wrap the matrices with the projector_coeff from left and right
+        { // scope: wrap the matrices with the projector_coeff from left and right, in-place
             auto const uT_proj = transpose(u_proj, nln);
             view2D<double> tmp_mat(nln, nln, 0.0); // get temporary memory
             for (int iHS = 0; iHS < 2; ++iHS) {
@@ -3222,8 +3221,7 @@ namespace single_atom {
 #ifdef DEVEL
                 if (echo > 4) { // display
                     std::printf("\n# %s spherical %s in radial SHO basis:\n", label, iHS?"overlap":"hamiltonian");
-                    double const unit = iHS ? 1 : eV;
-                    show_ell_block_diagonal(matrix_ln, iHS?"overlap    ":"hamiltonian" , unit, true, true);
+                    show_ell_block_diagonal(matrix_ln, iHS?"overlap    ":"hamiltonian" , iHS?1:eV, true, true);
                 } // echo
 #endif // DEVEL
             } // iHS
@@ -3234,35 +3232,35 @@ namespace single_atom {
             auto const overlap_ln = aHSm[1];
             { // scope:
                 for (int ell = 0; ell <= numax; ++ell) {
-
-                    int const n = nn[ell];
-                    if (n > 0) {
-                        std::vector<double> eigvals(n + 1, 0.0);
+                    if (nn[ell] > 0) {
+                        int const nmx = sho_tools::nn_max(numax, ell);
+                        assert(nmx >= 1);
+                        std::vector<double> eigvals(nmx + 2, 0.0);
                         // create a copy since the eigenvalue routine modifies the memory regions
-                        view2D<double> ovl_nn(n, n); 
-                        for (int irn = 0; irn < n; ++irn) {
+                        view2D<double> ovl_ell(nmx, nmx); 
+                        for (int irn = 0; irn < nmx; ++irn) {
                             int const iln = sho_tools::ln_index(numax, ell, irn);
                             int const jln = sho_tools::ln_index(numax, ell, 0);
-                            set(ovl_nn[irn], n, &overlap_ln(iln,jln)); // copy ell-diagonal blocks
+                            set(ovl_ell[irn], nmx, &overlap_ln(iln,jln)); // copy ell-diagonal blocks
                         } // irn
 
 //                      if (echo > 0) std::printf("%s charge deficit operator for ell=%c is [%g %g, %g %g]\n",
-//                          label, ellchar[ell], ovl_nn(0,0), ovl_nn(0,n-1), ovl_nn(n-1,0), ovl_nn(n-1,n-1));
+//                          label, ellchar[ell], ovl_ell(0,0), ovl_ell(0,nmx-1), ovl_ell(nmx-1,0), ovl_ell(nmx-1,nmx-1));
 
                         // the eigenvalues of the non-local part of the overlap operator may not be <= -1
-                        auto const info = linear_algebra::eigenvalues(eigvals.data(), n, ovl_nn.data(), ovl_nn.stride());
-                        if (0 != info) warn("%s when trying to diagonalize %dx%d charge deficit operator info= %i", label, n, n, info);
+                        auto const info = linear_algebra::eigenvalues(eigvals.data(), nmx, ovl_ell.data(), ovl_ell.stride());
+                        if (0 != info) warn("%s when trying to diagonalize %dx%d charge deficit operator info= %i", label, nmx, nmx, info);
 
                         if (eigvals[0] <= -0.9) {
                             auto const classification = (eigvals[0] <= -1) ? "instable" : "critical";
-                            warn("%s Eigenvalues of charge deficit operator for ell=%c %s! %g and %g", label, ellchar[ell], classification, eigvals[0], eigvals[1]);
+                            warn("%s %s eigenvalues of %c-overlap operator %g, %g and %g",
+                                  label, classification, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
                         } // warning
 
-                        if (echo > 1) std::printf("# %s eigenvalues of charge deficit operator for ell=%c are %g and %g\n", label, ellchar[ell], eigvals[0], eigvals[1]);
-//                         error("eigenvalues of the %c-charge deficit operator are %g and %g", ellchar[ell], eigvals[0], eigvals[1]); // DEBUG
+                        if (echo > 1) std::printf("# %s eigenvalues of the %c-overlap operator are %g, %g and %g\n", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
+//                         error("eigenvalues of the %c-charge deficit operator are %g, %g and %g", ellchar[ell], eigvals[0], eigvals[1], eigvals[2]); // DEBUG
 
-                    } // n > 0
-
+                    } // nn[ell] > 0
                 } // ell
             } // scope
         } // check_overlap_eigenvalues
@@ -3321,13 +3319,13 @@ namespace single_atom {
             std::printf("# %s Total energy (%s) true contribution and smooth contribution:\n", label, _eV);
             for (int csv = core; csv <= valence; ++csv) {
                 if (csv_charge[csv] > 0) { // do not display core or semicore electrons if there are none
-                    std::printf("# %s kinetic   %20.9f  spherical %-8s %6.1f %%\n", label,
-                        energy_kin_csvn[csv][TRU]*eV, csv_name(csv), take_spherical_density[csv]*100);
+                    std::printf("# %s kinetic   %20.9f  spherical %-8s %6.1f %%\n",
+                        label, energy_kin_csvn[csv][TRU]*eV, csv_name(csv), take_spherical_density[csv]*100);
                 } // csv_charge
             } // csv
             // kinetic valence energy correction from the atomic density matrix:
-            std::printf("# %s kinetic   %20.9f %20.9f%6.1f %%\n", label, energy_kin_csvn[3][TRU]*eV, 
-                                                                    energy_kin_csvn[3][SMT]*eV, non_spherical*100);
+            std::printf("# %s kinetic   %20.9f %20.9f%6.1f %%\n", label, energy_kin_csvn[3][TRU]*eV,
+                                                                         energy_kin_csvn[3][SMT]*eV, non_spherical*100);
             std::printf("# %s dm                             %20.9f%6.1f %%\n", label, energy_dm*eV, non_spherical*100);
             std::printf("# %s kineticsum%20.9f %20.9f\n", label, E_kin[TRU]*eV, E_kin[SMT]*eV);
             std::printf("# %s es        %20.9f %20.9f\n", label, energy_es[TRU]*eV, energy_es[SMT]*eV);
@@ -3544,7 +3542,7 @@ namespace single_atom {
                   | (uint32_t(s[3]) << 24);
 #endif // __IS_A_CXX14_COMPILER__
   } // string2int
-  
+
   // from https://hbfs.wordpress.com/2017/01/10/strings-in-c-switchcase-statements/
   inline uint64_t constexpr __mix_hash_(char const m, uint64_t const s) { return ((s << 7) + ~(s >> 3)) + ~m; }
   inline uint64_t constexpr string2hash(char const * m) { return (*m) ? __mix_hash_(*m, string2hash(m + 1)) : 0; }

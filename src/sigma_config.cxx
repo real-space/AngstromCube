@@ -52,7 +52,7 @@ namespace sigma_config {
             case 27: return "4s* 2 4p* 2e-99 3d* 5 2 | 1.9 sigma .608";                 // Co
             case 28: return "4s* 2 3p 6 4p 2e-99 3d* 5 3 | 2.15 sigma .48";             // Ni
             case 29: return "4s* 1 0 4p* 2e-99 3d* 10 | 2.0 sigma .61";                 // Cu
-            case 30: return "4s* 2 4p* 2e-99 3d* 10 | 2.23 sigma .577";                 // Zn
+            case 30: return "4s* 2 4p* 2e-99 3d 10 | 2.23 sigma .596 V=parabola";       // Zn
             case 31: return "4s* 2 4p* 1 0 | 2.2 sigma .686";                           // Ga
             case 32: return "4s* 2 4p* 2 0 4d | 1.9 sigma .606";                        // Ge
             case 33: return "4s* 2 4p* 3 0 4d | 2.0 sigma .62";                         // As
@@ -72,7 +72,7 @@ namespace sigma_config {
             case 47: return "5s* 1 0 4p 6 5p 2e-99 4d* 10 | 2.23 sigma .57";            // Ag
             case 48: return "5s* 2 5p* 2e-99 4d* 10 | 2.2 sigma .563";                  // Cd
             case 49: return "5s* 2 5p* 1 0 4d 10 | 2.17 sigma .7";                      // In
-            case 50: return "5s* 2 5p* 2 0 4d* 10 | 2.24 sigma .585";                   // Sn
+            case 50: return "5s* 2 5p* 2 0 4d 10 | 2.24 sigma .71";                     // Sn
             case 51: return "5s* 2 5p* 3 0 4d* 10 | 2.18 sigma .57";                    // Sb
             case 52: return "5s* 2 5p* 3 1 5d | 2.23 sigma .555";                       // Te
             case 53: return "5s* 2 5p* 3 2 5d | 2.2 sigma .68";                         // I
@@ -121,7 +121,8 @@ namespace sigma_config {
             case 93: return "7s 2 7p 6d 5f 5 0 | 2. sigma .5";                          // Np
             case 94: return "7s 2 7p 6d 5f 6 0 | 2. sigma .5";                          // Pu
             case 95: return "7s 2 7p 6d 5f 7 0 | 2. sigma .5";                          // Am
-            case 96: return "7s 2 7p 6d 5f 7 1 | 2. sigma .5";                          // Cm
+//          case 96: return "6s 2 7s 2 6p 6 7p 2e-99 6d 5f 7 1 | 2. sigma .6";          // Cm
+            case 96: return "6s 2 7s 2 6p* 6 6d 5f 7 1 | 2. sigma .6";                  // Cm
             case 97: return "7s 2 7p 6d 5f 7 2 | 2. sigma .5";                          // Bk
             case 98: return "7s 2 7p 6d 5f 7 3 | 2. sigma .5";                          // Cf
             case 99: return "7s 2 7p 6d 5f 7 4 | 2. sigma .5";                          // Es
@@ -153,7 +154,7 @@ namespace sigma_config {
             case 125: /* ================================== */                          // u5
             case 126: return "warning_not_configured";                                  // u6
             case 127: return "1s -1 | 1.0 sigma .25 Z= -1";                             // e
-            case   0: return "1s | 1.0 sigma .25";                                      // __
+            case   0: return "1s | 1.0 sigma .5";                                       // __
 #endif // EXPERIMENTAL
             default:  warn("no default element configuration given for Z=%d", iZ);
                       return "";

@@ -19,9 +19,18 @@ exe=../src/a43
 # printf " 1 \n#cell 4 4 4 i i i \n" > $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
-base=scf.C-atom
-printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
-echo "C  0 0 0" >> $base.xyz
+# base=scf.C-atom
+# printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
+# echo "C  0 0 0" >> $base.xyz
+
+base=scf.methane
+printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
+dist=0.63
+echo "C  0 0 0"                 >> $base.xyz
+echo "H   -$dist -$dist -$dist" >> $base.xyz
+echo "H    $dist  $dist -$dist" >> $base.xyz
+echo "H    $dist -$dist  $dist" >> $base.xyz
+echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
@@ -105,8 +114,8 @@ verbosity=7
 
 ## display energies in custom units {Ha, Ry, eV}
 output.energy.unit=eV
-## display distances in custom units {Bohr, nm, Ang}
-# output.length.unit=Bohr
+## display distances in custom units {Bohr, Ang, nm, pm}
+output.length.unit=Ang
 
 ## atomic geometry
 geometry.file=$base.xyz
@@ -122,7 +131,7 @@ self_consistency.mix.density=0.25
 atomic.valence.decay=0
 
 ## compute the Fermi level {exact, linearized}
-fermi.level=exact
+# fermi.level=exact
 
 ## analyze the potentials up to vtot (DEBUG)
 # potential_generator.use.bessel.projection=0
@@ -137,42 +146,16 @@ electrostatic.compensator=generalized_Gaussian
 ##
 ## configuration of atomic PAW setups
 ##
+## choose local potential method {V=parabola, V=sinc}
 
-## configurations of elements
-# element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .4304 V=parabola"
-# element_C="2s* 2 2p* 2 0 | 1.2 numax 3 sigma .345353 V=parabola"
-element_C="2s 2 2p 2 0 | 1.2 numax 2 sigma .43 V=parabola"
+element_H="1s* 1 0 2p | 0.9 sigma .25 V=parabola"
+element_C="2s* 2 2p* 2 0 3d | 1.2 sigma .43 V=parabola"
 
-#element___="1s 1e-6 2p 0 | 1.0 numax 1 sigma .5 V=parabola"
-
-# configuration of atomic PAW setups
-#element_H="1s 1 0 | 0.9 sigma .308 V=parabola"
-#element_He="1s 2 2p | 1.5 numax 1 sigma .537535"
-#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .7752 V=parabola"
-#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 2 sigma .612475 V=sinc"
-#element_Li="2s 1 0 2p 2e-99 | 2.0 numax 1 sigma .8088 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 numax 1 sigma .445 V=parabola"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .38 numax 2 V=sinc"
-#element_C="2s* 2 2p 2 0 | 1.2 numax 2 sigma .38 V=sinc"
-# single_atom.partial.wave.energy=1.1 good for carbon with 2s*
-#element_C="2s** 2 2p* 2 0 3d 4f | 1.2 numax 4 sigma .314327 V=sinc"
-#element_C="2s*** 2 2p** 2 0 3d** 4f* 5g* 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
-#element_C="2s 2 2p 2 3d 4f 5g 6h 7i | 1.2 numax 15 sigma .197208 V=sinc"
-#element_C="2s 2 2p 2 | 1.2 numax 15 sigma .19416 V=parabola"
-#element_C="2s 2 2p 2 0 3d 4f 5g 6h 7i | 1.2 numax 6 sigma .33055552 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 numax 6 sigma .33055552 V=sinc"
-#element_C="2s 2 2p 2 0 | 1.2 sigma .445 numax 9 V=parabola"
-#element_Mg="2s 2 3s 2 2p 6 3p 2e-99 3d | 1.96 numax 3 sigma .60636 V=sinc"
-#element_Mg="2s 2 3s* 2 2p 6 3p 2e-99 3d | 1.96 numax 4 sigma .578 V=sinc"
 #element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
 #element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
 
-### Copper: for the occupation setting 4s 1 3d 10, the d-states should be 1.5 eV below the s-state
-### element_Cu="4s 2 4p 2e-99 3d 5 4 | 2.0 sigma .651 V=sinc" (seems to work well with GRID, but
-###                          fails with PW, s-state below d-states, ss-density matrix entry tiny)
-### element_Cu="4s 1 0 4p 2e-99 3d 10 | 2.2 numax 2 sigma .71857 V=sinc" --> s-state below d-states, as well
 
-## partial wave method {energy_ordering, recreate_second, classical, ...}
+## partial wave method {recreate_second, energy_ordering, classical, ...}
 # single_atom.partial.wave.method=recreate_second
 
 ## relax partial wave in every SCF iteration {1:yes, 0:no}
@@ -184,14 +167,12 @@ single_atom.init.echo=7
 ## special verbosity for PAW update
 single_atom.echo=3
 
-## default for local potential method {parabola, sinc}
-# single_atom.local.potential.method=sinc
 
-## limit the number of partial waves per ell-channel to 1
-single_atom.nn.limit=1
+## limit the number of partial waves per ell-channel, default=2
+# single_atom.nn.limit=2
 
 ## bit mask for the first 50 atoms, -1:all, 1:only atom#0, 5:atoms#0 and #2 but not #1, ...
-single_atom.echo.mask=1
+single_atom.echo.mask=3
 
 ## optimize sigma for the occupied projectors {0:no, 1:yes, -1:optimize and show but don't use it, -10:optimize and exit}
 # single_atom.optimize.sigma=1
@@ -220,7 +201,7 @@ logder.step=1e-2
 ##
 
 ## number of Kohn-Sham states per atom in the system
-bands.per.atom=1
+bands.per.atom=4
 
 ## sampling of the Brillouin zone
 # hamiltonian.kmesh.echo=9
@@ -236,13 +217,13 @@ hamiltonian.floating.point.bits=32
 # grid.eigensolver=explicit
 grid.eigensolver=cg
 conjugate_gradients.max.iter=4
-grid.eigensolver.repeat=9
+# grid.eigensolver.repeat=9
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 
 ## load start waves from file, store wave functions to file
-# start.waves=$base.waves.dat
+start.waves=$base.waves.dat
 store.waves=$base.waves.dat
 
 ## configuration for basis=pw
@@ -275,7 +256,7 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 2 1 2`; do
+for spacing in `seq 2 1 0`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
@@ -299,7 +280,7 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 4 2 0`; do
+for ecut in `seq 1 2 7`; do
   project=$base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
