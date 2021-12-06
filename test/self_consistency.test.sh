@@ -123,7 +123,6 @@ geometry.file=$base.xyz
 ## grid spacing or number of grid points of the dense grid
 # basis=grid
 grid.spacing.unit=Ang
-grid.spacing=0.1250000001
 
 ## max. number of self-consistency iterations
 self_consistency.max.scf=1
@@ -217,12 +216,12 @@ hamiltonian.floating.point.bits=32
 # grid.eigensolver=explicit
 grid.eigensolver=cg
 conjugate_gradients.max.iter=4
-# grid.eigensolver.repeat=9
+grid.eigensolver.repeat=9
 
 ## for start wave functions use SHO functions with larger sigma spread
 start.waves.scale.sigma=6
 
-## load start waves from file, store wave functions to file
+## load start waves from file (basis=grid), store wave functions to file
 start.waves=$base.waves.dat
 store.waves=$base.waves.dat
 
@@ -256,13 +255,14 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 2 1 0`; do
+for spacing in `seq 4 1 4`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
   $exe -test self_consistency \
         +control.file=control.sh \
         +basis=grid \
+        +grid.spacing=`echo 0.25 / $spacing | bc -l` \
         "$@" > $project.out
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
@@ -280,7 +280,7 @@ for numax in `seq 4 2 0`; do
   ./spectrum.sh $project.out > $project.spectrum.dat
 done
 
-for ecut in `seq 1 2 7`; do
+for ecut in `seq 4 2 0`; do
   project=$base.pw$ecut
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \

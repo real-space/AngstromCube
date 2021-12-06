@@ -472,8 +472,10 @@ namespace plane_wave {
                                   ('d' == solver) || ('b' == solver) || (('a' == solver) && (nB <= nB_auto))};
       status_t solver_stat(0);
       std::vector<double> eigenenergies(nbands, -9e9);
+      { SimpleTimer timer("plane wave solver");
       if (run_solver[0]) solver_stat += iterative_solve(eigenenergies.data(), HSm, x_axis, echo, nbands, direct_ratio); // ToDo: needs to export eigenenergies
       if (run_solver[1]) solver_stat += dense_solver::solve(HSm, x_axis, echo, nbands, eigenenergies.data());
+      } // timer
       // dense solver must runs second in case of "both" since it modifies the memory locations of HSm
 
       if (export_rho && (run_solver[0] || run_solver[1])) { // at least one of both solvers needs to have executed

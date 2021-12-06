@@ -157,7 +157,7 @@ namespace poisson_solver {
       if (echo > 1) print_stats(rho, g.all(), g.dV(), "\n# input charge density:");
 
       { // scope: solve the Poisson equation: Laplace Ves == -4 pi rho
-          SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
+//        SimpleTimer timer(__FILE__, __LINE__, "Poisson equation", echo);
 #ifdef DEVEL
           if (echo > 0) {
               std::printf("\n# Solve Poisson equation\n\n");
