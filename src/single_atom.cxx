@@ -843,7 +843,7 @@ namespace single_atom {
         update_density(density_mixing, echo); // run the density update at least once to generate partial waves
 
         int const maxit_scf = control::get("single_atom.init.max.scf", 0.);
-        if (echo > 1) std::printf("# %s run %d initial SCF-iterations\n", label, maxit_scf);
+        if (echo > 1) std::printf("# %s run single_atom.init.max.scf=%d initial SCF-iterations\n", label, maxit_scf);
         int const echo_minimal = std::min(echo, int(control::get("single_atom.init.scf.echo", 1.)));
         for (int scf = 0; scf < maxit_scf; ++scf) {
             int const echo_scf = (scf > maxit_scf - 2) ? echo : echo_minimal; // turn on output only for the last iteration
@@ -3251,11 +3251,11 @@ namespace single_atom {
                         auto const info = linear_algebra::eigenvalues(eigvals.data(), nmx, ovl_ell.data(), ovl_ell.stride());
                         if (0 != info) warn("%s when trying to diagonalize %dx%d charge deficit operator info= %i", label, nmx, nmx, info);
 
-                        if (eigvals[0] <= -0.9) {
-                            auto const classification = (eigvals[0] <= -1) ? "instable" : "critical";
-                            warn("%s %s eigenvalues of %c-overlap operator %g, %g and %g",
-                                  label, classification, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
-                        } // warning
+                        if (eigvals[0] <= -1.0) {
+                            warn("%s instable eigenvalues of %c-overlap operator %g, %g and %g", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
+                        } else if (eigvals[0] < -0.9) {
+                            warn("%s critical eigenvalues of %c-overlap operator %g, %g and %g", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
+                        } // warnings
 
                         if (echo > 1) std::printf("# %s eigenvalues of the %c-overlap operator are %g, %g and %g\n", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
 //                         error("eigenvalues of the %c-charge deficit operator are %g, %g and %g", ellchar[ell], eigvals[0], eigvals[1], eigvals[2]); // DEBUG

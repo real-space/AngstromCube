@@ -279,9 +279,9 @@ namespace geometry_analysis {
       inline int get_halo_thickness(uint const D) const { assert(D < 3); return nhalo[D]; }
 
   }; // class BoxStructure
-  
-  
-  
+
+
+
 
   typedef uint32_t index_t;
 

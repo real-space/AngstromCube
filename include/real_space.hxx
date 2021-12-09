@@ -6,6 +6,7 @@
 #include <cassert> // assert
 
 #include "inline_math.hxx" // set, scale
+#include "simple_math.hxx" // ::determinant
 #include "constants.hxx" // ::pi
 #include "bessel_transform.hxx" // ::Bessel_j0
 #include "recorded_warnings.hxx" // warn
@@ -23,8 +24,9 @@ namespace real_space {
       int bc[3]; // boundary conditions
   public:
       double h[3], inv_h[3]; // grid spacings and their inverse
+      double cell[3][4]; // cell shape (only [3][3] used)
 
-      grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {}
+      grid_t(void) : dims{0,0,0,1}, bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} { set(cell[0], 12, 0.0); } // default constructor
 
       grid_t(int const d0, int const d1, int const d2, int const dim_outer=1)
        : bc{0,0,0}, h{1,1,1}, inv_h{1,1,1} {
@@ -40,15 +42,16 @@ namespace real_space {
               if (debug) std::printf("# grid invalid: dims={%d, %d, %d,  %d}\n",
                   dims[0], dims[1], dims[2], dims[3]);
           }
+          set(cell[0], 12, 0.0);
+          for(int d = 0; d < 3; ++d) cell[d][d] = dims[d]*h[d];
       } // constructor
 
       template <typename int_t>
       grid_t(int_t const dim[3], int const dim_outer=1) : grid_t(dim[0], dim[1], dim[2], dim_outer) {} // delegating contructor
 
       ~grid_t() {
-          long const nnumbers = dims[3] * dims[2] * dims[1] * dims[0];
           if (debug) std::printf("# release a grid with %d x %d x %d * %d = %.6f M numbers\n",
-                                      dims[0], dims[1], dims[2], dims[3], nnumbers*1e-6);
+              dims[0], dims[1], dims[2], dims[3], 1e-6*dims[3]*dims[2]*dims[1]*dims[0]);
       } // destructor
 
       status_t set_grid_spacing(double const hx, double const hy=-1, double const hz=-1) {
@@ -77,9 +80,13 @@ namespace real_space {
 
       inline int is_Cartesian() const { return 1; } // true
       inline int is_shifted() const { return 0; } // false
+      inline int volume() const { return simple_math::determinant(
+          cell[0][0], cell[0][1], cell[0][2],
+          cell[1][0], cell[1][1], cell[1][2],
+          cell[2][0], cell[2][1], cell[2][2]); }
       inline int operator[] (int const d) const { assert(0 <= d); assert(d < 4); return dims[d]; }
       inline int operator() (char const c) const { assert('x' <= (c|32)); assert((c|32) <= 'z'); return dims[(c|32) - 120]; }
-      inline double dV(bool const Cartesian=true) const { return h[0]*h[1]*h[2]; } // volume element, assuming a Cartesian grid
+      inline double dV() const { return is_Cartesian() ? h[0]*h[1]*h[2] : volume()/(dims[0]*dims[1]*dims[2]); } // volume element
       inline double grid_spacing(int const d) const { assert(0 >= d); assert(d < 3); return h[d]; } // so far not used
       inline double const * grid_spacings() const { return h; } // so far not used
       inline double smallest_grid_spacing() const { return std::min(std::min(h[0], h[1]), h[2]); }

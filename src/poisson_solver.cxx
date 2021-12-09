@@ -19,14 +19,14 @@
 #include "iterative_poisson.hxx" // ::solve
 #include "finite_difference.hxx" // ::stencil_t, ::derive
 
-#include "simple_timer.hxx" // // SimpleTimer
+#include "simple_timer.hxx" // SimpleTimer
 #include "control.hxx" // ::get
 
 #include "boundary_condition.hxx" // Periodic_Boundary, Isolated_Boundary
-#include "bessel_transform.hxx" // ::Bessel_j0
 #include "debug_tools.hxx" // ::read_from_file
 
 #ifdef DEVEL
+    #include "bessel_transform.hxx" // ::Bessel_j0
     #include "lossful_compression.hxx" // print_compressed
     #include "debug_output.hxx" // dump_to_file, ::write_array_to_file, 
     #include "radial_r2grid.hxx" // radial_r2grid_t
@@ -38,6 +38,8 @@
 
 namespace poisson_solver {
   // this module contains a collection of Poisson solvers and control the selection
+
+#ifdef DEVEL
 
   status_t Bessel_Poisson_solver(
         double Ves[] // output electrostatic potential
@@ -138,8 +140,10 @@ namespace poisson_solver {
       return stat;
   } // Bessel_Poisson_solver
 
+#endif // DEVEL
 
-  
+
+
   
   
   status_t solve(
@@ -176,6 +180,7 @@ namespace poisson_solver {
               stat += fourier_poisson::solve(Ves, rho, ng, reci);
           } else
           if ('M' == method) { // "Multi-grid" (upper case!)
+              assert(g.is_Cartesian());
 #ifdef DEVEL
               // create a 2x denser grid descriptor
               real_space::grid_t gd(g[0]*2, g[1]*2, g[2]*2);

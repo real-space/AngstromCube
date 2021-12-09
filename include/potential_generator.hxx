@@ -55,6 +55,7 @@ namespace potential_generator {
       , char const *quantity="???" // description for log-messages
   ) {
       // add contributions from smooth core densities
+      assert(g.is_Cartesian());
 
       status_t stat(0);
       for (int ia = 0; ia < na; ++ia) {
@@ -101,6 +102,7 @@ namespace potential_generator {
       // Add a generalized Gaussian multipole compensator charge
       status_t stat(0);
       if (ellmax < 0) return stat; // early return
+      assert(g.is_Cartesian());
       assert(sigma > 0);
       double c[3] = {0,0,0}; if (center) set(c, 3, center);
       double const r_max = 9*sigma; // default truncation radius
@@ -200,6 +202,7 @@ namespace potential_generator {
       , int const echo=0 // log-level
   ) {
       status_t stat(0);
+      assert(g.is_Cartesian());
 
       std::vector<double> Laplace_Ves(g.all(), 0.0);
 
@@ -221,7 +224,7 @@ namespace potential_generator {
           } // timer
       } // nfd
 
-      int const use_Bessel_projection = int(control::get("potential_generator.use.bessel.projection", 0.));
+      int const use_Bessel_projection = control::get("potential_generator.use.bessel.projection", 0.);
       if (use_Bessel_projection) 
       { // scope: use a Bessel projection around each atom position to compare 3D and radial quantities
         

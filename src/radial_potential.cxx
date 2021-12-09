@@ -96,16 +96,18 @@ namespace radial_potential {
       double const R = g.rmax, V0 = .50754*R*R; // a small correction by 1.5% is needed here
       if (echo > 3) std::printf("\n# %s: Rmax = %g Bohr, V0 = %g Ha\n", __func__, R, V0);
       if (echo > 4) std::printf("## r, r*V_spherical(r), r*V_00(r), r*analytical(r) in a.u.:\n");
-      double dev{0};
+      double devsph{0}, devana{0};
       for (int ir = 0; ir < g.n; ++ir) {
           auto const r = g.r[ir];
           double const analytical = V0 - r*r/6;
           double const rV00 = r*vHt[ir]/(4*constants::pi);
-          dev = rVH[ir] - rV00;
+          devsph = std::max(devsph, std::abs(rVH[ir] - rV00));
+          devana = std::max(devana, std::abs(rVH[ir] - r*analytical));
           if (echo > 4) std::printf("%g %g %g %g\n", r, rVH[ir], rV00, r*analytical);
       } // ir
       radial_grid::destroy_radial_grid(&g);
-      return (std::abs(dev) > 2e-13);
+      if (echo > 3) std::printf("\n# %s deviates %.1e from spherical and %.1e from analytical\n", __func__, devsph, devana);
+      return (devsph > 1e-12);
   } // test_radial_Hartree_potential
 
   status_t all_tests(int const echo) {

@@ -67,17 +67,17 @@ namespace sigma_config {
             case 42: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 5 0 | 2.34 sigma .585";      // Mo
             case 43: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 5 1 | 2.4 sigma .58";        // Tc
             case 44: return "4s 2 5s 1 0 4p 6 5p 2e-99 4d* 5 2 | 2.37 sigma .571";      // Ru
-            case 45: return "5s* 1 0 4p 6 5p 2e-99 4d* 5 3 | 2.35 sigma .58";           // Rh
-            case 46: return "5s* 2e-99 0 4p 6 5p 2e-99 4d* 10 | 2.32 sigma .585";       // Pd
-            case 47: return "5s* 1 0 4p 6 5p 2e-99 4d* 10 | 2.23 sigma .57";            // Ag
-            case 48: return "5s* 2 5p* 2e-99 4d* 10 | 2.2 sigma .563";                  // Cd
-            case 49: return "5s* 2 5p* 1 0 4d 10 | 2.17 sigma .7";                      // In
-            case 50: return "5s* 2 5p* 2 0 4d 10 | 2.24 sigma .71";                     // Sn
-            case 51: return "5s* 2 5p* 3 0 4d* 10 | 2.18 sigma .57";                    // Sb
-            case 52: return "5s* 2 5p* 3 1 5d | 2.23 sigma .555";                       // Te
+            case 45: return "5s* 1 0 4p 6 5p 2e-99 4d* 5 3 | 2.35 sigma .91";           // Rh
+            case 46: return "4s 2 5s 2e-99 0 4p* 6 4d* 10 | 2.32 sigma .904";           // Pd
+            case 47: return "5s* 1 0 4p* 6 4d* 10 | 2.23 sigma .608";                   // Ag
+            case 48: return "5s* 2 5p* 2e-99 4d* 10 | 2.2 sigma .6";                    // Cd
+            case 49: return "5s* 2 5p* 1 0 4d 10 | 2.17 sigma .7 V=parabola";           // In
+            case 50: return "5s* 2 5p* 2 0 4d 10 | 2.24 sigma .755 V=parabola";         // Sn
+            case 51: return "5s* 2 5p* 3 0 4d 10 | 2.18 sigma .73 V=parabola";          // Sb
+            case 52: return "5s* 2 5p* 3 1 5d | 2.23 sigma .654";                       // Te
             case 53: return "5s* 2 5p* 3 2 5d | 2.2 sigma .68";                         // I
             case 54: return "5s* 2 5p* 6 5d | 2.24 sigma .62";                          // Xe
-            case 55: return "5s 2 6s 1 0 5p* 6 5d | 2.0 sigma .61";                     // Cs
+            case 55: return "5s 2 6s 1 0 5p* 6 5d | 2.2 sigma .61";                     // Cs
             case 56: return "5s 2 6s 2 5p* 6 5d | 2.2 sigma .645";                      // Ba
             case 57: return "5s 2 6s 2 5p* 6 5d 1 0 4f | 2.45 sigma .59";               // La
 #ifdef EXPERIMENTAL
@@ -95,11 +95,11 @@ namespace sigma_config {
             case 69: return "5s 2 6s 2 5p* 6 5d 0 4f 7 6 | 2.393 sigma .762";           // Tm
             case 70: return "5s 2 6s 2 5p* 6 5d 0 4f 7 7 | 2.4 sigma .761";             // Yb
 #endif // EXPERIMENTAL
-            case 71: return "5s 2 6s 2 5p 6 6p 2e-99 5d 1 0 5f | 2.25 sigma .6";        // Lu
-            case 72: return "5s 2 6s 2 5p 6 6p 2e-99 5d 2 0 | 2.47 sigma .826";         // Hf
-            case 73: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 3 0 | 2.47 sigma .6";          // Ta
-            case 74: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 4 0 | 2.32 sigma .62";         // W
-            case 75: return "6s* 2 5p 6 6p 2e-99 5d* 5 0 | 2.47 sigma .63";             // Re
+            case 71: return "5s 2 6s 2 5p* 6 5d 1 0 4f 14 | 2.25 sigma .6";             // Lu
+            case 72: return "5s 2 6s 2 5p* 6 5d 2 0 4f 14 | 2.47 sigma .826";           // Hf
+            case 73: return "5s 2 6s 2 5p* 6 5d* 3 0 4f 14 | 2.47 sigma .6";            // Ta
+            case 74: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 4 0 4f 14 | 2.32 sigma .62";   // W
+            case 75: return "5s 2 6s 2 5p 6 6p 2e-99 5d* 5 0 4f 14 | 2.47 sigma .63";   // Re
             case 76: return "6s* 2 5p 6 6p 2e-99 5d* 5 1 | 2.35 sigma .58";             // Os
             case 77: return "6s* 2 5p 6 6p 2e-99 5d* 5 2 | 2.43 sigma .62";             // Ir
             case 78: return "6s* 1 0 5p 6 6p 2e-99 5d* 5 4 | 2.47 sigma .59";           // Pt
@@ -124,7 +124,7 @@ namespace sigma_config {
 //          case 96: return "6s 2 7s 2 6p 6 7p 2e-99 6d 5f 7 1 | 2. sigma .6";          // Cm
             case 96: return "6s 2 7s 2 6p* 6 6d 5f 7 1 | 2. sigma .6";                  // Cm
             case 97: return "7s 2 7p 6d 5f 7 2 | 2. sigma .5";                          // Bk
-            case 98: return "7s 2 7p 6d 5f 7 3 | 2. sigma .5";                          // Cf
+            case 98: return "6s 2 7s 2 6p 6 7p 2e-99 6d 2e-99 5f 7 3 | 2. sigma .5";    // Cf
             case 99: return "7s 2 7p 6d 5f 7 4 | 2. sigma .5";                          // Es
             case 100: return "7s 2 7p 6d 5f 7 5 | 2. sigma .5";                         // Fm
             case 101: return "7s 2 7p 6d 5f 7 6 | 2. sigma .5";                         // Md

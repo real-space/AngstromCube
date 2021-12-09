@@ -32,7 +32,7 @@ namespace simple_math {
 
   template <typename T>
   inline T determinant(T a00, T a01, T a10, T a11) {
-    return a00*a11 - a10*a01; 
+      return a00*a11 - a10*a01; 
   } // determinant
   
   // a00 a01 a02
@@ -41,9 +41,9 @@ namespace simple_math {
 
   template <typename T>
   inline T determinant(T a00, T a01, T a02, T a10, T a11, T a12, T a20, T a21, T a22) {
-    return a00*determinant(a11, a12, a21, a22) -
-    	   a10*determinant(a01, a02, a21, a22) +
-    	   a20*determinant(a01, a02, a11, a12);
+      return a00*determinant(a11, a12, a21, a22)
+           - a10*determinant(a01, a02, a21, a22)
+           + a20*determinant(a01, a02, a11, a12);
   } // determinant
 
   // a00 a01 a02 a03
@@ -53,11 +53,11 @@ namespace simple_math {
 
   template <typename T>
   inline T determinant(T a00, T a01, T a02, T a03, T a10, T a11, T a12, T a13, 
-  	                   T a20, T a21, T a22, T a23, T a30, T a31, T a32, T a33) {
-    return a00*determinant(a11, a12, a13, a21, a22, a23, a31, a32, a33) -
-    	   a10*determinant(a01, a02, a03, a21, a22, a23, a31, a32, a33) +
-    	   a20*determinant(a01, a02, a03, a11, a12, a13, a31, a32, a33) -
-    	   a30*determinant(a01, a02, a03, a11, a12, a13, a21, a22, a23);
+                       T a20, T a21, T a22, T a23, T a30, T a31, T a32, T a33) {
+      return a00*determinant(a11, a12, a13, a21, a22, a23, a31, a32, a33)
+           - a10*determinant(a01, a02, a03, a21, a22, a23, a31, a32, a33)
+           + a20*determinant(a01, a02, a03, a11, a12, a13, a31, a32, a33)
+           - a30*determinant(a01, a02, a03, a11, a12, a13, a21, a22, a23);
   } // determinant
 
   //       a11 a12 a13
@@ -79,102 +79,102 @@ namespace simple_math {
   template <typename T>
   inline T determinant(int const n, T const a[], int const as) {
 
-  	int constexpr i0 = 0, i1 = 1, i2 = 2, i3 = 3;
-  	int constexpr j0 = 0, j1 = 1, j2 = 2, j3 = 3; 
+      int constexpr i0 = 0, i1 = 1, i2 = 2, i3 = 3;
+      int constexpr j0 = 0, j1 = 1, j2 = 2, j3 = 3; 
 
-  	if (1 == n) return  a[i0*as + j0];
-  	if (2 == n) return determinant(
-  						a[i0*as + j0], a[i0*as + j1], 
-  			            a[i1*as + j0], a[i1*as + j1]);
-  	if (3 == n) return determinant(
-  						a[i0*as + j0], a[i0*as + j1], a[i0*as + j2],
-                		a[i1*as + j0], a[i1*as + j1], a[i1*as + j2],
-  			    		a[i2*as + j0], a[i2*as + j1], a[i2*as + j2]);
-  	if (4 == n) return determinant(
-  						a[i0*as + j0], a[i0*as + j1], a[i0*as + j2], a[i0*as + j3],
-            			a[i1*as + j0], a[i1*as + j1], a[i1*as + j2], a[i1*as + j3],
-  		    			a[i2*as + j0], a[i2*as + j1], a[i2*as + j2], a[i2*as + j3],
-  						a[i3*as + j0], a[i3*as + j1], a[i3*as + j2], a[i3*as + j3]);
-    return (n > 4) - (n < 1); // not implemented (n > 4) or impossible (n < 1)
+      if (1 == n) return  a[i0*as + j0];
+      if (2 == n) return determinant(
+                          a[i0*as + j0], a[i0*as + j1], 
+                          a[i1*as + j0], a[i1*as + j1]);
+      if (3 == n) return determinant(
+                          a[i0*as + j0], a[i0*as + j1], a[i0*as + j2],
+                          a[i1*as + j0], a[i1*as + j1], a[i1*as + j2],
+                          a[i2*as + j0], a[i2*as + j1], a[i2*as + j2]);
+      if (4 == n) return determinant(
+                          a[i0*as + j0], a[i0*as + j1], a[i0*as + j2], a[i0*as + j3],
+                          a[i1*as + j0], a[i1*as + j1], a[i1*as + j2], a[i1*as + j3],
+                          a[i2*as + j0], a[i2*as + j1], a[i2*as + j2], a[i2*as + j3],
+                          a[i3*as + j0], a[i3*as + j1], a[i3*as + j2], a[i3*as + j3]);
+      return (n > 4) - (n < 1); // not implemented (n > 4) or impossible (n < 1)
   } // determinant
 
   float constexpr threshold = 1e-30;
   
   template <typename real_t>
-  inline real_t invert1x1(real_t inv[], int const is, real_t const a[], int const as=1) {
-    auto const det = determinant(1, a, as);
-    if (std::abs(det) < threshold) return 0;
-    auto const inv_det = real_t(1)/det;
-    inv[0*is + 0] = inv_det;
-    return det;
+  inline real_t invert1x1(real_t inv[], int const is, real_t const a[], int const as=1, real_t const factor=1) {
+      auto const det = determinant(1, a, as);
+      if (std::abs(det) < threshold) return 0;
+      auto const inv_det = factor/det;
+      inv[0*is + 0] = inv_det;
+      return det;
   } // invert
 
   template <typename real_t>
-  inline real_t invert2x2(real_t inv[], int const is, real_t const a[], int const as=2) {
-    auto const det = determinant(2, a, as);
-    if (std::abs(det) < threshold) return 0;
-    auto const inv_det = real_t(1)/det;
-    inv[0*is + 0] =   a[1*as + 1]*inv_det;
-    inv[0*is + 1] = - a[0*as + 1]*inv_det;
-    inv[1*is + 0] = - a[1*as + 0]*inv_det;
-    inv[1*is + 1] =   a[0*as + 0]*inv_det;
-    return det;
+  inline real_t invert2x2(real_t inv[], int const is, real_t const a[], int const as=2, real_t const factor=1) {
+      auto const det = determinant(2, a, as);
+      if (std::abs(det) < threshold) return 0;
+      auto const inv_det = factor/det;
+      inv[0*is + 0] =   a[1*as + 1]*inv_det;
+      inv[0*is + 1] = - a[0*as + 1]*inv_det;
+      inv[1*is + 0] = - a[1*as + 0]*inv_det;
+      inv[1*is + 1] =   a[0*as + 0]*inv_det;
+      return det;
   } // invert
 
   template <typename real_t>
-  inline real_t invert3x3(real_t inv[], int const is, real_t const a[], int const as=3) {
-    auto const det = determinant(3, a, as);
-    if (std::abs(det) < threshold) return 0;
-    auto const inv_det = real_t(1)/det;
-    for (int i = 0; i < 3; ++i) {      int const i1 = (i + 1)%3, i2 = (i + 2)%3;
-        for (int j = 0; j < 3; ++j) {  int const j1 = (j + 1)%3, j2 = (j + 2)%3;
+  inline real_t invert3x3(real_t inv[], int const is, real_t const a[], int const as=3, real_t const factor=1) {
+      auto const det = determinant(3, a, as);
+      if (std::abs(det) < threshold) return 0;
+      auto const inv_det = factor/det;
+      for (int i = 0; i < 3; ++i) {      int const i1 = (i + 1)%3, i2 = (i + 2)%3;
+          for (int j = 0; j < 3; ++j) {  int const j1 = (j + 1)%3, j2 = (j + 2)%3;
 //             std::printf("# i=%d i1=%d i2=%d j=%d j1=%d j2=%d\n", i, i1, i2, j, j1, j2);
-            inv[i*is + j] = (a[j1*as + i1]*a[j2*as + i2] - a[j2*as + i1]*a[j1*as + i2])*inv_det;
-        } // j
-    } // i
-    return det;
+              inv[i*is + j] = (a[j1*as + i1]*a[j2*as + i2] - a[j2*as + i1]*a[j1*as + i2])*inv_det;
+          } // j
+      } // i
+      return det;
   } // invert
 
   template <typename real_t>
   inline real_t determinant4x4(real_t const a[], int const as=4) {
-    return determinant(
-    	 a[0*as+0], a[0*as+1], a[0*as+2], a[0*as+3],
-         a[1*as+0], a[1*as+1], a[1*as+2], a[1*as+3],
-    	 a[2*as+0], a[2*as+1], a[2*as+2], a[2*as+3],
-    	 a[3*as+0], a[3*as+1], a[3*as+2], a[3*as+3]);
+      return determinant(
+          a[0*as+0], a[0*as+1], a[0*as+2], a[0*as+3],
+          a[1*as+0], a[1*as+1], a[1*as+2], a[1*as+3],
+          a[2*as+0], a[2*as+1], a[2*as+2], a[2*as+3],
+          a[3*as+0], a[3*as+1], a[3*as+2], a[3*as+3]);
   } // determinant
 
 
   template <typename real_t>
-  inline real_t invert4x4(real_t inv[], int const is, real_t const a[], int const as=4) {
-    auto const det = determinant(4, a, as);
-    if (std::abs(det) < threshold) return 0;
-    auto const inv_det = real_t(1)/det;
-    for (int j = 0; j < 4; ++j) {
-	    int const j0 = 0 + (0 >= j), j1 = 1 + (1 >= j), j2 = 2 + (2 >= j);
-	    for (int i = 0; i < 4; ++i) {
-    		int const i0 = 0 + (0 >= i), i1 = 1 + (1 >= i), i2 = 2 + (2 >= i);
-	    	real_t const sign = 1 - 2*( (i + j) & 1 );
-            inv[j*is + i] = sign * inv_det * determinant(
-		    	 a[i0*as + j0], a[i0*as + j1], a[i0*as + j2],
-        		 a[i1*as + j0], a[i1*as + j1], a[i1*as + j2],
-    	 		 a[i2*as + j0], a[i2*as + j1], a[i2*as + j2]);
-        } // i
-    } // j
-    return det;
+  inline real_t invert4x4(real_t inv[], int const is, real_t const a[], int const as=4, real_t const factor=1) {
+      auto const det = determinant(4, a, as);
+      if (std::abs(det) < threshold) return 0;
+      auto const inv_det = factor/det;
+      for (int j = 0; j < 4; ++j) {
+          int const j0 = 0 + (0 >= j), j1 = 1 + (1 >= j), j2 = 2 + (2 >= j);
+          for (int i = 0; i < 4; ++i) {
+              int const i0 = 0 + (0 >= i), i1 = 1 + (1 >= i), i2 = 2 + (2 >= i);
+              real_t const sign = 1 - 2*( (i + j) & 1 );
+              inv[j*is + i] = sign * inv_det * determinant(
+                  a[i0*as + j0], a[i0*as + j1], a[i0*as + j2],
+                  a[i1*as + j0], a[i1*as + j1], a[i1*as + j2],
+                  a[i2*as + j0], a[i2*as + j1], a[i2*as + j2]);
+          } // i
+      } // j
+      return det;
   } // invert
 
 
   template <typename T>
   inline T invert(int const n, T inv[], int const is, T const a[], int const as) {
-  	  if (1 == n) return invert1x1(inv, is, a, as);
-  	  if (2 == n) return invert2x2(inv, is, a, as);
-  	  if (3 == n) return invert3x3(inv, is, a, as);
-  	  if (4 == n) return invert4x4(inv, is, a, as);
- 	  return 0; // returns zero
+      if (1 == n) return invert1x1(inv, is, a, as);
+      if (2 == n) return invert2x2(inv, is, a, as);
+      if (3 == n) return invert3x3(inv, is, a, as);
+      if (4 == n) return invert4x4(inv, is, a, as);
+      return 0; // returns zero
   } // invert
 
-  
+
   template <typename real_t>
   inline void matrix_rotation(int const n, real_t c[], int const cs, real_t const a[], int const as, real_t const u[], int const us) {
       // compute C = U * A * U^transposed

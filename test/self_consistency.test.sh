@@ -19,18 +19,18 @@ exe=../src/a43
 # printf " 1 \n#cell 4 4 4 i i i \n" > $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
-# base=scf.C-atom
-# printf " 1 \n#cell 16 16 16 i i i \n" > $base.xyz
-# echo "C  0 0 0" >> $base.xyz
+base=scf.C-atom
+printf " 1 \n#cell 8 8 8 i i i \n" > $base.xyz
+echo "C  0 0 0" >> $base.xyz
 
-base=scf.methane
-printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
-dist=0.63
-echo "C  0 0 0"                 >> $base.xyz
-echo "H   -$dist -$dist -$dist" >> $base.xyz
-echo "H    $dist  $dist -$dist" >> $base.xyz
-echo "H    $dist -$dist  $dist" >> $base.xyz
-echo "H   -$dist  $dist  $dist" >> $base.xyz
+# base=scf.methane
+# printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
+# dist=0.63
+# echo "C  0 0 0"                 >> $base.xyz
+# echo "H   -$dist -$dist -$dist" >> $base.xyz
+# echo "H    $dist  $dist -$dist" >> $base.xyz
+# echo "H    $dist -$dist  $dist" >> $base.xyz
+# echo "H   -$dist  $dist  $dist" >> $base.xyz
 
 # base=scf.C-chain
 # printf " 1 \n#cell 2 8 8 p i i\n" > $base.xyz
@@ -255,7 +255,7 @@ control.show=-7
 EOF
 
 
-for spacing in `seq 4 1 4`; do
+for spacing in `seq 2 1 2`; do
   project=$base.grid$spacing
   (cd ../src/ && make -j) && \
   echo "# start calculation $project" && \
