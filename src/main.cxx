@@ -50,6 +50,7 @@
   #include "angular_grid.hxx" // ::all_tests
   #include "pseudo_tools.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
+  #include "gpaw_loading.hxx" // ::all_tests
   #include "sigma_config.hxx" // ::all_tests
   #include "dense_solver.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
@@ -173,6 +174,7 @@
           add_module_test(bessel_transform);
           add_module_test(scattering_test);
           add_module_test(single_atom);
+          add_module_test(gpaw_loading);
 
           if (chapters) std::printf("\n\n\n\n#\n# SHO-specific modules\n#\n\n\n\n");
           add_module_test(sho_tools);

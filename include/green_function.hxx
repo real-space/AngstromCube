@@ -7,6 +7,7 @@
 #include <utility> // std::swap //, std::move
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
+#include <cstdlib> // std::atoi, ::atof
 
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
