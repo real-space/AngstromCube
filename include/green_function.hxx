@@ -160,7 +160,7 @@ namespace green_function {
               internal_global_offset[d] = middle2/2;
               center_of_RHSs[d] = ((middle2*0.5)*4 + 1.5)*hg[d];
           } // d
-          
+
           if (echo > 0) std::printf("# internal and global coordinates differ by %d %d %d\n",
               internal_global_offset[X], internal_global_offset[Y], internal_global_offset[Z]);
 
@@ -221,7 +221,7 @@ namespace green_function {
           if (echo > 0) std::printf("# truncation radius %g, search within %g %s\n", rtrunc*Ang, rtrunc_plus*Ang, _Ang);
           if (echo > 0 && rtrunc_minus > 0) std::printf("# blocks with center distance below %g %s are fully inside\n", rtrunc_minus*Ang, _Ang);
 
-          int16_t itr[3]; // range [-32768, 32767] should be enough
+          int16_t itr[3]; // 16bit, range [-32768, 32767] should be enough
           for (int d = 0; d < 3; ++d) {
               // how many blocks around the source block do we need to check
               auto const itrunc = std::floor(rtrunc_plus/(4*hg[d]));
@@ -251,8 +251,8 @@ namespace green_function {
           std::vector<std::vector<bool>> sparsity_pattern(nRHSs); // vector<bool> is a memory-saving bit-array
 
           for (uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
-              sparsity_pattern[iRHS] = std::vector<bool>(product_target_blocks, false);
               auto & sparsity_RHS = sparsity_pattern[iRHS]; // abbreviate
+              sparsity_RHS.resize(product_target_blocks, false);
               auto const *const source_coords = p->source_coords[iRHS]; // internal source block coordinates
               simple_stats::Stats<> stats[3];
               int constexpr max_nci = 27;
@@ -274,7 +274,7 @@ namespace green_function {
                   uint8_t nci{0}; // init number of corners inside
                   if (d2 < r2trunc_plus) { // potentially inside, check all 8 corner cases
                       int const far = (d2 > r2block_circum);
-//                    if (d2 < r2trunc_minus) { nci = max_nci; } else // skip the 8-corners test for inner blocks -> some speedup
+//                    if (d2 < r2trunc_minus) { nci = max_nci; } else // skip the 8- or 27-corners test for inner blocks -> some speedup
                       { // scope: 8 corner test
                          // i = i4 - j4 --> i in [-3, 3], 
                          //     if two blocks are far from each other, we test only the 8 combinations of {-3, 3}
@@ -290,12 +290,13 @@ namespace green_function {
 //                                       __func__, bx,by,bz, ix,iy,iz, d2c, (d2c < r2trunc)?"in":"out");
 //                               }
                               nci += (d2c < r2trunc);
-                          }}}
+                          }}} // ix iy iz
                       } // scope
 
-                      if (d2 < r2trunc_minus) assert(27 + far*(8 - 27) == nci); // for these, we could skip the 8-corners test
+                      if (d2 < r2trunc_minus) assert((far?8:27) == nci); // for these, we could skip the 8-corners test
                   } // d2
 
+                  
                   if (nci > 0) { 
                       int16_t idx[3];
                       for (int d = 0; d < 3; ++d) {
@@ -341,7 +342,7 @@ namespace green_function {
           } // iRHS
 
           // create a histogram about the distribution of number of columns per row
-          std::vector<uint32_t> hist(nRHSs + 1, 0);
+          std::vector<uint32_t> hist(1 + nRHSs, 0);
           for (size_t idx3 = 0; idx3 < column_indices.size(); ++idx3) {
               auto const n = column_indices[idx3].size();
               ++hist[n];
@@ -349,6 +350,7 @@ namespace green_function {
 
           // eval the histogram
           size_t nall{0};
+          nnz = 0;
           for (int n = 0; n <= nRHSs; ++n) {
               nall += hist[n];
               nnz  += hist[n]*n;
@@ -420,9 +422,11 @@ namespace green_function {
                                   // sanity check onto internal coordinates
                                   assert(p->source_coords[iCol][d] == p->target_coords[iRow][d]);
                               } // d
-                              auto inz = RowStart[iRow];
-                              while(iCol != ColIndex[inz]) { ++inz; }
-                              p->subset[iCol] = inz;
+                              { // search inz such that ColIndex[inz] == iCol
+                                  auto inz = RowStart[iRow];
+                                  while(iCol != ColIndex[inz]) { ++inz; }
+                                  p->subset[iCol] = inz;
+                              } // search
                           } // iCol valid
                       } // scope
 

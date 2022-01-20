@@ -425,6 +425,9 @@ namespace green_action {
 #else // NO_UNIT_TESTS
 
   inline status_t test_Green_action(int const echo=0) {
+//       plan_t plan;
+//       action_t<> action(&plan);
+//       return 0;
       return STATUS_TEST_NOT_INCLUDED;
   } // test_Green_action
 

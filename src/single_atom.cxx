@@ -127,14 +127,14 @@ namespace single_atom {
       , double qlm[]         // ADD0_or_PROJECT1 == 1 or 3 result
       , radial_grid_t const & rg // radial grid descriptor
       , int const lmax       // cutoff for angular momentum expansion
-      , double const sigma   // spread_compensator
+      , double const sigma   // spread of generalized Gaussian
       , int const echo=0     // log-level
   ) {
       // compensation charge densities on the radial grid
 
       int const nr = rg.n; // number of radial grid points
-      auto const sig2inv = .5/(sigma*sigma);
       if (echo > 0) std::printf("# sigma = %g\n", sigma);
+      auto const sig2inv = .5/(sigma*sigma);
       std::vector<double> rl(nr), rlGauss(nr);
       for (int ell = 0; ell <= lmax; ++ell) { // loop must run forward and serial!
           double norm{0};
@@ -361,7 +361,7 @@ namespace single_atom {
       double spherical_charge_deficit[3]; // [csv], in units of electrons
 
       double logder_energy_range[3]; // [start, increment, stop]
-      char   partial_wave_char[32]; // [iln]
+      std::vector<char> partial_wave_char; // [iln]
       double partial_wave_energy_split[1 + ELLMAX]; // [ell]
       int    local_potential_method;
 
@@ -527,8 +527,8 @@ namespace single_atom {
         ellmax_cmp = std::min(4, int(ellmax_rho));
         if (echo > 1) std::printf("# %s compensation charges are expanded up to lmax= %d\n", label, ellmax_cmp);
 
-        sigma_compensator = r_cut/std::sqrt(20.);
-        
+        sigma_compensator = r_cut/std::sqrt(20.); // Gaussian decays to exp(-10)=4.54e-5 at r=r_cut
+
         nr_diff = rg[TRU].n - rg[SMT].n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
         ir_cut[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
         ir_cut[TRU] = ir_cut[SMT] + nr_diff;
@@ -652,8 +652,6 @@ namespace single_atom {
         for (int ts = TRU; ts <= SMT; ++ts) {
             partial_wave_radial_part[ts] = view3D<double>(2, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function and kinetic wave
         } // ts
-
-        set(partial_wave_char, 32, '\0'); // init partial wave characteristic
         
         double constexpr energy_derivative = -8.0;
         double const excited_energy = control::get("single_atom.partial.wave.energy", 1.0); // 1.0 Hartree higher, special function for -8.0:energy derivative
@@ -670,6 +668,7 @@ namespace single_atom {
         } // use_energy_parameter
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
+        partial_wave_char = std::vector<char>(nln, '\0'); // init partial wave characteristics
         partial_wave = std::vector<partial_wave_t>(nln);
         partial_wave_active = std::vector<char>(nln, 0);
         { // scope: initialize partial waves
@@ -831,6 +830,7 @@ namespace single_atom {
                               int(control::get("single_atom.lagrange.derivative", 7.)); // >0: sinc fit
             pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(),
                     potential[TRU].data(), rg, ir_cut, local_potential_method, label, echo);
+            // ToDo: use a sinc to pseudize an attractive potential. Result should be very similar to parabola
         } // scope
 
         regenerate_partial_waves = true; // must be true at start to generate the partial waves at least once
@@ -1207,16 +1207,16 @@ namespace single_atom {
         // determine the energy parameters for the partial waves
 
         if (echo > 2) std::printf("\n# %s %s Z=%g partial wave characteristics=\"%s\"\n",
-                                       label, __func__, Z_core, partial_wave_char);
+                                       label, __func__, Z_core, partial_wave_char.data());
 
         double previous_ell_energy{0};
         for (int ell = 0; ell <= numax; ++ell) { // loop runs serial, loop-carried dependency on previous_ell_energy
-            for (int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes
+            for (int nrn = 0; nrn < nn[ell]; ++nrn) { // smooth number or radial nodes, serial due to partial_wave[iln - 1].energy
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 auto & vs = partial_wave[iln]; // abbreviate ('vs' stands for valence state)
 
                 char const c = partial_wave_char[iln];
-                assert ('_' != c);
+                assert ('_' != c && "energy parameters only need to be set for active partial waves");
                 if ('e' == c) {
                     // energy parameter, vs.energy has already been set earlier
                     if (echo > 4) std::printf("# %s the %s partial wave uses energy parameter E= %g %s\n", 
@@ -1468,7 +1468,7 @@ namespace single_atom {
             int const n = nn[ell]; // abbreviation for the number of active partial waves in this ell
             int const nmx = sho_tools::nn_max(numax, ell);
 
-            if (echo > 3) std::printf("\n# %s %s for ell=%i\n\n", label, __func__, ell);
+            if (echo > 3 && n > 0) std::printf("\n# %s %s for ell=%i\n\n", label, __func__, ell);
 
             view2D<double> projectors_ell(projectors[ln_off], projectors.stride()); // sub-view of the member array
             if (method != classical_scheme) {
@@ -1549,6 +1549,7 @@ namespace single_atom {
                             norm_factor = std::sqrt(normalize/norm_wf2);
                         } else {
                             warn("%s cannot normalize true partial %s-wave", label, vs.tag);
+                            norm_factor = 0;
                         }
                     } // normalize
                     scale(vs.wave[TRU], nr, rg[TRU].rinv, norm_factor); // transform r*wave(r) as produced by the radial_eigensolver to wave(r)
@@ -3215,7 +3216,7 @@ namespace single_atom {
             auto const uT_proj = transpose(u_proj, nln);
             view2D<double> tmp_mat(nln, nln, 0.0); // get temporary memory
             for (int iHS = 0; iHS < 2; ++iHS) {
-                auto matrix_ln = aHSm[iHS];
+                auto matrix_ln = aHSm[iHS]; // get a non-const sub-view
                 gemm(tmp_mat, nln, matrix_ln, nln, u_proj); // *u
                 gemm(matrix_ln, nln, uT_proj, nln, tmp_mat); // u^T*
 #ifdef DEVEL
@@ -3227,42 +3228,54 @@ namespace single_atom {
             } // iHS
         } // scope
 
-        bool const check_overlap_eigenvalues = true;
+#ifdef DEVEL
+        int const check_overlap_eigenvalues = control::get("single_atom.check.overlap.eigenvalues", 1.); // 0:false, 1:true, -10:true and abort
+#else  // DEVEL
+        int const check_overlap_eigenvalues = 1; // 1:true
+#endif // DEVEL
         if (check_overlap_eigenvalues) {
             auto const overlap_ln = aHSm[1];
-            { // scope:
-                for (int ell = 0; ell <= numax; ++ell) {
-                    if (nn[ell] > 0) {
-                        int const nmx = sho_tools::nn_max(numax, ell);
-                        assert(nmx >= 1);
-                        std::vector<double> eigvals(nmx + 2, 0.0);
-                        // create a copy since the eigenvalue routine modifies the memory regions
-                        view2D<double> ovl_ell(nmx, nmx); 
-                        for (int irn = 0; irn < nmx; ++irn) {
-                            int const iln = sho_tools::ln_index(numax, ell, irn);
-                            int const jln = sho_tools::ln_index(numax, ell, 0);
-                            set(ovl_ell[irn], nmx, &overlap_ln(iln,jln)); // copy ell-diagonal blocks
-                        } // irn
+            for (int ell = 0; ell <= numax; ++ell) {
+                if (nn[ell] > 0) {
+                 
+                    int const nmx = sho_tools::nn_max(numax, ell);
+                    assert(nmx >= 1);
+                    std::vector<double> eigvals(nmx + 2, 0.0);
+                    // create a copy since the eigenvalue routine modifies the memory regions
+                    view2D<double> ovl_ell(nmx, nmx); 
+                    for (int irn = 0; irn < nmx; ++irn) {
+                        int const iln = sho_tools::ln_index(numax, ell, irn);
+                        int const jln = sho_tools::ln_index(numax, ell, 0);
+                        set(ovl_ell[irn], nmx, &overlap_ln(iln,jln)); // copy ell-diagonal blocks
+                    } // irn
 
-//                      if (echo > 0) std::printf("%s charge deficit operator for ell=%c is [%g %g, %g %g]\n",
+//                      if (echo > 0) std::printf("%s charge deficit operator for ell=%c is [%g %g, %g %g]\n", // display 2x2
 //                          label, ellchar[ell], ovl_ell(0,0), ovl_ell(0,nmx-1), ovl_ell(nmx-1,0), ovl_ell(nmx-1,nmx-1));
 
-                        // the eigenvalues of the non-local part of the overlap operator may not be <= -1
-                        auto const info = linear_algebra::eigenvalues(eigvals.data(), nmx, ovl_ell.data(), ovl_ell.stride());
-                        if (0 != info) warn("%s when trying to diagonalize %dx%d charge deficit operator info= %i", label, nmx, nmx, info);
+                    // the eigenvalues of the non-local part of the overlap operator may not be <= -1
+                    auto const info = linear_algebra::eigenvalues(eigvals.data(), nmx, ovl_ell.data(), ovl_ell.stride());
+                    if (0 != info) warn("%s when trying to diagonalize %dx%d charge deficit operator info= %i", label, nmx, nmx, info);
 
-                        if (eigvals[0] <= -1.0) {
-                            warn("%s instable eigenvalues of %c-overlap operator %g, %g and %g", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
-                        } else if (eigvals[0] < -0.9) {
-                            warn("%s critical eigenvalues of %c-overlap operator %g, %g and %g", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
-                        } // warnings
+                    if (eigvals[0] <= -1.0) {
+                        warn("%s instable eigenvalues of %c-overlap operator %g , %g and %g", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
+                    } else if (eigvals[0] < -0.9) {
+                        warn("%s critical eigenvalues of %c-overlap operator %g , %g and %g", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
+                    } // warnings
 
-                        if (echo > 1) std::printf("# %s eigenvalues of the %c-overlap operator are %g, %g and %g\n", label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
-//                         error("eigenvalues of the %c-charge deficit operator are %g, %g and %g", ellchar[ell], eigvals[0], eigvals[1], eigvals[2]); // DEBUG
+                    if (echo > 1 + check_overlap_eigenvalues) {
+                        std::printf("# %s eigenvalues of the %c-overlap operator are %g , %g and %g\n",
+                                      label, ellchar[ell], 1 + eigvals[0], 1 + eigvals[1], 1 + eigvals[2]);
+                    } // echo
+#ifdef DEVEL
+                    if (echo > 11 + check_overlap_eigenvalues) {
+                        std::printf("# %s eigenvalues of the %c-charge deficit operator are %g , %g and %g\n",
+                                      label, ellchar[ell], eigvals[0], eigvals[1], eigvals[2]);
+                    } // echo
+#endif // DEVEL
 
-                    } // nn[ell] > 0
-                } // ell
-            } // scope
+                } // nn[ell] > 0
+            } // ell
+            if (check_overlap_eigenvalues < -9) abort("# single_atom.check.overlap.eigenvalues=%d < -9", check_overlap_eigenvalues);
         } // check_overlap_eigenvalues
 
         if (echo > 0) { // eigenstate_analysis only writes to the log, so we can save the efforts
