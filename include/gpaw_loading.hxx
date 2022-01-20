@@ -42,7 +42,11 @@ namespace gpaw_loading {
       warn("Unable to test GPAW loading when compiled without -D HAS_RAPIDXML", 0);
       return STATUS_TEST_NOT_INCLUDED;
 #else  // HAS_RAPIDXML
-      char const *filename = control::get(".filename", "C.LDA");
+      SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+      status_t stat(0);
+
+      char const *filename = control::get("gpaw_loading.filename", "C.LDA");
+      if (echo > 0) std::printf("# %s file=%s\n", __func__, filename);
       rapidxml::file<> infile(filename);
 
       rapidxml::xml_document<> doc;
@@ -106,11 +110,11 @@ namespace gpaw_loading {
           auto const id     = xml_reading::find_attribute(radial_grid, "id", "?");
           if (echo > 0) std::printf("# %s:  <radial_grid eq=\"%s\" a=\"%s\" n=\"%s\" istart=\"%s\" iend=\"%s\" id=\"%s\"/>\n",
               filename, eq, a, n, istart, iend, id);
-          ngrid = std::atoi(n);
+          ngrid = std::atoi(n); // convert to integer
       } else warn("no <radial_grid> found in xml-file '%s'", filename);
-      
+
       char const *radial_state_quantities[20] = {"ae_partial_wave", "pseudo_partial_wave", "projector_function"};
-      
+
       int nstates{0};
       int nwarn[] = {0, 0, 0};
       auto const valence_states = xml_reading::find_child(paw_setup, "valence_states", echo);
@@ -142,7 +146,10 @@ namespace gpaw_loading {
                           } // state_id matches
                       } // found
                   } // attr
-                  assert(1 == radial_data_found && "radial state quantities in pawxml files must be defined exactly once!");
+                  if (1 != radial_data_found) {
+                      error("%s: radial state quantities in pawxml files must be defined exactly once!", filename);
+                      ++stat;
+                  } // found more or less than once
               } // iq
               ++nstates;
 
@@ -164,8 +171,9 @@ namespace gpaw_loading {
           if (echo > 0) std::printf("# %s:  <shape_function type=\"%s\" rc=\"%s\"/>\n", filename, type, rc);
       } else warn("no <shape_function> found in xml-file '%s'", filename);
 
-      auto const radial_quantities = {"ae_core_density", "pseudo_core_density", "pseudo_valence_density", 
-                "zero_potential", "ae_core_kinetic_energy_density", "pseudo_core_kinetic_energy_density"};
+      auto const radial_quantities = {"ae_core_density", "pseudo_core_density",
+          "ae_core_kinetic_energy_density", "pseudo_core_kinetic_energy_density", 
+          "zero_potential"}; // , "pseudo_valence_density"};
       for (auto q_name : radial_quantities) {
           auto const q_node = xml_reading::find_child(paw_setup, q_name, echo);
           if (q_node) {
@@ -189,7 +197,7 @@ namespace gpaw_loading {
 //   <exact_exchange_X_matrix>  </exact_exchange_X_matrix>
 //   <exact_exchange core-core="-3.462071"/>
 
-      return 0;
+      return stat;
 #endif // HAS_RAPIDXML
   } // test_loading
 
