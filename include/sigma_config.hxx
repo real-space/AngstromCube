@@ -24,6 +24,8 @@ namespace sigma_config {
       , char const **configuration=nullptr // string that has been parsed
   ); // declaration only
 
+  void set_default_core_shells(int ncmx[4], double const Z);
+
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace sigma_config

@@ -73,7 +73,8 @@ namespace radial_grid {
       double & d = g->anisotropy;
 
 //    std::printf("# create a mesh with R= %g Bohr, n=%d, formula=%s\n", R, nr, get_formula(equation));
-      if (equation_reciprocal == equation) {
+      if (0) { // if (equation_reciprocal == equation) {
+          // special reciprocal
           g->equation = equation_reciprocal;
           auto const n = nr + mR/2; // with i=nr-1 the outermost radius is i/(n-i)=(n-1-mR/2)/(mR/2 + 1)
           for (int i = 0; i < nr_aligned; ++i) {
@@ -82,6 +83,21 @@ namespace radial_grid {
               g->dr[i] = (mR*R)*n*rec*n*rec * (i < nr);
           } // i
           d = n; // store the real number used for the generation of the reciprocal grid in the anisotropy field
+
+      } else if (equation_reciprocal == equation) {
+          // reciprocal grid as in GPAW
+          g->equation = equation_reciprocal;
+          double const a = double(rmax)/nr;
+          for (int i = 0; i < nr; ++i) {
+              double const rec = 1./(nr - i);
+              g->r[i]  = a*i*rec;
+              g->dr[i] = a*nr*rec*rec;
+          } // i
+          for (int i = nr; i < nr_aligned; ++i) {
+              g->r[i]  = g->r[nr - 1];
+              g->dr[i] = 0;
+          } // i
+          d = nr; // store the real number used for the generation of the reciprocal grid in the anisotropy field
 
       } else if (equation_equidistant == equation) {
           g->equation = equation_equidistant;
@@ -152,6 +168,8 @@ namespace radial_grid {
 //    std::printf("\n# %s name=%s memory_owner= %i\n\n", __func__, name, g->memory_owner);
       if (g->memory_owner) delete [] g->r;
       g->n = 0;
+      g->rmax = 0;
+      g->anisotropy = 0;
   } // destroy_radial_grid
 
   int find_grid_index(radial_grid_t const & g, double const radius) {

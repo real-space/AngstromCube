@@ -76,8 +76,8 @@ namespace pawxml_export {
       std::fprintf(f, "  <generator type=\"scalar-relativistic\" name=\"A43\" git=\"%s\">\n", git_key);
       std::fprintf(f, "     %s\n", custom_configuration_string ? custom_configuration_string : Sy);
       std::fprintf(f, "  </generator>\n");
-      std::fprintf(f, "  <ae_energy kinetic=\"%.6f\" xc=\"%.6f\"\n             "
-                          "electrostatic=\"%.6f\" total=\"%.6f\"/>\n", kinetic_energy, xc_energy, es_energy, total_energy);
+      std::fprintf(f, "  <ae_energy kinetic=\"%.6f\" xc=\"%.6f\"\n             electrostatic=\"%.6f\" "
+                          "total=\"%.6f\"/>\n", kinetic_energy, xc_energy, es_energy, total_energy);
       std::fprintf(f, "  <core_energy kinetic=\"%.6f\"/>\n", core_kinetic_energy);
 
       std::fprintf(f, "  <valence_states>\n");
