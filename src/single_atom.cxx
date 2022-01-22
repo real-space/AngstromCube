@@ -351,7 +351,6 @@ namespace single_atom {
       view2D<double> density_matrix; // atomic density matrix [nSHO][>=nSHO]
 
       view2D<double> aug_density; // augmented density, core + valence + compensation, (1+ellmax_rho)^2 radial functions
-      uint8_t ncorestates; // for emm-Degenerate representations, 20 (or 32 with spin-orbit) core states are maximum
       // int nspins; // 1 or 2 (order 0z) or 4 (order 0zxy), so far not used
 
       // spin-resolved members
@@ -607,12 +606,12 @@ namespace single_atom {
                     } // occupied
                 } // ell
             } // enn
-            ncorestates = highest_occupied_state_index + 1; // correct the number of spherical states to those occupied
-            spherical_state.resize(ncorestates); // destruct unused core states
+            int const n_spherical_states = highest_occupied_state_index + 1; // correct the number of spherical states to those occupied
+            spherical_state.resize(n_spherical_states); // destruct unused core states
 
             // get memory for the true radial wave functions and kinetic waves
-            true_core_waves = view3D<double>(2, ncorestates, align<2>(nr[TRU]), 0.0);
-            for (int ics = 0; ics < ncorestates; ++ics) {
+            true_core_waves = view3D<double>(2, n_spherical_states, align<2>(nr[TRU]), 0.0);
+            for (int ics = 0; ics < n_spherical_states; ++ics) {
                 auto & cs = spherical_state[ics]; // abbreviate "core state"
                 cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                 cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
@@ -920,7 +919,7 @@ namespace single_atom {
                 auto const r = rg[SMT].r[ir];
                 auto const f = r; // scale with r? scale with Y00?
                 std::printf("%g ", r);
-                for (int ics = 0; ics < ncorestates; ++ics) {
+                for (int ics = 0; ics < spherical_state.size(); ++ics) {
                     std::printf("   %g", spherical_state[ics].wave[TRU][ir + nr_diff]*f);
                 } // ics
                 for (int iln = 0; iln < nln; ++iln) {
@@ -971,8 +970,8 @@ namespace single_atom {
 
         take_spherical_density[core]     = 1; // must always be 1 since we can represent the true core density only on the radial grid
         take_spherical_density[semicore] = 1;
-        take_spherical_density[valence]  = 1; // atomic_valence_density ? 1 : 0;
-        
+        take_spherical_density[valence]  = 0; // use a synthetic density matrix instead
+
         int const nr[] = {int(align<2>(rg[TRU].n)), int(align<2>(rg[SMT].n))}; // optional memory access alignment
         if (echo > 0) std::printf("# %s radial grid up to %g %s\n", label, rg[TRU].rmax*Ang, _Ang);
         if (echo > 0) std::printf("# %s radial grid numbers are %d and %d\n", label, rg[TRU].n, rg[SMT].n);
@@ -1051,7 +1050,7 @@ namespace single_atom {
                 } // enn
             } // ell
 
-            sigma_compensator = p.shape_function_rc*std::sqrt(.5); // exp(-(r/rc)^2) == exp(-1/2(r/sigma_compensator)^2)
+            sigma_compensator = p.shape_function_rc*std::sqrt(.5); // exp(-(r/rc)^2) == exp(-1/2*(r/sigma_compensator)^2)
 
             energy_ref[TRU] = p.ae_energy[3]; // reference total energy of neutral atom calculation
 
@@ -1100,23 +1099,23 @@ namespace single_atom {
         //
         
         set(csv_charge, 3, 0.); // clear numbers of electrons for {core, semicore, valence}
-        ncorestates = 0; // init number of spherical states
+        int n_spherical_states{0}; // init number of spherical states
         for (int inl = 0; inl < 36; ++inl) {
             if (csv_undefined != csv_custom[inl]) {
                 csv_charge[csv_custom[inl]] += occ_custom[inl];
-                ++ncorestates;
+                ++n_spherical_states;
             } // csv defined
         } // inl
-        if (echo > 2) std::printf("# %s has %d spherical states\n", label, ncorestates);
+        if (echo > 2) std::printf("# %s has %d spherical states\n", label, n_spherical_states);
         
         double const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
         if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
 
 
-        { // scope: initialize the spherical states and true spherical densities
+        if (0) { // scope: initialize the spherical states and true spherical densities
             // typically, there are at most 20 spherical states without spin-orbit coupling
-            spherical_state = std::vector<spherical_state_t>(ncorestates);
+            spherical_state = std::vector<spherical_state_t>(n_spherical_states);
             int ics{0}; // init counter of spherical states
             for (int enn = 1; enn < 9; ++enn) { // principal quantum number n
                 for (int ell = 0; ell < enn; ++ell) { // angular momentum character l
@@ -1124,7 +1123,7 @@ namespace single_atom {
                     if (echo > 15) std::printf("# %s enn= %d, ell= %d, inl= %d, ics= %d\n", label, enn, ell, inl, ics);
                     if (inl < 36) {
                         if (csv_undefined != csv_custom[inl]) {
-                            assert(ics < ncorestates);
+                            assert(ics < n_spherical_states);
                             auto & cs = spherical_state[ics]; // abbreviate "core state"
 
                             cs.energy = atom_core::guess_energy(Z_core, enn);
@@ -1146,8 +1145,8 @@ namespace single_atom {
             } // enn
 
             // get memory for the true radial wave functions and kinetic waves
-            true_core_waves = view3D<double>(2, ncorestates, align<2>(nr[TRU]), 0.0);
-            for (int ics = 0; ics < ncorestates; ++ics) {
+            true_core_waves = view3D<double>(2, n_spherical_states, align<2>(nr[TRU]), 0.0);
+            for (int ics = 0; ics < n_spherical_states; ++ics) {
                 auto & cs = spherical_state[ics]; // abbreviate "core state"
                 cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
                 cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
@@ -1177,7 +1176,8 @@ namespace single_atom {
             nlnn += nn[ell]; // count active partial waves
         } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
-            partial_wave_radial_part[ts] = view3D<double>(2, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function and kinetic wave
+//          partial_wave_radial_part[ts] = view3D<double>(2, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function and kinetic wave
+            partial_wave_radial_part[ts] = view3D<double>(1, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function
         } // ts
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
@@ -1204,7 +1204,6 @@ namespace single_atom {
                     auto & vs = partial_wave[iln]; // abbreviate "valence state"
                     int const enn = std::max(ell + 1, ((ell < 4)?ncmx[ell]:0) + 1) + nrn;
                     if (echo > 15) std::printf("# %s enn= %d, ell= %d, nrn= %d, iln= %d\n", label, enn, ell, nrn, iln);
-//                  if (echo > 0) std::printf(" %d%c", enn, ellchar[ell]);
                     vs.nrn[TRU] = enn - ell - 1; // number of radial nodes in the true wave
                     vs.nrn[SMT] = nrn;           // number of radial nodes in the smooth wave
                     vs.occupation = 0.0;
@@ -1219,7 +1218,7 @@ namespace single_atom {
                         assert(ilnn < nlnn);
                         for (int ts = TRU; ts <= SMT; ++ts) {
                             vs.wave[ts] = partial_wave_radial_part[ts](0,ilnn); // pointer for the {true, smooth} radial function
-                            vs.wKin[ts] = partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
+                            vs.wKin[ts] = nullptr; // partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
                         } // ts
                         ++ilnn; // add one partial wave
                     } else {
@@ -1321,28 +1320,24 @@ namespace single_atom {
             } // logder.unit != output.energy.unit
         } // scope
 
-        local_potential_method = 0; //  0: parabola fit
-        if (0) { // scope: pseudize the local potential r*V(r)
-            pseudo_tools::pseudize_local_potential<1>(potential[SMT].data(),
-                    potential[TRU].data(), rg, ir_cut, local_potential_method, label, echo);
-            // ToDo: use a sinc to pseudize an attractive potential. Result should be very similar to parabola
-        } // scope
+        local_potential_method = -1; // 0: parabola fit, -1: do not recompute zero_potential
 
         regenerate_partial_waves = false; // must be true at start to generate the partial waves at least once
         freeze_partial_waves = true; // do not try to regenerate_partial_waves on a radial_exponential_grid
         
         { // scope: copy remaining radial functions
+            auto const sq4pi = std::sqrt(4*constants::pi);
             // true core density
             assert(p.func[0].size() == nr[TRU]);
-            set(spherical_density[TRU][core], nr[TRU], p.func[0].data());
+            set(spherical_density[TRU][core], nr[TRU], p.func[0].data(), sq4pi);
             // smmoth core density
             assert(p.func[1].size() == nr[SMT]);
-            set(spherical_density[SMT][core], nr[SMT], p.func[1].data());
+            set(spherical_density[SMT][core], nr[SMT], p.func[1].data(), sq4pi);
             // zero_potential
             assert(p.func[4].size() == nr[SMT]);
             set(zero_potential.data(), nr[SMT], p.func[4].data());
         } // scope
-        if (echo > 0) std::printf("# %s zero_potential at origin %g %s\n", label, zero_potential[0]*eV, _eV);
+        if (echo > 0) std::printf("# %s zero_potential at origin %g %s\n", label, zero_potential[0]*Y00*eV, _eV);
 
         { // scope: copy kinetic energy difference matrix of partial waves
             int const nstates = p.states.size();
@@ -1360,8 +1355,20 @@ namespace single_atom {
                 } // ist
             } // iln
         } // scope
+        
+        // kinetic energy of the core electrons
+        energy_kin_csvn[core][TRU] = p.core_energy_kinetic;
 
         update_charge_deficit(echo);
+        
+        spherical_charge_deficit[core] = dot_product(rg[TRU].n, spherical_density[TRU][core], rg[TRU].r2dr)
+                                       - dot_product(rg[SMT].n, spherical_density[SMT][core], rg[SMT].r2dr);
+
+        control::set("single_atom.synthetic.density.matrix", "1");
+
+        float const density_mixing[] = {0, 0, 0};
+        update_density(density_mixing, echo);
+        update_potential(0.f, nullptr, echo);
 
     } // constructor from pawxml
 
@@ -1395,6 +1402,8 @@ namespace single_atom {
         , double const core_state_localization=-1
     ) {
         if (echo > 2) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+        int const n_spherical_states = spherical_state.size();
+        if (n_spherical_states < 1) return;
         // core states are feeling the spherical part of the hamiltonian only
         auto const & g = rg[TRU]; // the radial grid for true quantities
         std::vector<double> r2rho(g.n);
@@ -1412,7 +1421,7 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
-        for (int ics = 0; ics < ncorestates; ++ics) { // private r2rho, reduction(+:new_r2density)
+        for (int ics = 0; ics < n_spherical_states; ++ics) { // private r2rho, reduction(+:new_r2density)
             auto & cs = spherical_state[ics]; // abbreviate "core state"
             double const occ = std::abs(cs.occupation);
             radial_eigensolver::shooting_method(SRA, g, rV_tru, cs.enn, cs.ell, cs.energy, cs.wave[TRU], r2rho.data());
@@ -1450,7 +1459,7 @@ namespace single_atom {
             int  ics_hfos{-1}, ics_hpos{-1}; // indices
             int iref[4] = {0, 0, 0, 0};
 
-            for (int ics = 0; ics < ncorestates; ++ics) { // serial loop
+            for (int ics = 0; ics < n_spherical_states; ++ics) { // serial loop
                 auto const & cs = spherical_state[ics]; // abbreviate "core state"
                 int const csv = cs.csv;
                 double const E = cs.energy;
@@ -3239,59 +3248,70 @@ namespace single_atom {
         } // ts smooth and true
         if (0 != stat) warn("%s angular grid transformations failed with status sum = %i", label, int(stat));
 
-        // construct the zero_potential V_bar
-        std::vector<double> V_smt(rg[SMT].n);
-        set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
-
+        
         auto const df = Y00*eV; assert(df > 0); // display factor
-        auto const stat_pseudo = pseudo_tools::pseudize_local_potential<0>(V_smt.data(),
-                                 full_potential[TRU][00], rg, ir_cut, local_potential_method, label, echo, Y00);
-        if (stat_pseudo) {
-            warn("%s matching procedure for the local potential failed, status= %i", label, int(stat_pseudo));
-            stat += stat_pseudo;
-        } else {
-            for (int ir = 0; ir < rg[SMT].n; ++ir) {
-                zero_potential[ir] = V_smt[ir] - full_potential[SMT](00,ir);
-            } // ir
-            if (echo > 5) std::printf("# %s smooth potential: V_smt(0) = %g, V_smt(R_cut) = %g %s\n",
-                                    label, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
-#ifdef DEVEL
-            if (echo > 31) {
-                std::printf("# %s local smooth zero_potential:\n", label);
+        if (local_potential_method >= 0) {
+            // construct the zero_potential V_bar
+
+            if (echo > 5) std::printf("# %s old zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
+                label, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT].n - 1]*df, _eV);
+
+            set(zero_potential.data(), zero_potential.size(), 0.0); // init zero
+            
+            std::vector<double> V_smt(rg[SMT].n);
+            auto const stat_pseudo = pseudo_tools::pseudize_local_potential<0>(V_smt.data(),
+                                    full_potential[TRU][00], rg, ir_cut, local_potential_method, label, echo, Y00);
+            if (stat_pseudo) {
+                warn("%s matching procedure for the local potential failed, status= %i", label, int(stat_pseudo));
+                stat += stat_pseudo;
+            } else {
+                if (echo > 5) std::printf("# %s smooth potential: V_smt(0) = %g, V_smt(R_cut) = %g %s\n",
+                                        label, V_smt[0]*df, V_smt[ir_cut[SMT]]*df, _eV);
                 for (int ir = 0; ir < rg[SMT].n; ++ir) {
-                    std::printf("%g %g\n", rg[SMT].r[ir], zero_potential[ir]*Y00);
+                    zero_potential[ir] = V_smt[ir] - full_potential[SMT](00,ir);
                 } // ir
-                std::printf("\n\n");
-            } // echo
-
-            { // scope: analyze zero potential
-                double vol = 0, Vint = 0, r1Vint = 0, r2Vint = 0;
-                for (int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
-                    auto const r  = rg[SMT].r[ir];
-                    auto const dV = rg[SMT].r2dr[ir];
-                    vol    +=                    dV;
-                    Vint   += zero_potential[ir]*dV;
-                    r1Vint += zero_potential[ir]*dV*r;
-                    r2Vint += zero_potential[ir]*dV*pow2(r);
-                } // ir
-                if (echo > 5) std::printf("# %s zero potential statistics = %g %g %g %s\n",
-                            label, Vint/vol*eV, r1Vint/(vol*r_cut)*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
-                    // these numbers should be small since they indicate that V_bar is localized inside the sphere
-                    // and how much V_smt deviates from V_tru outside the sphere
-            } // scope: analyze zero potential
-
-            if (echo > 21) {
-                std::printf("\n## %s pseudized total potential (a.u.):\n", label);
-                print_compressed(rg[SMT].r, V_smt.data(), rg[SMT].n);                    
-            } // echo
-
-            if (echo > 21) {
-                std::printf("\n## %s zero potential (a.u.):\n", label);
-                print_compressed(rg[SMT].r, zero_potential.data(), rg[SMT].n);                    
-            } // echo
+#ifdef DEVEL
+                if (echo > 21) {
+                    std::printf("\n## %s pseudized total potential (a.u.):\n", label);
+                    print_compressed(rg[SMT].r, V_smt.data(), rg[SMT].n);                    
+                } // echo
 #endif // DEVEL
-        } // pseudization successful
-        if (echo > 5) std::printf("# %s zero potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
+            } // pseudization successful
+        } else {
+            if (echo > 6) std::printf("# %s zero_potential stays unchanged!\n", label);
+        } // modify zero_potential
+
+#ifdef DEVEL
+        if (echo > 31) {
+            std::printf("# %s local smooth zero_potential:\n", label);
+            for (int ir = 0; ir < rg[SMT].n; ++ir) {
+                std::printf("%g %g\n", rg[SMT].r[ir], zero_potential[ir]*Y00);
+            } // ir
+            std::printf("\n\n");
+        } // echo
+
+        { // scope: analyze zero potential
+            double vol = 0, Vint = 0, r1Vint = 0, r2Vint = 0;
+            for (int ir = ir_cut[SMT]; ir < rg[SMT].n; ++ir) {
+                auto const r  = rg[SMT].r[ir];
+                auto const dV = rg[SMT].r2dr[ir];
+                vol    +=                    dV;
+                Vint   += zero_potential[ir]*dV;
+                r1Vint += zero_potential[ir]*dV*r;
+                r2Vint += zero_potential[ir]*dV*r*r;
+            } // ir
+            if (echo > 5) std::printf("# %s zero_potential statistics = %g %g %g %s\n",
+                        label, Vint/vol*eV, r1Vint/(vol*r_cut)*eV, r2Vint/(vol*pow2(r_cut))*eV, _eV);
+                // these numbers should be small since they indicate that V_bar is localized inside the sphere
+                // and how much V_smt deviates from V_tru outside the sphere
+        } // scope: analyze zero potential
+
+        if (echo > 21) {
+            std::printf("\n## %s zero potential (a.u.):\n", label);
+            print_compressed(rg[SMT].r, zero_potential.data(), rg[SMT].n);                    
+        } // echo
+#endif // DEVEL
+        if (echo > 5) std::printf("# %s zero_potential: V_bar(0) = %g, V_bar(R_cut) = %g, V_bar(R_max) = %g %s\n",
             label, zero_potential[0]*df, zero_potential[ir_cut[SMT]]*df, zero_potential[rg[SMT].n - 1]*df, _eV);
 
         // add spherical zero potential for SMT==ts and 00==lm
@@ -3783,8 +3803,7 @@ namespace single_atom {
             std::printf("# %s diff      %20.9f\n", label, (E_tot[TRU] - energy_ref[TRU])*eV);
             std::printf("# %s\n\n", label);
         } // echo
-        // ToDo: introduce a reference atom energy which is fixed at start-up
-        // So that the contributions are always taken w.r.t the reference atom
+        
     } // total_energy_contributions
 
 
