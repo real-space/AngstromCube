@@ -1085,85 +1085,20 @@ namespace single_atom {
             full_density[ts]   = view2D<double>(pow2(1 + ellmax_rho), nr[ts], 0.0); // get memory
         } // true and smooth
 
-
-
         //
-        // Spherical States
-        // 
-        // A set of atomic eigenstates of the spherical part of the potential is computed
-        // to serve several purposes:
-        //    - core level energies and the true core density
-        //    - energy parameters for valence states
-        //    - a spherical valence density to initialize a full calculation
-        //    - enable automatic analysis
+        // Spherical States are inactive
         //
         
         set(csv_charge, 3, 0.); // clear numbers of electrons for {core, semicore, valence}
-        int n_spherical_states{0}; // init number of spherical states
         for (int inl = 0; inl < 36; ++inl) {
             if (csv_undefined != csv_custom[inl]) {
                 csv_charge[csv_custom[inl]] += occ_custom[inl];
-                ++n_spherical_states;
             } // csv defined
         } // inl
-        if (echo > 2) std::printf("# %s has %d spherical states\n", label, n_spherical_states);
         
         double const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
         if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
-
-
-        if (0) { // scope: initialize the spherical states and true spherical densities
-            // typically, there are at most 20 spherical states without spin-orbit coupling
-            spherical_state = std::vector<spherical_state_t>(n_spherical_states);
-            int ics{0}; // init counter of spherical states
-            for (int enn = 1; enn < 9; ++enn) { // principal quantum number n
-                for (int ell = 0; ell < enn; ++ell) { // angular momentum character l
-                    int const inl = atom_core::nl_index(enn, ell);
-                    if (echo > 15) std::printf("# %s enn= %d, ell= %d, inl= %d, ics= %d\n", label, enn, ell, inl, ics);
-                    if (inl < 36) {
-                        if (csv_undefined != csv_custom[inl]) {
-                            assert(ics < n_spherical_states);
-                            auto & cs = spherical_state[ics]; // abbreviate "core state"
-
-                            cs.energy = atom_core::guess_energy(Z_core, enn);
-                            if (valence == csv_custom[inl]) cs.energy = p.states[ist_custom[inl]].e;
-                            std::snprintf(cs.tag, 7, "%d%c", enn, ellchar[ell]); // create a state label
-                            cs.nrn[TRU] = enn - ell - 1; // true number of radial nodes
-                            cs.enn = enn;
-                            cs.ell = ell;
-                            cs.emm = emm_Degenerate;
-                            cs.spin = spin_Degenerate;
-                            cs.csv = csv_custom[inl];
-                            cs.occupation = occ_custom[inl];
-                            if (echo > 7) std::printf("# %s %-9s%-4s%6.1f\n", label, csv_name(cs.csv), cs.tag, cs.occupation);
-
-                            ++ics; // add a spherical state
-                        } // csv defined
-                    } // occupied
-                } // ell
-            } // enn
-
-            // get memory for the true radial wave functions and kinetic waves
-            true_core_waves = view3D<double>(2, n_spherical_states, align<2>(nr[TRU]), 0.0);
-            for (int ics = 0; ics < n_spherical_states; ++ics) {
-                auto & cs = spherical_state[ics]; // abbreviate "core state"
-                cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
-                cs.wKin[TRU] = true_core_waves(1,ics); // the kinetic energy wave
-            } // ics
-
-        } // scope
-
-        if (0) { // scope: initialize the spherical states and spherical densities
-            // BEWARE: does not work since potential has not been set to meaningful values
-            set(potential[TRU].data(), nr[TRU], -Z_core); // hydrogen-like potential
-            float const mixing[3] = {1, 1, 1}; // take 100% of the new density (old densities are zero)
-            update_spherical_states(mixing, echo, true);
-        } // scope
-
-        
-  
-
 
         // 
         // Partial Waves
