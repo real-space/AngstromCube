@@ -56,7 +56,7 @@
     #include "element_config.hxx" // ::get
 #endif // HAS_ELEMENT_CONFIG
 
-#include "paw_xml_export.hxx" // ::write_to_file
+#include "pawxml_export.hxx" // ::write_to_file
 
 // #define DEBUG
 #ifdef  DEBUG
@@ -860,7 +860,7 @@ namespace single_atom {
         if (export_xml) {
             update_potential(potential_mixing, nullptr, echo); // compute the zero_potential and total energy contributions
             if (echo > 0) std::printf("\n\n# %s export configuration to file\n", label);
-            auto const stat = paw_xml_export::write_to_file(Z_core, rg, 
+            auto const stat = pawxml_export::write_to_file(Z_core, rg, 
                 partial_wave, partial_wave_active.data(),
                 kinetic_energy, csv_charge, spherical_density, projectors,
                 r_cut, sigma_compensator, zero_potential.data(), echo,
@@ -869,7 +869,7 @@ namespace single_atom {
                 custom_configuration,
                 exchange_correlation::default_LDA,
                 control::get("single_atom.export.path", "."));
-            if (stat) warn("paw_xml_export::write_to_file returned status= %i", int(stat));
+            if (stat) warn("pawxml_export::write_to_file returned status= %i", int(stat));
             if (control::get("single_atom.optimize.sigma", 0.) > 0) {
                 warn("optimized sigma may differ from config string for Z=%g", Z_core);
             }

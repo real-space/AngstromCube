@@ -10,12 +10,12 @@ ln -sf $dir ./gpaws
 for f in `ls gpaws/*.LDA gpaws/*.PBE`; do
 
   echo -n "$f "
-  $exe -t gpaw_loading +gpaw_loading.test.filename=$f
+  $exe -t pawxml_import +pawxml_import.test.filename=$f
 
 done
 
 ## see if we get the same after two conversions
 f=C.LDA
-$exe -t gpaw_loading +gpaw_loading.test.repeat=1 +gpaw_loading.test.filename=$f
-$exe -t gpaw_loading +gpaw_loading.test.repeat=1 +gpaw_loading.test.filename=$f.repeat.xml
+$exe -t pawxml_import +pawxml_import.test.repeat=1 +pawxml_import.test.filename=$f
+$exe -t pawxml_import +pawxml_import.test.repeat=1 +pawxml_import.test.filename=$f.repeat.xml
 diff $f.repeat.xml $f.repeat.xml.repeat.xml

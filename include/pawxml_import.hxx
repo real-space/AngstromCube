@@ -31,7 +31,7 @@
  * Loading of PAW XML files generated for GPAW
  */
 
-namespace gpaw_loading {
+namespace pawxml_import {
 
   struct pawxmlstate_t {
       std::vector<double> tsp[3];
@@ -255,11 +255,11 @@ namespace gpaw_loading {
   inline status_t test_loading(int const echo=0) {
       SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
-      char const *filename = control::get("gpaw_loading.test.filename", "C.LDA");
+      char const *filename = control::get("pawxml_import.test.filename", "C.LDA");
       if (echo > 7) std::printf("# %s file=%s\n", __func__, filename);
       auto const p = parse_pawxml(filename, echo);
 
-      auto const repeat_file = control::get("gpaw_loading.test.repeat", 0.0);
+      auto const repeat_file = control::get("pawxml_import.test.repeat", 0.0);
       if (repeat_file) {
           // create an XML file that should reproduce this
           char outfile[992]; std::snprintf(outfile, 991, "%s.repeat.xml", filename);
@@ -328,4 +328,4 @@ namespace gpaw_loading {
 
 #endif // NO_UNIT_TESTS
 
-} // namespace gpaw_loading
+} // namespace pawxml_import

@@ -8,7 +8,7 @@
 #include "energy_level.hxx" // partial_wave_t, TRU, SMT, TRU_AND_SMT
 #include "control.hxx" // ::get
 
-namespace paw_xml_export {
+namespace pawxml_export {
 
   template <class PartialWave>
   int write_to_file(
@@ -37,8 +37,8 @@ namespace paw_xml_export {
       // Export Projector Augmented Wave data in XML format
   {
       auto const git_key = control::get("git.key", "");
-      int  const show_rg = control::get("paw_xml_export.show.radial.grid", 0.);  // ABINIT needs this
-      int  const ir0     = control::get("paw_xml_export.start.radial.grid", 0.); // use 1. for ABINIT
+      int  const show_rg = control::get("pawxml_export.show.radial.grid", 0.);  // ABINIT needs this
+      int  const ir0     = control::get("pawxml_export.start.radial.grid", 0.); // use 1. for ABINIT
 
       double constexpr Y00 = .28209479177387817; // == 1/sqrt(4*pi)
       char const ts_label[TRU_AND_SMT][8] = {"ae", "pseudo"};
@@ -229,4 +229,4 @@ namespace paw_xml_export {
       return 0; // 0:success
   } // write_to_file
 
-} // namespace paw_xml_export
+} // namespace pawxml_export

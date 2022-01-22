@@ -44,13 +44,13 @@
   #include "vector_layout.hxx" // ::all_tests
   #include "sho_potential.hxx" // ::all_tests
   #include "green_kinetic.hxx" // ::all_tests
+  #include "pawxml_import.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
   #include "angular_grid.hxx" // ::all_tests
   #include "pseudo_tools.hxx" // ::all_tests
   #include "simple_timer.hxx" // ::all_tests
-  #include "gpaw_loading.hxx" // ::all_tests
   #include "sigma_config.hxx" // ::all_tests
   #include "dense_solver.hxx" // ::all_tests
   #include "json_reading.hxx" // ::all_tests
@@ -174,7 +174,7 @@
           add_module_test(bessel_transform);
           add_module_test(scattering_test);
           add_module_test(single_atom);
-          add_module_test(gpaw_loading);
+          add_module_test(pawxml_import);
 
           if (chapters) std::printf("\n\n\n\n#\n# SHO-specific modules\n#\n\n\n\n");
           add_module_test(sho_tools);
