@@ -113,9 +113,9 @@ cat > control.sh << EOF
 verbosity=7
 
 ## display energies in custom units {Ha, Ry, eV}
-output.energy.unit=eV
+#output.energy.unit=eV
 ## display distances in custom units {Bohr, Ang, nm, pm}
-output.length.unit=Ang
+#output.length.unit=Ang
 
 ## atomic geometry
 geometry.file=$base.xyz
@@ -223,7 +223,7 @@ start.waves.scale.sigma=6
 
 ## load start waves from file (basis=grid), store wave functions to file
 start.waves=$base.waves.dat
-store.waves=$base.waves.dat
+#store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}

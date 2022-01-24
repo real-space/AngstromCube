@@ -444,7 +444,7 @@ namespace single_atom {
             potential[ts]       = std::vector<double>(nr[ts], 0.0); // get memory for r*V(r)
         } // true and smooth
 
-        { // scope to load potential[TRU]
+        { // scope to load potential[TRU] from file pot/Zeff.00Z
             auto const load_stat = atom_core::read_Zeff_from_file(potential[TRU].data(), rg[TRU], Z_core, "pot/Zeff", -1, echo, label);
             if (0 != load_stat) {
                 if ('g' == (*control::get("single_atom.start.potentials", "generate") | 32)) {
@@ -989,85 +989,80 @@ namespace single_atom {
         set(nn, 1 + ELLMAX, uint8_t(0)); // clear
 
         int ncmx[4]; // largest enn of the core electrons
-        { // scope: initialize from pawxml data
+        sigma_config::set_default_core_shells(ncmx, Z_core);
+        if (echo > 6) std::printf("# %s preliminary core states up to %ds %dp %dd %df\n", label, ncmx[0], ncmx[1], ncmx[2], ncmx[3]);
 
-            sigma_config::set_default_core_shells(ncmx, Z_core);
-            if (echo > 6) std::printf("# %s preliminary core states up to %ds %dp %dd %df\n", label, ncmx[0], ncmx[1], ncmx[2], ncmx[3]);
+        r_cut = rg[SMT].rmax; // init at maximum
+        std::vector<int8_t> enn_ell(1 + ELLMAX, 0);
+        int ist{0};
+        for (auto & s : p.states) {
+            int const enn = s.n, ell = s.l;
+            if (echo > 4) std::printf("# %s valence state %d%c E= %.6f %s\n", label, enn, ellchar[ell], s.e*eV, _eV);
+            assert(0 <= ell); assert(ell <= ELLMAX);
+            ++nn[ell]; // increase the number of partial waves for this ell
+            if (enn > 0) {
+                if (ell < 4) ncmx[ell] = std::min(ncmx[ell], enn - 1);
+                enn_ell[ell] = enn;
+                int const inl = atom_core::nl_index(enn, ell);
+                assert(inl < 36);
+                ist_custom[inl] = ist;
+                assert(0 <= s.f); assert(s.f <= 2*(ell + 1 + ell)); // sanity check for occupation numbers
+                occ_custom[inl] = s.f; // copy occupation numbers
+                csv_custom[inl] = valence;
+            } else {
+                int const enn_prime = std::max(ell + 1, enn_ell[ell] + 1);
+                int const inl = atom_core::nl_index(enn_prime, ell);
+                assert(inl < 36);
+                ist_custom[inl] = ist;
+                ++enn_ell[ell];
+            } // enn valid
+            r_cut = std::min(r_cut, double(s.rc));
+            ++ist;
+        } // valence states
+        assert(p.states.size() == ist && "fatal counting error");
+        if (echo > 3) std::printf("# %s core states up to %ds %dp %dd %df\n", label, ncmx[0], ncmx[1], ncmx[2], ncmx[3]);
+        if (echo > 3) std::printf("# %s smallest cutoff radius is %g %s\n", label, r_cut*Ang, _Ang);
 
-            r_cut = rg[SMT].rmax; // init at maximum
-            std::vector<int8_t> enn_ell(1 + ELLMAX, 0);
-            int ist{0};
-            for (auto & s : p.states) {
-                int const enn = s.n, ell = s.l;
-                if (echo > 4) std::printf("# %s valence state %d%c E= %.6f %s\n", label, enn, ellchar[ell], s.e*eV, _eV);
-                assert(0 <= ell); assert(ell <= ELLMAX);
-                ++nn[ell]; // increase the number of partial waves for this ell
-                if (enn > 0) {
-                    if (ell < 4) ncmx[ell] = std::min(ncmx[ell], enn - 1);
-                    enn_ell[ell] = enn;
-                    int const inl = atom_core::nl_index(enn, ell);
-                    assert(inl < 36);
-                    ist_custom[inl] = ist;
-                    assert(0 <= s.f); assert(s.f <= 2*(ell + 1 + ell)); // sanity check for occupation numbers
-                    occ_custom[inl] = s.f; // copy occupation numbers
-                    csv_custom[inl] = valence;
-                } else {
-                    int const enn_prime = std::max(ell + 1, enn_ell[ell] + 1);
-                    int const inl = atom_core::nl_index(enn_prime, ell);
-                    assert(inl < 36);
-                    ist_custom[inl] = ist;
-                    ++enn_ell[ell];
-                } // enn valid
-                r_cut = std::min(r_cut, double(s.rc));
-                ++ist;
-            } // valence states
-            assert(p.states.size() == ist && "fatal counting error");
-            if (echo > 3) std::printf("# %s core states up to %ds %dp %dd %df\n", label, ncmx[0], ncmx[1], ncmx[2], ncmx[3]);
-            if (echo > 3) std::printf("# %s smallest cutoff radius is %g %s\n", label, r_cut*Ang, _Ang);
-
-            { // scope: determine numax
-                int nu_max{-1};
-                for (int ell = 0; ell <= ELLMAX; ++ell) {
-                    if (nn[ell] > 0) {
-                        int const numax_min = 2*nn[ell] - 2 + ell; // this is the minimum numax that we need to get for nn[ell]
-                        nu_max = std::max(nu_max, numax_min);
-                    } // nn > 0
-                } // ell
-                numax = nu_max;
-                assert(numax >= 0);
-                if (echo > 3) std::printf("# %s numax is %d\n", label, numax);
-            } // scope
-
-            // fill the core
-            for (int ell = 0; ell < 4; ++ell) {
-                for (int enn = ell + 1; enn <= ncmx[ell]; ++enn) {
-                    int const inl = atom_core::nl_index(enn, ell);
-                    if (csv_undefined == csv_custom[inl]) {
-                        csv_custom[inl] = core;
-                        occ_custom[inl] = 2*(ell + 1 + ell);
-                        if (echo > 8) std::printf("# %s %d%c is a fully occupied core state\n", label, enn, ellchar[ell]);
-                    } // new core state
-                } // enn
+        { // scope: determine numax
+            int nu_max{-1};
+            for (int ell = 0; ell <= ELLMAX; ++ell) {
+                if (nn[ell] > 0) {
+                    int const numax_min = 2*nn[ell] - 2 + ell; // this is the minimum numax that we need to get for nn[ell]
+                    nu_max = std::max(nu_max, numax_min);
+                } // nn > 0
             } // ell
+            numax = nu_max;
+            assert(numax >= 0);
+            if (echo > 3) std::printf("# %s numax is %d\n", label, numax);
+        } // scope
 
-            sigma_compensator = p.shape_function_rc*std::sqrt(.5); // exp(-(r/rc)^2) == exp(-1/2*(r/sigma_compensator)^2)
+        // fill the core
+        for (int ell = 0; ell < 4; ++ell) {
+            for (int enn = ell + 1; enn <= ncmx[ell]; ++enn) {
+                int const inl = atom_core::nl_index(enn, ell);
+                if (csv_undefined == csv_custom[inl]) {
+                    csv_custom[inl] = core;
+                    occ_custom[inl] = 2*(ell + 1 + ell);
+                    if (echo > 8) std::printf("# %s %d%c is a fully occupied core state\n", label, enn, ellchar[ell]);
+                } // new core state
+            } // enn
+        } // ell
 
-            energy_ref[TRU] = p.ae_energy[3]; // reference total energy of neutral atom calculation
+        sigma_compensator = p.shape_function_rc*std::sqrt(.5); // exp(-(r/rc)^2) == exp(-1/2*(r/sigma_compensator)^2)
 
-            sigma = r_cut; // estimate ToDo: sigma from optimizing the projector representation in SHO basis
-
-        } // initialize from sigma_config
+        energy_ref[TRU] = p.ae_energy[3]; // reference total energy of neutral atom calculation
 
 
         if (echo > 1) std::printf("# %s projectors are expanded up to numax= %d\n", label, numax);
         ellmax_rho = 2*numax; // could be smaller than 2*numax
         ellmax_pot = ellmax_rho;
         if (echo > 1) std::printf("# %s radial density and potentials are expanded up to lmax= %d and %d, respectively\n", label, ellmax_rho, ellmax_pot);
-        ellmax_cmp = std::min(4, int(ellmax_rho));
+        ellmax_cmp = std::min(2, int(ellmax_rho)); // see https://wiki.fysik.dtu.dk/gpaw/algorithms.html at "Compensation charges"
         if (echo > 1) std::printf("# %s compensation charges are expanded up to lmax= %d\n", label, ellmax_cmp);
 
         nr_diff = rg[TRU].n - rg[SMT].n; // how many more radial grid points are in the radial for TRU quantities compared to the SMT grid
         ir_cut[SMT] = radial_grid::find_grid_index(rg[SMT], r_cut);
+        assert(0 == nr_diff && "same radial grid for true and smooth quantities");
         ir_cut[TRU] = ir_cut[SMT] + nr_diff;
         if (echo > 1) std::printf("# %s pseudize the core density at r[%i or %i]= %.6f, requested %.3f %s\n",
                           label, ir_cut[TRU], ir_cut[SMT], rg[SMT].r[ir_cut[SMT]]*Ang, r_cut*Ang, _Ang);
@@ -1088,7 +1083,7 @@ namespace single_atom {
         //
         // Spherical States are inactive
         //
-        
+
         set(csv_charge, 3, 0.); // clear numbers of electrons for {core, semicore, valence}
         for (int inl = 0; inl < 36; ++inl) {
             if (csv_undefined != csv_custom[inl]) {
@@ -1182,6 +1177,7 @@ namespace single_atom {
                         {   assert(tsp[2].size() == nr[SMT]);
                             set(projectors[iln], nr[SMT], tsp[2].data());
                         }
+                        
 
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (vs.occupation > 0) {
@@ -1195,6 +1191,18 @@ namespace single_atom {
                                 // keep eigenstate notation
                             } // nrn > 0
                         } // occ > 0
+
+                        // add to inital valence density
+                        if (vs.occupation > 0) {
+                            assert(vs.wave[TRU]); // make sure the pointer is not null
+                            double const norm2 = dot_product(nr[TRU], vs.wave[TRU], vs.wave[TRU], rg[TRU].r2dr);
+                            if (echo > 9) std::printf("# %s state \'%s\' is normalized as %g\n", label, vs.tag, norm2);
+                            assert(norm2 > 0);
+                            assert(vs.wave[SMT]); // make sure the pointer is not null
+                            for (int ts = TRU; ts <= SMT; ++ts) {
+                                add_product(spherical_density[ts][valence], nr[ts], vs.wave[ts], vs.wave[ts], vs.occupation/norm2);
+                            } // ts
+                        } // occupied
 
                         if (echo > 0) show_state(label, csv_name(valence), vs.tag, vs.occupation, vs.energy);
 
@@ -1274,6 +1282,7 @@ namespace single_atom {
         } // scope
         if (echo > 0) std::printf("# %s zero_potential at origin %g %s\n", label, zero_potential[0]*Y00*eV, _eV);
 
+        
         { // scope: copy kinetic energy difference matrix of partial waves
             int const nstates = p.states.size();
             assert(nstates*nstates == p.dkin.size());
@@ -1293,21 +1302,32 @@ namespace single_atom {
             } // iln
         } // scope
 
-        // kinetic energy of the core electrons
+        sigma = 0.5*r_cut; // estimate ToDo: sigma from optimizing the projector representation in SHO basis
+        
+        // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves agains projectors
+        // ToDo: rotate the kinetic_energy deficit matrix acccordingly
+
+        // kinetic energy of core electrons
+        set(energy_kin_csvn[0], 4*2, 0.0);
         energy_kin_csvn[core][TRU] = p.core_energy_kinetic;
 
         update_charge_deficit(echo);
-        { // scope: compute charge deficit of core densities
-            double const ccd[] = {dot_product(rg[TRU].n, spherical_density[TRU][core], rg[TRU].r2dr),
-                                  dot_product(rg[SMT].n, spherical_density[SMT][core], rg[SMT].r2dr)};
-            spherical_charge_deficit[core] = ccd[TRU] - ccd[SMT];
-            if (echo > 0) std::printf("# %s true and smooth core densities have %g and %g electrons, respectively\n", label, ccd[TRU], ccd[SMT]);
+        // scope: compute charge deficit of spherical densities
+        for (int csv = core; csv <= valence; ++csv) { 
+            double const cd[] = {dot_product(rg[TRU].n, spherical_density[TRU][csv], rg[TRU].r2dr),
+                                 dot_product(rg[SMT].n, spherical_density[SMT][csv], rg[SMT].r2dr)};
+            spherical_charge_deficit[csv] = cd[TRU] - cd[SMT];
+            if (echo > 0 && csv_charge[csv] > 0) {
+                std::printf("# %s true and smooth %s densities have %g and %g electrons, respectively\n",
+                               label, csv_name(csv), cd[TRU], cd[SMT]);
+            } // echo
         } // scope
-
+        
         float const density_mixing[] = {0, 0, 0};
         bool const synthetic_density_matrix = true;
         update_density(density_mixing, echo, synthetic_density_matrix);
         update_potential(0.f, nullptr, echo);
+        
 
     } // constructor from pawxml
 
@@ -2962,7 +2982,7 @@ namespace single_atom {
             if (echo > 2) std::printf("# %s %s density has %g electrons\n",
                       label, ts_name[ts], dot_product(nr, full_density[ts][00], rg[ts].r2dr)*Y004pi);
 
-        } // true and smooth
+        } // ts: true and smooth
 
         // determine the compensator charges
         int const nlm_cmp = pow2(1 + ellmax_cmp);
@@ -4033,7 +4053,6 @@ namespace single_atom {
 
       float constexpr ar2_default = 16.f;
       int   constexpr nr2_default = 1 << 12;
-//    int   constexpr numax_default = 3;
       float const mix_defaults[] = {.5f, .5f, .5f, .5f}; // {mix_pot, mix_rho_core, mix_rho_semicore, mix_rho_valence}
 
       int na{natoms};
@@ -4043,7 +4062,7 @@ namespace single_atom {
 
       switch (how) {
 
-          case 'i': // interface usage: atom_update("initialize", natoms, Za[], numax[], ion[]=0, dpp=null);
+          case 'i': // interface usage: atom_update("initialize", natoms, dp=Za[], ip=numax[], ion[]=0, dpp=null);
           {
               double const *Za = dp; assert(nullptr != Za); // may not be nullptr as it holds the atomic core charge Z[ia]
               a.resize(na);
@@ -4054,7 +4073,12 @@ namespace single_atom {
               for (size_t ia = 0; ia < a.size(); ++ia) {
                   float const ion = (fp) ? fp[ia] : 0;
                   echo_mask[ia] = (-1 == bmask) ? 1 : ((bmask >> ia) & 0x1);
-                  a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ia, echo_mask[ia]*echo_init, ion);
+                  int type{0}; if (ip) type = (-9 == ip[ia]);
+                  if (0 == type) {
+                      a[ia] = new LiveAtom(Za[ia], atomic_valence_density, ia, echo_mask[ia]*echo_init, ion);
+                  } else {
+                      a[ia] = new LiveAtom(Za[ia], echo_mask[ia]*echo_init); // load from pawxml files
+                  }
                   if (ip) ip[ia] = a[ia]->get_numax(); // export numax, optional
               } // ia
           }
@@ -4073,10 +4097,10 @@ namespace single_atom {
           }
           break;
 
-          case '#': // interface usage: atom_update("#core electrons", natoms, ne[]);
-                    // interface usage: atom_update("#semicore electrons", natoms, ne[]);
-                    // interface usage: atom_update("#valence electrons", natoms, ne[]);
-                    // interface usage: atom_update("#all electrons", natoms, ne[]);
+          case '#': // interface usage: atom_update("#core electrons", natoms, dp=ne[]);
+                    // interface usage: atom_update("#semicore electrons", natoms, dp=ne[]);
+                    // interface usage: atom_update("#valence electrons", natoms, dp=ne[]);
+                    // interface usage: atom_update("#all electrons", natoms, dp=ne[]);
           {
               double *ne = dp; assert(nullptr != ne);
               for (size_t ia = 0; ia < a.size(); ++ia) {
