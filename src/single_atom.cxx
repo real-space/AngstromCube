@@ -59,7 +59,7 @@
 
 #ifdef HAS_RAPIDXML
     #include "pawxml_import.hxx" // ::parse_pawxml, pawxml_t, pawxmlstate_t
-    // #include "radial_grid.hxx" // ::create_radial_grid
+    // #include "radial_grid.hxx" // ::create_radial_grid, ::equation_reciprocal
 #endif // HAS_RAPIDXML
 
 #include "pawxml_export.hxx" // ::write_to_file
@@ -1284,25 +1284,29 @@ namespace single_atom {
                     for (int jln = 0; jln < nln; ++jln) {
                         int const jst = ist_index[jln];
                         if (jst >= 0) {
-                            kinetic_energy(TRU,iln,jln) = p.dkin[ist*nstates + jst]; // import kinetic energy deficit
+                            auto const dkin = p.dkin[ist*nstates + jst]; // import kinetic energy deficit
+                            // dkin[][] is the difference kinetic_energy[TRU][][] - kinetic_energy[SMT][][] but we do not know the exact numbers
+                            kinetic_energy(TRU,iln,jln) = dkin;
                         } // jst
                     } // jln
                 } // ist
             } // iln
         } // scope
-        
+
         // kinetic energy of the core electrons
         energy_kin_csvn[core][TRU] = p.core_energy_kinetic;
 
         update_charge_deficit(echo);
-        
-        spherical_charge_deficit[core] = dot_product(rg[TRU].n, spherical_density[TRU][core], rg[TRU].r2dr)
-                                       - dot_product(rg[SMT].n, spherical_density[SMT][core], rg[SMT].r2dr);
-
-        control::set("single_atom.synthetic.density.matrix", "1");
+        { // scope: compute charge deficit of core densities
+            double const ccd[] = {dot_product(rg[TRU].n, spherical_density[TRU][core], rg[TRU].r2dr),
+                                  dot_product(rg[SMT].n, spherical_density[SMT][core], rg[SMT].r2dr)};
+            spherical_charge_deficit[core] = ccd[TRU] - ccd[SMT];
+            if (echo > 0) std::printf("# %s true and smooth core densities have %g and %g electrons, respectively\n", label, ccd[TRU], ccd[SMT]);
+        } // scope
 
         float const density_mixing[] = {0, 0, 0};
-        update_density(density_mixing, echo);
+        bool const synthetic_density_matrix = true;
+        update_density(density_mixing, echo, synthetic_density_matrix);
         update_potential(0.f, nullptr, echo);
 
     } // constructor from pawxml
@@ -2706,12 +2710,31 @@ namespace single_atom {
     } // unfold_projector_coefficients
 
     
+    void create_synthetic_density_matrix(view2D<double> & radial_density_matrix, int const echo=0) {
+        if (echo > 1) std::printf("\n# %s create a synthetic radial density matrix\n", label);
+        int const nSHO = sho_tools::nSHO(numax);
+        for (int ilmn = 0; ilmn < nSHO; ++ilmn) {
+            int const iln = ln_index_list[ilmn];
+            if (partial_wave_active[iln]) {
+                auto const ell = partial_wave[iln].ell;
+                double const occ = partial_wave[iln].occupation/(2*ell + 1.);
+                for (int jlmn = 0; jlmn < nSHO; ++jlmn) {
+                    int const jln = ln_index_list[jlmn];
+                    if (partial_wave_active[jln]) {
+                        radial_density_matrix(ilmn,jlmn) = (ilmn == jlmn)*occ;
+                    } // active_j
+                } // jlmn
+            } // active_i
+        } // ilmn
+    } // create_synthetic_density_matrix
+    
     
     void get_rho_tensor(
           view3D<double> & rho_tensor // result tensor with indices (lm,iln,jln) where iln,jln are in radial SHO basis
         , view2D<double> const & rho_matrix
         , sho_tools::SHO_order_t const order=sho_tools::order_zyx
         , int const echo=0
+        , bool const synthetic_density_matrix=false
     ) {
         // from a density matrix (various representations possible) create a density tensor
 
@@ -2779,7 +2802,10 @@ namespace single_atom {
         } // echo
 #endif // DEVEL
 
-        { // scope: bring the iln,jln indices of rho_tensor into the partial-wave space
+        if (synthetic_density_matrix) {
+            create_synthetic_density_matrix(radial_density_matrix, echo);
+        } else {
+            // bring the iln,jln indices of rho_tensor into the partial-wave space
             auto const u_proj = unfold_projector_coefficients();
             int const N = nSHO;
             view2D<double> tmp_mat(N, N);
@@ -2791,18 +2817,18 @@ namespace single_atom {
 #ifdef DEVEL
         auto const n_modify = 1 + int(control::get("single_atom.synthetic.density.matrix", 0.));
         for (int i_modify = 0; i_modify < n_modify; ++i_modify) {
-            if (i_modify > 0 && echo > 1) std::printf("\n# %s create a synthetic radial density matrix\n", label);
+
+            if (i_modify > 0) create_synthetic_density_matrix(radial_density_matrix, echo);
+
+            // display radial density matrix in partial waves
             if (echo > 7) std::printf("# %s Radial density matrix in partial waves:\n", label);
             for (int ilmn = 0; ilmn < nSHO; ++ilmn) {
                 int const iln = ln_index_list[ilmn];
                 if (partial_wave_active[iln]) {
-                    auto const ell = partial_wave[iln].ell;
-                    double const occ = partial_wave[iln].occupation/(2*ell + 1.);
                     if (echo > 7) std::printf("# %s %-8s ", label, partial_wave[iln].tag);
                     for (int jlmn = 0; jlmn < nSHO; ++jlmn) {
                         int const jln = ln_index_list[jlmn];
                         if (partial_wave_active[jln]) {
-                            if (i_modify > 0) radial_density_matrix(ilmn,jlmn) = (ilmn == jlmn)*occ;
                             if (echo > 7) std::printf(" %11.6f", radial_density_matrix(ilmn,jlmn));
                         } // active_j
                     } // jlmn
@@ -2810,6 +2836,7 @@ namespace single_atom {
                 } // active_i
             } // ilmn
             if (echo > 7) std::printf("\n");
+            
         } // i_modify
 
         if (echo > 2) {
@@ -3747,6 +3774,7 @@ namespace single_atom {
     void update_density(
           float const density_mixing[3] // mixing of the spherical {core,semicore,valence} density
         , int const echo=0 // log-level
+        , bool const synthetic_density_matrix=false
     ) {
         if (echo > 2) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
         update_spherical_states(density_mixing, echo); // compute core level shifts
@@ -3772,7 +3800,7 @@ namespace single_atom {
         int const lmax = std::max(ellmax_rho, ellmax_cmp);
         int const mlm = pow2(1 + lmax);
         view3D<double> rho_tensor(mlm, nln, nln, 0.0); // get memory
-        get_rho_tensor(rho_tensor, density_matrix, sho_tools::order_zyx, echo);
+        get_rho_tensor(rho_tensor, density_matrix, sho_tools::order_zyx, echo, synthetic_density_matrix);
         update_full_density(rho_tensor, echo);
     } // update_density
 
