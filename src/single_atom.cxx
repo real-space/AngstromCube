@@ -1094,7 +1094,7 @@ namespace single_atom {
                 csv_charge[csv_custom[inl]] += occ_custom[inl];
             } // csv defined
         } // inl
-        
+
         double const total_n_electrons = csv_charge[core] + csv_charge[semicore] + csv_charge[valence];
         if (echo > 2) std::printf("# %s initial occupation with %g electrons: %g core, %g semicore and %g valence electrons\n", 
                                     label, total_n_electrons, csv_charge[core], csv_charge[semicore], csv_charge[valence]);
@@ -1110,12 +1110,11 @@ namespace single_atom {
             nlnn += nn[ell]; // count active partial waves
         } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
-//          partial_wave_radial_part[ts] = view3D<double>(2, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function and kinetic wave
-            partial_wave_radial_part[ts] = view3D<double>(1, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function
+            partial_wave_radial_part[ts] = view3D<double>(1, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function, no kinetic wave
         } // ts
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-        
+
         projectors = view2D<double>(nln, nr[SMT], 0.0); // get memory, radial representation
         for (int ell = 0; ell <= numax; ++ell) {
             projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
@@ -1153,7 +1152,7 @@ namespace single_atom {
                         assert(ilnn < nlnn);
                         for (int ts = TRU; ts <= SMT; ++ts) {
                             vs.wave[ts] = partial_wave_radial_part[ts](0,ilnn); // pointer for the {true, smooth} radial function
-                            vs.wKin[ts] = nullptr; // partial_wave_radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
+                            vs.wKin[ts] = nullptr; // _radial_part[ts](1,ilnn); // pointer for the {true, smooth} kinetic energy
                         } // ts
                         ++ilnn; // add one partial wave
                     } else {
