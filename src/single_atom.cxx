@@ -2540,7 +2540,7 @@ namespace single_atom {
 
             // compute kinetic energy difference matrix from wKin
             for (int ts = TRU; ts < TRU_AND_SMT; ++ts) {
-                int const nr_cut = rg[ts].n; // integration over the entire grid -. diagonal elements then appear positive.
+                int const nr_cut = rg[ts].n; // integration over the entire grid, diagonal elements then appear positive
                 for     (int iln = 0 + ln_off; iln < n + ln_off; ++iln) {
                     for (int jln = 0 + ln_off; jln < n + ln_off; ++jln) {
                         kinetic_energy(ts,iln,jln) = dot_product(nr_cut,
@@ -2746,7 +2746,7 @@ namespace single_atom {
         for (int ilmn = 0; ilmn < nSHO; ++ilmn) {
             int const iln = ln_index_list[ilmn];
             if (partial_wave_active[iln]) {
-                auto const ell = partial_wave[iln].ell;
+                auto   const ell = partial_wave[iln].ell;
                 double const occ = partial_wave[iln].occupation/(2*ell + 1.);
                 for (int jlmn = 0; jlmn < nSHO; ++jlmn) {
                     int const jln = ln_index_list[jlmn];
@@ -2757,8 +2757,8 @@ namespace single_atom {
             } // active_i
         } // ilmn
     } // create_synthetic_density_matrix
-    
-    
+
+
     void get_rho_tensor(
           view3D<double> & rho_tensor // result tensor with indices (lm,iln,jln) where iln,jln are in radial SHO basis
         , view2D<double> const & rho_matrix
@@ -3849,6 +3849,7 @@ namespace single_atom {
         update_full_potential(potential_mixing, ves_multipoles, echo);
         total_energy_contributions(energy_tot, energy_kin, echo);
         update_matrix_elements(echo); // this line does not compile with icpc (ICC) 19.0.2.187 20190117
+        perturbation_theory(echo);
     } // update_potential
 
     double get_total_energy(
@@ -3957,6 +3958,131 @@ namespace single_atom {
         if (atom_id < 0) std::snprintf(label, 15, "%s", chemical_symbol); 
         else std::snprintf(label, 15, "%s#%i", chemical_symbol, atom_id); 
     } // set_label
+    
+
+    status_t perturbation_theory(int const echo=0) {
+        SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
+
+        auto const lambda = control::get("single_atom.perturbation.strength", 1.);
+        int        ellmax = control::get("single_atom.perturbation.ellmax", 7.);
+        ellmax = std::min(ellmax, int(ellmax_pot));
+
+        status_t status(0);
+        auto const & g = rg[TRU];
+
+        std::vector<double> rV(g.n); // r*V(r)
+        product(rV.data(), g.n, g.r, full_potential[TRU][00], Y00);
+        rV[0] = -Z_core; // correct for singularity
+
+        if (echo > 5) {
+            std::printf("\n## r rV (a.u.):\n");
+            for (int ir = 0; ir < 9; ++ir) {
+                std::printf("%g %g\n", g.r[ir], rV[ir]);
+            } // ir
+            std::printf("\n\n");
+        } // echo
+
+        int const nlm = pow2(1 + ellmax);
+        int const nln = sho_tools::nSHO_radial(numax);
+
+        // compute eigenstates of the spherical (unperturbed) Hamiltonian
+
+        int const nr_aligned = align<2>(g.n);
+        view2D<double> rwave0(nln, nr_aligned, 0.0);
+        std::vector<double> energy0(nln);
+        for (int iln = 0; iln < nln; ++iln) {
+            int const enn = partial_wave[iln].enn;
+            int const ell = partial_wave[iln].ell;
+            double E      = partial_wave[iln].energy; // alternatively take the corresponding energy from spherical_states
+            auto const stat = radial_eigensolver::shooting_method(SRA, g, rV.data(), enn, ell, E, rwave0[iln]);
+            if (stat) {
+                if (echo > 0) std::printf("# %s failed to solve spherical problem for ell=%d\n", label, ell);
+                status += std::abs(stat);
+            } else {
+                if (echo > 0) std::printf("# %s found %d%c-energy at%12.6f %s\n", label, enn, ellchar[ell], E*eV, _eV);
+            } // stat
+            // ToDo: normalize states rwave0
+            auto const norm2 = dot_product(g.n, rwave0[iln], rwave0[iln], g.dr);
+            if (norm2 > 0) {
+                scale(rwave0[iln], g.n, 1./std::sqrt(norm2));
+            } else {
+                status += 1;
+                warn("%s failed to normalize %d%c-state\n", label, enn, ellchar[ell]);
+            } // norm2
+            energy0[iln] = E; // store
+        } // ell
+
+        // start perturbation theory
+        // < rwave0 | V_nonspherical | rwave0' >
+        // in analogy to the construction of the true Hamiltonian elements in update_matrix_elements of single_atom.cxx
+
+        // construct the potential tensor in terms of the emm_Degenerate partial waves
+        view3D<double> potential_ln(nlm, nln, nln, 0.0); // get memory, // emm1-emm2-degenerate
+        { // scope: fill potential_ln
+            std::vector<double> wave_pot_rdr(g.n);
+            for (int lm = 00; lm < nlm; ++lm) {
+                // similar but not the same with check_spherical_matrix_elements
+                for (int iln = 0; iln < nln; ++iln) {
+                    product(wave_pot_rdr.data(), g.n, rwave0[iln], full_potential[TRU][lm], g.dr);
+                    for (int jln = 0; jln < nln; ++jln) {
+                        potential_ln(lm,iln,jln) = dot_product(g.n, wave_pot_rdr.data(), rwave0[jln]);
+                    } // jln
+                } // iln
+            } // lm
+        } // scope
+
+//      initialize_Gaunt(); // make sure the Gaunt tensor is precomputed
+
+        int const nlmn = sho_tools::nSHO(numax);
+        view2D<double> hamiltonian_lmn(nlmn, nlmn, 0.0);
+        for (int ilmn = 0; ilmn < nlmn; ++ilmn) {
+            int const iln = ln_index_list[ilmn];
+            hamiltonian_lmn(ilmn,ilmn) = energy0[iln]; // diagonal elements
+        } // ilmn
+
+
+        // add contribution of the non-spherical potential
+        int const mlm = pow2(1 + numax);
+        for (auto gnt : gaunt) {
+            int const lm = gnt.lm, lm1 = gnt.lm1, lm2 = gnt.lm2; auto const G = gnt.G * lambda;
+            if (lm > 00) { // the spherical part is already included in energy0[]
+                if (lm1 < mlm && lm2 < mlm) {
+                    if (lm < nlm) {
+                        for (int ilmn = lmn_begin[lm1]; ilmn < lmn_end[lm1]; ++ilmn) {
+                            int const iln = ln_index_list[ilmn];
+                            for (int jlmn = lmn_begin[lm2]; jlmn < lmn_end[lm2]; ++jlmn) {
+                                int const jln = ln_index_list[jlmn];
+                                hamiltonian_lmn(ilmn,jlmn) += G * potential_ln(lm,iln,jln);
+                            } // jlmn
+                        } // ilmn
+                    } // lm
+                } // limits
+            } // lm > 00
+        } // gnt
+
+        std::vector<double> energy1(nlmn, 0.0);
+        // diagonalize hamiltonian_lmn
+        auto const stat = linear_algebra::eigenvalues(energy1.data(), nlmn, hamiltonian_lmn.data(), hamiltonian_lmn.stride());
+        if (0 == stat) {
+            if (echo > 0) {
+                std::printf("# %s local spectrum(%s) ", label, _eV);
+                printf_vector(" %g", energy1.data(), nlmn, "\n", eV);
+            } // echo
+
+            // ToDo:
+            //  - export eigenenergies
+            //  - store eigenvector coefficients for density generation
+
+        } else {
+            status += std::abs(stat);
+            warn("%s diagonalization failed with status=%d", label, int(stat));
+        } // stat
+
+        return status;
+    } // perturbation_theory
+    
+    
+    
     
   }; // class LiveAtom
 

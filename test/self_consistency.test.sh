@@ -19,9 +19,9 @@ exe=../src/a43
 # printf " 1 \n#cell 4 4 4 i i i \n" > $base.xyz
 # echo "__  0 0 0" >> $base.xyz
 
-base=scf.C-atom
-printf " 1 \n#cell 8 8 8 i i i \n" > $base.xyz
-echo "C  0 0 0" >> $base.xyz
+# base=scf.C-atom
+# printf " 1 \n#cell 8 8 8 i i i \n" > $base.xyz
+# echo "C  0 0 0" >> $base.xyz
 
 # base=scf.methane
 # printf " 5 \n#cell 16 16 16 i i i \n" > $base.xyz
@@ -44,14 +44,16 @@ echo "C  0 0 0" >> $base.xyz
 # echo "C  0 0 -0.525" >> $base.xyz
 # echo "C  0 0  0.775" >> $base.xyz
 
-#base=scf.AlP
+base=scf.AlP
 # printf " 2 \n#cell 4.233418 4.233418 8.466836 p p p \n" > $base.xyz
 # printf " 2 \n#cell 10.5835 10.5835 12.7003 p p p \n" > $base.xyz
 # printf " 2 \n#cell 21.16708996 21.16708996 25.400507952 p p p \n" > $base.xyz
 # printf " 2 \n#cell 21.167 21.167 21.167 i i i \n" > $base.xyz
-#printf " 2 \n#cell 8.0 8.0 8.0 p p p \n" > $base.xyz
-#echo "Al   0 0 -1.058354499" >> $base.xyz
-#echo "P    0 0  1.058354499" >> $base.xyz
+printf " 2 \n#cell 8.0 8.0 8.0 i i i \n" > $base.xyz
+echo "Al   0 0 -1.058354499" >> $base.xyz
+echo "P    0 0  1.058354499" >> $base.xyz
+# echo "Al   0 0 -2.0" >> $base.xyz
+# echo "P    0 0  2.0" >> $base.xyz
 
 # base=scf.Al2
 # printf " 2 \n#cell 8.0 8.0 4.0 p p p \n" > $base.xyz
@@ -150,8 +152,8 @@ electrostatic.compensator=generalized_Gaussian
 element_H="1s* 1 0 2p | 0.9 sigma .25 V=parabola"
 element_C="2s* 2 2p* 2 0 3d | 1.2 sigma .43 V=parabola"
 
-#element_Al="3s* 2 3p* 1 0 3d | 1.8 sigma .5 V=parabola"
-#element_P="3s* 2 3p* 3 0 3d | 1.8 sigma 1.1 V=sinc"
+element_Al="3s* 2 3p* 1 0 3d | 2.05 sigma .645"
+element_P=" 3s* 2 3p* 3 0 3d | 1.8 sigma .512"
 
 
 ## partial wave method {recreate_second, energy_ordering, classical, ...}
@@ -222,8 +224,8 @@ grid.eigensolver.repeat=9
 start.waves.scale.sigma=6
 
 ## load start waves from file (basis=grid), store wave functions to file
-start.waves=$base.waves.dat
-#store.waves=$base.waves.dat
+#start.waves=$base.waves.dat
+store.waves=$base.waves.dat
 
 ## configuration for basis=pw
 # plane_wave.solver {auto, both, direct, iterative}

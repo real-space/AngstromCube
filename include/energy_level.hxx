@@ -15,9 +15,9 @@
       char tag[8]; // label
       enn_QN_t enn; // main quantum_number
       ell_QN_t ell; // angular momentum quantum_number
-      emm_QN_t emm; // usually emm == emm_Degenerate
-      spin_QN_t spin; // usually spin == spin_Degenerate
-      enn_QN_t nrn[Pseudo]; // number of radial nodes
+      emm_QN_t emm; // usually emm == emm_Degenerate      NEEDED?
+      spin_QN_t spin; // usually spin == spin_Degenerate  NEEDED?
+      enn_QN_t nrn[Pseudo]; // number of radial nodes     NEEDED?
       int8_t csv; // 0:core, 1:semicore, 2:valence, 3:undefined
   }; // struct energy_level_t
 
