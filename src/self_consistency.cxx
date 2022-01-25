@@ -252,12 +252,13 @@ namespace self_consistency {
 
 
       std::vector<double>  sigma_cmp(na, 1.); // spread of the Gaussian used in the compensation charges
-      std::vector<int32_t> numax(na, int(control::get("pawdata.from", -1.))); // -1: LivePAW, -9: load from pawxml files
+      char const pawdata_from = *control::get("pawdata.from", "auto"); // 'a': auto, 'f': pawxml_import
+      std::vector<int32_t> numax(na, ('f' == pawdata_from)?-9:-1); // -1: LivePAW, -9: load from pawxml files
       std::vector<int32_t> lmax_qlm(na, -1);
       std::vector<int32_t> lmax_vlm(na, -1);
 
       // initialize and get sigma, lmax for each atom
-      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)0);
+      stat += single_atom::atom_update("initialize", na, Za.data(), numax.data(), ionization.data(), (double**)1);
       stat += single_atom::atom_update("lmax qlm",   na,    nullptr, lmax_qlm.data(), &take_atomic_valence_densities);
       stat += single_atom::atom_update("lmax vlm",   na, (double*)1, lmax_vlm.data());
       stat += single_atom::atom_update("sigma cmp",  na, sigma_cmp.data());

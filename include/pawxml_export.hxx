@@ -1,11 +1,11 @@
 #pragma once
 
-#include <cstdio> // std::printf, std::fprintf, std::FILE, std::fopen, std::fclose, std::snprintf
+#include <cstdio> // std::printf, ::fprintf, ::FILE, ::fopen, ::fclose, ::snprintf
 
 #include "chemical_symbol.hxx" // ::get
 #include "radial_grid.h" // radial_grid_t
 #include "radial_grid.hxx" // ::get_prefactor, ::find_grid_index, ::get_formula
-#include "energy_level.hxx" // partial_wave_t, TRU, SMT, TRU_AND_SMT
+#include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
 #include "control.hxx" // ::get
 
 namespace pawxml_export {

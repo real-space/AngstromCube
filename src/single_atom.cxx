@@ -414,8 +414,9 @@ namespace single_atom {
     {
         // constructor routine
 
-        char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_core);
-        set_label(chem_symbol);
+        char chemical_symbol[4];
+        chemical_symbol::get(chemical_symbol, Z_core);
+        set_label(chemical_symbol);
 
         if (echo > 0) std::printf("\n\n#\n# %s LiveAtom with %g protons\n", label, Z_core);
 #ifndef   HAS_ELEMENT_CONFIG
@@ -485,7 +486,7 @@ namespace single_atom {
 #ifdef    HAS_ELEMENT_CONFIG
                             ('e' == (*control::get("single_atom.config", "sigma") | 32)) ? // s:sigma_config, e:element_config
                             element_config::get(Z_core, ionization, rg[TRU], potential[TRU].data(), 
-                                             chem_symbol, core_state_localization, echo) :
+                                             chemical_symbol, core_state_localization, echo) :
 #endif // HAS_ELEMENT_CONFIG
                             sigma_config::get(Z_core, echo - 4, &custom_configuration);
             if (echo > 0) std::printf("# %s got PAW configuration data for Z=%g: rcut=%g sigma=%g %s\n",
@@ -610,7 +611,7 @@ namespace single_atom {
             spherical_state.resize(n_spherical_states); // destruct unused core states
 
             // get memory for the true radial wave functions and kinetic waves
-            true_core_waves = view3D<double>(2, n_spherical_states, align<2>(nr[TRU]), 0.0);
+            true_core_waves = view3D<double>(2, n_spherical_states, nr[TRU], 0.0);
             for (int ics = 0; ics < n_spherical_states; ++ics) {
                 auto & cs = spherical_state[ics]; // abbreviate "core state"
                 cs.wave[TRU] = true_core_waves(0,ics); // the true radial function
@@ -651,7 +652,7 @@ namespace single_atom {
             nlnn += nn[ell]; // count active partial waves
         } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
-            partial_wave_radial_part[ts] = view3D<double>(2, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function and kinetic wave
+            partial_wave_radial_part[ts] = view3D<double>(2, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function and kinetic wave
         } // ts
         
         double constexpr energy_derivative = -8.0;
@@ -782,7 +783,7 @@ namespace single_atom {
         kinetic_energy = view3D<double>(TRU_AND_SMT, nln, nln, 0.0); // get memory
         zero_potential = std::vector<double>(nr[SMT], 0.0); // get memory
 
-        projectors = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory, radial representation
+        projectors = view2D<double>(nln, nr[SMT], 0.0); // get memory, radial representation
         for (int ell = 0; ell <= numax; ++ell) {
             projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
             for (int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -953,11 +954,12 @@ namespace single_atom {
     {
         // constructor routine
 
-        char chem_symbol[4]; chemical_symbol::get(chem_symbol, Z_protons);
-        set_label(chem_symbol);
+        char chemical_symbol[4];
+        chemical_symbol::get(chemical_symbol, Z_protons);
+        set_label(chemical_symbol);
 
         auto const pawpath = control::get("single_atom.pawxml.path", "gpaws");
-        char xmlfilename[512]; std::snprintf(xmlfilename, 511, "%s/%s.LDA", pawpath, chem_symbol);
+        char xmlfilename[512]; std::snprintf(xmlfilename, 511, "%s/%s.LDA", pawpath, chemical_symbol);
         if (echo > 0) std::printf("\n\n#\n# %s LiveAtom loads \'%s\'\n", label, xmlfilename);
         auto const p = pawxml_import::parse_pawxml(xmlfilename, echo);
         Z_core = p.Z;
@@ -1106,13 +1108,13 @@ namespace single_atom {
             nlnn += nn[ell]; // count active partial waves
         } // ell
         for (int ts = TRU; ts <= SMT; ++ts) {
-//          partial_wave_radial_part[ts] = view3D<double>(2, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function and kinetic wave
-            partial_wave_radial_part[ts] = view3D<double>(1, nlnn, align<2>(nr[ts]), 0.0); // get memory for the true/smooth radial wave function
+//          partial_wave_radial_part[ts] = view3D<double>(2, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function and kinetic wave
+            partial_wave_radial_part[ts] = view3D<double>(1, nlnn, nr[ts], 0.0); // get memory for the true/smooth radial wave function
         } // ts
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
         
-        projectors = view2D<double>(nln, align<2>(rg[SMT].n), 0.0); // get memory, radial representation
+        projectors = view2D<double>(nln, nr[SMT], 0.0); // get memory, radial representation
         for (int ell = 0; ell <= numax; ++ell) {
             projector_coeff[ell] = view2D<double>(nn[ell], sho_tools::nn_max(numax, ell), 0.0); // get memory, block-diagonal in ell
             for (int nrn = 0; nrn < nn[ell]; ++nrn) {
@@ -1137,6 +1139,7 @@ namespace single_atom {
                     vs.nrn[TRU] = enn - ell - 1; // number of radial nodes in the true wave
                     vs.nrn[SMT] = nrn;           // number of radial nodes in the smooth wave
                     vs.occupation = 0.0;
+                    vs.energy = 0.0;
                     vs.enn = enn; // principal quantum number
                     vs.ell = ell; // angular momentum quantum number
                     vs.emm = emm_Degenerate; // angular z-component quantum number
@@ -1163,21 +1166,12 @@ namespace single_atom {
 
                         int const inl = atom_core::nl_index(enn, ell); // global emm-degenerate orbital index
                         int const ist = ist_custom[inl]; // state index
-                        ist_index[iln] = ist;
-                        vs.energy = p.states[ist].e;
-                        vs.occupation = occ_custom[inl];
-                        
-                        // copy the true and smmoth partial wave function
-                        auto const & tsp = p.states[ist].tsp;
-                        for (int ts = TRU; ts <= SMT; ++ts) {
-                            assert(tsp[ts].size() == nr[ts]);
-                            set(vs.wave[ts], nr[ts], tsp[ts].data());
-                        } // ts
-                        // copy the numerical projector function
-                        {   assert(tsp[2].size() == nr[SMT]);
-                            set(projectors[iln], nr[SMT], tsp[2].data());
+                        if (ist >= 0) {
+                            assert(ist < p.states.size());
+                            ist_index[iln] = ist;
+                            vs.energy = p.states[ist].e;
+                            vs.occupation = occ_custom[inl];
                         }
-                        
 
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (vs.occupation > 0) {
@@ -1192,6 +1186,21 @@ namespace single_atom {
                             } // nrn > 0
                         } // occ > 0
 
+                        if (ist >= 0) {
+                            // copy the true and smmoth partial wave function
+                            auto const & tsp = p.states[ist].tsp;
+                            for (int ts = TRU; ts <= SMT; ++ts) {
+                                if (tsp[ts].size() != rg[ts].n) error("%s %s partial wave %s has %ld grid points but expected %d",
+                                                                      label, ts_name[ts], vs.tag, tsp[ts].size(), rg[ts].n);
+                                assert(tsp[ts].size() == rg[ts].n);
+                                set(vs.wave[ts], rg[ts].n, tsp[ts].data());
+                            } // ts
+                            // copy the numerical projector function
+                            {   assert(tsp[2].size() == rg[SMT].n);
+                                set(projectors[iln], rg[SMT].n, tsp[2].data());
+                            }
+                        } // ist >= 0
+                        
                         // add to inital valence density
                         if (vs.occupation > 0) {
                             assert(vs.wave[TRU]); // make sure the pointer is not null
@@ -1271,14 +1280,14 @@ namespace single_atom {
         { // scope: copy remaining radial functions
             auto const sq4pi = std::sqrt(4*constants::pi);
             // true core density
-            assert(p.func[0].size() == nr[TRU]);
-            set(spherical_density[TRU][core], nr[TRU], p.func[0].data(), sq4pi);
+            assert(p.func[0].size() == rg[TRU].n);
+            set(spherical_density[TRU][core], rg[TRU].n, p.func[0].data(), sq4pi);
             // smmoth core density
-            assert(p.func[1].size() == nr[SMT]);
-            set(spherical_density[SMT][core], nr[SMT], p.func[1].data(), sq4pi);
+            assert(p.func[1].size() == rg[SMT].n);
+            set(spherical_density[SMT][core], rg[SMT].n, p.func[1].data(), sq4pi);
             // zero_potential
-            assert(p.func[4].size() == nr[SMT]);
-            set(zero_potential.data(), nr[SMT], p.func[4].data());
+            assert(p.func[4].size() == rg[SMT].n);
+            set(zero_potential.data(), rg[SMT].n, p.func[4].data());
         } // scope
         if (echo > 0) std::printf("# %s zero_potential at origin %g %s\n", label, zero_potential[0]*Y00*eV, _eV);
 
@@ -1322,7 +1331,7 @@ namespace single_atom {
                                label, csv_name(csv), cd[TRU], cd[SMT]);
             } // echo
         } // scope
-        
+
         float const density_mixing[] = {0, 0, 0};
         bool const synthetic_density_matrix = true;
         update_density(density_mixing, echo, synthetic_density_matrix);
@@ -3943,9 +3952,9 @@ namespace single_atom {
 
   private:
     
-    void set_label(char const *chem_symbol) {
-        if (atom_id < 0) std::snprintf(label, 15, "%s", chem_symbol); 
-        else std::snprintf(label, 15, "%s#%i", chem_symbol, atom_id); 
+    void set_label(char const *chemical_symbol) {
+        if (atom_id < 0) std::snprintf(label, 15, "%s", chemical_symbol); 
+        else std::snprintf(label, 15, "%s#%i", chemical_symbol, atom_id); 
     } // set_label
     
   }; // class LiveAtom

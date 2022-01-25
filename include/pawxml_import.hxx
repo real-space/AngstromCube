@@ -2,6 +2,7 @@
 
 #include <cstdio> // std::printf
 #include <cstdint> // int8_t
+#include <cstring> // std::strcmp
 #include <cassert> // assert
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
@@ -52,6 +53,7 @@ namespace pawxml_import {
       std::vector<double> dkin; // kinetic_energy_differences
       char xc[16];
       char Sy[4];
+      status_t parse_status;
   }; // struct pawxml_t
 
   char const radial_state_quantities[3][20] = {"ae_partial_wave", "pseudo_partial_wave", "projector_function"};
@@ -69,10 +71,19 @@ namespace pawxml_import {
       pawxml_t p;
 
       if (echo > 9) std::printf("# %s file=%s\n", __func__, filename);
-      rapidxml::file<> infile(filename);
-
       rapidxml::xml_document<> doc;
-      doc.parse<0>(infile.data());
+      try {
+          rapidxml::file<> infile(filename);
+          try {
+              doc.parse<0>(infile.data());
+          } catch (...) {
+              error("failed to parse %s", filename);
+              p.parse_status = 2; return p; // error
+          } // try + catch
+      } catch (...) {
+          error("failed to open %s", filename);
+          p.parse_status = 1; return p; // error
+      } // try + catch
 
       auto const paw_setup = doc.first_node("paw_setup");
       if (!paw_setup) return p; // error
@@ -242,6 +253,7 @@ namespace pawxml_import {
 //   <exact_exchange_X_matrix>  </exact_exchange_X_matrix>
 //   <exact_exchange core-core="-3.462071"/>
 
+      p.parse_status = 0;
       return p;
 #endif // HAS_RAPIDXML
   } // parse_pawxml
