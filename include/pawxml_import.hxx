@@ -329,7 +329,7 @@ namespace pawxml_import {
           std::fclose(f);
       } // repeat_file
 
-      return 0;
+      return p.parse_status;
   } // test_loading
 
   inline status_t all_tests(int const echo=0) {

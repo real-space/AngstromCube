@@ -12,7 +12,7 @@ for f in `ls gpaws/*.LDA gpaws/*.PBE`; do
   echo -n "$f "
   $exe -t pawxml_import +pawxml_import.test.filename=$f
 
-done
+done # f
 
 ## see if we get the same after two conversions
 f=C.LDA

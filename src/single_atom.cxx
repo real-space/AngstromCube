@@ -962,6 +962,8 @@ namespace single_atom {
         char xmlfilename[512]; std::snprintf(xmlfilename, 511, "%s/%s.LDA", pawpath, chemical_symbol);
         if (echo > 0) std::printf("\n\n#\n# %s LiveAtom loads \'%s\'\n", label, xmlfilename);
         auto const p = pawxml_import::parse_pawxml(xmlfilename, echo);
+        if (0 != p.parse_status) error("%s parsing \'%s\' returned status=%d", label, xmlfilename, int(p.parse_status));
+
         Z_core = p.Z;
         if (echo > 3) std::printf("\n\n#\n# %s loading of \'%s\' successful, %g protons\n", label, xmlfilename, Z_core);
         if (Z_protons != Z_core) warn("%s number of protons adjusted from %g to %g", label, Z_protons, Z_core);
@@ -1171,7 +1173,7 @@ namespace single_atom {
                             ist_index[iln] = ist;
                             vs.energy = p.states[ist].e;
                             vs.occupation = occ_custom[inl];
-                        }
+                        } // ist valid
 
                         partial_wave_char[iln] = '0' + enn; // eigenstate: '1', '2', '3', ...
                         if (vs.occupation > 0) {

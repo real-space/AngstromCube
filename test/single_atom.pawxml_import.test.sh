@@ -9,7 +9,7 @@ rm -f $result_file
 echo -n "# " > $result_file
 date        >> $result_file
 
-#for Z in {1..86}; do
+# for Z in {1..86}; do
 
 ### all existing Sy.LDA potentials
 for Z in  1  2  3  4  5  6  7  8  9 10 \
@@ -29,5 +29,5 @@ do
           +single_atom.pawxml.path=gpaws \
           +single_atom.select.test=2 \
           >> $result_file
-
+          
 done # Z
