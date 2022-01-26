@@ -3964,10 +3964,11 @@ namespace single_atom {
         SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
         auto const lambda = control::get("single_atom.perturbation.strength", 1.);
-        int        ellmax = control::get("single_atom.perturbation.ellmax", 7.);
+        int        ellmax = control::get("single_atom.perturbation.ellmax", -1.);
         ellmax = std::min(ellmax, int(ellmax_pot));
 
         status_t status(0);
+        if (ellmax < 0) return status; // no perturbation theory
         auto const & g = rg[TRU];
 
         std::vector<double> rV(g.n); // r*V(r)

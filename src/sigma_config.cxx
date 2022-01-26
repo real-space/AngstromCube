@@ -207,11 +207,11 @@ namespace sigma_config {
         return (enn*(enn - 1))/2 + ell;
     } // nl_index
 
-    inline void set_default_core_shells(int ncmx[4], double const Z) {
-        ncmx[0] = 0 + (Z >=  2) + (Z >=  4) + (Z >= 12) + (Z >= 20) + (Z >= 38) + (Z >= 56) + (Z >= 88) + (Z >= 120);
-        ncmx[1] = 1 + (Z >= 10) + (Z >= 18) + (Z >= 36) + (Z >= 54) + (Z >= 86) + (Z >= 118);
-        ncmx[2] = 2 + (Z >= 30) + (Z >= 48) + (Z >= 80) + (Z >= 112);
-        ncmx[3] = 3 + (Z >= 70) + (Z >= 102);
+    void set_default_core_shells(int ncmx[4], double const Z) {
+        ncmx[0] = 0 + (Z >= 120) + (Z >= 88) + (Z >= 56) + (Z >= 38) + (Z >= 20) + (Z >= 12) + (Z >= 4) + (Z >= 2);
+        ncmx[1] = 1 + (Z >= 118) + (Z >= 86) + (Z >= 54) + (Z >= 36) + (Z >= 18) + (Z >= 10);
+        ncmx[2] = 2 + (Z >= 112) + (Z >= 80) + (Z >= 48) + (Z >= 30);
+        ncmx[3] = 3 + (Z >= 102) + (Z >= 70);
     } // set_default_core_shells
 
     struct parsed_word_t {
@@ -280,7 +280,7 @@ namespace sigma_config {
                 w.enn = w.key;
                 if (w.enn > 9) error("enn=%i > 9 not supported in '%s'!", w.enn, string);
                 char const cl = *(string + 1); // expect an ellchar here
-                w.ell = char2ell(cl);
+                w.ell = char2ell(cl); // should we use (cl | 32) to allow also upper case ell-characters SPDFGH?
                 if (w.ell >= 0) {
                     if (w.ell >= w.enn) error("unphysical ell=%i >= enn=%i in '%s'!", w.ell, w.enn, string);
 
