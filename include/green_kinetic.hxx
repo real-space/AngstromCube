@@ -26,12 +26,12 @@ namespace green_kinetic {
 
   class finite_difference_plan_t {
   private:
-      uint32_t *prefix; // in managed memory
-      int32_t *fd_list; // in managed memory
-      uint32_t n_lists;
+      int32_t *fd_list; // block indices, in managed memory
+      uint32_t *prefix; // rowstarts, in managed memory
+      uint32_t n_lists; // number of lists
 
   public:
-      finite_difference_plan_t() : prefix(nullptr), fd_list(nullptr), n_lists(0) {}
+      finite_difference_plan_t() : fd_list(nullptr), prefix(nullptr), n_lists(0) {} // default constructor
 
       finite_difference_plan_t(
             int const dd // direction of derivative
@@ -100,6 +100,8 @@ namespace green_kinetic {
                   } // list_length > 0
               }}} // ixyz
           } // iRHS
+
+          // store the number of lists
           n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
           if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
                                 n_lists, direction, n_lists/(max_lists*.01),
@@ -107,20 +109,21 @@ namespace green_kinetic {
 
           // store index starts in managed memory
           prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory
-          prefix[0] = 0;
+          prefix[0] = 0; // CSR style (compressed sparse row format)
           for (int ilist = 0; ilist < n_lists; ++ilist) {
-              int const n = list[ilist].size();
+              uint32_t const n = list[ilist].size();
               prefix[ilist + 1] = prefix[ilist] + n;
           } // ilist
           size_t const ntotal = prefix[n_lists];
           if (echo > 0) std::printf("# FD lists for the %c-direction require %ld uint32_t, i.e. %.3f kByte\n",
                                   direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
+
           // store indices in managed memory
           fd_list = get_memory<int32_t>(ntotal); // create in GPU memory
           { // scope: copy indices into managed memory
               size_t ntotal_check{0};
               for (int ilist = 0; ilist < n_lists; ++ilist) {
-                  int const n = list[ilist].size();
+                  auto const n = list[ilist].size();
                   assert(ntotal_check == prefix[ilist]); // sanity
                   ntotal_check += n;
                   set(&fd_list[prefix[ilist]], n, list[ilist].data()); // copy into GPU memory

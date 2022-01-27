@@ -75,7 +75,9 @@ namespace green_function {
       for (int d = 0; d < 3; ++d) {
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
           assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
+          n_original_Veff_blocks[d] = 1; // MANIPULATE
       } // d
+      if (echo > 0) std::printf("\n# MANIPULATED n_original_Veff_blocks = 1 1 1\n\n");
 
       if (echo > 3) { std::printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
 
@@ -84,6 +86,7 @@ namespace green_function {
 //    view3D<block4<double>> Vtot_blocks(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X]);
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
 
+      // regroup effective potential into blocks of 4x4x4
 //    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64); // does not really work flawlessly
 //    view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
 //    view4D<double> Vtot(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // get memory
@@ -114,11 +117,11 @@ namespace green_function {
 
       // assume periodic boundary conditions and an infinite host crystal,
       // so there is no need to consider k-points
-      
+
       // determine the largest and smallest indices of target blocks
       // given a max distance r_trunc between source blocks and target blocks
 
-      double const r_block_circumscribing_sphere = 1.5*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
+      double const r_block_circumscribing_sphere = 0.5*(4 - 1)*std::sqrt(pow2(hg[X]) + pow2(hg[Y]) + pow2(hg[Z]));
       if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
       // assume that the source blocks lie compact in space
@@ -193,8 +196,8 @@ namespace green_function {
 
       
       // truncation radius
-      double const r_trunc = control::get("green.function.truncation.radius", 10.);
-      if (echo > 0) std::printf("# green.function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
+      double const r_trunc = control::get("green_function.truncation.radius", 10.);
+      if (echo > 0) std::printf("# green_function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
       p->r_truncation = std::max(0., r_trunc);
       p->r_Vconfinement = std::min(std::max(0., r_trunc - 2.0), p->r_truncation);
 
@@ -240,12 +243,13 @@ namespace green_function {
               min_target_coords[X], min_target_coords[Y], min_target_coords[Z],
               max_target_coords[X], max_target_coords[Y], max_target_coords[Z], 
               num_target_coords[X], num_target_coords[Y], num_target_coords[Z], product_target_blocks*.001);
+          assert(product_target_blocks > 0);
           std::vector<std::vector<uint16_t>> column_indices(product_target_blocks);
 
           double const r2trunc        = pow2(rtrunc),
                        r2trunc_plus   = pow2(rtrunc_plus),
-                       r2trunc_minus  = pow2(rtrunc_minus);
-          double const r2block_circum = pow2(r_block_circumscribing_sphere*3);
+                       r2trunc_minus  = pow2(rtrunc_minus),
+                       r2block_circum = pow2(r_block_circumscribing_sphere*3); // Maybe this can be reduced to *2
 
           std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
           assert(nRHSs < 65536 && "the integer type of ColIndex is uint16_t!");
@@ -258,7 +262,7 @@ namespace green_function {
               simple_stats::Stats<> stats[3];
               int constexpr max_nci = 27;
               std::vector<int> hist(1 + max_nci, 0); // distribution of nci
-              simple_stats::Stats<> stats_d2[1 + max_nci];
+              std::vector<simple_stats::Stats<>> stats_d2(1 + max_nci);
               for (int16_t bz = -itr[Z]; bz <= itr[Z]; ++bz) {
               for (int16_t by = -itr[Y]; by <= itr[Y]; ++by) {
               for (int16_t bx = -itr[X]; bx <= itr[X]; ++bx) {
@@ -269,36 +273,40 @@ namespace green_function {
                       assert(target_coords[d] >= min_target_coords[d]);
                       assert(target_coords[d] <= max_target_coords[d]);
                   } // d
-                  // distance^2 of the block centers
+                  // d2 is the distance^2 of the block centers
                   double const d2 = pow2(bx*4*hg[X]) + pow2(by*4*hg[Y]) + pow2(bz*4*hg[Z]);
 
-                  uint8_t nci{0}; // init number of corners inside
-                  if (d2 < r2trunc_plus) { // potentially inside, check all 8 corner cases
-                      int const far = (d2 > r2block_circum);
+                  int nci{0}; // init number of corners inside
+                  if (d2 < r2trunc_plus) { // potentially inside, check all 8 or 27 corner cases
 //                    if (d2 < r2trunc_minus) { nci = max_nci; } else // skip the 8- or 27-corners test for inner blocks -> some speedup
-                      { // scope: 8 corner test
-                         // i = i4 - j4 --> i in [-3, 3], 
-                         //     if two blocks are far from each other, we test only the 8 combinations of {-3, 3}
-                         //     for blocks close to each other, we test all 27 combinations of {-3, 0, 3}
+                      { // scope: 8 or 27 corner test
+                          int const far = (d2 > r2block_circum);
+                          int const mci = far ? 8 : 27;
+                          // i = i4 - j4 --> i in [-3, 3],
+                          //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
+                          //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
                           for (int iz = -3; iz <= 3; iz += 3 + 3*far) {
                           for (int iy = -3; iy <= 3; iy += 3 + 3*far) {
                           for (int ix = -3; ix <= 3; ix += 3 + 3*far) {
                               double const d2c = pow2((bx*4 + ix)*hg[X])
                                                + pow2((by*4 + iy)*hg[Y])
                                                + pow2((bz*4 + iz)*hg[Z]);
-//                               if (0 == iRHS && (d2c < r2trunc)) {
-//                                   std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
-//                                       __func__, bx,by,bz, ix,iy,iz, d2c, (d2c < r2trunc)?"in":"out");
-//                               }
-                              nci += (d2c < r2trunc);
+#if 0
+                              if (0 == iRHS && (d2c < r2trunc) && echo > 17) {
+                                  std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
+                                      __func__, bx,by,bz, ix,iy,iz, d2c, (d2c < r2trunc)?"in":"out");
+                              }
+#endif // 0
+                              nci += (d2c < r2trunc); // add 1 if inside
                           }}} // ix iy iz
+                          if (d2 < r2trunc_minus) assert(mci == nci); // for these, we could skip the 8-corners test
+                          nci = (nci*27)/mci; // limit nci to [0, 27]
                       } // scope
 
-                      if (d2 < r2trunc_minus) assert((far?8:27) == nci); // for these, we could skip the 8-corners test
-                  } // d2
+                  } // d2 < r2trunc_plus
 
-                  
-                  if (nci > 0) { 
+                  if (nci > 0) {
+                      // any grid point in block (bx,by,bz) is closer than rtrunc to any grid point in the source block
                       int16_t idx[3];
                       for (int d = 0; d < 3; ++d) {
                           idx[d] = target_coords[d] - min_target_coords[d];
@@ -342,7 +350,7 @@ namespace green_function {
               } // echo
           } // iRHS
 
-          // create a histogram about the distribution of number of columns per row
+          // create a histogram about the distribution of the number of columns per row
           std::vector<uint32_t> hist(1 + nRHSs, 0);
           for (size_t idx3 = 0; idx3 < column_indices.size(); ++idx3) {
               auto const n = column_indices[idx3].size();
@@ -356,7 +364,7 @@ namespace green_function {
               nall += hist[n];
               nnz  += hist[n]*n;
           } // n
-          if (echo > 5) { std::printf("# histogram total=%.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
+          if (echo > 5) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
           assert(nall == product_target_blocks); // sanity check
 
           p->nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
@@ -383,7 +391,7 @@ namespace green_function {
 
           view3D<int32_t> iRow_of_coords(num_target_coords[Z],
                                          num_target_coords[Y],
-                                         num_target_coords[X], -1);
+                                         num_target_coords[X], -1); // init as non-existing
 
           { // scope: fill BSR tables
               simple_stats::Stats<> st;
@@ -398,7 +406,7 @@ namespace green_function {
                   auto const n = column_indices[idx3].size();
                   if (n > 0) {
                       st.add(n);
-                      iRow_of_coords(idx[Z], idx[Y], idx[X]) = iRow;
+                      iRow_of_coords(idx[Z], idx[Y], idx[X]) = iRow; // set existing
 
                       RowStart[iRow + 1] = RowStart[iRow] + n;
                       // copy the column indices
@@ -481,8 +489,7 @@ namespace green_function {
                 , nRHSs, echo);
           } // dd
 
-          
-          // transfer grid spacing into GPU memory
+          // transfer grid spacing into managed GPU memory
           p->grid_spacing = get_memory<double>(4);
           set(p->grid_spacing, 3, hg);
 
@@ -700,7 +707,7 @@ namespace green_function {
 
       } // scope
 
-      int const n_iterations = control::get("green.function.benchmark.iterations", -1.); 
+      int const n_iterations = control::get("green_function.benchmark.iterations", -1.); 
                       // -1: no iterations, 0:run memory initilziation only, >0: iterate
       if (n_iterations >= 0) { // scope: try out the operator
           typedef float real_t;
@@ -721,7 +728,7 @@ namespace green_function {
           } // iteration
 
       } else {
-          if (echo > 2) std::printf("# green.function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
+          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
       } // n_iterations >= 0
 
       return 0;

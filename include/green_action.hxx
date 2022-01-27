@@ -45,7 +45,7 @@ namespace green_action {
       memWindow_t colindxwin; // column indices in GPU memory
 
       // for the matrix-matrix subtraction Y -= B:
-      std::vector<uint32_t> subset; // [nnzbB], list of inzbX-indices where B is also non-zero
+      std::vector<uint32_t> subset; // [nnzbB], list of inzbX-indices at which B is also non-zero
       memWindow_t matBwin; // data of the right hand side operator B
       memWindow_t subsetwin; // subset indices in GPU memory
 
