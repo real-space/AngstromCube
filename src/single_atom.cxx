@@ -222,75 +222,190 @@ namespace single_atom {
   } // get_valence_mapping
 
    
-  double expand_numerical_projectors_in_SHO_basis( // return the quality of "occupied" projectors
+  double expand_numerical_functions_in_SHO_basis( // return the quality of "occupied" projectors
         double & gradient // second result, gradient of the quality w.r.t. sigma
       , double const sigma // spread of the SHO basis
-      , int const numax // size of the SHO basis
-      , uint8_t const nn[] // nn[ell], number of projectors per ell-channel
+      , int const numax_basis // size of the SHO basis
+      , int const numax // size of the projector set
       , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
-      , view2D<double> const & rprj // r*projectors(numerical), rprj(nln,>= rg.n)
-      , double const weight_ln[] // weights, usually partial wave occupations [nln]
+      , view2D<double> const & rfunc // r*functions(numerical), rfunc(nln,>= rg.n)
+      , double const weight_ln[] // weights, usually partial wave occupations [nln], negative weights for skip
       , char const *label="" // log-prefix
       , int const echo=0 // log-level
-      , double projector_coeff[]=nullptr // optional result, array layout [nln*8]
+      , view2D<double> *func_coeff=nullptr // optional result
   ) {
 
-      int const nln = sho_tools::nSHO_radial(numax);
-      view3D<double> prj_sho(2, nln, align<2>(rg.n), 0.0); // get memory for projector(r) and the derivative w.r.t. sigma
+      int const nln = sho_tools::nSHO_radial(numax_basis);
+      view3D<double> sho_basis(2, nln, align<2>(rg.n), 0.0); // get memory for projector(r) and the derivative w.r.t. sigma
 
       // expand the normalized radial SHO basis functions for this value of sigma
-      scattering_test::expand_sho_projectors(prj_sho(0,0), prj_sho.stride(), rg, sigma, numax, 0, echo >> 1, prj_sho(1,0));
+      scattering_test::expand_sho_projectors(sho_basis(0,0), sho_basis.stride(), rg, sigma, numax_basis, 0, echo >> 1, sho_basis(1,0));
 
       double weighted_quality{0};
       gradient = 0;
       for (int ell = 0; ell <= numax; ++ell) {
-          double denom_sho[8];
-          int const nn_max = sho_tools::nn_max(numax, ell); 
-          assert(nn_max <= 8);
-          for (int mrn = 0; mrn < nn_max; ++mrn) { // smooth number or radial nodes
-              int const jln = sho_tools::ln_index(numax, ell, mrn);
-              denom_sho[mrn] = dot_product(rg.n, prj_sho(0,jln), prj_sho(0,jln), rg.r2dr); // should be close to 1.0
-//            std::printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma*Ang,_Ang, jln, denom_sho);
-          } // mrn
+          int const nn_max = sho_tools::nn_max(numax_basis, ell);
+          if (func_coeff) assert(nn_max <= func_coeff->stride());
+          std::vector<double> denom_sho(nn_max, 0.0);
+          { // scope: fill norm2 of the SHO basis functions
+              for (int jrn = 0; jrn < nn_max; ++jrn) { // smooth number or radial nodes
+                  int const jln = sho_tools::ln_index(numax_basis, ell, jrn);
+                  denom_sho[jrn] = dot_product(rg.n, sho_basis(0,jln), sho_basis(0,jln), rg.r2dr); // should be close to 1.0
+    //            std::printf("# for sigma= %g %s radial SHO function #%i normalized %g\n", sigma*Ang,_Ang, jln, denom_sho);
+              } // jrn
+          } // scope
 
-          for (int nrn = 0; nrn < nn[ell]; ++nrn) { // number of the partial wave
+          int const mrn = sho_tools::nn_max(numax, ell);
+          for (int nrn = 0; nrn < mrn; ++nrn) { // number of the partial wave
               int const iln = sho_tools::ln_index(numax, ell, nrn); // index of partial wave
-              auto const denom_num = dot_product(rg.n, rprj[iln], rprj[iln], rg.dr); // norm^2 of the numerically given projectors
+              if (weight_ln[iln] >= 0) {
+                  auto const denom_num = dot_product(rg.n, rfunc[iln], rfunc[iln], rg.dr); // norm^2 of the numerically given projectors
+                  if (denom_num <= 0) {
+                      if (weight_ln[iln] > 0) {
+                          if (echo > 1) std::printf("# %s for sigma= %g %s cannot normalize %c%i proj: num %g\n", 
+                                                      label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_num);
+                      } // weight
+                  } // cannot be normalized
 
-              double quality_ln{0}, gradient_ln{0};
-              for (int mrn = 0; mrn < nn_max; ++mrn) { // smooth number or radial nodes
-                  int const jln = sho_tools::ln_index(numax, ell, mrn); // index of the radial SHO state
+                  double quality_ln{0}, gradient_ln{0};
+                  for (int jrn = 0; jrn < nn_max; ++jrn) { // smooth number or radial nodes
+                      int const jln = sho_tools::ln_index(numax_basis, ell, jrn); // index of the radial SHO state
 
-//                if (echo > 1) std::printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n",
-//                                             label, iter, ellchar[ell], nrn, denom_sho, denom_num);
-                  if (denom_sho[mrn]*denom_num > 0) {
-                      auto const inner   = dot_product(rg.n, rprj[iln], prj_sho(0,jln), rg.rdr); // metric is rdr since numerical projectors enter as r*prj
-                      auto const d_inner = dot_product(rg.n, rprj[iln], prj_sho(1,jln), rg.rdr); // derivative w.r.t. sigma
-                      auto const denoms  = 1./(denom_sho[mrn]*denom_num);
-                      auto const quality = pow2(inner)*denoms;
-                      gradient_ln += d_inner * 2 * inner * denoms;
-                      quality_ln  += quality;
-                      if (echo > 13) std::printf("# %s quality for %c%i with sigma= %g %s is %g\n",
-                                                    label, ellchar[ell], nrn, sigma*Ang, _Ang, quality);
+    //                if (echo > 1) std::printf("# %s in iteration %i norm of %c%i projectors: sho %g classical %g\n",
+    //                                             label, iter, ellchar[ell], nrn, denom_sho, denom_num);
+                      if (denom_sho[jrn]*denom_num > 0) {
+                          auto const inner   = dot_product(rg.n, rfunc[iln], sho_basis(0,jln), rg.rdr); // metric is rdr since numerical projectors enter as r*prj
+                          auto const d_inner = dot_product(rg.n, rfunc[iln], sho_basis(1,jln), rg.rdr); // derivative w.r.t. sigma
+                          auto const denoms  = 1./(denom_sho[jrn]*denom_num);
+                          auto const quality = pow2(inner)*denoms;
+                          gradient_ln += d_inner * 2 * inner * denoms;
+                          quality_ln  += quality;
+                          if (echo > 13) std::printf("# %s quality for %c%i with sigma= %g %s is %g\n",
+                                                        label, ellchar[ell], nrn, sigma*Ang, _Ang, quality);
 
-                      if (projector_coeff) projector_coeff[iln*8 + mrn] = inner / std::sqrt(denom_sho[mrn]);
-                  } else { // denom > 0
-                      if (echo > 1) std::printf("# %s for sigma= %g %s cannot normalize %c%i proj: sho %g num %g\n", 
-                                                   label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[mrn], denom_num);
-                  } // denom > 0
-              } // mrn
-              if (echo > 11) std::printf("# %s quality for %c nrn=%d with sigma= %g %s is %g (weight %.2f)\n", 
-                                            label, ellchar[ell], nrn, sigma*Ang, _Ang, quality_ln, weight_ln[iln]);
-              weighted_quality += weight_ln[iln]*quality_ln;
-              gradient         += weight_ln[iln]*gradient_ln;
+                          if (func_coeff) (*func_coeff)(iln,jrn) = inner / std::sqrt(denom_sho[jrn]); // store
+                      } else {
+                          if (func_coeff) (*func_coeff)(iln,jrn) = 0;
+                          if (weight_ln[iln] > 0 && echo > 3) {
+                              std::printf("# %s for sigma= %g %s cannot normalize %c%i proj: sho %g num %g\n", 
+                                            label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[jrn], denom_num);
+                          } // weight echo
+                      } // denom > 0
+                  } // jrn
+                  if (echo > 11) std::printf("# %s quality for %c nrn=%d with sigma= %g %s is %g (weight %.2f)\n", 
+                                                label, ellchar[ell], nrn, sigma*Ang, _Ang, quality_ln, weight_ln[iln]);
+                  weighted_quality += weight_ln[iln]*quality_ln;
+                  gradient         += weight_ln[iln]*gradient_ln;
+              } else { // weight
+                  if (echo > 11) std::printf("# %s skip %c nrn=%d\n", label, ellchar[ell], nrn);
+              } // weight skip
           } // nrn
       } // ell
       if (echo > 9) std::printf("# %s weighted quality with sigma= %g %s is %g\n", 
                                    label, sigma*Ang, _Ang, weighted_quality);
 
       return weighted_quality; // and gradient
-  } // expand_numerical_projectors_in_SHO_basis
+  } // expand_numerical_functions_in_SHO_basis
 
+  
+  
+  
+    double fit_function_set( // returns optimized sigma
+        view2D<double> & prj_coeff // (nln,nn_max(numax_basis, 0))
+      , int const numax
+      , double const weight_ln[] // weights
+      , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
+      , view2D<double> const & rfunc // r*functions(numerical), rfunc(nln,>= rg.n)
+      , double const sigma_in // input
+      , int const numax_basis
+      , double const range=1 // 1:no optimization, >1: result in [sigma_in/range, sigma_in*range]
+      , char const *label="" // log-prefix    
+      , int const echo=0 // log-level
+    ) {
+        // create smooth partial waves according to Bloechl/GPAW and corresponding
+        // numerically defined projector functions. On demand, fit the best sigma
+        // to represent those projectors in a SHO basis of given size numax.
+
+        if (echo > 1) std::printf("\n# %s %s\n", label, __func__);
+
+        // We can define tphi(nn[ell], nr_tru) inside the ell-loop
+        // Mind that without the experimental section activated by single_atom.suggest.local.potential
+        // we could also define sphi(nn[ell], nr_smt) and skin inside the ell-loop, however, 
+        // this does not apply to the projectors since they will all be needed later in the fitting.
+//         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
+
+//         std::vector<double> occ_ln(nln, 0.0);
+        
+        // get weights only
+        double total_weight{0};
+        for (int ell = 0; ell <= numax; ++ell) {
+            for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // partial waves
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                total_weight += std::max(0.0, weight_ln[iln]);
+            } // nrn
+        } // ell
+
+//         char const *optimized{""};
+//         int const optimize_sigma = control::get("single_atom.optimize.sigma", 0.); // 0:no optimization,
+          // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
+
+        double const sigma_old = sigma_in;
+        double sigma_opt{sigma_old};
+        if (range > 1) {
+            if (echo > 2) std::printf("# %s start optimization of sigma at %g %s\n", label, sigma_old*Ang, _Ang);
+            // search for the optimal sigma value to best represent the projectors in a SHO basis of size numax
+            double const sigma_range[] = {sigma_old/range, sigma_old*range};
+            bisection_tools::bisector_t<double> bisection(sigma_range[0], sigma_range[1], 1e-12, '*');
+            double sigma_now, weighted_quality{0}, gradient{0}; // sigma_now does not need initialization
+            double const original_quality = expand_numerical_functions_in_SHO_basis(gradient,
+                    sigma_old, numax_basis, numax, rg, rfunc, weight_ln, label, 0);
+            while (bisection.root(sigma_now, gradient, echo/2))
+            {
+                weighted_quality = expand_numerical_functions_in_SHO_basis(gradient,
+                    sigma_now, numax_basis, numax, rg, rfunc, weight_ln, label, echo);
+            } // while
+            double const best_weighted_quality = weighted_quality;
+            sigma_opt = sigma_now;
+            if (echo > 5) std::printf("# %s after %d bisection steps found optimized sigma= %g %s (gradient= %.1e)\n", 
+                                  label, bisection.get_iterations_needed(), sigma_opt*Ang, _Ang, gradient);
+
+            // the upper limit for the weighted quality is the number of valence electrons
+            if (echo > 2) std::printf("\n# %s  original sigma= %g %s has quality %g of max. %g, %.3f %%\n", label, sigma_old*Ang, _Ang,
+                                      original_quality, total_weight, original_quality*100/std::max(1., total_weight));
+            if (echo > 2) std::printf("# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax,
+                                      best_weighted_quality, total_weight, best_weighted_quality*100/std::max(1., total_weight));
+            if (sigma_range[0]*1.001 > sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
+            if (sigma_range[1]*0.999 < sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
+
+//             optimized = "optimized ";
+        } // range > 1
+        double const sigma_out = sigma_opt; // return value
+
+        // show expansion coefficients of the projectors
+        { // scope: fill prj_coeff
+            double gradient{0};
+            auto const weighted_quality = expand_numerical_functions_in_SHO_basis(gradient,
+                sigma_out, numax_basis, numax, rg, rfunc, weight_ln, label, echo, &prj_coeff);
+            if (echo > 3) std::printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
+                                          weighted_quality, total_weight, weighted_quality*100/std::max(1., total_weight));
+        } // scope: fill prj_coeff
+
+        for (int ell = 0; ell <= numax; ++ell) {
+            int const nn_max = sho_tools::nn_max(numax, ell);
+            int const mn_max = sho_tools::nn_max(numax_basis, ell);
+            assert(mn_max <= 8 && "numax_basis > hard limit 15");
+            for (int nrn = 0; nrn < nn_max; ++nrn) {
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                if (echo > 0) {
+                    std::printf("# %s fitted coefficient ell=%d nrn=%d are", label, ell, nrn);
+                    printf_vector(" %g", prj_coeff[iln], mn_max);
+                } // echo
+            } // nrn
+        } // ell
+
+        return sigma_out;
+    } // fit_function_set
+  
 
 
 
@@ -1683,30 +1798,32 @@ namespace single_atom {
         // Mind that without the experimental section activated by single_atom.suggest.local.potential
         // we could also define sphi(nn[ell], nr_smt) and skin inside the ell-loop, however, 
         // this does not apply to the projectors since they will all be needed later in the fitting.
-        int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-
-        std::vector<double> occ_ln(nln, 0.0);
-        double total_occ{0};
-
-
-        // get weights only
-        for (int ell = 0; ell <= numax; ++ell) {
-            for (int nrn = 0; nrn < nn[ell]; ++nrn) { // partial waves
-                int const iln = sho_tools::ln_index(numax, ell, nrn);
-                auto const occ = partial_wave[iln].occupation;
-                // the total deviation is weighted with the ell-channel-summed occupation numbers
-                occ_ln[iln] = occ;
-                total_occ  += occ;
-            } // nrn
-        } // ell
 
         // create partial waves with polynomials like GPAW
         // and preliminary projectors as suggested by Bloechl
         update_partial_waves(echo - 6, 'C', 2); // suppress output, 'C':classical_scheme, 2xGramSchmidt
 
-        char const *optimized{""};
+        int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
+
+        std::vector<double> occ_ln(nln, -1.); // negative occupations for inactive projectors
+        double total_occ{0};
+
+        // get weights only
+        for (int ell = 0; ell <= numax; ++ell) {
+            for (int nrn = 0; nrn < nn[ell]; ++nrn) { // active partial waves
+                int const iln = sho_tools::ln_index(numax, ell, nrn);
+                assert(partial_wave_active[iln]);
+                auto const occ = partial_wave[iln].occupation;
+                // the total deviation is weighted with the ell-channel-summed occupation numbers
+                occ_ln[iln] = occ;
+                total_occ  += occ;
+            } // nrn
+        } // ell        
+        
         int const optimize_sigma = control::get("single_atom.optimize.sigma", 0.); // 0:no optimization,
-          // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
+                            // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
+#if 0
+        char const *optimized{""};
 #ifdef DEVEL
         double const sigma_old = sigma; // copy member variable
         double sigma_opt{sigma_old};
@@ -1716,11 +1833,11 @@ namespace single_atom {
             double const sigma_range[] = {0.5*sigma_old, 2.0*sigma_old};
             bisection_tools::bisector_t<double> bisection(sigma_range[0], sigma_range[1], 1e-12, '*');
             double sigma_now, weighted_quality{0}, gradient{0}; // sigma_now does not need initialization
-            double const original_quality = expand_numerical_projectors_in_SHO_basis(gradient,
+            double const original_quality = expand_numerical_functions_in_SHO_basis(gradient,
                     sigma_old, numax, nn, rg[SMT], projectors, occ_ln.data(), label, 0);
             while (bisection.root(sigma_now, gradient, echo >> 1))
             {
-                weighted_quality = expand_numerical_projectors_in_SHO_basis(gradient,
+                weighted_quality = expand_numerical_functions_in_SHO_basis(gradient,
                     sigma_now, numax, nn, rg[SMT], projectors, occ_ln.data(), label, echo);
             } // while
             double const best_weighted_quality = weighted_quality;
@@ -1748,11 +1865,40 @@ namespace single_atom {
         view2D<double> prj_coeff(nln, 8, 0.0); // get memory, plain memory layout [nln][8]
         { // scope: fill prj_coeff
             double gradient{0};
-            auto const weighted_quality = expand_numerical_projectors_in_SHO_basis(gradient, 
+            auto const weighted_quality = expand_numerical_functions_in_SHO_basis(gradient, 
                 sigma_out, numax, nn, rg[SMT], projectors, occ_ln.data(), label, echo, prj_coeff.data());
             if (echo > 3) std::printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
                                           weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
         } // scope: fill prj_coeff
+
+#else  // 0
+
+
+//     double fit_function_set( // returns optimized sigma
+//         view2D<double> & prj_coeff // (nln, 8)
+//       , int const numax
+//       , double const weight_ln[] // weights
+//       , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
+//       , view2D<double> const & rfunc // r*functions(numerical), rfunc(nln,>= rg.n)
+//       , double const sigma_in // input
+//       , int const numax_basis
+//       , char const *label="" // log-prefix    
+//       , int const echo=0 // log-level
+//     ) {
+
+        view2D<double> prj_coeff(nln, 8, 0.0); // get memory, plain memory layout [nln][8]
+        double const sigma_out = fit_function_set( // returns optimized sigma
+            prj_coeff // (nln, 8)
+          , numax
+          , occ_ln.data()
+          , rg[SMT] // radial grid descriptor, typically the smooth grid
+          , projectors // r*functions(numerical), rfunc(nln,>= rg.n)
+          , sigma // input
+          , numax // same numax
+          , optimize_sigma ? 2.0 : 1.0 // range
+          , label // log-prefix    
+          , echo); // log-level
+#endif // 0
 
         for (int ell = 0; ell <= numax; ++ell) {
             int const nn_max = sho_tools::nn_max(numax, ell);
@@ -1768,8 +1914,8 @@ namespace single_atom {
             } // irn
 
         } // ell
-        show_projector_coefficients(optimized, sigma_out, echo - 6); // and warn if not normalizable
-        
+
+        show_projector_coefficients(optimize_sigma?"optimized ":"", sigma_out, echo - 6); // and warn if not normalizable
 
 #ifdef DEVEL
         if (optimize_sigma < -9) abort("%s after sigma optimization, sigma= %g %s", label, sigma_out*Ang, _Ang);
@@ -1839,7 +1985,7 @@ namespace single_atom {
                         } // jrn
                     } // irn
                 } // ell
-                std::printf("# %s radial SHO basis deviates %.1e from diagonal, sigma=%g %s\n", label, max_dev, sigma*Ang, _Ang);
+                std::printf("# %s radial SHO basis deviates %.1e from diagonal, sigma= %g %s\n", label, max_dev, sigma*Ang, _Ang);
             } // echo
 
             if (echo > 9) {
