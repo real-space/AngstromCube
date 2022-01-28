@@ -13,13 +13,24 @@
 // #define debug_printf(...) std::printf(__VA_ARGS__)
 #define debug_printf(...)
 
+
 #ifdef DEVEL
   #ifndef NO_UNIT_TESTS
     #include "simple_timer.hxx" // SimpleTimer
-  #endif
-#endif
+  #endif // NO_UNIT_TESTS
+#endif // DEVEL
 
 #define DimUnknown 0
+
+namespace data_view {
+    inline void _check_index(int const srcline, size_t const n, size_t const i, char const d) {
+        if (i >= n) error("# data_view.hxx:%d i%c=%ld >= n%c=%ld\n", srcline, '0'+d, i, '0'+d, n);
+        assert(i < n);
+    } // _check_index
+} // namespace data_view
+
+#define CHECK_INDEX(n,i,d) data_view::_check_index(__LINE__, n, i, d);
+// #define CHECK_INDEX(n,i,d)
 
 template <typename T>
 class view2D {
@@ -83,17 +94,23 @@ public:
 
 #define _VIEW2D_HAS_PARENTHESIS
 #ifdef  _VIEW2D_HAS_PARENTHESIS
-  T const & operator () (size_t const i1, size_t const i0) const { return _data[i1*_n0 + i0]; } // (i,j)
-  T       & operator () (size_t const i1, size_t const i0)       { return _data[i1*_n0 + i0]; } // (i,j)
+  T const & operator () (size_t const i1, size_t const i0) const {
+      if (_n1 > DimUnknown)
+      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(_n0, i0, 0);
+      return _data[i1*_n0 + i0]; } // (i,j)
 
-  T const & at(size_t const i1, size_t const i0) const { assert(i0 < _n0); return _data[i1*_n0 + i0]; }
-  T       & at(size_t const i1, size_t const i0)       { assert(i0 < _n0); return _data[i1*_n0 + i0]; }
-#endif
+  T       & operator () (size_t const i1, size_t const i0)       {
+      if (_n1 > DimUnknown)
+      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(_n0, i0, 0);
+      return _data[i1*_n0 + i0]; } // (i,j)
+#endif // _VIEW2D_HAS_PARENTHESIS
 
   T* operator[] (size_t const i1) const {
-    if    ((i1 < _n1) || (DimUnknown == _n1)) {} else std::printf("# i1=%li n1=%ld\n", i1, _n1);
-    assert((i1 < _n1) || (DimUnknown == _n1)); 
-    return &_data[i1*_n0]; } // []
+      if (_n1 > DimUnknown)
+      CHECK_INDEX(_n1, i1, 1);
+      return &_data[i1*_n0]; } // []
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
@@ -162,7 +179,7 @@ private:
           } // m
       } // n
   } // gemm
-         
+
          
          
 template <typename T>
@@ -223,32 +240,47 @@ public:
 #define _VIEW3D_HAS_PARENTHESIS
 #ifdef  _VIEW3D_HAS_PARENTHESIS
 #define _access return _data[(i2*_n1 + i1)*_n0 + i0]
-  T const & operator () (size_t const i2, size_t const i1, size_t const i0) const { _access; }
-  T       & operator () (size_t const i2, size_t const i1, size_t const i0)       { _access; }
-
-  T const & at(size_t const i2, size_t const i1, size_t const i0) const 
-              { assert(i1 < _n1); assert(i0 < _n0); _access; }
-  T       & at(size_t const i2, size_t const i1, size_t const i0)       
-              { assert(i1 < _n1); assert(i0 < _n0); _access; }
+  T const & operator () (size_t const i2, size_t const i1, size_t const i0) const {
+      if (_n2 > DimUnknown)
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(_n0, i0, 0);
+      _access; }
+      
+  T       & operator () (size_t const i2, size_t const i1, size_t const i0)       {
+      if (_n2 > DimUnknown)
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(_n0, i0, 0);
+      _access; }
 #undef _access
-#endif
+#endif // _VIEW3D_HAS_PARENTHESIS
 
 #define _VIEW3D_HAS_PARENTHESIS_2ARGS
 #ifdef  _VIEW3D_HAS_PARENTHESIS_2ARGS
 #define _access return &_data[(i2*_n1 + i1)*_n0]
-  T* const operator () (size_t const i2, size_t const i1) const { _access; }
-  T*       operator () (size_t const i2, size_t const i1)       { _access; }
+  T* const operator () (size_t const i2, size_t const i1) const {
+      if (_n2 > DimUnknown)
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      _access; }
 
-  T* const at(size_t const i2, size_t const i1) const { assert(i1 < _n1); _access; }
-  T*       at(size_t const i2, size_t const i1)       { assert(i1 < _n1); _access; }
+  T*       operator () (size_t const i2, size_t const i1)       {
+      if (_n2 > DimUnknown)
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      _access; }
 #undef _access
-#endif
+#endif // _VIEW3D_HAS_PARENTHESIS_2ARGS
 
 #define _VIEW3D_HAS_INDEXING
 #ifdef  _VIEW3D_HAS_INDEXING
-  view2D<T> operator[] (size_t const i2) const { return view2D<T>(_data + i2*_n1*_n0, _n0); } // [] returns a sub-array
+  view2D<T> operator[] (size_t const i2) const { 
+      if (_n2 > DimUnknown)
+      CHECK_INDEX(_n2, i2, 2);
+      return view2D<T>(_data + i2*_n1*_n0, _n0); } // [] returns a sub-array
   // maybe sub-optimal as it creates a view2D object every time
-#endif
+#endif // _VIEW3D_HAS_INDEXING
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
@@ -329,40 +361,60 @@ public:
 #define _VIEW4D_HAS_PARENTHESIS
 #ifdef  _VIEW4D_HAS_PARENTHESIS
 #define _access return _data[((i3*_n2 + i2)*_n1 + i1)*_n0 + i0]
-  T const & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0) const { _access; }
-  T       & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0)       { _access; }
+  T const & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0) const {
+      if (_n3 > DimUnknown)
+      CHECK_INDEX(_n3, i3, 3);
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(_n0, i0, 0);
+      _access; }
 
-  T const & at(size_t const i3, size_t const i2, size_t const i1, size_t const i0) const 
-              { assert(i2 < _n2); assert(i1 < _n1); assert(i0 < _n0); _access; }
-  T       & at(size_t const i3, size_t const i2, size_t const i1, size_t const i0)       
-              { assert(i2 < _n2); assert(i1 < _n1); assert(i0 < _n0); _access; }
+  T       & operator () (size_t const i3, size_t const i2, size_t const i1, size_t const i0)       {
+      if (_n3 > DimUnknown)
+      CHECK_INDEX(_n3, i3, 3);
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      CHECK_INDEX(_n0, i0, 0);
+      _access; }
 #undef _access
-#endif
+#endif // _VIEW4D_HAS_PARENTHESIS
 
 #define _VIEW4D_HAS_PARENTHESIS_3ARGS
 #ifdef  _VIEW4D_HAS_PARENTHESIS_3ARGS
 #define _access return &_data[((i3*_n2 + i2)*_n1 + i1)*_n0]
-  T* const operator () (size_t const i3, size_t const i2, size_t const i1) const { _access; }
-  T*       operator () (size_t const i3, size_t const i2, size_t const i1)       { _access; }
-
-  T* const at(size_t const i3, size_t const i2, size_t const i1) const 
-            { assert(i2 < _n2); assert(i1 < _n1); _access; }
-  T*       at(size_t const i3, size_t const i2, size_t const i1)
-            { assert(i2 < _n2); assert(i1 < _n1); _access; }
+  T* const operator () (size_t const i3, size_t const i2, size_t const i1) const {
+      if (_n3 > DimUnknown)
+      CHECK_INDEX(_n3, i3, 3);
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      _access; }
+      
+  T*       operator () (size_t const i3, size_t const i2, size_t const i1)       {
+      if (_n3 > DimUnknown)
+      CHECK_INDEX(_n3, i3, 3);
+      CHECK_INDEX(_n2, i2, 2);
+      CHECK_INDEX(_n1, i1, 1);
+      _access; }
 #undef _access
-#endif
+#endif // _VIEW4D_HAS_PARENTHESIS_3ARGS
 
 #define _VIEW4D_HAS_PARENTHESIS_2ARGS
 #ifdef  _VIEW4D_HAS_PARENTHESIS_2ARGS
   view2D<T> operator () (size_t const i3, size_t const i2) const {
+      if (_n3 > DimUnknown)
+      CHECK_INDEX(_n3, i3, 3);
+      CHECK_INDEX(_n2, i2, 2);
       return view2D<T>(_data + (i3*_n2 + i2)*_n1*_n0, _n0); }
-#endif
+#endif // _VIEW4D_HAS_PARENTHESIS_2ARGS
 
 #define _VIEW4D_HAS_INDEXING
 #ifdef  _VIEW4D_HAS_INDEXING
-  view3D<T> operator[] (size_t const i3) const { return view3D<T>(_data + i3*_n2*_n1*_n0, _n1, _n0); } // [] returns a sub-array
+  view3D<T> operator[] (size_t const i3) const {
+      if (_n3 > DimUnknown)
+      CHECK_INDEX(_n3, i3, 3);
+      return view3D<T>(_data + i3*_n2*_n1*_n0, _n1, _n0); } // [] returns a sub-array
   // maybe sub-optimal as it creates a view3D object every time
-#endif
+#endif // _VIEW4D_HAS_INDEXING
 
   T* data() const { return _data; }
   size_t stride() const { return _n0; }
@@ -383,6 +435,8 @@ inline void set(view4D<T> & y, size_t const n3, T const a) {
          std::fill(y.data(), y.data() + n3*y.dim2()*y.dim1()*y.stride(), a); }
 
 #undef DimUnknown
+#undef debug_printf
+#undef CHECK_INDEX
 
 namespace data_view {
 
@@ -402,7 +456,8 @@ namespace data_view {
               #ifdef _VIEW2D_HAS_PARENTHESIS
               a(i,j) = i + 0.1*j;
               if (echo > 0) std::printf("# a2D(%i,%i) = %g\n", i, j, a(i,j));
-              assert(a.at(i,j) == a[i][j]);
+//               assert(a.at(i,j) == a[i][j]);
+              assert(a(i,j) == a[i][j]);
               #else
               a[i][j] = i + 0.1*j;
               if (echo > 0) std::printf("# a2D(%i,%i) = %g\n", i, j, a[i][j]);
@@ -416,7 +471,8 @@ namespace data_view {
       for (int j = 0; j < n0; ++j) {
           if (echo > 0) std::printf("# ai[%i] = %g\n", j, ai[j]);
           #ifdef _VIEW2D_HAS_PARENTHESIS
-          assert(a.at(ii,j) == ai[j]);
+//           assert(a.at(ii,j) == ai[j]);
+          assert(a(ii,j) == ai[j]);
           #else
           assert(a[ii][j] == ai[j]);
           #endif
@@ -470,7 +526,7 @@ namespace data_view {
       } // timer
       std::printf("# a(i,j)  = %i %i %i %i\n", a(0,0), a(0,1), a(1,0), a(1,1));
       std::fflush(stdout);
-#endif
+#endif // DEVEL
       return 0;
   } // test_bench_view2D
 
@@ -486,4 +542,3 @@ namespace data_view {
 
 } // namespace data_view
 
-#undef debug_printf
