@@ -319,6 +319,7 @@ namespace single_atom {
       , double const sigma_in // input
       , int const numax_basis
       , double const range=1 // 1:no optimization, >1: result in [sigma_in/range, sigma_in*range]
+      , char const *what="?"
       , char const *label="" // log-prefix    
       , int const echo=0 // log-level
     ) {
@@ -326,7 +327,7 @@ namespace single_atom {
         // numerically defined projector functions. On demand, fit the best sigma
         // to represent those projectors in a SHO basis of given size numax.
 
-        if (echo > 1) std::printf("\n# %s %s\n", label, __func__);
+        if (echo > 1) std::printf("\n# %s %s %s\n", label, __func__, what);
 
         // We can define tphi(nn[ell], nr_tru) inside the ell-loop
         // Mind that without the experimental section activated by single_atom.suggest.local.potential
@@ -372,7 +373,7 @@ namespace single_atom {
             // the upper limit for the weighted quality is the number of valence electrons
             if (echo > 2) std::printf("\n# %s  original sigma= %g %s has quality %g of max. %g, %.3f %%\n", label, sigma_old*Ang, _Ang,
                                       original_quality, total_weight, original_quality*100/std::max(1., total_weight));
-            if (echo > 2) std::printf("# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax,
+            if (echo > 2) std::printf("# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax_basis,
                                       best_weighted_quality, total_weight, best_weighted_quality*100/std::max(1., total_weight));
             if (sigma_range[0]*1.001 > sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
             if (sigma_range[1]*0.999 < sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
@@ -393,10 +394,10 @@ namespace single_atom {
         for (int ell = 0; ell <= numax; ++ell) {
             int const nn_max = sho_tools::nn_max(numax, ell);
             int const mn_max = sho_tools::nn_max(numax_basis, ell);
-            assert(mn_max <= 8 && "numax_basis > hard limit 15");
+            assert(mn_max <= prj_coeff.stride() && "numax_basis > hard limit");
             for (int nrn = 0; nrn < nn_max; ++nrn) {
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
-                if (echo > 0) {
+                if (echo > 9) {
                     std::printf("# %s fitted coefficient ell=%d nrn=%d are", label, ell, nrn);
                     printf_vector(" %g", prj_coeff[iln], mn_max);
                 } // echo
@@ -1805,7 +1806,7 @@ namespace single_atom {
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
 
-        std::vector<double> occ_ln(nln, -1.); // negative occupations for inactive projectors
+        std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
         double total_occ{0};
 
         // get weights only
@@ -1822,84 +1823,22 @@ namespace single_atom {
         
         int const optimize_sigma = control::get("single_atom.optimize.sigma", 0.); // 0:no optimization,
                             // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
-#if 0
-        char const *optimized{""};
-#ifdef DEVEL
-        double const sigma_old = sigma; // copy member variable
-        double sigma_opt{sigma_old};
-        if (optimize_sigma) {
-            if (echo > 2) std::printf("# %s start optimization of sigma at %g %s\n", label, sigma_old*Ang, _Ang);
-            // search for the optimal sigma value to best represent the projectors in a SHO basis of size numax
-            double const sigma_range[] = {0.5*sigma_old, 2.0*sigma_old};
-            bisection_tools::bisector_t<double> bisection(sigma_range[0], sigma_range[1], 1e-12, '*');
-            double sigma_now, weighted_quality{0}, gradient{0}; // sigma_now does not need initialization
-            double const original_quality = expand_numerical_functions_in_SHO_basis(gradient,
-                    sigma_old, numax, nn, rg[SMT], projectors, occ_ln.data(), label, 0);
-            while (bisection.root(sigma_now, gradient, echo >> 1))
-            {
-                weighted_quality = expand_numerical_functions_in_SHO_basis(gradient,
-                    sigma_now, numax, nn, rg[SMT], projectors, occ_ln.data(), label, echo);
-            } // while
-            double const best_weighted_quality = weighted_quality;
-            sigma_opt = sigma_now;
-            if (echo > 5) std::printf("# %s after %d bisection steps found optimized sigma= %g %s (gradient= %.1e)\n", 
-                                  label, bisection.get_iterations_needed(), sigma_opt*Ang, _Ang, gradient);
 
-            // the upper limit for the weighted quality is the number of valence electrons
-            if (echo > 2) std::printf("\n# %s  original sigma= %g %s has quality %g of max. %g, %.3f %%\n", label, sigma_old*Ang, _Ang,
-                                      original_quality, total_occ, original_quality*100/std::max(1., total_occ));
-            if (echo > 2) std::printf("# %s optimized sigma= %g %s for numax= %d with quality %g of max. %g, %.3f %%\n\n", label, sigma_opt*Ang, _Ang, numax,
-                                      best_weighted_quality, total_occ, best_weighted_quality*100/std::max(1., total_occ));
-            if (sigma_range[0]*1.01 > sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
-            if (sigma_range[1]*0.99 < sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
-
-            optimized = "optimized ";
-        } // optimize_sigma
-        double const sigma_out = (optimize_sigma > 0 || optimize_sigma < -9) ? sigma_opt : sigma_old; // return value
-#else  // DEVEL
-        double const sigma_out = sigma; // return value
-        if (optimize_sigma) warn("single_atom.optimize.sigma=%i active only with -D DEVEL", optimize_sigma);
-#endif // DEVEL
-
-        // show expansion coefficients of the projectors
-        view2D<double> prj_coeff(nln, 8, 0.0); // get memory, plain memory layout [nln][8]
-        { // scope: fill prj_coeff
-            double gradient{0};
-            auto const weighted_quality = expand_numerical_functions_in_SHO_basis(gradient, 
-                sigma_out, numax, nn, rg[SMT], projectors, occ_ln.data(), label, echo, prj_coeff.data());
-            if (echo > 3) std::printf("\n# %s sigma= %g %s with quality %g of max. %g, %.3f %%\n\n", label, sigma_out*Ang, _Ang, 
-                                          weighted_quality, total_occ, weighted_quality*100/std::max(1., total_occ));
-        } // scope: fill prj_coeff
-
-#else  // 0
-
-
-//     double fit_function_set( // returns optimized sigma
-//         view2D<double> & prj_coeff // (nln, 8)
-//       , int const numax
-//       , double const weight_ln[] // weights
-//       , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
-//       , view2D<double> const & rfunc // r*functions(numerical), rfunc(nln,>= rg.n)
-//       , double const sigma_in // input
-//       , int const numax_basis
-//       , char const *label="" // log-prefix    
-//       , int const echo=0 // log-level
-//     ) {
-
-        view2D<double> prj_coeff(nln, 8, 0.0); // get memory, plain memory layout [nln][8]
+        view2D<double> prj_coeff(nln, 8, 0.0);
         double const sigma_out = fit_function_set( // returns optimized sigma
             prj_coeff // (nln, 8)
           , numax
-          , occ_ln.data()
+          , occ_ln.data() // weights
           , rg[SMT] // radial grid descriptor, typically the smooth grid
           , projectors // r*functions(numerical), rfunc(nln,>= rg.n)
           , sigma // input
           , numax // same numax
           , optimize_sigma ? 2.0 : 1.0 // range
+          , "numerical projectors" // what
           , label // log-prefix    
           , echo); // log-level
-#endif // 0
 
+        // copy projector coefficients into member fields
         for (int ell = 0; ell <= numax; ++ell) {
             int const nn_max = sho_tools::nn_max(numax, ell);
             assert(nn_max <= 8 && "numax > hard limit 15");
@@ -1912,7 +1851,6 @@ namespace single_atom {
                 set(projector_coeff[ell][irn], nn_max, prj_coeff[iln]); // copy into member variable
 
             } // irn
-
         } // ell
 
         show_projector_coefficients(optimize_sigma?"optimized ":"", sigma_out, echo - 6); // and warn if not normalizable
@@ -3959,6 +3897,7 @@ namespace single_atom {
             // create new partial waves for the valence description
             update_energy_parameters(echo);
             update_partial_waves(echo);
+            fit_basis_functions(echo);
             
             // update quantities derived from the partial waves
             update_kinetic_energy_deficit(echo);
@@ -3981,7 +3920,7 @@ namespace single_atom {
     } // update_density
 
     // ==============
-    // after update_density we need to export qlm_compensator, 
+    // after update_density we need to export qlm_compensator,
     // then solve the 3D electrostatic problem,
     // and finally return here with ves_multipoles
     // ==============
@@ -4106,7 +4045,7 @@ namespace single_atom {
     } // set_label
     
 
-    status_t perturbation_theory(int const echo=0) {
+    status_t perturbation_theory(int const echo=0) const {
         SimpleTimer timer(__FILE__, __LINE__, __func__, echo);
 
         auto const lambda = control::get("single_atom.perturbation.strength", 1.);
@@ -4229,6 +4168,93 @@ namespace single_atom {
     } // perturbation_theory
     
     
+    
+    void fit_basis_functions(
+        int const echo=0 // log-level
+    ) const { // no member variable is modified
+        auto const sigma_basis = control::get("single_atom.fit.basis.sigma", 0.);
+        if (sigma_basis <= 0) return;
+        
+        int const numax_max = std::min(control::get("single_atom.fit.basis.numax", -1.), 19.);
+        if (numax_max < numax) return;
+
+        if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
+        
+        int const nln = sho_tools::nSHO_radial(numax);
+        std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive basis functions
+        view2D<double> rwave(nln, align<2>(rg[SMT].n), 0.0);
+        for (int iln = 0; iln < nln; ++iln) {
+            double const *const wave = partial_wave[iln].wave[SMT];
+            if (wave) {
+                occ_ln[iln] = partial_wave[iln].occupation;
+                product(rwave[iln], rg[SMT].n, rg[SMT].r, wave);
+            } // wave
+        } // iln
+
+        // export into XML format
+        auto const *filename = "pseudo_basis.xml";
+        std::FILE *const f = std::fopen(filename, "w");
+        if (f) {
+            // XML file header
+            std::fprintf(f, "<?xml version=\"%.1f\"?>\n", 1.0);
+            std::fprintf(f, "<basis version=\"%.1f\">\n", 0.0);
+            std::fprintf(f, "  <!-- Radial pseudo basis functions expanded in SHO basis -->\n");
+            std::fprintf(f, "  <!-- SHO spread sigma in units of Bohr radii -->\n");
+        } // f
+        
+        for (int numax_basis = numax; numax_basis <= numax_max; ++numax_basis) {
+
+            view2D<double> wave_coeff(nln, 32, 0.0);
+            double const sigma_out = fit_function_set( // returns optimized sigma
+                wave_coeff // resulting coefficients
+              , numax // nln(numax) determines how many radial functions at most
+              , occ_ln.data() // optimization weights
+              , rg[SMT] // radial grid descriptor, typically the smooth grid
+              , rwave // r*functions(numerical), rfunc(nln,>= rg.n)
+              , sigma_basis // input SHO spread
+              , numax_basis // SHO basis size
+              , 4.0 // range from 25% to 400%
+              , "pseudo basis" // what
+              , label // log-prefix    
+              , echo); // log-level
+
+            if (echo > 0) std::printf("# %s %s optimized sigma= %g %s for numax= %d\n", label, __func__, sigma_out*Ang, _Ang, numax_basis);
+
+        
+            if (f) {
+                // XML file body
+                std::fprintf(f, "  <atomic symbol=\"%s\" Z=\"%g\" numax=\"%d\" sigma=\"%g\">\n", 
+                                                  label,  Z_core, numax_basis, sigma_out);
+                for (int iln = 0; iln < nln; ++iln) {
+                    auto const & vs = partial_wave[iln];
+                    if (vs.wave[SMT]) {
+                        std::fprintf(f, "    <wave id=\"%s\" n=\"%d\" l=\"%d\" f=\"%g\"> ",
+                                                    vs.tag, vs.enn, vs.ell, occ_ln[iln]);
+                        int const n_coeff = sho_tools::nn_max(numax_basis, vs.ell);
+                        double const norm2 = dot_product(n_coeff, wave_coeff[iln], wave_coeff[iln]);
+                        double const normf = (norm2 > 0) ? 1./std::sqrt(norm2) : 1;
+                        for (int jrn = 0; jrn < n_coeff; ++jrn) {
+                            std::fprintf(f, " %.12f", wave_coeff(iln,jrn)*normf);
+                        } // jrn
+                        std::fprintf(f, " </wave>\n");
+                    } // wave
+                } // iln
+                std::fprintf(f, "  </atomic>\n");
+            } // f
+
+        } // sigma_numax
+
+        if (f) {
+            // XML file footer
+            std::fprintf(f, "</basis>\n");
+            std::fclose(f);
+
+            if (echo > 0) std::printf("# %s exported \'%s\'\n", label, filename);
+        } else {
+            warn("%s failed to open file \'%s\' for export", label, filename);
+        } // f
+        
+    } // fit_basis_functions
     
     
   }; // class LiveAtom
