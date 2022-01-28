@@ -4220,10 +4220,9 @@ namespace single_atom {
 
             if (echo > 0) std::printf("# %s %s optimized sigma= %g %s for numax= %d\n", label, __func__, sigma_out*Ang, _Ang, numax_basis);
 
-        
             if (f) {
                 // XML file body
-                std::fprintf(f, "  <atomic symbol=\"%s\" Z=\"%g\" numax=\"%d\" sigma=\"%g\">\n", 
+                std::fprintf(f, "  <atomic symbol=\"%s\" Z=\"%g\" numax=\"%d\" sigma=\"%.9f\">\n", 
                                                   label,  Z_core, numax_basis, sigma_out);
                 for (int iln = 0; iln < nln; ++iln) {
                     auto const & vs = partial_wave[iln];

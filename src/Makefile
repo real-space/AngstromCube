@@ -38,6 +38,7 @@ OBJ = \
 	potential_generator.o \
 	poisson_solver.o \
 	plane_wave.o \
+	sho_basis.o \
 	sho_overlap.o \
 	sho_hamiltonian.o \
 	sho_projection.o \

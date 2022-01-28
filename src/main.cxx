@@ -68,6 +68,7 @@
   #include "multi_grid.hxx" // ::all_tests
   #include "sho_radial.hxx" // ::all_tests
   #include "sho_tools.hxx" // ::all_tests
+  #include "sho_basis.hxx" // ::all_tests
   #include "atom_core.hxx" // ::all_tests
   #include "data_view.hxx" // ::all_tests
   #include "control.hxx" // ::all_tests
@@ -183,6 +184,7 @@
           add_module_test(sho_projection);
           add_module_test(sho_potential);
           add_module_test(sho_radial);
+          add_module_test(sho_basis);
           add_module_test(sho_hamiltonian);
 
           if (chapters) std::printf("\n\n\n\n#\n# Hamiltonian modules\n#\n\n\n\n");

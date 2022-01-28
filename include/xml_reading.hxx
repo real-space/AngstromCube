@@ -3,6 +3,7 @@
 #include <cstdio> // std::printf, std::snprintf, std::fprintf, std::fopen, std::close, std::remove
 #include <vector> // std::vector<T>
 #include <ctime> // std::strftime, ::tm, ::gmtime
+#include <cerrno> // errno, ERANGE
 
 #ifdef HAS_RAPIDXML
   #include <cstdlib> // std::atof, std::strtod
@@ -11,8 +12,6 @@
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
   #include "rapidxml/rapidxml_utils.hpp" // ::file<>
 #endif // HAS_RAPIDXML
-
-#include <cerrno> // errno, ERANGE
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
 #include "recorded_warnings.hxx" // warn
