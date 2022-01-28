@@ -670,7 +670,7 @@ namespace single_atom {
         } // use_energy_parameter
 
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-        partial_wave_char = std::vector<char>(nln, '\0'); // init partial wave characteristics
+        partial_wave_char = std::vector<char>(nln + 1, '\0'); // init partial wave characteristics, +1 for a zero-terminated string
         partial_wave = std::vector<partial_wave_t>(nln);
         partial_wave_active = std::vector<char>(nln, 0);
         { // scope: initialize partial waves
@@ -1682,7 +1682,7 @@ namespace single_atom {
         // We can define tphi(nn[ell], nr_tru) inside the ell-loop
         // Mind that without the experimental section activated by single_atom.suggest.local.potential
         // we could also define sphi(nn[ell], nr_smt) and skin inside the ell-loop, however, 
-        // this does not apply to the projectors since they will all be need later in the fitting.
+        // this does not apply to the projectors since they will all be needed later in the fitting.
         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
 
         std::vector<double> occ_ln(nln, 0.0);
