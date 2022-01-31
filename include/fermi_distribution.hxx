@@ -80,7 +80,7 @@ namespace fermi_distribution {
 
 
       double nstates{0};
-      double e[2] = {9e99, -9e99}, ne[2];
+      double e[2] = {9e99, -9e99}; //, ne[2];
       for (int ib = 0; ib < nb; ++ib) {
           double const energy = energies[ib];
           e[0] = std::min(e[0], energy);
@@ -121,7 +121,7 @@ namespace fermi_distribution {
           } // echo
           int const i01 = (nem > n_electrons);
           e[i01] = em; // set new interval boundary
-          ne[i01] = nem;
+          // ne[i01] = nem;
       } // while
 
       double const eF = 0.5*(e[0] + e[1]);
@@ -166,9 +166,8 @@ namespace fermi_distribution {
       return 0;
   } // density_of_states
 
-  
-  class FermiLevel_t
-  { 
+
+  class FermiLevel_t { 
       // group all the information needed for the determination
       // of the Fermi level during SCF cycles
     public:

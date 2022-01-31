@@ -35,7 +35,7 @@ namespace fourier_transform {
 #ifndef HAS_NO_MKL
       MKL_LONG status;
       MKL_LONG const l[3] = {ng[2], ng[1], ng[0]};
-      size_t const ngall = l[2]*l[1]*l[0];
+//    size_t const ngall = l[2]*l[1]*l[0];
       DFTI_DESCRIPTOR_HANDLE my_desc_handle;
       status = DftiCreateDescriptor(&my_desc_handle, (sizeof(real_t) > 4) ? DFTI_DOUBLE : DFTI_SINGLE, DFTI_COMPLEX, 3, l);
       status = DftiSetValue(my_desc_handle, DFTI_COMPLEX_STORAGE, DFTI_REAL_REAL);

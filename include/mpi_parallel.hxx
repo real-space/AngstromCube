@@ -48,7 +48,7 @@
       already = true;
       return return_value;
   } // MPI_Init
-  int MPI_Finalize(void) { ok; };
+  int MPI_Finalize(void) { ok; }
   int MPI_Comm_rank(MPI_Comm comm, int *rank) { assert(rank); *rank = 0; ok; }
   int MPI_Comm_size(MPI_Comm comm, int *size) { assert(size); *size = 1; ok; }
   int MPI_Barrier(MPI_Comm comm) { ok; }

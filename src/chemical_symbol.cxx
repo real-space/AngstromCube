@@ -173,7 +173,7 @@ namespace chemical_symbol {
           {
               if (allow_digit_reading) {
                   // try numeric reading, works only in [1, 99] since we have only 2 chars
-                  if ((S >= allow_leading_zero ? '0' : '1') && (S <= '9')) {
+                  if ((S >= (allow_leading_zero ? '0' : '1')) && (S <= '9')) {
                       // leading char is a digit [1, 9] or [0, 9] if leading zeros are allowed
                       if ((y >= '0') && (y <= '9')) {
                           // a 2-digit number

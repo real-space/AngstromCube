@@ -1,4 +1,4 @@
  External libraries:
-	rapidxml (optional)
-	rapidjson (optional)
+	rapidxml (optional) git clone https://github.com/dwd/rapidxml
+	rapidjson (optional) git clone https://github.com/Tencent/rapidjson.git
 

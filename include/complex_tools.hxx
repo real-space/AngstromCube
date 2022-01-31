@@ -19,8 +19,8 @@
   template <> inline char const * complex_name<std::complex<float>> (std::complex<float>  const x) { return "complex<float>"; }
 
   template <typename real_t> real_t conjugate(real_t const x);
-  template <> inline double conjugate<double>(double const x) { return x; };
-  template <> inline float  conjugate<float> (float  const x) { return x; };
+  template <> inline double conjugate<double>(double const x) { return x; }
+  template <> inline float  conjugate<float> (float  const x) { return x; }
   template <typename real_t>
   std::complex<real_t> inline conjugate(std::complex<real_t> const x) { return std::conj(x); }
 

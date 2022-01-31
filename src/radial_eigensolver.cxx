@@ -175,7 +175,7 @@ namespace radial_eigensolver {
   ) {
       status_t stat(0);
       auto & g = *radial_grid::create_radial_grid(2610);
-      std::vector<double const> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
+      std::vector<double> const rV(g.n, -Z); // fill all potential values with r*V(r) == -Z
       std::vector<double> rf(g.n); // radial wave function
       char const SRA_name[][21] = {"non-relativistic", "scalar-relativistic", "linearized-sqrt"};
       double maxdev{0}; // deviation of the non-relativistic final energies from the reference energy
