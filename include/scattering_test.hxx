@@ -20,7 +20,7 @@
 #include "radial_integrator.hxx" // ::integrate_outwards<SRA>
 #include "constants.hxx" // ::pi
 #include "linear_algebra.hxx" // ::linear_solve, ::eigenvalues
-#include "data_view.hxx" // view2D<T>
+#include "data_view.hxx" // view2D<T>, view3D<T>
 #include "print_tools.hxx" // printf_vector
 #include "energy_level.hxx" // TRU, SMT, TRU_AND_SMT
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
@@ -45,7 +45,7 @@ namespace scattering_test {
 
  
   template <typename real_t>
-  status_t expand_sho_projectors(
+  status_t expand_sho_projectors( // pure SHO basis functions
         real_t prj[]  // output projectors [nln*stride]
       , int const stride // stride >= rg.n
       , radial_grid_t const & rg // radial grid descriptor
@@ -56,36 +56,38 @@ namespace scattering_test {
       , real_t dprj[]=nullptr // derivative of projectors w.r.t. sigma
   ) {
       assert(sigma > 0);
+      assert(numax >= 0);
       double const sigma_inv = 1./sigma;
       double const sigma_m23 = std::sqrt(pow3(sigma_inv)); // == sigma^{-3/2}
       double const dds_sigma_m23 = -1.5*sigma_inv; // d/dsigma sigma^{-3/2} = -3/2 sigma^{-5/2} =  -3/2 * 1./sigma * sigma^{-3/2} 
       int const maxpoly = align<2>(1 + numax/2);
       int const nln = sho_tools::nSHO_radial(numax);
-      view2D<double> poly(nln, maxpoly, 0.0);
-      view2D<double> ddx2_poly(nln, maxpoly, 0.0);
+      view3D<double> poly(2, nln, maxpoly, 0.0); // poly[0]: polynonial coefficients, poly[1]: d/dx^2
+      if (echo > 16) std::printf("# %s 3D poly(2,%d,%d)\n", __func__, nln, maxpoly);
       for (int ell = 0; ell <= numax; ++ell) {
           for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // number of radial nodes
               int const iln = sho_tools::ln_index(numax, ell, nrn);
-              sho_radial::radial_eigenstates(poly[iln], nrn, ell); //  a polynomial in x^2
-              double const norm_factor = sho_radial::radial_normalization(poly[iln], nrn, ell) * sigma_m23;
-              scale(poly[iln], nrn + 1, norm_factor);
+              assert(nrn < maxpoly);
+              sho_radial::radial_eigenstates(poly(0,iln), nrn, ell); //  a polynomial in x^2
+              if (echo > 17) std::printf("# %s fill poly(0,%d,0..%d)\n", __func__, iln, nrn);
+              double const norm_factor = sho_radial::radial_normalization(poly(0,iln), nrn, ell) * sigma_m23;
+              scale(poly(0,iln), nrn + 1, norm_factor);
               for (int p = 1; p <= nrn; ++p) {
-                  ddx2_poly(iln,p - 1) = p*poly(iln,p); // derive polynomial w.r.t. its argument x^2
+                  poly(1,iln,p - 1) = p*poly(0,iln,p); // derive polynomial w.r.t. its argument x^2
               } // p
               // Beware for the derivative: the norm_factor depends on sigma
           } // nrn
       } // ell
 
       assert(rg.n <= stride);
+      if (echo > 16) std::printf("# %s nln*stride= %d*%d = %d:\n", __func__, nln, stride, nln*stride);
 #ifdef DEVEL
       std::vector<double> norm(nln, 0.0);
 #endif // DEVEL
       if (echo > 18) std::printf("\n## SHO projectors on radial grid: r, p_00(r), p_01, ... :\n");
       for (int ir = 0; ir < rg.n; ++ir) { // parallel over ir
-          double const r = rg.r[ir];
-#ifdef DEVEL
-          double const r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
-#endif // DEVEL
+          assert(ir < stride);
+          double const r = rg.r[ir], r2dr = rg.r2dr[ir]; // load grid from radial grid descriptor
 //        double const dr = 0.03125, r = dr*ir, r2dr = r*r*dr; // use an equidistant grid
           double const r_pow_rpow = intpow(r, rpow);
 
@@ -104,7 +106,8 @@ namespace scattering_test {
           for (int ell = 0; ell <= numax; ++ell) { // serial loop, must run forward 
               for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                   int const iln = sho_tools::ln_index(numax, ell, nrn);
-                  double const poly_value = sho_radial::expand_poly(poly[iln], 1 + nrn, x2);
+                  assert(iln < nln);
+                  double const poly_value = sho_radial::expand_poly(poly(0,iln), 1 + nrn, x2);
                   double const projector_value = poly_value * Gaussian * x_pow_ell;
 #ifdef DEVEL
                   if (echo > 18) std::printf(" %g", projector_value);
@@ -114,7 +117,7 @@ namespace scattering_test {
 
                   if (nullptr != dprj) {
                       // construct the derivative w.r.t. sigma
-                      double const ddx2_poly_value = sho_radial::expand_poly(ddx2_poly[iln], nrn, x2);
+                      double const ddx2_poly_value = sho_radial::expand_poly(poly(1,iln), nrn, x2);
                       double const ddx_poly_value = ddx_x2 * ddx2_poly_value;
                       double const dds_projector_value =
                                    dds_sigma_m23 * projector_value + // derivate of the prefactor is an additional factor here

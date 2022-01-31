@@ -286,11 +286,11 @@ namespace single_atom {
                           if (func_coeff) (*func_coeff)(iln,jrn) = inner / std::sqrt(denom_sho[jrn]); // store
                       } else {
                           if (func_coeff) (*func_coeff)(iln,jrn) = 0;
-                          if (weight_ln[iln] > 0 && echo > 3) {
-                              std::printf("# %s for sigma= %g %s cannot normalize %c%i proj: sho %g num %g\n", 
-                                            label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[jrn], denom_num);
-                          } // weight echo
-                      } // denom > 0
+                          if (weight_ln[iln] > 0) {
+                              warn("%s for sigma= %g %s cannot normalize %c%i proj: sho %g num %g", 
+                                  label, sigma*Ang,_Ang, ellchar[ell], nrn, denom_sho[jrn], denom_num);
+                          } // weight
+                      } // denoms > 0
                   } // jrn
                   if (echo > 11) std::printf("# %s quality for %c nrn=%d with sigma= %g %s is %g (weight %.2f)\n", 
                                                 label, ellchar[ell], nrn, sigma*Ang, _Ang, quality_ln, weight_ln[iln]);
@@ -313,7 +313,7 @@ namespace single_atom {
     double fit_function_set( // returns optimized sigma
         view2D<double> & prj_coeff // (nln,nn_max(numax_basis, 0))
       , int const numax
-      , double const weight_ln[] // weights
+      , double const weight_ln[] // weights (negative weights are inactive)
       , radial_grid_t const & rg // radial grid descriptor, typically the smooth grid
       , view2D<double> const & rfunc // r*functions(numerical), rfunc(nln,>= rg.n)
       , double const sigma_in // input
@@ -333,11 +333,7 @@ namespace single_atom {
         // Mind that without the experimental section activated by single_atom.suggest.local.potential
         // we could also define sphi(nn[ell], nr_smt) and skin inside the ell-loop, however, 
         // this does not apply to the projectors since they will all be needed later in the fitting.
-//         int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
-
-//         std::vector<double> occ_ln(nln, 0.0);
         
-        // get weights only
         double total_weight{0};
         for (int ell = 0; ell <= numax; ++ell) {
             for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // partial waves
@@ -345,10 +341,6 @@ namespace single_atom {
                 total_weight += std::max(0.0, weight_ln[iln]);
             } // nrn
         } // ell
-
-//         char const *optimized{""};
-//         int const optimize_sigma = control::get("single_atom.optimize.sigma", 0.); // 0:no optimization,
-          // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
 
         double const sigma_old = sigma_in;
         double sigma_opt{sigma_old};
@@ -377,8 +369,6 @@ namespace single_atom {
                                       best_weighted_quality, total_weight, best_weighted_quality*100/std::max(1., total_weight));
             if (sigma_range[0]*1.001 > sigma_opt) warn("%s optimal sigma is at the lower end of the analyzed range!", label);
             if (sigma_range[1]*0.999 < sigma_opt) warn("%s optimal sigma is at the upper end of the analyzed range!", label);
-
-//             optimized = "optimized ";
         } // range > 1
         double const sigma_out = sigma_opt; // return value
 
@@ -406,7 +396,7 @@ namespace single_atom {
 
         return sigma_out;
     } // fit_function_set
-  
+
 
 
 
@@ -1690,7 +1680,7 @@ namespace single_atom {
     
     
     
-    void show_projector_coefficients(char const *attribute="", double const sigma=1, int const echo=0) {
+    void show_projector_coefficients(char const *attribute="", double const sigma=1, int const echo=0) const {
         // Total energy of SHO state is (nu + 3/2) sigma^-2 in Hartree, nu=ell+2*nrn
         // Kinetic energy is half of the total energy (due to x <--> p symmetry)
         double const kinetic_pref = (sigma > 0) ? 0.5/pow2(sigma) : 0; // in Hartree units
@@ -1804,23 +1794,18 @@ namespace single_atom {
         // and preliminary projectors as suggested by Bloechl
         update_partial_waves(echo - 6, 'C', 2); // suppress output, 'C':classical_scheme, 2xGramSchmidt
 
-        int const nln = sho_tools::nSHO_radial(numax); // == (numax*(numax + 4) + 4)/4
+        int const nln = sho_tools::nSHO_radial(numax);
 
         std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive projectors
-        double total_occ{0};
-
-        // get weights only
         for (int ell = 0; ell <= numax; ++ell) {
             for (int nrn = 0; nrn < nn[ell]; ++nrn) { // active partial waves
                 int const iln = sho_tools::ln_index(numax, ell, nrn);
                 assert(partial_wave_active[iln]);
-                auto const occ = partial_wave[iln].occupation;
                 // the total deviation is weighted with the ell-channel-summed occupation numbers
-                occ_ln[iln] = occ;
-                total_occ  += occ;
+                occ_ln[iln] = partial_wave[iln].occupation;
             } // nrn
-        } // ell        
-        
+        } // ell
+
         int const optimize_sigma = control::get("single_atom.optimize.sigma", 0.); // 0:no optimization,
                             // 1:optimize + use, -1:optimize + display, -10: optimize + display + abort
 
@@ -4166,20 +4151,20 @@ namespace single_atom {
 
         return status;
     } // perturbation_theory
-    
-    
-    
+
+
+
     void fit_basis_functions(
         int const echo=0 // log-level
     ) const { // no member variable is modified
         auto const sigma_basis = control::get("single_atom.fit.basis.sigma", 0.);
         if (sigma_basis <= 0) return;
-        
+
         int const numax_max = std::min(control::get("single_atom.fit.basis.numax", -1.), 19.);
         if (numax_max < numax) return;
 
         if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
-        
+
         int const nln = sho_tools::nSHO_radial(numax);
         std::vector<double> occ_ln(nln, -1.); // init with negative occupations for inactive basis functions
         view2D<double> rwave(nln, align<2>(rg[SMT].n), 0.0);
@@ -4201,7 +4186,7 @@ namespace single_atom {
             std::fprintf(f, "  <!-- Radial pseudo basis functions expanded in SHO basis -->\n");
             std::fprintf(f, "  <!-- SHO spread sigma in units of Bohr radii -->\n");
         } // f
-        
+
         for (int numax_basis = numax; numax_basis <= numax_max; ++numax_basis) {
 
             view2D<double> wave_coeff(nln, 32, 0.0);
@@ -4247,15 +4232,14 @@ namespace single_atom {
             // XML file footer
             std::fprintf(f, "</basis>\n");
             std::fclose(f);
-
             if (echo > 0) std::printf("# %s exported \'%s\'\n", label, filename);
         } else {
             warn("%s failed to open file \'%s\' for export", label, filename);
         } // f
-        
+
     } // fit_basis_functions
-    
-    
+
+
   }; // class LiveAtom
 
   // instead of having a switch only onto  the first char of a string (as in atom_update),

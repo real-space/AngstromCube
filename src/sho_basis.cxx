@@ -1,6 +1,7 @@
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atof, ::atoi
 #include <vector> // std::vector<T>
+#include <utility> // std::pair<T>, ::make_pair
 
 #include "sho_basis.hxx"
 
@@ -9,7 +10,9 @@
 #include "control.hxx" // ::get
 #include "xml_reading.hxx" // ::read_sequence
 #include "unit_system.hxx" // Ang, _Ang
-#include "sho_tools.hxx" // ::nn_max
+#include "sho_tools.hxx" // ::nn_max, ::nSHO_radial
+#include "scattering_test.hxx" // ::expand_sho_projectors
+#include "radial_grid.hxx" // radial_grid_t, ::create_radial_grid, ::destroy_radial_grid
 
 #ifdef  HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
@@ -22,7 +25,7 @@
 
 namespace sho_basis {
   // loads radial basis function that are expanded into a SHO basis
-
+ 
   status_t load(
         std::vector<view2D<double>> & basis
       , std::vector<int> & indirection
@@ -56,6 +59,12 @@ namespace sho_basis {
 
       char const ellchar[] = "spdfgh?";
 
+      auto rg = *radial_grid::create_radial_grid(256, 10.f, '='); // for display
+
+      std::vector<std::vector<std::vector<double>>> all_coeffs;
+      std::vector<double> all_sigma;
+      std::vector<int> all_numax;
+
       // check all bases
       for (auto atomic = main_node->first_node("atomic"); atomic; atomic = atomic->next_sibling()) {
           auto const symbol =          (xml_reading::find_attribute(atomic, "symbol", "?"));
@@ -64,6 +73,8 @@ namespace sho_basis {
           auto const sigma  = std::atof(xml_reading::find_attribute(atomic, "sigma",  "0"));
           if (echo > 0) std::printf("# %s symbol= %s Z= %g numax= %d sigma= %g %s\n", __func__, symbol, Z, numax, sigma*Ang, _Ang);
 
+          std::vector<std::vector<double>> coeffs;
+          std::vector<int8_t> enns, ells;
           for (auto wave = atomic->first_node("wave"); wave; wave = wave->next_sibling()) {
               int const enn = std::atoi(xml_reading::find_attribute(wave, "n",  "0"));
               int const ell = std::atoi(xml_reading::find_attribute(wave, "l", "-1"));
@@ -73,9 +84,47 @@ namespace sho_basis {
               auto const vec = xml_reading::read_sequence<double>(wave->value(), echo, n_expect);
               if (echo > 0) std::printf("# %s   %s-%d%c  (%ld of %d elements)\n", __func__, symbol, enn, ellchar[ell], vec.size(), n_expect);
               assert(n_expect == vec.size());
+              enns.push_back(enn);
+              ells.push_back(ell);
+              coeffs.push_back(vec);
           } // wave
 
+          if (coeffs.size() > 0) { // plot
+              assert(coeffs.size() == enns.size());
+              assert(coeffs.size() == ells.size());
+              if (echo > 7) {
+                  int const nln = sho_tools::nSHO_radial(numax);
+                  view2D<double> basis_funcs(nln, rg.n, 0.0);
+                  std::printf("# %s %d*%d = %d points\n", __func__, nln, rg.n, nln*rg.n);
+                  // this part leads to memory corruption ... ToDo find it
+                  scattering_test::expand_sho_projectors(basis_funcs.data(), basis_funcs.stride(), rg, sigma, numax, 0, 17);
+                  std::printf("\n## radius ");
+                  for (int i = 0; i < coeffs.size(); ++i) {
+                      std::printf(" %d%c", enns[i], ellchar[ells[i]]);
+                      assert(coeffs[i].size() == sho_tools::nn_max(numax, ells[i]));
+                  } // i
+                  if (echo > 30) { // ToDo: remove
+                  std::printf(" :\n");
+                  for (int ir = 0; ir < rg.n; ++ir) {
+                      std::printf("%g", rg.r[ir]);
+                      for (int i = 0; i < coeffs.size(); ++i) {
+                          int const iln0 = sho_tools::ln_index(numax, ells[i], 0);
+                          double wave{0};
+                          for (int jrn = 0; jrn < coeffs[i].size(); ++jrn) {
+                              wave += coeffs[i][jrn] * basis_funcs(iln0 + jrn,ir);
+                          } // jrn
+                          std::printf(" %g", wave);
+                      } // i
+                      std::printf("\n");
+                  } // ir
+                  std::printf("\n\n");
+                  } // echo > 30
+              } // echo
+          } // plot
+
       } // atomic
+      
+      radial_grid::destroy_radial_grid(&rg);
       
       return 0;
 #endif // HAS_RAPIDXML
