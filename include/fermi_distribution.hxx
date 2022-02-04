@@ -80,7 +80,7 @@ namespace fermi_distribution {
 
 
       double nstates{0};
-      double e[2] = {9e99, -9e99}; //, ne[2];
+      double e[2] = {9e99, -9e99};
       for (int ib = 0; ib < nb; ++ib) {
           double const energy = energies[ib];
           e[0] = std::min(e[0], energy);
@@ -121,12 +121,11 @@ namespace fermi_distribution {
           } // echo
           int const i01 = (nem > n_electrons);
           e[i01] = em; // set new interval boundary
-          // ne[i01] = nem;
       } // while
 
       double const eF = 0.5*(e[0] + e[1]);
       if (echo > 19) std::printf("# %s after convergence energy %g %s\n", __func__, eF*eV, _eV);
-      double DoS; // density of states at the Fermi level
+      double DoS{0}; // density of states at the Fermi level
       auto const nem = count_electrons(nb, energies, eF, kTinv, weights, &DoS, occupations, response_occ);
       if (echo > 6) std::printf("# %s with energy %g %s --> %g electrons\n", __func__, eF*eV, _eV, spinfactor*nem);
       if (res > 1e-9) {
@@ -138,8 +137,7 @@ namespace fermi_distribution {
       return eF;
   } // Fermi_level
 
-  inline
-  status_t density_of_states(int const n, double const energies[], double const kT, double const eF=0, double const de=3e-4, int const echo=9) {
+  inline status_t density_of_states(int const n, double const energies[], double const kT, double const eF=0, double const de=3e-4, int const echo=9) {
       if (n < 1) return 0;
       double const kTinv = 1./std::max(1e-9, kT);
       simple_stats::Stats<double> stats;
@@ -276,8 +274,8 @@ namespace fermi_distribution {
 
   }; // class FermiLevel_t
 
-  
-  
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
