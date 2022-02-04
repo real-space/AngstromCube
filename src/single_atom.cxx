@@ -197,7 +197,7 @@ namespace single_atom {
       set(lmn_begin, mlm, int_t(-1));
       for (int ell = 0; ell <= numax; ++ell) {
           for (int emm = -ell; emm <= ell; ++emm) {
-              for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) {
+              for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) {
                   int const ilmn      = sho_tools::lmn_index(numax, ell, emm, nrn);
                   ln_index_list[ilmn] = sho_tools::ln_index(numax, ell, nrn); // valence state index
                   int const ilm       = sho_tools::lm_index(ell, emm);
@@ -782,7 +782,7 @@ namespace single_atom {
         { // scope: initialize partial waves
             int ilnn{0}; // index of the existing partial waves
             for (int ell = 0; ell <= numax; ++ell) {
-                for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
+                for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // smooth number or radial nodes
 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     assert(iln < nln);
@@ -1236,7 +1236,7 @@ namespace single_atom {
         { // scope: initialize partial waves
             int ilnn{0}; // index of the existing partial waves
             for (int ell = 0; ell <= numax; ++ell) {
-                for (int nrn = 0; nrn <= (numax - ell)/2; ++nrn) { // smooth number or radial nodes
+                for (int nrn = 0; nrn < sho_tools::nn_max(numax, ell); ++nrn) { // smooth number or radial nodes
 
                     int const iln = sho_tools::ln_index(numax, ell, nrn);
                     assert(iln < nln);
