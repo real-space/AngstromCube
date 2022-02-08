@@ -69,10 +69,6 @@ namespace sho_basis {
       // check all bases
       for (auto atomic = main_node->first_node("atomic"); atomic; atomic = atomic->next_sibling()) {
 //        if (echo > 0) std::printf("# %s atomic= %p\n", __func__, (void*)atomic);
-//           for (auto attr = atomic->first_attribute(); attr; attr = attr->next_attribute()) {
-//               if (echo > 0) std::printf("# %s atomic= %p attribute= %s value= %s\n",
-//                             __func__, (void*)atomic, attr->name(), attr->value());
-//           } // attr
           auto const symbol =          (xml_reading::find_attribute(atomic, "symbol", "?"));
           auto const Z      = std::atof(xml_reading::find_attribute(atomic, "Z",     "-9"));
           auto const numax  = std::atoi(xml_reading::find_attribute(atomic, "numax", "-1"));
@@ -95,42 +91,6 @@ namespace sho_basis {
               coeffs.push_back(vec);
           } // wave
 
-#if 0
-          if (coeffs.size() > 0) { // plot
-              assert(coeffs.size() == enns.size());
-              assert(coeffs.size() == ells.size());
-              if (echo > 7) {
-                  int const nln = sho_tools::nSHO_radial(numax);
-                  view2D<double> basis_funcs(nln, rg.n, 0.0);
-                  std::printf("# %s %d*%d = %d points\n", __func__, nln, rg.n, nln*rg.n);
-                  // this part leads to memory corruption ... ToDo find it
-                  scattering_test::expand_sho_projectors(basis_funcs.data(), basis_funcs.stride(), rg, sigma, numax, 0, 17);
-                  std::printf("\n## radius ");
-                  for (int i = 0; i < coeffs.size(); ++i) {
-                      assert(ells[i] >= 0);
-                      std::printf(" %d%c", enns[i], ellchar[ells[i]]);
-                      assert(coeffs[i].size() == sho_tools::nn_max(numax, ells[i]));
-                  } // i
-                  if (echo > 30) { // ToDo: remove this condition
-                  std::printf(" :\n");
-                  for (int ir = 0; ir < rg.n; ++ir) {
-                      std::printf("%g", rg.r[ir]);
-                      for (int i = 0; i < coeffs.size(); ++i) {
-                          int const iln0 = sho_tools::ln_index(numax, ells[i], 0);
-                          double wave{0};
-                          for (int jrn = 0; jrn < coeffs[i].size(); ++jrn) {
-                              wave += coeffs[i][jrn] * basis_funcs(iln0 + jrn,ir);
-                          } // jrn
-                          std::printf(" %g", wave);
-                      } // i
-                      std::printf("\n");
-                  } // ir
-                  } // echo > 30
-                  std::printf("\n\n");
-              } // echo
-          } // plot
-#endif
-          
           all_coeffs.push_back(coeffs);
           all_numax.push_back(numax);
           all_sigma.push_back(sigma);
@@ -197,7 +157,7 @@ namespace sho_basis {
       std::vector<view2D<double>> basis;
       std::vector<int> indirection;
       std::vector<double> Z_core(natoms, 29.);
-      stat = load(basis, indirection, natoms, Z_core.data(), echo);
+      stat += load(basis, indirection, natoms, Z_core.data(), echo);
 
       return stat;
   } // test_load

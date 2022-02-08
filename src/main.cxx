@@ -21,7 +21,6 @@
   #include "bessel_transform.hxx" // ::all_tests
   #include "parallel_domains.hxx" // ::all_tests
   #include "structure_solver.hxx" // ::all_tests
-  #include "green_projection.hxx" // ::all_tests
   #include "scattering_test.hxx" // ::all_tests
   #include "davidson_solver.hxx" // ::all_tests
   #include "chemical_symbol.hxx" // ::all_tests
@@ -45,6 +44,7 @@
   #include "sho_potential.hxx" // ::all_tests
   #include "green_kinetic.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
+  #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
   #include "mpi_parallel.hxx" // ::all_tests
@@ -194,7 +194,7 @@
           add_module_test(green_function);
           add_module_test(green_kinetic);
           add_module_test(green_potential);
-          add_module_test(green_projection);
+          add_module_test(green_dyadic);
           add_module_test(green_action);
 
           if (chapters) std::printf("\n\n\n\n#\n# eigensolver modules\n#\n\n\n\n");

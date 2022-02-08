@@ -70,6 +70,7 @@ namespace green_function {
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
       auto const p = new green_action::plan_t(); // create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+      assert(nullptr != p);
 
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
@@ -529,11 +530,11 @@ namespace green_function {
           } // d
           auto const natom_images = natoms*nimages;
           if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k total\n", 
-                                  iimage[X], iimage[Y], iimage[Z], nimages*.001);
+                                        iimage[X], iimage[Y], iimage[Z], nimages*.001);
 
           std::vector<uint32_t> ApcStart(natom_images + 1, 0); // probably larger than needed, should call resize(nai + 1) later
           std::vector<green_action::atom_t> atom_data(natom_images);
-          std::vector<uint8_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
+          std::vector<uint16_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
 
           simple_stats::Stats<> nc_stats;
           uint32_t constexpr COUNT = 0; // 0:count how many blocks are really involved
@@ -661,7 +662,7 @@ namespace green_function {
           set(p->ApcStart, nai + 1, ApcStart.data()); // copy into GPU memory
 
           // get all info for the atomic matrices:
-          std::vector<int32_t> global_atom_index(natoms, -1); // translation table
+          std::vector<int32_t> global_atom_index(natoms); // translation table
           std::vector<int32_t>  local_atom_index(natoms, -1); // translation table
           int iac{0};
           for (int ia = 0; ia < natoms; ++ia) { // serial
@@ -669,9 +670,9 @@ namespace green_function {
                   global_atom_index[iac] = ia;
                   local_atom_index[ia] = iac;
                   ++iac;
-              } // atom_contributes
+              } // atom contributes
           } // ia
-          int const nac = iac;
+          int const nac = iac; // number of contributing atoms
           global_atom_index.resize(nac);
 
           // now store the atomic positions in GPU memory
@@ -686,12 +687,12 @@ namespace green_function {
           } // copy into GPU memory
 
           // get memory for the matrices and fill
-          p->atom_mat = get_memory<double(*)[2]>(nac);
+          p->atom_mat = get_memory<double*>(nac);
           for (int iac = 0; iac < nac; ++iac) { // parallel
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-              p->atom_mat[iac] = get_memory<double[2]>(nc*nc);
+              p->atom_mat[iac] = get_memory<double>(2*nc*nc);
               // fill this with matrix values
               // use MPI communication to find values in atom owner processes
               auto const hmt = atom_mat[ia].data();
@@ -699,17 +700,18 @@ namespace green_function {
               for (int i = 0; i < nc; ++i) {
                   for (int j = 0; j < nc; ++j) {
                       int const ij = i*nc + j;
-                      p->atom_mat[iac][ij][0] = hmt[ij] - E_param.real() * ovl[ij];
-                      p->atom_mat[iac][ij][1] =         - E_param.imag() * ovl[ij];
+                      p->atom_mat[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij];
+                      p->atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij];
                   } // j
               } // i
           } // iac
+          p->number_of_contributing_atoms = nac;
 
       } // scope
 
       int const n_iterations = control::get("green_function.benchmark.iterations", -1.); 
                       // -1: no iterations, 0:run memory initilziation only, >0: iterate
-      if (n_iterations >= 0) { // scope: try out the operator
+      if (n_iterations >= 0) { // scope: try to apply the operator
           typedef float real_t;
           int constexpr LM = 64;
           green_action::action_t<real_t,LM> action(p);
@@ -751,9 +753,9 @@ namespace green_function {
 
       double hg[3] = {1, 1, 1};
       int ng[3] = {0, 0, 0};
-      std::vector<double> Veff;
-      std::vector<double> xyzZinso;
-      std::vector<std::vector<double>> atom_mat;
+      std::vector<double> Veff(0);
+      std::vector<double> xyzZinso(0);
+      std::vector<std::vector<double>> atom_mat(0);
       int natoms{0};
 
       auto const grid_Hamiltonian = doc.first_node("grid_Hamiltonian");
@@ -779,7 +781,7 @@ namespace green_function {
                       if (*value != '\0') {
                           pos[d] = std::atof(value);
                           if (echo > 5) std::printf("# %s = %.15g\n", axyz, pos[d]);
-                      } // value != ""
+                      } else warn("no attribute '%c' found in <atom><position> in file %s", *axyz, filename);
                       xyzZinso[ia*8 + d] = pos[d];
                   } // d
 
@@ -790,15 +792,15 @@ namespace green_function {
                       if (*value != '\0') {
                           numax = std::atoi(value);
                           if (echo > 5) std::printf("# numax= %d\n", numax);
-                      } // value != ""
+                      } else warn("no attribute 'numax' found in <projectors> in file %s", filename);
                   }
                   double sigma{-1};
                   {
-                      auto const value = xml_reading::find_attribute(projectors, "sigma", "-1");
+                      auto const value = xml_reading::find_attribute(projectors, "sigma", "");
                       if (*value != '\0') {
                           sigma = std::atof(value);
                           if (echo > 5) std::printf("# sigma= %g\n", sigma);
-                      } // value != ""
+                      } else warn("no attribute 'sigma' found in <projectors> in file %s", filename);
                   }
                   xyzZinso[ia*8 + 5] = numax;
                   xyzZinso[ia*8 + 6] = sigma;

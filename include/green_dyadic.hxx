@@ -8,7 +8,7 @@
 #include "green_memory.hxx" // get_memory, free_memory, dim3
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
-namespace green_projection {
+namespace green_dyadic {
 
 #ifdef HAS_NO_CUDA
   #define __global__
@@ -27,13 +27,15 @@ namespace green_projection {
         , int    const ivec // thread index used for the vectorization
         , int    const Lmax
         , double const xyza[4] // atomic position in [0],[1] and [2], sigma^{-1/2} in [3]
-        , float  const xyzc[3] // position of the target block
+        , float  const xyzc[3] // position of the target block, ToDo: check if that should be double
         , float  const hxyz[4] // grid spacings in [0],[1] and [2], projection radius in [3]
-    ) {
+    )
+      // Evaluate the Hermite-Gauss functions on a 3D block of 4^3 grid points in parallel
+    {
 
         double const R2_projection = pow2(double(hxyz[3])); // Rprj can be controlled from outside
 
-        if (Lmax < 0) return R2_projection;
+        if (Lmax < 0) return R2_projection; // as float
 
         int constexpr l2b = 2;
         int constexpr n4 = 1 << l2b; // Block edge length is 2^l2b
@@ -85,7 +87,7 @@ namespace green_projection {
 
         // here, start the tree reduction over the 5 elements for the grid-refinement
 
-        return R2_projection;
+        return R2_projection; // as float
     } // Hermite_polynomials_1D
 
     
@@ -104,7 +106,9 @@ namespace green_projection {
 #ifdef HAS_NO_CUDA
         , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
 #endif // HAS_NO_CUDA
-    ) {
+    ) 
+      // Compute the projection coefficients of wave/Green functions with atom-centered SHO-bases
+    {
 
         assert(nvec == blockDim.x);
 
@@ -249,6 +253,29 @@ namespace green_projection {
     } // SHOprj
     
     
+    template <typename real_t>
+    size_t SHOprj_driver(
+          real_t        (*const __restrict__ Cpr)[64] // result: projection coefficients
+        , real_t  const (*const __restrict__ Psi)[64] // input:  wave functions
+        , double  const (*const __restrict__ AtomPos)[4] // atomic positions [0],[1],[2] and decay parameter [3]
+        , int     const (*const __restrict__ RowStart) // rows==atoms
+        , int     const (*const __restrict__ ColIndex) // cols==cubes
+        , float   const (*const __restrict__ CubePos)[4] // only [0],[1],[2] used
+        , float   const (*const __restrict__ hGrid) // grid spacings in [0],[1] and [2], projection radius in [3]
+        , int     const natoms=1
+        , int     const nRHSs=1
+    ) {
+
+        // launch SHOprj<real_t,nvec> <<< {nRHSs/nvec, natoms, 1}, {nvec} >>> (...);
+        SHOprj(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid,
+#ifdef HAS_NO_CUDA
+                dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
+#endif // HAS_NO_CUDA        
+              );
+
+        return 0;
+    } // SHOprj_driver
+    
     
     
     // maybe this could be useful?
@@ -270,7 +297,9 @@ namespace green_projection {
 #ifdef HAS_NO_CUDA
         , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
 #endif // HAS_NO_CUDA
-    ) {
+    )
+      // Add linear combinations of SHO-basis function to wave/Green functions
+    {
 
         assert(nvec == blockDim.x);
         int const nrhs = gridDim.x;
@@ -300,7 +329,7 @@ namespace green_projection {
 #ifdef HAS_NO_CUDA
         for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
 #endif // HAS_NO_CUDA
-        {
+        { // thread loop
           
         real_t czyx[4][4][4]; // get 64 accumulator registers --> 128 registers if double
         __unroll__
@@ -327,7 +356,7 @@ namespace green_projection {
 
             int const iatom = ColIndex[bsr];
 
-            if (threadIdx.x < 4) {
+            if (threadIdx.x < 4) { // this breaks in the thread loop
                 xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // load, convert to float
             } // lowest 4 threads
 
@@ -477,18 +506,20 @@ namespace green_projection {
     
     
     template <typename real_t, int nvec=64, int R1C2=2, int Noco=1, int Lmax=Lmax_default>
-    void __global__ SHOmul( // launch SHOmul<real_t,nvec> <<< {ncols, natoms, 1}, {Noco*64, Noco, R1C2} >>> (...);
-          real_t       (*const __restrict__ aac)[R1C2][Noco][Noco*64] // result
-        , real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*64] // input
-        , double const (*const __restrict__ mat)[Noco*Noco*R1C2] // matrices, ToDo: make atom dependent
-        , int    const (*const __restrict__ AtomStarts)
+    void __global__ SHOmul( // launch SHOmul<real_t,nvec> <<< {ncols, natoms, 1}, {Noco*nvec, Noco, R1C2} >>> (...);
+          real_t       (*const __restrict__ aac)[R1C2][Noco][Noco*nvec] // result
+        , real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*nvec] // input
+        , double const (*const *const __restrict__ mat) // matrices, ToDo: make atom dependent
+        , int    const (*const __restrict__ AtomStarts) // ToDo: should be a uint32_t
         , int8_t const (*const __restrict__ AtomLmax)
 #ifdef HAS_NO_CUDA
         , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
 #endif // HAS_NO_CUDA
-    ) {
-
+    )
+      // Multiply the atom-specific matrices onto the projection coefficients
+    {
         assert(R1C2 >= Noco && "Noncollinear spin treatment needs complex numbers");
+        assert(R1C2 == blockDim.z && "Complex numbers need two blocks");
 
         int const ncols = gridDim.x;
         int const icol  = blockIdx.x;
@@ -499,41 +530,39 @@ namespace green_projection {
 //      int const spjn = ivec >> 6;
 
 #ifdef HAS_NO_CUDA
-        dim3 threadIdx(0,0,0);
-        for (threadIdx.z = 0; threadIdx.z < blockDim.z; ++threadIdx.z)
-        for (threadIdx.y = 0; threadIdx.y < blockDim.y; ++threadIdx.y)
-        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+        for (int reim = 0; reim < blockDim.z; ++reim)
+        for (int spin = 0; spin < blockDim.y; ++spin)
+        for (int ivec = 0; ivec < blockDim.x; ++ivec)
+#else
+        int const ivec = threadIdx.x, spin = threadIdx.y, reim = threadIdx.z;
 #endif // HAS_NO_CUDA
-        {
-        
-        int const ivec  = threadIdx.x;
-        int const spin  = threadIdx.y;
-        int const reim  = threadIdx.z;
-        
-        // version 0: Noco=1, R1C2=1
-        for (int ai = 0; ai < nSHO; ++ai) {
-            real_t cad{0};
-            for (int aj = 0; aj < nSHO; ++aj) {
-                auto const cpr = apc[(a0 + aj)*ncols + icol][reim][spin][ivec];
-                cad += mat[iatom][ai*nSHO + aj][0] * cpr[aj];
+        { // thread loop
+
+            // version 0: Noco=1, R1C2=1
+            assert(1 == Noco);
+            for (int ai = 0; ai < nSHO; ++ai) {
+                double cad{0};
+                for (int aj = 0; aj < nSHO; ++aj) {
+                    double const cpr = apc[(a0 + aj)*ncols + icol][reim][spin][ivec];
+                    cad += mat[iatom][ai*nSHO + aj] * cpr;
+                } // aj
+                // store addition coefficients
+                aac[(a0 + ai)*ncols + icol][reim][spin][ivec] = cad;
             } // aj
-            // store addition coefficients
-            aac[(a0 + ai)*ncols + icol][reim][spin][ivec] = cad;
-        } // aj
 
-        // version 1: Noco=1, R1C2=2
-        // cad_Re += mat[iatom][ai*nSHO + aj][0] * cpr_Re[aj];
-        // cad_Re -= mat[iatom][ai*nSHO + aj][1] * cpr_Im[aj];
-        // cad_Im += mat[iatom][ai*nSHO + aj][1] * cpr_Re[aj];
-        // cad_Im += mat[iatom][ai*nSHO + aj][0] * cpr_Im[aj];
+            // version 1: Noco=1, R1C2=2
+            // cad_Re += mat[iatom][ai*nSHO + aj][0] * cpr_Re[aj];
+            // cad_Re -= mat[iatom][ai*nSHO + aj][1] * cpr_Im[aj];
+            // cad_Im += mat[iatom][ai*nSHO + aj][1] * cpr_Re[aj];
+            // cad_Im += mat[iatom][ai*nSHO + aj][0] * cpr_Im[aj];
 
-        // version 11: Noco=2, R1C2=2
-        // ...
+            // version 11: Noco=2, R1C2=2
+            // ...
 
         } // thread loop
 
     } // SHOmul
-    
+
 
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
@@ -541,12 +570,23 @@ namespace green_projection {
         , real_t       (*const __restrict__  apc)[R1C2][Noco]   [Noco*64] // workarray
         , real_t const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
     ) {
+        size_t nops{0};
+
+        auto const Cpr = get_memory<real_t[64]>(1);
+        auto const Psi = get_memory<real_t[64]>(1);
+        auto const AtomPos = get_memory<double[4]>(1);
+        auto const RowStart = get_memory<int>(1);
+        auto const ColIndex = get_memory<int>(1);
+        auto const CubePos = get_memory<float[4]>(1);
+        auto const hGrid = get_memory<float>(4);
 
         // SHOprj
+        nops += SHOprj_driver<real_t>(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid);
+
         // SHOmul
         // SHOadd
 
-        return 0ul; // total number of floating point operations performed
+        return nops; // total number of floating point operations performed
     } // multiply (projection operations)
 
 
@@ -568,4 +608,4 @@ namespace green_projection {
 
 #endif // NO_UNIT_TESTS
 
-} // namespace green_projection
+} // namespace green_dyadic

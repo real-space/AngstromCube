@@ -58,8 +58,8 @@ namespace scattering_test {
       assert(sigma > 0);
       assert(numax >= 0);
       double const sigma_inv = 1./sigma;
-      double const sigma_m23 = std::sqrt(pow3(sigma_inv)); // == sigma^{-3/2}
-      double const dds_sigma_m23 = -1.5*sigma_inv; // d/dsigma sigma^{-3/2} = -3/2 sigma^{-5/2} =  -3/2 * 1./sigma * sigma^{-3/2} 
+      double const sigma_m32 = std::sqrt(pow3(sigma_inv)); // == sigma^{-3/2}
+      double const dds_sigma_m32 = -1.5*sigma_inv; // d/dsigma sigma^{-3/2} = -3/2 sigma^{-5/2} =  -3/2 * 1./sigma * sigma^{-3/2} 
       int const maxpoly = align<2>(1 + numax/2);
       int const nln = sho_tools::nSHO_radial(numax);
       view3D<double> poly(2, nln, maxpoly, 0.0); // poly[0]: polynonial coefficients, poly[1]: d/dx^2
@@ -70,7 +70,7 @@ namespace scattering_test {
               assert(nrn < maxpoly);
               sho_radial::radial_eigenstates(poly(0,iln), nrn, ell); //  a polynomial in x^2
               if (echo > 17) std::printf("# %s fill poly(0,%d,0..%d)\n", __func__, iln, nrn);
-              double const norm_factor = sho_radial::radial_normalization(poly(0,iln), nrn, ell) * sigma_m23;
+              double const norm_factor = sho_radial::radial_normalization(poly(0,iln), nrn, ell) * sigma_m32;
               scale(poly(0,iln), nrn + 1, norm_factor);
               for (int p = 1; p <= nrn; ++p) {
                   poly(1,iln,p - 1) = p*poly(0,iln,p); // derive polynomial w.r.t. its argument x^2
@@ -120,7 +120,7 @@ namespace scattering_test {
                       double const ddx2_poly_value = sho_radial::expand_poly(poly(1,iln), nrn, x2);
                       double const ddx_poly_value = ddx_x2 * ddx2_poly_value;
                       double const dds_projector_value =
-                                   dds_sigma_m23 * projector_value + // derivate of the prefactor is an additional factor here
+                                   dds_sigma_m32 * projector_value + // derivate of the prefactor is an additional factor here
                                    dds_x * (ddx_poly_value * Gaussian * x_pow_ell +
                                             poly_value * ddx_Gaussian * x_pow_ell +
                                             poly_value * Gaussian * ddx_x_pow_ell);

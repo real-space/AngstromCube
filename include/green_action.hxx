@@ -56,9 +56,9 @@ namespace green_action {
       size_t gpu_mem; // device memory requirement in Byte
 
       // stats:
-      double residuum_reached;
-      double flops_performed;
-      double flops_performed_all;
+      float residuum_reached;
+      float flops_performed;
+      float flops_performed_all;
       int iterations_needed;
 
       // memory positions
@@ -83,9 +83,10 @@ namespace green_action {
       double  (*Veff)[64] = nullptr; // effective potential
       uint32_t* veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
-      double (**atom_mat)[2] = nullptr; // [natoms][nc*nc][2] atomic matrices
+      double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
       atom_t* atom_data = nullptr; // [natom_images]
       double *grid_spacing = nullptr;
+      int number_of_contributing_atoms = 0;
 
       plan_t() {
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
@@ -100,11 +101,13 @@ namespace green_action {
           free_memory(target_coords);
           free_memory(Veff);
           free_memory(veff_index);
+          for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(atom_mat[iac]);
           free_memory(atom_mat);
           free_memory(atom_data);
-          for (int d = 0; d < 3; ++d) {
-              fd_plan[d].~finite_difference_plan_t();
-          } // d
+          free_memory(grid_spacing);
+          for (int dd = 0; dd < 3; ++dd) { // derivative direction
+              fd_plan[dd].~finite_difference_plan_t();
+          } // dd
       } // destructor
 
   }; // plan_t
@@ -317,14 +320,14 @@ namespace green_action {
           float const potential_prefactor = p->Vconfinement;
 
           float const hg[3] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
-          
+
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
 
           for (uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
               real_t V[LM]; // buffer, probably best using shared memory of the SMx
               set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
               auto const *const target_coords = p->target_coords[iRow];
-              
+
               for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
                   // apply the local effective potential to all elements in this row
                   for (int i = 0; i < LM; ++i) {
@@ -350,6 +353,7 @@ namespace green_action {
                       for (int j4y = 0; j4y < n4; ++j4y) { vec[1] = (block_coord_diff[1]*n4 + i4y - j4y)*hg[1];
                       for (int j4x = 0; j4x < n4; ++j4x) { vec[0] = (block_coord_diff[0]*n4 + i4x - j4x)*hg[0];
                           int const j64 = (j4z*n4 + j4y)*n4 + j4x;
+                          // distance^2
                           float const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
 
                           stats_d2.add(d2);
@@ -391,7 +395,7 @@ namespace green_action {
           { // scope: display stats
               std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.avg()*eV, stats_Vconf.var()*eV, _eV);
               // how many grid points do we expect?
-              double const f = 4*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
+              double const f = 4.*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
               double const Vi = pow3(p->r_Vconfinement)*f,
                            Vo = pow3(p->r_truncation)*f;
               std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
@@ -425,9 +429,9 @@ namespace green_action {
 #else // NO_UNIT_TESTS
 
   inline status_t test_Green_action(int const echo=0) {
-//       plan_t plan;
-//       action_t<> action(&plan);
-//       return 0;
+      plan_t plan;
+      action_t<> action(&plan);
+      return 0;
       return STATUS_TEST_NOT_INCLUDED;
   } // test_Green_action
 

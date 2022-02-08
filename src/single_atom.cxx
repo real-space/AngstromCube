@@ -1418,9 +1418,9 @@ namespace single_atom {
             } // iln
         } // scope
 
-        sigma = 0.5*r_cut; // estimate ToDo: sigma from optimizing the projector representation in SHO basis
-        
-        // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves agains projectors
+        sigma = 0.5*r_cut; // estimate, ToDo: sigma from optimizing the projector representation in SHO basis
+
+        // ToDo: Gram-Schmidt orthogonalize projectors against lower partial waves and higher partial waves against projectors
         // ToDo: rotate the kinetic_energy deficit matrix acccordingly
 
         // kinetic energy of core electrons
@@ -4163,6 +4163,8 @@ namespace single_atom {
         int const numax_max = std::min(control::get("single_atom.fit.basis.numax", -1.), 19.);
         if (numax_max < numax) return;
 
+        auto const extra_weight = control::get("single_atom.fit.basis.weight", 0.); // careful about negative weights! they may deavtivate that wave
+
         if (echo > 1) std::printf("\n# %s %s Z=%g\n", label, __func__, Z_core);
 
         int const nln = sho_tools::nSHO_radial(numax);
@@ -4171,7 +4173,7 @@ namespace single_atom {
         for (int iln = 0; iln < nln; ++iln) {
             double const *const wave = partial_wave[iln].wave[SMT];
             if (wave) {
-                occ_ln[iln] = partial_wave[iln].occupation;
+                occ_ln[iln] = partial_wave[iln].occupation + extra_weight;
                 product(rwave[iln], rg[SMT].n, rg[SMT].r, wave);
             } // wave
         } // iln
