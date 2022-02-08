@@ -18,7 +18,7 @@ namespace simple_stats {
     Stats(int const value=0) { clear(); } // default constructor
 
     void clear() {
-        for (int p = 0; p < 4; ++p) {
+        for (int p = 0; p < 3; ++p) {
             v[p] = 0;
         } // p
         mini =  1.7e38;
@@ -31,7 +31,7 @@ namespace simple_stats {
         v[0] += w8;
         v[1] += w8*x;
         v[2] += w8*x*x;
-        v[3] += w8*x*x*x; // not used so far, beware of overflows
+//      v[3] += w8*x*x*x; // not used so far, beware of overflows
         maxi = std::max(maxi, x);
         mini = std::min(mini, x);
         ++times;
@@ -42,18 +42,18 @@ namespace simple_stats {
     real_t num() const { return v[0]; }
     real_t sum() const { return v[1]; }
     size_t tim() const { return times; }
-    double avg() const { return (v[0] > 0) ? v[1]/double(v[0]) : 0.0; } // aka mean
+    double mean() const { return (v[0] > 0) ? v[1]/double(v[0]) : 0.0; }
     double variance() const {
-        auto const mean = avg();
+        auto const mu = mean();
         return (times > 0 && v[0] > 0) ?
-            std::max(0.0, v[2]/v[0] - mean*mean) : 0.0;
+            std::max(0.0, v[2]/v[0] - mu*mu) : 0.0;
     } // variance
     double var() const { return std::sqrt(variance()); }
 
     private:
-      real_t v[4];
-      real_t mini, maxi;
       size_t times;
+      real_t mini, maxi;
+      real_t v[3];
   }; // class Stats<T>
 
 #ifdef  NO_UNIT_TESTS
@@ -67,19 +67,18 @@ namespace simple_stats {
       for (int i = begin; i < end; ++i) {
           s.add(i);
       } // i
-      auto const mean = s.avg();
       if (echo > 3) std::printf("# %s: from %d to %d: %g +/- %g\n",
-                      __func__, begin, end - 1, mean, s.var());
+                      __func__, begin, end - 1, s.mean(), s.var());
       if (echo > 8) std::printf("# %s: %ld Byte\n", __FILE__, sizeof(s));
-      return (ref[0] != mean) + (ref[1] != s.variance());
+      return (ref[0] != s.mean()) + (ref[1] != s.variance());
   } // test_basic
 
   inline status_t all_tests(int const echo=0) {
-    if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
-    status_t stat(0);
-    stat += test_basic<float>(echo);
-    stat += test_basic<double>(echo);
-    return stat;
+      if (echo > 0) std::printf("\n# %s %s\n", __FILE__, __func__);
+      status_t stat(0);
+      stat += test_basic<float>(echo);
+      stat += test_basic<double>(echo);
+      return stat;
   } // all_tests
 
 #endif // NO_UNIT_TESTS  

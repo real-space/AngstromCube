@@ -71,7 +71,7 @@ namespace simple_timer {
           result = fibonacci(inp);
           s.add(timer.stop());
       } // scope
-      auto const average_time = s.avg();
+      auto const average_time = s.mean();
       if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %.1e seconds per iteration\n", 
                                              inp, result, average_time, s.var());
       return (average_time < 0) + (reference != result);

@@ -105,7 +105,7 @@ namespace green_kinetic {
           n_lists = ilist; assert(n_lists == ilist && "too many lists, max. 2^32-1");
           if (echo > 0) std::printf("# %d FD lists for the %c-direction (%.2f %%), length %.3f +/- %.3f, min %g max %g\n",
                                 n_lists, direction, n_lists/(max_lists*.01),
-                                length_stats.avg(), length_stats.var(), length_stats.min(), length_stats.max());
+                                length_stats.mean(), length_stats.var(), length_stats.min(), length_stats.max());
 
           // store index starts in managed memory
           prefix = get_memory<uint32_t>(n_lists + 1); // create in GPU memory

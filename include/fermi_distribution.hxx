@@ -253,7 +253,7 @@ namespace fermi_distribution {
       ) {
           // we need to fulfill this:        charge + a*response == n_electrons
           auto const old_mu = _mu;
-          _mu = _accu.avg(); // average
+          _mu = _accu.mean(); // average
           if (echo > 0) std::printf("# %s old= %g, new= %g %s\n", __func__,
               old_mu*(Fermi_level_not_initialized != old_mu)*eV, _mu*eV,_eV);
           _accu.clear(); // reset for the next SCF iteration

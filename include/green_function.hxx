@@ -340,7 +340,7 @@ namespace green_function {
                       for (int nci = 0; nci <= max_nci; ++nci) {
                           if (hist[nci] > 0) {
                               std::printf("# RHS has%9.3f k cases with %d corners inside, d2 stats: %g +/- %g in [%g, %g] Bohr^2\n",
-                                  hist[nci]*.001, nci, stats_d2[nci].avg(), stats_d2[nci].var(), stats_d2[nci].min(), stats_d2[nci].max());
+                                  hist[nci]*.001, nci, stats_d2[nci].mean(), stats_d2[nci].var(), stats_d2[nci].min(), stats_d2[nci].max());
                               total_checked += hist[nci];
                           } // hist[nci] > 0
                       } // nci
@@ -455,7 +455,7 @@ namespace green_function {
               }}} // idx
               assert(p->nRows == iRow);
               assert(nnz == RowStart[p->nRows]);
-              std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.avg(), st.var(), st.min(), st.max());
+              std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.var(), st.min(), st.max());
           } // scope
           column_indices.clear(); // not needed beyond this point
 
@@ -473,7 +473,7 @@ namespace green_function {
               for (uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
                   st.add(nt[iRHS]);
               } // iRHS
-              std::printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.avg(), st.var(), st.min(), st.max());
+              std::printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.var(), st.min(), st.max());
           } // echo
 
           // Green function is stored sparse 
@@ -649,7 +649,7 @@ namespace green_function {
           if (echo > 3 && 0 == COUNT) std::printf("# sparse %g and dense %g\n", sparse, dense);
 
           if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
-                                nc_stats.avg(), nc_stats.var(), nc_stats.min(), nc_stats.max());
+                                nc_stats.mean(), nc_stats.var(), nc_stats.min(), nc_stats.max());
           
           if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
           // projection coefficients for the non-local PAW operations are stored
