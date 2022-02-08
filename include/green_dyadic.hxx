@@ -251,8 +251,8 @@ namespace green_dyadic {
         } // thread loop
         
     } // SHOprj
-    
-    
+
+
     template <typename real_t>
     size_t SHOprj_driver(
           real_t        (*const __restrict__ Cpr)[64] // result: projection coefficients
@@ -275,9 +275,9 @@ namespace green_dyadic {
 
         return 0;
     } // SHOprj_driver
-    
-    
-    
+
+
+
     // maybe this could be useful?
     union mask64_t {
         int64_t i;
@@ -287,13 +287,13 @@ namespace green_dyadic {
     
     template <typename real_t, int nvec=64, int Lmax=Lmax_default>
     void __global__ SHOadd( // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
-          real_t        (*const __restrict__ Psi)[nvec] // result: modified wave functions
+          real_t        (*const __restrict__ Psi)[nvec] // result: wave functions to modify
         , real_t  const (*const __restrict__ Cad)[nvec] // input: addition coefficients
         , double  const (*const __restrict__ AtomPos)[4] // atomic positions [0],[1],[2] and decay parameter [3]
         , int     const (*const __restrict__ RowStart) // rows==cubes
         , int     const (*const __restrict__ ColIndex) // cols==atoms
         , float   const (*const __restrict__ CubePos)[4] // only [0],[1],[2] used
-        , float   const (*const __restrict__ hGrid) // grid spacings in [0],[1] and [2], projection radius in [3]
+        , float   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius [3]
 #ifdef HAS_NO_CUDA
         , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
 #endif // HAS_NO_CUDA
@@ -330,7 +330,7 @@ namespace green_dyadic {
         for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
 #endif // HAS_NO_CUDA
         { // thread loop
-          
+
         real_t czyx[4][4][4]; // get 64 accumulator registers --> 128 registers if double
         __unroll__
         for (int z = 0; z < 4; ++z) {
@@ -345,8 +345,8 @@ namespace green_dyadic {
 
         int const J = blockIdx.x;  // in [0, nrhs)
         int const j = threadIdx.x; // in [0, nvec)
-        
-        
+
+
         int64_t mask_all{0}; // mask accumulator that tells which grid points have to be updated
 
         // in this loop over bsr we accumulate atom projector functions over many atoms
@@ -453,6 +453,29 @@ namespace green_dyadic {
         
     } // SHOadd
 
+
+    template <typename real_t>
+    size_t SHOadd_driver(
+          real_t        (*const __restrict__ Psi)[64] // result: wave functions to modify
+        , real_t  const (*const __restrict__ Cad)[64] // input: addition coefficients
+        , double  const (*const __restrict__ AtomPos)[4] // atomic positions [0],[1],[2] and decay parameter [3]
+        , int     const (*const __restrict__ RowStart) // rows==atoms
+        , int     const (*const __restrict__ ColIndex) // cols==cubes
+        , float   const (*const __restrict__ CubePos)[4] // only [0],[1],[2] used
+        , float   const (*const __restrict__ hGrid) // grid spacings in [0],[1] and [2], projection radius in [3]
+        , int     const natoms=1
+        , int     const nRHSs=1
+    ) {
+
+        // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
+        SHOadd(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid,
+#ifdef HAS_NO_CUDA
+                dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
+#endif // HAS_NO_CUDA        
+              );
+
+        return 0;
+    } // SHOadd_driver
 
 
     // For the Green function data layout X[nnzb][R1C2][Noco*64][Noco*64]
@@ -563,6 +586,28 @@ namespace green_dyadic {
 
     } // SHOmul
 
+    template <typename real_t>
+    size_t SHOmul_driver(
+          real_t       (*const __restrict__ aac)[2][1][64] // result
+        , real_t const (*const __restrict__ apc)[2][1][64] // input
+        , double const (*const *const __restrict__ mat) // matrices, ToDo: make atom dependent
+        , int    const (*const __restrict__ AtomStarts) // could be a uint32_t
+        , int8_t const (*const __restrict__ AtomLmax)
+        , int     const natoms=1
+        , int     const nRHSs=1
+    ) {
+
+        // launch SHOmul<real_t,nvec> <<< {ncols, natoms, 1}, {Noco*nvec, Noco, R1C2} >>> (...);
+        SHOmul(aac, apc, mat, AtomStarts, AtomLmax,
+#ifdef HAS_NO_CUDA
+                dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
+#endif // HAS_NO_CUDA
+              );
+
+        return 0;
+    } // SHOmul_driver
+
+
 
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
@@ -573,18 +618,25 @@ namespace green_dyadic {
         size_t nops{0};
 
         auto const Cpr = get_memory<real_t[64]>(1);
+        auto const Cad = get_memory<real_t[64]>(1);
         auto const Psi = get_memory<real_t[64]>(1);
         auto const AtomPos = get_memory<double[4]>(1);
         auto const RowStart = get_memory<int>(1);
         auto const ColIndex = get_memory<int>(1);
         auto const CubePos = get_memory<float[4]>(1);
         auto const hGrid = get_memory<float>(4);
+        auto const AtomLmax = get_memory<int8_t>(1);
+        auto const AtomStarts = get_memory<int>(1);
+        auto const mat = get_memory<double>(1);
 
         // SHOprj
         nops += SHOprj_driver<real_t>(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid);
 
         // SHOmul
+        nops += SHOmul_driver<real_t>(Cad, Cpr, mat, AtomStarts, AtomLmax);
+
         // SHOadd
+        nops += SHOadd_driver<real_t>(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid);
 
         return nops; // total number of floating point operations performed
     } // multiply (projection operations)
