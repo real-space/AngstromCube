@@ -254,7 +254,7 @@ namespace geometry_analysis {
                   stats.add(atom_index[ib].size());
               } // ib
               if (echo > 2) std::printf("# %s: box balance min %g avg %.2f rms %.2f max %g\n",
-                               __func__, stats.min(), stats.mean(), stats.var(), stats.max());
+                               __func__, stats.min(), stats.mean(), stats.dev(), stats.max());
               assert(stats.sum() == natoms);
           } // scope
 
@@ -959,7 +959,7 @@ namespace geometry_analysis {
                           cs.add(cn, cn_hist(is,cn));
                       } // histogram count non-zero
                   } // cn
-                  std::printf("\taverage %.2f +/- %.2f\n", cs.mean(), cs.var());
+                  std::printf("\taverage %.2f +/- %.2f\n", cs.mean(), cs.dev());
               } // is
               std::printf("# coordination numbers total= %ld\n\n", total_cn);
           } // echo
@@ -1042,7 +1042,7 @@ namespace geometry_analysis {
                           int const nbonds = s.tim();
                           if (nbonds > 0) {
                               std::printf("%8.3f +/- %.3f in [%.3f, %.3f]  %d bonds",
-                                            s.mean()*Ang, s.var()*Ang,
+                                            s.mean()*Ang, s.dev()*Ang,
                                              s.min()*Ang, s.max()*Ang, nbonds);
                               bonds_total += nbonds * (1 + (js != is));
                           } // nbonds

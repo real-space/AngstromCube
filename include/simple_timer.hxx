@@ -6,8 +6,8 @@
 
 #include "status.hxx" // status_t
 #ifndef NO_UNIT_TESTS
-  #include "simple_stats.hxx" // Stats<T>
-#endif
+  #include "simple_stats.hxx" // ::Stats<T>
+#endif // NO_UNIT_TESTS
 
   class SimpleTimer {
     // This timer object prints the time elapsed between construction and destruction 
@@ -38,7 +38,7 @@
       ~SimpleTimer() { stop(echo); } // destructor
 
   }; // class SimpleTimer
-  
+
 namespace simple_timer {
 
 #ifdef  NO_UNIT_TESTS
@@ -73,7 +73,7 @@ namespace simple_timer {
       } // scope
       auto const average_time = s.mean();
       if (echo > 0) std::printf("# fibonacci(%lld) = %lld took %g +/- %.1e seconds per iteration\n", 
-                                             inp, result, average_time, s.var());
+                                             inp, result, average_time, s.dev());
       return (average_time < 0) + (reference != result);
   } // test_stop_function
 

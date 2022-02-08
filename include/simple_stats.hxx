@@ -1,6 +1,6 @@
 #pragma once
 
-#include <algorithm> // std::min, std::max
+#include <algorithm> // std::min, ::max
 #include <cmath> // std::sqrt
 
 #ifndef NO_UNIT_TESTS
@@ -48,7 +48,7 @@ namespace simple_stats {
         return (times > 0 && v[0] > 0) ?
             std::max(0.0, v[2]/v[0] - mu*mu) : 0.0;
     } // variance
-    double var() const { return std::sqrt(variance()); }
+    double dev() const { return std::sqrt(variance()); } // standard deviation
 
     private:
       size_t times;
@@ -68,7 +68,7 @@ namespace simple_stats {
           s.add(i);
       } // i
       if (echo > 3) std::printf("# %s: from %d to %d: %g +/- %g\n",
-                      __func__, begin, end - 1, s.mean(), s.var());
+                      __func__, begin, end - 1, s.mean(), s.dev());
       if (echo > 8) std::printf("# %s: %ld Byte\n", __FILE__, sizeof(s));
       return (ref[0] != s.mean()) + (ref[1] != s.variance());
   } // test_basic
@@ -81,6 +81,6 @@ namespace simple_stats {
       return stat;
   } // all_tests
 
-#endif // NO_UNIT_TESTS  
+#endif // NO_UNIT_TESTS
 
 } // namespace simple_stats

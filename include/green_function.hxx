@@ -4,7 +4,7 @@
 #include <cassert> // assert
 #include <cmath> // std::sqrt
 #include <algorithm> // std::max
-#include <utility> // std::swap //, std::move
+#include <utility> // std::swap //, ::move
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
 #include <cstdlib> // std::atoi, ::atof
@@ -16,7 +16,7 @@
 #ifdef  HAS_RAPIDXML
   // git clone https://github.com/dwd/rapidxml
   #include "rapidxml/rapidxml.hpp" // ::xml_document<>
-  #include "rapidxml/rapidxml_utils.hpp" // ::file<>
+  #include "rapidxml/rapidxml_utils.hpp" // rapidxml::file<>
 
   #include "xml_reading.hxx" // ::find_attribute, ::find_child
 #endif // HAS_RAPIDXML
@@ -340,7 +340,7 @@ namespace green_function {
                       for (int nci = 0; nci <= max_nci; ++nci) {
                           if (hist[nci] > 0) {
                               std::printf("# RHS has%9.3f k cases with %d corners inside, d2 stats: %g +/- %g in [%g, %g] Bohr^2\n",
-                                  hist[nci]*.001, nci, stats_d2[nci].mean(), stats_d2[nci].var(), stats_d2[nci].min(), stats_d2[nci].max());
+                                  hist[nci]*.001, nci, stats_d2[nci].mean(), stats_d2[nci].dev(), stats_d2[nci].min(), stats_d2[nci].max());
                               total_checked += hist[nci];
                           } // hist[nci] > 0
                       } // nci
@@ -455,7 +455,7 @@ namespace green_function {
               }}} // idx
               assert(p->nRows == iRow);
               assert(nnz == RowStart[p->nRows]);
-              std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.var(), st.min(), st.max());
+              std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.dev(), st.min(), st.max());
           } // scope
           column_indices.clear(); // not needed beyond this point
 
@@ -473,7 +473,7 @@ namespace green_function {
               for (uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
                   st.add(nt[iRHS]);
               } // iRHS
-              std::printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.var(), st.min(), st.max());
+              std::printf("# target blocks per source block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.dev(), st.min(), st.max());
           } // echo
 
           // Green function is stored sparse 
@@ -643,14 +643,14 @@ namespace green_function {
 
           auto const nai = iai; // corrected number of atomic images
           if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
-                                  nai, natom_images, nai/(natom_images*.01));
+                                    nai, natom_images, nai/(natom_images*.01));
           auto const napc = ApcStart[nai];
 
           if (echo > 3 && 0 == COUNT) std::printf("# sparse %g and dense %g\n", sparse, dense);
 
           if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
-                                nc_stats.mean(), nc_stats.var(), nc_stats.min(), nc_stats.max());
-          
+                                    nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
+
           if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
           // projection coefficients for the non-local PAW operations are stored
           // as std::complex<real_t> apc[napc][nRHSs][64]

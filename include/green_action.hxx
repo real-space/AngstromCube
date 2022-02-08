@@ -267,8 +267,8 @@ namespace green_action {
 //                ts.add(list_timer.stop());
 //                ts.add(ilist - 1); // how many blocks have been loaded and computed?
               } // il
-//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.mean(), ts.var(), ts.min(), ts.max());
-//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] indices\n", 'x'+dd, ts.mean(), ts.var(), ts.min(), ts.max());
+//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
+//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] indices\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
               // ===== synchronize to avoid race conditions on y ========
           } // dd
 
@@ -393,7 +393,7 @@ namespace green_action {
           } // iRow
 
           { // scope: display stats
-              std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.mean()*eV, stats_Vconf.var()*eV, _eV);
+              std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.mean()*eV, stats_Vconf.dev()*eV, _eV);
               // how many grid points do we expect?
               double const f = 4.*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
               double const Vi = pow3(p->r_Vconfinement)*f,

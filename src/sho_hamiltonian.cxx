@@ -575,7 +575,7 @@ namespace sho_hamiltonian {
       } // ikp
 
       if (echo > 3) std::printf("\n# average time per k-point is %.3f +/- %.3f min %.3f max %.3f seconds\n",
-                                   time_stats.mean(), time_stats.var(), time_stats.min(), time_stats.max());
+                                   time_stats.mean(), time_stats.dev(), time_stats.min(), time_stats.max());
 
       return stat;
   } // solve
