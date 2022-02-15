@@ -238,13 +238,13 @@ namespace green_dyadic {
 
         } // bsr
 
-        { // store accumulators
+        { // scope: store accumulators
             int const nSHO = sho_tools::nSHO(Lmax);
             // ToDo: use compressed storage to allow for lmax[iatom] without waisting memory for Cpr
             for (int sho = 0; sho < sho_tools::nSHO(lmax); ++sho) {
                 Cpr[(iatom*nSHO + sho)*nrhs + J][j] = czyx[sho];
             } // sho
-        } // store
+        } // scope
 
         } // thread loop
         
@@ -264,8 +264,11 @@ namespace green_dyadic {
         , int     const nRHSs=1
     ) {
 
+        // using pointer casting, we could have only two template instanciations: SHOprj<float/double,64>
+        // without pointer casting, we need four: SHOprj<float/double,64>, SHOprj<float/double,128>
+      
         // launch SHOprj<real_t,nvec> <<< {nRHSs/nvec, natoms, 1}, {nvec} >>> (...);
-        SHOprj<real_t,Noco*64>(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid,
+        SHOprj(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid,
 #ifdef HAS_NO_CUDA
                 dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
 #endif // HAS_NO_CUDA        
@@ -275,6 +278,7 @@ namespace green_dyadic {
     } // SHOprj_driver
 
 
+    
 
     // maybe this could be useful?
     union mask64_t {
@@ -470,7 +474,7 @@ namespace green_dyadic {
     ) {
 
         // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
-        SHOadd<real_t,Noco*64>(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid,
+        SHOadd(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid,
 #ifdef HAS_NO_CUDA
                 dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
 #endif // HAS_NO_CUDA        
@@ -582,7 +586,7 @@ namespace green_dyadic {
             // cad_Im += mat[iatom][ai*nSHO + aj][0] * cpr_Im[aj];
 
             // version 11: Noco=2, R1C2=2
-            // ...
+            // ... ToDo
 
         } // thread loop
 
