@@ -251,10 +251,10 @@ namespace green_dyadic {
     } // SHOprj
 
 
-    template <typename real_t>
+    template <typename real_t, int Noco=1>
     size_t SHOprj_driver(
-          real_t        (*const __restrict__ Cpr)[64] // result: projection coefficients
-        , real_t  const (*const __restrict__ Psi)[64] // input:  wave functions
+          real_t        (*const __restrict__ Cpr)[Noco*64] // result: projection coefficients
+        , real_t  const (*const __restrict__ Psi)[Noco*64] // input:  wave functions
         , double  const (*const __restrict__ AtomPos)[4] // atomic positions [0],[1],[2] and decay parameter [3]
         , int     const (*const __restrict__ RowStart) // rows==atoms
         , int     const (*const __restrict__ ColIndex) // cols==cubes
@@ -266,7 +266,7 @@ namespace green_dyadic {
 
         // using pointer casting, we could have only two template instanciations: SHOprj<float/double,64>
         // without pointer casting, we need four: SHOprj<float/double,64>, SHOprj<float/double,128>
-
+      
         // launch SHOprj<real_t,nvec> <<< {nRHSs/nvec, natoms, 1}, {nvec} >>> (...);
         SHOprj(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid,
 #ifdef HAS_NO_CUDA
@@ -586,7 +586,7 @@ namespace green_dyadic {
             // cad_Im += mat[iatom][ai*nSHO + aj][0] * cpr_Im[aj];
 
             // version 11: Noco=2, R1C2=2
-            // ... ToDo
+            // ...
 
         } // thread loop
 
