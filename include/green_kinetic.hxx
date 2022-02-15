@@ -196,23 +196,23 @@ namespace green_kinetic {
 
     template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive
     void __global__ Laplace8th( // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
+#ifdef HAS_NO_CUDA
+          dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
+#endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // intent(inout)
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // intent(in)
         , int32_t const (*const *const __restrict__ index_list) // index list that brings the blocks in order,
                                           // list must contain at least one element and is finalized with -1
         , double const prefactor
-#ifdef HAS_NO_CUDA
-        , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
-#endif // HAS_NO_CUDA
         , int const Stride // 4^0, 4^1 or 4^2
     ) {
         // prepare finite-difference coefficients
         double const norm = prefactor/5040.; // {-14350, 8064, -1008, 128, -9}/5040. --> 8th order
-        real_t const  c0 = -14350*norm,
-                      c1 =   8064*norm,
-                      c2 =  -1008*norm,
-                      c3 =    128*norm,
-                      c4 =     -9*norm; //-> NStep = 4
+        real_t const  c0 =     -14350*norm,
+                      c1 =       8064*norm,
+                      c2 =      -1008*norm,
+                      c3 =        128*norm,
+                      c4 =         -9*norm; //-> NStep = 4
         // the NStep=4 8th order stencil has a ratio of c0/c4 = 2^10.64 so half precision (11 significant bits) is the limit
 
         // the following list gives the indices of blocks that belong to the same right hand side 
@@ -281,17 +281,17 @@ namespace green_kinetic {
  
     
 
-    template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive: 1, 4 or 16
+    template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Laplace16th( // GPU kernel, must be launched with <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
+#ifdef HAS_NO_CUDA
+          dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
+#endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // intent(inout)
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // intent(in)
         , int32_t const (*const *const __restrict__ index_list) // index list that brings the blocks in order,
                                             // list must contain at least one element and is finalized with -1
         , double const prefactor
-#ifdef HAS_NO_CUDA
-        , dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx
-#endif // HAS_NO_CUDA
-        , int const Stride // 4^0, 4^1 or 4^2
+        , int const Stride // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
     ) {
         // prepare finite-difference coefficients
         // FD16th = [-924708642, 538137600, -94174080, 22830080, -5350800, 1053696, -156800, 15360, -735] / 302702400
@@ -394,7 +394,7 @@ namespace green_kinetic {
 
     } // Laplace16th
 
-    template <typename real_t, int R1C2=2, int Noco=1> // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
+    template <typename real_t, int R1C2=2, int Noco=1> 
     void Laplace_driver( // GPU kernel, must be launched with <<< {4^2, Nrows, 1}, {Noco*4^3, Noco, R1C2} >>>
           real_t        (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // intent(inout)
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // intent(in)
@@ -402,7 +402,7 @@ namespace green_kinetic {
                                             // list must contain at least one element and is finalized with -1
         , double const prefactor
         , dim3 const & gridDim, dim3 const & blockDim
-        , int const Stride // 4^0, 4^1 or 4^2
+        , int const Stride // Stride is determined by the lattice dimension along which we derive: 1, 4 or 4^2
         , int & nFD
     ) {
         assert(1 == Stride || 4 == Stride || 16 == Stride);
@@ -413,16 +413,16 @@ namespace green_kinetic {
         for (int bx = 0; bx < gridDim.x; ++bx) {
             dim3 const blockIdx(bx, by, bz);
             if (8 == nFD) {
-                Laplace16th<real_t,R1C2,Noco>(Tpsi, psi, index_list, prefactor, gridDim, blockDim, blockIdx, Stride);
+                Laplace16th<real_t,R1C2,Noco>(gridDim, blockDim, blockIdx,  Tpsi, psi, index_list, prefactor, Stride);
             } else {
-                Laplace8th <real_t,R1C2,Noco>(Tpsi, psi, index_list, prefactor, gridDim, blockDim, blockIdx, Stride);
+                Laplace8th <real_t,R1C2,Noco>(gridDim, blockDim, blockIdx,  Tpsi, psi, index_list, prefactor, Stride);
             }
-        }}}
+        }}} // block loops
 #else  // HAS_NO_CUDA
         if (8 == nFD) {
-            Laplace16th <<< gridDim, blockDim >>> (Tpsi, psi, index_list, prefactor, Stride);
+            Laplace16th<real_t,R1C2,Noco> <<< gridDim, blockDim >>> (Tpsi, psi, index_list, prefactor, Stride);
         } else {
-            Laplace8th  <<< gridDim, blockDim >>> (Tpsi, psi, index_list, prefactor, Stride);
+            Laplace8th <real_t,R1C2,Noco> <<< gridDim, blockDim >>> (Tpsi, psi, index_list, prefactor, Stride);
         }
 #endif // HAS_NO_CUDA
     } // driver
@@ -457,13 +457,14 @@ namespace green_kinetic {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_finite_difference(int const echo=0) {
-      auto Tpsi = get_memory<float[1][64][64]>(1);
-      auto  psi = get_memory<float[1][64][64]>(1);
+      auto Tpsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
+      auto  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
       auto indx = get_memory<int32_t>(1);
       uint32_t const num[] = {0, 0, 0};
       double const hgrid[] = {1, 1, 1};
-      multiply(Tpsi, psi, num, &indx, &indx, &indx, hgrid); // instanciate the functions
+      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid); // instanciate the functions
       free_memory(Tpsi);
       free_memory( psi);
       free_memory(indx);
@@ -472,7 +473,12 @@ namespace green_kinetic {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_finite_difference(echo);
+      stat += test_finite_difference<float ,1,1>(echo);
+      stat += test_finite_difference<float ,2,1>(echo);
+      stat += test_finite_difference<float ,2,2>(echo);
+      stat += test_finite_difference<double,1,1>(echo);
+      stat += test_finite_difference<double,2,1>(echo);
+      stat += test_finite_difference<double,2,2>(echo);
       return stat;
   } // all_tests
 

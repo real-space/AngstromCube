@@ -110,10 +110,10 @@ namespace green_function {
               for (int i4y = 0; i4y < 4; ++i4y) { // grid point index in [0, 4) loops
               for (int i4x = 0; i4x < 4; ++i4x) {
                   int const i64 = (i4z*4 + i4y)*4 + i4x;
-                  size_t const izyx = (size_t(ibz*4 + i4z)  // global grid point index
+                  size_t const izyx = (size_t(ibz*4 + i4z)
                               *ng[Y] + size_t(iby*4 + i4y)) 
-                              *ng[X] + size_t(ibx*4 + i4x);
-                  assert(izyx < ng[Z]*ng[Y]*ng[X]);
+                              *ng[X] + size_t(ibx*4 + i4x); // global grid point index
+                  assert(izyx < size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]));
                   p->Veff[Veff_index*Noco*Noco + 0][i64] = Veff[izyx]; // copy potential value
               }}} // i4
           }}} // xyz
@@ -220,7 +220,6 @@ namespace green_function {
 
 
       // count the number of green function elements for each target block
-      size_t nnz{0}; // number of non-zero BSR entries
 
       uint16_t num_target_coords[3] = {0, 0, 0};
       int16_t  min_target_coords[3] = {0, 0, 0}; // internal coordinates
@@ -366,7 +365,7 @@ namespace green_function {
 
           // eval the histogram
           size_t nall{0};
-          nnz = 0;
+          size_t nnz{0}; // number of non-zero BSR entries
           for (int n = 0; n <= nRHSs; ++n) {
               nall += hist[n];
               nnz  += hist[n]*n;
@@ -392,7 +391,7 @@ namespace green_function {
           RowStart = get_memory<uint32_t>(p->nRows + 1);
           RowStart[0] = 0;
           p->veff_index = get_memory<uint32_t>(p->nRows); // indirection list for the local potential
-          p->target_coords = get_memory<int16_t[4]>(p->nRows); // view2D<int16_t>(p->nRows, 4, 0);
+          p->target_coords = get_memory<int16_t[3+1]>(p->nRows); // view2D<int16_t>(p->nRows, 4, 0);
           p->global_target_indices.resize(p->nRows);
           p->subset.resize(p->nCols); // we assume columns of the unit operator as RHS
 
@@ -551,12 +550,12 @@ namespace green_function {
           for (int y = -iimage[Y]; y <= iimage[Y]; ++y) { // serial
           for (int x = -iimage[X]; x <= iimage[X]; ++x) { // serial
 //            if (echo > 3) std::printf("# periodic shifts  %d %d %d\n", x, y, z);
-              int const xyz[3] = {x, y, z};
+              int const xyz_shift[] = {x, y, z};
               for (int ia = 0; ia < natoms; ++ia) { // loop over atoms in the unit cell, serial
                   // suggest a new atomic image position
                   double pos[3];
                   for (int d = 0; d < 3; ++d) { // parallel
-                      pos[d] = xyzZinso[ia*8 + d] + xyz[d]*cell[d];
+                      pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
                   } // d
                   auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); 
                   auto const numax =       int(xyzZinso[ia*8 + 5]);
@@ -586,7 +585,7 @@ namespace green_function {
                           for (int iz = 0; iz < 4; iz += 3) { // parallel, reduction
                           for (int iy = 0; iy < 4; iy += 3) { // parallel, reduction
                           for (int ix = 0; ix < 4; ix += 3) { // parallel, reduction
-                              int const ixyz[3] = {ix, iy, iz};
+                              int const ixyz[] = {ix, iy, iz};
                               double d2i{0};
                               for (int d = 0; d < 3; ++d) {
                                   double const grid_point = (target_block[d]*4 + ixyz[d])*hg[d];
@@ -596,7 +595,7 @@ namespace green_function {
                                   ++nci; // at least one corner of the block 
                                   // ... is inside the projection radius of this atom
                               } // inside the projection radius
-                          }}} // ixyz
+                          }}} // ix // iy // iz
                           // three different cases: 0, 1...7, 8
                           if (nci > 0) {
                               // atom image contributes
@@ -620,7 +619,7 @@ namespace green_function {
 
                   if (ntb > 0) {
                       // atom image contributes, mark in the list to have more than 0 coefficients
-                      auto const nc = sho_tools::nSHO(numax);
+                      auto const nc = Noco*sho_tools::nSHO(numax);
                       atom_ncoeff[ia] = nc;
                       assert(nc == atom_ncoeff[ia]); // conversion successful
                       nc_stats.add(nc);
@@ -631,7 +630,7 @@ namespace green_function {
                       atom.sigma = sigma;
                       atom.gid = atom_id;
                       atom.ia = ia;
-                      set(atom.shifts, 3, xyz);
+                      set(atom.shifts, 3, xyz_shift);
                       atom.nc = nc; 
                       atom.numax = numax;
 
@@ -645,7 +644,7 @@ namespace green_function {
 //                                                 atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang);
                   } // ntb > 0
               } // ia
-          }}} // xyz
+          }}} // x // y // z
 
           auto const nai = iai; // corrected number of atomic images
           if (echo > 3) std::printf("# %ld of %lu (%.2f %%) atom images have an overlap with projection spheres\n",
@@ -706,8 +705,8 @@ namespace green_function {
               for (int i = 0; i < nc; ++i) {
                   for (int j = 0; j < nc; ++j) {
                       int const ij = i*nc + j;
-                      p->atom_mat[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij];
-                      p->atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij];
+                      p->atom_mat[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
+                      p->atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
           } // iac

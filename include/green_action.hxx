@@ -78,9 +78,9 @@ namespace green_action {
       uint32_t* ApcStart = nullptr; // [natom_images + 1]
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
       uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
-      int16_t (*source_coords)[4] = nullptr; // [nCols][4] internal coordinates
-      int16_t (*target_coords)[4] = nullptr; // [nRows][4] internal coordinates
-      double  (*Veff)[64] = nullptr; // effective potential
+      int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
+      int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
+      double  (*Veff)[64]  = nullptr; // effective potential
       uint32_t* veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
       double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
@@ -117,7 +117,7 @@ namespace green_action {
 
 
   template <typename floating_point_t=float, unsigned block_size=64>
-  class action_t {
+  class action_t { // an action as used in tfQMRgpu
   public:
       typedef floating_point_t real_t;
       static int constexpr LM = block_size;
@@ -430,6 +430,7 @@ namespace green_action {
 #else // NO_UNIT_TESTS
 
   inline status_t test_Green_action(int const echo=0) {
+      std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
       plan_t plan;
       action_t<> action(&plan);
       return 0;
