@@ -49,23 +49,23 @@ namespace green_action {
       memWindow_t matBwin; // data of the right hand side operator B
       memWindow_t subsetwin; // subset indices in GPU memory
 
-      uint32_t nRows, nCols; // number of block rows and block columns, max 65,536 columns
+      uint32_t nRows = 0, nCols = 0; // number of block rows and block columns, max 65,536 columns
       std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transfered to the GPU
 
       // for memory management:
-      size_t gpu_mem; // device memory requirement in Byte
+      size_t gpu_mem = 0; // device memory requirement in Byte
 
       // stats:
-      float residuum_reached;
-      float flops_performed;
-      float flops_performed_all;
-      int iterations_needed;
+      float residuum_reached = 3e38;
+      float flops_performed = 0.f;
+      float flops_performed_all = 0.f;
+      int iterations_needed = -99;
 
       // memory positions
       memWindow_t matXwin; // solution vector in GPU memory
       memWindow_t vec3win; // random number vector in GPU memory
-      
-      
+
+
       // new members to define the action
       std::vector<int64_t> global_target_indices; // [nRows]
       std::vector<int64_t> global_source_indices; // [nCols]
@@ -140,6 +140,7 @@ namespace green_action {
           std::printf("# destruct %s\n", __func__); std::fflush(stdout);
           free_memory(apc);
           free_memory(aac);
+          if (p) p->~plan_t();
       } // destructor
 
       void take_memory(char* &buffer) {

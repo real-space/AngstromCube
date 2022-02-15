@@ -22,23 +22,24 @@ namespace green_dyadic {
     template <typename real_t>
     float __host__ __device__
     Hermite_polynomials_1D(
-          real_t (*const __restrict__ H1D)[3][4] // result
-        , float  (*const __restrict__ xi_squared)[4] // distance^2
+          real_t (*const __restrict__ H1D)[3][4] // result H1D[nu][dir][i4]
+        , float  (*const __restrict__ xi_squared)[4] // distance^2 xi_squared[dir][i4]
         , int    const ivec // thread index used for the vectorization
         , int    const Lmax
-        , double const xyza[4] // atomic position in [0],[1] and [2], sigma^{-1/2} in [3]
+        , double const xyza[4] // atomic position in [0],[1],[2], sigma^{-1/2} in [3]
         , float  const xyzc[3] // position of the target block, ToDo: check if that should be double
-        , float  const hxyz[4] // grid spacings in [0],[1] and [2], projection radius in [3]
+        , float  const hxyz[4] // grid spacings in [0],[1],[2], projection radius in [3]
     )
       // Evaluate the Hermite-Gauss functions on a 3D block of 4^3 grid points in parallel
     {
 
-        double const R2_projection = pow2(double(hxyz[3])); // Rprj can be controlled from outside
+        double const R2_projection = pow2(double(hxyz[3])); // projection radius can be controlled from outside
 
         if (Lmax < 0) return R2_projection; // as float
 
         int constexpr l2b = 2;
         int constexpr n4 = 1 << l2b; // Block edge length is 2^l2b
+        assert(4 == n4);
         if (ivec < 3*n4) { // use only the lowest 3*n4 threads
 
             // idea: we could use 60 of 64 threads to make M instances of the H1D-functions at slightly shifted positions
@@ -52,7 +53,7 @@ namespace green_dyadic {
             assert(i4 >= 0); assert(i4 < n4);
 
             double const grid_spacing  = hxyz[idir]; // load a float and convert to double
-            double const cube_position = xyzc[idir]; // position of the target block
+            double const cube_position = xyzc[idir]; // position of the target block, lower left front corner
             double const atom_position = xyza[idir]; // load atomic coordinate
             double const sigma_inverse = xyza[3]*xyza[3]; // sigma_inverse = inverse of the Gaussian width sigma
 
@@ -67,7 +68,7 @@ namespace green_dyadic {
 
             H1D[0][idir][i4] = H0; // store Gaussian H_0
 
-            double Hnp1, Hn = H0, Hnm1{0};
+            double Hnp1, Hn{H0}, Hnm1{0};
             for (int nu = 0; nu < Lmax; ++nu) {
                 double const nuhalf = 0.5 * nu; // nu/2.
                 // use the two step recurrence relation to create the 1D Hermite polynomials
@@ -81,7 +82,7 @@ namespace green_dyadic {
             // Warning!
             // The Hermite polynomials are not normalized. To normalize w.r.t. the 2-norm,
             // we must divide by sqrt{sqrt{pi}*sigma*factorial(nu)} in an additional loop.
-            // But this is not necessary for their orthogonality
+            // However, this is not necessary for their orthogonality
 
         } // ivec < 3*n4
 
@@ -126,21 +127,20 @@ namespace green_dyadic {
         __shared__ float  xyzc[4]; // cube position
         __shared__ float  hgrid[4];
 
-#ifdef HAS_NO_CUDA
-        dim3 threadIdx(0,0,0);
-        for (threadIdx.x = 0; threadIdx.x < 4; ++threadIdx.x)
-#endif // HAS_NO_CUDA
+#ifndef HAS_NO_CUDA
         // stage the atomic position of the atom treated in this CUDA block
         if (threadIdx.x < 4) {
             xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
             hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
         } // lowest 4 threads
-
-#ifdef HAS_NO_CUDA
+#else // HAS_NO_CUDA
+        set(xyza, 4, AtomPos[iatom]);
+        set(hgrid, 4, hGrid);
+        dim3 threadIdx(0,0,0);
         for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
 #endif // HAS_NO_CUDA
-        {
-          
+        { // thread loop
+
         real_t czyx[sho_tools::nSHO(Lmax)]; // get nSHO accumulator registers
         for (int sho = 0; sho < sho_tools::nSHO(Lmax); ++sho) {
             czyx[sho] = 0; // init accumulator registers
@@ -158,9 +158,13 @@ namespace green_dyadic {
 
             int const icube = ColIndex[bsr];
 
+#ifndef HAS_NO_CUDA
             if (threadIdx.x < 4) {
                 xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
             } // lowest 4 threads
+#else  // HAS_NO_CUDA
+            set(xyzc, 4, CubePos[icube]);
+#endif // HAS_NO_CUDA
 
             __syncthreads();
 
@@ -172,8 +176,6 @@ namespace green_dyadic {
             __syncthreads();
 
             for (int z = 0; z < 4; ++z) { // loop over real-space grid in z-direction
-//              int const mask_z = (mask_atom >> (16*z)) & 0xffff; // allows to work on a 32bit register using 16bit
-//              if (0 != mask_z) {
                 auto const d2z = xi_squared[2][z] - R2_proj;
                 if (d2z < 0) {
 
@@ -184,8 +186,6 @@ namespace green_dyadic {
                     } // iyx
 
                     for (int y = 0; y < 4; ++y) { // loop over real-space grid in y-direction
-//                      int const mask_y = (mask_z >> (4*y)) & 0xf; // allows to work on a 32bit register using 4bit
-//                      if (0 != mask_y) {
                         auto const d2yz = xi_squared[1][y] + d2z;
                         if (d2yz < 0) {
 
@@ -197,8 +197,6 @@ namespace green_dyadic {
 
                             __unroll__
                             for (int x = 0; x < 4; ++x) { // loop over real-space grid in x-direction
-//                              int const mask_x = (mask_y >> (1*x)) & 0x1; // uses only 1 bit
-//                              if (0 != mask_x) {
                                 auto const d2xyz = xi_squared[0][x] + d2yz;
                                 if (d2xyz < 0) {
                                     int const xyz = (z*4 + y)*4 + x;
@@ -207,7 +205,7 @@ namespace green_dyadic {
                                         auto const Hx = H1D[ix][0][x]; // load Hx from shared memory
                                         ax[ix] += ps * Hx; // FMA: 2 flop * 4**3 * (L+1)
                                     } // ix
-                                } // 0 != mask_x
+                                } // inside mask
                             } // x
 
                             for (int iy = 0; iy <= lmax; ++iy) { // loop over the 2nd Cartesian SHO quantum number
@@ -218,7 +216,7 @@ namespace green_dyadic {
                                 } // ix
                             } // iy
 
-                        } // 0 != mask_y
+                        } // inside mask
                     } // y
 
                     for (int sho = 0, iz = 0; iz <= lmax; ++iz) { // loop over the 3rd Cartesian SHO quantum number
@@ -232,7 +230,7 @@ namespace green_dyadic {
                         } // iy
                     } // iz
 
-                } // 0 != mask_z
+                } // inside mask
             } // z
             // now how many flop have been done?
             // FMA*( 4**3 * ((L+1)) + 4**2 * ((L+1)*(L+2))/2 + 4**1 * ((L+1)*(L+2)*(L+3))/6 )
@@ -253,10 +251,10 @@ namespace green_dyadic {
     } // SHOprj
 
 
-    template <typename real_t>
+    template <typename real_t, int Noco=1>
     size_t SHOprj_driver(
-          real_t        (*const __restrict__ Cpr)[64] // result: projection coefficients
-        , real_t  const (*const __restrict__ Psi)[64] // input:  wave functions
+          real_t        (*const __restrict__ Cpr)[Noco*64] // result: projection coefficients
+        , real_t  const (*const __restrict__ Psi)[Noco*64] // input:  wave functions
         , double  const (*const __restrict__ AtomPos)[4] // atomic positions [0],[1],[2] and decay parameter [3]
         , int     const (*const __restrict__ RowStart) // rows==atoms
         , int     const (*const __restrict__ ColIndex) // cols==cubes
@@ -267,7 +265,7 @@ namespace green_dyadic {
     ) {
 
         // launch SHOprj<real_t,nvec> <<< {nRHSs/nvec, natoms, 1}, {nvec} >>> (...);
-        SHOprj(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid,
+        SHOprj<real_t,Noco*64>(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid,
 #ifdef HAS_NO_CUDA
                 dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
 #endif // HAS_NO_CUDA        
@@ -302,7 +300,7 @@ namespace green_dyadic {
     {
 
         assert(nvec == blockDim.x);
-        int const nrhs = gridDim.x;
+        int const nrhs = gridDim.x; // == nRHSs/nvec
 
         int const icube = blockIdx.y; // in [0, ncubes)
         if (RowStart[icube] >= RowStart[icube + 1]) return; // empty range in the sparse matrix, early return
@@ -316,17 +314,16 @@ namespace green_dyadic {
         __shared__ float  xyzc[4]; // cube position
         __shared__ float  hgrid[4]; // grid spacings
 
-#ifdef HAS_NO_CUDA
-        dim3 threadIdx(0,0,0);
-        for (threadIdx.x = 0; threadIdx.x < 4; ++threadIdx.x)
-#endif // HAS_NO_CUDA
+#ifndef HAS_NO_CUDA
         // stage the atomic position of the atom treated in this CUDA block
         if (threadIdx.x < 4) {
             xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // coalesced load
             hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
         } // lowest 4 threads
-
-#ifdef HAS_NO_CUDA
+#else  // HAS_NO_CUDA
+        set(xyzc, 4, CubePos[icube]);
+        set(hgrid, 4, hGrid);
+        dim3 threadIdx(0,0,0);
         for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
 #endif // HAS_NO_CUDA
         { // thread loop
@@ -356,14 +353,18 @@ namespace green_dyadic {
 
             int const iatom = ColIndex[bsr];
 
+#ifndef HAS_NO_CUDA
             if (threadIdx.x < 4) { // this breaks in the thread loop
                 xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // load, convert to float
             } // lowest 4 threads
+#else  // HAS_NO_CUDA
+            set(xyza, 4, AtomPos[iatom]);
+#endif // HAS_NO_CUDA
 
             __syncthreads();
 
             // generate Hx, Hy, Hz up to Lmax inside the 4^3 cube
-            auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, xyza, xyzc, hgrid);
+            auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
 
             int sho{0};
             int const nSHO = sho_tools::nSHO(Lmax);
@@ -443,6 +444,7 @@ namespace green_dyadic {
                         int const xyz = (z*4 + y)*4 + x;
                         if ((mask_all >> xyz) & 0x1) { // probe the rightmost bit
                             Psi[(icube*64 + xyz)*nrhs + J][j] += czyx[z][y][x]; // up to 64 negligible flop
+                            // possibility to use atomic add here
                         } // mask
                     } // x
                 } // y
@@ -454,10 +456,10 @@ namespace green_dyadic {
     } // SHOadd
 
 
-    template <typename real_t>
+    template <typename real_t, int Noco=1>
     size_t SHOadd_driver(
-          real_t        (*const __restrict__ Psi)[64] // result: wave functions to modify
-        , real_t  const (*const __restrict__ Cad)[64] // input: addition coefficients
+          real_t        (*const __restrict__ Psi)[Noco*64] // result: wave functions to modify
+        , real_t  const (*const __restrict__ Cad)[Noco*64] // input: addition coefficients
         , double  const (*const __restrict__ AtomPos)[4] // atomic positions [0],[1],[2] and decay parameter [3]
         , int     const (*const __restrict__ RowStart) // rows==atoms
         , int     const (*const __restrict__ ColIndex) // cols==cubes
@@ -468,7 +470,7 @@ namespace green_dyadic {
     ) {
 
         // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
-        SHOadd(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid,
+        SHOadd<real_t,Noco*64>(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid,
 #ifdef HAS_NO_CUDA
                 dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
 #endif // HAS_NO_CUDA        
@@ -556,7 +558,7 @@ namespace green_dyadic {
         for (int reim = 0; reim < blockDim.z; ++reim)
         for (int spin = 0; spin < blockDim.y; ++spin)
         for (int ivec = 0; ivec < blockDim.x; ++ivec)
-#else
+#else  // HAS_NO_CUDA
         int const ivec = threadIdx.x, spin = threadIdx.y, reim = threadIdx.z;
 #endif // HAS_NO_CUDA
         { // thread loop
@@ -586,25 +588,29 @@ namespace green_dyadic {
 
     } // SHOmul
 
-    template <typename real_t>
+    template <typename real_t, int nvec=64, int R1C2=2, int Noco=1>
     size_t SHOmul_driver(
-          real_t       (*const __restrict__ aac)[2][1][64] // result
-        , real_t const (*const __restrict__ apc)[2][1][64] // input
+          real_t       (*const __restrict__ aac)[R1C2][Noco][Noco*nvec] // result
+        , real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*nvec] // input
         , double const (*const *const __restrict__ mat) // matrices, ToDo: make atom dependent
         , int    const (*const __restrict__ AtomStarts) // could be a uint32_t
         , int8_t const (*const __restrict__ AtomLmax)
-        , int     const natoms=1
-        , int     const nRHSs=1
+        , int     const natoms=0
+        , int     const nRHSs=0
     ) {
 
-        // launch SHOmul<real_t,nvec> <<< {ncols, natoms, 1}, {Noco*nvec, Noco, R1C2} >>> (...);
-        SHOmul(aac, apc, mat, AtomStarts, AtomLmax,
-#ifdef HAS_NO_CUDA
-                dim3(nRHSs >> 6, natoms, 1), dim3(64), dim3(1,1,1)
+        // launch SHOmul<real_t,nvec> <<< {nRHSs, natoms, 1}, {Noco*nvec, Noco, R1C2} >>> (...);
+        SHOmul<real_t,nvec,R1C2,Noco>
+#ifndef HAS_NO_CUDA
+            <<< dim3(nRHSs >> 6, natoms, 1), dim3(Noco*nvec, Noco, R1C2) >>> 
 #endif // HAS_NO_CUDA
-              );
+            (aac, apc, mat, AtomStarts, AtomLmax
+#ifdef  HAS_NO_CUDA
+              , dim3(nRHSs >> 6, natoms, 1), dim3(Noco*nvec, Noco, R1C2), dim3(1,1,1)
+#endif // HAS_NO_CUDA
+            );
 
-        return 0;
+        return 0; // ToDo: compute the total number of floating point operations
     } // SHOmul_driver
 
 
@@ -615,11 +621,13 @@ namespace green_dyadic {
         , real_t       (*const __restrict__  apc)[R1C2][Noco]   [Noco*64] // workarray
         , real_t const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
     ) {
+        assert(1 == Noco || 2 == Noco);
+        assert(R1C2 >= Noco);
         size_t nops{0};
 
-        auto const Cpr = get_memory<real_t[64]>(1);
-        auto const Cad = get_memory<real_t[64]>(1);
-        auto const Psi = get_memory<real_t[64]>(1);
+        auto const Cpr = get_memory<real_t[R1C2][Noco][Noco*64]>(1);
+        auto const Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(1);
+        auto const Psi = get_memory<real_t[Noco*64]>(1);
         auto const AtomPos = get_memory<double[4]>(1);
         auto const RowStart = get_memory<int>(1);
         auto const ColIndex = get_memory<int>(1);
@@ -627,19 +635,16 @@ namespace green_dyadic {
         auto const hGrid = get_memory<float>(4);
         auto const AtomLmax = get_memory<int8_t>(1);
         auto const AtomStarts = get_memory<int>(1);
-        auto const mat = get_memory<double>(1);
+        auto const mat = get_memory<double*>(1);
 
-        // SHOprj
-        nops += SHOprj_driver<real_t>(Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid);
+        nops += SHOprj_driver<real_t,Noco>(Cpr[0][0], Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid);
 
-        // SHOmul
-        nops += SHOmul_driver<real_t>(Cad, Cpr, mat, AtomStarts, AtomLmax);
+        nops += SHOmul_driver<real_t,64,R1C2,Noco>(Cad, Cpr, mat, AtomStarts, AtomLmax);
 
-        // SHOadd
-        nops += SHOadd_driver<real_t>(Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid);
+        nops += SHOadd_driver<real_t,Noco>(Psi, Cad[0][0], AtomPos, RowStart, ColIndex, CubePos, hGrid);
 
         return nops; // total number of floating point operations performed
-    } // multiply (projection operations)
+    } // multiply (dyadic operations)
 
 
 
@@ -647,14 +652,25 @@ namespace green_dyadic {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
+  template <typename real_t, int R1C2=2, int Noco=1>
   inline status_t test_simple_projection(int const echo=0) {
       if (echo > 0) std::printf("# %s: no test included!\n", __func__);
-      return STATUS_TEST_NOT_INCLUDED;
+//    return STATUS_TEST_NOT_INCLUDED;
+      auto const Ppsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
+      auto const  apc = get_memory<real_t[R1C2][Noco]   [Noco*64]>(1);
+      auto const  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
+      multiply<real_t,R1C2,Noco>(Ppsi, apc, psi);
+      return 0;
   } // test_simple_projection
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_simple_projection(echo);
+      stat += test_simple_projection<float ,1,1>(echo);
+      stat += test_simple_projection<float ,2,1>(echo);
+      stat += test_simple_projection<float ,2,2>(echo);
+      stat += test_simple_projection<double,1,1>(echo);
+      stat += test_simple_projection<double,2,1>(echo);
+      stat += test_simple_projection<double,2,2>(echo);
       return stat;
   } // all_tests
 

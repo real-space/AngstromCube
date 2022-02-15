@@ -63,9 +63,12 @@ namespace green_function {
       , std::vector<std::vector<double>> const & atom_mat // atomic hamiltonian and overlap matrix
       , int const echo=0 // log-level
       , std::complex<double> const *energy_parameter=nullptr // E in G = (H - E*S)^{-1}
+      , int const Noco=1
   ) {
       int constexpr X=0, Y=1, Z=2;
       if (echo > 0) std::printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
+      
+      assert(1 == Noco || 2 == Noco);
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
@@ -91,24 +94,27 @@ namespace green_function {
 //    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64); // does not really work flawlessly
 //    view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
 //    view4D<double> Vtot(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // get memory
-      p->Veff = get_memory<double[64]>(n_all_Veff_blocks); // in managed memory
+      p->Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo); // in managed memory
       { // scope: reorder Veff into block-structured p->Veff
+
+          for (size_t k = 0; k < n_all_Veff_blocks*Noco*Noco*64; ++k) {
+              p->Veff[0][k] = 0; // clear
+          } // k
+
           for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-          for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
+          for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops
           for (int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
               int const ibxyz[3] = {ibx, iby, ibz};
               auto const Veff_index = index3D(n_original_Veff_blocks, ibxyz);
-//            auto const Vtot_xyz = Vtot(ibz,iby,ibx); // get a view1D, i.e. double*
-              auto const Vtot_xyz = p->Veff[Veff_index];
               for (int i4z = 0; i4z < 4; ++i4z) {
-              for (int i4y = 0; i4y < 4; ++i4y) {
+              for (int i4y = 0; i4y < 4; ++i4y) { // grid point index in [0, 4) loops
               for (int i4x = 0; i4x < 4; ++i4x) {
                   int const i64 = (i4z*4 + i4y)*4 + i4x;
-                  size_t const izyx = ((ibz*4 + i4z)
-                              *ng[Y] + (iby*4 + i4y)) 
-                              *ng[X] + (ibx*4 + i4x);
+                  size_t const izyx = (size_t(ibz*4 + i4z)  // global grid point index
+                              *ng[Y] + size_t(iby*4 + i4y)) 
+                              *ng[X] + size_t(ibx*4 + i4x);
                   assert(izyx < ng[Z]*ng[Y]*ng[X]);
-                  Vtot_xyz[i64] = Veff[izyx];
+                  p->Veff[Veff_index*Noco*Noco + 0][i64] = Veff[izyx]; // copy potential value
               }}} // i4
           }}} // xyz
       } // scope
@@ -158,7 +164,7 @@ namespace green_function {
               }}} // xyz
               assert(nRHSs == iRHS);
           } // iRHS
-          
+
           for (int d = 0; d < 3; ++d) {
               center_of_mass_RHS[d] /= std::max(1, nRHSs);
               auto const middle2 = min_source_coords[d] + max_source_coords[d];
@@ -195,7 +201,7 @@ namespace green_function {
       if (echo > 0) std::printf("# largest distance of RHS blocks from center of mass is %g, from center is %g %s\n",
                               max_distance_from_comass*Ang, max_distance_from_center*Ang, _Ang);
 
-      
+
       // truncation radius
       double const r_trunc = control::get("green_function.truncation.radius", 10.);
       if (echo > 0) std::printf("# green_function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);

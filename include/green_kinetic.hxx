@@ -42,7 +42,38 @@ namespace green_kinetic {
           , std::vector<bool> const sparsity_pattern[]
           , unsigned const nRHSs=1
           , int const echo=0
-      ) {
+      )
+        // Preparation of Finite-Difference index lists
+        // 2D example: non-zero index -1 means non-existent
+        // 
+        //                            --> x-direction
+        //        0  1  2  3  4
+        //     5  6  7  8  9 10 11
+        //    12 13 14 15 16 17 18 19
+        //    20 21 22 23 24 25 26 27
+        //    28 29 30 31 32 33 34
+        //       35 36 37 38 39
+        // 
+        //
+        //  6 x-lists:
+        //    list[0] == { 0  1  2  3  4 -1 -1 -1 -1}
+        //    list[1] == { 5  6  7  8  9 10 11 -1 -1 -1 -1}
+        //    list[2] == {12 13 14 15 16 17 18 19 -1 -1 -1 -1}
+        //    list[3] == {20 21 22 23 24 25 26 27 -1 -1 -1 -1}
+        //    list[4] == {28 29 30 31 32 33 34 -1 -1 -1 -1}
+        //    list[5] == {35 36 37 38 39 -1 -1 -1 -1}
+        //
+        //  8 y-lists:
+        //    list[0] == { 5 12 20 28 -1 -1 -1 -1}
+        //    list[1] == { 0  6 13 21 29 35 -1 -1 -1 -1}
+        //    list[2] == { 1  7 14 22 30 36 -1 -1 -1 -1}
+        //    list[3] == { 2  8 15 23 31 37 -1 -1 -1 -1}
+        //    list[4] == { 3  9 16 24 32 38 -1 -1 -1 -1}
+        //    list[5] == { 4 10 17 25 33 39 -1 -1 -1 -1}
+        //    list[6] == {11 18 26 34 -1 -1 -1 -1}
+        //    list[7] == {19 27 -1 -1 -1 -1}
+        //
+      {
           int constexpr X=0, Y=1, Z=2;
           // prepare the finite-difference sequence lists
           char const direction = 'x' + dd;
@@ -64,14 +95,14 @@ namespace green_kinetic {
               for (int iy = 0; iy < num[Y]; ++iy) { //   one of these 3 loops has range == 1
               for (int ix = 0; ix < num[X]; ++ix) { // 
                   int idx[3] = {ix, iy, iz};
+                  list[ilist].reserve(num_dd + 4); // makes push_pack faster
                   for (int id = 0; id < num_dd; ++id) { // loop over direction to derive
                       idx[dd] = id; // replace index in the derivate direction
-//                           if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n",
-//                                                   iRHS, idx[X], idx[Y], idx[Z]);
+//                    if (echo > 0) std::printf("# FD list for RHS #%i test coordinates %i %i %i\n", iRHS, idx[X], idx[Y], idx[Z]);
                       auto const idx3 = index3D(num_target_coords, idx);
                       if (sparsity_RHS[idx3]) {
                           auto const iRow = iRow_of_coords(idx[Z], idx[Y], idx[X]);
-                          assert(iRow >= 0);
+                          assert(iRow >= 0 && "sparsity_pattern[iRHS][idx3] does not match iRow_of_coords[iz][iy][ix]");
 
                           int32_t inz_found{-1};
                           for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
@@ -89,9 +120,8 @@ namespace green_kinetic {
                   int const list_length = list[ilist].size();
                   if (list_length > 0) {
                       length_stats.add(list_length);
-//                           if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n",
-//                                                   list_length, direction, idx[X], idx[Y], idx[Z]);
-                      // add 4 end-of-sequence markers
+//                    if (echo > 0) std::printf("# FD list of length %d for the %c-direction %i %i %i\n", list_length, direction, idx[X], idx[Y], idx[Z]);
+                      // add 4 end-of-sequence markers (could also be done later during the copying into device memory)
                       for (int i = 0; i < 4; ++i) {
                           list[ilist].push_back(-1);
                       } // i
@@ -142,9 +172,6 @@ namespace green_kinetic {
       } // move assignment
 
       finite_difference_plan_t(finite_difference_plan_t && rhs) = delete;
-//       {   std::printf("# finite_difference_plan_t(finite_difference_plan_t && rhs);\n");
-//           *this = std::move(rhs);
-//       } // move constructor
 
       finite_difference_plan_t(finite_difference_plan_t const & rhs) = delete; // copy constructor
 
@@ -414,7 +441,7 @@ namespace green_kinetic {
     ) {
         int nFD[] = {FD_range, FD_range, FD_range};
         size_t nops{0};
-        for (int dd = 0; dd < 3; ++dd) { // derivative direction
+        for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
             double const f = -0.5/(hgrid[dd]*hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
             int const Stride = 1 << (2*dd);
             auto const list = (2 == dd) ? z_list : ((1 == dd) ? y_list : x_list);
@@ -431,12 +458,15 @@ namespace green_kinetic {
 #else // NO_UNIT_TESTS
 
   inline status_t test_finite_difference(int const echo=0) {
-      auto const Tpsi = get_memory<float[1][64][64]>(1);
-      auto const  psi = get_memory<float[1][64][64]>(1);
-      auto const indx = get_memory<int32_t>(1);
+      auto Tpsi = get_memory<float[1][64][64]>(1);
+      auto  psi = get_memory<float[1][64][64]>(1);
+      auto indx = get_memory<int32_t>(1);
       uint32_t const num[] = {0, 0, 0};
       double const hgrid[] = {1, 1, 1};
       multiply(Tpsi, psi, num, &indx, &indx, &indx, hgrid); // instanciate the functions
+      free_memory(Tpsi);
+      free_memory( psi);
+      free_memory(indx);
       return 0;
   } // test_finite_difference
 
