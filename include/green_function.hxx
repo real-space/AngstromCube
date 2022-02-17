@@ -72,8 +72,9 @@ namespace green_function {
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
-      auto const p = new green_action::plan_t(); // create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-      assert(nullptr != p);
+      auto const plan_ptr = new green_action::plan_t(); // create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+      assert(nullptr != plan_ptr);
+      auto & p = *plan_ptr;
 
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
@@ -94,11 +95,11 @@ namespace green_function {
 //    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64); // does not really work flawlessly
 //    view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
 //    view4D<double> Vtot(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // get memory
-      p->Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo); // in managed memory
-      { // scope: reorder Veff into block-structured p->Veff
+      p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo); // in managed memory
+      { // scope: reorder Veff into block-structured p.Veff
 
           for (size_t k = 0; k < n_all_Veff_blocks*Noco*Noco*64; ++k) {
-              p->Veff[0][k] = 0; // clear
+              p.Veff[0][k] = 0; // clear
           } // k
 
           for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
@@ -114,7 +115,7 @@ namespace green_function {
                               *ng[Y] + size_t(iby*4 + i4y)) 
                               *ng[X] + size_t(ibx*4 + i4x); // global grid point index
                   assert(izyx < size_t(ng[Z])*size_t(ng[Y])*size_t(ng[X]));
-                  p->Veff[Veff_index*Noco*Noco + 0][i64] = Veff[izyx]; // copy potential value
+                  p.Veff[Veff_index*Noco*Noco + 0][i64] = Veff[izyx]; // copy potential value
               }}} // i4
           }}} // xyz
       } // scope
@@ -132,11 +133,12 @@ namespace green_function {
       if (echo > 0) std::printf("# circumscribing radius= %g %s\n", r_block_circumscribing_sphere*Ang, _Ang);
 
       // assume that the source blocks lie compact in space
-      int const nRHSs = n_original_Veff_blocks[Z] * n_original_Veff_blocks[Y] * n_original_Veff_blocks[X];
+      int32_t const nRHSs = n_original_Veff_blocks[Z] * n_original_Veff_blocks[Y] * n_original_Veff_blocks[X];
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nRHSs);
+      assert(nRHSs >= 0);
       view2D<uint32_t> global_source_coords(nRHSs, 4, 0); // unsigned since they must be in [0, 2^21) anyway
-      p->global_source_indices.resize(nRHSs); // [nRHSs]
-      p->nCols = nRHSs;
+      p.global_source_indices.resize(nRHSs); // [nRHSs]
+      p.nCols = nRHSs;
       double center_of_mass_RHS[3] = {0, 0, 0};
       double center_of_RHSs[3]     = {0, 0, 0};
       int32_t min_source_coords[3] = {0, 0, 0}; // global coordinates
@@ -153,7 +155,7 @@ namespace green_function {
                   global_source_coords(iRHS,Y) = iby;
                   global_source_coords(iRHS,Z) = ibz;
                   global_source_coords(iRHS,3) = 0; // unused
-                  p->global_source_indices[iRHS] = global_coordinates::get(ibx, iby, ibz);
+                  p.global_source_indices[iRHS] = global_coordinates::get(ibx, iby, ibz);
                   for (int d = 0; d < 3; ++d) {
                       int32_t const rhs_coord = global_source_coords(iRHS,d);
                       center_of_mass_RHS[d] += (rhs_coord*4 + 1.5)*hg[d];
@@ -175,14 +177,14 @@ namespace green_function {
           if (echo > 0) std::printf("# internal and global coordinates differ by %d %d %d\n",
               internal_global_offset[X], internal_global_offset[Y], internal_global_offset[Z]);
 
-          p->source_coords = get_memory<int16_t[4]>(nRHSs); // internal coordindates
+          p.source_coords = get_memory<int16_t[4]>(nRHSs); // internal coordinates
           { // scope: compute also the largest distance from the center or center of mass
               double max_d2m{0}, max_d2c{0};
               for (int iRHS = 0; iRHS < nRHSs; ++iRHS) {
                   double d2m{0}, d2c{0};
-                  p->source_coords[iRHS][3] = 0; // not used
+                  p.source_coords[iRHS][3] = 0; // not used
                   for (int d = 0; d < 3; ++d) {
-                      p->source_coords[iRHS][d] = global_source_coords(iRHS,d) - internal_global_offset[d];
+                      p.source_coords[iRHS][d] = global_source_coords(iRHS,d) - internal_global_offset[d];
                       d2m += pow2((global_source_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
                       d2c += pow2((global_source_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
                   } // d
@@ -204,9 +206,10 @@ namespace green_function {
 
       // truncation radius
       double const r_trunc = control::get("green_function.truncation.radius", 10.);
+      double const r_proj  = control::get("green_function.projection.radius", 6.); // in units of sigma
       if (echo > 0) std::printf("# green_function.truncation.radius=%g %s\n", r_trunc*Ang, _Ang);
-      p->r_truncation = std::max(0., r_trunc);
-      p->r_Vconfinement = std::min(std::max(0., r_trunc - 2.0), p->r_truncation);
+      p.r_truncation = std::max(0., r_trunc);
+      p.r_Vconfinement = std::min(std::max(0., r_trunc - 2.0), p.r_truncation);
 
 // example:
 //    truncation radius in Cu (fcc)
@@ -264,7 +267,7 @@ namespace green_function {
           for (uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
               auto & sparsity_RHS = sparsity_pattern[iRHS]; // abbreviate
               sparsity_RHS.resize(product_target_blocks, false);
-              auto const *const source_coords = p->source_coords[iRHS]; // internal source block coordinates
+              auto const *const source_coords = p.source_coords[iRHS]; // internal source block coordinates
               simple_stats::Stats<> stats[3];
               int constexpr max_nci = 27;
               std::vector<int> hist(1 + max_nci, 0); // distribution of nci
@@ -291,12 +294,9 @@ namespace green_function {
                           // i = i4 - j4 --> i in [-3, 3],
                           //     if two blocks are far from each other, we test only the 8 combinations of |{-3, 3}|^3
                           //     for blocks close to each other, we test all 27 combinations of |{-3, 0, 3}|^3
-                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) {
-                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) {
-                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) {
-                              double const d2c = pow2((bx*4 + ix)*hg[X])
-                                               + pow2((by*4 + iy)*hg[Y])
-                                               + pow2((bz*4 + iz)*hg[Z]);
+                          for (int iz = -3; iz <= 3; iz += 3 + 3*far) { double const d2z = pow2((bz*4 + iz)*hg[Z]);
+                          for (int iy = -3; iy <= 3; iy += 3 + 3*far) { double const d2y = pow2((by*4 + iy)*hg[Y]) + d2z;
+                          for (int ix = -3; ix <= 3; ix += 3 + 3*far) { double const d2c = pow2((bx*4 + ix)*hg[X]) + d2y;
 #if 0
                               if (0 == iRHS && (d2c < r2trunc) && echo > 17) {
                                   std::printf("# %s: b= %i %i %i, i-j %i %i %i, d^2= %g %s\n", 
@@ -373,27 +373,25 @@ namespace green_function {
           if (echo > 5) { std::printf("# histogram total= %.3f k: ", nall*.001); printf_vector(" %d", hist.data(), nRHSs + 1); }
           assert(nall == product_target_blocks); // sanity check
 
-          p->nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
+          p.nRows = nall - hist[0]; // the target block entries with no RHS do not create a row
           if (echo > 0) std::printf("# total number of Green function blocks is %.3f k, "
                                "average %.1f per source block\n", nnz*.001, nnz/double(nRHSs));
           if (echo > 0) std::printf("# %.3f k (%.1f %% of %.3f k) target blocks are active\n", 
-              p->nRows*.001, p->nRows/(product_target_blocks*.01), product_target_blocks*.001);
+              p.nRows*.001, p.nRows/(product_target_blocks*.01), product_target_blocks*.001);
 
           assert(nnz < (uint64_t(1) << 32) && "the integer type or RowStart is uint32_t!");
 
           // resize BSR tables: (Block-compressed Sparse Row format)
           if (echo > 3) { std::printf("# memory of Green function is %.6f %s (float, twice for double)\n",
                               nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
-          auto & ColIndex = p->colindx;
-          ColIndex.resize(nnz);
-          p->rowindx = get_memory<uint32_t>(nnz);
-          auto & RowStart = p->RowStart;
-          RowStart = get_memory<uint32_t>(p->nRows + 1);
-          RowStart[0] = 0;
-          p->veff_index = get_memory<uint32_t>(p->nRows); // indirection list for the local potential
-          p->target_coords = get_memory<int16_t[3+1]>(p->nRows); // view2D<int16_t>(p->nRows, 4, 0);
-          p->global_target_indices.resize(p->nRows);
-          p->subset.resize(p->nCols); // we assume columns of the unit operator as RHS
+          p.colindx.resize(nnz);
+          p.rowindx = get_memory<uint32_t>(nnz);
+          p.RowStart = get_memory<uint32_t>(p.nRows + 1);
+          p.RowStart[0] = 0;
+          p.veff_index = get_memory<uint32_t>(p.nRows); // indirection list for the local potential
+          p.target_coords = get_memory<int16_t[3+1]>(p.nRows);
+          p.global_target_indices.resize(p.nRows);
+          p.subset.resize(p.nCols); // we assume columns of the unit operator as RHS
 
           view3D<int32_t> iRow_of_coords(num_target_coords[Z],
                                          num_target_coords[Y],
@@ -414,19 +412,19 @@ namespace green_function {
                       st.add(n);
                       iRow_of_coords(idx[Z], idx[Y], idx[X]) = iRow; // set existing
 
-                      RowStart[iRow + 1] = RowStart[iRow] + n;
+                      p.RowStart[iRow + 1] = p.RowStart[iRow] + n;
                       // copy the column indices
-                      set(ColIndex.data() + RowStart[iRow], n, column_indices[idx3].data());
-                      set(p->rowindx      + RowStart[iRow], n, iRow);
+                      set(p.colindx.data() + p.RowStart[iRow], n, column_indices[idx3].data());
+                      set(p.rowindx        + p.RowStart[iRow], n, iRow);
                       // copy the target block coordinates
                       int32_t global_target_coords[3];
                       for (int d = 0; d < 3; ++d) {
-                          p->target_coords[iRow][d] = idx[d] + min_target_coords[d];
-                          global_target_coords[d] = p->target_coords[iRow][d] + internal_global_offset[d];
+                          p.target_coords[iRow][d] = idx[d] + min_target_coords[d];
+                          global_target_coords[d] = p.target_coords[iRow][d] + internal_global_offset[d];
                       } // d
-                      p->target_coords[iRow][3] = 0; // not used
+                      p.target_coords[iRow][3] = 0; // not used
 
-                      p->global_target_indices[iRow] = global_coordinates::get(global_target_coords); 
+                      p.global_target_indices[iRow] = global_coordinates::get(global_target_coords); 
                       // global_target_indices is needed to gather the local potential data from other MPI processes
 
                       { // scope: determine the diagonal entry (source == target)
@@ -435,12 +433,12 @@ namespace green_function {
                               assert(iCol < (1ul << 16)); // number range if uint16_t
                               for (int d = 0; d < 3; ++d) {
                                   // sanity check onto internal coordinates
-                                  assert(p->source_coords[iCol][d] == p->target_coords[iRow][d]);
+                                  assert(p.source_coords[iCol][d] == p.target_coords[iRow][d]);
                               } // d
-                              { // search inz such that ColIndex[inz] == iCol
-                                  auto inz = RowStart[iRow];
-                                  while(iCol != ColIndex[inz]) { ++inz; }
-                                  p->subset[iCol] = inz;
+                              { // search inz such that p.colindx[inz] == iCol
+                                  auto inz = p.RowStart[iRow];
+                                  while(iCol != p.colindx[inz]) { ++inz; }
+                                  p.subset[iCol] = inz;
                               } // search
                           } // iCol valid
                       } // scope
@@ -451,15 +449,15 @@ namespace green_function {
                               mod[d] = global_target_coords[d] % n_original_Veff_blocks[d];
                               mod[d] += (mod[d] < 0)*n_original_Veff_blocks[d];
                           } // d
-                          p->veff_index[iRow] = index3D(n_original_Veff_blocks, mod);
+                          p.veff_index[iRow] = index3D(n_original_Veff_blocks, mod);
                       } // scope
  
                       // count up the number of active rows
                       ++iRow;
                   } // n > 0
               }}} // idx
-              assert(p->nRows == iRow);
-              assert(nnz == RowStart[p->nRows]);
+              assert(p.nRows == iRow);
+              assert(nnz == p.RowStart[p.nRows]);
               std::printf("# source blocks per target block: average %.1f +/- %.1f in [%g, %g]\n", st.mean(), st.dev(), st.min(), st.max());
           } // scope
           column_indices.clear(); // not needed beyond this point
@@ -467,9 +465,9 @@ namespace green_function {
           if (echo > 1) { // measure the difference in the number of target blocks of each RHS
               std::vector<uint32_t> nt(nRHSs, 0);
               // traverse the BSR structure
-              for (uint32_t iRow = 0; iRow < p->nRows; ++iRow) {
-                  for (auto inz = RowStart[iRow]; inz < RowStart[iRow + 1]; ++inz) {
-                      auto const iCol = ColIndex[inz];
+              for (uint32_t iRow = 0; iRow < p.nRows; ++iRow) {
+                  for (auto inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
+                      auto const iCol = p.colindx[inz];
                       ++nt[iCol];
                   } // inz
               } // iRow
@@ -487,17 +485,18 @@ namespace green_function {
 
           for (int dd = 0; dd < 3; ++dd) { // derivate direction
               // create lists for the finite-difference derivatives
-              p->fd_plan[dd] = green_kinetic::finite_difference_plan_t(dd
+              p.fd_plan[dd] = green_kinetic::finite_difference_plan_t(dd
                 , num_target_coords
-                , RowStart, ColIndex.data()
+                , p.RowStart, p.colindx.data()
                 , iRow_of_coords
                 , sparsity_pattern.data()
                 , nRHSs, echo);
           } // dd
 
           // transfer grid spacing into managed GPU memory
-          p->grid_spacing = get_memory<double>(4);
-          set(p->grid_spacing, 3, hg);
+          p.grid_spacing = get_memory<double>(4);
+          set(p.grid_spacing, 3, hg);
+          p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projection stops
 
       } // scope
 
@@ -514,14 +513,14 @@ namespace green_function {
       double max_projection_radius{0};
       for (int ia = 0; ia < natoms; ++ia) {
           auto const sigma = xyzZinso[ia*8 + 6];
-          auto const projection_radius = std::max(0.0, 6*sigma);
+          auto const projection_radius = std::max(0.0, r_proj*sigma);
           max_projection_radius = std::max(max_projection_radius, projection_radius);
       } // ia
       if (echo > 3) std::printf("# largest projection radius is %g %s\n", max_projection_radius*Ang, _Ang);
 
 
-      p->ApcStart = nullptr;
-      p->natom_images = 0;
+      p.ApcStart = nullptr;
+      p.natom_images = 0;
       { // scope:
           SimpleTimer atom_list_timer(__FILE__, __LINE__, "Atom part");
           
@@ -534,7 +533,7 @@ namespace green_function {
               nimages *= (iimage[d]*2 + 1);
           } // d
           auto const natom_images = natoms*nimages;
-          if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k total\n", 
+          if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k total\n",
                                         iimage[X], iimage[Y], iimage[Z], nimages*.001);
 
           std::vector<uint32_t> ApcStart(natom_images + 1, 0); // probably larger than needed, should call resize(nai + 1) later
@@ -542,8 +541,10 @@ namespace green_function {
           std::vector<uint16_t> atom_ncoeff(natoms, 0); // 0: atom does not contribute
 
           simple_stats::Stats<> nc_stats;
-          uint32_t constexpr COUNT = 0; // 0:count how many blocks are really involved
           double sparse{0}, dense{0}; // stats to assess how much memory can be saved using sparse storage
+
+          std::vector<std::vector<uint32_t>> cubes; // stores the row indices of Green function rows
+          cubes.reserve(natom_images); // maximum (needs 24 Byte per atom image)
 
           size_t iai{0};
           for (int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
@@ -553,33 +554,33 @@ namespace green_function {
               int const xyz_shift[] = {x, y, z};
               for (int ia = 0; ia < natoms; ++ia) { // loop over atoms in the unit cell, serial
                   // suggest a new atomic image position
-                  double pos[3];
+                  double atom_pos[3];
                   for (int d = 0; d < 3; ++d) { // parallel
-                      pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
+                      atom_pos[d] = xyzZinso[ia*8 + d] + xyz_shift[d]*cell[d];
                   } // d
                   auto const atom_id = int32_t(xyzZinso[ia*8 + 4]); 
                   auto const numax =       int(xyzZinso[ia*8 + 5]);
-                  auto const sigma =           xyzZinso[ia*8 + 6];
-//                   if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s\n", atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang);
+                  auto const sigma =           xyzZinso[ia*8 + 6] ;
+//                   if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s\n", atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang);
 
-                  double const r_projection = pow2(6*sigma); // atom-dependent, precision dependent, assume float here
+                  double const r_projection = r_proj*sigma; // atom-dependent, precision dependent, assume float here
                   double const r2projection = pow2(r_projection);
 //                double const r2projection_plus = pow2(r_projection + r_block_circumscribing_sphere);
 
                   // check all target blocks if they are inside the projection radius
                   uint32_t ntb{0}; // number of target blocks
-                  for (uint32_t iRow = 0; (iRow < p->nRows) && (0 == COUNT*ntb); ++iRow) {
-                      auto const *const target_block = p->target_coords[iRow];
-                      double d2{0};
-                      for (int d = 0; d < 3; ++d) { // serial
-                          double const center_of_block = (target_block[d]*4 + 1.5)*hg[d];
-                          d2 += pow2(center_of_block - pos[d]);
-                      } // d
+                  for (uint32_t icube = 0; icube < p.nRows; ++icube) { // loop over blocks
+                      auto const *const target_block = p.target_coords[icube];
+//                    double d2{0};
+//                    for (int d = 0; d < 3; ++d) { // serial
+//                        double const center_of_block = (target_block[d]*4 + 1.5)*hg[d];
+//                        d2 += pow2(center_of_block - atom_pos[d]);
+//                    } // d
 //                    if (d2 < r2projection_plus) {
                       if (1) {
                           // do more precise checking
 //                           if (echo > 9) std::printf("# target block #%i at %i %i %i gets corner check\n",
-//                                           iRow, target_block[X], target_block[Y], target_block[Z]);
+//                                           icube, target_block[X], target_block[Y], target_block[Z]);
                           int nci{0}; // number of corners inside
                           // check 8 corners
                           for (int iz = 0; iz < 4; iz += 3) { // parallel, reduction
@@ -588,34 +589,43 @@ namespace green_function {
                               int const ixyz[] = {ix, iy, iz};
                               double d2i{0};
                               for (int d = 0; d < 3; ++d) {
-                                  double const grid_point = (target_block[d]*4 + ixyz[d])*hg[d];
-                                  d2i += pow2(grid_point - pos[d]);
+                                  double const grid_point = (target_block[d]*4 + ixyz[d] + 0.5)*hg[d];
+                                  d2i += pow2(grid_point - atom_pos[d]);
                               } // d
                               if (d2i < r2projection) {
-                                  ++nci; // at least one corner of the block 
-                                  // ... is inside the projection radius of this atom
+                                  ++nci; // at least one corner of the block is inside the projection radius of this atom
                               } // inside the projection radius
                           }}} // ix // iy // iz
                           // three different cases: 0, 1...7, 8
                           if (nci > 0) {
                               // atom image contributes
-                              ++ntb; // stop outer loop if COUNT==1
-                              int const nCols = p->RowStart[iRow + 1] - p->RowStart[iRow];
+                              if (0 == ntb) {
+                                  // this is the 1st cube to contribute
+                                  std::vector<uint32_t> cube_list(0); // create an empty vector
+                                  cubes.push_back(cube_list); // enlist the vector
+                              } // 0 == ntb
+
+                              cubes[iai].push_back(icube); // enlist
+                              assert(cubes[iai][ntb] == icube); // check
+
+                              ++ntb;
+                              assert(cubes[iai].size() == ntb);
+                              int const nCols = p.RowStart[icube + 1] - p.RowStart[icube];
                               sparse += nCols;
-                              dense  += p->nCols; // all columns
-                              
+                              dense  += p.nCols; // all columns
+
 //                               if (echo > 7) std::printf("# target block #%i at %i %i %i is inside\n",
-//                                       iRow, target_block[X], target_block[Y], target_block[Z]);
-                          } else { // nci
+//                                       icube, target_block[X], target_block[Y], target_block[Z]);
+//                        } else { // nci
 //                               if (echo > 9) std::printf("# target block #%i at %i %i %i is outside\n",
-//                                       iRow, target_block[X], target_block[Y], target_block[Z]);
+//                                       icube, target_block[X], target_block[Y], target_block[Z]);
                           } // nci
 
-                      } else { // d2
+                      } else { // d2 < r2projection_plus
 //                           if (echo > 21) std::printf("# target block #%i at %i %i %i is far outside\n",
-//                                       iRow, target_block[X], target_block[Y], target_block[Z]);
-                      } // d2
-                  } // iRow
+//                                       icube, target_block[X], target_block[Y], target_block[Z]);
+                      } // d2 < r2projection_plus
+                  } // icube
 
                   if (ntb > 0) {
                       // atom image contributes, mark in the list to have more than 0 coefficients
@@ -626,7 +636,7 @@ namespace green_function {
 
                       // at least one target block has an intersection with the projection sphere of this atom image
                       auto & atom = atom_data[iai];
-                      set(atom.pos, 3, pos);
+                      set(atom.pos, 3, atom_pos);
                       atom.sigma = sigma;
                       atom.gid = atom_id;
                       atom.ia = ia;
@@ -636,12 +646,13 @@ namespace green_function {
 
                       
 //                       if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s contributes to %d target blocks\n",
-//                                                 atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang, ntb);
+//                                                    atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang, ntb);
                       ApcStart[iai + 1] = ApcStart[iai] + atom.nc;
                       ++iai;
-                  } else {
+
+//                } else {
 //                       if (echo > 15) std::printf("# image of atom #%i at %g %g %g %s does not contribute\n",
-//                                                 atom_id, pos[X]*Ang, pos[Y]*Ang, pos[Z]*Ang, _Ang);
+//                                                     atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang);
                   } // ntb > 0
               } // ia
           }}} // x // y // z
@@ -651,7 +662,7 @@ namespace green_function {
                                     nai, natom_images, nai/(natom_images*.01));
           auto const napc = ApcStart[nai];
 
-          if (echo > 3 && 0 == COUNT) std::printf("# sparse %g and dense %g\n", sparse, dense);
+          if (echo > 3) std::printf("# sparse %g and dense %g\n", sparse, dense);
 
           if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
                                     nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
@@ -662,9 +673,102 @@ namespace green_function {
           // or real_t apc[napc][nRHSs][2][64] for the GPU
           if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
                                   napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
-          p->natom_images = nai;
-          p->ApcStart = get_memory<uint32_t>(nai + 1);
-          set(p->ApcStart, nai + 1, ApcStart.data()); // copy into GPU memory
+          
+          
+          p.natom_images = nai;
+          assert(nai == p.natom_images); // verify
+
+          { // scope: translate cubes[][] into CSR sparse tables in device memory
+              assert(cubes.size() == p.natom_images);
+
+              // for SHOprj
+
+              p.RowStartAtoms = get_memory<uint32_t>(p.natom_images + 1); // for SHOprj
+              p.RowStartAtoms[0] = 0;
+              size_t nnza{0};
+              for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
+                  auto const n = cubes[iai].size();
+                  nnza += n;
+                  p.RowStartAtoms[iai + 1] = p.RowStartAtoms[iai] + n; // prefix sum
+              } // iai
+              assert(nnza == p.RowStartAtoms[p.natom_images]);
+
+              std::vector<uint32_t> nai_per_cube(p.nRows, 0); // count how many atomic images contribute to each cube
+              p.ColIndexCubes = get_memory<uint32_t>(nnza); // for SHOprj
+              for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
+                  for (uint32_t itb = 0; itb < cubes[iai].size(); ++itb) {
+                      auto const icube = cubes[iai][itb];
+                      p.ColIndexCubes[p.RowStartAtoms[iai] + itb] = icube;
+                      ++nai_per_cube[icube];
+                  } // itb
+              } // iai
+
+              // for SHOadd create the transpose table pair
+
+              p.RowStartCubes = get_memory<uint32_t>(p.nRows + 1); // for SHOadd
+              p.RowStartCubes[0] = 0;
+              size_t nnzc{0};
+              for (uint32_t icube = 0; icube < p.nRows; ++icube) {
+                  auto const n = nai_per_cube[icube];
+                  nnzc += n;
+                  p.RowStartCubes[icube + 1] = p.RowStartCubes[icube] + n; // prefix sum
+              } // icube
+              assert(nnzc == p.RowStartCubes[p.nRows]);
+
+              std::vector<uint32_t> iai_per_cube(p.nRows, 0);
+              p.ColIndexAtoms = get_memory<uint32_t>(nnzc); // for SHOadd
+              for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
+                  for (uint32_t itb = 0; itb < cubes[iai].size(); ++itb) {
+                      auto const icube = cubes[iai][itb];
+                      p.ColIndexAtoms[p.RowStartCubes[icube] + iai_per_cube[icube]] = iai;
+                      ++iai_per_cube[icube];
+                  } // itb
+              } // iai
+
+              for (uint32_t icube = 0; icube < p.nRows; ++icube) {
+                  assert(nai_per_cube[icube] == iai_per_cube[icube]); // sanity checks
+              } // icube
+              
+              if (1) { // sanity checks
+
+                  //  proof that RowStartAtoms with ColIndexCubes is the transpose
+                  //          of RowStartCubes with ColIndexAtoms
+                  for (uint32_t icube = 0; icube < p.nRows; ++icube) {
+                      for (auto inz = p.RowStartCubes[icube]; inz < p.RowStartCubes[icube + 1]; ++inz) {
+                          auto const iai = p.ColIndexAtoms[inz];
+                          int found{0};
+                          for (auto jnz = p.RowStartAtoms[iai]; jnz < p.RowStartAtoms[iai + 1]; ++jnz) {
+                              auto const jcube = p.ColIndexCubes[jnz];
+                              found += (jcube == icube);
+                          } // jnz
+                          assert(1 == found);
+                      } // inz
+                  } // icube
+
+                  //  proof that RowStartCubes with ColIndexAtoms is the transpose
+                  //          of RowStartAtoms with ColIndexCubes
+                  for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
+                      for (auto inz = p.RowStartAtoms[iai]; inz < p.RowStartAtoms[iai + 1]; ++inz) {
+                          auto const icube = p.ColIndexCubes[inz];
+                          assert(icube == cubes[iai][inz - p.RowStartAtoms[iai]]);
+                          int found{0};
+                          for (auto jnz = p.RowStartCubes[icube]; jnz < p.RowStartCubes[icube + 1]; ++jnz) {
+                              auto const jai = p.ColIndexAtoms[jnz];
+                              found += (jai == iai);
+                          } // jnz
+                          assert(1 == found);
+                      } // inz
+                  } // iai
+
+              } // sanity check
+
+              cubes.resize(0); // release host memory
+
+          } // scope
+
+
+          p.ApcStart = get_memory<uint32_t>(nai + 1);
+          set(p.ApcStart, nai + 1, ApcStart.data()); // copy into GPU memory
 
           // get all info for the atomic matrices:
           std::vector<int32_t> global_atom_index(natoms); // translation table
@@ -681,23 +785,23 @@ namespace green_function {
           global_atom_index.resize(nac);
 
           // now store the atomic positions in GPU memory
-          p->atom_data = get_memory<green_action::atom_t>(nai);
+          p.atom_data = get_memory<green_action::atom_t>(nai);
           for (int iai = 0; iai < nai; ++iai) {
-              p->atom_data[iai] = atom_data[iai]; // copy
+              p.atom_data[iai] = atom_data[iai]; // copy
               // translate index
               int const ia = atom_data[iai].ia;
               int const iac = local_atom_index[ia];
               assert(iac > -1);
-              p->atom_data[iai].ia = iac;
+              p.atom_data[iai].ia = iac;
           } // copy into GPU memory
 
           // get memory for the matrices and fill
-          p->atom_mat = get_memory<double*>(nac);
+          p.atom_mat = get_memory<double*>(nac);
           for (int iac = 0; iac < nac; ++iac) { // parallel
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-              p->atom_mat[iac] = get_memory<double>(2*nc*nc);
+              p.atom_mat[iac] = get_memory<double>(2*nc*nc);
               // fill this with matrix values
               // use MPI communication to find values in atom owner processes
               auto const hmt = atom_mat[ia].data();
@@ -705,12 +809,12 @@ namespace green_function {
               for (int i = 0; i < nc; ++i) {
                   for (int j = 0; j < nc; ++j) {
                       int const ij = i*nc + j;
-                      p->atom_mat[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
-                      p->atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
+                      p.atom_mat[iac][ij]         = hmt[ij] - E_param.real() * ovl[ij]; // real part
+                      p.atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
           } // iac
-          p->number_of_contributing_atoms = nac;
+          p.number_of_contributing_atoms = nac;
 
       } // scope
 
@@ -719,8 +823,8 @@ namespace green_function {
       if (n_iterations >= 0) { // scope: try to apply the operator
           typedef float real_t;
           int constexpr LM = 64;
-          green_action::action_t<real_t,LM> action(p);
-          auto const nnzbX = p->colindx.size();
+          green_action::action_t<real_t,LM> action(&p);
+          auto const nnzbX = p.colindx.size();
           auto x = get_memory<real_t[2][LM][LM]>(nnzbX);
           auto y = get_memory<real_t[2][LM][LM]>(nnzbX);
           for (size_t i = 0; i < nnzbX*2*LM*LM; ++i) {
@@ -730,7 +834,7 @@ namespace green_function {
           // benchmark the action
           for (int iteration = 0; iteration < n_iterations; ++iteration) {
               if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
-              action.multiply(y, x, p->colindx.data(), nnzbX, p->nCols);
+              action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
               std::swap(x, y);
           } // iteration
 

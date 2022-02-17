@@ -56,10 +56,10 @@ namespace green_action {
       size_t gpu_mem = 0; // device memory requirement in Byte
 
       // stats:
-      float residuum_reached = 3e38;
-      float flops_performed = 0.f;
+      float residuum_reached    = 3e38;
+      float flops_performed     = 0.f;
       float flops_performed_all = 0.f;
-      int iterations_needed = -99;
+      int iterations_needed     = -99;
 
       // memory positions
       memWindow_t matXwin; // solution vector in GPU memory
@@ -69,9 +69,9 @@ namespace green_action {
       // new members to define the action
       std::vector<int64_t> global_target_indices; // [nRows]
       std::vector<int64_t> global_source_indices; // [nCols]
-      double r_truncation = 9e18; // radius beyond which the Green function is truncated
+      double r_truncation   = 9e18; // radius beyond which the Green function is truncated
       double r_Vconfinement = 9e18; // radius beyond which the confinement potential is added
-      double Vconfinement = 0; // potential_prefactor in Hartree
+      double Vconfinement   = 0; // potential_prefactor in Hartree
 
       green_kinetic::finite_difference_plan_t fd_plan[3];
       uint32_t natom_images = 0;
@@ -88,6 +88,11 @@ namespace green_action {
       double *grid_spacing = nullptr;
       int number_of_contributing_atoms = 0;
 
+      uint32_t* RowStartAtoms = nullptr; // for SHOprj
+      uint32_t* ColIndexCubes = nullptr; // for SHOprj
+      uint32_t* RowStartCubes = nullptr; // for SHOadd
+      uint32_t* ColIndexAtoms = nullptr; // for SHOadd
+      
       plan_t() {
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
       } // constructor
@@ -108,6 +113,10 @@ namespace green_action {
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
+          free_memory(RowStartAtoms);
+          free_memory(ColIndexCubes);
+          free_memory(RowStartCubes);
+          free_memory(ColIndexAtoms);
       } // destructor
 
   }; // plan_t
@@ -434,7 +443,7 @@ namespace green_action {
       plan_t plan;
       action_t<> action(&plan);
       return 0;
-      return STATUS_TEST_NOT_INCLUDED;
+//    return STATUS_TEST_NOT_INCLUDED;
   } // test_Green_action
 
   inline status_t all_tests(int const echo=0) {

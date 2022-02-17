@@ -99,14 +99,14 @@ namespace green_dyadic {
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
 #endif // HAS_NO_CUDA
-          real_t        (*const __restrict__ Cpr)[nvec] // result: projection coefficients
-        , real_t  const (*const __restrict__ Psi)[nvec] // input:  wave functions
-        , double  const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
-        , int     const (*const __restrict__ RowStart) // rows==atoms
-        , int     const (*const __restrict__ ColIndex) // cols==cubes
-//      , int64_t const (*const __restrict__ BitMask) // can be omitted
-        , float   const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
-        , double  const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
+          real_t         (*const __restrict__ Cpr)[nvec] // result: projection coefficients
+        , real_t   const (*const __restrict__ Psi)[nvec] // input:  wave functions
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , uint32_t const (*const __restrict__ RowStartAtoms) // rows==atoms
+        , uint32_t const (*const __restrict__ ColIndexCubes) // cols==cubes
+//      , int64_t  const (*const __restrict__ BitMask) // can be omitted
+        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
+        , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
     )
       // Compute the projection coefficients of wave/Green functions with atom-centered SHO-bases
     {
@@ -114,7 +114,7 @@ namespace green_dyadic {
         assert(nvec == blockDim.x);
 
         int const iatom = blockIdx.y; // in [0, natoms)
-        if (RowStart[iatom] >= RowStart[iatom + 1]) return; // empty range in the sparse matrix, early return
+        if (RowStartAtoms[iatom] >= RowStartAtoms[iatom + 1]) return; // empty range in the sparse matrix, early return
 
         int const lmax = Lmax; // ToDo: make this atom-dependent in the future
         assert(lmax <= Lmax);
@@ -152,11 +152,11 @@ namespace green_dyadic {
         int const j = threadIdx.x; // in [0, nvec)
 
         // in this loop over bsr we accumulate atom projection coefficients over many cubes
-        for (int bsr = RowStart[iatom]; bsr < RowStart[iatom + 1]; ++bsr) {
+        for (int bsr = RowStartAtoms[iatom]; bsr < RowStartAtoms[iatom + 1]; ++bsr) {
 
             __syncthreads();
 
-            int const icube = ColIndex[bsr];
+            int const icube = ColIndexCubes[bsr];
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 3) {
@@ -253,15 +253,15 @@ namespace green_dyadic {
 
     template <typename real_t, int Noco=1>
     size_t SHOprj_driver(
-          real_t        (*const __restrict__ Cpr)[Noco*64] // result: projection coefficients
-        , real_t  const (*const __restrict__ Psi)[Noco*64] // input:  wave functions
-        , double  const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
-        , int     const (*const __restrict__ RowStart) // rows==atoms
-        , int     const (*const __restrict__ ColIndex) // cols==cubes
-        , float   const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
-        , double  const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
-        , int     const natoms=1
-        , int     const nRHSs=1
+          real_t         (*const __restrict__ Cpr)[Noco*64] // result: projection coefficients
+        , real_t   const (*const __restrict__ Psi)[Noco*64] // input:  wave functions
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , uint32_t const (*const __restrict__ RowStartAtoms) // rows==atoms
+        , uint32_t const (*const __restrict__ ColIndexCubes) // cols==cubes
+        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
+        , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
+        , int      const natoms=1
+        , int      const nRHSs=1
     ) {
 
         // using pointer casting, we could have only two template instanciations: SHOprj<float/double,64>
@@ -274,7 +274,7 @@ namespace green_dyadic {
 #else  // HAS_NO_CUDA
               (dim3(nRHSs >> 6, natoms, 1), dim3(Noco*64), dim3(1,1,1),
 #endif // HAS_NO_CUDA
-               Cpr, Psi, AtomPos, RowStart, ColIndex, CubePos, hGrid);
+               Cpr, Psi, AtomPos, RowStartAtoms, ColIndexCubes, CubePos, hGrid);
 
         return 0;
     } // SHOprj_driver
@@ -294,13 +294,13 @@ namespace green_dyadic {
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
 #endif // HAS_NO_CUDA
-          real_t        (*const __restrict__ Psi)[nvec] // result: wave functions to modify
-        , real_t  const (*const __restrict__ Cad)[nvec] // input: addition coefficients
-        , double  const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2] and decay parameter [3]
-        , int     const (*const __restrict__ RowStart) // rows==cubes
-        , int     const (*const __restrict__ ColIndex) // cols==atoms
-        , float   const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
-        , double  const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius [3]
+          real_t         (*const __restrict__ Psi)[nvec] // result: wave functions to modify
+        , real_t   const (*const __restrict__ Cad)[nvec] // input: addition coefficients
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2] and decay parameter [3]
+        , uint32_t const (*const __restrict__ RowStartCubes) // rows==cubes
+        , uint32_t const (*const __restrict__ ColIndexAtoms) // cols==atoms
+        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
+        , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius [3]
     )
       // Add linear combinations of SHO-basis function to wave/Green functions
     {
@@ -308,7 +308,7 @@ namespace green_dyadic {
         assert(nvec == blockDim.x);
 
         int const icube = blockIdx.y; // in [0, ncubes)
-        if (RowStart[icube] >= RowStart[icube + 1]) return; // empty range in the sparse matrix, early return
+        if (RowStartCubes[icube] >= RowStartCubes[icube + 1]) return; // empty range in the sparse matrix, early return
 
         int const nrhs = gridDim.x; // == nRHSs/nvec
                                                                   
@@ -354,11 +354,11 @@ namespace green_dyadic {
         int64_t mask_all{0}; // mask accumulator that tells which grid points have to be updated
 
         // in this loop over bsr we accumulate atom projector functions over many atoms
-        for (int bsr = RowStart[icube]; bsr < RowStart[icube + 1]; ++bsr) {
+        for (int bsr = RowStartCubes[icube]; bsr < RowStartCubes[icube + 1]; ++bsr) {
 
             __syncthreads();
 
-            int const iatom = ColIndex[bsr];
+            int const iatom = ColIndexAtoms[bsr];
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 4) { // this breaks in the thread loop
@@ -465,15 +465,15 @@ namespace green_dyadic {
 
     template <typename real_t, int Noco=1>
     size_t SHOadd_driver(
-          real_t        (*const __restrict__ Psi)[Noco*64] // result: wave functions to modify
-        , real_t  const (*const __restrict__ Cad)[Noco*64] // input: addition coefficients
-        , double  const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
-        , int     const (*const __restrict__ RowStart) // rows==atoms
-        , int     const (*const __restrict__ ColIndex) // cols==cubes
-        , float   const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
-        , double  const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
-        , int     const natoms=1
-        , int     const nRHSs=1
+          real_t         (*const __restrict__ Psi)[Noco*64] // result: wave functions to modify
+        , real_t   const (*const __restrict__ Cad)[Noco*64] // input: addition coefficients
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
+        , uint32_t const (*const __restrict__ RowStartCubes) // rows==cubes
+        , uint32_t const (*const __restrict__ ColIndexAtoms) // cols==atoms
+        , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
+        , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
+        , int      const natoms=1
+        , int      const nRHSs=1
     ) {
 
         // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
@@ -483,7 +483,7 @@ namespace green_dyadic {
 #else  // HAS_NO_CUDA
               (dim3(nRHSs >> 6, natoms, 1), dim3(Noco*64), dim3(1,1,1),
 #endif // HAS_NO_CUDA        
-               Psi, Cad, AtomPos, RowStart, ColIndex, CubePos, hGrid);
+               Psi, Cad, AtomPos, RowStartCubes, ColIndexAtoms, CubePos, hGrid);
 
         return 0;
     } // SHOadd_driver
@@ -624,16 +624,16 @@ namespace green_dyadic {
 
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
-          real_t       (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result
-        , real_t       (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // workarray
-        , real_t const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
-        , double const (*const __restrict__ AtomPos)[3+1] // atomic positions and spread parameter
-        , float  const (*const __restrict__ CubePos)[3+1] // cube positions +spare
-        , int          (*const __restrict__ RowStartAtoms)
-        , int          (*const __restrict__ ColIndexCubes)
-        , int          (*const __restrict__ RowStartCubes)
-        , int          (*const __restrict__ ColIndexAtoms)
-        , double const (*const __restrict__ hGrid) // grid spacings + projection radius
+          real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // workarray
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
+        , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions and spread parameter
+        , float    const (*const __restrict__ CubePos)[3+1] // cube positions +spare
+        , uint32_t const (*const __restrict__ RowStartAtoms)
+        , uint32_t const (*const __restrict__ ColIndexCubes)
+        , uint32_t const (*const __restrict__ RowStartCubes)
+        , uint32_t const (*const __restrict__ ColIndexAtoms)
+        , double   const (*const __restrict__ hGrid) // grid spacings + projection radius
     ) {
         assert(1 == Noco || 2 == Noco);
         assert(R1C2 >= Noco);
@@ -669,10 +669,10 @@ namespace green_dyadic {
       auto const Ppsi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
       auto const  apc = get_memory<real_t[R1C2][Noco]   [Noco*64]>(1);
       auto const  psi = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1);
-      auto const RowStartAtoms = get_memory<int>(1);
-      auto const ColIndexCubes = get_memory<int>(1);
-      auto const RowStartCubes = get_memory<int>(1);
-      auto const ColIndexAtoms = get_memory<int>(1);
+      auto const RowStartAtoms = get_memory<uint32_t>(1);
+      auto const ColIndexCubes = get_memory<uint32_t>(1);
+      auto const RowStartCubes = get_memory<uint32_t>(1);
+      auto const ColIndexAtoms = get_memory<uint32_t>(1);
       auto const AtomPos = get_memory<double[3+1]>(1);
       auto const CubePos = get_memory<float [3+1]>(1);
       auto const hGrid   = get_memory<double>(3+1);
@@ -683,12 +683,12 @@ namespace green_dyadic {
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_simple_projection<float ,1,1>(echo);
-      stat += test_simple_projection<float ,2,1>(echo);
-      stat += test_simple_projection<float ,2,2>(echo);
-      stat += test_simple_projection<double,1,1>(echo);
-      stat += test_simple_projection<double,2,1>(echo);
-      stat += test_simple_projection<double,2,2>(echo);
+      stat += test_simple_projection<float ,1,1>(echo); // real
+      stat += test_simple_projection<float ,2,1>(echo); // complex
+      stat += test_simple_projection<float ,2,2>(echo); // non-collinear
+      stat += test_simple_projection<double,1,1>(echo); // real
+      stat += test_simple_projection<double,2,1>(echo); // complex
+      stat += test_simple_projection<double,2,2>(echo); // non-collinear
       return stat;
   } // all_tests
 
