@@ -21,38 +21,41 @@ namespace green_potential {
     template <typename real_t, int R1C2=2, int Noco=1>
     void __global__ Potential( // GPU kernel, must be launched with <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
 #ifdef HAS_NO_CUDA
-          dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
+          dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] //
         , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[icube*Noco*Noco][4*4*4]
-        , int     const nnzb // number of all blocks to be treated
         , int32_t const (*const __restrict__ CubeIndex) // translation from inzb to itrg, with uint16_t, we can cover a radius of 25 blocks, with signed integers, we can use -1 to indicate that no potential needs to be loaded
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
+        , int     const nnzb // number of all blocks to be treated
         , float   const rcut2 // cutoff radius^2 for the confinement potential
         , real_t  const E_real // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t  const E_imag // imaginary part of the energy parameter
     ) {
 
-        int const i64 = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)
-        assert(i64 < 64);
         assert(64      == gridDim.x);
         assert(1       == gridDim.z);
         assert(Noco*64 == blockDim.x);
         assert(Noco    == blockDim.y);
         assert(R1C2    == blockDim.z);
 
+        bool const imaginary = ((2 == R1C2) && (0 != E_imag));
+        
 #ifdef HAS_NO_CUDA
+        dim3 blockIdx(0,0,0);
+        for (int i64 = 0; i64 < 64; ++i64)
         for (int reim = 0; reim < R1C2; ++reim)
         for (int spin = 0; spin < Noco; ++spin)
         for (int j64 = 0; j64 < Noco*64; ++j64)
 #else  // HAS_NO_CUDA
+        int const i64 = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)
         int const reim = threadIdx.z; // real or imaginary part of the Green function
         int const spin = threadIdx.y; // non-collinear spin index
         int const j64  = threadIdx.x; // source grid point index == right hand side vectorization, in [0, Noco*64)
 #endif // HAS_NO_CUDA
-        { // threads loop
+        { // threads loops and block loop
 
 #define CONFINEMENT_POTENTIAL
 #ifdef  CONFINEMENT_POTENTIAL
@@ -66,7 +69,6 @@ namespace green_potential {
 
         assert(R1C2 >= Noco); // static_assert?
 
-        bool const imaginary = ((2 == R1C2) && (0 != E_imag));
         auto const V_imag = E_imag * real_t(1 - 2*reim);
 
         for (int inzb = blockIdx.y; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y-blocks
@@ -131,8 +133,8 @@ namespace green_potential {
             Vpsi[inzb][reim][spin*64 + i64][j64] = vpsi; // store
         } // inzb
 
-        } // thread loops
-
+        } // thread loops and block loop
+        
     } // Potential
 
     template <typename real_t, int R1C2=2, int Noco=1>
@@ -140,10 +142,10 @@ namespace green_potential {
           real_t        (*const __restrict__ Vpsi)[R1C2][Noco*64][Noco*64] // result
         , real_t  const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
         , double  const (*const __restrict__ Vloc)[64] // local potential, Vloc[icube*Noco*Noco][4*4*4]
-        , int     const nnzb // number of all blocks to be treated
-        , int32_t const (*const __restrict__ CubeIndex) // translation from inzb to itrg, with uint16_t, we can cover a radius of 25 blocks, with signed integers, we can use -1 to indicate that no potential needs to be loaded
+        , int32_t const (*const __restrict__ CubeIndex) // translation from inzb to itrg, -1 if Vloc does not need to be loaded
         , int16_t const (*const __restrict__ shift)[3+1] // 3D block shift vector (target minus source), 4th component unused
         , double  const (*const __restrict__ hxyz) // grid spacing in X,Y,Z direction
+        , int     const nnzb // number of all blocks to be treated
         , float   const rcut2=-1 // cutoff radius^2 for the confinement potential, -1: no confinement
         , real_t  const E_real=0 // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t  const E_imag=0 // imaginary part of the energy parameter
@@ -153,9 +155,9 @@ namespace green_potential {
 #ifndef HAS_NO_CUDA
             <<< dim3(64, 7, 1), dim3(Noco*64, Noco, R1C2) >>> ( // 7=any
 #else  // HAS_NO_CUDA
-            (   dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2), dim3(0,0,0),
+            (   dim3(64, 1, 1), dim3(Noco*64, Noco, R1C2),
 #endif // HAS_NO_CUDA
-            Vpsi, psi, Vloc, nnzb, CubeIndex, shift, hxyz, rcut2, E_real, E_imag);
+            Vpsi, psi, Vloc, CubeIndex, shift, hxyz, nnzb, rcut2, E_real, E_imag);
 
         return 0ul; // total number of floating point operations performed
     } // multiply potential
@@ -173,7 +175,7 @@ namespace green_potential {
       auto shift = get_memory<int16_t[3+1]>(1);         set(shift[0], 4, int16_t(0));
       auto hGrid = get_memory<double>(3+1);             set(hGrid, 4, 1.);
       int const nnzb = 1;
-      multiply<real_t,R1C2,Noco>(psi, psi, Vloc, nnzb, CubeIndex, shift, hGrid, 16.f);
+      multiply<real_t,R1C2,Noco>(psi, psi, Vloc, CubeIndex, shift, hGrid, nnzb, 16.f);
 
       free_memory(hGrid);
       free_memory(shift);
