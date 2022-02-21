@@ -103,9 +103,9 @@ namespace green_function {
           } // k
 
           for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-          for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops
+          for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, parallel
           for (int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
-              int const ibxyz[3] = {ibx, iby, ibz};
+              int const ibxyz[] = {ibx, iby, ibz};
               auto const Veff_index = index3D(n_original_Veff_blocks, ibxyz);
               for (int i4z = 0; i4z < 4; ++i4z) {
               for (int i4y = 0; i4y < 4; ++i4y) { // grid point index in [0, 4) loops
@@ -139,22 +139,20 @@ namespace green_function {
       view2D<uint32_t> global_source_coords(nRHSs, 4, 0); // unsigned since they must be in [0, 2^21) anyway
       p.global_source_indices.resize(nRHSs); // [nRHSs]
       p.nCols = nRHSs;
-      double center_of_mass_RHS[3] = {0, 0, 0};
-      double center_of_RHSs[3]     = {0, 0, 0};
-      int32_t min_source_coords[3] = {0, 0, 0}; // global coordinates
-      int32_t max_source_coords[3] = {0, 0, 0}; // global coordinates
-      int32_t internal_global_offset[3] = {0, 0, 0};
+      double center_of_mass_RHS[] = {0, 0, 0};
+      double center_of_RHSs[]     = {0, 0, 0};
+      int32_t min_source_coords[] = {0, 0, 0}; // global coordinates
+      int32_t max_source_coords[] = {0, 0, 0}; // global coordinates
+      int32_t internal_global_offset[] = {0, 0, 0};
       double max_distance_from_comass{0};
       double max_distance_from_center{0};
       { // scope: determine min, max, center
           {   int iRHS{0};
               for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-              for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) {
+              for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, serial
               for (int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
-                  global_source_coords(iRHS,X) = ibx;
-                  global_source_coords(iRHS,Y) = iby;
-                  global_source_coords(iRHS,Z) = ibz;
-                  global_source_coords(iRHS,3) = 0; // unused
+                  int const ibxyz[] = {ibx, iby, ibz, 0};
+                  set(global_source_coords[iRHS], 4, ibxyz);
                   p.global_source_indices[iRHS] = global_coordinates::get(ibx, iby, ibz);
                   for (int d = 0; d < 3; ++d) {
                       int32_t const rhs_coord = global_source_coords(iRHS,d);
@@ -182,12 +180,12 @@ namespace green_function {
               double max_d2m{0}, max_d2c{0};
               for (int iRHS = 0; iRHS < nRHSs; ++iRHS) {
                   double d2m{0}, d2c{0};
-                  p.source_coords[iRHS][3] = 0; // not used
                   for (int d = 0; d < 3; ++d) {
                       p.source_coords[iRHS][d] = global_source_coords(iRHS,d) - internal_global_offset[d];
                       d2m += pow2((global_source_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_mass_RHS[d]);
                       d2c += pow2((global_source_coords(iRHS,d)*4 + 1.5)*hg[d] - center_of_RHSs[d]);
                   } // d
+                  p.source_coords[iRHS][3] = 0; // not used
                   max_d2c = std::max(max_d2c, d2c);
                   max_d2m = std::max(max_d2m, d2m);
               } // iRHS
@@ -388,7 +386,8 @@ namespace green_function {
           p.rowindx = get_memory<uint32_t>(nnz);
           p.RowStart = get_memory<uint32_t>(p.nRows + 1);
           p.RowStart[0] = 0;
-          p.veff_index = get_memory<uint32_t>(p.nRows); // indirection list for the local potential
+          p.veff_index = get_memory<int32_t>(p.nRows); // indirection list for the local potential
+          set(p.veff_index, p.nRows, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows);
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as RHS
@@ -403,7 +402,7 @@ namespace green_function {
               for (uint16_t z = 0; z < num_target_coords[Z]; ++z) { // serial
               for (uint16_t y = 0; y < num_target_coords[Y]; ++y) { // serial
               for (uint16_t x = 0; x < num_target_coords[X]; ++x) { // serial
-                  uint16_t const idx[3] = {x, y, z};
+                  int const idx[3] = {x, y, z};
                   auto const idx3 = index3D(num_target_coords, idx);
                   assert(idx3 < product_target_blocks);
 
@@ -430,15 +429,20 @@ namespace green_function {
                       { // scope: determine the diagonal entry (source == target)
                           auto const iCol = tag_diagonal[idx3];
                           if (iCol > -1) {
-                              assert(iCol < (1ul << 16)); // number range if uint16_t
+                              assert(iCol < (1ul << 16)); // number range of uint16_t
                               for (int d = 0; d < 3; ++d) {
-                                  // sanity check onto internal coordinates
+                                  // sanity check on internal coordinates
                                   assert(p.source_coords[iCol][d] == p.target_coords[iRow][d]);
                               } // d
                               { // search inz such that p.colindx[inz] == iCol
-                                  auto inz = p.RowStart[iRow];
-                                  while(iCol != p.colindx[inz]) { ++inz; }
-                                  p.subset[iCol] = inz;
+                                  int32_t inz_found{-1};
+                                  for (int32_t inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1] && inz_found == -1; ++inz) {
+                                      if (iCol == p.colindx[inz]) {
+                                          inz_found = inz;
+                                      }
+                                  } // inz
+                                  assert(-1 != inz_found);
+                                  p.subset[iCol] = inz_found;
                               } // search
                           } // iCol valid
                       } // scope
@@ -524,16 +528,16 @@ namespace green_function {
       { // scope:
           SimpleTimer atom_list_timer(__FILE__, __LINE__, "Atom part");
           
-          auto const radius = r_trunc + max_distance_from_center 
-                            + 2*max_projection_radius + 2*r_block_circumscribing_sphere;
+          auto const radius = r_trunc + max_distance_from_center + 2*max_projection_radius + 2*r_block_circumscribing_sphere;
           int iimage[3];
           size_t nimages{1};
           for (int d = 0; d < 3; ++d) { // parallel
-              iimage[d] = int(std::ceil(radius/cell[d]));
-              nimages *= (iimage[d]*2 + 1);
+              iimage[d] = 0;                          // for isolated boundary conditions
+              iimage[d] = std::ceil(radius/cell[d]);  // for periodic boundary conditions
+              nimages *= (iimage[d] + 1 + iimage[d]);
           } // d
           auto const natom_images = natoms*nimages;
-          if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k total\n",
+          if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k images total\n",
                                         iimage[X], iimage[Y], iimage[Z], nimages*.001);
 
           std::vector<uint32_t> ApcStart(natom_images + 1, 0); // probably larger than needed, should call resize(nai + 1) later
@@ -583,11 +587,11 @@ namespace green_function {
 //                                           icube, target_block[X], target_block[Y], target_block[Z]);
                           int nci{0}; // number of corners inside
                           // check 8 corners
-                          for (int iz = 0; iz < 4; iz += 3) { // parallel, reduction
-                          for (int iy = 0; iy < 4; iy += 3) { // parallel, reduction
-                          for (int ix = 0; ix < 4; ix += 3) { // parallel, reduction
+                          for (int iz = 0; iz < 4; iz += 3) { // parallel, reduction on nci
+                          for (int iy = 0; iy < 4; iy += 3) { // parallel, reduction on nci
+                          for (int ix = 0; ix < 4; ix += 3) { // parallel, reduction on nci
                               int const ixyz[] = {ix, iy, iz};
-                              double d2i{0};
+                              double d2i{0}; // init distance^2 of the grid point from the center
                               for (int d = 0; d < 3; ++d) {
                                   double const grid_point = (target_block[d]*4 + ixyz[d] + 0.5)*hg[d];
                                   d2i += pow2(grid_point - atom_pos[d]);
@@ -662,7 +666,7 @@ namespace green_function {
                                     nai, natom_images, nai/(natom_images*.01));
           auto const napc = ApcStart[nai];
 
-          if (echo > 3) std::printf("# sparse %g and dense %g\n", sparse, dense);
+          if (echo > 3) std::printf("# sparse %g (%.2f %%) of dense %g\n", sparse, sparse/(dense*.01), dense);
 
           if (echo > 3) std::printf("# number of coefficients per image %.1f +/- %.1f in [%g, %g]\n",
                                     nc_stats.mean(), nc_stats.dev(), nc_stats.min(), nc_stats.max());
@@ -672,8 +676,7 @@ namespace green_function {
           // as std::complex<real_t> apc[napc][nRHSs][64]
           // or real_t apc[napc][nRHSs][2][64] for the GPU
           if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
-                                  napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
-          
+                                                  napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
           
           p.natom_images = nai;
           assert(nai == p.natom_images); // verify
@@ -801,7 +804,7 @@ namespace green_function {
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-              p.atom_mat[iac] = get_memory<double>(2*nc*nc);
+              p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc);
               // fill this with matrix values
               // use MPI communication to find values in atom owner processes
               auto const hmt = atom_mat[ia].data();

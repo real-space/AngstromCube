@@ -584,13 +584,14 @@ namespace green_dyadic {
                 } else {
                     // matrix layout: AtomMat[Noco*Noco*R1C2*nSHO*nSHO]
                     assert(2 == R1C2); // is complex
+                    int constexpr Re = 0, Im = R1C2 - 1;
                     std::complex<double> cad = 0;
                     for (int spjn = 0; spjn < Noco; ++spjn) {
                         for (int aj = 0; aj < nSHO; ++aj) {
                             // load projection coefficient
                             auto const cpr = std::complex<double>(
-                                       apc[(a0 + aj)*ncols + icol][0][spjn][ivec],
-                                       apc[(a0 + aj)*ncols + icol][1][spjn][ivec]);
+                                       apc[(a0 + aj)*ncols + icol][Re][spjn][ivec],
+                                       apc[(a0 + aj)*ncols + icol][Im][spjn][ivec]);
                             // load matrix element
                             auto const am = std::complex<double>(
                                        AtomMat[(((spin*Noco + spjn)*R1C2 + 0)*nSHO + ai)*nSHO + aj],
@@ -599,8 +600,8 @@ namespace green_dyadic {
                         } // aj
                     } // spjn
                     // store addition coefficient
-                    aac[(a0 + ai)*ncols + icol][0][spin][ivec] = cad.real();
-                    aac[(a0 + ai)*ncols + icol][1][spin][ivec] = cad.imag();
+                    aac[(a0 + ai)*ncols + icol][Re][spin][ivec] = cad.real();
+                    aac[(a0 + ai)*ncols + icol][Im][spin][ivec] = cad.imag();
 
                 } // 1 == R1C2
             } // ai
@@ -636,9 +637,9 @@ namespace green_dyadic {
 
     template <typename real_t, int R1C2=2, int Noco=1>
     size_t multiply(
-          real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result
+          real_t         (*const __restrict__ Ppsi)[R1C2][Noco*64][Noco*64] // result,  modified Green function blocks
         , real_t         (*const __restrict__  Cpr)[R1C2][Noco]   [Noco*64] // projection coefficients
-        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // input, unmodified Green function blocks
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions and spread parameter
         , uint32_t const (*const __restrict__ RowStartAtoms) // for SHOprj
         , uint32_t const (*const __restrict__ ColIndexCubes) // for SHOprj

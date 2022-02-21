@@ -80,8 +80,8 @@ namespace green_action {
       uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
-      double  (*Veff)[64]  = nullptr; // effective potential
-      uint32_t* veff_index = nullptr; // [nRows] indirection list
+      double  (*Veff)[64]  = nullptr; // effective potential, data layout *[Noco*Noco][64]
+      int32_t*  veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
       double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
       atom_t* atom_data = nullptr; // [natom_images]
@@ -153,8 +153,7 @@ namespace green_action {
       } // destructor
 
       void take_memory(char* &buffer) {
-          assert(p->ApcStart);
-          auto const nac = p->ApcStart[p->natom_images];
+          auto const nac = p->ApcStart ? p->ApcStart[p->natom_images] : 0;
           auto const n = size_t(nac) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
@@ -329,13 +328,15 @@ namespace green_action {
           float const inner_radius2       = pow2(p->r_Vconfinement);
           float const potential_prefactor = p->Vconfinement;
 
-          float const hg[3] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
+          float const hg[] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
 
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
 
           for (uint32_t iRow = 0; iRow < p->nRows; ++iRow) { // parallel
               real_t V[LM]; // buffer, probably best using shared memory of the SMx
-              set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
+              if (p->veff_index[iRow] >= 0) {
+                  set(V, LM, p->Veff[p->veff_index[iRow]]); // load potential values through indirection list
+              } else { set(V, LM, real_t(0)); }
               auto const *const target_coords = p->target_coords[iRow];
 
               for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
@@ -349,10 +350,10 @@ namespace green_action {
 
                   int const iCol = p->colindx[inz];
                   auto const *const source_coords = p->source_coords[iCol];
-                  int const block_coord_diff[3] = {
-                      source_coords[0] - target_coords[0],
-                      source_coords[1] - target_coords[1],
-                      source_coords[2] - target_coords[2]};
+                  int const block_coord_diff[] = {
+                      int(source_coords[0]) - int(target_coords[0]),
+                      int(source_coords[1]) - int(target_coords[1]),
+                      int(source_coords[2]) - int(target_coords[2])};
                   int constexpr n4 = (64 == LM)? 4 : ((8 == LM) ? 2 : 0);
                   for (int i4z = 0; i4z < n4; ++i4z) {
                   for (int i4y = 0; i4y < n4; ++i4y) {
@@ -429,8 +430,8 @@ namespace green_action {
 
       // temporary device memory needed for non-local operations 
       // (we could live with a single copy if the application of the atom-centered matrices is in-place)
-      real_t (*apc)[2][LM]; // atomic projection coefficients apc[n_all_projection_coefficients][nCols][2][64]
-      real_t (*aac)[2][LM]; // atomic addition   coefficients aac[n_all_projection_coefficients][nCols][2][64]
+      real_t (*apc)[2][LM]; // atom projection coefficients apc[n_all_projection_coefficients][nCols*Noco][2][Noco*64]
+      real_t (*aac)[2][LM]; // atom   addition coefficients aac[n_all_projection_coefficients][nCols*Noco][2][Noco*64]
 
   }; // class action_t
 
@@ -441,7 +442,10 @@ namespace green_action {
   inline status_t test_Green_action(int const echo=0) {
       std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
       plan_t plan;
-      action_t<> action(&plan);
+      { action_t<float ,  64> action(&plan); }
+      { action_t<float ,2*64> action(&plan); }
+      { action_t<double,  64> action(&plan); }
+      { action_t<double,2*64> action(&plan); }
       return 0;
 //    return STATUS_TEST_NOT_INCLUDED;
   } // test_Green_action
