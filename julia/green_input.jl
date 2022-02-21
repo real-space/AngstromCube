@@ -1,68 +1,79 @@
-using LightXML
+import LightXML: name, attribute, find_element, get_elements_by_tagname, parse_file, root, content, free
 
 ### ToDo: move to sho_tools
-nSHO(numax::Integer) = Base.div((numax + 1)*(numax + 2)*(numax + 3), 6)
+nSHO(numax::Integer) = div((numax + 1)*(numax + 2)*(numax + 3), 6) # number of SphericalHarmonicOscillator functions up to numax
 
-convert(str::AbstractString) = Base.parse(Float64, str)
-average(array) = Base.sum(array)/Base.length(array)
+convert(str::AbstractString) = parse(Float64, str)
+average(array) = sum(array)/length(array)
 
 echo = false
 
 # parse example.xml:
 # xdoc is an instance of XMLDocument, which maintains a tree structure
 filename = "Hmt.xml"
-xdoc = LightXML.parse_file(filename)
+xdoc = parse_file(filename)
 
 # get the root element
-grid_Hamiltonian = LightXML.root(xdoc)  # an instance of XMLElement
-println("# ",LightXML.name(grid_Hamiltonian)," version=",LightXML.attribute(grid_Hamiltonian, "version"))  # this should print: grid_Hamiltonian
+grid_Hamiltonian = root(xdoc)  # an instance of XMLElement
+println("# ",name(grid_Hamiltonian)," version=",attribute(grid_Hamiltonian, "version"))  # this should print: grid_Hamiltonian
 
-sho_atoms = LightXML.find_element(grid_Hamiltonian, "sho_atoms")
-atoms = LightXML.get_elements_by_tagname(sho_atoms, "atom")
-natoms = Base.parse(Int64, LightXML.attribute(sho_atoms, "number"))
-# println("# length(atoms)=",Base.length(atoms)," natoms=",natoms)
-@assert Base.length(atoms) == natoms "XML file inconsistent"
-apos = Base.zeros(Float64, 8, natoms)
+sho_atoms = find_element(grid_Hamiltonian, "sho_atoms")
+natoms = parse(Int64, attribute(sho_atoms, "number"))
+atoms = get_elements_by_tagname(sho_atoms, "atom")
+# println("# length(atoms)=",length(atoms)," natoms=",natoms)
+@assert length(atoms) == natoms
+apos = zeros(Float64, 8, natoms)
 for atom in atoms
-    gid = Base.parse(Int64, LightXML.attribute(atom, "gid"))
+    gid = parse(Int64, attribute(atom, "gid"))
     println("# Atom gid=",gid)
     @assert gid < natoms
-    position = LightXML.find_element(atom, "position")
-    apos[1:3,gid + 1] = convert.(LightXML.attribute.([position, position, position], ["x", "y", "z"]))
+    position = find_element(atom, "position")
+  # apos[1:3,gid + 1] = convert.(attribute.(Ref(position), ["x", "y", "z"]))
+    for (i,xyz) in zip(1:3, ["x", "y", "z"])
+        apos[i,gid + 1] = convert(attribute(position, xyz))
+    end
     projectors = find_element(atom, "projectors")
-    @assert "sho" == LightXML.attribute(projectors, "type")
-    numax = Base.parse(Int8, LightXML.attribute(projectors, "numax"))
+    @assert "sho" == attribute(projectors, "type")
+    numax = parse(Int32, attribute(projectors, "numax"))
     apos[5,gid + 1] = gid
     apos[6,gid + 1] = numax
-    apos[7,gid + 1] = convert(LightXML.attribute(projectors, "sigma"))
+    apos[7,gid + 1] = convert(attribute(projectors, "sigma"))
     nsho = nSHO(numax)
     println("# numax= ",numax," expects ",nsho," coefficients")
-    hamiltonian = LightXML.find_element(atom, "hamiltonian")
-    hamiltonian_values = Base.split(LightXML.content(hamiltonian))
-    @assert Base.length(hamiltonian_values) == nsho^2
-    hamiltonian_values = Base.reshape(convert.(hamiltonian_values), (nsho, nsho))
-    overlap = LightXML.find_element(atom, "overlap")
-    overlap_values = Base.split(LightXML.content(overlap))
-    @assert Base.length(overlap_values) == nsho^2
-    overlap_values = Base.reshape(convert.(overlap_values), (nsho, nsho))
+    hamiltonian = find_element(atom, "hamiltonian")
+    hamiltonian_values = split(content(hamiltonian))
+    @assert length(hamiltonian_values) == nsho^2
+    hamiltonian_values = reshape(convert.(hamiltonian_values), (nsho, nsho))
+    overlap = find_element(atom, "overlap")
+    overlap_values = split(content(overlap))
+    @assert length(overlap_values) == nsho^2
+    overlap_values = reshape(convert.(overlap_values), (nsho, nsho))
     if echo
         println("# Hamiltonian values = ",hamiltonian_values)
         println("# Overlap values     = ",overlap_values)
-    end
+    end # echo
 end # atom
 println("# xyzZinso = ",apos)
 
-spacing = LightXML.find_element(grid_Hamiltonian, "spacing")
-grid_spacing = convert.(LightXML.attribute.([spacing, spacing, spacing], ["x", "y", "z"]))
+spacing = find_element(grid_Hamiltonian, "spacing")
+# grid_spacing = convert.(attribute.(Ref(spacing), ["x", "y", "z"]))
+grid_spacing = [1.0, 1.0, 1.0]
+for (i,xyz) in zip(1:3, ["x", "y", "z"])
+    grid_spacing[i] = convert(attribute(spacing, xyz))
+end
 println("# grid spacing = ",grid_spacing," Bohr")
 
-potential = LightXML.find_element(grid_Hamiltonian, "potential")
-ng = Base.parse.(Int64, LightXML.attribute.([potential, potential, potential], ["nx", "ny", "nz"]))
+potential = find_element(grid_Hamiltonian, "potential")
+# ng = parse.(Int64, attribute.(Ref(potential), ["nx", "ny", "nz"]))
+ng = [1, 1, 1]
+for (i,xyz) in zip(1:3, ["nx", "ny", "nz"])
+    ng[i] = parse(Int64, attribute(potential, xyz))
+end
 println("# Potential shape is ",ng," grid points")
-potential_values = Base.split(LightXML.content(potential))
-@assert Base.length(potential_values) == ng[1]*ng[2]*ng[3]
+potential_values = split(content(potential))
+@assert length(potential_values) == ng[1]*ng[2]*ng[3]
 # println(potential_values) ## potentially long output
-potential_values = Base.reshape(convert.(potential_values), (ng[1], ng[2], ng[3])) # apply convert elementwise
+potential_values = reshape(convert.(potential_values), (ng[1], ng[2], ng[3]))
 # println(potential_values) ## potentially long output
 println("# Average potential value = ",average(potential_values)," Hartree")
 
