@@ -19,7 +19,7 @@
 #ifdef HAS_TFQMRGPU
     #include "tfQMRgpu/tfqmrgpu_core.hxx" // solve<action_t>
     #include "tfQMRgpu/tfqmrgpu_memWindow.h" // memWindow_t
-#else
+#else  // HAS_TFQMRGPU
     #include <utility> // std::pair<T>
     typedef std::pair<size_t,size_t> memWindow_t;
     typedef size_t cudaStream_t;
@@ -35,7 +35,7 @@ namespace green_action {
       int16_t shifts[3]; // periodic image shifts
       uint8_t nc; // number of coefficients
       int8_t numax; // SHO basis size
-  } atom_t;
+  } atom_t; // 48 Byte
 
 
   struct plan_t {
@@ -59,7 +59,7 @@ namespace green_action {
       float residuum_reached    = 3e38;
       float flops_performed     = 0.f;
       float flops_performed_all = 0.f;
-      int iterations_needed     = -99;
+      int   iterations_needed   = -99;
 
       // memory positions
       memWindow_t matXwin; // solution vector in GPU memory
@@ -125,11 +125,11 @@ namespace green_action {
 
 
 
-  template <typename floating_point_t=float, unsigned block_size=64>
-  class action_t { // an action as used in tfQMRgpu
+  template <typename floating_point_t=float, int R1C2=2, int Noco=1, int n64=64>
+  class action_t { // an action as used in tfQMRgpu (always
   public:
       typedef floating_point_t real_t;
-      static int constexpr LM = block_size;
+      static int constexpr LM = Noco*n64;
       //
       // This action is an implicit linear operator onto block-sparse structured data.
       // compatible with the core algorithm of the tfqmrgpu-2.0 library.
@@ -137,9 +137,10 @@ namespace green_action {
       // Arithmetic according to complex<real_t> 
       // with real_t either float or double
       //
-      action_t(plan_t *plan) 
+      action_t(plan_t const *plan) 
         : p(plan), apc(nullptr), aac(nullptr)
       {
+          assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);        
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
           char* buffer{nullptr};
           take_memory(buffer);
@@ -157,8 +158,8 @@ namespace green_action {
           auto const n = size_t(nac) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
-          apc = get_memory<real_t[2][LM]>(n);
-          aac = get_memory<real_t[2][LM]>(n);
+          apc = get_memory<real_t[R1C2][Noco][LM]>(n);
+          aac = get_memory<real_t[R1C2][Noco][LM]>(n);
       } // take_memory
 
       void transfer(char* const buffer, cudaStream_t const streamId=0) {
@@ -176,28 +177,33 @@ namespace green_action {
       bool has_preconditioner() const { return false; }
 
       double multiply( // returns the number of flops performed
-            real_t         (*const __restrict y)[2][LM][LM] // result, y[nnzbY][2][LM][LM]
-          , real_t   const (*const __restrict x)[2][LM][LM] // input,  x[nnzbX][2][LM][LM]
+            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
+          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
           , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
           , uint32_t const nnzbY // == nnzbX
           , uint32_t const nCols=1 // should match with p->nCols
           , unsigned const l2nX=0
           , cudaStream_t const streamId=0
           , bool const precondition=false
-      ) {
+          , int const echo=9
+      )
+        // Toy CPU implementation of green_kinetic and green_potential
+      {
+
+          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
 
       // Action of the SHO-PAW Hamiltonian H onto a trial Green function G:
       // indicies named according to H_{ij} G_{jk} = HG_{ik}
       //                          or A_{ij} X_{jk} =  Y_{ik}
       //
       //      projection:
-      //      apc.set(0); // clear
+      //      apc.set(0); // clear, WARNING: dimenision of apc in comments are not up-to-date
       //      for (jRow < nRows) // reduction
       //        for (RowStart[jRow] <= jnz < Rowstart[jRow + 1]) // reduction
       //          for (jai < nai) // parallel (with data-reuse on Green function element)
       //             for (jprj < nSHO(jai))
       //                for (k64 < 64) // vector parallel
-      //                  for (ri < 2) // vector parallel
+      //                  for (ri < R1C2) // vector parallel
       //                    for (j64 < 64) // reduction
       //                    {
       //                        apc[apc_start[jai] + jprj][ColIndex[jnz]][ri][k64] +=
@@ -227,12 +233,15 @@ namespace green_action {
 
           // clear y
           for (size_t inz = 0; inz < nnzbY; ++inz) {
-              for (int cij = 0; cij < 2*LM*LM; ++cij) {
+              for (int cij = 0; cij < R1C2*LM*LM; ++cij) {
                   y[inz][0][0][cij] = 0;
               } // cij
           } // inz
 
+          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
+          
           // kinetic energy
+          auto const max_block_index = p->colindx.size();
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
 //            simple_stats::Stats<> ts;
               auto const & fd = p->fd_plan[dd];
@@ -245,16 +254,17 @@ namespace green_action {
                   // memory traffic profile as an 8th order FD-stencil for LM=64=4*4*4.
                   //
                   auto const *const list = fd.list(il); // we will load at least 2 indices from list
+
+                  real_t block[4][R1C2][LM][LM]; // 4 temporary blocks
+
+                  set(block[1][0][0], R1C2*LM*LM, real_t(0)); // initialize zero, a non-existing block
+
                   int ilist{0}; // counter for index list
                   int inext = list[ilist++]; // load next index of x
-
-                  real_t block[4][2][LM][LM]; // 4 temporary blocks
-
-                  set(block[1][0][0], 2*LM*LM, real_t(0)); // initialize zero, a non-existing block
-
                   // initially load one block in advance
                   assert(inext > -1 && "the 1st index must be valid!");
-                  set(block[2][0][0], 2*LM*LM, x[inext][0][0]); // initial load of an existing block
+                  assert(inext < max_block_index);
+                  set(block[2][0][0], R1C2*LM*LM, x[inext][0][0]); // initial load of an existing block
 
                   // main loop
                   while (inext > -1) {
@@ -262,24 +272,27 @@ namespace green_action {
                       inext = list[ilist++]; // get next index
                       // now ilist == 2 in the first iteration
                       if (inext > -1) {
-                          set(block[(ilist + 1) & 0x3][0][0], 2*LM*LM, x[inext][0][0]);
+                          assert(inext < max_block_index);
+                          set(block[(ilist + 1) & 0x3][0][0], R1C2*LM*LM, x[inext][0][0]); // load of an existing block
                       } else {
-                          set(block[(ilist + 1) & 0x3][0][0], 2*LM*LM, real_t(0)); // non-existing block
+                          set(block[(ilist + 1) & 0x3][0][0], R1C2*LM*LM, real_t(0)); // non-existing block
                       } // load
 
+                      assert(ihere > -1 && "fatal error!");
                       // compute
-                      set(        y[ihere][0][0], 2*LM*LM, block[ ilist      % 0x3][0][0]); // coefficient -0.5*c_{0} == 1
-                      add_product(y[ihere][0][0], 2*LM*LM, block[(ilist - 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
-                      add_product(y[ihere][0][0], 2*LM*LM, block[(ilist + 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
-                      
-                  } // while ip > -1
+                      add_product(y[ihere][0][0], R1C2*LM*LM, block[(ilist    ) % 0x3][0][0], real_t( 1.0)); // coefficient -0.5*c_{0}    == 1
+                      add_product(y[ihere][0][0], R1C2*LM*LM, block[(ilist - 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
+                      add_product(y[ihere][0][0], R1C2*LM*LM, block[(ilist + 1) % 0x3][0][0], real_t(-0.5)); // coefficient -0.5*c_{+/-1} == -0.5
+
+                  } // while inext > -1
 //                ts.add(list_timer.stop());
 //                ts.add(ilist - 1); // how many blocks have been loaded and computed?
               } // il
-//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
-//            std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] indices\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
+//            if (echo > 6) std::printf("# derivative in %c-direction: %g +/- %g in [%g, %g] seconds\n", 'x'+dd, ts.mean(), ts.dev(), ts.min(), ts.max());
               // ===== synchronize to avoid race conditions on y ========
           } // dd
+          
+          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
 
       //
       //      when projection is done: multiply atomic matrices to projection coefficients
@@ -328,7 +341,7 @@ namespace green_action {
           float const inner_radius2       = pow2(p->r_Vconfinement);
           float const potential_prefactor = p->Vconfinement;
 
-          float const hg[] = {float(p->grid_spacing[0]), float(p->grid_spacing[1]), float(p->grid_spacing[2])};
+          double const *const hg = p->grid_spacing; // abbreviation
 
           simple_stats::Stats<> stats_inner, stats_outer, stats_conf, stats_Vconf, stats_d2; 
 
@@ -342,8 +355,7 @@ namespace green_action {
               for (auto inz = p->RowStart[iRow]; inz < p->RowStart[iRow + 1]; ++inz) { // parallel
                   // apply the local effective potential to all elements in this row
                   for (int i = 0; i < LM; ++i) {
-                      add_product(y[inz][0][i], LM, x[inz][0][i], V); // real
-                      add_product(y[inz][1][i], LM, x[inz][1][i], V); // imag
+                      for (int c = 0; c < R1C2; ++c) add_product(y[inz][c][i], LM, x[inz][c][i], V); // real [and imag]
                   } // i
 
                   // apply i,j-dependent potentials like the confinement and truncation mask
@@ -354,18 +366,18 @@ namespace green_action {
                       int(source_coords[0]) - int(target_coords[0]),
                       int(source_coords[1]) - int(target_coords[1]),
                       int(source_coords[2]) - int(target_coords[2])};
-                  int constexpr n4 = (64 == LM)? 4 : ((8 == LM) ? 2 : 0);
+                  int constexpr n4 = (LM >= 64) ? 4 : 2;
                   for (int i4z = 0; i4z < n4; ++i4z) {
                   for (int i4y = 0; i4y < n4; ++i4y) {
                   for (int i4x = 0; i4x < n4; ++i4x) {
                       int const i64 = (i4z*n4 + i4y)*n4 + i4x;
-                      float vec[3];
+                      double vec[3];
                       for (int j4z = 0; j4z < n4; ++j4z) { vec[2] = (block_coord_diff[2]*n4 + i4z - j4z)*hg[2];
                       for (int j4y = 0; j4y < n4; ++j4y) { vec[1] = (block_coord_diff[1]*n4 + i4y - j4y)*hg[1];
                       for (int j4x = 0; j4x < n4; ++j4x) { vec[0] = (block_coord_diff[0]*n4 + i4x - j4x)*hg[0];
                           int const j64 = (j4z*n4 + j4y)*n4 + j4x;
                           // distance^2
-                          float const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
+                          auto const d2 = pow2(vec[0]) + pow2(vec[1]) + pow2(vec[2]);
 
                           stats_d2.add(d2);
 //                           if (d2 > 71.18745) std::printf("# d2= %g iCol=%i (%i %i %i)*4 + (%i %i %i)  iRow=%i (%i %i %i)*4 + (%i %i %i)\n", d2,
@@ -376,21 +388,21 @@ namespace green_action {
                           if (d2 >= inner_radius2) {
                               // truncation mask (hard)
                               if (d2 >= truncation_radius2) { // mask
-                                  for (int c = 0; c < 2; ++c) { // real and imag
-                                      y[inz][c][i64][j64] = 0;
+                                  for (int c = 0; c < R1C2; ++c) { // real and imag
+                                      y[inz][c][i64][j64] = real_t(0);
                                   } // c
                                   stats_outer.add(d2);
                               } else {
-                                  real_t const V_confinement = potential_prefactor * pow4(d2 - inner_radius2);
-                                  for (int c = 0; c < 2; ++c) { // real and imag
+                                  real_t const V_confinement = potential_prefactor * pow4(d2 - inner_radius2); // V_confinement ~ distance^8
+                                  for (int c = 0; c < R1C2; ++c) { // real and imag
                                       y[inz][c][i64][j64] += x[inz][c][i64][j64] * V_confinement;
                                   } // c
                                   stats_Vconf.add(V_confinement);
                                   stats_conf.add(d2);
                               }
-                          } else { // inner_radius
+                          } else { // inner_radius2
                               stats_inner.add(d2);
-                          }
+                          } // inner_radius2
                           // we can also define a soft mask: 
                           //    for d2 < truncation_radius2: 
                           //        y *= pow4(d2/truncation_radius2 - 1)
@@ -403,7 +415,7 @@ namespace green_action {
               } // inz
           } // iRow
 
-          { // scope: display stats
+          if (echo > 1) {
               std::printf("# stats V_conf %g +/- %g %s\n", stats_Vconf.mean()*eV, stats_Vconf.dev()*eV, _eV);
               // how many grid points do we expect?
               double const f = 4.*constants::pi/(3.*hg[0]*hg[1]*hg[2]) * p->nCols*LM;
@@ -411,27 +423,26 @@ namespace green_action {
                            Vo = pow3(p->r_truncation)*f;
               std::printf("# expect inner %g conf %g grid points\n", Vi, Vo - Vi);
               std::printf("# stats  inner %g conf %g outer %g grid points\n", 
-                      stats_inner.num(), stats_Vconf.num(), stats_outer.num());
-
+                             stats_inner.num(), stats_Vconf.num(), stats_outer.num());
               std::printf("# stats       distance^2 %g [%g, %g] Bohr^2\n", stats_d2.mean(),    stats_d2.min(),    stats_d2.max());
               std::printf("# stats inner distance^2 %g [%g, %g] Bohr^2\n", stats_inner.mean(), stats_inner.min(), stats_inner.max());
               std::printf("# stats conf  distance^2 %g [%g, %g] Bohr^2\n", stats_conf.mean(),  stats_conf.min(),  stats_conf.max());
               std::printf("# stats outer distance^2 %g [%g, %g] Bohr^2\n", stats_outer.mean(), stats_outer.min(), stats_outer.max());
-          } // scope
+          } // echo
 
           return 0; // no flops performed so far
       } // multiply
 
-      plan_t* get_plan() { return p; }
+      plan_t const* get_plan() { return p; }
 
     private: // members
 
-      plan_t* p; // the plan is independent of real_t
+      plan_t const *p; // the plan is independent of real_t
 
-      // temporary device memory needed for non-local operations 
+      // temporary device memory needed for dyadic operations
+      real_t (*apc)[R1C2][Noco][LM]; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
+      real_t (*aac)[R1C2][Noco][LM]; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
       // (we could live with a single copy if the application of the atom-centered matrices is in-place)
-      real_t (*apc)[2][LM]; // atom projection coefficients apc[n_all_projection_coefficients][nCols*Noco][2][Noco*64]
-      real_t (*aac)[2][LM]; // atom   addition coefficients aac[n_all_projection_coefficients][nCols*Noco][2][Noco*64]
 
   }; // class action_t
 
@@ -442,10 +453,12 @@ namespace green_action {
   inline status_t test_Green_action(int const echo=0) {
       std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
       plan_t plan;
-      { action_t<float ,  64> action(&plan); }
-      { action_t<float ,2*64> action(&plan); }
-      { action_t<double,  64> action(&plan); }
-      { action_t<double,2*64> action(&plan); }
+      { action_t<float ,1,1> action(&plan); }
+      { action_t<float ,2,1> action(&plan); }
+      { action_t<float ,2,2> action(&plan); }
+      { action_t<double,1,1> action(&plan); }
+      { action_t<double,2,1> action(&plan); }
+      { action_t<double,2,2> action(&plan); }
       return 0;
 //    return STATUS_TEST_NOT_INCLUDED;
   } // test_Green_action

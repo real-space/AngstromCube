@@ -28,7 +28,7 @@
 #include "print_tools.hxx" // printf_vector
 #include "global_coordinates.hxx" // ::get
 
-#include "green_memory.hxx" // get_memory, free_memory
+#include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
 #include "green_action.hxx" // ::plan_t, ::action_t
 #include "sho_tools.hxx" // ::nSHO
@@ -54,6 +54,32 @@
 namespace green_function {
 
   double const GByte = 1e-9; char const *const _GByte = "GByte";
+
+  template <typename real_t, int R1C2=2, int Noco=1>
+  void try_action(green_action::plan_t const & p, int const n_iterations=1, int const echo=9) {
+      if (n_iterations >= 0) { // scope: try to apply the operator
+          if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
+          green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
+
+          auto const nnzbX = p.colindx.size();
+          int constexpr LM = Noco*64;
+          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
+          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
+          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
+              x[0][0][0][i] = 0; // init x
+          } // i
+
+          // benchmark the action
+          for (int iteration = 0; iteration < n_iterations; ++iteration) {
+              if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
+              action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
+              std::swap(x, y);
+          } // iteration
+
+          free_memory(y); free_memory(x);
+      } // n_iterations >= 0
+  } // try_action
+
 
   inline status_t construct_Green_function(
         int const ng[3] // number of grid points of the unit cell in with the potential is defined
@@ -823,14 +849,17 @@ namespace green_function {
 
       int const n_iterations = control::get("green_function.benchmark.iterations", -1.); 
                       // -1: no iterations, 0:run memory initilziation only, >0: iterate
-      if (n_iterations >= 0) { // scope: try to apply the operator
+      if (n_iterations < 0) {
+          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
+      } else { // n_iterations < 0
+#if 0
           typedef float real_t;
-          int constexpr LM = 64;
-          green_action::action_t<real_t,LM> action(&p);
+          int constexpr Noco = 1, R1C2 = 2, LM = Noco*64;
+          green_action::action_t<real_t,Noco,R1C2,64> action(&p);
           auto const nnzbX = p.colindx.size();
-          auto x = get_memory<real_t[2][LM][LM]>(nnzbX);
-          auto y = get_memory<real_t[2][LM][LM]>(nnzbX);
-          for (size_t i = 0; i < nnzbX*2*LM*LM; ++i) {
+          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
+          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
+          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
               x[0][0][0][i] = 0; // init x
           } // i
 
@@ -840,10 +869,20 @@ namespace green_function {
               action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
               std::swap(x, y);
           } // iteration
-
-      } else {
-          if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
-      } // n_iterations >= 0
+#else // 0
+          // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
+          int const n822 = control::get("green_function.benchmark.action", 421.);
+          switch (n822) {
+              case 411: try_action<float ,1,1>(p, n_iterations, echo); break; // real
+              case 421: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
+              case 422: try_action<float ,2,2>(p, n_iterations, echo); break; // non-collinear
+              case 811: try_action<double,1,1>(p, n_iterations, echo); break; // real
+              case 821: try_action<double,2,1>(p, n_iterations, echo); break; // complex
+              case 822: try_action<double,2,2>(p, n_iterations, echo); break; // non-collinear
+              default:  warn("green_function.benchmark.action must be in {411, 421, 422, 811, 821, 822} but found %d", n822);
+          } // switch n822
+#endif // 0
+      } // n_iterations < 0
 
       return 0;
   } // construct_Green_function

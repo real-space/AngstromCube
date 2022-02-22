@@ -47,23 +47,13 @@
   //          a(*)[R1C2][Noco   ][Noco*64]
   //
   //            kinetic:    <<< {16, Nrows, 1}, {Noco*64, Noco, R1C2} >>>
-  //            add:        <<< {nRHSs/(Noco*64), ncubes, 1}, {Noco*64, 1, 1} >>>
-  //            prj:        <<< {nRHSs/(Noco*64), natoms, 1}, {Noco*64, 1, 1} >>>
+  //            add:        <<< {nrhs, ncubes, 1}, {Noco*64, 1, 1} >>>
+  //            prj:        <<< {nrhs, natoms, 1}, {Noco*64, 1, 1} >>>
   //            potential:  <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
   //  --> if 2 == R1C2, tfQMRgpu with LM=Noco*64
   //
+
 #if 0
-  //  proposed
-  //  version G(*)[Noco*Noco*R1C2][64][64]
-  //  version a(*)[Noco*Noco*R1C2]    [64]
-  //            --> add/prj kernels do not need templating except for real_t
-  //  --> if 2 == R1C2, tfQMRgpu with LM=64, only 1 == Noco possible
-  //
-  //  proposed
-  //  version G(*)[64][Noco*Noco*R1C2][64]
-  //  version a(*)    [Noco*Noco*R1C2][64]
-  //            --> better for intuition, tfQMRgpu cannot be used
-  //
 
   template <typename ColIndex_t=uint32_t, typename RowIndex_t=uint32_t>
   class csr_t {

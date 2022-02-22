@@ -184,7 +184,7 @@ namespace green_kinetic {
       } // destructor
 
       uint32_t size() const { return n_lists; } // number of lists
-      int32_t const * list(uint32_t const i) const { return fd_list + prefix[i]; }
+      int32_t const * list(uint32_t const i) const { assert(i < n_lists); return fd_list + prefix[i]; }
 
   }; // class finite_difference_plan_t
 

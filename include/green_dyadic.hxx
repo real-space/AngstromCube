@@ -115,13 +115,13 @@ namespace green_dyadic {
         assert(1    == blockDim.z);
 
         int const nrhs = gridDim.x;
-        
+
         __shared__ double hgrid[3+1]; // grid spacings
 
 #ifndef HAS_NO_CUDA
         if (threadIdx.x < 4) hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
         int const iatom = blockIdx.y;  // in [0, natoms)
-        int const J     = blockIdx.x;  // in [0, nRHSs/nvec) ceiling
+        int const J     = blockIdx.x;  // in [0, nrhs)
 #else  // HAS_NO_CUDA
         set(hgrid, 4, hGrid);
         for (int iatom = 0; iatom < gridDim.y; ++iatom)
@@ -167,9 +167,7 @@ namespace green_dyadic {
             int const icube = ColIndexCubes[bsr];
 
 #ifndef HAS_NO_CUDA
-            if (threadIdx.x < 3) {
-                xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
-            } // lowest 3 threads
+            if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
 #else  // HAS_NO_CUDA
             set(xyzc, 3, CubePos[icube]);
 #endif // HAS_NO_CUDA
@@ -600,7 +598,7 @@ namespace green_dyadic {
             for (int ai = 0; ai < nSHO; ++ai) {
                 if (1 == R1C2) { // is real
                     assert(1 == Noco && "Noncollinear spin treatment needs complex numbers");
-                    // version 11: Noco=1, R1C2=1, more readable
+                    // version for Noco==1, R1C2==1, more readable
                     double cad{0};
                     for (int aj = 0; aj < nSHO; ++aj) {
                         auto const cpr = double(apc[(a0 + aj)*ncols + icol][0][0][ivec]); // load projection coefficient
@@ -763,7 +761,7 @@ namespace green_dyadic {
   inline status_t test_SHOprj_and_SHOadd(int const echo=0, double const sigma=1) {
       int const nsho = sho_tools::nSHO(Lmax_default);
       auto psi      = get_memory<real_t[R1C2][Noco*64][Noco*64]>(1); // one cube
-      auto apc      = get_memory<real_t[R1C2][Noco]   [Noco*64]>(nsho); // one atom
+      auto apc      = get_memory<real_t[R1C2][Noco]   [Noco*64]>(nsho*1); // one atom
       auto RowStart = get_memory<uint32_t>(2);        RowStart[0] = 0; RowStart[1] = 1;
       auto ColIndex = get_memory<uint32_t>(1);        ColIndex[0] = 0;
       auto AtomPos  = get_memory<double[3+1]>(1);     set(AtomPos[0], 3, 0.0); AtomPos[0][3] = 1./std::sqrt(sigma); 
