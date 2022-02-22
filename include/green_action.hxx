@@ -140,10 +140,11 @@ namespace green_action {
       action_t(plan_t const *plan) 
         : p(plan), apc(nullptr), aac(nullptr)
       {
-          assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);        
+          assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
           char* buffer{nullptr};
           take_memory(buffer);
+          assert(nullptr != plan);
       } // constructor
 
       ~action_t() {
@@ -180,12 +181,11 @@ namespace green_action {
             real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
           , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
           , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
-          , uint32_t const nnzbY // == nnzbX
-          , uint32_t const nCols=1 // should match with p->nCols
-          , unsigned const l2nX=0
-          , cudaStream_t const streamId=0
+          , uint32_t const nnzbY // == nnzbX, number of nonzero blocks, typically colIndex.size()
+          , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
+          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzbX
+          , cudaStream_t const streamId=0 // CUDA stream to run on
           , bool const precondition=false
-          , int const echo=9
       )
         // Toy CPU implementation of green_kinetic and green_potential
       {
@@ -439,6 +439,8 @@ namespace green_action {
 
       plan_t const *p; // the plan is independent of real_t
 
+      int echo = 9;
+
       // temporary device memory needed for dyadic operations
       real_t (*apc)[R1C2][Noco][LM]; // atom projection coefficients apc[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
       real_t (*aac)[R1C2][Noco][LM]; // atom   addition coefficients aac[n_all_projection_coefficients*nCols][R1C2][Noco][Noco*64]
@@ -450,22 +452,22 @@ namespace green_action {
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS
 
-  inline status_t test_Green_action(int const echo=0) {
+  inline status_t test_construction_and_destruction(int const echo=0) {
+      {   plan_t plan;
+          { action_t<float ,1,1> action(&plan); }
+          { action_t<float ,2,1> action(&plan); }
+          { action_t<float ,2,2> action(&plan); }
+          { action_t<double,1,1> action(&plan); }
+          { action_t<double,2,1> action(&plan); }
+          { action_t<double,2,2> action(&plan); }
+      } // destruct plan
       std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
-      plan_t plan;
-      { action_t<float ,1,1> action(&plan); }
-      { action_t<float ,2,1> action(&plan); }
-      { action_t<float ,2,2> action(&plan); }
-      { action_t<double,1,1> action(&plan); }
-      { action_t<double,2,1> action(&plan); }
-      { action_t<double,2,2> action(&plan); }
       return 0;
-//    return STATUS_TEST_NOT_INCLUDED;
-  } // test_Green_action
+  } // test_construction_and_destruction
 
   inline status_t all_tests(int const echo=0) {
       status_t stat(0);
-      stat += test_Green_action(echo);
+      stat += test_construction_and_destruction(echo);
       return stat;
   } // all_tests
 

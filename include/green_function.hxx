@@ -831,6 +831,7 @@ namespace green_function {
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
               p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc);
+              set(p.atom_mat[iac], Noco*Noco*2*nc*nc, 0.0); // clear
               // fill this with matrix values
               // use MPI communication to find values in atom owner processes
               auto const hmt = atom_mat[ia].data();
@@ -848,40 +849,21 @@ namespace green_function {
       } // scope
 
       int const n_iterations = control::get("green_function.benchmark.iterations", -1.); 
-                      // -1: no iterations, 0:run memory initilziation only, >0: iterate
+                      // -1: no iterations, 0:run memory initialization only, >0: iterate
       if (n_iterations < 0) {
           if (echo > 2) std::printf("# green_function.benchmark.iterations=%d --> no benchmarks\n", n_iterations);
       } else { // n_iterations < 0
-#if 0
-          typedef float real_t;
-          int constexpr Noco = 1, R1C2 = 2, LM = Noco*64;
-          green_action::action_t<real_t,Noco,R1C2,64> action(&p);
-          auto const nnzbX = p.colindx.size();
-          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
-          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
-          for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
-              x[0][0][0][i] = 0; // init x
-          } // i
-
-          // benchmark the action
-          for (int iteration = 0; iteration < n_iterations; ++iteration) {
-              if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
-              action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
-              std::swap(x, y);
-          } // iteration
-#else // 0
           // try one of the 6 combinations (strangely, we cannot run any two of these calls after each other, ToDo: find out what's wrong here)
-          int const n822 = control::get("green_function.benchmark.action", 421.);
-          switch (n822) {
-              case 411: try_action<float ,1,1>(p, n_iterations, echo); break; // real
-              case 421: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
-              case 422: try_action<float ,2,2>(p, n_iterations, echo); break; // non-collinear
-              case 811: try_action<double,1,1>(p, n_iterations, echo); break; // real
-              case 821: try_action<double,2,1>(p, n_iterations, echo); break; // complex
-              case 822: try_action<double,2,2>(p, n_iterations, echo); break; // non-collinear
-              default:  warn("green_function.benchmark.action must be in {411, 421, 422, 811, 821, 822} but found %d", n822);
-          } // switch n822
-#endif // 0
+          int const n3bit = control::get("green_function.benchmark.action", 0.);
+          switch (n3bit) {
+              case 0: try_action<float ,1,1>(p, n_iterations, echo); break; // real
+              case 1: try_action<float ,2,1>(p, n_iterations, echo); break; // complex
+              case 3: try_action<float ,2,2>(p, n_iterations, echo); break; // non-collinear
+              case 4: try_action<double,1,1>(p, n_iterations, echo); break; // real
+              case 5: try_action<double,2,1>(p, n_iterations, echo); break; // complex
+              case 7: try_action<double,2,2>(p, n_iterations, echo); break; // non-collinear
+              default: warn("green_function.benchmark.action must be in {0, 1, 3, 4, 5, 7} but found %d", n3bit);
+          } // switch n3bit
       } // n_iterations < 0
 
       return 0;
