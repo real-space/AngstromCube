@@ -34,26 +34,29 @@ namespace green_potential {
         , real_t  const E_real // real      part of the energy parameter, this could be subtracted from Vloc beforehand
         , real_t  const E_imag // imaginary part of the energy parameter
     ) {
+        assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
 
-        assert(64      == gridDim.x);
-        assert(1       == gridDim.z);
+        assert(64      ==  gridDim.x);
+        assert(1       ==  gridDim.z);
         assert(Noco*64 == blockDim.x);
         assert(Noco    == blockDim.y);
         assert(R1C2    == blockDim.z);
 
         bool const imaginary = ((2 == R1C2) && (0 != E_imag));
-        
-#ifdef HAS_NO_CUDA
-        dim3 blockIdx(0,0,0);
+  
+#ifndef HAS_NO_CUDA
+        int const inz0 = blockIdx.y;  // start of the grid-stride loop on y-blocks
+        int const i64  = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)
+        int const reim = threadIdx.z; // real or imaginary part of the Green function
+        int const spin = threadIdx.y; // non-collinear spin index
+        int const j64  = threadIdx.x; // source grid point index == right hand side vectorization, in [0, Noco*64)
+#else  // HAS_NO_CUDA
+        assert(1 == gridDim.y && "CPU kernel Potential needs increment 1 for grid stride loop");
+        int constexpr inz0 = 0;
         for (int i64 = 0; i64 < 64; ++i64)
         for (int reim = 0; reim < R1C2; ++reim)
         for (int spin = 0; spin < Noco; ++spin)
         for (int j64 = 0; j64 < Noco*64; ++j64)
-#else  // HAS_NO_CUDA
-        int const i64 = blockIdx.x;  // target grid point index == inner column dimension, in [0, 64)
-        int const reim = threadIdx.z; // real or imaginary part of the Green function
-        int const spin = threadIdx.y; // non-collinear spin index
-        int const j64  = threadIdx.x; // source grid point index == right hand side vectorization, in [0, Noco*64)
 #endif // HAS_NO_CUDA
         { // threads loops and block loop
 
@@ -71,7 +74,7 @@ namespace green_potential {
 
         auto const V_imag = E_imag * real_t(1 - 2*reim);
 
-        for (int inzb = blockIdx.y; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y-blocks
+        for (int inzb = inz0; inzb < nnzb; inzb += gridDim.y) { // grid-stride loop on y-blocks
 
             real_t Vconfine = 0;
 #ifdef  CONFINEMENT_POTENTIAL

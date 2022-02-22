@@ -5,7 +5,7 @@
 #include <cassert> // assert
 
 #include "status.hxx" // status_t, STATUS_TEST_NOT_INCLUDED
-#include "green_memory.hxx" // get_memory, free_memory, dim3
+#include "green_memory.hxx" // get_memory, free_memory, dim3, real_t_name
 #include "sho_tools.hxx" // ::nSHO, ::n2HO, ::n1HO
 
 namespace green_dyadic {
@@ -95,9 +95,9 @@ namespace green_dyadic {
     int constexpr Lmax_default=7; // reduce this to lower the GPU register usage
     
     template <typename real_t, int nvec=64, int Lmax=Lmax_default>
-    void __global__ SHOprj( // launch SHOprj<real_t,nvec> <<< {nRHSs/nvec, natoms, 1}, {nvec} >>> (...);
+    void __global__ SHOprj( // launch SHOprj<real_t,nvec> <<< {nrhs, natoms, 1}, {nvec, 1, 1} >>> (...);
 #ifdef HAS_NO_CUDA
-          dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
+          dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t         (*const __restrict__ Cpr)[nvec] // result: projection coefficients
         , real_t   const (*const __restrict__ Psi)[nvec] // input:  wave functions
@@ -109,35 +109,46 @@ namespace green_dyadic {
     )
       // Compute the projection coefficients of wave/Green functions with atom-centered SHO-bases
     {
-
+        assert(1    ==  gridDim.z);
         assert(nvec == blockDim.x);
+        assert(1    == blockDim.y);
+        assert(1    == blockDim.z);
 
-        int const iatom = blockIdx.y; // in [0, natoms)
+        int const nrhs = gridDim.x;
+        
+        __shared__ double hgrid[3+1]; // grid spacings
+
+#ifndef HAS_NO_CUDA
+        if (threadIdx.x < 4) hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
+        int const iatom = blockIdx.y;  // in [0, natoms)
+        int const J     = blockIdx.x;  // in [0, nRHSs/nvec) ceiling
+#else  // HAS_NO_CUDA
+        set(hgrid, 4, hGrid);
+        for (int iatom = 0; iatom < gridDim.y; ++iatom)
+        for (int J = 0; J < nrhs; ++J)
+#endif // HAS_NO_CUDA
+        { // block loops
+
+#ifndef HAS_NO_CUDA
         if (RowStartAtoms[iatom] >= RowStartAtoms[iatom + 1]) return; // empty range in the sparse matrix, early return
+#endif // HAS_NO_CUDA
 
         int const lmax = Lmax; // ToDo: make this atom-dependent in the future
         assert(lmax <= Lmax);
-
-        int const nrhs = gridDim.x; // == nRHSs/nvec
 
         __shared__ real_t H1D[Lmax + 1][3][4]; // non-normalized orthogonal 1-dimensional Hermite Gauss functions
         __shared__ float  xi_squared[3][4]; // distance along one Cartesian direction squared
         __shared__ double xyza[3+1];  // atom position
         __shared__ float  xyzc[3];    // cube position
-        __shared__ double hgrid[3+1]; // grid spacings
 
 #ifndef HAS_NO_CUDA
         // stage the atomic position of the atom treated in this CUDA block
-        if (threadIdx.x < 4) {
-            xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
-            hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
-        } // lowest 4 threads
+        if (threadIdx.x < 4) xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
+        int const j = threadIdx.x; // in [0, nvec)
 #else // HAS_NO_CUDA
 //      std::printf("# %s Here\n", __func__);
         set(xyza, 4, AtomPos[iatom]);
-        set(hgrid, 4, hGrid);
-        dim3 threadIdx(0,0,0);
-        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+        for (int j = 0; j < nvec; ++j)
 #endif // HAS_NO_CUDA
         { // thread loop
 
@@ -147,9 +158,6 @@ namespace green_dyadic {
         } // sho
 
         __syncthreads(); // sync necessary?
-
-        int const J = blockIdx.x;  // in [0, nRHSs/nvec) ceiling
-        int const j = threadIdx.x; // in [0, nvec)
 
         // in this loop over bsr we accumulate atom projection coefficients over many cubes
         for (int bsr = RowStartAtoms[iatom]; bsr < RowStartAtoms[iatom + 1]; ++bsr) {
@@ -246,7 +254,7 @@ namespace green_dyadic {
             } // sho
         } // scope
 
-        } // thread loop
+        }} // thread loop and block loops
         
     } // SHOprj
 
@@ -261,18 +269,16 @@ namespace green_dyadic {
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
         , int      const natoms=0
-        , int      const nRHSs=0
+        , int      const nrhs=0
     ) {
-
         // using pointer casting, we could have only two template instanciations: SHOprj<float/double,64>
         // without pointer casting, we need four: SHOprj<float/double,64>, SHOprj<float/double,128>
       
-        // launch SHOprj<real_t,nvec> <<< {nRHSs/nvec, natoms, 1}, {nvec} >>> (...);
-        SHOprj
+        SHOprj<real_t,nvec> // launch <<< {nrhs, natoms, 1}, {nvec, 1, 1} >>>
 #ifndef HAS_NO_CUDA
-              <<< dim3(nRHSs/nvec, natoms, 1), dim3(nvec) >>> (
+              <<< dim3(nrhs, natoms, 1), dim3(nvec, 1, 1) >>> (
 #else  // HAS_NO_CUDA
-              (dim3(nRHSs/nvec, natoms, 1), dim3(nvec), dim3(0,0,0),
+              (   dim3(nrhs, natoms, 1), dim3(nvec, 1, 1),
 #endif // HAS_NO_CUDA
                Cpr, Psi, RowStartAtoms, AtomPos, ColIndexCubes, CubePos, hGrid);
 
@@ -283,16 +289,16 @@ namespace green_dyadic {
     
 
     // maybe this could be useful?
-    union mask64_t {
-        int64_t i;
-        uint16_t u[4];
-    }; // mask64_t
+//     union mask64_t {
+//         int64_t i;
+//         uint16_t u[4];
+//     }; // mask64_t
 
     
     template <typename real_t, int nvec=64, int Lmax=Lmax_default>
-    void __global__ SHOadd( // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
+    void __global__ SHOadd( // launch SHOadd<real_t,nvec> <<< {nrhs, ncubes, 1}, {nvec, 1, 1} >>> (...);
 #ifdef HAS_NO_CUDA
-          dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
+          dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t         (*const __restrict__ Psi)[nvec] // result: wave functions to modify
         , real_t   const (*const __restrict__ Cad)[nvec] // input: addition coefficients
@@ -304,14 +310,30 @@ namespace green_dyadic {
     )
       // Add linear combinations of SHO-basis function to wave/Green functions
     {
-
+        assert(1    ==  gridDim.z);
         assert(nvec == blockDim.x);
+        assert(1    == blockDim.y);
+        assert(1    == blockDim.z);
 
-        int const icube = blockIdx.y; // in [0, ncubes)
-        if (RowStartCubes[icube] >= RowStartCubes[icube + 1]) return; // empty range in the sparse matrix, early return
-
-        int const nrhs = gridDim.x; // == nRHSs/nvec
+        int const nrhs = gridDim.x;
                                                                   
+        __shared__ double hgrid[3+1]; // grid spacings
+
+#ifndef HAS_NO_CUDA
+        if (threadIdx.x < 4) hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
+        int const icube = blockIdx.y;  // in [0, ncubes)
+        int const J     = blockIdx.x;  // in [0, nrhs)
+#else  // HAS_NO_CUDA
+        set(hgrid, 4, hGrid);
+        for (int icube = 0; icube < gridDim.y; ++icube)
+        for (int J = 0; J < nrhs; ++J)
+#endif // HAS_NO_CUDA
+        { // block loops
+          
+#ifndef HAS_NO_CUDA
+        if (RowStartCubes[icube] >= RowStartCubes[icube + 1]) return; // empty range in the sparse matrix, early return
+#endif // HAS_NO_CUDA
+
         int const lmax = Lmax; // ToDo: make this atom-dependent in the future
         assert(lmax <= Lmax);
 
@@ -319,20 +341,16 @@ namespace green_dyadic {
         __shared__ float  xi_squared[3][4]; // distance along one Cartesian direction squared
         __shared__ double xyza[3+1];  // atom position
         __shared__ float  xyzc[3+1];  // cube position
-        __shared__ double hgrid[3+1]; // grid spacings
 
 #ifndef HAS_NO_CUDA
         // stage the atomic position of the atom treated in this CUDA block
-        if (threadIdx.x < 4) {
-            xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // coalesced load
-            hgrid[threadIdx.x] = hGrid[threadIdx.x]; // load grid spacing into shared memory
-        } // lowest 4 threads
+        if (threadIdx.x < 4) xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // coalesced load
+        int const j = threadIdx.x; // in [0, nvec)
 #else  // HAS_NO_CUDA
-        set(xyzc, 4, CubePos[icube]);
         set(hgrid, 4, hGrid);
+        set(xyzc, 4, CubePos[icube]);
 //      std::printf("# Here %s\n", __func__);
-        dim3 threadIdx(0,0,0);
-        for (threadIdx.x = 0; threadIdx.x < blockDim.x; ++threadIdx.x)
+        for (int j = 0; j < nvec; ++j)
 #endif // HAS_NO_CUDA
         { // thread loop
 
@@ -348,8 +366,6 @@ namespace green_dyadic {
             } // y
         } // z
 
-        int const J = blockIdx.x;  // in [0, nrhs)
-        int const j = threadIdx.x; // in [0, nvec)
 
 
         int64_t mask_all{0}; // mask accumulator that tells which grid points have to be updated
@@ -362,9 +378,7 @@ namespace green_dyadic {
             int const iatom = ColIndexAtoms[bsr];
 
 #ifndef HAS_NO_CUDA
-            if (threadIdx.x < 4) { // this breaks in the thread loop
-                xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // load, convert to float
-            } // lowest 4 threads
+            if (threadIdx.x < 4) xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
 #else  // HAS_NO_CUDA
             set(xyza, 4, AtomPos[iatom]);
 #endif // HAS_NO_CUDA
@@ -459,7 +473,7 @@ namespace green_dyadic {
             } // z
         } // mask_all
 
-        } // thread loop
+        }} // thread loop and block loops
         
     } // SHOadd
 
@@ -474,15 +488,14 @@ namespace green_dyadic {
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
         , double   const (*const __restrict__ hGrid) // grid spacings in [0],[1],[2], projection radius in [3]
         , int      const natoms=0
-        , int      const nRHSs=0
+        , int      const nrhs=0
     ) {
-
-        // launch SHOadd<real_t,nvec> <<< {nRHSs/nvec, ncubes, 1}, {nvec} >>> (...);
-        SHOadd
+        
+        SHOadd<real_t,nvec> // launch {nrhs, ncubes, 1}, {nvec, 1, 1} >>>
 #ifndef HAS_NO_CUDA
-              <<< dim3(nRHSs/nvec, natoms, 1), dim3(nvec) >>> (
+              <<< dim3(nrhs, natoms, 1), dim3(nvec, 1, 1) >>> (
 #else  // HAS_NO_CUDA
-              (dim3(nRHSs/nvec, natoms, 1), dim3(nvec), dim3(0,0,0),
+              (   dim3(nrhs, natoms, 1), dim3(nvec, 1, 1),
 #endif // HAS_NO_CUDA
                Psi, Cad, RowStartCubes, CubePos, ColIndexAtoms, AtomPos, hGrid);
 
@@ -540,10 +553,10 @@ namespace green_dyadic {
 
     
     
-    template <typename real_t, int n64=64, int R1C2=2, int Noco=1> // R1C2 and Noco could be function arguments instead of template parameters
-    void __global__ SHOmul( // launch SHOmul<real_t,n64,R1C2,Noco> <<< {ncols, natoms, 1}, {Noco*n64, Noco, 1} >>> (...);
+    template <typename real_t, int R1C2=2, int Noco=1, int n64=64> // R1C2 and Noco could be function arguments instead of template parameters
+    void __global__ SHOmul( // launch SHOmul<real_t,R1C2,Noco,n64> <<< {ncols, natoms, 1}, {Noco*n64, Noco, 1} >>>
 #ifdef HAS_NO_CUDA
-          dim3 const & gridDim, dim3 const & blockDim, dim3 const & blockIdx,
+          dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t       (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // result,  atom addition coefficients
         , real_t const (*const __restrict__ apc)[R1C2][Noco][Noco*n64] // input, atom projection coefficients
@@ -553,21 +566,36 @@ namespace green_dyadic {
     )
       // Multiply the atom-specific matrices onto the projection coefficients
     {
-        int const ncols = gridDim.x;
-        int const icol  = blockIdx.x;
+        assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
+        assert(1       ==  gridDim.z);
+        assert(Noco*64 == blockDim.x);
+        assert(Noco    == blockDim.y);
+        assert(1       == blockDim.z);
+        int const ncols  = gridDim.x;
+        int const natoms = gridDim.y;
+
+#ifndef HAS_NO_CUDA
         int const iatom = blockIdx.y;
+        int const icol  = blockIdx.x;
+#else  // HAS_NO_CUDA
+        for (int iatom = 0; iatom < natoms; ++iatom)
+        for (int icol = 0; icol < ncols; ++icol)
+#endif // HAS_NO_CUDA
+        { // block loops
+
         int const lmax = AtomLmax[iatom];
         int const a0   = AtomStarts[iatom]; // prefix sum over nSHO(AtomLmax[:])
         int const nSHO = sho_tools::nSHO(lmax);
         auto const AtomMat = AtomMatrices[iatom];
 
-#ifdef HAS_NO_CUDA
+#ifndef HAS_NO_CUDA
+        int const spin = threadIdx.y;
+        int const ivec = threadIdx.x;
+#else  // HAS_NO_CUDA
         for (int spin = 0; spin < blockDim.y; ++spin)
         for (int ivec = 0; ivec < blockDim.x; ++ivec)
-#else  // HAS_NO_CUDA
-        int const ivec = threadIdx.x, spin = threadIdx.y;
 #endif // HAS_NO_CUDA
-        { // thread loop
+        { // thread loops
 
             for (int ai = 0; ai < nSHO; ++ai) {
                 if (1 == R1C2) { // is real
@@ -576,7 +604,7 @@ namespace green_dyadic {
                     double cad{0};
                     for (int aj = 0; aj < nSHO; ++aj) {
                         auto const cpr = double(apc[(a0 + aj)*ncols + icol][0][0][ivec]); // load projection coefficient
-                        auto const am = AtomMat[ai*nSHO + aj];                          // load matrix element
+                        auto const am = AtomMat[ai*nSHO + aj];                            // load matrix element
                         cad += am * cpr;
                     } // aj
                     aac[(a0 + ai)*ncols + icol][0][0][ivec] = cad;                        // store addition coefficient
@@ -606,11 +634,11 @@ namespace green_dyadic {
                 } // 1 == R1C2
             } // ai
 
-        } // thread loop
+        }} // thread loops and block loops
 
     } // SHOmul
 
-    template <typename real_t, int n64=64, int R1C2=2, int Noco=1>
+    template <typename real_t, int R1C2=2, int Noco=1, int n64=64>
     size_t SHOmul_driver(
           real_t         (*const __restrict__ aac)[R1C2][Noco][Noco*n64] // result
         , real_t   const (*const __restrict__ apc)[R1C2][Noco][Noco*n64] // input
@@ -618,15 +646,17 @@ namespace green_dyadic {
         , int      const (*const __restrict__ AtomStarts) // could be a uint32_t
         , int8_t   const (*const __restrict__ AtomLmax)
         , int      const natoms=0
-        , int      const nRHSs=0
+        , int      const ncols=0 // number of block columns in the Green function
     ) {
+        assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
 
-        // launch SHOmul<real_t,n64,R1C2,Noco> <<< {nRHSs, natoms, 1}, {Noco*n64, Noco, 1} >>> (...);
-        SHOmul<real_t,n64,R1C2,Noco>
+//      std::printf("# %s<real%ld> R1C2=%d Noco=%d natoms=%d ncols=%d\n", __func__, sizeof(real_t), R1C2, Noco, natoms, ncols);
+
+        SHOmul<real_t,R1C2,Noco,n64> // launch <<< {ncols, natoms, 1}, {Noco*n64, Noco, 1} >>>
 #ifndef HAS_NO_CUDA
-            <<< dim3(nRHSs/n64, natoms, 1), dim3(Noco*n64, Noco, 1) >>> (
+            <<< dim3(ncols, natoms, 1), dim3(Noco*n64, Noco, 1) >>> (
 #else //  HAS_NO_CUDA
-               (dim3(nRHSs/n64, natoms, 1), dim3(Noco*n64, Noco, 1), dim3(0,0,0),
+           (    dim3(ncols, natoms, 1), dim3(Noco*n64, Noco, 1),
 #endif // HAS_NO_CUDA
             aac, apc, mat, AtomStarts, AtomLmax);
 
@@ -648,11 +678,10 @@ namespace green_dyadic {
         , uint32_t const (*const __restrict__ ColIndexAtoms) // for SHOadd
         , double   const (*const __restrict__ hGrid) // grid spacings + projection radius
         , int      const natoms=0
-        , int      const nRHSs=0 // ToDo: change the convention of this to the number of block columns of the Green function
+        , int      const ncols=0 // number of block columns of the Green function
+        , int const echo=0 // log-level
     ) {
-        assert(1 == Noco || 2 == Noco);
-        assert(1 == R1C2 || 2 == R1C2);
-        assert(R1C2 >= Noco);
+        assert(1 == Noco && (1 == R1C2 || 2 == R1C2) || 2 == Noco && 2 == R1C2);
         size_t nops{0};
 
         int constexpr nsho = sho_tools::nSHO(Lmax_default);
@@ -667,22 +696,24 @@ namespace green_dyadic {
         } // ia
         AtomStarts[natoms] = natoms*nsho;
 
-        // version with four template instanciations for SHOprj
-        nops += SHOprj_driver<real_t,Noco*64>(Cpr[0][0], psi[0][0], RowStartAtoms, AtomPos, ColIndexCubes, CubePos, hGrid, natoms, nRHSs*R1C2*Noco);
+        if (echo > 6) std::printf("# %s<%s> R1C2=%d Noco=%d natoms=%d ncols=%d ncoeffs=%d\n", __func__, real_t_name<real_t>(), R1C2, Noco, natoms, ncols, AtomStarts[natoms]);
 
-        auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(AtomStarts[natoms]); // workarray, missing *(nRHSs >> 6)
+        // assumed data layout of psi[nnzb][R1C2][Noco*64][Noco*64] --> psi[nnzb*R1C2*Noco*64][Noco*64]
+        nops += SHOprj_driver<real_t,Noco*64>(Cpr[0][0], psi[0][0], RowStartAtoms, AtomPos, ColIndexCubes, CubePos, hGrid, natoms, ncols*R1C2*Noco);
+
+        auto Cad = get_memory<real_t[R1C2][Noco][Noco*64]>(AtomStarts[natoms]*ncols);
 
         // very rigid version, R1C2 and Noco could be function arguments instead of template parameters
-        nops += SHOmul_driver<real_t,64,R1C2,Noco>(Cad, Cpr, AtomMatrices, AtomStarts, AtomLmax, natoms, nRHSs);
-
+        nops += SHOmul_driver<real_t,R1C2,Noco,64>(Cad, Cpr, AtomMatrices, AtomStarts, AtomLmax, natoms, ncols);
+        
         for (int ia = 0; ia < natoms; ++ia) free_memory(AtomMatrices[ia]);
         free_memory(AtomMatrices);
 
-        // version with four template instanciations for SHOadd
-        nops += SHOadd_driver<real_t,Noco*64>(Ppsi[0][0], Cad[0][0], RowStartCubes, CubePos, ColIndexAtoms, AtomPos, hGrid, natoms, nRHSs*R1C2*Noco);
+        // assumed data layout of Ppsi[nnzb][R1C2][Noco*64][Noco*64] --> Ppsi[nnzb*R1C2*Noco*64][Noco*64]
+        nops += SHOadd_driver<real_t,Noco*64>(Ppsi[0][0], Cad[0][0], RowStartCubes, CubePos, ColIndexAtoms, AtomPos, hGrid, natoms, ncols*R1C2*Noco);
 
         free_memory(Cad); free_memory(AtomLmax); free_memory(AtomStarts);
-
+        
         return nops; // total number of floating point operations performed
     } // multiply (dyadic operations)
 
@@ -739,9 +770,9 @@ namespace green_dyadic {
       auto CubePos  = get_memory<float [3+1]>(1);     set(CubePos[0], 4, 0.f);
       auto hGrid    = get_memory<double>(3+1);        set(hGrid, 3, 0.25);          hGrid[3] = 6.2832;
       // see if these drivers compile and can be executed without segfaults
-      SHOprj_driver<real_t,Noco*64>(apc[0][0], psi[0][0], RowStart, AtomPos, ColIndex, CubePos, hGrid, 1, 64);
-      SHOadd_driver<real_t,Noco*64>(psi[0][0], apc[0][0], RowStart, CubePos, ColIndex, AtomPos, hGrid, 1, 64);
-      multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, RowStart, ColIndex, CubePos, RowStart, ColIndex, hGrid, 1, 64);
+      SHOprj_driver<real_t,Noco*64>(apc[0][0], psi[0][0], RowStart, AtomPos, ColIndex, CubePos, hGrid, 1, 1);
+      SHOadd_driver<real_t,Noco*64>(psi[0][0], apc[0][0], RowStart, CubePos, ColIndex, AtomPos, hGrid, 1, 1);
+      multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, RowStart, ColIndex, CubePos, RowStart, ColIndex, hGrid, 1, 1, echo);
       free_memory(hGrid);
       free_memory(CubePos);
       free_memory(AtomPos);

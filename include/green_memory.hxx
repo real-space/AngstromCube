@@ -37,6 +37,8 @@
       d = nullptr;
   } // free_memory
 
+  template <typename real_t=float>
+  inline char const* real_t_name() { return (8 == sizeof(real_t)) ? "double" : "float"; } 
   
   //
   // Memory layout for Green function and atomic projection coefficients
