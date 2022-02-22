@@ -56,7 +56,7 @@ namespace green_function {
   double const GByte = 1e-9; char const *const _GByte = "GByte";
 
   template <typename real_t, int R1C2=2, int Noco=1>
-  void try_action(green_action::plan_t const & p, int const n_iterations=1, int const echo=9) {
+  void try_action(green_action::plan_t const & p, int const n_iterations=1, int const echo=9, bool const toy=true) {
       if (n_iterations >= 0) { // scope: try to apply the operator
           if (echo > 1) { std::printf("# %s<%s,R1C2=%d,Noco=%d>\n", __func__, real_t_name<real_t>(), R1C2, Noco); std::fflush(stdout); }
           green_action::action_t<real_t,R1C2,Noco,64> action(&p); // constructor
@@ -72,7 +72,11 @@ namespace green_function {
           // benchmark the action
           for (int iteration = 0; iteration < n_iterations; ++iteration) {
               if (echo > 5) { std::printf("# iteration #%i\n", iteration); std::fflush(stdout); }
-              action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
+              if (toy) {
+                  action.toy_multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
+              } else {
+                  action.multiply(y, x, p.colindx.data(), nnzbX, p.nCols);
+              }
               std::swap(x, y);
           } // iteration
 
@@ -409,12 +413,14 @@ namespace green_function {
           if (echo > 3) { std::printf("# memory of Green function is %.6f %s (float, twice for double)\n",
                               nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
           p.colindx.resize(nnz);
-          p.rowindx = get_memory<uint32_t>(nnz);
+          p.rowindx = get_memory<int32_t>(nnz);
           p.RowStart = get_memory<uint32_t>(p.nRows + 1);
           p.RowStart[0] = 0;
           p.veff_index = get_memory<int32_t>(p.nRows); // indirection list for the local potential
           set(p.veff_index, p.nRows, -1); // init as non-existing
           p.target_coords = get_memory<int16_t[3+1]>(p.nRows);
+          p.target_minus_source = get_memory<int16_t[3+1]>(nnz);
+          
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as RHS
 
@@ -440,7 +446,6 @@ namespace green_function {
                       p.RowStart[iRow + 1] = p.RowStart[iRow] + n;
                       // copy the column indices
                       set(p.colindx.data() + p.RowStart[iRow], n, column_indices[idx3].data());
-                      set(p.rowindx        + p.RowStart[iRow], n, iRow);
                       // copy the target block coordinates
                       int32_t global_target_coords[3];
                       for (int d = 0; d < 3; ++d) {
@@ -472,6 +477,15 @@ namespace green_function {
                               } // search
                           } // iCol valid
                       } // scope
+
+                      for (int32_t inz = p.RowStart[iRow]; inz < p.RowStart[iRow + 1]; ++inz) {
+                          auto const iCol = p.colindx[inz];
+                          for (int d = 0; d < 3; ++d) {
+                              p.target_minus_source[inz][d] = p.target_coords[iRow][d] - p.source_coords[iCol][d]; // ToDo: with periodic boundary conditions, we need to find the shortest distance vector accounting for periodic images of the cell
+                          } // d
+                          p.target_minus_source[inz][3] = 0; // not used
+                          p.rowindx[inz] = iRow;
+                      } // inz
 
                       if (1) { // scope: fill indirection table for having the local potential only defined in 1 unit cell and repeated periodically
                           int32_t mod[3];
@@ -815,6 +829,7 @@ namespace green_function {
 
           // now store the atomic positions in GPU memory
           p.atom_data = get_memory<green_action::atom_t>(nai);
+          p.AtomPos   = get_memory<double[3+1]>(nai);
           for (int iai = 0; iai < nai; ++iai) {
               p.atom_data[iai] = atom_data[iai]; // copy
               // translate index
@@ -843,6 +858,9 @@ namespace green_function {
                       p.atom_mat[iac][ij + nc*nc] =         - E_param.imag() * ovl[ij]; // imag part
                   } // j
               } // i
+              // ToDo:
+//               set(p.AtomPos[iai], 3, atom_data[iai].pos);
+//               p.AtomPos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
           } // iac
           p.number_of_contributing_atoms = nac;
 
@@ -868,7 +886,9 @@ namespace green_function {
 
       return 0;
   } // construct_Green_function
-  
+
+
+
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
 #else // NO_UNIT_TESTS

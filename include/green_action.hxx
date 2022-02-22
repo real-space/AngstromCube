@@ -13,7 +13,9 @@
 
 #include "constants.hxx" // ::pi
 #include "green_memory.hxx" // get_memory, free_memory
-#include "green_kinetic.hxx" // ::finite_difference_plan_t
+#include "green_kinetic.hxx"   // ::multiply, ::finite_difference_plan_t
+#include "green_potential.hxx" // ::multiply
+#include "green_dyadic.hxx"    // ::multiply
 #include "simple_stats.hxx" // ::Stats<>
 
 #ifdef HAS_TFQMRGPU
@@ -77,14 +79,17 @@ namespace green_action {
       uint32_t natom_images = 0;
       uint32_t* ApcStart = nullptr; // [natom_images + 1]
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
-      uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
+      int32_t*  rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
+      int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
       double  (*Veff)[64]  = nullptr; // effective potential, data layout *[Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
       double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
       atom_t* atom_data = nullptr; // [natom_images]
+      double (*AtomPos)[3+1] = nullptr; // [natom_images]
+      float  (*CubePos)[3+1] = nullptr; // [nRows]   TODO still needs to be filled!
       double *grid_spacing = nullptr;
       int number_of_contributing_atoms = 0;
 
@@ -104,6 +109,7 @@ namespace green_action {
           free_memory(rowindx);
           free_memory(source_coords);
           free_memory(target_coords);
+          free_memory(target_minus_source);
           free_memory(Veff);
           free_memory(veff_index);
           for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(atom_mat[iac]);
@@ -113,8 +119,10 @@ namespace green_action {
           for (int dd = 0; dd < 3; ++dd) { // derivative direction
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
+          free_memory(AtomPos);
           free_memory(RowStartAtoms);
           free_memory(ColIndexCubes);
+          free_memory(CubePos);
           free_memory(RowStartCubes);
           free_memory(ColIndexAtoms);
       } // destructor
@@ -177,7 +185,7 @@ namespace green_action {
 
       bool has_preconditioner() const { return false; }
 
-      double multiply( // returns the number of flops performed
+      double toy_multiply( // returns the number of flops performed
             real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
           , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
           , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
@@ -431,8 +439,47 @@ namespace green_action {
           } // echo
 
           return 0; // no flops performed so far
-      } // multiply
+      } // toy_multiply
 
+      
+      
+      
+      double multiply( // returns the number of flops performed
+            real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
+          , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
+          , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
+          , uint32_t const nnzbY // == nnzbX, number of nonzero blocks, typically colIndex.size()
+          , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
+          , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzbX
+          , cudaStream_t const streamId=0 // CUDA stream to run on
+          , bool const precondition=false
+      )
+        // GPU implementation of green_potential, green_kinetic and green_dyadic
+      {
+          // start with the potential, assign y to initial values
+          green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff, p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
+          
+          // add the kinetic energy expressions
+          uint32_t num[3]; 
+          int32_t const ** lists[3];
+          for (int dd = 0; dd < 3; ++dd) { 
+              // convert fd_plan to plain data
+              num[dd] = p->fd_plan[dd].size();
+              lists[dd] = get_memory<int32_t const *>(num[dd]);
+              for (int il = 0; il < num[dd]; ++il) {
+                  lists[dd][il] = p->fd_plan[dd].list(il);
+              } // il
+          } // dd
+          green_kinetic::multiply<real_t,R1C2,Noco>(y, x, num, lists[0], lists[1], lists[2], p->grid_spacing, 4, nnzbY);
+
+          // add the non-local potential using the dyadic action of project + add
+          green_dyadic::multiply(y, apc, x, p->AtomPos, p->RowStartAtoms, p->ColIndexCubes,
+                                            p->CubePos, p->RowStartCubes, p->ColIndexAtoms, 
+                                            p->grid_spacing, p->natom_images, p->nCols);
+        
+          return 0; // no flops performed so far
+      } // multiply
+      
       plan_t const* get_plan() { return p; }
 
     private: // members
