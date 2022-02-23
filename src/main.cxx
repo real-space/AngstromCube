@@ -44,6 +44,7 @@
   #include "sho_potential.hxx" // ::all_tests
   #include "green_kinetic.hxx" // ::all_tests
   #include "pawxml_import.hxx" // ::all_tests
+  #include "green_sparse.hxx" // ::all_tests
   #include "green_dyadic.hxx" // ::all_tests
   #include "green_action.hxx" // ::all_tests
   #include "simple_stats.hxx" // ::all_tests
@@ -191,6 +192,7 @@
           add_module_test(atom_image);
           add_module_test(plane_wave);
           add_module_test(grid_operators);
+          add_module_test(green_sparse);
           add_module_test(green_function);
           add_module_test(green_kinetic);
           add_module_test(green_potential);

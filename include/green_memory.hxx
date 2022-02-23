@@ -52,29 +52,3 @@
   //            potential:  <<< {64, any, 1}, {Noco*64, Noco, R1C2} >>>
   //  --> if 2 == R1C2, tfQMRgpu with LM=Noco*64
   //
-
-#if 0
-
-  template <typename ColIndex_t=uint32_t, typename RowIndex_t=uint32_t>
-  class csr_t {
-  public:
-      csr_t() : rowStart_(nullptr), colIndex_(nullptr), nRows_(0) {}
-      ~csr_t() {
-          if (rowStart_) free_memory(rowStart_);
-          if (colIndex_) free_memory(colIndex_);
-          nRows_ = 0;
-      } // destructor
-      RowIndex_t const * RowStart() { return rowStart_ };
-      ColIndex_t const * ColIndex() { return colIndex_ };
-      RowIndex_t nRows() const { return nRows_; }
-      RowIndex_t nnz() const { return rowStart_[nRows_]; }
-      template <typename int_t>
-      RowIndex_t set_RowStart(RowIndex_t const nrows, int_t const rowStart[]) {
-      } // set_RowStart
-  private:
-      RowIndex_t *rowStart_;
-      ColIndex_t *colIndex_;
-      RowIndex_t nRows_;
-  }; // struct
-  
-#endif // 0

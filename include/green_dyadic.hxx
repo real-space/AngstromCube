@@ -100,7 +100,7 @@ namespace green_dyadic {
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
           real_t         (*const __restrict__ Cpr)[nvec] // result: projection coefficients
-        , real_t   const (*const __restrict__ Psi)[nvec] // input:  wave functions
+        , real_t   const (*const __restrict__ Psi)[nvec] // input:  wave functions (rectangular, not sparse like Green function)
         , uint32_t const (*const __restrict__ RowStartAtoms) // rows==atoms
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
         , uint32_t const (*const __restrict__ ColIndexCubes) // cols==cubes
@@ -164,7 +164,7 @@ namespace green_dyadic {
 
             __syncthreads();
 
-            int const icube = ColIndexCubes[bsr];
+            int const icube = ColIndexCubes[bsr]; // to make it work for (block sparse) Green functions, we have to make this load depend on J
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
@@ -176,8 +176,6 @@ namespace green_dyadic {
 
             // generate Hx, Hy, Hz up to lmax inside the 4^3 cube
             auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid);
-
-//          int64_t const mask_atom = BitMask[bsr]; // needs 2 GPU registers (32bit each)
 
             __syncthreads();
 
