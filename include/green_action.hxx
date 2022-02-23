@@ -88,7 +88,7 @@ namespace green_action {
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
-      double  (*Veff)[64]  = nullptr; // effective potential, data layout *[Noco*Noco][64]
+      double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
       double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
@@ -465,25 +465,13 @@ namespace green_action {
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff, p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
           
           // add the kinetic energy expressions
-//           uint32_t num[3]; 
-//           int32_t const ** lists[3];
-//           for (int dd = 0; dd < 3; ++dd) { 
-//               // convert fd_plan to arrays of pointers
-//               num[dd] = p->fd_plan[dd].size();
-//               lists[dd] = get_memory<int32_t const *>(num[dd]);
-//               for (int il = 0; il < num[dd]; ++il) {
-//                   lists[dd][il] = p->fd_plan[dd].list(il);
-//               } // il
-//           } // dd
-//           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, num, lists[0], lists[1], lists[2], p->grid_spacing, 4, nnzbY);
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan, p->grid_spacing, 4, nnzbY);
-          
 
-          // add the non-local potential using the dyadic action of project + add
+          // add the non-local potential using the dyadic action of project + add, SHOULD SO FAR ONLY WORK FOR 1 BLOCK COLUMN
           green_dyadic::multiply(y, apc, x, p->AtomPos, p->RowStartAtoms, p->ColIndexCubes,
-                                            p->CubePos, p->RowStartCubes, p->ColIndexAtoms, 
+                                            p->CubePos, p->RowStartCubes, p->ColIndexAtoms,
                                             p->grid_spacing, p->natom_images, p->nCols);
-        
+
           return 0; // no flops performed so far
       } // multiply
       
