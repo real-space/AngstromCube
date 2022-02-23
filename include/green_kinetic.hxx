@@ -24,7 +24,7 @@
 
 namespace green_kinetic {
 
-  class finite_difference_plan_t {
+  class finite_difference_plan_t { // ToDo: use sparse_t<int32_t> instead
   private:
       int32_t *fd_list; // block indices, in managed memory
       uint32_t *prefix; // rowstarts, in managed memory
@@ -454,12 +454,12 @@ namespace green_kinetic {
         , int32_t  const *const *const __restrict__ x_list // 
         , int32_t  const *const *const __restrict__ y_list // 
         , int32_t  const *const *const __restrict__ z_list // 
-        , double   const hgrid[3] // grid spacing, ToDo make it an array of X,Y,Z
-        , int const FD_range=4 // finite-difference stencil range (in grid points)
+        , double   const hgrid[3] // grid spacing in X,Y,Z
+        , int const FD_range[3] // finite-difference stencil range (in grid points)
         , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
         , int const echo=0
     ) {
-        int nFD[] = {FD_range, FD_range, FD_range};
+        int nFD[] = {FD_range[0], FD_range[1], FD_range[2]};
         size_t nops{0};
         for (int dd = 0; dd < 3; ++dd) { // derivative direction, serial due to update of Tpsi
             double const f = -0.5/(hgrid[dd]*hgrid[dd]); // prefactor of the kinetic energy in Hartree atomic units
@@ -471,7 +471,39 @@ namespace green_kinetic {
         char const fF = (8 == sizeof(real_t)) ? 'F' : 'f';
         if (echo > 1) std::printf("# green_kinetic::%s nFD= %d %d %d, %.3f M%clop\n", __func__, nFD[0], nFD[1], nFD[2], nops*1e-6, fF);
         return nops;
+    } // multiply (kinetic energy operator)
+
+    template <typename real_t, int R1C2=2, int Noco=1>
+    size_t multiply(
+          real_t         (*const __restrict__ Tpsi)[R1C2][Noco*64][Noco*64] // result
+        , real_t   const (*const __restrict__  psi)[R1C2][Noco*64][Noco*64] // 
+        , finite_difference_plan_t const fd_plan[3]
+        , double   const hgrid[3] // grid spacing in X,Y,Z
+        , int const FD_range=4 // finite-difference stencil range (in grid points)
+        , size_t const nnzb=1 // total number of non-zero blocks (to get the operations count correct)
+        , int const echo=0
+    ) {
+        int const nFD[] = {FD_range, FD_range, FD_range};
+
+        uint32_t num[3]; 
+        int32_t const ** lists[3];
+        for (int dd = 0; dd < 3; ++dd) {
+            // convert fd_plan to arrays of pointers
+            num[dd] = fd_plan[dd].size();
+            lists[dd] = get_memory<int32_t const *>(num[dd]);
+            for (int il = 0; il < num[dd]; ++il) {
+                lists[dd][il] = fd_plan[dd].list(il);
+            } // il
+        } // dd
+
+        auto const nops = multiply<real_t,R1C2,Noco>(Tpsi, psi, num, lists[0], lists[1], lists[2], hgrid, nFD, nnzb, echo);
+        
+        for (int dd = 0; dd < 3; ++dd) {
+            free_memory(lists[dd]);
+        } // dd
+        return nops;
    } // multiply (kinetic energy operator)
+                  
 
 #ifdef  NO_UNIT_TESTS
   inline status_t all_tests(int const echo=0) { return STATUS_TEST_NOT_INCLUDED; }
@@ -485,9 +517,10 @@ namespace green_kinetic {
       auto indx = get_memory<int32_t>(nnzb + 4);
       set(indx, nnzb + 4, -1); for (int i = 0; i < nnzb; ++i) indx[i] = i; // index list must end by a sequence {-1, -1, -1, -1}
       uint32_t const num[] = {1, 1, 1};
+      int const nFD4[] = {4, 4, 4}, nFD8[] = {8, 8, 8};
       double const hgrid[] = {1, 1, 1};
-      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, 4, nnzb, echo);
-      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, 8, nnzb, echo);
+      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD4, nnzb, echo);
+      multiply<real_t,R1C2,Noco>(Tpsi, psi, num, &indx, &indx, &indx, hgrid, nFD8, nnzb, echo);
       free_memory(Tpsi);
       free_memory( psi);
       free_memory(indx);

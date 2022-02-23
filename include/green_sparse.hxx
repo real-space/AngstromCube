@@ -100,6 +100,7 @@ namespace green_sparse {
       RowIndex_t            nRows() const { return nRows_; }
       RowIndex_t        nNonzeros() const { return (nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
 
+#if 0
   private:
     
       bool invalid_row_index_(RowIndex_t const iRow) const {
@@ -108,7 +109,7 @@ namespace green_sparse {
           else                 return false; //   valid
       } // invalid_row_index_
     
-  public:
+  public: // are these methods ever needed?
 
       RowIndex_t nNonzeroCols(RowIndex_t const iRow) const {
           if (invalid_row_index_(iRow)) return 0;
@@ -132,6 +133,7 @@ namespace green_sparse {
           } // jnz
           return false;
       } // is_in
+#endif // 0
 
   private: // members
       RowIndex_t *rowStart_;

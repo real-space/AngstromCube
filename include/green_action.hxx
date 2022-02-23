@@ -13,6 +13,7 @@
 
 #include "constants.hxx" // ::pi
 #include "green_memory.hxx" // get_memory, free_memory
+#include "green_sparse.hxx"    // ::sparse_t<,>
 #include "green_kinetic.hxx"   // ::multiply, ::finite_difference_plan_t
 #include "green_potential.hxx" // ::multiply
 #include "green_dyadic.hxx"    // ::multiply
@@ -42,6 +43,8 @@ namespace green_action {
 
   struct plan_t {
 
+      // members needed for the usage with tfQMRgpu
+    
       // for the inner products and axpy/xpay
       std::vector<uint16_t> colindx; // [nnzbX]
       memWindow_t colindxwin; // column indices in GPU memory
@@ -51,11 +54,16 @@ namespace green_action {
       memWindow_t matBwin; // data of the right hand side operator B
       memWindow_t subsetwin; // subset indices in GPU memory
 
-      uint32_t nRows = 0, nCols = 0; // number of block rows and block columns, max 65,536 columns
+      // memory positions
+      memWindow_t matXwin; // solution vector in GPU memory
+      memWindow_t vec3win; // random number vector in GPU memory
+
+      uint32_t nRows = 0; // number of block rows in the Green function
+      uint32_t nCols = 0; // number of block columns, max 65,536 columns
       std::vector<uint32_t> rowstart; // [nRows + 1] does not need to be transfered to the GPU
 
       // for memory management:
-      size_t gpu_mem = 0; // device memory requirement in Byte
+      size_t gpu_mem = 0; // device memory requirement in Byte (can this be tracked?)
 
       // stats:
       float residuum_reached    = 3e38;
@@ -63,17 +71,14 @@ namespace green_action {
       float flops_performed_all = 0.f;
       int   iterations_needed   = -99;
 
-      // memory positions
-      memWindow_t matXwin; // solution vector in GPU memory
-      memWindow_t vec3win; // random number vector in GPU memory
-
+      // =====================================================================================
 
       // new members to define the action
       std::vector<int64_t> global_target_indices; // [nRows]
       std::vector<int64_t> global_source_indices; // [nCols]
-      double r_truncation   = 9e18; // radius beyond which the Green function is truncated
-      double r_Vconfinement = 9e18; // radius beyond which the confinement potential is added
-      double Vconfinement   = 0; // potential_prefactor in Hartree
+      double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
+      double r_Vconfinement = 9e18; // radius beyond which the confinement potential is added, in Bohr
+      double Vconfinement   = 0; // potential prefactor, in Hartree
 
       green_kinetic::finite_difference_plan_t fd_plan[3];
       uint32_t natom_images = 0;
@@ -97,7 +102,7 @@ namespace green_action {
       uint32_t* ColIndexCubes = nullptr; // for SHOprj
       uint32_t* RowStartCubes = nullptr; // for SHOadd
       uint32_t* ColIndexAtoms = nullptr; // for SHOadd
-      
+
       plan_t() {
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
       } // constructor
@@ -460,17 +465,19 @@ namespace green_action {
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff, p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
           
           // add the kinetic energy expressions
-          uint32_t num[3]; 
-          int32_t const ** lists[3];
-          for (int dd = 0; dd < 3; ++dd) { 
-              // convert fd_plan to plain data
-              num[dd] = p->fd_plan[dd].size();
-              lists[dd] = get_memory<int32_t const *>(num[dd]);
-              for (int il = 0; il < num[dd]; ++il) {
-                  lists[dd][il] = p->fd_plan[dd].list(il);
-              } // il
-          } // dd
-          green_kinetic::multiply<real_t,R1C2,Noco>(y, x, num, lists[0], lists[1], lists[2], p->grid_spacing, 4, nnzbY);
+//           uint32_t num[3]; 
+//           int32_t const ** lists[3];
+//           for (int dd = 0; dd < 3; ++dd) { 
+//               // convert fd_plan to arrays of pointers
+//               num[dd] = p->fd_plan[dd].size();
+//               lists[dd] = get_memory<int32_t const *>(num[dd]);
+//               for (int il = 0; il < num[dd]; ++il) {
+//                   lists[dd][il] = p->fd_plan[dd].list(il);
+//               } // il
+//           } // dd
+//           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, num, lists[0], lists[1], lists[2], p->grid_spacing, 4, nnzbY);
+          green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan, p->grid_spacing, 4, nnzbY);
+          
 
           // add the non-local potential using the dyadic action of project + add
           green_dyadic::multiply(y, apc, x, p->AtomPos, p->RowStartAtoms, p->ColIndexCubes,
