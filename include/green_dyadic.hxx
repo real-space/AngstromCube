@@ -99,8 +99,8 @@ namespace green_dyadic {
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
-          real_t         (*const __restrict__ Cpr)[nvec] // result: projection coefficients
-        , real_t   const (*const __restrict__ Psi)[nvec] // input:  wave functions (rectangular, not sparse like Green function)
+          real_t         (*const __restrict__ Cpr)[nvec] // result: projection coefficients, layout[natoms*nSHO*nrhs][nvec]
+        , real_t   const (*const __restrict__ Psi)[nvec] // input:  wave functions,            layout[ncubes*64*nrhs][nvec]
         , uint32_t const (*const __restrict__ RowStartAtoms) // rows==atoms
         , double   const (*const __restrict__ AtomPos)[3+1] // atomic positions [0],[1],[2], decay parameter [3]
         , uint32_t const (*const __restrict__ ColIndexCubes) // cols==cubes
@@ -164,7 +164,7 @@ namespace green_dyadic {
 
             __syncthreads();
 
-            int const icube = ColIndexCubes[bsr]; // to make it work for (block sparse) Green functions, we have to make this load depend on J
+            int const icube = ColIndexCubes[bsr]; // to make it work for (block sparse) Green functions, we have to make this depend on J
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
@@ -292,12 +292,12 @@ namespace green_dyadic {
 
     
     template <typename real_t, int nvec=64, int Lmax=Lmax_default>
-    void __global__ SHOadd( // launch SHOadd<real_t,nvec> <<< {nrhs, ncubes, 1}, {nvec, 1, 1} >>> (...);
+    void __global__ SHOadd( // launch SHOadd<real_t,nvec> <<< {nrhs, ncubes, 1}, {nvec, 1, 1} >>>
 #ifdef HAS_NO_CUDA
           dim3 const & gridDim, dim3 const & blockDim,
 #endif // HAS_NO_CUDA
-          real_t         (*const __restrict__ Psi)[nvec] // result: wave functions to modify
-        , real_t   const (*const __restrict__ Cad)[nvec] // input: addition coefficients
+          real_t         (*const __restrict__ Psi)[nvec] // result: wave functions to modify, layout[ncubes*64*nrhs][nvec]
+        , real_t   const (*const __restrict__ Cad)[nvec] // input: addition coefficients,   layout[natoms*nSHO*nrhs][nvec]
         , uint32_t const (*const __restrict__ RowStartCubes) // rows==cubes
         , float    const (*const __restrict__ CubePos)[3+1] // only [0],[1],[2] used
         , uint32_t const (*const __restrict__ ColIndexAtoms) // cols==atoms
@@ -799,3 +799,36 @@ namespace green_dyadic {
 #endif // NO_UNIT_TESTS
 
 } // namespace green_dyadic
+
+// 
+// General thoughts:
+//      
+//    We assume that a Green function G(r,r') comes in as psi.
+//    The spatial arguments \vec r of the Green function are
+//    sampled on an equidistant Cartesian real-space grids.
+//    Always 4x4x4 grid points are grouped to a "cube".
+//
+//    The original codes benchmarked in the PASC19 paper by Baumeister & Tsukamoto
+//    had the following data layout.
+//
+//        projection/addition coefficients layout[natoms*nSHO*nrhs][nvec]
+//        wave functions                   layout[ncubes* 64 *nrhs][nvec]
+//
+//    However, we will have to reformulate to
+//        projection/addition coefficients layout[natomcoeffs*nrhs*R1C2*Noco][nvec]
+//        Green function                   layout[nnzb       ][R1C2][Noco*64][nvec]
+//
+//    where natomcoeffs == natoms*nSHO(numax) only if all atoms have the same numax
+//    and   nnzb == ncubes*nrhs only if the Green function is dense.
+//
+//    For considerations of geometry(*), the coefficient matrix will probably stay dense (natomcoeffs \times nrhs)
+//    Then, we can still  launch SHOprj <<< {nrhs, natoms, 1}, {nvec, R1C2*Noco, 1} >>> providing ColIndexCubes[irhs][bsr]
+//    But we will need to launch SHOadd <<< {nnzb,    1,   1}, {nvec, R1C2*Noco, 1} >>>
+//       ... and provide irow = rowIndex[inzb] and iatom = ColIndexAtoms[irow][bsr]
+//
+//    (*) The geometry consideration assumes the case that there is a compact cluster of
+//        right hand side (source) cubes assigned to one MPI-process and isolated boundary conditions
+//        for the cell. If the radius of target cubes is large compared to the cluster extent
+//        the number of zero blocks inside the coefficient matrix is small compared to its size
+//        since also each atomic projection region typically spans over several cubes.
+//
