@@ -37,7 +37,7 @@ namespace green_sparse {
   class sparse_t { // compressed sparse row (CSR) style sparsity descriptor
   public:
 
-      sparse_t() : rowStart_(nullptr), colIndex_(nullptr), nRows_(0) {
+      sparse_t() : rowStart_(nullptr), colIndex_(nullptr), rowIndex_(nullptr), nRows_(0) {
           debug_printf("# sparse_t default destructor\n");
       } // default constructor
 
@@ -69,12 +69,14 @@ namespace green_sparse {
           } // iRow
           debug_printf("# sparse_t constructed with %d rows and %ld non-zero elements\n", uint32_t(nRows_), size_t(nnz));
           debug_printf("# sparse_t columns per row stats [%g, %g +/- %g, %g]\n", st.min(), st.mean(), st.dev(), st.max());
+          rowIndex_ = nullptr; // only on demand
       } // constructor
 
       ~sparse_t() {
           debug_printf("# sparse_t destructor\n");
           if (rowStart_) free_memory(rowStart_);
           if (colIndex_) free_memory(colIndex_);
+          if (rowIndex_) free_memory(rowIndex_); // optional
           nRows_ = 0;
       } // destructor
 
@@ -89,6 +91,7 @@ namespace green_sparse {
           debug_printf("# sparse_t move assignment\n");
           rowStart_ = rhs.rowStart_;
           colIndex_ = rhs.colIndex_;
+          rowIndex_ = rhs.rowIndex_;
           nRows_    = rhs.nRows_;
           return *this;
       } // move assignment
@@ -135,9 +138,23 @@ namespace green_sparse {
       } // is_in
 #endif // 0
 
+      RowIndex_t const * rowIndex() { // non-const member function
+          if (rowIndex_) return rowIndex_; // has already been constructed
+          auto const nnz = nNonzeros();
+          if (nnz < 1) return nullptr;
+          rowIndex_ = get_memory<RowIndex_t>(nnz);
+          for (RowIndex_t iRow = 0; iRow < nRows_; ++iRow) {
+              for (auto jnz = rowStart_[iRow]; jnz < rowStart_[iRow + 1]; ++jnz) {
+                  rowIndex_[jnz] = iRow;
+              } // jnz
+          } // iRow
+          return rowIndex_;
+      } // rowIndex_t
+
   private: // members
       RowIndex_t *rowStart_;
       ColIndex_t *colIndex_;
+      RowIndex_t *rowIndex_; // optional, will be constructed on first demand
       RowIndex_t nRows_;
 
   }; // sparse_t
@@ -157,9 +174,10 @@ namespace green_sparse {
           list[i].resize(i + 1); // lower triangular matrix
           for (int j = 0; j <= i; ++j) list[i][j] = j;
       } // i
-      sparse_t<uint8_t> const s(list, "lowerTriangularMatrix"); // test constructor
+      sparse_t<uint8_t> s(list, "lowerTriangularMatrix"); // test constructor
       if (echo > 3) std::printf("# %s nRows= %d, nNonzeros= %d\n", __func__, s.nRows(), s.nNonzeros());
       if (echo > 6) std::printf("# %s last element = %d\n", __func__, int(s.colIndex()[s.nNonzeros() - 1]));
+      if (echo > 6) { std::printf("# rowIndex "); printf_vector(" %d", s.rowIndex(), s.nNonzeros()); }
       return 0;
   } // test_sparse
 
