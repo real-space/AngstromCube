@@ -507,3 +507,10 @@ namespace structure_solver {
   status_t all_tests(int const echo=0); // declaration only
 
 } // namespace structure_solver
+
+#ifdef DEBUG
+  #undef DEBUG
+#endif // DEBUG
+#ifdef FULL_DEBUG
+  #undef FULL_DEBUG
+#endif // FULL_DEBUG

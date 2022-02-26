@@ -20,7 +20,7 @@
 #include "simple_stats.hxx" // ::Stats<>
 
 #ifdef HAS_TFQMRGPU
-    #include "tfQMRgpu/tfqmrgpu_core.hxx" // solve<action_t>
+    #include "tfQMRgpu/tfqmrgpu_core.hxx" // tfqmrgpu::solve<action_t>
     #include "tfQMRgpu/tfqmrgpu_memWindow.h" // memWindow_t
 #else  // HAS_TFQMRGPU
     #include <utility> // std::pair<T>
@@ -46,7 +46,7 @@ namespace green_action {
       // members needed for the usage with tfQMRgpu
     
       // for the inner products and axpy/xpay
-      std::vector<uint16_t> colindx; // [nnzbX]
+      std::vector<uint16_t> colindx; // [nnzbX], must be a std::vector since nnzbX is derived from colindx.size()
       memWindow_t colindxwin; // column indices in GPU memory
 
       // for the matrix-matrix subtraction Y -= B:
@@ -95,13 +95,18 @@ namespace green_action {
       atom_t* atom_data = nullptr; // [natom_images]
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
       float  (*CubePos)[3+1] = nullptr; // [nRows]   TODO still needs to be filled!
-      double *grid_spacing = nullptr;
+      double *grid_spacing = nullptr; // [3+1]
       int number_of_contributing_atoms = 0;
+
+      green_sparse::sparse_t<uint16_t> sparse_Green;
 
       uint32_t* RowStartAtoms = nullptr; // for SHOprj
       uint32_t* ColIndexCubes = nullptr; // for SHOprj
+      green_sparse::sparse_t<uint32_t> * sparse_SHOprj; // [nCols]
+
       uint32_t* RowStartCubes = nullptr; // for SHOadd
       uint32_t* ColIndexAtoms = nullptr; // for SHOadd
+      green_sparse::sparse_t<>           sparse_SHOadd;
 
       plan_t() {
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
@@ -130,6 +135,7 @@ namespace green_action {
           free_memory(CubePos);
           free_memory(RowStartCubes);
           free_memory(ColIndexAtoms);
+          free_memory(sparse_SHOprj);
       } // destructor
 
   }; // plan_t

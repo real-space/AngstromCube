@@ -659,7 +659,7 @@ namespace grid_operators {
 
 #ifdef DEBUG
   #undef DEBUG
-#endif
+#endif // DEBUG
 #ifdef FULL_DEBUG
   #undef FULL_DEBUG
-#endif
+#endif // FULL_DEBUG

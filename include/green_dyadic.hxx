@@ -160,7 +160,7 @@ namespace green_dyadic {
         __syncthreads(); // sync necessary?
 
         // in this loop over bsr we accumulate atom projection coefficients over many cubes
-        for (int bsr = RowStartAtoms[iatom]; bsr < RowStartAtoms[iatom + 1]; ++bsr) {
+        for (int bsr = RowStartAtoms[iatom]; bsr < RowStartAtoms[iatom + 1]; ++bsr) { // to make it work for (block sparse) Green functions, we have to make this depend on J
 
             __syncthreads();
 
@@ -325,7 +325,7 @@ namespace green_dyadic {
         for (int J = 0; J < nrhs; ++J)
 #endif // HAS_NO_CUDA
         { // block loops
-          
+
 #ifndef HAS_NO_CUDA
         if (RowStartCubes[icube] >= RowStartCubes[icube + 1]) return; // empty range in the sparse matrix, early return
 #endif // HAS_NO_CUDA
@@ -735,8 +735,8 @@ namespace green_dyadic {
               xyza[i3] = -4*(it*3 + i3);
               for (int i4 = 0; i4 < 4; ++i4) {
                   int const i = i3*4 + i4; // == threadIdx.x
-                  Hermite_polynomials_1D(h1D, xi_squared, i, Lmax, xyza, xyzc, hxyz);
-                  Hermite_polynomials_1D(H1D, xi_squared, i, Lmax, xyza, xyzc, hxyz);
+                  Hermite_polynomials_1D(h1D, xi_squared, i, Lmax, xyza, xyzc, hxyz); // float
+                  Hermite_polynomials_1D(H1D, xi_squared, i, Lmax, xyza, xyzc, hxyz); // double
 //                if (echo > 10) std::printf("# %s idir=%d i4=%d ivec=%i xi^2=%g H1D= ", __func__, i3, i4, i, xi_squared[i3][i4]);
                   if (echo > 10) std::printf("\n%g  ", std::sqrt(xi_squared[i3][i4]));
                   for (int l = 0; l <= Lmax; ++l) {
@@ -765,10 +765,14 @@ namespace green_dyadic {
       auto AtomPos  = get_memory<double[3+1]>(1);     set(AtomPos[0], 3, 0.0); AtomPos[0][3] = 1./std::sqrt(sigma); 
       auto CubePos  = get_memory<float [3+1]>(1);     set(CubePos[0], 4, 0.f);
       auto hGrid    = get_memory<double>(3+1);        set(hGrid, 3, 0.25);          hGrid[3] = 6.2832;
+      auto GreenRowIndex = get_memory<uint32_t>(1); GreenRowIndex[0] = 0;
+      auto GreenColIndex = get_memory<uint16_t>(1); GreenColIndex[0] = 0;
       // see if these drivers compile and can be executed without segfaults
       SHOprj_driver<real_t,Noco*64>(apc[0][0], psi[0][0], RowStart, AtomPos, ColIndex, CubePos, hGrid, 1, 1);
       SHOadd_driver<real_t,Noco*64>(psi[0][0], apc[0][0], RowStart, CubePos, ColIndex, AtomPos, hGrid, 1, 1);
       multiply<real_t,R1C2,Noco>(psi, apc, psi, AtomPos, RowStart, ColIndex, CubePos, RowStart, ColIndex, hGrid, 1, 1, echo);
+      free_memory(GreenColIndex);
+      free_memory(GreenRowIndex);
       free_memory(hGrid);
       free_memory(CubePos);
       free_memory(AtomPos);
@@ -822,9 +826,10 @@ namespace green_dyadic {
 //    and   nnzb == ncubes*nrhs only if the Green function is dense.
 //
 //    For considerations of geometry(*), the coefficient matrix will probably stay dense (natomcoeffs \times nrhs)
-//    Then, we can still  launch SHOprj <<< {nrhs, natoms, 1}, {nvec, R1C2*Noco, 1} >>> providing ColIndexCubes[irhs][bsr]
-//    But we will need to launch SHOadd <<< {nnzb,    1,   1}, {nvec, R1C2*Noco, 1} >>>
-//       ... and provide irow = rowIndex[inzb] and iatom = ColIndexAtoms[irow][bsr]
+//    Then, we can still  launch SHOprj <<< {nrhs, natoms, 1}, {nvec, R1C2*Noco, 1} >>> providing
+//                                   bsr in RowStartAtoms[irhs][iatom +0 .. +1], icube = ColIndexCubes[irhs][bsr] --> one sparse_t per irhs
+//    But we will need to launch SHOadd <<< {nnzb,    1,   1}, {nvec, R1C2*Noco, 1} >>> providing irhs = colIndex[inzb], 
+//                                  irow = rowIndex[inzb] and iatom = ColIndexAtoms[irow][bsr], ColIndexAtoms as before
 //
 //    (*) The geometry consideration assumes the case that there is a compact cluster of
 //        right hand side (source) cubes assigned to one MPI-process and isolated boundary conditions

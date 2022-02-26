@@ -16,6 +16,7 @@
 #include "global_coordinates.hxx" // ::get
 #include "green_input.hxx" // ::load_Hamitonian
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
+#include "green_sparse.hxx" // ::sparse_t<,>
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
 #include "green_action.hxx" // ::plan_t, ::action_t
 #include "sho_tools.hxx" // ::nSHO
@@ -93,13 +94,15 @@ namespace green_function {
       assert(nullptr != plan_ptr);
       auto & p = *plan_ptr;
 
+      bool constexpr MANIPULATE = false;
+
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
           assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
-          n_original_Veff_blocks[d] = 1; // MANIPULATE
+          if (MANIPULATE) n_original_Veff_blocks[d] = 1;
       } // d
-      if (echo > 0) std::printf("\n# MANIPULATED n_original_Veff_blocks = 1 1 1\n\n");
+      if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATED n_original_Veff_blocks = 1 1 1\n\n");
 
       if (echo > 3) { std::printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
 
@@ -277,7 +280,7 @@ namespace green_function {
 
           std::vector<int32_t> tag_diagonal(product_target_blocks, -1);
           assert(nRHSs < 65536 && "the integer type of ColIndex is uint16_t!");
-          std::vector<std::vector<bool>> sparsity_pattern(nRHSs); // vector<bool> is a memory-saving bit-array
+          std::vector<std::vector<bool>> sparsity_pattern(nRHSs); // std::vector<bool> is a memory-saving bit-array
 
           for (uint16_t iRHS = 0; iRHS < nRHSs; ++iRHS) {
               auto & sparsity_RHS = sparsity_pattern[iRHS]; // abbreviate
@@ -576,6 +579,9 @@ namespace green_function {
 
           std::vector<std::vector<uint32_t>> cubes; // stores the row indices of Green function rows
           cubes.reserve(natom_images); // maximum (needs 24 Byte per atom image)
+          
+          std::vector<std::vector<uint32_t>> imags; // stores the indices of atom images
+          imags.resize(p.nRows);
 
           size_t iai{0};
           for (int z = -iimage[Z]; z <= iimage[Z]; ++z) { // serial
@@ -638,6 +644,7 @@ namespace green_function {
 
                               cubes[iai].push_back(icube); // enlist
                               assert(cubes[iai][ntb] == icube); // check
+                              imags[icube].push_back(iai); // also set up the transpose
 
                               ++ntb;
                               assert(cubes[iai].size() == ntb);
@@ -660,8 +667,8 @@ namespace green_function {
 
                   if (ntb > 0) {
                       // atom image contributes, mark in the list to have more than 0 coefficients
-                      auto const nc = Noco*sho_tools::nSHO(numax);
-                      atom_ncoeff[ia] = nc;
+                      auto const nc = sho_tools::nSHO(numax); // number of coefficients for this atom
+                      atom_ncoeff[ia] = nc; // atom image does contribute, so this atom does
                       assert(nc == atom_ncoeff[ia]); // conversion successful
                       nc_stats.add(nc);
 
@@ -670,7 +677,7 @@ namespace green_function {
                       set(atom.pos, 3, atom_pos);
                       atom.sigma = sigma;
                       atom.gid = atom_id;
-                      atom.ia = ia;
+                      atom.ia = ia; // local atom index
                       set(atom.shifts, 3, xyz_shift);
                       atom.nc = nc; 
                       atom.numax = numax;
@@ -678,7 +685,7 @@ namespace green_function {
                       
 //                       if (echo > 5) std::printf("# image of atom #%i at %g %g %g %s contributes to %d target blocks\n",
 //                                                    atom_id, atom_pos[X]*Ang, atom_pos[Y]*Ang, atom_pos[Z]*Ang, _Ang, ntb);
-                      ApcStart[iai + 1] = ApcStart[iai] + atom.nc;
+                      ApcStart[iai + 1] = ApcStart[iai] + nc;
                       ++iai;
 
 //                } else {
@@ -700,13 +707,52 @@ namespace green_function {
 
           if (echo > 3) std::printf("# %.3f k atomic projection coefficients, %.2f per atomic image\n", napc*.001, napc/double(nai));
           // projection coefficients for the non-local PAW operations are stored
-          // as std::complex<real_t> apc[napc][nRHSs][64]
-          // or real_t apc[napc][nRHSs][2][64] for the GPU
+          // as std::complex<real_t> apc[napc][nRHSs][Noco][Noco*64] or real_t apc[napc][nRHSs][2][Noco][Noco*64] on the GPU
           if (echo > 3) std::printf("# memory of atomic projection coefficients is %.6f %s (float, twice for double)\n",
                                                   napc*nRHSs*2.*64.*sizeof(float)*GByte, _GByte);
-          
+
           p.natom_images = nai;
           assert(nai == p.natom_images); // verify
+
+          { // scope: set up sparse tables
+              using ::green_sparse::sparse_t;
+              
+              p.sparse_SHOadd = sparse_t<>(imags, false, "SHOadd", echo);
+              if (echo > 9) {
+//                   std::printf("# sparse_SHOadd.rowStart= ");
+//                   printf_vector(" %d", p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows());
+                  std::printf("# sparse_SHOadd.colIndex(%p)= ", (void*)p.sparse_SHOadd.colIndex());
+                  printf_vector(" %d", p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
+                  // ToDo: find BUG, seems like the first 5 entries are overwritten after the copying process
+              } // echo
+
+              { // scope: transform p.RowStart and p.colindx into p.sparseGreen
+                  std::vector<std::vector<uint16_t>> green_vv(p.nRows);
+                  for (int iRow = 0; iRow < p.nRows; ++iRow) {
+                      green_vv[iRow].resize(p.RowStart[iRow + 1] - p.RowStart[iRow]);
+                      for (auto inzb = p.RowStart[iRow]; inzb < p.RowStart[iRow + 1]; ++inzb) {
+                          auto const jCol = p.colindx[inzb];
+                          green_vv[iRow][inzb - p.RowStart[iRow]] = jCol;
+                      } // inzb
+                  } // iRow
+                  p.sparse_Green = sparse_t<uint16_t>(green_vv, false, "Green", echo);
+              } // scope
+
+              // for the sparse Green function times sparse SHO-projections:
+              p.sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(p.nCols);
+              for (uint16_t iRHS = 0; iRHS < p.nCols; ++iRHS) {
+                  std::vector<std::vector<uint32_t>> vv(nai);
+                  for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
+                      for (uint32_t itb = 0; itb < cubes[iai].size(); ++itb) {
+                          auto const iRow = cubes[iai][itb];
+                          uint32_t inzb{0};
+                          if (p.sparse_Green.is_in(iRow, iRHS, &inzb)) vv[iai].push_back(inzb);
+                      } // itb
+                  } // iai
+                  p.sparse_SHOprj[iRHS] = sparse_t<>(vv, false, "SHOprj", echo);
+              } // iRHS
+
+          } // scope: set up sparse tables
 
           { // scope: translate cubes[][] into CSR sparse tables in device memory
               assert(cubes.size() == p.natom_images);
@@ -715,13 +761,16 @@ namespace green_function {
 
               p.RowStartAtoms = get_memory<uint32_t>(p.natom_images + 1); // for SHOprj
               p.RowStartAtoms[0] = 0;
+              simple_stats::Stats<> st;
               size_t nnza{0};
               for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
                   auto const n = cubes[iai].size();
+                  st.add(n);
                   nnza += n;
                   p.RowStartAtoms[iai + 1] = p.RowStartAtoms[iai] + n; // prefix sum
               } // iai
               assert(nnza == p.RowStartAtoms[p.natom_images]);
+              if (echo > 6) std::printf("# projection: columns per row [%g, %g +/- %g, %g]\n", st.min(), st.mean(), st.dev(), st.max());
 
               std::vector<uint32_t> nai_per_cube(p.nRows, 0); // count how many atomic images contribute to each cube
               p.ColIndexCubes = get_memory<uint32_t>(nnza); // for SHOprj
@@ -734,16 +783,19 @@ namespace green_function {
               } // iai
 
               // for SHOadd create the transpose table pair
+              st.clear();
 
               p.RowStartCubes = get_memory<uint32_t>(p.nRows + 1); // for SHOadd
               p.RowStartCubes[0] = 0;
               size_t nnzc{0};
               for (uint32_t icube = 0; icube < p.nRows; ++icube) {
                   auto const n = nai_per_cube[icube];
+                  st.add(n);
                   nnzc += n;
                   p.RowStartCubes[icube + 1] = p.RowStartCubes[icube] + n; // prefix sum
               } // icube
               assert(nnzc == p.RowStartCubes[p.nRows]);
+              if (echo > 6) std::printf("# addition: columns per row [%g, %g +/- %g, %g]\n", st.min(), st.mean(), st.dev(), st.max());
 
               std::vector<uint32_t> iai_per_cube(p.nRows, 0);
               p.ColIndexAtoms = get_memory<uint32_t>(nnzc); // for SHOadd
@@ -758,7 +810,7 @@ namespace green_function {
               for (uint32_t icube = 0; icube < p.nRows; ++icube) {
                   assert(nai_per_cube[icube] == iai_per_cube[icube]); // sanity checks
               } // icube
-              
+
               if (1) { // sanity checks
 
                   //  proof that RowStartAtoms with ColIndexCubes is the transpose
@@ -791,7 +843,7 @@ namespace green_function {
                   } // iai
 
               } // sanity check
-
+              
               cubes.resize(0); // release host memory
 
           } // scope
@@ -835,6 +887,7 @@ namespace green_function {
               p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc);
               set(p.atom_mat[iac], Noco*Noco*2*nc*nc, 0.0); // clear
               // fill this with matrix values
+              assert(2*nc*nc <= atom_mat[iac].size());
               // use MPI communication to find values in atom owner processes
               auto const hmt = atom_mat[ia].data();
               auto const ovl = hmt + nc*nc;
