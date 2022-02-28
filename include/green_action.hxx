@@ -99,13 +99,7 @@ namespace green_action {
       int number_of_contributing_atoms = 0;
 
       green_sparse::sparse_t<uint16_t> sparse_Green;
-
-      uint32_t* RowStartAtoms = nullptr; // for SHOprj
-      uint32_t* ColIndexCubes = nullptr; // for SHOprj
-      green_sparse::sparse_t<> * sparse_SHOprj; // [nCols]
-
-      uint32_t* RowStartCubes = nullptr; // for SHOadd
-      uint32_t* ColIndexAtoms = nullptr; // for SHOadd
+      green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
 
       plan_t() {
@@ -130,12 +124,13 @@ namespace green_action {
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
           free_memory(AtomPos);
-          free_memory(RowStartAtoms);
-          free_memory(ColIndexCubes);
           free_memory(CubePos);
-          free_memory(RowStartCubes);
-          free_memory(ColIndexAtoms);
+          if (sparse_SHOprj) for (int icol = 0; icol < nCols; ++icol) sparse_SHOprj[icol].~sparse_t<>();
           free_memory(sparse_SHOprj);
+//           free_memory(RowStartAtoms);
+//           free_memory(ColIndexCubes);
+//           free_memory(RowStartCubes);
+//           free_memory(ColIndexAtoms);
       } // destructor
 
   }; // plan_t
@@ -178,8 +173,9 @@ namespace green_action {
           auto const n = size_t(nac) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
-          apc = get_memory<real_t[R1C2][Noco][LM]>(n);
-          aac = get_memory<real_t[R1C2][Noco][LM]>(n);
+          int const echo = 5;
+          apc = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "apc");
+          aac = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "aac");
       } // take_memory
 
       void transfer(char* const buffer, cudaStream_t const streamId=0) {
@@ -476,8 +472,8 @@ namespace green_action {
               p->grid_spacing, 4, nnzbY);
 
           // add the non-local potential using the dyadic action of project + add
-          green_dyadic::multiply(y, apc, x, p->AtomPos, p->natom_images,
-              p->sparse_SHOprj, p->sparse_SHOadd, p->sparse_Green.colIndex(), p->CubePos, p->grid_spacing, p->nCols);
+          green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->natom_images,
+              p->sparse_SHOprj, p->sparse_SHOadd, p->sparse_Green.colIndex(), p->CubePos, p->grid_spacing, nnzbY, p->nCols);
 
           return 0; // no flops performed so far
       } // multiply

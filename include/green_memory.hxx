@@ -10,7 +10,7 @@
 #endif // HAS_NO_CUDA      
 
   template <typename T>
-  T* get_memory(size_t const size=1, int const echo=0) {
+  T* get_memory(size_t const size=1, int const echo=0, char const *const name="") {
 #ifdef DEBUG
       double const GByte = 1e-9; 
       char const *const _GByte = "GByte";
@@ -22,12 +22,15 @@
 #else  // HAS_CUDA
       d = new T[size];
 #endif // HAS_CUDA
+      std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, 1e-3*sizeof(T), size*sizeof(T)*1e-3, name, (void*)d);
       return d;
   } // get_memory
 
+
   template <typename T>
-  void free_memory(T* &d) {
+  void _free_memory(T* &d, char const *const name="") {
       if (nullptr != d) {
+          std::printf("# free_memory %s at %p\n", name, (void*)d);
 #ifdef  HAS_CUDA
           CCheck(cudaFree(d));
 #else  // HAS_CUDA
@@ -37,9 +40,11 @@
       d = nullptr;
   } // free_memory
 
+#define free_memory(PTR) _free_memory(PTR, #PTR)
+  
   template <typename real_t=float>
   inline char const* real_t_name() { return (8 == sizeof(real_t)) ? "double" : "float"; } 
-  
+
   //
   // Memory layout for Green function and atomic projection coefficients
   //

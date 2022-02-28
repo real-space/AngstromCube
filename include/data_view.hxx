@@ -89,7 +89,7 @@ public:
   //     _n1   = rhs._n1;
   //     _mem  = 0; // we are just a shallow copy
   //     return *this;
-  // } // move assignment
+  // } // copy assignment
 
 
 #define _VIEW2D_HAS_PARENTHESIS

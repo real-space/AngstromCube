@@ -13,7 +13,7 @@
 #include "green_memory.hxx" // get_memory, free_memory
 #include "simple_stats.hxx" // ::Stats<>
 
-// #define DEBUG
+#define DEBUG
 #ifdef  DEBUG
   #define debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
@@ -38,7 +38,7 @@ namespace green_sparse {
   public:
 
       sparse_t() : rowStart_(nullptr), colIndex_(nullptr), rowIndex_(nullptr), nRows_(0) {
-          debug_printf("# sparse_t default destructor\n");
+          debug_printf("# sparse_t default constructor\n");
       } // default constructor
 
       sparse_t(
@@ -51,7 +51,7 @@ namespace green_sparse {
           if (echo > 7) std::printf("# sparse_t<ColIndex_t=%s,RowIndex_t=%s> %s\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>(), name);
           nRows_ = list.size();
           assert(list.size() == nRows_ && "RowIndex_t cannot hold number of rows");
-          auto const rowStart_nc = get_memory<RowIndex_t>(nRows_ + 1); // _nc: non-const
+          auto const rowStart_nc = get_memory<RowIndex_t>(nRows_ + 1, echo, "rowStart_"); // _nc: non-const
           assert(rowStart_nc && "sparse_t failed to get_memory for rowStart");
           size_t nnz{0}; // number of non-zeros
           simple_stats::Stats<> st;
@@ -67,7 +67,7 @@ namespace green_sparse {
 
           rowIndex_ = with_rowIndex ? rowIndex() : nullptr;
 
-          auto const colIndex_nc = get_memory<ColIndex_t>(nnz); // _nc: non-const
+          auto const colIndex_nc = get_memory<ColIndex_t>(nnz, echo, "colIndex_"); // _nc: non-const
           assert(rowStart_ && "sparse_t failed to get_memory for colIndex");
           for (RowIndex_t iRow = 0; iRow < nRows_; ++iRow) {
               auto const n = list[iRow].size(); // number of non-zero entires in this row
@@ -81,6 +81,7 @@ namespace green_sparse {
 
           if (echo > 5) std::printf("# sparse_t constructed with %d rows and %ld non-zero elements\n", uint32_t(nRows_), size_t(nnz));
           if (echo > 3) std::printf("# sparse_t columns per row stats [%g, %g +/- %g, %g]\n", st.min(), st.mean(), st.dev(), st.max());
+          if (echo > 9) { std::printf("# sparse_t.rowStart(%p)= ", (void*)rowStart_); printf_vector(" %d", rowStart_, nRows_); }
           if (echo > 9) { std::printf("# sparse_t.colIndex(%p)= ", (void*)colIndex_); printf_vector(" %d", colIndex_, nnz); }
       } // constructor
 
@@ -88,30 +89,32 @@ namespace green_sparse {
           debug_printf("# sparse_t destructor\n");
           if (rowStart_) free_memory(rowStart_);
           if (colIndex_) free_memory(colIndex_);
-          if (rowIndex_) free_memory(rowIndex_); // optional
+          if (rowIndex_) free_memory(rowIndex_);
           nRows_ = 0;
       } // destructor
 
-      sparse_t(sparse_t<RowIndex_t,ColIndex_t> && rhs) {
-          debug_printf("# sparse_t move constructor\n");
-          *this = std::move(rhs);
-      } // move constructor
+      sparse_t(sparse_t && rhs) = delete;
+//       {
+//           debug_printf("# sparse_t move constructor\n");
+//           *this = std::move(rhs);
+//       } // move constructor
 
-      sparse_t(sparse_t<RowIndex_t,ColIndex_t> const & rhs) = delete;
+      sparse_t(sparse_t const & rhs) = delete;
 
-      sparse_t & operator= (sparse_t<RowIndex_t,ColIndex_t> && rhs) {
-          debug_printf("# sparse_t move assignment\n");
+      sparse_t & operator= (sparse_t       & rhs) = delete; // copy assignment operator
+      sparse_t & operator= (sparse_t const & rhs) = delete; // copy assignment operator
+
+      sparse_t & operator= (sparse_t && rhs) {
+          debug_printf("# sparse_t move assignment sparse_t<ColIndex_t=%s,RowIndex_t=%s>\n", int_t_name<ColIndex_t>(), int_t_name<RowIndex_t>());
 //        debug_printf("# sparse_t.colIndex(%p)= ", (void*)rhs.colIndex()); printf_vector(" %d", rhs.colIndex(), rhs.nNonzeros());
-          rowStart_ = rhs.rowStart_;
-          colIndex_ = rhs.colIndex_;
-          rowIndex_ = rhs.rowIndex_;
-          nRows_    = rhs.nRows_;
+          std::swap(rowStart_, rhs.rowStart_);
+          std::swap(colIndex_, rhs.colIndex_);
+          std::swap(rowIndex_, rhs.rowIndex_);
+          std::swap(nRows_   , rhs.nRows_);
 //        debug_printf("# sparse_t.colIndex(%p)= ", (void*)colIndex()); printf_vector(" %d", colIndex(), nNonzeros());
           return *this;
       } // move assignment
 
-      sparse_t & operator= (sparse_t<RowIndex_t,ColIndex_t> const & rhs) = delete;
-      
       RowIndex_t const * rowStart() const { return rowStart_; };
       ColIndex_t const * colIndex() const { return colIndex_; };
       RowIndex_t            nRows() const { return nRows_; }

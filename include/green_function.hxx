@@ -51,8 +51,8 @@ namespace green_function {
 
           auto const nnzbX = p.colindx.size();
           int constexpr LM = Noco*64;
-          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
-          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX);
+          auto x = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "x");
+          auto y = get_memory<real_t[R1C2][LM][LM]>(nnzbX, echo, "y");
           for (size_t i = 0; i < nnzbX*R1C2*LM*LM; ++i) {
               x[0][0][0][i] = 0; // init x
           } // i
@@ -68,7 +68,8 @@ namespace green_function {
               std::swap(x, y);
           } // iteration
 
-          free_memory(y); free_memory(x);
+          free_memory(y);
+          free_memory(x);
       } // n_iterations >= 0
   } // try_action
 
@@ -94,16 +95,15 @@ namespace green_function {
       assert(nullptr != plan_ptr);
       auto & p = *plan_ptr;
 
-      bool constexpr MANIPULATE = false;
+      int constexpr MANIPULATE = 2;
 
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
           assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
-          if (MANIPULATE) n_original_Veff_blocks[d] = 1;
+          if (MANIPULATE) n_original_Veff_blocks[d] = MANIPULATE;
       } // d
-      if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATED n_original_Veff_blocks = 1 1 1\n\n");
-
+      if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATED n_original_Veff_blocks:\n");
       if (echo > 3) { std::printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
 
       assert(Veff.size() == ng[Z]*ng[Y]*ng[X]);
@@ -112,10 +112,10 @@ namespace green_function {
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
 
       // regroup effective potential into blocks of 4x4x4
-//    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64); // does not really work flawlessly
+//    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64, echo, "Vtot_gpu"); // does not really work flawlessly
 //    view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
 //    view4D<double> Vtot(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // get memory
-      p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo); // in managed memory
+      p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo, "Veff"); // in managed memory
       { // scope: reorder Veff into block-structured p.Veff
 
           for (size_t k = 0; k < n_all_Veff_blocks*Noco*Noco*64; ++k) {
@@ -195,7 +195,7 @@ namespace green_function {
           if (echo > 0) std::printf("# internal and global coordinates differ by %d %d %d\n",
               internal_global_offset[X], internal_global_offset[Y], internal_global_offset[Z]);
 
-          p.source_coords = get_memory<int16_t[4]>(nRHSs); // internal coordinates
+          p.source_coords = get_memory<int16_t[4]>(nRHSs, echo, "source_coords"); // internal coordinates
           { // scope: compute also the largest distance from the center or center of mass
               double max_d2m{0}, max_d2c{0};
               for (int iRHS = 0; iRHS < nRHSs; ++iRHS) {
@@ -403,13 +403,13 @@ namespace green_function {
           if (echo > 3) { std::printf("# memory of Green function is %.6f %s (float, twice for double)\n",
                               nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
           p.colindx.resize(nnz);
-          p.rowindx = get_memory<int32_t>(nnz);
-          p.RowStart = get_memory<uint32_t>(p.nRows + 1);
+          p.rowindx = get_memory<int32_t>(nnz, echo, "rowindx");
+          p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
           p.RowStart[0] = 0;
-          p.veff_index = get_memory<int32_t>(p.nRows); // indirection list for the local potential
+          p.veff_index = get_memory<int32_t>(p.nRows, echo, "veff_index"); // indirection list for the local potential
           set(p.veff_index, p.nRows, -1); // init as non-existing
-          p.target_coords = get_memory<int16_t[3+1]>(p.nRows);
-          p.target_minus_source = get_memory<int16_t[3+1]>(nnz);
+          p.target_coords = get_memory<int16_t[3+1]>(p.nRows, echo, "target_coords");
+          p.target_minus_source = get_memory<int16_t[3+1]>(nnz, echo, "target_minus_source");
           
           p.global_target_indices.resize(p.nRows);
           p.subset.resize(p.nCols); // we assume columns of the unit operator as RHS
@@ -528,7 +528,7 @@ namespace green_function {
           } // dd
 
           // transfer grid spacing into managed GPU memory
-          p.grid_spacing = get_memory<double>(4);
+          p.grid_spacing = get_memory<double>(4, echo, "grid_spacing");
           set(p.grid_spacing, 3, hg);
           p.grid_spacing[3] = r_proj; // radius in units of sigma at which the projection stops
 
@@ -717,13 +717,12 @@ namespace green_function {
           { // scope: set up sparse tables
               using ::green_sparse::sparse_t;
               
-              p.sparse_SHOadd = sparse_t<>(imags, false, "SHOadd", echo);
+              p.sparse_SHOadd = sparse_t<>(imags, false, "sparse_SHOadd", echo);
               if (echo > 9) {
-//                   std::printf("# sparse_SHOadd.rowStart= ");
-//                   printf_vector(" %d", p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows());
+                  std::printf("# sparse_SHOadd.rowStart= ");
+                  printf_vector(" %d", p.sparse_SHOadd.rowStart(), p.sparse_SHOadd.nRows());
                   std::printf("# sparse_SHOadd.colIndex(%p)= ", (void*)p.sparse_SHOadd.colIndex());
                   printf_vector(" %d", p.sparse_SHOadd.colIndex(), p.sparse_SHOadd.nNonzeros());
-                  // ToDo: find BUG, seems like the first 5 entries are overwritten after the copying process
               } // echo
 
               { // scope: transform p.RowStart and p.colindx into p.sparseGreen
@@ -735,11 +734,12 @@ namespace green_function {
                           green_vv[iRow][inzb - p.RowStart[iRow]] = jCol;
                       } // inzb
                   } // iRow
-                  p.sparse_Green = sparse_t<uint16_t>(green_vv, false, "Green", echo);
+                  p.sparse_Green = sparse_t<uint16_t>(green_vv, false, "sparse_Green", echo);
+                  // ToDo: find BUG, seems like the sparse_Green is copied without chosing a user-defined copy function
               } // scope
 
               // for the sparse Green function times sparse SHO-projections:
-              p.sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(p.nCols);
+              p.sparse_SHOprj = get_memory<green_sparse::sparse_t<>>(p.nCols, echo, "sparse_SHOprj");
               for (uint16_t iRHS = 0; iRHS < p.nCols; ++iRHS) {
                   std::vector<std::vector<uint32_t>> vv(nai);
                   for (uint32_t iai = 0; iai < p.natom_images; ++iai) {
@@ -749,13 +749,14 @@ namespace green_function {
                           if (p.sparse_Green.is_in(iRow, iRHS, &inzb)) vv[iai].push_back(inzb);
                       } // itb
                   } // iai
-                  p.sparse_SHOprj[iRHS] = sparse_t<>(vv, false, "SHOprj", echo);
+                  p.sparse_SHOprj[iRHS] = sparse_t<>(vv, false, "sparse_SHOprj[irhs]", echo);
               } // iRHS
 
           } // scope: set up sparse tables
 
           { // scope: translate cubes[][] into CSR sparse tables in device memory
               assert(cubes.size() == p.natom_images);
+#if 0          
 
               // for SHOprj
 
@@ -843,13 +844,12 @@ namespace green_function {
                   } // iai
 
               } // sanity check
-              
+#endif
               cubes.resize(0); // release host memory
-
           } // scope
 
 
-          p.ApcStart = get_memory<uint32_t>(nai + 1);
+          p.ApcStart = get_memory<uint32_t>(nai + 1, echo, "ApcStart");
           set(p.ApcStart, nai + 1, ApcStart.data()); // copy into GPU memory
 
           // get all info for the atomic matrices:
@@ -867,8 +867,8 @@ namespace green_function {
           global_atom_index.resize(nac);
 
           // now store the atomic positions in GPU memory
-          p.atom_data = get_memory<green_action::atom_t>(nai);
-          p.AtomPos   = get_memory<double[3+1]>(nai);
+          p.atom_data = get_memory<green_action::atom_t>(nai, echo, "atom_data");
+          p.AtomPos   = get_memory<double[3+1]>(nai, echo, "AtomPos");
           for (int iai = 0; iai < nai; ++iai) {
               p.atom_data[iai] = atom_data[iai]; // copy
               // translate index
@@ -879,12 +879,12 @@ namespace green_function {
           } // copy into GPU memory
 
           // get memory for the matrices and fill
-          p.atom_mat = get_memory<double*>(nac);
+          p.atom_mat = get_memory<double*>(nac, echo, "atom_mat");
           for (int iac = 0; iac < nac; ++iac) { // parallel
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-              p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc);
+              p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, "atom_mat[iac]");
               set(p.atom_mat[iac], Noco*Noco*2*nc*nc, 0.0); // clear
               // fill this with matrix values
               assert(2*nc*nc <= atom_mat[iac].size());
@@ -899,8 +899,8 @@ namespace green_function {
                   } // j
               } // i
               // ToDo:
-//               set(p.AtomPos[iai], 3, atom_data[iai].pos);
-//               p.AtomPos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
+              set(p.AtomPos[iai], 3, atom_data[iai].pos);
+              p.AtomPos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
           } // iac
           p.number_of_contributing_atoms = nac;
 
