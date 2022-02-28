@@ -102,11 +102,11 @@ namespace green_action {
 
       uint32_t* RowStartAtoms = nullptr; // for SHOprj
       uint32_t* ColIndexCubes = nullptr; // for SHOprj
-      green_sparse::sparse_t<uint32_t> * sparse_SHOprj; // [nCols]
+      green_sparse::sparse_t<> * sparse_SHOprj; // [nCols]
 
       uint32_t* RowStartCubes = nullptr; // for SHOadd
       uint32_t* ColIndexAtoms = nullptr; // for SHOadd
-      green_sparse::sparse_t<>           sparse_SHOadd;
+      green_sparse::sparse_t<>   sparse_SHOadd;
 
       plan_t() {
           std::printf("# construct %s\n", __func__); std::fflush(stdout);
@@ -468,15 +468,16 @@ namespace green_action {
         // GPU implementation of green_potential, green_kinetic and green_dyadic
       {
           // start with the potential, assign y to initial values
-          green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff, p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
-          
-          // add the kinetic energy expressions
-          green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan, p->grid_spacing, 4, nnzbY);
+          green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
+              p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
 
-          // add the non-local potential using the dyadic action of project + add, SHOULD SO FAR ONLY WORK FOR 1 BLOCK COLUMN
-          green_dyadic::multiply(y, apc, x, p->AtomPos, p->RowStartAtoms, p->ColIndexCubes,
-                                            p->CubePos, p->RowStartCubes, p->ColIndexAtoms,
-                                            p->grid_spacing, p->natom_images, p->nCols);
+          // add the kinetic energy expressions
+          green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,
+              p->grid_spacing, 4, nnzbY);
+
+          // add the non-local potential using the dyadic action of project + add
+          green_dyadic::multiply(y, apc, x, p->AtomPos, p->natom_images,
+              p->sparse_SHOprj, p->sparse_SHOadd, p->sparse_Green.colIndex(), p->CubePos, p->grid_spacing, p->nCols);
 
           return 0; // no flops performed so far
       } // multiply
