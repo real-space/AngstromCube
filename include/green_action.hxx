@@ -91,7 +91,7 @@ namespace green_action {
       double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
-      double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
+      double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices, nc number of SHO coefficients of this atom
       atom_t* atom_data = nullptr; // [natom_images]
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
       float  (*CubePos)[3+1] = nullptr; // [nRows]

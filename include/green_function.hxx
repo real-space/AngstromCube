@@ -76,7 +76,7 @@ namespace green_function {
   } // try_action
 
 
-  inline status_t construct_Green_function(
+  inline green_action::plan_t* construct_Green_function(
         int const ng[3] // number of grid points of the unit cell in with the potential is defined
       , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
@@ -837,9 +837,7 @@ namespace green_function {
           } // switch n3bit
       } // n_iterations < 0
 
-      delete &p;
-
-      return 0;
+      return plan_ptr;
   } // construct_Green_function
 
 
@@ -863,7 +861,9 @@ namespace green_function {
           return stat;
       } // stat
 
-      return construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, echo);
+      auto const plan_ptr = construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, echo);
+      delete[] plan_ptr;
+      return 0;
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {
