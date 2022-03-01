@@ -3,7 +3,7 @@
 #include <cstdint> // int64_t, int32_t, int16_t, int8_t
 #include <cassert> // assert
 #include <algorithm> // std::max
-#include <utility> // std::swap, ::move
+#include <utility> // std::swap
 #include <vector> // std::vector<T>
 #include <cstdio> // std::printf
 #include <type_traits> // std::is_signed
@@ -14,6 +14,7 @@
 #include "simple_stats.hxx" // ::Stats<>
 
 #define DEBUG
+
 #ifdef  DEBUG
   #define debug_printf(...) std::printf(__VA_ARGS__)
 #else  // DEBUG
@@ -79,8 +80,8 @@ namespace green_sparse {
           } // iRow
           colIndex_ = colIndex_nc;
 
-          if (echo > 5) std::printf("# sparse_t constructed with %d rows and %ld non-zero elements\n", uint32_t(nRows_), size_t(nnz));
-          if (echo > 3) std::printf("# sparse_t columns per row stats [%g, %g +/- %g, %g]\n", st.min(), st.mean(), st.dev(), st.max());
+          if (echo > 7) std::printf("# sparse_t constructed with %d rows and %ld non-zero elements\n", uint32_t(nRows_), size_t(nnz));
+          if (echo > 5) std::printf("# sparse_t %s columns per row stats [%g, %g +/- %g, %g]\n", name, st.min(), st.mean(), st.dev(), st.max());
           if (echo > 9) { std::printf("# sparse_t.rowStart(%p)= ", (void*)rowStart_); printf_vector(" %d", rowStart_, nRows_); }
           if (echo > 9) { std::printf("# sparse_t.colIndex(%p)= ", (void*)colIndex_); printf_vector(" %d", colIndex_, nnz); }
       } // constructor
@@ -94,10 +95,6 @@ namespace green_sparse {
       } // destructor
 
       sparse_t(sparse_t && rhs) = delete;
-//       {
-//           debug_printf("# sparse_t move constructor\n");
-//           *this = std::move(rhs);
-//       } // move constructor
 
       sparse_t(sparse_t const & rhs) = delete;
 
@@ -115,14 +112,14 @@ namespace green_sparse {
           return *this;
       } // move assignment
 
-      RowIndex_t const * rowStart() const { return rowStart_; };
-      ColIndex_t const * colIndex() const { return colIndex_; };
-      RowIndex_t            nRows() const { return nRows_; }
-      RowIndex_t        nNonzeros() const { return (nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
+      __host__ __device__ RowIndex_t const * rowStart() const { return rowStart_; };
+      __host__ __device__ ColIndex_t const * colIndex() const { return colIndex_; };
+      __host__ __device__ RowIndex_t            nRows() const { return nRows_; }
+      __host__ __device__ RowIndex_t        nNonzeros() const { return (nRows_ < 0) ? 0 : (rowStart_ ? rowStart_[nRows_] : 0); }
 
   private:
     
-      bool invalid_row_index_(RowIndex_t const iRow) const {
+      __host__ bool invalid_row_index_(RowIndex_t const iRow) const {
           if (iRow >= nRows_)  return true;  // invalid
           else if (iRow < 0)   return true;  // invalid
           else                 return false; //   valid
@@ -145,9 +142,10 @@ namespace green_sparse {
 
 #endif // 0
 
-      bool is_in(RowIndex_t const iRow, ColIndex_t const jCol, RowIndex_t *index=nullptr) const {
+      __host__ bool is_in(RowIndex_t const iRow, ColIndex_t const jCol, RowIndex_t *index=nullptr) const {
           if (invalid_row_index_(iRow)) return false;
           if (nullptr == rowStart_ || nullptr == colIndex_) return false;
+//        std::printf("# search for index (iRow=%d, jCol=%d)\n", iRow, jCol);
           for (auto jnz = rowStart_[iRow]; jnz < rowStart_[iRow]; ++jnz) {
               if (jCol == colIndex_[jnz]) {
                   if (index) *index = jnz; // export non-zero index (optional)
@@ -157,7 +155,7 @@ namespace green_sparse {
           return false;
       } // is_in
 
-      RowIndex_t const * rowIndex() { // non-const member function triggers the generation of internal rowIndex_
+      __host__ RowIndex_t const * rowIndex() { // non-const member function triggers the generation of internal rowIndex_
           if (nullptr == rowIndex_) {
               // try to construct the rowIndex list
               auto const nnz = nNonzeros();

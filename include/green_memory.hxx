@@ -1,6 +1,15 @@
 #pragma once
 
 #ifdef HAS_NO_CUDA
+  #define __global__
+  #define __restrict__
+  #define __device__
+  #define __shared__
+  #define __unroll__
+  #define __host__
+#endif // HAS_NO_CUDA
+
+#ifdef HAS_NO_CUDA
   struct dim3 {
       int x, y, z;
       dim3(int xx, int yy=1, int zz=1) : x(xx), y(yy), z(zz) {}
@@ -11,18 +20,26 @@
 
   template <typename T>
   T* get_memory(size_t const size=1, int const echo=0, char const *const name="") {
+
 #ifdef DEBUG
-      double const GByte = 1e-9; 
-      char const *const _GByte = "GByte";
-      if (echo > 0) std::printf("# managed memory: %lu x %.3f kByte = \t%.6f %s\n", size, 1e-3*sizeof(T), size*sizeof(T)*GByte, _GByte);
+      size_t const total = size*sizeof(T);
+      double kByte = 1e-3; char _kByte = 'k';
+      if (total > 1e9) { kByte = 1e-9; _kByte = 'G'; } else 
+      if (total > 1e6) { kByte = 1e-6; _kByte = 'M'; }
+      if (echo > 0) std::printf("# managed memory: %lu x %.3f kByte = \t%.6f %cByte\n", size, sizeof(T)*1e-3, total*kByte, _kByte);
 #endif // DEBUG
+
       T* d{nullptr};
 #ifdef  HAS_CUDA
       CCheck(cudaMallocManaged(&d, size*sizeof(T)));
 #else  // HAS_CUDA
       d = new T[size];
 #endif // HAS_CUDA
-      std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, 1e-3*sizeof(T), size*sizeof(T)*1e-3, name, (void*)d);
+
+#if 1 // def DEBUG
+      std::printf("# get_memory \t%lu x %.3f kByte = \t%.3f kByte, %s at %p\n", size, sizeof(T)*1e-3, size*sizeof(T)*1e-3, name, (void*)d);
+#endif // DEBUG
+
       return d;
   } // get_memory
 
@@ -30,7 +47,10 @@
   template <typename T>
   void _free_memory(T* &d, char const *const name="") {
       if (nullptr != d) {
+#if 1 // def DEBUG
           std::printf("# free_memory %s at %p\n", name, (void*)d);
+#endif // DEBUG
+
 #ifdef  HAS_CUDA
           CCheck(cudaFree(d));
 #else  // HAS_CUDA

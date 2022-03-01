@@ -73,7 +73,7 @@ namespace green_action {
 
       // =====================================================================================
 
-      // new members to define the action
+      // additional members to define the action
       std::vector<int64_t> global_target_indices; // [nRows]
       std::vector<int64_t> global_source_indices; // [nCols]
       double r_truncation   = 9e18; // radius beyond which the Green function is truncated, in Bohr
@@ -94,16 +94,16 @@ namespace green_action {
       double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices
       atom_t* atom_data = nullptr; // [natom_images]
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
-      float  (*CubePos)[3+1] = nullptr; // [nRows]   TODO still needs to be filled!
+      float  (*CubePos)[3+1] = nullptr; // [nRows]
       double *grid_spacing = nullptr; // [3+1]
-      int number_of_contributing_atoms = 0;
+      int32_t number_of_contributing_atoms = 0;
 
-      green_sparse::sparse_t<uint16_t> sparse_Green;
+//    green_sparse::sparse_t<uint16_t> sparse_Green;
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
 
       plan_t() {
-          std::printf("# construct %s\n", __func__); std::fflush(stdout);
+          std::printf("# default constructor for %s\n", __func__); std::fflush(stdout);
       } // constructor
 
       ~plan_t() {
@@ -116,7 +116,7 @@ namespace green_action {
           free_memory(target_minus_source);
           free_memory(Veff);
           free_memory(veff_index);
-          for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(atom_mat[iac]);
+          if (atom_mat) for (int iac = 0; iac < number_of_contributing_atoms; ++iac) free_memory(atom_mat[iac]);
           free_memory(atom_mat);
           free_memory(atom_data);
           free_memory(grid_spacing);
@@ -127,10 +127,6 @@ namespace green_action {
           free_memory(CubePos);
           if (sparse_SHOprj) for (int icol = 0; icol < nCols; ++icol) sparse_SHOprj[icol].~sparse_t<>();
           free_memory(sparse_SHOprj);
-//           free_memory(RowStartAtoms);
-//           free_memory(ColIndexCubes);
-//           free_memory(RowStartCubes);
-//           free_memory(ColIndexAtoms);
       } // destructor
 
   }; // plan_t
@@ -454,7 +450,7 @@ namespace green_action {
       double multiply( // returns the number of flops performed
             real_t         (*const __restrict y)[R1C2][LM][LM] // result, y[nnzbY][2][LM][LM]
           , real_t   const (*const __restrict x)[R1C2][LM][LM] // input,  x[nnzbX][2][LM][LM]
-          , uint16_t const (*const __restrict colIndex) // column indices, uint16_t allows up to 65,536 block columns
+          , uint16_t const (*const __restrict colIndex) // column indices in device memory
           , uint32_t const nnzbY // == nnzbX, number of nonzero blocks, typically colIndex.size()
           , uint32_t const nCols=1 // should match with p->nCols, number of block columns, assert(colIndex[:] < nCols)
           , unsigned const l2nX=0  // number of levels needed for binary reduction over nnzbX
@@ -473,11 +469,11 @@ namespace green_action {
 
           // add the non-local potential using the dyadic action of project + add
           green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->natom_images,
-              p->sparse_SHOprj, p->sparse_SHOadd, p->sparse_Green.colIndex(), p->CubePos, p->grid_spacing, nnzbY, p->nCols);
+              p->sparse_SHOprj, p->sparse_SHOadd, colIndex, p->CubePos, p->grid_spacing, nnzbY, p->nCols);
 
           return 0; // no flops performed so far
       } // multiply
-      
+
       plan_t const* get_plan() { return p; }
 
     private: // members

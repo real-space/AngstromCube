@@ -126,7 +126,7 @@ namespace green_kinetic {
                           list[ilist].push_back(-1);
                       } // i
 
-                      ++ilist; // create a new list index
+                      ++ilist; // create next list index
                   } // list_length > 0
               }}} // ixyz
           } // iRHS
