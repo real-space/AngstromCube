@@ -98,7 +98,6 @@ namespace green_action {
       double *grid_spacing = nullptr; // [3+1]
       int32_t number_of_contributing_atoms = 0;
 
-//    green_sparse::sparse_t<uint16_t> sparse_Green;
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
 
@@ -503,6 +502,7 @@ namespace green_action {
           { action_t<double,2,2> action(&plan); }
       } // destruct plan
       std::printf("# %s sizeof(atom_t) = %ld Byte\n", __func__, sizeof(atom_t));
+      std::printf("# %s sizeof(plan_t) = %ld Byte\n", __func__, sizeof(plan_t));
       return 0;
   } // test_construction_and_destruction
 

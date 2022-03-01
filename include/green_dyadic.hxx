@@ -11,14 +11,6 @@
 
 namespace green_dyadic {
 
-#ifdef HAS_NO_CUDA
-  #define __global__
-  #define __restrict__
-  #define __device__
-  #define __shared__
-  #define __unroll__
-  #define __host__
-#endif // HAS_NO_CUDA
 
     template <typename real_t>
     float __host__ __device__

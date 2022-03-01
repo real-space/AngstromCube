@@ -34,8 +34,7 @@ namespace bessel_transform {
       } // iq
 
       int n_out, n_in;
-      double *x_out;
-      double const *x_in, *dx_in;
+      double const *x_out, *x_in, *dx_in;
       if (back) {
           // from reciprocal space q to real-space r
           n_in  = nq;

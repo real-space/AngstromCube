@@ -34,11 +34,12 @@ namespace radial_grid {
   } // get_memory
 
   void set_derived_grid_quantities(radial_grid_t & g, int const nr) {
+      auto const rdr = (double*)g.rdr, r2dr = (double*)g.r2dr, rinv = (double*)g.rinv; // un-const the pointers
       for (int ir = 0; ir < nr; ++ir) {
           auto const r = g.r[ir], dr = g.dr[ir];
-          g.rdr[ir]  =   r*dr;
-          g.r2dr[ir] = r*r*dr;
-          g.rinv[ir] = (ir)? 1./r : 0;
+          rdr[ir]  =   r*dr;
+          r2dr[ir] = r*r*dr;
+          rinv[ir] = (ir)? 1./r : 0;
 #ifdef FULL_DEBUG
           std::printf("%g %g\n", r, dr);
 #endif // FULL_DEBUG
@@ -71,6 +72,8 @@ namespace radial_grid {
       auto const g = get_memory(nr_aligned);
 
       double & d = g->anisotropy;
+      
+      auto const r = (double*)g->r, drdi = (double*)g->dr; // un-const the pointers
 
 //    std::printf("# create a mesh with R= %g Bohr, n=%d, formula=%s\n", R, nr, get_formula(equation));
       if (0) { // if (equation_reciprocal == equation) {
@@ -79,8 +82,8 @@ namespace radial_grid {
           auto const n = nr + mR/2; // with i=nr-1 the outermost radius is i/(n-i)=(n-1-mR/2)/(mR/2 + 1)
           for (int i = 0; i < nr_aligned; ++i) {
               double const rec = 1./((nr - 1)*(n - i));
-              g->r[i]  = (mR*R)*i*rec;
-              g->dr[i] = (mR*R)*n*rec*n*rec * (i < nr);
+              r[i]    = (mR*R)*i*rec;
+              drdi[i] = (mR*R)*n*rec*n*rec * (i < nr);
           } // i
           d = n; // store the real number used for the generation of the reciprocal grid in the anisotropy field
 
@@ -90,12 +93,12 @@ namespace radial_grid {
           double const a = double(rmax)/nr;
           for (int i = 0; i < nr; ++i) {
               double const rec = 1./(nr - i);
-              g->r[i]  = a*i*rec;
-              g->dr[i] = a*nr*rec*rec;
+              r[i]    = a*i*rec;
+              drdi[i] = a*nr*rec*rec;
           } // i
           for (int i = nr; i < nr_aligned; ++i) {
-              g->r[i]  = g->r[nr - 1];
-              g->dr[i] = 0;
+              r[i] = g->r[nr - 1];
+              drdi[i] = 0;
           } // i
           d = nr; // store the real number used for the generation of the reciprocal grid in the anisotropy field
 
@@ -104,8 +107,8 @@ namespace radial_grid {
           double const dr = R/nr;
 //        std::printf("# create an equidistant mesh with dr=%g, R= %g Bohr, n=%d\n", dr, R, nr);
           for (int ir = 0; ir < nr_aligned; ++ir) {
-              g->r[ir]  = ir*dr;
-              g->dr[ir] = dr * (ir < nr);
+              r[ir]    = ir*dr;
+              drdi[ir] = dr * (ir < nr);
           } // ir
           d = 0; // no anisotropy
 
@@ -115,8 +118,8 @@ namespace radial_grid {
           double const a = R / (std::exp(d*(nr - 1)) - 1.); // prefactor
           for (int ir = 0; ir < nr_aligned; ++ir) {
               double const edi = std::exp(d*ir);
-              g->r[ir]  = a*(edi - 1.);
-              g->dr[ir] = a*d*edi * (ir < nr);
+              r[ir]    = a*(edi - 1.);
+              drdi[ir] = a*d*edi * (ir < nr);
           } // ir
 
       } // switch equation

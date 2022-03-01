@@ -76,8 +76,9 @@ namespace green_function {
   } // try_action
 
 
-  inline green_action::plan_t* construct_Green_function(
-        int const ng[3] // number of grid points of the unit cell in with the potential is defined
+  inline status_t construct_Green_function(
+        green_action::plan_t & p // result, create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
+      , int const ng[3] // number of grid points of the unit cell in with the potential is defined
       , double const hg[3] // grid spacings
       , std::vector<double> const & Veff // [ng[2]*ng[1]*ng[0]]
       , std::vector<double> const & xyzZinso // [natoms*8]
@@ -92,11 +93,6 @@ namespace green_function {
       assert(1 == Noco || 2 == Noco);
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
-
-      auto const plan_ptr = new green_action::plan_t(); // create a plan how to apply the SHO-PAW Hamiltonian to a block-sparse truncated Green function
-      if (echo > 3) std::printf("# create a new plan at %p\n", (void*)plan_ptr);
-      assert(nullptr != plan_ptr);
-      auto & p = *plan_ptr;
 
       int32_t const MANIPULATE = control::get("MANIPULATE", 0.);
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
@@ -571,7 +567,7 @@ namespace green_function {
               iimage[d] = 0;                          // for isolated boundary conditions
               nimages *= (iimage[d] + 1 + iimage[d]);
           } // d
-          warn("used isolated BC for the generation of %ld atom images", nimages);
+          warn("used isolated boundary conditions for the generation of %ld atom images", nimages);
           auto const natom_images = natoms*nimages;
           if (echo > 3) std::printf("# replicate %d %d %d atom images, %.3f k images total\n",
                                         iimage[X], iimage[Y], iimage[Z], nimages*.001);
@@ -837,7 +833,7 @@ namespace green_function {
           } // switch n3bit
       } // n_iterations < 0
 
-      return plan_ptr;
+      return 0;
   } // construct_Green_function
 
 
@@ -847,13 +843,12 @@ namespace green_function {
 #else // NO_UNIT_TESTS
 
   inline status_t test_Green_function(int const echo=0) {
-
-      int ng[3] = {0, 0, 0};
-      double hg[3] = {1, 1, 1};
-      std::vector<double> Veff(0);
-      int natoms{0};
-      std::vector<double> xyzZinso(0);
-      std::vector<std::vector<double>> atom_mat(0);
+      int    ng[3] = {0, 0, 0}; // grid sizes
+      double hg[3] = {1, 1, 1}; // grid spacings
+      std::vector<double> Veff(0); // local potential
+      int natoms{0}; // number of atoms
+      std::vector<double> xyzZinso(0); // atom info
+      std::vector<std::vector<double>> atom_mat(0); // non-local potential
 
       auto const stat = green_input::load_Hamiltonian(ng, hg, Veff, natoms, xyzZinso, atom_mat, echo);
       if (stat) {
@@ -861,9 +856,8 @@ namespace green_function {
           return stat;
       } // stat
 
-      auto const plan_ptr = construct_Green_function(ng, hg, Veff, xyzZinso, atom_mat, echo);
-      delete[] plan_ptr;
-      return 0;
+      green_action::plan_t p;
+      return construct_Green_function(p, ng, hg, Veff, xyzZinso, atom_mat, echo);
   } // test_Green_function
 
   inline status_t all_tests(int const echo=0) {
