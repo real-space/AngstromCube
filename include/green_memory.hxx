@@ -18,15 +18,19 @@
   inline void __syncthreads(void) {} // dummy
 #endif // HAS_NO_CUDA      
 
+#define DEBUG
+
   template <typename T>
   T* get_memory(size_t const size=1, int const echo=0, char const *const name="") {
 
 #ifdef DEBUG
-      size_t const total = size*sizeof(T);
-      double kByte = 1e-3; char _kByte = 'k';
-      if (total > 1e9) { kByte = 1e-9; _kByte = 'G'; } else 
-      if (total > 1e6) { kByte = 1e-6; _kByte = 'M'; }
-      if (echo > 0) std::printf("# managed memory: %lu x %.3f kByte = \t%.6f %cByte\n", size, sizeof(T)*1e-3, total*kByte, _kByte);
+      if (echo > 0) {
+          size_t const total = size*sizeof(T);
+          std::printf("# managed memory: %lu x %.3f kByte = \t", size, sizeof(T)*1e-3);
+          if (total > 1e9) { std::printf("%.9f GByte\n", total*1e-9); } else 
+          if (total > 1e6) { std::printf("%.6f MByte\n", total*1e-6); } else 
+                           { std::printf("%.3f kByte\n", total*1e-3); }
+      } // echo
 #endif // DEBUG
 
       T* d{nullptr};

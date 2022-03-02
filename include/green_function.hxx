@@ -793,7 +793,7 @@ namespace green_function {
               int const ia = global_atom_index[iac];
               int const nc = atom_ncoeff[ia];
               assert(nc > 0); // the number of coefficients of contributing atoms must be non-zero
-              char name[32]; std::snprintf(name, 31, "atom_mat[iac=%d]", iac);
+              char name[32]; std::snprintf(name, 31, "atom_mat[iac=%d/ia=%d]", iac, ia);
               p.atom_mat[iac] = get_memory<double>(Noco*Noco*2*nc*nc, echo, name);
               set(p.atom_mat[iac], Noco*Noco*2*nc*nc, 0.0); // clear
               // fill this with matrix values

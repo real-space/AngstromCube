@@ -97,7 +97,7 @@ namespace radial_grid {
               drdi[i] = a*nr*rec*rec;
           } // i
           for (int i = nr; i < nr_aligned; ++i) {
-              r[i] = g->r[nr - 1];
+              r[i]    = g->r[nr - 1];
               drdi[i] = 0;
           } // i
           d = nr; // store the real number used for the generation of the reciprocal grid in the anisotropy field
