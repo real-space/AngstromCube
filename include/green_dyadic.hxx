@@ -168,16 +168,21 @@ namespace green_dyadic {
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 3) xyzc[threadIdx.x] = CubePos[icube][threadIdx.x]; // load into shared memory
-#else  // HAS_NO_CUDA
-            set(xyzc, 3, CubePos[icube]);
-#endif // HAS_NO_CUDA
-
             __syncthreads();
 
             // generate Hx, Hy, Hz up to lmax inside the 4^3 cube
             auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid); // sufficient to be executed by (threadIdx.y == 0, threadIdx.z == 0)
 
             __syncthreads();
+#else  // HAS_NO_CUDA
+            set(xyzc, 3, CubePos[icube]);
+            
+            float R2_proj;
+            for (int jj = 0; jj < 12; ++jj) {
+                R2_proj = Hermite_polynomials_1D(H1D, xi_squared, jj, lmax, xyza, xyzc, hgrid);
+            } // jj
+#endif // HAS_NO_CUDA
+
 
             for (int z = 0; z < 4; ++z) { // loop over real-space grid in z-direction
                 auto const d2z = xi_squared[2][z] - R2_proj;
@@ -377,15 +382,21 @@ namespace green_dyadic {
 
 #ifndef HAS_NO_CUDA
             if (threadIdx.x < 4) xyza[threadIdx.x] = AtomPos[iatom][threadIdx.x]; // coalesced load
-#else  // HAS_NO_CUDA
-            set(xyza, 4, AtomPos[iatom]);
-#endif // HAS_NO_CUDA
 
             __syncthreads();
 
             // generate Hx, Hy, Hz up to Lmax inside the 4^3 cube
             auto const R2_proj = Hermite_polynomials_1D(H1D, xi_squared, j, lmax, xyza, xyzc, hgrid); // sufficient to be executed by (threadIdx.y == 0, threadIdx.z == 0)
 
+#else  // HAS_NO_CUDA
+            set(xyza, 4, AtomPos[iatom]);
+
+            float R2_proj;
+            for (int jj = 0; jj < 12; ++jj) {
+                R2_proj = Hermite_polynomials_1D(H1D, xi_squared, jj, lmax, xyza, xyzc, hgrid);
+            } // jj
+#endif // HAS_NO_CUDA
+              
             int sho{0};
             int const nSHO = sho_tools::nSHO(Lmax);
             for (int iz = 0; iz <= lmax; ++iz) { // executes (Lmax + 1) times
