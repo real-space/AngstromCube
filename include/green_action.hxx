@@ -84,7 +84,7 @@ namespace green_action {
       uint32_t natom_images = 0;
       uint32_t* ApcStart = nullptr; // [natom_images + 1]
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
-      int32_t*  rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
+      uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
       int16_t (*target_coords)[3+1] = nullptr; // [nRows][3+1] internal coordinates
       int16_t (*target_minus_source)[3+1] = nullptr; // [nnzbX][3+1] coordinate differences
@@ -460,7 +460,7 @@ namespace green_action {
       {
           // start with the potential, assign y to initial values
           green_potential::multiply<real_t,R1C2,Noco>(y, x, p->Veff,
-              p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
+              p->veff_index, p->rowindx, p->target_minus_source, p->grid_spacing, nnzbY);
 
           // add the kinetic energy expressions
           green_kinetic::multiply<real_t,R1C2,Noco>(y, x, p->fd_plan,

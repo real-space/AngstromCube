@@ -94,14 +94,11 @@ namespace green_function {
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
-      int32_t const MANIPULATE = control::get("MANIPULATE", 0.);
       int32_t n_original_Veff_blocks[3] = {0, 0, 0};
       for (int d = 0; d < 3; ++d) {
           n_original_Veff_blocks[d] = (ng[d] >> 2); // divided by 4
           assert(ng[d] == 4*n_original_Veff_blocks[d] && "All grid dimensions must be a multiple of 4!");
-          if (MANIPULATE) n_original_Veff_blocks[d] = std::min(n_original_Veff_blocks[d], MANIPULATE);
       } // d
-      if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATE=%d for n_original_Veff_blocks:\n", MANIPULATE);
       if (echo > 3) { std::printf("# n_original_Veff_blocks "); printf_vector(" %d", n_original_Veff_blocks, 3); }
 
       assert(Veff.size() == ng[Z]*ng[Y]*ng[X]);
@@ -110,9 +107,6 @@ namespace green_function {
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
 
       // regroup effective potential into blocks of 4x4x4
-//    auto Vtot_gpu = get_memory<double>(n_all_Veff_blocks*64, echo, "Vtot_gpu"); // does not really work flawlessly
-//    view4D<double> Vtot(Vtot_gpu, n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // wrap
-//    view4D<double> Vtot(n_original_Veff_blocks[Z], n_original_Veff_blocks[Y], n_original_Veff_blocks[X], 64); // get memory
       p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo, "Veff"); // in managed memory
       { // scope: reorder Veff into block-structured p.Veff
 
@@ -140,6 +134,16 @@ namespace green_function {
 
       // Cartesian cell parameters for the unit cell in which the potential is defined
       double const cell[3] = {ng[X]*hg[X], ng[Y]*hg[Y], ng[Z]*hg[Z]};
+      
+      int32_t const MANIPULATE = control::get("MANIPULATE", 0.);
+      int32_t n_source_blocks[3] = {0, 0, 0};
+      for (int d = 0; d < 3; ++d) {
+          n_source_blocks[d] = n_original_Veff_blocks[d];
+          if (MANIPULATE) n_source_blocks[d] = std::min(n_source_blocks[d], MANIPULATE);
+      } // d
+      if (MANIPULATE && echo > 0) std::printf("\n# MANIPULATE=%d for n_source_blocks:\n", MANIPULATE);
+      if (echo > 3) { std::printf("# n_source_blocks "); printf_vector(" %d", n_source_blocks, 3); }
+      
 
       // assume periodic boundary conditions and an infinite host crystal,
       // so there is no need to consider k-points
@@ -148,7 +152,7 @@ namespace green_function {
       // given a max distance r_trunc between source blocks and target blocks
 
       // assume that the source blocks lie compact in space
-      int32_t const nRHSs = n_original_Veff_blocks[Z] * n_original_Veff_blocks[Y] * n_original_Veff_blocks[X];
+      int32_t const nRHSs = n_source_blocks[Z] * n_source_blocks[Y] * n_source_blocks[X];
       if (echo > 0) std::printf("# total number of source blocks is %d\n", nRHSs);
       assert(nRHSs >= 0);
       view2D<uint32_t> global_source_coords(nRHSs, 4, 0); // unsigned since they must be in [0, 2^21) anyway
@@ -163,9 +167,9 @@ namespace green_function {
       double max_distance_from_center{0};
       { // scope: determine min, max, center
           {   int iRHS{0};
-              for (int ibz = 0; ibz < n_original_Veff_blocks[Z]; ++ibz) {
-              for (int iby = 0; iby < n_original_Veff_blocks[Y]; ++iby) { // block index loops, serial
-              for (int ibx = 0; ibx < n_original_Veff_blocks[X]; ++ibx) {
+              for (int ibz = 0; ibz < n_source_blocks[Z]; ++ibz) {
+              for (int iby = 0; iby < n_source_blocks[Y]; ++iby) { // block index loops, serial
+              for (int ibx = 0; ibx < n_source_blocks[X]; ++ibx) {
                   int const ibxyz[] = {ibx, iby, ibz, 0};
                   set(global_source_coords[iRHS], 4, ibxyz);
                   p.global_source_indices[iRHS] = global_coordinates::get(ibx, iby, ibz);
@@ -401,7 +405,7 @@ namespace green_function {
           if (echo > 3) { std::printf("# memory of Green function is %.6f %s (float, twice for double)\n",
                               nnz*2.*64.*64.*sizeof(float)*GByte, _GByte); std::fflush(stdout); }
           p.colindx.resize(nnz);
-          p.rowindx = get_memory<int32_t>(nnz, echo, "rowindx");
+          p.rowindx  = get_memory<uint32_t>(nnz, echo, "rowindx");
           p.RowStart = get_memory<uint32_t>(p.nRows + 1, echo, "RowStart");
           p.RowStart[0] = 0;
           p.veff_index = get_memory<int32_t>(p.nRows, echo, "veff_index"); // indirection list for the local potential
