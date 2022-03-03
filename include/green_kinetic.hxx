@@ -82,7 +82,7 @@ namespace green_kinetic {
           set(num, 3, num_target_coords);
           int const num_dd = num[dd];
           num[dd] = 1; // replace number of target blocks in derivative direction
-          if (echo > 0) std::printf("# FD lists for the %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
+          if (echo > 0) std::printf("# FD lists in %c-direction %d %d %d\n", direction, num[X], num[Y], num[Z]);
           simple_stats::Stats<> length_stats;
           std::vector<std::vector<int32_t>> list;
           size_t const max_lists = nRHSs*size_t(num[Z])*size_t(num[Y])*size_t(num[X]);
@@ -144,8 +144,8 @@ namespace green_kinetic {
               uint32_t const n = list[ilist].size();
               prefix[ilist + 1] = prefix[ilist] + n;
           } // ilist
-          size_t const ntotal = prefix[n_lists];
-          if (echo > 0) std::printf("# FD lists for the %c-direction require %ld uint32_t, i.e. %.3f kByte\n",
+          auto const ntotal = prefix[n_lists];
+          if (echo > 0) std::printf("# FD lists for the %c-direction require %d uint32_t, i.e. %.3f kByte\n",
                                   direction, ntotal, ntotal*sizeof(uint32_t)*1e-3);
 
           // store indices in managed memory

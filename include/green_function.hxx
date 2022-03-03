@@ -17,7 +17,7 @@
 #include "green_memory.hxx" // get_memory, free_memory, real_t_name
 #include "green_sparse.hxx" // ::sparse_t<,>
 #include "green_kinetic.hxx" // ::finite_difference_plan_t, index3D
-#include "green_action.hxx" // ::plan_t, ::action_t
+#include "green_action.hxx" // ::plan_t, ::action_t, atom_t
 #include "sho_tools.hxx" // ::nSHO
 #include "control.hxx" // ::get
 
@@ -778,6 +778,7 @@ namespace green_function {
 
           // now store the atomic positions in GPU memory
           p.atom_data = get_memory<green_action::atom_t>(nai, echo, "atom_data");
+          p.AtomLmax  = get_memory<int8_t>(nai, echo, "AtomLmax"); 
           p.AtomPos   = get_memory<double[3+1]>(nai, echo, "AtomPos");
           for (int iai = 0; iai < nai; ++iai) {
               p.atom_data[iai] = atom_data[iai]; // copy
@@ -788,6 +789,7 @@ namespace green_function {
               p.atom_data[iai].ia = iac;
               set(p.AtomPos[iai], 3, atom_data[iai].pos);
               p.AtomPos[iai][3] = 1./std::sqrt(atom_data[iai].sigma);
+              p.AtomLmax[iai] = atom_data[iai].numax; // SHO basis size
               // ToDo: transfer a list of numax for each atom image to GPU memory
           } // copy into GPU memory
 

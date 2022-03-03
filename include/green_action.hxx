@@ -81,8 +81,6 @@ namespace green_action {
       double Vconfinement   = 0; // potential prefactor, in Hartree
 
       green_kinetic::finite_difference_plan_t fd_plan[3];
-      uint32_t natom_images = 0;
-      uint32_t* ApcStart = nullptr; // [natom_images + 1]
       uint32_t* RowStart = nullptr; // [nRows + 1] Needs to be transfered to the GPU?
       uint32_t* rowindx  = nullptr; // [nnzbX] // allows different parallelization strategies
       int16_t (*source_coords)[3+1] = nullptr; // [nCols][3+1] internal coordinates
@@ -91,9 +89,12 @@ namespace green_action {
       double  (*Veff)[64]  = nullptr; // effective potential, data layout [nRows*Noco*Noco][64]
       int32_t*  veff_index = nullptr; // [nRows] indirection list
       uint32_t natoms = 0;
-      double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc*nc] atomic matrices, nc number of SHO coefficients of this atom
+      double **atom_mat = nullptr; // [number_of_contributing_atoms][2*nc^2] atomic matrices, nc number of SHO coefficients of this atom
+      uint32_t natom_images = 0;
+      uint32_t* ApcStart = nullptr; // [natom_images + 1]
       atom_t* atom_data = nullptr; // [natom_images]
       double (*AtomPos)[3+1] = nullptr; // [natom_images]
+      int8_t* AtomLmax = nullptr; // [natom_images]
       float  (*CubePos)[3+1] = nullptr; // [nRows]
       double *grid_spacing = nullptr; // [3+1]
       int32_t number_of_contributing_atoms = 0;
@@ -123,6 +124,7 @@ namespace green_action {
               fd_plan[dd].~finite_difference_plan_t();
           } // dd
           free_memory(AtomPos);
+          free_memory(AtomLmax);
           free_memory(CubePos);
           if (sparse_SHOprj) for (int icol = 0; icol < nCols; ++icol) sparse_SHOprj[icol].~sparse_t<>();
           free_memory(sparse_SHOprj);
@@ -135,7 +137,7 @@ namespace green_action {
 
 
   template <typename floating_point_t=float, int R1C2=2, int Noco=1, int n64=64>
-  class action_t { // an action as used in tfQMRgpu (always
+  class action_t { // an action as used in tfQMRgpu
   public:
       typedef floating_point_t real_t;
       static int constexpr LM = Noco*n64;
@@ -467,7 +469,7 @@ namespace green_action {
               p->grid_spacing, 4, nnzbY);
 
           // add the non-local potential using the dyadic action of project + add
-          green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->natom_images,
+          green_dyadic::multiply<real_t,R1C2,Noco>(y, apc, x, p->AtomPos, p->AtomLmax, p->ApcStart, p->natom_images,
               p->sparse_SHOprj, p->sparse_SHOadd, colIndex, p->CubePos, p->grid_spacing, nnzbY, p->nCols);
 
           return 0; // no flops performed so far
