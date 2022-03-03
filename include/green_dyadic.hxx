@@ -708,6 +708,9 @@ namespace green_dyadic {
 
         nops += SHOprj_driver<real_t,R1C2,Noco>(Cpr, psi, sparse_SHOprj, AtomPos, AtomLmax, CubePos, hGrid, natoms, nrhs, echo);
         
+        // ToDo: in the future, natom_images and natoms can be different. Then, we need an extra step of accumulating the projection coefficients
+        //       with the corresponding phases and, after SHOmul, distributing the addition coefficients to the images with the inverse phases.        
+
         auto AtomMatrices = get_memory<double*>(natoms, echo, "AtomMatrices");
         for (int ia = 0; ia < natoms; ++ia) {
             int const nsho = sho_tools::nSHO(AtomLmax[ia]);

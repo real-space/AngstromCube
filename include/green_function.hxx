@@ -90,7 +90,6 @@ namespace green_function {
       int constexpr X=0, Y=1, Z=2;
       if (echo > 0) std::printf("\n#\n# %s(%i, %i, %i)\n#\n\n", __func__, ng[X], ng[Y], ng[Z]);
       
-      assert(1 == Noco || 2 == Noco);
 
       std::complex<double> E_param(energy_parameter ? *energy_parameter : 0);
 
@@ -107,6 +106,8 @@ namespace green_function {
       size_t const n_all_Veff_blocks = n_original_Veff_blocks[Z]*n_original_Veff_blocks[Y]*n_original_Veff_blocks[X];
 
       // regroup effective potential into blocks of 4x4x4
+      assert(1 == Noco || 2 == Noco);
+      p.noncollinear_spin = (2 == Noco);
       p.Veff = get_memory<double[64]>(n_all_Veff_blocks*Noco*Noco, echo, "Veff"); // in managed memory
       { // scope: reorder Veff into block-structured p.Veff
 

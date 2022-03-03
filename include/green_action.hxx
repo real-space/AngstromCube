@@ -98,6 +98,7 @@ namespace green_action {
       float  (*CubePos)[3+1] = nullptr; // [nRows]
       double *grid_spacing = nullptr; // [3+1]
       int32_t number_of_contributing_atoms = 0;
+      bool noncollinear_spin = false;
 
       green_sparse::sparse_t<> * sparse_SHOprj = nullptr; // [nCols]
       green_sparse::sparse_t<>   sparse_SHOadd;
@@ -161,18 +162,17 @@ namespace green_action {
       ~action_t() {
           std::printf("# destruct %s\n", __func__); std::fflush(stdout);
           free_memory(apc);
-          free_memory(aac);
-          if (p) p->~plan_t();
+//        free_memory(aac); // currently not used
       } // destructor
 
       void take_memory(char* &buffer) {
-          auto const nac = p->ApcStart ? p->ApcStart[p->natom_images] : 0;
-          auto const n = size_t(nac) * p->nCols;
+          auto const natomcoeffs = p->ApcStart ? p->ApcStart[p->natom_images] : 0;
+          auto const n = size_t(natomcoeffs) * p->nCols;
           // ToDo: could be using GPU memory taking it from the buffer
           // ToDo: how complicated would it be to have only one set of coefficients and multiply in-place?
           int const echo = 5;
           apc = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "apc");
-          aac = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "aac");
+//        aac = get_memory<real_t[R1C2][Noco][LM]>(n, echo, "aac"); // currently not used
       } // take_memory
 
       void transfer(char* const buffer, cudaStream_t const streamId=0) {
